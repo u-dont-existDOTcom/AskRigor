@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "trial_id": "gold-natural-second-NAT-D49D11A7494D",
+  "phase": "TRACK1_SECOND_ADJUDICATION",
+  "candidate_id": "NAT-D49D11A7494D",
+  "controller_observed": {
+    "surface": "CHATGPT_CONSUMER_UI",
+    "conversation_identity_sha256": "4b134ab9c07ee4d914f0995d4df333d1d16cc5d5f1bbf217cafb143f2d06c73a",
+    "user_message_id": "445926e9-657c-443f-8653-a869820fc977",
+    "assistant_message_id": "2196de93-50b5-4234-b349-61ada2769b51",
+    "visible_model_label": "GPT-5.6 Sol",
+    "thinking_control_label": "Thinking effort",
+    "visible_thinking_setting": "Extra High",
+    "visible_thinking_ordinal": "4 of 5",
+    "account_plan_label": "Pro",
+    "account_plan_role": "PROVENANCE_METADATA_ONLY"
+  },
+  "timestamps": {
+    "submitted_at": "2026-09-10T11:57:55.698Z",
+    "completed_at": "2026-09-10T12:00:08.201Z"
+  },
+  "input": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-D49D11A7494D.txt",
+    "sha256": "abda68d6834a306a1f7c15074ca0d045dacbf41ce6bbf73359ccef8ddbd25785",
+    "submission_text_fill_sha256": "abda68d6834a306a1f7c15074ca0d045dacbf41ce6bbf73359ccef8ddbd25785",
+    "accepted_rendered_text_sha256": "7e963ae42ca0bd95eb400a3771b9778404cf00cab1a28b763518642c20c58ca8",
+    "rendered_markdown_byte_comparison": "NOT_EXACTLY_COMPARABLE"
+  },
+  "output": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/natural/adjudications/NAT-D49D11A7494D/second/raw-output.txt",
+    "sha256": "76d2d6abd66bafe234d78dd1a067381f7ffa03d589714d8b57a56cef992b4399",
+    "characters": 6018,
+    "complete": true
+  },
+  "integrity": {
+    "fresh_conversation": true,
+    "external_tool_or_browsing_detected": false,
+    "talked_to_app_count": 0,
+    "searched_web_indicator_count": 0,
+    "sources_control_count": 0,
+    "sources_control_interpretation": "PROMPT_ATTACHMENT_OR_UI_CONTROL_NOT_BY_ITSELF_EXTERNAL_BROWSING",
+    "content_retry": false,
+    "replacement": false
+  }
+}

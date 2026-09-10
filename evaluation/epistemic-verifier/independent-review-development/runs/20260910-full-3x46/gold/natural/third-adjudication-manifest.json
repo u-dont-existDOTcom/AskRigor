@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "count": 6,
+  "rule": "THIRD_ADJUDICATION_WHEN_PRIOR_SEMANTIC_LABEL_DIFFERS_FROM_SECOND_FAITHFUL_DEFECTIVE_UNCERTAIN_LABEL",
+  "candidates": [
+    {
+      "candidate_id": "NAT-EB3FBFA2694D",
+      "prior_trial_id": "r1-DEV-9M34WA-b",
+      "prior_label": "FAITHFUL",
+      "second_label": "DEFECTIVE"
+    },
+    {
+      "candidate_id": "NAT-D22CEEC7054B",
+      "prior_trial_id": "r1-DEV-JRSYJV-b",
+      "prior_label": "DEFECTIVE",
+      "second_label": "FAITHFUL"
+    },
+    {
+      "candidate_id": "NAT-4B794F6619D3",
+      "prior_trial_id": "r1-DEV-QWCNK4-b",
+      "prior_label": "FAITHFUL",
+      "second_label": "DEFECTIVE"
+    },
+    {
+      "candidate_id": "NAT-4EC795EFD83E",
+      "prior_trial_id": "r2-DEV-9M34WA-b",
+      "prior_label": "FAITHFUL",
+      "second_label": "UNCERTAIN"
+    },
+    {
+      "candidate_id": "NAT-A90E31B3E53C",
+      "prior_trial_id": "r2-DEV-JRSYJV-b",
+      "prior_label": "DEFECTIVE",
+      "second_label": "FAITHFUL"
+    },
+    {
+      "candidate_id": "NAT-FD505CEE1DCD",
+      "prior_trial_id": "r3-DEV-9M34WA-b",
+      "prior_label": "FAITHFUL",
+      "second_label": "UNCERTAIN"
+    }
+  ]
+}

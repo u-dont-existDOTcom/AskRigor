@@ -1,0 +1,215 @@
+{
+"review_version": "askrigor_epistemic_representation_review_v0_1",
+"source_sha256": "aba59ac987f267b926f6e9366bd6d2449704b1c8aa28c755a36afe8a7f5843f7",
+"state_sha256": "e9f5fa24d074ec40143beb623b0f26fca404300ad2879318aebb41093a7cbd0b",
+"producer_session_id": "conversation-sha256:92d7735bb2fbc72cdc859f2b7016d211a332e1d026d794991ce9e8d764b42f7f",
+"reviewer": {
+"session_id": "conversation-sha256:393a2a1ea1d97e8dc662996d316c028d74b9ab887c66ad222d354943a461f0a8",
+"model": "GPT-5.6 Sol",
+"mode": "Pro",
+"fresh_independent_session": true
+},
+"reviewed_at": "2026-09-10T12:47:00+00:00",
+"findings": [
+{
+"dimension": "exact_target",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 30,
+"end": 56,
+"quote": "produces the target effect"
+},
+{
+"start": 227,
+"end": 313,
+"quote": "The material hypothesis also requires at least 10 exposure units for the target effect"
+}
+],
+"state_paths": [
+"/target/target_id",
+"/observations/0/target_id",
+"/comparisons/0/target_id",
+"/hypotheses/0/target_id",
+"/claims/0/target_id"
+],
+"rationale": "The state consistently represents the exact source target as target_effect across the target definition, observation, comparison, hypothesis, and modifier claim; it does not substitute a different outcome."
+},
+{
+"dimension": "case_and_comparison_roles",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 25,
+"quote": "Plover is a positive case"
+},
+{
+"start": 97,
+"end": 127,
+"quote": "Kestrel is a tolerated control"
+}
+],
+"state_paths": [
+"/cases/0/case_id",
+"/cases/0/comparison_role",
+"/cases/1/case_id",
+"/cases/1/comparison_role",
+"/comparisons/0/positive_case_ids/0",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "Plover is correctly assigned the positive role and Kestrel the tolerated-control role, and the comparison preserves those assignments."
+},
+{
+"dimension": "negative_or_tolerated_comparator",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 97,
+"end": 127,
+"quote": "Kestrel is a tolerated control"
+}
+],
+"state_paths": [
+"/cases/1/comparison_role",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "The tolerated comparator is Kestrel in both source and state. The state does not incorrectly promote Kestrel to a positive case or assert an additional target-effect observation for it."
+},
+{
+"dimension": "high_information_qualifier",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 57,
+"end": 95,
+"quote": "at a represented exposure of 0.1 units"
+}
+],
+"state_paths": [
+"/observations/0/statement",
+"/observations/0/qualifiers/exposure_units",
+"/observations/0/high_information_qualifier_keys/0"
+],
+"rationale": "The observed 0.1-unit exposure is retained and explicitly marked as a high-information qualifier, preserving the source's important quantitative constraint rather than reducing the observation to an unqualified positive case."
+},
+{
+"dimension": "timing",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source packet states no timing, latency, duration, or temporal ordering qualifier requiring representation."
+},
+{
+"dimension": "amount_or_dose",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 57,
+"end": 95,
+"quote": "at a represented exposure of 0.1 units"
+},
+{
+"start": 227,
+"end": 313,
+"quote": "The material hypothesis also requires at least 10 exposure units for the target effect"
+}
+],
+"state_paths": [
+"/observations/0/qualifiers/exposure_units",
+"/hypotheses/0/discriminator/modifier/kind",
+"/hypotheses/0/discriminator/modifier/claim_id",
+"/hypotheses/0/qualifier_predictions/0/operator",
+"/hypotheses/0/qualifier_predictions/0/value",
+"/claims/0/statement"
+],
+"rationale": "Both quantitative facts are preserved: the positive observation occurs at 0.1 represented exposure units, while the material hypothesis predicts a minimum of 10 units. The source-level tension between those two quantities is therefore represented rather than erased."
+},
+{
+"dimension": "route_or_form",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source packet supplies no route, formulation, physical form, or administration-mode distinction."
+},
+{
+"dimension": "feature_value",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 129,
+"end": 190,
+"quote": "Feature Tern is represented in Plover and absent from Kestrel"
+}
+],
+"state_paths": [
+"/features/0/case_id",
+"/features/0/feature_id",
+"/features/0/value",
+"/features/1/case_id",
+"/features/1/feature_id",
+"/features/1/value"
+],
+"rationale": "The stored feature values preserve the stated contrast: Tern has value "present" for Plover and value "absent" for Kestrel."
+},
+{
+"dimension": "predicate_semantics",
+"status": "distorted",
+"affects_hard_invariant": true,
+"source_spans": [
+{
+"start": 129,
+"end": 225,
+"quote": "Feature Tern is represented in Plover and absent from Kestrel, and is the proposed discriminator"
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/feature_id",
+"/hypotheses/0/discriminator/operator",
+"/features/0",
+"/features/1"
+],
+"rationale": "The proposed source discriminator is the differing Tern value between Plover and Kestrel. In the state, however, discriminator operator "present" tests whether a Tern feature record exists, not whether that record's stored value equals "present". Both Plover and Kestrel have Tern feature records, so this predicate is satisfied by both cases and fails to encode the source's represented-versus-absent discrimination. This can change a hard discriminator gate or the conclusions permitted from it."
+},
+{
+"dimension": "dependency_or_provenance",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 196,
+"end": 225,
+"quote": "is the proposed discriminator"
+},
+{
+"start": 227,
+"end": 313,
+"quote": "The material hypothesis also requires at least 10 exposure units for the target effect"
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/modifier/claim_id",
+"/claims/0/claim_id",
+"/claims/0/provenance/kind",
+"/claims/0/dependencies"
+],
+"rationale": "The minimum-exposure requirement is represented as a directly source-grounded claim and is linked from the hypothesis through its modifier claim_id. The source supplies no additional inferential dependency for that claim, so an empty claim dependency list does not omit a stated prerequisite."
+},
+{
+"dimension": "other",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "No additional source-to-state discrepancy is identified outside the required dimensions above."
+}
+]
+}

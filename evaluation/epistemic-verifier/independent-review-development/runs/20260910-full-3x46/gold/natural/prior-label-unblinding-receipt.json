@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_POST_SECOND_ADJUDICATION",
+  "opened_at": "2026-09-10T13:15:57.602Z",
+  "prior_label_source": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/scoring/trial-scoring-ledger.json",
+  "prior_label_source_sha256": "4b4f8fe763f048999fadcc8fa9c5ca1415100f20c662395e2c9c8bac4d8c3e16",
+  "second_adjudication_population_count": 24,
+  "second_adjudication_population_sha256": "fe975a45bce22d0f9b889c76892021415a61e88712c44e277da59086da5794d5",
+  "reviewer_population_frozen_before_prior_label_access": true,
+  "disagreement_count": 6
+}
