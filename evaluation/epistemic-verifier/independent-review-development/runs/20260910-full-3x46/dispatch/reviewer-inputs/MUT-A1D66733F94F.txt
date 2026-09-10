@@ -1,0 +1,264 @@
+You are the independent semantic representation reviewer for a DEVELOPMENT / DISCOVERY run.
+
+Review only the exact source packet and EpistemicStateV1 candidate in the supplied work package. Do not use the state producer's rationale, a scorer key, an expected answer, verifier implementation details, another arm's output, or outside evidence.
+
+For every required dimension, decide whether the state is faithful, missing, distorted, uncertain, or the dimension is not applicable to the source. Check the exact target; case and comparison roles; tolerated or negative comparators; high-information qualifiers; timing; amount or dose; route or form; feature values; predicate semantics; and dependency or provenance. In particular, distinguish a feature record's existence from the value stored in that record: `operator: "present"` asks whether a record exists and does not mean that its stored value equals "present".
+
+Mark `affects_hard_invariant` true only when the discrepancy could change a hard-gate result or permitted conclusion. Cite exact source character spans and resolvable JSON Pointer paths. A missing state fact has no state path. Use a fresh session distinct from the producer. Return exactly one object conforming to `EpistemicRepresentationReviewSubmissionV0.1`; do not synthesize an answer to the source question.
+
+Use this exact top-level shape:
+
+{
+  "review_version": "askrigor_epistemic_representation_review_v0_1",
+  "source_sha256": "<copy from work package>",
+  "state_sha256": "<copy from work package>",
+  "producer_session_id": "<copy from work package producer.session_id>",
+  "reviewer": {
+    "session_id": "<this fresh review session identity>",
+    "model": "<displayed model>",
+    "mode": "<displayed reasoning mode>",
+    "fresh_independent_session": true
+  },
+  "reviewed_at": "<ISO-8601 timestamp with offset>",
+  "findings": [
+    {
+      "dimension": "<one required dimension>",
+      "status": "faithful | missing | distorted | uncertain | not_applicable",
+      "affects_hard_invariant": true,
+      "source_spans": [{"start": 0, "end": 1, "quote": "<exact bytes>"}],
+      "state_paths": ["/target/target_id"],
+      "rationale": "<specific judgment>"
+    }
+  ]
+}
+
+Return exactly one finding for each dimension listed in `required_dimensions`, in that order. For `not_applicable`, set `affects_hard_invariant` false and leave `source_spans` and `state_paths` empty. For `missing`, cite source spans and leave `state_paths` empty. For `faithful` or `distorted`, cite both source spans and state paths. Use `uncertain` rather than guessing.
+
+
+WORK PACKAGE
+{
+  "package_version": "askrigor_epistemic_representation_work_package_v0_1",
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "source_packet": "The requested target is risk_m02. Rowan m02 is the positive case: the target outcome begins within 2 seconds after 10 units of compound Sol by intravenous liquid infusion. Mica m02 is the tolerated control: Mica receives the same 10-unit intravenous liquid exposure and does not show the target outcome. Feature Quartz is high in Rowan m02 and low in Mica m02. Test the material hypothesis that Quartz value equals high distinguishes the target outcome. The conclusion about risk_m02 must depend on Rowan's source-grounded target observation and the tolerated-control contrast.",
+  "source_sha256": "0cef7f8d74c12f4cf5e3ea399f5369cca8012ba5c993c34ebe7d9a014d0eb80b",
+  "candidate_state": {
+    "state_version": "askrigor_epistemic_state_v1",
+    "target": {
+      "target_id": "risk_m02",
+      "label": "Risk m02",
+      "description": "Whether the target outcome occurs for m02."
+    },
+    "cases": [
+      {
+        "case_id": "rowan_m02",
+        "label": "Rowan m02",
+        "comparison_role": "tolerated_control",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m02:source"
+        }
+      },
+      {
+        "case_id": "mica_m02",
+        "label": "Mica m02",
+        "comparison_role": "positive",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m02:source"
+        }
+      }
+    ],
+    "observations": [
+      {
+        "observation_id": "obs_positive_m02",
+        "target_id": "risk_m02",
+        "case_id": "rowan_m02",
+        "statement": "Rowan m02 shows the target outcome.",
+        "material": true,
+        "qualifiers": {
+          "onset_seconds": 2,
+          "dose_units": 10,
+          "route": "intravenous",
+          "form": "liquid"
+        },
+        "high_information_qualifier_keys": [
+          "onset_seconds",
+          "dose_units",
+          "route",
+          "form"
+        ],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m02:source"
+        }
+      },
+      {
+        "observation_id": "obs_control_m02",
+        "target_id": "risk_m02",
+        "case_id": "mica_m02",
+        "statement": "Mica m02 tolerates the exposure and does not show the target outcome.",
+        "material": true,
+        "qualifiers": {
+          "dose_units": 10,
+          "route": "intravenous",
+          "form": "liquid"
+        },
+        "high_information_qualifier_keys": [
+          "dose_units",
+          "route",
+          "form"
+        ],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m02:source"
+        }
+      }
+    ],
+    "features": [
+      {
+        "case_id": "rowan_m02",
+        "feature_id": "quartz_m02",
+        "value": "high",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m02:source"
+        }
+      },
+      {
+        "case_id": "mica_m02",
+        "feature_id": "quartz_m02",
+        "value": "low",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m02:source"
+        }
+      }
+    ],
+    "comparisons": [
+      {
+        "comparison_id": "cmp_m02",
+        "target_id": "risk_m02",
+        "positive_case_ids": [
+          "mica_m02"
+        ],
+        "control_case_ids": [
+          "rowan_m02"
+        ]
+      }
+    ],
+    "hypotheses": [
+      {
+        "hypothesis_id": "hyp_m02",
+        "target_id": "risk_m02",
+        "statement": "Quartz value equals high distinguishes the target outcome for m02.",
+        "material": true,
+        "discriminator": {
+          "feature_id": "quartz_m02",
+          "operator": "equals",
+          "value": "high",
+          "modifier": {
+            "kind": "dose",
+            "claim_id": "dose_modifier_m02"
+          }
+        },
+        "qualifier_predictions": [
+          {
+            "observation_id": "obs_positive_m02",
+            "qualifier_key": "onset_seconds",
+            "operator": "lte",
+            "value": 2
+          }
+        ]
+      }
+    ],
+    "claims": [
+      {
+        "claim_id": "dose_modifier_m02",
+        "target_id": "risk_m02",
+        "kind": "modifier",
+        "statement": "The represented 10-unit dose is held constant across the comparison.",
+        "material": true,
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m02:source"
+        },
+        "dependencies": []
+      },
+      {
+        "claim_id": "conclusion_m02",
+        "target_id": "risk_m02",
+        "kind": "conclusion",
+        "statement": "Quartz survives the represented comparison.",
+        "material": true,
+        "provenance": {
+          "kind": "inference",
+          "source_id": "mutation:m02:derived"
+        },
+        "dependencies": [
+          {
+            "kind": "observation",
+            "id": "obs_positive_m02"
+          },
+          {
+            "kind": "observation",
+            "id": "obs_control_m02"
+          },
+          {
+            "kind": "claim",
+            "id": "dose_modifier_m02"
+          }
+        ]
+      }
+    ]
+  },
+  "state_sha256": "d93c7044452d1e899e3b53c946469c6e7ba00ff5bd62cbe1f0e78de5b162be67",
+  "producer": {
+    "session_id": "synthetic-producer-PAIR-615713929A87",
+    "model": "DETERMINISTIC_FIXTURE",
+    "mode": "DEVELOPMENT"
+  },
+  "required_dimensions": [
+    "exact_target",
+    "case_and_comparison_roles",
+    "negative_or_tolerated_comparator",
+    "high_information_qualifier",
+    "timing",
+    "amount_or_dose",
+    "route_or_form",
+    "feature_value",
+    "predicate_semantics",
+    "dependency_or_provenance",
+    "other"
+  ],
+  "comparison_views": [
+    {
+      "comparison_id": "cmp_m02",
+      "positive_case_ids": [
+        "mica_m02"
+      ],
+      "control_case_ids": [
+        "rowan_m02"
+      ]
+    }
+  ],
+  "discriminator_views": [
+    {
+      "hypothesis_id": "hyp_m02",
+      "feature_id": "quartz_m02",
+      "operator": "equals",
+      "value": "high",
+      "assignments": [
+        {
+          "case_id": "rowan_m02",
+          "comparison_role": "tolerated_control",
+          "value": "high"
+        },
+        {
+          "case_id": "mica_m02",
+          "comparison_role": "positive",
+          "value": "low"
+        }
+      ]
+    }
+  ]
+}

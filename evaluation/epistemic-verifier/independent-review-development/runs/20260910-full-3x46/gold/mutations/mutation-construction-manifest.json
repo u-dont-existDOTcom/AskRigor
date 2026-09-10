@@ -1,0 +1,579 @@
+[
+  {
+    "opaque_candidate_id": "MUT-3E58535DBAB0",
+    "source_sha256": "67a5fa40274bb5cab183e9751e08f9f96e014c7203984d90575aa1b9ff297d30",
+    "state_sha256": "ef664def247a0100393726d3a6e02eb0b65df1af27ede328d57d7d6a980c04ef",
+    "pair_id": "PAIR-B139B275A3C0",
+    "dimension": "exact_target",
+    "faithful_or_defective_gold": "FAITHFUL",
+    "changed_json_pointers": [
+      "/target/target_id"
+    ],
+    "source_spans": [
+      {
+        "start": 0,
+        "end": 33,
+        "quote": "The requested target is risk_m01."
+      }
+    ],
+    "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+    "mutation_diff": []
+  },
+  {
+    "opaque_candidate_id": "MUT-2ECF8D6210E9",
+    "source_sha256": "67a5fa40274bb5cab183e9751e08f9f96e014c7203984d90575aa1b9ff297d30",
+    "state_sha256": "d319d769f88322dabc4a25e4427f4fff8a39a74bd78ee521b932dbb66fb811b4",
+    "pair_id": "PAIR-B139B275A3C0",
+    "dimension": "exact_target",
+    "faithful_or_defective_gold": "DEFECTIVE",
+    "changed_json_pointers": [
+      "/target/target_id"
+    ],
+    "source_spans": [
+      {
+        "start": 0,
+        "end": 33,
+        "quote": "The requested target is risk_m01."
+      }
+    ],
+    "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+    "mutation_diff": [
+      {
+        "pointer": "/target/target_id",
+        "before": "risk_m01",
+        "after": "pathway_risk_m01"
+      }
+    ]
+  },
+  {
+    "opaque_candidate_id": "MUT-5847C73132D4",
+    "source_sha256": "0cef7f8d74c12f4cf5e3ea399f5369cca8012ba5c993c34ebe7d9a014d0eb80b",
+    "state_sha256": "cde5b0a6a6adf5f9a0ad3fa0c4d90773468a19f12e39389fce0e58c3ce019c6a",
+    "pair_id": "PAIR-615713929A87",
+    "dimension": "case_and_comparison_roles",
+    "faithful_or_defective_gold": "FAITHFUL",
+    "changed_json_pointers": [
+      "/cases/0/comparison_role",
+      "/cases/1/comparison_role",
+      "/comparisons/0/positive_case_ids",
+      "/comparisons/0/control_case_ids"
+    ],
+    "source_spans": [
+      {
+        "start": 34,
+        "end": 64,
+        "quote": "Rowan m02 is the positive case"
+      }
+    ],
+    "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+    "mutation_diff": []
+  },
+  {
+    "opaque_candidate_id": "MUT-A1D66733F94F",
+    "source_sha256": "0cef7f8d74c12f4cf5e3ea399f5369cca8012ba5c993c34ebe7d9a014d0eb80b",
+    "state_sha256": "d93c7044452d1e899e3b53c946469c6e7ba00ff5bd62cbe1f0e78de5b162be67",
+    "pair_id": "PAIR-615713929A87",
+    "dimension": "case_and_comparison_roles",
+    "faithful_or_defective_gold": "DEFECTIVE",
+    "changed_json_pointers": [
+      "/cases/0/comparison_role",
+      "/cases/1/comparison_role",
+      "/comparisons/0/positive_case_ids",
+      "/comparisons/0/control_case_ids"
+    ],
+    "source_spans": [
+      {
+        "start": 34,
+        "end": 64,
+        "quote": "Rowan m02 is the positive case"
+      }
+    ],
+    "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+    "mutation_diff": [
+      {
+        "pointer": "/cases/0/comparison_role",
+        "before": "positive",
+        "after": "tolerated_control"
+      },
+      {
+        "pointer": "/cases/1/comparison_role",
+        "before": "tolerated_control",
+        "after": "positive"
+      },
+      {
+        "pointer": "/comparisons/0/positive_case_ids",
+        "before": [
+          "rowan_m02"
+        ],
+        "after": [
+          "mica_m02"
+        ]
+      },
+      {
+        "pointer": "/comparisons/0/control_case_ids",
+        "before": [
+          "mica_m02"
+        ],
+        "after": [
+          "rowan_m02"
+        ]
+      }
+    ]
+  },
+  {
+    "opaque_candidate_id": "MUT-F2AA5876A4FE",
+    "source_sha256": "e633bba03f4a3d738a9a72a4882d7cfe8699d78408e33de7febb1c973c656753",
+    "state_sha256": "0396ac2df51fe3291f0f79e05de1cd18767097988c87098bdad882e937774777",
+    "pair_id": "PAIR-D2D52F23BE1B",
+    "dimension": "negative_or_tolerated_comparator",
+    "faithful_or_defective_gold": "FAITHFUL",
+    "changed_json_pointers": [
+      "/comparisons/0/control_case_ids"
+    ],
+    "source_spans": [
+      {
+        "start": 172,
+        "end": 205,
+        "quote": "Mica m03 is the tolerated control"
+      }
+    ],
+    "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+    "mutation_diff": []
+  },
+  {
+    "opaque_candidate_id": "MUT-CE337939819F",
+    "source_sha256": "e633bba03f4a3d738a9a72a4882d7cfe8699d78408e33de7febb1c973c656753",
+    "state_sha256": "52d14743e374c213d19811ea4af9d87092c83ef20b00dd9f96dfc0000dcc3d42",
+    "pair_id": "PAIR-D2D52F23BE1B",
+    "dimension": "negative_or_tolerated_comparator",
+    "faithful_or_defective_gold": "DEFECTIVE",
+    "changed_json_pointers": [
+      "/comparisons/0/control_case_ids"
+    ],
+    "source_spans": [
+      {
+        "start": 172,
+        "end": 205,
+        "quote": "Mica m03 is the tolerated control"
+      }
+    ],
+    "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+    "mutation_diff": [
+      {
+        "pointer": "/comparisons/0/control_case_ids",
+        "before": [
+          "mica_m03"
+        ],
+        "after": []
+      }
+    ]
+  },
+  {
+    "opaque_candidate_id": "MUT-5C22B1F140A4",
+    "source_sha256": "437bddc9f9d361c32d651b52060fb1e286e8a3b8250a194fbc342577ae59b288",
+    "state_sha256": "cac3d49b4973bafafd9f8e5dde159b54bf085dfb9c6c5e01eaaaec27cf01b9ba",
+    "pair_id": "PAIR-C047320FE34A",
+    "dimension": "high_information_qualifier",
+    "faithful_or_defective_gold": "FAITHFUL",
+    "changed_json_pointers": [
+      "/observations/0/high_information_qualifier_keys"
+    ],
+    "source_spans": [
+      {
+        "start": 85,
+        "end": 108,
+        "quote": "begins within 2 seconds"
+      }
+    ],
+    "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+    "mutation_diff": []
+  },
+  {
+    "opaque_candidate_id": "MUT-33F68C6BB6B2",
+    "source_sha256": "437bddc9f9d361c32d651b52060fb1e286e8a3b8250a194fbc342577ae59b288",
+    "state_sha256": "38d7dfc9fb3c9b585f6789c62470911520740c06c7402ca5a7837bceb56559d6",
+    "pair_id": "PAIR-C047320FE34A",
+    "dimension": "high_information_qualifier",
+    "faithful_or_defective_gold": "DEFECTIVE",
+    "changed_json_pointers": [
+      "/observations/0/high_information_qualifier_keys"
+    ],
+    "source_spans": [
+      {
+        "start": 85,
+        "end": 108,
+        "quote": "begins within 2 seconds"
+      }
+    ],
+    "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+    "mutation_diff": [
+      {
+        "pointer": "/observations/0/high_information_qualifier_keys",
+        "before": [
+          "onset_seconds",
+          "dose_units",
+          "route",
+          "form"
+        ],
+        "after": [
+          "dose_units",
+          "route",
+          "form"
+        ]
+      }
+    ]
+  },
+  {
+    "opaque_candidate_id": "MUT-367A3BC1911E",
+    "source_sha256": "36de4bcd910aea5884520cb586fdf9084dd769ece10a6b6f95f175f215879f72",
+    "state_sha256": "2591f220163ba47ae6114411f8f793b148dab779e0cc42b8de67572539701506",
+    "pair_id": "PAIR-F6CFB8C3F101",
+    "dimension": "timing",
+    "faithful_or_defective_gold": "FAITHFUL",
+    "changed_json_pointers": [
+      "/observations/0/qualifiers/onset_seconds"
+    ],
+    "source_spans": [
+      {
+        "start": 85,
+        "end": 108,
+        "quote": "begins within 2 seconds"
+      }
+    ],
+    "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+    "mutation_diff": []
+  },
+  {
+    "opaque_candidate_id": "MUT-A10B6BF93A85",
+    "source_sha256": "36de4bcd910aea5884520cb586fdf9084dd769ece10a6b6f95f175f215879f72",
+    "state_sha256": "5103529414f107a5b442d4ee360dd5bbeb240e4b1c56429140708931544a8e5a",
+    "pair_id": "PAIR-F6CFB8C3F101",
+    "dimension": "timing",
+    "faithful_or_defective_gold": "DEFECTIVE",
+    "changed_json_pointers": [
+      "/observations/0/qualifiers/onset_seconds"
+    ],
+    "source_spans": [
+      {
+        "start": 85,
+        "end": 108,
+        "quote": "begins within 2 seconds"
+      }
+    ],
+    "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+    "mutation_diff": [
+      {
+        "pointer": "/observations/0/qualifiers/onset_seconds",
+        "before": 2,
+        "after": 3600
+      }
+    ]
+  },
+  {
+    "opaque_candidate_id": "MUT-E9EA79E179D9",
+    "source_sha256": "42fb5a55438adfc6e22511f864c0e2998b993ed8f3e5845be7a0017050ab4c4a",
+    "state_sha256": "28125cac0242d000dbf7d510767afa014aeae67b7c5c5a779822ff325be68c72",
+    "pair_id": "PAIR-A438AFE6DAE1",
+    "dimension": "amount_or_dose",
+    "faithful_or_defective_gold": "FAITHFUL",
+    "changed_json_pointers": [
+      "/observations/1/qualifiers/dose_units"
+    ],
+    "source_spans": [
+      {
+        "start": 225,
+        "end": 237,
+        "quote": "same 10-unit"
+      }
+    ],
+    "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+    "mutation_diff": []
+  },
+  {
+    "opaque_candidate_id": "MUT-6F448FD129CA",
+    "source_sha256": "42fb5a55438adfc6e22511f864c0e2998b993ed8f3e5845be7a0017050ab4c4a",
+    "state_sha256": "651532df9794e7276f11fd81ce500b2ff155a95dcc9810ae5440913f542a67d5",
+    "pair_id": "PAIR-A438AFE6DAE1",
+    "dimension": "amount_or_dose",
+    "faithful_or_defective_gold": "DEFECTIVE",
+    "changed_json_pointers": [
+      "/observations/1/qualifiers/dose_units"
+    ],
+    "source_spans": [
+      {
+        "start": 225,
+        "end": 237,
+        "quote": "same 10-unit"
+      }
+    ],
+    "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+    "mutation_diff": [
+      {
+        "pointer": "/observations/1/qualifiers/dose_units",
+        "before": 10,
+        "after": 1
+      }
+    ]
+  },
+  {
+    "opaque_candidate_id": "MUT-C6C3E89127D5",
+    "source_sha256": "cf4e76402d12331bc4148fe195a4ddb3bedae7d466fe50f90c7922612cb9ab64",
+    "state_sha256": "053b34e2a4b1f9049b28f0bde3a40a24d86796a30783b68a1a70dc1ff6e7ca32",
+    "pair_id": "PAIR-1F58EC041E03",
+    "dimension": "route_or_form",
+    "faithful_or_defective_gold": "FAITHFUL",
+    "changed_json_pointers": [
+      "/observations/1/qualifiers/route",
+      "/observations/1/qualifiers/form"
+    ],
+    "source_spans": [
+      {
+        "start": 225,
+        "end": 265,
+        "quote": "same 10-unit intravenous liquid exposure"
+      }
+    ],
+    "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+    "mutation_diff": []
+  },
+  {
+    "opaque_candidate_id": "MUT-C1E0E468B562",
+    "source_sha256": "cf4e76402d12331bc4148fe195a4ddb3bedae7d466fe50f90c7922612cb9ab64",
+    "state_sha256": "4150dc5d582c1e116dbb3a00ba8aa89183937310157e90d3cf220ebdcf3ee233",
+    "pair_id": "PAIR-1F58EC041E03",
+    "dimension": "route_or_form",
+    "faithful_or_defective_gold": "DEFECTIVE",
+    "changed_json_pointers": [
+      "/observations/1/qualifiers/route",
+      "/observations/1/qualifiers/form"
+    ],
+    "source_spans": [
+      {
+        "start": 225,
+        "end": 265,
+        "quote": "same 10-unit intravenous liquid exposure"
+      }
+    ],
+    "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+    "mutation_diff": [
+      {
+        "pointer": "/observations/1/qualifiers/route",
+        "before": "intravenous",
+        "after": "oral"
+      },
+      {
+        "pointer": "/observations/1/qualifiers/form",
+        "before": "liquid",
+        "after": "capsule"
+      }
+    ]
+  },
+  {
+    "opaque_candidate_id": "MUT-3AC8DB61DB63",
+    "source_sha256": "89445035edb14cf60eb082167ef237d2fa34173d120f771cd9c4d33456f7eb5c",
+    "state_sha256": "48c9c52a3f26d6bc1e1c0119203e40020a399c5e090097fd58879a96d6e9d3d9",
+    "pair_id": "PAIR-046FFE82A148",
+    "dimension": "feature_value",
+    "faithful_or_defective_gold": "FAITHFUL",
+    "changed_json_pointers": [
+      "/features/1/value"
+    ],
+    "source_spans": [
+      {
+        "start": 344,
+        "end": 359,
+        "quote": "low in Mica m08"
+      }
+    ],
+    "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+    "mutation_diff": []
+  },
+  {
+    "opaque_candidate_id": "MUT-47F0C17864E8",
+    "source_sha256": "89445035edb14cf60eb082167ef237d2fa34173d120f771cd9c4d33456f7eb5c",
+    "state_sha256": "a42c9917ed744df8dbf877687580ff0a52b773e7ab09ff86bc1b2d662a764f55",
+    "pair_id": "PAIR-046FFE82A148",
+    "dimension": "feature_value",
+    "faithful_or_defective_gold": "DEFECTIVE",
+    "changed_json_pointers": [
+      "/features/1/value"
+    ],
+    "source_spans": [
+      {
+        "start": 344,
+        "end": 359,
+        "quote": "low in Mica m08"
+      }
+    ],
+    "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+    "mutation_diff": [
+      {
+        "pointer": "/features/1/value",
+        "before": "low",
+        "after": "high"
+      }
+    ]
+  },
+  {
+    "opaque_candidate_id": "MUT-EA0C47EB4875",
+    "source_sha256": "114ee5bdf9f4259aab5cba885704343a000d15d5f4adfd7645b75103724f2904",
+    "state_sha256": "54cc3dfcea9d9e0c08fc9fb12118edf494b34704badb0844883c3c41a4b7de5e",
+    "pair_id": "PAIR-D324F4422AF4",
+    "dimension": "predicate_semantics",
+    "faithful_or_defective_gold": "FAITHFUL",
+    "changed_json_pointers": [
+      "/hypotheses/0/discriminator/operator",
+      "/hypotheses/0/discriminator/value"
+    ],
+    "source_spans": [
+      {
+        "start": 395,
+        "end": 419,
+        "quote": "Quartz value equals high"
+      }
+    ],
+    "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+    "mutation_diff": []
+  },
+  {
+    "opaque_candidate_id": "MUT-852A38F30AE7",
+    "source_sha256": "114ee5bdf9f4259aab5cba885704343a000d15d5f4adfd7645b75103724f2904",
+    "state_sha256": "6d167607f205607897136a9f06bc2b886c704dd46e0634f6e39e1b5acdaad673",
+    "pair_id": "PAIR-D324F4422AF4",
+    "dimension": "predicate_semantics",
+    "faithful_or_defective_gold": "DEFECTIVE",
+    "changed_json_pointers": [
+      "/hypotheses/0/discriminator/operator",
+      "/hypotheses/0/discriminator/value"
+    ],
+    "source_spans": [
+      {
+        "start": 395,
+        "end": 419,
+        "quote": "Quartz value equals high"
+      }
+    ],
+    "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+    "mutation_diff": [
+      {
+        "pointer": "/hypotheses/0/discriminator/operator",
+        "before": "equals",
+        "after": "present"
+      },
+      {
+        "pointer": "/hypotheses/0/discriminator/value",
+        "before": "high"
+      }
+    ]
+  },
+  {
+    "opaque_candidate_id": "MUT-6D591AAE8678",
+    "source_sha256": "a12f55100c0a71a3018e1fbb9d1fecd2901e171f89253ce14ed8cfc0771f75cb",
+    "state_sha256": "bd3782adb26026b65d0f49c8710c3f33e11d702d8fffad17c368e268c10cc3ec",
+    "pair_id": "PAIR-2E7BAEEA9BA5",
+    "dimension": "dependency_or_provenance",
+    "faithful_or_defective_gold": "FAITHFUL",
+    "changed_json_pointers": [
+      "/claims/1/dependencies"
+    ],
+    "source_spans": [
+      {
+        "start": 484,
+        "end": 576,
+        "quote": "must depend on Rowan's source-grounded target observation and the tolerated-control contrast"
+      }
+    ],
+    "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+    "mutation_diff": []
+  },
+  {
+    "opaque_candidate_id": "MUT-19DA01E745B2",
+    "source_sha256": "a12f55100c0a71a3018e1fbb9d1fecd2901e171f89253ce14ed8cfc0771f75cb",
+    "state_sha256": "dc04f9250211fdcb3df8fdc598db3cedbb88ceb98556b6e5aea5f3724aca5a07",
+    "pair_id": "PAIR-2E7BAEEA9BA5",
+    "dimension": "dependency_or_provenance",
+    "faithful_or_defective_gold": "DEFECTIVE",
+    "changed_json_pointers": [
+      "/claims/1/dependencies"
+    ],
+    "source_spans": [
+      {
+        "start": 484,
+        "end": 576,
+        "quote": "must depend on Rowan's source-grounded target observation and the tolerated-control contrast"
+      }
+    ],
+    "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+    "mutation_diff": [
+      {
+        "pointer": "/claims/1/dependencies",
+        "before": [
+          {
+            "kind": "observation",
+            "id": "obs_positive_m10"
+          },
+          {
+            "kind": "observation",
+            "id": "obs_control_m10"
+          },
+          {
+            "kind": "claim",
+            "id": "dose_modifier_m10"
+          }
+        ],
+        "after": [
+          {
+            "kind": "claim",
+            "id": "dose_modifier_m10"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "opaque_candidate_id": "MUT-7DA0D11FEAF7",
+    "source_sha256": "00639918ac5024bdfbd257b515d191dce0fe016ef7a462f44849438c339c2998",
+    "state_sha256": "7c1c78fda0755f609e3f0adbe0d8bf0a339fd55044eb6e1cc46b92de13488544",
+    "pair_id": "PAIR-D9298A10D1B0",
+    "dimension": "other",
+    "faithful_or_defective_gold": "FAITHFUL",
+    "changed_json_pointers": [
+      "/hypotheses/0/material"
+    ],
+    "source_spans": [
+      {
+        "start": 370,
+        "end": 389,
+        "quote": "material hypothesis"
+      }
+    ],
+    "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+    "mutation_diff": []
+  },
+  {
+    "opaque_candidate_id": "MUT-0E889C509114",
+    "source_sha256": "00639918ac5024bdfbd257b515d191dce0fe016ef7a462f44849438c339c2998",
+    "state_sha256": "2782f0a427375adf9d04be576602f6d4b93dcfd93f170c177c410d974d02a3c8",
+    "pair_id": "PAIR-D9298A10D1B0",
+    "dimension": "other",
+    "faithful_or_defective_gold": "DEFECTIVE",
+    "changed_json_pointers": [
+      "/hypotheses/0/material"
+    ],
+    "source_spans": [
+      {
+        "start": 370,
+        "end": 389,
+        "quote": "material hypothesis"
+      }
+    ],
+    "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+    "mutation_diff": [
+      {
+        "pointer": "/hypotheses/0/material",
+        "before": true,
+        "after": false
+      }
+    ]
+  }
+]

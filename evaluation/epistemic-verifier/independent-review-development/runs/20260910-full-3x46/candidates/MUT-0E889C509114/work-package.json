@@ -1,0 +1,226 @@
+{
+  "package_version": "askrigor_epistemic_representation_work_package_v0_1",
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "source_packet": "The requested target is risk_m11. Rowan m11 is the positive case: the target outcome begins within 2 seconds after 10 units of compound Sol by intravenous liquid infusion. Mica m11 is the tolerated control: Mica receives the same 10-unit intravenous liquid exposure and does not show the target outcome. Feature Quartz is high in Rowan m11 and low in Mica m11. Test the material hypothesis that Quartz value equals high distinguishes the target outcome. The conclusion about risk_m11 must depend on Rowan's source-grounded target observation and the tolerated-control contrast.",
+  "source_sha256": "00639918ac5024bdfbd257b515d191dce0fe016ef7a462f44849438c339c2998",
+  "candidate_state": {
+    "state_version": "askrigor_epistemic_state_v1",
+    "target": {
+      "target_id": "risk_m11",
+      "label": "Risk m11",
+      "description": "Whether the target outcome occurs for m11."
+    },
+    "cases": [
+      {
+        "case_id": "rowan_m11",
+        "label": "Rowan m11",
+        "comparison_role": "positive",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m11:source"
+        }
+      },
+      {
+        "case_id": "mica_m11",
+        "label": "Mica m11",
+        "comparison_role": "tolerated_control",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m11:source"
+        }
+      }
+    ],
+    "observations": [
+      {
+        "observation_id": "obs_positive_m11",
+        "target_id": "risk_m11",
+        "case_id": "rowan_m11",
+        "statement": "Rowan m11 shows the target outcome.",
+        "material": true,
+        "qualifiers": {
+          "onset_seconds": 2,
+          "dose_units": 10,
+          "route": "intravenous",
+          "form": "liquid"
+        },
+        "high_information_qualifier_keys": [
+          "onset_seconds",
+          "dose_units",
+          "route",
+          "form"
+        ],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m11:source"
+        }
+      },
+      {
+        "observation_id": "obs_control_m11",
+        "target_id": "risk_m11",
+        "case_id": "mica_m11",
+        "statement": "Mica m11 tolerates the exposure and does not show the target outcome.",
+        "material": true,
+        "qualifiers": {
+          "dose_units": 10,
+          "route": "intravenous",
+          "form": "liquid"
+        },
+        "high_information_qualifier_keys": [
+          "dose_units",
+          "route",
+          "form"
+        ],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m11:source"
+        }
+      }
+    ],
+    "features": [
+      {
+        "case_id": "rowan_m11",
+        "feature_id": "quartz_m11",
+        "value": "high",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m11:source"
+        }
+      },
+      {
+        "case_id": "mica_m11",
+        "feature_id": "quartz_m11",
+        "value": "low",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m11:source"
+        }
+      }
+    ],
+    "comparisons": [
+      {
+        "comparison_id": "cmp_m11",
+        "target_id": "risk_m11",
+        "positive_case_ids": [
+          "rowan_m11"
+        ],
+        "control_case_ids": [
+          "mica_m11"
+        ]
+      }
+    ],
+    "hypotheses": [
+      {
+        "hypothesis_id": "hyp_m11",
+        "target_id": "risk_m11",
+        "statement": "Quartz value equals high distinguishes the target outcome for m11.",
+        "material": false,
+        "discriminator": {
+          "feature_id": "quartz_m11",
+          "operator": "equals",
+          "value": "high",
+          "modifier": {
+            "kind": "dose",
+            "claim_id": "dose_modifier_m11"
+          }
+        },
+        "qualifier_predictions": [
+          {
+            "observation_id": "obs_positive_m11",
+            "qualifier_key": "onset_seconds",
+            "operator": "lte",
+            "value": 2
+          }
+        ]
+      }
+    ],
+    "claims": [
+      {
+        "claim_id": "dose_modifier_m11",
+        "target_id": "risk_m11",
+        "kind": "modifier",
+        "statement": "The represented 10-unit dose is held constant across the comparison.",
+        "material": true,
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m11:source"
+        },
+        "dependencies": []
+      },
+      {
+        "claim_id": "conclusion_m11",
+        "target_id": "risk_m11",
+        "kind": "conclusion",
+        "statement": "Quartz survives the represented comparison.",
+        "material": true,
+        "provenance": {
+          "kind": "inference",
+          "source_id": "mutation:m11:derived"
+        },
+        "dependencies": [
+          {
+            "kind": "observation",
+            "id": "obs_positive_m11"
+          },
+          {
+            "kind": "observation",
+            "id": "obs_control_m11"
+          },
+          {
+            "kind": "claim",
+            "id": "dose_modifier_m11"
+          }
+        ]
+      }
+    ]
+  },
+  "state_sha256": "2782f0a427375adf9d04be576602f6d4b93dcfd93f170c177c410d974d02a3c8",
+  "producer": {
+    "session_id": "synthetic-producer-PAIR-D9298A10D1B0",
+    "model": "DETERMINISTIC_FIXTURE",
+    "mode": "DEVELOPMENT"
+  },
+  "required_dimensions": [
+    "exact_target",
+    "case_and_comparison_roles",
+    "negative_or_tolerated_comparator",
+    "high_information_qualifier",
+    "timing",
+    "amount_or_dose",
+    "route_or_form",
+    "feature_value",
+    "predicate_semantics",
+    "dependency_or_provenance",
+    "other"
+  ],
+  "comparison_views": [
+    {
+      "comparison_id": "cmp_m11",
+      "positive_case_ids": [
+        "rowan_m11"
+      ],
+      "control_case_ids": [
+        "mica_m11"
+      ]
+    }
+  ],
+  "discriminator_views": [
+    {
+      "hypothesis_id": "hyp_m11",
+      "feature_id": "quartz_m11",
+      "operator": "equals",
+      "value": "high",
+      "assignments": [
+        {
+          "case_id": "rowan_m11",
+          "comparison_role": "positive",
+          "value": "high"
+        },
+        {
+          "case_id": "mica_m11",
+          "comparison_role": "tolerated_control",
+          "value": "low"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "status": "AMENDED_PRE_GENERATION_CORPUS_FROZEN",
+  "candidate_count": 46,
+  "planned_review_trials": 138,
+  "reviewer_outputs_frozen": 0,
+  "manifest_sha256": "61cc2fda4c82bbe516f53d8d763a93af39a089cd148dfc0907fd5234d8b14cde",
+  "prior_scoring_accessed_by_adjudicators": false
+}

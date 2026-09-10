@@ -1,0 +1,420 @@
+{
+  "schema_version": 1,
+  "candidate_count": 46,
+  "candidates": [
+    {
+      "candidate_id": "NAT-EB3FBFA2694D",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-EB3FBFA2694D/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-EB3FBFA2694D.txt",
+      "source_sha256": "51298c45f4703bf23f358b465272859e3600785e4a83c04ac1b0d6bcc967f8d2",
+      "state_sha256": "6dcee93d2f5d2e00985512fd08f98ef42d5d8d140f6dfd02c079d94bcd3787b0"
+    },
+    {
+      "candidate_id": "NAT-31DA10F913CE",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-31DA10F913CE/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-31DA10F913CE.txt",
+      "source_sha256": "a9d647186a9572eee84d7a2eb76ad8f1728b0f3482cb9bf6eb1e7f0fe028051c",
+      "state_sha256": "a770892f846087efc2f2f958d28ebe4ab7e46f20eb4139e32b70fdaa360f9b11"
+    },
+    {
+      "candidate_id": "NAT-D22CEEC7054B",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-D22CEEC7054B/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-D22CEEC7054B.txt",
+      "source_sha256": "6883205eaff757723da54e55db8b18079080d0f554b3ef4464e20313cb3619d5",
+      "state_sha256": "3febdbd622aea762f76ec9661aefa12fb4c5a3d09c82fb0c81c96a6997cef8ca"
+    },
+    {
+      "candidate_id": "NAT-4308BCA7A3F3",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-4308BCA7A3F3/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-4308BCA7A3F3.txt",
+      "source_sha256": "aba59ac987f267b926f6e9366bd6d2449704b1c8aa28c755a36afe8a7f5843f7",
+      "state_sha256": "72459b36f53d7d98044b3e77ebc43d521a5e7f282ae442d1cc3463b77bcb6e71"
+    },
+    {
+      "candidate_id": "NAT-4B794F6619D3",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-4B794F6619D3/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-4B794F6619D3.txt",
+      "source_sha256": "7e1f1c3b4ebcc027857903fadae71b1a2f52caf7365e7bb8944578a8e36f98d5",
+      "state_sha256": "a297796fe388a487969268565261afd4b692190a577fa91d147c029b34a8c961"
+    },
+    {
+      "candidate_id": "NAT-119DEA2465B4",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-119DEA2465B4/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-119DEA2465B4.txt",
+      "source_sha256": "08dc034de838fd531b5c85b36b066aa4e1713dae6e19692104911413aa051a3c",
+      "state_sha256": "e7c80e440daa679a2e27d8f10e18fbdad3d5eeb4c44c67d91e820bf3021788a9"
+    },
+    {
+      "candidate_id": "NAT-6866E352F8F1",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-6866E352F8F1/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-6866E352F8F1.txt",
+      "source_sha256": "f91a7822e66793bfd9e53a6e0ea280625ed942233f13985021e93681672ab0cd",
+      "state_sha256": "2702431a0c483150af98329c4f18af64d7708258b3b89c24fc2cb2ff02c5cbf5"
+    },
+    {
+      "candidate_id": "NAT-D49D11A7494D",
+      "track": "NATURAL",
+      "transport": "RAW_INVALID_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-D49D11A7494D/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-D49D11A7494D.txt",
+      "source_sha256": "1ae5ac30d8253a9ccaba6ada8007c7dd4009b144c0899d22402bac287c6d929a",
+      "state_sha256": "196f742913a1a60d48d96f62a32770b0c130e590037042793fb2a1fdb2d65ffe"
+    },
+    {
+      "candidate_id": "NAT-4EC795EFD83E",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-4EC795EFD83E/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-4EC795EFD83E.txt",
+      "source_sha256": "51298c45f4703bf23f358b465272859e3600785e4a83c04ac1b0d6bcc967f8d2",
+      "state_sha256": "fc5734bbeef0c1ac1e414fc239d5737a83f0110322964e34f67791e92e92a6ed"
+    },
+    {
+      "candidate_id": "NAT-45A3AB09BE78",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-45A3AB09BE78/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-45A3AB09BE78.txt",
+      "source_sha256": "a9d647186a9572eee84d7a2eb76ad8f1728b0f3482cb9bf6eb1e7f0fe028051c",
+      "state_sha256": "0bb433c92f8f6cfdc17470530e2a7a86515a605d806bbc3bd7fb4f77d3138c85"
+    },
+    {
+      "candidate_id": "NAT-A90E31B3E53C",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-A90E31B3E53C/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-A90E31B3E53C.txt",
+      "source_sha256": "6883205eaff757723da54e55db8b18079080d0f554b3ef4464e20313cb3619d5",
+      "state_sha256": "22d12cac4d044adef867610b0011b903ae7ffca8a2aa126bb5107afbf920a0f7"
+    },
+    {
+      "candidate_id": "NAT-AFDD05E12595",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-AFDD05E12595/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-AFDD05E12595.txt",
+      "source_sha256": "aba59ac987f267b926f6e9366bd6d2449704b1c8aa28c755a36afe8a7f5843f7",
+      "state_sha256": "ce18453c287a3dfa09852dea885bafcea2110f5ce3b85e877c287f99ba3ceb97"
+    },
+    {
+      "candidate_id": "NAT-0ED6C74B8194",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-0ED6C74B8194/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-0ED6C74B8194.txt",
+      "source_sha256": "7e1f1c3b4ebcc027857903fadae71b1a2f52caf7365e7bb8944578a8e36f98d5",
+      "state_sha256": "e91286a1aeb865f90614709363d9fd0af0e3a5305fe2d06c884aef4b66c0905e"
+    },
+    {
+      "candidate_id": "NAT-264C5953C082",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-264C5953C082/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-264C5953C082.txt",
+      "source_sha256": "08dc034de838fd531b5c85b36b066aa4e1713dae6e19692104911413aa051a3c",
+      "state_sha256": "952b92942a511b95752132f799304e5faeb569bc9dd367337c8b2825284363bc"
+    },
+    {
+      "candidate_id": "NAT-2F260ED0FFC0",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-2F260ED0FFC0/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-2F260ED0FFC0.txt",
+      "source_sha256": "f91a7822e66793bfd9e53a6e0ea280625ed942233f13985021e93681672ab0cd",
+      "state_sha256": "e0892fad17ba137d112f21127e4722b7e1e5ad5a27f63e0caea5468bedeadd48"
+    },
+    {
+      "candidate_id": "NAT-D0739E39B992",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-D0739E39B992/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-D0739E39B992.txt",
+      "source_sha256": "1ae5ac30d8253a9ccaba6ada8007c7dd4009b144c0899d22402bac287c6d929a",
+      "state_sha256": "ccc8e27267c2306977b7f7a807eaa17749ee680d3bc35087daf731edee8aba3d"
+    },
+    {
+      "candidate_id": "NAT-FD505CEE1DCD",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-FD505CEE1DCD/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-FD505CEE1DCD.txt",
+      "source_sha256": "51298c45f4703bf23f358b465272859e3600785e4a83c04ac1b0d6bcc967f8d2",
+      "state_sha256": "dda79d1e67b103729db2cb1a6eb0956051879e84e6c1e7990203a6ae608980ea"
+    },
+    {
+      "candidate_id": "NAT-C464BD70BE7C",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-C464BD70BE7C/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-C464BD70BE7C.txt",
+      "source_sha256": "a9d647186a9572eee84d7a2eb76ad8f1728b0f3482cb9bf6eb1e7f0fe028051c",
+      "state_sha256": "8bc21e3e1c46348b2e6e75caaeaeab77791afd69dbabd2a648295b590990f55c"
+    },
+    {
+      "candidate_id": "NAT-37138F410ACC",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-37138F410ACC/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-37138F410ACC.txt",
+      "source_sha256": "6883205eaff757723da54e55db8b18079080d0f554b3ef4464e20313cb3619d5",
+      "state_sha256": "3f57a88c05a1258e8e02b2c8f646c5f4c62af10a066605a3e9ded6b1a5f9927f"
+    },
+    {
+      "candidate_id": "NAT-C209ABC53252",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-C209ABC53252/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-C209ABC53252.txt",
+      "source_sha256": "aba59ac987f267b926f6e9366bd6d2449704b1c8aa28c755a36afe8a7f5843f7",
+      "state_sha256": "e9f5fa24d074ec40143beb623b0f26fca404300ad2879318aebb41093a7cbd0b"
+    },
+    {
+      "candidate_id": "NAT-6B6E4FFEA395",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-6B6E4FFEA395/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-6B6E4FFEA395.txt",
+      "source_sha256": "7e1f1c3b4ebcc027857903fadae71b1a2f52caf7365e7bb8944578a8e36f98d5",
+      "state_sha256": "4bcf39e319f5d057cfd130173e644536fcc818508eede4eb75bdca1427492d1d"
+    },
+    {
+      "candidate_id": "NAT-B1CDE0C253D5",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-B1CDE0C253D5/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-B1CDE0C253D5.txt",
+      "source_sha256": "08dc034de838fd531b5c85b36b066aa4e1713dae6e19692104911413aa051a3c",
+      "state_sha256": "c5fdbef5f7ba8180324ea4dba532aecd20e6967dbdbb236cb9fc26ff9c31866c"
+    },
+    {
+      "candidate_id": "NAT-E29C73997424",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-E29C73997424/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-E29C73997424.txt",
+      "source_sha256": "f91a7822e66793bfd9e53a6e0ea280625ed942233f13985021e93681672ab0cd",
+      "state_sha256": "a42c581026941c78276fb1f7348b6f5ae96bce278f0444e3bac0b8f32c15c451"
+    },
+    {
+      "candidate_id": "NAT-16D4D5046DAB",
+      "track": "NATURAL",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/NAT-16D4D5046DAB/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-16D4D5046DAB.txt",
+      "source_sha256": "1ae5ac30d8253a9ccaba6ada8007c7dd4009b144c0899d22402bac287c6d929a",
+      "state_sha256": "a792b53cf0e3645a0f622a077a91a41e035b61714b1de733d441581eebf5febc"
+    },
+    {
+      "candidate_id": "MUT-3E58535DBAB0",
+      "track": "MUTATION",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/MUT-3E58535DBAB0/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-3E58535DBAB0.txt",
+      "source_sha256": "67a5fa40274bb5cab183e9751e08f9f96e014c7203984d90575aa1b9ff297d30",
+      "state_sha256": "ef664def247a0100393726d3a6e02eb0b65df1af27ede328d57d7d6a980c04ef"
+    },
+    {
+      "candidate_id": "MUT-2ECF8D6210E9",
+      "track": "MUTATION",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/MUT-2ECF8D6210E9/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-2ECF8D6210E9.txt",
+      "source_sha256": "67a5fa40274bb5cab183e9751e08f9f96e014c7203984d90575aa1b9ff297d30",
+      "state_sha256": "d319d769f88322dabc4a25e4427f4fff8a39a74bd78ee521b932dbb66fb811b4"
+    },
+    {
+      "candidate_id": "MUT-5847C73132D4",
+      "track": "MUTATION",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/MUT-5847C73132D4/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-5847C73132D4.txt",
+      "source_sha256": "0cef7f8d74c12f4cf5e3ea399f5369cca8012ba5c993c34ebe7d9a014d0eb80b",
+      "state_sha256": "cde5b0a6a6adf5f9a0ad3fa0c4d90773468a19f12e39389fce0e58c3ce019c6a"
+    },
+    {
+      "candidate_id": "MUT-A1D66733F94F",
+      "track": "MUTATION",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/MUT-A1D66733F94F/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-A1D66733F94F.txt",
+      "source_sha256": "0cef7f8d74c12f4cf5e3ea399f5369cca8012ba5c993c34ebe7d9a014d0eb80b",
+      "state_sha256": "d93c7044452d1e899e3b53c946469c6e7ba00ff5bd62cbe1f0e78de5b162be67"
+    },
+    {
+      "candidate_id": "MUT-F2AA5876A4FE",
+      "track": "MUTATION",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/MUT-F2AA5876A4FE/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-F2AA5876A4FE.txt",
+      "source_sha256": "e633bba03f4a3d738a9a72a4882d7cfe8699d78408e33de7febb1c973c656753",
+      "state_sha256": "0396ac2df51fe3291f0f79e05de1cd18767097988c87098bdad882e937774777"
+    },
+    {
+      "candidate_id": "MUT-CE337939819F",
+      "track": "MUTATION",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/MUT-CE337939819F/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-CE337939819F.txt",
+      "source_sha256": "e633bba03f4a3d738a9a72a4882d7cfe8699d78408e33de7febb1c973c656753",
+      "state_sha256": "52d14743e374c213d19811ea4af9d87092c83ef20b00dd9f96dfc0000dcc3d42"
+    },
+    {
+      "candidate_id": "MUT-5C22B1F140A4",
+      "track": "MUTATION",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/MUT-5C22B1F140A4/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-5C22B1F140A4.txt",
+      "source_sha256": "437bddc9f9d361c32d651b52060fb1e286e8a3b8250a194fbc342577ae59b288",
+      "state_sha256": "cac3d49b4973bafafd9f8e5dde159b54bf085dfb9c6c5e01eaaaec27cf01b9ba"
+    },
+    {
+      "candidate_id": "MUT-33F68C6BB6B2",
+      "track": "MUTATION",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/MUT-33F68C6BB6B2/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-33F68C6BB6B2.txt",
+      "source_sha256": "437bddc9f9d361c32d651b52060fb1e286e8a3b8250a194fbc342577ae59b288",
+      "state_sha256": "38d7dfc9fb3c9b585f6789c62470911520740c06c7402ca5a7837bceb56559d6"
+    },
+    {
+      "candidate_id": "MUT-367A3BC1911E",
+      "track": "MUTATION",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/MUT-367A3BC1911E/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-367A3BC1911E.txt",
+      "source_sha256": "36de4bcd910aea5884520cb586fdf9084dd769ece10a6b6f95f175f215879f72",
+      "state_sha256": "2591f220163ba47ae6114411f8f793b148dab779e0cc42b8de67572539701506"
+    },
+    {
+      "candidate_id": "MUT-A10B6BF93A85",
+      "track": "MUTATION",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/MUT-A10B6BF93A85/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-A10B6BF93A85.txt",
+      "source_sha256": "36de4bcd910aea5884520cb586fdf9084dd769ece10a6b6f95f175f215879f72",
+      "state_sha256": "5103529414f107a5b442d4ee360dd5bbeb240e4b1c56429140708931544a8e5a"
+    },
+    {
+      "candidate_id": "MUT-E9EA79E179D9",
+      "track": "MUTATION",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/MUT-E9EA79E179D9/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-E9EA79E179D9.txt",
+      "source_sha256": "42fb5a55438adfc6e22511f864c0e2998b993ed8f3e5845be7a0017050ab4c4a",
+      "state_sha256": "28125cac0242d000dbf7d510767afa014aeae67b7c5c5a779822ff325be68c72"
+    },
+    {
+      "candidate_id": "MUT-6F448FD129CA",
+      "track": "MUTATION",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/MUT-6F448FD129CA/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-6F448FD129CA.txt",
+      "source_sha256": "42fb5a55438adfc6e22511f864c0e2998b993ed8f3e5845be7a0017050ab4c4a",
+      "state_sha256": "651532df9794e7276f11fd81ce500b2ff155a95dcc9810ae5440913f542a67d5"
+    },
+    {
+      "candidate_id": "MUT-C6C3E89127D5",
+      "track": "MUTATION",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/MUT-C6C3E89127D5/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-C6C3E89127D5.txt",
+      "source_sha256": "cf4e76402d12331bc4148fe195a4ddb3bedae7d466fe50f90c7922612cb9ab64",
+      "state_sha256": "053b34e2a4b1f9049b28f0bde3a40a24d86796a30783b68a1a70dc1ff6e7ca32"
+    },
+    {
+      "candidate_id": "MUT-C1E0E468B562",
+      "track": "MUTATION",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/MUT-C1E0E468B562/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-C1E0E468B562.txt",
+      "source_sha256": "cf4e76402d12331bc4148fe195a4ddb3bedae7d466fe50f90c7922612cb9ab64",
+      "state_sha256": "4150dc5d582c1e116dbb3a00ba8aa89183937310157e90d3cf220ebdcf3ee233"
+    },
+    {
+      "candidate_id": "MUT-3AC8DB61DB63",
+      "track": "MUTATION",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/MUT-3AC8DB61DB63/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-3AC8DB61DB63.txt",
+      "source_sha256": "89445035edb14cf60eb082167ef237d2fa34173d120f771cd9c4d33456f7eb5c",
+      "state_sha256": "48c9c52a3f26d6bc1e1c0119203e40020a399c5e090097fd58879a96d6e9d3d9"
+    },
+    {
+      "candidate_id": "MUT-47F0C17864E8",
+      "track": "MUTATION",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/MUT-47F0C17864E8/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-47F0C17864E8.txt",
+      "source_sha256": "89445035edb14cf60eb082167ef237d2fa34173d120f771cd9c4d33456f7eb5c",
+      "state_sha256": "a42c9917ed744df8dbf877687580ff0a52b773e7ab09ff86bc1b2d662a764f55"
+    },
+    {
+      "candidate_id": "MUT-EA0C47EB4875",
+      "track": "MUTATION",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/MUT-EA0C47EB4875/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-EA0C47EB4875.txt",
+      "source_sha256": "114ee5bdf9f4259aab5cba885704343a000d15d5f4adfd7645b75103724f2904",
+      "state_sha256": "54cc3dfcea9d9e0c08fc9fb12118edf494b34704badb0844883c3c41a4b7de5e"
+    },
+    {
+      "candidate_id": "MUT-852A38F30AE7",
+      "track": "MUTATION",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/MUT-852A38F30AE7/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-852A38F30AE7.txt",
+      "source_sha256": "114ee5bdf9f4259aab5cba885704343a000d15d5f4adfd7645b75103724f2904",
+      "state_sha256": "6d167607f205607897136a9f06bc2b886c704dd46e0634f6e39e1b5acdaad673"
+    },
+    {
+      "candidate_id": "MUT-6D591AAE8678",
+      "track": "MUTATION",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/MUT-6D591AAE8678/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-6D591AAE8678.txt",
+      "source_sha256": "a12f55100c0a71a3018e1fbb9d1fecd2901e171f89253ce14ed8cfc0771f75cb",
+      "state_sha256": "bd3782adb26026b65d0f49c8710c3f33e11d702d8fffad17c368e268c10cc3ec"
+    },
+    {
+      "candidate_id": "MUT-19DA01E745B2",
+      "track": "MUTATION",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/MUT-19DA01E745B2/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-19DA01E745B2.txt",
+      "source_sha256": "a12f55100c0a71a3018e1fbb9d1fecd2901e171f89253ce14ed8cfc0771f75cb",
+      "state_sha256": "dc04f9250211fdcb3df8fdc598db3cedbb88ceb98556b6e5aea5f3724aca5a07"
+    },
+    {
+      "candidate_id": "MUT-7DA0D11FEAF7",
+      "track": "MUTATION",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/MUT-7DA0D11FEAF7/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-7DA0D11FEAF7.txt",
+      "source_sha256": "00639918ac5024bdfbd257b515d191dce0fe016ef7a462f44849438c339c2998",
+      "state_sha256": "7c1c78fda0755f609e3f0adbe0d8bf0a339fd55044eb6e1cc46b92de13488544"
+    },
+    {
+      "candidate_id": "MUT-0E889C509114",
+      "track": "MUTATION",
+      "transport": "CANONICAL_V0_1",
+      "work_package_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/candidates/MUT-0E889C509114/work-package.json",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-0E889C509114.txt",
+      "source_sha256": "00639918ac5024bdfbd257b515d191dce0fe016ef7a462f44849438c339c2998",
+      "state_sha256": "2782f0a427375adf9d04be576602f6d4b93dcfd93f170c177c410d974d02a3c8"
+    }
+  ]
+}

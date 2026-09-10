@@ -1,0 +1,233 @@
+You are the independent semantic representation reviewer for a DEVELOPMENT / DISCOVERY run.
+
+Review only the exact source packet and EpistemicStateV1 candidate in the supplied work package. Do not use the state producer's rationale, a scorer key, an expected answer, verifier implementation details, another arm's output, or outside evidence.
+
+For every required dimension, decide whether the state is faithful, missing, distorted, uncertain, or the dimension is not applicable to the source. Check the exact target; case and comparison roles; tolerated or negative comparators; high-information qualifiers; timing; amount or dose; route or form; feature values; predicate semantics; and dependency or provenance. In particular, distinguish a feature record's existence from the value stored in that record: `operator: "present"` asks whether a record exists and does not mean that its stored value equals "present".
+
+Mark `affects_hard_invariant` true only when the discrepancy could change a hard-gate result or permitted conclusion. Cite exact source character spans and resolvable JSON Pointer paths. A missing state fact has no state path. Use a fresh session distinct from the producer. Return exactly one object conforming to `EpistemicRepresentationReviewSubmissionV0.1`; do not synthesize an answer to the source question.
+
+Use this exact top-level shape:
+
+{
+  "review_version": "askrigor_epistemic_representation_review_v0_1",
+  "source_sha256": "<copy from work package>",
+  "state_sha256": "<copy from work package>",
+  "producer_session_id": "<copy from work package producer.session_id>",
+  "reviewer": {
+    "session_id": "<this fresh review session identity>",
+    "model": "<displayed model>",
+    "mode": "<displayed reasoning mode>",
+    "fresh_independent_session": true
+  },
+  "reviewed_at": "<ISO-8601 timestamp with offset>",
+  "findings": [
+    {
+      "dimension": "<one required dimension>",
+      "status": "faithful | missing | distorted | uncertain | not_applicable",
+      "affects_hard_invariant": true,
+      "source_spans": [{"start": 0, "end": 1, "quote": "<exact bytes>"}],
+      "state_paths": ["/target/target_id"],
+      "rationale": "<specific judgment>"
+    }
+  ]
+}
+
+Return exactly one finding for each dimension listed in `required_dimensions`, in that order. For `not_applicable`, set `affects_hard_invariant` false and leave `source_spans` and `state_paths` empty. For `missing`, cite source spans and leave `state_paths` empty. For `faithful` or `distorted`, cite both source spans and state paths. Use `uncertain` rather than guessing.
+
+
+WORK PACKAGE
+{
+  "package_version": "askrigor_epistemic_representation_work_package_v0_1",
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "source_packet": "Cedar and Flint show the target response. Mica is explicitly tolerated and does not show the response. Marker Vela is present in Cedar, Flint, and Mica. Test the hypothesis that Vela itself explains the selective response.",
+  "source_sha256": "7e1f1c3b4ebcc027857903fadae71b1a2f52caf7365e7bb8944578a8e36f98d5",
+  "candidate_state": {
+    "state_version": "askrigor_epistemic_state_v1",
+    "target": {
+      "target_id": "target_response",
+      "label": "target response",
+      "description": "The response shown by Cedar and Flint and not shown by explicitly tolerated Mica."
+    },
+    "cases": [
+      {
+        "case_id": "cedar",
+        "label": "Cedar",
+        "comparison_role": "positive",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-QWCNK4"
+        }
+      },
+      {
+        "case_id": "flint",
+        "label": "Flint",
+        "comparison_role": "positive",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-QWCNK4"
+        }
+      },
+      {
+        "case_id": "mica",
+        "label": "Mica",
+        "comparison_role": "tolerated_control",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-QWCNK4"
+        }
+      }
+    ],
+    "observations": [
+      {
+        "observation_id": "cedar_target_response_present",
+        "target_id": "target_response",
+        "case_id": "cedar",
+        "statement": "Cedar shows the target response.",
+        "material": true,
+        "qualifiers": {},
+        "high_information_qualifier_keys": [],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-QWCNK4"
+        }
+      },
+      {
+        "observation_id": "flint_target_response_present",
+        "target_id": "target_response",
+        "case_id": "flint",
+        "statement": "Flint shows the target response.",
+        "material": true,
+        "qualifiers": {},
+        "high_information_qualifier_keys": [],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-QWCNK4"
+        }
+      },
+      {
+        "observation_id": "mica_target_response_absent",
+        "target_id": "target_response",
+        "case_id": "mica",
+        "statement": "Mica is explicitly tolerated and does not show the target response.",
+        "material": true,
+        "qualifiers": {},
+        "high_information_qualifier_keys": [],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-QWCNK4"
+        }
+      }
+    ],
+    "features": [
+      {
+        "case_id": "cedar",
+        "feature_id": "vela",
+        "value": true,
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-QWCNK4"
+        }
+      },
+      {
+        "case_id": "flint",
+        "feature_id": "vela",
+        "value": true,
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-QWCNK4"
+        }
+      },
+      {
+        "case_id": "mica",
+        "feature_id": "vela",
+        "value": true,
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-QWCNK4"
+        }
+      }
+    ],
+    "comparisons": [
+      {
+        "comparison_id": "cedar_flint_vs_mica",
+        "target_id": "target_response",
+        "positive_case_ids": [
+          "cedar",
+          "flint"
+        ],
+        "control_case_ids": [
+          "mica"
+        ]
+      }
+    ],
+    "hypotheses": [
+      {
+        "hypothesis_id": "vela_explains_selective_response",
+        "target_id": "target_response",
+        "statement": "Marker Vela itself explains the selective target response.",
+        "material": true,
+        "discriminator": {
+          "feature_id": "vela",
+          "operator": "present"
+        },
+        "qualifier_predictions": []
+      }
+    ],
+    "claims": []
+  },
+  "state_sha256": "a297796fe388a487969268565261afd4b692190a577fa91d147c029b34a8c961",
+  "producer": {
+    "session_id": "conversation-sha256:96ea0c4ce072dcc590be87fef93512984f7d1e37f7b14773c2415027832ea229",
+    "model": "GPT-5.6 Sol",
+    "mode": "Pro"
+  },
+  "required_dimensions": [
+    "exact_target",
+    "case_and_comparison_roles",
+    "negative_or_tolerated_comparator",
+    "high_information_qualifier",
+    "timing",
+    "amount_or_dose",
+    "route_or_form",
+    "feature_value",
+    "predicate_semantics",
+    "dependency_or_provenance",
+    "other"
+  ],
+  "comparison_views": [
+    {
+      "comparison_id": "cedar_flint_vs_mica",
+      "positive_case_ids": [
+        "cedar",
+        "flint"
+      ],
+      "control_case_ids": [
+        "mica"
+      ]
+    }
+  ],
+  "discriminator_views": [
+    {
+      "hypothesis_id": "vela_explains_selective_response",
+      "feature_id": "vela",
+      "operator": "present",
+      "assignments": [
+        {
+          "case_id": "cedar",
+          "comparison_role": "positive",
+          "value": true
+        },
+        {
+          "case_id": "flint",
+          "comparison_role": "positive",
+          "value": true
+        },
+        {
+          "case_id": "mica",
+          "comparison_role": "tolerated_control",
+          "value": true
+        }
+      ]
+    }
+  ]
+}

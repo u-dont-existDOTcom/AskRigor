@@ -1,0 +1,210 @@
+You are the independent semantic representation reviewer for a DEVELOPMENT / DISCOVERY run.
+
+Review only the exact source packet and EpistemicStateV1 candidate in the supplied work package. Do not use the state producer's rationale, a scorer key, an expected answer, verifier implementation details, another arm's output, or outside evidence.
+
+For every required dimension, decide whether the state is faithful, missing, distorted, uncertain, or the dimension is not applicable to the source. Check the exact target; case and comparison roles; tolerated or negative comparators; high-information qualifiers; timing; amount or dose; route or form; feature values; predicate semantics; and dependency or provenance. In particular, distinguish a feature record's existence from the value stored in that record: `operator: "present"` asks whether a record exists and does not mean that its stored value equals "present".
+
+Mark `affects_hard_invariant` true only when the discrepancy could change a hard-gate result or permitted conclusion. Cite exact source character spans and resolvable JSON Pointer paths. A missing state fact has no state path. Use a fresh session distinct from the producer. Return exactly one object conforming to `EpistemicRepresentationReviewSubmissionV0.1`; do not synthesize an answer to the source question.
+
+Use this exact top-level shape:
+
+{
+  "review_version": "askrigor_epistemic_representation_review_v0_1",
+  "source_sha256": "<copy from work package>",
+  "state_sha256": "<copy from work package>",
+  "producer_session_id": "<copy from work package producer.session_id>",
+  "reviewer": {
+    "session_id": "<this fresh review session identity>",
+    "model": "<displayed model>",
+    "mode": "<displayed reasoning mode>",
+    "fresh_independent_session": true
+  },
+  "reviewed_at": "<ISO-8601 timestamp with offset>",
+  "findings": [
+    {
+      "dimension": "<one required dimension>",
+      "status": "faithful | missing | distorted | uncertain | not_applicable",
+      "affects_hard_invariant": true,
+      "source_spans": [{"start": 0, "end": 1, "quote": "<exact bytes>"}],
+      "state_paths": ["/target/target_id"],
+      "rationale": "<specific judgment>"
+    }
+  ]
+}
+
+Return exactly one finding for each dimension listed in `required_dimensions`, in that order. For `not_applicable`, set `affects_hard_invariant` false and leave `source_spans` and `state_paths` empty. For `missing`, cite source spans and leave `state_paths` empty. For `faithful` or `distorted`, cite both source spans and state paths. Use `uncertain` rather than guessing.
+
+
+WORK PACKAGE
+{
+  "package_version": "askrigor_epistemic_representation_work_package_v0_1",
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "source_packet": "Plover is a positive case and produces the target effect at a represented exposure of 0.1 units; Kestrel is a tolerated control. Feature Tern is represented in Plover and absent from Kestrel, and is the proposed discriminator. The material hypothesis also requires at least 10 exposure units for the target effect.",
+  "source_sha256": "aba59ac987f267b926f6e9366bd6d2449704b1c8aa28c755a36afe8a7f5843f7",
+  "candidate_state": {
+    "state_version": "askrigor_epistemic_state_v1",
+    "target": {
+      "target_id": "target_effect",
+      "label": "target effect",
+      "description": "The target effect specified in the source packet."
+    },
+    "cases": [
+      {
+        "case_id": "plover",
+        "label": "Plover",
+        "comparison_role": "positive",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-L9JQC2"
+        }
+      },
+      {
+        "case_id": "kestrel",
+        "label": "Kestrel",
+        "comparison_role": "tolerated_control",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-L9JQC2"
+        }
+      }
+    ],
+    "observations": [
+      {
+        "observation_id": "plover_target_effect_observation",
+        "target_id": "target_effect",
+        "case_id": "plover",
+        "statement": "Plover produces the target effect at a represented exposure of 0.1 units.",
+        "material": true,
+        "qualifiers": {
+          "represented_exposure_units": 0.1
+        },
+        "high_information_qualifier_keys": [
+          "represented_exposure_units"
+        ],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-L9JQC2"
+        }
+      }
+    ],
+    "features": [
+      {
+        "case_id": "plover",
+        "feature_id": "tern",
+        "value": "represented",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-L9JQC2"
+        }
+      },
+      {
+        "case_id": "kestrel",
+        "feature_id": "tern",
+        "value": "absent",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-L9JQC2"
+        }
+      }
+    ],
+    "comparisons": [
+      {
+        "comparison_id": "plover_vs_kestrel",
+        "target_id": "target_effect",
+        "positive_case_ids": [
+          "plover"
+        ],
+        "control_case_ids": [
+          "kestrel"
+        ]
+      }
+    ],
+    "hypotheses": [
+      {
+        "hypothesis_id": "tern_discriminator_hypothesis",
+        "target_id": "target_effect",
+        "statement": "Feature Tern is the proposed discriminator, and the material hypothesis requires at least 10 exposure units for the target effect.",
+        "material": true,
+        "discriminator": {
+          "feature_id": "tern",
+          "operator": "present",
+          "modifier": {
+            "kind": "dose",
+            "claim_id": "minimum_exposure_requirement"
+          }
+        },
+        "qualifier_predictions": [
+          {
+            "observation_id": "plover_target_effect_observation",
+            "qualifier_key": "represented_exposure_units",
+            "operator": "gte",
+            "value": 10
+          }
+        ]
+      }
+    ],
+    "claims": [
+      {
+        "claim_id": "minimum_exposure_requirement",
+        "target_id": "target_effect",
+        "kind": "modifier",
+        "statement": "The material hypothesis requires at least 10 exposure units for the target effect.",
+        "material": true,
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-L9JQC2"
+        },
+        "dependencies": []
+      }
+    ]
+  },
+  "state_sha256": "72459b36f53d7d98044b3e77ebc43d521a5e7f282ae442d1cc3463b77bcb6e71",
+  "producer": {
+    "session_id": "conversation-sha256:a7235c85af35e179a782acae931f75285021a2b6dcdbe9aa063f19e167d026f9",
+    "model": "GPT-5.6 Sol",
+    "mode": "Pro"
+  },
+  "required_dimensions": [
+    "exact_target",
+    "case_and_comparison_roles",
+    "negative_or_tolerated_comparator",
+    "high_information_qualifier",
+    "timing",
+    "amount_or_dose",
+    "route_or_form",
+    "feature_value",
+    "predicate_semantics",
+    "dependency_or_provenance",
+    "other"
+  ],
+  "comparison_views": [
+    {
+      "comparison_id": "plover_vs_kestrel",
+      "positive_case_ids": [
+        "plover"
+      ],
+      "control_case_ids": [
+        "kestrel"
+      ]
+    }
+  ],
+  "discriminator_views": [
+    {
+      "hypothesis_id": "tern_discriminator_hypothesis",
+      "feature_id": "tern",
+      "operator": "present",
+      "assignments": [
+        {
+          "case_id": "plover",
+          "comparison_role": "positive",
+          "value": "represented"
+        },
+        {
+          "case_id": "kestrel",
+          "comparison_role": "tolerated_control",
+          "value": "absent"
+        }
+      ]
+    }
+  ]
+}

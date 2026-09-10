@@ -1,0 +1,187 @@
+{
+"schemaVersion": 1,
+"packetType": "SOURCE_BOUND_PROJECT_MANAGER_METHODOLOGY_DISPOSITION",
+"directiveType": "PRE_GENERATION_REPRESENTATION_TRANSPORT_AMENDMENT",
+"directiveId": "askrigor-issue208-isrr-v01-raw-invalid-state-disposition-v1",
+"supersedesExecutionMethodOnly": "askrigor-issue208-independent-semantic-representation-review-full-blinded-development-v1",
+"decision": "AUTHORIZE_VERSIONED_RAW_INVALID_STATE_REVIEW_PATH_WITH_REFREEZE",
+"mayExecute": true,
+"scientificRunDisposition": "CONTINUE_WITHOUT_CANCELLING_OR_RESTARTING",
+"classification": "PERMITTED_PRE_GENERATION_REPRESENTATION_TRANSPORT_CORRECTION",
+"reason": {
+"reviewerOutputsGenerated": 0,
+"priorScoringReadDuringPreparation": false,
+"candidateCohortChanged": false,
+"purposeChanged": false,
+"problem": "One exact frozen natural INITIAL Arm B state is valid JSON but not valid EpistemicStateV1, so the canonical typed work-package constructor cannot transport that exact candidate without mutation.",
+"principle": "The study is intended to measure whether an independent reviewer detects source-to-state representation defects. A state must not become unreviewable merely because the producer defect occurs before or at schema validity."
+},
+"forbiddenHandling": [
+"SUBSTITUTE_FINAL_STATE",
+"NORMALIZE_OR_REPAIR_RAW_INITIAL_STATE",
+"DROP_CANDIDATE",
+"SHRINK_24_NATURAL_STATE_COHORT",
+"CHANGE_46_CANDIDATE_COUNT",
+"CHANGE_138_REVIEW_TRIAL_COUNT",
+"SILENTLY_BYPASS_CANONICAL_SCHEMA",
+"TREAT_SCHEMA_INVALIDITY_AS_SEMANTIC_GOLD",
+"TREAT_SCHEMA_INVALIDITY_AS_HARD_RELEVANCE_GOLD",
+"EXPOSE_SCHEMA_ERROR_TO_BLINDED_REVIEWER"
+],
+"preflight": {
+"action": "Deterministically schema-check all 24 exact frozen INITIAL states without semantic adjudication.",
+"allowedKnowledge": [
+"raw_state_sha256",
+"json_parse_validity",
+"EpistemicStateV1_schema_validity",
+"machine_schema_error"
+],
+"semanticInspectionForbidden": true,
+"expectedKnownInvalidCount": 1,
+"ifSchemaInvalidNaturalStatesGreaterThan": 1,
+"actionOnExcess": "STOP_AND_ROUTE_TO_PROJECT_MANAGER_FOR_NEW_METHOD_DISPOSITION"
+},
+"candidateHandling": {
+"schemaValidCandidate": {
+"transport": "CANONICAL_EPISTEMIC_REPRESENTATION_REVIEW_WORK_PACKAGE_V0_1",
+"constructor": "createEpistemicRepresentationReviewWorkPackage"
+},
+"schemaInvalidNaturalCandidate": {
+"transport": "RAW_INVALID_STATE_REVIEW_ENVELOPE_V0_1",
+"candidateIdentity": "EXACT_FROZEN_INITIAL_STATE_BYTES",
+"normalizationAllowed": false,
+"repairAllowed": false,
+"reviewTrials": 3,
+"includedInCandidateCount": true,
+"includedInNaturalStateCount": true,
+"reviewerTask": "Review semantic fidelity of exact source versus exact raw candidate state across the same 11 dimensions.",
+"reviewerMustNotBeTold": [
+"that candidate failed EpistemicStateV1 validation",
+"schema error location",
+"schema error message",
+"prior scoring label",
+"expected semantic defect",
+"expected hard relevance"
+]
+}
+},
+"rawInvalidEnvelope": {
+"version": "askrigor_epistemic_representation_raw_invalid_envelope_v0_1",
+"phase": "DEVELOPMENT_DISCOVERY",
+"fields": [
+"package_version",
+"phase",
+"source_packet",
+"source_sha256",
+"raw_candidate_state_json",
+"raw_state_sha256",
+"producer_session_id",
+"required_dimensions"
+],
+"raw_candidate_state_json": "Exact frozen JSON value produced from the frozen initial-state bytes with no semantic normalization; preserve original bytes separately and bind their SHA-256.",
+"derivedComparisonOrDiscriminatorViews": false,
+"schemaErrorIncludedInReviewerPackage": false,
+"goldIncludedInReviewerPackage": false,
+"previousOutputsIncluded": false,
+"verifierInternalsIncluded": false
+},
+"rawInvalidReviewOutput": {
+"useCanonicalDimensions": true,
+"dimensions": [
+"exact_target",
+"case_and_comparison_roles",
+"negative_or_tolerated_comparator",
+"high_information_qualifier",
+"timing",
+"amount_or_dose",
+"route_or_form",
+"feature_value",
+"predicate_semantics",
+"dependency_or_provenance",
+"other"
+],
+"statuses": [
+"faithful",
+"missing",
+"distorted",
+"uncertain",
+"not_applicable"
+],
+"requiresAffectsHardInvariant": true,
+"sourceSpanValidation": "SAME_AS_V0_1",
+"statePointerValidation": "RFC6901_POINTER_MUST_RESOLVE_AGAINST_EXACT_RAW_JSON_VALUE",
+"missingStateFactAllowsEmptyPointer": true,
+"reviewerIdentityAndFreshnessRequirements": "SAME_AS_V0_1"
+},
+"goldBoundary": {
+"structuralValidity": {
+"source": "DETERMINISTIC_EPistemicStateV1_PARSE",
+"metric": "SEPARATE_STRUCTURAL_VALIDITY_AXIS",
+"doesNotDetermineSemanticGold": true,
+"doesNotDetermineHardRelevanceGold": true
+},
+"semanticGoldForRawInvalidCandidate": {
+"method": "SAME_BLINDED_TRACK1_INDEPENDENT_ADJUDICATION_AS_OTHER_NATURAL_STATES",
+"inputs": [
+"exact_source_packet",
+"exact_raw_initial_state"
+],
+"secondIndependentAdjudication": true,
+"thirdOnAnyFieldDisagreement": true,
+"thisMissionControlChatExcluded": true,
+"priorLabelsForbidden": true,
+"schemaErrorForbiddenFromAdjudicatorInput": true
+}
+},
+"scoring": {
+"candidateStatesTotal": 46,
+"naturalStates": 24,
+"matchedMutationStates": 22,
+"reviewReplicatesPerCandidate": 3,
+"reviewTrialsTotal": 138,
+"thresholds": "UNCHANGED_FROM_PRIOR_SOURCE_BOUND_DIRECTIVE",
+"strategyPriority": "UNCHANGED_FROM_PRIOR_SOURCE_BOUND_DIRECTIVE",
+"schemaInvalidityMetric": "REPORT_SEPARATELY",
+"semanticSensitivitySpecificity": "Use independently reconciled semantic gold exactly as for other candidates.",
+"hardRelevanceScoring": "Use independently reconciled hard-relevance gold; never reviewer self-label or structural-invalid status."
+},
+"freezeSequenceAmendment": [
+"Deterministically identify schema-valid versus schema-invalid exact natural INITIAL states.",
+"Implement and test RAW_INVALID_STATE_REVIEW_ENVELOPE_V0_1 plus its evidence-validation ingest path without changing the canonical v0.1 path.",
+"Freeze exact envelope schema, reviewer prompt amendment, source code SHA-256, and all 46 candidate transport identities before any reviewer output.",
+"Reissue/freeze the 46-candidate opaque dispatch manifest.",
+"Only then begin the 138 blinded reviewer trials.",
+"Freeze all 138 outputs before semantic scoring/unblinding."
+],
+"promptRule": {
+"canonicalPromptSemanticsChanged": false,
+"allowedMechanicalAmendment": "For a raw-invalid envelope, replace references requiring candidate EpistemicStateV1 with exact candidate state; all 11 semantic review instructions, blinding, evidence-span, pointer, hard-relevance, independence, and output requirements remain identical.",
+"separatePromptVersionRequired": true,
+"promptMustBeFrozenBeforeGeneration": true
+},
+"implementationBoundary": {
+"canonicalV01ConstructorChanged": false,
+"canonicalV01IngestChanged": false,
+"newEvaluationOnlyRawInvalidAdapterAllowed": true,
+"newEpistemicGateAllowed": false,
+"verifierChangeAllowed": false,
+"HRPChangeAllowed": false,
+"UniversalChangeAllowed": false,
+"productionIntegrationAllowed": false,
+"heldOutOrMastAccessAllowed": false,
+"externalSpendUsd": 0
+},
+"hardStops": [
+"RAW_STATE_BYTES_CANNOT_BE_HASH_VERIFIED",
+"RAW_JSON_CANNOT_BE_PARSED_AS_JSON",
+"MORE_THAN_ONE_NATURAL_STATE_IS_SCHEMA_INVALID",
+"REVIEWER_PACKAGE_REVEALS_SCHEMA_FAILURE_OR_PRIOR_LABEL",
+"RAW_INVALID_ADAPTER_CHANGES_SOURCE_OR_STATE_CONTENT",
+"RAW_INVALID_ADAPTER_CANNOT_VALIDATE_SOURCE_SPANS_OR_JSON_POINTERS",
+"CANDIDATE_COUNT_DIFFERS_FROM_46",
+"REVIEW_TRIAL_PLAN_DIFFERS_FROM_138",
+"ANY_REVIEW_OUTPUT_EXISTS_BEFORE_AMENDED_FREEZE",
+"METHOD_REQUIRES_HELD_OUT_DATA_NEW_GATE_PROTOCOL_OR_PRODUCTION_CHANGE"
+],
+"completionRule": "The amended preregistration/freeze must explicitly record this disposition and the raw-invalid adapter identities before first reviewer generation. No prior run data are discarded because the reviewer run had not begun."
+}

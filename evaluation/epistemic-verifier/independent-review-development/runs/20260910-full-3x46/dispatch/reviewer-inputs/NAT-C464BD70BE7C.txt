@@ -1,0 +1,193 @@
+You are the independent semantic representation reviewer for a DEVELOPMENT / DISCOVERY run.
+
+Review only the exact source packet and EpistemicStateV1 candidate in the supplied work package. Do not use the state producer's rationale, a scorer key, an expected answer, verifier implementation details, another arm's output, or outside evidence.
+
+For every required dimension, decide whether the state is faithful, missing, distorted, uncertain, or the dimension is not applicable to the source. Check the exact target; case and comparison roles; tolerated or negative comparators; high-information qualifiers; timing; amount or dose; route or form; feature values; predicate semantics; and dependency or provenance. In particular, distinguish a feature record's existence from the value stored in that record: `operator: "present"` asks whether a record exists and does not mean that its stored value equals "present".
+
+Mark `affects_hard_invariant` true only when the discrepancy could change a hard-gate result or permitted conclusion. Cite exact source character spans and resolvable JSON Pointer paths. A missing state fact has no state path. Use a fresh session distinct from the producer. Return exactly one object conforming to `EpistemicRepresentationReviewSubmissionV0.1`; do not synthesize an answer to the source question.
+
+Use this exact top-level shape:
+
+{
+  "review_version": "askrigor_epistemic_representation_review_v0_1",
+  "source_sha256": "<copy from work package>",
+  "state_sha256": "<copy from work package>",
+  "producer_session_id": "<copy from work package producer.session_id>",
+  "reviewer": {
+    "session_id": "<this fresh review session identity>",
+    "model": "<displayed model>",
+    "mode": "<displayed reasoning mode>",
+    "fresh_independent_session": true
+  },
+  "reviewed_at": "<ISO-8601 timestamp with offset>",
+  "findings": [
+    {
+      "dimension": "<one required dimension>",
+      "status": "faithful | missing | distorted | uncertain | not_applicable",
+      "affects_hard_invariant": true,
+      "source_spans": [{"start": 0, "end": 1, "quote": "<exact bytes>"}],
+      "state_paths": ["/target/target_id"],
+      "rationale": "<specific judgment>"
+    }
+  ]
+}
+
+Return exactly one finding for each dimension listed in `required_dimensions`, in that order. For `not_applicable`, set `affects_hard_invariant` false and leave `source_spans` and `state_paths` empty. For `missing`, cite source spans and leave `state_paths` empty. For `faithful` or `distorted`, cite both source spans and state paths. Use `uncertain` rather than guessing.
+
+
+WORK PACKAGE
+{
+  "package_version": "askrigor_epistemic_representation_work_package_v0_1",
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "source_packet": "Alder is a positive case and produces the target effect within 2 seconds; Basin is a tolerated control. Feature Iris is represented in Alder and absent from Basin, and is the proposed discriminator. The material hypothesis also requires the target effect to begin no sooner than 3,600 seconds after exposure.",
+  "source_sha256": "a9d647186a9572eee84d7a2eb76ad8f1728b0f3482cb9bf6eb1e7f0fe028051c",
+  "candidate_state": {
+    "state_version": "askrigor_epistemic_state_v1",
+    "target": {
+      "target_id": "target_effect",
+      "label": "target effect",
+      "description": "The target effect produced by Alder in the represented comparison."
+    },
+    "cases": [
+      {
+        "case_id": "alder",
+        "label": "Alder",
+        "comparison_role": "positive",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-D6JPFM"
+        }
+      },
+      {
+        "case_id": "basin",
+        "label": "Basin",
+        "comparison_role": "tolerated_control",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-D6JPFM"
+        }
+      }
+    ],
+    "observations": [
+      {
+        "observation_id": "alder_target_effect_observation",
+        "target_id": "target_effect",
+        "case_id": "alder",
+        "statement": "Alder produces the target effect within 2 seconds.",
+        "material": true,
+        "qualifiers": {
+          "onset_seconds": 2
+        },
+        "high_information_qualifier_keys": [
+          "onset_seconds"
+        ],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-D6JPFM"
+        }
+      }
+    ],
+    "features": [
+      {
+        "case_id": "alder",
+        "feature_id": "iris",
+        "value": "present",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-D6JPFM"
+        }
+      },
+      {
+        "case_id": "basin",
+        "feature_id": "iris",
+        "value": "absent",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-D6JPFM"
+        }
+      }
+    ],
+    "comparisons": [
+      {
+        "comparison_id": "alder_basin_specificity_comparison",
+        "target_id": "target_effect",
+        "positive_case_ids": [
+          "alder"
+        ],
+        "control_case_ids": [
+          "basin"
+        ]
+      }
+    ],
+    "hypotheses": [
+      {
+        "hypothesis_id": "iris_delayed_onset_hypothesis",
+        "target_id": "target_effect",
+        "statement": "Feature Iris is the proposed discriminator for the target effect, and the target effect must begin no sooner than 3,600 seconds after exposure.",
+        "material": true,
+        "discriminator": {
+          "feature_id": "iris",
+          "operator": "present"
+        },
+        "qualifier_predictions": [
+          {
+            "observation_id": "alder_target_effect_observation",
+            "qualifier_key": "onset_seconds",
+            "operator": "gte",
+            "value": 3600
+          }
+        ]
+      }
+    ],
+    "claims": []
+  },
+  "state_sha256": "8bc21e3e1c46348b2e6e75caaeaeab77791afd69dbabd2a648295b590990f55c",
+  "producer": {
+    "session_id": "conversation-sha256:495c5e70938dbcb6881a08168074ee232be72ad1d1f1c9b33e9fc420d8703ed5",
+    "model": "GPT-5.6 Sol",
+    "mode": "Pro"
+  },
+  "required_dimensions": [
+    "exact_target",
+    "case_and_comparison_roles",
+    "negative_or_tolerated_comparator",
+    "high_information_qualifier",
+    "timing",
+    "amount_or_dose",
+    "route_or_form",
+    "feature_value",
+    "predicate_semantics",
+    "dependency_or_provenance",
+    "other"
+  ],
+  "comparison_views": [
+    {
+      "comparison_id": "alder_basin_specificity_comparison",
+      "positive_case_ids": [
+        "alder"
+      ],
+      "control_case_ids": [
+        "basin"
+      ]
+    }
+  ],
+  "discriminator_views": [
+    {
+      "hypothesis_id": "iris_delayed_onset_hypothesis",
+      "feature_id": "iris",
+      "operator": "present",
+      "assignments": [
+        {
+          "case_id": "alder",
+          "comparison_role": "positive",
+          "value": "present"
+        },
+        {
+          "case_id": "basin",
+          "comparison_role": "tolerated_control",
+          "value": "absent"
+        }
+      ]
+    }
+  ]
+}
