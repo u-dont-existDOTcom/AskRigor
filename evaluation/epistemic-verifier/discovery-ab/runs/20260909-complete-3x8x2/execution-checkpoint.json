@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "current_checkpoint": "checkpoints/checkpoint-017.json",
-  "frozen_consumer_sessions": 17,
+  "current_checkpoint": "checkpoints/checkpoint-024.json",
+  "frozen_consumer_sessions": 24,
   "required_consumer_sessions": 48,
-  "arm_a_completed": 9,
-  "arm_b_completed": 8,
-  "verifier_repair_chains_completed": 8,
+  "arm_a_completed": 12,
+  "arm_b_completed": 12,
+  "verifier_repair_chains_completed": 12,
   "scorer_key_opened": false,
   "current_blocker": null,
-  "next_trial_id": "r2-DEV-Y8PCH6-b",
-  "next_canonical_scheduled_sequence": 17,
-  "recovery_note": "Preserve all raw artifacts. Apply integrity-incidents/execution-order-correction-001.json when interpreting r2-DEV-Y8PCH6-a. Execute the missing scheduled sequence 17 next, then continue with sequence 19."
+  "next_trial_id": "r2-DEV-QWCNK4-b",
+  "next_canonical_scheduled_sequence": 25,
+  "recovery_note": "Preserve all raw artifacts. Apply both integrity incident records. Continue with scheduled sequence 25. Do not inspect the scorer key before all 48 sessions are frozen and committed."
 }

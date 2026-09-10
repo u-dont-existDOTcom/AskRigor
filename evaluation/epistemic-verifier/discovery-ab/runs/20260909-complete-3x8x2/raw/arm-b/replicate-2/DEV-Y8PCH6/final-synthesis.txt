@@ -1,0 +1,5 @@
+Bottom-line conclusion: Within the represented Willow–Drift comparison, Ember is a valid discriminator: Ember is present in Willow, the positive case, and absent from Drift, the tolerated control. This candidate hypothesis also preserves the high-information fact that Willow’s target effect begins within 2 seconds. It does not establish that Ember caused the effect.
+
+Minimum reasoning: The represented feature contrast cleanly separates the only positive case from the only control. The revised hypothesis also explicitly accounts for the onset qualifier, predicting onset at or before 2 seconds, rather than dropping that material timing information.
+
+Definitive conclusion supported? Yes, but only for the bounded discrimination claim in this represented comparison. The packet definitively supports that Ember distinguishes Willow from Drift as represented. It does not support a definitive causal claim, a general rule beyond these cases, or proof that Ember independently explains the target effect.

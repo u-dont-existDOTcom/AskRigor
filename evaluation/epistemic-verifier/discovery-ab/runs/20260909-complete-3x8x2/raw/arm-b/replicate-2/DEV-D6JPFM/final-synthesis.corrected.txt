@@ -1,0 +1,5 @@
+Bottom-line conclusion: Iris survives the represented Alder–Basin specificity contrast, but the full material hypothesis is not established. Its required onset of at least 3,600 seconds is directly opposed by Alder’s observed onset within 2 seconds.
+
+Minimum reasoning: Iris is present in the positive case and absent from the tolerated control, so the represented feature contrast is satisfied. However, the hypothesis predicts onset_seconds ≥ 3600, while the material observation is onset_seconds ≤ 2. No source-supported exception mechanism resolves that conflict, so the evidence-direction and synthesis gates remain blocked.
+
+Definitive conclusion supported? No. The packet supports only the bounded conclusion that the hypothesis’s timing requirement conflicts with the observed response. It does not support establishing the complete Iris hypothesis as valid or causal.
