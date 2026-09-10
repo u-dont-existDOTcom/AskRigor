@@ -1,0 +1,263 @@
+{
+  "review_version": "askrigor_epistemic_representation_review_v0_1",
+  "source_sha256": "cf4e76402d12331bc4148fe195a4ddb3bedae7d466fe50f90c7922612cb9ab64",
+  "state_sha256": "053b34e2a4b1f9049b28f0bde3a40a24d86796a30783b68a1a70dc1ff6e7ca32",
+  "producer_session_id": "synthetic-producer-PAIR-1F58EC041E03",
+  "reviewer": {
+    "session_id": "review-6f9c7f73-2cf1-46e4-a731-40217c886564",
+    "model": "GPT-5.6 Sol",
+    "mode": "Thinking",
+    "fresh_independent_session": true
+  },
+  "reviewed_at": "2026-09-10T19:06:00+00:00",
+  "reviewer_independent": true,
+  "status": "block",
+  "critical_representation": "defective",
+  "findings": [
+    {
+      "dimension": "exact_target",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 33,
+          "quote": "The requested target is risk_m07."
+        }
+      ],
+      "state_paths": [
+        "/target/target_id",
+        "/observations/0/target_id",
+        "/observations/1/target_id",
+        "/comparisons/0/target_id",
+        "/hypotheses/0/target_id",
+        "/claims/0/target_id",
+        "/claims/1/target_id"
+      ],
+      "rationale": "The requested target risk_m07 is preserved consistently throughout the target, observations, comparison, hypothesis, and claims."
+    },
+    {
+      "dimension": "case_and_comparison_roles",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 34,
+          "end": 64,
+          "quote": "Rowan m07 is the positive case"
+        },
+        {
+          "start": 172,
+          "end": 205,
+          "quote": "Mica m07 is the tolerated control"
+        }
+      ],
+      "state_paths": [
+        "/cases/0/case_id",
+        "/cases/0/comparison_role",
+        "/cases/1/case_id",
+        "/cases/1/comparison_role",
+        "/comparisons/0/positive_case_ids/0",
+        "/comparisons/0/control_case_ids/0"
+      ],
+      "rationale": "Rowan m07 is represented as the positive case and Mica m07 as the tolerated control, and the comparison assigns them to the corresponding positive and control sets."
+    },
+    {
+      "dimension": "negative_or_tolerated_comparator",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 207,
+          "end": 303,
+          "quote": "Mica receives the same 10-unit intravenous liquid exposure and does not show the target outcome."
+        }
+      ],
+      "state_paths": [
+        "/observations/1/case_id",
+        "/observations/1/statement",
+        "/observations/1/material",
+        "/observations/1/qualifiers/dose_units",
+        "/observations/1/qualifiers/route",
+        "/observations/1/qualifiers/form"
+      ],
+      "rationale": "The tolerated comparator is explicitly represented as Mica m07, with the same represented dose, route, and liquid form and with absence of the target outcome. The separate omission of the compound identity is addressed under the other dimension."
+    },
+    {
+      "dimension": "high_information_qualifier",
+      "status": "uncertain",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 66,
+          "end": 171,
+          "quote": "the target outcome begins within 2 seconds after 10 units of compound Sol by intravenous liquid infusion."
+        },
+        {
+          "start": 207,
+          "end": 303,
+          "quote": "Mica receives the same 10-unit intravenous liquid exposure and does not show the target outcome."
+        }
+      ],
+      "state_paths": [
+        "/observations/0/high_information_qualifier_keys",
+        "/observations/1/high_information_qualifier_keys"
+      ],
+      "rationale": "The state explicitly marks onset, dose, route, and form as high-information qualifiers, which captures the main timing and exposure qualifiers represented by the schema. However, the source also specifies compound Sol and describes the positive administration as an infusion; those details have no corresponding qualifier key. Without the schema definition for what must be enumerated in high_information_qualifier_keys, it is uncertain whether their omission makes this key set incomplete."
+    },
+    {
+      "dimension": "timing",
+      "status": "uncertain",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 92,
+          "end": 108,
+          "quote": "within 2 seconds"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/qualifiers/onset_seconds",
+        "/hypotheses/0/qualifier_predictions/0/operator",
+        "/hypotheses/0/qualifier_predictions/0/value"
+      ],
+      "rationale": "The source gives an upper bound: onset occurs within 2 seconds. The hypothesis prediction faithfully encodes that bound as lte 2, but the observation itself stores the bare scalar onset_seconds = 2. If that observation field denotes an exact measured onset, it overstates the source; if it denotes the represented bound, it is faithful. The work package does not define the field semantics, so guessing between those interpretations would be unwarranted. The explicit lte prediction preserves the source's relevant threshold."
+    },
+    {
+      "dimension": "amount_or_dose",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 115,
+          "end": 123,
+          "quote": "10 units"
+        },
+        {
+          "start": 230,
+          "end": 237,
+          "quote": "10-unit"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/qualifiers/dose_units",
+        "/observations/1/qualifiers/dose_units",
+        "/claims/0/statement",
+        "/hypotheses/0/discriminator/modifier/claim_id"
+      ],
+      "rationale": "Both cases are represented at dose 10, and the dose modifier claim explicitly states that the represented 10-unit dose is held constant across the comparison."
+    },
+    {
+      "dimension": "route_or_form",
+      "status": "uncertain",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 143,
+          "end": 170,
+          "quote": "intravenous liquid infusion"
+        },
+        {
+          "start": 225,
+          "end": 265,
+          "quote": "same 10-unit intravenous liquid exposure"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/qualifiers/route",
+        "/observations/0/qualifiers/form",
+        "/observations/1/qualifiers/route",
+        "/observations/1/qualifiers/form"
+      ],
+      "rationale": "The state preserves intravenous as the route and liquid as the form for both cases. The source additionally says the positive exposure is delivered by infusion. Because the supplied schema does not establish whether infusion is part of route semantics, a separate administration-mode qualifier, or nonmaterial wording, the completeness of this representation is uncertain rather than clearly distorted."
+    },
+    {
+      "dimension": "feature_value",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 304,
+          "end": 360,
+          "quote": "Feature Quartz is high in Rowan m07 and low in Mica m07."
+        }
+      ],
+      "state_paths": [
+        "/features/0/case_id",
+        "/features/0/feature_id",
+        "/features/0/value",
+        "/features/1/case_id",
+        "/features/1/feature_id",
+        "/features/1/value"
+      ],
+      "rationale": "Quartz is represented as high for Rowan m07 and low for Mica m07 exactly as stated."
+    },
+    {
+      "dimension": "predicate_semantics",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 395,
+          "end": 453,
+          "quote": "Quartz value equals high distinguishes the target outcome."
+        }
+      ],
+      "state_paths": [
+        "/hypotheses/0/statement",
+        "/hypotheses/0/discriminator/feature_id",
+        "/hypotheses/0/discriminator/operator",
+        "/hypotheses/0/discriminator/value"
+      ],
+      "rationale": "The discriminator tests feature quartz_m07 with operator equals and value high, matching the source predicate that Quartz value equals high. It does not substitute record existence or operator present for equality of the stored feature value."
+    },
+    {
+      "dimension": "dependency_or_provenance",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 454,
+          "end": 577,
+          "quote": "The conclusion about risk_m07 must depend on Rowan's source-grounded target observation and the tolerated-control contrast."
+        }
+      ],
+      "state_paths": [
+        "/observations/0/provenance/kind",
+        "/observations/1/provenance/kind",
+        "/claims/1/provenance/kind",
+        "/claims/1/dependencies/0",
+        "/claims/1/dependencies/1",
+        "/claims/1/dependencies/2"
+      ],
+      "rationale": "Rowan's target observation and Mica's tolerated-control observation are both source-grounded. The conclusion is explicitly inferential and depends on both observations, thereby preserving the source-mandated positive-observation and tolerated-control contrast dependency; it also depends on the constant-dose modifier."
+    },
+    {
+      "dimension": "other",
+      "status": "missing",
+      "affects_hard_invariant": true,
+      "source_spans": [
+        {
+          "start": 127,
+          "end": 139,
+          "quote": "compound Sol"
+        },
+        {
+          "start": 207,
+          "end": 265,
+          "quote": "Mica receives the same 10-unit intravenous liquid exposure"
+        }
+      ],
+      "state_paths": [],
+      "rationale": "The exposure identity compound Sol is absent from the candidate state. This is not merely redundant with dose, route, or form: the source establishes Rowan's exposure as compound Sol and says Mica receives the same exposure. Without representing compound identity, the state cannot establish that the positive and tolerated-control cases concern the same material rather than merely matching on dose, route, and physical form. That omission could change whether the contrast supports the permitted discriminator conclusion."
+    }
+  ],
+  "blockers": [
+    "other: The exposure identity compound Sol is absent from the candidate state. This is not merely redundant with dose, route, or form: the source establishes Rowan's exposure as compound Sol and says Mica receives the same exposure. Without representing compound identity, the state cannot establish that the positive and tolerated-control cases concern the same material rather than merely matching on dose, route, and physical form. That omission could change whether the contrast supports the permitted discriminator conclusion."
+  ],
+  "warnings": [
+    "high_information_qualifier: The state explicitly marks onset, dose, route, and form as high-information qualifiers, which captures the main timing and exposure qualifiers represented by the schema. However, the source also specifies compound Sol and describes the positive administration as an infusion; those details have no corresponding qualifier key. Without the schema definition for what must be enumerated in high_information_qualifier_keys, it is uncertain whether their omission makes this key set incomplete.",
+    "timing: The source gives an upper bound: onset occurs within 2 seconds. The hypothesis prediction faithfully encodes that bound as lte 2, but the observation itself stores the bare scalar onset_seconds = 2. If that observation field denotes an exact measured onset, it overstates the source; if it denotes the represented bound, it is faithful. The work package does not define the field semantics, so guessing between those interpretations would be unwarranted. The explicit lte prediction preserves the source's relevant threshold.",
+    "route_or_form: The state preserves intravenous as the route and liquid as the form for both cases. The source additionally says the positive exposure is delivered by infusion. Because the supplied schema does not establish whether infusion is part of route semantics, a separate administration-mode qualifier, or nonmaterial wording, the completeness of this representation is uncertain rather than clearly distorted."
+  ]
+}
