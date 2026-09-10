@@ -1,0 +1,10 @@
+
+
+Bottom line: The stated Tern hypothesis cannot account for Plover’s target effect as represented. Tern passes the positive-versus-control specificity contrast, but the hypothesis’s required exposure threshold conflicts with the observed effect.
+
+
+Minimum reasoning: Tern is present in Plover and absent from tolerated Kestrel, so it distinguishes the two represented cases. However, Plover produces the effect at 0.1 exposure units, whereas the material hypothesis requires at least 10 units—a 100-fold higher exposure. No supported exception is provided to reconcile that contradiction.
+
+
+Definitive conclusion: No. Because the synthesis lock is blocked, the packet does not support definitive acceptance of Tern as the valid explanatory discriminator. It supports only the bounded conclusion that the material hypothesis, as stated, is incompatible with Plover’s represented exposure.
+

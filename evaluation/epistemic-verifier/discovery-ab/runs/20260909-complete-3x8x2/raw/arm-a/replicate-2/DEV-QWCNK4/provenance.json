@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "trial_id": "r2-DEV-QWCNK4-a",
+  "sequence": 26,
+  "execution_ordinal": 26,
+  "replicate": 2,
+  "blind_id": "DEV-QWCNK4",
+  "arm": "A",
+  "consumer": {
+    "surface": "CHATGPT_CONSUMER_UI",
+    "model": "GPT-5.6 Sol",
+    "mode": "Pro",
+    "displayed_control": "5.6Pro",
+    "model_selection_verified": true
+  },
+  "timestamps": {
+    "started_at": "2026-09-10T03:05:18.323Z",
+    "completed_at": "2026-09-10T03:06:32.106Z",
+    "conversation_left_at": "2026-09-10T03:06:43.741Z"
+  },
+  "prompt": {
+    "path": "dispatch-bundle/initial-prompts/arm-a/DEV-QWCNK4.txt",
+    "utf8_bytes": 876,
+    "sha256": "ac8d11b22949b1e1d95abd9d28f2e405e637e1de3f0aee3285ceaa25f45ed1a0",
+    "accepted_dom_matches_frozen": true,
+    "user_message_id": "ca426c8a-87c3-4607-bd84-cb37a3ce904e"
+  },
+  "output": {
+    "path": "raw/arm-a/replicate-2/DEV-QWCNK4/final-output.txt",
+    "utf8_bytes": 516,
+    "sha256": "367a5376fc8f849c452777e1743b90ed91de46f438dbc74ea85d68b7ca754169",
+    "assistant_message_id": "a3588621-0732-4eb2-846c-d701072980ef",
+    "complete": true
+  },
+  "conversation": {
+    "identity_sha256": "3167c8a709d63b9b0ff305e9f25cb23f42f23707f41d70486e0a562c6bb06ae1",
+    "exact_locator_committed": false,
+    "fresh": true,
+    "left_before_next_trial": true
+  },
+  "tools": {
+    "message_role_count": 0,
+    "talked_to_app_count": 0,
+    "sources_button_count": 0,
+    "invocation_detected": false
+  },
+  "provider_conditions": {
+    "request_rate_dialogs_dismissed": 1,
+    "identical_submission_retries": 0,
+    "response_regenerated": false
+  },
+  "integrity": {
+    "other_fixture_exposed": false,
+    "other_arm_exposed": false,
+    "scorer_key_exposed": false,
+    "external_evidence_exposed": false,
+    "replacement": false,
+    "answer_quality_retry": false
+  },
+  "tab_closed": false,
+  "conversation_closed": true
+}

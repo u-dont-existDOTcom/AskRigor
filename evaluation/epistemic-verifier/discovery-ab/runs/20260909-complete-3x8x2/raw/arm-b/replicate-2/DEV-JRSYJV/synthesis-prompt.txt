@@ -1,0 +1,316 @@
+Produce the final AskRigor synthesis from the source packet and the final verified state/receipt below, using the same ordinary canonical AskRigor instructions as Arm A.
+
+Do not override or reinterpret the deterministic receipt. If SYNTHESIS_LOCK is pass, a definitive conclusion is permitted only to the extent supported by the source packet. If SYNTHESIS_LOCK is block or insufficient, do not state the blocked proposition as established; a bounded/uncertain conclusion may state what failed or is missing.
+
+Return:
+1. concise bottom-line conclusion;
+2. minimum reasoning;
+3. whether the packet supports a definitive conclusion.
+
+BLIND_PACKET_ID: DEV-JRSYJV
+
+SOURCE_PACKET:
+Harbor and Lark show the target response while Juniper is tolerated. Compound Sable is present in all three, but its represented dose is 10 units in Harbor, 12 units in Lark, and 1 unit in Juniper. Test the explicit dose-modified hypothesis Sable dose > 5, with the dose distinction represented as a separate source-grounded modifier claim.
+
+FINAL_EPISTEMIC_STATE:
+{
+  "state_version": "askrigor_epistemic_state_v1",
+  "target": {
+    "target_id": "target_response",
+    "label": "target response",
+    "description": "The target response shown by Harbor and Lark in the represented comparison with tolerated Juniper."
+  },
+  "cases": [
+    {
+      "case_id": "harbor",
+      "label": "Harbor",
+      "comparison_role": "positive",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-JRSYJV"
+      }
+    },
+    {
+      "case_id": "lark",
+      "label": "Lark",
+      "comparison_role": "positive",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-JRSYJV"
+      }
+    },
+    {
+      "case_id": "juniper",
+      "label": "Juniper",
+      "comparison_role": "tolerated_control",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-JRSYJV"
+      }
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "obs_harbor_target_response",
+      "target_id": "target_response",
+      "case_id": "harbor",
+      "statement": "Harbor shows the target response.",
+      "material": true,
+      "qualifiers": {
+        "compound_sable_dose_units": 10
+      },
+      "high_information_qualifier_keys": [
+        "compound_sable_dose_units"
+      ],
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-JRSYJV"
+      }
+    },
+    {
+      "observation_id": "obs_lark_target_response",
+      "target_id": "target_response",
+      "case_id": "lark",
+      "statement": "Lark shows the target response.",
+      "material": true,
+      "qualifiers": {
+        "compound_sable_dose_units": 12
+      },
+      "high_information_qualifier_keys": [
+        "compound_sable_dose_units"
+      ],
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-JRSYJV"
+      }
+    },
+    {
+      "observation_id": "obs_juniper_tolerated",
+      "target_id": "target_response",
+      "case_id": "juniper",
+      "statement": "Juniper is tolerated in the represented target-response comparison.",
+      "material": true,
+      "qualifiers": {
+        "compound_sable_dose_units": 1
+      },
+      "high_information_qualifier_keys": [
+        "compound_sable_dose_units"
+      ],
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-JRSYJV"
+      }
+    }
+  ],
+  "features": [
+    {
+      "case_id": "harbor",
+      "feature_id": "compound_sable",
+      "value": true,
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-JRSYJV"
+      }
+    },
+    {
+      "case_id": "harbor",
+      "feature_id": "compound_sable_dose_units",
+      "value": 10,
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-JRSYJV"
+      }
+    },
+    {
+      "case_id": "lark",
+      "feature_id": "compound_sable",
+      "value": true,
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-JRSYJV"
+      }
+    },
+    {
+      "case_id": "lark",
+      "feature_id": "compound_sable_dose_units",
+      "value": 12,
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-JRSYJV"
+      }
+    },
+    {
+      "case_id": "juniper",
+      "feature_id": "compound_sable",
+      "value": true,
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-JRSYJV"
+      }
+    },
+    {
+      "case_id": "juniper",
+      "feature_id": "compound_sable_dose_units",
+      "value": 1,
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-JRSYJV"
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "comparison_id": "comparison_harbor_lark_vs_juniper",
+      "target_id": "target_response",
+      "positive_case_ids": [
+        "harbor",
+        "lark"
+      ],
+      "control_case_ids": [
+        "juniper"
+      ]
+    }
+  ],
+  "hypotheses": [
+    {
+      "hypothesis_id": "hypothesis_sable_dose_gt_5",
+      "target_id": "target_response",
+      "statement": "A represented Compound Sable dose greater than 5 units discriminates Harbor and Lark from tolerated Juniper for the target response.",
+      "material": true,
+      "discriminator": {
+        "feature_id": "compound_sable_dose_units",
+        "operator": "gt",
+        "value": 5,
+        "modifier": {
+          "kind": "dose",
+          "claim_id": "claim_sable_dose_gt_5_modifier"
+        }
+      },
+      "qualifier_predictions": [
+        {
+          "observation_id": "obs_harbor_target_response",
+          "qualifier_key": "compound_sable_dose_units",
+          "operator": "gt",
+          "value": 5
+        },
+        {
+          "observation_id": "obs_lark_target_response",
+          "qualifier_key": "compound_sable_dose_units",
+          "operator": "gt",
+          "value": 5
+        },
+        {
+          "observation_id": "obs_juniper_tolerated",
+          "qualifier_key": "compound_sable_dose_units",
+          "operator": "lte",
+          "value": 5
+        }
+      ]
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "claim_sable_dose_gt_5_modifier",
+      "target_id": "target_response",
+      "kind": "modifier",
+      "statement": "The explicit dose modifier is a represented Compound Sable dose greater than 5 units.",
+      "material": true,
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-JRSYJV"
+      },
+      "dependencies": []
+    },
+    {
+      "claim_id": "claim_sable_dose_representation_matches_contrast",
+      "target_id": "target_response",
+      "kind": "conclusion",
+      "statement": "In the represented comparison, Harbor and Lark satisfy the Compound Sable dose-greater-than-5 condition, while tolerated Juniper does not.",
+      "material": true,
+      "provenance": {
+        "kind": "inference",
+        "source_id": "DEV-JRSYJV"
+      },
+      "dependencies": [
+        {
+          "kind": "observation",
+          "id": "obs_harbor_target_response"
+        },
+        {
+          "kind": "observation",
+          "id": "obs_lark_target_response"
+        },
+        {
+          "kind": "observation",
+          "id": "obs_juniper_tolerated"
+        },
+        {
+          "kind": "claim",
+          "id": "claim_sable_dose_gt_5_modifier"
+        }
+      ]
+    }
+  ]
+}
+
+FINAL_VERIFIER_RECEIPT:
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "42c4a9143018c21bdc9bf1198c68949da565385f28a55335814e713c5a3eecb0",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "hypothesis_sable_dose_gt_5"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "hypothesis_sable_dose_gt_5"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "claim_sable_dose_representation_matches_contrast"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "obs_harbor_target_response",
+        "obs_lark_target_response",
+        "obs_juniper_tolerated",
+        "claim_sable_dose_gt_5_modifier",
+        "claim_sable_dose_representation_matches_contrast"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "hypothesis_sable_dose_gt_5",
+        "hypothesis_sable_dose_gt_5",
+        "claim_sable_dose_representation_matches_contrast",
+        "obs_harbor_target_response",
+        "obs_lark_target_response",
+        "obs_juniper_tolerated",
+        "claim_sable_dose_gt_5_modifier",
+        "claim_sable_dose_representation_matches_contrast"
+      ]
+    }
+  ],
+  "definitive_synthesis": true,
+  "synthesis_boundary": "definitive_allowed",
+  "blockers": []
+}

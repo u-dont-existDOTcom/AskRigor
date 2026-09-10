@@ -1,0 +1,66 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "0317834c669aa03c846255a9ec81f4c164054b02cab10d859f9235766b4c2ac2",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "block",
+      "blockers": [
+        "vela_explains_selective_response: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+      ],
+      "checked_ids": [
+        "vela_explains_selective_response"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "vela_explains_selective_response"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "vela_does_not_survive_specificity_contrast"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "cedar_target_response",
+        "flint_target_response",
+        "mica_no_target_response",
+        "vela_shared_across_positive_and_control_cases",
+        "vela_does_not_survive_specificity_contrast"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "vela_explains_selective_response: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+      ],
+      "checked_ids": [
+        "vela_explains_selective_response",
+        "vela_explains_selective_response",
+        "vela_does_not_survive_specificity_contrast",
+        "cedar_target_response",
+        "flint_target_response",
+        "mica_no_target_response",
+        "vela_shared_across_positive_and_control_cases",
+        "vela_does_not_survive_specificity_contrast"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "vela_explains_selective_response: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+  ]
+}
