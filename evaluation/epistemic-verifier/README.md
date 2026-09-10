@@ -62,3 +62,11 @@ If representable invariant escapes persist, fix the state/verifier rather than a
 If most failures are omissions or distortions during source-to-state translation, stop proliferating deterministic gates and prioritize an independent semantic representation verifier.
 
 Only after development stabilizes should v0.1 be frozen and assessed on a genuinely held-out validation set. Frozen MAST artifacts are not development fixtures for this work.
+
+## Independent representation review slice
+
+The complete 48-session DEVELOPMENT run found no eligible end-to-end escape in either arm, while 17/24 Arm B trials had an initial or persistent critical semantic translation defect. The frozen strategy rule therefore selected one independent semantic representation review slice.
+
+`epistemic-representation-review.ts` creates a development-only source-plus-state work package and ingests a structured review from a fresh session independent of the state producer. The review is bound to the exact source bytes and the verifier's canonical parsed-state serialization, covers every critical semantic dimension, verifies cited source spans and state paths, and blocks or marks indeterminate hard-relevant representation defects. The reviewer receives no producer rationale, scorer key, expected answer, other-arm output, or verifier internals. This boundary is not wired into production and does not change the existing deterministic gates.
+
+The canonical reviewer prompt is `independent-representation-review-prompt.txt`.

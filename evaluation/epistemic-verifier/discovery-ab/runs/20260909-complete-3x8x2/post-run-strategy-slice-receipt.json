@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "run_id": "askrigor-epistemic-verifier-v01-complete-blinded-dev-ab-3x8x2-20260909",
+  "result_commit": "92418b99fb6adcfd43868bbcb39ff955ee91b321",
+  "selected_strategy": "BUILD_INDEPENDENT_SEMANTIC_REPRESENTATION_VERIFIER",
+  "automatic_slice_number": 1,
+  "automatic_slice_limit": 1,
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "implemented": {
+    "source_plus_state_work_package": "apps/research-mcp/src/epistemic-representation-review.ts",
+    "reviewer_prompt": "evaluation/epistemic-verifier/independent-representation-review-prompt.txt",
+    "focused_tests": "tests/epistemic-representation-review.test.ts",
+    "production_integrated": false,
+    "existing_verifier_logic_changed": false,
+    "protocol_xml_changed": false,
+    "runtime_scorer_key_required": false,
+    "held_out_or_mast_data_consumed": false
+  },
+  "validation": {
+    "completed_at": "2026-09-10T07:39:31Z",
+    "runtime": {
+      "node": "24.18.0",
+      "npm": "11.16.0"
+    },
+    "focused": {
+      "command": "npx vitest run tests/epistemic-verifier.test.ts tests/epistemic-representation-review.test.ts",
+      "test_files_passed": 2,
+      "tests_passed": 17
+    },
+    "complete": {
+      "command": "npm run verify",
+      "typecheck": "passed",
+      "test_files_passed": 158,
+      "test_files_skipped": 1,
+      "tests_passed": 1887,
+      "tests_skipped": 6,
+      "build": "passed"
+    },
+    "environment_correction": "A preliminary pass used the shell-default Node 26.8.1. It was not accepted as the canonical result; focused and complete gates were rerun successfully with the repository-required Node 24.18.0 selected by explicit PATH precedence."
+  },
+  "canonical_protocols_unchanged": {
+    "universal_version": "20.5.22",
+    "universal_sha256": "d9364d98aa8c9805061aa53d21e7e3ed219675d8456b975b634bf54b2910c1b6",
+    "hrp_version": "20.5.27",
+    "hrp_sha256": "65b099ce808012214e78f5f7b910e6a68858746978c160e29e177c3b444bf85a"
+  },
+  "interpretation": "The slice creates an executable independent-review boundary for source-to-state translation. It does not establish that a semantic reviewer is accurate, does not change production synthesis permissions, and does not convert the completed DEVELOPMENT result into validation evidence."
+}

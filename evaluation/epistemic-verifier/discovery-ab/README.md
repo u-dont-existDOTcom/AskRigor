@@ -1,6 +1,6 @@
 # Blinded DEVELOPMENT/DISCOVERY A/B execution — 2026-09-09
 
-Status: **partially executed; fresh consumer-session inference blocked by unavailable isolated-session capability in this chat.**
+Status: **completed in the frozen run `runs/20260909-complete-3x8x2/`.**
 
 This directory operationalizes issue #208's prompt-only-vs-executable comparison without touching frozen MAST evidence, HRP/Universal XML, benchmark metrics, or paid API inference.
 
@@ -19,17 +19,9 @@ Canonical base commit: `63f341502a9caa432ffbcf1074d1b8e133a6c52b`.
 - Frozen a scoring contract that separates end-to-end escape, semantic translation, deterministic verifier failure, synthesis-boundary failure, false block, repair, and conclusion change, and forbids crediting collateral blocks caused by malformed/incomplete state as enforcement of the intended invariant.
 - Derived the canonical deterministic gold-state baseline from the fixture expectations + test assertions + successful pinned CI run.
 
-## What could not be validly executed
+## Completed consumer execution
 
-This reasoning session is contaminated for consumer inference because it has already read fixture identities, expected results, the verifier implementation, tests, and scoring key. The currently exposed tools cannot spawn or message a fresh isolated consumer ChatGPT session. Reusing this session would violate the requested blinding and would produce a misleading A/B result.
-
-Therefore:
-- Arm A consumer outputs: **not run**.
-- Arm B consumer semantic states: **not run**.
-- Consumer repair loops: **not run**.
-- End-to-end A/B comparative claim: **not available**.
-
-This is an `UNAVAILABLE_EXTERNAL_CAPABILITY_AFTER_ALL_NONBLOCKED_WORK` stop under repository governance, not a methodological choice to stop early.
+The later authorized consumer-browser route completed 48/48 independent fresh sessions: 24 Arm A outputs and 24 Arm B state, verification, repair, recheck, and synthesis chains. All blind outputs were committed at `32735f87b80e5fadbf222be7051b74a01b6244e6` before the scorer key was opened. The complete provenance, integrity incidents, unblinding receipt, scoring ledger, report, and machine-readable summary are preserved in `runs/20260909-complete-3x8x2/`.
 
 ## Deterministic v0.1 result at the pinned commit
 
@@ -56,15 +48,8 @@ These are **not** Arm A/B consumer-performance estimates.
 - `deterministic-baseline-receipt.json` — executed deterministic development baseline.
 - `execution-manifest.json` — provenance, model/mode capture, spend, blocker, and result status.
 
-## Next architecture decision
+## Development result and strategy decision
 
-Do **not** claim that v0.1 materially outperforms prompt-only HRP until fresh paired consumer outputs exist.
+Arm A and Arm B each had 0/15 eligible end-to-end hard-invariant escapes, so this small DEVELOPMENT set showed no material comparative improvement and had a prompt-only floor effect. Arm B had initial or persistent semantic translation defects in 17/24 trials, while the deterministic verifier had 0/12 escapes conditional on a faithful intended-attributable hard state and 0/6 false blocks on faithful final controls.
 
-The represented-invariant premise is currently supported: the deterministic kernel prevented all five fully represented hard challenges in its canonical DEVELOPMENT states. The one explicitly demonstrated remaining hole is source-to-state semantic omission, which the verifier cannot see unless an independent representation check catches it.
-
-Accordingly, the next architectural slice should be selected from the actual fresh Arm B failure distribution:
-1. representable verifier escapes -> fix verifier/state model before adding gates;
-2. predominantly source-to-state translation failures -> build an independent semantic representation verifier;
-3. no material Arm B improvement over Arm A -> challenge the executable-verifier premise rather than expanding it.
-
-At this checkpoint, independent semantic representation verification is the **leading candidate**, but it is not promoted as the empirical A/B winner until the blocked fresh-consumer run is completed.
+Under the preregistered priority order, the next slice is one development-only independent semantic representation checker. The result does not authorize production integration, more deterministic gates, protocol edits, or a held-out validation claim.
