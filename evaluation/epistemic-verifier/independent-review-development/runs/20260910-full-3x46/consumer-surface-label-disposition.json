@@ -1,0 +1,111 @@
+{
+"schemaVersion": 1,
+"packetType": "SOURCE_BOUND_PROJECT_MANAGER_METHODOLOGY_DISPOSITION",
+"directiveType": "PRE_GENERATION_CONSUMER_SURFACE_LABEL_CORRECTION",
+"directiveId": "askrigor-issue208-isrr-v01-consumer-surface-label-disposition-v1",
+"supersedesExecutionFieldOnly": {
+"priorDirectiveId": "askrigor-issue208-independent-semantic-representation-review-full-blinded-development-v1",
+"field": "reviewExecution.reasoningVisibleLabel",
+"priorValue": "Pro",
+"replacementValue": "Extra High"
+},
+"decision": "AUTHORIZE_VISIBLE_SURFACE_LABEL_CORRECTION_AND_CONTINUE",
+"mayExecute": true,
+"runDisposition": "CONTINUE_WITHOUT_CANCELLING_OR_RESTARTING",
+"classification": "PERMITTED_PRE_GENERATION_SURFACE_LABEL_CORRECTION",
+"preGenerationState": {
+"adjudicatorOutputsGenerated": 0,
+"reviewerOutputsGenerated": 0,
+"evaluationDataGeneratedUnderOldSetting": 0,
+"restartRequired": false
+},
+"reason": {
+"observedModelControl": "GPT-5.6 Sol",
+"observedThinkingControl": "Thinking effort",
+"observedThinkingSetting": "Extra High",
+"observedThinkingOrdinal": "4 of 5",
+"observedAccountPlan": "Pro",
+"disposition": "The prior directive incorrectly encoded the account-plan label Pro as the reasoning-mode label. The executable reasoning setting is the visible Thinking effort control at Extra High, 4 of 5."
+},
+"fixedConsumerSetting": {
+"surface": "CHATGPT_CONSUMER_UI",
+"modelVisibleLabel": "GPT-5.6 Sol",
+"thinkingControlLabel": "Thinking effort",
+"reasoningVisibleLabel": "Extra High",
+"reasoningOrdinal": "4 of 5",
+"accountPlanLabel": "Pro",
+"accountPlanRole": "PROVENANCE_METADATA_ONLY",
+"accountPlanIsReasoningMode": false,
+"modelAndReasoningSettingMustBeExplicitlyObservedBeforeEveryAcceptedTrial": true,
+"fallbackAllowed": false,
+"modelSubstitutionAllowed": false,
+"reasoningSettingSubstitutionAllowed": false,
+"latestAliasAllowed": false
+},
+"provenanceRule": {
+"requiredPerSession": [
+"conversation_identity",
+"message_identity_when_exposed",
+"visible_model_label_GPT-5.6_Sol",
+"visible_thinking_control_label_Thinking_effort",
+"visible_thinking_setting_Extra_High",
+"visible_thinking_ordinal_4_of_5",
+"account_plan_Pro_as_metadata_only",
+"submission_time",
+"completion_time",
+"input_sha256",
+"output_sha256"
+],
+"selfAssertedIdentitySufficient": false,
+"controllerObservedSurfaceRequired": true,
+"accountPlanMayNotSatisfyReasoningSettingCheck": true
+},
+"freezeAmendment": {
+"requiredBeforeAnyAdjudicatorOrReviewerGeneration": true,
+"actions": [
+"Replace every execution requirement of reasoningVisibleLabel=Pro with reasoningVisibleLabel=Extra High and reasoningOrdinal=4 of 5.",
+"Record account plan Pro separately as non-semantic provenance metadata.",
+"Freeze the corrected execution manifest and its SHA-256 before first output.",
+"Preserve all previously frozen scientific scope, candidate identities, thresholds, gold procedures, mutation rules, scoring, strategy priority, and operation ceilings."
+],
+"scientificMethodChanged": false,
+"candidateCohortChanged": false,
+"reviewPromptChanged": false,
+"scoringChanged": false,
+"thresholdsChanged": false
+},
+"browserExecution": {
+"executionMode": "SEQUENTIAL",
+"maximumConcurrentTrials": 1,
+"maximumControlledTabs": 1,
+"newTabsAllowed": 0,
+"tabReuse": true,
+"freshConversationPerTrial": true,
+"minimumSecondsBetweenAcceptedSubmissions": 60
+},
+"hardStops": [
+"MODEL_VISIBLE_LABEL_IS_NOT_EXACTLY_GPT-5.6_SOL",
+"THINKING_CONTROL_IS_NOT_VISIBLE",
+"THINKING_SETTING_IS_NOT_EXACTLY_EXTRA_HIGH",
+"THINKING_ORDINAL_IS_NOT_4_OF_5",
+"ACCOUNT_PLAN_PRO_IS_USED_AS_SUBSTITUTE_FOR_REASONING_SETTING",
+"MODEL_OR_THINKING_SETTING_CANNOT_BE_CONTROLLER_VERIFIED",
+"SURFACE_CHANGES_AFTER_FREEZE_WITHOUT_PROJECT_MANAGER_DISPOSITION",
+"ANY_ADJUDICATOR_OR_REVIEWER_OUTPUT_EXISTS_BEFORE_CORRECTED_FREEZE",
+"FALLBACK_OR_MODEL_MODE_SUBSTITUTION_IS_ATTEMPTED"
+],
+"unchangedBoundaries": {
+"developmentDiscoveryOnly": true,
+"heldOutValidationAllowed": false,
+"mastAllowed": false,
+"newEpistemicGatesAllowed": false,
+"HRPChangesAllowed": false,
+"UniversalChangesAllowed": false,
+"productionIntegrationAllowed": false,
+"providerApiCallsAllowed": 0,
+"paidModelApiCallsAllowed": 0,
+"externalSpendUsd": 0,
+"thisMissionControlChatEligibleAsIndependentAdjudicator": false
+},
+"completionRule": "After the corrected surface-setting manifest is frozen, proceed with the previously authorized adjudication and 138-review execution using GPT-5.6 Sol with Thinking effort set exactly to Extra High, 4 of 5. No restart is required because no adjudicator or reviewer output was generated under the erroneous Pro-as-reasoning-mode specification."
+}

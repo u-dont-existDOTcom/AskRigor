@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "status": "CONSUMER_SURFACE_SETTING_CORRECTED_AND_FROZEN",
+  "model": "GPT-5.6 Sol",
+  "thinking_control": "Thinking effort",
+  "reasoning_setting": "Extra High",
+  "reasoning_ordinal": "4 of 5",
+  "account_plan_metadata": "Pro",
+  "candidate_count": 46,
+  "review_trial_count": 138,
+  "adjudicator_outputs_existing": 0,
+  "reviewer_outputs_existing": 0,
+  "entries": [
+    {
+      "path": "run-config.json",
+      "bytes": 2484,
+      "sha256": "1c8f5479b93aadd3bb9ecf613ff97c9a8f984989b59da5b58e626b1e553c967b"
+    },
+    {
+      "path": "consumer-surface-label-disposition.json",
+      "bytes": 4554,
+      "sha256": "04a47c913ed5a203ae6e20b1c3ffbf1c97feac4f4042471b69d1f51e32b857b8"
+    },
+    {
+      "path": "consumer-surface-label-disposition-receipt.json",
+      "bytes": 540,
+      "sha256": "7734435d097a5253f4a5d9d5f8d9584df71a556e1395da8a6f07bb2b7e0bac7d"
+    },
+    {
+      "path": "candidate-manifest.json",
+      "bytes": 28295,
+      "sha256": "5dc180d3e61b0e862a9f12017a1fb183076f4cd46aa3758b23baf11d402e96ca"
+    },
+    {
+      "path": "dispatch-order.json",
+      "bytes": 38558,
+      "sha256": "df221a23efd5a468a0d07bf0703eb27eb1b86dba375eb00d49a6617214ee23bf"
+    },
+    {
+      "path": "preflight-freeze.json",
+      "bytes": 641,
+      "sha256": "61bbfd928a7464ca4746fb7c461c4f59c423d82b6a4127178cfaa7c3b3c73e40"
+    },
+    {
+      "path": "amended-pre-generation-freeze-manifest.json",
+      "bytes": 20689,
+      "sha256": "61cc2fda4c82bbe516f53d8d763a93af39a089cd148dfc0907fd5234d8b14cde"
+    }
+  ]
+}

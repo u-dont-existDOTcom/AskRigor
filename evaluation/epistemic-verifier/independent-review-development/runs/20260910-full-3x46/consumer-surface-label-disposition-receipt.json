@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "status": "SOURCE_BOUND_PROJECT_MANAGER_SURFACE_DISPOSITION_CAPTURED",
+  "assistant_message_id": "b3e2f6c3-4d18-435d-ab2e-904a4bd9f310",
+  "exact_utf8_body_bytes": 4554,
+  "exact_utf8_body_sha256": "04a47c913ed5a203ae6e20b1c3ffbf1c97feac4f4042471b69d1f51e32b857b8",
+  "directive_id": "askrigor-issue208-isrr-v01-consumer-surface-label-disposition-v1",
+  "observed_authority_surface": "CHATGPT_PROJECT_MANAGER",
+  "adjudicator_outputs_existing_at_disposition": 0,
+  "reviewer_outputs_existing_at_disposition": 0
+}
