@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "phase": "MAIN_BLINDED_REVIEW_CHECKPOINT",
+  "status": "IN_PROGRESS",
+  "eligible_review_trials_frozen": 72,
+  "planned_eligible_review_trials": 138,
+  "accepted_consumer_sessions_frozen": 74,
+  "excluded_consumer_sessions": 2,
+  "controller_integrity_defects": 2,
+  "corrective_trials_completed": 2,
+  "capture_integrity_corrections": 1,
+  "valid_ingest_receipts": 72,
+  "invalid_eligible_ingest_receipts": 0,
+  "distinct_eligible_controller_conversation_identities": 72,
+  "distinct_total_controller_conversation_identities": 74,
+  "verified_model_mode_trials": 72,
+  "exact_submission_timestamp_trials": 71,
+  "bounded_submission_timestamp_trials": 1,
+  "external_tool_or_browsing_detected_trials": 0,
+  "original_raw_outputs_preserved": true,
+  "scorer_gold_comparison_performed": false,
+  "excluded_session_receipts": [
+    "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/reviewer-outputs/excluded-023-controller-misdispatch-MUT-A10B6BF93A85/controller-integrity-defect.json",
+    "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/reviewer-outputs/excluded-061-controller-project-contamination-NAT-31DA10F913CE/controller-integrity-defect.json"
+  ],
+  "capture_correction_receipt": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/reviewer-outputs/070-r2-NAT-D22CEEC7054B/capture-integrity-correction.json",
+  "note": "Mandatory pre-unblind completeness and provenance checkpoint. Two accepted controller-invalid sessions are preserved and excluded; each intended candidate was reviewed once in a separate fresh eligible conversation. One premature DOM capture was preserved and corrected from the same settled consumer response. One eligible session has bounded rather than exact submission timing and is excluded only from exact-latency calculations. No performance labels or gold comparison included."
+}
