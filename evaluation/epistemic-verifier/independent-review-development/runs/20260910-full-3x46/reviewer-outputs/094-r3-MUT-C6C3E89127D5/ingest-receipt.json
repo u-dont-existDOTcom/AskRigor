@@ -1,0 +1,244 @@
+{
+  "review_version": "askrigor_epistemic_representation_review_v0_1",
+  "source_sha256": "cf4e76402d12331bc4148fe195a4ddb3bedae7d466fe50f90c7922612cb9ab64",
+  "state_sha256": "053b34e2a4b1f9049b28f0bde3a40a24d86796a30783b68a1a70dc1ff6e7ca32",
+  "producer_session_id": "synthetic-producer-PAIR-1F58EC041E03",
+  "reviewer": {
+    "session_id": "reviewer-gpt56sol-20260910T225900Z-7B31C2",
+    "model": "GPT-5.6 Sol",
+    "mode": "Thinking",
+    "fresh_independent_session": true
+  },
+  "reviewed_at": "2026-09-10T22:59:00+00:00",
+  "reviewer_independent": true,
+  "status": "block",
+  "critical_representation": "defective",
+  "findings": [
+    {
+      "dimension": "exact_target",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 33,
+          "quote": "The requested target is risk_m07."
+        }
+      ],
+      "state_paths": [
+        "/target/target_id"
+      ],
+      "rationale": "The source names risk_m07 as the requested target, and the candidate represents exactly that identifier."
+    },
+    {
+      "dimension": "case_and_comparison_roles",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 34,
+          "end": 64,
+          "quote": "Rowan m07 is the positive case"
+        },
+        {
+          "start": 172,
+          "end": 205,
+          "quote": "Mica m07 is the tolerated control"
+        }
+      ],
+      "state_paths": [
+        "/cases/0/comparison_role",
+        "/cases/1/comparison_role",
+        "/comparisons/0/positive_case_ids/0",
+        "/comparisons/0/control_case_ids/0"
+      ],
+      "rationale": "Rowan is represented as the positive case and Mica as the tolerated control, and the comparison assigns those same case IDs to the corresponding positive and control sets."
+    },
+    {
+      "dimension": "negative_or_tolerated_comparator",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 172,
+          "end": 205,
+          "quote": "Mica m07 is the tolerated control"
+        },
+        {
+          "start": 207,
+          "end": 303,
+          "quote": "Mica receives the same 10-unit intravenous liquid exposure and does not show the target outcome."
+        }
+      ],
+      "state_paths": [
+        "/cases/1/comparison_role",
+        "/observations/1/statement",
+        "/observations/1/qualifiers",
+        "/comparisons/0/control_case_ids/0"
+      ],
+      "rationale": "The candidate preserves Mica's tolerated-control role, the matched exposure qualifiers, and the absence of the target outcome."
+    },
+    {
+      "dimension": "high_information_qualifier",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 66,
+          "end": 171,
+          "quote": "the target outcome begins within 2 seconds after 10 units of compound Sol by intravenous liquid infusion."
+        },
+        {
+          "start": 207,
+          "end": 303,
+          "quote": "Mica receives the same 10-unit intravenous liquid exposure and does not show the target outcome."
+        }
+      ],
+      "state_paths": [
+        "/observations/0/high_information_qualifier_keys",
+        "/observations/1/high_information_qualifier_keys"
+      ],
+      "rationale": "The candidate explicitly marks onset, dose, route, and form as high-information qualifiers for the positive observation, and the matched dose, route, and form for the tolerated control. The omitted compound identity is addressed separately under other."
+    },
+    {
+      "dimension": "timing",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 92,
+          "end": 108,
+          "quote": "within 2 seconds"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/qualifiers/onset_seconds",
+        "/hypotheses/0/qualifier_predictions/0/operator",
+        "/hypotheses/0/qualifier_predictions/0/value"
+      ],
+      "rationale": "The 2-second onset threshold is represented, and the explicit lte operator preserves the source's 'within 2 seconds' upper-bound semantics rather than converting the predicate to an equality test."
+    },
+    {
+      "dimension": "amount_or_dose",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 115,
+          "end": 123,
+          "quote": "10 units"
+        },
+        {
+          "start": 225,
+          "end": 265,
+          "quote": "same 10-unit intravenous liquid exposure"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/qualifiers/dose_units",
+        "/observations/1/qualifiers/dose_units",
+        "/claims/0/statement"
+      ],
+      "rationale": "Both cases carry dose_units 10, and the modifier claim explicitly records that the represented 10-unit dose is held constant across the comparison."
+    },
+    {
+      "dimension": "route_or_form",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 143,
+          "end": 161,
+          "quote": "intravenous liquid"
+        },
+        {
+          "start": 225,
+          "end": 265,
+          "quote": "same 10-unit intravenous liquid exposure"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/qualifiers/route",
+        "/observations/0/qualifiers/form",
+        "/observations/1/qualifiers/route",
+        "/observations/1/qualifiers/form"
+      ],
+      "rationale": "The candidate records intravenous route and liquid form for both Rowan and Mica, preserving the matched exposure form and route."
+    },
+    {
+      "dimension": "feature_value",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 312,
+          "end": 359,
+          "quote": "Quartz is high in Rowan m07 and low in Mica m07"
+        }
+      ],
+      "state_paths": [
+        "/features/0/case_id",
+        "/features/0/value",
+        "/features/1/case_id",
+        "/features/1/value"
+      ],
+      "rationale": "Quartz is represented as high for Rowan and low for Mica exactly as stated in the source."
+    },
+    {
+      "dimension": "predicate_semantics",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 395,
+          "end": 452,
+          "quote": "Quartz value equals high distinguishes the target outcome"
+        }
+      ],
+      "state_paths": [
+        "/hypotheses/0/discriminator/feature_id",
+        "/hypotheses/0/discriminator/operator",
+        "/hypotheses/0/discriminator/value"
+      ],
+      "rationale": "The material discriminator is represented as Quartz with operator equals and value high. The candidate does not substitute record existence or a 'present' predicate for the source's value-equality predicate."
+    },
+    {
+      "dimension": "dependency_or_provenance",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 499,
+          "end": 576,
+          "quote": "Rowan's source-grounded target observation and the tolerated-control contrast"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/provenance/kind",
+        "/observations/1/provenance/kind",
+        "/claims/1/provenance/kind",
+        "/claims/1/dependencies/0",
+        "/claims/1/dependencies/1"
+      ],
+      "rationale": "Rowan's target observation and Mica's tolerated-control observation are source-grounded, while the conclusion is explicitly an inference whose dependencies include both observations, preserving the required positive-observation and tolerated-control contrast lineage."
+    },
+    {
+      "dimension": "other",
+      "status": "missing",
+      "affects_hard_invariant": true,
+      "source_spans": [
+        {
+          "start": 127,
+          "end": 139,
+          "quote": "compound Sol"
+        }
+      ],
+      "state_paths": [],
+      "rationale": "The source specifies Sol as the material being administered, but the candidate contains no represented compound or exposure-material identity. Dose, route, and form are retained, but omission of the material identity can detach the represented observation and comparison from the source's Sol exposure and could permit a conclusion outside the source-grounded exposure context."
+    }
+  ],
+  "blockers": [
+    "other: The source specifies Sol as the material being administered, but the candidate contains no represented compound or exposure-material identity. Dose, route, and form are retained, but omission of the material identity can detach the represented observation and comparison from the source's Sol exposure and could permit a conclusion outside the source-grounded exposure context."
+  ],
+  "warnings": []
+}
