@@ -1,0 +1,5 @@
+Bottom-line conclusion: Within the represented comparison, Sable dose greater than 5 units discriminates the positive cases from the tolerated control. Harbor and Lark meet the threshold and show the target response; Juniper does not meet it and is tolerated. This supports the dose-modified hypothesis, not Sable’s mere presence.
+
+Minimum reasoning: Sable is present in all three cases, so presence alone is non-discriminating. The represented doses are 10 units in Harbor and 12 in Lark, both above 5, versus 1 unit in Juniper, below the threshold. The response pattern therefore aligns exactly with the specified dose distinction. The verifier passed specificity, evidence direction, target preservation, provenance/dependency, and the synthesis lock.
+
+Definitive conclusion supported: Yes, for the narrow represented comparison. The packet definitively supports that Sable dose > 5 separates these two positive cases from this tolerated control. It does not by itself establish causation, a universal biological threshold, or generalization beyond the three represented cases.

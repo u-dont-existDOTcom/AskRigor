@@ -1,0 +1,5 @@
+Bottom-line conclusion: Sol is present in both observed responsive cases, but the packet does not establish that Sol discriminates responsive from non-responsive cases.
+
+Minimum reasoning: Aspen and Kivu both show the target response and both contain Sol. However, there is no tolerated or negative control case showing whether Sol is absent—or also present—among non-responsive cases. The required specificity contrast is therefore missing. The verifier also found that the represented conclusion’s dependencies did not reach the target-response observations, so the synthesis lock remains blocked.
+
+Definitive conclusion supported? No. The definitive discriminator claim is unsupported. The strongest permissible conclusion is that Sol co-occurs with the response in the two positive cases; whether it distinguishes responsive from non-responsive cases remains indeterminate.

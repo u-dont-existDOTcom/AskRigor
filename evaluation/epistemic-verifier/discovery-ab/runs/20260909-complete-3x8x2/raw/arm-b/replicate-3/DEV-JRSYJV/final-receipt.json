@@ -1,0 +1,60 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "b7e6eb89b1b0b741e9b5fa166b3a7712542779e5daf7d7e1f53a0f88fdefd46c",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "hyp_sable_dose_gt_5"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "hyp_sable_dose_gt_5"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "claim_sable_dose_gt_5_discriminates"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "obs_harbor_target_response",
+        "obs_lark_target_response",
+        "obs_juniper_tolerated",
+        "claim_sable_dose_distinction",
+        "claim_sable_dose_gt_5_discriminates"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "hyp_sable_dose_gt_5",
+        "hyp_sable_dose_gt_5",
+        "claim_sable_dose_gt_5_discriminates",
+        "obs_harbor_target_response",
+        "obs_lark_target_response",
+        "obs_juniper_tolerated",
+        "claim_sable_dose_distinction",
+        "claim_sable_dose_gt_5_discriminates"
+      ]
+    }
+  ],
+  "definitive_synthesis": true,
+  "synthesis_boundary": "definitive_allowed",
+  "blockers": []
+}

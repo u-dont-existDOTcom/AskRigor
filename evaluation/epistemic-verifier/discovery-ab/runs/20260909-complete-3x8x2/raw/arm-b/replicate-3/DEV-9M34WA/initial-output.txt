@@ -1,0 +1,101 @@
+{
+"state_version": "askrigor_epistemic_state_v1",
+"target": {
+"target_id": "target_response",
+"label": "target response",
+"description": "The target response shown by Aspen and Kivu."
+},
+"cases": [
+{
+"case_id": "aspen",
+"label": "Aspen",
+"comparison_role": "positive",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-9M34WA"
+}
+},
+{
+"case_id": "kivu",
+"label": "Kivu",
+"comparison_role": "positive",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-9M34WA"
+}
+}
+],
+"observations": [
+{
+"observation_id": "aspen_target_response",
+"target_id": "target_response",
+"case_id": "aspen",
+"statement": "Aspen shows the target response.",
+"material": true,
+"qualifiers": {},
+"high_information_qualifier_keys": [],
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-9M34WA"
+}
+},
+{
+"observation_id": "kivu_target_response",
+"target_id": "target_response",
+"case_id": "kivu",
+"statement": "Kivu shows the target response.",
+"material": true,
+"qualifiers": {},
+"high_information_qualifier_keys": [],
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-9M34WA"
+}
+}
+],
+"features": [
+{
+"case_id": "aspen",
+"feature_id": "Sol",
+"value": "present",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-9M34WA"
+}
+},
+{
+"case_id": "kivu",
+"feature_id": "Sol",
+"value": "present",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-9M34WA"
+}
+}
+],
+"comparisons": [
+{
+"comparison_id": "responsive_vs_nonresponsive",
+"target_id": "target_response",
+"positive_case_ids": [
+"aspen",
+"kivu"
+],
+"control_case_ids": []
+}
+],
+"hypotheses": [
+{
+"hypothesis_id": "sol_discriminator",
+"target_id": "target_response",
+"statement": "Sol discriminates responsive from non-responsive cases.",
+"material": true,
+"discriminator": {
+"feature_id": "Sol",
+"operator": "present"
+},
+"qualifier_predictions": []
+}
+],
+"claims": []
+}

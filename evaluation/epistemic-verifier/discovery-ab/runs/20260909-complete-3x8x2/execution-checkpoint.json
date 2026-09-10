@@ -1,14 +1,17 @@
 {
   "schema_version": 1,
-  "current_checkpoint": "checkpoints/checkpoint-040.json",
-  "frozen_consumer_sessions": 40,
+  "current_checkpoint": "checkpoints/checkpoint-048.json",
+  "frozen_consumer_sessions": 48,
   "required_consumer_sessions": 48,
-  "arm_a_completed": 20,
-  "arm_b_completed": 20,
-  "verifier_repair_chains_completed": 20,
+  "arm_a_completed": 24,
+  "arm_b_completed": 24,
+  "verifier_repair_chains_completed": 24,
   "scorer_key_opened": false,
+  "scorer_key_content_access_count": 0,
+  "unblinding_started": false,
   "current_blocker": null,
-  "next_trial_id": "r3-DEV-QWCNK4-a",
-  "next_canonical_scheduled_sequence": 41,
-  "recovery_note": "Preserve all raw artifacts. Apply all three integrity incident records. Continue with scheduled sequence 41. Do not inspect the scorer key before all 48 sessions are frozen and committed."
+  "next_trial_id": null,
+  "next_canonical_scheduled_sequence": null,
+  "next_phase": "PRE_UNBLINDING_FREEZE_COMMIT",
+  "recovery_note": "All 48 raw sessions and 24 Arm B chains exist. Preserve every byte. Commit and push the exhaustive blind-output freeze manifest before any scorer-key content access."
 }

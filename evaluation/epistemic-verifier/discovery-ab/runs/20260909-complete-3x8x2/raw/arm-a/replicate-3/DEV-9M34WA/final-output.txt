@@ -1,0 +1,5 @@
+Bottom line: The packet does not establish that Sol discriminates responsive from non-responsive cases.
+
+Minimum reasoning: Sol is present in both responsive cases, Aspen and Kivu, but no tolerated or negative case is available to test whether Sol is absent from non-responsive cases. Its presence among positives alone shows co-occurrence, not discrimination.
+
+Sufficiency: No. A definitive conclusion requires at least one represented non-responsive comparison case with known Sol status.

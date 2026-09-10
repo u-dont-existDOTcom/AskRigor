@@ -1,0 +1,5 @@
+Bottom line: Quartz is a represented discriminator between Nova and Cove, but the packet does not establish that Quartz is relevant to adverse_outcome_risk.
+
+Minimum reasoning: Quartz is present in Nova and absent from the tolerated control, so it passes the represented specificity contrast. However, the only material observation concerns pathway_activity, not adverse_outcome_risk. No evidence-supported conclusion claim reaches the requested target, and the verifier therefore blocks synthesis.
+
+Definitive conclusion supported? No. The packet supports only the bounded conclusion that the proposed relationship to adverse-outcome risk remains unestablished.

@@ -1,0 +1,62 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "1b0b9dd501c1fc290032f7edc4052c217b423e7757ea5cfce2f052aec77aa13a",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "insufficient",
+      "blockers": [
+        "No material hypothesis is represented for specificity testing."
+      ],
+      "checked_ids": []
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": []
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "claim_vela_fails_specificity_contrast"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "obs_cedar_target_response",
+        "obs_flint_target_response",
+        "obs_mica_no_target_response",
+        "claim_candidate_vela_explanation",
+        "claim_vela_shared_across_cases",
+        "claim_vela_fails_specificity_contrast"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "insufficient",
+      "blockers": [
+        "No material hypothesis is represented for specificity testing."
+      ],
+      "checked_ids": [
+        "claim_vela_fails_specificity_contrast",
+        "obs_cedar_target_response",
+        "obs_flint_target_response",
+        "obs_mica_no_target_response",
+        "claim_candidate_vela_explanation",
+        "claim_vela_shared_across_cases",
+        "claim_vela_fails_specificity_contrast"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "No material hypothesis is represented for specificity testing."
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "state_version": "askrigor_epistemic_state_v1",
+  "target": {
+    "target_id": "adverse_outcome_risk",
+    "label": "adverse_outcome_risk",
+    "description": "The requested target concerning adverse outcome risk."
+  },
+  "cases": [
+    {
+      "case_id": "nova",
+      "label": "Nova",
+      "comparison_role": "positive",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-S47VJN"
+      }
+    },
+    {
+      "case_id": "cove",
+      "label": "Cove",
+      "comparison_role": "tolerated_control",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-S47VJN"
+      }
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "obs_nova_pathway_activity",
+      "target_id": "pathway_activity",
+      "case_id": "nova",
+      "statement": "The available observation for Nova establishes only pathway_activity.",
+      "material": true,
+      "qualifiers": {},
+      "high_information_qualifier_keys": [],
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-S47VJN"
+      }
+    }
+  ],
+  "features": [
+    {
+      "case_id": "nova",
+      "feature_id": "quartz",
+      "value": "present",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-S47VJN"
+      }
+    },
+    {
+      "case_id": "cove",
+      "feature_id": "quartz",
+      "value": "absent",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-S47VJN"
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "comparison_id": "comparison_nova_cove_adverse_outcome_risk",
+      "target_id": "adverse_outcome_risk",
+      "positive_case_ids": [
+        "nova"
+      ],
+      "control_case_ids": [
+        "cove"
+      ]
+    }
+  ],
+  "hypotheses": [
+    {
+      "hypothesis_id": "hypothesis_quartz_adverse_outcome_risk",
+      "target_id": "adverse_outcome_risk",
+      "statement": "Quartz is relevant to adverse_outcome_risk.",
+      "material": true,
+      "discriminator": {
+        "feature_id": "quartz",
+        "operator": "equals",
+        "value": "present"
+      },
+      "qualifier_predictions": []
+    }
+  ],
+  "claims": []
+}

@@ -1,0 +1,5 @@
+Bottom line: Vela itself does not explain the selective response.
+
+Minimum reasoning: Cedar and Flint respond, while Mica is tolerated and does not respond. Because Vela is present in all three, it does not distinguish the responsive cases from the non-responsive control. The observed pattern is therefore contrary to the hypothesis that Vela alone explains the selectivity.
+
+Sufficiency: Yes. The packet is sufficient to definitively reject Vela itself as the discriminator in this represented comparison, though it does not establish what actually causes the response.

@@ -1,0 +1,61 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "3f57a88c05a1258e8e02b2c8f646c5f4c62af10a066605a3e9ded6b1a5f9927f",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "hyp_sable_dose_gt_5"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "hyp_sable_dose_gt_5"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "block",
+      "blockers": [
+        "No material conclusion claim is represented for the requested target."
+      ],
+      "checked_ids": []
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "obs_harbor_target_response",
+        "obs_lark_target_response",
+        "obs_juniper_tolerated",
+        "claim_sable_dose_distinction"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "No material conclusion claim is represented for the requested target."
+      ],
+      "checked_ids": [
+        "hyp_sable_dose_gt_5",
+        "hyp_sable_dose_gt_5",
+        "obs_harbor_target_response",
+        "obs_lark_target_response",
+        "obs_juniper_tolerated",
+        "claim_sable_dose_distinction"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "No material conclusion claim is represented for the requested target."
+  ]
+}
