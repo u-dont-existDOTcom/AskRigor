@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "status": "EXCLUDED_CONTROLLER_MISDISPATCH",
+  "detected_before_scorer_unblinding": true,
+  "accepted_consumer_session": true,
+  "eligible_reviewer_trial": false,
+  "intended_dispatch": {
+    "sequence": 23,
+    "replicate": 1,
+    "candidate_id": "MUT-A10B6BF93A85",
+    "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-A10B6BF93A85.txt",
+    "input_sha256": "1b5bca0eed290e985bf69b9432c1bd4d887a2bb44c27517caf5359c24492dcd1"
+  },
+  "actual_dispatch": {
+    "candidate_id": "MUT-47F0C17864E8",
+    "input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-47F0C17864E8.txt",
+    "input_sha256": "a8bc8ef2ddeb47dc93e5ce152679a94cf0ddcd21fd74b0ad7a46ccf48fd50e56",
+    "declared_source_sha256": "89445035edb14cf60eb082167ef237d2fa34173d120f771cd9c4d33456f7eb5c",
+    "declared_state_sha256": "a42c9917ed744df8dbf877687580ff0a52b773e7ab09ff86bc1b2d662a764f55",
+    "declared_producer_session_id": "synthetic-producer-PAIR-046FFE82A148"
+  },
+  "cause": "The setup-only model-selection retry filled the still-bound previous-input variable after the intended helper stopped before prompt fill.",
+  "disposition": "Preserve the accepted response and original provenance unchanged, exclude it from all performance denominators, record corrected controller provenance separately, and run the intended candidate once in a new fresh conversation.",
+  "raw_output_preserved": true,
+  "replacement_of_accepted_candidate_review": false
+}
