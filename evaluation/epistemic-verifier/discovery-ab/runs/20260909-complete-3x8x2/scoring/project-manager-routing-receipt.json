@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "route": "ASKRIGOR_INTERNAL_PROJECT_MANAGER",
+  "conversation_id": "6a9d7fa4-8508-83e9-8aeb-d351f2968673",
+  "consumer_model_mode": "Extra High",
+  "scoring_request": {
+    "message_id": "ef6a025c-c46b-4028-b892-72f08f810cec",
+    "packet_bytes": 253934,
+    "packet_sha256": "efe905b54e8ddef497c193aefc844a97ce42540eac05e009f75dd2fc158b1b33"
+  },
+  "scoring_response": {
+    "message_id": "fe30fa32-1f40-4ac6-a0d1-10ac5587efce",
+    "path": "scoring/project-manager-score-response.txt.gz",
+    "storage_encoding": "gzip",
+    "compressed_bytes": 8512,
+    "compressed_sha256": "b5053b9028e79f930704800b858530cb3ca533dfe1f9f2d8724cb3e0b376f00f",
+    "uncompressed_bytes": 72488,
+    "uncompressed_sha256": "9f5eb43146a889ce2c71c0ddd2dbd365b72b4e9f504b006176de27731c0a3b1d"
+  },
+  "serialization_attempt_1": {
+    "message_id": "a02f90bd-603e-47b3-80dc-30829d72b898",
+    "result": "CHATGPT_MESSAGE_STREAM_ERROR_NO_ARTIFACT"
+  },
+  "serialization_attempt_2": {
+    "message_id": "f7606b7a-4e76-4b80-a25a-ce8d28150e0b",
+    "response_message_id": "aebafcd3-6242-41c7-b32b-a661aff0b146",
+    "path": "scoring/project-manager-score-ledger-response.txt",
+    "bytes": 9126,
+    "sha256": "b2946ba6c0d655e43665add918122b781aad5b193fb1bac032f03fab64f8b42e",
+    "result": "COMPLETE_48_ROW_COMPACT_LEDGER"
+  },
+  "raw_response_preserved_before_correction": true
+}

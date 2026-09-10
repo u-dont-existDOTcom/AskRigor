@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "checkpoint_id": "scoring-complete",
+  "run_id": "askrigor-epistemic-verifier-v01-complete-blinded-dev-ab-3x8x2-20260909",
+  "phase": "DEVELOPMENT_DISCOVERY_SCORING_COMPLETE",
+  "recorded_at": "2026-09-10T07:14:49.061005Z",
+  "freeze_commit": "32735f87b80e5fadbf222be7051b74a01b6244e6",
+  "consumer_sessions": 48,
+  "trial_ledger_rows": 48,
+  "primary": {
+    "arm_a_hard_escapes": "0/15",
+    "arm_b_hard_escapes": "0/15",
+    "primary_ambiguous": 0
+  },
+  "representation": {
+    "initial_or_both_errors": "17/24",
+    "final_or_both_errors": "2/24"
+  },
+  "verifier_escapes_faithful_hard": "0/12",
+  "deterministic_false_blocks": "0/6",
+  "synthesis_boundary_failures": "0/24",
+  "repair_success": "19/22",
+  "correct_conclusion_changes": "3/3",
+  "selected_strategy": "BUILD_INDEPENDENT_SEMANTIC_REPRESENTATION_VERIFIER",
+  "blocker": null
+}
