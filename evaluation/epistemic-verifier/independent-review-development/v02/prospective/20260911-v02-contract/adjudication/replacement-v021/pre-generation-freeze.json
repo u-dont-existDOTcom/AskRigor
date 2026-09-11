@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_REPLACEMENT_PRE_GENERATION_FREEZE",
+  "candidate_manifest_sha256": "a156bbd844af3b3d2e175ac623b0abf50563a45e8984261717c8fea1d8010bbf",
+  "replacement_dispatch_sha256": "d5c732497dcb28fc89509257d7d0e7e93fafbd4c4a029547f4a1ddcae8ecaec4",
+  "prior_adjudications_preserved": 51,
+  "additional_sessions_planned": 4,
+  "third_required_on_any_field_disagreement": true,
+  "replacement_construction_gold_must_not_be_exposed": true,
+  "reviewer_generation_allowed": false
+}

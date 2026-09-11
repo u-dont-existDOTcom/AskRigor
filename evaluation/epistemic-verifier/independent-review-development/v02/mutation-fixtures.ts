@@ -299,6 +299,79 @@ export function buildMutationPairsV02(): MutationPairV02[] {
   });
 }
 
+/**
+ * Append-only replacement for the v0.2 high-information-qualifier pair.
+ *
+ * The original pair is intentionally preserved because its blinded
+ * adjudication established that deleting only the metadata key did not create
+ * a source-to-state defect: the exact timing fact remained fully represented,
+ * and the source never required its high-information role to be explicit.
+ * This replacement makes that semantic role an exact source requirement while
+ * keeping the timing value itself unchanged in both candidates.
+ */
+export function buildHighInformationReplacementPairV021(): MutationPairV02 {
+  const original = buildMutationPairsV02().find(
+    ({ dimension }) => dimension === "high_information_qualifier"
+  );
+  if (!original) throw new Error("Missing v0.2 high-information-qualifier pair");
+
+  const sourcePacket = [
+    original.source_packet,
+    "The exact 2-second onset is a highest-information qualifier whose role must remain explicit in the representation."
+  ].join(" ");
+  const faithfulState = clone(original.faithful_state);
+  const defectiveState = clone(original.faithful_state);
+  defectiveState.observations[0]!.high_information_qualifier_keys = [
+    "dose_units",
+    "compound",
+    "route",
+    "form"
+  ];
+  const changedJsonPointers = ["/observations/0/high_information_qualifier_keys/4"];
+  const pairId = stableId(
+    "PAIRV021",
+    `${V02_PROCEDURE_ID}|high_information_qualifier|explicit-source-role`
+  );
+  const candidates = ([
+    ["FAITHFUL", faithfulState],
+    ["DEFECTIVE", defectiveState]
+  ] as const).map(([variant, state]) => {
+    const workPackage = createEpistemicRepresentationReviewWorkPackage({
+      source_packet: sourcePacket,
+      candidate_state: state,
+      producer: {
+        session_id: `synthetic-producer-${pairId}`,
+        model: "DETERMINISTIC_FIXTURE",
+        mode: "DEVELOPMENT"
+      }
+    });
+    return {
+      candidate_id: stableId(
+        "MUTV021",
+        `${pairId}|${variant}|${workPackage.source_sha256}|${workPackage.state_sha256}`
+      ),
+      pair_id: pairId,
+      dimension: "high_information_qualifier" as const,
+      variant,
+      source_sha256: workPackage.source_sha256,
+      state_sha256: workPackage.state_sha256,
+      changed_json_pointers: variant === "DEFECTIVE" ? changedJsonPointers : [],
+      work_package: workPackage
+    };
+  }) as [MutationCandidateV02, MutationCandidateV02];
+
+  return {
+    pair_id: pairId,
+    dimension: "high_information_qualifier",
+    source_packet: sourcePacket,
+    faithful_state: faithfulState,
+    defective_state: defectiveState,
+    changed_json_pointers: changedJsonPointers,
+    source_quote: "The exact 2-second onset is a highest-information qualifier whose role must remain explicit in the representation.",
+    candidates
+  };
+}
+
 export function valueAt(value: unknown, pointer: string): Json | undefined {
   let current: unknown = value;
   for (const raw of pointer.slice(1).split("/")) {

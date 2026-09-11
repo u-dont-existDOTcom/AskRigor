@@ -10,6 +10,7 @@ import {
 } from "../apps/research-mcp/src/epistemic-verifier.js";
 import {
   V02_PROCEDURE_ID,
+  buildHighInformationReplacementPairV021,
   buildMutationPairsV02
 } from "../evaluation/epistemic-verifier/independent-review-development/v02/mutation-fixtures.js";
 
@@ -164,6 +165,29 @@ describe("independent semantic representation review v0.2 DEVELOPMENT candidate"
         expect(candidate.source_packet.slice(span.start, span.end)).toBe(span.quote);
       }
     }
+  });
+
+  it("repairs the rejected high-information fixture without changing its timing fact", () => {
+    const replacement = buildHighInformationReplacementPairV021();
+    const [faithful, defective] = replacement.candidates;
+
+    expect(replacement.source_packet).toContain(
+      "The exact 2-second onset is a highest-information qualifier whose role must remain explicit in the representation."
+    );
+    expect(replacement.faithful_state.observations[0]!.qualifiers.onset_seconds).toBe(2);
+    expect(replacement.defective_state.observations[0]!.qualifiers.onset_seconds).toBe(2);
+    expect(replacement.faithful_state.observations[0]!.statement)
+      .toBe(replacement.defective_state.observations[0]!.statement);
+    expect(replacement.faithful_state.observations[0]!.high_information_qualifier_keys)
+      .toContain("onset_seconds");
+    expect(replacement.defective_state.observations[0]!.high_information_qualifier_keys)
+      .not.toContain("onset_seconds");
+    expect(replacement.changed_json_pointers)
+      .toEqual(["/observations/0/high_information_qualifier_keys/4"]);
+    expect(faithful.source_sha256).toBe(defective.source_sha256);
+    expect(faithful.state_sha256).not.toBe(defective.state_sha256);
+    expect(faithful.candidate_id).toMatch(/^MUTV021-[A-F0-9]{12}$/u);
+    expect(defective.candidate_id).toMatch(/^MUTV021-[A-F0-9]{12}$/u);
   });
 
   it("fails closed before independent source/state adjudication", async () => {
