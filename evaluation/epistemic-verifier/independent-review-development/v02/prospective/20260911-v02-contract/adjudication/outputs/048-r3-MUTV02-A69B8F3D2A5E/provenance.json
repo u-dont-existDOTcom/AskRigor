@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "trial_id": "v02-gold-adjudication-048-r3-MUTV02-A69B8F3D2A5E",
+  "sequence": 48,
+  "phase": "DEVELOPMENT_DISCOVERY_GOLD_ADJUDICATION_THIRD",
+  "candidate_id": "MUTV02-A69B8F3D2A5E",
+  "round": 3,
+  "disagreement_dimensions": [
+    "other"
+  ],
+  "controller_observed": {
+    "surface": "CHATGPT_CONSUMER_UI_TEMPORARY_CHAT",
+    "temporary_chat": true,
+    "user_message_id": "f17d8e7c-c784-410e-861f-673e0c7dc2a1",
+    "assistant_message_id": "49aa4343-654b-48af-a042-f4e0b850eebf",
+    "assistant_model_slug": "gpt-5-6-thinking",
+    "controller_model_label_interpretation": "GPT-5.6 Sol",
+    "visible_reasoning_setting": "Extra High",
+    "visible_reasoning_label_localized": "Très élevé",
+    "account_plan_label": "Pro"
+  },
+  "timestamps": {
+    "submitted_at": "2026-09-11T14:53:36.837Z",
+    "completed_at": "2026-09-11T14:55:12.232Z"
+  },
+  "input": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-A69B8F3D2A5E.txt",
+    "sha256": "1c618f5720f2679a667fe68c37c937fb0c1b39713daa4dca16495f046cfe66b4",
+    "controller_submission_transport": "PRESTAGED_PLAYWRIGHT_FILL_THEN_ACCESSIBILITY_CLICK_AFTER_RATE_LIMIT_COOLDOWN"
+  },
+  "output": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/outputs/048-r3-MUTV02-A69B8F3D2A5E/raw-output.txt",
+    "characters": 7120,
+    "complete": true
+  },
+  "integrity": {
+    "fresh_temporary_conversation": true,
+    "controller_observed_identity": true,
+    "content_retry": false,
+    "replacement": false,
+    "rate_limit_attempt_created_no_consumer_message": true,
+    "reviewer_self_reported_model_or_mode_trusted": false
+  }
+}
