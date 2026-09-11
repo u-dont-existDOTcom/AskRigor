@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "trial_id": "v02-gold-adjudication-047-r3-MUTV02-E77F49046742",
+  "sequence": 47,
+  "phase": "DEVELOPMENT_DISCOVERY_GOLD_ADJUDICATION_THIRD",
+  "candidate_id": "MUTV02-E77F49046742",
+  "round": 3,
+  "disagreement_dimensions": [
+    "predicate_semantics"
+  ],
+  "controller_observed": {
+    "surface": "CHATGPT_CONSUMER_UI_TEMPORARY_CHAT",
+    "temporary_chat": true,
+    "user_message_id": "5848bf92-aa95-4875-b03d-1bc63d3c87c4",
+    "assistant_message_id": "7bdb95a9-f97e-4f1c-9e4e-578ff7c391d6",
+    "assistant_model_slug": "gpt-5-6-thinking",
+    "controller_model_label_interpretation": "GPT-5.6 Sol",
+    "visible_reasoning_setting": "Extra High",
+    "visible_reasoning_label_localized": "Très élevé",
+    "account_plan_label": "Pro"
+  },
+  "timestamps": {
+    "submitted_at": "2026-09-11T14:41:53.885Z",
+    "completed_at": "2026-09-11T14:44:21.514Z"
+  },
+  "input": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-E77F49046742.txt",
+    "sha256": "26c9b3c690c3a28b2ac64978f89feb8bec0a936b0673e4f50989d6d6acadf3e2",
+    "controller_submission_transport": "PLAYWRIGHT_FILL_WITH_CHATGPT_LARGE_TEXT_STAGING_THEN_ACCESSIBILITY_CLICK"
+  },
+  "output": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/outputs/047-r3-MUTV02-E77F49046742/raw-output.txt",
+    "characters": 7793,
+    "complete": true
+  },
+  "integrity": {
+    "fresh_temporary_conversation": true,
+    "controller_observed_identity": true,
+    "content_retry": false,
+    "replacement": false,
+    "reviewer_self_reported_model_or_mode_trusted": false
+  }
+}
