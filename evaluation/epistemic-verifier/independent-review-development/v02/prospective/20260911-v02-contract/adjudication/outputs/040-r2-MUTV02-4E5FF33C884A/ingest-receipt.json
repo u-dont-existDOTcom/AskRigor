@@ -1,0 +1,253 @@
+{
+  "review_version": "askrigor_epistemic_representation_review_v0_1",
+  "source_sha256": "6b9a8fd7bf12d73a24d0b6f8aec55be051a37c519efc9e73b3f871e6e2e01a3f",
+  "state_sha256": "0a90a06f33d08f4e4938787b1daab66b090e16049c7f9b9585841db422c6213f",
+  "producer_session_id": "synthetic-producer-PAIRV02-E91DD04FD166",
+  "reviewer": {
+    "session_id": "review-session-20260911T135800Z-a8c4f2d1",
+    "model": "GPT-5.6 Sol",
+    "mode": "Instant",
+    "fresh_independent_session": true
+  },
+  "reviewed_at": "2026-09-11T13:58:00+00:00",
+  "reviewer_independent": true,
+  "status": "block",
+  "critical_representation": "defective",
+  "findings": [
+    {
+      "dimension": "exact_target",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 37,
+          "quote": "The requested target is risk_v02_m03."
+        }
+      ],
+      "state_paths": [
+        "/target/target_id"
+      ],
+      "rationale": "The candidate target_id is exactly risk_v02_m03, matching the requested target without substitution."
+    },
+    {
+      "dimension": "case_and_comparison_roles",
+      "status": "distorted",
+      "affects_hard_invariant": true,
+      "source_spans": [
+        {
+          "start": 38,
+          "end": 68,
+          "quote": "Rowan m03 is the positive case"
+        },
+        {
+          "start": 187,
+          "end": 220,
+          "quote": "Mica m03 is the tolerated control"
+        }
+      ],
+      "state_paths": [
+        "/cases/0/comparison_role",
+        "/cases/1/comparison_role",
+        "/comparisons/0/positive_case_ids/0",
+        "/comparisons/0/control_case_ids"
+      ],
+      "rationale": "The case records correctly label Rowan as positive and Mica as tolerated_control, and Rowan is included in the comparison's positive_case_ids. However, the comparison's control_case_ids is empty, so Mica's source-specified control role is not carried into the represented comparison. This can change whether the hypothesis is tested against the required control."
+    },
+    {
+      "dimension": "negative_or_tolerated_comparator",
+      "status": "distorted",
+      "affects_hard_invariant": true,
+      "source_spans": [
+        {
+          "start": 187,
+          "end": 220,
+          "quote": "Mica m03 is the tolerated control"
+        },
+        {
+          "start": 222,
+          "end": 337,
+          "quote": "Mica receives the same 10 units of compound Sol by intravenous liquid infusion and does not show the target outcome"
+        }
+      ],
+      "state_paths": [
+        "/cases/1/comparison_role",
+        "/observations/1",
+        "/comparisons/0/control_case_ids"
+      ],
+      "rationale": "Mica and its no-outcome observation are represented, but Mica is omitted from the comparison control_case_ids. Thus the tolerated comparator exists in state but is not actually part of the represented comparison, which could permit a conclusion without the source-required control contrast."
+    },
+    {
+      "dimension": "high_information_qualifier",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 70,
+          "end": 185,
+          "quote": "the target outcome begins exactly 2 seconds after receiving 10 units of compound Sol by intravenous liquid infusion"
+        },
+        {
+          "start": 222,
+          "end": 337,
+          "quote": "Mica receives the same 10 units of compound Sol by intravenous liquid infusion and does not show the target outcome"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/qualifiers",
+        "/observations/0/high_information_qualifier_keys",
+        "/observations/1/qualifiers",
+        "/observations/1/high_information_qualifier_keys"
+      ],
+      "rationale": "The material qualifiers are preserved: Rowan has onset_seconds 2, dose_units 10, compound Sol, route intravenous, and form liquid; Mica has the same dose, compound, route, and form. The corresponding qualifier keys are designated high-information."
+    },
+    {
+      "dimension": "timing",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 96,
+          "end": 113,
+          "quote": "exactly 2 seconds"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/statement",
+        "/observations/0/qualifiers/onset_seconds"
+      ],
+      "rationale": "Rowan's onset is represented as exactly 2 seconds, including a structured onset_seconds value of 2."
+    },
+    {
+      "dimension": "amount_or_dose",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 130,
+          "end": 154,
+          "quote": "10 units of compound Sol"
+        },
+        {
+          "start": 245,
+          "end": 269,
+          "quote": "10 units of compound Sol"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/qualifiers/dose_units",
+        "/observations/0/qualifiers/compound",
+        "/observations/1/qualifiers/dose_units",
+        "/observations/1/qualifiers/compound"
+      ],
+      "rationale": "Both Rowan and Mica are represented as receiving 10 units of compound Sol, preserving the source's same-dose control condition."
+    },
+    {
+      "dimension": "route_or_form",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 158,
+          "end": 185,
+          "quote": "intravenous liquid infusion"
+        },
+        {
+          "start": 273,
+          "end": 300,
+          "quote": "intravenous liquid infusion"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/statement",
+        "/observations/0/qualifiers/route",
+        "/observations/0/qualifiers/form",
+        "/observations/1/statement",
+        "/observations/1/qualifiers/route",
+        "/observations/1/qualifiers/form"
+      ],
+      "rationale": "For both cases, the statements preserve 'intravenous liquid infusion', and the structured qualifiers preserve route as intravenous and form as liquid."
+    },
+    {
+      "dimension": "feature_value",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 339,
+          "end": 395,
+          "quote": "Feature Quartz is high in Rowan m03 and low in Mica m03."
+        }
+      ],
+      "state_paths": [
+        "/features/0/feature_id",
+        "/features/0/value",
+        "/features/1/feature_id",
+        "/features/1/value"
+      ],
+      "rationale": "The Quartz feature records preserve the source values exactly: Rowan has value high and Mica has value low."
+    },
+    {
+      "dimension": "predicate_semantics",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 339,
+          "end": 395,
+          "quote": "Feature Quartz is high in Rowan m03 and low in Mica m03."
+        },
+        {
+          "start": 430,
+          "end": 463,
+          "quote": "Quartz's stored value equals high"
+        },
+        {
+          "start": 468,
+          "end": 508,
+          "quote": "thereby distinguishes the target outcome"
+        }
+      ],
+      "state_paths": [
+        "/hypotheses/0/discriminator/feature_id",
+        "/hypotheses/0/discriminator/operator",
+        "/hypotheses/0/discriminator/value",
+        "/features/0/value",
+        "/features/1/value"
+      ],
+      "rationale": "The source predicate's exact truth condition is: a case satisfies the discriminator iff Quartz's stored value equals 'high'; it is not a test for mere record existence. Rowan, the positive case, has a Quartz record with stored value 'high', so candidate operator equals with predicate value 'high' returns true. Mica, the tolerated control, has a Quartz record with stored value 'low', so equals('high') returns false. The source requires precisely this true-for-Rowan and false-for-Mica contrast. The candidate discriminator therefore matches the source predicate semantics case by case, notwithstanding the separate defect that Mica is omitted from the comparison's control_case_ids."
+    },
+    {
+      "dimension": "dependency_or_provenance",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 510,
+          "end": 621,
+          "quote": "The conclusion must depend on Rowan's source-grounded target observation and the tolerated-control observation."
+        }
+      ],
+      "state_paths": [
+        "/claims/0/dependencies/0",
+        "/claims/0/dependencies/1",
+        "/observations/0/provenance",
+        "/observations/1/provenance"
+      ],
+      "rationale": "The conclusion claim explicitly depends on both obs_positive_v02_m03 and obs_control_v02_m03, and both observations are marked source_grounded. This preserves the source-required dependency on Rowan's target observation and the tolerated-control observation."
+    },
+    {
+      "dimension": "other",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "No additional semantic dimension beyond the enumerated required dimensions is applicable to the supplied source packet."
+    }
+  ],
+  "blockers": [
+    "case_and_comparison_roles: The case records correctly label Rowan as positive and Mica as tolerated_control, and Rowan is included in the comparison's positive_case_ids. However, the comparison's control_case_ids is empty, so Mica's source-specified control role is not carried into the represented comparison. This can change whether the hypothesis is tested against the required control.",
+    "negative_or_tolerated_comparator: Mica and its no-outcome observation are represented, but Mica is omitted from the comparison control_case_ids. Thus the tolerated comparator exists in state but is not actually part of the represented comparison, which could permit a conclusion without the source-required control contrast."
+  ],
+  "warnings": []
+}
