@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "trial_id": "v02-gold-adjudication-007-r1-MUTV02-DB65FC2D8EEA",
+  "phase": "DEVELOPMENT_DISCOVERY_GOLD_ADJUDICATION",
+  "candidate_id": "MUTV02-DB65FC2D8EEA",
+  "round": 1,
+  "controller_observed": {
+    "surface": "CHATGPT_CONSUMER_UI_TEMPORARY_CHAT",
+    "temporary_chat": true,
+    "user_message_id": "ea09c8a8-7342-4559-a06d-598059b482d5",
+    "assistant_message_id": "f463a7ee-af9a-48d0-9a0e-4a515956218d",
+    "assistant_model_slug": "gpt-5-6-thinking",
+    "controller_model_label_interpretation": "GPT-5.6 Sol",
+    "visible_reasoning_setting": "Extra High",
+    "visible_reasoning_label_localized": "Très élevé",
+    "account_plan_label": "Pro"
+  },
+  "timestamps": {
+    "submitted_at": "2026-09-11T10:22:22.642Z",
+    "completed_at": "2026-09-11T10:24:23.553Z"
+  },
+  "input": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-DB65FC2D8EEA.txt",
+    "sha256": "4fe6146d98aab98d5db4279d36032fde81111bdd8bf81d09d40a5c99f365ea89"
+  },
+  "output": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/outputs/007-r1-MUTV02-DB65FC2D8EEA/raw-output.txt",
+    "characters": 7072,
+    "complete": true
+  },
+  "integrity": {
+    "fresh_temporary_conversation": true,
+    "controller_observed_identity": true,
+    "content_retry": false,
+    "replacement": false,
+    "reviewer_self_reported_model_or_mode_trusted": false
+  }
+}
