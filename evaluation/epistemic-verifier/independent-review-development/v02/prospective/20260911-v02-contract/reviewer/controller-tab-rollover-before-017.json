@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_REVIEWER_CONTROLLER_MAINTENANCE",
+  "recorded_at": "2026-09-11T17:31:35.323Z",
+  "completed_sessions_before_rollover": 16,
+  "old_hidden_iab_tab_id": 9,
+  "old_tab_closed": true,
+  "new_hidden_iab_tab_id": 10,
+  "brave_used": false,
+  "reason": "The old hidden renderer repeatedly timed out during composer interaction.",
+  "integrity_effect": "No consumer message existed for sequence 17 before rollover. The exact frozen sequence-17 input was then submitted once in a fresh temporary conversation."
+}
