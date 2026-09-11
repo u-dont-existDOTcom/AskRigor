@@ -1,0 +1,228 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-longitudinal-evidence-phenotype-etiology-release-2026-09-11",
+  "recordedAt": "2026-09-11T09:34:17Z",
+  "releaseState": "production_release_complete",
+  "source": {
+    "pullRequest": 214,
+    "pullRequestUrl": "https://github.com/u-dont-existDOTcom/AskRigor/pull/214",
+    "headCommit": "8ad7e3f3424c2f3751338e0d75b76f6a6efe11f0",
+    "mergeCommit": "23b14f205621352f2c7f67a074bddb7e91c65ee1",
+    "mergedAt": "2026-09-11T09:15:33Z",
+    "mergeTreeEqualsHead": true
+  },
+  "canonicalArtifacts": {
+    "universal": {
+      "version": "20.5.23",
+      "revisionDate": "2026-09-10",
+      "sha256": "321686bf6cfb718ecef6ae4887a4691f0969304caedbbabee2c97ee19afaa303",
+      "loadedTextCharacters": 150219
+    },
+    "hrp": {
+      "version": "20.5.28",
+      "revisionDate": "2026-09-10",
+      "sha256": "bb886e1e1874eeba1d645b773937043c7d9d88c84a3427ad7c0fe7f4a9be713f",
+      "loadedTextCharacters": 590082
+    },
+    "projectRouterCharacters": 7812,
+    "patientStoryEvidenceVersion": "0.3.0",
+    "frozenPatientStoryV01Changed": false,
+    "frozenPatientStoryV02Changed": false,
+    "priorCollectedDataReinterpreted": false,
+    "requiredMarkers": {
+      "threeToSevenLongitudinalConstraints": true,
+      "longitudinalCausalConstraintMap": true,
+      "phenotypeEtiologyFirewall": true,
+      "completeLongitudinalPredictionCheck": true,
+      "newEvidenceVersusReweightingClassification": true,
+      "imageOverridesLongitudinalHistoryRegression": true,
+      "finalSelfCheckFs206": true
+    }
+  },
+  "migration": {
+    "script": "scripts/protocol-migrations/2026-09-10-longitudinal-evidence-phenotype-etiology.py",
+    "derivedFilesCompared": 3,
+    "allDerivedFilesExact": true,
+    "secondReplayIdempotent": true,
+    "generatedPatientStorySchemaExact": true
+  },
+  "deployment": {
+    "sourceArchive": {
+      "memberCount": 3006,
+      "tarBytes": 22435840,
+      "tarSha256": "f67083eb6f37fa16444af9b74d2d194ec17a8be3d95f0739bf72d92617917baa",
+      "gzipBytes": 4334111,
+      "gzipSha256": "3afbd00b64d128652c3a924769a18d20aa30004fab9667d259f161dee379d24f"
+    },
+    "backend": {
+      "imageReference": "askrigor-research:23b14f205621352f2c7f67a074bddb7e91c65ee1",
+      "imageId": "sha256:6fc07da58a795e1e0e7af2c8f75c4058cff1a9cef2c717809c9406842db3d68b",
+      "imageArchiveBytes": 108441787,
+      "imageArchiveSha256": "3ab712d3401ce96076c312ab8f87ec93260c34781026c2fc68729a6e30b0e89b",
+      "containerId": "5d32b76a8101a7d70ba0e442e662f277d0655feca6f1d2ed78ce58c7bfef9634",
+      "healthy": true,
+      "runsAsNode": true,
+      "readOnlyFilesystem": true,
+      "capabilitiesDropped": "ALL",
+      "noNewPrivileges": true,
+      "memoryBytes": 1073741824,
+      "pidsLimit": 256,
+      "networks": [
+        "askrigor_default",
+        "askrigor_living_evidence_private"
+      ],
+      "writableStateMounts": [
+        "/var/lib/askrigor-actions",
+        "/var/lib/askrigor-research-sessions"
+      ]
+    },
+    "database": {
+      "containerId": "cf767390e8247d77a035da4582604bd151f43e0495ccb84170043a71c2a85fa6",
+      "image": "postgres:17.6-alpine@sha256:747d5ed1fdeeb124b880fbe3d7c6557d2c4064ae41d6b6297d417882effce4be",
+      "healthy": true,
+      "recreated": false
+    },
+    "rollback": {
+      "previousImageReference": "askrigor-research:17f432ff147fc674e2035fb570c42c22d1e4fbdb",
+      "previousImageTag": "askrigor-research:rollback-pre-23b14f205621",
+      "previousImageId": "sha256:ebc8216536a1d63e5df37b2e809b179aafecf4c5e75a511ca73eae039c36ed6c",
+      "rootOnlyDirectory": "/opt/askrigor/rollbacks/pre-23b14f205621352f2c7f67a074bddb7e91c65ee1",
+      "directoryMode": "0700_root_root",
+      "memberCount": 7,
+      "sha256ManifestSha256": "af5c6a85548a5067d897525cd2c64b522f9b9e5eec2aa8fdcbb5f328f308c341",
+      "persistentEvidenceDeletionAuthorized": false
+    }
+  },
+  "activeWorker": {
+    "connector": "AskRigor Reviewer",
+    "toolCount": 27,
+    "toolInventorySha256": "5dd514a9e865da0b312a3f9f6a106a4a3d0bd9872e7bfec0e95db6bbe9c7dab0",
+    "authenticatedManifestsExact": true,
+    "integrityVerified": true,
+    "completeProtocolsLoaded": true,
+    "requiredMarkersPresent": true,
+    "providerProbe": {
+      "provider": "pubmed",
+      "accessStatus": "complete",
+      "recordsReturned": 1,
+      "firstPmid": "42616133",
+      "limitations": []
+    },
+    "plugin": {
+      "sourceVersion": "0.1.0",
+      "sourcePackageSha256": "60d20c3bd1efcb29dd11e74040a511be135ec59676028b091d5340dac5ea69b7",
+      "installedVersion": "0.1.0+codex.20260901124016",
+      "installedPackageSha256": "02c41b473c23a5442d72c65e8346b6986451d26c2fe68e297cd3532067084ae1",
+      "declaredFileCount": 8,
+      "differingPaths": [
+        ".codex-plugin/plugin.json"
+      ],
+      "nonManifestFilesMatchSource": true,
+      "manifestDifference": "installed_cachebuster_version_only",
+      "reinstallRequired": false
+    }
+  },
+  "promotionScheduler": {
+    "selectorSha256": "0f6940f78da58bf83d744f4977ca15a01385e7149b28fb8a692670164f6ce2bf",
+    "selectorMode": "0600_root_root",
+    "manualResult": "success_no_pending_promotion",
+    "manualExitStatus": 0,
+    "manualJournalSensitiveMarkerCount": 0,
+    "scheduledTriggerObserved": "2026-09-11T09:25:07Z",
+    "scheduledResult": "success",
+    "laterTriggerObserved": "2026-09-11T09:30:13Z",
+    "timerEnabled": true,
+    "timerActive": true,
+    "runnerContainerRemaining": false
+  },
+  "liveVerification": {
+    "verifiedAt": "2026-09-11T09:34:17Z",
+    "healthUrl": "https://mcp.askrigor.com/healthz",
+    "healthStatus": 200,
+    "productionLogLineCount": 1,
+    "productionLogSensitiveMarkerCount": 0,
+    "actionSchema": {
+      "committedFullSchemaSha256": "cf7018c447baad2b1c9fce8d1ca880998863c2f15a4c3a36a9e672aec7e0d930",
+      "liveSchemaSha256": "94a3635e4a4ac398f2151b4debb383cd7b78136ebba50a908e85c210e7c71e6f",
+      "livePaths": [
+        "/actions/lessons"
+      ],
+      "matchesIntentionalOauthProductionProjection": true,
+      "legacyControlledResearchActionAvailable": false
+    },
+    "site": {
+      "changed": false,
+      "redeployed": false,
+      "pages": {
+        "https://askrigor.com/": {
+          "status": 200,
+          "sha256": "e921c942ba7d732958eaf520516425ac5b8493720d6d79d9091bc2094056e4ff",
+          "exactMainBytes": true
+        },
+        "https://askrigor.com/privacy": {
+          "status": 200,
+          "sha256": "cba2c21268a5061c3ba2d573fc295f9e56a7b791e0a4e98d75ee106b1f6a3481",
+          "exactMainBytes": true
+        },
+        "https://askrigor.com/terms": {
+          "status": 200,
+          "sha256": "edb0fa903c302a6ca309691be6f67f56ff28ae56e59cffdd440c848996ab0029",
+          "exactMainBytes": true
+        },
+        "https://askrigor.com/support": {
+          "status": 200,
+          "sha256": "f83b7b463b43058cd85ce7626d140cfe5f6b975abfb53386243f47e8b4d321ba",
+          "exactMainBytes": true
+        }
+      }
+    },
+    "legacyCustomGptDiagnostic": {
+      "status": "expected_fail_closed",
+      "sessionCreated": false,
+      "researchConclusionRendered": false,
+      "cause": "OAuth production intentionally omits legacy research Action routes",
+      "countedAsActiveWorkerAcceptance": false,
+      "browserTabsRemaining": 0
+    }
+  },
+  "verification": {
+    "github": {
+      "deterministicRun": 34583026328,
+      "deterministicJob": 103210759228,
+      "npmRunVerify": "pass",
+      "workflowPolicyRun": 34583026390,
+      "workflowPolicy": "pass",
+      "codeqlRun": 34583022697,
+      "codeql": "pass",
+      "unresolvedReviewThreadCount": 0
+    },
+    "local": {
+      "node": "24.18.0",
+      "npm": "11.16.0",
+      "focusedChangedTestFilesPassed": 17,
+      "focusedChangedTestsPassed": 211,
+      "fullTestFilesPassed": 162,
+      "fullTestFilesSkipped": 1,
+      "fullTestsPassed": 1910,
+      "fullTestsSkipped": 6,
+      "receiptBranchFullParallelAttempt": "one_pre_existing_10000ms_controlled_research_timeout_after_1909_passes",
+      "isolatedControlledResearchRouteTestsPassed": 16,
+      "typecheck": "pass",
+      "build": "pass",
+      "xmlParse": "pass",
+      "diffCheck": "pass",
+      "governanceValidator": "pass"
+    },
+    "lessonQueue": {
+      "status": "available",
+      "openCandidates": 1,
+      "needsReview": 1,
+      "acceptedNotIncorporated": 0,
+      "incorporatedOrClosed": 4,
+      "deletionEligible": 0,
+      "checkedAt": "2026-09-11T09:15:24Z"
+    }
+  },
+  "typedCompletionClaim": "OUTCOME",
+  "remainingBlockers": []
+}

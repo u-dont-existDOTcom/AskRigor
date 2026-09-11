@@ -43,6 +43,12 @@ const CURRENT_REASONING_SELECTION_ELEMENT =
 const INTERVIEW_POINT_CHECK =
   "Interview-evidence check: If I am eliciting or coding recurrence, did I preserve the direct recurrence report and its quantifier, denominator, context, exceptions, and uncertainty; distinguish it from episodes, traits, causes, coder inference, and genuinely sampled opportunities; probe exceptions before ritual confirming anecdotes; and ask each nonmandatory follow-up only for identifiable information gain? If a human must judge it, is there a human-facing interface, and if a load-bearing pre-collection defect appeared, did I version the method rather than reinterpret a frozen one?";
 
+const LONGITUDINAL_POINT_CHECK =
+  "Longitudinal-evidence check: Before an individual-case differential or causal ranking, did I extract the three to seven highest-information longitudinal constraints from the complete supplied history, score every leading hypothesis against all of them, and keep morphology or another cross-sectional phenotype description separate from etiology? If a later message changed the ranking, did I distinguish genuinely new evidence from correction or reweighting of evidence that was already present and name any earlier weighting or representation failure?";
+
+const LONGITUDINAL_UPDATE_RULE =
+  "When a later user message changes the conclusion or ranking, first compare its decisive content with the complete evidence already supplied. Classify the update as new evidence or as reweighting/correction of already-present evidence. If the decisive facts were already present, identify the earlier evidence-weighting or semantic-representation failure and do not describe those facts as newly supplied.";
+
 const REVISION_TEXT =
   "Added the owner-supplied Reasoning Selection supplement: choose the smallest sufficient combination of methods by question function, scale effort with stakes, uncertainty and reversibility, and preserve phase-specific and non-waivable gates. Existing protocol authority, execution-only roles, and source-verification, completion, privacy and spending controls remain unchanged. The selector is guidance, not an executable model-quality guarantee.";
 const REVISION_ELEMENT =
@@ -60,13 +66,13 @@ Respect phase-specific gates and provenance; development-fitted evidence is not 
 
 `;
 
-const CURRENT_PROJECT_APPLICATION = `### Reasoning and interview-evidence application
+const CURRENT_PROJECT_APPLICATION = `### Reasoning, interview, and longitudinal evidence
 
-Use Universal reasoning_selection; it cannot replace protocols/modules. Define claim, population, intervention/exposure, comparator, outcome, horizon. Separate mechanism, association, treatment effect, and personal applicability. Compare absolute benefits/harms and alternatives including nonaction; examine bias, confounding, precision, heterogeneity, and evidence dependence. Generate competing explanations; critique without averaging incompatible findings. Preserve exact populations, formulations, concentrations, contexts, and endpoints before claiming contradiction. Selected reports do not establish incidence or causality.
+Use Universal reasoning_selection; protocols/modules control. Define the exact claim, population, exposure/intervention, comparator, outcome, and horizon. Distinguish mechanism, association, treatment effect, and personal applicability. Preserve exact contexts and endpoints; selected reports prove neither incidence nor causality.
 
-For histories, recurrence, surveys, follow-ups, extraction, and dialogue, apply Universal/HRP interview-evidence gates. Preserve recurrence separately from other roles; probe scope, exceptions, conditions, timing, and contrasts before anecdotes. True frequency needs valid sampling; optional questions need information gain. Retrieve owner methodology, use human controls, and version pre-collection defects without altering frozen methods/data.
+Apply Universal/HRP interview and longitudinal gates to histories, surveys, follow-ups, extraction, and dialogue. Before an individual-case differential, extract the 3–7 strongest longitudinal constraints and test every leading hypothesis against them. Keep phenotype/morphology separate from etiology. A later message that only highlights existing facts is a weighting or representation correction, not new evidence. Probe recurrence scope, exceptions, conditions, timing, and contrasts before anecdotes; require valid frequency sampling and information gain for optional questions. Retrieve owner methodology, use human controls, and version pre-collection defects without altering frozen methods/data.
 
-Respect phase/provenance gates: development-fitted evidence is not independent confirmation; missing access is not negative, nor partial evidence completion. Separate operational/scientific/release adequacy. Source-bound authority/server-selected work control; no new execution, spending, publication, or release permission.
+Development-fitted evidence is not confirmation; missing access is neither negative evidence nor completion. Separate adequacy planes. This grants no new execution, spending, publication, or release permission.
 
 `;
 
@@ -92,7 +98,7 @@ describe("canonical Reasoning Selection application", () => {
 
     expect(XMLValidator.validate(universal)).toBe(true);
     expect(universal).toMatch(
-      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.22" revisionDate="2026-09-08"/u,
+      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.23" revisionDate="2026-09-10"/u,
     );
     expect(Buffer.byteLength(REASONING_SELECTION_TEXT, "utf8")).toBe(2884);
     expect(sha256(REASONING_SELECTION_TEXT)).toBe(
@@ -120,7 +126,26 @@ describe("canonical Reasoning Selection application", () => {
       expect(occurrences(CURRENT_REASONING_SELECTION_TEXT, `- ${method}:`), method).toBe(1);
     }
 
-    const priorInterviewUniversal = universal
+    const priorLongitudinalUniversal = universal
+      .replace('version="20.5.23" revisionDate="2026-09-10"', 'version="20.5.22" revisionDate="2026-09-08"')
+      .replace(
+        "Evidence-Depth, Interview-Evidence and Information-Gain Integrity, Longitudinal-Evidence Preservation, Phenotype–Etiology Separation, Outcome-Directed Strategy-Switching",
+        "Evidence-Depth, Interview-Evidence and Information-Gain Integrity, Outcome-Directed Strategy-Switching",
+      )
+      .replace(/<revision version="20\.5\.23" priority="Critical">[\s\S]*?<\/revision>\n/u, "")
+      .replace(
+        "Prevent causal explanations and hypothesis ranking from ignoring the direction of the strongest observations, selective triggers, longitudinal constraints, and negative/control cases.",
+        "Prevent causal explanations and hypothesis ranking from ignoring the direction of the strongest observations, selective triggers, and negative/control cases.",
+      )
+      .replace(/<high_information_qualifier_check priority="Critical">[\s\S]*?<\/high_information_qualifier_check>\n\n/u, "")
+      .replace(/<phenotype_etiology_firewall priority="Critical">[\s\S]*?<\/phenotype_etiology_firewall>\n\n/u, "")
+      .replace(`\n${LONGITUDINAL_POINT_CHECK}\n\n`, "")
+      .replace(`\n${LONGITUDINAL_UPDATE_RULE}\n`, "");
+    expect(sha256(priorLongitudinalUniversal)).toBe(
+      "d9364d98aa8c9805061aa53d21e7e3ed219675d8456b975b634bf54b2910c1b6",
+    );
+
+    const priorInterviewUniversal = priorLongitudinalUniversal
       .replace('version="20.5.22" revisionDate="2026-09-08"', 'version="20.5.21" revisionDate="2026-09-08"')
       .replace(
         "Evidence-Depth, Interview-Evidence and Information-Gain Integrity, Outcome-Directed Strategy-Switching, and Whole-Argument-Reconstruction Gates",
@@ -165,11 +190,11 @@ describe("canonical Reasoning Selection application", () => {
       "d5a4b02bc53fda30bbb586d2ec34233f19bb981d38427f6311f453b84209ba5a",
     );
     expect(project).toContain(`\n${CURRENT_PROJECT_APPLICATION}## 1. Run before HRP/research`);
-    expect(Buffer.byteLength(project, "utf8")).toBe(7978);
-    expect(Array.from(project)).toHaveLength(7964);
+    expect(Buffer.byteLength(project, "utf8")).toBe(7828);
+    expect(Array.from(project)).toHaveLength(7812);
     expect(project.split(/\s+/u).filter(Boolean)).toHaveLength(899);
     expect(sha256(project)).toBe(
-      "143e17ecffb330f98a0be85f52c0cd284a05d0ca08f325afd9443054bb9efc43",
+      "b34ddb6cffbbadafd8981ccb887247c24390c017133ba4791e2c49a4793ffcf0",
     );
     expect(sha256(project.replace(CURRENT_PROJECT_APPLICATION, PROJECT_APPLICATION))).toBe(
       "58d8c8387e962064a393af1cab7d78391e18dfa78571cbb0372aad8455b7db70",
@@ -188,7 +213,7 @@ describe("canonical Reasoning Selection application", () => {
     ]);
 
     expect(sha256(hrp)).toBe(
-      "65b099ce808012214e78f5f7b910e6a68858746978c160e29e177c3b444bf85a",
+      "bb886e1e1874eeba1d645b773937043c7d9d88c84a3427ad7c0fe7f4a9be713f",
     );
     expect(sha256(forum)).toBe(
       "75c088ba0edeb821d3d664d2f0b48b33f7dd3e627c01dfe830053d6dac2aed13",

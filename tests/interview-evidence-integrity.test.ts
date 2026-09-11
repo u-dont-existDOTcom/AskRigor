@@ -89,7 +89,7 @@ describe("interview-evidence protocol integration", () => {
   it("adds the Universal 20.5.22 gate without weakening current integrity controls", async () => {
     const text = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
     expect(XMLValidator.validate(text)).toBe(true);
-    expect(text).toMatch(/version="20\.5\.22" revisionDate="2026-09-08"/u);
+    expect(text).toMatch(/version="20\.5\.23" revisionDate="2026-09-10"/u);
     for (const required of [
       '<revision version="20.5.22" priority="Critical">',
       '<interview_evidence_information_gain_gate priority="Critical">',
@@ -123,7 +123,7 @@ describe("interview-evidence protocol integration", () => {
   it("adds the HRP 20.5.26 patient-history application and regression", async () => {
     const text = await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
     expect(XMLValidator.validate(text)).toBe(true);
-    expect(text).toMatch(/version="20\.5\.27" revisionDate="2026-09-09"/u);
+    expect(text).toMatch(/version="20\.5\.28" revisionDate="2026-09-10"/u);
     for (const required of [
       '<Revision version="20.5.26" priority="Critical">',
       '<PatientHistoryAndRecurrenceEvidenceGate priority="Critical">',
@@ -145,11 +145,9 @@ describe("interview-evidence protocol integration", () => {
   it("routes AskRigor intake and review workers through the canonical gates", async () => {
     const project = await readFile(new URL("project/PROJECT_INSTRUCTIONS.md", ROOT), "utf8");
     for (const required of [
-      "### Reasoning and interview-evidence application",
-      "For histories, recurrence, surveys, follow-ups, extraction, and dialogue",
-      "apply Universal/HRP interview-evidence gates",
-      "Preserve recurrence separately from other roles",
-      "probe scope, exceptions, conditions, timing, and contrasts before anecdotes",
+      "### Reasoning, interview, and longitudinal evidence",
+      "Apply Universal/HRP interview and longitudinal gates",
+      "Probe recurrence scope, exceptions, conditions, timing, and contrasts before anecdotes",
       "Retrieve owner methodology, use human controls",
       "without altering frozen methods/data",
     ]) expect(project).toContain(required);
