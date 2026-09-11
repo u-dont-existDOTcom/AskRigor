@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "status": "INVALID_ADJUDICATION_OUTPUT",
+  "stage": "DETERMINISTIC_EVIDENCE_VALIDATION",
+  "error": "route_or_form: source span does not match the frozen source packet",
+  "raw_output_preserved": true,
+  "normalized_output_preserved": true,
+  "counts_as_valid_adjudication": false,
+  "required_follow_up": "ADDITIONAL_FRESH_INDEPENDENT_ADJUDICATION_BEFORE_GOLD_ADMISSION",
+  "recorded_at": "2026-09-11T12:14:03.915864+00:00"
+}
