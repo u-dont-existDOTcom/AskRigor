@@ -45,3 +45,14 @@ HRP, Universal Instructions, MAST evidence, production behavior, or deployment.
 The candidate corpus and prompt are reproducible, focused tests and the complete
 repository gate pass, and the repository records that no fresh reviewer run or
 production integration has occurred.
+
+## Prospective execution continuation
+
+Before any reviewer trial, run two source/state-only adjudications for every
+opaque candidate in fresh temporary consumer sessions. Freeze raw output and
+controller-observed model, mode, conversation, message, timing, and byte-hash
+provenance. Any per-dimension status or hard-relevance disagreement requires a
+third fresh adjudication. Keep construction gold unopened until those initial
+outputs are frozen, reconcile the adjudicated corpus, then run three fresh v0.2
+reviews per candidate. No result from this DEVELOPMENT corpus authorizes
+production integration.

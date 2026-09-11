@@ -17,4 +17,8 @@ attachments. The prospective admission receipt blocks reviewer generation until
 two independent source/state-only adjudications exist for every candidate and a
 third resolves each disagreement.
 
+The versioned run record freezes the zero-spend consumer-session settings,
+blinded adjudication order, and controller-owned provenance requirements before
+generation.
+
 Historical v0.1 artifacts, labels, and outputs remain unchanged.

@@ -1,0 +1,318 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_BLINDED_GOLD_ADJUDICATION",
+  "seed": "semantic-review-v02-independent-adjudication-20260911",
+  "candidate_count": 22,
+  "required_independent_rounds": 2,
+  "planned_sessions_before_disagreement_resolution": 44,
+  "order": [
+    {
+      "sequence": 1,
+      "round": 1,
+      "candidate_id": "MUTV02-A69B8F3D2A5E",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-A69B8F3D2A5E.txt",
+      "input_sha256": "1c618f5720f2679a667fe68c37c937fb0c1b39713daa4dca16495f046cfe66b4"
+    },
+    {
+      "sequence": 2,
+      "round": 1,
+      "candidate_id": "MUTV02-7ECEACF0C355",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-7ECEACF0C355.txt",
+      "input_sha256": "b151a4ef6b21276dac79820a629c21daf1f6faccc94817dcd83f7250c7a92ff6"
+    },
+    {
+      "sequence": 3,
+      "round": 1,
+      "candidate_id": "MUTV02-160DFE1FDF35",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-160DFE1FDF35.txt",
+      "input_sha256": "d64993de8f695f0835f11de0ec327e9573c0f7baaadbdd2f58bb7c33b2d251a6"
+    },
+    {
+      "sequence": 4,
+      "round": 1,
+      "candidate_id": "MUTV02-A8F8FE9BC561",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-A8F8FE9BC561.txt",
+      "input_sha256": "85fca1389ef6ad9fe52f94aabb41e0ac9404d806a05a5511e7c6ce3c97422c26"
+    },
+    {
+      "sequence": 5,
+      "round": 1,
+      "candidate_id": "MUTV02-062657A78CFC",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-062657A78CFC.txt",
+      "input_sha256": "a5e1eb576321fea6d66c830c0f400a22b0f879adf1557864aed89919298dc22b"
+    },
+    {
+      "sequence": 6,
+      "round": 1,
+      "candidate_id": "MUTV02-B8C3C7D3B400",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-B8C3C7D3B400.txt",
+      "input_sha256": "3175a63a294ee21d03a52bf1eccd2c673e554f28d64ad0da64b1b07eb38c9458"
+    },
+    {
+      "sequence": 7,
+      "round": 1,
+      "candidate_id": "MUTV02-DB65FC2D8EEA",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-DB65FC2D8EEA.txt",
+      "input_sha256": "4fe6146d98aab98d5db4279d36032fde81111bdd8bf81d09d40a5c99f365ea89"
+    },
+    {
+      "sequence": 8,
+      "round": 1,
+      "candidate_id": "MUTV02-9E2004ACE2A0",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-9E2004ACE2A0.txt",
+      "input_sha256": "35d4eb69261f8dc82d694b7ee3af1a90b0155197fd51741c30c157ea694256a9"
+    },
+    {
+      "sequence": 9,
+      "round": 1,
+      "candidate_id": "MUTV02-BA0AF7C61837",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-BA0AF7C61837.txt",
+      "input_sha256": "5ae3b3e2331b2696f5efe8556bfe4aede4d104118aa1ce91604a18f3ebd6b334"
+    },
+    {
+      "sequence": 10,
+      "round": 1,
+      "candidate_id": "MUTV02-4370AA0D930D",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-4370AA0D930D.txt",
+      "input_sha256": "3dfa2416b4e026ad0074cc07844c70ef005d0de515de699b3738e84f7d6eaa86"
+    },
+    {
+      "sequence": 11,
+      "round": 1,
+      "candidate_id": "MUTV02-4E5FF33C884A",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-4E5FF33C884A.txt",
+      "input_sha256": "a9a4da8f9fc0d56fc4bae26dc6d5a6c73c1b0e4f285240624761e3b70fc7773f"
+    },
+    {
+      "sequence": 12,
+      "round": 1,
+      "candidate_id": "MUTV02-9650D823B140",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-9650D823B140.txt",
+      "input_sha256": "116f2fa0454a873adc17f0d0652afe9325e4f9e3d69d103f37a5ba7350bd210e"
+    },
+    {
+      "sequence": 13,
+      "round": 1,
+      "candidate_id": "MUTV02-E77F49046742",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-E77F49046742.txt",
+      "input_sha256": "26c9b3c690c3a28b2ac64978f89feb8bec0a936b0673e4f50989d6d6acadf3e2"
+    },
+    {
+      "sequence": 14,
+      "round": 1,
+      "candidate_id": "MUTV02-72880B2133D6",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-72880B2133D6.txt",
+      "input_sha256": "81e6096418125b4b113c394e203b27bf6f3199df92cb637ec770121c5aa74725"
+    },
+    {
+      "sequence": 15,
+      "round": 1,
+      "candidate_id": "MUTV02-39AD8ADC2CD2",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-39AD8ADC2CD2.txt",
+      "input_sha256": "77888669ea794ab55bf476a7d84c9f547048c3daf47703caa823a67f9b263897"
+    },
+    {
+      "sequence": 16,
+      "round": 1,
+      "candidate_id": "MUTV02-F080864C89E6",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-F080864C89E6.txt",
+      "input_sha256": "d64e81bb41b0ad7e0a1d3606a2a714f40a913532c31b5c79cfc8fea18d466aaf"
+    },
+    {
+      "sequence": 17,
+      "round": 1,
+      "candidate_id": "MUTV02-FF9E5B176C50",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-FF9E5B176C50.txt",
+      "input_sha256": "9d0a8aad28a7f5ae14064871ec06cb3a17e55f16d7b1920b1fcf558ee825c448"
+    },
+    {
+      "sequence": 18,
+      "round": 1,
+      "candidate_id": "MUTV02-A45506610272",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-A45506610272.txt",
+      "input_sha256": "36af2056b0244687065a21fe68d95a4be230d8da3c0f731bc344a727fa4ca6c4"
+    },
+    {
+      "sequence": 19,
+      "round": 1,
+      "candidate_id": "MUTV02-3AA3050AC9E0",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-3AA3050AC9E0.txt",
+      "input_sha256": "a7035692c4ed08d32160f673f04a4ceb52393fea82a1b6d92a24cec33789bcc4"
+    },
+    {
+      "sequence": 20,
+      "round": 1,
+      "candidate_id": "MUTV02-769BB9A5909E",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-769BB9A5909E.txt",
+      "input_sha256": "ace40477d0e87f0085940922f16a5cd05abe0fdc3068c463bfec45fc99a41cf7"
+    },
+    {
+      "sequence": 21,
+      "round": 1,
+      "candidate_id": "MUTV02-32D4159C4DC4",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-32D4159C4DC4.txt",
+      "input_sha256": "4002ebba22d926b21e33b4d80d34d969637ce76ec25e425620b7ee7d18a45001"
+    },
+    {
+      "sequence": 22,
+      "round": 1,
+      "candidate_id": "MUTV02-62DC383E2CB8",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-62DC383E2CB8.txt",
+      "input_sha256": "9d2bf9f7f7a6caeb4c83d89b7501f8757b9cd84f9b5f3692efc734a8f617f996"
+    },
+    {
+      "sequence": 23,
+      "round": 2,
+      "candidate_id": "MUTV02-7ECEACF0C355",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-7ECEACF0C355.txt",
+      "input_sha256": "b151a4ef6b21276dac79820a629c21daf1f6faccc94817dcd83f7250c7a92ff6"
+    },
+    {
+      "sequence": 24,
+      "round": 2,
+      "candidate_id": "MUTV02-B8C3C7D3B400",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-B8C3C7D3B400.txt",
+      "input_sha256": "3175a63a294ee21d03a52bf1eccd2c673e554f28d64ad0da64b1b07eb38c9458"
+    },
+    {
+      "sequence": 25,
+      "round": 2,
+      "candidate_id": "MUTV02-32D4159C4DC4",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-32D4159C4DC4.txt",
+      "input_sha256": "4002ebba22d926b21e33b4d80d34d969637ce76ec25e425620b7ee7d18a45001"
+    },
+    {
+      "sequence": 26,
+      "round": 2,
+      "candidate_id": "MUTV02-72880B2133D6",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-72880B2133D6.txt",
+      "input_sha256": "81e6096418125b4b113c394e203b27bf6f3199df92cb637ec770121c5aa74725"
+    },
+    {
+      "sequence": 27,
+      "round": 2,
+      "candidate_id": "MUTV02-9650D823B140",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-9650D823B140.txt",
+      "input_sha256": "116f2fa0454a873adc17f0d0652afe9325e4f9e3d69d103f37a5ba7350bd210e"
+    },
+    {
+      "sequence": 28,
+      "round": 2,
+      "candidate_id": "MUTV02-A8F8FE9BC561",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-A8F8FE9BC561.txt",
+      "input_sha256": "85fca1389ef6ad9fe52f94aabb41e0ac9404d806a05a5511e7c6ce3c97422c26"
+    },
+    {
+      "sequence": 29,
+      "round": 2,
+      "candidate_id": "MUTV02-39AD8ADC2CD2",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-39AD8ADC2CD2.txt",
+      "input_sha256": "77888669ea794ab55bf476a7d84c9f547048c3daf47703caa823a67f9b263897"
+    },
+    {
+      "sequence": 30,
+      "round": 2,
+      "candidate_id": "MUTV02-9E2004ACE2A0",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-9E2004ACE2A0.txt",
+      "input_sha256": "35d4eb69261f8dc82d694b7ee3af1a90b0155197fd51741c30c157ea694256a9"
+    },
+    {
+      "sequence": 31,
+      "round": 2,
+      "candidate_id": "MUTV02-62DC383E2CB8",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-62DC383E2CB8.txt",
+      "input_sha256": "9d2bf9f7f7a6caeb4c83d89b7501f8757b9cd84f9b5f3692efc734a8f617f996"
+    },
+    {
+      "sequence": 32,
+      "round": 2,
+      "candidate_id": "MUTV02-3AA3050AC9E0",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-3AA3050AC9E0.txt",
+      "input_sha256": "a7035692c4ed08d32160f673f04a4ceb52393fea82a1b6d92a24cec33789bcc4"
+    },
+    {
+      "sequence": 33,
+      "round": 2,
+      "candidate_id": "MUTV02-E77F49046742",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-E77F49046742.txt",
+      "input_sha256": "26c9b3c690c3a28b2ac64978f89feb8bec0a936b0673e4f50989d6d6acadf3e2"
+    },
+    {
+      "sequence": 34,
+      "round": 2,
+      "candidate_id": "MUTV02-DB65FC2D8EEA",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-DB65FC2D8EEA.txt",
+      "input_sha256": "4fe6146d98aab98d5db4279d36032fde81111bdd8bf81d09d40a5c99f365ea89"
+    },
+    {
+      "sequence": 35,
+      "round": 2,
+      "candidate_id": "MUTV02-FF9E5B176C50",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-FF9E5B176C50.txt",
+      "input_sha256": "9d0a8aad28a7f5ae14064871ec06cb3a17e55f16d7b1920b1fcf558ee825c448"
+    },
+    {
+      "sequence": 36,
+      "round": 2,
+      "candidate_id": "MUTV02-4370AA0D930D",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-4370AA0D930D.txt",
+      "input_sha256": "3dfa2416b4e026ad0074cc07844c70ef005d0de515de699b3738e84f7d6eaa86"
+    },
+    {
+      "sequence": 37,
+      "round": 2,
+      "candidate_id": "MUTV02-160DFE1FDF35",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-160DFE1FDF35.txt",
+      "input_sha256": "d64993de8f695f0835f11de0ec327e9573c0f7baaadbdd2f58bb7c33b2d251a6"
+    },
+    {
+      "sequence": 38,
+      "round": 2,
+      "candidate_id": "MUTV02-769BB9A5909E",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-769BB9A5909E.txt",
+      "input_sha256": "ace40477d0e87f0085940922f16a5cd05abe0fdc3068c463bfec45fc99a41cf7"
+    },
+    {
+      "sequence": 39,
+      "round": 2,
+      "candidate_id": "MUTV02-BA0AF7C61837",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-BA0AF7C61837.txt",
+      "input_sha256": "5ae3b3e2331b2696f5efe8556bfe4aede4d104118aa1ce91604a18f3ebd6b334"
+    },
+    {
+      "sequence": 40,
+      "round": 2,
+      "candidate_id": "MUTV02-4E5FF33C884A",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-4E5FF33C884A.txt",
+      "input_sha256": "a9a4da8f9fc0d56fc4bae26dc6d5a6c73c1b0e4f285240624761e3b70fc7773f"
+    },
+    {
+      "sequence": 41,
+      "round": 2,
+      "candidate_id": "MUTV02-A69B8F3D2A5E",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-A69B8F3D2A5E.txt",
+      "input_sha256": "1c618f5720f2679a667fe68c37c937fb0c1b39713daa4dca16495f046cfe66b4"
+    },
+    {
+      "sequence": 42,
+      "round": 2,
+      "candidate_id": "MUTV02-062657A78CFC",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-062657A78CFC.txt",
+      "input_sha256": "a5e1eb576321fea6d66c830c0f400a22b0f879adf1557864aed89919298dc22b"
+    },
+    {
+      "sequence": 43,
+      "round": 2,
+      "candidate_id": "MUTV02-F080864C89E6",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-F080864C89E6.txt",
+      "input_sha256": "d64e81bb41b0ad7e0a1d3606a2a714f40a913532c31b5c79cfc8fea18d466aaf"
+    },
+    {
+      "sequence": 44,
+      "round": 2,
+      "candidate_id": "MUTV02-A45506610272",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-A45506610272.txt",
+      "input_sha256": "36af2056b0244687065a21fe68d95a4be230d8da3c0f731bc344a727fa4ca6c4"
+    }
+  ]
+}
