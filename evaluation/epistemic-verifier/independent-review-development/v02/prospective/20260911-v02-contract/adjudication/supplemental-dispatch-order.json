@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_SUPPLEMENTAL_ADJUDICATION",
+  "trigger": "STRUCTURALLY_INVALID_INITIAL_ADJUDICATION_OUTPUT",
+  "original_invalid_outputs_preserved": true,
+  "content_retry": false,
+  "purpose": "OBTAIN_TWO_VALID_INDEPENDENT_ADJUDICATIONS_BEFORE_GOLD_ADMISSION",
+  "planned_sessions": 2,
+  "order": [
+    {
+      "sequence": 45,
+      "supplemental": 1,
+      "original_sequence": 22,
+      "original_round": 1,
+      "candidate_id": "MUTV02-62DC383E2CB8",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-62DC383E2CB8.txt",
+      "input_sha256": "9d2bf9f7f7a6caeb4c83d89b7501f8757b9cd84f9b5f3692efc734a8f617f996",
+      "reason": "INVALID_ADJUDICATION_OUTPUT"
+    },
+    {
+      "sequence": 46,
+      "supplemental": 1,
+      "original_sequence": 15,
+      "original_round": 1,
+      "candidate_id": "MUTV02-39AD8ADC2CD2",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-39AD8ADC2CD2.txt",
+      "input_sha256": "77888669ea794ab55bf476a7d84c9f547048c3daf47703caa823a67f9b263897",
+      "reason": "INVALID_ADJUDICATION_OUTPUT"
+    }
+  ]
+}
