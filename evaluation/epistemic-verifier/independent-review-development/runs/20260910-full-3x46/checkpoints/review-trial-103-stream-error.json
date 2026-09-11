@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "phase": "MAIN_BLINDED_REVIEW_CHECKPOINT",
+  "status": "IN_PROGRESS_CORRECTIVE_TRIAL_REQUIRED",
+  "eligible_review_trials_frozen": 102,
+  "planned_eligible_review_trials": 138,
+  "accepted_consumer_sessions_frozen": 105,
+  "excluded_consumer_sessions": 3,
+  "valid_ingest_receipts": 101,
+  "invalid_eligible_ingest_receipts": 1,
+  "distinct_eligible_controller_conversation_identities": 102,
+  "distinct_total_controller_conversation_identities": 105,
+  "verified_model_mode_trials": 102,
+  "scorer_gold_comparison_performed": false,
+  "minimum_completion_poll_interval_ms": 60000,
+  "minimum_new_submission_spacing_ms_after_first_rate_limit": 600000,
+  "browser_surface_policy": "SINGLE_PRIVATE_IN_APP_BROWSER_TAB_SEQUENTIAL_ONLY",
+  "current_execution_pause": "TEN_MINUTE_OWN_SUBMISSION_SPACING_BEFORE_CORRECTIVE_TRIAL_103",
+  "excluded_session": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/reviewer-outputs/excluded-103-consumer-message-stream-error-NAT-119DEA2465B4",
+  "note": "The first operational attempt for dispatch sequence 103 created a fresh consumer conversation, but the ChatGPT UI returned only a message-stream error and no model output. The exact error output and controller provenance are preserved. It is excluded from scoring, does not increment eligible progress, and requires a fresh corrective trial after the existing ten-minute own-submission spacing. No scorer gold was opened."
+}
