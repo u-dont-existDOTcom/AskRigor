@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "phase": "POST_SCORING_ARTIFACT_RECONCILIATION",
+  "artifact_count": 14,
+  "artifact_set_sha256": "6a89ea8dc9d78bf49ef000fb73e8a832820f20732665672a1589f96487172fcb",
+  "artifacts": [
+    {
+      "path": "scripts/score-independent-semantic-review-development.py",
+      "sha256": "a46aa3694809587774613cdc77ac0ad74f817ffdaf701b911900f90b08832b5f",
+      "bytes": 34308
+    },
+    {
+      "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/pre-unblinding-output-freeze.json",
+      "sha256": "6a4f967eabc24b13581812aee8522233f926023b68ad14fc06fe7551012bf983",
+      "bytes": 219852
+    },
+    {
+      "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/scorer-unblinding-receipt.json",
+      "sha256": "2f89773325a8a91184f5d1c257ab1e05cb05626cd2a77be368d82fbcce39ba49",
+      "bytes": 1952
+    },
+    {
+      "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/natural/natural-state-adjudication-gold.json",
+      "sha256": "c905366a45d45fb21c29634a77ba2b1534dd54dd10edeca7514c0653bae62f3a",
+      "bytes": 206018
+    },
+    {
+      "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/mutation-state-gold.json",
+      "sha256": "dc58d0d249641c816bca1eb170606c4eaf97068c3a48ea5169e336a752655a45",
+      "bytes": 49703
+    },
+    {
+      "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/results/per-trial-scoring.jsonl",
+      "sha256": "c3a66f8ad2138d9f7a5c40a31988476a98a75b9f6f6ddd2ea91681c8d7f99201",
+      "bytes": 289802
+    },
+    {
+      "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/results/per-candidate-majority.jsonl",
+      "sha256": "8df43d786063ba7e18c53fb9eeb616e945147791785dbb6c1947bf66cff9022b",
+      "bytes": 45747
+    },
+    {
+      "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/results/aggregate-summary.json",
+      "sha256": "23ad709d7e88ef9f488acc6d9ff76a9134c78c8e9e109bea074c5ade78d05512",
+      "bytes": 23614
+    },
+    {
+      "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/results/final-report.md",
+      "sha256": "dc5add43b42fe7699c3c284aea9c18053c5f8e892b678ee5443e60c566c7e038",
+      "bytes": 6367
+    },
+    {
+      "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/results/failure-analysis.md",
+      "sha256": "4bf08650868b8151da68921b331023ca2eb599d1f7d6c489f26d3b19b255640e",
+      "bytes": 2849
+    },
+    {
+      "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/results/target-integrity-review.json",
+      "sha256": "cc2d7c175f42e6c79d07829bdcfc7ef1666b79739a1d1cb6e3dcca127f8de467",
+      "bytes": 2680
+    },
+    {
+      "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/results/architecture-decision.json",
+      "sha256": "e3c815197b0f5ffc6df03b09944b3c8347cc4329d1e5da1209a05d87718da5a4",
+      "bytes": 1178
+    },
+    {
+      "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/checkpoints/scoring-complete.json",
+      "sha256": "0baada0f7c1f498c2f5a3e8d5a7ff955eceda1f5cab4687e36d6e764fd58ddc2",
+      "bytes": 629
+    },
+    {
+      "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/checkpoints/strategy-decision-complete.json",
+      "sha256": "250ee39dcb4c39d20c82bf341787c7d2029065b04fc48f11ef3f60600e29ae32",
+      "bytes": 402
+    }
+  ],
+  "raw_output_population_modified": false,
+  "historical_gold_modified": false
+}

@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "phase": "SCORING_COMPLETE",
+  "status": "COMPLETE",
+  "eligible_reviews_scored": 138,
+  "valid_reviews": 135,
+  "invalid_reviews": 3,
+  "candidate_majorities_scored": 46,
+  "raw_outputs_modified": false,
+  "historical_gold_modified": false,
+  "individual_exact_hard_defect_sensitivity": "78/80",
+  "majority_exact_hard_defect_sensitivity": "26/27",
+  "individual_faithful_state_specificity": "11/46",
+  "majority_faithful_state_specificity": "4/16",
+  "scorer_unblinding_receipt": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/scorer-unblinding-receipt.json"
+}

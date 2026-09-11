@@ -59,4 +59,39 @@ describe("independent semantic-review DEVELOPMENT harness", () => {
     expect(counts.size).toBe(46);
     expect([...counts.values()].every((value) => value === 3)).toBe(true);
   });
+
+  it("freezes the complete review population before scorer unblinding", async () => {
+    const freeze = await json<any>("pre-unblinding-output-freeze.json");
+    const unblinding = await json<any>("scorer-unblinding-receipt.json");
+    expect(freeze.eligible_review_trials_frozen).toBe(138);
+    expect(freeze.population_inventory_entries).toHaveLength(138);
+    expect(freeze.scorer_gold_opened_at_freeze).toBe(false);
+    expect(unblinding.pre_unblinding_commit).toBe("c634ea51df349eda5db71df315daf7a455bbe2c6");
+    expect(unblinding.eligible_outputs_frozen_before_access).toBe(138);
+    expect(Date.parse(unblinding.opened_at)).toBeGreaterThan(Date.parse(freeze.recorded_at));
+  });
+
+  it("publishes complete individual and majority scoring without rewriting invalid reviews", async () => {
+    const individual = (await readFile(new URL("results/per-trial-scoring.jsonl", ROOT), "utf8"))
+      .trim().split("\n").map((line) => JSON.parse(line));
+    const majority = (await readFile(new URL("results/per-candidate-majority.jsonl", ROOT), "utf8"))
+      .trim().split("\n").map((line) => JSON.parse(line));
+    const summary = await json<any>("results/aggregate-summary.json");
+    const integrity = await json<any>("results/target-integrity-review.json");
+    expect(individual).toHaveLength(138);
+    expect(majority).toHaveLength(46);
+    expect(individual.filter((row) => !row.review_valid)).toHaveLength(3);
+    expect(new Set(individual.map((row) => row.provenance.conversation_identity_sha256)).size).toBe(138);
+    expect(summary.population.valid_review_trials).toBe(135);
+    expect(summary.metrics.overall.majority.exact_hard_defect_sensitivity).toMatchObject({
+      numerator: 26,
+      denominator: 27
+    });
+    expect(summary.metrics.overall.majority.hard_defect_false_pass_rate).toMatchObject({
+      numerator: 1,
+      denominator: 27
+    });
+    expect(integrity.historical_gold_modified).toBe(false);
+    expect(integrity.classification).toBe("LOAD_BEARING_EVALUATION_TARGET_CONFLICT");
+  });
 });
