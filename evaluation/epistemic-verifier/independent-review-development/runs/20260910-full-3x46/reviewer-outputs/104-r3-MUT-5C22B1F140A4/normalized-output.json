@@ -1,0 +1,260 @@
+{
+"review_version": "askrigor_epistemic_representation_review_v0_1",
+"source_sha256": "437bddc9f9d361c32d651b52060fb1e286e8a3b8250a194fbc342577ae59b288",
+"state_sha256": "cac3d49b4973bafafd9f8e5dde159b54bf085dfb9c6c5e01eaaaec27cf01b9ba",
+"producer_session_id": "synthetic-producer-PAIR-C047320FE34A",
+"reviewer": {
+"session_id": "review-session-f0afd162-cb2e-43e1-a212-afcfe2081720",
+"model": "GPT-6 Astra Pro",
+"mode": "not exposed",
+"fresh_independent_session": true
+},
+"reviewed_at": "2026-09-11T02:28:22+00:00",
+"findings": [
+{
+"dimension": "exact_target",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 33,
+"quote": "The requested target is risk_m04."
+}
+],
+"state_paths": [
+"/target/target_id",
+"/observations/0/target_id",
+"/observations/1/target_id",
+"/hypotheses/0/target_id",
+"/claims/1/target_id"
+],
+"rationale": "The requested target risk_m04 is retained in the target definition, both observations, the material hypothesis, and the conclusion. No adjacent outcome or different target is substituted."
+},
+{
+"dimension": "case_and_comparison_roles",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 34,
+"end": 64,
+"quote": "Rowan m04 is the positive case"
+},
+{
+"start": 172,
+"end": 205,
+"quote": "Mica m04 is the tolerated control"
+}
+],
+"state_paths": [
+"/cases/0/case_id",
+"/cases/0/comparison_role",
+"/cases/1/case_id",
+"/cases/1/comparison_role",
+"/comparisons/0/positive_case_ids/0",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "Rowan is the positive case and Mica the tolerated control. Their identifiers and positions in the explicit comparison preserve those roles without reversal."
+},
+{
+"dimension": "negative_or_tolerated_comparator",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 172,
+"end": 303,
+"quote": "Mica m04 is the tolerated control: Mica receives the same 10-unit intravenous liquid exposure and does not show the target outcome."
+}
+],
+"state_paths": [
+"/cases/1/comparison_role",
+"/observations/1/case_id",
+"/observations/1/statement",
+"/observations/1/material",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "Mica's explicitly absent target outcome is retained as a material observation of the tolerated control. It is not replaced by an unobserved outcome, an unknown response, or another positive case."
+},
+{
+"dimension": "high_information_qualifier",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 66,
+"end": 171,
+"quote": "the target outcome begins within 2 seconds after 10 units of compound Sol by intravenous liquid infusion."
+},
+{
+"start": 207,
+"end": 303,
+"quote": "Mica receives the same 10-unit intravenous liquid exposure and does not show the target outcome."
+}
+],
+"state_paths": [
+"/observations/0/high_information_qualifier_keys",
+"/observations/1/high_information_qualifier_keys",
+"/observations/0/qualifiers",
+"/observations/1/qualifiers"
+],
+"rationale": "The state explicitly prioritizes onset, dose, route, and form for Rowan, and the matched dose, route, and form for Mica. These preserve the relevant qualifier categories rather than replacing them with unrelated features. The observation's temporal-bound ambiguity and missing administration specificity are assessed under timing and route_or_form."
+},
+{
+"dimension": "timing",
+"status": "uncertain",
+"affects_hard_invariant": true,
+"source_spans": [
+{
+"start": 92,
+"end": 108,
+"quote": "within 2 seconds"
+}
+],
+"state_paths": [
+"/observations/0/qualifiers/onset_seconds",
+"/hypotheses/0/qualifier_predictions/0/observation_id",
+"/hypotheses/0/qualifier_predictions/0/qualifier_key",
+"/hypotheses/0/qualifier_predictions/0/operator",
+"/hypotheses/0/qualifier_predictions/0/value"
+],
+"rationale": "The source gives an upper bound, not an exact onset. The observation stores a bare numeric onset_seconds value of 2. Although lte 2 appears in the state, it is attached to a hypothesis prediction rather than explicitly qualifying the observed value. The packet does not define whether the observation's number denotes an exact measurement or the reported bound. Preservation is therefore uncertain; interpreting it as exact would permit a stronger timing conclusion than the source supports."
+},
+{
+"dimension": "amount_or_dose",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 115,
+"end": 139,
+"quote": "10 units of compound Sol"
+},
+{
+"start": 221,
+"end": 237,
+"quote": "the same 10-unit"
+}
+],
+"state_paths": [
+"/observations/0/qualifiers/dose_units",
+"/observations/1/qualifiers/dose_units",
+"/claims/0/statement"
+],
+"rationale": "Both cases retain a dose of 10 units, and the shared-dose claim correctly states that dose is held constant. No dose difference or unequal exposure amount is asserted. The separate question of treating this matching fact as a discriminator modifier is assessed under predicate_semantics."
+},
+{
+"dimension": "route_or_form",
+"status": "missing",
+"affects_hard_invariant": true,
+"source_spans": [
+{
+"start": 143,
+"end": 170,
+"quote": "intravenous liquid infusion"
+},
+{
+"start": 207,
+"end": 265,
+"quote": "Mica receives the same 10-unit intravenous liquid exposure"
+}
+],
+"state_paths": [],
+"rationale": "The state retains intravenous route and liquid form but omits the specifically stated infusion method. Intravenous liquid alone does not preserve the distinction between infusion and other intravenous delivery. The missing administration constraint can broaden the exposure conditions under which the represented comparison is interpreted."
+},
+{
+"dimension": "feature_value",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 304,
+"end": 360,
+"quote": "Feature Quartz is high in Rowan m04 and low in Mica m04."
+}
+],
+"state_paths": [
+"/features/0/case_id",
+"/features/0/feature_id",
+"/features/0/value",
+"/features/1/case_id",
+"/features/1/feature_id",
+"/features/1/value"
+],
+"rationale": "Quartz is represented by the same feature identifier in both cases, with high stored for Rowan and low for Mica. The values are neither reversed nor collapsed into feature-record existence."
+},
+{
+"dimension": "predicate_semantics",
+"status": "uncertain",
+"affects_hard_invariant": true,
+"source_spans": [
+{
+"start": 361,
+"end": 453,
+"quote": "Test the material hypothesis that Quartz value equals high distinguishes the target outcome."
+},
+{
+"start": 115,
+"end": 139,
+"quote": "10 units of compound Sol"
+},
+{
+"start": 221,
+"end": 237,
+"quote": "the same 10-unit"
+}
+],
+"state_paths": [
+"/hypotheses/0/statement",
+"/hypotheses/0/discriminator/feature_id",
+"/hypotheses/0/discriminator/operator",
+"/hypotheses/0/discriminator/value",
+"/hypotheses/0/discriminator/modifier",
+"/claims/0/kind",
+"/claims/0/statement"
+],
+"rationale": "The explicit equals-high predicate faithfully tests the stored Quartz value, not whether a Quartz record exists. However, the discriminator also carries a dose modifier whose linked claim establishes only that dose is identical in both cases. The source supports dose matching, not a dose-dependent exception or modification of the value test. The packet does not establish whether this modifier is merely a matched-exposure condition or changes the discriminator's force. That ambiguity is material because the latter interpretation could authorize a source-unsupported qualification or exception."
+},
+{
+"dimension": "dependency_or_provenance",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 454,
+"end": 577,
+"quote": "The conclusion about risk_m04 must depend on Rowan's source-grounded target observation and the tolerated-control contrast."
+}
+],
+"state_paths": [
+"/observations/0/provenance",
+"/observations/1/provenance",
+"/comparisons/0",
+"/claims/1/dependencies/0",
+"/claims/1/dependencies/1",
+"/claims/1/provenance"
+],
+"rationale": "The conclusion directly depends on Rowan's target observation and Mica's no-outcome observation; both are marked source_grounded and concern the cases assigned to the positive/control comparison. The conclusion itself is marked inference rather than source_grounded. The required positive-observation and tolerated-control dependencies are therefore retained."
+},
+{
+"dimension": "other",
+"status": "missing",
+"affects_hard_invariant": true,
+"source_spans": [
+{
+"start": 127,
+"end": 139,
+"quote": "compound Sol"
+},
+{
+"start": 207,
+"end": 265,
+"quote": "Mica receives the same 10-unit intravenous liquid exposure"
+}
+],
+"state_paths": [],
+"rationale": "The identity of compound Sol is absent from the candidate state. The source also ties Mica to the same exposure, so this is the substance identity of the comparison, not an incidental name. Its omission leaves the represented exposure and resulting conclusion without an explicit restriction to Sol."
+}
+]
+}
