@@ -14,10 +14,23 @@ if (initial.length !== dispatch.planned_sessions_before_disagreement_resolution)
   throw new Error(`Expected ${dispatch.planned_sessions_before_disagreement_resolution} frozen initial adjudications, found ${initial.length}`);
 }
 
+const supplemental = directories.filter((name) => /^\d{3}-s\d+-r[12]-MUTV02-[A-F0-9]+$/.test(name));
+const supplementalByRound = new Map<string, any>();
+for (const directory of supplemental) {
+  const provenance = await readJson(resolve(outputRoot, directory, "provenance.json"));
+  supplementalByRound.set(`${provenance.candidate_id}|${provenance.round}`, await readJson(resolve(outputRoot, directory, "ingest-receipt.json")));
+}
+
 const byCandidate = new Map<string, Map<number, any>>();
 for (const directory of initial) {
   const provenance = await readJson(resolve(outputRoot, directory, "provenance.json"));
-  const receipt = await readJson(resolve(outputRoot, directory, "ingest-receipt.json"));
+  let receipt: any;
+  try {
+    receipt = await readJson(resolve(outputRoot, directory, "ingest-receipt.json"));
+  } catch {
+    receipt = supplementalByRound.get(`${provenance.candidate_id}|${provenance.round}`);
+    if (!receipt) throw new Error(`Missing valid supplemental adjudication for ${provenance.candidate_id} round ${provenance.round}`);
+  }
   if (!byCandidate.has(provenance.candidate_id)) byCandidate.set(provenance.candidate_id, new Map());
   byCandidate.get(provenance.candidate_id)!.set(provenance.round, receipt);
 }
@@ -50,7 +63,7 @@ const disagreements = comparisons.filter((candidate) => !candidate.exact_field_a
 const order = disagreements
   .sort((a, b) => sha256(`semantic-review-v02-third|${a.candidate_id}`).localeCompare(sha256(`semantic-review-v02-third|${b.candidate_id}`)))
   .map((candidate, index) => ({
-    sequence: dispatch.planned_sessions_before_disagreement_resolution + index + 1,
+    sequence: dispatch.planned_sessions_before_disagreement_resolution + supplemental.length + index + 1,
     round: 3,
     candidate_id: candidate.candidate_id,
     input_path: dispatch.order.find((item: any) => item.candidate_id === candidate.candidate_id).input_path,
@@ -65,6 +78,7 @@ await writeFile(resolve(RUN_ROOT, "adjudication/initial-comparison.json"), `${JS
   exact_agreement_count: comparisons.length - disagreements.length,
   disagreement_count: disagreements.length,
   construction_gold_opened: false,
+  supplemental_adjudications_used: supplemental.length,
   candidates: comparisons
 }, null, 2)}\n`, { flag: "wx" });
 await writeFile(resolve(RUN_ROOT, "adjudication/third-dispatch-order.json"), `${JSON.stringify({

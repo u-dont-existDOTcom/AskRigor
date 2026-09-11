@@ -1,0 +1,217 @@
+{
+"review_version": "askrigor_epistemic_representation_review_v0_1",
+"source_sha256": "21a358920da4340ca5afdc7b5ceec251404aeb22f6f8944541512a529d7c81f1",
+"state_sha256": "74912e6509aecac43c95dbcb5ce7e561b2566c8ba40fc5d73990b9bbc9011c57",
+"producer_session_id": "synthetic-producer-PAIRV02-AB685DED7B72",
+"reviewer": {
+"session_id": "reviewer-ca4cd2d3-2166-49c5-9127-8a18abb3d52e",
+"model": "GPT-5.6 Sol",
+"mode": "not_exposed",
+"fresh_independent_session": true
+},
+"reviewed_at": "2026-09-11T11:58:00+00:00",
+"findings": [
+{
+"dimension": "exact_target",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 37,
+"quote": "The requested target is risk_v02_m07."
+}
+],
+"state_paths": [
+"/target/target_id"
+],
+"rationale": "The candidate target_id is exactly risk_v02_m07, matching the requested target."
+},
+{
+"dimension": "case_and_comparison_roles",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 38,
+"end": 68,
+"quote": "Rowan m07 is the positive case"
+},
+{
+"start": 187,
+"end": 220,
+"quote": "Mica m07 is the tolerated control"
+}
+],
+"state_paths": [
+"/cases/0/comparison_role",
+"/cases/1/comparison_role",
+"/comparisons/0/positive_case_ids/0",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "Rowan is represented as the positive case and Mica as the tolerated control, and the comparison lists them in those same roles."
+},
+{
+"dimension": "negative_or_tolerated_comparator",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 187,
+"end": 220,
+"quote": "Mica m07 is the tolerated control"
+},
+{
+"start": 305,
+"end": 337,
+"quote": "does not show the target outcome"
+}
+],
+"state_paths": [
+"/cases/1/comparison_role",
+"/observations/1/case_id",
+"/observations/1/statement"
+],
+"rationale": "Mica is explicitly represented as the tolerated control, and its material observation states that it does not show the target outcome."
+},
+{
+"dimension": "high_information_qualifier",
+"status": "distorted",
+"affects_hard_invariant": true,
+"source_spans": [
+{
+"start": 240,
+"end": 300,
+"quote": "same 10 units of compound Sol by intravenous liquid infusion"
+}
+],
+"state_paths": [
+"/observations/1/high_information_qualifier_keys/2",
+"/observations/1/high_information_qualifier_keys/3",
+"/observations/1/qualifiers/route",
+"/observations/1/qualifiers/form"
+],
+"rationale": "The control observation designates route and form as high-information qualifiers, but stores them as oral and capsule even though the source says Mica receives the same intravenous liquid infusion. This discrepancy can alter whether the control is treated as matched on material administration conditions."
+},
+{
+"dimension": "timing",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 96,
+"end": 113,
+"quote": "exactly 2 seconds"
+}
+],
+"state_paths": [
+"/observations/0/qualifiers/onset_seconds"
+],
+"rationale": "Rowan's onset is represented as 2 seconds, preserving the source's exact timing."
+},
+{
+"dimension": "amount_or_dose",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 130,
+"end": 154,
+"quote": "10 units of compound Sol"
+},
+{
+"start": 245,
+"end": 269,
+"quote": "10 units of compound Sol"
+}
+],
+"state_paths": [
+"/observations/0/qualifiers/dose_units",
+"/observations/1/qualifiers/dose_units"
+],
+"rationale": "Both Rowan and Mica are represented with dose_units 10, matching the source's 10-unit dose for each case."
+},
+{
+"dimension": "route_or_form",
+"status": "distorted",
+"affects_hard_invariant": true,
+"source_spans": [
+{
+"start": 240,
+"end": 300,
+"quote": "same 10 units of compound Sol by intravenous liquid infusion"
+}
+],
+"state_paths": [
+"/observations/1/statement",
+"/observations/1/qualifiers/route",
+"/observations/1/qualifiers/form"
+],
+"rationale": "The source requires Mica to receive the same intravenous liquid infusion as Rowan. The candidate's prose statement says intravenous liquid, but its structured control qualifiers encode route as oral and form as capsule. This source/state and internal inconsistency could change comparator equivalence and therefore the permitted conclusion. Texte collé +1 "
+},
+{
+"dimension": "feature_value",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 339,
+"end": 395,
+"quote": "Feature Quartz is high in Rowan m07 and low in Mica m07."
+}
+],
+"state_paths": [
+"/features/0/value",
+"/features/1/value"
+],
+"rationale": "Quartz is stored as high for Rowan and low for Mica, exactly matching the source."
+},
+{
+"dimension": "predicate_semantics",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 396,
+"end": 509,
+"quote": "Test the material hypothesis that Quartz's stored value equals high and thereby distinguishes the target outcome."
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/feature_id",
+"/hypotheses/0/discriminator/operator",
+"/hypotheses/0/discriminator/value",
+"/features/0/value",
+"/features/1/value"
+],
+"rationale": "The source truth condition is: Quartz's stored value equals high. The candidate uses feature quartz_v02_m07 with operator equals and value high. Rowan has stored value high, so the operator returns true; Mica has stored value low, so it returns false. That case-by-case contrast matches the source predicate."
+},
+{
+"dimension": "dependency_or_provenance",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 510,
+"end": 621,
+"quote": "The conclusion must depend on Rowan's source-grounded target observation and the tolerated-control observation."
+}
+],
+"state_paths": [
+"/claims/0/dependencies/0",
+"/claims/0/dependencies/1",
+"/observations/0/provenance/kind",
+"/observations/1/provenance/kind"
+],
+"rationale": "The conclusion depends on both the Rowan positive observation and the Mica control observation, and both observations are marked source_grounded, satisfying the stated dependency and provenance requirement."
+},
+{
+"dimension": "other",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "No additional source dimension beyond the required categories is present."
+}
+]
+}
