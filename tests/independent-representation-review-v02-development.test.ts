@@ -190,6 +190,28 @@ describe("independent semantic representation review v0.2 DEVELOPMENT candidate"
     expect(defective.candidate_id).toMatch(/^MUTV021-[A-F0-9]{12}$/u);
   });
 
+  it("uses the append-only corrected manifest for the eventual reviewer population", async () => {
+    const original = await json<any>("candidate-manifest.json");
+    const corrected = await json<any>("candidate-manifest-v021-corrected.json");
+    const conflict = await json<any>("gold/construction-conflict-analysis.json");
+    const replacement = buildHighInformationReplacementPairV021();
+    const rejected = original.candidates.find(
+      (candidate: any) => candidate.candidate_id === conflict.candidate_id
+    );
+
+    expect(rejected.dimension).toBe("high_information_qualifier");
+    expect(corrected.candidate_count).toBe(22);
+    expect(corrected.pair_count).toBe(11);
+    expect(corrected.candidates.some(
+      (candidate: any) => candidate.pair_id === rejected.pair_id
+    )).toBe(false);
+    expect(corrected.candidates.filter(
+      (candidate: any) => candidate.pair_id === replacement.pair_id
+    ).map((candidate: any) => candidate.candidate_id).sort()).toEqual(
+      replacement.candidates.map(({ candidate_id }) => candidate_id).sort()
+    );
+  });
+
   it("fails closed before independent source/state adjudication", async () => {
     const admission = await json<any>("pre-adjudication-admission.json");
     expect(admission.status).toBe("BLOCKED_PENDING_INDEPENDENT_ADJUDICATION");

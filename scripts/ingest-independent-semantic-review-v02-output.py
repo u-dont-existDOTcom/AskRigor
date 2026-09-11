@@ -45,15 +45,21 @@ message = next(
     (line.strip() for line in lines if "source span does not match" in line or "state path" in line),
     lines[0].strip() if lines else "unknown deterministic ingest failure",
 )
+reviewer_phase = "/reviewer/" in output.as_posix()
 error_path.write_text(json.dumps({
     "schema_version": 1,
-    "status": "INVALID_ADJUDICATION_OUTPUT",
+    "status": "INVALID_REVIEWER_OUTPUT" if reviewer_phase else "INVALID_ADJUDICATION_OUTPUT",
     "stage": "DETERMINISTIC_EVIDENCE_VALIDATION",
     "error": message,
     "raw_output_preserved": True,
     "normalized_output_preserved": True,
     "counts_as_valid_adjudication": False,
-    "required_follow_up": "ADDITIONAL_FRESH_INDEPENDENT_ADJUDICATION_BEFORE_GOLD_ADMISSION",
+    "counts_as_indeterminate_reviewer_trial": reviewer_phase,
+    "required_follow_up": (
+        "COUNT_AS_FROZEN_INDETERMINATE_WITHOUT_CONTENT_RETRY"
+        if reviewer_phase
+        else "ADDITIONAL_FRESH_INDEPENDENT_ADJUDICATION_BEFORE_GOLD_ADMISSION"
+    ),
     "recorded_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
 }, indent=2) + "\n", encoding="utf-8")
 print(json.dumps({"candidate_id": candidate_id, "status": "INVALID", "error": message}))
