@@ -59,7 +59,22 @@ for (const candidate of comparison.candidates) {
 const constructionPath = resolve(RUN_ROOT, "gold/mutation-construction-manifest.json");
 const constructionBytes = await readFile(constructionPath);
 const construction = JSON.parse(constructionBytes.toString("utf8"));
-const constructionByCandidate = new Map(construction.map((item: any) => [item.opaque_candidate_id, item]));
+if (!Array.isArray(construction.pairs)) {
+  throw new Error("Construction manifest must contain a pairs array");
+}
+const constructionCandidates = construction.pairs.flatMap((pair: any) => [
+  {
+    opaque_candidate_id: pair.faithful_candidate_id,
+    faithful_or_defective_gold: "FAITHFUL",
+    dimension: pair.dimension
+  },
+  {
+    opaque_candidate_id: pair.defective_candidate_id,
+    faithful_or_defective_gold: "DEFECTIVE",
+    dimension: pair.dimension
+  }
+]);
+const constructionByCandidate = new Map(constructionCandidates.map((item: any) => [item.opaque_candidate_id, item]));
 const conflicts: any[] = [];
 for (const item of reconciled) {
   const expected: any = constructionByCandidate.get(item.candidate_id);
