@@ -150,6 +150,19 @@ Status: branch-local architecture and Phase-0 implementation index
 25. `../../packages/contracts/src/patient-story-evidence-v0.2.ts`
     - executable typed contract corresponding to the generated JSON Schema.
 
+26. `../patient-story-interview-method-v0.3.0.md`
+    - current pre-collection interview, extraction, longitudinal constraint,
+      phenotype–etiology, and evidence-update method;
+    - preserves v0.1/v0.2 and previously collected data unchanged.
+
+27. `../patient-story-evidence-extension-v0.3.0.json`
+    - generated machine contract for the 3–7 constraint map, complete hypothesis
+      coverage, phenotype-only default, and correction classification.
+
+28. `../../packages/contracts/src/patient-story-evidence-v0.3.ts`
+    - executable typed contract and cross-record integrity checks corresponding
+      to the v0.3 JSON Schema.
+
 ## Supersession note
 
 The Community Health Forum and Public Lead Frontier prior-work scan, spec, machine contract, fixtures, plan, queue entry, and receipt are the controlling architecture for public secondhand leads.

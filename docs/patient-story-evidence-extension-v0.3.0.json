@@ -1,0 +1,1018 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.3.0"
+    },
+    "extension_id": {
+      "type": "string",
+      "pattern": "^ARIE-[A-Z0-9_-]{4,64}$"
+    },
+    "story_id": {
+      "type": "string",
+      "pattern": "^ARS-[A-Z0-9_-]{8,64}$"
+    },
+    "source_story_schema_version": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "source_story_payload_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "method_version": {
+      "type": "string",
+      "const": "patient-story-interview-method-0.3.0"
+    },
+    "collection_actor": {
+      "type": "string",
+      "enum": [
+        "HUMAN_RESPONDENT_INTERVIEW",
+        "HUMAN_REVIEWER",
+        "AUTOMATED_EXTRACTION",
+        "STRUCTURED_IMPORT"
+      ]
+    },
+    "human_interface": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "interface_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "interface_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "ordinary_controls_confirmed": {
+              "type": "boolean",
+              "const": true
+            },
+            "raw_serialization_required": {
+              "type": "boolean",
+              "const": false
+            },
+            "blinding_preserved": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "interface_id",
+            "interface_version",
+            "ordinary_controls_confirmed",
+            "raw_serialization_required",
+            "blinding_preserved"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "evidence_items": {
+      "minItems": 1,
+      "maxItems": 1000,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "evidence_id": {
+            "type": "string",
+            "pattern": "^AREV-[A-Z0-9_-]{4,64}$"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "DIRECT_RECURRENCE_SELF_REPORT",
+              "BOUNDED_EPISODE",
+              "EXCEPTION_OR_COUNTEREXAMPLE",
+              "CONTEXT_OR_BOUNDARY_STATEMENT",
+              "SAMPLED_OPPORTUNITY_OBSERVATION",
+              "TRAIT_OR_INTERPRETIVE_LABEL",
+              "CAUSAL_EXPLANATION",
+              "ANALYST_OR_CODER_INFERENCE"
+            ]
+          },
+          "source_text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8000
+          },
+          "elicitation_mode": {
+            "type": "string",
+            "enum": [
+              "SPONTANEOUS",
+              "OPEN_ENDED",
+              "EXCEPTION_FIRST_PROBE",
+              "CONFIRMING_EXAMPLE_REQUEST",
+              "INCIDENT_CLARIFICATION",
+              "VALID_SAMPLING_FRAME",
+              "PUBLIC_SOURCE_EXTRACTION",
+              "OTHER"
+            ]
+          },
+          "evidential_independence": {
+            "type": "string",
+            "enum": [
+              "DIRECT_REPORT_ONLY",
+              "CONDITIONALLY_SAMPLED_DETAIL",
+              "INDEPENDENT_WITHIN_DEFINED_FRAME",
+              "DEPENDENT_OR_CLUSTERED_WITHIN_DEFINED_FRAME",
+              "NOT_APPLICABLE",
+              "UNKNOWN"
+            ]
+          },
+          "recurrence_claim": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "behavioral_or_symptom_proposition": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "original_quantifier": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "opportunity_scope_or_denominator": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "life_period_or_context": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "exceptions": {
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2000
+                    }
+                  },
+                  "exception_frequency": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "quantifier_uncertainty": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "calibration_status": {
+                    "type": "string",
+                    "enum": [
+                      "NOT_YET_PROBED",
+                      "PROBED_NO_EXCEPTIONS_REPORTED",
+                      "PROBED_EXCEPTIONS_REPORTED"
+                    ]
+                  }
+                },
+                "required": [
+                  "behavioral_or_symptom_proposition",
+                  "original_quantifier",
+                  "opportunity_scope_or_denominator",
+                  "life_period_or_context",
+                  "exceptions",
+                  "exception_frequency",
+                  "quantifier_uncertainty",
+                  "calibration_status"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bounded_episode_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "context_or_boundary": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sampling_frame": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "design": {
+                    "type": "string",
+                    "enum": [
+                      "PROSPECTIVE_DIARY_OR_EVENT",
+                      "STRUCTURED_OPPORTUNITY",
+                      "RANDOM_OPPORTUNITY",
+                      "BOUNDED_EXHAUSTIVE_ENUMERATION",
+                      "EXTERNAL_LOG_OR_OBSERVATION",
+                      "REPEATED_MEASURES"
+                    ]
+                  },
+                  "target_opportunity": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  },
+                  "observation_period": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  },
+                  "opportunities_with_target_event_observed": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "opportunities_without_target_event_observed": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "frame_limitations": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "design",
+                  "target_opportunity",
+                  "observation_period",
+                  "opportunities_with_target_event_observed",
+                  "opportunities_without_target_event_observed",
+                  "frame_limitations"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "trait_or_interpretive_label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "causal_explanation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "analyst_or_coder_inference": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_turn_or_record_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "collected_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "evidence_id",
+          "role",
+          "source_text",
+          "elicitation_mode",
+          "evidential_independence",
+          "recurrence_claim",
+          "bounded_episode_ref",
+          "context_or_boundary",
+          "sampling_frame",
+          "trait_or_interpretive_label",
+          "causal_explanation",
+          "analyst_or_coder_inference",
+          "source_turn_or_record_id",
+          "collected_at",
+          "notes"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "follow_up_decisions": {
+      "maxItems": 200,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "follow_up_id": {
+            "type": "string",
+            "pattern": "^ARFU-[A-Z0-9_-]{4,64}$"
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PLANNED",
+              "ASKED",
+              "SKIPPED"
+            ]
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "EXPECTED_INFORMATION_GAIN",
+              "CONSENT",
+              "SAFETY",
+              "LEGAL",
+              "PROVENANCE",
+              "OWNER_REQUESTED",
+              "PREDETERMINED_VALID_STUDY_FIELD"
+            ]
+          },
+          "uncertainty_target": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "plausible_answer_that_changes_next_step": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "could_change": {
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "INFERENCE",
+                "DIFFERENTIAL",
+                "RECOMMENDATION",
+                "EVIDENCE_CODE",
+                "NEXT_QUESTION"
+              ]
+            }
+          },
+          "skip_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "follow_up_id",
+          "question",
+          "status",
+          "basis",
+          "uncertainty_target",
+          "plausible_answer_that_changes_next_step",
+          "could_change",
+          "skip_reason"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "prior_data_reinterpreted": {
+      "type": "boolean",
+      "const": false
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+    },
+    "causal_assessment_status": {
+      "type": "string",
+      "enum": [
+        "NOT_REQUESTED",
+        "DEFERRED_INSUFFICIENT_INFORMATION",
+        "RANKED"
+      ]
+    },
+    "causal_assessment": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "complete_supplied_history_reviewed": {
+              "type": "boolean",
+              "const": true
+            },
+            "longitudinal_constraints": {
+              "minItems": 3,
+              "maxItems": 7,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "observation_id": {
+                    "type": "string",
+                    "pattern": "^ARLO-[A-Z0-9_-]{4,64}$"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "ONSET_RELATIVE_TO_EXPOSURE",
+                      "TEMPORAL_SEQUENCE",
+                      "PERSISTENCE",
+                      "RECURRENCE",
+                      "DECHALLENGE",
+                      "RECHALLENGE",
+                      "TREATMENT_CLASS_RESPONSE",
+                      "FUNCTIONAL_TRAJECTORY",
+                      "NEGATIVE_OR_TOLERATED_COMPARISON",
+                      "OTHER_HIGH_INFORMATION_LONGITUDINAL"
+                    ]
+                  },
+                  "observation": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4000
+                  },
+                  "source_evidence_ids": {
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^AREV-[A-Z0-9_-]{4,64}$"
+                    }
+                  },
+                  "high_information_reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "uncertainty": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "observation_id",
+                  "kind",
+                  "observation",
+                  "source_evidence_ids",
+                  "high_information_reason",
+                  "uncertainty"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "phenotype_observations": {
+              "maxItems": 20,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "phenotype_observation_id": {
+                    "type": "string",
+                    "pattern": "^ARPH-[A-Z0-9_-]{4,64}$"
+                  },
+                  "observation_type": {
+                    "type": "string",
+                    "enum": [
+                      "PHOTOGRAPH",
+                      "EXAMINATION_MORPHOLOGY",
+                      "DIAGNOSTIC_LABEL",
+                      "COMMON_PATTERN",
+                      "BIOMARKER",
+                      "OTHER_CROSS_SECTIONAL_OBSERVATION"
+                    ]
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4000
+                  },
+                  "source_evidence_ids": {
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^AREV-[A-Z0-9_-]{4,64}$"
+                    }
+                  },
+                  "etiology_status": {
+                    "type": "string",
+                    "enum": [
+                      "PHENOTYPE_ONLY",
+                      "INDEPENDENT_ETIOLOGIC_EVIDENCE_PRESENT"
+                    ]
+                  },
+                  "independent_etiology_evidence_ids": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^AREV-[A-Z0-9_-]{4,64}$"
+                    }
+                  }
+                },
+                "required": [
+                  "phenotype_observation_id",
+                  "observation_type",
+                  "description",
+                  "source_evidence_ids",
+                  "etiology_status",
+                  "independent_etiology_evidence_ids"
+                ],
+                "additionalProperties": false,
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "etiology_status": {
+                          "const": "INDEPENDENT_ETIOLOGIC_EVIDENCE_PRESENT"
+                        }
+                      },
+                      "required": [
+                        "etiology_status"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "independent_etiology_evidence_ids": {
+                          "type": "array",
+                          "minItems": 1
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "etiology_status": {
+                          "const": "PHENOTYPE_ONLY"
+                        }
+                      },
+                      "required": [
+                        "etiology_status"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "independent_etiology_evidence_ids": {
+                          "type": "array",
+                          "maxItems": 0
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "causal_hypotheses": {
+              "minItems": 1,
+              "maxItems": 20,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "hypothesis_id": {
+                    "type": "string",
+                    "pattern": "^ARHY-[A-Z0-9_-]{4,64}$"
+                  },
+                  "hypothesis": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4000
+                  },
+                  "causal_role": {
+                    "type": "string",
+                    "enum": [
+                      "INITIATING",
+                      "MAINTAINING",
+                      "BOTH"
+                    ]
+                  },
+                  "rank": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "overall_fit": {
+                    "type": "string",
+                    "enum": [
+                      "FITS_COMPLETE_PATTERN",
+                      "PARTIAL_FIT",
+                      "CONFLICTS_WITH_HIGH_INFORMATION_EVIDENCE",
+                      "UNRESOLVED"
+                    ]
+                  },
+                  "constraint_predictions": {
+                    "minItems": 3,
+                    "maxItems": 7,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "observation_id": {
+                          "type": "string",
+                          "pattern": "^ARLO-[A-Z0-9_-]{4,64}$"
+                        },
+                        "prediction": {
+                          "type": "string",
+                          "enum": [
+                            "EXPECTED",
+                            "COMPATIBLE_BUT_NONSPECIFIC",
+                            "UNEXPECTED",
+                            "OPPOSITE_TO_PREDICTION",
+                            "UNRESOLVED"
+                          ]
+                        },
+                        "explanation": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 3000
+                        }
+                      },
+                      "required": [
+                        "observation_id",
+                        "prediction",
+                        "explanation"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "ranking_exception_reason": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 3000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "hypothesis_id",
+                  "hypothesis",
+                  "causal_role",
+                  "rank",
+                  "overall_fit",
+                  "constraint_predictions",
+                  "ranking_exception_reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "complete_supplied_history_reviewed",
+            "longitudinal_constraints",
+            "phenotype_observations",
+            "causal_hypotheses"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "evidence_updates": {
+      "maxItems": 100,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "update_id": {
+            "type": "string",
+            "pattern": "^ARUP-[A-Z0-9_-]{4,64}$"
+          },
+          "source_turn_or_record_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "classification": {
+            "type": "string",
+            "enum": [
+              "NEW_EVIDENCE",
+              "REWEIGHTING_OR_CORRECTION_OF_ALREADY_PRESENT_EVIDENCE"
+            ]
+          },
+          "decisive_evidence_ids": {
+            "minItems": 1,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^AREV-[A-Z0-9_-]{4,64}$"
+            }
+          },
+          "decisive_evidence_already_present": {
+            "type": "boolean"
+          },
+          "earlier_failure": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "EVIDENCE_WEIGHTING_FAILURE",
+                  "SEMANTIC_REPRESENTATION_FAILURE",
+                  "BOTH"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "explanation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "update_id",
+          "source_turn_or_record_id",
+          "classification",
+          "decisive_evidence_ids",
+          "decisive_evidence_already_present",
+          "earlier_failure",
+          "explanation"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "decisive_evidence_already_present": {
+                  "const": true
+                }
+              },
+              "required": [
+                "decisive_evidence_already_present"
+              ]
+            },
+            "then": {
+              "properties": {
+                "classification": {
+                  "const": "REWEIGHTING_OR_CORRECTION_OF_ALREADY_PRESENT_EVIDENCE"
+                },
+                "earlier_failure": {
+                  "enum": [
+                    "EVIDENCE_WEIGHTING_FAILURE",
+                    "SEMANTIC_REPRESENTATION_FAILURE",
+                    "BOTH"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "classification": {
+                  "const": "NEW_EVIDENCE"
+                }
+              },
+              "required": [
+                "classification"
+              ]
+            },
+            "then": {
+              "properties": {
+                "decisive_evidence_already_present": {
+                  "const": false
+                },
+                "earlier_failure": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "extension_id",
+    "story_id",
+    "source_story_schema_version",
+    "source_story_payload_sha256",
+    "method_version",
+    "collection_actor",
+    "human_interface",
+    "evidence_items",
+    "follow_up_decisions",
+    "prior_data_reinterpreted",
+    "created_at",
+    "causal_assessment_status",
+    "causal_assessment",
+    "evidence_updates"
+  ],
+  "additionalProperties": false,
+  "$id": "https://askrigor.com/schemas/patient-story-evidence-extension-v0.3.0.json",
+  "title": "AskRigor patient-story interview evidence extension v0.3.0",
+  "description": "Versioned pre-collection extension for recurrence evidence, longitudinal causal constraints, phenotype–etiology separation, and already-present-evidence correction classification. It does not reinterpret frozen v0.1 or v0.2 data.",
+  "x-method-invariants": [
+    "The complete supplied history is reviewed before an individual-case differential or causal ranking.",
+    "A ranked differential requires three to seven source-linked, highest-information longitudinal constraints.",
+    "Every leading hypothesis predicts every longitudinal constraint exactly once.",
+    "A conflicting hypothesis cannot outrank a complete-pattern fit without an explicit evidence-supported reason.",
+    "Photographs, morphology, diagnostic labels, common patterns, biomarkers, and other cross-sectional observations remain phenotype-only unless independent etiologic evidence is linked.",
+    "Evidence already present before a later update is classified as reweighting or correction, with the earlier weighting or representation failure named.",
+    "Specificity, recurrence, sampling, human-interface, and no-prior-data-reinterpretation controls from v0.2 remain active."
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "causal_assessment_status": {
+            "const": "RANKED"
+          }
+        },
+        "required": [
+          "causal_assessment_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "causal_assessment": {
+            "type": "object"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "causal_assessment": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}
