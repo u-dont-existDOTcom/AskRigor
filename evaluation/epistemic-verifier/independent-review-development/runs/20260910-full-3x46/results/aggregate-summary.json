@@ -1,0 +1,809 @@
+{
+  "schema_version": 1,
+  "scorer_version": "askrigor_independent_semantic_review_development_scorer_v1",
+  "scorer_path": "/mnt/hdd/home/joel/T\u00e9l\u00e9chargements/AskRigor-epistemic-semantic-review-dev-eval-20260910/scripts/score-independent-semantic-review-development.py",
+  "scorer_sha256": "a46aa3694809587774613cdc77ac0ad74f817ffdaf701b911900f90b08832b5f",
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "run_root": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46",
+  "frozen_inputs": {
+    "pre_unblinding_output_freeze_sha256": "6a4f967eabc24b13581812aee8522233f926023b68ad14fc06fe7551012bf983",
+    "scorer_unblinding_receipt_sha256": "2f89773325a8a91184f5d1c257ab1e05cb05626cd2a77be368d82fbcce39ba49",
+    "natural_gold_sha256": "c905366a45d45fb21c29634a77ba2b1534dd54dd10edeca7514c0653bae62f3a",
+    "mutation_gold_sha256": "dc58d0d249641c816bca1eb170606c4eaf97068c3a48ea5169e336a752655a45"
+  },
+  "population": {
+    "candidate_states": 46,
+    "eligible_review_trials": 138,
+    "valid_review_trials": 135,
+    "invalid_review_trials": 3,
+    "accepted_consumer_sessions": 141,
+    "excluded_consumer_sessions": 3,
+    "distinct_eligible_conversation_identities": 138
+  },
+  "metrics": {
+    "overall": {
+      "individual": {
+        "exact_semantic_defect_sensitivity": {
+          "numerator": 80,
+          "denominator": 82,
+          "rate": 0.975609756097561
+        },
+        "semantic_defect_class_sensitivity": {
+          "numerator": 80,
+          "denominator": 82,
+          "rate": 0.975609756097561
+        },
+        "exact_hard_defect_sensitivity": {
+          "numerator": 78,
+          "denominator": 80,
+          "rate": 0.975
+        },
+        "operational_hard_block_sensitivity": {
+          "numerator": 78,
+          "denominator": 80,
+          "rate": 0.975
+        },
+        "faithful_state_specificity": {
+          "numerator": 11,
+          "denominator": 46,
+          "rate": 0.2391304347826087
+        },
+        "hard_defect_false_pass_rate": {
+          "numerator": 2,
+          "denominator": 80,
+          "rate": 0.025
+        },
+        "faithful_state_false_block_rate": {
+          "numerator": 31,
+          "denominator": 47,
+          "rate": 0.6595744680851063
+        },
+        "indeterminate_rate": {
+          "numerator": 4,
+          "denominator": 138,
+          "rate": 0.028985507246376812
+        },
+        "invalid_submission_rate": {
+          "numerator": 3,
+          "denominator": 138,
+          "rate": 0.021739130434782608
+        },
+        "hard_relevance_classification_accuracy_conditional_on_exact_defect_detection": {
+          "numerator": 80,
+          "denominator": 80,
+          "rate": 1.0
+        }
+      },
+      "majority": {
+        "exact_semantic_defect_sensitivity": {
+          "numerator": 27,
+          "denominator": 28,
+          "rate": 0.9642857142857143
+        },
+        "semantic_defect_class_sensitivity": {
+          "numerator": 27,
+          "denominator": 28,
+          "rate": 0.9642857142857143
+        },
+        "exact_hard_defect_sensitivity": {
+          "numerator": 26,
+          "denominator": 27,
+          "rate": 0.9629629629629629
+        },
+        "operational_hard_block_sensitivity": {
+          "numerator": 26,
+          "denominator": 27,
+          "rate": 0.9629629629629629
+        },
+        "faithful_state_specificity": {
+          "numerator": 4,
+          "denominator": 16,
+          "rate": 0.25
+        },
+        "hard_defect_false_pass_rate": {
+          "numerator": 1,
+          "denominator": 27,
+          "rate": 0.037037037037037035
+        },
+        "faithful_state_false_block_rate": {
+          "numerator": 11,
+          "denominator": 16,
+          "rate": 0.6875
+        },
+        "indeterminate_rate": {
+          "numerator": 0,
+          "denominator": 46,
+          "rate": 0.0
+        },
+        "hard_relevance_classification_accuracy_conditional_on_exact_defect_detection": {
+          "numerator": 27,
+          "denominator": 27,
+          "rate": 1.0
+        }
+      }
+    },
+    "natural": {
+      "individual": {
+        "exact_semantic_defect_sensitivity": {
+          "numerator": 47,
+          "denominator": 49,
+          "rate": 0.9591836734693877
+        },
+        "semantic_defect_class_sensitivity": {
+          "numerator": 47,
+          "denominator": 49,
+          "rate": 0.9591836734693877
+        },
+        "exact_hard_defect_sensitivity": {
+          "numerator": 45,
+          "denominator": 47,
+          "rate": 0.9574468085106383
+        },
+        "operational_hard_block_sensitivity": {
+          "numerator": 45,
+          "denominator": 47,
+          "rate": 0.9574468085106383
+        },
+        "faithful_state_specificity": {
+          "numerator": 11,
+          "denominator": 14,
+          "rate": 0.7857142857142857
+        },
+        "hard_defect_false_pass_rate": {
+          "numerator": 2,
+          "denominator": 47,
+          "rate": 0.0425531914893617
+        },
+        "faithful_state_false_block_rate": {
+          "numerator": 0,
+          "denominator": 15,
+          "rate": 0.0
+        },
+        "indeterminate_rate": {
+          "numerator": 3,
+          "denominator": 72,
+          "rate": 0.041666666666666664
+        },
+        "invalid_submission_rate": {
+          "numerator": 2,
+          "denominator": 72,
+          "rate": 0.027777777777777776
+        },
+        "hard_relevance_classification_accuracy_conditional_on_exact_defect_detection": {
+          "numerator": 47,
+          "denominator": 47,
+          "rate": 1.0
+        }
+      },
+      "majority": {
+        "exact_semantic_defect_sensitivity": {
+          "numerator": 16,
+          "denominator": 17,
+          "rate": 0.9411764705882353
+        },
+        "semantic_defect_class_sensitivity": {
+          "numerator": 16,
+          "denominator": 17,
+          "rate": 0.9411764705882353
+        },
+        "exact_hard_defect_sensitivity": {
+          "numerator": 15,
+          "denominator": 16,
+          "rate": 0.9375
+        },
+        "operational_hard_block_sensitivity": {
+          "numerator": 15,
+          "denominator": 16,
+          "rate": 0.9375
+        },
+        "faithful_state_specificity": {
+          "numerator": 4,
+          "denominator": 5,
+          "rate": 0.8
+        },
+        "hard_defect_false_pass_rate": {
+          "numerator": 1,
+          "denominator": 16,
+          "rate": 0.0625
+        },
+        "faithful_state_false_block_rate": {
+          "numerator": 0,
+          "denominator": 5,
+          "rate": 0.0
+        },
+        "indeterminate_rate": {
+          "numerator": 0,
+          "denominator": 24,
+          "rate": 0.0
+        },
+        "hard_relevance_classification_accuracy_conditional_on_exact_defect_detection": {
+          "numerator": 16,
+          "denominator": 16,
+          "rate": 1.0
+        }
+      }
+    },
+    "mutation": {
+      "individual": {
+        "exact_semantic_defect_sensitivity": {
+          "numerator": 33,
+          "denominator": 33,
+          "rate": 1.0
+        },
+        "semantic_defect_class_sensitivity": {
+          "numerator": 33,
+          "denominator": 33,
+          "rate": 1.0
+        },
+        "exact_hard_defect_sensitivity": {
+          "numerator": 33,
+          "denominator": 33,
+          "rate": 1.0
+        },
+        "operational_hard_block_sensitivity": {
+          "numerator": 33,
+          "denominator": 33,
+          "rate": 1.0
+        },
+        "faithful_state_specificity": {
+          "numerator": 0,
+          "denominator": 32,
+          "rate": 0.0
+        },
+        "hard_defect_false_pass_rate": {
+          "numerator": 0,
+          "denominator": 33,
+          "rate": 0.0
+        },
+        "faithful_state_false_block_rate": {
+          "numerator": 31,
+          "denominator": 32,
+          "rate": 0.96875
+        },
+        "indeterminate_rate": {
+          "numerator": 1,
+          "denominator": 66,
+          "rate": 0.015151515151515152
+        },
+        "invalid_submission_rate": {
+          "numerator": 1,
+          "denominator": 66,
+          "rate": 0.015151515151515152
+        },
+        "hard_relevance_classification_accuracy_conditional_on_exact_defect_detection": {
+          "numerator": 33,
+          "denominator": 33,
+          "rate": 1.0
+        }
+      },
+      "majority": {
+        "exact_semantic_defect_sensitivity": {
+          "numerator": 11,
+          "denominator": 11,
+          "rate": 1.0
+        },
+        "semantic_defect_class_sensitivity": {
+          "numerator": 11,
+          "denominator": 11,
+          "rate": 1.0
+        },
+        "exact_hard_defect_sensitivity": {
+          "numerator": 11,
+          "denominator": 11,
+          "rate": 1.0
+        },
+        "operational_hard_block_sensitivity": {
+          "numerator": 11,
+          "denominator": 11,
+          "rate": 1.0
+        },
+        "faithful_state_specificity": {
+          "numerator": 0,
+          "denominator": 11,
+          "rate": 0.0
+        },
+        "hard_defect_false_pass_rate": {
+          "numerator": 0,
+          "denominator": 11,
+          "rate": 0.0
+        },
+        "faithful_state_false_block_rate": {
+          "numerator": 11,
+          "denominator": 11,
+          "rate": 1.0
+        },
+        "indeterminate_rate": {
+          "numerator": 0,
+          "denominator": 22,
+          "rate": 0.0
+        },
+        "hard_relevance_classification_accuracy_conditional_on_exact_defect_detection": {
+          "numerator": 11,
+          "denominator": 11,
+          "rate": 1.0
+        }
+      }
+    }
+  },
+  "evidence_contract": {
+    "exact_source_span_object_validity": {
+      "numerator": 1811,
+      "denominator": 1813,
+      "rate": 0.9988968560397132
+    },
+    "complete_source_evidence_finding_validity": {
+      "numerator": 1515,
+      "denominator": 1518,
+      "rate": 0.9980237154150198
+    },
+    "complete_source_evidence_submission_validity": {
+      "numerator": 135,
+      "denominator": 138,
+      "rate": 0.9782608695652174
+    },
+    "exact_json_pointer_validity": {
+      "numerator": 5006,
+      "denominator": 5006,
+      "rate": 1.0
+    },
+    "complete_json_pointer_finding_validity": {
+      "numerator": 1518,
+      "denominator": 1518,
+      "rate": 1.0
+    },
+    "complete_json_pointer_submission_validity": {
+      "numerator": 138,
+      "denominator": 138,
+      "rate": 1.0
+    }
+  },
+  "agreement": {
+    "three_reviewer_exact_semantic_agreement": {
+      "numerator": 38,
+      "denominator": 46,
+      "rate": 0.8260869565217391
+    },
+    "two_of_three_or_better_semantic_agreement": {
+      "numerator": 46,
+      "denominator": 46,
+      "rate": 1.0
+    }
+  },
+  "latency": {
+    "exact_latency_trials": 132,
+    "bounded_or_unavailable_latency_trials": 6,
+    "mean_seconds": 149.71629545454545,
+    "median_seconds": 143.3265,
+    "p95_seconds": 228.8362999999999,
+    "minimum_seconds": 65.541,
+    "maximum_seconds": 463.394,
+    "total_exact_session_hours": 5.4895974999999995
+  },
+  "session_overhead": {
+    "planned_eligible_reviews": 138,
+    "accepted_consumer_sessions": 141,
+    "extra_accepted_sessions": 3,
+    "reviews_per_candidate": 3
+  },
+  "per_controlled_dimension": [
+    {
+      "dimension": "amount_or_dose",
+      "individual_exact_hard_defect_sensitivity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_whole_state_faithful_specificity": {
+        "numerator": 0,
+        "denominator": 3,
+        "rate": 0.0
+      },
+      "individual_same_dimension_faithful_specificity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_faithful_false_block_rate": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "majority_exact_hard_defect_detected": true,
+      "majority_whole_state_faithful_class": "DEFECT",
+      "majority_faithful_hard_disposition": "BLOCK"
+    },
+    {
+      "dimension": "case_and_comparison_roles",
+      "individual_exact_hard_defect_sensitivity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_whole_state_faithful_specificity": {
+        "numerator": 0,
+        "denominator": 3,
+        "rate": 0.0
+      },
+      "individual_same_dimension_faithful_specificity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_faithful_false_block_rate": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "majority_exact_hard_defect_detected": true,
+      "majority_whole_state_faithful_class": "DEFECT",
+      "majority_faithful_hard_disposition": "BLOCK"
+    },
+    {
+      "dimension": "dependency_or_provenance",
+      "individual_exact_hard_defect_sensitivity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_whole_state_faithful_specificity": {
+        "numerator": 0,
+        "denominator": 3,
+        "rate": 0.0
+      },
+      "individual_same_dimension_faithful_specificity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_faithful_false_block_rate": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "majority_exact_hard_defect_detected": true,
+      "majority_whole_state_faithful_class": "DEFECT",
+      "majority_faithful_hard_disposition": "BLOCK"
+    },
+    {
+      "dimension": "exact_target",
+      "individual_exact_hard_defect_sensitivity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_whole_state_faithful_specificity": {
+        "numerator": 0,
+        "denominator": 3,
+        "rate": 0.0
+      },
+      "individual_same_dimension_faithful_specificity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_faithful_false_block_rate": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "majority_exact_hard_defect_detected": true,
+      "majority_whole_state_faithful_class": "DEFECT",
+      "majority_faithful_hard_disposition": "BLOCK"
+    },
+    {
+      "dimension": "feature_value",
+      "individual_exact_hard_defect_sensitivity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_whole_state_faithful_specificity": {
+        "numerator": 0,
+        "denominator": 2,
+        "rate": 0.0
+      },
+      "individual_same_dimension_faithful_specificity": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "individual_faithful_false_block_rate": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "majority_exact_hard_defect_detected": true,
+      "majority_whole_state_faithful_class": "DEFECT",
+      "majority_faithful_hard_disposition": "BLOCK"
+    },
+    {
+      "dimension": "high_information_qualifier",
+      "individual_exact_hard_defect_sensitivity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_whole_state_faithful_specificity": {
+        "numerator": 0,
+        "denominator": 3,
+        "rate": 0.0
+      },
+      "individual_same_dimension_faithful_specificity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_faithful_false_block_rate": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "majority_exact_hard_defect_detected": true,
+      "majority_whole_state_faithful_class": "DEFECT",
+      "majority_faithful_hard_disposition": "BLOCK"
+    },
+    {
+      "dimension": "negative_or_tolerated_comparator",
+      "individual_exact_hard_defect_sensitivity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_whole_state_faithful_specificity": {
+        "numerator": 0,
+        "denominator": 3,
+        "rate": 0.0
+      },
+      "individual_same_dimension_faithful_specificity": {
+        "numerator": 2,
+        "denominator": 3,
+        "rate": 0.6666666666666666
+      },
+      "individual_faithful_false_block_rate": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "majority_exact_hard_defect_detected": true,
+      "majority_whole_state_faithful_class": "DEFECT",
+      "majority_faithful_hard_disposition": "BLOCK"
+    },
+    {
+      "dimension": "other",
+      "individual_exact_hard_defect_sensitivity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_whole_state_faithful_specificity": {
+        "numerator": 0,
+        "denominator": 3,
+        "rate": 0.0
+      },
+      "individual_same_dimension_faithful_specificity": {
+        "numerator": 0,
+        "denominator": 3,
+        "rate": 0.0
+      },
+      "individual_faithful_false_block_rate": {
+        "numerator": 2,
+        "denominator": 3,
+        "rate": 0.6666666666666666
+      },
+      "majority_exact_hard_defect_detected": true,
+      "majority_whole_state_faithful_class": "DEFECT",
+      "majority_faithful_hard_disposition": "BLOCK"
+    },
+    {
+      "dimension": "predicate_semantics",
+      "individual_exact_hard_defect_sensitivity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_whole_state_faithful_specificity": {
+        "numerator": 0,
+        "denominator": 3,
+        "rate": 0.0
+      },
+      "individual_same_dimension_faithful_specificity": {
+        "numerator": 1,
+        "denominator": 3,
+        "rate": 0.3333333333333333
+      },
+      "individual_faithful_false_block_rate": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "majority_exact_hard_defect_detected": true,
+      "majority_whole_state_faithful_class": "DEFECT",
+      "majority_faithful_hard_disposition": "BLOCK"
+    },
+    {
+      "dimension": "route_or_form",
+      "individual_exact_hard_defect_sensitivity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_whole_state_faithful_specificity": {
+        "numerator": 0,
+        "denominator": 3,
+        "rate": 0.0
+      },
+      "individual_same_dimension_faithful_specificity": {
+        "numerator": 1,
+        "denominator": 2,
+        "rate": 0.5
+      },
+      "individual_faithful_false_block_rate": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "majority_exact_hard_defect_detected": true,
+      "majority_whole_state_faithful_class": "DEFECT",
+      "majority_faithful_hard_disposition": "BLOCK"
+    },
+    {
+      "dimension": "timing",
+      "individual_exact_hard_defect_sensitivity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_whole_state_faithful_specificity": {
+        "numerator": 0,
+        "denominator": 3,
+        "rate": 0.0
+      },
+      "individual_same_dimension_faithful_specificity": {
+        "numerator": 0,
+        "denominator": 3,
+        "rate": 0.0
+      },
+      "individual_faithful_false_block_rate": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "majority_exact_hard_defect_detected": true,
+      "majority_whole_state_faithful_class": "DEFECT",
+      "majority_faithful_hard_disposition": "BLOCK"
+    }
+  ],
+  "model_strata": [
+    {
+      "model_slug": "gpt-5-6-thinking",
+      "trials": 135,
+      "metrics": {
+        "exact_semantic_defect_sensitivity": {
+          "numerator": 79,
+          "denominator": 81,
+          "rate": 0.9753086419753086
+        },
+        "semantic_defect_class_sensitivity": {
+          "numerator": 79,
+          "denominator": 81,
+          "rate": 0.9753086419753086
+        },
+        "exact_hard_defect_sensitivity": {
+          "numerator": 77,
+          "denominator": 79,
+          "rate": 0.9746835443037974
+        },
+        "operational_hard_block_sensitivity": {
+          "numerator": 77,
+          "denominator": 79,
+          "rate": 0.9746835443037974
+        },
+        "faithful_state_specificity": {
+          "numerator": 11,
+          "denominator": 44,
+          "rate": 0.25
+        },
+        "hard_defect_false_pass_rate": {
+          "numerator": 2,
+          "denominator": 79,
+          "rate": 0.02531645569620253
+        },
+        "faithful_state_false_block_rate": {
+          "numerator": 30,
+          "denominator": 45,
+          "rate": 0.6666666666666666
+        },
+        "indeterminate_rate": {
+          "numerator": 4,
+          "denominator": 135,
+          "rate": 0.02962962962962963
+        },
+        "invalid_submission_rate": {
+          "numerator": 3,
+          "denominator": 135,
+          "rate": 0.022222222222222223
+        },
+        "hard_relevance_classification_accuracy_conditional_on_exact_defect_detection": {
+          "numerator": 79,
+          "denominator": 79,
+          "rate": 1.0
+        }
+      }
+    },
+    {
+      "model_slug": "gpt-6-pro",
+      "trials": 3,
+      "metrics": {
+        "exact_semantic_defect_sensitivity": {
+          "numerator": 1,
+          "denominator": 1,
+          "rate": 1.0
+        },
+        "semantic_defect_class_sensitivity": {
+          "numerator": 1,
+          "denominator": 1,
+          "rate": 1.0
+        },
+        "exact_hard_defect_sensitivity": {
+          "numerator": 1,
+          "denominator": 1,
+          "rate": 1.0
+        },
+        "operational_hard_block_sensitivity": {
+          "numerator": 1,
+          "denominator": 1,
+          "rate": 1.0
+        },
+        "faithful_state_specificity": {
+          "numerator": 0,
+          "denominator": 2,
+          "rate": 0.0
+        },
+        "hard_defect_false_pass_rate": {
+          "numerator": 0,
+          "denominator": 1,
+          "rate": 0.0
+        },
+        "faithful_state_false_block_rate": {
+          "numerator": 1,
+          "denominator": 2,
+          "rate": 0.5
+        },
+        "indeterminate_rate": {
+          "numerator": 0,
+          "denominator": 3,
+          "rate": 0.0
+        },
+        "invalid_submission_rate": {
+          "numerator": 0,
+          "denominator": 3,
+          "rate": 0.0
+        },
+        "hard_relevance_classification_accuracy_conditional_on_exact_defect_detection": {
+          "numerator": 1,
+          "denominator": 1,
+          "rate": 1.0
+        }
+      }
+    }
+  ],
+  "strategy_decision": {
+    "selected_priority": "A",
+    "action": "STOP_AND_IMPROVE_REVIEWER_CONTRACT",
+    "trigger_evidence": {
+      "majority_hard_defect_false_passes": 1,
+      "majority_exact_semantic_defect_sensitivity": {
+        "numerator": 27,
+        "denominator": 28,
+        "rate": 0.9642857142857143
+      }
+    },
+    "production_integration_permitted": false,
+    "next_step": "Prospectively revise and test the v0.1 review contract for exact predicate truth conditions, then rebuild the controlled mutation bases so every nominal faithful state is independently source-faithful before another DEVELOPMENT evaluation."
+  },
+  "integrity_interpretation": {
+    "track2_faithful_negative_control_status": "CONTESTED_LOAD_BEARING",
+    "reason": "All 11 nominal faithful mutation states received at least one defect finding; the shared base omits the explicit compound Sol exposure identity and encodes the source upper-bound timing as a scalar. Raw frozen-gold scores remain reported, but Track 2 whole-state specificity is not a clean reviewer false-block estimate.",
+    "historical_gold_modified": false
+  }
+}

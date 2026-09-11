@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "phase": "TRACK2_MUTATION_GOLD_COMPLETE",
+  "status": "COMPLETE",
+  "hard_relevance_opinions_frozen": 23,
+  "defective_candidates": 11,
+  "third_adjudications": 1,
+  "mutation_candidates_total": 22,
+  "gold_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/mutation-state-gold.json",
+  "gold_sha256": "dc58d0d249641c816bca1eb170606c4eaf97068c3a48ea5169e336a752655a45",
+  "main_reviewer_outputs_frozen": 0,
+  "scorer_key_for_main_reviewer_population_opened": false
+}

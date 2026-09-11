@@ -1,0 +1,220 @@
+{
+  "review_version": "askrigor_epistemic_representation_review_v0_1",
+  "source_sha256": "7e1f1c3b4ebcc027857903fadae71b1a2f52caf7365e7bb8944578a8e36f98d5",
+  "state_sha256": "e91286a1aeb865f90614709363d9fd0af0e3a5305fe2d06c884aef4b66c0905e",
+  "producer_session_id": "conversation-sha256:b65d71f6ae3686ae5ca1a54e109730367ea055b4564f14a3c6238b2d0c17a58d",
+  "reviewer": {
+    "session_id": "review-session:2026-09-10T18:55:00+00:00:4a8c0f1d",
+    "model": "GPT-5.6 Sol",
+    "mode": "reasoning",
+    "fresh_independent_session": true
+  },
+  "reviewed_at": "2026-09-10T18:55:00+00:00",
+  "reviewer_independent": true,
+  "status": "pass",
+  "critical_representation": "faithful",
+  "findings": [
+    {
+      "dimension": "exact_target",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 41,
+          "quote": "Cedar and Flint show the target response."
+        },
+        {
+          "start": 42,
+          "end": 102,
+          "quote": "Mica is explicitly tolerated and does not show the response."
+        }
+      ],
+      "state_paths": [
+        "/target/target_id",
+        "/target/label",
+        "/target/description"
+      ],
+      "rationale": "The state keeps the target fixed as the response shown by Cedar and Flint and absent in Mica; it does not substitute an adjacent property or the Vela marker for the target."
+    },
+    {
+      "dimension": "case_and_comparison_roles",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 41,
+          "quote": "Cedar and Flint show the target response."
+        },
+        {
+          "start": 42,
+          "end": 102,
+          "quote": "Mica is explicitly tolerated and does not show the response."
+        }
+      ],
+      "state_paths": [
+        "/cases/0/comparison_role",
+        "/cases/1/comparison_role",
+        "/cases/2/comparison_role",
+        "/comparisons/0/positive_case_ids",
+        "/comparisons/0/control_case_ids"
+      ],
+      "rationale": "Cedar and Flint are correctly encoded as positive cases, while Mica is correctly encoded as the tolerated control; the comparison view preserves the same partition."
+    },
+    {
+      "dimension": "negative_or_tolerated_comparator",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 42,
+          "end": 102,
+          "quote": "Mica is explicitly tolerated and does not show the response."
+        }
+      ],
+      "state_paths": [
+        "/cases/2/comparison_role",
+        "/observations/2/statement",
+        "/comparisons/0/control_case_ids"
+      ],
+      "rationale": "The decisive tolerated negative comparator is preserved explicitly: Mica is a tolerated_control and is represented as not showing the target response."
+    },
+    {
+      "dimension": "high_information_qualifier",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 50,
+          "end": 70,
+          "quote": "explicitly tolerated"
+        }
+      ],
+      "state_paths": [
+        "/cases/2/comparison_role",
+        "/observations/2/statement"
+      ],
+      "rationale": "The high-information fact that Mica is explicitly tolerated is retained semantically in both its tolerated_control role and the observation statement. The empty observation qualifier map does not erase that contrast because tolerance is represented structurally as the comparison role."
+    },
+    {
+      "dimension": "timing",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "The source packet specifies no timing or temporal qualifier."
+    },
+    {
+      "dimension": "amount_or_dose",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "The source packet specifies no amount, dose, concentration, or quantity."
+    },
+    {
+      "dimension": "route_or_form",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "The source packet specifies no route, formulation, physical form, or mode of administration."
+    },
+    {
+      "dimension": "feature_value",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 103,
+          "end": 152,
+          "quote": "Marker Vela is present in Cedar, Flint, and Mica."
+        }
+      ],
+      "state_paths": [
+        "/features/0/case_id",
+        "/features/0/feature_id",
+        "/features/0/value",
+        "/features/1/case_id",
+        "/features/1/feature_id",
+        "/features/1/value",
+        "/features/2/case_id",
+        "/features/2/feature_id",
+        "/features/2/value"
+      ],
+      "rationale": "Vela is represented with value true for Cedar, Flint, and Mica, exactly matching the source. Critically, the tolerated control shares the feature rather than being represented as Vela-negative."
+    },
+    {
+      "dimension": "predicate_semantics",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 103,
+          "end": 152,
+          "quote": "Marker Vela is present in Cedar, Flint, and Mica."
+        },
+        {
+          "start": 153,
+          "end": 222,
+          "quote": "Test the hypothesis that Vela itself explains the selective response."
+        }
+      ],
+      "state_paths": [
+        "/hypotheses/0/discriminator/feature_id",
+        "/hypotheses/0/discriminator/operator",
+        "/features/0",
+        "/features/1",
+        "/features/2"
+      ],
+      "rationale": "The discriminator uses operator \"present\", which asks whether a Vela feature record exists. Such a record exists for all three cases. This is distinct from testing whether a stored value literally equals \"present\"; no such mistaken interpretation appears in the state."
+    },
+    {
+      "dimension": "dependency_or_provenance",
+      "status": "uncertain",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 41,
+          "quote": "Cedar and Flint show the target response."
+        },
+        {
+          "start": 42,
+          "end": 102,
+          "quote": "Mica is explicitly tolerated and does not show the response."
+        },
+        {
+          "start": 103,
+          "end": 152,
+          "quote": "Marker Vela is present in Cedar, Flint, and Mica."
+        }
+      ],
+      "state_paths": [
+        "/cases/0/provenance",
+        "/cases/1/provenance",
+        "/cases/2/provenance",
+        "/observations/0/provenance",
+        "/observations/1/provenance",
+        "/observations/2/provenance",
+        "/features/0/provenance",
+        "/features/1/provenance",
+        "/features/2/provenance"
+      ],
+      "rationale": "The represented facts are directly supported by the supplied source packet and are labeled source_grounded, but the opaque provenance identifier \"DEV-QWCNK4\" is not present in the source packet and cannot be independently verified from the permitted evidence. No contrary provenance is established."
+    },
+    {
+      "dimension": "other",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "No additional source-to-state discrepancy is evident outside the required dimensions."
+    }
+  ],
+  "blockers": [],
+  "warnings": [
+    "dependency_or_provenance: The represented facts are directly supported by the supplied source packet and are labeled source_grounded, but the opaque provenance identifier \"DEV-QWCNK4\" is not present in the source packet and cannot be independently verified from the permitted evidence. No contrary provenance is established."
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "status": "SOURCE_BOUND_PROJECT_MANAGER_DIRECTIVE_CAPTURED",
+  "assistant_message_id": "c3fea205-8b0a-43ca-a43c-7d25ec82d07a",
+  "exact_utf8_body_bytes": 15029,
+  "exact_utf8_body_sha256": "b3218dab2a0e942abcd6be27dba33338caf2c89f737008866723b8c5ca28c7f4",
+  "directive_id": "askrigor-issue208-independent-semantic-representation-review-full-blinded-development-v1",
+  "observed_authority_surface": "CHATGPT_PROJECT_MANAGER",
+  "conversation_identity_sha256": "042dadf54607796032e20ab496fd4a872c2aaf61df5c9d463c62e89531d52629",
+  "mission_control_eligible_as_adjudicator": false
+}

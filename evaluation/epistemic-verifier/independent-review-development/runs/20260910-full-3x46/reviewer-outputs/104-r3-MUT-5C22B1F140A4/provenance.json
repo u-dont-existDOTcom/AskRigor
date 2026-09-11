@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "trial_id": "semantic-review-104-r3-MUT-5C22B1F140A4",
+  "phase": "MAIN_BLINDED_REVIEW",
+  "sequence": 104,
+  "replicate": 3,
+  "candidate_id": "MUT-5C22B1F140A4",
+  "track": "MUTATION",
+  "controller_observed": {
+    "surface": "CHATGPT_CONSUMER_UI",
+    "conversation_identity_sha256": "850a5f5457734d3ff1bbfb5f2f7b369a70c38b061c8ad423a250eb01d9116dfd",
+    "user_message_id": "7e4585ae-d2fa-4bfb-b6bf-470154a6eb5e",
+    "assistant_message_id": "d292b5f4-09c5-4737-8b9e-6c0af52b7e11",
+    "assistant_model_slug": "gpt-6-pro",
+    "visible_model_label": "GPT-6 Pro",
+    "thinking_control_label": "Thinking effort",
+    "visible_thinking_setting": "Pro",
+    "visible_thinking_ordinal": null,
+    "account_plan_label": "Pro",
+    "account_plan_role": "PROVENANCE_METADATA_ONLY"
+  },
+  "timestamps": {
+    "submitted_at": "2026-09-11T02:24:38.620Z",
+    "completed_at": "2026-09-11T02:32:22.014Z",
+    "latency_ms": 463394,
+    "submission_timing_status": "EXACT_CONTROLLER_TIMESTAMP",
+    "completion_timing_status": "CONTROLLER_OBSERVED_COMPLETE"
+  },
+  "input": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-5C22B1F140A4.txt",
+    "sha256": "44d0dbbfd95dd56e148e718778f7169963f4778a02b09b5159e250a74006e401",
+    "submission_text_fill_sha256": "44d0dbbfd95dd56e148e718778f7169963f4778a02b09b5159e250a74006e401",
+    "accepted_rendered_text_sha256": "afae61ebc539d071f763b20a22f24f8c24afd88f0e7367eb5ecef93ec9a15abe",
+    "rendered_markdown_byte_comparison": "NOT_EXACTLY_COMPARABLE"
+  },
+  "output": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/reviewer-outputs/104-r3-MUT-5C22B1F140A4/raw-output.txt",
+    "sha256": "df086b8e32deb21952b429c6342e7a3a1ca925c798f17adf085ca98ab14969b4",
+    "characters": 8827,
+    "complete": true
+  },
+  "integrity": {
+    "fresh_conversation": true,
+    "external_tool_or_browsing_detected": false,
+    "talked_to_app_count": 0,
+    "searched_web_indicator_count": 0,
+    "sources_control_count": 0,
+    "sources_control_interpretation": "PROMPT_ATTACHMENT_OR_UI_CONTROL_NOT_BY_ITSELF_EXTERNAL_BROWSING",
+    "content_retry": false,
+    "replacement": false,
+    "scorer_gold_exposed": false,
+    "previous_reviewer_output_exposed": false,
+    "rate_limit_overlay_after_submission": true,
+    "exact_latency_eligible": true,
+    "automatic_model_mode_change": true,
+    "replaces_excluded_session": null
+  }
+}

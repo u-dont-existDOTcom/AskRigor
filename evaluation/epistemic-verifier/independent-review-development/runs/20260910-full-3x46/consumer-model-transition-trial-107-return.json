@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "phase": "MAIN_BLINDED_REVIEW",
+  "event": "CONSUMER_MODEL_MODE_AUTOMATIC_RETURN",
+  "first_affected_eligible_trial": 107,
+  "from": {
+    "assistant_model_slug": "gpt-6-pro",
+    "visible_model_label": "GPT-6 Pro",
+    "visible_thinking_setting": "Pro"
+  },
+  "to": {
+    "assistant_model_slug": "gpt-5-6-thinking",
+    "visible_model_label": "GPT-5.6 Sol",
+    "visible_thinking_setting": "Extra High"
+  },
+  "controller_evidence": {
+    "pre_submission_extra_high_control_count": 1,
+    "completed_response_model_slug": "gpt-5-6-thinking"
+  },
+  "disposition": "CONTINUE_ORIGINAL_FROZEN_MODEL_MODE",
+  "scorer_gold_comparison_performed": false
+}

@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "trial_id": "excluded-103-consumer-message-stream-error-NAT-119DEA2465B4",
+  "phase": "MAIN_BLINDED_REVIEW",
+  "sequence": 103,
+  "replicate": 3,
+  "candidate_id": "NAT-119DEA2465B4",
+  "track": "NATURAL",
+  "eligible_for_scoring": false,
+  "controller_observed": {
+    "surface": "CHATGPT_CONSUMER_UI",
+    "conversation_identity_sha256": "a19c4075cb0da4309249858b4b831ec372d9f25c8b29645fe325d11d6b30b86a",
+    "user_message_id": "69c2c121-2d8d-4315-bc2e-58e001a803b0",
+    "assistant_message_id": "b9f6ea89-9643-4fad-877d-b9dda2413b0a",
+    "assistant_model_slug": null,
+    "visible_model_label": "GPT-5.6 Sol",
+    "visible_thinking_setting": "Extra High",
+    "account_plan_label": "Pro"
+  },
+  "timestamps": {
+    "submitted_at": "2026-09-11T02:04:24.933Z",
+    "platform_error_observed_at": "2026-09-11T02:05:55.321Z"
+  },
+  "output": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/reviewer-outputs/excluded-103-consumer-message-stream-error-NAT-119DEA2465B4/raw-output.txt",
+    "sha256": "12c872dbe93d523449743131a1f0b0115d4fe876cb5f73d945706008f61b1684",
+    "characters": 42,
+    "complete": false
+  },
+  "integrity": {
+    "fresh_conversation": true,
+    "scorer_gold_exposed": false,
+    "previous_reviewer_output_exposed": false,
+    "external_tool_or_browsing_detected": false,
+    "platform_failure": "CHATGPT_CONSUMER_MESSAGE_STREAM_ERROR",
+    "replacement_required": true,
+    "eligible_trial_count_increment": 0,
+    "accepted_consumer_session_count_increment": 1,
+    "content_retry": false
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "phase": "POST_RUN_DEVELOPMENT_TARGET_INTEGRITY_REVIEW",
+  "classification": "LOAD_BEARING_EVALUATION_TARGET_CONFLICT",
+  "affected_track": "CONTROLLED_MUTATIONS",
+  "affected_gold_class": "FAITHFUL",
+  "affected_candidate_count": 11,
+  "affected_review_count": 33,
+  "frozen_raw_result_preserved": true,
+  "historical_gold_modified": false,
+  "defects": [
+    {
+      "id": "EXPOSURE_IDENTITY_OMITTED",
+      "source_fact": "The shared mutation source explicitly identifies compound Sol.",
+      "state_fact": "The shared base state preserves dose, route, and form but no source-grounded observation, qualifier, feature, or claim identifies compound Sol.",
+      "reviewer_recurrence": "19/33 nominal-faithful reviews reported the omitted compound identity under other; another 8/33 reported it as a high-information-qualifier problem."
+    },
+    {
+      "id": "UPPER_BOUND_COLLAPSED_TO_SCALAR",
+      "source_fact": "The shared mutation source says onset begins within 2 seconds.",
+      "state_fact": "The source-grounded observation stores onset_seconds: 2, while only a separate hypothesis prediction carries lte semantics.",
+      "reviewer_recurrence": "18/33 nominal-faithful reviews reported the upper-bound/exact-value discrepancy under timing; another 5/33 reported it as a high-information-qualifier problem."
+    },
+    {
+      "id": "HYPOTHESIS_SCOPE_AMBIGUITY",
+      "source_fact": "The source asks whether Quartz value equals high distinguishes the outcome while separately describing matched dose and observed onset.",
+      "state_fact": "The state attaches a dose modifier and onset prediction directly to the hypothesis.",
+      "reviewer_recurrence": "Reviewers recurrently disagreed whether those attachments faithfully preserve context or enlarge the tested predicate."
+    }
+  ],
+  "causal_consequence": "Track 2 whole-state specificity and false-block estimates cannot distinguish reviewer overconstraint from correct detection of defects in the nominal faithful negative controls.",
+  "unaffected_results": [
+    "Raw frozen-label scoring",
+    "Track 2 intended-mutation sensitivity",
+    "Independently reconciled Track 1 natural-state results",
+    "Output-contract source-span and JSON-pointer validity"
+  ],
+  "required_prospective_migration": [
+    "Create a new versioned mutation base preserving every explicit source fact and bound.",
+    "Obtain independent full semantic adjudication of each faithful and defective candidate before reviewer generation.",
+    "Assign new opaque candidate IDs and hashes.",
+    "Run fresh DEVELOPMENT reviewer sessions; do not rescore these outputs against corrected states."
+  ]
+}

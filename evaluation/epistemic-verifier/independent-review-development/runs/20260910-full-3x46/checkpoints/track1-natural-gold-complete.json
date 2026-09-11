@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-09-10T13:41:00Z",
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "natural_second_adjudications_frozen": "24/24",
+  "natural_third_adjudications_frozen": "6/6",
+  "natural_gold_candidates_reconciled": "24/24",
+  "natural_gold_hard_defects": "16/24",
+  "natural_gold_fully_faithful": "5/24",
+  "natural_gold_nonhard_defects": "1/24",
+  "natural_gold_uncertain": "2/24",
+  "hard_relevance_adjudications_frozen": "0/22",
+  "main_reviewer_trials_frozen": "0/138",
+  "main_reviewer_candidate_labels_opened": false,
+  "current_blocker": null
+}

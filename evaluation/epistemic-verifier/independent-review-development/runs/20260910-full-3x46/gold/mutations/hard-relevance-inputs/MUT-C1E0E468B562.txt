@@ -1,0 +1,188 @@
+You are an independent blinded DEVELOPMENT adjudicator. Review only the exact source packet, candidate EpistemicStateV1, and mechanical source-faithful-mate diff below. Decide whether the represented discrepancy could change a hard epistemic gate result or the conclusion the system is permitted to state. Do not use an expected label, another adjudication, verifier implementation, or outside evidence. Return exactly one compact JSON object with keys candidate_id, affects_hard_invariant (true, false, or null for uncertain), affected_gate_or_claim_paths (array of strings), rationale. Do not repair the state or answer the source question.
+
+{
+  "candidate_id": "MUT-C1E0E468B562",
+  "source_packet": "The requested target is risk_m07. Rowan m07 is the positive case: the target outcome begins within 2 seconds after 10 units of compound Sol by intravenous liquid infusion. Mica m07 is the tolerated control: Mica receives the same 10-unit intravenous liquid exposure and does not show the target outcome. Feature Quartz is high in Rowan m07 and low in Mica m07. Test the material hypothesis that Quartz value equals high distinguishes the target outcome. The conclusion about risk_m07 must depend on Rowan's source-grounded target observation and the tolerated-control contrast.",
+  "candidate_state": {
+    "state_version": "askrigor_epistemic_state_v1",
+    "target": {
+      "target_id": "risk_m07",
+      "label": "Risk m07",
+      "description": "Whether the target outcome occurs for m07."
+    },
+    "cases": [
+      {
+        "case_id": "rowan_m07",
+        "label": "Rowan m07",
+        "comparison_role": "positive",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m07:source"
+        }
+      },
+      {
+        "case_id": "mica_m07",
+        "label": "Mica m07",
+        "comparison_role": "tolerated_control",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m07:source"
+        }
+      }
+    ],
+    "observations": [
+      {
+        "observation_id": "obs_positive_m07",
+        "target_id": "risk_m07",
+        "case_id": "rowan_m07",
+        "statement": "Rowan m07 shows the target outcome.",
+        "material": true,
+        "qualifiers": {
+          "onset_seconds": 2,
+          "dose_units": 10,
+          "route": "intravenous",
+          "form": "liquid"
+        },
+        "high_information_qualifier_keys": [
+          "onset_seconds",
+          "dose_units",
+          "route",
+          "form"
+        ],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m07:source"
+        }
+      },
+      {
+        "observation_id": "obs_control_m07",
+        "target_id": "risk_m07",
+        "case_id": "mica_m07",
+        "statement": "Mica m07 tolerates the exposure and does not show the target outcome.",
+        "material": true,
+        "qualifiers": {
+          "dose_units": 10,
+          "route": "oral",
+          "form": "capsule"
+        },
+        "high_information_qualifier_keys": [
+          "dose_units",
+          "route",
+          "form"
+        ],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m07:source"
+        }
+      }
+    ],
+    "features": [
+      {
+        "case_id": "rowan_m07",
+        "feature_id": "quartz_m07",
+        "value": "high",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m07:source"
+        }
+      },
+      {
+        "case_id": "mica_m07",
+        "feature_id": "quartz_m07",
+        "value": "low",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m07:source"
+        }
+      }
+    ],
+    "comparisons": [
+      {
+        "comparison_id": "cmp_m07",
+        "target_id": "risk_m07",
+        "positive_case_ids": [
+          "rowan_m07"
+        ],
+        "control_case_ids": [
+          "mica_m07"
+        ]
+      }
+    ],
+    "hypotheses": [
+      {
+        "hypothesis_id": "hyp_m07",
+        "target_id": "risk_m07",
+        "statement": "Quartz value equals high distinguishes the target outcome for m07.",
+        "material": true,
+        "discriminator": {
+          "feature_id": "quartz_m07",
+          "operator": "equals",
+          "value": "high",
+          "modifier": {
+            "kind": "dose",
+            "claim_id": "dose_modifier_m07"
+          }
+        },
+        "qualifier_predictions": [
+          {
+            "observation_id": "obs_positive_m07",
+            "qualifier_key": "onset_seconds",
+            "operator": "lte",
+            "value": 2
+          }
+        ]
+      }
+    ],
+    "claims": [
+      {
+        "claim_id": "dose_modifier_m07",
+        "target_id": "risk_m07",
+        "kind": "modifier",
+        "statement": "The represented 10-unit dose is held constant across the comparison.",
+        "material": true,
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m07:source"
+        },
+        "dependencies": []
+      },
+      {
+        "claim_id": "conclusion_m07",
+        "target_id": "risk_m07",
+        "kind": "conclusion",
+        "statement": "Quartz survives the represented comparison.",
+        "material": true,
+        "provenance": {
+          "kind": "inference",
+          "source_id": "mutation:m07:derived"
+        },
+        "dependencies": [
+          {
+            "kind": "observation",
+            "id": "obs_positive_m07"
+          },
+          {
+            "kind": "observation",
+            "id": "obs_control_m07"
+          },
+          {
+            "kind": "claim",
+            "id": "dose_modifier_m07"
+          }
+        ]
+      }
+    ]
+  },
+  "mutation_diff": [
+    {
+      "pointer": "/observations/1/qualifiers/route",
+      "before": "intravenous",
+      "after": "oral"
+    },
+    {
+      "pointer": "/observations/1/qualifiers/form",
+      "before": "liquid",
+      "after": "capsule"
+    }
+  ]
+}

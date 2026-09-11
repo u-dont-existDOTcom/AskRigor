@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "event": "CONTROLLER_PROJECT_NAMESPACE_CONTAMINATION",
+  "sequence": 61,
+  "candidate_id": "NAT-31DA10F913CE",
+  "expected_namespace": "https://chatgpt.com/c/<conversation_id>",
+  "observed_conversation_url_sha256": "2c7139aa43aebd42540043f8615306297da6d5e482306b583f3d39f510722b9b",
+  "observed_project_namespace": "https://chatgpt.com/g/g-p-6a5acd0429488191a9fa14e61d7d707b-askrigor-training/",
+  "risk": "The project namespace may expose extra project instructions or files, violating the source-plus-state-only reviewer condition.",
+  "disposition": "EXCLUDED_FROM_ALL_REVIEW_PERFORMANCE_DENOMINATORS",
+  "raw_output_preserved": true,
+  "provenance_preserved": true,
+  "replacement_of_accepted_content": false,
+  "corrective_trial": "061-r2-NAT-31DA10F913CE",
+  "corrective_trial_requirement": "Fresh plain ChatGPT conversation; exact same frozen input; same fixed model and reasoning mode.",
+  "scorer_gold_opened": false
+}

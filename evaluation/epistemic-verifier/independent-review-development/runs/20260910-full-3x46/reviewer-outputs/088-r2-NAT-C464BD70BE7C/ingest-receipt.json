@@ -1,0 +1,214 @@
+{
+  "review_version": "askrigor_epistemic_representation_review_v0_1",
+  "source_sha256": "a9d647186a9572eee84d7a2eb76ad8f1728b0f3482cb9bf6eb1e7f0fe028051c",
+  "state_sha256": "8bc21e3e1c46348b2e6e75caaeaeab77791afd69dbabd2a648295b590990f55c",
+  "producer_session_id": "conversation-sha256:495c5e70938dbcb6881a08168074ee232be72ad1d1f1c9b33e9fc420d8703ed5",
+  "reviewer": {
+    "session_id": "review-session:bbedb97f-cdf5-41cd-a487-b51c94551bca",
+    "model": "GPT-5.6 Sol",
+    "mode": "reasoning",
+    "fresh_independent_session": true
+  },
+  "reviewed_at": "2026-09-10T21:33:00+00:00",
+  "reviewer_independent": true,
+  "status": "block",
+  "critical_representation": "defective",
+  "findings": [
+    {
+      "dimension": "exact_target",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 42,
+          "end": 55,
+          "quote": "target effect"
+        }
+      ],
+      "state_paths": [
+        "/target/target_id",
+        "/target/label",
+        "/observations/0/target_id",
+        "/hypotheses/0/target_id"
+      ],
+      "rationale": "The candidate consistently represents the source target as the target effect; the normalized identifier target_effect does not alter the target."
+    },
+    {
+      "dimension": "case_and_comparison_roles",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 24,
+          "quote": "Alder is a positive case"
+        },
+        {
+          "start": 74,
+          "end": 102,
+          "quote": "Basin is a tolerated control"
+        }
+      ],
+      "state_paths": [
+        "/cases/0/case_id",
+        "/cases/0/comparison_role",
+        "/cases/1/case_id",
+        "/cases/1/comparison_role",
+        "/comparisons/0/positive_case_ids/0",
+        "/comparisons/0/control_case_ids/0"
+      ],
+      "rationale": "Alder is represented as the positive case and Basin as the tolerated control, and the comparison assigns them to the corresponding positive and control sets."
+    },
+    {
+      "dimension": "negative_or_tolerated_comparator",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 74,
+          "end": 102,
+          "quote": "Basin is a tolerated control"
+        }
+      ],
+      "state_paths": [
+        "/cases/1/comparison_role",
+        "/comparisons/0/control_case_ids/0"
+      ],
+      "rationale": "The tolerated comparator is preserved explicitly: Basin has comparison_role tolerated_control and is the comparison's control case."
+    },
+    {
+      "dimension": "high_information_qualifier",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 56,
+          "end": 72,
+          "quote": "within 2 seconds"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/statement",
+        "/observations/0/qualifiers/onset_seconds",
+        "/observations/0/high_information_qualifier_keys/0"
+      ],
+      "rationale": "The onset timing is explicitly designated as high-information, its two-second magnitude is recorded, and the observation statement retains the source's 'within 2 seconds' wording."
+    },
+    {
+      "dimension": "timing",
+      "status": "distorted",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 56,
+          "end": 72,
+          "quote": "within 2 seconds"
+        },
+        {
+          "start": 258,
+          "end": 307,
+          "quote": "begin no sooner than 3,600 seconds after exposure"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/statement",
+        "/observations/0/qualifiers/onset_seconds",
+        "/hypotheses/0/qualifier_predictions/0/operator",
+        "/hypotheses/0/qualifier_predictions/0/value"
+      ],
+      "rationale": "The hypothesis timing is faithfully encoded as onset_seconds gte 3600, and the observation statement preserves 'within 2 seconds'. However, the structured observation qualifier stores only onset_seconds = 2 and does not encode the source's upper-bound semantics (onset <= 2 seconds), so the structured timing representation is not exact. This does not change the relevant incompatibility: either an exact onset of 2 seconds or any onset within 2 seconds fails a requirement of onset >= 3600 seconds."
+    },
+    {
+      "dimension": "amount_or_dose",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "The source packet states no amount or dose."
+    },
+    {
+      "dimension": "route_or_form",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "The source packet states no route or form."
+    },
+    {
+      "dimension": "feature_value",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 104,
+          "end": 162,
+          "quote": "Feature Iris is represented in Alder and absent from Basin"
+        }
+      ],
+      "state_paths": [
+        "/features/0/case_id",
+        "/features/0/feature_id",
+        "/features/0/value",
+        "/features/1/case_id",
+        "/features/1/feature_id",
+        "/features/1/value"
+      ],
+      "rationale": "The stored feature values preserve the stated contrast: Iris has value present for Alder and value absent for Basin."
+    },
+    {
+      "dimension": "predicate_semantics",
+      "status": "distorted",
+      "affects_hard_invariant": true,
+      "source_spans": [
+        {
+          "start": 104,
+          "end": 198,
+          "quote": "Feature Iris is represented in Alder and absent from Basin, and is the proposed discriminator."
+        }
+      ],
+      "state_paths": [
+        "/hypotheses/0/discriminator/feature_id",
+        "/hypotheses/0/discriminator/operator",
+        "/features/0/value",
+        "/features/1/value"
+      ],
+      "rationale": "The source discriminator depends on the Iris feature-value contrast between Alder and Basin. In the candidate, discriminator operator \"present\" tests whether an Iris feature record exists; it does not test whether that record's stored value equals \"present\". Iris records exist for both Alder and Basin, so this predicate is satisfied by both cases despite Basin's stored value being \"absent\". The encoded predicate therefore fails to implement the proposed discriminator and can change a hard-gate specificity result or permitted conclusion."
+    },
+    {
+      "dimension": "dependency_or_provenance",
+      "status": "uncertain",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 199,
+          "end": 308,
+          "quote": "The material hypothesis also requires the target effect to begin no sooner than 3,600 seconds after exposure."
+        }
+      ],
+      "state_paths": [
+        "/hypotheses/0/qualifier_predictions/0/observation_id",
+        "/cases/0/provenance/source_id",
+        "/cases/1/provenance/source_id",
+        "/observations/0/provenance/source_id",
+        "/features/0/provenance/source_id",
+        "/features/1/provenance/source_id"
+      ],
+      "rationale": "The delayed-onset requirement is linked to the Alder target-effect observation through observation_id, which is coherent with the represented dependency. However, the candidate assigns the specific provenance identifier DEV-D6JPFM, while the exact source packet contains no source identifier from which that value can be verified. Its provenance identity is therefore uncertain rather than assumed."
+    },
+    {
+      "dimension": "other",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "No additional source dimension outside the required categories requires a separate representation finding."
+    }
+  ],
+  "blockers": [
+    "predicate_semantics: The source discriminator depends on the Iris feature-value contrast between Alder and Basin. In the candidate, discriminator operator \"present\" tests whether an Iris feature record exists; it does not test whether that record's stored value equals \"present\". Iris records exist for both Alder and Basin, so this predicate is satisfied by both cases despite Basin's stored value being \"absent\". The encoded predicate therefore fails to implement the proposed discriminator and can change a hard-gate specificity result or permitted conclusion."
+  ],
+  "warnings": [
+    "timing: The hypothesis timing is faithfully encoded as onset_seconds gte 3600, and the observation statement preserves 'within 2 seconds'. However, the structured observation qualifier stores only onset_seconds = 2 and does not encode the source's upper-bound semantics (onset <= 2 seconds), so the structured timing representation is not exact. This does not change the relevant incompatibility: either an exact onset of 2 seconds or any onset within 2 seconds fails a requirement of onset >= 3600 seconds.",
+    "dependency_or_provenance: The delayed-onset requirement is linked to the Alder target-effect observation through observation_id, which is coherent with the represented dependency. However, the candidate assigns the specific provenance identifier DEV-D6JPFM, while the exact source packet contains no source identifier from which that value can be verified. Its provenance identity is therefore uncertain rather than assumed."
+  ]
+}

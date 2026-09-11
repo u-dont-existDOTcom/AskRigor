@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "correction_kind": "INPUT_HASH_BASIS_CORRECTION",
+  "original_provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/reviewer-outputs/001-r1-MUT-EA0C47EB4875/provenance.json",
+  "original_provenance_sha256": "b82d57816c4d7d930db93f9b693639be2d40cbf46ebc505bbe09737ba35bf9b6",
+  "corrected_provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/reviewer-outputs/001-r1-MUT-EA0C47EB4875/provenance-corrected.json",
+  "corrected_provenance_sha256": "61c0da6f19a98cbc38accc084f7a6d657396537f3cb8ceb163a60ad6d5e84d71",
+  "dispatch_input_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-EA0C47EB4875.txt",
+  "exact_dispatch_input_sha256": "162b963ede37f92e49e2e3922aaf80de8550bf5d067e693d6237e0a6ae44df7a",
+  "original_recorded_input_sha256": "628d945dd1d59c1739f0e747174233e2453d80e299933184c962813256800318",
+  "raw_output_unchanged": true,
+  "original_provenance_preserved": true
+}

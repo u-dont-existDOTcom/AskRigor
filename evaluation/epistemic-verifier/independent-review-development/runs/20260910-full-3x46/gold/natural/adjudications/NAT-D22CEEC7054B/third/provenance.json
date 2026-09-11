@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "trial_id": "gold-natural-third-NAT-D22CEEC7054B",
+  "phase": "TRACK1_THIRD_ADJUDICATION",
+  "candidate_id": "NAT-D22CEEC7054B",
+  "controller_observed": {
+    "surface": "CHATGPT_CONSUMER_UI",
+    "conversation_identity_sha256": "5082a70cbf4746bf42998c8c69279909f05638f6409df34b90a8112069b733d7",
+    "user_message_id": "ca0d723b-c457-4184-b11f-f94c9d929403",
+    "assistant_message_id": "2c311e04-9271-49d4-8087-8e628a03509a",
+    "assistant_model_slug": "gpt-5-6-thinking",
+    "visible_model_label": "GPT-5.6 Sol",
+    "thinking_control_label": "Thinking effort",
+    "visible_thinking_setting": "Extra High",
+    "visible_thinking_ordinal": "4 of 5",
+    "account_plan_label": "Pro",
+    "account_plan_role": "PROVENANCE_METADATA_ONLY"
+  },
+  "timestamps": {
+    "submitted_at": "2026-09-10T13:23:41.547Z",
+    "completed_at": "2026-09-10T13:26:24.675Z"
+  },
+  "input": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-D22CEEC7054B.txt",
+    "sha256": "abfbb81c4c8e645e63ebc7fdd1b1303168816a1420fc068546693091908a47b8",
+    "submission_text_fill_sha256": "abfbb81c4c8e645e63ebc7fdd1b1303168816a1420fc068546693091908a47b8",
+    "accepted_rendered_text_sha256": "ebae9a69695201e2dfe823cf728e1c25574ef240b39082e7494e10d00c5fa0a5",
+    "rendered_markdown_byte_comparison": "NOT_EXACTLY_COMPARABLE"
+  },
+  "output": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/natural/adjudications/NAT-D22CEEC7054B/third/raw-output.txt",
+    "sha256": "47f497927aded00bd285d245b30de3f3409019fe6056ef571a7b02b8e0108435",
+    "characters": 7350,
+    "complete": true
+  },
+  "integrity": {
+    "fresh_conversation": true,
+    "external_tool_or_browsing_detected": false,
+    "talked_to_app_count": 0,
+    "searched_web_indicator_count": 0,
+    "sources_control_count": 1,
+    "sources_control_interpretation": "PROMPT_ATTACHMENT_OR_UI_CONTROL_NOT_BY_ITSELF_EXTERNAL_BROWSING",
+    "content_retry": false,
+    "replacement": false
+  }
+}

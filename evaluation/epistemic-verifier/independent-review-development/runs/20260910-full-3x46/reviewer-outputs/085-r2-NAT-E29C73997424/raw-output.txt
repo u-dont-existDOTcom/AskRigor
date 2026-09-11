@@ -1,0 +1,211 @@
+{
+"review_version": "askrigor_epistemic_representation_review_v0_1",
+"source_sha256": "f91a7822e66793bfd9e53a6e0ea280625ed942233f13985021e93681672ab0cd",
+"state_sha256": "a42c581026941c78276fb1f7348b6f5ae96bce278f0444e3bac0b8f32c15c451",
+"producer_session_id": "conversation-sha256:c4fdd84fd7b45ab984e1652004b3d4a94636787ffe32df7235271a3a8509ef50",
+"reviewer": {
+"session_id": "review-session:05a72634-41c6-43f6-9f9c-fcf14994c558",
+"model": "GPT-5.6 Sol",
+"mode": "Thinking",
+"fresh_independent_session": true
+},
+"reviewed_at": "2026-09-10T21:10:00+00:00",
+"findings": [
+{
+"dimension": "exact_target",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 40,
+"quote": "Oriel and Rowan show the target response"
+}
+],
+"state_paths": [
+"/target/target_id",
+"/target/label",
+"/target/description",
+"/observations/0/target_id",
+"/observations/1/target_id",
+"/observations/2/target_id"
+],
+"rationale": "The state preserves the exact target as the target response and consistently binds the observations and represented comparison to that target."
+},
+{
+"dimension": "case_and_comparison_roles",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 64,
+"quote": "Oriel and Rowan show the target response while Silt is tolerated"
+}
+],
+"state_paths": [
+"/cases/0/case_id",
+"/cases/0/comparison_role",
+"/cases/1/case_id",
+"/cases/1/comparison_role",
+"/cases/2/case_id",
+"/cases/2/comparison_role",
+"/comparisons/0/positive_case_ids",
+"/comparisons/0/control_case_ids"
+],
+"rationale": "Oriel and Rowan are correctly represented as positive cases and Silt as the tolerated control, and the comparison assigns those same roles."
+},
+{
+"dimension": "negative_or_tolerated_comparator",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 47,
+"end": 64,
+"quote": "Silt is tolerated"
+}
+],
+"state_paths": [
+"/cases/2/comparison_role",
+"/observations/2/statement",
+"/comparisons/0/control_case_ids",
+"/claims/1/statement"
+],
+"rationale": "The tolerated comparator is specifically Silt, and the state preserves Silt as the tolerated control rather than collapsing it into an unspecified negative case."
+},
+{
+"dimension": "high_information_qualifier",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 137,
+"end": 208,
+"quote": "Test only whether Nimbus survives this represented specificity contrast"
+},
+{
+"start": 210,
+"end": 265,
+"quote": "do not infer that passing specificity proves causality."
+}
+],
+"state_paths": [
+"/target/description",
+"/hypotheses/0/statement",
+"/claims/2/statement"
+],
+"rationale": "The high-information scope restrictions are preserved: the contrast is explicitly represented/specificity-only, and passing it is not represented as proving causality."
+},
+{
+"dimension": "timing",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source packet specifies no timing information."
+},
+{
+"dimension": "amount_or_dose",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source packet specifies no amount or dose."
+},
+{
+"dimension": "route_or_form",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source packet specifies no route or form."
+},
+{
+"dimension": "feature_value",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 66,
+"end": 136,
+"quote": "Feature Nimbus is represented in Oriel and Rowan and absent from Silt."
+}
+],
+"state_paths": [
+"/features/0/case_id",
+"/features/0/feature_id",
+"/features/0/value",
+"/features/1/case_id",
+"/features/1/feature_id",
+"/features/1/value",
+"/features/2/case_id",
+"/features/2/feature_id",
+"/features/2/value"
+],
+"rationale": "The stored feature values faithfully encode Nimbus as present for Oriel and Rowan and absent for Silt."
+},
+{
+"dimension": "predicate_semantics",
+"status": "distorted",
+"affects_hard_invariant": true,
+"source_spans": [
+{
+"start": 66,
+"end": 136,
+"quote": "Feature Nimbus is represented in Oriel and Rowan and absent from Silt."
+},
+{
+"start": 137,
+"end": 208,
+"quote": "Test only whether Nimbus survives this represented specificity contrast"
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/feature_id",
+"/hypotheses/0/discriminator/operator",
+"/features/0",
+"/features/1",
+"/features/2"
+],
+"rationale": "The discriminator uses operator "present", which tests existence of a Nimbus feature record rather than whether that record's stored value equals "present". A Nimbus record exists for all three cases, including Silt whose value is "absent". Therefore this predicate does not implement the source's represented present-in-Oriel-and-Rowan versus absent-from-Silt specificity contrast. This can change a hard-gate specificity result and the permitted conclusion."
+},
+{
+"dimension": "dependency_or_provenance",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 64,
+"quote": "Oriel and Rowan show the target response while Silt is tolerated"
+},
+{
+"start": 66,
+"end": 136,
+"quote": "Feature Nimbus is represented in Oriel and Rowan and absent from Silt."
+},
+{
+"start": 137,
+"end": 265,
+"quote": "Test only whether Nimbus survives this represented specificity contrast; do not infer that passing specificity proves causality."
+}
+],
+"state_paths": [
+"/claims/0/provenance/kind",
+"/claims/1/provenance/kind",
+"/claims/2/provenance/kind",
+"/claims/2/dependencies"
+],
+"rationale": "The directly stated case and feature facts are marked source-grounded, while the specificity conclusion is marked as an inference and depends on the relevant target observations and feature claims. The dependency structure preserves the source-level basis for the conclusion."
+},
+{
+"dimension": "other",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "No additional source-to-state discrepancy is identified outside the required dimensions already reviewed."
+}
+]
+}

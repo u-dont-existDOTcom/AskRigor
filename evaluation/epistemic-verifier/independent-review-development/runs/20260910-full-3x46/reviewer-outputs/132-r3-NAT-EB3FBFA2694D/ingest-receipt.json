@@ -1,0 +1,209 @@
+{
+  "review_version": "askrigor_epistemic_representation_review_v0_1",
+  "source_sha256": "51298c45f4703bf23f358b465272859e3600785e4a83c04ac1b0d6bcc967f8d2",
+  "state_sha256": "6dcee93d2f5d2e00985512fd08f98ef42d5d8d140f6dfd02c079d94bcd3787b0",
+  "producer_session_id": "conversation-sha256:b0d085d4ad8fdf294bb280d954c8f3bdb9a0420d495546f9be53cd30506235ec",
+  "reviewer": {
+    "session_id": "review-session:2b6c945c-5364-4ec1-a7ea-551013584e81",
+    "model": "GPT-5.6 Sol",
+    "mode": "Pro",
+    "fresh_independent_session": true
+  },
+  "reviewed_at": "2026-09-11T07:14:00+00:00",
+  "reviewer_independent": true,
+  "status": "pass",
+  "critical_representation": "faithful",
+  "findings": [
+    {
+      "dimension": "exact_target",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 39,
+          "quote": "Aspen and Kivu show the target response"
+        }
+      ],
+      "state_paths": [
+        "/target/target_id",
+        "/target/label",
+        "/target/description",
+        "/observations/0/target_id",
+        "/observations/1/target_id"
+      ],
+      "rationale": "The state preserves the exact target as the target response shown by Aspen and Kivu, without substituting an adjacent property or outcome."
+    },
+    {
+      "dimension": "case_and_comparison_roles",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 39,
+          "quote": "Aspen and Kivu show the target response"
+        },
+        {
+          "start": 69,
+          "end": 120,
+          "quote": "No tolerated or negative control case is available."
+        }
+      ],
+      "state_paths": [
+        "/cases/0/case_id",
+        "/cases/0/comparison_role",
+        "/cases/1/case_id",
+        "/cases/1/comparison_role",
+        "/comparisons/0/positive_case_ids",
+        "/comparisons/0/control_case_ids"
+      ],
+      "rationale": "Aspen and Kivu are correctly represented as positive cases because both show the target response, and the comparison correctly contains no control cases."
+    },
+    {
+      "dimension": "negative_or_tolerated_comparator",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 69,
+          "end": 120,
+          "quote": "No tolerated or negative control case is available."
+        }
+      ],
+      "state_paths": [
+        "/comparisons/0/control_case_ids",
+        "/claims/0/statement"
+      ],
+      "rationale": "The source explicitly states that no tolerated or negative control is available. The state preserves that absence both as an empty control-case set and as an intermediate claim."
+    },
+    {
+      "dimension": "high_information_qualifier",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "The source supplies no observation-level high-information qualifier such as immediacy, selectivity by amount, intensity, frequency, or another modifying qualifier."
+    },
+    {
+      "dimension": "timing",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "The source provides no timing information."
+    },
+    {
+      "dimension": "amount_or_dose",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "The source provides no amount or dose information."
+    },
+    {
+      "dimension": "route_or_form",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "The source provides no route or form distinction."
+    },
+    {
+      "dimension": "feature_value",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 44,
+          "end": 67,
+          "quote": "both contain marker Sol"
+        }
+      ],
+      "state_paths": [
+        "/features/0/case_id",
+        "/features/0/feature_id",
+        "/features/0/value",
+        "/features/1/case_id",
+        "/features/1/feature_id",
+        "/features/1/value"
+      ],
+      "rationale": "The source says that both Aspen and Kivu contain marker Sol. The state records Sol for each case with value \"present\", preserving the stated feature values."
+    },
+    {
+      "dimension": "predicate_semantics",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 44,
+          "end": 67,
+          "quote": "both contain marker Sol"
+        },
+        {
+          "start": 121,
+          "end": 189,
+          "quote": "Test whether Sol discriminates responsive from non-responsive cases."
+        }
+      ],
+      "state_paths": [
+        "/hypotheses/0/discriminator/feature_id",
+        "/hypotheses/0/discriminator/operator",
+        "/features/0",
+        "/features/1"
+      ],
+      "rationale": "The discriminator uses feature_id \"sol\" with operator \"present\", which tests existence of a Sol feature record. Such records exist for both represented responsive cases. The separately stored feature values are also \"present\", so there is no record-existence/value conflation that changes the source meaning."
+    },
+    {
+      "dimension": "dependency_or_provenance",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 67,
+          "quote": "Aspen and Kivu show the target response and both contain marker Sol"
+        },
+        {
+          "start": 69,
+          "end": 120,
+          "quote": "No tolerated or negative control case is available."
+        },
+        {
+          "start": 121,
+          "end": 189,
+          "quote": "Test whether Sol discriminates responsive from non-responsive cases."
+        }
+      ],
+      "state_paths": [
+        "/observations/0/provenance",
+        "/observations/1/provenance",
+        "/features/0/provenance",
+        "/features/1/provenance",
+        "/claims/0/provenance",
+        "/claims/1/provenance",
+        "/claims/1/dependencies"
+      ],
+      "rationale": "Directly stated observations, feature facts, and the absence of a control are marked source-grounded, while the insufficiency conclusion is marked as an inference. Its dependencies include the two positive-response observations and the no-control claim, which are sufficient to support the represented inability to determine discrimination in the absence of any non-responsive comparator."
+    },
+    {
+      "dimension": "other",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 121,
+          "end": 189,
+          "quote": "Test whether Sol discriminates responsive from non-responsive cases."
+        }
+      ],
+      "state_paths": [
+        "/hypotheses/0/statement",
+        "/claims/1/statement"
+      ],
+      "rationale": "The source's request to test Sol as a discriminator is represented as a hypothesis rather than as an established fact, and the conclusion remains appropriately limited to insufficiency of the represented evidence because no non-responsive comparison case is available."
+    }
+  ],
+  "blockers": [],
+  "warnings": []
+}

@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "trial_id": "gold-hard-relevance-first-MUT-CE337939819F",
+  "phase": "TRACK2_HARD_RELEVANCE_FIRST_ADJUDICATION",
+  "candidate_id": "MUT-CE337939819F",
+  "controller_observed": {
+    "surface": "CHATGPT_CONSUMER_UI",
+    "conversation_identity_sha256": "f9fb30b0b7b7feff9c3d04cdd23b18db335ec587a474df865d4207dba9b3bced",
+    "user_message_id": "b549e852-74db-43f5-b4c1-a5bef138fcde",
+    "assistant_message_id": "c6c85e2a-95c1-4130-b9c5-4f188dfe769b",
+    "assistant_model_slug": "gpt-5-6-thinking",
+    "visible_model_label": "GPT-5.6 Sol",
+    "thinking_control_label": "Thinking effort",
+    "visible_thinking_setting": "Extra High",
+    "visible_thinking_ordinal": "4 of 5",
+    "account_plan_label": "Pro",
+    "account_plan_role": "PROVENANCE_METADATA_ONLY"
+  },
+  "timestamps": {
+    "submitted_at": "2026-09-10T13:47:27.262Z",
+    "completed_at": "2026-09-10T13:48:06.982Z"
+  },
+  "input": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-inputs/MUT-CE337939819F.txt",
+    "sha256": "d6188e021e85584fcb4174bacc7040e1ce04fda21a51fa618a247a86159331f0",
+    "submission_text_fill_sha256": "d6188e021e85584fcb4174bacc7040e1ce04fda21a51fa618a247a86159331f0",
+    "accepted_rendered_text_sha256": "1023249f0fbda96efe79be551776dbb0e50156cfd3f5a3f39dddff3b6c9b6d0d",
+    "rendered_markdown_byte_comparison": "NOT_EXACTLY_COMPARABLE"
+  },
+  "output": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-CE337939819F/first/raw-output.txt",
+    "sha256": "50e7c93334dc971418ec86392f4d9c468f731800c4f82add1f459ffe44c0f9b1",
+    "characters": 703,
+    "complete": true
+  },
+  "integrity": {
+    "fresh_conversation": true,
+    "external_tool_or_browsing_detected": false,
+    "talked_to_app_count": 0,
+    "searched_web_indicator_count": 0,
+    "sources_control_count": 0,
+    "sources_control_interpretation": "PROMPT_ATTACHMENT_OR_UI_CONTROL_NOT_BY_ITSELF_EXTERNAL_BROWSING",
+    "content_retry": false,
+    "replacement": false
+  }
+}

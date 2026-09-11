@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "trial_id": "semantic-review-103-r3-NAT-119DEA2465B4",
+  "phase": "MAIN_BLINDED_REVIEW",
+  "sequence": 103,
+  "replicate": 3,
+  "candidate_id": "NAT-119DEA2465B4",
+  "track": "NATURAL",
+  "controller_observed": {
+    "surface": "CHATGPT_CONSUMER_UI",
+    "conversation_identity_sha256": "f6aa0087f034b47f2182575d1d7c46d89ab38a75b18dfcad0a59b409d24f5dde",
+    "user_message_id": "d2c3879f-4292-4494-aa31-27f003b32adf",
+    "assistant_message_id": "7988ddc3-f05b-494c-b851-4253aa06f2d9",
+    "assistant_model_slug": "gpt-5-6-thinking",
+    "visible_model_label": "GPT-5.6 Sol",
+    "thinking_control_label": "Thinking effort",
+    "visible_thinking_setting": "Extra High",
+    "visible_thinking_ordinal": "4 of 5",
+    "account_plan_label": "Pro",
+    "account_plan_role": "PROVENANCE_METADATA_ONLY"
+  },
+  "timestamps": {
+    "submitted_at": "2026-09-11T02:14:31.596Z",
+    "completed_at": "2026-09-11T02:15:54.176Z",
+    "latency_ms": 82580,
+    "submission_timing_status": "EXACT_CONTROLLER_TIMESTAMP",
+    "completion_timing_status": "CONTROLLER_OBSERVED_COMPLETE"
+  },
+  "input": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-119DEA2465B4.txt",
+    "sha256": "5c3504237f895211d2f7624a5bf4fcc149af204a4aef8abed3b6ec93556ea08e",
+    "submission_text_fill_sha256": "5c3504237f895211d2f7624a5bf4fcc149af204a4aef8abed3b6ec93556ea08e",
+    "accepted_rendered_text_sha256": "cd0e5cc1ff661637f8819668c239b032c9505b21a533193ffb27157428acee3e",
+    "rendered_markdown_byte_comparison": "NOT_EXACTLY_COMPARABLE"
+  },
+  "output": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/reviewer-outputs/103-r3-NAT-119DEA2465B4/raw-output.txt",
+    "sha256": "70721bd8310feb10aca92fe9bd218e8df4e11972a03428dabf65f0ba65b4a8af",
+    "characters": 5773,
+    "complete": true
+  },
+  "integrity": {
+    "fresh_conversation": true,
+    "external_tool_or_browsing_detected": false,
+    "talked_to_app_count": 0,
+    "searched_web_indicator_count": 0,
+    "sources_control_count": 0,
+    "sources_control_interpretation": "PROMPT_ATTACHMENT_OR_UI_CONTROL_NOT_BY_ITSELF_EXTERNAL_BROWSING",
+    "content_retry": false,
+    "replacement": true,
+    "scorer_gold_exposed": false,
+    "previous_reviewer_output_exposed": false,
+    "rate_limit_overlay_after_submission": false,
+    "exact_latency_eligible": true,
+    "replaces_excluded_session": "excluded-103-consumer-message-stream-error-NAT-119DEA2465B4"
+  }
+}

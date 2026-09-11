@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "event": "PREMATURE_DOM_CAPTURE_CORRECTION",
+  "trial_id": "070-r2-NAT-D22CEEC7054B",
+  "conversation_identity_sha256": "03869ca22d61e2484f917c5a5825ce2321f7fc75a8e35c7c1079800720fe062f",
+  "premature_raw_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/reviewer-outputs/070-r2-NAT-D22CEEC7054B/raw-output-premature.txt",
+  "premature_raw_sha256": "fd52b7ce56b743f901f16c1fec4f42a64a717d86bc94aa10ddbcfcc449697a11",
+  "settled_raw_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/reviewer-outputs/070-r2-NAT-D22CEEC7054B/raw-output.txt",
+  "settled_raw_sha256": "53837f2f627cee44ce6b06ba0e8d8cf9f2242da9caadd21b4c0cfc7ac7796206",
+  "same_accepted_consumer_session": true,
+  "consumer_response_regenerated": false,
+  "original_capture_preserved": true,
+  "cause": "The first DOM read occurred while the rendered response was still mutating behind an overlay and contained a duplicated tail fragment.",
+  "correction": "Re-opened the same conversation after generation settled and captured the final rendered assistant message.",
+  "scorer_gold_opened": false
+}

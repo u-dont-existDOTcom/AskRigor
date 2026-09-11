@@ -1,0 +1,185 @@
+{
+  "review_version": "askrigor_epistemic_representation_review_v0_1",
+  "source_sha256": "51298c45f4703bf23f358b465272859e3600785e4a83c04ac1b0d6bcc967f8d2",
+  "state_sha256": "6dcee93d2f5d2e00985512fd08f98ef42d5d8d140f6dfd02c079d94bcd3787b0",
+  "producer_session_id": "conversation-sha256:b0d085d4ad8fdf294bb280d954c8f3bdb9a0420d495546f9be53cd30506235ec",
+  "reviewer": {
+    "session_id": "review-session-20260910T132000Z-7f4c91",
+    "model": "GPT-5.6 Sol",
+    "mode": "Pro",
+    "fresh_independent_session": true
+  },
+  "reviewed_at": "2026-09-10T13:20:00+00:00",
+  "reviewer_independent": true,
+  "status": "block",
+  "critical_representation": "defective",
+  "findings": [
+    {
+      "dimension": "exact_target",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 24,
+          "end": 39,
+          "quote": "target response"
+        }
+      ],
+      "state_paths": [
+        "/target/target_id",
+        "/target/label",
+        "/target/description"
+      ],
+      "rationale": "The state preserves the source target as the target response shown by Aspen and Kivu; the normalized target_id does not alter that target."
+    },
+    {
+      "dimension": "case_and_comparison_roles",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 39,
+          "quote": "Aspen and Kivu show the target response"
+        }
+      ],
+      "state_paths": [
+        "/cases/0/comparison_role",
+        "/cases/1/comparison_role",
+        "/comparisons/0/positive_case_ids"
+      ],
+      "rationale": "Aspen and Kivu are correctly represented as positive/responsive cases because the source states that both show the target response."
+    },
+    {
+      "dimension": "negative_or_tolerated_comparator",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 69,
+          "end": 120,
+          "quote": "No tolerated or negative control case is available."
+        }
+      ],
+      "state_paths": [
+        "/comparisons/0/control_case_ids",
+        "/claims/0/statement"
+      ],
+      "rationale": "The source explicitly says that no tolerated or negative control case is available, and the state preserves this with an empty control_case_ids array and a matching intermediate claim."
+    },
+    {
+      "dimension": "high_information_qualifier",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "The source supplies no observation-specific high-information qualifier such as intensity, immediacy, exclusivity, or conditional qualification beyond facts represented in the case, comparator, and feature dimensions."
+    },
+    {
+      "dimension": "timing",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "The source contains no timing information."
+    },
+    {
+      "dimension": "amount_or_dose",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "The source contains no amount or dose information."
+    },
+    {
+      "dimension": "route_or_form",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "The source contains no route or form information."
+    },
+    {
+      "dimension": "feature_value",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 44,
+          "end": 67,
+          "quote": "both contain marker Sol"
+        }
+      ],
+      "state_paths": [
+        "/features/0/feature_id",
+        "/features/0/value",
+        "/features/1/feature_id",
+        "/features/1/value"
+      ],
+      "rationale": "The source states that both Aspen and Kivu contain marker Sol, and each corresponding Sol feature record stores the value \"present\"."
+    },
+    {
+      "dimension": "predicate_semantics",
+      "status": "distorted",
+      "affects_hard_invariant": true,
+      "source_spans": [
+        {
+          "start": 44,
+          "end": 67,
+          "quote": "both contain marker Sol"
+        },
+        {
+          "start": 121,
+          "end": 189,
+          "quote": "Test whether Sol discriminates responsive from non-responsive cases."
+        }
+      ],
+      "state_paths": [
+        "/hypotheses/0/discriminator/feature_id",
+        "/hypotheses/0/discriminator/operator",
+        "/features/0/value",
+        "/features/1/value"
+      ],
+      "rationale": "The source predicate concerns whether marker Sol is contained/present as a feature value. The discriminator instead uses operator \"present\", which tests existence of a Sol feature record rather than whether that record's stored value equals \"present\". The two represented positive cases happen to satisfy both conditions, but the predicates are not equivalent: an explicit Sol feature record whose value were \"absent\" would still satisfy this discriminator. Because this changes the hypothesis being tested and could alter a discriminator hard-gate result, the discrepancy affects a hard invariant."
+    },
+    {
+      "dimension": "dependency_or_provenance",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 68,
+          "quote": "Aspen and Kivu show the target response and both contain marker Sol."
+        },
+        {
+          "start": 69,
+          "end": 120,
+          "quote": "No tolerated or negative control case is available."
+        }
+      ],
+      "state_paths": [
+        "/observations/0/provenance",
+        "/observations/1/provenance",
+        "/features/0/provenance",
+        "/features/1/provenance",
+        "/claims/0/provenance",
+        "/claims/1/provenance",
+        "/claims/1/dependencies"
+      ],
+      "rationale": "Facts stated directly in the source are marked source_grounded, while the insufficiency statement is marked as an inference. Its listed dependency references resolve to the positive-response observations and the source-grounded absence-of-control claim; no contradictory provenance or dangling dependency is present."
+    },
+    {
+      "dimension": "other",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "No additional source-grounded representation discrepancy is identified outside the required dimensions above."
+    }
+  ],
+  "blockers": [
+    "predicate_semantics: The source predicate concerns whether marker Sol is contained/present as a feature value. The discriminator instead uses operator \"present\", which tests existence of a Sol feature record rather than whether that record's stored value equals \"present\". The two represented positive cases happen to satisfy both conditions, but the predicates are not equivalent: an explicit Sol feature record whose value were \"absent\" would still satisfy this discriminator. Because this changes the hypothesis being tested and could alter a discriminator hard-gate result, the discrepancy affects a hard invariant."
+  ],
+  "warnings": []
+}

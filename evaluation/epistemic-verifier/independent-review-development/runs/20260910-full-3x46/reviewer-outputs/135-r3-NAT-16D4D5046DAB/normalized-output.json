@@ -1,0 +1,209 @@
+{
+"review_version": "askrigor_epistemic_representation_review_v0_1",
+"source_sha256": "1ae5ac30d8253a9ccaba6ada8007c7dd4009b144c0899d22402bac287c6d929a",
+"state_sha256": "a792b53cf0e3645a0f622a077a91a41e035b61714b1de733d441581eebf5febc",
+"producer_session_id": "conversation-sha256:6e7852d869703590345cb4b4b710a81e07ff394d3d1a34248c0ef8927dbec20b",
+"reviewer": {
+"session_id": "review-session-20260911T074700Z-NAT-16D4D5046DAB",
+"model": "GPT-5.6 Sol",
+"mode": "Pro",
+"fresh_independent_session": true
+},
+"reviewed_at": "2026-09-11T07:47:00+00:00",
+"findings": [
+{
+"dimension": "exact_target",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 149,
+"end": 208,
+"quote": "Willow's target-effect observation begins within 2 seconds."
+}
+],
+"state_paths": [
+"/target/target_id",
+"/target/label",
+"/observations/0/target_id",
+"/comparisons/0/target_id",
+"/hypotheses/0/target_id"
+],
+"rationale": "The state consistently preserves the source target as the target effect associated with Willow's observation rather than substituting an adjacent property."
+},
+{
+"dimension": "case_and_comparison_roles",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 58,
+"quote": "Willow is a positive case and Drift is a tolerated control."
+}
+],
+"state_paths": [
+"/cases/0/case_id",
+"/cases/0/comparison_role",
+"/cases/1/case_id",
+"/cases/1/comparison_role",
+"/comparisons/0/positive_case_ids/0",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "Willow is represented as the positive case and Drift as the tolerated control, and the comparison assigns them to the corresponding positive and control sets."
+},
+{
+"dimension": "negative_or_tolerated_comparator",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 30,
+"end": 58,
+"quote": "Drift is a tolerated control"
+}
+],
+"state_paths": [
+"/cases/1/case_id",
+"/cases/1/comparison_role",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "The tolerated comparator Drift is explicitly preserved and included as the control in the Willow-versus-Drift comparison."
+},
+{
+"dimension": "high_information_qualifier",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 122,
+"end": 208,
+"quote": "The source explicitly says Willow's target-effect observation begins within 2 seconds."
+},
+{
+"start": 385,
+"end": 418,
+"quote": "does not mark it high-information"
+}
+],
+"state_paths": [
+"/observations/0/qualifiers/onset_seconds",
+"/observations/0/high_information_qualifier_keys/0"
+],
+"rationale": "The actual candidate state under review contains onset_seconds with value 2 and explicitly lists onset_seconds as a high-information qualifier. The source's later statement describes a candidate semantic extraction that fails to do so, but that description does not match the actual supplied candidate state; review of the supplied state therefore finds the qualifier preserved."
+},
+{
+"dimension": "timing",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 149,
+"end": 208,
+"quote": "Willow's target-effect observation begins within 2 seconds."
+}
+],
+"state_paths": [
+"/observations/0/statement",
+"/observations/0/qualifiers/onset_seconds"
+],
+"rationale": "The source timing qualifier 'within 2 seconds' is preserved both textually and structurally as onset_seconds = 2."
+},
+{
+"dimension": "amount_or_dose",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source specifies timing but no amount or dose."
+},
+{
+"dimension": "route_or_form",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source specifies no route or form."
+},
+{
+"dimension": "feature_value",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 60,
+"end": 121,
+"quote": "Feature Ember is represented in Willow and absent from Drift."
+}
+],
+"state_paths": [
+"/features/0/case_id",
+"/features/0/feature_id",
+"/features/0/value",
+"/features/1/case_id",
+"/features/1/feature_id",
+"/features/1/value"
+],
+"rationale": "The stored feature values correctly distinguish Willow, where Ember has value 'present', from Drift, where Ember has value 'absent'."
+},
+{
+"dimension": "predicate_semantics",
+"status": "distorted",
+"affects_hard_invariant": true,
+"source_spans": [
+{
+"start": 60,
+"end": 121,
+"quote": "Feature Ember is represented in Willow and absent from Drift."
+},
+{
+"start": 209,
+"end": 271,
+"quote": "Test the candidate hypothesis that Ember is the discriminator."
+}
+],
+"state_paths": [
+"/features/0",
+"/features/0/value",
+"/features/1",
+"/features/1/value",
+"/hypotheses/0/discriminator/feature_id",
+"/hypotheses/0/discriminator/operator"
+],
+"rationale": "The discriminator uses operator 'present', which tests existence of an Ember feature record rather than whether that record's stored value equals 'present'. Ember records exist for both Willow and Drift, so this predicate does not discriminate the positive case from the tolerated control even though their stored values differ. This can change the hard-gate result for the candidate discriminator hypothesis."
+},
+{
+"dimension": "dependency_or_provenance",
+"status": "uncertain",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 121,
+"quote": "Willow is a positive case and Drift is a tolerated control. Feature Ember is represented in Willow and absent from Drift."
+},
+{
+"start": 122,
+"end": 208,
+"quote": "The source explicitly says Willow's target-effect observation begins within 2 seconds."
+}
+],
+"state_paths": [
+"/cases/0/provenance",
+"/cases/1/provenance",
+"/observations/0/provenance",
+"/features/0/provenance",
+"/features/1/provenance"
+],
+"rationale": "The represented facts are directly stated by the source, so source-grounded provenance is consistent, but the source packet does not expose or identify source_id 'DEV-Y8PCH6'. Its exact provenance identifier therefore cannot be independently verified from the permitted evidence."
+},
+{
+"dimension": "other",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "No additional representation discrepancy outside the required dimensions is established."
+}
+]
+}

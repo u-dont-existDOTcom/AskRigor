@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-09-10T13:17:18Z",
+  "repository_head": "528347bc6c86095d11a5529adefbab82746697f7",
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "natural_second_adjudications_frozen": "24/24",
+  "natural_third_adjudications_required": "6/24",
+  "natural_third_adjudications_frozen": "0/6",
+  "hard_relevance_adjudications_frozen": "0/22",
+  "main_reviewer_trials_frozen": "0/138",
+  "main_reviewer_candidate_labels_opened": false,
+  "prior_natural_development_labels_opened_after_second_population_freeze": true,
+  "current_blocker": null,
+  "integrity_notes": [
+    "All 24 second adjudications use distinct controller-observed conversation identities.",
+    "Raw rendered outputs are immutable; normalized JSON sidecars carry deterministic serialization-repair receipts.",
+    "The one post-acceptance browser crash was recovered from the exact existing conversation without replacement.",
+    "No held-out or MAST data were used."
+  ]
+}

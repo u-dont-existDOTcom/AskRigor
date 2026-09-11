@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "phase": "MAIN_BLINDED_REVIEW_CHECKPOINT",
+  "status": "IN_PROGRESS",
+  "eligible_review_trials_frozen": 87,
+  "planned_eligible_review_trials": 138,
+  "accepted_consumer_sessions_frozen": 89,
+  "excluded_consumer_sessions": 2,
+  "controller_integrity_defects": 2,
+  "corrective_trials_completed": 2,
+  "capture_integrity_corrections": 1,
+  "valid_ingest_receipts": 86,
+  "invalid_eligible_ingest_receipts": 1,
+  "distinct_eligible_controller_conversation_identities": 87,
+  "distinct_total_controller_conversation_identities": 89,
+  "verified_model_mode_trials": 87,
+  "exact_submission_timestamp_trials": 86,
+  "bounded_submission_timestamp_trials": 1,
+  "bounded_completion_timestamp_trials": 1,
+  "external_tool_or_browsing_detected_trials": 0,
+  "original_raw_outputs_preserved": true,
+  "scorer_gold_comparison_performed": false,
+  "minimum_submission_interval_ms_after_resumption": 60000,
+  "browser_surface_policy": "SINGLE_PRIVATE_IN_APP_BROWSER_TAB_SEQUENTIAL_ONLY",
+  "excluded_session_receipts": [
+    "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/reviewer-outputs/excluded-023-controller-misdispatch-MUT-A10B6BF93A85/controller-integrity-defect.json",
+    "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/reviewer-outputs/excluded-061-controller-project-contamination-NAT-31DA10F913CE/controller-integrity-defect.json"
+  ],
+  "capture_correction_receipt": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/reviewer-outputs/070-r2-NAT-D22CEEC7054B/capture-integrity-correction.json",
+  "invalid_eligible_ingest_receipt": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/reviewer-outputs/086-r2-NAT-4B794F6619D3/ingest-error.json",
+  "note": "Blocker checkpoint before scorer unblinding. Trial 86 returned a complete but contract-invalid reviewer submission: an applicable finding omitted required exact source evidence. Its raw and normalized outputs are preserved and were neither regenerated nor repaired. Trial 87 was completed before the owner interruption and recovered unchanged from the same isolated conversation; completion timing is bounded because the response settled during the interruption. All AskRigor evaluation tabs in the owner's Brave window were closed. Future reviews use one private in-app browser tab sequentially, with completion polling no more often than once per minute and multi-minute spacing after service rate limiting. No performance labels or gold comparison included."
+}

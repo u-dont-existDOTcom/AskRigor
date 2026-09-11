@@ -1,0 +1,206 @@
+{
+"review_version": "askrigor_epistemic_representation_review_v0_1",
+"source_sha256": "aba59ac987f267b926f6e9366bd6d2449704b1c8aa28c755a36afe8a7f5843f7",
+"state_sha256": "ce18453c287a3dfa09852dea885bafcea2110f5ce3b85e877c287f99ba3ceb97",
+"producer_session_id": "conversation-sha256:78644adbcd787501f6ec38ada32229cc973bea5e555fa8add43c0fc0ef5d45fc",
+"reviewer": {
+"session_id": "review-session:15bb01fc-02fd-43dd-baaa-8ba2418d2bed",
+"model": "GPT-5.6 Sol",
+"mode": "Pro",
+"fresh_independent_session": true
+},
+"reviewed_at": "2026-09-10T18:59:00+00:00",
+"findings": [
+{
+"dimension": "exact_target",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 43,
+"end": 56,
+"quote": "target effect"
+}
+],
+"state_paths": [
+"/target/target_id",
+"/target/label"
+],
+"rationale": "The state preserves the exact target as target_effect with the label \"target effect\" and does not substitute an adjacent outcome."
+},
+{
+"dimension": "case_and_comparison_roles",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 25,
+"quote": "Plover is a positive case"
+},
+{
+"start": 97,
+"end": 127,
+"quote": "Kestrel is a tolerated control"
+}
+],
+"state_paths": [
+"/cases/0/comparison_role",
+"/cases/1/comparison_role",
+"/comparisons/0/positive_case_ids/0",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "Plover is represented as the positive case and Kestrel as the tolerated control, and the comparison assigns them to the corresponding positive and control sets."
+},
+{
+"dimension": "negative_or_tolerated_comparator",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 97,
+"end": 127,
+"quote": "Kestrel is a tolerated control"
+}
+],
+"state_paths": [
+"/cases/1/case_id",
+"/cases/1/comparison_role",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "The tolerated comparator is explicitly preserved as Kestrel rather than omitted or converted into another comparison role."
+},
+{
+"dimension": "high_information_qualifier",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 57,
+"end": 95,
+"quote": "at a represented exposure of 0.1 units"
+}
+],
+"state_paths": [
+"/observations/0/qualifiers/exposure_units",
+"/observations/0/high_information_qualifier_keys/0"
+],
+"rationale": "The represented exposure of 0.1 units is preserved numerically and explicitly marked as a high-information qualifier."
+},
+{
+"dimension": "timing",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source states no timing qualifier or temporal relationship."
+},
+{
+"dimension": "amount_or_dose",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 57,
+"end": 95,
+"quote": "at a represented exposure of 0.1 units"
+},
+{
+"start": 265,
+"end": 291,
+"quote": "at least 10 exposure units"
+}
+],
+"state_paths": [
+"/observations/0/qualifiers/exposure_units",
+"/hypotheses/0/qualifier_predictions/0/operator",
+"/hypotheses/0/qualifier_predictions/0/value",
+"/claims/0/statement"
+],
+"rationale": "Both quantitatively distinct exposure facts are preserved: the observed represented exposure is 0.1 units, while the material hypothesis requires at least 10 units. The state does not collapse these conflicting quantities."
+},
+{
+"dimension": "route_or_form",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source specifies no route, formulation, physical form, or administration mode."
+},
+{
+"dimension": "feature_value",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 129,
+"end": 190,
+"quote": "Feature Tern is represented in Plover and absent from Kestrel"
+}
+],
+"state_paths": [
+"/features/0/case_id",
+"/features/0/feature_id",
+"/features/0/value",
+"/features/1/case_id",
+"/features/1/feature_id",
+"/features/1/value"
+],
+"rationale": "The stored feature values preserve the intended contrast: Tern has value \"present\" for Plover and value \"absent\" for Kestrel."
+},
+{
+"dimension": "predicate_semantics",
+"status": "distorted",
+"affects_hard_invariant": true,
+"source_spans": [
+{
+"start": 129,
+"end": 190,
+"quote": "Feature Tern is represented in Plover and absent from Kestrel"
+},
+{
+"start": 196,
+"end": 225,
+"quote": "is the proposed discriminator"
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/feature_id",
+"/hypotheses/0/discriminator/operator",
+"/features/0/feature_id",
+"/features/0/value",
+"/features/1/feature_id",
+"/features/1/value"
+],
+"rationale": "The discriminator uses operator \"present\", which tests whether a Tern feature record exists, not whether that record's stored value equals \"present\". Both Plover and Kestrel have Tern feature records in the state, so this predicate is satisfied by both cases even though Kestrel's stored value is \"absent\". It therefore fails to encode the source's proposed Plover-versus-Kestrel discriminator and could alter a specificity or hard-gate result."
+},
+{
+"dimension": "dependency_or_provenance",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 227,
+"end": 314,
+"quote": "The material hypothesis also requires at least 10 exposure units for the target effect."
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/modifier/claim_id",
+"/claims/0/claim_id",
+"/claims/0/target_id",
+"/claims/0/provenance/kind",
+"/claims/0/dependencies"
+],
+"rationale": "The minimum-exposure requirement is represented as a source-grounded material claim and is linked from the hypothesis through modifier.claim_id. The source asserts no additional claim dependency that would need to appear in the claim's dependencies array."
+},
+{
+"dimension": "other",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "No additional source dimension outside the enumerated checks requires a separate representation judgment."
+}
+]
+}

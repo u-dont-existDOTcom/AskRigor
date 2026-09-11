@@ -1,0 +1,183 @@
+You are an independent blinded DEVELOPMENT adjudicator. Review only the exact source packet, candidate EpistemicStateV1, and mechanical source-faithful-mate diff below. Decide whether the represented discrepancy could change a hard epistemic gate result or the conclusion the system is permitted to state. Do not use an expected label, another adjudication, verifier implementation, or outside evidence. Return exactly one compact JSON object with keys candidate_id, affects_hard_invariant (true, false, or null for uncertain), affected_gate_or_claim_paths (array of strings), rationale. Do not repair the state or answer the source question.
+
+{
+  "candidate_id": "MUT-6F448FD129CA",
+  "source_packet": "The requested target is risk_m06. Rowan m06 is the positive case: the target outcome begins within 2 seconds after 10 units of compound Sol by intravenous liquid infusion. Mica m06 is the tolerated control: Mica receives the same 10-unit intravenous liquid exposure and does not show the target outcome. Feature Quartz is high in Rowan m06 and low in Mica m06. Test the material hypothesis that Quartz value equals high distinguishes the target outcome. The conclusion about risk_m06 must depend on Rowan's source-grounded target observation and the tolerated-control contrast.",
+  "candidate_state": {
+    "state_version": "askrigor_epistemic_state_v1",
+    "target": {
+      "target_id": "risk_m06",
+      "label": "Risk m06",
+      "description": "Whether the target outcome occurs for m06."
+    },
+    "cases": [
+      {
+        "case_id": "rowan_m06",
+        "label": "Rowan m06",
+        "comparison_role": "positive",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m06:source"
+        }
+      },
+      {
+        "case_id": "mica_m06",
+        "label": "Mica m06",
+        "comparison_role": "tolerated_control",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m06:source"
+        }
+      }
+    ],
+    "observations": [
+      {
+        "observation_id": "obs_positive_m06",
+        "target_id": "risk_m06",
+        "case_id": "rowan_m06",
+        "statement": "Rowan m06 shows the target outcome.",
+        "material": true,
+        "qualifiers": {
+          "onset_seconds": 2,
+          "dose_units": 10,
+          "route": "intravenous",
+          "form": "liquid"
+        },
+        "high_information_qualifier_keys": [
+          "onset_seconds",
+          "dose_units",
+          "route",
+          "form"
+        ],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m06:source"
+        }
+      },
+      {
+        "observation_id": "obs_control_m06",
+        "target_id": "risk_m06",
+        "case_id": "mica_m06",
+        "statement": "Mica m06 tolerates the exposure and does not show the target outcome.",
+        "material": true,
+        "qualifiers": {
+          "dose_units": 1,
+          "route": "intravenous",
+          "form": "liquid"
+        },
+        "high_information_qualifier_keys": [
+          "dose_units",
+          "route",
+          "form"
+        ],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m06:source"
+        }
+      }
+    ],
+    "features": [
+      {
+        "case_id": "rowan_m06",
+        "feature_id": "quartz_m06",
+        "value": "high",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m06:source"
+        }
+      },
+      {
+        "case_id": "mica_m06",
+        "feature_id": "quartz_m06",
+        "value": "low",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m06:source"
+        }
+      }
+    ],
+    "comparisons": [
+      {
+        "comparison_id": "cmp_m06",
+        "target_id": "risk_m06",
+        "positive_case_ids": [
+          "rowan_m06"
+        ],
+        "control_case_ids": [
+          "mica_m06"
+        ]
+      }
+    ],
+    "hypotheses": [
+      {
+        "hypothesis_id": "hyp_m06",
+        "target_id": "risk_m06",
+        "statement": "Quartz value equals high distinguishes the target outcome for m06.",
+        "material": true,
+        "discriminator": {
+          "feature_id": "quartz_m06",
+          "operator": "equals",
+          "value": "high",
+          "modifier": {
+            "kind": "dose",
+            "claim_id": "dose_modifier_m06"
+          }
+        },
+        "qualifier_predictions": [
+          {
+            "observation_id": "obs_positive_m06",
+            "qualifier_key": "onset_seconds",
+            "operator": "lte",
+            "value": 2
+          }
+        ]
+      }
+    ],
+    "claims": [
+      {
+        "claim_id": "dose_modifier_m06",
+        "target_id": "risk_m06",
+        "kind": "modifier",
+        "statement": "The represented 10-unit dose is held constant across the comparison.",
+        "material": true,
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:m06:source"
+        },
+        "dependencies": []
+      },
+      {
+        "claim_id": "conclusion_m06",
+        "target_id": "risk_m06",
+        "kind": "conclusion",
+        "statement": "Quartz survives the represented comparison.",
+        "material": true,
+        "provenance": {
+          "kind": "inference",
+          "source_id": "mutation:m06:derived"
+        },
+        "dependencies": [
+          {
+            "kind": "observation",
+            "id": "obs_positive_m06"
+          },
+          {
+            "kind": "observation",
+            "id": "obs_control_m06"
+          },
+          {
+            "kind": "claim",
+            "id": "dose_modifier_m06"
+          }
+        ]
+      }
+    ]
+  },
+  "mutation_diff": [
+    {
+      "pointer": "/observations/1/qualifiers/dose_units",
+      "before": 10,
+      "after": 1
+    }
+  ]
+}

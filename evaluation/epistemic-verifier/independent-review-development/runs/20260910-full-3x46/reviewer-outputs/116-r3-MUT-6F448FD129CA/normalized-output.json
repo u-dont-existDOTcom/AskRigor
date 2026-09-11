@@ -1,0 +1,227 @@
+{
+"review_version": "askrigor_epistemic_representation_review_v0_1",
+"source_sha256": "42fb5a55438adfc6e22511f864c0e2998b993ed8f3e5845be7a0017050ab4c4a",
+"state_sha256": "651532df9794e7276f11fd81ce500b2ff155a95dcc9810ae5440913f542a67d5",
+"producer_session_id": "synthetic-producer-PAIR-A438AFE6DAE1",
+"reviewer": {
+"session_id": "session:reviewer:6f448fd1-29ca-4d7e-9c11-202609110429",
+"model": "GPT-5.6 Sol",
+"mode": "reasoning",
+"fresh_independent_session": true
+},
+"reviewed_at": "2026-09-11T04:29:00+00:00",
+"findings": [
+{
+"dimension": "exact_target",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 33,
+"quote": "The requested target is risk_m06."
+}
+],
+"state_paths": [
+"/target/target_id"
+],
+"rationale": "The candidate preserves the requested target exactly as risk_m06."
+},
+{
+"dimension": "case_and_comparison_roles",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 34,
+"end": 64,
+"quote": "Rowan m06 is the positive case"
+},
+{
+"start": 172,
+"end": 205,
+"quote": "Mica m06 is the tolerated control"
+}
+],
+"state_paths": [
+"/cases/0/comparison_role",
+"/cases/1/comparison_role",
+"/comparisons/0/positive_case_ids/0",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "Rowan is represented as the positive case and Mica as the tolerated control, and the comparison assigns the same case identities to the positive and control sides."
+},
+{
+"dimension": "negative_or_tolerated_comparator",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 172,
+"end": 205,
+"quote": "Mica m06 is the tolerated control"
+},
+{
+"start": 257,
+"end": 302,
+"quote": "exposure and does not show the target outcome"
+}
+],
+"state_paths": [
+"/cases/1/comparison_role",
+"/observations/1/statement",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "The candidate correctly represents Mica as the tolerated comparator and preserves the negative target-outcome observation. The separate dose-value error is assessed under amount_or_dose."
+},
+{
+"dimension": "high_information_qualifier",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 66,
+"end": 170,
+"quote": "the target outcome begins within 2 seconds after 10 units of compound Sol by intravenous liquid infusion"
+},
+{
+"start": 207,
+"end": 302,
+"quote": "Mica receives the same 10-unit intravenous liquid exposure and does not show the target outcome"
+}
+],
+"state_paths": [
+"/observations/0/high_information_qualifier_keys",
+"/observations/1/high_information_qualifier_keys"
+],
+"rationale": "The candidate identifies timing, dose, route, and form as high-information qualifiers for the positive observation and dose, route, and form for the tolerated control. The erroneous numeric control dose is a value-level distortion handled under amount_or_dose, not a failure to identify the qualifier."
+},
+{
+"dimension": "timing",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 92,
+"end": 108,
+"quote": "within 2 seconds"
+}
+],
+"state_paths": [
+"/observations/0/qualifiers/onset_seconds",
+"/hypotheses/0/qualifier_predictions/0/operator",
+"/hypotheses/0/qualifier_predictions/0/value"
+],
+"rationale": "The source's upper-bound timing is retained as onset_seconds 2 together with an explicit lte-2 qualifier prediction, preserving the 'within 2 seconds' semantics."
+},
+{
+"dimension": "amount_or_dose",
+"status": "distorted",
+"affects_hard_invariant": true,
+"source_spans": [
+{
+"start": 115,
+"end": 123,
+"quote": "10 units"
+},
+{
+"start": 225,
+"end": 265,
+"quote": "same 10-unit intravenous liquid exposure"
+}
+],
+"state_paths": [
+"/observations/0/qualifiers/dose_units",
+"/observations/1/qualifiers/dose_units",
+"/claims/0/statement"
+],
+"rationale": "The source holds the exposure at 10 units for both Rowan and Mica. Rowan is correctly encoded with dose_units 10, but Mica is encoded with dose_units 1. This directly contradicts both the source's 'same 10-unit' control exposure and the candidate's own modifier claim that the represented 10-unit dose is held constant. Because dose matching is part of the material comparison and conclusion dependency, this discrepancy can change whether Quartz is permitted to survive the comparison."
+},
+{
+"dimension": "route_or_form",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 143,
+"end": 161,
+"quote": "intravenous liquid"
+},
+{
+"start": 238,
+"end": 256,
+"quote": "intravenous liquid"
+}
+],
+"state_paths": [
+"/observations/0/qualifiers/route",
+"/observations/0/qualifiers/form",
+"/observations/1/qualifiers/route",
+"/observations/1/qualifiers/form"
+],
+"rationale": "Both observations preserve the intravenous route and liquid form specified for Rowan and Mica."
+},
+{
+"dimension": "feature_value",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 304,
+"end": 360,
+"quote": "Feature Quartz is high in Rowan m06 and low in Mica m06."
+}
+],
+"state_paths": [
+"/features/0/value",
+"/features/1/value"
+],
+"rationale": "Quartz is correctly represented as high for Rowan and low for Mica."
+},
+{
+"dimension": "predicate_semantics",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 395,
+"end": 419,
+"quote": "Quartz value equals high"
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/operator",
+"/hypotheses/0/discriminator/value"
+],
+"rationale": "The material predicate is represented with operator 'equals' and value 'high', matching the source's value-equality hypothesis rather than substituting a record-existence predicate."
+},
+{
+"dimension": "dependency_or_provenance",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 454,
+"end": 577,
+"quote": "The conclusion about risk_m06 must depend on Rowan's source-grounded target observation and the tolerated-control contrast."
+}
+],
+"state_paths": [
+"/observations/0/provenance/kind",
+"/claims/1/provenance/kind",
+"/claims/1/dependencies/0",
+"/claims/1/dependencies/1",
+"/cases/1/comparison_role"
+],
+"rationale": "Rowan's target observation is explicitly source_grounded, while the conclusion is represented as an inference depending on both Rowan's positive observation and Mica's tolerated-control observation. Those two observation dependencies instantiate the required tolerated-control contrast. The separate control-dose corruption does not alter the dependency or provenance links themselves."
+},
+{
+"dimension": "other",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "No additional source-to-state fidelity issue falls outside the specified dimensions."
+}
+]
+}

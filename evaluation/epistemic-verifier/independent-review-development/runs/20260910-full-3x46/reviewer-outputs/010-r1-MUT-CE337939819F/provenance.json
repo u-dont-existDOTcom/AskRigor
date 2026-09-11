@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "trial_id": "semantic-review-010-r1-MUT-CE337939819F",
+  "phase": "MAIN_BLINDED_REVIEW",
+  "sequence": 10,
+  "replicate": 1,
+  "candidate_id": "MUT-CE337939819F",
+  "track": "MUTATION",
+  "controller_observed": {
+    "surface": "CHATGPT_CONSUMER_UI",
+    "conversation_identity_sha256": "ae681c9b08644e215fcfbf7780e7efe5f59b01d7895808b2c91af9033a62ecb9",
+    "user_message_id": "bbe036ca-bd92-4754-9cd4-0267427c4e1d",
+    "assistant_message_id": "646ac27c-c6c5-4ab7-9ace-0ae63a5566ad",
+    "assistant_model_slug": "gpt-5-6-thinking",
+    "visible_model_label": "GPT-5.6 Sol",
+    "thinking_control_label": "Thinking effort",
+    "visible_thinking_setting": "Extra High",
+    "visible_thinking_ordinal": "4 of 5",
+    "account_plan_label": "Pro",
+    "account_plan_role": "PROVENANCE_METADATA_ONLY"
+  },
+  "timestamps": {
+    "submitted_at": "2026-09-10T15:38:25.955Z",
+    "completed_at": "2026-09-10T15:40:45.233Z",
+    "latency_ms": 139278
+  },
+  "input": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/MUT-CE337939819F.txt",
+    "sha256": "8cb9f6b9ca8c7f73a241112d8424cd4fc76ae59a68e84b1f62ae82034d903984",
+    "submission_text_fill_sha256": "8cb9f6b9ca8c7f73a241112d8424cd4fc76ae59a68e84b1f62ae82034d903984",
+    "accepted_rendered_text_sha256": "029ef82409382742af245dd9fa4f85b606bd5e5a8398f514b6da18a8c521ba72",
+    "rendered_markdown_byte_comparison": "NOT_EXACTLY_COMPARABLE"
+  },
+  "output": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/reviewer-outputs/010-r1-MUT-CE337939819F/raw-output.txt",
+    "sha256": "8032fb58e31aedb109b20a27d515b6271b680ba6c66dc113cdb4f737ec8a784a",
+    "characters": 6615,
+    "complete": true
+  },
+  "integrity": {
+    "fresh_conversation": true,
+    "external_tool_or_browsing_detected": false,
+    "talked_to_app_count": 0,
+    "searched_web_indicator_count": 0,
+    "sources_control_count": 0,
+    "sources_control_interpretation": "PROMPT_ATTACHMENT_OR_UI_CONTROL_NOT_BY_ITSELF_EXTERNAL_BROWSING",
+    "content_retry": false,
+    "replacement": false,
+    "scorer_gold_exposed": false,
+    "previous_reviewer_output_exposed": false
+  }
+}

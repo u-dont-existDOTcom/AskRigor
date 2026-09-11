@@ -1,0 +1,233 @@
+{
+"review_version": "askrigor_epistemic_representation_review_v0_1",
+"source_sha256": "6883205eaff757723da54e55db8b18079080d0f554b3ef4464e20313cb3619d5",
+"state_sha256": "3f57a88c05a1258e8e02b2c8f646c5f4c62af10a066605a3e9ded6b1a5f9927f",
+"producer_session_id": "conversation-sha256:e6da895fc151371142f0a5aab0cbc72e1e6d1bc35f99d1275950f46676d7ba2f",
+"reviewer": {
+"session_id": "review-session:02f682e6-60ce-478a-b4e7-1afca940b4b2",
+"model": "GPT-5.6 Sol",
+"mode": "reasoning",
+"fresh_independent_session": true
+},
+"reviewed_at": "2026-09-10T18:53:00+00:00",
+"findings": [
+{
+"dimension": "exact_target",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 40,
+"quote": "Harbor and Lark show the target response"
+}
+],
+"state_paths": [
+"/target/target_id",
+"/target/label",
+"/target/description",
+"/observations/0/target_id",
+"/observations/1/target_id",
+"/observations/2/target_id"
+],
+"rationale": "The candidate keeps the exact target as the target response and does not substitute an adjacent property or the Sable feature itself for the target. The target description also correctly situates Juniper as the tolerated control. 
+
+Pasted text
+
+"
+},
+{
+"dimension": "case_and_comparison_roles",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 67,
+"quote": "Harbor and Lark show the target response while Juniper is tolerated"
+}
+],
+"state_paths": [
+"/cases/0/case_id",
+"/cases/0/comparison_role",
+"/cases/1/case_id",
+"/cases/1/comparison_role",
+"/cases/2/case_id",
+"/cases/2/comparison_role",
+"/comparisons/0/positive_case_ids",
+"/comparisons/0/control_case_ids"
+],
+"rationale": "Harbor and Lark are represented as positive cases and Juniper as the tolerated control, matching the source comparison structure exactly."
+},
+{
+"dimension": "negative_or_tolerated_comparator",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 47,
+"end": 67,
+"quote": "Juniper is tolerated"
+}
+],
+"state_paths": [
+"/cases/2/comparison_role",
+"/observations/2/statement",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "Juniper is explicitly preserved as the tolerated comparator rather than being omitted, relabeled as a positive, or treated as merely missing the feature."
+},
+{
+"dimension": "high_information_qualifier",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 113,
+"end": 196,
+"quote": "its represented dose is 10 units in Harbor, 12 units in Lark, and 1 unit in Juniper"
+},
+{
+"start": 198,
+"end": 255,
+"quote": "Test the explicit dose-modified hypothesis Sable dose > 5"
+}
+],
+"state_paths": [
+"/observations/0/qualifiers/sable_dose_units",
+"/observations/0/high_information_qualifier_keys/0",
+"/observations/1/qualifiers/sable_dose_units",
+"/observations/1/high_information_qualifier_keys/0",
+"/observations/2/qualifiers/sable_dose_units",
+"/observations/2/high_information_qualifier_keys/0",
+"/hypotheses/0/qualifier_predictions"
+],
+"rationale": "The discriminating dose information is explicitly marked as high-information for all three observations. This preserves the crucial contrast that mere Sable presence is shared by the tolerated control whereas dose relative to the threshold differs."
+},
+{
+"dimension": "timing",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source packet supplies no timing, latency, duration, or temporal-order information."
+},
+{
+"dimension": "amount_or_dose",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 113,
+"end": 196,
+"quote": "its represented dose is 10 units in Harbor, 12 units in Lark, and 1 unit in Juniper"
+},
+{
+"start": 198,
+"end": 255,
+"quote": "Test the explicit dose-modified hypothesis Sable dose > 5"
+}
+],
+"state_paths": [
+"/features/1/value",
+"/features/3/value",
+"/features/5/value",
+"/observations/0/qualifiers/sable_dose_units",
+"/observations/1/qualifiers/sable_dose_units",
+"/observations/2/qualifiers/sable_dose_units",
+"/hypotheses/0/discriminator/feature_id",
+"/hypotheses/0/discriminator/operator",
+"/hypotheses/0/discriminator/value",
+"/claims/0/statement"
+],
+"rationale": "The state preserves all three represented doses exactly as 10, 12, and 1 units and tests the explicit greater-than-5 threshold without altering the inequality or collapsing dose into simple presence."
+},
+{
+"dimension": "route_or_form",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source packet specifies neither administration route nor physical or chemical form."
+},
+{
+"dimension": "feature_value",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 69,
+"end": 107,
+"quote": "Compound Sable is present in all three"
+}
+],
+"state_paths": [
+"/features/0/feature_id",
+"/features/0/value",
+"/features/2/feature_id",
+"/features/2/value",
+"/features/4/feature_id",
+"/features/4/value"
+],
+"rationale": "The candidate represents Sable itself as present/true in Harbor, Lark, and Juniper. It therefore does not incorrectly make Sable presence discriminatory; the discriminating feature is separately represented as sable_dose_units."
+},
+{
+"dimension": "predicate_semantics",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 113,
+"end": 196,
+"quote": "its represented dose is 10 units in Harbor, 12 units in Lark, and 1 unit in Juniper"
+},
+{
+"start": 198,
+"end": 255,
+"quote": "Test the explicit dose-modified hypothesis Sable dose > 5"
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/feature_id",
+"/hypotheses/0/discriminator/operator",
+"/hypotheses/0/discriminator/value",
+"/hypotheses/0/qualifier_predictions/0/operator",
+"/hypotheses/0/qualifier_predictions/0/value",
+"/hypotheses/0/qualifier_predictions/1/operator",
+"/hypotheses/0/qualifier_predictions/1/value",
+"/hypotheses/0/qualifier_predictions/2/operator",
+"/hypotheses/0/qualifier_predictions/2/value"
+],
+"rationale": "The hypothesis applies numeric gt 5 semantics to the dose feature, with Harbor and Lark predicted above the threshold and Juniper on the non-greater-than side via lte 5. No present predicate is misinterpreted as a stored value."
+},
+{
+"dimension": "dependency_or_provenance",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 257,
+"end": 339,
+"quote": "with the dose distinction represented as a separate source-grounded modifier claim"
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/modifier/kind",
+"/hypotheses/0/discriminator/modifier/claim_id",
+"/claims/0/claim_id",
+"/claims/0/kind",
+"/claims/0/provenance/kind",
+"/claims/0/dependencies"
+],
+"rationale": "The dose distinction is implemented as a separate modifier claim, explicitly marked source_grounded, linked from the hypothesis by claim_id, and dependent on the three observations carrying the source-specified dose values."
+},
+{
+"dimension": "other",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "No additional source-grounded representation discrepancy is apparent beyond the required dimensions."
+}
+]
+}

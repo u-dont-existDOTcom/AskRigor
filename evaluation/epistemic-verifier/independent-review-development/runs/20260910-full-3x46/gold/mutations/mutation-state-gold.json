@@ -1,0 +1,859 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_CONTROLLED_MUTATION_GOLD",
+  "candidate_count": 22,
+  "counts": {
+    "faithful": 11,
+    "hard_defect": 11,
+    "nonhard_defect": 0,
+    "third_adjudication_required": 1
+  },
+  "candidates": [
+    {
+      "candidate_id": "MUT-3E58535DBAB0",
+      "pair_id": "PAIR-B139B275A3C0",
+      "dimension": "exact_target",
+      "semantic_representation_gold": "FAITHFUL",
+      "hard_relevance_gold": "NO_DEFECT",
+      "changed_json_pointers": [
+        "/target/target_id"
+      ],
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 33,
+          "quote": "The requested target is risk_m01."
+        }
+      ],
+      "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+      "independent_hard_relevance_adjudication": null
+    },
+    {
+      "candidate_id": "MUT-2ECF8D6210E9",
+      "pair_id": "PAIR-B139B275A3C0",
+      "dimension": "exact_target",
+      "semantic_representation_gold": "DEFECTIVE",
+      "hard_relevance_gold": "HARD_DEFECT",
+      "changed_json_pointers": [
+        "/target/target_id"
+      ],
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 33,
+          "quote": "The requested target is risk_m01."
+        }
+      ],
+      "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+      "independent_hard_relevance_adjudication": {
+        "affects_hard_invariant": true,
+        "adjudication_rounds": [
+          "first",
+          "second"
+        ],
+        "opinions": [
+          {
+            "round": "first",
+            "affects_hard_invariant": true,
+            "affected_gate_or_claim_paths": [
+              "/target/target_id",
+              "/claims/1"
+            ],
+            "rationale": "The source explicitly requests target risk_m01, while the candidate's canonical target is pathway_risk_m01. All material observations, comparison, hypothesis, and conclusion still reference risk_m01, so they are no longer linked to the represented canonical target. This target-identity mismatch can change a hard target-preservation/referential-integrity gate and therefore whether the conclusion at /claims/1 is permitted.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-2ECF8D6210E9/first/normalized-output.json",
+            "normalized_output_sha256": "c9ea1662a78bfdf538db791c83fbdc89a7e5d8a49e167f0c74072b1d2591f6c9",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-2ECF8D6210E9/first/provenance.json",
+            "provenance_sha256": "8e4e352cb86835d0cee94990fb5e3e17c06f64ffd6666c761ea62dbdfa200a6e"
+          },
+          {
+            "round": "second",
+            "affects_hard_invariant": true,
+            "affected_gate_or_claim_paths": [
+              "/target/target_id",
+              "/observations/0/target_id",
+              "/observations/1/target_id",
+              "/comparisons/0/target_id",
+              "/hypotheses/0/target_id",
+              "/claims/0/target_id",
+              "/claims/1/target_id"
+            ],
+            "rationale": "The source requests target risk_m01, and every material observation, comparison, hypothesis, and claim is keyed to risk_m01, but the candidate's canonical /target/target_id is pathway_risk_m01. This is an exact-target identity discrepancy, not a cosmetic label change: it can disconnect the represented target from the evidence and conclusion keyed to risk_m01, thereby changing a target-scoped hard gate or whether conclusion_m01 is permitted for the requested target.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-2ECF8D6210E9/second/normalized-output.json",
+            "normalized_output_sha256": "d6f1b74e35d0820657683aa5d73b31101df62556d9ef87eb92af065559a554fb",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-2ECF8D6210E9/second/provenance.json",
+            "provenance_sha256": "1aecfd467c24da7d59b468f03f9056e9ab10fd8617a0d4cce8b53709d2f5bf09"
+          }
+        ],
+        "resolution": "TWO_INDEPENDENT_OPINIONS_AGREED"
+      }
+    },
+    {
+      "candidate_id": "MUT-5847C73132D4",
+      "pair_id": "PAIR-615713929A87",
+      "dimension": "case_and_comparison_roles",
+      "semantic_representation_gold": "FAITHFUL",
+      "hard_relevance_gold": "NO_DEFECT",
+      "changed_json_pointers": [
+        "/cases/0/comparison_role",
+        "/cases/1/comparison_role",
+        "/comparisons/0/positive_case_ids",
+        "/comparisons/0/control_case_ids"
+      ],
+      "source_spans": [
+        {
+          "start": 34,
+          "end": 64,
+          "quote": "Rowan m02 is the positive case"
+        }
+      ],
+      "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+      "independent_hard_relevance_adjudication": null
+    },
+    {
+      "candidate_id": "MUT-A1D66733F94F",
+      "pair_id": "PAIR-615713929A87",
+      "dimension": "case_and_comparison_roles",
+      "semantic_representation_gold": "DEFECTIVE",
+      "hard_relevance_gold": "HARD_DEFECT",
+      "changed_json_pointers": [
+        "/cases/0/comparison_role",
+        "/cases/1/comparison_role",
+        "/comparisons/0/positive_case_ids",
+        "/comparisons/0/control_case_ids"
+      ],
+      "source_spans": [
+        {
+          "start": 34,
+          "end": 64,
+          "quote": "Rowan m02 is the positive case"
+        }
+      ],
+      "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+      "independent_hard_relevance_adjudication": {
+        "affects_hard_invariant": true,
+        "adjudication_rounds": [
+          "first",
+          "second"
+        ],
+        "opinions": [
+          {
+            "round": "first",
+            "affects_hard_invariant": true,
+            "affected_gate_or_claim_paths": [
+              "/cases/0/comparison_role",
+              "/cases/1/comparison_role",
+              "/comparisons/0/positive_case_ids",
+              "/comparisons/0/control_case_ids",
+              "/claims/1"
+            ],
+            "rationale": "The source explicitly defines Rowan m02 as the positive case and Mica m02 as the tolerated control, while the candidate reverses both case roles and the comparison membership. This is material because the tested hypothesis is a discriminator across the positive-versus-tolerated-control contrast: Rowan has Quartz=high with the outcome, whereas Mica has Quartz=low without it. Reversing the represented comparison can invert or invalidate the hard contrast evaluation and therefore can change whether the conclusion that Quartz survives the represented comparison is permitted, even though the individual observations and feature values remain source-faithful.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-A1D66733F94F/first/normalized-output.json",
+            "normalized_output_sha256": "16f4ddbe251b6ecdcecbf565cc200cead68a444de790820a0d8f34511ce377aa",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-A1D66733F94F/first/provenance.json",
+            "provenance_sha256": "b16f76296d00eb2419c2f4b8be514561337d2ebc6f092f9c6fb4125a09a3644d"
+          },
+          {
+            "round": "second",
+            "affects_hard_invariant": true,
+            "affected_gate_or_claim_paths": [
+              "/cases/0/comparison_role",
+              "/cases/1/comparison_role",
+              "/comparisons/0/positive_case_ids",
+              "/comparisons/0/control_case_ids",
+              "/claims/1"
+            ],
+            "rationale": "The source explicitly assigns Rowan m02 as the positive case and Mica m02 as the tolerated control, but the candidate reverses both case roles and the comparison membership. Because the material hypothesis is evaluated as a discriminator across that positive-versus-tolerated-control contrast, reversing the comparison can change whether Quartz=high is judged to distinguish the target outcome and therefore can change whether the conclusion at /claims/1 is permitted.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-A1D66733F94F/second/normalized-output.json",
+            "normalized_output_sha256": "4436a816694e5c97069fd58a8430da50fd023cf1dbfc7919c9d7b4ec292eb593",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-A1D66733F94F/second/provenance.json",
+            "provenance_sha256": "a11fa4fd8ab3d1052e557b3b87a186abc7307dda1554c1da8e602d854ecae714"
+          }
+        ],
+        "resolution": "TWO_INDEPENDENT_OPINIONS_AGREED"
+      }
+    },
+    {
+      "candidate_id": "MUT-F2AA5876A4FE",
+      "pair_id": "PAIR-D2D52F23BE1B",
+      "dimension": "negative_or_tolerated_comparator",
+      "semantic_representation_gold": "FAITHFUL",
+      "hard_relevance_gold": "NO_DEFECT",
+      "changed_json_pointers": [
+        "/comparisons/0/control_case_ids"
+      ],
+      "source_spans": [
+        {
+          "start": 172,
+          "end": 205,
+          "quote": "Mica m03 is the tolerated control"
+        }
+      ],
+      "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+      "independent_hard_relevance_adjudication": null
+    },
+    {
+      "candidate_id": "MUT-CE337939819F",
+      "pair_id": "PAIR-D2D52F23BE1B",
+      "dimension": "negative_or_tolerated_comparator",
+      "semantic_representation_gold": "DEFECTIVE",
+      "hard_relevance_gold": "HARD_DEFECT",
+      "changed_json_pointers": [
+        "/comparisons/0/control_case_ids"
+      ],
+      "source_spans": [
+        {
+          "start": 172,
+          "end": 205,
+          "quote": "Mica m03 is the tolerated control"
+        }
+      ],
+      "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+      "independent_hard_relevance_adjudication": {
+        "affects_hard_invariant": true,
+        "adjudication_rounds": [
+          "first",
+          "second"
+        ],
+        "opinions": [
+          {
+            "round": "first",
+            "affects_hard_invariant": true,
+            "affected_gate_or_claim_paths": [
+              "/comparisons/0/control_case_ids",
+              "/claims/1"
+            ],
+            "rationale": "The source requires the risk_m03 conclusion to depend on the tolerated-control contrast with Mica m03. The candidate comparison omits Mica from control_case_ids, so the explicit comparison representation no longer encodes that required contrast. Although the control observation still exists and the conclusion lists it as a dependency, the discrepancy can change any hard gate that requires the material hypothesis to survive a represented positive-vs-tolerated-control comparison, and therefore can change whether the conclusion is permitted.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-CE337939819F/first/normalized-output.json",
+            "normalized_output_sha256": "eaa61026954eaf5dcc48a1d9e0043c7d4625c74b277c55349f52d7c03c014449",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-CE337939819F/first/provenance.json",
+            "provenance_sha256": "151de5d6019ecdad7a9bdbd370a14f6c98b1a1eb164060e4f3636b8c02e0363a"
+          },
+          {
+            "round": "second",
+            "affects_hard_invariant": true,
+            "affected_gate_or_claim_paths": [
+              "/comparisons/0/control_case_ids",
+              "/claims/1"
+            ],
+            "rationale": "The source explicitly requires the risk_m03 conclusion to depend on the tolerated-control contrast. The candidate comparison omits mica_m03 from control_case_ids, so the represented comparison no longer encodes that required contrast even though Mica's tolerated-control observation exists elsewhere. This can change whether the material Quartz discriminator survives the required comparison and therefore can change the permitted conclusion.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-CE337939819F/second/normalized-output.json",
+            "normalized_output_sha256": "a62c36191675395d6758cbbc70f9006fd2284483d4f9c94001bdb82ace058026",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-CE337939819F/second/provenance.json",
+            "provenance_sha256": "2c0b1d1fa62d799d1d9c1216150c730b710ad3c65d7f9bd2bf64f9feddbb2365"
+          }
+        ],
+        "resolution": "TWO_INDEPENDENT_OPINIONS_AGREED"
+      }
+    },
+    {
+      "candidate_id": "MUT-5C22B1F140A4",
+      "pair_id": "PAIR-C047320FE34A",
+      "dimension": "high_information_qualifier",
+      "semantic_representation_gold": "FAITHFUL",
+      "hard_relevance_gold": "NO_DEFECT",
+      "changed_json_pointers": [
+        "/observations/0/high_information_qualifier_keys"
+      ],
+      "source_spans": [
+        {
+          "start": 85,
+          "end": 108,
+          "quote": "begins within 2 seconds"
+        }
+      ],
+      "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+      "independent_hard_relevance_adjudication": null
+    },
+    {
+      "candidate_id": "MUT-33F68C6BB6B2",
+      "pair_id": "PAIR-C047320FE34A",
+      "dimension": "high_information_qualifier",
+      "semantic_representation_gold": "DEFECTIVE",
+      "hard_relevance_gold": "HARD_DEFECT",
+      "changed_json_pointers": [
+        "/observations/0/high_information_qualifier_keys"
+      ],
+      "source_spans": [
+        {
+          "start": 85,
+          "end": 108,
+          "quote": "begins within 2 seconds"
+        }
+      ],
+      "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+      "independent_hard_relevance_adjudication": {
+        "affects_hard_invariant": true,
+        "adjudication_rounds": [
+          "first",
+          "second",
+          "third"
+        ],
+        "opinions": [
+          {
+            "round": "first",
+            "affects_hard_invariant": true,
+            "affected_gate_or_claim_paths": [
+              "/observations/0/high_information_qualifier_keys",
+              "/claims/1"
+            ],
+            "rationale": "The source makes the positive case's onset 'within 2 seconds' an explicit, discriminating qualifier, and the state itself uses onset_seconds in the material hypothesis's qualifier prediction. Removing onset_seconds only from the observation's high_information_qualifier_keys misrepresents which source-grounded qualifier must be preserved and checked. That can change a hard qualifier-fidelity/evidence-direction gate and therefore whether the dependent conclusion is permitted, even though the numeric onset value remains elsewhere in the state.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-33F68C6BB6B2/first/normalized-output.json",
+            "normalized_output_sha256": "f18ac149e73217b3ac5711d533abc34876f052a64fb2d75268eca2d74837762b",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-33F68C6BB6B2/first/provenance.json",
+            "provenance_sha256": "5801e41626ee3b5aea22e55df7eb166be4addc808fd05073f0e3fef03b50b6ce"
+          },
+          {
+            "round": "second",
+            "affects_hard_invariant": false,
+            "affected_gate_or_claim_paths": [],
+            "rationale": "The discrepancy removes onset_seconds only from /observations/0/high_information_qualifier_keys; it does not remove or distort the timing fact itself. The source-grounded onset remains represented as 2 seconds at /observations/0/qualifiers/onset_seconds, and the material hypothesis still explicitly predicts onset_seconds <= 2 at /hypotheses/0/qualifier_predictions/0. The positive/control roles, matched 10-unit intravenous liquid exposure, Quartz high-versus-low contrast, and conclusion dependencies are unchanged. Thus this metadata-classification omission does not change the represented evidence-direction result or the conclusion the system is permitted to state.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-33F68C6BB6B2/second/normalized-output.json",
+            "normalized_output_sha256": "6fc21b328f3334d97677c3615a31c5cf7e2a61563204de03fe10137c148171c1",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-33F68C6BB6B2/second/provenance.json",
+            "provenance_sha256": "c58d29da6fc922d842ce57902489f9f592efa306387ceeeb949a16f2d9a797d0"
+          },
+          {
+            "round": "third",
+            "affects_hard_invariant": true,
+            "affected_gate_or_claim_paths": [
+              "/observations/0/high_information_qualifier_keys",
+              "/hypotheses/0/qualifier_predictions",
+              "/claims/1"
+            ],
+            "rationale": "The source makes the ≤2-second onset part of the positive target observation, and the hypothesis explicitly makes a prediction about that onset qualifier. Removing onset_seconds from the observation's high-information qualifier set can exempt that source-grounded timing contrast from a hard evidence-direction/qualifier check, allowing the conclusion path to remain admissible without preserving evaluation of a material source qualifier. The fact that the present prediction happens to match the recorded onset does not make the omission immaterial: the represented state changes which source qualifier is required to participate in the epistemic gate.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-33F68C6BB6B2/third/normalized-output.json",
+            "normalized_output_sha256": "16a08429d10aa61c520547ed5fb74f6eced9f6c14d82d603d787d3a991238678",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-33F68C6BB6B2/third/provenance.json",
+            "provenance_sha256": "7b661d0bd10dc9a54d14360f851aa6eae626861238ea42a89293282602527810"
+          }
+        ],
+        "resolution": "THREE_OPINION_MAJORITY"
+      }
+    },
+    {
+      "candidate_id": "MUT-367A3BC1911E",
+      "pair_id": "PAIR-F6CFB8C3F101",
+      "dimension": "timing",
+      "semantic_representation_gold": "FAITHFUL",
+      "hard_relevance_gold": "NO_DEFECT",
+      "changed_json_pointers": [
+        "/observations/0/qualifiers/onset_seconds"
+      ],
+      "source_spans": [
+        {
+          "start": 85,
+          "end": 108,
+          "quote": "begins within 2 seconds"
+        }
+      ],
+      "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+      "independent_hard_relevance_adjudication": null
+    },
+    {
+      "candidate_id": "MUT-A10B6BF93A85",
+      "pair_id": "PAIR-F6CFB8C3F101",
+      "dimension": "timing",
+      "semantic_representation_gold": "DEFECTIVE",
+      "hard_relevance_gold": "HARD_DEFECT",
+      "changed_json_pointers": [
+        "/observations/0/qualifiers/onset_seconds"
+      ],
+      "source_spans": [
+        {
+          "start": 85,
+          "end": 108,
+          "quote": "begins within 2 seconds"
+        }
+      ],
+      "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+      "independent_hard_relevance_adjudication": {
+        "affects_hard_invariant": true,
+        "adjudication_rounds": [
+          "first",
+          "second"
+        ],
+        "opinions": [
+          {
+            "round": "first",
+            "affects_hard_invariant": true,
+            "affected_gate_or_claim_paths": [
+              "/observations/0/qualifiers/onset_seconds",
+              "/hypotheses/0/qualifier_predictions/0",
+              "/claims/1"
+            ],
+            "rationale": "The source states that Rowan m05's target outcome begins within 2 seconds, but the candidate represents onset_seconds as 3600. Onset is explicitly marked high-information, and the material hypothesis predicts onset_seconds <= 2 for that positive observation. Replacing the source-grounded onset with 3600 reverses whether the represented observation satisfies that prediction. Because the conclusion explicitly depends on obs_positive_m05 and the source requires the risk_m05 conclusion to depend on Rowan's source-grounded target observation plus the tolerated-control contrast, this discrepancy could change a hard epistemic gate result and the conclusion the system is permitted to state.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-A10B6BF93A85/first/normalized-output.json",
+            "normalized_output_sha256": "c700ec0310a8083f2ab176ad267cdd187173818c7423543cea2d5c090d5e4358",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-A10B6BF93A85/first/provenance.json",
+            "provenance_sha256": "ea0c2b335d86b903626c623bf19c4344099c96bd20d4f2efacf320fbded72fd4"
+          },
+          {
+            "round": "second",
+            "affects_hard_invariant": true,
+            "affected_gate_or_claim_paths": [
+              "/observations/0/qualifiers/onset_seconds",
+              "/hypotheses/0/qualifier_predictions/0",
+              "/claims/1"
+            ],
+            "rationale": "The source fixes Rowan m05's target onset at within 2 seconds, while the candidate represents onset_seconds as 3600. Onset is explicitly a high-information qualifier, and the material hypothesis predicts onset_seconds <= 2 for that same observation. Changing the represented onset from 2 to 3600 reverses whether the positive observation satisfies that prediction. Because the conclusion is required to depend on Rowan's source-grounded target observation and directly lists obs_positive_m05 as a dependency, this discrepancy could change a hard epistemic gate result and the conclusion the system is permitted to state.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-A10B6BF93A85/second/normalized-output.json",
+            "normalized_output_sha256": "815de2ef62f7f16f7f133e840ee4ac0b9a1239354fdee9a487d02ec6a2904d6f",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-A10B6BF93A85/second/provenance.json",
+            "provenance_sha256": "64fd4e1cdcba1601f7cbe78d296f5ac2a57fe221ddda37ba76f5cdd8658d5ef6"
+          }
+        ],
+        "resolution": "TWO_INDEPENDENT_OPINIONS_AGREED"
+      }
+    },
+    {
+      "candidate_id": "MUT-E9EA79E179D9",
+      "pair_id": "PAIR-A438AFE6DAE1",
+      "dimension": "amount_or_dose",
+      "semantic_representation_gold": "FAITHFUL",
+      "hard_relevance_gold": "NO_DEFECT",
+      "changed_json_pointers": [
+        "/observations/1/qualifiers/dose_units"
+      ],
+      "source_spans": [
+        {
+          "start": 225,
+          "end": 237,
+          "quote": "same 10-unit"
+        }
+      ],
+      "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+      "independent_hard_relevance_adjudication": null
+    },
+    {
+      "candidate_id": "MUT-6F448FD129CA",
+      "pair_id": "PAIR-A438AFE6DAE1",
+      "dimension": "amount_or_dose",
+      "semantic_representation_gold": "DEFECTIVE",
+      "hard_relevance_gold": "HARD_DEFECT",
+      "changed_json_pointers": [
+        "/observations/1/qualifiers/dose_units"
+      ],
+      "source_spans": [
+        {
+          "start": 225,
+          "end": 237,
+          "quote": "same 10-unit"
+        }
+      ],
+      "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+      "independent_hard_relevance_adjudication": {
+        "affects_hard_invariant": true,
+        "adjudication_rounds": [
+          "first",
+          "second"
+        ],
+        "opinions": [
+          {
+            "round": "first",
+            "affects_hard_invariant": true,
+            "affected_gate_or_claim_paths": [
+              "/observations/1/qualifiers/dose_units",
+              "/claims/0",
+              "/claims/1"
+            ],
+            "rationale": "The source requires Mica m06 to receive the same 10-unit intravenous liquid exposure as Rowan, but the candidate represents the tolerated control at 1 unit. This breaks the source-grounded matched-dose contrast, directly contradicts the material modifier claim that the 10-unit dose is held constant, and therefore can change whether the comparison supports the permitted conclusion that Quartz survives the represented comparison.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-6F448FD129CA/first/normalized-output.json",
+            "normalized_output_sha256": "898973fe8da123e6783514fb7344d1c5dd5269055d9879551dd2e843173db266",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-6F448FD129CA/first/provenance.json",
+            "provenance_sha256": "8a9df7df1457bde9b3947a0e462c7226b971d67e3fe94bede870e9df47ba04bf"
+          },
+          {
+            "round": "second",
+            "affects_hard_invariant": true,
+            "affected_gate_or_claim_paths": [
+              "/observations/1/qualifiers/dose_units",
+              "/claims/0",
+              "/claims/1"
+            ],
+            "rationale": "The source requires Mica to receive the same 10-unit exposure as Rowan, making dose a held-constant part of the tolerated-control contrast. Representing Mica at 1 unit destroys that source-grounded matching condition and conflicts with the material dose_modifier_m06 claim. Because conclusion_m06 depends on both the control observation and the held-constant dose claim, this discrepancy could change whether the comparison supports the stated Quartz conclusion.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-6F448FD129CA/second/normalized-output.json",
+            "normalized_output_sha256": "394cfd5d359f5319367ec25c6a8a6cf9f9a6b0a2f51e1f5027b9943df7fe0563",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-6F448FD129CA/second/provenance.json",
+            "provenance_sha256": "9d075ef15af86ceb0f3e400bcbfb9975b7274c7afbefc2399a578e83d3fa13af"
+          }
+        ],
+        "resolution": "TWO_INDEPENDENT_OPINIONS_AGREED"
+      }
+    },
+    {
+      "candidate_id": "MUT-C6C3E89127D5",
+      "pair_id": "PAIR-1F58EC041E03",
+      "dimension": "route_or_form",
+      "semantic_representation_gold": "FAITHFUL",
+      "hard_relevance_gold": "NO_DEFECT",
+      "changed_json_pointers": [
+        "/observations/1/qualifiers/route",
+        "/observations/1/qualifiers/form"
+      ],
+      "source_spans": [
+        {
+          "start": 225,
+          "end": 265,
+          "quote": "same 10-unit intravenous liquid exposure"
+        }
+      ],
+      "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+      "independent_hard_relevance_adjudication": null
+    },
+    {
+      "candidate_id": "MUT-C1E0E468B562",
+      "pair_id": "PAIR-1F58EC041E03",
+      "dimension": "route_or_form",
+      "semantic_representation_gold": "DEFECTIVE",
+      "hard_relevance_gold": "HARD_DEFECT",
+      "changed_json_pointers": [
+        "/observations/1/qualifiers/route",
+        "/observations/1/qualifiers/form"
+      ],
+      "source_spans": [
+        {
+          "start": 225,
+          "end": 265,
+          "quote": "same 10-unit intravenous liquid exposure"
+        }
+      ],
+      "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+      "independent_hard_relevance_adjudication": {
+        "affects_hard_invariant": true,
+        "adjudication_rounds": [
+          "first",
+          "second"
+        ],
+        "opinions": [
+          {
+            "round": "first",
+            "affects_hard_invariant": true,
+            "affected_gate_or_claim_paths": [
+              "/claims/1",
+              "/hypotheses/0"
+            ],
+            "rationale": "The source states that Mica receives the same 10-unit intravenous liquid exposure as Rowan, but the candidate represents Mica's route as oral and form as capsule. This materially breaks the source-grounded tolerated-control contrast: outcome differences could no longer be attributed to Quartz while exposure route/form are held matched. Because the source explicitly requires the risk_m07 conclusion to depend on Rowan's observation and the tolerated-control contrast, this discrepancy could change whether the discriminator passes the comparison and whether the conclusion 'Quartz survives the represented comparison' is permitted.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-C1E0E468B562/first/normalized-output.json",
+            "normalized_output_sha256": "7f5684b5f6ec5bf89dcaf3213e83e96e211c03d702116f83b7b190dac9b7662c",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-C1E0E468B562/first/provenance.json",
+            "provenance_sha256": "8871cb85af978a77a0b03aa6c5dc1a429d76a8247aad1daf1ea4e902b17fce27"
+          },
+          {
+            "round": "second",
+            "affects_hard_invariant": true,
+            "affected_gate_or_claim_paths": [
+              "/observations/1/qualifiers/route",
+              "/observations/1/qualifiers/form",
+              "/claims/1",
+              "/claims/1/dependencies",
+              "/hypotheses/0/discriminator"
+            ],
+            "rationale": "The source requires Mica m07 to be a tolerated control under the same 10-unit intravenous liquid exposure as Rowan m07. The candidate changes Mica's route and form to oral capsule, so the represented comparison no longer holds those high-information exposure qualifiers constant. That can invalidate the tolerated-control contrast needed to test whether Quartz itself discriminates the outcome and therefore can change whether the conclusion that Quartz survives the represented comparison is permitted.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-C1E0E468B562/second/normalized-output.json",
+            "normalized_output_sha256": "8552b237cf607a53cc663be661be6c6182328b7583de9a56e758d61061ae67c0",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-C1E0E468B562/second/provenance.json",
+            "provenance_sha256": "ba0dd3a7104e99b42fd068ab4ecad1e51f38505dd2f485b191383487ca4a9e6b"
+          }
+        ],
+        "resolution": "TWO_INDEPENDENT_OPINIONS_AGREED"
+      }
+    },
+    {
+      "candidate_id": "MUT-3AC8DB61DB63",
+      "pair_id": "PAIR-046FFE82A148",
+      "dimension": "feature_value",
+      "semantic_representation_gold": "FAITHFUL",
+      "hard_relevance_gold": "NO_DEFECT",
+      "changed_json_pointers": [
+        "/features/1/value"
+      ],
+      "source_spans": [
+        {
+          "start": 344,
+          "end": 359,
+          "quote": "low in Mica m08"
+        }
+      ],
+      "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+      "independent_hard_relevance_adjudication": null
+    },
+    {
+      "candidate_id": "MUT-47F0C17864E8",
+      "pair_id": "PAIR-046FFE82A148",
+      "dimension": "feature_value",
+      "semantic_representation_gold": "DEFECTIVE",
+      "hard_relevance_gold": "HARD_DEFECT",
+      "changed_json_pointers": [
+        "/features/1/value"
+      ],
+      "source_spans": [
+        {
+          "start": 344,
+          "end": 359,
+          "quote": "low in Mica m08"
+        }
+      ],
+      "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+      "independent_hard_relevance_adjudication": {
+        "affects_hard_invariant": true,
+        "adjudication_rounds": [
+          "first",
+          "second"
+        ],
+        "opinions": [
+          {
+            "round": "first",
+            "affects_hard_invariant": true,
+            "affected_gate_or_claim_paths": [
+              "/hypotheses/0/discriminator",
+              "/claims/1"
+            ],
+            "rationale": "The source states Quartz is low in tolerated control Mica m08, but the candidate represents it as high at /features/1/value. Because the material hypothesis tests whether Quartz=high distinguishes the positive case from the tolerated control, changing the control value from low to high removes the represented feature contrast and can change whether that discriminator passes and whether the conclusion 'Quartz survives the represented comparison' is permitted.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-47F0C17864E8/first/normalized-output.json",
+            "normalized_output_sha256": "3c6c5897d15fbe0b2e5a713b618a5f0e62ffc9b2876dc07a0148de5e3c323a59",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-47F0C17864E8/first/provenance.json",
+            "provenance_sha256": "60a31a795af9c3637d7b43140480a2d035780ed806434ea35c547f5e18a620c1"
+          },
+          {
+            "round": "second",
+            "affects_hard_invariant": true,
+            "affected_gate_or_claim_paths": [
+              "/features/1/value",
+              "/hypotheses/0/discriminator",
+              "/claims/1"
+            ],
+            "rationale": "The source-grounded contrast requires Quartz=high in Rowan and Quartz=low in tolerated-control Mica. The candidate changes Mica's Quartz value from low to high, eliminating the represented feature discrimination while the exposure is held constant. That discrepancy can change whether the material hypothesis passes the tolerated-control/specificity gate and therefore whether the conclusion 'Quartz survives the represented comparison' is permitted.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-47F0C17864E8/second/normalized-output.json",
+            "normalized_output_sha256": "c1629fb458b5aa55ffd04a10992ece6507a9864b2cf8e90072b5e6eec2c7d0ac",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-47F0C17864E8/second/provenance.json",
+            "provenance_sha256": "0d08b2fbfbb7f7bca16a4281e43250ba3df5cefc138814cc7d7389dc42e43f48"
+          }
+        ],
+        "resolution": "TWO_INDEPENDENT_OPINIONS_AGREED"
+      }
+    },
+    {
+      "candidate_id": "MUT-EA0C47EB4875",
+      "pair_id": "PAIR-D324F4422AF4",
+      "dimension": "predicate_semantics",
+      "semantic_representation_gold": "FAITHFUL",
+      "hard_relevance_gold": "NO_DEFECT",
+      "changed_json_pointers": [
+        "/hypotheses/0/discriminator/operator",
+        "/hypotheses/0/discriminator/value"
+      ],
+      "source_spans": [
+        {
+          "start": 395,
+          "end": 419,
+          "quote": "Quartz value equals high"
+        }
+      ],
+      "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+      "independent_hard_relevance_adjudication": null
+    },
+    {
+      "candidate_id": "MUT-852A38F30AE7",
+      "pair_id": "PAIR-D324F4422AF4",
+      "dimension": "predicate_semantics",
+      "semantic_representation_gold": "DEFECTIVE",
+      "hard_relevance_gold": "HARD_DEFECT",
+      "changed_json_pointers": [
+        "/hypotheses/0/discriminator/operator",
+        "/hypotheses/0/discriminator/value"
+      ],
+      "source_spans": [
+        {
+          "start": 395,
+          "end": 419,
+          "quote": "Quartz value equals high"
+        }
+      ],
+      "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+      "independent_hard_relevance_adjudication": {
+        "affects_hard_invariant": true,
+        "adjudication_rounds": [
+          "first",
+          "second"
+        ],
+        "opinions": [
+          {
+            "round": "first",
+            "affects_hard_invariant": true,
+            "affected_gate_or_claim_paths": [
+              "/hypotheses/0/discriminator/operator",
+              "/hypotheses/0/discriminator/value",
+              "/claims/1"
+            ],
+            "rationale": "The source tests whether Quartz value equals high distinguishes the positive case from the tolerated control. The candidate changes that value predicate to record existence (operator: \"present\") and removes the required value high. Because Quartz records exist for both Rowan and Mica, presence does not encode the source-grounded high-versus-low contrast. This can change whether the material discriminator passes and therefore whether the conclusion that Quartz survives the represented comparison is permitted.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-852A38F30AE7/first/normalized-output.json",
+            "normalized_output_sha256": "1584fa39c1ab6531df3d9ebd5aaffb3df7a872448c23fa54e4569c7404fa6d9b",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-852A38F30AE7/first/provenance.json",
+            "provenance_sha256": "ccabc37346efc600c4c8296ed13142a48cac88ec0eff6594cadf0637af5aa00c"
+          },
+          {
+            "round": "second",
+            "affects_hard_invariant": true,
+            "affected_gate_or_claim_paths": [
+              "/hypotheses/0/discriminator",
+              "/claims/1"
+            ],
+            "rationale": "The source requires testing the value-specific discriminator Quartz equals high, with Rowan high and tolerated-control Mica low. The candidate changes this to mere Quartz presence and removes the required value. Because Quartz is represented for both cases, presence does not preserve the source-grounded discrimination. This can change whether the material hypothesis passes the comparison gate and therefore whether the conclusion that Quartz survives the represented comparison is permitted.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-852A38F30AE7/second/normalized-output.json",
+            "normalized_output_sha256": "020763f8b073ff05f2c0364089abb59353dd9008b517a8ab4116f0cccb679bbc",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-852A38F30AE7/second/provenance.json",
+            "provenance_sha256": "008d7672d82c1e75e3f1e5b7409f4a387de69524cafbe0203ee7a80abfc4af2a"
+          }
+        ],
+        "resolution": "TWO_INDEPENDENT_OPINIONS_AGREED"
+      }
+    },
+    {
+      "candidate_id": "MUT-6D591AAE8678",
+      "pair_id": "PAIR-2E7BAEEA9BA5",
+      "dimension": "dependency_or_provenance",
+      "semantic_representation_gold": "FAITHFUL",
+      "hard_relevance_gold": "NO_DEFECT",
+      "changed_json_pointers": [
+        "/claims/1/dependencies"
+      ],
+      "source_spans": [
+        {
+          "start": 484,
+          "end": 576,
+          "quote": "must depend on Rowan's source-grounded target observation and the tolerated-control contrast"
+        }
+      ],
+      "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+      "independent_hard_relevance_adjudication": null
+    },
+    {
+      "candidate_id": "MUT-19DA01E745B2",
+      "pair_id": "PAIR-2E7BAEEA9BA5",
+      "dimension": "dependency_or_provenance",
+      "semantic_representation_gold": "DEFECTIVE",
+      "hard_relevance_gold": "HARD_DEFECT",
+      "changed_json_pointers": [
+        "/claims/1/dependencies"
+      ],
+      "source_spans": [
+        {
+          "start": 484,
+          "end": 576,
+          "quote": "must depend on Rowan's source-grounded target observation and the tolerated-control contrast"
+        }
+      ],
+      "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+      "independent_hard_relevance_adjudication": {
+        "affects_hard_invariant": true,
+        "adjudication_rounds": [
+          "first",
+          "second"
+        ],
+        "opinions": [
+          {
+            "round": "first",
+            "affects_hard_invariant": true,
+            "affected_gate_or_claim_paths": [
+              "/claims/1/dependencies",
+              "/claims/1"
+            ],
+            "rationale": "The source explicitly requires the risk_m10 conclusion to depend on Rowan's source-grounded target observation and the tolerated-control contrast. The candidate conclusion depends only on dose_modifier_m10, omitting dependencies on obs_positive_m10 and obs_control_m10. This breaks the required evidentiary dependency/provenance chain and could therefore change a hard epistemic gate result or whether the conclusion is permitted to be stated.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-19DA01E745B2/first/normalized-output.json",
+            "normalized_output_sha256": "8c4edb2902de8d2cb8ecc37afe37a486acd49a35b6d155428d178c98a9ccf589",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-19DA01E745B2/first/provenance.json",
+            "provenance_sha256": "1efe6ef66f63fb0f23b824a26226ed4909b3331a8fed46955709eec09c8bbe76"
+          },
+          {
+            "round": "second",
+            "affects_hard_invariant": true,
+            "affected_gate_or_claim_paths": [
+              "/claims/1/dependencies",
+              "/claims/1"
+            ],
+            "rationale": "The source packet explicitly requires the risk_m10 conclusion to depend on Rowan's source-grounded target observation and the tolerated-control contrast. The candidate removes both obs_positive_m10 and obs_control_m10 from the conclusion dependencies, leaving only the dose-modifier claim. That severs required evidential dependencies and could therefore change whether the conclusion is epistemically permitted.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-19DA01E745B2/second/normalized-output.json",
+            "normalized_output_sha256": "36b343121a10f286c158121a7b6b7f692d77ce0875e36bdb3ad1b52ea45f4b54",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-19DA01E745B2/second/provenance.json",
+            "provenance_sha256": "567a7d0fb19b50668408f22fbf240f1454d7d8ca6d4d6feb400c56df49bff4ee"
+          }
+        ],
+        "resolution": "TWO_INDEPENDENT_OPINIONS_AGREED"
+      }
+    },
+    {
+      "candidate_id": "MUT-7DA0D11FEAF7",
+      "pair_id": "PAIR-D9298A10D1B0",
+      "dimension": "other",
+      "semantic_representation_gold": "FAITHFUL",
+      "hard_relevance_gold": "NO_DEFECT",
+      "changed_json_pointers": [
+        "/hypotheses/0/material"
+      ],
+      "source_spans": [
+        {
+          "start": 370,
+          "end": 389,
+          "quote": "material hypothesis"
+        }
+      ],
+      "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+      "independent_hard_relevance_adjudication": null
+    },
+    {
+      "candidate_id": "MUT-0E889C509114",
+      "pair_id": "PAIR-D9298A10D1B0",
+      "dimension": "other",
+      "semantic_representation_gold": "DEFECTIVE",
+      "hard_relevance_gold": "HARD_DEFECT",
+      "changed_json_pointers": [
+        "/hypotheses/0/material"
+      ],
+      "source_spans": [
+        {
+          "start": 370,
+          "end": 389,
+          "quote": "material hypothesis"
+        }
+      ],
+      "construction_provenance": "scripts/prepare-independent-semantic-review-development.mts",
+      "independent_hard_relevance_adjudication": {
+        "affects_hard_invariant": true,
+        "adjudication_rounds": [
+          "first",
+          "second"
+        ],
+        "opinions": [
+          {
+            "round": "first",
+            "affects_hard_invariant": true,
+            "affected_gate_or_claim_paths": [
+              "/hypotheses/0/material",
+              "/claims/1"
+            ],
+            "rationale": "The source explicitly designates the Quartz discriminator as a material hypothesis. Changing its material flag from true to false can remove or down-rank that hypothesis from material epistemic evaluation, potentially changing whether the Quartz comparison is required to support the permitted conclusion. This is therefore capable of changing a hard gate result or the conclusion the system may state.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-0E889C509114/first/normalized-output.json",
+            "normalized_output_sha256": "cf173fd56d231ffd3da10099dc9390c4eaac6962cdf2ea535808c1f3c2f2ab2b",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-0E889C509114/first/provenance.json",
+            "provenance_sha256": "8a5f19a45335857c71519ed830e3b288671869d35902a22a165baac0a7e5a37f"
+          },
+          {
+            "round": "second",
+            "affects_hard_invariant": true,
+            "affected_gate_or_claim_paths": [
+              "/hypotheses/0/material",
+              "/hypotheses/0",
+              "/claims/1"
+            ],
+            "rationale": "The source explicitly designates the Quartz=high hypothesis as material. Changing its material flag from true to false can remove or weaken the requirement that this discriminator be epistemically evaluated against the positive observation and tolerated-control contrast. Because the requested conclusion must depend on that source-grounded contrast, misclassifying the tested hypothesis as non-material could change a hard gate outcome or what conclusion is permitted.",
+            "normalized_output_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-0E889C509114/second/normalized-output.json",
+            "normalized_output_sha256": "aa1af482f92e4bd1c1116437501ec208d20e52640c96b2a7814094b65c84875a",
+            "provenance_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-0E889C509114/second/provenance.json",
+            "provenance_sha256": "7341b215467912edc639cb311130b9f6854037795772bc435d6a2dac58187c9b"
+          }
+        ],
+        "resolution": "TWO_INDEPENDENT_OPINIONS_AGREED"
+      }
+    }
+  ]
+}
