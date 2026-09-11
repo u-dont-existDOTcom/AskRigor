@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "procedure_id": "askrigor_independent_semantic_representation_review_procedure_v0_2_1_fixture_correction",
+  "status": "ADMITTED_FOR_BLINDED_REVIEWER_GENERATION",
+  "reviewer_generation_allowed": true,
+  "candidate_count": 22,
+  "replacement_construction_adjudication_conflicts": 0,
+  "prior_rejected_pair_excluded_from_scoring": true
+}

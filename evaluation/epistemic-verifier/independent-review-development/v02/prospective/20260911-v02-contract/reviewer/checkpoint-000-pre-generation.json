@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_REVIEWER_EXECUTION_CHECKPOINT",
+  "recorded_at": "2026-09-11T15:56:01.618336+00:00",
+  "adjudication_sessions_frozen_total": 56,
+  "reviewer_sessions_frozen": 0,
+  "reviewer_sessions_planned": 66,
+  "reviewer_outputs_frozen": 0,
+  "gold_scoring_access_after_reviewer_freeze": false,
+  "candidate_count": 22,
+  "replicates": 3,
+  "model_api_spend_usd": 0,
+  "status": "READY_FOR_BLINDED_REVIEWER_EXECUTION",
+  "next_checkpoint_due_after_reviewer_sessions": 8
+}

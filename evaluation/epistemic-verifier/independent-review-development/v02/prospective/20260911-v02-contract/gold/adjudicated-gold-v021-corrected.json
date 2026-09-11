@@ -1,0 +1,1465 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_RECONCILED_GOLD_APPEND_ONLY_FIXTURE_CORRECTION",
+  "supersedes_for_reviewer_scoring": "gold/adjudicated-gold.json",
+  "prior_adjudicated_gold_sha256": "1034961ea05357f1c773eac03c0f19d765519cb7574b4967f0ee31d727777957",
+  "replacement_construction_gold_sha256": "e9394fbf42d3d8addc7c6e04d9d8d417f36d916ecc16dd4eab92ad29437ccd5e",
+  "rejected_pair_preserved_at": "gold/construction-conflict-analysis.json",
+  "candidate_count": 22,
+  "conflict_count": 0,
+  "candidates": [
+    {
+      "candidate_id": "MUTV02-062657A78CFC",
+      "semantic_representation_adjudication": "DEFECTIVE",
+      "hard_relevance_adjudication": "HARD_DEFECT",
+      "third_adjudication_used": false,
+      "majority_findings": [
+        {
+          "dimension": "exact_target",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "case_and_comparison_roles",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "negative_or_tolerated_comparator",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "high_information_qualifier",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "timing",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "amount_or_dose",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "route_or_form",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "feature_value",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "predicate_semantics",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "dependency_or_provenance",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "other",
+          "status": "distorted",
+          "affects_hard_invariant": true
+        }
+      ],
+      "construction_class": "DEFECTIVE",
+      "construction_dimension": "other",
+      "gold_alignment": "ALIGNED"
+    },
+    {
+      "candidate_id": "MUTV02-160DFE1FDF35",
+      "semantic_representation_adjudication": "DEFECTIVE",
+      "hard_relevance_adjudication": "HARD_DEFECT",
+      "third_adjudication_used": true,
+      "majority_findings": [
+        {
+          "dimension": "exact_target",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "case_and_comparison_roles",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "negative_or_tolerated_comparator",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "high_information_qualifier",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "timing",
+          "status": "distorted",
+          "affects_hard_invariant": true
+        },
+        {
+          "dimension": "amount_or_dose",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "route_or_form",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "feature_value",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "predicate_semantics",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "dependency_or_provenance",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "other",
+          "status": "not_applicable",
+          "affects_hard_invariant": false
+        }
+      ],
+      "construction_class": "DEFECTIVE",
+      "construction_dimension": "timing",
+      "gold_alignment": "ALIGNED"
+    },
+    {
+      "candidate_id": "MUTV02-32D4159C4DC4",
+      "semantic_representation_adjudication": "DEFECTIVE",
+      "hard_relevance_adjudication": "HARD_DEFECT",
+      "third_adjudication_used": true,
+      "majority_findings": [
+        {
+          "dimension": "exact_target",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "case_and_comparison_roles",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "negative_or_tolerated_comparator",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "high_information_qualifier",
+          "status": "distorted",
+          "affects_hard_invariant": true
+        },
+        {
+          "dimension": "timing",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "amount_or_dose",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "route_or_form",
+          "status": "distorted",
+          "affects_hard_invariant": true
+        },
+        {
+          "dimension": "feature_value",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "predicate_semantics",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "dependency_or_provenance",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "other",
+          "status": "not_applicable",
+          "affects_hard_invariant": false
+        }
+      ],
+      "construction_class": "DEFECTIVE",
+      "construction_dimension": "route_or_form",
+      "gold_alignment": "ALIGNED"
+    },
+    {
+      "candidate_id": "MUTV02-39AD8ADC2CD2",
+      "semantic_representation_adjudication": "DEFECTIVE",
+      "hard_relevance_adjudication": "HARD_DEFECT",
+      "third_adjudication_used": false,
+      "majority_findings": [
+        {
+          "dimension": "exact_target",
+          "status": "distorted",
+          "affects_hard_invariant": true
+        },
+        {
+          "dimension": "case_and_comparison_roles",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "negative_or_tolerated_comparator",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "high_information_qualifier",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "timing",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "amount_or_dose",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "route_or_form",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "feature_value",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "predicate_semantics",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "dependency_or_provenance",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "other",
+          "status": "not_applicable",
+          "affects_hard_invariant": false
+        }
+      ],
+      "construction_class": "DEFECTIVE",
+      "construction_dimension": "exact_target",
+      "gold_alignment": "ALIGNED"
+    },
+    {
+      "candidate_id": "MUTV02-4370AA0D930D",
+      "semantic_representation_adjudication": "DEFECTIVE",
+      "hard_relevance_adjudication": "HARD_DEFECT",
+      "third_adjudication_used": true,
+      "majority_findings": [
+        {
+          "dimension": "exact_target",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "case_and_comparison_roles",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "negative_or_tolerated_comparator",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "high_information_qualifier",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "timing",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "amount_or_dose",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "route_or_form",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "feature_value",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "predicate_semantics",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "dependency_or_provenance",
+          "status": "distorted",
+          "affects_hard_invariant": true
+        },
+        {
+          "dimension": "other",
+          "status": "not_applicable",
+          "affects_hard_invariant": false
+        }
+      ],
+      "construction_class": "DEFECTIVE",
+      "construction_dimension": "dependency_or_provenance",
+      "gold_alignment": "ALIGNED"
+    },
+    {
+      "candidate_id": "MUTV02-4E5FF33C884A",
+      "semantic_representation_adjudication": "DEFECTIVE",
+      "hard_relevance_adjudication": "HARD_DEFECT",
+      "third_adjudication_used": false,
+      "majority_findings": [
+        {
+          "dimension": "exact_target",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "case_and_comparison_roles",
+          "status": "distorted",
+          "affects_hard_invariant": true
+        },
+        {
+          "dimension": "negative_or_tolerated_comparator",
+          "status": "distorted",
+          "affects_hard_invariant": true
+        },
+        {
+          "dimension": "high_information_qualifier",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "timing",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "amount_or_dose",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "route_or_form",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "feature_value",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "predicate_semantics",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "dependency_or_provenance",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "other",
+          "status": "not_applicable",
+          "affects_hard_invariant": false
+        }
+      ],
+      "construction_class": "DEFECTIVE",
+      "construction_dimension": "negative_or_tolerated_comparator",
+      "gold_alignment": "ALIGNED"
+    },
+    {
+      "candidate_id": "MUTV02-62DC383E2CB8",
+      "semantic_representation_adjudication": "FAITHFUL",
+      "hard_relevance_adjudication": "NO_HARD_DEFECT",
+      "third_adjudication_used": false,
+      "majority_findings": [
+        {
+          "dimension": "exact_target",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "case_and_comparison_roles",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "negative_or_tolerated_comparator",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "high_information_qualifier",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "timing",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "amount_or_dose",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "route_or_form",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "feature_value",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "predicate_semantics",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "dependency_or_provenance",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "other",
+          "status": "not_applicable",
+          "affects_hard_invariant": false
+        }
+      ],
+      "construction_class": "FAITHFUL",
+      "construction_dimension": "exact_target",
+      "gold_alignment": "ALIGNED"
+    },
+    {
+      "candidate_id": "MUTV02-72880B2133D6",
+      "semantic_representation_adjudication": "DEFECTIVE",
+      "hard_relevance_adjudication": "HARD_DEFECT",
+      "third_adjudication_used": false,
+      "majority_findings": [
+        {
+          "dimension": "exact_target",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "case_and_comparison_roles",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "negative_or_tolerated_comparator",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "high_information_qualifier",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "timing",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "amount_or_dose",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "route_or_form",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "feature_value",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "predicate_semantics",
+          "status": "distorted",
+          "affects_hard_invariant": true
+        },
+        {
+          "dimension": "dependency_or_provenance",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "other",
+          "status": "not_applicable",
+          "affects_hard_invariant": false
+        }
+      ],
+      "construction_class": "DEFECTIVE",
+      "construction_dimension": "predicate_semantics",
+      "gold_alignment": "ALIGNED"
+    },
+    {
+      "candidate_id": "MUTV02-769BB9A5909E",
+      "semantic_representation_adjudication": "FAITHFUL",
+      "hard_relevance_adjudication": "NO_HARD_DEFECT",
+      "third_adjudication_used": false,
+      "majority_findings": [
+        {
+          "dimension": "exact_target",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "case_and_comparison_roles",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "negative_or_tolerated_comparator",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "high_information_qualifier",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "timing",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "amount_or_dose",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "route_or_form",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "feature_value",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "predicate_semantics",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "dependency_or_provenance",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "other",
+          "status": "not_applicable",
+          "affects_hard_invariant": false
+        }
+      ],
+      "construction_class": "FAITHFUL",
+      "construction_dimension": "other",
+      "gold_alignment": "ALIGNED"
+    },
+    {
+      "candidate_id": "MUTV02-7ECEACF0C355",
+      "semantic_representation_adjudication": "FAITHFUL",
+      "hard_relevance_adjudication": "NO_HARD_DEFECT",
+      "third_adjudication_used": false,
+      "majority_findings": [
+        {
+          "dimension": "exact_target",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "case_and_comparison_roles",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "negative_or_tolerated_comparator",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "high_information_qualifier",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "timing",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "amount_or_dose",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "route_or_form",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "feature_value",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "predicate_semantics",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "dependency_or_provenance",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "other",
+          "status": "not_applicable",
+          "affects_hard_invariant": false
+        }
+      ],
+      "construction_class": "FAITHFUL",
+      "construction_dimension": "predicate_semantics",
+      "gold_alignment": "ALIGNED"
+    },
+    {
+      "candidate_id": "MUTV02-9650D823B140",
+      "semantic_representation_adjudication": "DEFECTIVE",
+      "hard_relevance_adjudication": "HARD_DEFECT",
+      "third_adjudication_used": false,
+      "majority_findings": [
+        {
+          "dimension": "exact_target",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "case_and_comparison_roles",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "negative_or_tolerated_comparator",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "high_information_qualifier",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "timing",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "amount_or_dose",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "route_or_form",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "feature_value",
+          "status": "distorted",
+          "affects_hard_invariant": true
+        },
+        {
+          "dimension": "predicate_semantics",
+          "status": "distorted",
+          "affects_hard_invariant": true
+        },
+        {
+          "dimension": "dependency_or_provenance",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "other",
+          "status": "not_applicable",
+          "affects_hard_invariant": false
+        }
+      ],
+      "construction_class": "DEFECTIVE",
+      "construction_dimension": "feature_value",
+      "gold_alignment": "ALIGNED"
+    },
+    {
+      "candidate_id": "MUTV02-9E2004ACE2A0",
+      "semantic_representation_adjudication": "FAITHFUL",
+      "hard_relevance_adjudication": "NO_HARD_DEFECT",
+      "third_adjudication_used": false,
+      "majority_findings": [
+        {
+          "dimension": "exact_target",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "case_and_comparison_roles",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "negative_or_tolerated_comparator",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "high_information_qualifier",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "timing",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "amount_or_dose",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "route_or_form",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "feature_value",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "predicate_semantics",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "dependency_or_provenance",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "other",
+          "status": "not_applicable",
+          "affects_hard_invariant": false
+        }
+      ],
+      "construction_class": "FAITHFUL",
+      "construction_dimension": "negative_or_tolerated_comparator",
+      "gold_alignment": "ALIGNED"
+    },
+    {
+      "candidate_id": "MUTV02-A45506610272",
+      "semantic_representation_adjudication": "FAITHFUL",
+      "hard_relevance_adjudication": "NO_HARD_DEFECT",
+      "third_adjudication_used": false,
+      "majority_findings": [
+        {
+          "dimension": "exact_target",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "case_and_comparison_roles",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "negative_or_tolerated_comparator",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "high_information_qualifier",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "timing",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "amount_or_dose",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "route_or_form",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "feature_value",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "predicate_semantics",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "dependency_or_provenance",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "other",
+          "status": "not_applicable",
+          "affects_hard_invariant": false
+        }
+      ],
+      "construction_class": "FAITHFUL",
+      "construction_dimension": "route_or_form",
+      "gold_alignment": "ALIGNED"
+    },
+    {
+      "candidate_id": "MUTV02-A8F8FE9BC561",
+      "semantic_representation_adjudication": "FAITHFUL",
+      "hard_relevance_adjudication": "NO_HARD_DEFECT",
+      "third_adjudication_used": false,
+      "majority_findings": [
+        {
+          "dimension": "exact_target",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "case_and_comparison_roles",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "negative_or_tolerated_comparator",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "high_information_qualifier",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "timing",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "amount_or_dose",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "route_or_form",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "feature_value",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "predicate_semantics",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "dependency_or_provenance",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "other",
+          "status": "not_applicable",
+          "affects_hard_invariant": false
+        }
+      ],
+      "construction_class": "FAITHFUL",
+      "construction_dimension": "feature_value",
+      "gold_alignment": "ALIGNED"
+    },
+    {
+      "candidate_id": "MUTV02-B8C3C7D3B400",
+      "semantic_representation_adjudication": "DEFECTIVE",
+      "hard_relevance_adjudication": "HARD_DEFECT",
+      "third_adjudication_used": false,
+      "majority_findings": [
+        {
+          "dimension": "exact_target",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "case_and_comparison_roles",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "negative_or_tolerated_comparator",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "high_information_qualifier",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "timing",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "amount_or_dose",
+          "status": "distorted",
+          "affects_hard_invariant": true
+        },
+        {
+          "dimension": "route_or_form",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "feature_value",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "predicate_semantics",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "dependency_or_provenance",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "other",
+          "status": "not_applicable",
+          "affects_hard_invariant": false
+        }
+      ],
+      "construction_class": "DEFECTIVE",
+      "construction_dimension": "amount_or_dose",
+      "gold_alignment": "ALIGNED"
+    },
+    {
+      "candidate_id": "MUTV02-BA0AF7C61837",
+      "semantic_representation_adjudication": "FAITHFUL",
+      "hard_relevance_adjudication": "NO_HARD_DEFECT",
+      "third_adjudication_used": false,
+      "majority_findings": [
+        {
+          "dimension": "exact_target",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "case_and_comparison_roles",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "negative_or_tolerated_comparator",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "high_information_qualifier",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "timing",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "amount_or_dose",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "route_or_form",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "feature_value",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "predicate_semantics",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "dependency_or_provenance",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "other",
+          "status": "not_applicable",
+          "affects_hard_invariant": false
+        }
+      ],
+      "construction_class": "FAITHFUL",
+      "construction_dimension": "dependency_or_provenance",
+      "gold_alignment": "ALIGNED"
+    },
+    {
+      "candidate_id": "MUTV02-DB65FC2D8EEA",
+      "semantic_representation_adjudication": "FAITHFUL",
+      "hard_relevance_adjudication": "NO_HARD_DEFECT",
+      "third_adjudication_used": false,
+      "majority_findings": [
+        {
+          "dimension": "exact_target",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "case_and_comparison_roles",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "negative_or_tolerated_comparator",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "high_information_qualifier",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "timing",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "amount_or_dose",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "route_or_form",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "feature_value",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "predicate_semantics",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "dependency_or_provenance",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "other",
+          "status": "not_applicable",
+          "affects_hard_invariant": false
+        }
+      ],
+      "construction_class": "FAITHFUL",
+      "construction_dimension": "case_and_comparison_roles",
+      "gold_alignment": "ALIGNED"
+    },
+    {
+      "candidate_id": "MUTV02-E77F49046742",
+      "semantic_representation_adjudication": "DEFECTIVE",
+      "hard_relevance_adjudication": "HARD_DEFECT",
+      "third_adjudication_used": true,
+      "majority_findings": [
+        {
+          "dimension": "exact_target",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "case_and_comparison_roles",
+          "status": "distorted",
+          "affects_hard_invariant": true
+        },
+        {
+          "dimension": "negative_or_tolerated_comparator",
+          "status": "distorted",
+          "affects_hard_invariant": true
+        },
+        {
+          "dimension": "high_information_qualifier",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "timing",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "amount_or_dose",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "route_or_form",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "feature_value",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "predicate_semantics",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "dependency_or_provenance",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "other",
+          "status": "not_applicable",
+          "affects_hard_invariant": false
+        }
+      ],
+      "construction_class": "DEFECTIVE",
+      "construction_dimension": "case_and_comparison_roles",
+      "gold_alignment": "ALIGNED"
+    },
+    {
+      "candidate_id": "MUTV02-F080864C89E6",
+      "semantic_representation_adjudication": "FAITHFUL",
+      "hard_relevance_adjudication": "NO_HARD_DEFECT",
+      "third_adjudication_used": false,
+      "majority_findings": [
+        {
+          "dimension": "exact_target",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "case_and_comparison_roles",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "negative_or_tolerated_comparator",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "high_information_qualifier",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "timing",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "amount_or_dose",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "route_or_form",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "feature_value",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "predicate_semantics",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "dependency_or_provenance",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "other",
+          "status": "not_applicable",
+          "affects_hard_invariant": false
+        }
+      ],
+      "construction_class": "FAITHFUL",
+      "construction_dimension": "amount_or_dose",
+      "gold_alignment": "ALIGNED"
+    },
+    {
+      "candidate_id": "MUTV02-FF9E5B176C50",
+      "semantic_representation_adjudication": "FAITHFUL",
+      "hard_relevance_adjudication": "NO_HARD_DEFECT",
+      "third_adjudication_used": false,
+      "majority_findings": [
+        {
+          "dimension": "exact_target",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "case_and_comparison_roles",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "negative_or_tolerated_comparator",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "high_information_qualifier",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "timing",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "amount_or_dose",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "route_or_form",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "feature_value",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "predicate_semantics",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "dependency_or_provenance",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "other",
+          "status": "not_applicable",
+          "affects_hard_invariant": false
+        }
+      ],
+      "construction_class": "FAITHFUL",
+      "construction_dimension": "timing",
+      "gold_alignment": "ALIGNED"
+    },
+    {
+      "candidate_id": "MUTV021-38D86B34FC4C",
+      "semantic_representation_adjudication": "DEFECTIVE",
+      "hard_relevance_adjudication": "HARD_DEFECT",
+      "third_adjudication_used": false,
+      "majority_findings": [
+        {
+          "dimension": "exact_target",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "case_and_comparison_roles",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "negative_or_tolerated_comparator",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "high_information_qualifier",
+          "status": "distorted",
+          "affects_hard_invariant": true
+        },
+        {
+          "dimension": "timing",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "amount_or_dose",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "route_or_form",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "feature_value",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "predicate_semantics",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "dependency_or_provenance",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "other",
+          "status": "not_applicable",
+          "affects_hard_invariant": false
+        }
+      ],
+      "construction_class": "DEFECTIVE",
+      "construction_dimension": "high_information_qualifier",
+      "gold_alignment": "ALIGNED"
+    },
+    {
+      "candidate_id": "MUTV021-34A5E0CE1C69",
+      "semantic_representation_adjudication": "FAITHFUL",
+      "hard_relevance_adjudication": "NO_HARD_DEFECT",
+      "third_adjudication_used": false,
+      "majority_findings": [
+        {
+          "dimension": "exact_target",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "case_and_comparison_roles",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "negative_or_tolerated_comparator",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "high_information_qualifier",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "timing",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "amount_or_dose",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "route_or_form",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "feature_value",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "predicate_semantics",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "dependency_or_provenance",
+          "status": "faithful",
+          "affects_hard_invariant": false
+        },
+        {
+          "dimension": "other",
+          "status": "not_applicable",
+          "affects_hard_invariant": false
+        }
+      ],
+      "construction_class": "FAITHFUL",
+      "construction_dimension": "high_information_qualifier",
+      "gold_alignment": "ALIGNED"
+    }
+  ],
+  "conflicts": []
+}

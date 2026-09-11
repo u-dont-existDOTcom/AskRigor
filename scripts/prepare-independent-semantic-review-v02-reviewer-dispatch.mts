@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const RUN_ROOT = resolve("evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract");
+await mkdir(resolve(RUN_ROOT, "reviewer"), { recursive: true });
 const readJson = async (path: string) => JSON.parse(await readFile(resolve(path), "utf8"));
 const sha256 = (value: string | Buffer) => createHash("sha256").update(value).digest("hex");
 const admissionBytes = await readFile(resolve(RUN_ROOT, "post-adjudication-admission-v021-corrected.json"));
