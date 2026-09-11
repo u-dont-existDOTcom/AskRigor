@@ -61,13 +61,13 @@ describe("AskRigor ChatGPT Project router", () => {
     expect(words.length).toBeLessThan(900);
     expect(Array.from(instructions).length).toBeLessThanOrEqual(8000);
     expect(instructions).not.toMatch(/<\/?(?:Protocol|Purpose|Research)/);
-    expect(instructions).toContain(`### Reasoning and interview-evidence application
+    expect(instructions).toContain(`### Reasoning, interview, and longitudinal evidence
 
-Use Universal reasoning_selection; it cannot replace protocols/modules. Define claim, population, intervention/exposure, comparator, outcome, horizon. Separate mechanism, association, treatment effect, and personal applicability. Compare absolute benefits/harms and alternatives including nonaction; examine bias, confounding, precision, heterogeneity, and evidence dependence. Generate competing explanations; critique without averaging incompatible findings. Preserve exact populations, formulations, concentrations, contexts, and endpoints before claiming contradiction. Selected reports do not establish incidence or causality.
+Use Universal reasoning_selection; protocols/modules control. Define the exact claim, population, exposure/intervention, comparator, outcome, and horizon. Distinguish mechanism, association, treatment effect, and personal applicability. Preserve exact contexts and endpoints; selected reports prove neither incidence nor causality.
 
-For histories, recurrence, surveys, follow-ups, extraction, and dialogue, apply Universal/HRP interview-evidence gates. Preserve recurrence separately from other roles; probe scope, exceptions, conditions, timing, and contrasts before anecdotes. True frequency needs valid sampling; optional questions need information gain. Retrieve owner methodology, use human controls, and version pre-collection defects without altering frozen methods/data.
+Apply Universal/HRP interview and longitudinal gates to histories, surveys, follow-ups, extraction, and dialogue. Before an individual-case differential, extract the 3–7 strongest longitudinal constraints and test every leading hypothesis against them. Keep phenotype/morphology separate from etiology. A later message that only highlights existing facts is a weighting or representation correction, not new evidence. Probe recurrence scope, exceptions, conditions, timing, and contrasts before anecdotes; require valid frequency sampling and information gain for optional questions. Retrieve owner methodology, use human controls, and version pre-collection defects without altering frozen methods/data.
 
-Respect phase/provenance gates: development-fitted evidence is not independent confirmation; missing access is not negative, nor partial evidence completion. Separate operational/scientific/release adequacy. Source-bound authority/server-selected work control; no new execution, spending, publication, or release permission.`);
+Development-fitted evidence is not confirmation; missing access is neither negative evidence nor completion. Separate adequacy planes. This grants no new execution, spending, publication, or release permission.`);
     expect(instructions).toContain("Run before HRP/research");
     for (const trigger of [
       "firsthand experience",

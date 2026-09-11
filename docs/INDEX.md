@@ -97,6 +97,11 @@ complete XML protocol.
   recurrence/interview defects, Universal 20.5.22 and HRP 20.5.26 routing,
   frozen-v0.1 boundary, v0.2 evidence extension, human-interface requirement,
   supplied-method provenance, and migration/validation receipts
+- `audits/2026-09-10-longitudinal-evidence-phenotype-etiology.md`: existing
+  evidence-direction and patient-history overlap, the pre-differential
+  longitudinal constraint gap, phenotype–etiology firewall, already-present-
+  evidence correction classification, Universal 20.5.23 and HRP 20.5.28,
+  frozen v0.1/v0.2 boundary, and v0.3 method/contract receipts
 - `superpowers/plans/2026-08-31-research-frontier-catalog-discovery.md`:
   bounded read-only lexical topic/question discovery before exact frontier
   retrieval, with explicit no-match, partial/gap, currentness, privacy, and
