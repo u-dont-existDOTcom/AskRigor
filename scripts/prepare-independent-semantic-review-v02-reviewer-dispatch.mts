@@ -5,16 +5,25 @@ import { resolve } from "node:path";
 const RUN_ROOT = resolve("evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract");
 const readJson = async (path: string) => JSON.parse(await readFile(resolve(path), "utf8"));
 const sha256 = (value: string | Buffer) => createHash("sha256").update(value).digest("hex");
-const admissionBytes = await readFile(resolve(RUN_ROOT, "post-adjudication-admission.json"));
+const admissionBytes = await readFile(resolve(RUN_ROOT, "post-adjudication-admission-v021-corrected.json"));
 const admission = JSON.parse(admissionBytes.toString("utf8"));
 if (admission.reviewer_generation_allowed !== true) throw new Error("Reviewer generation remains blocked by adjudication admission");
 
-const goldBytes = await readFile(resolve(RUN_ROOT, "gold/adjudicated-gold.json"));
+const goldBytes = await readFile(resolve(RUN_ROOT, "gold/adjudicated-gold-v021-corrected.json"));
 const gold = JSON.parse(goldBytes.toString("utf8"));
 if (gold.conflict_count !== 0 || gold.candidate_count !== 22) throw new Error("Adjudicated gold is incomplete or conflicted");
-const initialDispatch = await readJson(resolve(RUN_ROOT, "adjudication/dispatch-order.json"));
 const uniqueInputs = new Map<string, any>();
-for (const item of initialDispatch.order) uniqueInputs.set(item.candidate_id, item);
+const manifest = await readJson(resolve(RUN_ROOT, "candidate-manifest-v021-corrected.json"));
+for (const candidate of manifest.candidates) {
+  const input_path = candidate.candidate_id.startsWith("MUTV021-")
+    ? `evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/replacement-v021/inputs/${candidate.candidate_id}.txt`
+    : `evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/${candidate.candidate_id}.txt`;
+  uniqueInputs.set(candidate.candidate_id, {
+    candidate_id: candidate.candidate_id,
+    input_path,
+    input_sha256: sha256(await readFile(resolve(input_path)))
+  });
+}
 if (uniqueInputs.size !== 22) throw new Error(`Expected 22 candidate inputs, found ${uniqueInputs.size}`);
 
 const seed = "semantic-review-v02-prospective-reviewer-20260911";

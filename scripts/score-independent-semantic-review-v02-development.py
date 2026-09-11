@@ -40,7 +40,7 @@ def pointer_exists(value: Any, pointer: str) -> bool:
     return True
 
 
-gold_file = RUN / "gold/adjudicated-gold.json"
+gold_file = RUN / "gold/adjudicated-gold-v021-corrected.json"
 dispatch_file = RUN / "reviewer/dispatch-order.json"
 if not gold_file.exists() or not dispatch_file.exists():
     raise RuntimeError("Adjudicated gold and frozen reviewer dispatch are required")
