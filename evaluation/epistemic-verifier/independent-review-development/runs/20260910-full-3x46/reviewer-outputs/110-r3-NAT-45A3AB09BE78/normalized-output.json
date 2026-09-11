@@ -1,0 +1,210 @@
+{
+"review_version": "askrigor_epistemic_representation_review_v0_1",
+"source_sha256": "a9d647186a9572eee84d7a2eb76ad8f1728b0f3482cb9bf6eb1e7f0fe028051c",
+"state_sha256": "0bb433c92f8f6cfdc17470530e2a7a86515a605d806bbc3bd7fb4f77d3138c85",
+"producer_session_id": "conversation-sha256:15074fd0467057d53da56c0612d3d166755c7aaab70adfe3a8f22669ccd1d063",
+"reviewer": {
+"session_id": "review-session:NAT-45A3AB09BE78:20260911T0328Z",
+"model": "GPT-5.6 Sol",
+"mode": "reasoning",
+"fresh_independent_session": true
+},
+"reviewed_at": "2026-09-11T03:28:00+00:00",
+"findings": [
+{
+"dimension": "exact_target",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 42,
+"end": 55,
+"quote": "target effect"
+}
+],
+"state_paths": [
+"/target/target_id",
+"/target/label",
+"/target/description"
+],
+"rationale": "The state consistently identifies the source target as the target effect and does not substitute an adjacent property or different outcome."
+},
+{
+"dimension": "case_and_comparison_roles",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 72,
+"quote": "Alder is a positive case and produces the target effect within 2 seconds"
+},
+{
+"start": 74,
+"end": 102,
+"quote": "Basin is a tolerated control"
+}
+],
+"state_paths": [
+"/cases/0/comparison_role",
+"/cases/1/comparison_role",
+"/comparisons/0/positive_case_ids",
+"/comparisons/0/control_case_ids"
+],
+"rationale": "Alder is represented as the positive case and Basin as the tolerated control, and the comparison assigns them to the corresponding positive and control sets."
+},
+{
+"dimension": "negative_or_tolerated_comparator",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 74,
+"end": 102,
+"quote": "Basin is a tolerated control"
+}
+],
+"state_paths": [
+"/cases/1",
+"/comparisons/0/control_case_ids"
+],
+"rationale": "The tolerated comparator is retained explicitly as Basin rather than omitted, relabeled as a positive case, or replaced by a different comparator."
+},
+{
+"dimension": "high_information_qualifier",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 56,
+"end": 72,
+"quote": "within 2 seconds"
+}
+],
+"state_paths": [
+"/observations/0/statement",
+"/observations/0/qualifiers/onset_seconds",
+"/observations/0/high_information_qualifier_keys/0"
+],
+"rationale": "The highly discriminating onset qualifier is preserved in the observation statement, encoded numerically as 2 seconds, and explicitly marked as high-information."
+},
+{
+"dimension": "timing",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 56,
+"end": 72,
+"quote": "within 2 seconds"
+},
+{
+"start": 264,
+"end": 307,
+"quote": "no sooner than 3,600 seconds after exposure"
+}
+],
+"state_paths": [
+"/observations/0/statement",
+"/observations/0/qualifiers/onset_seconds",
+"/hypotheses/0/qualifier_predictions/0/operator",
+"/hypotheses/0/qualifier_predictions/0/value",
+"/claims/0/statement",
+"/claims/1/statement"
+],
+"rationale": "The state preserves both timing constraints: Alder's observed onset is within 2 seconds, while the material hypothesis predicts onset at or after 3,600 seconds. The resulting timing conflict is represented in the conclusion."
+},
+{
+"dimension": "amount_or_dose",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source specifies no amount or dose."
+},
+{
+"dimension": "route_or_form",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source specifies no exposure route or material form."
+},
+{
+"dimension": "feature_value",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 104,
+"end": 140,
+"quote": "Feature Iris is represented in Alder"
+},
+{
+"start": 145,
+"end": 162,
+"quote": "absent from Basin"
+}
+],
+"state_paths": [
+"/features/0/case_id",
+"/features/0/feature_id",
+"/features/0/value",
+"/features/1/case_id",
+"/features/1/feature_id",
+"/features/1/value"
+],
+"rationale": "The stored feature values faithfully encode Iris as present for Alder and absent for Basin."
+},
+{
+"dimension": "predicate_semantics",
+"status": "distorted",
+"affects_hard_invariant": true,
+"source_spans": [
+{
+"start": 104,
+"end": 197,
+"quote": "Feature Iris is represented in Alder and absent from Basin, and is the proposed discriminator"
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/operator",
+"/features/0",
+"/features/1"
+],
+"rationale": "The discriminator uses operator \"present\", whose stipulated semantics test whether a feature record exists, not whether that record's stored value equals \"present\". Iris records exist for both Alder and Basin, including the Basin record whose value is \"absent\". Consequently this predicate is satisfied by both cases and does not encode the source's proposed present-versus-absent discriminator. This can change a hard discriminator gate or the conclusions permitted from it."
+},
+{
+"dimension": "dependency_or_provenance",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 72,
+"quote": "Alder is a positive case and produces the target effect within 2 seconds"
+},
+{
+"start": 199,
+"end": 307,
+"quote": "The material hypothesis also requires the target effect to begin no sooner than 3,600 seconds after exposure"
+}
+],
+"state_paths": [
+"/claims/0/provenance",
+"/claims/1/provenance",
+"/claims/1/dependencies/0",
+"/claims/1/dependencies/1"
+],
+"rationale": "The minimum-onset requirement is represented as source-grounded, while the conflict conclusion is represented as an inference depending on the observed Alder onset and the minimum-onset requirement. Those dependencies match the source-supported reasoning."
+},
+{
+"dimension": "other",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "No additional source-to-state discrepancy is identified beyond the predicate-semantics distortion already recorded."
+}
+]
+}
