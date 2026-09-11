@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_BLINDED_GOLD_ADJUDICATION",
+  "initial_attempts_completed": "44/44",
+  "supplemental_attempts_completed": "2/2",
+  "valid_adjudications_available": "44/44 required candidate-round judgments",
+  "original_interface_invalid_attempts_preserved": 2,
+  "unique_temporary_consumer_sessions": 46,
+  "construction_gold_opened_by_execution_controller": false,
+  "reviewer_generation_allowed": false,
+  "next_step": "DETERMINISTIC_DISAGREEMENT_COMPARISON",
+  "last_sequence": 46
+}
