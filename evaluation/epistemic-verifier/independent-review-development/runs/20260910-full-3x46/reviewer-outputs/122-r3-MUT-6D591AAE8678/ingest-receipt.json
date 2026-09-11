@@ -1,0 +1,262 @@
+{
+  "review_version": "askrigor_epistemic_representation_review_v0_1",
+  "source_sha256": "a12f55100c0a71a3018e1fbb9d1fecd2901e171f89253ce14ed8cfc0771f75cb",
+  "state_sha256": "bd3782adb26026b65d0f49c8710c3f33e11d702d8fffad17c368e268c10cc3ec",
+  "producer_session_id": "synthetic-producer-PAIR-2E7BAEEA9BA5",
+  "reviewer": {
+    "session_id": "fresh-review-MUT-6D591AAE8678-20260911T053000Z",
+    "model": "GPT-5.6 Sol",
+    "mode": "reasoning",
+    "fresh_independent_session": true
+  },
+  "reviewed_at": "2026-09-11T05:30:00+00:00",
+  "reviewer_independent": true,
+  "status": "block",
+  "critical_representation": "defective",
+  "findings": [
+    {
+      "dimension": "exact_target",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 33,
+          "quote": "The requested target is risk_m10."
+        }
+      ],
+      "state_paths": [
+        "/target/target_id"
+      ],
+      "rationale": "The state preserves the requested target exactly as risk_m10."
+    },
+    {
+      "dimension": "case_and_comparison_roles",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 34,
+          "end": 64,
+          "quote": "Rowan m10 is the positive case"
+        },
+        {
+          "start": 172,
+          "end": 205,
+          "quote": "Mica m10 is the tolerated control"
+        }
+      ],
+      "state_paths": [
+        "/cases/0/comparison_role",
+        "/cases/1/comparison_role",
+        "/comparisons/0/positive_case_ids/0",
+        "/comparisons/0/control_case_ids/0"
+      ],
+      "rationale": "Rowan m10 is consistently represented as the positive case and Mica m10 as the tolerated control, including in the comparison membership."
+    },
+    {
+      "dimension": "negative_or_tolerated_comparator",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 172,
+          "end": 205,
+          "quote": "Mica m10 is the tolerated control"
+        },
+        {
+          "start": 207,
+          "end": 303,
+          "quote": "Mica receives the same 10-unit intravenous liquid exposure and does not show the target outcome."
+        }
+      ],
+      "state_paths": [
+        "/cases/1/comparison_role",
+        "/observations/1/statement",
+        "/observations/1/qualifiers/dose_units",
+        "/observations/1/qualifiers/route",
+        "/observations/1/qualifiers/form",
+        "/comparisons/0/control_case_ids/0"
+      ],
+      "rationale": "The tolerated-control role, matched 10-unit intravenous liquid exposure, and absence of the target outcome are represented."
+    },
+    {
+      "dimension": "high_information_qualifier",
+      "status": "distorted",
+      "affects_hard_invariant": true,
+      "source_spans": [
+        {
+          "start": 92,
+          "end": 108,
+          "quote": "within 2 seconds"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/qualifiers/onset_seconds",
+        "/observations/0/high_information_qualifier_keys/0",
+        "/hypotheses/0/qualifier_predictions/0"
+      ],
+      "rationale": "The source supplies an upper-bound timing qualifier: onset is within 2 seconds. The source-grounded observation stores onset_seconds as the scalar 2, which collapses the bound into an exact value. Although the separate hypothesis qualifier prediction uses lte 2, that does not repair the over-specific value asserted by the observation itself."
+    },
+    {
+      "dimension": "timing",
+      "status": "distorted",
+      "affects_hard_invariant": true,
+      "source_spans": [
+        {
+          "start": 92,
+          "end": 108,
+          "quote": "within 2 seconds"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/qualifiers/onset_seconds",
+        "/hypotheses/0/qualifier_predictions/0/operator",
+        "/hypotheses/0/qualifier_predictions/0/value"
+      ],
+      "rationale": "The source states onset at some time no later than 2 seconds, not onset exactly at 2 seconds. The lte prediction preserves the bound for that prediction, but the source-grounded observation itself records onset_seconds: 2 without an inequality."
+    },
+    {
+      "dimension": "amount_or_dose",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 115,
+          "end": 139,
+          "quote": "10 units of compound Sol"
+        },
+        {
+          "start": 225,
+          "end": 265,
+          "quote": "same 10-unit intravenous liquid exposure"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/qualifiers/dose_units",
+        "/observations/1/qualifiers/dose_units",
+        "/claims/0/statement"
+      ],
+      "rationale": "Both cases are represented at 10 units, and the state explicitly records that the represented dose is held constant across the comparison."
+    },
+    {
+      "dimension": "route_or_form",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 143,
+          "end": 170,
+          "quote": "intravenous liquid infusion"
+        },
+        {
+          "start": 225,
+          "end": 265,
+          "quote": "same 10-unit intravenous liquid exposure"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/qualifiers/route",
+        "/observations/0/qualifiers/form",
+        "/observations/1/qualifiers/route",
+        "/observations/1/qualifiers/form"
+      ],
+      "rationale": "The material route and form are represented as intravenous and liquid for both cases."
+    },
+    {
+      "dimension": "feature_value",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 312,
+          "end": 339,
+          "quote": "Quartz is high in Rowan m10"
+        },
+        {
+          "start": 344,
+          "end": 359,
+          "quote": "low in Mica m10"
+        },
+        {
+          "start": 395,
+          "end": 452,
+          "quote": "Quartz value equals high distinguishes the target outcome"
+        }
+      ],
+      "state_paths": [
+        "/features/0/value",
+        "/features/1/value",
+        "/hypotheses/0/discriminator/feature_id",
+        "/hypotheses/0/discriminator/operator",
+        "/hypotheses/0/discriminator/value"
+      ],
+      "rationale": "Quartz is represented as high for Rowan and low for Mica, and the discriminator correctly tests equality to high."
+    },
+    {
+      "dimension": "predicate_semantics",
+      "status": "distorted",
+      "affects_hard_invariant": true,
+      "source_spans": [
+        {
+          "start": 395,
+          "end": 452,
+          "quote": "Quartz value equals high distinguishes the target outcome"
+        }
+      ],
+      "state_paths": [
+        "/hypotheses/0/statement",
+        "/hypotheses/0/discriminator",
+        "/hypotheses/0/discriminator/modifier",
+        "/hypotheses/0/qualifier_predictions/0"
+      ],
+      "rationale": "The source's material hypothesis is the Quartz-equals-high discriminator for occurrence of the target outcome. The state adds a dose modifier to that discriminator and also makes onset <= 2 seconds a hypothesis qualifier prediction. Dose matching is source-supported comparison context, and rapid onset is a source observation, but neither is stated as an additional predicate of the material Quartz hypothesis. These additions strengthen or condition the hypothesis beyond the source."
+    },
+    {
+      "dimension": "dependency_or_provenance",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 454,
+          "end": 577,
+          "quote": "The conclusion about risk_m10 must depend on Rowan's source-grounded target observation and the tolerated-control contrast."
+        }
+      ],
+      "state_paths": [
+        "/observations/0/provenance",
+        "/observations/1/provenance",
+        "/claims/1/provenance",
+        "/claims/1/dependencies/0",
+        "/claims/1/dependencies/1"
+      ],
+      "rationale": "The conclusion is represented as an inference and explicitly depends on both Rowan's source-grounded positive observation and Mica's tolerated-control observation. The additional dose-claim dependency does not remove either required dependency."
+    },
+    {
+      "dimension": "other",
+      "status": "missing",
+      "affects_hard_invariant": true,
+      "source_spans": [
+        {
+          "start": 115,
+          "end": 139,
+          "quote": "10 units of compound Sol"
+        },
+        {
+          "start": 225,
+          "end": 265,
+          "quote": "same 10-unit intravenous liquid exposure"
+        }
+      ],
+      "state_paths": [],
+      "rationale": "The state contains no representation of compound identity Sol. Because the control receives the same exposure, compound identity is part of the matched exposure context; omitting it leaves the represented comparison unable to establish that the positive and tolerated-control cases received the same compound."
+    }
+  ],
+  "blockers": [
+    "high_information_qualifier: The source supplies an upper-bound timing qualifier: onset is within 2 seconds. The source-grounded observation stores onset_seconds as the scalar 2, which collapses the bound into an exact value. Although the separate hypothesis qualifier prediction uses lte 2, that does not repair the over-specific value asserted by the observation itself.",
+    "timing: The source states onset at some time no later than 2 seconds, not onset exactly at 2 seconds. The lte prediction preserves the bound for that prediction, but the source-grounded observation itself records onset_seconds: 2 without an inequality.",
+    "predicate_semantics: The source's material hypothesis is the Quartz-equals-high discriminator for occurrence of the target outcome. The state adds a dose modifier to that discriminator and also makes onset <= 2 seconds a hypothesis qualifier prediction. Dose matching is source-supported comparison context, and rapid onset is a source observation, but neither is stated as an additional predicate of the material Quartz hypothesis. These additions strengthen or condition the hypothesis beyond the source.",
+    "other: The state contains no representation of compound identity Sol. Because the control receives the same exposure, compound identity is part of the matched exposure context; omitting it leaves the represented comparison unable to establish that the positive and tolerated-control cases received the same compound."
+  ],
+  "warnings": []
+}

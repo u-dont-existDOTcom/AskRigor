@@ -1,0 +1,204 @@
+{
+"review_version": "askrigor_epistemic_representation_review_v0_1",
+"source_sha256": "1ae5ac30d8253a9ccaba6ada8007c7dd4009b144c0899d22402bac287c6d929a",
+"state_sha256": "196f742913a1a60d48d96f62a32770b0c130e590037042793fb2a1fdb2d65ffe",
+"producer_session_id": "conversation-sha256:2a02bb16a9da9779b09ad5b90af7ea7ccb848667f8a91af958cd8fac43593856",
+"reviewer": {
+"session_id": "review-session:84e28f9b-673b-4142-89ca-0c9ae35f8818",
+"model": "GPT-5.6 Sol",
+"mode": "Thinking",
+"fresh_independent_session": true
+},
+"reviewed_at": "2026-09-11T06:13:00+00:00",
+"findings": [
+{
+"dimension": "exact_target",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 158,
+"end": 171,
+"quote": "target-effect"
+}
+],
+"state_paths": [
+"/target/target_id",
+"/target/label",
+"/observations/0/target_id",
+"/hypotheses/0/target_id"
+],
+"rationale": "The state preserves the source's target-effect as target_effect and consistently links the Willow observation and Ember hypothesis to that target."
+},
+{
+"dimension": "case_and_comparison_roles",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 25,
+"quote": "Willow is a positive case"
+},
+{
+"start": 30,
+"end": 59,
+"quote": "Drift is a tolerated control."
+}
+],
+"state_paths": [
+"/cases/0/case_id",
+"/cases/0/comparison_role",
+"/cases/1/case_id",
+"/cases/1/comparison_role",
+"/comparisons/0/positive_case_ids/0",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "Willow is encoded as the positive case and Drift as the tolerated control, and the comparison assigns them to the corresponding positive and control lists."
+},
+{
+"dimension": "negative_or_tolerated_comparator",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 30,
+"end": 59,
+"quote": "Drift is a tolerated control."
+},
+{
+"start": 60,
+"end": 121,
+"quote": "Feature Ember is represented in Willow and absent from Drift."
+}
+],
+"state_paths": [
+"/cases/1/comparison_role",
+"/comparisons/0/control_case_ids/0",
+"/features/1/case_id",
+"/features/1/feature_id",
+"/features/1/value"
+],
+"rationale": "The tolerated comparator Drift is retained as a control, and its Ember value is false, preserving the source contrast with Willow."
+},
+{
+"dimension": "high_information_qualifier",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 122,
+"end": 208,
+"quote": "The source explicitly says Willow's target-effect observation begins within 2 seconds."
+},
+{
+"start": 352,
+"end": 419,
+"quote": "drops onset_seconds entirely and does not mark it high-information."
+}
+],
+"state_paths": [
+"/observations/0/qualifiers/onset_seconds",
+"/observations/0/high_information_qualifier_keys/0"
+],
+"rationale": "Reviewing the supplied raw state itself, onset_seconds is present and is explicitly listed as a high-information qualifier. The raw state therefore does not exhibit the omission described by the source packet's final meta-description of a candidate extraction."
+},
+{
+"dimension": "timing",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 149,
+"end": 208,
+"quote": "Willow's target-effect observation begins within 2 seconds."
+}
+],
+"state_paths": [
+"/observations/0/statement",
+"/observations/0/qualifiers/onset_seconds/operator",
+"/observations/0/qualifiers/onset_seconds/value"
+],
+"rationale": "The state encodes onset_seconds with operator lte and value 2, exactly matching the source's 'begins within 2 seconds' timing."
+},
+{
+"dimension": "amount_or_dose",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source specifies no amount or dose."
+},
+{
+"dimension": "route_or_form",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source specifies no route or form."
+},
+{
+"dimension": "feature_value",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 60,
+"end": 121,
+"quote": "Feature Ember is represented in Willow and absent from Drift."
+}
+],
+"state_paths": [
+"/features/0/case_id",
+"/features/0/feature_id",
+"/features/0/value",
+"/features/1/case_id",
+"/features/1/feature_id",
+"/features/1/value"
+],
+"rationale": "The stored feature values preserve the stated contrast: Ember is true for Willow and false for Drift. The existence of a Drift feature record is distinct from its stored false value."
+},
+{
+"dimension": "predicate_semantics",
+"status": "distorted",
+"affects_hard_invariant": true,
+"source_spans": [
+{
+"start": 60,
+"end": 121,
+"quote": "Feature Ember is represented in Willow and absent from Drift."
+},
+{
+"start": 209,
+"end": 271,
+"quote": "Test the candidate hypothesis that Ember is the discriminator."
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/feature_id",
+"/hypotheses/0/discriminator/operator",
+"/features/0/feature_id",
+"/features/0/value",
+"/features/1/feature_id",
+"/features/1/value"
+],
+"rationale": "The discriminator uses operator "present", which tests whether an Ember feature record exists rather than whether its stored value is true. Ember records exist for both Willow and Drift, so this predicate does not encode the source's Willow-versus-Drift feature-value contrast and can change the discriminator hard-gate result."
+},
+{
+"dimension": "dependency_or_provenance",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source packet states no dependency relation or independently checkable provenance identifier."
+},
+{
+"dimension": "other",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "No additional source-grounded semantic dimension requires a separate finding."
+}
+]
+}
