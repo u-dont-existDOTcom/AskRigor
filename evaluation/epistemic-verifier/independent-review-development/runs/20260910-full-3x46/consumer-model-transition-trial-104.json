@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "phase": "MAIN_BLINDED_REVIEW",
+  "event": "CONSUMER_MODEL_MODE_AUTOMATIC_TRANSITION",
+  "first_affected_eligible_trial": 104,
+  "previous_controller_observed": {
+    "assistant_model_slug": "gpt-5-6-thinking",
+    "visible_model_label": "GPT-5.6 Sol",
+    "visible_thinking_setting": "Extra High"
+  },
+  "current_controller_observed": {
+    "assistant_model_slug": "gpt-6-pro",
+    "visible_model_label": "GPT-6 Pro",
+    "visible_thinking_setting": "Pro"
+  },
+  "selector_observation": {
+    "observed_after_trial": 104,
+    "current_response_menu_items": [
+      "Retry \u2022 6 Pro",
+      "Use Thinking",
+      "Search the Web"
+    ],
+    "gpt_5_6_sol_offered": false,
+    "extra_high_offered": false,
+    "new_chat_model_selector_exposed": false
+  },
+  "disposition": "ELIGIBLE_AUTOMATIC_PLATFORM_TRANSITION_ALLOWED_BY_PREREGISTERED_SAME_MODEL_UNLESS_TECHNICALLY_IMPOSSIBLE_RULE",
+  "analysis_constraint": "Report results stratified by consumer model/mode and treat the trial-104 transition as a development-run limitation. Do not attribute any post-transition difference solely to reviewer architecture.",
+  "scorer_gold_comparison_performed": false
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_STRATEGY_DECISION",
+  "selected_priority": "A",
+  "decision": "STOP_AND_IMPROVE_REVIEWER_CONTRACT",
+  "trigger": {
+    "majority_hard_defect_false_passes": "1/27",
+    "candidate_id": "NAT-EB3FBFA2694D",
+    "majority_exact_hard_defect_sensitivity": "26/27",
+    "threshold_rule": "Any majority false pass on a gold hard-relevant defect triggers priority A."
+  },
+  "hard_relevance_discretion_result": {
+    "individual_accuracy_conditional_on_exact_defect_detection": "80/80",
+    "majority_accuracy_conditional_on_exact_defect_detection": "27/27",
+    "priority_b_triggered": false
+  },
+  "production_integration_authorized": false,
+  "next_architecture_step": "Prospectively revise and test the v0.1 semantic-review contract for exact predicate truth conditions, and repair the controlled-mutation base so nominal faithful states are independently source-faithful before a new DEVELOPMENT run.",
+  "prohibitions_preserved": [
+    "No new epistemic gates",
+    "No HRP or Universal changes",
+    "No deterministic verifier changes",
+    "No MAST or held-out data",
+    "No deployment or production integration"
+  ]
+}

@@ -1,0 +1,158 @@
+You are the independent semantic representation reviewer for a DEVELOPMENT / DISCOVERY run.
+
+Review only the exact source packet and exact raw candidate state in the supplied work package. Do not use the state producer's rationale, a scorer key, an expected answer, verifier implementation details, another reviewer's output, or outside evidence.
+
+For every required dimension, decide whether the state is faithful, missing, distorted, uncertain, or the dimension is not applicable to the source. Check the exact target; case and comparison roles; tolerated or negative comparators; high-information qualifiers; timing; amount or dose; route or form; feature values; predicate semantics; and dependency or provenance. In particular, distinguish a feature record's existence from the value stored in that record: `operator: "present"` asks whether a record exists and does not mean that its stored value equals "present".
+
+Mark `affects_hard_invariant` true only when the discrepancy could change a hard-gate result or permitted conclusion. Cite exact source character spans and resolvable JSON Pointer paths. A missing state fact has no state path. Use a fresh session distinct from the producer. Return exactly one object conforming to the canonical review submission shape; do not synthesize an answer to the source question.
+
+Copy `source_sha256` from the work package. Copy the work package's `raw_state_sha256` into the output field named `state_sha256`. Copy `producer_session_id` from the work package.
+
+Use this exact top-level shape:
+
+{
+  "review_version": "askrigor_epistemic_representation_review_v0_1",
+  "source_sha256": "<copy from work package>",
+  "state_sha256": "<copy work package raw_state_sha256>",
+  "producer_session_id": "<copy from work package>",
+  "reviewer": {
+    "session_id": "<this fresh review session identity>",
+    "model": "<displayed model>",
+    "mode": "<displayed reasoning mode>",
+    "fresh_independent_session": true
+  },
+  "reviewed_at": "<ISO-8601 timestamp with offset>",
+  "findings": [
+    {
+      "dimension": "<one required dimension>",
+      "status": "faithful | missing | distorted | uncertain | not_applicable",
+      "affects_hard_invariant": true,
+      "source_spans": [{"start": 0, "end": 1, "quote": "<exact bytes>"}],
+      "state_paths": ["/target/target_id"],
+      "rationale": "<specific judgment>"
+    }
+  ]
+}
+
+Return exactly one finding for each dimension listed in `required_dimensions`, in that order. For `not_applicable`, set `affects_hard_invariant` false and leave `source_spans` and `state_paths` empty. For `missing`, cite source spans and leave `state_paths` empty. For `faithful` or `distorted`, cite both source spans and state paths. Use `uncertain` rather than guessing.
+
+
+
+WORK PACKAGE
+{
+  "package_version": "askrigor_epistemic_representation_raw_invalid_envelope_v0_1",
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "source_packet": "Willow is a positive case and Drift is a tolerated control. Feature Ember is represented in Willow and absent from Drift. The source explicitly says Willow's target-effect observation begins within 2 seconds. Test the candidate hypothesis that Ember is the discriminator. A candidate semantic extraction preserves the target and Willow observation but drops onset_seconds entirely and does not mark it high-information.",
+  "source_sha256": "1ae5ac30d8253a9ccaba6ada8007c7dd4009b144c0899d22402bac287c6d929a",
+  "raw_candidate_state_json": {
+    "state_version": "askrigor_epistemic_state_v1",
+    "target": {
+      "target_id": "target_effect",
+      "label": "target-effect",
+      "description": "The target-effect observation referenced in the source packet."
+    },
+    "cases": [
+      {
+        "case_id": "Willow",
+        "label": "Willow",
+        "comparison_role": "positive",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-Y8PCH6"
+        }
+      },
+      {
+        "case_id": "Drift",
+        "label": "Drift",
+        "comparison_role": "tolerated_control",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-Y8PCH6"
+        }
+      }
+    ],
+    "observations": [
+      {
+        "observation_id": "willow_target_effect",
+        "target_id": "target_effect",
+        "case_id": "Willow",
+        "statement": "Willow's target-effect observation begins within 2 seconds.",
+        "material": true,
+        "qualifiers": {
+          "onset_seconds": {
+            "operator": "lte",
+            "value": 2
+          }
+        },
+        "high_information_qualifier_keys": [
+          "onset_seconds"
+        ],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-Y8PCH6"
+        }
+      }
+    ],
+    "features": [
+      {
+        "case_id": "Willow",
+        "feature_id": "Ember",
+        "value": true,
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-Y8PCH6"
+        }
+      },
+      {
+        "case_id": "Drift",
+        "feature_id": "Ember",
+        "value": false,
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-Y8PCH6"
+        }
+      }
+    ],
+    "comparisons": [
+      {
+        "comparison_id": "willow_vs_drift",
+        "target_id": "target_effect",
+        "positive_case_ids": [
+          "Willow"
+        ],
+        "control_case_ids": [
+          "Drift"
+        ]
+      }
+    ],
+    "hypotheses": [
+      {
+        "hypothesis_id": "ember_discriminator",
+        "target_id": "target_effect",
+        "statement": "Ember is the discriminator.",
+        "material": true,
+        "discriminator": {
+          "feature_id": "Ember",
+          "operator": "present"
+        },
+        "qualifier_predictions": []
+      }
+    ],
+    "claims": []
+  },
+  "raw_state_sha256": "196f742913a1a60d48d96f62a32770b0c130e590037042793fb2a1fdb2d65ffe",
+  "producer_session_id": "conversation-sha256:2a02bb16a9da9779b09ad5b90af7ea7ccb848667f8a91af958cd8fac43593856",
+  "required_dimensions": [
+    "exact_target",
+    "case_and_comparison_roles",
+    "negative_or_tolerated_comparator",
+    "high_information_qualifier",
+    "timing",
+    "amount_or_dose",
+    "route_or_form",
+    "feature_value",
+    "predicate_semantics",
+    "dependency_or_provenance",
+    "other"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "status": "CONSUMER_SURFACE_SETTING_FROZEN",
+  "model": "GPT-5.6 Sol",
+  "mode": "Extra High",
+  "ordinal": "4 of 5",
+  "candidate_count": 46,
+  "reviewer_outputs_frozen": 0,
+  "freeze_sha256": "86ae8adb4e812a72f5466c57d33d8a5e3b8045476a005024783ff30024d07ce7"
+}

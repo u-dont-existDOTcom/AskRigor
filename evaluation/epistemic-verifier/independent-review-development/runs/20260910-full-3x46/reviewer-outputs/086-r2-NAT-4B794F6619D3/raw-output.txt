@@ -1,0 +1,215 @@
+{
+"review_version": "askrigor_epistemic_representation_review_v0_1",
+"source_sha256": "7e1f1c3b4ebcc027857903fadae71b1a2f52caf7365e7bb8944578a8e36f98d5",
+"state_sha256": "a297796fe388a487969268565261afd4b692190a577fa91d147c029b34a8c961",
+"producer_session_id": "conversation-sha256:96ea0c4ce072dcc590be87fef93512984f7d1e37f7b14773c2415027832ea229",
+"reviewer": {
+"session_id": "review-session:a9e0401a-8f91-461d-a63a-1e48cee7d602",
+"model": "GPT-5.6 Sol",
+"mode": "Pro",
+"fresh_independent_session": true
+},
+"reviewed_at": "2026-09-10T21:13:00+00:00",
+"findings": [
+{
+"dimension": "exact_target",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 41,
+"quote": "Cedar and Flint show the target response."
+},
+{
+"start": 42,
+"end": 102,
+"quote": "Mica is explicitly tolerated and does not show the response."
+},
+{
+"start": 153,
+"end": 222,
+"quote": "Test the hypothesis that Vela itself explains the selective response."
+}
+],
+"state_paths": [
+"/target/target_id",
+"/target/label",
+"/target/description",
+"/hypotheses/0/target_id",
+"/hypotheses/0/statement"
+],
+"rationale": "The state preserves the exact target as the response shown by Cedar and Flint but not by tolerated Mica, and the tested hypothesis is explicitly directed at that selective target response."
+},
+{
+"dimension": "case_and_comparison_roles",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 41,
+"quote": "Cedar and Flint show the target response."
+},
+{
+"start": 42,
+"end": 102,
+"quote": "Mica is explicitly tolerated and does not show the response."
+}
+],
+"state_paths": [
+"/cases/0/case_id",
+"/cases/0/comparison_role",
+"/cases/1/case_id",
+"/cases/1/comparison_role",
+"/cases/2/case_id",
+"/cases/2/comparison_role",
+"/comparisons/0/positive_case_ids",
+"/comparisons/0/control_case_ids"
+],
+"rationale": "Cedar and Flint are correctly represented as positive cases, Mica as a tolerated control, and the comparison places Cedar and Flint against Mica."
+},
+{
+"dimension": "negative_or_tolerated_comparator",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 42,
+"end": 102,
+"quote": "Mica is explicitly tolerated and does not show the response."
+}
+],
+"state_paths": [
+"/cases/2/comparison_role",
+"/observations/2/case_id",
+"/observations/2/statement",
+"/comparisons/0/control_case_ids"
+],
+"rationale": "The state preserves both critical aspects of Mica: it is explicitly tolerated and it does not show the target response."
+},
+{
+"dimension": "high_information_qualifier",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 42,
+"end": 102,
+"quote": "Mica is explicitly tolerated and does not show the response."
+},
+{
+"start": 153,
+"end": 222,
+"quote": "Test the hypothesis that Vela itself explains the selective response."
+}
+],
+"state_paths": [
+"/target/description",
+"/cases/2/comparison_role",
+"/observations/2/statement",
+"/hypotheses/0/statement"
+],
+"rationale": "The information-bearing contrast—Mica being explicitly tolerated while lacking the response, making the response selective—is preserved structurally and textually. The empty observation qualifier maps do not erase this contrast because tolerated-control status is represented as a comparison role and selectivity is preserved in the hypothesis and target description."
+},
+{
+"dimension": "timing",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source states no timing, latency, duration, sequence, or temporal qualifier."
+},
+{
+"dimension": "amount_or_dose",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source contains no amount, quantity, concentration, or dose information."
+},
+{
+"dimension": "route_or_form",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source contains no route, administration mode, physical form, or analogous form distinction."
+},
+{
+"dimension": "feature_value",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 103,
+"end": 152,
+"quote": "Marker Vela is present in Cedar, Flint, and Mica."
+}
+],
+"state_paths": [
+"/features/0/case_id",
+"/features/0/feature_id",
+"/features/0/value",
+"/features/1/case_id",
+"/features/1/feature_id",
+"/features/1/value",
+"/features/2/case_id",
+"/features/2/feature_id",
+"/features/2/value"
+],
+"rationale": "The stored feature values faithfully encode Vela as true for Cedar, Flint, and Mica."
+},
+{
+"dimension": "predicate_semantics",
+"status": "distorted",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 103,
+"end": 152,
+"quote": "Marker Vela is present in Cedar, Flint, and Mica."
+},
+{
+"start": 153,
+"end": 222,
+"quote": "Test the hypothesis that Vela itself explains the selective response."
+}
+],
+"state_paths": [
+"/features/0/value",
+"/features/1/value",
+"/features/2/value",
+"/hypotheses/0/discriminator/feature_id",
+"/hypotheses/0/discriminator/operator"
+],
+"rationale": "The source hypothesis concerns the case-level value of marker Vela—Vela being present in each case. The state stores that semantic fact as value=true, but the discriminator uses operator="present", which tests whether a feature record exists rather than whether the record's stored value is true. Those predicates are semantically distinct. In this particular state all three cases both have a Vela record and have value=true, so the erroneous predicate has the same extension across the three cases and does not change the hard comparison result."
+},
+{
+"dimension": "dependency_or_provenance",
+"status": "uncertain",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [
+"/cases/0/provenance",
+"/cases/1/provenance",
+"/cases/2/provenance",
+"/observations/0/provenance",
+"/observations/1/provenance",
+"/observations/2/provenance",
+"/features/0/provenance",
+"/features/1/provenance",
+"/features/2/provenance"
+],
+"rationale": "The represented case, observation, and feature facts are visibly grounded in the supplied source packet, supporting provenance kind="source_grounded". However, the packet text contains no identifier establishing that "DEV-QWCNK4" denotes this source, so the exact source_id linkage cannot be independently verified from the permitted evidence."
+},
+{
+"dimension": "other",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "No additional source dimension requiring representation review is apparent beyond the explicitly required dimensions."
+}
+]
+}

@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "phase": "MAIN_BLINDED_REVIEW_CHECKPOINT",
+  "status": "IN_PROGRESS",
+  "eligible_review_trials_frozen": 128,
+  "planned_eligible_review_trials": 138,
+  "accepted_consumer_sessions_frozen": 131,
+  "excluded_consumer_sessions": 3,
+  "controller_integrity_defects": 2,
+  "corrective_trials_completed": 3,
+  "capture_integrity_corrections": 1,
+  "valid_ingest_receipts": 126,
+  "invalid_eligible_ingest_receipts": 2,
+  "distinct_eligible_controller_conversation_identities": 128,
+  "distinct_total_controller_conversation_identities": 131,
+  "verified_model_mode_trials": 128,
+  "exact_submission_timestamp_trials": 125,
+  "bounded_submission_timestamp_trials": 3,
+  "bounded_completion_timestamp_trials": 3,
+  "rate_limit_overlay_after_submission_trials": 8,
+  "pre_submission_rate_guard_events": 3,
+  "automatic_consumer_model_mode_transitions": 2,
+  "gpt_5_6_sol_extra_high_trials": 125,
+  "gpt_6_pro_trials": 3,
+  "temporary_gpt_6_pro_trial_range": [
+    104,
+    106
+  ],
+  "gpt_5_6_sol_restored_at_trial": 107,
+  "non_session_submission_control_recoveries": 3,
+  "post_submission_acceptance_wait_timeouts": 1,
+  "post_submission_controller_state_recoveries": 2,
+  "controller_active_state_closure_recoveries": 1,
+  "external_tool_or_browsing_detected_trials": 0,
+  "original_raw_outputs_preserved": true,
+  "scorer_gold_comparison_performed": false,
+  "minimum_completion_poll_interval_ms": 60000,
+  "minimum_new_submission_spacing_ms_after_first_rate_limit": 600000,
+  "browser_surface_policy": "SINGLE_PRIVATE_IN_APP_BROWSER_TAB_SEQUENTIAL_ONLY",
+  "current_execution_pause": null,
+  "invalid_eligible_ingest_receipt_paths": [
+    "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/reviewer-outputs/086-r2-NAT-4B794F6619D3/ingest-error.json",
+    "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/reviewer-outputs/128-r3-MUT-3AC8DB61DB63/ingest-error.json"
+  ],
+  "model_transition_receipts": [
+    "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/consumer-model-transition-trial-104.json",
+    "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/consumer-model-transition-trial-107-return.json"
+  ],
+  "note": "Regular eight-trial checkpoint. Trials 121 through 128 are frozen from distinct fresh consumer conversations using GPT-5.6 Sol / Extra High. Trial 128 produced an invalid exact-source-span submission and is preserved unchanged alongside the prior invalid trial 86; neither was regenerated or controller-repaired. A shared-account pre-submission rate guard appeared while trial 128 was staged, was dismissed without submission, and the 10-minute accepted-submission interval remained intact. No scorer gold was opened."
+}

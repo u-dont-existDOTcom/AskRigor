@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "base_commit": "2b2426a8794c8d65aa9adedbc3f40d66c68ceb44",
+  "reviewer_prompt_sha256": "42a4344706a14f5072fcdaa33a0056ef24e346d7b21d4a41ab48c58d0c237f65",
+  "raw_invalid_reviewer_prompt_sha256": "b27a7c67e28e9558e10cf513b238d69f51a778179c6f867d522cc5433c32337c",
+  "raw_invalid_adapter_source_sha256": "7dc3ce996525d30ddbbbcb2cf4f0238a69adea921dbeb18e158958da8e92786c",
+  "natural_candidates": 24,
+  "schema_invalid_natural_candidates": 1,
+  "mutation_candidates": 22,
+  "total_candidates": 46,
+  "review_trials": 138,
+  "scorer_or_prior_label_accessed_by_preparation": false
+}

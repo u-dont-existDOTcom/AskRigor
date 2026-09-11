@@ -1,0 +1,232 @@
+{
+  "review_version": "askrigor_epistemic_representation_review_v0_1",
+  "source_sha256": "a9d647186a9572eee84d7a2eb76ad8f1728b0f3482cb9bf6eb1e7f0fe028051c",
+  "state_sha256": "a770892f846087efc2f2f958d28ebe4ab7e46f20eb4139e32b70fdaa360f9b11",
+  "producer_session_id": "conversation-sha256:2f6c6ef858d098b478840d5101609f590b78d7b4590116abbccd399e7e45862b",
+  "reviewer": {
+    "session_id": "review-session:20260911T0419Z-NAT-31DA10F913CE",
+    "model": "GPT-5.6 Sol",
+    "mode": "Thinking",
+    "fresh_independent_session": true
+  },
+  "reviewed_at": "2026-09-11T04:19:00+00:00",
+  "reviewer_independent": true,
+  "status": "block",
+  "critical_representation": "defective",
+  "findings": [
+    {
+      "dimension": "exact_target",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 42,
+          "end": 55,
+          "quote": "target effect"
+        }
+      ],
+      "state_paths": [
+        "/target/target_id",
+        "/target/label",
+        "/observations/0/target_id",
+        "/hypotheses/0/target_id"
+      ],
+      "rationale": "The state consistently identifies the source's target as the target effect and binds both the Alder observation and Iris hypothesis to that same target."
+    },
+    {
+      "dimension": "case_and_comparison_roles",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 24,
+          "quote": "Alder is a positive case"
+        },
+        {
+          "start": 74,
+          "end": 102,
+          "quote": "Basin is a tolerated control"
+        }
+      ],
+      "state_paths": [
+        "/cases/0/case_id",
+        "/cases/0/comparison_role",
+        "/cases/1/case_id",
+        "/cases/1/comparison_role",
+        "/comparisons/0/positive_case_ids/0",
+        "/comparisons/0/control_case_ids/0"
+      ],
+      "rationale": "Alder is represented as the positive case and Basin as the tolerated control, and the comparison view preserves those roles."
+    },
+    {
+      "dimension": "negative_or_tolerated_comparator",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 74,
+          "end": 102,
+          "quote": "Basin is a tolerated control"
+        }
+      ],
+      "state_paths": [
+        "/cases/1/comparison_role",
+        "/comparisons/0/control_case_ids/0"
+      ],
+      "rationale": "The tolerated comparator Basin is explicitly retained as a control rather than omitted or reclassified."
+    },
+    {
+      "dimension": "high_information_qualifier",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 56,
+          "end": 72,
+          "quote": "within 2 seconds"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/statement",
+        "/observations/0/qualifiers/onset_seconds",
+        "/observations/0/high_information_qualifier_keys/0"
+      ],
+      "rationale": "The rapid-onset qualifier is preserved in the observation statement, encoded as onset_seconds with value 2, and explicitly designated high-information."
+    },
+    {
+      "dimension": "timing",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 56,
+          "end": 72,
+          "quote": "within 2 seconds"
+        },
+        {
+          "start": 264,
+          "end": 307,
+          "quote": "no sooner than 3,600 seconds after exposure"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/statement",
+        "/observations/0/qualifiers/onset_seconds",
+        "/hypotheses/0/statement",
+        "/hypotheses/0/qualifier_predictions/0/qualifier_key",
+        "/hypotheses/0/qualifier_predictions/0/operator",
+        "/hypotheses/0/qualifier_predictions/0/value"
+      ],
+      "rationale": "The state preserves both timing facts: Alder's observed effect occurs within 2 seconds, while the material hypothesis predicts onset at or after 3,600 seconds. The resulting incompatibility is retained rather than reconciled away."
+    },
+    {
+      "dimension": "amount_or_dose",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "The source states no amount or dose."
+    },
+    {
+      "dimension": "route_or_form",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "The source states no route or form."
+    },
+    {
+      "dimension": "feature_value",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 104,
+          "end": 162,
+          "quote": "Feature Iris is represented in Alder and absent from Basin"
+        }
+      ],
+      "state_paths": [
+        "/features/0/case_id",
+        "/features/0/feature_id",
+        "/features/0/value",
+        "/features/1/case_id",
+        "/features/1/feature_id",
+        "/features/1/value"
+      ],
+      "rationale": "The stored feature values correctly encode Iris as true for Alder and false for Basin."
+    },
+    {
+      "dimension": "predicate_semantics",
+      "status": "distorted",
+      "affects_hard_invariant": true,
+      "source_spans": [
+        {
+          "start": 104,
+          "end": 197,
+          "quote": "Feature Iris is represented in Alder and absent from Basin, and is the proposed discriminator"
+        }
+      ],
+      "state_paths": [
+        "/hypotheses/0/discriminator/feature_id",
+        "/hypotheses/0/discriminator/operator",
+        "/features/0",
+        "/features/1"
+      ],
+      "rationale": "The discriminator uses operator \"present\". Under the specified predicate semantics, \"present\" tests whether an Iris feature record exists, not whether that record's stored value is true. Iris records exist for both Alder and Basin; Basin's record merely stores false. Therefore this predicate does not discriminate Alder from the tolerated Basin control despite the source proposing the represented-versus-absent Iris contrast as the discriminator. This can change a hard specificity/discriminator result or permitted conclusion."
+    },
+    {
+      "dimension": "dependency_or_provenance",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 73,
+          "quote": "Alder is a positive case and produces the target effect within 2 seconds;"
+        },
+        {
+          "start": 74,
+          "end": 103,
+          "quote": "Basin is a tolerated control."
+        },
+        {
+          "start": 104,
+          "end": 198,
+          "quote": "Feature Iris is represented in Alder and absent from Basin, and is the proposed discriminator."
+        },
+        {
+          "start": 199,
+          "end": 308,
+          "quote": "The material hypothesis also requires the target effect to begin no sooner than 3,600 seconds after exposure."
+        }
+      ],
+      "state_paths": [
+        "/cases/0/provenance",
+        "/cases/1/provenance",
+        "/observations/0/provenance",
+        "/features/0/provenance",
+        "/features/1/provenance",
+        "/observations/0/case_id",
+        "/observations/0/target_id",
+        "/comparisons/0/target_id",
+        "/hypotheses/0/target_id",
+        "/hypotheses/0/qualifier_predictions/0/observation_id"
+      ],
+      "rationale": "The source-grounded case, observation, and feature records use consistent provenance, and the internal references correctly bind the observation to Alder and the target, the comparison to the same target and cases, and the timing prediction to the Alder target-effect observation."
+    },
+    {
+      "dimension": "other",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "No additional representation discrepancy outside the required dimensions is evident from the supplied source packet and candidate state."
+    }
+  ],
+  "blockers": [
+    "predicate_semantics: The discriminator uses operator \"present\". Under the specified predicate semantics, \"present\" tests whether an Iris feature record exists, not whether that record's stored value is true. Iris records exist for both Alder and Basin; Basin's record merely stores false. Therefore this predicate does not discriminate Alder from the tolerated Basin control despite the source proposing the represented-versus-absent Iris contrast as the discriminator. This can change a hard specificity/discriminator result or permitted conclusion."
+  ],
+  "warnings": []
+}

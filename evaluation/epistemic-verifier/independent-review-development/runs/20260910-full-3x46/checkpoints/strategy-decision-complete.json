@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "phase": "STRATEGY_DECISION_COMPLETE",
+  "status": "COMPLETE",
+  "selected_priority": "A",
+  "decision": "STOP_AND_IMPROVE_REVIEWER_CONTRACT",
+  "decision_receipt": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/results/architecture-decision.json",
+  "production_integration_permitted": false,
+  "next_step_is_development_only": true
+}

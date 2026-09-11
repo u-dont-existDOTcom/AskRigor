@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "phase": "SCORER_UNBLINDING",
+  "opened_at": "2026-09-11T08:24:56Z",
+  "pre_unblinding_commit": "c634ea51df349eda5db71df315daf7a455bbe2c6",
+  "pre_unblinding_population_freeze_path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/pre-unblinding-output-freeze.json",
+  "pre_unblinding_population_freeze_sha256": "6a4f967eabc24b13581812aee8522233f926023b68ad14fc06fe7551012bf983",
+  "pre_unblinding_population_inventory_sha256": "ad979084a20b810993404be67a609a389d02979e5a8181e8b4aa7e57bed0c2b2",
+  "eligible_outputs_frozen_before_access": 138,
+  "gold_files_opened": [
+    {
+      "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/natural/natural-state-adjudication-gold.json",
+      "sha256": "c905366a45d45fb21c29634a77ba2b1534dd54dd10edeca7514c0653bae62f3a",
+      "bytes": 206018
+    },
+    {
+      "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/mutation-state-gold.json",
+      "sha256": "dc58d0d249641c816bca1eb170606c4eaf97068c3a48ea5169e336a752655a45",
+      "bytes": 49703
+    },
+    {
+      "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/natural/candidate-map.json",
+      "sha256": "001f4eaa914da1b11b4d3043ec106f1839558dff022efce3659a49dfd55cdc08",
+      "bytes": 3339
+    },
+    {
+      "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/mutation-construction-manifest.json",
+      "sha256": "90869005a9eccaaf8703a7007f34bfe5f5298c7129b16636b0d957cd2ea93cee",
+      "bytes": 18146
+    }
+  ],
+  "scoring_started_at_receipt": false,
+  "note": "The complete 138-review output population was committed and pushed before this first scorer-gold access. The listed scorer artifacts were opened only to establish their exact bytes and begin offline scoring."
+}

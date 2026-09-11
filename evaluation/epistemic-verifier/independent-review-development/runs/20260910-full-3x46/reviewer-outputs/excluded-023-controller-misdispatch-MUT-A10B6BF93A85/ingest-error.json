@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "status": "invalid",
+  "error_code": "REVIEW_BOUND_TO_DIFFERENT_SOURCE_PACKET",
+  "error_message": "Representation review is bound to a different source packet",
+  "expected_candidate_id": "MUT-A10B6BF93A85",
+  "actual_candidate_id": "MUT-47F0C17864E8",
+  "eligible_reviewer_trial": false,
+  "raw_output_preserved": true
+}

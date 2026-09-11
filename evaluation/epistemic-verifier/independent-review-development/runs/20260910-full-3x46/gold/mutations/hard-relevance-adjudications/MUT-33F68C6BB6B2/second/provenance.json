@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "trial_id": "gold-hard-relevance-second-MUT-33F68C6BB6B2",
+  "phase": "TRACK2_HARD_RELEVANCE_SECOND_ADJUDICATION",
+  "candidate_id": "MUT-33F68C6BB6B2",
+  "controller_observed": {
+    "surface": "CHATGPT_CONSUMER_UI",
+    "conversation_identity_sha256": "49e6a0c938967f3fee76a5eca13e472b8848fbe6e93c9d6e35f79dab151ba6fa",
+    "user_message_id": "283f1506-69bc-455e-bb50-e05ff68d721c",
+    "assistant_message_id": "57a04da1-8378-42e4-9516-66bbc110547c",
+    "assistant_model_slug": "gpt-5-6-thinking",
+    "visible_model_label": "GPT-5.6 Sol",
+    "thinking_control_label": "Thinking effort",
+    "visible_thinking_setting": "Extra High",
+    "visible_thinking_ordinal": "4 of 5",
+    "account_plan_label": "Pro",
+    "account_plan_role": "PROVENANCE_METADATA_ONLY"
+  },
+  "timestamps": {
+    "submitted_at": "2026-09-10T14:17:30.345Z",
+    "completed_at": "2026-09-10T14:18:09.613Z"
+  },
+  "input": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-inputs/MUT-33F68C6BB6B2.txt",
+    "sha256": "96ba39ef7756011ef9d266c91a225d2ee185032c59260ba6d15de2d686d39a7a",
+    "submission_text_fill_sha256": "96ba39ef7756011ef9d266c91a225d2ee185032c59260ba6d15de2d686d39a7a",
+    "accepted_rendered_text_sha256": "746d1372f086453db4d2a98d739baef9a49b38e8b271b314d25516ebc30090cd",
+    "rendered_markdown_byte_comparison": "NOT_EXACTLY_COMPARABLE"
+  },
+  "output": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/mutations/hard-relevance-adjudications/MUT-33F68C6BB6B2/second/raw-output.txt",
+    "sha256": "fe11ef96094a9a7779269c60828903abe4e23465c3013675b92abe0919cfad5f",
+    "characters": 786,
+    "complete": true
+  },
+  "integrity": {
+    "fresh_conversation": true,
+    "external_tool_or_browsing_detected": false,
+    "talked_to_app_count": 0,
+    "searched_web_indicator_count": 0,
+    "sources_control_count": 0,
+    "sources_control_interpretation": "PROMPT_ATTACHMENT_OR_UI_CONTROL_NOT_BY_ITSELF_EXTERNAL_BROWSING",
+    "content_retry": false,
+    "replacement": false
+  }
+}

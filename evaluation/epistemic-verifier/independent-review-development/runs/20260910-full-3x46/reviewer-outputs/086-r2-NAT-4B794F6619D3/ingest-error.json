@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "status": "invalid",
+  "error_code": "APPLICABLE_FINDING_MISSING_SOURCE_EVIDENCE",
+  "error_message": "dependency_or_provenance: applicable findings require exact source evidence",
+  "candidate_id": "NAT-4B794F6619D3",
+  "trial_id": "semantic-review-086-r2-NAT-4B794F6619D3",
+  "eligible_reviewer_trial": true,
+  "raw_output_sha256": "e46424e44caf07cd6e8a7c54f0a1a23d2106bd109a1a7dee849d154a5b55fb37",
+  "raw_output_preserved": true,
+  "normalized_output_preserved": true,
+  "reviewer_output_regenerated": false,
+  "controller_repair_performed": false,
+  "confirmed_with_repository_ingest_under_required_runtime": "24.18.0",
+  "disposition": "PRESERVE_AND_SCORE_AS_INVALID_REVIEWER_SUBMISSION"
+}

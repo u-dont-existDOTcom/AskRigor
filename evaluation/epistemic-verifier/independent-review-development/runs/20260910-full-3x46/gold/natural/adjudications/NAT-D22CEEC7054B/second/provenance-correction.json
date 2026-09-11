@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "candidate_id": "NAT-D22CEEC7054B",
+  "supersedes_fields_only": [
+    "/integrity/tools_or_apps_detected",
+    "/integrity/sources_count"
+  ],
+  "corrected": {
+    "external_tool_or_browsing_detected": false,
+    "talked_to_app_count": 0,
+    "searched_web_indicator_count": 0,
+    "sources_control_count": 1,
+    "sources_control_interpretation": "PROMPT_ATTACHMENT_OR_UI_CONTROL_NOT_BY_ITSELF_EXTERNAL_BROWSING"
+  },
+  "basis": "The visible Sources control belonged to ChatGPT's pasted-text attachment/rendering UI. The completed conversation contained no Talked to App, Searched the web, or Browsed the web indicator. The original provenance is preserved unchanged."
+}

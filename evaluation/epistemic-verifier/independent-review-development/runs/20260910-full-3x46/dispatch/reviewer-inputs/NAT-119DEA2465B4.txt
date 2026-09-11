@@ -1,0 +1,200 @@
+You are the independent semantic representation reviewer for a DEVELOPMENT / DISCOVERY run.
+
+Review only the exact source packet and EpistemicStateV1 candidate in the supplied work package. Do not use the state producer's rationale, a scorer key, an expected answer, verifier implementation details, another arm's output, or outside evidence.
+
+For every required dimension, decide whether the state is faithful, missing, distorted, uncertain, or the dimension is not applicable to the source. Check the exact target; case and comparison roles; tolerated or negative comparators; high-information qualifiers; timing; amount or dose; route or form; feature values; predicate semantics; and dependency or provenance. In particular, distinguish a feature record's existence from the value stored in that record: `operator: "present"` asks whether a record exists and does not mean that its stored value equals "present".
+
+Mark `affects_hard_invariant` true only when the discrepancy could change a hard-gate result or permitted conclusion. Cite exact source character spans and resolvable JSON Pointer paths. A missing state fact has no state path. Use a fresh session distinct from the producer. Return exactly one object conforming to `EpistemicRepresentationReviewSubmissionV0.1`; do not synthesize an answer to the source question.
+
+Use this exact top-level shape:
+
+{
+  "review_version": "askrigor_epistemic_representation_review_v0_1",
+  "source_sha256": "<copy from work package>",
+  "state_sha256": "<copy from work package>",
+  "producer_session_id": "<copy from work package producer.session_id>",
+  "reviewer": {
+    "session_id": "<this fresh review session identity>",
+    "model": "<displayed model>",
+    "mode": "<displayed reasoning mode>",
+    "fresh_independent_session": true
+  },
+  "reviewed_at": "<ISO-8601 timestamp with offset>",
+  "findings": [
+    {
+      "dimension": "<one required dimension>",
+      "status": "faithful | missing | distorted | uncertain | not_applicable",
+      "affects_hard_invariant": true,
+      "source_spans": [{"start": 0, "end": 1, "quote": "<exact bytes>"}],
+      "state_paths": ["/target/target_id"],
+      "rationale": "<specific judgment>"
+    }
+  ]
+}
+
+Return exactly one finding for each dimension listed in `required_dimensions`, in that order. For `not_applicable`, set `affects_hard_invariant` false and leave `source_spans` and `state_paths` empty. For `missing`, cite source spans and leave `state_paths` empty. For `faithful` or `distorted`, cite both source spans and state paths. Use `uncertain` rather than guessing.
+
+
+WORK PACKAGE
+{
+  "package_version": "askrigor_epistemic_representation_work_package_v0_1",
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "source_packet": "The requested target is adverse_outcome_risk. Nova is a positive case and Cove is a tolerated control. Feature Quartz is represented in Nova and absent from Cove, and the material hypothesis proposes Quartz as relevant to adverse_outcome_risk. The available observation for Nova establishes only pathway_activity. A proposed conclusion about adverse_outcome_risk depends only on that pathway_activity observation, with no observation bound to adverse_outcome_risk.",
+  "source_sha256": "08dc034de838fd531b5c85b36b066aa4e1713dae6e19692104911413aa051a3c",
+  "candidate_state": {
+    "state_version": "askrigor_epistemic_state_v1",
+    "target": {
+      "target_id": "adverse_outcome_risk",
+      "label": "adverse_outcome_risk",
+      "description": "The requested target concerning adverse outcome risk."
+    },
+    "cases": [
+      {
+        "case_id": "Nova",
+        "label": "Nova",
+        "comparison_role": "positive",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-S47VJN"
+        }
+      },
+      {
+        "case_id": "Cove",
+        "label": "Cove",
+        "comparison_role": "tolerated_control",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-S47VJN"
+        }
+      }
+    ],
+    "observations": [
+      {
+        "observation_id": "nova_pathway_activity_observation",
+        "target_id": "pathway_activity",
+        "case_id": "Nova",
+        "statement": "The available observation for Nova establishes only pathway_activity.",
+        "material": true,
+        "qualifiers": {},
+        "high_information_qualifier_keys": [],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-S47VJN"
+        }
+      }
+    ],
+    "features": [
+      {
+        "case_id": "Nova",
+        "feature_id": "Quartz",
+        "value": "present",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-S47VJN"
+        }
+      },
+      {
+        "case_id": "Cove",
+        "feature_id": "Quartz",
+        "value": "absent",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-S47VJN"
+        }
+      }
+    ],
+    "comparisons": [
+      {
+        "comparison_id": "nova_vs_cove_adverse_outcome_risk",
+        "target_id": "adverse_outcome_risk",
+        "positive_case_ids": [
+          "Nova"
+        ],
+        "control_case_ids": [
+          "Cove"
+        ]
+      }
+    ],
+    "hypotheses": [
+      {
+        "hypothesis_id": "quartz_relevance_hypothesis",
+        "target_id": "adverse_outcome_risk",
+        "statement": "Quartz is relevant to adverse_outcome_risk.",
+        "material": true,
+        "discriminator": {
+          "feature_id": "Quartz",
+          "operator": "present"
+        },
+        "qualifier_predictions": []
+      }
+    ],
+    "claims": [
+      {
+        "claim_id": "proposed_quartz_adverse_outcome_risk_conclusion",
+        "target_id": "adverse_outcome_risk",
+        "kind": "conclusion",
+        "statement": "Quartz is relevant to adverse_outcome_risk.",
+        "material": true,
+        "provenance": {
+          "kind": "inference",
+          "source_id": "DEV-S47VJN"
+        },
+        "dependencies": [
+          {
+            "kind": "observation",
+            "id": "nova_pathway_activity_observation"
+          }
+        ]
+      }
+    ]
+  },
+  "state_sha256": "e7c80e440daa679a2e27d8f10e18fbdad3d5eeb4c44c67d91e820bf3021788a9",
+  "producer": {
+    "session_id": "conversation-sha256:45d44204c076e650bb00921da04e469dda401df8ff1cc0784ff9ed9b05f6e222",
+    "model": "GPT-5.6 Sol",
+    "mode": "Pro"
+  },
+  "required_dimensions": [
+    "exact_target",
+    "case_and_comparison_roles",
+    "negative_or_tolerated_comparator",
+    "high_information_qualifier",
+    "timing",
+    "amount_or_dose",
+    "route_or_form",
+    "feature_value",
+    "predicate_semantics",
+    "dependency_or_provenance",
+    "other"
+  ],
+  "comparison_views": [
+    {
+      "comparison_id": "nova_vs_cove_adverse_outcome_risk",
+      "positive_case_ids": [
+        "Nova"
+      ],
+      "control_case_ids": [
+        "Cove"
+      ]
+    }
+  ],
+  "discriminator_views": [
+    {
+      "hypothesis_id": "quartz_relevance_hypothesis",
+      "feature_id": "Quartz",
+      "operator": "present",
+      "assignments": [
+        {
+          "case_id": "Nova",
+          "comparison_role": "positive",
+          "value": "present"
+        },
+        {
+          "case_id": "Cove",
+          "comparison_role": "tolerated_control",
+          "value": "absent"
+        }
+      ]
+    }
+  ]
+}

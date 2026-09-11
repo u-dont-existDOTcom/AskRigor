@@ -1,0 +1,189 @@
+{
+"review_version": "askrigor_epistemic_representation_review_v0_1",
+"source_sha256": "51298c45f4703bf23f358b465272859e3600785e4a83c04ac1b0d6bcc967f8d2",
+"state_sha256": "dda79d1e67b103729db2cb1a6eb0956051879e84e6c1e7990203a6ae608980ea",
+"producer_session_id": "conversation-sha256:d22bb22dddf74b99839c4435e222ec8bae4724dcfdbc6bc96f46878e4f9ecc23",
+"reviewer": {
+"session_id": "review-session:842e4b8b-6678-4af8-af02-47bf39b29a59",
+"model": "GPT-5.6 Sol",
+"mode": "Pro",
+"fresh_independent_session": true
+},
+"reviewed_at": "2026-09-10T13:37:00+00:00",
+"findings": [
+{
+"dimension": "exact_target",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 24,
+"end": 39,
+"quote": "target response"
+}
+],
+"state_paths": [
+"/target/target_id",
+"/target/label",
+"/target/description"
+],
+"rationale": "The state preserves the exact target as the target response and describes it as the response shown by Aspen and Kivu."
+},
+{
+"dimension": "case_and_comparison_roles",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 39,
+"quote": "Aspen and Kivu show the target response"
+}
+],
+"state_paths": [
+"/cases/0/comparison_role",
+"/cases/1/comparison_role",
+"/comparisons/0/positive_case_ids"
+],
+"rationale": "Aspen and Kivu are correctly represented as positive cases because the source says both show the target response, and both are included in the positive comparison set."
+},
+{
+"dimension": "negative_or_tolerated_comparator",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 69,
+"end": 120,
+"quote": "No tolerated or negative control case is available."
+}
+],
+"state_paths": [
+"/comparisons/0/control_case_ids"
+],
+"rationale": "The source explicitly states that no tolerated or negative control case is available, and the state faithfully represents this with an empty control-case set rather than inventing a comparator."
+},
+{
+"dimension": "high_information_qualifier",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 44,
+"end": 68,
+"quote": "both contain marker Sol."
+}
+],
+"state_paths": [
+"/features/0",
+"/features/1"
+],
+"rationale": "The high-information quantifier that both positive cases contain Sol is preserved structurally by separate Sol feature records for Aspen and Kivu. It need not be duplicated as an observation qualifier."
+},
+{
+"dimension": "timing",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source provides no timing information."
+},
+{
+"dimension": "amount_or_dose",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source provides no amount or dose information."
+},
+{
+"dimension": "route_or_form",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source provides no route or form information."
+},
+{
+"dimension": "feature_value",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 44,
+"end": 68,
+"quote": "both contain marker Sol."
+}
+],
+"state_paths": [
+"/features/0/feature_id",
+"/features/0/value",
+"/features/1/feature_id",
+"/features/1/value"
+],
+"rationale": "The source states that both cases contain marker Sol, and each corresponding feature record stores Sol with value "present"."
+},
+{
+"dimension": "predicate_semantics",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 121,
+"end": 189,
+"quote": "Test whether Sol discriminates responsive from non-responsive cases."
+},
+{
+"start": 44,
+"end": 68,
+"quote": "both contain marker Sol."
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/feature_id",
+"/hypotheses/0/discriminator/operator",
+"/features/0",
+"/features/1"
+],
+"rationale": "The discriminator asks for feature Sol with operator "present", which semantically tests existence of a Sol feature record rather than equality of its stored value to the string "present". Sol feature records exist for both source-supported positive cases, matching the source's containment predicate."
+},
+{
+"dimension": "dependency_or_provenance",
+"status": "uncertain",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 68,
+"quote": "Aspen and Kivu show the target response and both contain marker Sol."
+}
+],
+"state_paths": [
+"/cases/0/provenance",
+"/cases/1/provenance",
+"/observations/0/provenance",
+"/observations/1/provenance",
+"/features/0/provenance",
+"/features/1/provenance"
+],
+"rationale": "The facts labeled source_grounded are directly supported by the supplied source packet, but the specific provenance identifier "DEV-9M34WA" does not appear in that packet and therefore cannot be independently validated from the permitted evidence."
+},
+{
+"dimension": "other",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 121,
+"end": 189,
+"quote": "Test whether Sol discriminates responsive from non-responsive cases."
+}
+],
+"state_paths": [
+"/hypotheses/0",
+"/claims"
+],
+"rationale": "The proposition about Sol is represented as a hypothesis to be tested rather than as an established claim; the claims array is empty. This preserves the source's interrogative/test status despite the declarative wording of the hypothesis statement."
+}
+]
+}

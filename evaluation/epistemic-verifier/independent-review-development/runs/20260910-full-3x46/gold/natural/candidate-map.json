@@ -1,0 +1,146 @@
+[
+  {
+    "candidate_id": "NAT-EB3FBFA2694D",
+    "prior_trial_id": "r1-DEV-9M34WA-b",
+    "replicate": 1,
+    "blind_id": "DEV-9M34WA"
+  },
+  {
+    "candidate_id": "NAT-31DA10F913CE",
+    "prior_trial_id": "r1-DEV-D6JPFM-b",
+    "replicate": 1,
+    "blind_id": "DEV-D6JPFM"
+  },
+  {
+    "candidate_id": "NAT-D22CEEC7054B",
+    "prior_trial_id": "r1-DEV-JRSYJV-b",
+    "replicate": 1,
+    "blind_id": "DEV-JRSYJV"
+  },
+  {
+    "candidate_id": "NAT-4308BCA7A3F3",
+    "prior_trial_id": "r1-DEV-L9JQC2-b",
+    "replicate": 1,
+    "blind_id": "DEV-L9JQC2"
+  },
+  {
+    "candidate_id": "NAT-4B794F6619D3",
+    "prior_trial_id": "r1-DEV-QWCNK4-b",
+    "replicate": 1,
+    "blind_id": "DEV-QWCNK4"
+  },
+  {
+    "candidate_id": "NAT-119DEA2465B4",
+    "prior_trial_id": "r1-DEV-S47VJN-b",
+    "replicate": 1,
+    "blind_id": "DEV-S47VJN"
+  },
+  {
+    "candidate_id": "NAT-6866E352F8F1",
+    "prior_trial_id": "r1-DEV-SQBKLZ-b",
+    "replicate": 1,
+    "blind_id": "DEV-SQBKLZ"
+  },
+  {
+    "candidate_id": "NAT-D49D11A7494D",
+    "prior_trial_id": "r1-DEV-Y8PCH6-b",
+    "replicate": 1,
+    "blind_id": "DEV-Y8PCH6"
+  },
+  {
+    "candidate_id": "NAT-4EC795EFD83E",
+    "prior_trial_id": "r2-DEV-9M34WA-b",
+    "replicate": 2,
+    "blind_id": "DEV-9M34WA"
+  },
+  {
+    "candidate_id": "NAT-45A3AB09BE78",
+    "prior_trial_id": "r2-DEV-D6JPFM-b",
+    "replicate": 2,
+    "blind_id": "DEV-D6JPFM"
+  },
+  {
+    "candidate_id": "NAT-A90E31B3E53C",
+    "prior_trial_id": "r2-DEV-JRSYJV-b",
+    "replicate": 2,
+    "blind_id": "DEV-JRSYJV"
+  },
+  {
+    "candidate_id": "NAT-AFDD05E12595",
+    "prior_trial_id": "r2-DEV-L9JQC2-b",
+    "replicate": 2,
+    "blind_id": "DEV-L9JQC2"
+  },
+  {
+    "candidate_id": "NAT-0ED6C74B8194",
+    "prior_trial_id": "r2-DEV-QWCNK4-b",
+    "replicate": 2,
+    "blind_id": "DEV-QWCNK4"
+  },
+  {
+    "candidate_id": "NAT-264C5953C082",
+    "prior_trial_id": "r2-DEV-S47VJN-b",
+    "replicate": 2,
+    "blind_id": "DEV-S47VJN"
+  },
+  {
+    "candidate_id": "NAT-2F260ED0FFC0",
+    "prior_trial_id": "r2-DEV-SQBKLZ-b",
+    "replicate": 2,
+    "blind_id": "DEV-SQBKLZ"
+  },
+  {
+    "candidate_id": "NAT-D0739E39B992",
+    "prior_trial_id": "r2-DEV-Y8PCH6-b",
+    "replicate": 2,
+    "blind_id": "DEV-Y8PCH6"
+  },
+  {
+    "candidate_id": "NAT-FD505CEE1DCD",
+    "prior_trial_id": "r3-DEV-9M34WA-b",
+    "replicate": 3,
+    "blind_id": "DEV-9M34WA"
+  },
+  {
+    "candidate_id": "NAT-C464BD70BE7C",
+    "prior_trial_id": "r3-DEV-D6JPFM-b",
+    "replicate": 3,
+    "blind_id": "DEV-D6JPFM"
+  },
+  {
+    "candidate_id": "NAT-37138F410ACC",
+    "prior_trial_id": "r3-DEV-JRSYJV-b",
+    "replicate": 3,
+    "blind_id": "DEV-JRSYJV"
+  },
+  {
+    "candidate_id": "NAT-C209ABC53252",
+    "prior_trial_id": "r3-DEV-L9JQC2-b",
+    "replicate": 3,
+    "blind_id": "DEV-L9JQC2"
+  },
+  {
+    "candidate_id": "NAT-6B6E4FFEA395",
+    "prior_trial_id": "r3-DEV-QWCNK4-b",
+    "replicate": 3,
+    "blind_id": "DEV-QWCNK4"
+  },
+  {
+    "candidate_id": "NAT-B1CDE0C253D5",
+    "prior_trial_id": "r3-DEV-S47VJN-b",
+    "replicate": 3,
+    "blind_id": "DEV-S47VJN"
+  },
+  {
+    "candidate_id": "NAT-E29C73997424",
+    "prior_trial_id": "r3-DEV-SQBKLZ-b",
+    "replicate": 3,
+    "blind_id": "DEV-SQBKLZ"
+  },
+  {
+    "candidate_id": "NAT-16D4D5046DAB",
+    "prior_trial_id": "r3-DEV-Y8PCH6-b",
+    "replicate": 3,
+    "blind_id": "DEV-Y8PCH6"
+  }
+]

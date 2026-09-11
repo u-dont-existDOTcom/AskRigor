@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "status": "SOURCE_BOUND_PROJECT_MANAGER_METHODOLOGY_DISPOSITION_CAPTURED",
+  "assistant_message_id": "6f11f6ae-c29f-4c7d-9d19-4749ca70d48d",
+  "exact_utf8_body_bytes": 7586,
+  "exact_utf8_body_sha256": "d71148988921b06a8519e955eff076f97b15e19134598c1d23afefdc3aacec5f",
+  "directive_id": "askrigor-issue208-isrr-v01-raw-invalid-state-disposition-v1",
+  "observed_authority_surface": "CHATGPT_PROJECT_MANAGER",
+  "reviewer_outputs_existing_at_disposition": 0
+}

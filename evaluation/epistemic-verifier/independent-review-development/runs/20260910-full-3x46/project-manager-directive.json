@@ -1,0 +1,404 @@
+{
+"schemaVersion": 1,
+"packetType": "SOURCE_BOUND_PROJECT_MANAGER_EXECUTION_DIRECTIVE",
+"directiveType": "SOURCE_BOUND_PROJECT_MANAGER_EXECUTION_AUTHORITY",
+"directiveId": "askrigor-issue208-independent-semantic-representation-review-full-blinded-development-v1",
+"issuedAt": "2026-09-10",
+"decision": "AUTHORIZE_FULL_BLINDED_DEVELOPMENT_EVALUATION_OF_INDEPENDENT_SEMANTIC_REPRESENTATION_REVIEW_V0_1",
+"mayExecute": true,
+"sourceBinding": {
+"authoritySurface": "CHATGPT_PROJECT_MANAGER",
+"authoritativeResponse": "THIS_EXACT_JSON_OBJECT",
+"requiredCaptureBeforeExecution": [
+"assistant_message_id",
+"exact_utf8_response_body_sha256",
+"directive_id",
+"observed_authority_surface"
+],
+"failure": "FAIL_CLOSED"
+},
+"repository": {
+"name": "u-dont-existDOTcom/AskRigor",
+"issue": 208,
+"requiredStartingMain": "2b2426a8794c8d65aa9adedbc3f40d66c68ceb44",
+"mergedSourcePr": 212,
+"canonicalReviewImplementation": "apps/research-mcp/src/epistemic-representation-review.ts",
+"canonicalReviewPrompt": "evaluation/epistemic-verifier/independent-representation-review-prompt.txt",
+"naturalStateRoot": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/",
+"freshStartRule": "Fresh-read current main before execution; requiredStartingMain must remain an ancestor and PR212 review implementation/prompt must remain unchanged or execution stops for Project Manager review."
+},
+"phase": {
+"name": "DEVELOPMENT_DISCOVERY",
+"confirmationEligible": false,
+"heldOutValidationAllowed": false,
+"mastAllowed": false,
+"developmentDataMayInfluenceArchitecture": true
+},
+"scope": {
+"track1NaturalInitialStates": 24,
+"track2Dimensions": [
+"exact_target",
+"case_and_comparison_roles",
+"negative_or_tolerated_comparator",
+"high_information_qualifier",
+"timing",
+"amount_or_dose",
+"route_or_form",
+"feature_value",
+"predicate_semantics",
+"dependency_or_provenance",
+"other"
+],
+"track2MatchedPairsPerDimension": 1,
+"track2States": 22,
+"candidateStatesTotal": 46,
+"reviewReplicatesPerCandidate": 3,
+"plannedReviewTrials": 138,
+"sourceConstantWithinMutationPair": true
+},
+"prohibited": {
+"heldOutMastOrValidationReads": true,
+"newEpistemicGates": true,
+"hrpChanges": true,
+"universalChanges": true,
+"existingDeterministicVerifierChanges": true,
+"productionIntegration": true,
+"deployment": true,
+"release": true,
+"paidInference": true,
+"providerApiCalls": true,
+"reviewerAccessToGold": true,
+"reviewerAccessToPreviousOutputs": true,
+"reviewerAccessToExpectedAnswerOrRationale": true,
+"reviewerAccessToVerifierInternals": true,
+"reviewerAccessToOtherReviewerOutputs": true,
+"contentBasedRetries": true
+},
+"independentAdjudicatorExclusion": {
+"thisMissionControlChatEligible": false,
+"reason": "THIS_CHAT_HAS_SEEN_PRIOR_TRIAL_LABELS_AND_SCORING_RESULTS",
+"anySessionExposedToPriorLabelsEligible": false
+},
+"track1GoldAdjudication": {
+"inputsPerAdjudication": [
+"exact_source_packet",
+"exact_initial_arm_b_state"
+],
+"secondIndependentAdjudications": 24,
+"secondAdjudicatorMustBeBlindTo": [
+"prior_trial_labels",
+"prior_project_manager_scoring",
+"verifier_receipts",
+"repair_outputs",
+"final_states",
+"final_syntheses",
+"gold_key",
+"other_adjudications"
+],
+"thirdAdjudicationTrigger": "ANY_FIELD_LEVEL_DISAGREEMENT_BETWEEN_PRIOR_LABEL_AND_SECOND_ADJUDICATION",
+"thirdIndependentAdjudicationsMaximum": 24,
+"thirdAdjudicatorInputs": [
+"exact_source_packet",
+"exact_initial_arm_b_state"
+],
+"thirdAdjudicatorMustNotSee": [
+"which_fields_disagreed",
+"prior_label",
+"second_adjudication",
+"verifier_outputs",
+"gold"
+],
+"reconciliation": {
+"twoOfThreeAgreement": "RECONCILED_GOLD",
+"threeWayDisagreement": "UNRESOLVED_GOLD",
+"unresolvedGoldHandling": "PRESERVE_AND_ROUTE_TO_PROJECT_MANAGER_BEFORE_AUTOMATIC_STRATEGY_SELECTION",
+"noFourthAdjudicator": true
+},
+"preserveAllRawAdjudications": true,
+"freezeBeforeReviewerGeneration": true
+},
+"track2MutationAndGoldBoundary": {
+"pairConstruction": "For each of 11 dimensions construct one source-constant matched pair: one source-faithful state and one state with exactly one intended semantic defect in that dimension, except mechanically necessary dependent edits required to keep the state schema-valid.",
+"developmentSourcesOnly": true,
+"mutationLabelsHiddenFromReviewers": true,
+"mutationManifestFrozenBeforeReview": true,
+"manifestMustBind": [
+"opaque_candidate_id",
+"source_sha256",
+"state_sha256",
+"pair_id",
+"dimension",
+"faithful_or_defective_gold",
+"changed_json_pointers",
+"source_spans",
+"construction_provenance"
+],
+"defectStatusGold": "FROZEN_MUTATION_CONSTRUCTION_MANIFEST",
+"hardRelevanceGold": {
+"independentOfReviewerSelfLabel": true,
+"defectiveStatesRequiringGold": 11,
+"independentAdjudicatorsPerDefectiveState": 2,
+"thirdAdjudicatorOnDisagreement": true,
+"thirdAdjudicationsMaximum": 11,
+"inputs": [
+"exact_source_packet",
+"exact_candidate_state",
+"exact_mutation_diff_without_expected_hard_relevance"
+],
+"twoOfThreeAgreement": "RECONCILED_HARD_RELEVANCE_GOLD",
+"threeWayDisagreement": "UNRESOLVED_GOLD",
+"faithfulStateHardRelevance": false
+}
+},
+"reviewExecution": {
+"surface": "CHATGPT_CONSUMER_UI",
+"modelVisibleLabel": "GPT-5.6 Sol",
+"reasoningVisibleLabel": "Pro",
+"fallbackAllowed": false,
+"modelOrModeSubstitutionAllowed": false,
+"canonicalWorkPackageOnly": true,
+"canonicalPromptOnly": true,
+"freshIndependentConversationPerTrial": true,
+"executionMode": "SEQUENTIAL",
+"maximumConcurrentTrials": 1,
+"maximumControlledTabs": 1,
+"tabReuse": true,
+"tabReuseMethod": "After output/provenance capture, navigate the same controlled tab to a fresh ordinary ChatGPT conversation.",
+"minimumSecondsBetweenAcceptedSubmissions": 60,
+"newTabsAllowed": 0,
+"parallelSessionsAllowed": false,
+"browserProvenanceRequired": [
+"conversation_identity",
+"message_identity_when_exposed",
+"visible_model_label",
+"visible_reasoning_mode",
+"submission_time",
+"completion_time",
+"input_sha256",
+"output_sha256"
+],
+"selfAssertedReviewerIdentitySufficient": false,
+"controllerOwnedObservedProvenanceRequired": true,
+"rateLimitHandling": {
+"onRateLimit": "PAUSE_ALL_NEW_LAUNCHES",
+"createAdditionalTabs": false,
+"retryAfterClear": true,
+"acceptedGenerationReplacementAllowed": false,
+"mechanicalUnsentResendMaximum": 1,
+"resendOnlyIf": "Browser evidence proves the prior submission was not accepted and generation never began."
+}
+},
+"reviewOutputDerivation": {
+"individualSemanticClass": {
+"DEFECT": "At least one required dimension is missing or distorted.",
+"INDETERMINATE": "No missing/distorted dimension but at least one required dimension is uncertain, or submission is unusable for semantic classification.",
+"FAITHFUL": "Every required dimension is faithful or not_applicable."
+},
+"hardRelevanceScoring": "Score affects_hard_invariant separately from semantic defect detection and only against independently reconciled hard-relevance gold.",
+"invalidSubmission": [
+"nonparseable_output",
+"schema_invalid",
+"source_or_state_hash_mismatch",
+"wrong_or_unverified_browser_session",
+"wrong_model_or_mode",
+"source_span_invalid",
+"json_pointer_invalid",
+"contaminated_context"
+]
+},
+"majorityEvaluation": {
+"reviewersPerCandidate": 3,
+"majorityThreshold": 2,
+"semanticMajority": "At least 2 of 3 valid review trials must agree on DEFECT or FAITHFUL.",
+"hardRelevanceMajority": "At least 2 valid reviewers who detected the relevant discrepancy must agree on affects_hard_invariant.",
+"invalidOutputCountsAs": "INVALID_NOT_PASS_NOT_FAIL",
+"replacementReviewSessionAllowed": false,
+"fewerThanTwoValidReviews": "INDETERMINATE",
+"threeWayClassificationDisagreement": "INDETERMINATE",
+"ties": "INDETERMINATE",
+"indeterminateCandidatesRemainInCompletenessLedger": true,
+"indeterminateCandidatesExcludedFromSensitivitySpecificityDenominators": true,
+"indeterminateRateReportedSeparately": true,
+"maximumIndeterminateCandidateRateForStrongPerformance": 0.05
+},
+"metrics": {
+"individual": [
+"sensitivity",
+"specificity",
+"false_pass_rate",
+"false_block_rate",
+"indeterminate_rate",
+"hard_relevance_misclassification",
+"source_span_validity",
+"json_pointer_validity"
+],
+"majority": [
+"sensitivity",
+"specificity",
+"false_pass_rate",
+"false_block_rate",
+"indeterminate_rate",
+"hard_relevance_misclassification"
+],
+"additional": [
+"per_dimension_performance",
+"natural_vs_mutation_performance",
+"three_reviewer_exact_agreement",
+"two_of_three_or_better_agreement",
+"latency_seconds",
+"session_count_overhead"
+],
+"latencyUse": "DESCRIPTIVE_ONLY_NOT_A_STRATEGY_GATE"
+},
+"thresholds": {
+"materiallyMissedDefects": {
+"triggerIfAnyMajorityFalsePassOnGoldHardRelevantDefect": 1,
+"orMajorityDefectSensitivityBelow": 0.95
+},
+"strongSemanticAccuracy": {
+"majoritySensitivityMinimum": 0.95,
+"majoritySpecificityMinimum": 0.95,
+"individualSensitivityMinimum": 0.90,
+"individualSpecificityMinimum": 0.90,
+"majorityHardRelevantDefectSensitivityMinimum": 1.0,
+"sourceSpanValidityMinimum": 0.98,
+"jsonPointerValidityMinimum": 0.98,
+"determinateCandidateCoverageMinimum": 0.95,
+"threeReviewerExactClassificationAgreementMinimum": 0.80
+},
+"acceptableFalseBlocks": {
+"majorityFalseBlockRateMaximum": 0.05,
+"individualFalseBlockRateMaximum": 0.10
+},
+"recurrentAffectsHardInvariantFailure": {
+"majorityMisclassifiedDistinctCandidateStatesMinimum": 2
+}
+},
+"freezeSequence": [
+"Verify current main and exact PR212 implementation/prompt identity.",
+"Materialize exact 24 natural INITIAL Arm B source/state pairs without reading prior scoring during second/third adjudication sessions.",
+"Complete and freeze all Track1 second adjudications; obtain third adjudications only on disagreements; reconcile and freeze Track1 gold.",
+"Construct and freeze 11 Track2 source-constant faithful/defective pairs with opaque candidate IDs.",
+"Complete independent Track2 hard-relevance gold adjudication and freeze reconciliation.",
+"Freeze one 46-candidate opaque dispatch manifest and all source/state hashes before first reviewer generation.",
+"Run exactly 3 fresh sequential review sessions per candidate using only canonical work package plus canonical independent-review prompt.",
+"Freeze every raw review output and controller-owned provenance receipt before any scoring against gold.",
+"Verify 138 planned review trials, hashes, identities, and no prohibited access.",
+"Unblind offline once, join by opaque candidate/review IDs, compute individual and majority metrics, then apply strategy priority.",
+"Preserve results, verification, adjudications, reconciliations, mutation manifests, provenance, and strategy receipt before PR closeout."
+],
+"checkpointCadence": {
+"mandatoryCheckpoints": [
+"TRACK1_GOLD_FROZEN",
+"TRACK2_MUTATION_AND_HARD_RELEVANCE_GOLD_FROZEN",
+"DISPATCH_46_FROZEN",
+"REVIEW_TRIAL_36",
+"REVIEW_TRIAL_72",
+"REVIEW_TRIAL_108",
+"REVIEW_TRIAL_138_ALL_OUTPUTS_FROZEN",
+"SCORING_COMPLETE",
+"STRATEGY_DECISION_COMPLETE",
+"FINAL_REPOSITORY_VERIFICATION"
+],
+"preUnblindCheckpointContent": "Completeness, hashes, provenance, model/mode, contamination, invalid-output and timing metadata only; no gold comparison or performance scoring."
+},
+"strategyPriority": [
+{
+"priority": 1,
+"id": "A",
+"if": "materiallyMissedDefects trigger is true",
+"action": "STOP_AND_IMPROVE_REVIEWER_CONTRACT",
+"authority": "Development-only reviewer-contract correction and prospective tests; do not add epistemic gates."
+},
+{
+"priority": 2,
+"id": "B",
+"if": "A is false and recurrentAffectsHardInvariantFailure trigger is true",
+"action": "DERIVE_HARD_RELEVANCE_FROM_GATE_CLAIM_STRUCTURE",
+"authority": "Development-only hard-relevance derivation experiment; do not alter existing gate semantics."
+},
+{
+"priority": 3,
+"id": "C",
+"if": "A and B are false and strongSemanticAccuracy plus acceptableFalseBlocks pass but controller-owned provenance is unavailable or reviewer identity is only self-asserted",
+"action": "CONTROLLER_OWNED_IDENTITY_AND_PROVENANCE",
+"authority": "Execution/provenance hardening only."
+},
+{
+"priority": 4,
+"id": "D",
+"if": "A, B, and C are false and all strongSemanticAccuracy and acceptableFalseBlocks thresholds pass",
+"action": "HARDER_FAILURE_ENRICHED_DEVELOPMENT_END_TO_END_BENCHMARK",
+"authority": "One harder DEVELOPMENT benchmark before any held-out validation."
+}
+],
+"strategyFallback": "If no branch applies, any gold remains unresolved, candidate indeterminate rate exceeds 0.05, metric attribution is non-unique, or multiple branches remain materially plausible, route automatically to Project Manager and stop further architecture changes.",
+"operationCeilings": {
+"executionBranchesCreated": 1,
+"worktreesCreated": 1,
+"track1SecondGoldSessions": 24,
+"track1ThirdGoldSessionsMaximum": 24,
+"track2HardRelevanceGoldSessionsPrimary": 22,
+"track2HardRelevanceThirdSessionsMaximum": 11,
+"candidateStates": 46,
+"reviewSessions": 138,
+"concurrentBrowserTabs": 1,
+"concurrentReviewSessions": 1,
+"acceptedReviewAttemptsPerTrial": 1,
+"contentBasedRetries": 0,
+"unsentMechanicalResendsMaximumPerTrial": 1,
+"newEpistemicGates": 0,
+"hrpChanges": 0,
+"universalChanges": 0,
+"productionIntegrations": 0,
+"deployments": 0,
+"releases": 0,
+"providerApiCalls": 0,
+"paidModelApiCalls": 0,
+"externalSpendUsd": 0,
+"heldOutValidationReads": 0,
+"mastReads": 0,
+"newPullRequests": 1,
+"ordinaryPullRequestMergesMaximum": 1,
+"directMainCommits": 0,
+"forcePushes": 0,
+"fullVerifyRunsMaximum": 3,
+"manualWorkflowReruns": 0
+},
+"repositoryCloseout": {
+"required": [
+"targeted representation-review tests",
+"new evaluation-harness tests",
+"npm run verify",
+"git diff --check",
+"final changed-path review",
+"artifact/hash reconciliation",
+"one PR referencing issue 208",
+"exact-head hosted checks"
+],
+"mergeAuthorizedIf": "All frozen execution requirements are complete, strategy selection is unique, no prohibited boundary was crossed, final diff is reviewed, and required checks are green.",
+"postMerge": "Verify resulting main ancestry/tree and preserve one final machine-readable closeout receipt."
+},
+"hardStops": [
+"current main no longer contains unchanged PR212 review implementation/prompt",
+"held-out MAST or validation content accessed",
+"this Mission Control chat used as independent adjudicator",
+"gold or prior labels exposed to reviewer sessions",
+"mutation labels exposed before review freeze",
+"wrong or unverifiable GPT-5.6 Sol/Pro browser surface",
+"more than one controlled browser tab",
+"parallel review execution",
+"review work package or canonical prompt mutated after dispatch freeze",
+"candidate source/state hash mismatch",
+"reviewer session cannot be provenance-bound by controller observation",
+"post-acceptance answer-quality retry",
+"review outputs scored before all 138 planned outputs are frozen",
+"unresolved gold prevents unique scoring",
+"strategy branch is non-unique",
+"new gates, HRP/Universal changes, MAST, held-out data, production integration, deployment, release, provider API, or spend becomes necessary"
+],
+"completion": {
+"success": "FULL_BLINDED_DEVELOPMENT_REPRESENTATION_REVIEW_EVALUATION_PRESERVED_AND_ONE_UNIQUE_STRATEGY_RETURNED",
+"stopReturn": "Exact blocker, completed counts, frozen hashes, unresolved items, clearing actor, and next permissible action; no owner relay for routine internal routing."
+}
+}

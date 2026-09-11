@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "status": "invalid",
+  "error_code": "SOURCE_SPAN_MISMATCH",
+  "error_message": "route_or_form: source span does not match the frozen source packet",
+  "candidate_id": "MUT-3AC8DB61DB63",
+  "trial_id": "semantic-review-128-r3-MUT-3AC8DB61DB63",
+  "eligible_reviewer_trial": true,
+  "raw_output_sha256": "d5a56032e8bd166caf5c6194fce1e312fa99b4eb2a7ef92b279d177976a8c8c2",
+  "raw_output_preserved": true,
+  "normalized_output_preserved": true,
+  "reviewer_output_regenerated": false,
+  "controller_repair_performed": false,
+  "confirmed_with_repository_ingest_under_required_runtime": "24.18.0",
+  "disposition": "PRESERVE_AND_SCORE_AS_INVALID_REVIEWER_SUBMISSION"
+}

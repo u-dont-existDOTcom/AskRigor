@@ -1,0 +1,16 @@
+{
+  "requestId": "issue-208-independent-semantic-review-full-development-evaluation",
+  "actor": "CODEX",
+  "action": "EXECUTE_SOURCE_BOUND_BOUNDED_DIRECTIVE",
+  "sourceReceipt": {
+    "messageId": "c3fea205-8b0a-43ca-a43c-7d25ec82d07a",
+    "exactBodySha256": "b3218dab2a0e942abcd6be27dba33338caf2c89f737008866723b8c5ca28c7f4",
+    "claimedSurface": "CHATGPT_PROJECT_MANAGER",
+    "observedSurface": "CHATGPT_PROJECT_MANAGER",
+    "provenanceStatus": "VERIFIED"
+  },
+  "modelApiSpendUsd": 0,
+  "boundedExecution": true,
+  "taskRequiresExecutionOutsideChat": true,
+  "internalRoute": null
+}

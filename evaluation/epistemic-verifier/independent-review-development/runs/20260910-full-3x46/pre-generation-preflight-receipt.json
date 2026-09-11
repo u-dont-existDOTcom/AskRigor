@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "status": "PRE_GENERATION_PREFLIGHT_PASS",
+  "base_commit": "2b2426a8794c8d65aa9adedbc3f40d66c68ceb44",
+  "authority_gate": "PASS",
+  "targeted_tests": {
+    "files": 3,
+    "tests_passed": 12,
+    "tests_failed": 0
+  },
+  "full_verify": {
+    "status": "PASS",
+    "test_files_passed": 160,
+    "test_files_skipped": 1,
+    "tests_passed": 1893,
+    "tests_skipped": 6
+  },
+  "git_diff_check": "PASS",
+  "identity": {
+    "apps/research-mcp/src/epistemic-representation-review.ts": {
+      "bytes": 13228,
+      "sha256": "d09bc2e4af64ecde15f94f1257a7c56a19c5f7599ce56e9fa8688befdebce2e7"
+    },
+    "evaluation/epistemic-verifier/independent-representation-review-prompt.txt": {
+      "bytes": 2581,
+      "sha256": "42a4344706a14f5072fcdaa33a0056ef24e346d7b21d4a41ab48c58d0c237f65"
+    },
+    "apps/research-mcp/src/epistemic-verifier.ts": {
+      "bytes": 25691,
+      "sha256": "2fd89f3f919e74654adf146ae038ea90a62b5091cf96b1e0ce8e2d447ee5514c"
+    },
+    "protocols/HRP_Full.xml": {
+      "bytes": 584314,
+      "sha256": "65b099ce808012214e78f5f7b910e6a68858746978c160e29e177c3b444bf85a"
+    },
+    "protocols/Universal_Instructions.xml": {
+      "bytes": 146538,
+      "sha256": "d9364d98aa8c9805061aa53d21e7e3ed219675d8456b975b634bf54b2910c1b6"
+    }
+  },
+  "reviewer_outputs_existing": 0,
+  "prior_scoring_accessed_by_adjudicators": false,
+  "model_api_spend_usd": 0
+}

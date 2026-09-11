@@ -1,0 +1,207 @@
+{
+"review_version": "askrigor_epistemic_representation_review_v0_1",
+"source_sha256": "7e1f1c3b4ebcc027857903fadae71b1a2f52caf7365e7bb8944578a8e36f98d5",
+"state_sha256": "e91286a1aeb865f90614709363d9fd0af0e3a5305fe2d06c884aef4b66c0905e",
+"producer_session_id": "conversation-sha256:b65d71f6ae3686ae5ca1a54e109730367ea055b4564f14a3c6238b2d0c17a58d",
+"reviewer": {
+"session_id": "conversation-sha256:3f30f295766a9278af5a3be250fd95f69aeb57e6bba15f6d6a2ac1529fab7e38",
+"model": "GPT-5.6 Sol",
+"mode": "Thinking",
+"fresh_independent_session": true
+},
+"reviewed_at": "2026-09-11T06:03:00+00:00",
+"findings": [
+{
+"dimension": "exact_target",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 41,
+"quote": "Cedar and Flint show the target response."
+},
+{
+"start": 42,
+"end": 102,
+"quote": "Mica is explicitly tolerated and does not show the response."
+}
+],
+"state_paths": [
+"/target/target_id",
+"/target/label",
+"/target/description"
+],
+"rationale": "The state keeps the exact target as the target response and defines it by the source's positive Cedar/Flint and non-responsive Mica contrast."
+},
+{
+"dimension": "case_and_comparison_roles",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 41,
+"quote": "Cedar and Flint show the target response."
+},
+{
+"start": 42,
+"end": 102,
+"quote": "Mica is explicitly tolerated and does not show the response."
+}
+],
+"state_paths": [
+"/cases/0/comparison_role",
+"/cases/1/comparison_role",
+"/cases/2/comparison_role",
+"/comparisons/0/positive_case_ids",
+"/comparisons/0/control_case_ids"
+],
+"rationale": "Cedar and Flint are correctly represented as positive cases, while Mica is correctly represented as the tolerated control in the specificity contrast."
+},
+{
+"dimension": "negative_or_tolerated_comparator",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 42,
+"end": 102,
+"quote": "Mica is explicitly tolerated and does not show the response."
+}
+],
+"state_paths": [
+"/cases/2/comparison_role",
+"/observations/2/statement",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "The decisive tolerated comparator is preserved: Mica is explicitly represented as tolerated_control and as not showing the target response."
+},
+{
+"dimension": "high_information_qualifier",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 50,
+"end": 70,
+"quote": "explicitly tolerated"
+}
+],
+"state_paths": [
+"/cases/2/comparison_role",
+"/observations/2/statement"
+],
+"rationale": "The source's high-information qualifier that Mica is explicitly tolerated is retained semantically through the tolerated_control role and the corresponding observation statement, even though it is not duplicated in the observation qualifiers map."
+},
+{
+"dimension": "timing",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source specifies no timing information."
+},
+{
+"dimension": "amount_or_dose",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source specifies no amount or dose."
+},
+{
+"dimension": "route_or_form",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source specifies no route or form."
+},
+{
+"dimension": "feature_value",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 103,
+"end": 152,
+"quote": "Marker Vela is present in Cedar, Flint, and Mica."
+}
+],
+"state_paths": [
+"/features/0/value",
+"/features/1/value",
+"/features/2/value"
+],
+"rationale": "The state correctly stores Vela's feature value as true for Cedar, Flint, and Mica, matching the source's assertion that Vela is present in all three."
+},
+{
+"dimension": "predicate_semantics",
+"status": "distorted",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 103,
+"end": 152,
+"quote": "Marker Vela is present in Cedar, Flint, and Mica."
+},
+{
+"start": 153,
+"end": 222,
+"quote": "Test the hypothesis that Vela itself explains the selective response."
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/feature_id",
+"/hypotheses/0/discriminator/operator",
+"/features/0/value",
+"/features/1/value",
+"/features/2/value"
+],
+"rationale": "The source-level predicate concerns Vela's feature value being present/true, which the feature records correctly store as true. However, discriminator operator \"present\" tests only whether a Vela feature record exists, not whether that record's stored value is true. Thus the discriminator predicate is not literally equivalent to the source predicate. In this specific state every Vela record exists and every stored value is true, so the mismatch does not change the case assignments or the resulting specificity test."
+},
+{
+"dimension": "dependency_or_provenance",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 41,
+"quote": "Cedar and Flint show the target response."
+},
+{
+"start": 42,
+"end": 102,
+"quote": "Mica is explicitly tolerated and does not show the response."
+},
+{
+"start": 103,
+"end": 152,
+"quote": "Marker Vela is present in Cedar, Flint, and Mica."
+}
+],
+"state_paths": [
+"/cases/0/provenance/kind",
+"/cases/1/provenance/kind",
+"/cases/2/provenance/kind",
+"/observations/0/provenance/kind",
+"/observations/1/provenance/kind",
+"/observations/2/provenance/kind",
+"/features/0/provenance/kind",
+"/features/1/provenance/kind",
+"/features/2/provenance/kind"
+],
+"rationale": "The represented cases, response observations, and Vela feature facts are all explicitly stated in the source and are correctly marked source_grounded; no unsupported inferential dependency is introduced for those facts."
+},
+{
+"dimension": "other",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "No additional representation discrepancy is identified beyond the predicate-semantics issue already recorded."
+}
+]
+}

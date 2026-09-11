@@ -1,0 +1,246 @@
+{
+  "review_version": "askrigor_epistemic_representation_review_v0_1",
+  "source_sha256": "cf4e76402d12331bc4148fe195a4ddb3bedae7d466fe50f90c7922612cb9ab64",
+  "state_sha256": "4150dc5d582c1e116dbb3a00ba8aa89183937310157e90d3cf220ebdcf3ee233",
+  "producer_session_id": "synthetic-producer-PAIR-1F58EC041E03",
+  "reviewer": {
+    "session_id": "reviewer-20260910T183800Z-9C3A2E71",
+    "model": "GPT-5.6 Sol",
+    "mode": "Thinking",
+    "fresh_independent_session": true
+  },
+  "reviewed_at": "2026-09-10T18:38:00+00:00",
+  "reviewer_independent": true,
+  "status": "block",
+  "critical_representation": "defective",
+  "findings": [
+    {
+      "dimension": "exact_target",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 33,
+          "quote": "The requested target is risk_m07."
+        }
+      ],
+      "state_paths": [
+        "/target/target_id"
+      ],
+      "rationale": "The candidate preserves the exact requested target identifier risk_m07."
+    },
+    {
+      "dimension": "case_and_comparison_roles",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 34,
+          "end": 64,
+          "quote": "Rowan m07 is the positive case"
+        },
+        {
+          "start": 172,
+          "end": 205,
+          "quote": "Mica m07 is the tolerated control"
+        }
+      ],
+      "state_paths": [
+        "/cases/0/comparison_role",
+        "/cases/1/comparison_role",
+        "/comparisons/0/positive_case_ids/0",
+        "/comparisons/0/control_case_ids/0"
+      ],
+      "rationale": "Rowan is represented as the positive case and Mica as the tolerated control, and the comparison assigns those same case IDs to the corresponding positive and control sets."
+    },
+    {
+      "dimension": "negative_or_tolerated_comparator",
+      "status": "distorted",
+      "affects_hard_invariant": true,
+      "source_spans": [
+        {
+          "start": 172,
+          "end": 205,
+          "quote": "Mica m07 is the tolerated control"
+        },
+        {
+          "start": 207,
+          "end": 303,
+          "quote": "Mica receives the same 10-unit intravenous liquid exposure and does not show the target outcome."
+        }
+      ],
+      "state_paths": [
+        "/observations/1/statement",
+        "/observations/1/qualifiers/route",
+        "/observations/1/qualifiers/form"
+      ],
+      "rationale": "The tolerated-control identity and absence of the target outcome are preserved, but the source defines Mica as tolerating the same intravenous liquid exposure. The candidate instead records oral/capsule exposure, so the matched tolerated-control contrast is materially distorted."
+    },
+    {
+      "dimension": "high_information_qualifier",
+      "status": "distorted",
+      "affects_hard_invariant": true,
+      "source_spans": [
+        {
+          "start": 66,
+          "end": 171,
+          "quote": "the target outcome begins within 2 seconds after 10 units of compound Sol by intravenous liquid infusion."
+        },
+        {
+          "start": 207,
+          "end": 303,
+          "quote": "Mica receives the same 10-unit intravenous liquid exposure and does not show the target outcome."
+        }
+      ],
+      "state_paths": [
+        "/observations/0/high_information_qualifier_keys",
+        "/observations/1/high_information_qualifier_keys",
+        "/observations/1/qualifiers/route",
+        "/observations/1/qualifiers/form"
+      ],
+      "rationale": "The candidate identifies timing, dose, route, and form as high-information qualifiers where applicable, but two high-information values for the tolerated control are wrong: route is recorded as oral rather than intravenous and form as capsule rather than liquid. This destroys the source's same-exposure qualifier."
+    },
+    {
+      "dimension": "timing",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 92,
+          "end": 108,
+          "quote": "within 2 seconds"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/qualifiers/onset_seconds",
+        "/hypotheses/0/qualifier_predictions/0/operator",
+        "/hypotheses/0/qualifier_predictions/0/value"
+      ],
+      "rationale": "The candidate stores the 2-second onset threshold and explicitly represents its directional semantics with an lte 2 qualifier prediction, preserving the source's 'within 2 seconds' bound."
+    },
+    {
+      "dimension": "amount_or_dose",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 115,
+          "end": 123,
+          "quote": "10 units"
+        },
+        {
+          "start": 225,
+          "end": 237,
+          "quote": "same 10-unit"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/qualifiers/dose_units",
+        "/observations/1/qualifiers/dose_units",
+        "/claims/0/statement"
+      ],
+      "rationale": "Both cases are represented with dose_units 10, and the modifier claim correctly states that the represented 10-unit dose is held constant. The separate route/form error does not alter the dose value itself."
+    },
+    {
+      "dimension": "route_or_form",
+      "status": "distorted",
+      "affects_hard_invariant": true,
+      "source_spans": [
+        {
+          "start": 140,
+          "end": 170,
+          "quote": "by intravenous liquid infusion"
+        },
+        {
+          "start": 238,
+          "end": 265,
+          "quote": "intravenous liquid exposure"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/qualifiers/route",
+        "/observations/0/qualifiers/form",
+        "/observations/1/qualifiers/route",
+        "/observations/1/qualifiers/form"
+      ],
+      "rationale": "Rowan's intravenous/liquid route and form are faithful, but Mica's are not: the source says Mica receives the same intravenous liquid exposure, whereas the candidate records route 'oral' and form 'capsule'. This can invalidate the matched comparison."
+    },
+    {
+      "dimension": "feature_value",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 304,
+          "end": 360,
+          "quote": "Feature Quartz is high in Rowan m07 and low in Mica m07."
+        }
+      ],
+      "state_paths": [
+        "/features/0/value",
+        "/features/1/value"
+      ],
+      "rationale": "Quartz is represented as high for Rowan and low for Mica exactly as stated in the source."
+    },
+    {
+      "dimension": "predicate_semantics",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 395,
+          "end": 453,
+          "quote": "Quartz value equals high distinguishes the target outcome."
+        }
+      ],
+      "state_paths": [
+        "/hypotheses/0/statement",
+        "/hypotheses/0/discriminator/operator",
+        "/hypotheses/0/discriminator/value"
+      ],
+      "rationale": "The material discriminator uses operator 'equals' with value 'high', matching the source predicate that Quartz value equals high. There is no conflation between record existence and stored feature value."
+    },
+    {
+      "dimension": "dependency_or_provenance",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 454,
+          "end": 577,
+          "quote": "The conclusion about risk_m07 must depend on Rowan's source-grounded target observation and the tolerated-control contrast."
+        }
+      ],
+      "state_paths": [
+        "/observations/0/provenance/kind",
+        "/observations/1/provenance/kind",
+        "/claims/1/provenance/kind",
+        "/claims/1/dependencies/0",
+        "/claims/1/dependencies/1"
+      ],
+      "rationale": "Rowan's target observation is source_grounded, the tolerated-control observation is source_grounded, and the inferred conclusion explicitly depends on both observations. Thus the required positive observation and tolerated-control contrast are represented in the conclusion's dependency chain, notwithstanding the separate substantive corruption of the control's route/form."
+    },
+    {
+      "dimension": "other",
+      "status": "missing",
+      "affects_hard_invariant": true,
+      "source_spans": [
+        {
+          "start": 127,
+          "end": 139,
+          "quote": "compound Sol"
+        }
+      ],
+      "state_paths": [],
+      "rationale": "The source identifies the administered material as compound Sol, but the candidate contains no state fact identifying compound Sol as the exposure. Omitting the material identity can broaden or detach the represented conclusion from the source-defined exposure context."
+    }
+  ],
+  "blockers": [
+    "negative_or_tolerated_comparator: The tolerated-control identity and absence of the target outcome are preserved, but the source defines Mica as tolerating the same intravenous liquid exposure. The candidate instead records oral/capsule exposure, so the matched tolerated-control contrast is materially distorted.",
+    "high_information_qualifier: The candidate identifies timing, dose, route, and form as high-information qualifiers where applicable, but two high-information values for the tolerated control are wrong: route is recorded as oral rather than intravenous and form as capsule rather than liquid. This destroys the source's same-exposure qualifier.",
+    "route_or_form: Rowan's intravenous/liquid route and form are faithful, but Mica's are not: the source says Mica receives the same intravenous liquid exposure, whereas the candidate records route 'oral' and form 'capsule'. This can invalidate the matched comparison.",
+    "other: The source identifies the administered material as compound Sol, but the candidate contains no state fact identifying compound Sol as the exposure. Omitting the material identity can broaden or detach the represented conclusion from the source-defined exposure context."
+  ],
+  "warnings": []
+}

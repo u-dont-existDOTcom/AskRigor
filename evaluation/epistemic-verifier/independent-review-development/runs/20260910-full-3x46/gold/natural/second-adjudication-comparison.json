@@ -1,0 +1,513 @@
+[
+  {
+    "candidate_id": "NAT-EB3FBFA2694D",
+    "prior_trial_id": "r1-DEV-9M34WA-b",
+    "prior_label": "FAITHFUL",
+    "prior_dimensions": [],
+    "second_label": "DEFECTIVE",
+    "second_critical_representation": "defective",
+    "second_problem_dimensions": [
+      {
+        "dimension": "predicate_semantics",
+        "status": "distorted",
+        "affects_hard_invariant": true
+      },
+      {
+        "dimension": "dependency_or_provenance",
+        "status": "uncertain",
+        "affects_hard_invariant": false
+      }
+    ],
+    "artifacts": {
+      "raw_sha256": "79c704255913c5999883a7de93e1c96b2deaec15af7a0d2a5872e2f704f5443f",
+      "normalized_sha256": "d4650b25cf1e5f12609929c5a2a52935bdbd830833569d9ad9427eb633aece0e",
+      "provenance_sha256": "583e23dd09f5894a04cfa0f45c3441ba97c6ee8981f46dd22cd022ced70f6014"
+    }
+  },
+  {
+    "candidate_id": "NAT-31DA10F913CE",
+    "prior_trial_id": "r1-DEV-D6JPFM-b",
+    "prior_label": "DEFECTIVE",
+    "prior_dimensions": [
+      "other"
+    ],
+    "second_label": "DEFECTIVE",
+    "second_critical_representation": "defective",
+    "second_problem_dimensions": [
+      {
+        "dimension": "predicate_semantics",
+        "status": "distorted",
+        "affects_hard_invariant": true
+      }
+    ],
+    "artifacts": {
+      "raw_sha256": "5340ed7f4ce60fecd1ea5f2cf42730347e12a876671f35e3d4cf12a9115e279f",
+      "normalized_sha256": "71b7f959b197cfccfbca0a2b309004c047aefe0c8e1e23649643656cf77a025d",
+      "provenance_sha256": "bb3a851c517d258f5941db74dc12462079a2defc7c0c29002dc28098a1edede4"
+    }
+  },
+  {
+    "candidate_id": "NAT-D22CEEC7054B",
+    "prior_trial_id": "r1-DEV-JRSYJV-b",
+    "prior_label": "DEFECTIVE",
+    "prior_dimensions": [
+      "amount_or_dose"
+    ],
+    "second_label": "FAITHFUL",
+    "second_critical_representation": "faithful",
+    "second_problem_dimensions": [],
+    "artifacts": {
+      "raw_sha256": "edbc5c7ee9cda021ef8bb4a3207605b7722e6c50c4690c69c79e8d43d7e8435f",
+      "normalized_sha256": "697588ce7c53f8a5cdc311d06b273673e231855f887bd7a1320f8c71814252e9",
+      "provenance_sha256": "6933228ad802bd56ab3f8a8e03947bb3da55b8a81d35f7bd20c9b32528c6e767"
+    }
+  },
+  {
+    "candidate_id": "NAT-4308BCA7A3F3",
+    "prior_trial_id": "r1-DEV-L9JQC2-b",
+    "prior_label": "DEFECTIVE",
+    "prior_dimensions": [
+      "other"
+    ],
+    "second_label": "DEFECTIVE",
+    "second_critical_representation": "defective",
+    "second_problem_dimensions": [
+      {
+        "dimension": "predicate_semantics",
+        "status": "distorted",
+        "affects_hard_invariant": true
+      }
+    ],
+    "artifacts": {
+      "raw_sha256": "b228ce317692ff39cccad53b7516561d6be76caa3da4fc43ccfffed52df38890",
+      "normalized_sha256": "0f1dfe36bf2465bf294b759e2b79e82ec53bedec70c39f0074069b41869a30d6",
+      "provenance_sha256": "c3666ea37f5608a523d3c1432f825773c7d1d825de70d331a2e4d5ad70ccf874"
+    }
+  },
+  {
+    "candidate_id": "NAT-4B794F6619D3",
+    "prior_trial_id": "r1-DEV-QWCNK4-b",
+    "prior_label": "FAITHFUL",
+    "prior_dimensions": [],
+    "second_label": "DEFECTIVE",
+    "second_critical_representation": "faithful",
+    "second_problem_dimensions": [
+      {
+        "dimension": "predicate_semantics",
+        "status": "distorted",
+        "affects_hard_invariant": false
+      },
+      {
+        "dimension": "dependency_or_provenance",
+        "status": "uncertain",
+        "affects_hard_invariant": false
+      }
+    ],
+    "artifacts": {
+      "raw_sha256": "e82417db598b08d24cadfadc14a5af365e43e4990e1722d29b913ade7d864d91",
+      "normalized_sha256": "190974a1a85a42b68efb9244ce3613195abe2c9433553de0310c280f3a0a045f",
+      "provenance_sha256": "f6568b834f2faa1afc34d28309cb69ce17100dc2562cfb7e445f976dccaea7f4"
+    }
+  },
+  {
+    "candidate_id": "NAT-119DEA2465B4",
+    "prior_trial_id": "r1-DEV-S47VJN-b",
+    "prior_label": "DEFECTIVE",
+    "prior_dimensions": [
+      "other"
+    ],
+    "second_label": "DEFECTIVE",
+    "second_critical_representation": "defective",
+    "second_problem_dimensions": [
+      {
+        "dimension": "predicate_semantics",
+        "status": "distorted",
+        "affects_hard_invariant": true
+      }
+    ],
+    "artifacts": {
+      "raw_sha256": "48141c1c6e51b0a3593f81d4f2ae39f62fdbd1d98ccc6898128d0f3ab489d821",
+      "normalized_sha256": "cb7f4458095711a2d21ac6944f112c5759d4da846cf050c34aa85786b3bfe0d4",
+      "provenance_sha256": "276d4948e6ecca80905b28b2e5551dfbb950d37f1241d92144a2f73d42f634c5"
+    }
+  },
+  {
+    "candidate_id": "NAT-6866E352F8F1",
+    "prior_trial_id": "r1-DEV-SQBKLZ-b",
+    "prior_label": "DEFECTIVE",
+    "prior_dimensions": [
+      "other"
+    ],
+    "second_label": "DEFECTIVE",
+    "second_critical_representation": "defective",
+    "second_problem_dimensions": [
+      {
+        "dimension": "predicate_semantics",
+        "status": "distorted",
+        "affects_hard_invariant": true
+      }
+    ],
+    "artifacts": {
+      "raw_sha256": "3464668ecf9a953afc58533817cfef2c37d98dc98872cb84cbe76718562e62ef",
+      "normalized_sha256": "6f31d7d60adfcc485b7987a5f8d63ee65c7a63496ad904177f6d1754d916fc26",
+      "provenance_sha256": "d74b4fd7cad7f5d0206899a39ef89e79180b80f4e2d4f45ad7ebb341e201177a"
+    }
+  },
+  {
+    "candidate_id": "NAT-D49D11A7494D",
+    "prior_trial_id": "r1-DEV-Y8PCH6-b",
+    "prior_label": "DEFECTIVE",
+    "prior_dimensions": [
+      "timing",
+      "other"
+    ],
+    "second_label": "DEFECTIVE",
+    "second_critical_representation": "defective",
+    "second_problem_dimensions": [
+      {
+        "dimension": "predicate_semantics",
+        "status": "distorted",
+        "affects_hard_invariant": true
+      },
+      {
+        "dimension": "dependency_or_provenance",
+        "status": "uncertain",
+        "affects_hard_invariant": false
+      }
+    ],
+    "artifacts": {
+      "raw_sha256": "76d2d6abd66bafe234d78dd1a067381f7ffa03d589714d8b57a56cef992b4399",
+      "normalized_sha256": "2e55451338e2b18ea2666631da5712b73cbcbe3fc52192019319421f14b794d0",
+      "provenance_sha256": "a08f6f2b1a0d86e74aa52308136dc1c073b6ed05a09d83caa9a1861107cef428"
+    }
+  },
+  {
+    "candidate_id": "NAT-4EC795EFD83E",
+    "prior_trial_id": "r2-DEV-9M34WA-b",
+    "prior_label": "FAITHFUL",
+    "prior_dimensions": [],
+    "second_label": "UNCERTAIN",
+    "second_critical_representation": "faithful",
+    "second_problem_dimensions": [
+      {
+        "dimension": "dependency_or_provenance",
+        "status": "uncertain",
+        "affects_hard_invariant": false
+      }
+    ],
+    "artifacts": {
+      "raw_sha256": "59a6f2f6a5642677c90c94c7f94cb156ce302080c6d4a3ce7d0002092aef72d2",
+      "normalized_sha256": "305bcc485d37f5f4a88dbba1fdb0fd10abce6d9e9416d2c342cfc06e5ccc5352",
+      "provenance_sha256": "9052b743081886317db6ddde4ed71bc248e9e0ff5cc9193c939739c3be0054b9"
+    }
+  },
+  {
+    "candidate_id": "NAT-45A3AB09BE78",
+    "prior_trial_id": "r2-DEV-D6JPFM-b",
+    "prior_label": "DEFECTIVE",
+    "prior_dimensions": [
+      "other"
+    ],
+    "second_label": "DEFECTIVE",
+    "second_critical_representation": "defective",
+    "second_problem_dimensions": [
+      {
+        "dimension": "predicate_semantics",
+        "status": "distorted",
+        "affects_hard_invariant": true
+      }
+    ],
+    "artifacts": {
+      "raw_sha256": "504aaf7e5499f1d6e8ec1d72239dca2d6821b6315e84c89f9d0316c9cd842ba7",
+      "normalized_sha256": "92a15ddb3eb06935795980e9e4a8b42c65bb245ff9300640caac5fcd49bd8801",
+      "provenance_sha256": "1a4edfe63b556fe7ba67245bfdbf6fcbea43e5dde40ac75fcc65176faf884fb1"
+    }
+  },
+  {
+    "candidate_id": "NAT-A90E31B3E53C",
+    "prior_trial_id": "r2-DEV-JRSYJV-b",
+    "prior_label": "DEFECTIVE",
+    "prior_dimensions": [
+      "amount_or_dose"
+    ],
+    "second_label": "FAITHFUL",
+    "second_critical_representation": "faithful",
+    "second_problem_dimensions": [],
+    "artifacts": {
+      "raw_sha256": "1e50df53aff9fa23349f85bec356f2a46053a0740cbe690a3d5818daa160e19d",
+      "normalized_sha256": "f76c4ee6c354ca14e7f0ec6ef64bade81581a115383903bd0a8861101f275b76",
+      "provenance_sha256": "7895998ecebb99fa835d934e2988a3f69afc144f17b3e32e542fc470584d30a3"
+    }
+  },
+  {
+    "candidate_id": "NAT-AFDD05E12595",
+    "prior_trial_id": "r2-DEV-L9JQC2-b",
+    "prior_label": "DEFECTIVE",
+    "prior_dimensions": [
+      "other"
+    ],
+    "second_label": "DEFECTIVE",
+    "second_critical_representation": "defective",
+    "second_problem_dimensions": [
+      {
+        "dimension": "predicate_semantics",
+        "status": "distorted",
+        "affects_hard_invariant": true
+      }
+    ],
+    "artifacts": {
+      "raw_sha256": "3d27c1eb9779c3e6fbdf678cdfee0f0cba31eff6f72b95d40d1c5cd65b3434c1",
+      "normalized_sha256": "e52ede9e40ad4228549e9f14bba48c78df9bdafd34ece1f6ec1138b8042c5dde",
+      "provenance_sha256": "92c8cf3a40a8ed495eeb94aeb8497a8f9b3b6cc6bfa3fd64728838983dab0a67"
+    }
+  },
+  {
+    "candidate_id": "NAT-0ED6C74B8194",
+    "prior_trial_id": "r2-DEV-QWCNK4-b",
+    "prior_label": "FAITHFUL",
+    "prior_dimensions": [],
+    "second_label": "FAITHFUL",
+    "second_critical_representation": "faithful",
+    "second_problem_dimensions": [],
+    "artifacts": {
+      "raw_sha256": "06e2eca5a6b1ad20cab201183fa1321e9053aa4f821b919160aa2a44aaa3c66a",
+      "normalized_sha256": "ad9de4b2476d5b486e4e16042468c2e315c3259b01cfb27d06b6f7ed602bd1cd",
+      "provenance_sha256": "d5a8ea31d24cfab4b68a85b8b79288adb2e1d33d419cd9796b4e6ba07433bcde"
+    }
+  },
+  {
+    "candidate_id": "NAT-264C5953C082",
+    "prior_trial_id": "r2-DEV-S47VJN-b",
+    "prior_label": "DEFECTIVE",
+    "prior_dimensions": [
+      "other"
+    ],
+    "second_label": "DEFECTIVE",
+    "second_critical_representation": "defective",
+    "second_problem_dimensions": [
+      {
+        "dimension": "predicate_semantics",
+        "status": "distorted",
+        "affects_hard_invariant": true
+      }
+    ],
+    "artifacts": {
+      "raw_sha256": "1c0743aabf172b73471c9e3bb8d2a931f75019d84c5eb1b889af69e31d152f66",
+      "normalized_sha256": "92df5af3f38ca8bc8f1c8ec7dccede5ab1da368cfe97f76d1ded7124e5a32620",
+      "provenance_sha256": "fa7f7978cc5d885582846917afa2b74b31c836edc419358ff7acdb1a95613b74"
+    }
+  },
+  {
+    "candidate_id": "NAT-2F260ED0FFC0",
+    "prior_trial_id": "r2-DEV-SQBKLZ-b",
+    "prior_label": "DEFECTIVE",
+    "prior_dimensions": [
+      "other"
+    ],
+    "second_label": "DEFECTIVE",
+    "second_critical_representation": "defective",
+    "second_problem_dimensions": [
+      {
+        "dimension": "predicate_semantics",
+        "status": "distorted",
+        "affects_hard_invariant": true
+      }
+    ],
+    "artifacts": {
+      "raw_sha256": "95309a836f5cac818ae7ab7f011fd2a36b9cd15ae5b0a0e57253c44935134f91",
+      "normalized_sha256": "81b7fefedda7cf45e6fcc564c9a3503b5f48166891b1d9d4805992bfa29d2e0f",
+      "provenance_sha256": "e4f067fa1eacb5a79de1edd3caa5df1c89329bd03f2114d38785b57ba0c28fa7"
+    }
+  },
+  {
+    "candidate_id": "NAT-D0739E39B992",
+    "prior_trial_id": "r2-DEV-Y8PCH6-b",
+    "prior_label": "DEFECTIVE",
+    "prior_dimensions": [
+      "other"
+    ],
+    "second_label": "DEFECTIVE",
+    "second_critical_representation": "defective",
+    "second_problem_dimensions": [
+      {
+        "dimension": "predicate_semantics",
+        "status": "distorted",
+        "affects_hard_invariant": true
+      }
+    ],
+    "artifacts": {
+      "raw_sha256": "3152daaf44e092c0f00edac602732011cf0492d27d6ad636ca79b910971bd06b",
+      "normalized_sha256": "19140ea2c2963702037da0d942bf547b00853d04f9725eba35c9eac94c279b94",
+      "provenance_sha256": "dba282916a2b84470d13e4e72c616065ae7b98c44188d46d68723f4dcbe7157f"
+    }
+  },
+  {
+    "candidate_id": "NAT-FD505CEE1DCD",
+    "prior_trial_id": "r3-DEV-9M34WA-b",
+    "prior_label": "FAITHFUL",
+    "prior_dimensions": [],
+    "second_label": "UNCERTAIN",
+    "second_critical_representation": "faithful",
+    "second_problem_dimensions": [
+      {
+        "dimension": "dependency_or_provenance",
+        "status": "uncertain",
+        "affects_hard_invariant": false
+      }
+    ],
+    "artifacts": {
+      "raw_sha256": "e6ae632ef4bdbc0f0763626e78898bc5b639084c5f4a1e00bd2b76019b7a66ef",
+      "normalized_sha256": "a91af4bfbd2740e048c1e2b178d2cca507a2354c5ce643b2b6a523002fd6f525",
+      "provenance_sha256": "b3ec2c23071435417ac45416f9c63ecd38fbf72f48b1205090c86b460b0a48eb"
+    }
+  },
+  {
+    "candidate_id": "NAT-C464BD70BE7C",
+    "prior_trial_id": "r3-DEV-D6JPFM-b",
+    "prior_label": "DEFECTIVE",
+    "prior_dimensions": [
+      "other"
+    ],
+    "second_label": "DEFECTIVE",
+    "second_critical_representation": "defective",
+    "second_problem_dimensions": [
+      {
+        "dimension": "predicate_semantics",
+        "status": "distorted",
+        "affects_hard_invariant": true
+      }
+    ],
+    "artifacts": {
+      "raw_sha256": "11122f57fb9227dbd753bf442953af8e317c4d6b5afdfcbc671c6be9e3c6ee4b",
+      "normalized_sha256": "50ce1ff146ec18c966d8cb7d00ca4599ba98759c28e8233735e6dff39154a87e",
+      "provenance_sha256": "fe76141f04062bf2c5f1dcfa519aa4b5f29ba54270c643a95b89171109f461f9"
+    }
+  },
+  {
+    "candidate_id": "NAT-37138F410ACC",
+    "prior_trial_id": "r3-DEV-JRSYJV-b",
+    "prior_label": "FAITHFUL",
+    "prior_dimensions": [],
+    "second_label": "FAITHFUL",
+    "second_critical_representation": "faithful",
+    "second_problem_dimensions": [],
+    "artifacts": {
+      "raw_sha256": "6c25cc0bf72981ee758c875e7e0ecb8d8e839963eb2cc09dacc7fa03e88f0042",
+      "normalized_sha256": "5bfdc17636213f52b00ec7affce23a4bf3d523476117244aca1d4fef1d4f3ed6",
+      "provenance_sha256": "0aab6429c53cc1c710dbbaf774f3b975992083003dba6964763464532a4d1a6f"
+    }
+  },
+  {
+    "candidate_id": "NAT-C209ABC53252",
+    "prior_trial_id": "r3-DEV-L9JQC2-b",
+    "prior_label": "DEFECTIVE",
+    "prior_dimensions": [
+      "other"
+    ],
+    "second_label": "DEFECTIVE",
+    "second_critical_representation": "defective",
+    "second_problem_dimensions": [
+      {
+        "dimension": "predicate_semantics",
+        "status": "distorted",
+        "affects_hard_invariant": true
+      }
+    ],
+    "artifacts": {
+      "raw_sha256": "2d402cb4e11101918d7f31162538e5aad7493371c1a4417b78f1a33b70f21afa",
+      "normalized_sha256": "7778286368254a0311ada9bfa05afdb919f6b09751538cf89e141891e0125bab",
+      "provenance_sha256": "60a95ba81882a3652e1530b9f5983c973dc36591cc31540508f4fdf4f4f9eac7"
+    }
+  },
+  {
+    "candidate_id": "NAT-6B6E4FFEA395",
+    "prior_trial_id": "r3-DEV-QWCNK4-b",
+    "prior_label": "FAITHFUL",
+    "prior_dimensions": [],
+    "second_label": "FAITHFUL",
+    "second_critical_representation": "faithful",
+    "second_problem_dimensions": [],
+    "artifacts": {
+      "raw_sha256": "635c4860059fe186389952ab777572ee0cff06da1acdd2746e3e14eae93339e0",
+      "normalized_sha256": "4eac568fe6ff2bc48e509c61ed3e4805e58ffc881f5e42179f502612c371cfbe",
+      "provenance_sha256": "8388fe709bab092143299f278806422921fee762ee6ea3c2443716fd63917d09"
+    }
+  },
+  {
+    "candidate_id": "NAT-B1CDE0C253D5",
+    "prior_trial_id": "r3-DEV-S47VJN-b",
+    "prior_label": "DEFECTIVE",
+    "prior_dimensions": [
+      "other",
+      "dependency_or_provenance"
+    ],
+    "second_label": "DEFECTIVE",
+    "second_critical_representation": "defective",
+    "second_problem_dimensions": [
+      {
+        "dimension": "predicate_semantics",
+        "status": "distorted",
+        "affects_hard_invariant": true
+      }
+    ],
+    "artifacts": {
+      "raw_sha256": "98c120302f01306a068e8f046511b3734c104a2db1fb27272e8220fd32f0c6b7",
+      "normalized_sha256": "43bc657f25fc41c6595bb1c947608144d985362df74b8617d77a2e7f78393240",
+      "provenance_sha256": "e1a383abdda5a288c07102238e408023004ffe35662cda9686d9c4c7477818a8"
+    }
+  },
+  {
+    "candidate_id": "NAT-E29C73997424",
+    "prior_trial_id": "r3-DEV-SQBKLZ-b",
+    "prior_label": "DEFECTIVE",
+    "prior_dimensions": [
+      "other"
+    ],
+    "second_label": "DEFECTIVE",
+    "second_critical_representation": "defective",
+    "second_problem_dimensions": [
+      {
+        "dimension": "predicate_semantics",
+        "status": "distorted",
+        "affects_hard_invariant": true
+      }
+    ],
+    "artifacts": {
+      "raw_sha256": "4dbdb64ff862d1dba340025076d1830e4054ce29b55d9fde4c02ebdaf9fe423b",
+      "normalized_sha256": "234b4dd71dbabf5b4e42938ac4d2f60ae6bb7b40f3fcf45ae055c6edf8574518",
+      "provenance_sha256": "7b2bb372bdf5692621965cc4a523e9009cae2d3c43888fe9eedae23dcb4d5a45"
+    }
+  },
+  {
+    "candidate_id": "NAT-16D4D5046DAB",
+    "prior_trial_id": "r3-DEV-Y8PCH6-b",
+    "prior_label": "DEFECTIVE",
+    "prior_dimensions": [
+      "other"
+    ],
+    "second_label": "DEFECTIVE",
+    "second_critical_representation": "defective",
+    "second_problem_dimensions": [
+      {
+        "dimension": "predicate_semantics",
+        "status": "distorted",
+        "affects_hard_invariant": true
+      },
+      {
+        "dimension": "dependency_or_provenance",
+        "status": "uncertain",
+        "affects_hard_invariant": false
+      },
+      {
+        "dimension": "other",
+        "status": "distorted",
+        "affects_hard_invariant": true
+      }
+    ],
+    "artifacts": {
+      "raw_sha256": "2f64a9b6f7a5b463fafff3b8e04691123b7fe759e54f9052810e063ba8718187",
+      "normalized_sha256": "bacf1d209414ce44b8a07f19a6b39ec8bc8f5329cb0741c716e3469ffe5f1114",
+      "provenance_sha256": "6dc5976d6f0030280a1d73ff7cc4177b7c3238eab0ab2ce23d4eeb73a8405062"
+    }
+  }
+]

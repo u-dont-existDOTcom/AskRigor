@@ -1,0 +1,189 @@
+{
+  "package_version": "askrigor_epistemic_representation_work_package_v0_1",
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "source_packet": "Alder is a positive case and produces the target effect within 2 seconds; Basin is a tolerated control. Feature Iris is represented in Alder and absent from Basin, and is the proposed discriminator. The material hypothesis also requires the target effect to begin no sooner than 3,600 seconds after exposure.",
+  "source_sha256": "a9d647186a9572eee84d7a2eb76ad8f1728b0f3482cb9bf6eb1e7f0fe028051c",
+  "candidate_state": {
+    "state_version": "askrigor_epistemic_state_v1",
+    "target": {
+      "target_id": "target_effect",
+      "label": "target effect",
+      "description": "The target effect produced by Alder."
+    },
+    "cases": [
+      {
+        "case_id": "alder",
+        "label": "Alder",
+        "comparison_role": "positive",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-D6JPFM"
+        }
+      },
+      {
+        "case_id": "basin",
+        "label": "Basin",
+        "comparison_role": "tolerated_control",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-D6JPFM"
+        }
+      }
+    ],
+    "observations": [
+      {
+        "observation_id": "alder_target_effect_onset",
+        "target_id": "target_effect",
+        "case_id": "alder",
+        "statement": "Alder produces the target effect within 2 seconds.",
+        "material": true,
+        "qualifiers": {
+          "onset_seconds": 2
+        },
+        "high_information_qualifier_keys": [
+          "onset_seconds"
+        ],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-D6JPFM"
+        }
+      }
+    ],
+    "features": [
+      {
+        "case_id": "alder",
+        "feature_id": "iris",
+        "value": "present",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-D6JPFM"
+        }
+      },
+      {
+        "case_id": "basin",
+        "feature_id": "iris",
+        "value": "absent",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-D6JPFM"
+        }
+      }
+    ],
+    "comparisons": [
+      {
+        "comparison_id": "alder_basin_target_effect_contrast",
+        "target_id": "target_effect",
+        "positive_case_ids": [
+          "alder"
+        ],
+        "control_case_ids": [
+          "basin"
+        ]
+      }
+    ],
+    "hypotheses": [
+      {
+        "hypothesis_id": "iris_discriminator_delayed_onset_hypothesis",
+        "target_id": "target_effect",
+        "statement": "Feature Iris is the proposed discriminator, and the material hypothesis requires the target effect to begin no sooner than 3,600 seconds after exposure.",
+        "material": true,
+        "discriminator": {
+          "feature_id": "iris",
+          "operator": "present"
+        },
+        "qualifier_predictions": [
+          {
+            "observation_id": "alder_target_effect_onset",
+            "qualifier_key": "onset_seconds",
+            "operator": "gte",
+            "value": 3600
+          }
+        ]
+      }
+    ],
+    "claims": [
+      {
+        "claim_id": "minimum_onset_requirement",
+        "target_id": "target_effect",
+        "kind": "intermediate",
+        "statement": "The material hypothesis requires onset of the target effect at or after 3,600 seconds following exposure.",
+        "material": true,
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-D6JPFM"
+        },
+        "dependencies": []
+      },
+      {
+        "claim_id": "material_hypothesis_timing_conflict",
+        "target_id": "target_effect",
+        "kind": "conclusion",
+        "statement": "Alder's target-effect onset within 2 seconds conflicts with the material hypothesis's requirement that onset occur no sooner than 3,600 seconds after exposure.",
+        "material": true,
+        "provenance": {
+          "kind": "inference",
+          "source_id": "DEV-D6JPFM"
+        },
+        "dependencies": [
+          {
+            "kind": "observation",
+            "id": "alder_target_effect_onset"
+          },
+          {
+            "kind": "claim",
+            "id": "minimum_onset_requirement"
+          }
+        ]
+      }
+    ]
+  },
+  "state_sha256": "0bb433c92f8f6cfdc17470530e2a7a86515a605d806bbc3bd7fb4f77d3138c85",
+  "producer": {
+    "session_id": "conversation-sha256:15074fd0467057d53da56c0612d3d166755c7aaab70adfe3a8f22669ccd1d063",
+    "model": "GPT-5.6 Sol",
+    "mode": "Pro"
+  },
+  "required_dimensions": [
+    "exact_target",
+    "case_and_comparison_roles",
+    "negative_or_tolerated_comparator",
+    "high_information_qualifier",
+    "timing",
+    "amount_or_dose",
+    "route_or_form",
+    "feature_value",
+    "predicate_semantics",
+    "dependency_or_provenance",
+    "other"
+  ],
+  "comparison_views": [
+    {
+      "comparison_id": "alder_basin_target_effect_contrast",
+      "positive_case_ids": [
+        "alder"
+      ],
+      "control_case_ids": [
+        "basin"
+      ]
+    }
+  ],
+  "discriminator_views": [
+    {
+      "hypothesis_id": "iris_discriminator_delayed_onset_hypothesis",
+      "feature_id": "iris",
+      "operator": "present",
+      "assignments": [
+        {
+          "case_id": "alder",
+          "comparison_role": "positive",
+          "value": "present"
+        },
+        {
+          "case_id": "basin",
+          "comparison_role": "tolerated_control",
+          "value": "absent"
+        }
+      ]
+    }
+  ]
+}

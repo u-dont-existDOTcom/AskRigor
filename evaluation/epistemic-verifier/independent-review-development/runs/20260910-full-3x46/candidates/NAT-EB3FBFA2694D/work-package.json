@@ -1,0 +1,193 @@
+{
+  "package_version": "askrigor_epistemic_representation_work_package_v0_1",
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "source_packet": "Aspen and Kivu show the target response and both contain marker Sol. No tolerated or negative control case is available. Test whether Sol discriminates responsive from non-responsive cases.",
+  "source_sha256": "51298c45f4703bf23f358b465272859e3600785e4a83c04ac1b0d6bcc967f8d2",
+  "candidate_state": {
+    "state_version": "askrigor_epistemic_state_v1",
+    "target": {
+      "target_id": "target_response",
+      "label": "target response",
+      "description": "The response shown by Aspen and Kivu."
+    },
+    "cases": [
+      {
+        "case_id": "aspen",
+        "label": "Aspen",
+        "comparison_role": "positive",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-9M34WA"
+        }
+      },
+      {
+        "case_id": "kivu",
+        "label": "Kivu",
+        "comparison_role": "positive",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-9M34WA"
+        }
+      }
+    ],
+    "observations": [
+      {
+        "observation_id": "aspen_target_response",
+        "target_id": "target_response",
+        "case_id": "aspen",
+        "statement": "Aspen shows the target response.",
+        "material": true,
+        "qualifiers": {},
+        "high_information_qualifier_keys": [],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-9M34WA"
+        }
+      },
+      {
+        "observation_id": "kivu_target_response",
+        "target_id": "target_response",
+        "case_id": "kivu",
+        "statement": "Kivu shows the target response.",
+        "material": true,
+        "qualifiers": {},
+        "high_information_qualifier_keys": [],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-9M34WA"
+        }
+      }
+    ],
+    "features": [
+      {
+        "case_id": "aspen",
+        "feature_id": "sol",
+        "value": "present",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-9M34WA"
+        }
+      },
+      {
+        "case_id": "kivu",
+        "feature_id": "sol",
+        "value": "present",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-9M34WA"
+        }
+      }
+    ],
+    "comparisons": [
+      {
+        "comparison_id": "sol_responsive_nonresponsive_comparison",
+        "target_id": "target_response",
+        "positive_case_ids": [
+          "aspen",
+          "kivu"
+        ],
+        "control_case_ids": []
+      }
+    ],
+    "hypotheses": [
+      {
+        "hypothesis_id": "sol_discriminator_hypothesis",
+        "target_id": "target_response",
+        "statement": "Marker Sol discriminates responsive from non-responsive cases.",
+        "material": true,
+        "discriminator": {
+          "feature_id": "sol",
+          "operator": "present"
+        },
+        "qualifier_predictions": []
+      }
+    ],
+    "claims": [
+      {
+        "claim_id": "no_nonresponsive_control_available",
+        "target_id": "target_response",
+        "kind": "intermediate",
+        "statement": "No tolerated or negative control case is available.",
+        "material": true,
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-9M34WA"
+        },
+        "dependencies": []
+      },
+      {
+        "claim_id": "sol_discrimination_not_determinable",
+        "target_id": "target_response",
+        "kind": "conclusion",
+        "statement": "The represented evidence is insufficient to determine whether Sol discriminates responsive from non-responsive cases.",
+        "material": true,
+        "provenance": {
+          "kind": "inference",
+          "source_id": "DEV-9M34WA"
+        },
+        "dependencies": [
+          {
+            "kind": "observation",
+            "id": "aspen_target_response"
+          },
+          {
+            "kind": "observation",
+            "id": "kivu_target_response"
+          },
+          {
+            "kind": "claim",
+            "id": "no_nonresponsive_control_available"
+          }
+        ]
+      }
+    ]
+  },
+  "state_sha256": "6dcee93d2f5d2e00985512fd08f98ef42d5d8d140f6dfd02c079d94bcd3787b0",
+  "producer": {
+    "session_id": "conversation-sha256:b0d085d4ad8fdf294bb280d954c8f3bdb9a0420d495546f9be53cd30506235ec",
+    "model": "GPT-5.6 Sol",
+    "mode": "Pro"
+  },
+  "required_dimensions": [
+    "exact_target",
+    "case_and_comparison_roles",
+    "negative_or_tolerated_comparator",
+    "high_information_qualifier",
+    "timing",
+    "amount_or_dose",
+    "route_or_form",
+    "feature_value",
+    "predicate_semantics",
+    "dependency_or_provenance",
+    "other"
+  ],
+  "comparison_views": [
+    {
+      "comparison_id": "sol_responsive_nonresponsive_comparison",
+      "positive_case_ids": [
+        "aspen",
+        "kivu"
+      ],
+      "control_case_ids": []
+    }
+  ],
+  "discriminator_views": [
+    {
+      "hypothesis_id": "sol_discriminator_hypothesis",
+      "feature_id": "sol",
+      "operator": "present",
+      "assignments": [
+        {
+          "case_id": "aspen",
+          "comparison_role": "positive",
+          "value": "present"
+        },
+        {
+          "case_id": "kivu",
+          "comparison_role": "positive",
+          "value": "present"
+        }
+      ]
+    }
+  ]
+}

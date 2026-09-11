@@ -1,0 +1,216 @@
+{
+"review_version": "askrigor_epistemic_representation_review_v0_1",
+"source_sha256": "7e1f1c3b4ebcc027857903fadae71b1a2f52caf7365e7bb8944578a8e36f98d5",
+"state_sha256": "a297796fe388a487969268565261afd4b692190a577fa91d147c029b34a8c961",
+"producer_session_id": "conversation-sha256:96ea0c4ce072dcc590be87fef93512984f7d1e37f7b14773c2415027832ea229",
+"reviewer": {
+"session_id": "review-session:e67c5538-b1d1-4a55-8898-670e4222782d",
+"model": "GPT-5.6 Sol",
+"mode": "Pro",
+"fresh_independent_session": true
+},
+"reviewed_at": "2026-09-10T11:46:00+00:00",
+"findings": [
+{
+"dimension": "exact_target",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 41,
+"quote": "Cedar and Flint show the target response."
+},
+{
+"start": 42,
+"end": 102,
+"quote": "Mica is explicitly tolerated and does not show the response."
+}
+],
+"state_paths": [
+"/target/target_id",
+"/target/label",
+"/target/description"
+],
+"rationale": "The state holds the target fixed as the response shown by Cedar and Flint and absent in explicitly tolerated Mica; it does not substitute an adjacent property."
+},
+{
+"dimension": "case_and_comparison_roles",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 41,
+"quote": "Cedar and Flint show the target response."
+},
+{
+"start": 42,
+"end": 102,
+"quote": "Mica is explicitly tolerated and does not show the response."
+}
+],
+"state_paths": [
+"/cases/0/comparison_role",
+"/cases/1/comparison_role",
+"/cases/2/comparison_role",
+"/comparisons/0/positive_case_ids",
+"/comparisons/0/control_case_ids"
+],
+"rationale": "Cedar and Flint are correctly represented as positive cases and Mica as the tolerated control, and the comparison explicitly contrasts the two positives against Mica."
+},
+{
+"dimension": "negative_or_tolerated_comparator",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 42,
+"end": 102,
+"quote": "Mica is explicitly tolerated and does not show the response."
+}
+],
+"state_paths": [
+"/cases/2/comparison_role",
+"/observations/2/statement",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "The high-information negative comparison is preserved: Mica is not merely response-negative but explicitly represented as a tolerated control."
+},
+{
+"dimension": "high_information_qualifier",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 203,
+"end": 221,
+"quote": "selective response"
+},
+{
+"start": 50,
+"end": 70,
+"quote": "explicitly tolerated"
+}
+],
+"state_paths": [
+"/hypotheses/0/statement",
+"/cases/2/comparison_role",
+"/comparisons/0"
+],
+"rationale": "The source's informative selectivity is preserved structurally by the positive-versus-tolerated-control comparison and textually in the hypothesis statement. The tolerated status is also explicitly encoded. Empty per-observation qualifier objects therefore do not erase these relational qualifiers."
+},
+{
+"dimension": "timing",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source provides no timing information."
+},
+{
+"dimension": "amount_or_dose",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source provides no amount or dose information."
+},
+{
+"dimension": "route_or_form",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source provides no route or form distinction."
+},
+{
+"dimension": "feature_value",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 103,
+"end": 152,
+"quote": "Marker Vela is present in Cedar, Flint, and Mica."
+}
+],
+"state_paths": [
+"/features/0/feature_id",
+"/features/0/value",
+"/features/1/feature_id",
+"/features/1/value",
+"/features/2/feature_id",
+"/features/2/value"
+],
+"rationale": "Each of Cedar, Flint, and Mica has a Vela feature record whose stored value is true, faithfully representing the stated feature-value pattern."
+},
+{
+"dimension": "predicate_semantics",
+"status": "distorted",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 103,
+"end": 152,
+"quote": "Marker Vela is present in Cedar, Flint, and Mica."
+},
+{
+"start": 153,
+"end": 222,
+"quote": "Test the hypothesis that Vela itself explains the selective response."
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/feature_id",
+"/hypotheses/0/discriminator/operator",
+"/features/0/value",
+"/features/1/value",
+"/features/2/value"
+],
+"rationale": "The source-level proposition concerns whether Vela is present as a feature value, represented in the state by value=true. The discriminator instead uses operator=\"present\", which asks whether a Vela feature record exists and does not test that record's stored value. These predicates are semantically distinct. In this particular state all three Vela records both exist and have value=true, so the mismatch yields the same assignments for Cedar, Flint, and Mica and therefore does not change the hard-gate result or permitted conclusion here."
+},
+{
+"dimension": "dependency_or_provenance",
+"status": "uncertain",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 41,
+"quote": "Cedar and Flint show the target response."
+},
+{
+"start": 42,
+"end": 102,
+"quote": "Mica is explicitly tolerated and does not show the response."
+},
+{
+"start": 103,
+"end": 152,
+"quote": "Marker Vela is present in Cedar, Flint, and Mica."
+}
+],
+"state_paths": [
+"/cases/0/provenance",
+"/cases/1/provenance",
+"/cases/2/provenance",
+"/observations/0/provenance",
+"/observations/1/provenance",
+"/observations/2/provenance",
+"/features/0/provenance",
+"/features/1/provenance",
+"/features/2/provenance"
+],
+"rationale": "The substantive case, observation, and feature facts marked source_grounded are directly supported by the source packet. However, the packet supplies no mapping for the opaque provenance identifier DEV-QWCNK4, so the identity asserted by source_id cannot be independently verified from the permitted evidence."
+},
+{
+"dimension": "other",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "No additional source-grounded representational dimension or discrepancy is apparent beyond those reviewed above."
+}
+]
+}

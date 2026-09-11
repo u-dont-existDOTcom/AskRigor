@@ -1,0 +1,203 @@
+{
+"review_version": "askrigor_epistemic_representation_review_v0_1",
+"source_sha256": "08dc034de838fd531b5c85b36b066aa4e1713dae6e19692104911413aa051a3c",
+"state_sha256": "952b92942a511b95752132f799304e5faeb569bc9dd367337c8b2825284363bc",
+"producer_session_id": "conversation-sha256:7b088b6501f4ccc83a65a107e7622f373631144ab32d6a3f526f2e7c6e43c59b",
+"reviewer": {
+"session_id": "review-session:556b4da2-6bd1-4a84-9f15-90e52c97dd64",
+"model": "GPT-5.6 Sol",
+"mode": "reasoning",
+"fresh_independent_session": true
+},
+"reviewed_at": "2026-09-10T19:02:00+00:00",
+"findings": [
+{
+"dimension": "exact_target",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 45,
+"quote": "The requested target is adverse_outcome_risk."
+}
+],
+"state_paths": [
+"/target/target_id",
+"/comparisons/0/target_id",
+"/hypotheses/0/target_id",
+"/claims/0/target_id"
+],
+"rationale": "The requested target is preserved as adverse_outcome_risk throughout the target record, comparison, hypothesis, and conclusion claim. The distinct Nova observation is correctly bound to pathway_activity rather than being relabeled as an observation of the requested target."
+},
+{
+"dimension": "case_and_comparison_roles",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 46,
+"end": 102,
+"quote": "Nova is a positive case and Cove is a tolerated control."
+}
+],
+"state_paths": [
+"/cases/0/case_id",
+"/cases/0/comparison_role",
+"/cases/1/case_id",
+"/cases/1/comparison_role",
+"/comparisons/0/positive_case_ids/0",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "Nova is represented as the positive case and Cove as the tolerated control, and the comparison membership preserves those roles."
+},
+{
+"dimension": "negative_or_tolerated_comparator",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 46,
+"end": 102,
+"quote": "Nova is a positive case and Cove is a tolerated control."
+},
+{
+"start": 103,
+"end": 161,
+"quote": "Feature Quartz is represented in Nova and absent from Cove"
+}
+],
+"state_paths": [
+"/cases/1/comparison_role",
+"/comparisons/0/control_case_ids/0",
+"/features/1/case_id",
+"/features/1/feature_id",
+"/features/1/value"
+],
+"rationale": "Cove is retained as the tolerated comparator, and its Quartz value is explicitly represented as absent rather than dropping the control-side contrast."
+},
+{
+"dimension": "high_information_qualifier",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 244,
+"end": 313,
+"quote": "The available observation for Nova establishes only pathway_activity."
+},
+{
+"start": 414,
+"end": 463,
+"quote": "with no observation bound to adverse_outcome_risk"
+}
+],
+"state_paths": [
+"/observations/0/target_id",
+"/observations/0/statement",
+"/claims/0/dependencies"
+],
+"rationale": "The limiting qualifier that the available observation establishes only pathway_activity is preserved explicitly in the observation statement and target binding. The state contains no observation whose target_id is adverse_outcome_risk, while the conclusion depends on the pathway_activity observation."
+},
+{
+"dimension": "timing",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source packet specifies no timing information."
+},
+{
+"dimension": "amount_or_dose",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source packet specifies no amount or dose."
+},
+{
+"dimension": "route_or_form",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source packet specifies no route or form."
+},
+{
+"dimension": "feature_value",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 103,
+"end": 161,
+"quote": "Feature Quartz is represented in Nova and absent from Cove"
+}
+],
+"state_paths": [
+"/features/0/case_id",
+"/features/0/feature_id",
+"/features/0/value",
+"/features/1/case_id",
+"/features/1/feature_id",
+"/features/1/value"
+],
+"rationale": "The feature records preserve the stated case-level contrast: Nova has Quartz with value present and Cove has Quartz with value absent."
+},
+{
+"dimension": "predicate_semantics",
+"status": "distorted",
+"affects_hard_invariant": true,
+"source_spans": [
+{
+"start": 103,
+"end": 243,
+"quote": "Feature Quartz is represented in Nova and absent from Cove, and the material hypothesis proposes Quartz as relevant to adverse_outcome_risk."
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/feature_id",
+"/hypotheses/0/discriminator/operator",
+"/features/0/feature_id",
+"/features/0/value",
+"/features/1/feature_id",
+"/features/1/value"
+],
+"rationale": "The discriminator uses operator \"present\". Under the stipulated predicate semantics, this asks whether a Quartz feature record exists; it does not test whether that record's stored value equals \"present\". Quartz records exist for both Nova and Cove, including Cove's record whose value is \"absent\". The discriminator therefore fails to encode the source's value-level Nova-versus-Cove contrast and could cause the tolerated control to satisfy the purported discriminator, changing a hard-gate result or permitted conclusion."
+},
+{
+"dimension": "dependency_or_provenance",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 244,
+"end": 313,
+"quote": "The available observation for Nova establishes only pathway_activity."
+},
+{
+"start": 314,
+"end": 464,
+"quote": "A proposed conclusion about adverse_outcome_risk depends only on that pathway_activity observation, with no observation bound to adverse_outcome_risk."
+}
+],
+"state_paths": [
+"/observations/0/observation_id",
+"/observations/0/target_id",
+"/claims/0/target_id",
+"/claims/0/provenance/kind",
+"/claims/0/dependencies/0/kind",
+"/claims/0/dependencies/0/id"
+],
+"rationale": "The conclusion is represented as an inference about adverse_outcome_risk whose sole dependency is nova_pathway_activity, and that referenced observation is bound to pathway_activity. No observation in the state is bound to adverse_outcome_risk."
+},
+{
+"dimension": "other",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "No additional source-grounded representation dimension outside the listed categories requires a separate finding."
+}
+]
+}

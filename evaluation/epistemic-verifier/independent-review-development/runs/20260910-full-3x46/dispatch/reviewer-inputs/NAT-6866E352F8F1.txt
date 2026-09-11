@@ -1,0 +1,293 @@
+You are the independent semantic representation reviewer for a DEVELOPMENT / DISCOVERY run.
+
+Review only the exact source packet and EpistemicStateV1 candidate in the supplied work package. Do not use the state producer's rationale, a scorer key, an expected answer, verifier implementation details, another arm's output, or outside evidence.
+
+For every required dimension, decide whether the state is faithful, missing, distorted, uncertain, or the dimension is not applicable to the source. Check the exact target; case and comparison roles; tolerated or negative comparators; high-information qualifiers; timing; amount or dose; route or form; feature values; predicate semantics; and dependency or provenance. In particular, distinguish a feature record's existence from the value stored in that record: `operator: "present"` asks whether a record exists and does not mean that its stored value equals "present".
+
+Mark `affects_hard_invariant` true only when the discrepancy could change a hard-gate result or permitted conclusion. Cite exact source character spans and resolvable JSON Pointer paths. A missing state fact has no state path. Use a fresh session distinct from the producer. Return exactly one object conforming to `EpistemicRepresentationReviewSubmissionV0.1`; do not synthesize an answer to the source question.
+
+Use this exact top-level shape:
+
+{
+  "review_version": "askrigor_epistemic_representation_review_v0_1",
+  "source_sha256": "<copy from work package>",
+  "state_sha256": "<copy from work package>",
+  "producer_session_id": "<copy from work package producer.session_id>",
+  "reviewer": {
+    "session_id": "<this fresh review session identity>",
+    "model": "<displayed model>",
+    "mode": "<displayed reasoning mode>",
+    "fresh_independent_session": true
+  },
+  "reviewed_at": "<ISO-8601 timestamp with offset>",
+  "findings": [
+    {
+      "dimension": "<one required dimension>",
+      "status": "faithful | missing | distorted | uncertain | not_applicable",
+      "affects_hard_invariant": true,
+      "source_spans": [{"start": 0, "end": 1, "quote": "<exact bytes>"}],
+      "state_paths": ["/target/target_id"],
+      "rationale": "<specific judgment>"
+    }
+  ]
+}
+
+Return exactly one finding for each dimension listed in `required_dimensions`, in that order. For `not_applicable`, set `affects_hard_invariant` false and leave `source_spans` and `state_paths` empty. For `missing`, cite source spans and leave `state_paths` empty. For `faithful` or `distorted`, cite both source spans and state paths. Use `uncertain` rather than guessing.
+
+
+WORK PACKAGE
+{
+  "package_version": "askrigor_epistemic_representation_work_package_v0_1",
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "source_packet": "Oriel and Rowan show the target response while Silt is tolerated. Feature Nimbus is represented in Oriel and Rowan and absent from Silt. Test only whether Nimbus survives this represented specificity contrast; do not infer that passing specificity proves causality.",
+  "source_sha256": "f91a7822e66793bfd9e53a6e0ea280625ed942233f13985021e93681672ab0cd",
+  "candidate_state": {
+    "state_version": "askrigor_epistemic_state_v1",
+    "target": {
+      "target_id": "target_response",
+      "label": "target response",
+      "description": "The response shown by Oriel and Rowan in the represented comparison."
+    },
+    "cases": [
+      {
+        "case_id": "oriel",
+        "label": "Oriel",
+        "comparison_role": "positive",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-SQBKLZ"
+        }
+      },
+      {
+        "case_id": "rowan",
+        "label": "Rowan",
+        "comparison_role": "positive",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-SQBKLZ"
+        }
+      },
+      {
+        "case_id": "silt",
+        "label": "Silt",
+        "comparison_role": "tolerated_control",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-SQBKLZ"
+        }
+      }
+    ],
+    "observations": [
+      {
+        "observation_id": "obs_oriel_target_response",
+        "target_id": "target_response",
+        "case_id": "oriel",
+        "statement": "Oriel shows the target response.",
+        "material": true,
+        "qualifiers": {},
+        "high_information_qualifier_keys": [],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-SQBKLZ"
+        }
+      },
+      {
+        "observation_id": "obs_rowan_target_response",
+        "target_id": "target_response",
+        "case_id": "rowan",
+        "statement": "Rowan shows the target response.",
+        "material": true,
+        "qualifiers": {},
+        "high_information_qualifier_keys": [],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-SQBKLZ"
+        }
+      },
+      {
+        "observation_id": "obs_silt_tolerated",
+        "target_id": "target_response",
+        "case_id": "silt",
+        "statement": "Silt is tolerated.",
+        "material": true,
+        "qualifiers": {
+          "tolerated": true
+        },
+        "high_information_qualifier_keys": [],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-SQBKLZ"
+        }
+      }
+    ],
+    "features": [
+      {
+        "case_id": "oriel",
+        "feature_id": "nimbus",
+        "value": true,
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-SQBKLZ"
+        }
+      },
+      {
+        "case_id": "rowan",
+        "feature_id": "nimbus",
+        "value": true,
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-SQBKLZ"
+        }
+      },
+      {
+        "case_id": "silt",
+        "feature_id": "nimbus",
+        "value": false,
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-SQBKLZ"
+        }
+      }
+    ],
+    "comparisons": [
+      {
+        "comparison_id": "comparison_nimbus_specificity",
+        "target_id": "target_response",
+        "positive_case_ids": [
+          "oriel",
+          "rowan"
+        ],
+        "control_case_ids": [
+          "silt"
+        ]
+      }
+    ],
+    "hypotheses": [
+      {
+        "hypothesis_id": "hypothesis_nimbus_specificity",
+        "target_id": "target_response",
+        "statement": "Nimbus discriminates the represented positive cases Oriel and Rowan from tolerated control Silt with respect to the target response; this is a specificity hypothesis only and does not assert causality.",
+        "material": true,
+        "discriminator": {
+          "feature_id": "nimbus",
+          "operator": "present"
+        },
+        "qualifier_predictions": []
+      }
+    ],
+    "claims": [
+      {
+        "claim_id": "claim_nimbus_distribution",
+        "target_id": "target_response",
+        "kind": "intermediate",
+        "statement": "Nimbus is represented in Oriel and Rowan and absent from Silt.",
+        "material": true,
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-SQBKLZ"
+        },
+        "dependencies": []
+      },
+      {
+        "claim_id": "claim_specificity_scope",
+        "target_id": "target_response",
+        "kind": "intermediate",
+        "statement": "The test is limited to represented specificity, and passing the specificity contrast does not establish causality.",
+        "material": true,
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "DEV-SQBKLZ"
+        },
+        "dependencies": []
+      },
+      {
+        "claim_id": "claim_nimbus_survives_specificity",
+        "target_id": "target_response",
+        "kind": "conclusion",
+        "statement": "Nimbus survives the represented specificity contrast between positive Oriel and Rowan and tolerated-control Silt, without establishing that Nimbus causes the target response.",
+        "material": true,
+        "provenance": {
+          "kind": "inference",
+          "source_id": "DEV-SQBKLZ"
+        },
+        "dependencies": [
+          {
+            "kind": "observation",
+            "id": "obs_oriel_target_response"
+          },
+          {
+            "kind": "observation",
+            "id": "obs_rowan_target_response"
+          },
+          {
+            "kind": "observation",
+            "id": "obs_silt_tolerated"
+          },
+          {
+            "kind": "claim",
+            "id": "claim_nimbus_distribution"
+          },
+          {
+            "kind": "claim",
+            "id": "claim_specificity_scope"
+          }
+        ]
+      }
+    ]
+  },
+  "state_sha256": "2702431a0c483150af98329c4f18af64d7708258b3b89c24fc2cb2ff02c5cbf5",
+  "producer": {
+    "session_id": "conversation-sha256:53e8504a2a8e166944d5feb3bac959feb6b9b50d200c89326f3b9f87e59c3b22",
+    "model": "GPT-5.6 Sol",
+    "mode": "Pro"
+  },
+  "required_dimensions": [
+    "exact_target",
+    "case_and_comparison_roles",
+    "negative_or_tolerated_comparator",
+    "high_information_qualifier",
+    "timing",
+    "amount_or_dose",
+    "route_or_form",
+    "feature_value",
+    "predicate_semantics",
+    "dependency_or_provenance",
+    "other"
+  ],
+  "comparison_views": [
+    {
+      "comparison_id": "comparison_nimbus_specificity",
+      "positive_case_ids": [
+        "oriel",
+        "rowan"
+      ],
+      "control_case_ids": [
+        "silt"
+      ]
+    }
+  ],
+  "discriminator_views": [
+    {
+      "hypothesis_id": "hypothesis_nimbus_specificity",
+      "feature_id": "nimbus",
+      "operator": "present",
+      "assignments": [
+        {
+          "case_id": "oriel",
+          "comparison_role": "positive",
+          "value": true
+        },
+        {
+          "case_id": "rowan",
+          "comparison_role": "positive",
+          "value": true
+        },
+        {
+          "case_id": "silt",
+          "comparison_role": "tolerated_control",
+          "value": false
+        }
+      ]
+    }
+  ]
+}

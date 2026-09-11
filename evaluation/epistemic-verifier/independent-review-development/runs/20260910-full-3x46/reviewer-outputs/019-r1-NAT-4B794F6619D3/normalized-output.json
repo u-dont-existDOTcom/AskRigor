@@ -1,0 +1,209 @@
+{
+"review_version": "askrigor_epistemic_representation_review_v0_1",
+"source_sha256": "7e1f1c3b4ebcc027857903fadae71b1a2f52caf7365e7bb8944578a8e36f98d5",
+"state_sha256": "a297796fe388a487969268565261afd4b692190a577fa91d147c029b34a8c961",
+"producer_session_id": "conversation-sha256:96ea0c4ce072dcc590be87fef93512984f7d1e37f7b14773c2415027832ea229",
+"reviewer": {
+"session_id": "review-session:9f3d4f56-42d0-4a8d-9b44-6f59f3c5c7a1",
+"model": "GPT-5.6 Sol",
+"mode": "Thinking",
+"fresh_independent_session": true
+},
+"reviewed_at": "2026-09-10T16:20:00+00:00",
+"findings": [
+{
+"dimension": "exact_target",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 41,
+"quote": "Cedar and Flint show the target response."
+},
+{
+"start": 42,
+"end": 102,
+"quote": "Mica is explicitly tolerated and does not show the response."
+}
+],
+"state_paths": [
+"/target/target_id",
+"/target/label",
+"/target/description"
+],
+"rationale": "The state preserves the exact target as the response shown by Cedar and Flint and absent in explicitly tolerated Mica; it does not substitute an adjacent property or a different outcome."
+},
+{
+"dimension": "case_and_comparison_roles",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 41,
+"quote": "Cedar and Flint show the target response."
+},
+{
+"start": 42,
+"end": 102,
+"quote": "Mica is explicitly tolerated and does not show the response."
+}
+],
+"state_paths": [
+"/cases/0/comparison_role",
+"/cases/1/comparison_role",
+"/cases/2/comparison_role",
+"/comparisons/0/positive_case_ids",
+"/comparisons/0/control_case_ids"
+],
+"rationale": "Cedar and Flint are correctly represented as positive cases, while Mica is correctly represented as the tolerated control, and the comparison groups preserve those roles."
+},
+{
+"dimension": "negative_or_tolerated_comparator",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 42,
+"end": 102,
+"quote": "Mica is explicitly tolerated and does not show the response."
+}
+],
+"state_paths": [
+"/cases/2/comparison_role",
+"/observations/2/statement",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "The decisive comparator is retained: Mica is explicitly encoded as a tolerated control and as not showing the target response."
+},
+{
+"dimension": "high_information_qualifier",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 42,
+"end": 102,
+"quote": "Mica is explicitly tolerated and does not show the response."
+},
+{
+"start": 153,
+"end": 222,
+"quote": "Test the hypothesis that Vela itself explains the selective response."
+}
+],
+"state_paths": [
+"/cases/2/comparison_role",
+"/observations/2/statement",
+"/hypotheses/0/statement"
+],
+"rationale": "The high-information selectivity contrast is preserved semantically: Mica's tolerated status and absence of response are explicit, and the hypothesis remains about the selective response. The empty observation qualifier-key lists do not erase this information because it is represented directly in the comparison role and statements."
+},
+{
+"dimension": "timing",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source gives no timing or onset information."
+},
+{
+"dimension": "amount_or_dose",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source gives no amount or dose information."
+},
+{
+"dimension": "route_or_form",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source gives no route, formulation, or form distinction."
+},
+{
+"dimension": "feature_value",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 103,
+"end": 152,
+"quote": "Marker Vela is present in Cedar, Flint, and Mica."
+}
+],
+"state_paths": [
+"/features/0/feature_id",
+"/features/0/value",
+"/features/1/feature_id",
+"/features/1/value",
+"/features/2/feature_id",
+"/features/2/value"
+],
+"rationale": "Each of Cedar, Flint, and Mica has a Vela feature record whose stored Boolean value is true, faithfully representing the source assertion that Vela is present in all three."
+},
+{
+"dimension": "predicate_semantics",
+"status": "distorted",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 103,
+"end": 152,
+"quote": "Marker Vela is present in Cedar, Flint, and Mica."
+},
+{
+"start": 153,
+"end": 222,
+"quote": "Test the hypothesis that Vela itself explains the selective response."
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/feature_id",
+"/hypotheses/0/discriminator/operator",
+"/features/0/value",
+"/features/1/value",
+"/features/2/value"
+],
+"rationale": "The source hypothesis concerns Vela's substantive presence as a feature value, whereas discriminator operator \"present\" tests whether a Vela feature record exists, not whether that record's stored value is true. This is a predicate-semantic mismatch. It does not alter the hard result in this exact state because all three cases both possess a Vela record and have value true, so either predicate is non-discriminating across Cedar, Flint, and Mica."
+},
+{
+"dimension": "dependency_or_provenance",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 153,
+"end": 222,
+"quote": "Test the hypothesis that Vela itself explains the selective response."
+}
+],
+"state_paths": [
+"/hypotheses/0/target_id",
+"/hypotheses/0/discriminator/feature_id",
+"/hypotheses/0/statement",
+"/cases/0/provenance/kind",
+"/cases/1/provenance/kind",
+"/cases/2/provenance/kind",
+"/observations/0/provenance/kind",
+"/observations/1/provenance/kind",
+"/observations/2/provenance/kind",
+"/features/0/provenance/kind",
+"/features/1/provenance/kind",
+"/features/2/provenance/kind"
+],
+"rationale": "The explanatory dependency is correctly attached to Vela and the target response, and the directly stated cases, observations, and Vela feature facts are consistently marked source-grounded. The predicate-level problem is accounted for separately under predicate_semantics."
+},
+{
+"dimension": "other",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "No additional source dimension outside the explicitly reviewed dimensions requires representation."
+}
+]
+}

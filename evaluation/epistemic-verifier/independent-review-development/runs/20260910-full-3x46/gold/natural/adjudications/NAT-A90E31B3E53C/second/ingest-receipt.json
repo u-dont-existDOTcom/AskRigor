@@ -1,0 +1,232 @@
+{
+  "review_version": "askrigor_epistemic_representation_review_v0_1",
+  "source_sha256": "6883205eaff757723da54e55db8b18079080d0f554b3ef4464e20313cb3619d5",
+  "state_sha256": "22d12cac4d044adef867610b0011b903ae7ffca8a2aa126bb5107afbf920a0f7",
+  "producer_session_id": "conversation-sha256:0db1c86ef37e409d4abe54bd9db538003af467feef80e0b7357498a27c930c36",
+  "reviewer": {
+    "session_id": "review-session:a4499256-cdfd-46da-8eca-f2769e6f3797",
+    "model": "GPT-5.6 Sol",
+    "mode": "not-exposed",
+    "fresh_independent_session": true
+  },
+  "reviewed_at": "2026-09-10T12:06:00+00:00",
+  "reviewer_independent": true,
+  "status": "pass",
+  "critical_representation": "faithful",
+  "findings": [
+    {
+      "dimension": "exact_target",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 40,
+          "quote": "Harbor and Lark show the target response"
+        }
+      ],
+      "state_paths": [
+        "/target/target_id",
+        "/target/label",
+        "/target/description"
+      ],
+      "rationale": "The represented target is exactly the source's \"target response\" and is not replaced by an adjacent property or inferred outcome. \n\nPasted text\n\n"
+    },
+    {
+      "dimension": "case_and_comparison_roles",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 67,
+          "quote": "Harbor and Lark show the target response while Juniper is tolerated"
+        }
+      ],
+      "state_paths": [
+        "/cases/0/comparison_role",
+        "/cases/1/comparison_role",
+        "/cases/2/comparison_role",
+        "/comparisons/0/positive_case_ids",
+        "/comparisons/0/control_case_ids"
+      ],
+      "rationale": "Harbor and Lark are represented as positive cases and Juniper as the tolerated control, preserving the source's case roles and comparison structure."
+    },
+    {
+      "dimension": "negative_or_tolerated_comparator",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 41,
+          "end": 67,
+          "quote": "while Juniper is tolerated"
+        }
+      ],
+      "state_paths": [
+        "/cases/2/case_id",
+        "/cases/2/comparison_role",
+        "/comparisons/0/control_case_ids/0"
+      ],
+      "rationale": "Juniper is explicitly preserved as the tolerated comparator rather than being omitted, converted to a positive case, or treated as an unspecified comparison."
+    },
+    {
+      "dimension": "high_information_qualifier",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 113,
+          "end": 196,
+          "quote": "its represented dose is 10 units in Harbor, 12 units in Lark, and 1 unit in Juniper"
+        },
+        {
+          "start": 198,
+          "end": 255,
+          "quote": "Test the explicit dose-modified hypothesis Sable dose > 5"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/high_information_qualifier_keys/0",
+        "/observations/1/high_information_qualifier_keys/0",
+        "/observations/2/high_information_qualifier_keys/0",
+        "/hypotheses/0/qualifier_predictions"
+      ],
+      "rationale": "The dose contrast is the source's high-information qualifier and is explicitly marked as such for all three observations, with threshold predictions preserving the >5 versus <=5 distinction."
+    },
+    {
+      "dimension": "timing",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "The source packet supplies no timing, latency, duration, or temporal-order qualifier."
+    },
+    {
+      "dimension": "amount_or_dose",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 113,
+          "end": 196,
+          "quote": "its represented dose is 10 units in Harbor, 12 units in Lark, and 1 unit in Juniper"
+        },
+        {
+          "start": 198,
+          "end": 255,
+          "quote": "Test the explicit dose-modified hypothesis Sable dose > 5"
+        }
+      ],
+      "state_paths": [
+        "/features/1/value",
+        "/features/3/value",
+        "/features/5/value",
+        "/observations/0/qualifiers/sable_dose_units",
+        "/observations/1/qualifiers/sable_dose_units",
+        "/observations/2/qualifiers/sable_dose_units",
+        "/hypotheses/0/qualifier_predictions/0",
+        "/hypotheses/0/qualifier_predictions/1",
+        "/hypotheses/0/qualifier_predictions/2",
+        "/claims/0/statement"
+      ],
+      "rationale": "The state preserves the represented doses 10, 12, and 1 for Harbor, Lark, and Juniper respectively, and preserves the explicit threshold of greater than 5 units."
+    },
+    {
+      "dimension": "route_or_form",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "The source packet specifies no administration route, physical form, formulation, or analogous route/form distinction."
+    },
+    {
+      "dimension": "feature_value",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 69,
+          "end": 107,
+          "quote": "Compound Sable is present in all three"
+        },
+        {
+          "start": 113,
+          "end": 196,
+          "quote": "its represented dose is 10 units in Harbor, 12 units in Lark, and 1 unit in Juniper"
+        }
+      ],
+      "state_paths": [
+        "/features/0/value",
+        "/features/1/value",
+        "/features/2/value",
+        "/features/3/value",
+        "/features/4/value",
+        "/features/5/value"
+      ],
+      "rationale": "The base Compound Sable feature is represented with value true for all three cases, matching source-wide presence, while the separate numeric dose feature values correctly preserve 10, 12, and 1."
+    },
+    {
+      "dimension": "predicate_semantics",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 69,
+          "end": 107,
+          "quote": "Compound Sable is present in all three"
+        },
+        {
+          "start": 198,
+          "end": 255,
+          "quote": "Test the explicit dose-modified hypothesis Sable dose > 5"
+        },
+        {
+          "start": 257,
+          "end": 339,
+          "quote": "with the dose distinction represented as a separate source-grounded modifier claim"
+        }
+      ],
+      "state_paths": [
+        "/hypotheses/0/discriminator/feature_id",
+        "/hypotheses/0/discriminator/operator",
+        "/hypotheses/0/discriminator/modifier",
+        "/hypotheses/0/qualifier_predictions",
+        "/claims/0/claim_id",
+        "/claims/0/statement"
+      ],
+      "rationale": "The present operator is applied to the Compound Sable feature record and therefore does not itself assert a discriminating stored value; this is consistent with Sable being present in all three cases. The discriminating semantics are supplied separately by the referenced dose modifier and the >5/>5/<=5 qualifier predicates, as the source explicitly requires."
+    },
+    {
+      "dimension": "dependency_or_provenance",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 257,
+          "end": 339,
+          "quote": "with the dose distinction represented as a separate source-grounded modifier claim"
+        }
+      ],
+      "state_paths": [
+        "/hypotheses/0/discriminator/modifier/claim_id",
+        "/claims/0/kind",
+        "/claims/0/provenance",
+        "/claims/0/dependencies",
+        "/claims/1/provenance",
+        "/claims/1/dependencies"
+      ],
+      "rationale": "The dose modifier is a distinct source-grounded modifier claim and is directly referenced by the hypothesis. The downstream contrast claim is correctly marked as inference and depends on the three relevant observations plus the modifier claim."
+    },
+    {
+      "dimension": "other",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "No additional source-grounded semantic dimension outside the required dimensions presents a material representation discrepancy."
+    }
+  ],
+  "blockers": [],
+  "warnings": []
+}

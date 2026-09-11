@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "run_id": "askrigor-independent-semantic-review-v01-full-development-3x46-20260910",
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "confirmation_eligible": false,
+  "source_receipt": {
+    "schema_version": 1,
+    "status": "SOURCE_BOUND_PROJECT_MANAGER_DIRECTIVE_CAPTURED",
+    "assistant_message_id": "c3fea205-8b0a-43ca-a43c-7d25ec82d07a",
+    "exact_utf8_body_bytes": 15029,
+    "exact_utf8_body_sha256": "b3218dab2a0e942abcd6be27dba33338caf2c89f737008866723b8c5ca28c7f4",
+    "directive_id": "askrigor-issue208-independent-semantic-representation-review-full-blinded-development-v1",
+    "observed_authority_surface": "CHATGPT_PROJECT_MANAGER",
+    "conversation_identity_sha256": "042dadf54607796032e20ab496fd4a872c2aaf61df5c9d463c62e89531d52629",
+    "mission_control_eligible_as_adjudicator": false,
+    "surface_disposition_message_id": "b3e2f6c3-4d18-435d-ab2e-904a4bd9f310",
+    "surface_disposition_body_sha256": "04a47c913ed5a203ae6e20b1c3ffbf1c97feac4f4042471b69d1f51e32b857b8"
+  },
+  "repository": {
+    "starting_main": "2b2426a8794c8d65aa9adedbc3f40d66c68ceb44",
+    "pr_212_merge_commit": "2b2426a8794c8d65aa9adedbc3f40d66c68ceb44",
+    "branch": "task/epistemic-semantic-review-v01-development-eval-20260910"
+  },
+  "consumer": {
+    "surface": "CHATGPT_CONSUMER_UI",
+    "model": "GPT-5.6 Sol",
+    "mode": "Extra High",
+    "generation_parameters": "CONSUMER_UI_NOT_EXPOSED",
+    "same_model_mode_all_trials": true,
+    "controlled_tabs": 1,
+    "concurrent_sessions": 1,
+    "minimum_seconds_between_accepted_submissions": 60,
+    "thinking_control": "Thinking effort",
+    "thinking_ordinal": "4 of 5",
+    "account_plan": "Pro",
+    "account_plan_role": "PROVENANCE_METADATA_ONLY"
+  },
+  "design": {
+    "natural_states": 24,
+    "matched_mutation_states": 22,
+    "candidate_states": 46,
+    "review_replicates": 3,
+    "planned_review_sessions": 138,
+    "track1_second_adjudications": 24,
+    "track1_third_maximum": 24,
+    "track2_hard_relevance_primary_adjudications": 22,
+    "track2_third_maximum": 11
+  },
+  "thresholds_source": "project-manager-directive.json#/thresholds",
+  "environment": {
+    "required_node": "24.18.0",
+    "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+    "python": "3.12.3"
+  },
+  "prohibitions": {
+    "mast_or_heldout_reads": true,
+    "protocol_changes": true,
+    "verifier_changes": true,
+    "production_integration": true,
+    "deployment": true,
+    "paid_or_provider_api": true
+  }
+}

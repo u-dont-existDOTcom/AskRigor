@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "trial_id": "gold-natural-second-NAT-D22CEEC7054B",
+  "phase": "TRACK1_SECOND_ADJUDICATION",
+  "candidate_id": "NAT-D22CEEC7054B",
+  "controller_observed": {
+    "surface": "CHATGPT_CONSUMER_UI",
+    "conversation_identity_sha256": "fb29c21997ce11558c329725191a6cc80cb6c34743bc25a9c49982864630cb0e",
+    "user_message_id": "4df28df5-92e3-4c62-b751-38c6aa1cda7a",
+    "assistant_message_id": "199ac2af-5aeb-485b-89f3-a0089ab985f5",
+    "visible_model_label": "GPT-5.6 Sol",
+    "thinking_control_label": "Thinking effort",
+    "visible_thinking_setting": "Extra High",
+    "visible_thinking_ordinal": "4 of 5",
+    "account_plan_label": "Pro",
+    "account_plan_role": "PROVENANCE_METADATA_ONLY"
+  },
+  "timestamps": {
+    "submitted_at": "2026-09-10T11:35:40.676Z",
+    "completed_at": "2026-09-10T11:37:41.227Z"
+  },
+  "input": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/dispatch/reviewer-inputs/NAT-D22CEEC7054B.txt",
+    "sha256": "abfbb81c4c8e645e63ebc7fdd1b1303168816a1420fc068546693091908a47b8",
+    "submission_text_fill_sha256": "abfbb81c4c8e645e63ebc7fdd1b1303168816a1420fc068546693091908a47b8",
+    "accepted_rendered_text_sha256": "8e523be69b58549f61af5b79592e438b1c07d139edf23c403e65724bf0e12604",
+    "rendered_markdown_byte_comparison": "NOT_EXACTLY_COMPARABLE"
+  },
+  "output": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/gold/natural/adjudications/NAT-D22CEEC7054B/second/raw-output.txt",
+    "sha256": "edbc5c7ee9cda021ef8bb4a3207605b7722e6c50c4690c69c79e8d43d7e8435f",
+    "characters": 6787,
+    "complete": true
+  },
+  "integrity": {
+    "fresh_conversation": true,
+    "tools_or_apps_detected": true,
+    "talked_to_app_count": 0,
+    "sources_count": 1,
+    "content_retry": false,
+    "replacement": false
+  }
+}
