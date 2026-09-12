@@ -49,6 +49,8 @@ exact receipt. Never expose or infer contributor identity.
 
 ## Protocol gate
 
+This public skill does not load the maintainers' development or private supervision instructions. Apply material protocol obligations at their actual action or delivery boundary using the existing ledger. Required final-answer content must appear in the delivered answer, not only earlier commentary. Source loading, execution, scientific interpretation, and final delivery are distinct; preserve every gate below.
+
 Load Universal first: `get_protocol_manifest` → `verify_protocol_integrity` (SHA-256; stop-on-failure) → every `load_protocol` chunk. Use its activation boundary. HRP applies unless the health/research task is both very simple and genuinely uncontroversial; if unclear, ask.
 
 For HRP repeat the sequence with `protocol: "hrp"`. HRP wins conflicts; Universal supplies compatible rules. Use one orchestration/approval and applicability ledger. Execute every triggered module; claim compliance only after all checks pass, otherwise use an authorized bounded path.

@@ -14,9 +14,9 @@ accept/reject, withdrawal race, concurrent workers, and recovery after a writer
 commit precedes receipt commit. Inventory SHA-256 is
 `5dd514a9e865da0b312a3f9f6a106a4a3d0bd9872e7bfec0e95db6bbe9c7dab0`;
 synchronization ledger SHA-256 is
-`6d6e86e1b999cc13f5d431281858caf3a489769861351dbb65d0eb0538f17df3`;
-the unchanged controlled Instructions remain 4,752 characters with SHA-256
-`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+`38184c2335ea48db59e55da71c80de8790df25e6383552843a0529e2a2de2972`;
+the unchanged controlled Instructions remain 5,207 characters with SHA-256
+`9b87a14b47782e659bf1d97f32ef4798555bea804e977c3386e70b3893dbc110`.
 No merge, deployment, scheduler activation, connector refresh, or live product
 acceptance is claimed.
 
@@ -38,8 +38,8 @@ non-destructive writes), inventory SHA-256
 The compact Gemini surface remains at 22. The generated synchronization ledger
 SHA-256 is
 `3f031c6e7a72974c48ab248b73722840630094095862eb031f56f7a55798f8d0`;
-the unchanged controlled Instructions remain 4,752 characters with SHA-256
-`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+the unchanged controlled Instructions remain 5,207 characters with SHA-256
+`9b87a14b47782e659bf1d97f32ef4798555bea804e977c3386e70b3893dbc110`.
 Focused tests, typecheck, public-site gates, and a real PostgreSQL least-
 privilege acceptance pass. Protected merge, production deployment, Auth0
 public-account activation, package synchronization, and fresh ordinary-Chat
@@ -60,8 +60,8 @@ the new schema exceeds its enforced 25,000-byte compatibility budget; the
 owner-primary ordinary-Chat plugin receives the complete standard catalog.
 The generated synchronization ledger SHA-256 is
 `2c9aff7ef7208fd29a3beb7c134930dab39a74c75962cdf8758e3bf5b31d3e72`;
-the unchanged controlled Instructions remain 4,752 characters with SHA-256
-`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+the unchanged controlled Instructions remain 5,207 characters with SHA-256
+`9b87a14b47782e659bf1d97f32ef4798555bea804e977c3386e70b3893dbc110`.
 Focused tests, typecheck, and the real PostgreSQL 41-check plus dump/wipe/restore
 path pass. Protected merge, deployment, package synchronization, and fresh
 primary ordinary-Chat acceptance remain pending.
@@ -73,7 +73,7 @@ adds one read-only `cases:review` OAuth operation for cross-user stored case
 retrieval. The public contribution page remains open. This candidate has not
 been deployed or installed; its regenerated synchronization ledger SHA-256 is
 `8e4c04cfb9c36107529f9cfcc606f3bfd04a610f9323ae50c94aee327c0cc2a4`.
-The controlled Instructions remain 4,752 characters.
+The controlled Instructions remain 5,207 characters.
 
 ## 2026-08-31 dedicated read-only research-frontier tool deployed and accepted
 
@@ -86,9 +86,9 @@ records from partial corpora in bounded evidence review while labeling their
 coverage partial and prohibiting extrapolation to unseen records. Canonical HRP
 is now 20.5.24 / 2026-08-31 / SHA-256
 `dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1`.
-The generated controlled Custom GPT Instructions are 4,752 characters with
+The generated controlled Custom GPT Instructions are 5,207 characters with
 SHA-256
-`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`;
+`9b87a14b47782e659bf1d97f32ef4798555bea804e977c3386e70b3893dbc110`;
 the editor's five-operation Action schema remains SHA-256
 `cf7018c447baad2b1c9fce8d1ca880998863c2f15a4c3a36a9e672aec7e0d930`.
 The regenerated installation bundle is

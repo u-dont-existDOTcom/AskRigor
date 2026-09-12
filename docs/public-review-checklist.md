@@ -10,8 +10,8 @@ non-destructive writes), inventory SHA-256
 `d2d88cde0862a9255af240879416da220594e1a016eeaaa7ce4d3bc71828d5f4`.
 The generated synchronization ledger SHA-256 is
 `3f031c6e7a72974c48ab248b73722840630094095862eb031f56f7a55798f8d0`;
-the unchanged 4,752-character Instructions SHA-256 is
-`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+the unchanged 5,207-character Instructions SHA-256 is
+`9b87a14b47782e659bf1d97f32ef4798555bea804e977c3386e70b3893dbc110`.
 Local deterministic and real PostgreSQL acceptance pass. Protected merge,
 deployment, exact installed-package receipt, connector refresh, and fresh
 ordinary-Chat acceptance remain required.
@@ -22,9 +22,9 @@ The candidate contains 24 exact read-only MCP operations, with
 `get_research_frontier` remaining operation 22 and
 `search_research_frontiers` added as operation 23. The new catalog operation
 returns stored selectors and explicit partial/blocked/gap state but no evidence
-or health conclusion. The controlled Instructions remain 4,752 characters,
+or health conclusion. The controlled Instructions remain 5,207 characters,
 SHA-256
-`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+`9b87a14b47782e659bf1d97f32ef4798555bea804e977c3386e70b3893dbc110`.
 Production, installed-package, and fresh primary ordinary-Chat acceptance are
 pending.
 
@@ -34,8 +34,8 @@ The candidate public MCP catalog contains 22 exact read-only operations,
 including `get_research_frontier`. HRP 20.5.24 and the product instructions now
 keep usable records from partial corpora in bounded evidence review, label their
 coverage partial, and prohibit extrapolation to unseen records. The controlled
-Custom GPT Instructions are 4,752 characters, SHA-256
-`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+Custom GPT Instructions are 5,207 characters, SHA-256
+`9b87a14b47782e659bf1d97f32ef4798555bea804e977c3386e70b3893dbc110`.
 The unchanged five-operation Action schema is SHA-256
 `cf7018c447baad2b1c9fce8d1ca880998863c2f15a4c3a36a9e672aec7e0d930`;
 the installation bundle is

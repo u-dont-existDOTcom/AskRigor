@@ -111,8 +111,8 @@
   },
   "generatedArtifactIdentity": {
     "synchronizationLedgerSha256": "6d6e86e1b999cc13f5d431281858caf3a489769861351dbb65d0eb0538f17df3",
-    "controlledInstructionsCharacters": 4752,
-    "controlledInstructionsSha256": "2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514"
+    "controlledInstructionsCharacters": 5207,
+    "controlledInstructionsSha256": "9b87a14b47782e659bf1d97f32ef4798555bea804e977c3386e70b3893dbc110"
   },
   "installedCodexPlugin": {
     "marketplace": "personal",

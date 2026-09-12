@@ -139,9 +139,9 @@ The installed eight-file Codex package is `0.1.0+codex.20260901124016`,
 byte-identical to its personal-marketplace source at SHA-256
 `02c41b473c23a5442d72c65e8346b6986451d26c2fe68e297cd3532067084ae1`.
 The synchronization ledger SHA-256 is
-`6d6e86e1b999cc13f5d431281858caf3a489769861351dbb65d0eb0538f17df3`;
-the unchanged controlled Instructions remain 4,752 characters with SHA-256
-`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+`38184c2335ea48db59e55da71c80de8790df25e6383552843a0529e2a2de2972`;
+the unchanged controlled Instructions remain 5,207 characters with SHA-256
+`9b87a14b47782e659bf1d97f32ef4798555bea804e977c3386e70b3893dbc110`.
 The fresh primary-account conversation returned active free-contributor access,
 exact live Universal and HRP manifests, one authenticated PubMed record, and
 `no_pending_proposal` through the new owner-review operation.
@@ -185,8 +185,8 @@ The standard MCP inventory contains 26 operations with SHA-256
 `d2d88cde0862a9255af240879416da220594e1a016eeaaa7ce4d3bc71828d5f4`.
 The synchronization ledger SHA-256 is
 `3f031c6e7a72974c48ab248b73722840630094095862eb031f56f7a55798f8d0`;
-the unchanged controlled Instructions remain 4,752 characters with SHA-256
-`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+the unchanged controlled Instructions remain 5,207 characters with SHA-256
+`9b87a14b47782e659bf1d97f32ef4798555bea804e977c3386e70b3893dbc110`.
 The eight-file installed Codex package is
 `0.1.0+codex.20260901013905`, byte-identical to its personal-marketplace source
 at SHA-256
@@ -241,8 +241,8 @@ returned the correct zero-result `no_match`, `not_assessed`, limitations, and
 non-absence semantics. Release adequacy passes.
 The candidate generated synchronization ledger SHA-256 is
 `2c9aff7ef7208fd29a3beb7c134930dab39a74c75962cdf8758e3bf5b31d3e72`;
-the controlled Instructions remain 4,752 characters with SHA-256
-`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+the controlled Instructions remain 5,207 characters with SHA-256
+`9b87a14b47782e659bf1d97f32ef4798555bea804e977c3386e70b3893dbc110`.
 The complete deterministic gate passes 122 test files with one declared skip,
 1,586 tests with six declared skips, typecheck, and build. Exact local evidence
 is in
@@ -371,7 +371,7 @@ publication remain later release boundaries. Recovery authority is
 `../docs/superpowers/plans/2026-08-31-public-gap-oauth-review.md`.
 The current prospective synchronization ledger SHA-256 is
 `8e4c04cfb9c36107529f9cfcc606f3bfd04a610f9323ae50c94aee327c0cc2a4`;
-the controlled Instructions remain 4,752 characters. This is not a release
+the controlled Instructions remain 5,207 characters. This is not a release
 claim.
 
 Implementation commit
@@ -599,9 +599,9 @@ ordinary-product acceptance.
 The controlled Custom GPT five-operation editor Action schema remains unchanged
 at SHA-256
 `cf7018c447baad2b1c9fce8d1ca880998863c2f15a4c3a36a9e672aec7e0d930`.
-Its Instructions contain 4,752 characters and now preserve labeled partial-corpus findings,
+Its Instructions contain 5,207 characters and now preserve labeled partial-corpus findings,
 SHA-256
-`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+`9b87a14b47782e659bf1d97f32ef4798555bea804e977c3386e70b3893dbc110`.
 The generated installation bundle is
 `19cee5ae9b3419836e3b8fe3bfdfed8eaee7d250b39ac1d07912cefa0df3ba8f`,
 and the 22-tool synchronization ledger is

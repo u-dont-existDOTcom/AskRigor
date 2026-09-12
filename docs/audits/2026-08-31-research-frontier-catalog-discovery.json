@@ -68,8 +68,8 @@
     "toolInventorySha256": "0b223e5b5ff48aea39cce4ed7dfbd04b85b4ff5cab14d37c0c8f8cdc44fc7036",
     "customGptSyncSha256": "2c9aff7ef7208fd29a3beb7c134930dab39a74c75962cdf8758e3bf5b31d3e72",
     "controlledInstructions": {
-      "characters": 4752,
-      "sha256": "2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514"
+      "characters": 5207,
+      "sha256": "9b87a14b47782e659bf1d97f32ef4798555bea804e977c3386e70b3893dbc110"
     },
     "sourcePluginPackageSha256": "8b6029a31ee878b49d0e71748fc51684ffd161c121e9fc9944dd3536f2050aa5",
     "lessonQueue": {

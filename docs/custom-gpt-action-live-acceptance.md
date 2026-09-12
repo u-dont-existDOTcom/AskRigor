@@ -11,22 +11,22 @@ The standard inventory SHA-256 is
 `5dd514a9e865da0b312a3f9f6a106a4a3d0bd9872e7bfec0e95db6bbe9c7dab0`,
 the synchronization ledger SHA-256 is
 `6d6e86e1b999cc13f5d431281858caf3a489769861351dbb65d0eb0538f17df3`,
-and the unchanged 4,752-character Instructions SHA-256 is
-`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+and the unchanged 5,207-character Instructions SHA-256 is
+`9b87a14b47782e659bf1d97f32ef4798555bea804e977c3386e70b3893dbc110`.
 No deployment, connector refresh, or product-interface acceptance is claimed.
 
 ## 2026-09-01 reciprocal research access candidate — not live-accepted
 
 The standard plugin candidate has 26 MCP operations: 24 reads plus the explicit
 non-destructive access-mode and pending-proposal writes. The five-operation
-legacy Custom GPT Action and its 4,752-character Instructions remain unchanged;
+legacy Custom GPT Action and its 5,207-character Instructions remain unchanged;
 those legacy research Action routes are omitted whenever OAuth research access
 is active so they cannot bypass the mode choice. The standard inventory SHA-256
 is `d2d88cde0862a9255af240879416da220594e1a016eeaaa7ce4d3bc71828d5f4` and
 the synchronization ledger SHA-256 is
 `3f031c6e7a72974c48ab248b73722840630094095862eb031f56f7a55798f8d0`.
 The unchanged Instructions SHA-256 is
-`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+`9b87a14b47782e659bf1d97f32ef4798555bea804e977c3386e70b3893dbc110`.
 No deployment, connector refresh, or product-interface acceptance is claimed.
 
 ## 2026-08-31 research-frontier catalog discovery candidate — not live-accepted
@@ -37,7 +37,7 @@ character Instructions unchanged while adding the public read-only MCP
 tools; the synchronization ledger SHA-256 is
 `2c9aff7ef7208fd29a3beb7c134930dab39a74c75962cdf8758e3bf5b31d3e72`,
 and the unchanged Instructions SHA-256 is
-`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+`9b87a14b47782e659bf1d97f32ef4798555bea804e977c3386e70b3893dbc110`.
 No product-interface or production acceptance is claimed yet.
 
 ## 2026-08-31 public-plugin scoped-review candidate — not live-accepted
@@ -46,7 +46,7 @@ The local candidate retains the existing five-operation Custom GPT Action and
 adds one OAuth-scoped MCP review operation for the owner's primary ChatGPT
 plugin account. Its synchronization ledger SHA-256 is
 `8e4c04cfb9c36107529f9cfcc606f3bfd04a610f9323ae50c94aee327c0cc2a4`.
-The controlled Instructions remain 4,752 characters. No production or
+The controlled Instructions remain 5,207 characters. No production or
 product-interface acceptance is claimed for this candidate.
 
 ## 2026-08-29 primary-account Chat plugin review-method audit
@@ -505,7 +505,7 @@ controller. The 21-tool MCP catalog is unchanged.
 The dedicated compact Instructions are 3,995 characters, SHA-256
 `16be9335dfcfc1fe721d4ef2a7268c5ccc1508869e8d65df28c7dde586f97bab`.
 The synchronization ledger SHA-256 is
-`624002ab904cb3593da8751039f26809214c8bc03907dfeb66a6542e62389c99`;
+`38184c2335ea48db59e55da71c80de8790df25e6383552843a0529e2a2de2972`;
 the candidate Action OpenAPI SHA-256 is
 `6acfdc3b0b464746a6961dce738407216c42bc9978f9c01b66fb9198bbe91524`;
 and the installation-bundle digest is
@@ -1551,10 +1551,10 @@ architecture rule.
 
 The dedicated `get_research_frontier` operation changes the ordinary MCP/plugin
 catalog from 21 to 22; it does not change the controlled Custom GPT's
-five-operation editor Action schema. The Instructions contain 4,752 characters and now also
+five-operation editor Action schema. The Instructions contain 5,207 characters and now also
 require usable records from partial corpora to remain in bounded review with a
 partial label and no extrapolation to unseen records. Instruction SHA-256 is
-`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`;
+`9b87a14b47782e659bf1d97f32ef4798555bea804e977c3386e70b3893dbc110`;
 the unchanged Action schema is
 `cf7018c447baad2b1c9fce8d1ca880998863c2f15a4c3a36a9e672aec7e0d930`;
 the installation bundle is

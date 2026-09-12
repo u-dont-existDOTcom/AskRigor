@@ -1,5 +1,9 @@
 # AskRigor agent map
 
+## Internal development inheritance
+
+For repository maintenance and internal supervision, first follow `project/DEVELOPMENT_INHERITANCE.md`. This development-only layer activates Universal and applicable Mission Control guidance; it is not a dependency for users of public Universal Instructions or HRP.
+
 ## Authority
 
 1. Current explicit owner correction and task requirements
@@ -43,27 +47,18 @@ authority from selecting a reasoning method.
 
 ## Chat-to-Work authority gate
 
-ChatGPT Project Manager/Extra High/Pro owns reasoning, proposals, methodology,
-prioritization, scientific interpretation, spending design, consequential
-tradeoffs, supervisory verdicts, and selection of the next strategy.
-
-Codex and Work are execution-only. They may perform bounded repository,
-browser, terminal, deployment, acquisition, test, and artifact operations that
-the reasoning chat cannot execute directly. They may not originate, recommend,
-expand, or attribute a proposal, methodology, priority, spending plan, or
-consequential decision.
-
-Before a controlled action, run:
+Apply the shared Chat/Work actor, provenance, and pre-action rules through
+`project/DEVELOPMENT_INHERITANCE.md`. AskRigor's local binding is:
 
 ```bash
 npx tsx scripts/validate-chat-work-authority-policy.mts
 ```
 
-For a new action candidate, pass its machine-readable request with `--request`.
-A reasoning-reserved action without an exact source message identity and body
-SHA-256 fails closed. A Codex summary, local subagent, chat title, opened tab,
-or assertion that a named chat already decided something is not a reasoning
-receipt.
+Pass a new action's machine-readable request with `--request`. Exact source
+message identity and body SHA-256 are required for reasoning-reserved actions.
+Worker summaries or asserted Chat origin are not receipts. This local validator
+cannot substitute for an authenticated Mission Control runtime admission when
+the active workflow requires it.
 
 The active AskRigor policy is `governance/chat-work-authority-policy.json`.
 While its zero-spend owner decision is current:
@@ -81,23 +76,14 @@ path is a gate failure.
 
 ## Internal supervisor routing
 
-Routing exact factual state among the AskRigor Project Manager chat, specialist
-supervisor chats, and Codex/Work is standing owner-authorized internal
-control-plane transport.
-
-Codex/Work must route automatically, preserve exact bytes and digests, and
-capture the destination message identity and response provenance. It must not
-ask Joel to paste or relay the packet, and must never ask Joel to say `send it`
-for routine internal supervisor routing.
-
-Generic browser confirmation guidance for third-party representational
-communication does not override this more-specific internal route. The
-exception does not cover external publication, submission, purchases, account
-changes, messages to third parties, or other genuinely external actions.
-
-If the configured internal chat is inaccessible, attempt the authorized route,
-record the exact transport blocker, and continue all other eligible work before
-returning. Do not convert the owner into the courier.
+Apply the shared internal-routing and delivery-truth rule activated by
+`project/DEVELOPMENT_INHERITANCE.md`. Bind the exact packet/digest, configured
+AskRigor Project Manager or specialist destination, and provider receipt. A
+queued packet is not delivery; delivery is not acceptance of its conclusions.
+The standing internal-route permission does not cover third parties, external
+publication, purchases, or account changes. Attempt an authorized configured
+route before recording a precise transport blocker; continue independent safe
+work without converting the owner into a courier.
 
 ## Completion and continuation
 

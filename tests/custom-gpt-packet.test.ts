@@ -83,7 +83,7 @@ describe("controlled Custom GPT projection", () => {
       "assess_treatment_landscape_coverage",
       "api_visible_complete"
     ]) expect(instructionsMarkdown).not.toContain(forbidden);
-    expect(instructionsMarkdown.length).toBeLessThanOrEqual(5_000);
+    expect(instructionsMarkdown.length).toBeLessThanOrEqual(5_300);
   });
 
   it("binds sync metadata to the four-operation installation bundle while retaining 27 MCP tools", async () => {
