@@ -1,0 +1,340 @@
+{
+  "schema_version": 1,
+  "scorer_version": "askrigor_independent_semantic_review_v02_development_scorer_v1",
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "candidate_states": 22,
+  "reviewer_trials": 66,
+  "individual": {
+    "hard_defect_sensitivity": {
+      "numerator": 30,
+      "denominator": 33,
+      "rate": 0.9090909090909091
+    },
+    "faithful_state_specificity": {
+      "numerator": 31,
+      "denominator": 33,
+      "rate": 0.9393939393939394
+    },
+    "hard_defect_false_pass": {
+      "numerator": 0,
+      "denominator": 33,
+      "rate": 0.0
+    },
+    "faithful_state_false_block": {
+      "numerator": 0,
+      "denominator": 33,
+      "rate": 0.0
+    },
+    "indeterminate": {
+      "numerator": 5,
+      "denominator": 66,
+      "rate": 0.07575757575757576
+    },
+    "hard_relevance_errors": {
+      "numerator": 0,
+      "denominator": 66,
+      "rate": 0.0
+    }
+  },
+  "majority": {
+    "hard_defect_sensitivity": {
+      "numerator": 11,
+      "denominator": 11,
+      "rate": 1.0
+    },
+    "faithful_state_specificity": {
+      "numerator": 11,
+      "denominator": 11,
+      "rate": 1.0
+    },
+    "hard_defect_false_pass": {
+      "numerator": 0,
+      "denominator": 11,
+      "rate": 0.0
+    },
+    "faithful_state_false_block": {
+      "numerator": 0,
+      "denominator": 11,
+      "rate": 0.0
+    },
+    "indeterminate": {
+      "numerator": 0,
+      "denominator": 22,
+      "rate": 0.0
+    }
+  },
+  "evidence_location_validity": {
+    "source_spans": {
+      "numerator": 1014,
+      "denominator": 1019,
+      "rate": 0.9950932286555446
+    },
+    "json_pointers": {
+      "numerator": 2588,
+      "denominator": 2588,
+      "rate": 1.0
+    }
+  },
+  "replicate_agreement": {
+    "semantic": {
+      "numerator": 17,
+      "denominator": 22,
+      "rate": 0.7727272727272727
+    },
+    "hard_disposition": {
+      "numerator": 17,
+      "denominator": 22,
+      "rate": 0.7727272727272727
+    }
+  },
+  "latency_seconds": {
+    "median": 127.51849999999999,
+    "mean": 125.8460909090909,
+    "min": 70.865,
+    "max": 275.578
+  },
+  "per_dimension": {
+    "amount_or_dose": {
+      "individual_hard_sensitivity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_faithful_specificity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "majority_hard_sensitivity": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "majority_faithful_specificity": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      }
+    },
+    "case_and_comparison_roles": {
+      "individual_hard_sensitivity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_faithful_specificity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "majority_hard_sensitivity": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "majority_faithful_specificity": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      }
+    },
+    "dependency_or_provenance": {
+      "individual_hard_sensitivity": {
+        "numerator": 2,
+        "denominator": 3,
+        "rate": 0.6666666666666666
+      },
+      "individual_faithful_specificity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "majority_hard_sensitivity": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "majority_faithful_specificity": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      }
+    },
+    "exact_target": {
+      "individual_hard_sensitivity": {
+        "numerator": 2,
+        "denominator": 3,
+        "rate": 0.6666666666666666
+      },
+      "individual_faithful_specificity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "majority_hard_sensitivity": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "majority_faithful_specificity": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      }
+    },
+    "feature_value": {
+      "individual_hard_sensitivity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_faithful_specificity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "majority_hard_sensitivity": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "majority_faithful_specificity": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      }
+    },
+    "high_information_qualifier": {
+      "individual_hard_sensitivity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_faithful_specificity": {
+        "numerator": 2,
+        "denominator": 3,
+        "rate": 0.6666666666666666
+      },
+      "majority_hard_sensitivity": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "majority_faithful_specificity": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      }
+    },
+    "negative_or_tolerated_comparator": {
+      "individual_hard_sensitivity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_faithful_specificity": {
+        "numerator": 2,
+        "denominator": 3,
+        "rate": 0.6666666666666666
+      },
+      "majority_hard_sensitivity": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "majority_faithful_specificity": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      }
+    },
+    "other": {
+      "individual_hard_sensitivity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_faithful_specificity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "majority_hard_sensitivity": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "majority_faithful_specificity": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      }
+    },
+    "predicate_semantics": {
+      "individual_hard_sensitivity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_faithful_specificity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "majority_hard_sensitivity": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "majority_faithful_specificity": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      }
+    },
+    "route_or_form": {
+      "individual_hard_sensitivity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "individual_faithful_specificity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "majority_hard_sensitivity": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "majority_faithful_specificity": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      }
+    },
+    "timing": {
+      "individual_hard_sensitivity": {
+        "numerator": 2,
+        "denominator": 3,
+        "rate": 0.6666666666666666
+      },
+      "individual_faithful_specificity": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "majority_hard_sensitivity": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "majority_faithful_specificity": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      }
+    }
+  }
+}

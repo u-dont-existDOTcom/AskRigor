@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "scorer": "scripts/score-independent-semantic-review-v02-development.py",
+  "frozen_head_sha": "8fb2d02ff8f0ed6ad81d7c3fbb283988862d55ff",
+  "reviewer_trials": 66,
+  "candidate_states": 22,
+  "valid_ingest_receipts": 61,
+  "indeterminate_ingest_errors": 5,
+  "indeterminate_sequences": [6, 11, 35, 39, 52],
+  "individual": {
+    "hard_defect_sensitivity": "30/33",
+    "faithful_state_specificity": "31/33",
+    "hard_defect_false_pass_rate": "0/33",
+    "faithful_state_false_block_rate": "0/33",
+    "indeterminate_rate": "5/66",
+    "hard_relevance_classification_error_rate": "0/66"
+  },
+  "majority": {
+    "hard_defect_sensitivity": "11/11",
+    "faithful_state_specificity": "11/11",
+    "hard_defect_false_pass_rate": "0/11",
+    "faithful_state_false_block_rate": "0/11",
+    "indeterminate_rate": "0/22"
+  },
+  "evidence_location_validity": {
+    "source_spans": "1014/1019",
+    "json_pointers": "2588/2588"
+  },
+  "replicate_agreement": {
+    "semantic": "17/22",
+    "hard_disposition": "17/22"
+  },
+  "latency_seconds": {
+    "median": 127.5185,
+    "mean": 125.8460909090909,
+    "min": 70.865,
+    "max": 275.578
+  },
+  "valid_trial_failure_audit": {
+    "hard_defect_misses": 0,
+    "faithful_state_false_blocks": 0,
+    "indeterminate_trials_accounting_for_individual_shortfall": [6, 11, 35, 39, 52],
+    "source_span_invalid_trials": [6, 11, 35, 39, 52],
+    "majority_correct_on_all_22_candidates": true
+  },
+  "verdict": "RETAIN v0.2",
+  "interpretation": "Retain for the next DEVELOPMENT experiment only; do not treat as production-ready.",
+  "next_architecture_step": "Run a harder, failure-enriched, non-floor end-to-end A/B: Arm A prompt-only AskRigor; Arm B EpistemicStateV1 plus deterministic verifier plus independent semantic representation review. Construct Arm A so it is not trivially at zero errors and do not consume held-out MAST/validation evidence."
+}
