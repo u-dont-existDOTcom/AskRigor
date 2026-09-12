@@ -1,4 +1,42 @@
-# Continuation handoff: semantic reviewer v0.2 checkpoint 60
+# Completion handoff: semantic reviewer v0.2 all 66 sessions frozen
+
+## Final execution checkpoint: 66 of 66, unscored
+
+Recorded at `2026-09-12T20:08:45.307Z` in `reviewer/checkpoint-066.json`.
+**All 66 authorized reviewer sessions are frozen: 61 valid ingest receipts and
+5 explicit invalid/indeterminate trials.** This means interface/evidence
+validation, not agreement with a scorer key or a scientific performance verdict.
+The current continuation generated sequences 41–66 exactly once: 25 valid and
+one indeterminate (52, source-span mismatch). Existing indeterminate trials
+remain preserved; none were regenerated or repaired into a semantic result.
+
+The final audit verified all dispatch inputs and identities, all raw/normalized
+hash pairs, all new provenance hashes and model/mode/independence fields,
+unique observed message identities, at least 60-second submission spacing, and
+exactly 66 session directories. The original 200 files from sessions 1–40 and
+all 300 files committed through session 60 are byte-identical to their prior
+commits. Checkpoints 50 and 60 are unchanged. Intermediate commits `bef5c31`
+and `73f6396` were pushed before the subsequent submissions.
+
+All new reviewer sessions used built-in **iab**, **GPT-5.6 Sol / Extra High**,
+fresh temporary nonpersonalized conversations, and one tab. The completed tab
+was closed after sequence 66; the iab tab inventory is empty. Exact rendered
+outputs are preserved, including whitespace and untrusted self-reported
+metadata. Only existing serialization normalization and deterministic ingestion
+were applied. Read timeouts and their non-resubmitting recovery are documented
+in the earlier checkpoint sections.
+
+**Scorer material remains unopened; no scoring has been run.** Model API spend
+is USD 0. No production integration, merge, or deployment occurred. There is no
+next reviewer dispatch. Preserve sessions 1–66 and the final checkpoint; any
+separate scoring or methodological interpretation must follow the applicable
+owner/reasoning authority and cannot be inferred from this execution result.
+
+Authority gate: PASS. Lesson closeout: the saved Browser recovery correction
+documents the incomplete setup check and the working built-in client route;
+existing preservation and failure-boundary rules were applied without changing
+the evaluation methodology or introducing a new policy. The remaining sections
+are historical checkpoint/recovery evidence, not instructions to restart work.
 
 ## Latest durable checkpoint: 60 of 66
 

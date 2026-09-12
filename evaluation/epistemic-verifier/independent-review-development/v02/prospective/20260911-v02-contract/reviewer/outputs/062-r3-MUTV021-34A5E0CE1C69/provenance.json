@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "trial_id": "v02-prospective-reviewer-062-r3-MUTV021-34A5E0CE1C69",
+  "sequence": 62,
+  "replicate": 3,
+  "phase": "DEVELOPMENT_DISCOVERY_BLINDED_PROSPECTIVE_REVIEW",
+  "candidate_id": "MUTV021-34A5E0CE1C69",
+  "controller_observed": {
+    "surface": "CHATGPT_CONSUMER_UI_TEMPORARY_CHAT",
+    "browser_provider": "iab",
+    "temporary_chat": true,
+    "personalization": "Non personnalisé",
+    "user_message_id": "b360f141-3c89-4a94-8d9e-5783ef7792d1",
+    "assistant_message_id": "501d46bc-cbb6-40c6-92f5-94459a89adfc",
+    "assistant_model_slug": "gpt-5-6-thinking",
+    "controller_model_label_interpretation": "GPT-5.6 Sol",
+    "visible_reasoning_setting": "Extra High",
+    "visible_reasoning_label_localized": "Très élevé",
+    "account_plan_label": "Pro"
+  },
+  "timestamps": {
+    "submitted_at": "2026-09-12T19:55:48.602Z",
+    "completed_at": "2026-09-12T19:57:48.992Z",
+    "completion_timestamp_basis": "FIRST_CONTROLLER_OBSERVATION_OF_COMPLETED_OUTPUT",
+    "latency_seconds": 120.39
+  },
+  "input": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/replacement-v021/inputs/MUTV021-34A5E0CE1C69.txt",
+    "sha256": "b11082bed7cf972043e1a8f3dad11eef731f0f2ccfd4dfdca8d5c4130f0d08c0",
+    "controller_submission_transport": "PLAYWRIGHT_FILL_WITH_CHATGPT_LARGE_TEXT_STAGING_THEN_ACCESSIBILITY_CLICK"
+  },
+  "output": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/reviewer/outputs/062-r3-MUTV021-34A5E0CE1C69/raw-output.txt",
+    "characters": 6327,
+    "sha256": "648cab353862b5f539091d0e3c21d755c3545c7926360983aa2ca41715147c25",
+    "complete": true,
+    "extraction": "RENDERED_ASSISTANT_MESSAGE_INNER_TEXT"
+  },
+  "integrity": {
+    "fresh_temporary_conversation": true,
+    "controller_observed_identity": true,
+    "content_retry": false,
+    "scorer_gold_exposed": false,
+    "reviewer_self_reported_model_or_mode_trusted": false,
+    "rate_limit_dialog_observed_after_completed_output": false
+  }
+}
