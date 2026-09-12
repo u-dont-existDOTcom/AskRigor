@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_REVIEWER_EXECUTION_CHECKPOINT",
+  "recorded_at": "2026-09-11T18:57:39Z",
+  "reviewer_sessions_frozen": 32,
+  "reviewer_sessions_planned": 66,
+  "valid_reviewer_outputs": 30,
+  "invalid_reviewer_outputs": 2,
+  "scorer_gold_opened_after_reviewer_start": false,
+  "consumer_model_slug": "gpt-5-6-thinking",
+  "displayed_reasoning_mode": "Très élevé",
+  "current_blocker": "ISOLATED_IN_APP_BROWSER_UNAVAILABLE_AFTER_RUNTIME_CRASH",
+  "next_action": "Retry only the isolated in-app browser and resume sequence 33 without regenerating any frozen output."
+}

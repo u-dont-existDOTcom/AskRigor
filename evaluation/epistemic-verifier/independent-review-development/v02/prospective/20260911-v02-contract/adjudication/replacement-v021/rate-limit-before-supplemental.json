@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_REPLACEMENT_ADJUDICATION_RATE_LIMIT",
+  "observed_at": "2026-09-11T15:48:05.638Z",
+  "candidate_id": "MUTV021-38D86B34FC4C",
+  "round": 1,
+  "supplemental": 1,
+  "consumer_message_created": false,
+  "assistant_message_created": false,
+  "prompt_remained_staged": true,
+  "total_consumer_sessions_frozen": 55,
+  "disposition": "WAIT_FOR_COOLDOWN_AND_SUBMIT_THE_ALREADY_STAGED_EXACT_INPUT"
+}

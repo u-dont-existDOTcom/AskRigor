@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_REVIEWER_EXECUTION_CHECKPOINT",
+  "recorded_at": "2026-09-11T17:29:37Z",
+  "reviewer_sessions_frozen": 16,
+  "reviewer_sessions_planned": 66,
+  "valid_reviewer_outputs": 14,
+  "invalid_reviewer_outputs": 2,
+  "scorer_gold_opened_after_reviewer_start": false,
+  "consumer_model_slug": "gpt-5-6-thinking",
+  "displayed_reasoning_mode": "Très élevé",
+  "current_blocker": null,
+  "next_action": "Continue the frozen randomized reviewer order at sequence 17 and preserve the next required checkpoint at 24 sessions."
+}

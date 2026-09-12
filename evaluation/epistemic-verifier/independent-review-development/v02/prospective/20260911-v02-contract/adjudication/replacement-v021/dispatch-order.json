@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_BLINDED_REPLACEMENT_GOLD_ADJUDICATION",
+  "seed": "semantic-review-v021-replacement-adjudication-20260911",
+  "candidate_count": 2,
+  "required_independent_rounds": 2,
+  "planned_sessions_before_disagreement_resolution": 4,
+  "order": [
+    {
+      "sequence": 1,
+      "round": 1,
+      "candidate_id": "MUTV021-38D86B34FC4C",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/replacement-v021/inputs/MUTV021-38D86B34FC4C.txt",
+      "input_sha256": "5d5ee2bb7c341d42e7f056e3473ba8f5dd63d1cdd5ad5c5b74b9082b0e1a1b06"
+    },
+    {
+      "sequence": 2,
+      "round": 1,
+      "candidate_id": "MUTV021-34A5E0CE1C69",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/replacement-v021/inputs/MUTV021-34A5E0CE1C69.txt",
+      "input_sha256": "b11082bed7cf972043e1a8f3dad11eef731f0f2ccfd4dfdca8d5c4130f0d08c0"
+    },
+    {
+      "sequence": 3,
+      "round": 2,
+      "candidate_id": "MUTV021-38D86B34FC4C",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/replacement-v021/inputs/MUTV021-38D86B34FC4C.txt",
+      "input_sha256": "5d5ee2bb7c341d42e7f056e3473ba8f5dd63d1cdd5ad5c5b74b9082b0e1a1b06"
+    },
+    {
+      "sequence": 4,
+      "round": 2,
+      "candidate_id": "MUTV021-34A5E0CE1C69",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/replacement-v021/inputs/MUTV021-34A5E0CE1C69.txt",
+      "input_sha256": "b11082bed7cf972043e1a8f3dad11eef731f0f2ccfd4dfdca8d5c4130f0d08c0"
+    }
+  ]
+}

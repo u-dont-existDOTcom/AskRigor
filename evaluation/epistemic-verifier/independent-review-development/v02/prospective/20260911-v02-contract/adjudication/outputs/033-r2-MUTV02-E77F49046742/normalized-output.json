@@ -1,0 +1,258 @@
+{
+"review_version": "askrigor_epistemic_representation_review_v0_1",
+"source_sha256": "9c49b047e6f84c8bbe7895cf00da981db60c803dcd5739530d96837dc586ede4",
+"state_sha256": "4951a68eab23a952d721805d3b5d6a5dfb4fb6484838f0ae12efe3eba5623c9c",
+"producer_session_id": "synthetic-producer-PAIRV02-158B0AC36AE1",
+"reviewer": {
+"session_id": "semantic-review-66edfc66-09a4-448a-8d42-589950b670df",
+"model": "GPT-5.6 Sol",
+"mode": "Instant",
+"fresh_independent_session": true
+},
+"reviewed_at": "2026-09-11T13:16:00+00:00",
+"findings": [
+{
+"dimension": "exact_target",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 24,
+"end": 36,
+"quote": "risk_v02_m02"
+}
+],
+"state_paths": [
+"/target/target_id"
+],
+"rationale": "The requested target identifier is represented exactly as risk_v02_m02. \n\nTexte collé\n\n"
+},
+{
+"dimension": "case_and_comparison_roles",
+"status": "distorted",
+"affects_hard_invariant": true,
+"source_spans": [
+{
+"start": 38,
+"end": 68,
+"quote": "Rowan m02 is the positive case"
+},
+{
+"start": 187,
+"end": 220,
+"quote": "Mica m02 is the tolerated control"
+}
+],
+"state_paths": [
+"/cases/0/case_id",
+"/cases/0/comparison_role",
+"/cases/1/case_id",
+"/cases/1/comparison_role",
+"/comparisons/0/positive_case_ids/0",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "The source makes Rowan m02 positive and Mica m02 the tolerated control. The candidate reverses both case comparison_role values and the comparison's positive/control case lists, assigning Mica as positive and Rowan as control. This can invert a comparison hard gate and permitted conclusion. \n\nTexte collé +2\n\n "
+},
+{
+"dimension": "negative_or_tolerated_comparator",
+"status": "distorted",
+"affects_hard_invariant": true,
+"source_spans": [
+{
+"start": 187,
+"end": 220,
+"quote": "Mica m02 is the tolerated control"
+},
+{
+"start": 305,
+"end": 337,
+"quote": "does not show the target outcome"
+}
+],
+"state_paths": [
+"/cases/1/comparison_role",
+"/comparisons/0/positive_case_ids/0",
+"/comparisons/0/control_case_ids/0",
+"/observations/1/case_id",
+"/observations/1/statement"
+],
+"rationale": "The candidate faithfully records Mica's no-target-outcome observation but does not preserve Mica as the tolerated comparator: Mica is assigned the positive role and Rowan the control role. The tolerated-control identity is therefore distorted and can alter the comparison gate. \n\nTexte collé +3\n\n "
+},
+{
+"dimension": "high_information_qualifier",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 70,
+"end": 185,
+"quote": "the target outcome begins exactly 2 seconds after receiving 10 units of compound Sol by intravenous liquid infusion"
+},
+{
+"start": 222,
+"end": 338,
+"quote": "Mica receives the same 10 units of compound Sol by intravenous liquid infusion and does not show the target outcome."
+}
+],
+"state_paths": [
+"/observations/0/qualifiers",
+"/observations/0/high_information_qualifier_keys",
+"/observations/1/qualifiers",
+"/observations/1/high_information_qualifier_keys"
+],
+"rationale": "The candidate preserves the source's high-information qualifiers: Rowan's onset, dose, compound, route, and form, and Mica's matching dose, compound, route, and form. The corresponding keys are explicitly designated high-information qualifiers. \n\nTexte collé +1\n\n "
+},
+{
+"dimension": "timing",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 89,
+"end": 113,
+"quote": "begins exactly 2 seconds"
+}
+],
+"state_paths": [
+"/observations/0/statement",
+"/observations/0/qualifiers/onset_seconds"
+],
+"rationale": "The source specifies onset exactly 2 seconds after administration. Rowan's observation states exactly 2 seconds and stores onset_seconds as 2. \n\nTexte collé +1\n\n "
+},
+{
+"dimension": "amount_or_dose",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 130,
+"end": 154,
+"quote": "10 units of compound Sol"
+},
+{
+"start": 240,
+"end": 269,
+"quote": "same 10 units of compound Sol"
+}
+],
+"state_paths": [
+"/observations/0/qualifiers/dose_units",
+"/observations/0/qualifiers/compound",
+"/observations/1/qualifiers/dose_units",
+"/observations/1/qualifiers/compound"
+],
+"rationale": "Both cases are represented with 10 dose units of compound Sol, preserving the source's amount and the control's same-dose condition. \n\nTexte collé +1\n\n "
+},
+{
+"dimension": "route_or_form",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 158,
+"end": 185,
+"quote": "intravenous liquid infusion"
+},
+{
+"start": 273,
+"end": 300,
+"quote": "intravenous liquid infusion"
+}
+],
+"state_paths": [
+"/observations/0/qualifiers/route",
+"/observations/0/qualifiers/form",
+"/observations/1/qualifiers/route",
+"/observations/1/qualifiers/form"
+],
+"rationale": "For both cases the candidate stores route as intravenous and form as liquid, while the observation statements retain the infusion wording, matching the source. \n\nTexte collé +1\n\n "
+},
+{
+"dimension": "feature_value",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 339,
+"end": 395,
+"quote": "Feature Quartz is high in Rowan m02 and low in Mica m02."
+}
+],
+"state_paths": [
+"/features/0/case_id",
+"/features/0/feature_id",
+"/features/0/value",
+"/features/1/case_id",
+"/features/1/feature_id",
+"/features/1/value"
+],
+"rationale": "The candidate records Quartz as high for Rowan and low for Mica exactly as stated in the source. \n\nTexte collé +1\n\n "
+},
+{
+"dimension": "predicate_semantics",
+"status": "distorted",
+"affects_hard_invariant": true,
+"source_spans": [
+{
+"start": 38,
+"end": 68,
+"quote": "Rowan m02 is the positive case"
+},
+{
+"start": 187,
+"end": 220,
+"quote": "Mica m02 is the tolerated control"
+},
+{
+"start": 339,
+"end": 395,
+"quote": "Feature Quartz is high in Rowan m02 and low in Mica m02."
+},
+{
+"start": 430,
+"end": 508,
+"quote": "Quartz's stored value equals high and thereby distinguishes the target outcome"
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/feature_id",
+"/hypotheses/0/discriminator/operator",
+"/hypotheses/0/discriminator/value",
+"/features/0/case_id",
+"/features/0/value",
+"/features/1/case_id",
+"/features/1/value",
+"/comparisons/0/positive_case_ids/0",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "The source predicate's exact truth condition is that Quartz's stored value equals \"high\". Rowan's Quartz record stores \"high\", so the candidate equals-high operator returns true for Rowan; Mica's record stores \"low\", so it returns false for Mica. Those literal operator results match the source values. However, the candidate's represented comparison designates Mica as positive and Rowan as control, so the resulting represented positive/control contrast is false-for-positive and true-for-control, the reverse of the source's required case contrast. Under the required case-by-case discriminator procedure, predicate_semantics is therefore distorted, and the discrepancy can change the hard comparison result or permitted conclusion. \n\nTexte collé +1\n\n "
+},
+{
+"dimension": "dependency_or_provenance",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 510,
+"end": 621,
+"quote": "The conclusion must depend on Rowan's source-grounded target observation and the tolerated-control observation."
+}
+],
+"state_paths": [
+"/claims/0/dependencies/0",
+"/claims/0/dependencies/1",
+"/observations/0/provenance/kind",
+"/observations/1/provenance/kind"
+],
+"rationale": "The conclusion claim depends on both Rowan's target observation and Mica's no-target-outcome observation, and both observations carry source_grounded provenance. The role distortion elsewhere does not remove these required dependency edges. \n\nTexte collé +2\n\n "
+},
+{
+"dimension": "other",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "No additional source-grounded representation dimension remains outside the enumerated checks."
+}
+]
+}

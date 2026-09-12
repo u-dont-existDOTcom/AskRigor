@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_THIRD_ADJUDICATION",
+  "trigger": "ANY_DIMENSION_STATUS_OR_HARD_RELEVANCE_DISAGREEMENT",
+  "planned_sessions": 5,
+  "order": [
+    {
+      "sequence": 47,
+      "round": 3,
+      "candidate_id": "MUTV02-E77F49046742",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-E77F49046742.txt",
+      "input_sha256": "26c9b3c690c3a28b2ac64978f89feb8bec0a936b0673e4f50989d6d6acadf3e2",
+      "disagreement_dimensions": [
+        "predicate_semantics"
+      ]
+    },
+    {
+      "sequence": 48,
+      "round": 3,
+      "candidate_id": "MUTV02-A69B8F3D2A5E",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-A69B8F3D2A5E.txt",
+      "input_sha256": "1c618f5720f2679a667fe68c37c937fb0c1b39713daa4dca16495f046cfe66b4",
+      "disagreement_dimensions": [
+        "other"
+      ]
+    },
+    {
+      "sequence": 49,
+      "round": 3,
+      "candidate_id": "MUTV02-160DFE1FDF35",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-160DFE1FDF35.txt",
+      "input_sha256": "d64993de8f695f0835f11de0ec327e9573c0f7baaadbdd2f58bb7c33b2d251a6",
+      "disagreement_dimensions": [
+        "high_information_qualifier"
+      ]
+    },
+    {
+      "sequence": 50,
+      "round": 3,
+      "candidate_id": "MUTV02-4370AA0D930D",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-4370AA0D930D.txt",
+      "input_sha256": "3dfa2416b4e026ad0074cc07844c70ef005d0de515de699b3738e84f7d6eaa86",
+      "disagreement_dimensions": [
+        "dependency_or_provenance"
+      ]
+    },
+    {
+      "sequence": 51,
+      "round": 3,
+      "candidate_id": "MUTV02-32D4159C4DC4",
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-32D4159C4DC4.txt",
+      "input_sha256": "4002ebba22d926b21e33b4d80d34d969637ce76ec25e425620b7ee7d18a45001",
+      "disagreement_dimensions": [
+        "high_information_qualifier"
+      ]
+    }
+  ]
+}

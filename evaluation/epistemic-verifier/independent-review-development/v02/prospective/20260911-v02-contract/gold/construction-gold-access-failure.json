@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_CONSTRUCTION_GOLD_UNBLINDING_FAILED_ATTEMPT",
+  "opened_at_recorded_after_failure": "2026-09-11T15:17:25.424892Z",
+  "all_adjudication_outputs_frozen_before_access": true,
+  "construction_gold_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/gold/mutation-construction-manifest.json",
+  "construction_gold_sha256": "ee667af4cce281a92cc705a5dbd7937f3cd14af3e898a75af00d2419ba1d676a",
+  "error_type": "TypeError",
+  "error": "construction.map is not a function",
+  "root_cause": "Reconciler assumed an array root; canonical manifest stores candidate pairs under the pairs array.",
+  "outputs_written_before_failure": false,
+  "reviewer_generation_occurred": false
+}

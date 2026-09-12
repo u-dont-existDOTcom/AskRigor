@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_CONSTRUCTION_CONFLICT_ANALYSIS",
+  "status": "REJECTED_PAIR_REPLACEMENT_REQUIRED",
+  "candidate_id": "MUTV02-A69B8F3D2A5E",
+  "construction_dimension": "high_information_qualifier",
+  "construction_mutation": {
+    "removed_pointer": "/observations/0/high_information_qualifier_keys/4",
+    "removed_value": "onset_seconds",
+    "timing_fact_retained_at": [
+      "/observations/0/statement",
+      "/observations/0/qualifiers/onset_seconds"
+    ]
+  },
+  "blinded_adjudication_result": {
+    "independent_sessions": 3,
+    "high_information_qualifier_votes": [
+      "faithful|false",
+      "faithful|false",
+      "faithful|false"
+    ],
+    "semantic_majority": "FAITHFUL",
+    "hard_relevance_majority": "NO_HARD_DEFECT"
+  },
+  "causal_finding": "The mutation removed only a metadata designation while preserving the exact two-second fact in the observation statement and structured timing field. The source packet did not explicitly require that timing fact to be encoded as a high-information key. Therefore this pair did not create the promised source-to-state semantic defect, and construction labels cannot override the unanimous blinded source/state adjudication.",
+  "resolution": "Preserve the original pair and all adjudications unchanged, exclude it from reviewer-performance scoring, and create a new opaque source-constant replacement pair whose source explicitly requires preservation of the qualifier high-information role. The replacement must receive two new blinded source/state-only adjudications, with a third on any disagreement, before reviewer dispatch.",
+  "reviewer_generation_allowed": false
+}

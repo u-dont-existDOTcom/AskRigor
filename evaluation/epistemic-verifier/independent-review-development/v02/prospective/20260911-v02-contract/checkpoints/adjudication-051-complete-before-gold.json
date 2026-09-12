@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_BLINDED_GOLD_ADJUDICATION_COMPLETE",
+  "initial_attempts": "44/44",
+  "supplemental_attempts": "2/2",
+  "third_adjudications": "5/5",
+  "total_consumer_sessions": 51,
+  "unique_consumer_sessions": 51,
+  "valid_adjudication_outputs": 49,
+  "preserved_interface_invalid_outputs": 2,
+  "candidates_with_two_valid_initial_round_judgments": "22/22",
+  "disagreements_with_valid_third_judgment": "5/5",
+  "construction_gold_opened_by_execution_controller": false,
+  "reviewer_generation_allowed": false,
+  "next_step": "DETERMINISTIC_GOLD_RECONCILIATION_AND_ADMISSION",
+  "recorded_at": "2026-09-11T15:16:33.942123Z"
+}

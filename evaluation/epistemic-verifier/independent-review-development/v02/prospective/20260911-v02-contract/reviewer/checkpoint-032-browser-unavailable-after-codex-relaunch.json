@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_REVIEWER_EXECUTION_CHECKPOINT",
+  "recorded_at": "2026-09-11T20:20:12Z",
+  "resume_source_commit": "aa41f59d39b609df408ce0e92fdc8b16e4f752e7",
+  "reviewer_sessions_frozen": 32,
+  "reviewer_sessions_planned": 66,
+  "valid_reviewer_outputs": 30,
+  "invalid_reviewer_outputs": 2,
+  "scorer_gold_opened_after_reviewer_start": false,
+  "consumer_model_slug": "gpt-5-6-thinking",
+  "displayed_reasoning_mode": "Très élevé",
+  "current_blocker": "ISOLATED_IN_APP_BROWSER_UNAVAILABLE_AFTER_CODEX_SESSION_RELAUNCH",
+  "next_action": "Resume the frozen randomized reviewer order at sequence 33 after isolated in-app browser availability is restored; preserve the next required checkpoint at 40 sessions."
+}

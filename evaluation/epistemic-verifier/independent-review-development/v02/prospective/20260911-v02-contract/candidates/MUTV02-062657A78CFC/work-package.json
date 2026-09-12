@@ -1,0 +1,203 @@
+{
+  "package_version": "askrigor_epistemic_representation_work_package_v0_1",
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "source_packet": "The requested target is risk_v02_m11. Rowan m11 is the positive case: the target outcome begins exactly 2 seconds after receiving 10 units of compound Sol by intravenous liquid infusion. Mica m11 is the tolerated control: Mica receives the same 10 units of compound Sol by intravenous liquid infusion and does not show the target outcome. Feature Quartz is high in Rowan m11 and low in Mica m11. Test the material hypothesis that Quartz's stored value equals high and thereby distinguishes the target outcome. The conclusion must depend on Rowan's source-grounded target observation and the tolerated-control observation.",
+  "source_sha256": "d338a4b2756a83af08b78060be9546b9fb6c27fe2bb733cdfcb1241facf75863",
+  "candidate_state": {
+    "state_version": "askrigor_epistemic_state_v1",
+    "target": {
+      "target_id": "risk_v02_m11",
+      "label": "Risk v0.2 m11",
+      "description": "Whether the target outcome occurs for m11."
+    },
+    "cases": [
+      {
+        "case_id": "rowan_v02_m11",
+        "label": "Rowan m11",
+        "comparison_role": "positive",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:v02:m11:source"
+        }
+      },
+      {
+        "case_id": "mica_v02_m11",
+        "label": "Mica m11",
+        "comparison_role": "tolerated_control",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:v02:m11:source"
+        }
+      }
+    ],
+    "observations": [
+      {
+        "observation_id": "obs_positive_v02_m11",
+        "target_id": "risk_v02_m11",
+        "case_id": "rowan_v02_m11",
+        "statement": "Rowan m11 shows the target outcome exactly 2 seconds after 10 units of compound Sol by intravenous liquid infusion.",
+        "material": true,
+        "qualifiers": {
+          "onset_seconds": 2,
+          "dose_units": 10,
+          "compound": "Sol",
+          "route": "intravenous",
+          "form": "liquid"
+        },
+        "high_information_qualifier_keys": [
+          "dose_units",
+          "compound",
+          "route",
+          "form",
+          "onset_seconds"
+        ],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:v02:m11:source"
+        }
+      },
+      {
+        "observation_id": "obs_control_v02_m11",
+        "target_id": "risk_v02_m11",
+        "case_id": "mica_v02_m11",
+        "statement": "Mica m11 receives the same 10 units of compound Sol by intravenous liquid infusion and does not show the target outcome.",
+        "material": true,
+        "qualifiers": {
+          "dose_units": 10,
+          "compound": "Sol",
+          "route": "intravenous",
+          "form": "liquid"
+        },
+        "high_information_qualifier_keys": [
+          "dose_units",
+          "compound",
+          "route",
+          "form"
+        ],
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:v02:m11:source"
+        }
+      }
+    ],
+    "features": [
+      {
+        "case_id": "rowan_v02_m11",
+        "feature_id": "quartz_v02_m11",
+        "value": "high",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:v02:m11:source"
+        }
+      },
+      {
+        "case_id": "mica_v02_m11",
+        "feature_id": "quartz_v02_m11",
+        "value": "low",
+        "provenance": {
+          "kind": "source_grounded",
+          "source_id": "mutation:v02:m11:source"
+        }
+      }
+    ],
+    "comparisons": [
+      {
+        "comparison_id": "cmp_v02_m11",
+        "target_id": "risk_v02_m11",
+        "positive_case_ids": [
+          "rowan_v02_m11"
+        ],
+        "control_case_ids": [
+          "mica_v02_m11"
+        ]
+      }
+    ],
+    "hypotheses": [
+      {
+        "hypothesis_id": "hyp_v02_m11",
+        "target_id": "risk_v02_m11",
+        "statement": "Quartz's stored value equals high and distinguishes the target outcome for m11.",
+        "material": false,
+        "discriminator": {
+          "feature_id": "quartz_v02_m11",
+          "operator": "equals",
+          "value": "high"
+        },
+        "qualifier_predictions": []
+      }
+    ],
+    "claims": [
+      {
+        "claim_id": "conclusion_v02_m11",
+        "target_id": "risk_v02_m11",
+        "kind": "conclusion",
+        "statement": "Quartz's stored value equals high and survives the represented comparison.",
+        "material": true,
+        "provenance": {
+          "kind": "inference",
+          "source_id": "mutation:v02:m11:derived"
+        },
+        "dependencies": [
+          {
+            "kind": "observation",
+            "id": "obs_positive_v02_m11"
+          },
+          {
+            "kind": "observation",
+            "id": "obs_control_v02_m11"
+          }
+        ]
+      }
+    ]
+  },
+  "state_sha256": "5b241430bd8455c9ee3622c471855af20d02ff13afade0da77c9c66d0d174409",
+  "producer": {
+    "session_id": "synthetic-producer-PAIRV02-8D727591FC38",
+    "model": "DETERMINISTIC_FIXTURE",
+    "mode": "DEVELOPMENT"
+  },
+  "required_dimensions": [
+    "exact_target",
+    "case_and_comparison_roles",
+    "negative_or_tolerated_comparator",
+    "high_information_qualifier",
+    "timing",
+    "amount_or_dose",
+    "route_or_form",
+    "feature_value",
+    "predicate_semantics",
+    "dependency_or_provenance",
+    "other"
+  ],
+  "comparison_views": [
+    {
+      "comparison_id": "cmp_v02_m11",
+      "positive_case_ids": [
+        "rowan_v02_m11"
+      ],
+      "control_case_ids": [
+        "mica_v02_m11"
+      ]
+    }
+  ],
+  "discriminator_views": [
+    {
+      "hypothesis_id": "hyp_v02_m11",
+      "feature_id": "quartz_v02_m11",
+      "operator": "equals",
+      "value": "high",
+      "assignments": [
+        {
+          "case_id": "rowan_v02_m11",
+          "comparison_role": "positive",
+          "value": "high"
+        },
+        {
+          "case_id": "mica_v02_m11",
+          "comparison_role": "tolerated_control",
+          "value": "low"
+        }
+      ]
+    }
+  ]
+}

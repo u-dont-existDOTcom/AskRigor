@@ -1,0 +1,254 @@
+{
+  "review_version": "askrigor_epistemic_representation_review_v0_1",
+  "source_sha256": "7594baedcf9eb1698081a53528425c2a83dd44ded77d03ded4a3096cb90528be",
+  "state_sha256": "e9ab1535c8f0889ce7809d9afded34ad97a591291363692ee49e0a31894f6aae",
+  "producer_session_id": "synthetic-producer-PAIRV02-F2B501151403",
+  "reviewer": {
+    "session_id": "review-20260911T140500Z-7f4a1c2e",
+    "model": "GPT-5.6 Sol",
+    "mode": "Instant",
+    "fresh_independent_session": true
+  },
+  "reviewed_at": "2026-09-11T14:05:00+00:00",
+  "reviewer_independent": true,
+  "status": "pass",
+  "critical_representation": "faithful",
+  "findings": [
+    {
+      "dimension": "exact_target",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 37,
+          "quote": "The requested target is risk_v02_m04."
+        }
+      ],
+      "state_paths": [
+        "/target/target_id"
+      ],
+      "rationale": "The source names risk_v02_m04 as the requested target, and the candidate target_id is exactly risk_v02_m04."
+    },
+    {
+      "dimension": "case_and_comparison_roles",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 38,
+          "end": 68,
+          "quote": "Rowan m04 is the positive case"
+        },
+        {
+          "start": 187,
+          "end": 220,
+          "quote": "Mica m04 is the tolerated control"
+        }
+      ],
+      "state_paths": [
+        "/cases/0/comparison_role",
+        "/cases/1/comparison_role",
+        "/comparisons/0/positive_case_ids/0",
+        "/comparisons/0/control_case_ids/0"
+      ],
+      "rationale": "Rowan m04 is represented as the positive case and Mica m04 as the tolerated control, and the comparison lists place their corresponding case IDs in the matching positive and control roles."
+    },
+    {
+      "dimension": "negative_or_tolerated_comparator",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 187,
+          "end": 220,
+          "quote": "Mica m04 is the tolerated control"
+        },
+        {
+          "start": 222,
+          "end": 337,
+          "quote": "Mica receives the same 10 units of compound Sol by intravenous liquid infusion and does not show the target outcome"
+        }
+      ],
+      "state_paths": [
+        "/cases/1/comparison_role",
+        "/observations/1/statement",
+        "/comparisons/0/control_case_ids/0"
+      ],
+      "rationale": "The candidate preserves Mica as the tolerated control, the matched exposure, and the required negative target-outcome observation."
+    },
+    {
+      "dimension": "high_information_qualifier",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 130,
+          "end": 185,
+          "quote": "10 units of compound Sol by intravenous liquid infusion"
+        },
+        {
+          "start": 245,
+          "end": 300,
+          "quote": "10 units of compound Sol by intravenous liquid infusion"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/high_information_qualifier_keys",
+        "/observations/0/qualifiers/dose_units",
+        "/observations/0/qualifiers/compound",
+        "/observations/0/qualifiers/route",
+        "/observations/0/qualifiers/form",
+        "/observations/1/high_information_qualifier_keys",
+        "/observations/1/qualifiers/dose_units",
+        "/observations/1/qualifiers/compound",
+        "/observations/1/qualifiers/route",
+        "/observations/1/qualifiers/form"
+      ],
+      "rationale": "The exposure qualifiers carried by the source—dose, compound, intravenous route, and liquid form—are represented for both material observations and are explicitly designated as high-information qualifier keys."
+    },
+    {
+      "dimension": "timing",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 96,
+          "end": 113,
+          "quote": "exactly 2 seconds"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/statement",
+        "/observations/0/qualifiers/onset_seconds"
+      ],
+      "rationale": "The positive observation preserves the exact onset timing of 2 seconds, both in its statement and as onset_seconds = 2."
+    },
+    {
+      "dimension": "amount_or_dose",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 130,
+          "end": 138,
+          "quote": "10 units"
+        },
+        {
+          "start": 245,
+          "end": 253,
+          "quote": "10 units"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/qualifiers/dose_units",
+        "/observations/1/qualifiers/dose_units"
+      ],
+      "rationale": "Both source cases receive 10 units, and both candidate observations store dose_units = 10."
+    },
+    {
+      "dimension": "route_or_form",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 158,
+          "end": 185,
+          "quote": "intravenous liquid infusion"
+        },
+        {
+          "start": 273,
+          "end": 300,
+          "quote": "intravenous liquid infusion"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/qualifiers/route",
+        "/observations/0/qualifiers/form",
+        "/observations/0/statement",
+        "/observations/1/qualifiers/route",
+        "/observations/1/qualifiers/form",
+        "/observations/1/statement"
+      ],
+      "rationale": "For both cases the candidate represents route = intravenous and form = liquid, while the observation statements retain the full intravenous liquid infusion wording."
+    },
+    {
+      "dimension": "feature_value",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 339,
+          "end": 395,
+          "quote": "Feature Quartz is high in Rowan m04 and low in Mica m04."
+        }
+      ],
+      "state_paths": [
+        "/features/0/case_id",
+        "/features/0/feature_id",
+        "/features/0/value",
+        "/features/1/case_id",
+        "/features/1/feature_id",
+        "/features/1/value"
+      ],
+      "rationale": "The candidate stores Quartz as high for Rowan m04 and low for Mica m04, matching the source exactly."
+    },
+    {
+      "dimension": "predicate_semantics",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 339,
+          "end": 395,
+          "quote": "Feature Quartz is high in Rowan m04 and low in Mica m04."
+        },
+        {
+          "start": 430,
+          "end": 508,
+          "quote": "Quartz's stored value equals high and thereby distinguishes the target outcome"
+        }
+      ],
+      "state_paths": [
+        "/hypotheses/0/discriminator/feature_id",
+        "/hypotheses/0/discriminator/operator",
+        "/hypotheses/0/discriminator/value",
+        "/features/0/value",
+        "/features/1/value",
+        "/comparisons/0/positive_case_ids/0",
+        "/comparisons/0/control_case_ids/0"
+      ],
+      "rationale": "The source predicate's exact truth condition is that Quartz's stored value equals \"high\", not merely that a Quartz record exists. The relevant positive case is Rowan m04, whose quartz_v02_m04 record has stored value \"high\"; the tolerated control is Mica m04, whose corresponding record has stored value \"low\". The candidate discriminator uses operator \"equals\" with value \"high\". It therefore returns true for Rowan and false for Mica. This case-by-case contrast is exactly what the source predicate requires, so the predicate semantics are faithful."
+    },
+    {
+      "dimension": "dependency_or_provenance",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 510,
+          "end": 621,
+          "quote": "The conclusion must depend on Rowan's source-grounded target observation and the tolerated-control observation."
+        }
+      ],
+      "state_paths": [
+        "/observations/0/provenance/kind",
+        "/observations/1/provenance/kind",
+        "/claims/0/provenance/kind",
+        "/claims/0/dependencies/0",
+        "/claims/0/dependencies/1"
+      ],
+      "rationale": "Both material observations are marked source_grounded, and the inference claim explicitly depends on obs_positive_v02_m04 and obs_control_v02_m04, satisfying the source's required dependency on Rowan's target observation and the tolerated-control observation."
+    },
+    {
+      "dimension": "other",
+      "status": "not_applicable",
+      "affects_hard_invariant": false,
+      "source_spans": [],
+      "state_paths": [],
+      "rationale": "No additional source discriminator or representation requirement outside the enumerated dimensions is present."
+    }
+  ],
+  "blockers": [],
+  "warnings": []
+}
