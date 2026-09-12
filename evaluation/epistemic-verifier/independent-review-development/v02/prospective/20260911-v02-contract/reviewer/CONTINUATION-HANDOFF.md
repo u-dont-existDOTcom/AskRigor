@@ -1,4 +1,78 @@
-# Continuation handoff: semantic reviewer v0.2 after desktop-app regression
+# Continuation handoff: semantic reviewer v0.2 checkpoint 40
+
+## Current state: requested checkpoint reached
+
+Recorded with `reviewer/checkpoint-040.json` at `2026-09-12T18:37:20.566Z`.
+
+- Frozen reviewer sessions: **40 of 66**, with **36 valid** ingest receipts and
+  **4 invalid/indeterminate** ingest errors.
+- This continuation generated sequences **33–40** exactly once: six valid
+  outputs and two indeterminate trials (35 and 39, source-span mismatch).
+  Originals, normalized outputs, and rejection receipts are preserved without
+  content repair or retry.
+- All **160 existing files** in sequences 1–32 are byte-identical to starting
+  head `67c7fee5b2b1ada31c12427772ef03f951f3c964`. All 66 dispatch-input hashes,
+  the dispatch order, pre-generation freeze, and corrected admission artifact
+  were verified unchanged.
+- Starting branch, upstream, live remote, and PR #215 head matched that commit;
+  the worktree was clean. It is the single documentary descendant of the
+  owner's expected `724900de4e26eba1d321a8ca8e0b6b44469df536` (the earlier fresh
+  iab blocker only), not a changed reviewer baseline.
+- Built-in **iab worked** in this fresh desktop session. No downgrade, browser
+  substitution, Brave interaction, paid model API, or scorer-key access occurred.
+- Each new submission used a fresh temporary, nonpersonalized ChatGPT session,
+  explicitly selected **GPT-5.6 Sol / Extra High** (`Très élevé`), one tab, and
+  at least 60 seconds between submissions. The completed tab was closed after
+  sequence 40; no reviewer tabs remain.
+- Provider-rendered text was captured verbatim and hash-checked before freezing.
+  Existing serialization-only normalization and deterministic ingestion were
+  used. Self-reported metadata remains untrusted: sequence 40 says `Instant`,
+  but controller-observed UI selection was Extra High and the message model
+  slug was `gpt-5-6-thinking`; neither raw nor normalized content was altered
+  to conceal that discrepancy. Completion timestamps for 33–40 are the first
+  controller observation of completed output, not exact provider finish times.
+- Diff whitespace warnings are confined to verbatim raw captures (33, 34, 36,
+  37, and 39). Those bytes are intentionally preserved; non-raw files pass the
+  whitespace check. Validation is the existing per-output normalizer/ingester
+  plus checkpoint integrity audit; no scorer or full-corpus scoring gate ran.
+- The authority gate passed. Lesson closeout: existing preservation and
+  structured-output failure rules were applied; no new transferable lesson or
+  broader methodology change is asserted by this execution-only checkpoint.
+- **Stop at 40** for this owner's requested slice. No sequence 41 submission,
+  scorer execution, production integration, merge, or deployment occurred.
+
+### Next authorized continuation
+
+First read the current repository authority and this handoff, reconcile the
+branch/upstream/clean worktree and checkpoint commit against PR #215, and verify
+the frozen artifacts. Preserve sequences **1–40**. Use only built-in iab; if it
+is unavailable, record a sanitized blocker without creating reviewer output.
+Do not perform the historical downgrade procedure below merely because it is
+recorded: the required browser capability worked in this continuation.
+
+Resume the frozen dispatch at:
+
+- sequence: `41`
+- replicate: `2`
+- candidate: `MUTV02-769BB9A5909E`
+- input: `evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-769BB9A5909E.txt`
+- input SHA-256: `ace40477d0e87f0085940922f16a5cd05abe0fdc3068c463bfec45fc99a41cf7`
+
+Retain the model/mode, fresh-session independence, one-tab limit, spacing,
+exact input/raw hashes, normalization, ingestion, and controller provenance.
+The model selector reset to Latest after each new chat in this session, so Sol
+must be explicitly reselected and verified before each submission. Keep scorer
+material unopened. This is a DEVELOPMENT / DISCOVERY checkpoint, not a result
+confirming generalization or completion of the planned 66 sessions.
+
+Evidence: `reviewer/continuation-preflight-20260912.json`,
+`reviewer/checkpoint-040.json`, and `reviewer/outputs/033-*` through `040-*`.
+
+## Historical handoff and recovery evidence (superseded state)
+
+The remainder preserves the earlier 32-session blocker and its recovery
+procedure as history. Its sequence-33 instructions and unavailable-browser
+status are superseded by the current checkpoint above.
 
 Recorded: `2026-09-12T01:04:13Z`
 
