@@ -1,4 +1,41 @@
-# Continuation handoff: semantic reviewer v0.2 checkpoint 40
+# Continuation handoff: semantic reviewer v0.2 checkpoint 50
+
+## Latest durable checkpoint: 50 of 66
+
+Recorded at `2026-09-12T19:24:45.284Z` in `reviewer/checkpoint-050.json`.
+There are **50 frozen sessions: 46 valid and 4 indeterminate**. Sequences
+41–50 each passed deterministic ingestion. All 200 files from sequences 1–40,
+the prior checkpoint, admission/freeze controls, and all 66 dispatch inputs
+were verified unchanged. All new sessions have unique observed message IDs,
+verified raw/normalized/provenance hashes, iab/Sol/Extra High provenance,
+fresh temporary nonpersonalized chats, and at least 60-second submission spacing.
+
+Sequence 48 had one completion-read timeout; the same tab's accessibility state
+confirmed completion and a subsequent read captured the output successfully.
+There was no resubmission, session reset, or content retry. Raw whitespace is
+preserved intentionally. No scorer material, paid model API, or other browser
+was used. No production integration, merge, or deployment is authorized here.
+
+Next: **sequence 51**, replicate 3, `MUTV02-9650D823B140`, input SHA-256
+`116f2fa0454a873adc17f0d0652afe9325e4f9e3d69d103f37a5ba7350bd210e`.
+Use its exact input path from `reviewer/dispatch-order.json`; continue through
+66 under the current owner authorization. Commit the checkpoint before further
+submissions, then preserve the next checkpoint at 60 and final completion at 66.
+Never regenerate sequences 1–50. The earlier checkpoint/blocker sections below
+are historical; use the latest durable checkpoint and artifact tree to resume.
+
+## Recovery correction: iab available, continuation resumed
+
+The owner reselected Browser. The installed Browser client's
+`setupBrowserRuntime()` initialized successfully through the trusted Node REPL
+browser service and exposed the current task's `iab` provider. The preceding
+blocker was an incomplete setup check: absent CUA tools did not establish that
+the Browser client could not work. No downgrade or alternate browser was needed.
+See `reviewer/continuation-recovery-after-040-20260912.json` for the exact
+bootstrap and first resumed submission. Continue the owner-authorized frozen
+order through 66, preserving all prior sessions and keeping scorer material
+unopened. Current checkpoint counts below will be superseded at the next durable
+checkpoint; never regenerate an already-frozen sequence.
 
 ## Latest continuation: authorized through 66, blocked before 41
 
