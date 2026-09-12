@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_REVIEWER_TRANSPORT_DIAGNOSIS",
+  "recorded_at": "2026-09-11T21:02:31Z",
+  "diagnosed_from_commit": "50102b0c355f33b33c1c52078483995a49a3e876",
+  "reviewer_sessions_frozen": 32,
+  "reviewer_sessions_planned": 66,
+  "valid_reviewer_outputs": 30,
+  "invalid_reviewer_outputs": 2,
+  "scorer_gold_opened_after_reviewer_start": false,
+  "sequence_33_generated": false,
+  "root_cause_classification": "BUILT_IN_BROWSER_LIFECYCLE_AND_IPC_FAILURE",
+  "evidence": [
+    {
+      "observed_at": "2026-09-11T18:54:55Z",
+      "component": "browser-use-iab-api",
+      "event": "CDP Runtime.evaluate timed out for the active isolated-browser tab"
+    },
+    {
+      "observed_at": "2026-09-11T18:55:44Z",
+      "component": "browser-sidebar-manager",
+      "event": "The browser-use route window was no longer live and the isolated-browser session was removed"
+    },
+    {
+      "observed_at": "2026-09-11T18:55:48Z",
+      "component": "IpcRouter",
+      "event": "The desktop app recorded write EPIPE and reset its IPC connection"
+    },
+    {
+      "observed_at": "2026-09-11T20:20:12Z",
+      "component": "computer-use inventory",
+      "event": "A new Codex session and a computer-use runtime reset still exposed only the Brave extension provider; two isolated-browser creation attempts returned Browser is not available: iab"
+    }
+  ],
+  "installation": {
+    "installed_chatgpt_version": "26.903.61454",
+    "available_chatgpt_version": "26.908.31748",
+    "package_upgrade_attempted": true,
+    "package_upgrade_completed": false,
+    "upgrade_blocker": "sudo requires the owner's local password"
+  },
+  "diagnostic_inference": "The isolated browser was available immediately before the recorded CDP timeout, so this is not evidence that the account never had browser access. The subsequent window destruction, session removal, IPC failure, and missing provider after restart support a stale or failed desktop browser-provider lifecycle. Updating the desktop app and performing a true cold restart is the smallest supported repair.",
+  "required_repair": [
+    "Upgrade the chatgpt package to 26.908.31748 or newer with local administrator authentication.",
+    "Fully quit every ChatGPT desktop process after the upgrade; reopening a window in an existing process is insufficient.",
+    "Launch the updated desktop app and start a fresh Codex or ChatGPT Work chat with the built-in Browser selected.",
+    "Verify that the computer-use inventory contains the iab provider before resuming sequence 33.",
+    "If the provider remains absent, submit in-app /feedback with the affected chat identity and the sanitized lifecycle timestamps in this receipt."
+  ],
+  "official_guidance": "https://learn.chatgpt.com/docs/browser",
+  "brave_fallback_used": false,
+  "data_loss": false,
+  "next_action": "After the updated app exposes the iab provider, resume the frozen reviewer order at sequence 33 without regenerating prior outputs."
+}

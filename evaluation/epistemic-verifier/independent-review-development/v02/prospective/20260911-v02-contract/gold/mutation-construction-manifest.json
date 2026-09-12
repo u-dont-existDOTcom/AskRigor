@@ -1,0 +1,306 @@
+{
+  "schema_version": 1,
+  "procedure_id": "askrigor_independent_semantic_representation_review_procedure_v0_2",
+  "phase": "DEVELOPMENT_CONSTRUCTION_GOLD_DO_NOT_EXPOSE_TO_REVIEWERS",
+  "historical_v01_artifacts_modified": false,
+  "faithful_base_repairs": [
+    "The named compound Sol is preserved in both source-grounded observations.",
+    "The source and state both represent onset as exactly 2 seconds.",
+    "The Quartz hypothesis contains no unsupported dose modifier or timing prediction."
+  ],
+  "pairs": [
+    {
+      "pair_id": "PAIRV02-90F6E923F5F4",
+      "dimension": "exact_target",
+      "source_sha256": "b808243c1b828e491d08660c7045757b81bb3b5746721a0f7f497914535af174",
+      "faithful_candidate_id": "MUTV02-62DC383E2CB8",
+      "defective_candidate_id": "MUTV02-39AD8ADC2CD2",
+      "changed_json_pointers": [
+        "/target/target_id"
+      ],
+      "mutation_diff": [
+        {
+          "pointer": "/target/target_id",
+          "before": "risk_v02_m01",
+          "after": "pathway_risk_v02_m01"
+        }
+      ],
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 37,
+          "quote": "The requested target is risk_v02_m01."
+        }
+      ]
+    },
+    {
+      "pair_id": "PAIRV02-158B0AC36AE1",
+      "dimension": "case_and_comparison_roles",
+      "source_sha256": "9c49b047e6f84c8bbe7895cf00da981db60c803dcd5739530d96837dc586ede4",
+      "faithful_candidate_id": "MUTV02-DB65FC2D8EEA",
+      "defective_candidate_id": "MUTV02-E77F49046742",
+      "changed_json_pointers": [
+        "/cases/0/comparison_role",
+        "/cases/1/comparison_role",
+        "/comparisons/0/positive_case_ids/0",
+        "/comparisons/0/control_case_ids/0"
+      ],
+      "mutation_diff": [
+        {
+          "pointer": "/cases/0/comparison_role",
+          "before": "positive",
+          "after": "tolerated_control"
+        },
+        {
+          "pointer": "/cases/1/comparison_role",
+          "before": "tolerated_control",
+          "after": "positive"
+        },
+        {
+          "pointer": "/comparisons/0/positive_case_ids/0",
+          "before": "rowan_v02_m02",
+          "after": "mica_v02_m02"
+        },
+        {
+          "pointer": "/comparisons/0/control_case_ids/0",
+          "before": "mica_v02_m02",
+          "after": "rowan_v02_m02"
+        }
+      ],
+      "source_spans": [
+        {
+          "start": 38,
+          "end": 68,
+          "quote": "Rowan m02 is the positive case"
+        }
+      ]
+    },
+    {
+      "pair_id": "PAIRV02-E91DD04FD166",
+      "dimension": "negative_or_tolerated_comparator",
+      "source_sha256": "6b9a8fd7bf12d73a24d0b6f8aec55be051a37c519efc9e73b3f871e6e2e01a3f",
+      "faithful_candidate_id": "MUTV02-9E2004ACE2A0",
+      "defective_candidate_id": "MUTV02-4E5FF33C884A",
+      "changed_json_pointers": [
+        "/comparisons/0/control_case_ids/0"
+      ],
+      "mutation_diff": [
+        {
+          "pointer": "/comparisons/0/control_case_ids/0",
+          "before": "mica_v02_m03"
+        }
+      ],
+      "source_spans": [
+        {
+          "start": 187,
+          "end": 220,
+          "quote": "Mica m03 is the tolerated control"
+        }
+      ]
+    },
+    {
+      "pair_id": "PAIRV02-F2B501151403",
+      "dimension": "high_information_qualifier",
+      "source_sha256": "7594baedcf9eb1698081a53528425c2a83dd44ded77d03ded4a3096cb90528be",
+      "faithful_candidate_id": "MUTV02-3AA3050AC9E0",
+      "defective_candidate_id": "MUTV02-A69B8F3D2A5E",
+      "changed_json_pointers": [
+        "/observations/0/high_information_qualifier_keys/4"
+      ],
+      "mutation_diff": [
+        {
+          "pointer": "/observations/0/high_information_qualifier_keys/4",
+          "before": "onset_seconds"
+        }
+      ],
+      "source_spans": [
+        {
+          "start": 89,
+          "end": 113,
+          "quote": "begins exactly 2 seconds"
+        }
+      ]
+    },
+    {
+      "pair_id": "PAIRV02-3AC2ED7586CE",
+      "dimension": "timing",
+      "source_sha256": "109b934b5bd0c40945aee691eef6df9ebf1f2b64f82ca72cb028b68b767436bc",
+      "faithful_candidate_id": "MUTV02-FF9E5B176C50",
+      "defective_candidate_id": "MUTV02-160DFE1FDF35",
+      "changed_json_pointers": [
+        "/observations/0/qualifiers/onset_seconds"
+      ],
+      "mutation_diff": [
+        {
+          "pointer": "/observations/0/qualifiers/onset_seconds",
+          "before": 2,
+          "after": 3600
+        }
+      ],
+      "source_spans": [
+        {
+          "start": 89,
+          "end": 113,
+          "quote": "begins exactly 2 seconds"
+        }
+      ]
+    },
+    {
+      "pair_id": "PAIRV02-59E1BD66F0EC",
+      "dimension": "amount_or_dose",
+      "source_sha256": "a1fb341515af6602a046329847eaac202b118ea681a911c88723860deaf50e88",
+      "faithful_candidate_id": "MUTV02-F080864C89E6",
+      "defective_candidate_id": "MUTV02-B8C3C7D3B400",
+      "changed_json_pointers": [
+        "/observations/1/qualifiers/dose_units"
+      ],
+      "mutation_diff": [
+        {
+          "pointer": "/observations/1/qualifiers/dose_units",
+          "before": 10,
+          "after": 1
+        }
+      ],
+      "source_spans": [
+        {
+          "start": 240,
+          "end": 253,
+          "quote": "same 10 units"
+        }
+      ]
+    },
+    {
+      "pair_id": "PAIRV02-AB685DED7B72",
+      "dimension": "route_or_form",
+      "source_sha256": "21a358920da4340ca5afdc7b5ceec251404aeb22f6f8944541512a529d7c81f1",
+      "faithful_candidate_id": "MUTV02-A45506610272",
+      "defective_candidate_id": "MUTV02-32D4159C4DC4",
+      "changed_json_pointers": [
+        "/observations/1/qualifiers/route",
+        "/observations/1/qualifiers/form"
+      ],
+      "mutation_diff": [
+        {
+          "pointer": "/observations/1/qualifiers/route",
+          "before": "intravenous",
+          "after": "oral"
+        },
+        {
+          "pointer": "/observations/1/qualifiers/form",
+          "before": "liquid",
+          "after": "capsule"
+        }
+      ],
+      "source_spans": [
+        {
+          "start": 240,
+          "end": 300,
+          "quote": "same 10 units of compound Sol by intravenous liquid infusion"
+        }
+      ]
+    },
+    {
+      "pair_id": "PAIRV02-5BFC99CE8AD5",
+      "dimension": "feature_value",
+      "source_sha256": "c4409e3eb1c037084fde5d6eb9f13f2f6f8398c9fe13705cff321c55188a57e2",
+      "faithful_candidate_id": "MUTV02-A8F8FE9BC561",
+      "defective_candidate_id": "MUTV02-9650D823B140",
+      "changed_json_pointers": [
+        "/features/1/value"
+      ],
+      "mutation_diff": [
+        {
+          "pointer": "/features/1/value",
+          "before": "low",
+          "after": "high"
+        }
+      ],
+      "source_spans": [
+        {
+          "start": 379,
+          "end": 394,
+          "quote": "low in Mica m08"
+        }
+      ]
+    },
+    {
+      "pair_id": "PAIRV02-E1723CE99010",
+      "dimension": "predicate_semantics",
+      "source_sha256": "22adca165997f553c002c33a3c90797234b9953887f20898c646e654a94c95d4",
+      "faithful_candidate_id": "MUTV02-7ECEACF0C355",
+      "defective_candidate_id": "MUTV02-72880B2133D6",
+      "changed_json_pointers": [
+        "/hypotheses/0/discriminator/operator",
+        "/hypotheses/0/discriminator/value"
+      ],
+      "mutation_diff": [
+        {
+          "pointer": "/hypotheses/0/discriminator/operator",
+          "before": "equals",
+          "after": "present"
+        },
+        {
+          "pointer": "/hypotheses/0/discriminator/value",
+          "before": "high"
+        }
+      ],
+      "source_spans": [
+        {
+          "start": 430,
+          "end": 463,
+          "quote": "Quartz's stored value equals high"
+        }
+      ]
+    },
+    {
+      "pair_id": "PAIRV02-6E9879725358",
+      "dimension": "dependency_or_provenance",
+      "source_sha256": "fd0c54bb7ed9a6cf40d715da2ee8b96243e18f5e0355bdaf6bc63e024e25b665",
+      "faithful_candidate_id": "MUTV02-BA0AF7C61837",
+      "defective_candidate_id": "MUTV02-4370AA0D930D",
+      "changed_json_pointers": [
+        "/claims/0/dependencies/1"
+      ],
+      "mutation_diff": [
+        {
+          "pointer": "/claims/0/dependencies/1",
+          "before": {
+            "kind": "observation",
+            "id": "obs_control_v02_m10"
+          }
+        }
+      ],
+      "source_spans": [
+        {
+          "start": 525,
+          "end": 620,
+          "quote": "must depend on Rowan's source-grounded target observation and the tolerated-control observation"
+        }
+      ]
+    },
+    {
+      "pair_id": "PAIRV02-8D727591FC38",
+      "dimension": "other",
+      "source_sha256": "d338a4b2756a83af08b78060be9546b9fb6c27fe2bb733cdfcb1241facf75863",
+      "faithful_candidate_id": "MUTV02-769BB9A5909E",
+      "defective_candidate_id": "MUTV02-062657A78CFC",
+      "changed_json_pointers": [
+        "/hypotheses/0/material"
+      ],
+      "mutation_diff": [
+        {
+          "pointer": "/hypotheses/0/material",
+          "before": true,
+          "after": false
+        }
+      ],
+      "source_spans": [
+        {
+          "start": 405,
+          "end": 424,
+          "quote": "material hypothesis"
+        }
+      ]
+    }
+  ]
+}

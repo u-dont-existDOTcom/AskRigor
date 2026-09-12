@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "procedure_id": "askrigor_independent_semantic_representation_review_procedure_v0_2",
+  "status": "BLOCKED_PENDING_GOLD_CONFLICT_RESOLUTION",
+  "reviewer_generation_allowed": false,
+  "adjudicated_candidates": 22,
+  "third_adjudications": 5,
+  "construction_adjudication_conflicts": 1
+}

@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "trial_id": "v02-prospective-reviewer-055-r3-MUTV02-A8F8FE9BC561",
+  "sequence": 55,
+  "replicate": 3,
+  "phase": "DEVELOPMENT_DISCOVERY_BLINDED_PROSPECTIVE_REVIEW",
+  "candidate_id": "MUTV02-A8F8FE9BC561",
+  "controller_observed": {
+    "surface": "CHATGPT_CONSUMER_UI_TEMPORARY_CHAT",
+    "browser_provider": "iab",
+    "temporary_chat": true,
+    "personalization": "Non personnalisé",
+    "user_message_id": "dccc26c2-73b8-4e69-9885-2b69f602d55c",
+    "assistant_message_id": "69fb0a2b-2d1c-4742-8c43-525cd6bee7cb",
+    "assistant_model_slug": "gpt-5-6-thinking",
+    "controller_model_label_interpretation": "GPT-5.6 Sol",
+    "visible_reasoning_setting": "Extra High",
+    "visible_reasoning_label_localized": "Très élevé",
+    "account_plan_label": "Pro"
+  },
+  "timestamps": {
+    "submitted_at": "2026-09-12T19:36:26.190Z",
+    "completed_at": "2026-09-12T19:38:28.239Z",
+    "completion_timestamp_basis": "FIRST_CONTROLLER_OBSERVATION_OF_COMPLETED_OUTPUT",
+    "latency_seconds": 122.049
+  },
+  "input": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-A8F8FE9BC561.txt",
+    "sha256": "85fca1389ef6ad9fe52f94aabb41e0ac9404d806a05a5511e7c6ce3c97422c26",
+    "controller_submission_transport": "PLAYWRIGHT_FILL_WITH_CHATGPT_LARGE_TEXT_STAGING_THEN_ACCESSIBILITY_CLICK"
+  },
+  "output": {
+    "path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/reviewer/outputs/055-r3-MUTV02-A8F8FE9BC561/raw-output.txt",
+    "characters": 6832,
+    "sha256": "f313eee439c266cb6ed8f206a53f9384f7a375274e9841fc87b8d5d7e751bff1",
+    "complete": true,
+    "extraction": "RENDERED_ASSISTANT_MESSAGE_INNER_TEXT"
+  },
+  "integrity": {
+    "fresh_temporary_conversation": true,
+    "controller_observed_identity": true,
+    "content_retry": false,
+    "scorer_gold_exposed": false,
+    "reviewer_self_reported_model_or_mode_trusted": false,
+    "rate_limit_dialog_observed_after_completed_output": false
+  }
+}

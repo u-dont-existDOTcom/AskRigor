@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "procedure_id": "askrigor_independent_semantic_representation_review_procedure_v0_2_1_fixture_correction",
+  "phase": "DEVELOPMENT_CONSTRUCTION_GOLD_DO_NOT_EXPOSE_TO_ADJUDICATORS_OR_REVIEWERS",
+  "replaces_pair_id": "PAIRV02-F2B501151403",
+  "replacement_reason": "The mutation removed only a metadata designation while preserving the exact two-second fact in the observation statement and structured timing field. The source packet did not explicitly require that timing fact to be encoded as a high-information key. Therefore this pair did not create the promised source-to-state semantic defect, and construction labels cannot override the unanimous blinded source/state adjudication.",
+  "pair": {
+    "pair_id": "PAIRV021-3922C1CD4FB3",
+    "dimension": "high_information_qualifier",
+    "source_sha256": "4201a676319ceaaa7e21c6cc5e5216e8a8496beb3a7ec5830b2deb213b761c9f",
+    "faithful_candidate_id": "MUTV021-34A5E0CE1C69",
+    "defective_candidate_id": "MUTV021-38D86B34FC4C",
+    "changed_json_pointers": [
+      "/observations/0/high_information_qualifier_keys/4"
+    ],
+    "mutation_diff": [
+      {
+        "pointer": "/observations/0/high_information_qualifier_keys/4",
+        "before": "onset_seconds"
+      }
+    ],
+    "source_spans": [
+      {
+        "start": 622,
+        "end": 736,
+        "quote": "The exact 2-second onset is a highest-information qualifier whose role must remain explicit in the representation."
+      }
+    ]
+  }
+}

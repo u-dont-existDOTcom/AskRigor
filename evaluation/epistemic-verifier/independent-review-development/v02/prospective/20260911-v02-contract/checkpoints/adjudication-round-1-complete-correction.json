@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_CHECKPOINT_CORRECTION",
+  "corrects": "checkpoints/adjudication-round-1-complete.json",
+  "original_preserved": true,
+  "reason": "Sequence 22 deterministic ingestion failed after raw-output freeze; the shell continued and emitted the checkpoint before checking the exit status.",
+  "completed_consumer_adjudication_attempts": "22/44",
+  "valid_initial_adjudications": "20/44",
+  "interface_invalid_adjudications": "2/44",
+  "round_1_attempts_completed": "22/22",
+  "supplemental_adjudications_required": 2,
+  "construction_gold_opened_by_execution_controller": false,
+  "reviewer_generation_allowed": false,
+  "recorded_at": "2026-09-11T12:14:03.916164+00:00"
+}

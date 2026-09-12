@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_REVIEWER_EXECUTION_CHECKPOINT",
+  "recorded_at": "2026-09-11T17:25:15.239Z",
+  "reviewer_sessions_frozen": 15,
+  "reviewer_sessions_planned": 66,
+  "valid_reviewer_outputs": 13,
+  "invalid_reviewer_outputs": 2,
+  "scorer_gold_opened_after_reviewer_start": false,
+  "consumer_model_slug": "gpt-5-6-thinking",
+  "displayed_reasoning_mode": "Très élevé",
+  "current_blocker": "TEMPORARY_CHATGPT_RATE_LIMIT_REJECTED_SEQUENCE_16_WITH_NO_CONSUMER_MESSAGE_CREATED",
+  "next_action": "Resubmit the already-staged exact sequence-16 input after cooldown and preserve the required 16-session checkpoint."
+}

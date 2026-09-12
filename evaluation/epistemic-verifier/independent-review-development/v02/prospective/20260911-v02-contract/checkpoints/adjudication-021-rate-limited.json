@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_BLINDED_GOLD_ADJUDICATION",
+  "completed_consumer_adjudication_attempts": "21/44",
+  "valid_initial_adjudications": "20/44",
+  "interface_invalid_adjudications": "1/44",
+  "unique_temporary_consumer_sessions": 21,
+  "round_1_attempts_completed": "21/22",
+  "round_2_attempts_completed": "0/22",
+  "attempted_next_sequence": 22,
+  "next_session_created": false,
+  "blocker": "CHATGPT_CONSUMER_UI_RATE_LIMIT_BEFORE_ACCEPTANCE",
+  "additional_adjudication_required_for_invalid_output": true,
+  "construction_gold_opened_by_execution_controller": false,
+  "reviewer_generation_allowed": false,
+  "recorded_at": "2026-09-11T12:05:08.650836+00:00"
+}

@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_REVIEWER_RATE_LIMIT",
+  "observed_at": "2026-09-11T16:40:36.795Z",
+  "reviewer_sequence": 8,
+  "candidate_id": "MUTV02-4E5FF33C884A",
+  "consumer_message_created": false,
+  "assistant_message_created": false,
+  "prompt_remained_staged": false,
+  "disposition": "DISMISS_GUARD_STAGE_THE_EXACT_FROZEN_INPUT_AND_SUBMIT_AFTER_COOLDOWN"
+}

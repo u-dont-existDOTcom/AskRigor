@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_RUNTIME_CORRECTION",
+  "required_runtime": "Node 24.18.0 / npm 11.16.0",
+  "detected_prior_shell_runtime": "Node 26.8.1",
+  "consumer_outputs_affected": false,
+  "node24_recheck_count": 16,
+  "all_prior_valid_receipts_byte_identical": true,
+  "all_prior_invalid_results_reproduced": true,
+  "checks": [
+    {
+      "sequence": 1,
+      "expected": "VALID",
+      "node24_result": "VALID",
+      "receipt_byte_identical": true
+    },
+    {
+      "sequence": 2,
+      "expected": "VALID",
+      "node24_result": "VALID",
+      "receipt_byte_identical": true
+    },
+    {
+      "sequence": 3,
+      "expected": "VALID",
+      "node24_result": "VALID",
+      "receipt_byte_identical": true
+    },
+    {
+      "sequence": 4,
+      "expected": "VALID",
+      "node24_result": "VALID",
+      "receipt_byte_identical": true
+    },
+    {
+      "sequence": 5,
+      "expected": "VALID",
+      "node24_result": "VALID",
+      "receipt_byte_identical": true
+    },
+    {
+      "sequence": 6,
+      "expected": "VALID",
+      "node24_result": "VALID",
+      "receipt_byte_identical": true
+    },
+    {
+      "sequence": 7,
+      "expected": "VALID",
+      "node24_result": "VALID",
+      "receipt_byte_identical": true
+    },
+    {
+      "sequence": 8,
+      "expected": "VALID",
+      "node24_result": "VALID",
+      "receipt_byte_identical": true
+    },
+    {
+      "sequence": 9,
+      "expected": "VALID",
+      "node24_result": "VALID",
+      "receipt_byte_identical": true
+    },
+    {
+      "sequence": 10,
+      "expected": "VALID",
+      "node24_result": "VALID",
+      "receipt_byte_identical": true
+    },
+    {
+      "sequence": 11,
+      "expected": "VALID",
+      "node24_result": "VALID",
+      "receipt_byte_identical": true
+    },
+    {
+      "sequence": 12,
+      "expected": "VALID",
+      "node24_result": "VALID",
+      "receipt_byte_identical": true
+    },
+    {
+      "sequence": 13,
+      "expected": "VALID",
+      "node24_result": "VALID",
+      "receipt_byte_identical": true
+    },
+    {
+      "sequence": 14,
+      "expected": "VALID",
+      "node24_result": "VALID",
+      "receipt_byte_identical": true
+    },
+    {
+      "sequence": 15,
+      "expected": "INVALID",
+      "node24_result": "ERROR",
+      "error_matches": true
+    },
+    {
+      "sequence": 16,
+      "expected": "VALID",
+      "node24_result": "VALID",
+      "receipt_byte_identical": true
+    }
+  ],
+  "checked_at": "2026-09-11T11:26:40.814067+00:00"
+}

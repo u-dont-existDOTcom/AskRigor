@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_PRE_GENERATION_FREEZE",
+  "frozen_at": "2026-09-11T09:59:29.114Z",
+  "prompt_path": "evaluation/epistemic-verifier/independent-review-development/v02/independent-representation-review-prompt.txt",
+  "prompt_sha256": "9bdb5b2ee7c242f9a1bf14c0f048c0bf546f7441f0170cc791b09ad889584896",
+  "candidate_manifest_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/candidate-manifest.json",
+  "candidate_manifest_sha256": "33dd7f8f940e3fb666e541ec8ea5aff9ba02144ba8b37dab5defe895a95e952e",
+  "candidate_count": 22,
+  "adjudication_dispatch_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/dispatch-order.json",
+  "adjudication_sessions_planned_before_disagreement_resolution": 44,
+  "construction_gold_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/gold/mutation-construction-manifest.json",
+  "construction_gold_opened_by_execution_controller": false,
+  "reviewer_generation_allowed": false,
+  "original_candidates_unchanged": true
+}

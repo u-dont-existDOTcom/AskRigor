@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "procedure_id": "askrigor_independent_semantic_representation_review_procedure_v0_2",
+  "repository": "u-dont-existDOTcom/AskRigor",
+  "merged_main_baseline": "e578a85c5fb26d99274eb83994a3d53e9ad27278",
+  "v02_reviewed_head": "36830b44372eccf81bab6daaee67ebe4ec3c2946",
+  "merged_worktree_parent": "5fe82504c0d97bd2610235440c0d136e3469568c",
+  "model_surface": "CHATGPT_CONSUMER_UI",
+  "requested_model": "GPT-5.6 Sol",
+  "requested_reasoning_setting": "Extra High (4 of 5)",
+  "actual_model_mode_must_be_controller_observed_per_session": true,
+  "temporary_chat": true,
+  "max_concurrent_tabs": 1,
+  "minimum_seconds_between_accepted_submissions": 60,
+  "content_retries": false,
+  "model_api_spend_usd": 0,
+  "adjudication": {
+    "candidates": 22,
+    "independent_source_state_only_rounds": 2,
+    "third_round_trigger": "ANY_DIMENSION_STATUS_OR_HARD_RELEVANCE_DISAGREEMENT",
+    "construction_gold_access_before_initial_adjudication_freeze": false
+  },
+  "prospective_review": {
+    "reviews_per_candidate": 3,
+    "reviewer_sessions_planned": 66,
+    "blocked_until_adjudicated_gold_frozen": true
+  }
+}

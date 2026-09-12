@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "repair_kind": "CHATGPT_MARKDOWN_RENDERED_JSON_ESCAPE_RESTORATION",
+  "semantics_changed": false,
+  "original_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/outputs/041-r2-MUTV02-A69B8F3D2A5E/raw-output.txt",
+  "original_sha256": "b01a524ee4c63c61a2895169b769dcffbc03cd2aa568f6fea76fdbb626b072cd",
+  "normalized_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/outputs/041-r2-MUTV02-A69B8F3D2A5E/normalized-output.json",
+  "normalized_sha256": "51d896044a5aa35fe44d036ffe1314ee631b3bd2d3c77b8cdd9b816a86dcce5b",
+  "algorithm": "ROLE_AWARE_JSON_STRING_BOUNDARY_V2",
+  "original_preserved": true
+}

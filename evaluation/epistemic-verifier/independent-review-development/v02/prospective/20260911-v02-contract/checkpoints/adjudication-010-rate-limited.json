@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_BLINDED_GOLD_ADJUDICATION",
+  "completed_initial_adjudications": "10/44",
+  "round_1_completed": "10/22",
+  "attempted_next_sequence": 11,
+  "next_session_created": false,
+  "blocker": "CHATGPT_CONSUMER_UI_TOO_MANY_REQUESTS_DIALOG",
+  "construction_gold_opened_by_execution_controller": false,
+  "reviewer_generation_allowed": false,
+  "recorded_at": "2026-09-11T10:50:55.244932+00:00"
+}

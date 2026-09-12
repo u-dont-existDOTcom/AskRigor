@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_THIRD_ADJUDICATION",
+  "completed_third_adjudications": "1/5",
+  "completed_total_consumer_sessions": 47,
+  "valid_total_adjudications": 45,
+  "construction_gold_opened_by_execution_controller": false,
+  "reviewer_generation_allowed": false,
+  "rate_limit_event": {
+    "observed": true,
+    "attempted_sequence": 48,
+    "consumer_user_message_created": false,
+    "raw_output_created": false,
+    "staged_input_preserved_in_fresh_temporary_chat": true,
+    "action": "COOLDOWN_THEN_SUBMIT_STAGED_PACKET"
+  },
+  "recorded_at": "2026-09-11T14:49:01.939392Z"
+}

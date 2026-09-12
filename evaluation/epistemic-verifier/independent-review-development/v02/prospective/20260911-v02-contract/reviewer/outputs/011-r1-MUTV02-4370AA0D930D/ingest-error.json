@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "INVALID_REVIEWER_OUTPUT",
+  "stage": "DETERMINISTIC_EVIDENCE_VALIDATION",
+  "error": "throw new Error(`${finding.dimension}: source span does not match the frozen source packet`);",
+  "raw_output_preserved": true,
+  "normalized_output_preserved": true,
+  "counts_as_valid_adjudication": false,
+  "counts_as_indeterminate_reviewer_trial": true,
+  "required_follow_up": "COUNT_AS_FROZEN_INDETERMINATE_WITHOUT_CONTENT_RETRY",
+  "recorded_at": "2026-09-11T17:01:07.477619+00:00"
+}

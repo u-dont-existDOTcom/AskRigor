@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_REVIEWER_EXECUTION_CHECKPOINT",
+  "recorded_at": "2026-09-12T18:37:20.566Z",
+  "starting_head": "67c7fee5b2b1ada31c12427772ef03f951f3c964",
+  "reviewer_sessions_frozen": 40,
+  "reviewer_sessions_planned": 66,
+  "valid_reviewer_outputs": 36,
+  "invalid_reviewer_outputs": 4,
+  "scorer_gold_opened_after_reviewer_start": false,
+  "consumer_model_slug": "gpt-5-6-thinking",
+  "displayed_reasoning_mode": "Très élevé",
+  "browser_provider": "iab",
+  "max_concurrent_tabs": 1,
+  "minimum_seconds_between_accepted_submissions": 60,
+  "model_api_spend_usd": 0,
+  "original_frozen_files_verified_unchanged": 160,
+  "all_dispatch_inputs_verified": true,
+  "new_sessions": [
+    {
+      "sequence": 33,
+      "candidate_id": "MUTV02-A45506610272",
+      "ingest": "VALID",
+      "raw_sha256": "bcdf660a6b6e8ea8fc1bc0327f5e790356a33928499713869146edd337638049",
+      "normalized_sha256": "2387461a5e590b6302200e2a09f1ba5f83ff2e0f02309eddd8d41d45d79b7a54",
+      "provenance_sha256": "3733e5d7c454c39953ed042350741d9cdb0ed22ca5ff076354e9582a0e3cc7da"
+    },
+    {
+      "sequence": 34,
+      "candidate_id": "MUTV02-E77F49046742",
+      "ingest": "VALID",
+      "raw_sha256": "707e3209b282c5f53b1e0af8ffb9269ad46dbcd2841e29434c24012ceb50c796",
+      "normalized_sha256": "f61818bc41dfeb8a3e520ba5ecb6be5b077954c4c6efb270ae7a6dd90afc3399",
+      "provenance_sha256": "905ca4f8cc47acd2942174636bd3bb562a63ec40c3f7edef8fbd8ddc4356338e"
+    },
+    {
+      "sequence": 35,
+      "candidate_id": "MUTV021-34A5E0CE1C69",
+      "ingest": "INDETERMINATE",
+      "raw_sha256": "8622da5c5d34705d4bed387ba60041a6672278abffb65c10a40f32fcdedfb16c",
+      "normalized_sha256": "fb57411f17abf0be669cbd1af8905121d5dfd29271f167986aa8081163f063a2",
+      "provenance_sha256": "8e5c2761e6e9421de346f2f03b086f8743ad7296432bd3c054fb29f8341dd758"
+    },
+    {
+      "sequence": 36,
+      "candidate_id": "MUTV02-7ECEACF0C355",
+      "ingest": "VALID",
+      "raw_sha256": "dd8d8b31ccf8127863f7d5ea2390ba8564203801df61554ca41933b989cbafeb",
+      "normalized_sha256": "8fd19445929197503d99672fec4a9c389a2034885a2e0f6ee43439967aed87df",
+      "provenance_sha256": "e938acd7cffc53301cd9409a3448ceee3e4791cbd362ae7918234b98b2f0b94f"
+    },
+    {
+      "sequence": 37,
+      "candidate_id": "MUTV021-38D86B34FC4C",
+      "ingest": "VALID",
+      "raw_sha256": "31b8d95ad07030b448b0c35e7eb285ba6528426cc93c1ef5492cace2a5f91fcd",
+      "normalized_sha256": "73a549809fb29012695795d7e38c69d9f9fe9c190e81f71927b616d06d295e22",
+      "provenance_sha256": "028655487691271582141f508fff7bf10f54777a79f826b87682d51ebd723725"
+    },
+    {
+      "sequence": 38,
+      "candidate_id": "MUTV02-4E5FF33C884A",
+      "ingest": "VALID",
+      "raw_sha256": "079c3fc809d224713f024c07b7473758fb574d3701fd1a6580cbac84abef8845",
+      "normalized_sha256": "d89d87a8ccf22b47d2ca732ce7768e4ed5d39a5f6415d0c0a5b685375c9941f3",
+      "provenance_sha256": "6de3b12e319a179d746ecd971927a5d174e62b38d8cd04e67b9ec2c07b280912"
+    },
+    {
+      "sequence": 39,
+      "candidate_id": "MUTV02-160DFE1FDF35",
+      "ingest": "INDETERMINATE",
+      "raw_sha256": "c81429415e06a771574ac4431d3709d01f1046c5fa4ab8b837fd5f529a0d2354",
+      "normalized_sha256": "67782f2caaac31b3a96531c34ee321e08b78668b7cc6e6b935fe9a6b9d03406c",
+      "provenance_sha256": "f35a9382e06b8c2460ca4a4982fb5a7c225a070b4726a7807ef8cb001117051e"
+    },
+    {
+      "sequence": 40,
+      "candidate_id": "MUTV02-B8C3C7D3B400",
+      "ingest": "VALID",
+      "raw_sha256": "4e7a308fb63d49914819c73d66abed86c9189c065b0a751dfe2ed7f594f57e62",
+      "normalized_sha256": "bbc4a288652097721c82babfaab862e3039d040149263413ba9f12ebd677c667",
+      "provenance_sha256": "486d79b6c8a34609deef021dd65023641c78bd4cf1a03f259a3dd2878d3194e9"
+    }
+  ],
+  "current_blocker": null,
+  "next_dispatch": {
+    "sequence": 41,
+    "replicate": 2,
+    "candidate_id": "MUTV02-769BB9A5909E",
+    "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/inputs/MUTV02-769BB9A5909E.txt",
+    "input_sha256": "ace40477d0e87f0085940922f16a5cd05abe0fdc3068c463bfec45fc99a41cf7"
+  },
+  "next_action": "Requested sequence-40 checkpoint reached. Resume frozen dispatch at sequence 41 under the next authorized continuation; do not recreate sequences 1–40 or open scorer material."
+}

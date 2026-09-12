@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_BLINDED_GOLD_ADJUDICATION",
+  "completed_initial_adjudications": "8/44",
+  "unique_temporary_consumer_sessions": 8,
+  "round_1_completed": "8/22",
+  "round_2_completed": "0/22",
+  "third_adjudications_required": "UNDETERMINED_BEFORE_TWO_ROUNDS",
+  "ingest_status_counts": {
+    "block": 3,
+    "pass": 5
+  },
+  "construction_gold_opened_by_execution_controller": false,
+  "reviewer_generation_allowed": false,
+  "last_sequence": 8,
+  "checkpoint_rule": "EVERY_8_COMPLETED_CONSUMER_SESSIONS"
+}

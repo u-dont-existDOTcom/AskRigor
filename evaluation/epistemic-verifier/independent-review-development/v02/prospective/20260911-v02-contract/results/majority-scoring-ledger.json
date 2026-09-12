@@ -1,0 +1,225 @@
+{
+  "schema_version": 1,
+  "candidates": [
+    {
+      "candidate_id": "MUTV02-062657A78CFC",
+      "dimension": "other",
+      "gold": "HARD_DEFECT",
+      "semantic_class": "DEFECT",
+      "hard_disposition": "BLOCK",
+      "exact_hard_defect_detected": true,
+      "replicate_semantic_agreement": true,
+      "replicate_hard_agreement": true
+    },
+    {
+      "candidate_id": "MUTV02-160DFE1FDF35",
+      "dimension": "timing",
+      "gold": "HARD_DEFECT",
+      "semantic_class": "DEFECT",
+      "hard_disposition": "BLOCK",
+      "exact_hard_defect_detected": true,
+      "replicate_semantic_agreement": false,
+      "replicate_hard_agreement": false
+    },
+    {
+      "candidate_id": "MUTV02-32D4159C4DC4",
+      "dimension": "route_or_form",
+      "gold": "HARD_DEFECT",
+      "semantic_class": "DEFECT",
+      "hard_disposition": "BLOCK",
+      "exact_hard_defect_detected": true,
+      "replicate_semantic_agreement": true,
+      "replicate_hard_agreement": true
+    },
+    {
+      "candidate_id": "MUTV02-39AD8ADC2CD2",
+      "dimension": "exact_target",
+      "gold": "HARD_DEFECT",
+      "semantic_class": "DEFECT",
+      "hard_disposition": "BLOCK",
+      "exact_hard_defect_detected": true,
+      "replicate_semantic_agreement": false,
+      "replicate_hard_agreement": false
+    },
+    {
+      "candidate_id": "MUTV02-4370AA0D930D",
+      "dimension": "dependency_or_provenance",
+      "gold": "HARD_DEFECT",
+      "semantic_class": "DEFECT",
+      "hard_disposition": "BLOCK",
+      "exact_hard_defect_detected": true,
+      "replicate_semantic_agreement": false,
+      "replicate_hard_agreement": false
+    },
+    {
+      "candidate_id": "MUTV02-4E5FF33C884A",
+      "dimension": "negative_or_tolerated_comparator",
+      "gold": "HARD_DEFECT",
+      "semantic_class": "DEFECT",
+      "hard_disposition": "BLOCK",
+      "exact_hard_defect_detected": true,
+      "replicate_semantic_agreement": true,
+      "replicate_hard_agreement": true
+    },
+    {
+      "candidate_id": "MUTV02-62DC383E2CB8",
+      "dimension": "exact_target",
+      "gold": "FAITHFUL",
+      "semantic_class": "FAITHFUL",
+      "hard_disposition": "PASS",
+      "exact_hard_defect_detected": false,
+      "replicate_semantic_agreement": true,
+      "replicate_hard_agreement": true
+    },
+    {
+      "candidate_id": "MUTV02-72880B2133D6",
+      "dimension": "predicate_semantics",
+      "gold": "HARD_DEFECT",
+      "semantic_class": "DEFECT",
+      "hard_disposition": "BLOCK",
+      "exact_hard_defect_detected": true,
+      "replicate_semantic_agreement": true,
+      "replicate_hard_agreement": true
+    },
+    {
+      "candidate_id": "MUTV02-769BB9A5909E",
+      "dimension": "other",
+      "gold": "FAITHFUL",
+      "semantic_class": "FAITHFUL",
+      "hard_disposition": "PASS",
+      "exact_hard_defect_detected": false,
+      "replicate_semantic_agreement": true,
+      "replicate_hard_agreement": true
+    },
+    {
+      "candidate_id": "MUTV02-7ECEACF0C355",
+      "dimension": "predicate_semantics",
+      "gold": "FAITHFUL",
+      "semantic_class": "FAITHFUL",
+      "hard_disposition": "PASS",
+      "exact_hard_defect_detected": false,
+      "replicate_semantic_agreement": true,
+      "replicate_hard_agreement": true
+    },
+    {
+      "candidate_id": "MUTV02-9650D823B140",
+      "dimension": "feature_value",
+      "gold": "HARD_DEFECT",
+      "semantic_class": "DEFECT",
+      "hard_disposition": "BLOCK",
+      "exact_hard_defect_detected": true,
+      "replicate_semantic_agreement": true,
+      "replicate_hard_agreement": true
+    },
+    {
+      "candidate_id": "MUTV02-9E2004ACE2A0",
+      "dimension": "negative_or_tolerated_comparator",
+      "gold": "FAITHFUL",
+      "semantic_class": "FAITHFUL",
+      "hard_disposition": "PASS",
+      "exact_hard_defect_detected": false,
+      "replicate_semantic_agreement": false,
+      "replicate_hard_agreement": false
+    },
+    {
+      "candidate_id": "MUTV02-A45506610272",
+      "dimension": "route_or_form",
+      "gold": "FAITHFUL",
+      "semantic_class": "FAITHFUL",
+      "hard_disposition": "PASS",
+      "exact_hard_defect_detected": false,
+      "replicate_semantic_agreement": true,
+      "replicate_hard_agreement": true
+    },
+    {
+      "candidate_id": "MUTV02-A8F8FE9BC561",
+      "dimension": "feature_value",
+      "gold": "FAITHFUL",
+      "semantic_class": "FAITHFUL",
+      "hard_disposition": "PASS",
+      "exact_hard_defect_detected": false,
+      "replicate_semantic_agreement": true,
+      "replicate_hard_agreement": true
+    },
+    {
+      "candidate_id": "MUTV02-B8C3C7D3B400",
+      "dimension": "amount_or_dose",
+      "gold": "HARD_DEFECT",
+      "semantic_class": "DEFECT",
+      "hard_disposition": "BLOCK",
+      "exact_hard_defect_detected": true,
+      "replicate_semantic_agreement": true,
+      "replicate_hard_agreement": true
+    },
+    {
+      "candidate_id": "MUTV02-BA0AF7C61837",
+      "dimension": "dependency_or_provenance",
+      "gold": "FAITHFUL",
+      "semantic_class": "FAITHFUL",
+      "hard_disposition": "PASS",
+      "exact_hard_defect_detected": false,
+      "replicate_semantic_agreement": true,
+      "replicate_hard_agreement": true
+    },
+    {
+      "candidate_id": "MUTV02-DB65FC2D8EEA",
+      "dimension": "case_and_comparison_roles",
+      "gold": "FAITHFUL",
+      "semantic_class": "FAITHFUL",
+      "hard_disposition": "PASS",
+      "exact_hard_defect_detected": false,
+      "replicate_semantic_agreement": true,
+      "replicate_hard_agreement": true
+    },
+    {
+      "candidate_id": "MUTV02-E77F49046742",
+      "dimension": "case_and_comparison_roles",
+      "gold": "HARD_DEFECT",
+      "semantic_class": "DEFECT",
+      "hard_disposition": "BLOCK",
+      "exact_hard_defect_detected": true,
+      "replicate_semantic_agreement": true,
+      "replicate_hard_agreement": true
+    },
+    {
+      "candidate_id": "MUTV02-F080864C89E6",
+      "dimension": "amount_or_dose",
+      "gold": "FAITHFUL",
+      "semantic_class": "FAITHFUL",
+      "hard_disposition": "PASS",
+      "exact_hard_defect_detected": false,
+      "replicate_semantic_agreement": true,
+      "replicate_hard_agreement": true
+    },
+    {
+      "candidate_id": "MUTV02-FF9E5B176C50",
+      "dimension": "timing",
+      "gold": "FAITHFUL",
+      "semantic_class": "FAITHFUL",
+      "hard_disposition": "PASS",
+      "exact_hard_defect_detected": false,
+      "replicate_semantic_agreement": true,
+      "replicate_hard_agreement": true
+    },
+    {
+      "candidate_id": "MUTV021-34A5E0CE1C69",
+      "dimension": "high_information_qualifier",
+      "gold": "FAITHFUL",
+      "semantic_class": "FAITHFUL",
+      "hard_disposition": "PASS",
+      "exact_hard_defect_detected": false,
+      "replicate_semantic_agreement": false,
+      "replicate_hard_agreement": false
+    },
+    {
+      "candidate_id": "MUTV021-38D86B34FC4C",
+      "dimension": "high_information_qualifier",
+      "gold": "HARD_DEFECT",
+      "semantic_class": "DEFECT",
+      "hard_disposition": "BLOCK",
+      "exact_hard_defect_detected": true,
+      "replicate_semantic_agreement": true,
+      "replicate_hard_agreement": true
+    }
+  ]
+}

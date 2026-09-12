@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "receipt_type": "SCORER_UNBLINDING_AUTHORIZATION_AFTER_FROZEN_REVIEWER_EXECUTION",
+  "recorded_at": "2026-09-12T22:47:48.671Z",
+  "frozen_head_sha": "8fb2d02ff8f0ed6ad81d7c3fbb283988862d55ff",
+  "pr": 215,
+  "branch": "task/epistemic-semantic-review-v02-contract-20260911",
+  "remote_head_verified": true,
+  "worktree_clean_verified": true,
+  "reviewer_sessions_frozen": 66,
+  "valid_ingest_receipts": 61,
+  "indeterminate_ingest_errors": 5,
+  "reviewer_directories_verified": 66,
+  "unique_assistant_message_ids_verified": 66,
+  "frozen_raw_normalized_provenance_integrity_verified": true,
+  "reviewer_outputs_changed_since_checkpoint_066": false,
+  "reviewer_regeneration_performed": false,
+  "reviewer_retry_performed": false,
+  "scorer_gold_access_before_this_receipt": false,
+  "first_scorer_gold_access_authorized_only_after_this_receipt": true,
+  "ci_status_at_reconciliation": {
+    "Deterministic verification": "SUCCESS",
+    "Analyze (actions)": "SUCCESS",
+    "workflow-policy": "SUCCESS",
+    "Analyze (javascript-typescript)": "SUCCESS",
+    "Analyze (python)": "SUCCESS",
+    "Analyze (ruby)": "SUCCESS",
+    "CodeQL": "SUCCESS"
+  },
+  "model_api_spend_usd": 0,
+  "authorization": "The canonical scorer may now read adjudicated gold and score all 66 frozen trials, including all five indeterminate trials; it must not alter reviewer outputs."
+}

@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_REVIEWER_TRANSPORT_OUTAGE",
+  "recorded_at": "2026-09-11T18:57:39Z",
+  "reviewer_sessions_frozen": 32,
+  "reviewer_sessions_planned": 66,
+  "failed_operation": "CREATE_HIDDEN_IN_APP_BROWSER_TAB",
+  "attempts": 2,
+  "observed_error": "Browser is not available: iab",
+  "inventory_after_runtime_reset": "Only the user's Brave extension browser was available; the isolated in-app browser was absent.",
+  "brave_fallback_used": false,
+  "data_loss": false,
+  "next_action": "Retry the isolated in-app browser after cooldown and resume the frozen order at sequence 33."
+}

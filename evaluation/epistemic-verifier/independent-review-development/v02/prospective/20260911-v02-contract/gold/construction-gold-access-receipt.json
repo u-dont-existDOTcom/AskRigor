@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_CONSTRUCTION_GOLD_UNBLINDING",
+  "opened_at": "2026-09-11T15:17:26.391Z",
+  "all_initial_adjudications_frozen": true,
+  "all_required_third_adjudications_frozen": true,
+  "initial_comparison_sha256": "b1577af2d60d688ac9b814df74ee5649b8a63d322e72a4a492b5ce4bcc555c14",
+  "construction_gold_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/gold/mutation-construction-manifest.json",
+  "construction_gold_sha256": "ee667af4cce281a92cc705a5dbd7937f3cd14af3e898a75af00d2419ba1d676a",
+  "conflict_count": 1
+}

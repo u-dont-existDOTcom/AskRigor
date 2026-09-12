@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_REVIEWER_TRANSPORT_OUTAGE",
+  "recorded_at": "2026-09-11T20:20:12Z",
+  "resume_source_commit": "aa41f59d39b609df408ce0e92fdc8b16e4f752e7",
+  "reviewer_sessions_frozen": 32,
+  "reviewer_sessions_planned": 66,
+  "failed_operation": "CREATE_HIDDEN_IN_APP_BROWSER_TAB_AFTER_CODEX_SESSION_RELAUNCH",
+  "attempts": 2,
+  "runtime_reset_between_attempts": true,
+  "observed_error": "Browser is not available: iab",
+  "inventory_before_and_after_runtime_reset": "Only the user's Brave extension browser was available; the isolated in-app browser was absent.",
+  "brave_fallback_used": false,
+  "sequence_33_generated": false,
+  "data_loss": false,
+  "next_action": "Resume the frozen reviewer order at sequence 33 only after the isolated in-app browser becomes available; do not regenerate or replace any prior reviewer output."
+}

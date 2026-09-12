@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "procedure_id": "askrigor_independent_semantic_representation_review_procedure_v0_2",
+  "status": "BLOCKED_PENDING_INDEPENDENT_ADJUDICATION",
+  "reviewer_generation_allowed": false,
+  "required_before_reviewer_generation": {
+    "candidates": 22,
+    "independent_source_state_only_adjudications_per_candidate": 2,
+    "third_adjudication_on_disagreement": true,
+    "adjudicator_output_freeze_before_construction_gold_access": true,
+    "actual_session_model_mode_provenance_required": true
+  },
+  "current": {
+    "completed_independent_adjudications": 0,
+    "disagreements_resolved": 0,
+    "reviewer_outputs_generated": 0
+  },
+  "reason": "The v0.1 target-integrity review requires independent full semantic adjudication of each faithful and defective candidate before a new reviewer run."
+}

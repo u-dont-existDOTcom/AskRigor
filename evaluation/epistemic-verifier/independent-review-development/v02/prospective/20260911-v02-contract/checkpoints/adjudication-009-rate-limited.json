@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_BLINDED_GOLD_ADJUDICATION",
+  "completed_initial_adjudications": "9/44",
+  "round_1_completed": "9/22",
+  "attempted_next_sequence": 10,
+  "next_session_created": false,
+  "blocker": "CHATGPT_CONSUMER_UI_TOO_MANY_REQUESTS_DIALOG",
+  "dialog_text": "Vous envoyez des demandes trop rapidement. Nous avons temporairement restreint l\u2019acc\u00e8s \u00e0 vos conversations pour prot\u00e9ger vos donn\u00e9es. Veuillez attendre quelques minutes avant de r\u00e9essayer.",
+  "construction_gold_opened_by_execution_controller": false,
+  "reviewer_generation_allowed": false,
+  "recorded_at": "2026-09-11T10:30:59.793172+00:00"
+}

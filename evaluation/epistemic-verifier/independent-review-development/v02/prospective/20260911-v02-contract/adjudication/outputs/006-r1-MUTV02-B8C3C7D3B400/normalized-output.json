@@ -1,0 +1,221 @@
+{
+"review_version": "askrigor_epistemic_representation_review_v0_1",
+"source_sha256": "a1fb341515af6602a046329847eaac202b118ea681a911c88723860deaf50e88",
+"state_sha256": "dd41273a5214d354dbd30580c2d3e70ed934a57807fb56175e042983a5383aa7",
+"producer_session_id": "synthetic-producer-PAIRV02-59E1BD66F0EC",
+"reviewer": {
+"session_id": "independent-review-20260911T101900Z-7C4B91F2",
+"model": "GPT-5.6 Sol",
+"mode": "reasoning",
+"fresh_independent_session": true
+},
+"reviewed_at": "2026-09-11T10:19:00+00:00",
+"findings": [
+{
+"dimension": "exact_target",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 24,
+"end": 36,
+"quote": "risk_v02_m06"
+}
+],
+"state_paths": [
+"/target/target_id"
+],
+"rationale": "The candidate target_id exactly matches the requested target risk_v02_m06. Texte collé"
+},
+{
+"dimension": "case_and_comparison_roles",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 38,
+"end": 68,
+"quote": "Rowan m06 is the positive case"
+},
+{
+"start": 187,
+"end": 220,
+"quote": "Mica m06 is the tolerated control"
+}
+],
+"state_paths": [
+"/cases/0/comparison_role",
+"/cases/1/comparison_role",
+"/comparisons/0/positive_case_ids/0",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "Rowan is represented as the positive case and Mica as the tolerated control, and the comparison links the same case IDs in those roles."
+},
+{
+"dimension": "negative_or_tolerated_comparator",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 187,
+"end": 338,
+"quote": "Mica m06 is the tolerated control: Mica receives the same 10 units of compound Sol by intravenous liquid infusion and does not show the target outcome."
+}
+],
+"state_paths": [
+"/cases/1/comparison_role",
+"/observations/1/statement",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "The candidate identifies Mica as the tolerated control and represents the required negative target observation ('does not show the target outcome'). The control dose value is assessed separately under amount_or_dose."
+},
+{
+"dimension": "high_information_qualifier",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 70,
+"end": 185,
+"quote": "the target outcome begins exactly 2 seconds after receiving 10 units of compound Sol by intravenous liquid infusion"
+},
+{
+"start": 222,
+"end": 338,
+"quote": "Mica receives the same 10 units of compound Sol by intravenous liquid infusion and does not show the target outcome."
+}
+],
+"state_paths": [
+"/observations/0/high_information_qualifier_keys",
+"/observations/1/high_information_qualifier_keys"
+],
+"rationale": "The candidate marks the source-material onset, dose, compound, route, and form fields as high-information for Rowan, and dose, compound, route, and form for Mica. Individual qualifier values are judged in their dedicated dimensions."
+},
+{
+"dimension": "timing",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 96,
+"end": 113,
+"quote": "exactly 2 seconds"
+}
+],
+"state_paths": [
+"/observations/0/qualifiers/onset_seconds",
+"/observations/0/statement"
+],
+"rationale": "Rowan's target onset is represented as exactly 2 seconds, matching the source."
+},
+{
+"dimension": "amount_or_dose",
+"status": "distorted",
+"affects_hard_invariant": true,
+"source_spans": [
+{
+"start": 240,
+"end": 269,
+"quote": "same 10 units of compound Sol"
+}
+],
+"state_paths": [
+"/observations/1/qualifiers/dose_units"
+],
+"rationale": "The source requires Mica to receive the same 10-unit dose, but the structured control qualifier stores dose_units as 1. This can change whether Mica is a like-for-like tolerated control and therefore can change a permitted conclusion, even though the observation statement itself says 'same 10 units.' Texte collé"
+},
+{
+"dimension": "route_or_form",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 158,
+"end": 185,
+"quote": "intravenous liquid infusion"
+},
+{
+"start": 273,
+"end": 300,
+"quote": "intravenous liquid infusion"
+}
+],
+"state_paths": [
+"/observations/0/qualifiers/route",
+"/observations/0/qualifiers/form",
+"/observations/1/qualifiers/route",
+"/observations/1/qualifiers/form"
+],
+"rationale": "Both cases are represented with route intravenous and form liquid, consistent with the source's intravenous liquid infusion."
+},
+{
+"dimension": "feature_value",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 339,
+"end": 395,
+"quote": "Feature Quartz is high in Rowan m06 and low in Mica m06."
+}
+],
+"state_paths": [
+"/features/0/value",
+"/features/1/value"
+],
+"rationale": "The Quartz feature values are high for Rowan and low for Mica exactly as stated in the source."
+},
+{
+"dimension": "predicate_semantics",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 339,
+"end": 395,
+"quote": "Feature Quartz is high in Rowan m06 and low in Mica m06."
+},
+{
+"start": 430,
+"end": 508,
+"quote": "Quartz's stored value equals high and thereby distinguishes the target outcome"
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/feature_id",
+"/hypotheses/0/discriminator/operator",
+"/hypotheses/0/discriminator/value",
+"/features/0/value",
+"/features/1/value"
+],
+"rationale": "The source predicate is true exactly when the Quartz record's stored value equals 'high'. Rowan has Quartz='high' and Mica has Quartz='low'. The candidate operator equals with value 'high' therefore returns true for Rowan and false for Mica, matching the source-required case contrast."
+},
+{
+"dimension": "dependency_or_provenance",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 510,
+"end": 621,
+"quote": "The conclusion must depend on Rowan's source-grounded target observation and the tolerated-control observation."
+}
+],
+"state_paths": [
+"/claims/0/dependencies/0",
+"/claims/0/dependencies/1",
+"/observations/0/provenance/kind",
+"/observations/1/provenance/kind"
+],
+"rationale": "The conclusion depends on both the Rowan positive observation and the Mica tolerated-control observation, and both observations are marked source_grounded."
+},
+{
+"dimension": "other",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "No additional source-grounded representation dimension beyond the listed required dimensions is applicable."
+}
+]
+}

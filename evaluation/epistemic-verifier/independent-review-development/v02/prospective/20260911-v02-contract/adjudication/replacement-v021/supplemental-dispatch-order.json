@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_BLINDED_REPLACEMENT_SUPPLEMENTAL_ADJUDICATION",
+  "seed": "semantic-review-v021-replacement-supplemental-20260911",
+  "planned_sessions": 1,
+  "invalid_outputs_preserved": [
+    {
+      "directory": "052-v021-r1-MUTV021-38D86B34FC4C",
+      "candidate_id": "MUTV021-38D86B34FC4C",
+      "round": 1
+    }
+  ],
+  "order": [
+    {
+      "sequence": 1,
+      "supplemental": 1,
+      "candidate_id": "MUTV021-38D86B34FC4C",
+      "round": 1,
+      "input_path": "evaluation/epistemic-verifier/independent-review-development/v02/prospective/20260911-v02-contract/adjudication/replacement-v021/inputs/MUTV021-38D86B34FC4C.txt",
+      "input_sha256": "5d5ee2bb7c341d42e7f056e3473ba8f5dd63d1cdd5ad5c5b74b9082b0e1a1b06"
+    }
+  ]
+}

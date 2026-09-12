@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "phase": "DEVELOPMENT_DISCOVERY_REVIEWER_DISPATCH_GENERATION",
+  "attempted_at": "2026-09-11T15:55:49.703865+00:00",
+  "status": "FAILED_BEFORE_DISPATCH_FREEZE",
+  "error_code": "ENOENT",
+  "error": "Reviewer dispatch generator assumed the reviewer output directory already existed.",
+  "reviewer_sessions_started": 0,
+  "causal_repair": "Create the reviewer directory inside the canonical dispatch generator before write-once outputs."
+}
