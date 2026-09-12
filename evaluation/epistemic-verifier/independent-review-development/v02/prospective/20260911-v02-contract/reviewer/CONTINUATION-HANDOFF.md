@@ -1,4 +1,26 @@
-# Continuation handoff: semantic reviewer v0.2 checkpoint 50
+# Continuation handoff: semantic reviewer v0.2 checkpoint 60
+
+## Latest durable checkpoint: 60 of 66
+
+Recorded at `2026-09-12T19:51:22.223Z` in `reviewer/checkpoint-060.json`.
+There are **60 frozen sessions: 55 valid and 5 indeterminate**. In sequences
+51–60, only sequence 52 failed deterministic source-span validation; its exact
+raw/normalized output and error are preserved without content retry. The other
+nine passed ingestion. Checkpoint 50 was committed and pushed as `bef5c31`
+before sequence 51 was submitted.
+
+The checkpoint integrity audit passed for dispatch identities, unique observed
+message IDs, raw/normalized/provenance hashes, frozen inputs and original
+session preservation, required model/mode/independence, and submission spacing.
+Status reads after submissions 54 and 59 timed out, but accessibility checks on
+the same tab confirmed generation; neither prompt was resubmitted. No scorer
+access, browser substitution, paid API inference, or production change occurred.
+
+Next: **sequence 61**, replicate 3, `MUTV02-4E5FF33C884A`, input SHA-256
+`a9a4da8f9fc0d56fc4bae26dc6d5a6c73c1b0e4f285240624761e3b70fc7773f`.
+After committing/pushing this checkpoint, continue through **66** under the
+current owner authorization. Do not regenerate sequences 1–60 or open scorer
+material. The sections below retain earlier checkpoint/recovery history.
 
 ## Latest durable checkpoint: 50 of 66
 
