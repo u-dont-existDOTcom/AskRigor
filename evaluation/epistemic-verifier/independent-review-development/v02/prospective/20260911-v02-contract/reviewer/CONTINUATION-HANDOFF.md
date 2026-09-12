@@ -66,6 +66,31 @@ falsified by direct testing:
 No reviewer output was generated during diagnosis, no scorer material was
 opened, and no existing reviewer artifact was changed.
 
+## Fresh desktop continuation blocker
+
+Recorded: `2026-09-12T01:40:52Z`
+
+- A fresh desktop conversation was started with the built-in Browser selected,
+  and the first visible-tab creation request explicitly targeted `iab`.
+- The provider rejected the request with the sanitized error
+  `Browser is not available: iab`.
+- No Brave fallback, provider substitution, browser reset, or reviewer
+  submission was attempted.
+- The durable branch was reconciled at
+  `724900de4e26eba1d321a8ca8e0b6b44469df536`; its configured upstream and the
+  live remote branch tip matched that commit, and the worktree was clean before
+  this handoff-only update.
+- The frozen reviewer tree still contained exactly 32 session directories, 30
+  `ingest-receipt.json` files, two `ingest-error.json` files, and no directory
+  beginning with `033-`. The sequence-33 input still matched SHA-256
+  `36af2056b0244687065a21fe68d95a4be230d8da3c0f731bc344a727fa4ca6c4`.
+- Sequence `33` was not generated or submitted, no scorer material was opened,
+  and no frozen reviewer artifact was changed.
+
+The reviewer run therefore remains stopped at the same transport boundary. A
+future fresh desktop conversation must first expose a usable built-in `iab`
+provider; only then may it resume the frozen order at sequence `33`.
+
 ## Exact continuation procedure
 
 1. Locate the worktree for the branch above with `git worktree list --porcelain`.
