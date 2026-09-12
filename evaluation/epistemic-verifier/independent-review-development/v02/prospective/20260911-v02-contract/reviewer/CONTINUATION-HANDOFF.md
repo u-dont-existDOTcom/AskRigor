@@ -1,5 +1,29 @@
 # Continuation handoff: semantic reviewer v0.2 checkpoint 40
 
+## Latest continuation: authorized through 66, blocked before 41
+
+At `2026-09-12T18:50:41.187Z`, the owner requested continuation through all
+remaining sequences. The starting branch, upstream, and live PR #215 head were
+`c59c3aeb2e6a1f6263a9f8a37353b963c0ad6ae5`, with a clean worktree.
+All 200 frozen session files were verified unchanged; the run remains at
+40 sessions (36 valid, four indeterminate), with no sequence-41 submission.
+
+The current turn does not expose the built-in browser controller used by the
+preceding turn. Callable-tool and resource discovery found no browser-control
+route, and the available generic JavaScript runtime has no initialized browser
+controller. This is a tool-attachment blocker, not evidence of an iab crash or
+another desktop package regression. No alternate browser, undocumented runtime
+bootstrap, downgrade, paid API, or scorer access was attempted.
+
+Restore the built-in `@Browser` attachment and verify `iab`, then resume at
+**41 through 66** under the owner's current authorization, preserving the exact
+model/mode, one-tab limit, spacing, inputs, raw outputs, ingestion, and
+provenance rules below. Commit and push durable checkpoints to the same PR.
+The earlier stop-at-40 boundary below describes the completed previous request;
+it no longer limits the newly authorized continuation.
+
+Evidence: `reviewer/continuation-blocker-after-040-20260912.json`.
+
 ## Current state: requested checkpoint reached
 
 Recorded with `reviewer/checkpoint-040.json` at `2026-09-12T18:37:20.566Z`.
