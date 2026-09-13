@@ -1,4 +1,4 @@
-name: One-time claim-scope runtime patch smoke
+name: One-time claim-scope runtime patch
 
 on:
   push:
@@ -6,11 +6,40 @@ on:
       - lesson/claim-scope-runtime-20260913
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  smoke:
+  patch:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - name: Smoke
-        run: echo workflow-started
+      - name: Check out task branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: lesson/claim-scope-runtime-20260913
+
+      - name: Apply deterministic patch
+        run: python scripts/one-time-claim-scope-runtime-patch.py
+
+      - name: Set up exact Node runtime
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run focused regression
+        run: npm run test:run -- tests/universal-claim-scope-gate.test.ts
+
+      - name: Commit patch and remove temporary runner
+        run: |
+          rm .github/workflows/one-time-claim-scope-runtime-patch.yml
+          rm scripts/one-time-claim-scope-runtime-patch.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Project claim-scope contradiction gate into AskRigor runtime"
+          git push origin HEAD:lesson/claim-scope-runtime-20260913
