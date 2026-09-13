@@ -87,18 +87,33 @@ describe("AskRigor public-review packet", () => {
       expect(document.replace(/\s+/gu, " ")).toContain("product-interface acceptance");
     }
 
+    // Current generated identity and dated installation evidence are different scopes.
     const instructionsHash = createHash("sha256").update(instructions).digest("hex");
-    const syncHash = createHash("sha256").update(sync).digest("hex");
-    const instructionCharacters = instructions.length.toString().replace(
-      /\B(?=(\d{3})+(?!\d))/gu,
-      ",",
+    const currentSync = JSON.parse(sync) as {
+      sources: Array<{ path: string; sha256: string }>;
+      artifacts: Array<{ path: string; sha256: string }>;
+      installation_bundle: { instructions_sha256: string };
+    };
+    expect(currentSync.installation_bundle.instructions_sha256).toBe(instructionsHash);
+    expect(currentSync.artifacts.find(({ path }) =>
+      path === "docs/custom-gpt-instructions.md")?.sha256).toBe(instructionsHash);
+    const currentSource = await readFile(
+      rootFile("project/CUSTOM_GPT_CONTROLLED_INSTRUCTIONS.md"), "utf8",
     );
+    expect(currentSync.sources.find(({ path }) =>
+      path === "project/CUSTOM_GPT_CONTROLLED_INSTRUCTIONS.md")?.sha256).toBe(
+      createHash("sha256").update(currentSource).digest("hex"),
+    );
+    expect(instructions).toBe(currentSource.trimEnd() + "\n");
     for (const document of [release, acceptance, checklist, state]) {
-      expect(document).toContain(instructionsHash);
-    }
-    for (const document of [release, acceptance, state]) {
-      expect(document).toContain(syncHash);
-      expect(document).toContain(`${instructionCharacters} characters`);
+      const section = document.match(
+        /## Current source-only instruction candidate\n([\s\S]*?)(?=\n## |$)/u,
+      )?.[1];
+      expect(section).toBeDefined();
+      expect(section).toContain("docs/custom-gpt-sync.json");
+      expect(section).toContain("docs/custom-gpt-instructions.md");
+      expect(section).toContain("not installed-state or live-acceptance evidence");
+      expect(section).toContain("Earlier dated records below retain their original identities");
     }
   });
 
@@ -379,9 +394,9 @@ describe("AskRigor public-review packet", () => {
     expect(release).toContain("creator-content verification");
     expect(release).toContain("get_youtube_transcript");
     expect(release).toContain("unofficial public YouTube interface");
-    expect(readme).toContain("Universal Instructions `20.5.23`");
+    expect(readme).toContain("Universal Instructions `20.5.24`");
     expect(readme).toContain(
-      "321686bf6cfb718ecef6ae4887a4691f0969304caedbbabee2c97ee19afaa303",
+      "6ee5e462163fffefe6d1d90f1fdb21a2f84d48ba9def817a1380c472e9bd75c1",
     );
     expect(release).toContain("Deployed production protocols");
     expect(release).toContain(

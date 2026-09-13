@@ -98,7 +98,7 @@ describe("canonical Reasoning Selection application", () => {
 
     expect(XMLValidator.validate(universal)).toBe(true);
     expect(universal).toMatch(
-      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.23" revisionDate="2026-09-10"/u,
+      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.24" revisionDate="2026-09-12"/u,
     );
     expect(Buffer.byteLength(REASONING_SELECTION_TEXT, "utf8")).toBe(2884);
     expect(sha256(REASONING_SELECTION_TEXT)).toBe(
@@ -127,12 +127,12 @@ describe("canonical Reasoning Selection application", () => {
     }
 
     const priorLongitudinalUniversal = universal
-      .replace('version="20.5.23" revisionDate="2026-09-10"', 'version="20.5.22" revisionDate="2026-09-08"')
+      .replace('version="20.5.24" revisionDate="2026-09-12"', 'version="20.5.22" revisionDate="2026-09-08"')
       .replace(
         "Evidence-Depth, Interview-Evidence and Information-Gain Integrity, Longitudinal-Evidence Preservation, Phenotype–Etiology Separation, Outcome-Directed Strategy-Switching",
         "Evidence-Depth, Interview-Evidence and Information-Gain Integrity, Outcome-Directed Strategy-Switching",
       )
-      .replace(/<revision version="20\.5\.23" priority="Critical">[\s\S]*?<\/revision>\n/u, "")
+      .replace(/<revision version="20\.5\.24" priority="Critical">[\s\S]*?<\/revision>\n/u, "")
       .replace(
         "Prevent causal explanations and hypothesis ranking from ignoring the direction of the strongest observations, selective triggers, longitudinal constraints, and negative/control cases.",
         "Prevent causal explanations and hypothesis ranking from ignoring the direction of the strongest observations, selective triggers, and negative/control cases.",
@@ -142,7 +142,7 @@ describe("canonical Reasoning Selection application", () => {
       .replace(`\n${LONGITUDINAL_POINT_CHECK}\n\n`, "")
       .replace(`\n${LONGITUDINAL_UPDATE_RULE}\n`, "");
     expect(sha256(priorLongitudinalUniversal)).toBe(
-      "d9364d98aa8c9805061aa53d21e7e3ed219675d8456b975b634bf54b2910c1b6",
+      "dd8cba1df28c40cc76ac4dbb2de1fedc1aa99c861ef3e2bd2ff9e3dd7cc2a3bb",
     );
 
     const priorInterviewUniversal = priorLongitudinalUniversal
@@ -156,7 +156,7 @@ describe("canonical Reasoning Selection application", () => {
       .replace(`${INTERVIEW_POINT_CHECK}\n\n`, "")
       .replace(CURRENT_REASONING_SELECTION_ELEMENT, REASONING_SELECTION_ELEMENT);
     expect(sha256(priorInterviewUniversal)).toBe(
-      "c85378c9993731bf93daa65a9d49438d25b1008e065bd3eb9aaac215c0af1426",
+      "27ecae1e494b70f50f7f27fefb588525b0df3bebe0dd4a0483ce9dc9f9511907",
     );
 
     const priorUniversal = priorInterviewUniversal
@@ -168,7 +168,7 @@ describe("canonical Reasoning Selection application", () => {
       .replace(/<revision version="20\.5\.21" priority="Critical">[\s\S]*?<\/revision>\n/u, "")
       .replace(/<comparison_integrity_gate priority="Critical">[\s\S]*?<\/comparison_integrity_gate>\n\n/u, "");
     expect(sha256(priorUniversal)).toBe(
-      "5365f5fcb8e9abac0b60a5cbbfa23183cf08018f1c0f6ab9a3bb1e8df87ad9b3",
+      "c1d7e2dac2d90fd402228e3c94aa4fa2ce3bdb5735bda88f1af8eecc52777ce1",
     );
 
     const recovered = priorUniversal
@@ -176,7 +176,7 @@ describe("canonical Reasoning Selection application", () => {
       .replace(`${REVISION_ELEMENT}\n`, "")
       .replace(`\n${REASONING_SELECTION_ELEMENT}\n`, "");
     expect(sha256(recovered)).toBe(
-      "e996eb5385062c7dd445c9dae3c6950bc2da045440526e1ba67b4108e0ddd752",
+      "d488f61f76b6239c9dcd0dbed5d2c31634002119fd1dd2748ac109aaa345251a",
     );
   });
 
@@ -190,14 +190,14 @@ describe("canonical Reasoning Selection application", () => {
       "d5a4b02bc53fda30bbb586d2ec34233f19bb981d38427f6311f453b84209ba5a",
     );
     expect(project).toContain(`\n${CURRENT_PROJECT_APPLICATION}## 1. Run before HRP/research`);
-    expect(Buffer.byteLength(project, "utf8")).toBe(7828);
-    expect(Array.from(project)).toHaveLength(7812);
-    expect(project.split(/\s+/u).filter(Boolean)).toHaveLength(899);
+    expect(Buffer.byteLength(project, "utf8")).toBe(7978);
+    expect(Array.from(project)).toHaveLength(7962);
+    expect(project.split(/\s+/u).filter(Boolean)).toHaveLength(920);
     expect(sha256(project)).toBe(
-      "b34ddb6cffbbadafd8981ccb887247c24390c017133ba4791e2c49a4793ffcf0",
+      "093aeeb0029eb7ba5e6238e74eef1788841524acf21b9f4ac35281e2587b7285",
     );
     expect(sha256(project.replace(CURRENT_PROJECT_APPLICATION, PROJECT_APPLICATION))).toBe(
-      "58d8c8387e962064a393af1cab7d78391e18dfa78571cbb0372aad8455b7db70",
+      "0a6085528b6f4412198d0e9a3b225a1069a40e8f494b47cbd652b69fb07a4ca8",
     );
 
     expect(sha256(AGENTS_APPLICATION)).toBe(
@@ -213,7 +213,7 @@ describe("canonical Reasoning Selection application", () => {
     ]);
 
     expect(sha256(hrp)).toBe(
-      "bb886e1e1874eeba1d645b773937043c7d9d88c84a3427ad7c0fe7f4a9be713f",
+      "254759df38934c28b06709dace9fcb266fc9967913be1296de99a461be596816",
     );
     expect(sha256(forum)).toBe(
       "75c088ba0edeb821d3d664d2f0b48b33f7dd3e627c01dfe830053d6dac2aed13",

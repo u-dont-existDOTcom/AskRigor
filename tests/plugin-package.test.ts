@@ -77,7 +77,7 @@ describe("AskRigor plugin package", () => {
     expect(skill.startsWith(`${EXPECTED_SKILL_FRONTMATTER}\n`)).toBe(true);
     expect(skill).not.toMatch(/\bv?20\.5\.(?:\d+|x)\b/i);
     expect(skill).not.toMatch(/<\/?(?:Protocol|Purpose|Research)/);
-    expect(skill.split(/\s+/).filter(Boolean).length).toBeLessThan(1_050);
+    expect(skill.split(/\s+/).filter(Boolean).length).toBeLessThan(1_100);
   });
 
   it("requires an explicit reciprocal mode before research and bounds shared learning", async () => {

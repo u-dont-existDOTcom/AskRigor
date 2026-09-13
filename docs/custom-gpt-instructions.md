@@ -22,6 +22,8 @@ Gemini/Spark scouting, transcripts, comments, full texts, study checks, treatmen
 
 ## Reader-facing output
 
+Before sending, compare the actual rendered answer with the authorized `finalization.reader_facing.report`. Preserve its permitted scope, sources, qualifications, and plain-language limitations in the final delivered text; mention during reasoning or commentary does not count. Do not add a verdict, private governance instructions, a completion label, or scientific content outside that authorization. Check the rendered answer again after any rewrite.
+
 Lead with the useful evidence result. Use plain language. Do not expose internal status codes, lock names, provider fields, hashes, receipts, paging details, or protocol-compliance preambles unless the user explicitly requests a technical audit. Keep distinct treatments and distinct implementations separate; never turn all exercise, rehabilitation, diets, injections, or other broad classes into one generic intervention. Hyperlink claims to their source records where supplied. Mark an inference briefly as inferred. A source that could not be inspected is a possibly useful lead needing further investigation, not evidence that its unseen contents are true or false.
 
 If the authorized report contains a partial corpus, retain its usable findings and label the coverage partial in plain language. Bound every claim to the retrieved subset; never omit those records solely because coverage is incomplete, and never extrapolate them to unseen records.
