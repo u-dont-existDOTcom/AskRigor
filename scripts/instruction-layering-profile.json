@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "status": "SOURCE_COMPOSITION_AUDIT_NOT_RUNTIME_AUTHORIZATION",
+  "roles": {
+    "askrigor_internal": {
+      "audience": "internal",
+      "inherits": [],
+      "local_sources": [
+        "AGENTS.md",
+        "project/DEVELOPMENT_INHERITANCE.md"
+      ],
+      "external_sources": [
+        "u-dont-existDOTcom/universal-dev-architecture:AGENTS.md",
+        "u-dont-existDOTcom/universal-dev-architecture:patterns/runtime-chat-work-authority-admission-and-internal-routing.md"
+      ]
+    },
+    "public_universal": {
+      "audience": "public",
+      "inherits": [],
+      "local_sources": [
+        "protocols/Universal_Instructions.xml"
+      ]
+    },
+    "public_hrp_with_universal": {
+      "audience": "public",
+      "inherits": [
+        "public_universal"
+      ],
+      "local_sources": [
+        "protocols/HRP_Full.xml"
+      ]
+    },
+    "public_plugin": {
+      "audience": "public",
+      "inherits": [
+        "public_hrp_with_universal"
+      ],
+      "local_sources": [
+        "skills/askrigor/SKILL.md",
+        "project/PROJECT_INSTRUCTIONS.md"
+      ]
+    },
+    "public_controlled_backend": {
+      "audience": "public",
+      "inherits": [
+        "public_hrp_with_universal"
+      ],
+      "local_sources": [
+        "project/PROJECT_INSTRUCTIONS.md",
+        "project/FORUM_SIGNAL_MODULE.md"
+      ],
+      "note": "Server-owned research authority; do not move it into the shell."
+    },
+    "public_controlled_gpt_shell": {
+      "audience": "public",
+      "inherits": [],
+      "local_sources": [
+        "project/CUSTOM_GPT_CONTROLLED_INSTRUCTIONS.md",
+        "docs/custom-gpt-instructions.md"
+      ],
+      "note": "Shell follows server directives/finalization; it does not independently reload or execute the protocol corpus."
+    }
+  },
+  "max_chars": {
+    "project/PROJECT_INSTRUCTIONS.md": 8000,
+    "project/CUSTOM_GPT_CONTROLLED_INSTRUCTIONS.md": 8000,
+    "docs/custom-gpt-instructions.md": 8000
+  },
+  "required_fragments": {
+    "AGENTS.md": [
+      "project/DEVELOPMENT_INHERITANCE.md",
+      "governance/chat-work-authority-policy.json"
+    ],
+    "protocols/Universal_Instructions.xml": [
+      "ruleId=\"portable.obligation-boundary.v1\"",
+      "version=\"20.5.24\""
+    ],
+    "protocols/HRP_Full.xml": [
+      "ruleId=\"portable.obligation-boundary.v1\"",
+      "version=\"20.5.29\""
+    ],
+    "skills/askrigor/SKILL.md": [
+      "complete",
+      "final-answer content"
+    ],
+    "project/PROJECT_INSTRUCTIONS.md": [
+      "actual final answer",
+      "existing ledger"
+    ],
+    "project/CUSTOM_GPT_CONTROLLED_INSTRUCTIONS.md": [
+      "actual rendered answer",
+      "finalization.reader_facing.report",
+      "Do not add a verdict"
+    ]
+  }
+}

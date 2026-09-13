@@ -1,5 +1,10 @@
 # AskRigor Codex Current State
 
+## Current source-only instruction candidate
+
+The 2026-09-12 instruction-boundary update is a source candidate, not installed-state or live-acceptance evidence. Current generated identities are in `docs/custom-gpt-sync.json`; the corresponding instruction body is `docs/custom-gpt-instructions.md`. Earlier dated records below retain their original identities and observations. No installation, deployment, publication acceptance, or new live verification is claimed by this source update.
+
+
 ## 2026-09-01 Phase 2.2 zero-spend NOHARM pilot/freeze candidate
 
 PR #168 merged the canonical `askrigor-external-evaluation-contribution-v1`

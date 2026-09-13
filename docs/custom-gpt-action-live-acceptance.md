@@ -1,5 +1,10 @@
 # Custom GPT Action live acceptance
 
+## Current source-only instruction candidate
+
+The 2026-09-12 instruction-boundary update is a source candidate, not installed-state or live-acceptance evidence. Current generated identities are in `docs/custom-gpt-sync.json`; the corresponding instruction body is `docs/custom-gpt-instructions.md`. Earlier dated records below retain their original identities and observations. No installation, deployment, publication acceptance, or new live verification is claimed by this source update.
+
+
 ## 2026-09-01 owner review and promotion candidate — not live-accepted
 
 The local standard plugin candidate adds the owner-only

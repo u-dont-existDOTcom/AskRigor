@@ -60,7 +60,7 @@ function validExtension(): PatientStoryEvidenceExtensionV030 {
         causal_explanation: null,
         analyst_or_coder_inference: null,
         source_turn_or_record_id: "turn-1",
-        collected_at: "2026-09-10T00:00:00Z",
+        collected_at: "2026-09-12T00:00:00Z",
         notes: null,
       },
       {
@@ -86,7 +86,7 @@ function validExtension(): PatientStoryEvidenceExtensionV030 {
         causal_explanation: null,
         analyst_or_coder_inference: null,
         source_turn_or_record_id: "turn-1",
-        collected_at: "2026-09-10T00:00:00Z",
+        collected_at: "2026-09-12T00:00:00Z",
         notes: null,
       },
       {
@@ -103,13 +103,13 @@ function validExtension(): PatientStoryEvidenceExtensionV030 {
         causal_explanation: null,
         analyst_or_coder_inference: null,
         source_turn_or_record_id: "image-1",
-        collected_at: "2026-09-10T00:00:00Z",
+        collected_at: "2026-09-12T00:00:00Z",
         notes: null,
       },
     ],
     follow_up_decisions: [],
     prior_data_reinterpreted: false,
-    created_at: "2026-09-10T00:00:00Z",
+    created_at: "2026-09-12T00:00:00Z",
     causal_assessment_status: "RANKED",
     causal_assessment: {
       complete_supplied_history_reviewed: true,
@@ -196,7 +196,7 @@ describe("canonical longitudinal-evidence and phenotype–etiology gates", () =>
   it("extends the existing Universal evidence-discrimination architecture once", async () => {
     const universal = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
     expect(XMLValidator.validate(universal)).toBe(true);
-    expect(universal).toMatch(/version="20\.5\.23" revisionDate="2026-09-10"/u);
+    expect(universal).toMatch(/version="20\.5\.24" revisionDate="2026-09-12"/u);
     for (const singleton of [
       '<revision version="20.5.23" priority="Critical">',
       '<evidence_discrimination_gate priority="Critical">',
@@ -227,7 +227,7 @@ describe("canonical longitudinal-evidence and phenotype–etiology gates", () =>
   it("adds one root HRP gate extension, regression, correction classifier, and final checks", async () => {
     const hrp = await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
     expect(XMLValidator.validate(hrp)).toBe(true);
-    expect(hrp).toMatch(/version="20\.5\.28" revisionDate="2026-09-10"/u);
+    expect(hrp).toMatch(/version="20\.5\.29" revisionDate="2026-09-12"/u);
     for (const singleton of [
       '<Revision version="20.5.28" priority="Critical">',
       '<PatientHistoryAndRecurrenceEvidenceGate priority="Critical">',
@@ -253,7 +253,7 @@ describe("canonical longitudinal-evidence and phenotype–etiology gates", () =>
 
   it("activates the rules in the compact Project router", async () => {
     const project = await readFile(new URL("project/PROJECT_INSTRUCTIONS.md", ROOT), "utf8");
-    expect(Array.from(project)).toHaveLength(7812);
+    expect(Array.from(project)).toHaveLength(7962);
     for (const required of [
       "### Reasoning, interview, and longitudinal evidence",
       "Before an individual-case differential, extract the 3–7 strongest longitudinal constraints",

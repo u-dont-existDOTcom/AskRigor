@@ -49,6 +49,8 @@ Decision-important DOI: exhaust `acquire_open_full_text`; validate the source-li
 
 ## 3. Synthesis gate
 
+Before delivery, check the actual final answer against the existing ledger; required sources, limits and target identity must survive every rewrite.
+
 Do not emit a final verdict while work is incomplete. Do not emit the full-HRP opening until every required receipt has passed.
 
 A partial or bounded answer does not waive executable required work; one unavailable full text or inaccessible private community cannot stop it.

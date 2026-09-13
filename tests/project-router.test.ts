@@ -24,6 +24,7 @@ describe("AskRigor ChatGPT Project router", () => {
 
     const repositoryControlFiles = new Set([
       "AGENTS.md",
+      "DEVELOPMENT_INHERITANCE.md",
       "CODEX-CURRENT-STATE.md",
       "CUSTOM_GPT_ACTION_MODULE.md",
       "CUSTOM_GPT_CONTROLLED_INSTRUCTIONS.md"
@@ -38,7 +39,8 @@ describe("AskRigor ChatGPT Project router", () => {
       "AGENTS.md",
       "CODEX-CURRENT-STATE.md",
       "CUSTOM_GPT_ACTION_MODULE.md",
-      "CUSTOM_GPT_CONTROLLED_INSTRUCTIONS.md"
+      "CUSTOM_GPT_CONTROLLED_INSTRUCTIONS.md",
+      "DEVELOPMENT_INHERITANCE.md"
     ]);
 
     const readme = await projectFile("README.md");
@@ -58,7 +60,7 @@ describe("AskRigor ChatGPT Project router", () => {
     const words = instructions.split(/\s+/).filter(Boolean);
 
     expect(words.length).toBeGreaterThan(100);
-    expect(words.length).toBeLessThan(900);
+    expect(words.length).toBeLessThan(930);
     expect(Array.from(instructions).length).toBeLessThanOrEqual(8000);
     expect(instructions).not.toMatch(/<\/?(?:Protocol|Purpose|Research)/);
     expect(instructions).toContain(`### Reasoning, interview, and longitudinal evidence
@@ -357,6 +359,6 @@ Development-fitted evidence is not confirmation; missing access is neither negat
     );
     expect(instructions.slice(0, lessonHook)).not.toContain("LESSON_CAPTURE_MODULE.md");
     expect(instructions).not.toContain("Submit this anonymized lesson to improve AskRigor?");
-    expect(instructions.split(/\s+/).filter(Boolean).length).toBeLessThan(900);
+    expect(instructions.split(/\s+/).filter(Boolean).length).toBeLessThan(930);
   });
 });
