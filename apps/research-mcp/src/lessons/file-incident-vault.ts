@@ -112,7 +112,9 @@ export function createFileLessonIncidentVault(
         ? undefined
         : findIdempotent(request.idempotency_key);
       const record = createLessonIncidentEvidence(raw, {
-        now,
+        now: existing === undefined
+          ? now
+          : () => new Date(existing.captured_at),
         createIncidentId: existing === undefined
           ? undefined
           : () => existing.incident_id,
@@ -238,14 +240,14 @@ export function createFileLessonIncidentVault(
     return items;
   }
 
-  function findIdempotent(idempotencyKey: string): LessonIncidentProvenance | undefined {
+  function findIdempotent(idempotencyKey: string): LessonIncidentEvidence | undefined {
     const path = idempotencyPath(root, idempotencyKey);
     if (!existsSync(path)) return undefined;
     const incidentId = readBoundedRegularFile(path).toString("utf8").trim();
     if (!/^ali_[A-Za-z0-9_-]{16,96}$/u.test(incidentId)) {
       throw new LessonIncidentVaultIntegrityError("Lesson incident idempotency record is malformed");
     }
-    return provenance(decodeIncident(readBoundedRegularFile(incidentPath(root, incidentId)), incidentId));
+    return decodeIncident(readBoundedRegularFile(incidentPath(root, incidentId)), incidentId);
   }
 }
 
