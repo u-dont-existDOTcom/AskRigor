@@ -1,0 +1,43 @@
+name: Temporary Custom GPT artifact generation
+on:
+  push:
+    branches: [task/private-lesson-incident-vault-20260914]
+permissions:
+  contents: read
+concurrency:
+  group: askrigor-temp-custom-gpt-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  generate:
+    name: Generate Custom GPT artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up exact Node runtime
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Generate deterministic Custom GPT projection
+        run: npm run generate:custom-gpt
+
+      - name: Upload generated projection
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: custom-gpt-generated
+          if-no-files-found: error
+          retention-days: 1
+          path: |
+            docs/custom-gpt-action-openapi.json
+            docs/custom-gpt-instructions.md
+            docs/custom-gpt-sync.json
+            apps/research-mcp/src/generated/custom-gpt-bundle.ts
