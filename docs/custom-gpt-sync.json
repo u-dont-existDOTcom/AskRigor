@@ -6,11 +6,11 @@
     },
     {
       "path": "docs/custom-gpt-instructions.md",
-      "sha256": "b295267e24ddc606743080bc2de03359fca9fcb4c5c226519a16390a3b27510a"
+      "sha256": "657a94404278e0cecce65f72464af80477048a90cac40cfca5d27aa1f0423300"
     },
     {
       "path": "apps/research-mcp/src/generated/custom-gpt-bundle.ts",
-      "sha256": "71c5eb0881c1df01b5e7c37d10982e4b00f04c6e876c2a677586b0977cab4c5d"
+      "sha256": "7155952fc31b7d541d9af254159389960825cceb993dae3f45bcb7fabda86d43"
     }
   ],
   "consequential_operation_ids": [
@@ -27,8 +27,8 @@
   "generated_at": "2026-08-25",
   "installation_bundle": {
     "action_schema_sha256": "aac39368d9e4804dda8ca87bc19f939874d3b6903c939293ee216bf51df4c034",
-    "bundle_sha256": "ffd4bedfa697fd8dd4328cb6e5f1c8a7caf84881cdf10eab17cb704f69003ae6",
-    "instructions_sha256": "b295267e24ddc606743080bc2de03359fca9fcb4c5c226519a16390a3b27510a"
+    "bundle_sha256": "b5222aef204c21bf529b2050d27acc3f6c0c3742838ea03de5c31ce973cba064",
+    "instructions_sha256": "657a94404278e0cecce65f72464af80477048a90cac40cfca5d27aa1f0423300"
   },
   "internal_scout_skill_sha256": "562505f1c39843940d983c1b208e273be30d97c43ecbd9d9d6ea4b9226a62645",
   "mcp_research_operation_ids": [
@@ -70,7 +70,7 @@
   "sources": [
     {
       "path": "project/CUSTOM_GPT_CONTROLLED_INSTRUCTIONS.md",
-      "sha256": "b295267e24ddc606743080bc2de03359fca9fcb4c5c226519a16390a3b27510a"
+      "sha256": "657a94404278e0cecce65f72464af80477048a90cac40cfca5d27aa1f0423300"
     },
     {
       "path": "integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md",
