@@ -98,7 +98,7 @@ describe("canonical Reasoning Selection application", () => {
 
     expect(XMLValidator.validate(universal)).toBe(true);
     expect(universal).toMatch(
-      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.24" revisionDate="2026-09-12"/u,
+      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.25" revisionDate="2026-09-14"/u,
     );
     expect(Buffer.byteLength(REASONING_SELECTION_TEXT, "utf8")).toBe(2884);
     expect(sha256(REASONING_SELECTION_TEXT)).toBe(
@@ -110,7 +110,7 @@ describe("canonical Reasoning Selection application", () => {
       `${REVISION_ELEMENT}\n<revision version="20.5.19" priority="Critical">`,
     );
     expect(universal).toContain(
-      `${CURRENT_REASONING_SELECTION_ELEMENT}\n\n<interview_evidence_information_gain_gate priority="Critical">`,
+      `${CURRENT_REASONING_SELECTION_ELEMENT}\n\n<claim_scope_predicate_alignment_gate priority="Critical">`,
     );
 
     for (const method of [
@@ -127,6 +127,11 @@ describe("canonical Reasoning Selection application", () => {
     }
 
     const priorLongitudinalUniversal = universal
+      .replace('version="20.5.25" revisionDate="2026-09-14"', 'version="20.5.24" revisionDate="2026-09-12"')
+      .replace("Target-Preservation, Claim-Scope / Predicate-Alignment, Normality-Base-Rate", "Target-Preservation, Normality-Base-Rate")
+      .replace(/<revision version="20\.5\.25" priority="Critical">[\s\S]*?<\/revision>\n/u, "")
+      .replace(/<claim_scope_predicate_alignment_gate priority="Critical">[\s\S]*?<\/claim_scope_predicate_alignment_gate>\n\n/u, "")
+      .replace(/\nClaim-scope \/ predicate-alignment check:[^\n]*\n/u, "")
       .replace('version="20.5.24" revisionDate="2026-09-12"', 'version="20.5.22" revisionDate="2026-09-08"')
       .replace(
         "Evidence-Depth, Interview-Evidence and Information-Gain Integrity, Longitudinal-Evidence Preservation, Phenotype–Etiology Separation, Outcome-Directed Strategy-Switching",
