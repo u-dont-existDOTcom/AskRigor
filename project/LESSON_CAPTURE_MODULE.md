@@ -118,11 +118,11 @@ After a validated candidate is authorized:
 
 1. build the minimum exact incident window;
 2. call the private incident-capture Action;
-3. preserve its opaque receipt and truthful preservation status;
+3. require an opaque successful preservation receipt before continuing;
 4. separately generate/anonymize the generalized lesson through the existing
    privacy-safe lesson pipeline;
 5. call `submit_lesson_candidate` with only privacy-safe lesson fields plus the
-   opaque incident provenance, if available; and
+   opaque incident provenance; and
 6. display one concise receipt covering both preservation and generalized
    submission.
 
@@ -130,9 +130,11 @@ If incident capture succeeds but generalized submission fails, do not recapture
 the raw incident unnecessarily; a retry may reuse the same opaque incident
 receipt.
 
-If incident capture fails, never silently convert that failure into complete
-lesson archival. Generalized submission may proceed only with the truthful
-`RAW_INCIDENT_NOT_PRESERVED` status supported by the current product contract.
+If incident capture fails or is unavailable, fail closed: do not call
+`submit_lesson_candidate` for that incident. Report
+`RAW_INCIDENT_NOT_PRESERVED` and state that the anonymized lesson was not
+submitted because its exact source incident could not be preserved. Never
+silently convert a failed preservation into complete lesson archival.
 
 A deduplicated generalized lesson may accumulate multiple distinct opaque
 incident occurrences without copying raw incident text into GitHub.
@@ -148,13 +150,14 @@ Recognize authorization only when the user's entire trimmed reply is exactly
 `Yes` or `Yes always in this chat`.
 
 - `Yes` authorizes exactly the currently displayed candidate and its minimum
-  exact incident window: perform the private incident-capture stage once, then
-  call `submit_lesson_candidate` once with `consent_scope: "once"`; afterward
-  clear the pending candidate without enabling standing consent.
+  exact incident window: perform the private incident-capture stage once; only
+  after successful preservation call `submit_lesson_candidate` once with
+  `consent_scope: "once"`; afterward clear the pending candidate without
+  enabling standing consent.
 - `Yes always in this chat` authorizes the displayed candidate and its incident
   window and enables standing consent only in the current chat. Perform the
-  incident-capture stage, then call `submit_lesson_candidate` with
-  `consent_scope: "conversation"`.
+  incident-capture stage; only after successful preservation call
+  `submit_lesson_candidate` with `consent_scope: "conversation"`.
 - For every later independently validated candidate in that same chat, display
   the generalized candidate first, then perform the two-phase capture without
   repeating AskRigor's consent question.
@@ -205,6 +208,11 @@ Map the returned `submit_lesson_candidate` status exactly:
 - `rate_limited` -> `Lesson not submitted: submission is rate limited. Try again after {retry_after_seconds} seconds.`
 - `anonymizer_unavailable` -> `Lesson not submitted: privacy generalization is unavailable.`
 - `github_unavailable` -> `Lesson not submitted: the private review queue is unavailable.`
+
+When incident preservation fails before generalized submission, use this
+additional receipt exactly:
+
+`Anonymized lesson not submitted: the exact source incident could not be preserved.`
 
 Never display or infer a private repository URL or issue number. A public
 `ARL-####` candidate ID and anonymous occurrence count are the complete
