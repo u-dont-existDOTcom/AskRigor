@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, rm } from "node:fs/promises";
+import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -10,6 +10,7 @@ import {
 } from "../apps/research-mcp/src/lessons/file-incident-vault.js";
 import {
   LESSON_INCIDENT_CAPTURE_SCHEMA_VERSION,
+  digestCanonicalJson,
   messageSha256,
 } from "../apps/research-mcp/src/lessons/incident-contracts.js";
 
@@ -62,6 +63,63 @@ describe("lesson incident idempotency regression", () => {
       validated_defect: {
         ...request.validated_defect,
         finding: "A different validated finding for the reused key.",
+      },
+    })).toThrow(LessonIncidentVaultIntegrityError);
+  });
+
+  it("recovers an exact reserved incident after a crash before the encrypted record write", async () => {
+    const directory = await safeTemporaryDirectory();
+    const request = incident("retry-key-000003");
+    const reservedIncidentId = "ali_reservedcrashrecovery0001";
+    const reservedAt = "2026-09-14T16:20:00.000Z";
+    await writeFile(
+      join(directory, `.idempotency-${request.idempotency_key}.txt`),
+      `${JSON.stringify({
+        record_version: "askrigor_lesson_incident_idempotency_v1",
+        incident_id: reservedIncidentId,
+        request_sha256: digestCanonicalJson(request),
+        captured_at: reservedAt,
+      })}\n`,
+      { encoding: "utf8", mode: 0o600 },
+    );
+    const vault = createFileLessonIncidentVault({
+      rootDirectory: directory,
+      encryptionKey: key,
+      keyId: "incident-key-v1",
+      now: () => new Date("2026-09-15T09:00:00.000Z"),
+    });
+
+    const recovered = vault.capture(request);
+
+    expect(recovered.incident_id).toBe(reservedIncidentId);
+    expect(vault.read(reservedIncidentId).captured_at).toBe(reservedAt);
+    expect(vault.inventory()).toEqual([recovered]);
+  });
+
+  it("rejects changed bytes even when only the crash-recovery reservation exists", async () => {
+    const directory = await safeTemporaryDirectory();
+    const request = incident("retry-key-000004");
+    await writeFile(
+      join(directory, `.idempotency-${request.idempotency_key}.txt`),
+      `${JSON.stringify({
+        record_version: "askrigor_lesson_incident_idempotency_v1",
+        incident_id: "ali_reservedcrashrecovery0002",
+        request_sha256: digestCanonicalJson(request),
+        captured_at: "2026-09-14T16:25:00.000Z",
+      })}\n`,
+      { encoding: "utf8", mode: 0o600 },
+    );
+    const vault = createFileLessonIncidentVault({
+      rootDirectory: directory,
+      encryptionKey: key,
+      keyId: "incident-key-v1",
+    });
+
+    expect(() => vault.capture({
+      ...request,
+      validated_defect: {
+        ...request.validated_defect,
+        finding: "Changed bytes must not claim the crash reservation.",
       },
     })).toThrow(LessonIncidentVaultIntegrityError);
   });
