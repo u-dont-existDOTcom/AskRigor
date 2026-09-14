@@ -45,17 +45,18 @@ jobs:
       - name: Generate deterministic Custom GPT projection for review
         run: npm run generate:custom-gpt
 
-      - name: Upload generated Custom GPT projection for review
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: custom-gpt-generated-review
-          if-no-files-found: error
-          retention-days: 1
-          path: |
-            docs/custom-gpt-action-openapi.json
-            docs/custom-gpt-instructions.md
-            docs/custom-gpt-sync.json
+      - name: Emit generated Custom GPT projection for review
+        run: |
+          for file in \
+            docs/custom-gpt-action-openapi.json \
+            docs/custom-gpt-instructions.md \
+            docs/custom-gpt-sync.json \
             apps/research-mcp/src/generated/custom-gpt-bundle.ts
+          do
+            echo "BEGIN_GENERATED_FILE:${file}"
+            base64 -w 4000 "${file}"
+            echo "END_GENERATED_FILE:${file}"
+          done
 
       - name: Run deterministic verification
         run: npm run verify
