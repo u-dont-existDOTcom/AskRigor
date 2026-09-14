@@ -2,7 +2,7 @@
 
 ## Current source-only instruction candidate
 
-The 2026-09-12 instruction-boundary update is a source candidate, not installed-state or live-acceptance evidence. Current generated identities are in `docs/custom-gpt-sync.json`; the corresponding instruction body is `docs/custom-gpt-instructions.md`. Earlier dated records below retain their original identities and observations. No installation, deployment, publication acceptance, or new live verification is claimed by this source update.
+The 2026-09-14 Universal 20.5.25 claim-scope / predicate-alignment update is a source candidate, not installed-state or live-acceptance evidence. It preserves the 2026-09-12 instruction-obligation lifecycle as the 20.5.24 historical revision. Current generated identities are in `docs/custom-gpt-sync.json`; the corresponding instruction body is `docs/custom-gpt-instructions.md`. Earlier dated records below retain their original identities and observations. No installation, deployment, publication acceptance, or new live verification is claimed by this source update.
 
 
 ## 2026-09-01 Phase 2.2 zero-spend NOHARM pilot/freeze candidate

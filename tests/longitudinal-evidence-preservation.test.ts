@@ -196,7 +196,7 @@ describe("canonical longitudinal-evidence and phenotype–etiology gates", () =>
   it("extends the existing Universal evidence-discrimination architecture once", async () => {
     const universal = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
     expect(XMLValidator.validate(universal)).toBe(true);
-    expect(universal).toMatch(/version="20\.5\.24" revisionDate="2026-09-12"/u);
+    expect(universal).toMatch(/version="20\.5\.25" revisionDate="2026-09-14"/u);
     for (const singleton of [
       '<revision version="20.5.23" priority="Critical">',
       '<evidence_discrimination_gate priority="Critical">',

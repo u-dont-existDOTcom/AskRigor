@@ -16,7 +16,7 @@ describe("Universal research-before-reinvention integration", () => {
     const text = await readFile(UNIVERSAL_URL, "utf8");
 
     expect(text).toMatch(
-      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.24" revisionDate="2026-09-12"/
+      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.25" revisionDate="2026-09-14"/
     );
 
     for (const singleton of [
