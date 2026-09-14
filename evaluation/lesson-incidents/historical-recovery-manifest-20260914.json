@@ -1,0 +1,78 @@
+{
+  "schema_version": "askrigor_lesson_incident_historical_recovery_manifest_v1",
+  "created_at": "2026-09-14T16:20:00.000Z",
+  "source_seed": {
+    "filename": "AskRigor-historical-lesson-recovery-seed.PRIVATE.json",
+    "use": "starting_index_only",
+    "raw_seed_committed": false
+  },
+  "privacy": {
+    "raw_incident_text_in_manifest": false,
+    "raw_incident_destination": "owner_private_lesson_incident_vault_only",
+    "github_fields": "opaque_status_and_generalized_category_only"
+  },
+  "counts": {
+    "EXACT_TRANSCRIPT_PRESERVED": 0,
+    "PARTIAL_TRANSCRIPT_PRESERVED": 3,
+    "LESSON_ONLY_NO_TRANSCRIPT": 4,
+    "RAW_INCIDENT_NOT_PRESERVED": 0
+  },
+  "candidates": [
+    {
+      "seed_id": "hist-dmso-nested-bag-202606",
+      "approx_date": "2026-06-07/2026-06-09",
+      "recovery_status": "PARTIAL_TRANSCRIPT_PRESERVED",
+      "generalized_defect_category": "mechanism / evidence-direction / selective-comparator reasoning",
+      "exact_replay_available": false,
+      "notes": "Seed reports partial exact user fragments but missing full bad-response/correction/corrected-response window."
+    },
+    {
+      "seed_id": "hist-dmso-pseudomonas-20260907",
+      "approx_date": "2026-09-07",
+      "recovery_status": "PARTIAL_TRANSCRIPT_PRESERVED",
+      "generalized_defect_category": "evidence-direction / concentration-specific inference",
+      "exact_replay_available": false,
+      "notes": "Seed reports exact/near-exact user material but missing exact assistant answer and complete correction bytes."
+    },
+    {
+      "seed_id": "hist-immunocine-fast-track-20260907",
+      "approx_date": "2026-09-07",
+      "recovery_status": "PARTIAL_TRANSCRIPT_PRESERVED",
+      "generalized_defect_category": "regulatory status versus efficacy / target preservation",
+      "exact_replay_available": false,
+      "notes": "Seed reports exact initial user question but no exact validated bad-response/correction pair."
+    },
+    {
+      "seed_id": "hist-aggregate-null-subgroup-20260907",
+      "approx_date": "2026-09-07",
+      "recovery_status": "LESSON_ONLY_NO_TRANSCRIPT",
+      "generalized_defect_category": "evidence weighting / heterogeneity",
+      "exact_replay_available": false,
+      "notes": "Only generalized lesson reference survives in the seed."
+    },
+    {
+      "seed_id": "hist-specificity-owner-rule-20260912",
+      "approx_date": "before/on 2026-09-12",
+      "recovery_status": "LESSON_ONLY_NO_TRANSCRIPT",
+      "generalized_defect_category": "specificity / causal discrimination",
+      "exact_replay_available": false,
+      "notes": "Durable rule survives but originating exact AskRigor failure conversation is missing."
+    },
+    {
+      "seed_id": "hist-evidence-direction-owner-rule-20260912",
+      "approx_date": "before/on 2026-09-12",
+      "recovery_status": "LESSON_ONLY_NO_TRANSCRIPT",
+      "generalized_defect_category": "evidence direction",
+      "exact_replay_available": false,
+      "notes": "Durable rule survives but originating exact AskRigor failure conversation is missing."
+    },
+    {
+      "seed_id": "hist-target-preservation-owner-rule-20260912",
+      "approx_date": "before/on 2026-09-12",
+      "recovery_status": "LESSON_ONLY_NO_TRANSCRIPT",
+      "generalized_defect_category": "target preservation",
+      "exact_replay_available": false,
+      "notes": "Durable rule survives but originating exact AskRigor failure conversation is missing."
+    }
+  ]
+}

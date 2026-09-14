@@ -51,6 +51,40 @@ export {
   type FileResearchSessionStoreOptions
 } from "./actions/file-research-session-store.js";
 export {
+  LESSON_INCIDENT_CAPTURE_SCHEMA_VERSION,
+  LESSON_INCIDENT_ROUTE_MAX_BYTES,
+  LESSON_INCIDENT_SCHEMA_VERSION,
+  createLessonIncidentEvidence,
+  lessonIncidentCaptureRequestSchema,
+  lessonIncidentEvidenceSchema,
+  lessonIncidentPreservationStatusSchema,
+  lessonIncidentProvenanceSchema,
+  messageSha256,
+  type LessonIncidentCaptureRequest,
+  type LessonIncidentEvidence,
+  type LessonIncidentPreservationStatus,
+  type LessonIncidentProvenance,
+} from "./lessons/incident-contracts.js";
+export {
+  createFileLessonIncidentVault,
+  lessonIncidentVaultConfigFromEnv,
+  LessonIncidentVaultIntegrityError,
+  LessonIncidentVaultUnavailableError,
+  type FileLessonIncidentVaultOptions,
+  type LessonIncidentVault,
+} from "./lessons/file-incident-vault.js";
+export {
+  LESSON_INCIDENT_ACTION_OPERATION_ID,
+  LESSON_INCIDENT_ACTION_PATH,
+  createLessonIncidentActionRoute,
+} from "./lessons/incident-action-route.js";
+export {
+  createLessonIncidentReplayManifest,
+  createLessonIncidentReplayPacket,
+  type LessonIncidentReplayManifest,
+  type LessonIncidentReplayPacket,
+} from "./lessons/incident-replay.js";
+export {
   RESEARCH_MODULE_IDS,
   RESEARCH_OPERATION_IDS,
   applyProtocolRecheck,

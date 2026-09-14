@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { lessonIncidentProvenanceSchema } from "./incident-contracts.js";
 
 const categorySchema = z.enum([
   "missing_sources",
@@ -36,6 +37,7 @@ export const lessonCandidateSchema = z.strictObject({
   evidence_basis: evidenceBasisSchema,
   askrigor_version: z.string().min(1).max(64).optional(),
   protocol_identities: z.array(protocolIdentitySchema).max(4).optional(),
+  incident_provenance: lessonIncidentProvenanceSchema.optional(),
   consent_scope: z.enum(["once", "conversation"]),
 });
 
@@ -51,6 +53,7 @@ export const generalizedLessonSchema = z.strictObject({
   evidence_basis: evidenceBasisSchema,
   askrigor_version: z.string().min(1).max(64).optional(),
   protocol_identities: z.array(protocolIdentitySchema).max(4).optional(),
+  incident_provenance: lessonIncidentProvenanceSchema.optional(),
   consent_scope: z.enum(["once", "conversation"]),
 });
 

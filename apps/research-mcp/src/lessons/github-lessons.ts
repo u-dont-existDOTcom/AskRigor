@@ -33,11 +33,20 @@ interface PrivateMetadata {
   occurrence_count: number;
   first_seen: string;
   last_seen: string;
+  incident_occurrences?: IncidentOccurrenceMetadata[];
 }
 
 interface OccurrenceMetadata {
   fingerprint: string;
   occurrence_count: number;
+  observed_at: string;
+  incident_occurrence?: IncidentOccurrenceMetadata;
+}
+
+interface IncidentOccurrenceMetadata {
+  incident_id: string;
+  incident_sha256: string;
+  preservation_status: string;
   observed_at: string;
 }
 
@@ -111,7 +120,7 @@ export class GitHubLessonQueue {
   ): Promise<GitHubLessonQueueResult> {
     const issues = await this.listAllIssues(input.fingerprint);
     const active = newestIssue(issues.filter((issue) => isActive(issue)));
-    if (active) return await this.updateActiveIssue(active, input.fingerprint, observedAt);
+    if (active) return await this.updateActiveIssue(active, input, observedAt);
 
     const terminal = newestIssue(issues);
     return await this.createIssue(input, observedAt, terminal);
@@ -140,7 +149,7 @@ export class GitHubLessonQueue {
 
   private async updateActiveIssue(
     listedIssue: ListedIssue,
-    fingerprint: string,
+    input: GitHubLessonSubmission,
     observedAt: string,
   ): Promise<GitHubLessonQueueResult> {
     const response = await this.request(`${ISSUES_PATH}/${listedIssue.number}`, { method: "GET" });
@@ -148,14 +157,14 @@ export class GitHubLessonQueue {
       throw new GitHubApiError("github_service_unavailable", true);
     }
     const currentMetadata = parseMetadata(response.body);
-    if (!currentMetadata || currentMetadata.fingerprint !== fingerprint) {
+    if (!currentMetadata || currentMetadata.fingerprint !== input.fingerprint) {
       throw new GitHubApiError("github_service_unavailable", false);
     }
     const issue = parseMatchingIssue(response, currentMetadata);
     if (!issue) throw new GitHubApiError("github_service_unavailable", false);
     if (!isActive(issue)) throw new GitHubWriteConflictError();
 
-    const highestStoredCount = await this.highestStoredOccurrenceCount(issue, fingerprint);
+    const highestStoredCount = await this.highestStoredOccurrenceCount(issue, input.fingerprint);
     const occurrenceCount = highestStoredCount + 1;
     if (!isPositiveInteger(occurrenceCount)) {
       throw new GitHubApiError("github_service_unavailable", false);
@@ -164,6 +173,9 @@ export class GitHubLessonQueue {
       fingerprint: issue.metadata.fingerprint,
       occurrence_count: occurrenceCount,
       observed_at: observedAt,
+      ...(input.candidate.incident_provenance === undefined
+        ? {}
+        : { incident_occurrence: incidentOccurrence(input.candidate, observedAt) }),
     };
     const created = await this.request(`${ISSUES_PATH}/${issue.number}/comments`, {
       method: "POST",
@@ -228,6 +240,9 @@ export class GitHubLessonQueue {
             occurrence_count: 1,
             first_seen: observedAt,
             last_seen: observedAt,
+            ...(input.candidate.incident_provenance === undefined
+              ? {}
+              : { incident_occurrences: [incidentOccurrence(input.candidate, observedAt)] }),
           },
           terminal?.number,
         ),
@@ -307,6 +322,12 @@ function buildIssueBody(
     ...(priorIssueNumber === undefined
       ? []
       : [section("Prior candidate", escapeMarkdown(publicCandidateId(priorIssueNumber)))]),
+    ...(metadata.incident_occurrences?.length
+      ? [section(
+          "Opaque incident provenance",
+          metadata.incident_occurrences.map(formatIncidentOccurrence).join("\n"),
+        )]
+      : []),
     section("Anonymous occurrence count", ownedValue(
       GENERATED_COUNT_START,
       String(metadata.occurrence_count),
@@ -328,6 +349,9 @@ function buildOccurrenceComment(metadata: OccurrenceMetadata): string {
     "",
     `Occurrence count: ${metadata.occurrence_count}`,
     `Observed at: ${metadata.observed_at}`,
+    ...(metadata.incident_occurrence === undefined
+      ? []
+      : ["", "Opaque incident provenance:", formatIncidentOccurrence(metadata.incident_occurrence)]),
     "",
     occurrenceMetadataMarker(metadata),
   ].join("\n");
@@ -373,7 +397,13 @@ function parseMetadata(body: string): PrivateMetadata | undefined {
   try {
     const decoded = Buffer.from(match[1]!, "base64url").toString("utf8");
     const value: unknown = JSON.parse(decoded);
-    if (!isRecord(value) || Object.keys(value).join(",") !== "fingerprint,occurrence_count,first_seen,last_seen") {
+    if (!isRecord(value) || !metadataKeysAreValid(value, [
+      "fingerprint",
+      "occurrence_count",
+      "first_seen",
+      "last_seen",
+      "incident_occurrences",
+    ])) {
       return undefined;
     }
     if (!FINGERPRINT_PATTERN.test(String(value.fingerprint)) ||
@@ -387,6 +417,9 @@ function parseMetadata(body: string): PrivateMetadata | undefined {
       occurrence_count: value.occurrence_count,
       first_seen: value.first_seen,
       last_seen: value.last_seen,
+      ...(parseIncidentOccurrences(value.incident_occurrences, value.last_seen) === undefined
+        ? {}
+        : { incident_occurrences: parseIncidentOccurrences(value.incident_occurrences, value.last_seen) }),
     };
     return metadataMarker(metadata) === `${METADATA_PREFIX}${match[1]} -->` ? metadata : undefined;
   } catch {
@@ -407,7 +440,12 @@ function parseOccurrenceMetadata(body: string): OccurrenceMetadata | undefined {
   try {
     const decoded = Buffer.from(match[1]!, "base64url").toString("utf8");
     const value: unknown = JSON.parse(decoded);
-    if (!isRecord(value) || Object.keys(value).join(",") !== "fingerprint,occurrence_count,observed_at") {
+    if (!isRecord(value) || !metadataKeysAreValid(value, [
+      "fingerprint",
+      "occurrence_count",
+      "observed_at",
+      "incident_occurrence",
+    ])) {
       throw new GitHubApiError("github_service_unavailable", false);
     }
     if (!FINGERPRINT_PATTERN.test(String(value.fingerprint)) ||
@@ -419,6 +457,9 @@ function parseOccurrenceMetadata(body: string): OccurrenceMetadata | undefined {
       fingerprint: value.fingerprint as string,
       occurrence_count: value.occurrence_count,
       observed_at: value.observed_at,
+      ...(parseIncidentOccurrence(value.incident_occurrence, value.observed_at) === undefined
+        ? {}
+        : { incident_occurrence: parseIncidentOccurrence(value.incident_occurrence, value.observed_at) }),
     };
     if (occurrenceMetadataMarker(metadata) !== `${OCCURRENCE_PREFIX}${match[1]} -->`) {
       throw new GitHubApiError("github_service_unavailable", false);
@@ -468,6 +509,81 @@ function isCanonicalTimestamp(value: unknown): value is string {
   if (typeof value !== "string") return false;
   const milliseconds = Date.parse(value);
   return Number.isFinite(milliseconds) && new Date(milliseconds).toISOString() === value;
+}
+
+function incidentOccurrence(candidate: GeneralizedLesson, observedAt: string): IncidentOccurrenceMetadata {
+  const provenance = candidate.incident_provenance!;
+  return {
+    incident_id: provenance.incident_id,
+    incident_sha256: provenance.incident_sha256,
+    preservation_status: provenance.preservation_status,
+    observed_at: observedAt,
+  };
+}
+
+function formatIncidentOccurrence(metadata: IncidentOccurrenceMetadata): string {
+  return [
+    `- Incident: ${escapeMarkdown(metadata.incident_id)}`,
+    `digest ${metadata.incident_sha256}`,
+    `status ${escapeMarkdown(metadata.preservation_status)}`,
+    `observed ${metadata.observed_at}`,
+  ].join("; ");
+}
+
+function parseIncidentOccurrences(
+  value: unknown,
+  fallbackObservedAt: unknown,
+): IncidentOccurrenceMetadata[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw new GitHubApiError("github_service_unavailable", false);
+  return value.map((item) => parseIncidentOccurrence(item, fallbackObservedAt) ??
+    raiseInvalidIncidentMetadata());
+}
+
+function parseIncidentOccurrence(
+  value: unknown,
+  fallbackObservedAt: unknown,
+): IncidentOccurrenceMetadata | undefined {
+  if (value === undefined) return undefined;
+  if (!isRecord(value) || !metadataKeysAreValid(value, [
+    "incident_id",
+    "incident_sha256",
+    "preservation_status",
+    "observed_at",
+  ])) {
+    throw new GitHubApiError("github_service_unavailable", false);
+  }
+  const observedAt = value.observed_at ?? fallbackObservedAt;
+  if (
+    typeof value.incident_id !== "string" ||
+    !/^[A-Za-z0-9_-]{16,96}$/u.test(value.incident_id) ||
+    typeof value.incident_sha256 !== "string" ||
+    !/^[a-f0-9]{64}$/u.test(value.incident_sha256) ||
+    ![
+      "EXACT_TRANSCRIPT_PRESERVED",
+      "PARTIAL_TRANSCRIPT_PRESERVED",
+      "LESSON_ONLY_NO_TRANSCRIPT",
+      "RAW_INCIDENT_NOT_PRESERVED",
+    ].includes(String(value.preservation_status)) ||
+    !isCanonicalTimestamp(observedAt)
+  ) {
+    throw new GitHubApiError("github_service_unavailable", false);
+  }
+  return {
+    incident_id: value.incident_id,
+    incident_sha256: value.incident_sha256,
+    preservation_status: String(value.preservation_status),
+    observed_at: observedAt,
+  };
+}
+
+function metadataKeysAreValid(value: Record<string, unknown>, allowed: readonly string[]): boolean {
+  const allowedSet = new Set(allowed);
+  return Object.keys(value).every((key) => allowedSet.has(key));
+}
+
+function raiseInvalidIncidentMetadata(): never {
+  throw new GitHubApiError("github_service_unavailable", false);
 }
 
 function isParseableTimestamp(value: unknown): value is string {
