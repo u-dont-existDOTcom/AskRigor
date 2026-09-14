@@ -106,12 +106,12 @@ export const lessonIncidentCaptureRequestSchema = z.strictObject({
   }
   if (
     value.preservation_status === "EXACT_TRANSCRIPT_PRESERVED" &&
-    !hasMinimumExactFailurePair(value.window)
+    !hasMinimumExactFailureWindow(value.window)
   ) {
     context.addIssue({
       code: "custom",
       path: ["preservation_status"],
-      message: "Exact preservation requires a user correction and assistant failure window",
+      message: "Exact preservation requires an exact user prompt, assistant failure, and user correction window",
     });
   }
 });
@@ -220,15 +220,19 @@ function randomIncidentId(): string {
   return `ali_${randomUUID().replace(/-/gu, "")}`;
 }
 
-function hasMinimumExactFailurePair(window: readonly { role: string; content_utf8: string }[]): boolean {
-  const roles = window.map((message) => message.role).join(",");
-  if (!roles.includes("assistant,user")) return false;
-  const joinedUserCorrections = window
-    .filter((message) => message.role === "user")
-    .map((message) => message.content_utf8.toLocaleLowerCase("en-US"))
-    .join("\n");
-  return /\b(?:wrong|incorrect|not true|you missed|correction|actually|failure|failed|bug|error)\b/u
-    .test(joinedUserCorrections);
+function hasMinimumExactFailureWindow(
+  window: readonly { role: string; content_utf8: string }[],
+): boolean {
+  for (let index = 1; index < window.length - 1; index += 1) {
+    if (
+      window[index - 1]?.role === "user" &&
+      window[index]?.role === "assistant" &&
+      window[index + 1]?.role === "user"
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function noUnsafeString(value: string): boolean {
