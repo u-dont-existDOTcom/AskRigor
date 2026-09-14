@@ -433,7 +433,10 @@ describe("read-only research Action routes", () => {
       lessonsEnabled: true,
       research,
       lessons
-    }).map(({ operationId }) => operationId)).toEqual(["submit_lesson_candidate"]);
+    }).map(({ operationId }) => operationId)).toEqual([
+      "preserve_lesson_incident",
+      "submit_lesson_candidate"
+    ]);
     expect(compose!({
       researchEnabled: true,
       lessonsEnabled: true,
@@ -441,11 +444,12 @@ describe("read-only research Action routes", () => {
       lessons
     }).map(({ operationId }) => operationId)).toEqual([
       "get_protocol_manifest",
+      "preserve_lesson_incident",
       "submit_lesson_candidate"
     ]);
   });
 
-  it("generates 19 unsecured read operations plus the one secured lesson write", () => {
+  it("generates 19 unsecured read operations plus two secured lesson writes", () => {
     const document = createActionOpenApiDocument([
       ...createResearchActionRoutes(),
       ...createDefaultActionRoutes()
@@ -459,8 +463,8 @@ describe("read-only research Action routes", () => {
     const operations = Object.values(document.paths)
       .flatMap((path) => Object.values(path));
 
-    expect(operations).toHaveLength(20);
-    expect(new Set(operations.map(({ operationId }) => operationId)).size).toBe(20);
+    expect(operations).toHaveLength(21);
+    expect(new Set(operations.map(({ operationId }) => operationId)).size).toBe(21);
     const lesson = operations.find(({ operationId }) =>
       operationId === "submit_lesson_candidate"
     );
@@ -468,8 +472,15 @@ describe("read-only research Action routes", () => {
       security: [{ bearerAuth: [] }],
       "x-openai-isConsequential": true
     });
+    const incident = operations.find(({ operationId }) =>
+      operationId === "preserve_lesson_incident"
+    );
+    expect(incident).toMatchObject({
+      security: [{ bearerAuth: [] }],
+      "x-openai-isConsequential": true
+    });
     expect(operations.filter(({ operationId }) =>
-      operationId !== "submit_lesson_candidate"
+      !["preserve_lesson_incident", "submit_lesson_candidate"].includes(operationId)
     ).every((operation) =>
       operation.security === undefined &&
       operation["x-openai-isConsequential"] === false

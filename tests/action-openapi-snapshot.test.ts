@@ -16,15 +16,21 @@ describe("reproducible Custom GPT Action OpenAPI", () => {
     expect(JSON.parse(committed)).toEqual(JSON.parse(generated));
   });
 
-  it("describes four authenticated controlled reads and one private consequential lesson operation without secrets", () => {
+  it("describes four authenticated controlled reads and two private consequential lesson operations without secrets", () => {
     const document = JSON.parse(generateCustomGptActionOpenApiJson()) as {
       paths: Record<string, Record<string, Record<string, unknown>>>;
     };
     const operation = document.paths["/actions/lessons"]?.post;
+    const incidentOperation = document.paths["/actions/lesson-incidents"]?.post;
 
-    expect(Object.keys(document.paths)).toHaveLength(5);
+    expect(Object.keys(document.paths)).toHaveLength(6);
     expect(operation).toMatchObject({
       operationId: "submit_lesson_candidate",
+      "x-openai-isConsequential": true,
+      security: [{ bearerAuth: [] }],
+    });
+    expect(incidentOperation).toMatchObject({
+      operationId: "preserve_lesson_incident",
       "x-openai-isConsequential": true,
       security: [{ bearerAuth: [] }],
     });
@@ -59,7 +65,10 @@ describe("reproducible Custom GPT Action OpenAPI", () => {
     });
     const controlled = Object.values(document.paths)
       .flatMap(Object.values)
-      .filter((candidate) => candidate.operationId !== "submit_lesson_candidate");
+      .filter((candidate) =>
+        !["preserve_lesson_incident", "submit_lesson_candidate"]
+          .includes(String(candidate.operationId))
+      );
     expect(controlled).toHaveLength(4);
     expect(controlled.every((candidate) =>
       JSON.stringify(candidate.security) === JSON.stringify([{ bearerAuth: [] }]) &&

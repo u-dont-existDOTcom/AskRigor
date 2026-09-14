@@ -43,6 +43,10 @@
         "askrigor_consent_questions": 1,
         "action_calls": [
           {
+            "operation": "preserve_lesson_incident",
+            "consent_scope": "once"
+          },
+          {
             "operation": "submit_lesson_candidate",
             "consent_scope": "once"
           }
@@ -71,7 +75,15 @@
         "askrigor_consent_questions": 1,
         "action_calls": [
           {
+            "operation": "preserve_lesson_incident",
+            "consent_scope": "conversation"
+          },
+          {
             "operation": "submit_lesson_candidate",
+            "consent_scope": "conversation"
+          },
+          {
+            "operation": "preserve_lesson_incident",
             "consent_scope": "conversation"
           },
           {
@@ -204,6 +216,10 @@
         "askrigor_consent_questions": 1,
         "action_calls": [
           {
+            "operation": "preserve_lesson_incident",
+            "consent_scope": "once"
+          },
+          {
             "operation": "submit_lesson_candidate",
             "consent_scope": "once"
           }
@@ -239,6 +255,10 @@
         "askrigor_consent_questions": 1,
         "action_calls": [
           {
+            "operation": "preserve_lesson_incident",
+            "consent_scope": "once"
+          },
+          {
             "operation": "submit_lesson_candidate",
             "consent_scope": "once"
           }
@@ -263,12 +283,16 @@
     },
     {
       "id": "platform_confirmation_remains",
-      "scenario": "Standing conversational consent exists, AskRigor validates a later candidate, and ChatGPT applies its own confirmation to the consequential Action call.",
+      "scenario": "Standing conversational consent exists, AskRigor validates a later candidate, and ChatGPT applies its own confirmation to the consequential Action calls.",
       "expected": {
         "lesson_proposed": true,
         "generalized_candidates_displayed": 1,
         "askrigor_consent_questions": 0,
         "action_calls": [
+          {
+            "operation": "preserve_lesson_incident",
+            "consent_scope": "conversation"
+          },
           {
             "operation": "submit_lesson_candidate",
             "consent_scope": "conversation"

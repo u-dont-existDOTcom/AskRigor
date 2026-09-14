@@ -82,6 +82,13 @@ function candidateTextValues(candidate: LessonCandidate): string[] {
     candidate.synthetic_regression_example,
     ...(candidate.askrigor_version ? [candidate.askrigor_version] : []),
     ...(candidate.protocol_identities?.flatMap((identity) => [identity.name, identity.version]) ?? []),
+    ...(candidate.incident_provenance
+      ? [
+          candidate.incident_provenance.incident_id,
+          candidate.incident_provenance.incident_sha256,
+          candidate.incident_provenance.preservation_status,
+        ]
+      : []),
   ];
 }
 

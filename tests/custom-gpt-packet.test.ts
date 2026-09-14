@@ -33,7 +33,7 @@ describe("controlled Custom GPT projection", () => {
     expect(packet.runtimeManifestTypescript).toBe(runtimeManifest);
   });
 
-  it("projects exactly four authenticated controlled reads and one lesson write", async () => {
+  it("projects exactly four authenticated controlled reads and two lesson writes", async () => {
     const packet = await generateCustomGptPacket();
     const document = JSON.parse(packet.openApiJson) as {
       paths: Record<string, Record<string, {
@@ -44,7 +44,7 @@ describe("controlled Custom GPT projection", () => {
     };
     const operations = Object.values(document.paths).flatMap(Object.values);
     const research = operations.filter(({ operationId }) =>
-      operationId !== "submit_lesson_candidate"
+      !["preserve_lesson_incident", "submit_lesson_candidate"].includes(operationId)
     );
     expect(research.map(({ operationId }) => operationId).sort()).toEqual(CONTROLLED);
     expect(research.every(({ security, "x-openai-isConsequential": consequential }) =>
@@ -57,7 +57,13 @@ describe("controlled Custom GPT projection", () => {
       security: [{ bearerAuth: [] }],
       "x-openai-isConsequential": true
     });
-    expect(operations).toHaveLength(5);
+    expect(operations.find(({ operationId }) =>
+      operationId === "preserve_lesson_incident"
+    )).toMatchObject({
+      security: [{ bearerAuth: [] }],
+      "x-openai-isConsequential": true
+    });
+    expect(operations).toHaveLength(6);
   });
 
   it("keeps workflow authority on the server and hides low-level orchestration", async () => {
@@ -91,6 +97,10 @@ describe("controlled Custom GPT projection", () => {
     const sync = JSON.parse(packet.syncJson) as CustomGptSync;
     expect(sync.schema_version).toBe(3);
     expect(sync.research_operation_ids).toEqual(CONTROLLED);
+    expect(sync.consequential_operation_ids).toEqual([
+      "preserve_lesson_incident",
+      "submit_lesson_candidate"
+    ]);
     expect(sync.mcp_research_operation_ids).toHaveLength(27);
     expect(sync.installation_bundle).toMatchObject({
       instructions_sha256: expect.stringMatching(/^[a-f0-9]{64}$/u),

@@ -1,0 +1,104 @@
+{
+  "schema_version": "askrigor_lesson_incident_production_enablement_manifest_v1",
+  "recorded_at": "2026-09-14T00:00:00Z",
+  "scope": "private lesson incident vault production enablement boundary",
+  "production_authorization": {
+    "production_deployment_authorized": false,
+    "production_configuration_change_authorized": false,
+    "netcup_or_hostinger_change_authorized": false,
+    "merge_if_production_coupled_authorized": false,
+    "secret_values_recorded": false
+  },
+  "zero_spend_runtime_boundary": {
+    "paid_model_api_inference_authorized": false,
+    "current_source_dependency": "the pre-existing generalized lesson runtime still contains an OpenAI API anonymizer path",
+    "production_activation_status": "blocked until the generalized lesson path is made zero-spend or a newer explicit owner authorization supersedes the zero-spend policy",
+    "source_merge_effect": "source review/merge alone does not invoke the anonymizer or authorize production activation"
+  },
+  "intended_persistent_volume": {
+    "production_path": "ASKRIGOR_LESSON_INCIDENT_DIRECTORY",
+    "path_requirement": "absolute owner-private directory on a persistent private volume",
+    "plaintext_path_components_from_user_text_allowed": false,
+    "status": "not_configured_in_this_change"
+  },
+  "mount_and_remount_semantics": {
+    "required_behavior": [
+      "directory remains present across ordinary service restart",
+      "ciphertext envelopes remain present across host/container remount or redeploy",
+      "vault refuses symlinked or non-owned directories",
+      "authenticated read-back succeeds for previously captured records after remount-equivalent recovery"
+    ],
+    "production_remount_test_status": "not_performed; production infrastructure change is not authorized"
+  },
+  "ownership_and_permissions": {
+    "directory_owner": "runtime service user",
+    "directory_mode": "0700 or stricter",
+    "file_mode": "0600",
+    "symlink_policy": "reject",
+    "ownership_policy": "reject if the root is not owned by the runtime uid"
+  },
+  "encryption_secret_source_and_injection": {
+    "key_variable": "ASKRIGOR_LESSON_INCIDENT_KEY",
+    "key_id_variable": "ASKRIGOR_LESSON_INCIDENT_KEY_ID",
+    "directory_variable": "ASKRIGOR_LESSON_INCIDENT_DIRECTORY",
+    "key_requirement": "32 random bytes encoded as unpadded base64url",
+    "secret_storage_requirement": "production secret manager or service environment secret; never Git, logs, CI artifacts, PR text, or ciphertext backup",
+    "injection_path": "runtime process environment only"
+  },
+  "restart_behavior": {
+    "expected": "after service restart with the same directory, key, and key ID, existing encrypted incident envelopes are readable and their incident digests match",
+    "fail_closed_cases": [
+      "missing directory",
+      "missing key",
+      "missing key ID",
+      "wrong key or key ID",
+      "tampered authentication tag",
+      "unsafe ownership or permissions"
+    ]
+  },
+  "host_container_remount_or_redeploy_behavior": {
+    "expected": "after remount or redeploy, the same persistent private volume is mounted at ASKRIGOR_LESSON_INCIDENT_DIRECTORY before service start",
+    "acceptance_test_required_before_production_enablement": "capture synthetic record, stop service, restart/reconstruct service, remount/reopen the persistent volume as applicable, and authenticated read-back with digest match"
+  },
+  "backup_and_recovery": {
+    "backup_contents": "ciphertext envelopes and non-secret envelope metadata only",
+    "excluded_contents": [
+      "ASKRIGOR_LESSON_INCIDENT_KEY",
+      "raw lesson conversations",
+      "decrypted vault payloads",
+      "private conversation or message locators"
+    ],
+    "restore_requirement": "restore ciphertext files to a private owned 0700 directory and verify authenticated read-back with unchanged incident_sha256 using the externally supplied key"
+  },
+  "rollback": {
+    "safe_runtime_rollback": "unset ASKRIGOR_LESSON_INCIDENT_DIRECTORY, ASKRIGOR_LESSON_INCIDENT_KEY, and ASKRIGOR_LESSON_INCIDENT_KEY_ID or roll back the service image; current lesson handling must then fail closed at private incident capture and must not submit the generalized lesson as if exact preservation succeeded",
+    "data_rollback": "preserve ciphertext backups unless a separately authorized retention/deletion decision exists",
+    "key_rollback": "restore the previous external key and key ID only through secret storage; never commit key material"
+  },
+  "nonproduction_durable_private_volume_test": {
+    "status": "performed",
+    "storage_scope": "existing owner-private non-production ext4-backed storage",
+    "exact_local_path_committed": false,
+    "synthetic_only": true,
+    "production_or_infrastructure_change": false,
+    "encrypted_write": "passed",
+    "process_teardown_and_reconstruction": "passed",
+    "authenticated_read_back": "passed",
+    "digest_match": "passed",
+    "directory_mode_observed": "700",
+    "local_receipts": "retained owner-privately outside the repository",
+    "production_remount_claim": "not claimed"
+  },
+  "exact_production_changes_still_required": [
+    "replace or disable the paid model API anonymizer in the generalized lesson path to satisfy the current zero-spend owner policy, unless a newer explicit owner authorization supersedes it",
+    "choose the production persistent private volume and final directory path",
+    "create or verify the production directory with the runtime service owner and 0700-or-stricter mode",
+    "generate and install ASKRIGOR_LESSON_INCIDENT_KEY through production secret storage",
+    "set ASKRIGOR_LESSON_INCIDENT_KEY_ID through production configuration",
+    "set ASKRIGOR_LESSON_INCIDENT_DIRECTORY through production configuration",
+    "run the production restart/remount acceptance test with synthetic data only",
+    "define ciphertext-only backup and restore handling",
+    "document retention, key rotation, and deletion authority",
+    "obtain separate production deployment/merge authorization if the PR merge is production-coupled"
+  ]
+}

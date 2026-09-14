@@ -43,7 +43,10 @@ export interface CustomGptSync {
   }>;
   research_operation_ids: string[];
   mcp_research_operation_ids: string[];
-  consequential_operation_ids: ["submit_lesson_candidate"];
+  consequential_operation_ids: [
+    "preserve_lesson_incident",
+    "submit_lesson_candidate"
+  ];
   installation_bundle: {
     instructions_sha256: string;
     action_schema_sha256: string;
@@ -116,7 +119,10 @@ export async function generateCustomGptPacket(): Promise<CustomGptPacket> {
     ],
     research_operation_ids: [...CONTROLLED_RESEARCH_OPERATIONS].sort(),
     mcp_research_operation_ids: RESEARCH_OPERATIONS.map(({ name }) => name).sort(),
-    consequential_operation_ids: ["submit_lesson_candidate"],
+    consequential_operation_ids: [
+      "preserve_lesson_incident",
+      "submit_lesson_candidate"
+    ],
     installation_bundle: {
       ...installation,
       bundle_sha256: bundleSha256

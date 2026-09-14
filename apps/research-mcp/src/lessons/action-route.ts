@@ -68,6 +68,24 @@ export const LESSON_ACTION_REQUEST_SCHEMA = {
         },
       },
     },
+    incident_provenance: {
+      type: "object",
+      additionalProperties: false,
+      required: ["incident_id", "incident_sha256", "preservation_status"],
+      properties: {
+        incident_id: { type: "string", pattern: "^[A-Za-z0-9_-]{16,96}$" },
+        incident_sha256: { type: "string", pattern: "^[a-f0-9]{64}$" },
+        preservation_status: {
+          type: "string",
+          enum: [
+            "EXACT_TRANSCRIPT_PRESERVED",
+            "PARTIAL_TRANSCRIPT_PRESERVED",
+            "LESSON_ONLY_NO_TRANSCRIPT",
+            "RAW_INCIDENT_NOT_PRESERVED",
+          ],
+        },
+      },
+    },
     consent_scope: { type: "string", enum: ["once", "conversation"] },
   },
 } as const;
