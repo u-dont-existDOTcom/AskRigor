@@ -16,15 +16,21 @@ describe("reproducible Custom GPT Action OpenAPI", () => {
     expect(JSON.parse(committed)).toEqual(JSON.parse(generated));
   });
 
-  it("describes four authenticated controlled reads and one private consequential lesson operation without secrets", () => {
+  it("describes four authenticated controlled reads and two private consequential lesson operations without secrets", () => {
     const document = JSON.parse(generateCustomGptActionOpenApiJson()) as {
       paths: Record<string, Record<string, Record<string, unknown>>>;
     };
-    const operation = document.paths["/actions/lessons"]?.post;
+    const lessonOperation = document.paths["/actions/lessons"]?.post;
+    const incidentOperation = document.paths["/actions/lesson-incidents"]?.post;
 
-    expect(Object.keys(document.paths)).toHaveLength(5);
-    expect(operation).toMatchObject({
+    expect(Object.keys(document.paths)).toHaveLength(6);
+    expect(lessonOperation).toMatchObject({
       operationId: "submit_lesson_candidate",
+      "x-openai-isConsequential": true,
+      security: [{ bearerAuth: [] }],
+    });
+    expect(incidentOperation).toMatchObject({
+      operationId: "preserve_lesson_incident",
       "x-openai-isConsequential": true,
       security: [{ bearerAuth: [] }],
     });
@@ -34,7 +40,7 @@ describe("reproducible Custom GPT Action OpenAPI", () => {
         expect(String(candidate.description).length).toBeLessThanOrEqual(300);
       }
     }
-    expect(operation?.requestBody).toMatchObject({
+    expect(lessonOperation?.requestBody).toMatchObject({
       required: true,
       content: {
         "application/json": {
@@ -45,10 +51,24 @@ describe("reproducible Custom GPT Action OpenAPI", () => {
         },
       },
     });
-    expect(Object.keys(operation?.responses as object)).toEqual([
+    expect(incidentOperation?.requestBody).toMatchObject({
+      required: true,
+      content: {
+        "application/json": {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+          },
+        },
+      },
+    });
+    expect(Object.keys(lessonOperation?.responses as object)).toEqual([
       "200", "400", "401", "413", "415", "422", "429", "500", "503"
     ]);
-    expect((operation?.responses as Record<string, unknown>)["429"]).toMatchObject({
+    expect(Object.keys(incidentOperation?.responses as object)).toEqual([
+      "200", "400", "401", "413", "422", "500", "503"
+    ]);
+    expect((lessonOperation?.responses as Record<string, unknown>)["429"]).toMatchObject({
       headers: {
         "Retry-After": {
           required: true,
@@ -57,9 +77,13 @@ describe("reproducible Custom GPT Action OpenAPI", () => {
         },
       },
     });
+    const lessonOperationIds = new Set([
+      "preserve_lesson_incident",
+      "submit_lesson_candidate",
+    ]);
     const controlled = Object.values(document.paths)
       .flatMap(Object.values)
-      .filter((candidate) => candidate.operationId !== "submit_lesson_candidate");
+      .filter((candidate) => !lessonOperationIds.has(String(candidate.operationId)));
     expect(controlled).toHaveLength(4);
     expect(controlled.every((candidate) =>
       JSON.stringify(candidate.security) === JSON.stringify([{ bearerAuth: [] }]) &&
@@ -69,7 +93,7 @@ describe("reproducible Custom GPT Action OpenAPI", () => {
     )).toBe(true);
 
     const serialized = JSON.stringify(document);
-    expect(serialized.length).toBeLessThan(90_000);
+    expect(serialized.length).toBeLessThan(100_000);
     expect(serialized).toContain("Server-authoritative finalization decision");
     expect(serialized).toContain("videos_worth_watching");
     expect(serialized).not.toContain('"semantic_result":{}');
