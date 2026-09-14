@@ -14,6 +14,10 @@ const CONTROLLED = [
   "get_research_session_status",
   "start_research_session"
 ];
+const LESSON_WRITES = [
+  "preserve_lesson_incident",
+  "submit_lesson_candidate"
+];
 
 describe("controlled Custom GPT projection", () => {
   it("exactly reproduces every committed generated artifact", async () => {
@@ -33,7 +37,7 @@ describe("controlled Custom GPT projection", () => {
     expect(packet.runtimeManifestTypescript).toBe(runtimeManifest);
   });
 
-  it("projects exactly four authenticated controlled reads and one lesson write", async () => {
+  it("projects exactly four authenticated controlled reads and two lesson writes", async () => {
     const packet = await generateCustomGptPacket();
     const document = JSON.parse(packet.openApiJson) as {
       paths: Record<string, Record<string, {
@@ -43,21 +47,23 @@ describe("controlled Custom GPT projection", () => {
       }>>;
     };
     const operations = Object.values(document.paths).flatMap(Object.values);
+    const lessonOperationIds = new Set(LESSON_WRITES);
     const research = operations.filter(({ operationId }) =>
-      operationId !== "submit_lesson_candidate"
+      !lessonOperationIds.has(operationId)
     );
     expect(research.map(({ operationId }) => operationId).sort()).toEqual(CONTROLLED);
     expect(research.every(({ security, "x-openai-isConsequential": consequential }) =>
       JSON.stringify(security) === JSON.stringify([{ bearerAuth: [] }]) &&
       consequential === false
     )).toBe(true);
-    expect(operations.find(({ operationId }) =>
-      operationId === "submit_lesson_candidate"
-    )).toMatchObject({
-      security: [{ bearerAuth: [] }],
-      "x-openai-isConsequential": true
-    });
-    expect(operations).toHaveLength(5);
+    for (const operationId of LESSON_WRITES) {
+      expect(operations.find((operation) => operation.operationId === operationId))
+        .toMatchObject({
+          security: [{ bearerAuth: [] }],
+          "x-openai-isConsequential": true
+        });
+    }
+    expect(operations).toHaveLength(6);
   });
 
   it("keeps workflow authority on the server and hides low-level orchestration", async () => {
@@ -73,7 +79,10 @@ describe("controlled Custom GPT projection", () => {
       "Never ask the user to copy a Gemini packet",
       "never turn all exercise",
       "Use plain language",
-      "Submit this anonymized lesson to improve AskRigor?"
+      "Submit this anonymized lesson to improve AskRigor?",
+      "Call `preserve_lesson_incident` first",
+      "Raw chat text may go only to this owner-private encrypted incident Action",
+      "call `submit_lesson_candidate` with the generalized privacy-safe lesson"
     ]) expect(instructionsMarkdown).toContain(required);
     for (const forbidden of [
       "get_youtube_transcript",
@@ -83,14 +92,15 @@ describe("controlled Custom GPT projection", () => {
       "assess_treatment_landscape_coverage",
       "api_visible_complete"
     ]) expect(instructionsMarkdown).not.toContain(forbidden);
-    expect(instructionsMarkdown.length).toBeLessThanOrEqual(5_300);
+    expect(instructionsMarkdown.length).toBeLessThanOrEqual(7_000);
   });
 
-  it("binds sync metadata to the four-operation installation bundle while retaining 27 MCP tools", async () => {
+  it("binds sync metadata to the controlled installation bundle while retaining 27 MCP tools", async () => {
     const packet = await generateCustomGptPacket();
     const sync = JSON.parse(packet.syncJson) as CustomGptSync;
     expect(sync.schema_version).toBe(3);
     expect(sync.research_operation_ids).toEqual(CONTROLLED);
+    expect(sync.consequential_operation_ids).toEqual(LESSON_WRITES);
     expect(sync.mcp_research_operation_ids).toHaveLength(27);
     expect(sync.installation_bundle).toMatchObject({
       instructions_sha256: expect.stringMatching(/^[a-f0-9]{64}$/u),
