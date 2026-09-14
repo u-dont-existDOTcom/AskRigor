@@ -90,11 +90,6 @@ const generalizedLessonSchema = z.strictObject({
   candidate_id: z.string().regex(/^ARL-[0-9]{4,}$/u).optional(),
 });
 
-const storageSchema = z.strictObject({
-  backend: z.literal("owner_private_encrypted_file_v1"),
-  key_id: safeShortStringSchema,
-});
-
 export const lessonIncidentCaptureRequestSchema = z.strictObject({
   schema_version: z.literal(LESSON_INCIDENT_CAPTURE_SCHEMA_VERSION),
   idempotency_key: opaqueIdSchema.optional(),
@@ -134,7 +129,6 @@ export const lessonIncidentEvidenceSchema = z.strictObject({
   incident_id: opaqueIdSchema,
   captured_at: canonicalTimestampSchema,
   preservation_status: lessonIncidentCapturedTranscriptStatusSchema,
-  storage: storageSchema.optional(),
   source: sourceSchema.optional(),
   window: z.array(messageSchema).min(1).max(LESSON_INCIDENT_MAX_MESSAGES),
   validated_defect: validatedDefectSchema,
@@ -161,7 +155,6 @@ export function createLessonIncidentEvidence(
   options: {
     now?: () => Date;
     createIncidentId?: () => string;
-    storageKeyId?: string;
   } = {},
 ): LessonIncidentEvidence {
   const request = lessonIncidentCaptureRequestSchema.parse(raw);
@@ -173,12 +166,6 @@ export function createLessonIncidentEvidence(
     incident_id: opaqueIdSchema.parse(incidentId),
     captured_at: capturedAt,
     preservation_status: request.preservation_status,
-    ...(options.storageKeyId === undefined ? {} : {
-      storage: storageSchema.parse({
-        backend: "owner_private_encrypted_file_v1",
-        key_id: options.storageKeyId,
-      }),
-    }),
     ...(request.source === undefined ? {} : { source: request.source }),
     window: request.window,
     validated_defect: request.validated_defect,
