@@ -41,9 +41,13 @@ const lazyIncidentVault = {
   },
 };
 
-const defaultActionRoutes = Object.freeze([
-  createLessonIncidentActionRoute(lazyIncidentVault),
+const generalizedLessonActionRoutes = Object.freeze([
   createLessonActionRoute(lazyRuntime),
+] satisfies readonly ActionRoute[]);
+
+const installedLessonActionRoutes = Object.freeze([
+  createLessonIncidentActionRoute(lazyIncidentVault),
+  ...generalizedLessonActionRoutes,
 ] satisfies readonly ActionRoute[]);
 
 /** Constructs a production lesson service from the exact reviewed environment. */
@@ -99,9 +103,14 @@ export function createLessonRuntimeFromEnv(): LessonSubmissionService {
   }
 }
 
-/** Returns the shared registry without constructing or validating its runtime. */
+/** Returns the generalized lesson Action registry retained for legacy composition/tests. */
 export function createDefaultActionRoutes(): readonly ActionRoute[] {
-  return defaultActionRoutes;
+  return generalizedLessonActionRoutes;
+}
+
+/** Returns the complete installed lesson workflow: incident preservation before generalization. */
+export function createInstalledLessonActionRoutes(): readonly ActionRoute[] {
+  return installedLessonActionRoutes;
 }
 
 function getOrCreateLessonRuntime(): LessonSubmissionService {
