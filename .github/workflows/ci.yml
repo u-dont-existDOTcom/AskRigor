@@ -42,22 +42,6 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Generate deterministic Custom GPT projection for review
-        run: npm run generate:custom-gpt
-
-      - name: Emit generated Custom GPT projection for review
-        run: |
-          for file in \
-            docs/custom-gpt-action-openapi.json \
-            docs/custom-gpt-instructions.md \
-            docs/custom-gpt-sync.json \
-            apps/research-mcp/src/generated/custom-gpt-bundle.ts
-          do
-            echo "BEGIN_GENERATED_FILE:${file}"
-            base64 -w 4000 "${file}"
-            echo "END_GENERATED_FILE:${file}"
-          done
-
       - name: Run deterministic verification
         run: npm run verify
 
