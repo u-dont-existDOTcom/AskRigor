@@ -31,6 +31,10 @@ const CONTROLLED_RESEARCH_OPERATIONS = [
   "get_research_session_status",
   "finalize_research_report"
 ] as const;
+const CONSEQUENTIAL_LESSON_OPERATIONS = [
+  "preserve_lesson_incident",
+  "submit_lesson_candidate",
+] as const;
 const GENERATION_SECRET = "generation-only-secret-32-bytes-long";
 
 export interface CustomGptSync {
@@ -43,7 +47,7 @@ export interface CustomGptSync {
   }>;
   research_operation_ids: string[];
   mcp_research_operation_ids: string[];
-  consequential_operation_ids: ["submit_lesson_candidate"];
+  consequential_operation_ids: string[];
   installation_bundle: {
     instructions_sha256: string;
     action_schema_sha256: string;
@@ -116,7 +120,7 @@ export async function generateCustomGptPacket(): Promise<CustomGptPacket> {
     ],
     research_operation_ids: [...CONTROLLED_RESEARCH_OPERATIONS].sort(),
     mcp_research_operation_ids: RESEARCH_OPERATIONS.map(({ name }) => name).sort(),
-    consequential_operation_ids: ["submit_lesson_candidate"],
+    consequential_operation_ids: [...CONSEQUENTIAL_LESSON_OPERATIONS].sort(),
     installation_bundle: {
       ...installation,
       bundle_sha256: bundleSha256
