@@ -8,6 +8,13 @@ import {
 } from "./ai-budget.js";
 import { createLessonActionRoute } from "./action-route.js";
 import {
+  createLessonIncidentActionRoute,
+} from "./incident-action-route.js";
+import {
+  createFileLessonIncidentVault,
+  lessonIncidentVaultConfigFromEnv,
+} from "./file-incident-vault.js";
+import {
   GitHubInstallationTokenProvider,
   LESSON_REPOSITORY_FULL_NAME,
 } from "./github-app.js";
@@ -26,7 +33,16 @@ const lazyRuntime = {
   },
 };
 
+const lazyIncidentVault = {
+  capture(raw: unknown) {
+    const config = lessonIncidentVaultConfigFromEnv();
+    if (config === undefined) throw new Error("Lesson incident vault unavailable");
+    return createFileLessonIncidentVault(config).capture(raw);
+  },
+};
+
 const defaultActionRoutes = Object.freeze([
+  createLessonIncidentActionRoute(lazyIncidentVault),
   createLessonActionRoute(lazyRuntime),
 ] satisfies readonly ActionRoute[]);
 

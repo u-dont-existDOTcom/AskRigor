@@ -96,6 +96,24 @@ const expectedRequestSchema = {
         },
       },
     },
+    incident_provenance: {
+      type: "object",
+      additionalProperties: false,
+      required: ["incident_id", "incident_sha256", "preservation_status"],
+      properties: {
+        incident_id: { type: "string", pattern: "^[A-Za-z0-9_-]{16,96}$" },
+        incident_sha256: { type: "string", pattern: "^[a-f0-9]{64}$" },
+        preservation_status: {
+          type: "string",
+          enum: [
+            "EXACT_TRANSCRIPT_PRESERVED",
+            "PARTIAL_TRANSCRIPT_PRESERVED",
+            "LESSON_ONLY_NO_TRANSCRIPT",
+            "RAW_INCIDENT_NOT_PRESERVED",
+          ],
+        },
+      },
+    },
     consent_scope: { type: "string", enum: ["once", "conversation"] },
   },
 };
@@ -541,23 +559,23 @@ describe("environment-backed lesson runtime", () => {
     const firstRoutes = createDefaultActionRoutes();
     const secondRoutes = createDefaultActionRoutes();
     expect(Object.isFrozen(firstRoutes)).toBe(true);
-    expect(firstRoutes).toHaveLength(1);
-    expect(secondRoutes).toHaveLength(1);
+    expect(firstRoutes).toHaveLength(2);
+    expect(secondRoutes).toHaveLength(2);
 
     const context = {
       request: { headers: { "content-type": "application/json" } } as IncomingMessage,
       clientIp: "198.51.100.10",
       body: {},
     };
-    const first = await firstRoutes[0]!.handle(context);
+    const first = await firstRoutes[1]!.handle(context);
     expect(first).toMatchObject({ status: 422 });
 
     clearRuntimeEnvironment();
     for (let attempt = 2; attempt <= 20; attempt += 1) {
-      const route = attempt % 2 === 0 ? secondRoutes[0]! : firstRoutes[0]!;
+      const route = attempt % 2 === 0 ? secondRoutes[1]! : firstRoutes[1]!;
       expect(await route.handle(context)).toMatchObject({ status: 422 });
     }
-    expect(await secondRoutes[0]!.handle(context)).toEqual({
+    expect(await secondRoutes[1]!.handle(context)).toEqual({
       status: 429,
       headers: { "Retry-After": expect.stringMatching(/^[1-9][0-9]*$/) },
       body: {

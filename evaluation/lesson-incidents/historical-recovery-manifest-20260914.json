@@ -1,0 +1,59 @@
+{
+  "schema_version": "askrigor_lesson_incident_historical_recovery_manifest_v1",
+  "created_at": "2026-09-14T16:20:00.000Z",
+  "privacy": {
+    "raw_incident_text_in_manifest": false,
+    "raw_incident_destination": "owner_private_lesson_incident_vault_only",
+    "github_fields": "opaque_provenance_status_generalized_category_and_replay_only"
+  },
+  "counts": {
+    "EXACT_TRANSCRIPT_PRESERVED": 0,
+    "PARTIAL_TRANSCRIPT_PRESERVED": 3,
+    "LESSON_ONLY_NO_TRANSCRIPT": 4,
+    "RAW_INCIDENT_NOT_PRESERVED": 0
+  },
+  "candidates": [
+    {
+      "recovery_ref": "recovery-0001",
+      "recovery_status": "PARTIAL_TRANSCRIPT_PRESERVED",
+      "generalized_defect_category": "mechanism / evidence-direction / selective-comparator reasoning",
+      "exact_replay_available": false
+    },
+    {
+      "recovery_ref": "recovery-0002",
+      "recovery_status": "PARTIAL_TRANSCRIPT_PRESERVED",
+      "generalized_defect_category": "evidence-direction / concentration-specific inference",
+      "exact_replay_available": false
+    },
+    {
+      "recovery_ref": "recovery-0003",
+      "recovery_status": "PARTIAL_TRANSCRIPT_PRESERVED",
+      "generalized_defect_category": "regulatory status versus efficacy / target preservation",
+      "exact_replay_available": false
+    },
+    {
+      "recovery_ref": "recovery-0004",
+      "recovery_status": "LESSON_ONLY_NO_TRANSCRIPT",
+      "generalized_defect_category": "evidence weighting / heterogeneity",
+      "exact_replay_available": false
+    },
+    {
+      "recovery_ref": "recovery-0005",
+      "recovery_status": "LESSON_ONLY_NO_TRANSCRIPT",
+      "generalized_defect_category": "specificity / causal discrimination",
+      "exact_replay_available": false
+    },
+    {
+      "recovery_ref": "recovery-0006",
+      "recovery_status": "LESSON_ONLY_NO_TRANSCRIPT",
+      "generalized_defect_category": "evidence direction",
+      "exact_replay_available": false
+    },
+    {
+      "recovery_ref": "recovery-0007",
+      "recovery_status": "LESSON_ONLY_NO_TRANSCRIPT",
+      "generalized_defect_category": "target preservation",
+      "exact_replay_available": false
+    }
+  ]
+}

@@ -126,8 +126,20 @@ export class LessonSubmissionService {
       const preScreen = this.pipeline.screen(parsedCandidate);
       if (!preScreen.safe) return privacyRejected();
 
+      // Opaque incident provenance is server-owned linkage metadata, not content
+      // for model generalization. Keep it out of the anonymizer and reattach the
+      // exact validated tuple afterward so a model cannot drop or rewrite it.
+      const incidentProvenance = preScreen.candidate.incident_provenance;
+      let candidateForAnonymizer: LessonCandidate = preScreen.candidate;
+      if (incidentProvenance !== undefined) {
+        const {
+          incident_provenance: _incidentProvenance,
+          ...withoutIncidentProvenance
+        } = preScreen.candidate;
+        candidateForAnonymizer = withoutIncidentProvenance;
+      }
       const rawAnonymizerOutcome: unknown = await this.options.anonymizer.generalize(
-        preScreen.candidate,
+        candidateForAnonymizer,
       );
       const parsedAnonymizerOutcome = anonymizerOutcomeSchema.safeParse(rawAnonymizerOutcome);
       if (!parsedAnonymizerOutcome.success) return genericGitHubUnavailable();
@@ -139,7 +151,16 @@ export class LessonSubmissionService {
           ? anonymizerUnavailable("ai_budget_exhausted", false)
           : anonymizerUnavailable("privacy_service_unavailable", true);
       }
-      const generalized = this.pipeline.parseGeneralized(anonymizerOutcome.candidate);
+      const {
+        incident_provenance: _modelIncidentProvenance,
+        ...generalizedWithoutIncidentProvenance
+      } = anonymizerOutcome.candidate;
+      const generalized = this.pipeline.parseGeneralized({
+        ...generalizedWithoutIncidentProvenance,
+        ...(incidentProvenance === undefined
+          ? {}
+          : { incident_provenance: incidentProvenance }),
+      });
       if (!generalized) return anonymizerUnavailable("privacy_service_unavailable", true);
 
       const postScreen = this.pipeline.screen(generalized);

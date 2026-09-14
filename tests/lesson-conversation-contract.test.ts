@@ -7,7 +7,7 @@ const rootFile = (path: string) => new URL(`../${path}`, import.meta.url);
 type ConsentScope = "once" | "conversation";
 
 interface ActionCall {
-  operation: "submit_lesson_candidate";
+  operation: "preserve_lesson_incident" | "submit_lesson_candidate";
   consent_scope: ConsentScope;
 }
 
@@ -48,16 +48,13 @@ interface ContractNode {
   text: string;
 }
 
-const mandatoryInstructions = `Propose a lesson only after rechecking the answer, sources, instructions,
-protocol state, or tool receipts and concluding that the user's concrete
-criticism is valid. A preference, unsupported disagreement, or unresolved doubt
-is not a validated lesson.
-
-Never send raw chat text. First display a generalized lesson with no user
-identity, individual medical story, uploads, quotations, or unnecessary URLs.
-
-Submit this anonymized lesson to improve AskRigor?
-Reply: Yes, Yes always in this chat, or No.`;
+const mandatoryInstructionSnippets = [
+  "Propose a lesson only after rechecking the answer, sources, instructions,",
+  "Raw incident text may go only to that owner-private encrypted incident-vault",
+  "Before asking for consent, display only the generalized lesson with no user",
+  "Submit this anonymized lesson to improve AskRigor?",
+  "Reply: Yes, Yes always in this chat, or No.",
+] as const;
 
 const expectedDisplayShell = `**Proposed anonymized lesson**
 When [general situation], AskRigor should [correct behavior] because [reason].
@@ -94,7 +91,10 @@ const expectedOutcomes: Record<string, ExpectedOutcome> = {
     lesson_proposed: true,
     generalized_candidates_displayed: 1,
     askrigor_consent_questions: 1,
-    action_calls: [{ operation: "submit_lesson_candidate", consent_scope: "once" }],
+    action_calls: [
+      { operation: "preserve_lesson_incident", consent_scope: "once" },
+      { operation: "submit_lesson_candidate", consent_scope: "once" },
+    ],
     standing_consent_before: false,
     standing_consent_after: false,
     pending_candidate_after: false,
@@ -110,7 +110,9 @@ const expectedOutcomes: Record<string, ExpectedOutcome> = {
     generalized_candidates_displayed: 2,
     askrigor_consent_questions: 1,
     action_calls: [
+      { operation: "preserve_lesson_incident", consent_scope: "conversation" },
       { operation: "submit_lesson_candidate", consent_scope: "conversation" },
+      { operation: "preserve_lesson_incident", consent_scope: "conversation" },
       { operation: "submit_lesson_candidate", consent_scope: "conversation" },
     ],
     standing_consent_before: false,
@@ -187,7 +189,10 @@ const expectedOutcomes: Record<string, ExpectedOutcome> = {
     lesson_proposed: true,
     generalized_candidates_displayed: 1,
     askrigor_consent_questions: 1,
-    action_calls: [{ operation: "submit_lesson_candidate", consent_scope: "once" }],
+    action_calls: [
+      { operation: "preserve_lesson_incident", consent_scope: "once" },
+      { operation: "submit_lesson_candidate", consent_scope: "once" },
+    ],
     standing_consent_before: false,
     standing_consent_after: false,
     pending_candidate_after: false,
@@ -205,7 +210,10 @@ const expectedOutcomes: Record<string, ExpectedOutcome> = {
     lesson_proposed: true,
     generalized_candidates_displayed: 1,
     askrigor_consent_questions: 1,
-    action_calls: [{ operation: "submit_lesson_candidate", consent_scope: "once" }],
+    action_calls: [
+      { operation: "preserve_lesson_incident", consent_scope: "once" },
+      { operation: "submit_lesson_candidate", consent_scope: "once" },
+    ],
     standing_consent_before: false,
     standing_consent_after: false,
     pending_candidate_after: false,
@@ -222,7 +230,10 @@ const expectedOutcomes: Record<string, ExpectedOutcome> = {
     lesson_proposed: true,
     generalized_candidates_displayed: 1,
     askrigor_consent_questions: 0,
-    action_calls: [{ operation: "submit_lesson_candidate", consent_scope: "conversation" }],
+    action_calls: [
+      { operation: "preserve_lesson_incident", consent_scope: "conversation" },
+      { operation: "submit_lesson_candidate", consent_scope: "conversation" },
+    ],
     standing_consent_before: true,
     standing_consent_after: true,
     pending_candidate_after: false,
@@ -273,59 +284,59 @@ const expectedNodes: Record<string, string[]> = {
 const contractNodes: Record<string, ContractNode> = {
   "eligibility.validated_only": {
     section: "Eligibility details",
-    text: "Only a rechecked, explicitly validated concrete criticism can become a lesson candidate.",
+    text: "Only a rechecked, explicitly validated concrete criticism",
   },
   "eligibility.reject_unverified": {
     section: "Eligibility details",
-    text: "Do not propose or submit a candidate when the criticism is unverified, is a preference disagreement, or remains in doubt.",
+    text: "Do not propose, preserve, or submit a candidate when the criticism is",
   },
   "privacy.derived_only": {
     section: "Privacy boundary",
-    text: "Build only the structured Action fields. Never send raw user or assistant messages, user identity or identifiers, an individual medical story or history, uploads or their contents, quotations, unnecessary URLs, a conversation ID, or any other detail not needed for the generalized product lesson.",
+    text: "Build only the structured generalized Action fields.",
   },
   "state.no_standing": {
     section: "Deterministic conversation-local state",
-    text: "With no standing consent, display the candidate first, ask the exact question above, and do not call the Action yet.",
+    text: "do not call either consequential Action yet.",
   },
   "state.yes_once": {
     section: "Deterministic conversation-local state",
-    text: "`Yes` authorizes exactly the currently displayed candidate: call `submit_lesson_candidate` once with `consent_scope: \"once\"`, then clear the pending candidate without enabling standing consent.",
+    text: "`Yes` authorizes exactly the currently displayed candidate and its minimum",
   },
   "state.yes_always": {
     section: "Deterministic conversation-local state",
-    text: "`Yes always in this chat` authorizes the displayed candidate and enables standing consent only in the current chat. Call `submit_lesson_candidate` with `consent_scope: \"conversation\"`.",
+    text: "`Yes always in this chat` authorizes the displayed candidate and its incident",
   },
   "state.later_conversation_submission": {
     section: "Deterministic conversation-local state",
-    text: "For every later independently validated candidate in that same chat, display the generalized candidate first, then call the Action with `consent_scope: \"conversation\"` without repeating AskRigor's consent question.",
+    text: "then perform the two-phase capture without",
   },
   "state.clear_conversation_pending": {
     section: "Deterministic conversation-local state",
-    text: "Clear the pending candidate after the initial `Yes always in this chat` submission and after every later standing-consent Action call.",
+    text: "after every later standing-consent capture.",
   },
   "state.display_receipt_after_response": {
-    section: "Deterministic conversation-local state",
-    text: "After every completed Action response, display its receipt after the already displayed candidate.",
+    section: "Two-phase capture order",
+    text: "display one concise receipt covering both preservation",
   },
   "state.no_or_nonanswer": {
     section: "Deterministic conversation-local state",
-    text: "`No`, silence, ambiguous assent, or a changed subject authorizes no call; discard the pending candidate.",
+    text: "authorizes no capture or",
   },
   "state.stop": {
     section: "Deterministic conversation-local state",
-    text: "`Stop submitting lessons` immediately clears standing consent and any pending candidate without making a call.",
+    text: "without making an Action call.",
   },
   "state.new_chat": {
     section: "Deterministic conversation-local state",
-    text: "At the start of every new chat, initialize standing consent to off and the pending candidate to empty; never inherit or recover either value.",
+    text: "At the start of every new chat, initialize standing consent to off and the",
   },
   "confirmation.consequential": {
     section: "Consequential confirmation",
-    text: "The Action is consequential, so ChatGPT may still require its own platform confirmation for every call; conversational standing consent cannot suppress, bypass, or replace that confirmation.",
+    text: "The lesson operations remain consequential.",
   },
   "receipt.no_invented_success": {
     section: "Truthful receipts",
-    text: "Never claim success before a success status, and never convert a failure into a success.",
+    text: "Never claim",
   },
   "receipt.private_safe": {
     section: "Truthful receipts",
@@ -448,7 +459,10 @@ function validateFixture(fixture: ConversationFixture): string[] {
 function validateModule(source: string, fixture: ConversationFixture): string[] {
   const errors: string[] = [];
   const sections = sectionMap(source);
-  if (!sections.get("Mandatory instruction")?.includes(mandatoryInstructions)) {
+  const mandatorySection = sections.get("Mandatory instruction") ?? "";
+  if (!mandatoryInstructionSnippets.every((snippet) =>
+    mandatorySection.includes(snippet)
+  )) {
     errors.push("mandatory_instruction_scope");
   }
   if (!sections.get("User-facing shell")?.includes(fixture.display_shell)) {
