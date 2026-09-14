@@ -10,6 +10,7 @@ import {
   existsSync,
   fstatSync,
   fsyncSync,
+  linkSync,
   lstatSync,
   mkdirSync,
   openSync,
@@ -28,7 +29,9 @@ import { z } from "zod";
 import {
   LESSON_INCIDENT_MAX_RECORD_BYTES,
   createLessonIncidentEvidence,
+  digestCanonicalJson,
   lessonIncidentBytes,
+  lessonIncidentCaptureRequestSchema,
   lessonIncidentEvidenceSchema,
   type LessonIncidentCaptureRequest,
   type LessonIncidentEvidence,
@@ -43,11 +46,13 @@ const MAX_ENVELOPE_BYTES = 192 * 1_024;
 
 const base64UrlSchema = z.string().regex(/^[A-Za-z0-9_-]+$/u);
 const keyIdSchema = z.string().regex(/^[A-Za-z0-9._-]{1,100}$/u);
+const incidentIdSchema = z.string().regex(/^ali_[A-Za-z0-9_-]{16,96}$/u);
+const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/u);
 
 const envelopeSchema = z.strictObject({
   envelope_version: z.literal("askrigor_lesson_incident_envelope_v1"),
-  incident_id: z.string().regex(/^ali_[A-Za-z0-9_-]{16,96}$/u),
-  incident_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  incident_id: incidentIdSchema,
+  incident_sha256: sha256Schema,
   captured_at: z.string().datetime({ offset: true }),
   key_id: keyIdSchema,
   algorithm: z.literal("AES-256-GCM"),
@@ -56,7 +61,15 @@ const envelopeSchema = z.strictObject({
   auth_tag: base64UrlSchema,
 });
 
+const idempotencyRecordSchema = z.strictObject({
+  record_version: z.literal("askrigor_lesson_incident_idempotency_v1"),
+  incident_id: incidentIdSchema,
+  request_sha256: sha256Schema,
+  captured_at: z.string().datetime({ offset: true }),
+});
+
 type IncidentEnvelope = z.infer<typeof envelopeSchema>;
+type IdempotencyRecord = z.infer<typeof idempotencyRecordSchema>;
 
 export class LessonIncidentVaultUnavailableError extends Error {
   constructor(message = "Lesson incident vault unavailable") {
@@ -107,47 +120,53 @@ export function createFileLessonIncidentVault(
 
   return Object.freeze({
     capture(raw: unknown): LessonIncidentProvenance {
-      const request = raw as Partial<LessonIncidentCaptureRequest>;
-      const existing = request.idempotency_key === undefined
+      const request = lessonIncidentCaptureRequestSchema.parse(raw);
+      const requestSha256 = digestCanonicalJson(request);
+      let reservation = request.idempotency_key === undefined
         ? undefined
-        : findIdempotent(request.idempotency_key);
-      const record = createLessonIncidentEvidence(raw, {
-        now: existing === undefined
-          ? now
-          : () => new Date(existing.captured_at),
-        createIncidentId: existing === undefined
-          ? undefined
-          : () => existing.incident_id,
-      });
-      const encoded = encodeIncident(record);
-      if (encoded.byteLength > MAX_ENVELOPE_BYTES) {
-        throw new Error("Lesson incident envelope exceeds its file bound");
+        : readIdempotencyRecord(request.idempotency_key, requestSha256);
+
+      if (reservation === undefined && request.idempotency_key !== undefined) {
+        const capturedAt = now();
+        if (!Number.isFinite(capturedAt.getTime())) {
+          throw new Error("Lesson incident clock is invalid");
+        }
+        const candidate = idempotencyRecordSchema.parse({
+          record_version: "askrigor_lesson_incident_idempotency_v1",
+          incident_id: `ali_${randomUUID().replace(/-/gu, "")}`,
+          request_sha256: requestSha256,
+          captured_at: capturedAt.toISOString(),
+        });
+        const record = evidenceForReservation(request, candidate);
+        const encoded = encodeIncident(record);
+        assertCapacity(encoded);
+        reservation = reserveIdempotency(request.idempotency_key, candidate, requestSha256);
       }
-      const inventory = readInventory();
-      const already = inventory.find((item) => item.incident_id === record.incident_id);
-      if (already !== undefined) {
-        if (already.incident_sha256 !== record.incident_sha256) {
+
+      const record = reservation === undefined
+        ? createLessonIncidentEvidence(request, { now })
+        : evidenceForReservation(request, reservation);
+      const path = incidentPath(root, record.incident_id);
+
+      if (existsSync(path)) {
+        const existing = decodeIncident(readBoundedRegularFile(path), record.incident_id);
+        if (existing.incident_sha256 !== record.incident_sha256) {
           throw new LessonIncidentVaultIntegrityError("Idempotency key maps to different incident bytes");
         }
-        return {
-          incident_id: already.incident_id,
-          incident_sha256: already.incident_sha256,
-          preservation_status: already.preservation_status,
-        };
+        return provenance(existing);
       }
-      const currentStoredBytes = inventory.reduce((total, item) =>
-        total + item.storedBytes, 0);
-      if (inventory.length >= maxRecords || currentStoredBytes + encoded.byteLength > maxStoredBytes) {
-        throw new Error("Lesson incident vault cannot satisfy its bounds");
-      }
-      writeAtomically(root, incidentPath(root, record.incident_id), encoded, true);
-      if (request.idempotency_key !== undefined) {
-        writeAtomically(
-          root,
-          idempotencyPath(root, request.idempotency_key),
-          Buffer.from(`${record.incident_id}\n`, "utf8"),
-          true,
-        );
+
+      const encoded = encodeIncident(record);
+      assertCapacity(encoded);
+      try {
+        writeAtomically(root, path, encoded, true);
+      } catch (error) {
+        if (!isAlreadyExists(error)) throw error;
+        const existing = decodeIncident(readBoundedRegularFile(path), record.incident_id);
+        if (existing.incident_sha256 !== record.incident_sha256) {
+          throw new LessonIncidentVaultIntegrityError("Concurrent lesson incident capture disagreed");
+        }
+        return provenance(existing);
       }
       return provenance(record);
     },
@@ -160,6 +179,72 @@ export function createFileLessonIncidentVault(
       return readInventory().map(({ storedBytes: _storedBytes, ...item }) => item);
     },
   });
+
+  function evidenceForReservation(
+    request: LessonIncidentCaptureRequest,
+    reservation: IdempotencyRecord,
+  ): LessonIncidentEvidence {
+    return createLessonIncidentEvidence(request, {
+      now: () => new Date(reservation.captured_at),
+      createIncidentId: () => reservation.incident_id,
+    });
+  }
+
+  function reserveIdempotency(
+    idempotencyKey: string,
+    candidate: IdempotencyRecord,
+    requestSha256: string,
+  ): IdempotencyRecord {
+    const path = idempotencyPath(root, idempotencyKey);
+    try {
+      writeAtomically(
+        root,
+        path,
+        Buffer.from(`${JSON.stringify(candidate)}\n`, "utf8"),
+        true,
+      );
+      return candidate;
+    } catch (error) {
+      if (!isAlreadyExists(error)) throw error;
+      const winner = readIdempotencyRecord(idempotencyKey, requestSha256);
+      if (winner === undefined) {
+        throw new LessonIncidentVaultIntegrityError("Lesson incident idempotency race lost its reservation");
+      }
+      return winner;
+    }
+  }
+
+  function readIdempotencyRecord(
+    idempotencyKey: string,
+    requestSha256: string,
+  ): IdempotencyRecord | undefined {
+    const path = idempotencyPath(root, idempotencyKey);
+    if (!existsSync(path)) return undefined;
+    let parsed: IdempotencyRecord;
+    try {
+      parsed = idempotencyRecordSchema.parse(
+        JSON.parse(readBoundedRegularFile(path).toString("utf8")),
+      );
+    } catch {
+      throw new LessonIncidentVaultIntegrityError("Lesson incident idempotency record is malformed");
+    }
+    if (parsed.request_sha256 !== requestSha256) {
+      throw new LessonIncidentVaultIntegrityError("Idempotency key maps to different incident bytes");
+    }
+    return parsed;
+  }
+
+  function assertCapacity(encoded: Buffer): void {
+    if (encoded.byteLength > MAX_ENVELOPE_BYTES) {
+      throw new Error("Lesson incident envelope exceeds its file bound");
+    }
+    const inventory = readInventory();
+    const currentStoredBytes = inventory.reduce((total, item) =>
+      total + item.storedBytes, 0);
+    if (inventory.length >= maxRecords || currentStoredBytes + encoded.byteLength > maxStoredBytes) {
+      throw new Error("Lesson incident vault cannot satisfy its bounds");
+    }
+  }
 
   function encodeIncident(record: LessonIncidentEvidence): Buffer {
     const plaintext = lessonIncidentBytes(record);
@@ -238,16 +323,6 @@ export function createFileLessonIncidentVault(
       items.push({ ...provenance(record), storedBytes: bytes.byteLength });
     }
     return items;
-  }
-
-  function findIdempotent(idempotencyKey: string): LessonIncidentEvidence | undefined {
-    const path = idempotencyPath(root, idempotencyKey);
-    if (!existsSync(path)) return undefined;
-    const incidentId = readBoundedRegularFile(path).toString("utf8").trim();
-    if (!/^ali_[A-Za-z0-9_-]{16,96}$/u.test(incidentId)) {
-      throw new LessonIncidentVaultIntegrityError("Lesson incident idempotency record is malformed");
-    }
-    return decodeIncident(readBoundedRegularFile(incidentPath(root, incidentId)), incidentId);
   }
 }
 
@@ -360,11 +435,14 @@ function writeAtomically(root: string, destination: string, bytes: Buffer, creat
     } finally {
       closeSync(descriptor);
     }
-    if (createOnly && existsSync(destination)) {
-      throw new LessonIncidentVaultIntegrityError("Lesson incident record already exists");
+    if (createOnly) {
+      linkSync(temporary, destination);
+      unlinkSync(temporary);
+      temporaryExists = false;
+    } else {
+      renameSync(temporary, destination);
+      temporaryExists = false;
     }
-    renameSync(temporary, destination);
-    temporaryExists = false;
     syncDirectory(root);
     const finalMetadata = statSync(destination);
     if (!finalMetadata.isFile() || (finalMetadata.mode & 0o077) !== 0) {
@@ -414,4 +492,9 @@ function positiveInteger(value: number, label: string): number {
     throw new Error(`Lesson incident ${label} must be a positive integer`);
   }
   return value;
+}
+
+function isAlreadyExists(error: unknown): boolean {
+  return typeof error === "object" && error !== null &&
+    "code" in error && (error as NodeJS.ErrnoException).code === "EEXIST";
 }
