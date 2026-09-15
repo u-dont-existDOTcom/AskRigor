@@ -1,3 +1,6 @@
+import { lstatSync } from "node:fs";
+import { dirname, isAbsolute, normalize } from "node:path";
+
 import type { ActionRoute } from "../actions/types.js";
 import { createLessonActionRoute } from "./action-route.js";
 import {
@@ -17,6 +20,11 @@ import { createLessonAttemptLimiter } from "./rate-limit.js";
 import { LessonSubmissionService } from "./service.js";
 
 const CONFIGURATION_ERROR = "Lesson runtime configuration unavailable";
+const LEGACY_AI_CONFIGURATION = [
+  "OPENAI_API_KEY",
+  "ASKRIGOR_AI_BUDGET_LEDGER",
+  "ASKRIGOR_AI_MONTHLY_BUDGET_USD",
+] as const;
 
 let cachedRuntime: LessonSubmissionService | undefined;
 
@@ -46,6 +54,8 @@ export function createLessonRuntimeFromEnv(): LessonSubmissionService {
     if (actionsEnabled !== "true") throw new Error(CONFIGURATION_ERROR);
 
     requiredSecret("ASKRIGOR_ACTIONS_API_KEY");
+    validateLegacyAiConfigurationIfPresent();
+
     const appId = positiveDecimalEnvironment("ASKRIGOR_GITHUB_APP_ID");
     const installationId = positiveDecimalEnvironment("ASKRIGOR_GITHUB_INSTALLATION_ID");
     const privateKeyBase64 = requiredSecret("ASKRIGOR_GITHUB_PRIVATE_KEY_BASE64");
@@ -85,6 +95,29 @@ function getOrCreateLessonRuntime(): LessonSubmissionService {
   return runtime;
 }
 
+function validateLegacyAiConfigurationIfPresent(): void {
+  const configured = LEGACY_AI_CONFIGURATION.filter((name) => process.env[name] !== undefined);
+  if (configured.length === 0) return;
+
+  // A partial or malformed legacy configuration is rejected rather than
+  // silently accepted. A complete legacy triplet remains configuration-valid
+  // during rollout, but it is not consumed by the ChatGPT-originated lesson
+  // path and therefore cannot trigger model/API inference.
+  const openAiApiKey = requiredSecret("OPENAI_API_KEY");
+  if (openAiApiKey.trim().length === 0) throw new Error(CONFIGURATION_ERROR);
+
+  const ledgerPath = requiredEnvironment("ASKRIGOR_AI_BUDGET_LEDGER");
+  if (!isAbsolute(ledgerPath) || normalize(ledgerPath) !== ledgerPath) {
+    throw new Error(CONFIGURATION_ERROR);
+  }
+  assertSafeLedgerParent(dirname(ledgerPath));
+
+  const budgetUsd = requiredEnvironment("ASKRIGOR_AI_MONTHLY_BUDGET_USD");
+  if (budgetUsd !== "50" && budgetUsd !== "50.00") {
+    throw new Error(CONFIGURATION_ERROR);
+  }
+}
+
 function requiredEnvironment(name: string): string {
   const value = process.env[name];
   if (value === undefined || value.length === 0) throw new Error(CONFIGURATION_ERROR);
@@ -103,4 +136,20 @@ function positiveDecimalEnvironment(name: string): string {
   const numeric = Number(value);
   if (!Number.isSafeInteger(numeric) || numeric <= 0) throw new Error(CONFIGURATION_ERROR);
   return value;
+}
+
+function assertSafeLedgerParent(parentDirectory: string): void {
+  const expectedUid = process.getuid?.();
+  if (!Number.isSafeInteger(expectedUid) || expectedUid! < 0) {
+    throw new Error(CONFIGURATION_ERROR);
+  }
+  const stat = lstatSync(parentDirectory);
+  if (
+    stat.isSymbolicLink() ||
+    !stat.isDirectory() ||
+    stat.uid !== expectedUid ||
+    (stat.mode & 0o022) !== 0
+  ) {
+    throw new Error(CONFIGURATION_ERROR);
+  }
 }
