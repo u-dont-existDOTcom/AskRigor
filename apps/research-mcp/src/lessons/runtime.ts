@@ -2,10 +2,6 @@ import { lstatSync } from "node:fs";
 import { dirname, isAbsolute, normalize } from "node:path";
 
 import type { ActionRoute } from "../actions/types.js";
-import {
-  createSharedFileAiBudget,
-  MONTHLY_AI_BUDGET_NANO_USD,
-} from "./ai-budget.js";
 import { createLessonActionRoute } from "./action-route.js";
 import {
   createLessonIncidentActionRoute,
@@ -19,11 +15,16 @@ import {
   LESSON_REPOSITORY_FULL_NAME,
 } from "./github-app.js";
 import { GitHubLessonQueue } from "./github-lessons.js";
-import { createOpenAiLessonAnonymizer } from "./openai-anonymizer.js";
+import { createLocalLessonGeneralizer } from "./local-generalizer.js";
 import { createLessonAttemptLimiter } from "./rate-limit.js";
 import { LessonSubmissionService } from "./service.js";
 
 const CONFIGURATION_ERROR = "Lesson runtime configuration unavailable";
+const LEGACY_AI_CONFIGURATION = [
+  "OPENAI_API_KEY",
+  "ASKRIGOR_AI_BUDGET_LEDGER",
+  "ASKRIGOR_AI_MONTHLY_BUDGET_USD",
+] as const;
 
 let cachedRuntime: LessonSubmissionService | undefined;
 
@@ -53,17 +54,7 @@ export function createLessonRuntimeFromEnv(): LessonSubmissionService {
     if (actionsEnabled !== "true") throw new Error(CONFIGURATION_ERROR);
 
     requiredSecret("ASKRIGOR_ACTIONS_API_KEY");
-    const openAiApiKey = requiredSecret("OPENAI_API_KEY");
-    const ledgerPath = requiredEnvironment("ASKRIGOR_AI_BUDGET_LEDGER");
-    if (!isAbsolute(ledgerPath) || normalize(ledgerPath) !== ledgerPath) {
-      throw new Error(CONFIGURATION_ERROR);
-    }
-    assertSafeLedgerParent(dirname(ledgerPath));
-
-    const budgetUsd = requiredEnvironment("ASKRIGOR_AI_MONTHLY_BUDGET_USD");
-    if (budgetUsd !== "50" && budgetUsd !== "50.00") {
-      throw new Error(CONFIGURATION_ERROR);
-    }
+    validateLegacyAiConfigurationIfPresent();
 
     const appId = positiveDecimalEnvironment("ASKRIGOR_GITHUB_APP_ID");
     const installationId = positiveDecimalEnvironment("ASKRIGOR_GITHUB_INSTALLATION_ID");
@@ -73,17 +64,10 @@ export function createLessonRuntimeFromEnv(): LessonSubmissionService {
     }
 
     const now = () => new Date();
-    const budget = createSharedFileAiBudget({
-      ledgerPath,
-      monthlyLimitNanoUsd: MONTHLY_AI_BUDGET_NANO_USD,
-      expectedUid: process.getuid?.(),
-      now,
-    });
-    const anonymizer = createOpenAiLessonAnonymizer({
-      apiKey: openAiApiKey,
-      budget,
-      fetch,
-    });
+    // The ChatGPT Action request already contains the generalized lesson shown
+    // to and authorized by the user. Production validates it locally rather
+    // than paying for a second model/API pass.
+    const anonymizer = createLocalLessonGeneralizer();
     const tokenProvider = new GitHubInstallationTokenProvider({
       appId,
       installationId,
@@ -109,6 +93,29 @@ function getOrCreateLessonRuntime(): LessonSubmissionService {
   const runtime = createLessonRuntimeFromEnv();
   cachedRuntime = runtime;
   return runtime;
+}
+
+function validateLegacyAiConfigurationIfPresent(): void {
+  const configured = LEGACY_AI_CONFIGURATION.filter((name) => process.env[name] !== undefined);
+  if (configured.length === 0) return;
+
+  // A partial or malformed legacy configuration is rejected rather than
+  // silently accepted. A complete legacy triplet remains configuration-valid
+  // during rollout, but it is not consumed by the ChatGPT-originated lesson
+  // path and therefore cannot trigger model/API inference.
+  const openAiApiKey = requiredSecret("OPENAI_API_KEY");
+  if (openAiApiKey.trim().length === 0) throw new Error(CONFIGURATION_ERROR);
+
+  const ledgerPath = requiredEnvironment("ASKRIGOR_AI_BUDGET_LEDGER");
+  if (!isAbsolute(ledgerPath) || normalize(ledgerPath) !== ledgerPath) {
+    throw new Error(CONFIGURATION_ERROR);
+  }
+  assertSafeLedgerParent(dirname(ledgerPath));
+
+  const budgetUsd = requiredEnvironment("ASKRIGOR_AI_MONTHLY_BUDGET_USD");
+  if (budgetUsd !== "50" && budgetUsd !== "50.00") {
+    throw new Error(CONFIGURATION_ERROR);
+  }
 }
 
 function requiredEnvironment(name: string): string {
