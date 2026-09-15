@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "studyId": "askrigor-mast-fresh-validation-round-1-20260909",
+  "name": "MAST Fresh Validation Round 1",
+  "classification": "VALIDATION_NOT_CONFIRMATION",
+  "frozenAtSourceCommit": "0565222b1080f65ee70cde1be8daea160668e978",
+  "sourceDirectiveSha256": "95694259c698e496c3eb441b1d8d4b46f7c1bdda9442ea908995595c2d34e132",
+  "sourceBindings": {
+    "askRigor": {
+      "repository": "u-dont-existDOTcom/AskRigor",
+      "commit": "0565222b1080f65ee70cde1be8daea160668e978",
+      "universal": {
+        "version": "20.5.22",
+        "revisionDate": "2026-09-08",
+        "sha256": "d9364d98aa8c9805061aa53d21e7e3ed219675d8456b975b634bf54b2910c1b6"
+      },
+      "hrp": {
+        "version": "20.5.27",
+        "revisionDate": "2026-09-09",
+        "sha256": "65b099ce808012214e78f5f7b910e6a68858746978c160e29e177c3b444bf85a"
+      }
+    },
+    "mast": {
+      "repository": "ARISENetwork/mast",
+      "commit": "57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee",
+      "tree": "f73e1cb717d3e76353b190abc13739d7f3476798"
+    },
+    "runtime": {
+      "node": "24.18.0",
+      "npm": "11.16.0"
+    }
+  },
+  "selectionIntegrity": {
+    "selectionFixedBeforeDetailedCaseOrRubricInspection": true,
+    "selectionUnchangedAfterInspection": true,
+    "caseContentUsedForSelection": false,
+    "rubricContentUsedForSelection": false,
+    "outcomesUsedForSelection": false,
+    "replacementFamiliesPermitted": false
+  },
+  "cohort": {
+    "candidateFamilies": [
+      "All006",
+      "All008",
+      "Card002",
+      "Card005",
+      "Derm006",
+      "Derm009",
+      "Endo007",
+      "Endo009",
+      "GI002",
+      "GI007",
+      "Heme002",
+      "Heme004",
+      "ID003",
+      "ID006",
+      "Nephro003",
+      "Nephro009",
+      "Neuro003",
+      "Neuro004",
+      "Pulm001",
+      "Pulm009"
+    ],
+    "freshFamilies": [
+      "All006",
+      "All008",
+      "Card002",
+      "Card005",
+      "Derm009",
+      "Endo009",
+      "GI007",
+      "Heme004",
+      "ID006",
+      "Nephro009",
+      "Neuro004",
+      "Pulm009"
+    ],
+    "reservedFamilies": [
+      "Derm006",
+      "Endo007",
+      "GI002",
+      "Heme002",
+      "ID003",
+      "Nephro003",
+      "Neuro003",
+      "Pulm001"
+    ],
+    "excludedDevelopmentCalibrationFamilies": [
+      "All001",
+      "Card001",
+      "Derm001",
+      "Endo002",
+      "GI004",
+      "Heme010",
+      "ID008",
+      "Nephro005",
+      "Neuro007",
+      "Pulm005"
+    ],
+    "developmentRegressionFamilies": [
+      "Neuro007",
+      "Derm001",
+      "Heme010",
+      "Endo002",
+      "Pulm005"
+    ]
+  },
+  "selectionMethod": {
+    "methodId": "IDENTIFIER_ONLY_SPECIALTY_BALANCE_V1",
+    "seedInteger": 20260909,
+    "representativeIndex": 1,
+    "supplementalStart": 0,
+    "supplementalPrefixes": ["All", "Card"],
+    "algorithm": [
+      "Split each exact candidate ID into its leading ASCII-letter specialty prefix and numeric suffix.",
+      "Sort specialty prefixes and IDs by ASCII lexicographic order.",
+      "Select index seedInteger modulo 2 from each two-ID specialty group.",
+      "Starting at floor(seedInteger / 10) modulo 10 in the sorted specialty list, add the unselected sibling from two consecutive specialties.",
+      "Sort the final fresh and reserved lists by ASCII lexicographic order."
+    ]
+  },
+  "design": {
+    "arms": {
+      "A": "MAST_DEFAULT",
+      "B": "MAST_THOROUGH",
+      "C": "UNIVERSAL_ONLY",
+      "D": "UNIVERSAL_PLUS_HRP"
+    },
+    "trialsPerFamilyPerArm": 3,
+    "freshResponseCount": 144,
+    "developmentRegressionResponseCount": 60,
+    "primaryComparison": "D-B",
+    "secondaryComparison": "D-C",
+    "dispatchSeed": {
+      "algorithm": "CSPRNG_256_BIT",
+      "privateSeedBytes": 32,
+      "sha256Commitment": "d9899701b33ad70795131345fe2ab372dbce23e471bbb77efcd36762a23cbd82"
+    }
+  },
+  "generation": {
+    "surface": "CHATGPT_CONSUMER",
+    "modelVisibleLabel": "GPT-5.6 Sol",
+    "reasoningVisibleLabel": "Extra High",
+    "reasoningOrdinal": null,
+    "backendModelSlug": null,
+    "temperature": null,
+    "topP": null,
+    "samplingSeed": null,
+    "maxOutputTokens": null,
+    "systemPrompt": null,
+    "chatMode": "FRESH_PERSISTENT_ORDINARY_CHAT_PER_SUBMISSION",
+    "personalization": "UNPERSONALIZED",
+    "providerApiCredentials": false,
+    "manualToolSelection": false,
+    "contentBasedRetry": false,
+    "maximumAttemptsPerSlot": 2
+  },
+  "evaluation": {
+    "metricLabel": "NONOFFICIAL_PROJECTED_MAST_METRICS",
+    "primaryPasses": 2,
+    "J1": {"modelVisibleLabel": "GPT-5.6 Sol", "reasoningVisibleLabel": "Extra High"},
+    "J2": {"modelVisibleLabel": "GPT-5.6 Sol", "reasoningVisibleLabel": "Extra High"},
+    "J3": {"modelVisibleLabel": "Latest", "reasoningVisibleLabel": "Pro", "reasoningOrdinal": "5 of 5"},
+    "maximumAttemptsPerJudgeSlot": 3,
+    "contentBasedRetry": false,
+    "blinding": "OPAQUE_RESPONSE_IDS_WITH_SEALED_CONDITION_MAP",
+    "join": "EXPLICIT_OPAQUE_RESPONSE_AND_GENERATION_RECORD_IDS_ONLY",
+    "noDenominatorShrinkage": true
+  },
+  "decisionRule": {
+    "familyArmScore": "Arithmetic mean of the three final raw F1-weighted trial scores.",
+    "P1": "mean(D-B)>0",
+    "P2": "median(D-B)>0, with the median of 12 values defined as the mean of the sixth and seventh ordered values",
+    "P3": "at least 7 of 12 families have D-B>0",
+    "P4": "D severe commissions minus B severe commissions is at most 1 over equal 36-response denominators, and no family has a D-minus-B severe-commission excess greater than 1",
+    "P5": "mean(D-C)>0 and the number of D-C wins is at least the number of D-C losses",
+    "PASS": "All fresh records resolve with exactly 36 responses per arm and P1-P5 are true.",
+    "FAIL": "All fresh records resolve and either P4 is false or at least three of P1, P2, P3 and P5 are false.",
+    "INDETERMINATE": "Any unresolved or denominator-integrity condition, or any complete mixed result that is neither PASS nor FAIL."
+  },
+  "scoreSeparation": {
+    "rawBenchmarkScoreControlsPrimaryGate": true,
+    "benchmarkConformityReportedSeparately": true,
+    "clinicalValidityReportedSeparately": true,
+    "benchmarkTargetConflictDiagnosticCannotOverrideRawGate": true
+  },
+  "boundaries": {
+    "protocolMutationAllowed": false,
+    "thresholdMutationAllowed": false,
+    "historicalArtifactRewriteAllowed": false,
+    "reservedFamilyContentAccessAllowed": false,
+    "providerApiCallsAllowed": 0,
+    "paidApiSpendUsd": 0,
+    "laterProtocolEditConvertsFreshCohortToDevelopmentData": true
+  }
+}
