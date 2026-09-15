@@ -1,11 +1,4 @@
-import { lstatSync } from "node:fs";
-import { dirname, isAbsolute, normalize } from "node:path";
-
 import type { ActionRoute } from "../actions/types.js";
-import {
-  createSharedFileAiBudget,
-  MONTHLY_AI_BUDGET_NANO_USD,
-} from "./ai-budget.js";
 import { createLessonActionRoute } from "./action-route.js";
 import {
   createLessonIncidentActionRoute,
@@ -19,7 +12,7 @@ import {
   LESSON_REPOSITORY_FULL_NAME,
 } from "./github-app.js";
 import { GitHubLessonQueue } from "./github-lessons.js";
-import { createOpenAiLessonAnonymizer } from "./openai-anonymizer.js";
+import { createLocalLessonGeneralizer } from "./local-generalizer.js";
 import { createLessonAttemptLimiter } from "./rate-limit.js";
 import { LessonSubmissionService } from "./service.js";
 
@@ -53,18 +46,6 @@ export function createLessonRuntimeFromEnv(): LessonSubmissionService {
     if (actionsEnabled !== "true") throw new Error(CONFIGURATION_ERROR);
 
     requiredSecret("ASKRIGOR_ACTIONS_API_KEY");
-    const openAiApiKey = requiredSecret("OPENAI_API_KEY");
-    const ledgerPath = requiredEnvironment("ASKRIGOR_AI_BUDGET_LEDGER");
-    if (!isAbsolute(ledgerPath) || normalize(ledgerPath) !== ledgerPath) {
-      throw new Error(CONFIGURATION_ERROR);
-    }
-    assertSafeLedgerParent(dirname(ledgerPath));
-
-    const budgetUsd = requiredEnvironment("ASKRIGOR_AI_MONTHLY_BUDGET_USD");
-    if (budgetUsd !== "50" && budgetUsd !== "50.00") {
-      throw new Error(CONFIGURATION_ERROR);
-    }
-
     const appId = positiveDecimalEnvironment("ASKRIGOR_GITHUB_APP_ID");
     const installationId = positiveDecimalEnvironment("ASKRIGOR_GITHUB_INSTALLATION_ID");
     const privateKeyBase64 = requiredSecret("ASKRIGOR_GITHUB_PRIVATE_KEY_BASE64");
@@ -73,17 +54,10 @@ export function createLessonRuntimeFromEnv(): LessonSubmissionService {
     }
 
     const now = () => new Date();
-    const budget = createSharedFileAiBudget({
-      ledgerPath,
-      monthlyLimitNanoUsd: MONTHLY_AI_BUDGET_NANO_USD,
-      expectedUid: process.getuid?.(),
-      now,
-    });
-    const anonymizer = createOpenAiLessonAnonymizer({
-      apiKey: openAiApiKey,
-      budget,
-      fetch,
-    });
+    // The ChatGPT Action request already contains the generalized lesson shown
+    // to and authorized by the user. Production validates it locally rather
+    // than paying for a second model/API pass.
+    const anonymizer = createLocalLessonGeneralizer();
     const tokenProvider = new GitHubInstallationTokenProvider({
       appId,
       installationId,
@@ -129,20 +103,4 @@ function positiveDecimalEnvironment(name: string): string {
   const numeric = Number(value);
   if (!Number.isSafeInteger(numeric) || numeric <= 0) throw new Error(CONFIGURATION_ERROR);
   return value;
-}
-
-function assertSafeLedgerParent(parentDirectory: string): void {
-  const expectedUid = process.getuid?.();
-  if (!Number.isSafeInteger(expectedUid) || expectedUid! < 0) {
-    throw new Error(CONFIGURATION_ERROR);
-  }
-  const stat = lstatSync(parentDirectory);
-  if (
-    stat.isSymbolicLink() ||
-    !stat.isDirectory() ||
-    stat.uid !== expectedUid ||
-    (stat.mode & 0o022) !== 0
-  ) {
-    throw new Error(CONFIGURATION_ERROR);
-  }
 }
