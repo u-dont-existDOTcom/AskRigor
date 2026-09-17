@@ -12,7 +12,7 @@ jobs:
   apply:
     runs-on: ubuntu-latest
     steps:
-      - name: Apply exact reviewed test-pin patch
+      - name: Apply exact reviewed test-pin edits
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -23,221 +23,81 @@ jobs:
           git fetch --depth=1 origin "${GITHUB_REF_NAME}"
           git checkout -B "${GITHUB_REF_NAME}" FETCH_HEAD
           if grep -q 'c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2' tests/mcp-tools.test.ts; then
-            echo "Reviewed test-pin patch already applied."
+            echo "Reviewed test-pin edits already applied."
             exit 0
           fi
-          cat > /tmp/recommendation-preflight-test-pins.patch <<'PATCH'
-          diff --git a/tests/epistemic-phase-routing.test.ts b/tests/epistemic-phase-routing.test.ts
-          --- a/tests/epistemic-phase-routing.test.ts
-          +++ b/tests/epistemic-phase-routing.test.ts
-          @@ -23,7 +23,7 @@ describe("canonical epistemic phase and heuristic-attractor routing", () => {
-               );
-           
-               expect(universal).toMatch(
-          -      /version="20\.5\.25" revisionDate="2026-09-14"/u,
-          +      /version="20\.5\.26" revisionDate="2026-09-17"/u,
-               );
-               for (const singleton of [
-                 '<revision version="20.5.15" priority="Critical">',
-          diff --git a/tests/explicit-commitment-obligation-structure.test.ts b/tests/explicit-commitment-obligation-structure.test.ts
-          --- a/tests/explicit-commitment-obligation-structure.test.ts
-          +++ b/tests/explicit-commitment-obligation-structure.test.ts
-          @@ -23,7 +23,7 @@ describe("Universal explicit-commitment obligation closure integration", () => {
-               const text = await readFile(UNIVERSAL_URL, "utf8");
-           
-               expect(text).toMatch(
-          -      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.25" revisionDate="2026-09-14"[^>]+Explicit-Commitment-Obligation-Closure/u,
-          +      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.26" revisionDate="2026-09-17"[^>]+Explicit-Commitment-Obligation-Closure/u,
-               );
-           
-               for (const singleton of [
-          diff --git a/tests/interview-evidence-integrity.test.ts b/tests/interview-evidence-integrity.test.ts
-          --- a/tests/interview-evidence-integrity.test.ts
-          +++ b/tests/interview-evidence-integrity.test.ts
-          @@ -89,7 +89,7 @@ describe("interview-evidence protocol integration", () => {
-             it("adds the Universal 20.5.22 gate without weakening current integrity controls", async () => {
-               const text = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
-               expect(XMLValidator.validate(text)).toBe(true);
-          -    expect(text).toMatch(/version="20\.5\.25" revisionDate="2026-09-14"/u);
-          +    expect(text).toMatch(/version="20\.5\.26" revisionDate="2026-09-17"/u);
-               for (const required of [
-                 '<revision version="20.5.22" priority="Critical">',
-                 '<interview_evidence_information_gain_gate priority="Critical">',
-          diff --git a/tests/longitudinal-evidence-preservation.test.ts b/tests/longitudinal-evidence-preservation.test.ts
-          --- a/tests/longitudinal-evidence-preservation.test.ts
-          +++ b/tests/longitudinal-evidence-preservation.test.ts
-          @@ -196,7 +196,7 @@ describe("canonical longitudinal-evidence and phenotype–etiology gates", () =>
-             it("extends the existing Universal evidence-discrimination architecture once", async () => {
-               const universal = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
-               expect(XMLValidator.validate(universal)).toBe(true);
-          -    expect(universal).toMatch(/version="20\.5\.25" revisionDate="2026-09-14"/u);
-          +    expect(universal).toMatch(/version="20\.5\.26" revisionDate="2026-09-17"/u);
-               for (const singleton of [
-                 '<revision version="20.5.23" priority="Critical">',
-                 '<evidence_discrimination_gate priority="Critical">',
-          diff --git a/tests/mcp-tools.test.ts b/tests/mcp-tools.test.ts
-          --- a/tests/mcp-tools.test.ts
-          +++ b/tests/mcp-tools.test.ts
-          @@ -1989,9 +1989,9 @@ describe("AskRigor MCP tools", () => {
-                   protocol: "universal",
-                   manifest: {
-                     name: "AskRigor.com universal saved instructions",
-          -          version: "20.5.25",
-          -          revisionDate: "2026-09-14",
-          -          sha256: "6f17c7285f383a71306cea46249e7eb45c3d5e890b10edd983e178ab6e173ef5"
-          +          version: "20.5.26",
-          +          revisionDate: "2026-09-17",
-          +          sha256: "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2"
-                   },
-                   text: canonicalText
-                 });
-          @@ -2072,9 +2072,9 @@ describe("AskRigor Streamable HTTP server", () => {
-                     protocol: "universal",
-                     manifest: {
-                       name: "AskRigor.com universal saved instructions",
-          -            version: "20.5.25",
-          -            revisionDate: "2026-09-14",
-          -            sha256: "6f17c7285f383a71306cea46249e7eb45c3d5e890b10edd983e178ab6e173ef5"
-          +            version: "20.5.26",
-          +            revisionDate: "2026-09-17",
-          +            sha256: "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2"
-                     }
-                   });
-                 } finally {
-          @@ -2116,8 +2116,8 @@ describe("AskRigor Streamable HTTP server", () => {
-                     ok: true,
-                     protocol: "universal",
-                     manifest: {
-          -            version: "20.5.25",
-          -            sha256: "6f17c7285f383a71306cea46249e7eb45c3d5e890b10edd983e178ab6e173ef5"
-          +            version: "20.5.26",
-          +            sha256: "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2"
-                     }
-                   });
-                 } finally {
-          diff --git a/tests/normality-base-rate-structure.test.ts b/tests/normality-base-rate-structure.test.ts
-          --- a/tests/normality-base-rate-structure.test.ts
-          +++ b/tests/normality-base-rate-structure.test.ts
-          @@ -22,7 +22,7 @@ describe("Universal normality and base-rate integration", () => {
-               const text = await readFile(UNIVERSAL_URL, "utf8");
-           
-               expect(text).toMatch(
-          -      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.25" revisionDate="2026-09-14"[^>]+Normality-Base-Rate/u,
-          +      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.26" revisionDate="2026-09-17"[^>]+Normality-Base-Rate/u,
-               );
-           
-               for (const singleton of [
-          diff --git a/tests/protocol.test.ts b/tests/protocol.test.ts
-          --- a/tests/protocol.test.ts
-          +++ b/tests/protocol.test.ts
-          @@ -21,7 +21,7 @@ import {
-           const HRP_SHA_256 =
-             "254759df38934c28b06709dace9fcb266fc9967913be1296de99a461be596816";
-           const UNIVERSAL_SHA_256 =
-          -  "6f17c7285f383a71306cea46249e7eb45c3d5e890b10edd983e178ab6e173ef5";
-          +  "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2";
-           
-           describe("canonical protocol loader", () => {
-             let actualReadFile: typeof import("node:fs/promises").readFile;
-          @@ -419,8 +419,8 @@ describe("canonical protocol loader", () => {
-             it("derives the Universal manifest from its root attributes", async () => {
-               await expect(getProtocolManifest("universal")).resolves.toMatchObject({
-                 name: "AskRigor.com universal saved instructions",
-          -      version: "20.5.25",
-          -      revisionDate: "2026-09-14"
-          +      version: "20.5.26",
-          +      revisionDate: "2026-09-17"
-               });
-             });
-          diff --git a/tests/reasoning-selection-structure.test.ts b/tests/reasoning-selection-structure.test.ts
-          --- a/tests/reasoning-selection-structure.test.ts
-          +++ b/tests/reasoning-selection-structure.test.ts
-          @@ -98,7 +98,7 @@ describe("canonical Reasoning Selection application", () => {
-           
-               expect(XMLValidator.validate(universal)).toBe(true);
-               expect(universal).toMatch(
-          -      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.25" revisionDate="2026-09-14"/u,
-          +      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.26" revisionDate="2026-09-17"/u,
-               );
-               expect(Buffer.byteLength(REASONING_SELECTION_TEXT, "utf8")).toBe(2884);
-               expect(sha256(REASONING_SELECTION_TEXT)).toBe(
-          @@ -126,7 +126,17 @@ describe("canonical Reasoning Selection application", () => {
-                 expect(occurrences(CURRENT_REASONING_SELECTION_TEXT, `- ${method}:`), method).toBe(1);
-               }
-           
-          -    const priorLongitudinalUniversal = universal
-          +    const priorRecommendationUniversal = universal
-          +      .replace('version="20.5.26" revisionDate="2026-09-17"', 'version="20.5.25" revisionDate="2026-09-14"')
-          +      .replace("Important-Task Optimization, Recommendation-Preflight Integrity, Approval", "Important-Task Optimization, Approval")
-          +      .replace(/<revision version="20\.5\.26" priority="Critical">[\s\S]*?<\/revision>\n/u, "")
-          +      .replace(/<recommendation_preflight_integrity_gate priority="Critical">[\s\S]*?<\/recommendation_preflight_integrity_gate>\n\n/u, "")
-          +      .replace(/Recommendation-preflight check:[^\n]*\n\n/u, "");
-          +    expect(sha256(priorRecommendationUniversal)).toBe(
-          +      "6f17c7285f383a71306cea46249e7eb45c3d5e890b10edd983e178ab6e173ef5",
-          +    );
-          +
-          +    const priorLongitudinalUniversal = priorRecommendationUniversal
-                 .replace('version="20.5.25" revisionDate="2026-09-14"', 'version="20.5.24" revisionDate="2026-09-12"')
-                 .replace("Target-Preservation, Claim-Scope / Predicate-Alignment, Normality-Base-Rate", "Target-Preservation, Normality-Base-Rate")
-                 .replace(/<revision version="20\.5\.25" priority="Critical">[\s\S]*?<\/revision>\n/u, "")
-          diff --git a/tests/release-packet.test.ts b/tests/release-packet.test.ts
-          --- a/tests/release-packet.test.ts
-          +++ b/tests/release-packet.test.ts
-          @@ -394,9 +394,9 @@ describe("AskRigor public-review packet", () => {
-               expect(release).toContain("creator-content verification");
-               expect(release).toContain("get_youtube_transcript");
-               expect(release).toContain("unofficial public YouTube interface");
-          -    expect(readme).toContain("Universal Instructions `20.5.25`");
-          +    expect(readme).toContain("Universal Instructions `20.5.26`");
-               expect(readme).toContain(
-          -      "6f17c7285f383a71306cea46249e7eb45c3d5e890b10edd983e178ab6e173ef5",
-          +      "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2",
-               );
-               expect(release).toContain("Deployed production protocols");
-               expect(release).toContain(
-          diff --git a/tests/research-before-reinvention-structure.test.ts b/tests/research-before-reinvention-structure.test.ts
-          --- a/tests/research-before-reinvention-structure.test.ts
-          +++ b/tests/research-before-reinvention-structure.test.ts
-          @@ -16,7 +16,7 @@ describe("Universal research-before-reinvention integration", () => {
-               const text = await readFile(UNIVERSAL_URL, "utf8");
-           
-               expect(text).toMatch(
-          -      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.25" revisionDate="2026-09-14"/
-          +      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.26" revisionDate="2026-09-17"/
-               );
-           
-               for (const singleton of [
-          diff --git a/tests/research-frontier-repository.test.ts b/tests/research-frontier-repository.test.ts
-          --- a/tests/research-frontier-repository.test.ts
-          +++ b/tests/research-frontier-repository.test.ts
-          @@ -427,9 +427,9 @@ describe("research-frontier persistence contracts", () => {
-               contribution.run.protocolManifests = [
-                 {
-                   name: "AskRigor.com universal saved instructions",
-          -        version: "20.5.25",
-          -        revisionDate: "2026-09-14",
-          -        sha256: "6f17c7285f383a71306cea46249e7eb45c3d5e890b10edd983e178ab6e173ef5",
-          +        version: "20.5.26",
-          +        revisionDate: "2026-09-17",
-          +        sha256: "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2",
-                 },
-                 {
-                   name: "HRP",
-          diff --git a/tests/whole-argument-reconstruction-structure.test.ts b/tests/whole-argument-reconstruction-structure.test.ts
-          --- a/tests/whole-argument-reconstruction-structure.test.ts
-          +++ b/tests/whole-argument-reconstruction-structure.test.ts
-          @@ -14,7 +14,7 @@ describe("Universal whole-argument reconstruction integration", () => {
-               const text = await readFile(UNIVERSAL_URL, "utf8");
-           
-               expect(text).toMatch(
-          -      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.25" revisionDate="2026-09-14"/
-          +      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.26" revisionDate="2026-09-17"/
-               );
-           
-               for (const required of [
-          PATCH
-          git apply --check /tmp/recommendation-preflight-test-pins.patch
-          git apply /tmp/recommendation-preflight-test-pins.patch
+          python3 - <<'PY'
+          from pathlib import Path
+
+          OLD_SHA = "6f17c7285f383a71306cea46249e7eb45c3d5e890b10edd983e178ab6e173ef5"
+          NEW_SHA = "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2"
+
+          def replace(path: str, old: str, new: str, count: int = 1) -> None:
+              p = Path(path)
+              s = p.read_text()
+              found = s.count(old)
+              if found != count:
+                  raise SystemExit(f"{path}: expected {count} occurrences of {old!r}, found {found}")
+              p.write_text(s.replace(old, new, count))
+
+          simple_regex_files = [
+              "tests/epistemic-phase-routing.test.ts",
+              "tests/explicit-commitment-obligation-structure.test.ts",
+              "tests/interview-evidence-integrity.test.ts",
+              "tests/longitudinal-evidence-preservation.test.ts",
+              "tests/normality-base-rate-structure.test.ts",
+              "tests/research-before-reinvention-structure.test.ts",
+              "tests/whole-argument-reconstruction-structure.test.ts",
+          ]
+          for path in simple_regex_files:
+              replace(path, '20\\.5\\.25" revisionDate="2026-09-14', '20\\.5\\.26" revisionDate="2026-09-17')
+
+          replace("tests/mcp-tools.test.ts", 'version: "20.5.25"', 'version: "20.5.26"', 3)
+          replace("tests/mcp-tools.test.ts", 'revisionDate: "2026-09-14"', 'revisionDate: "2026-09-17"', 2)
+          replace("tests/mcp-tools.test.ts", OLD_SHA, NEW_SHA, 3)
+
+          replace("tests/protocol.test.ts", OLD_SHA, NEW_SHA)
+          replace(
+              "tests/protocol.test.ts",
+              'version: "20.5.25",\n      revisionDate: "2026-09-14"',
+              'version: "20.5.26",\n      revisionDate: "2026-09-17"',
+          )
+
+          replace("tests/release-packet.test.ts", "Universal Instructions `20.5.25`", "Universal Instructions `20.5.26`")
+          replace("tests/release-packet.test.ts", OLD_SHA, NEW_SHA)
+
+          replace(
+              "tests/research-frontier-repository.test.ts",
+              'version: "20.5.25",\n        revisionDate: "2026-09-14",\n        sha256: "' + OLD_SHA + '",',
+              'version: "20.5.26",\n        revisionDate: "2026-09-17",\n        sha256: "' + NEW_SHA + '",',
+          )
+
+          reasoning = Path("tests/reasoning-selection-structure.test.ts")
+          s = reasoning.read_text()
+          old_root = 'version="20\\.5\\.25" revisionDate="2026-09-14"'
+          new_root = 'version="20\\.5\\.26" revisionDate="2026-09-17"'
+          if s.count(old_root) != 1:
+              raise SystemExit("reasoning-selection root pin mismatch")
+          s = s.replace(old_root, new_root, 1)
+          old_anchor = '''    const priorLongitudinalUniversal = universal
+              .replace('version="20.5.25" revisionDate="2026-09-14"', 'version="20.5.24" revisionDate="2026-09-12"')'''
+          new_anchor = '''    const priorRecommendationUniversal = universal
+              .replace('version="20.5.26" revisionDate="2026-09-17"', 'version="20.5.25" revisionDate="2026-09-14"')
+              .replace("Important-Task Optimization, Recommendation-Preflight Integrity, Approval", "Important-Task Optimization, Approval")
+              .replace(/<revision version="20\\.5\\.26" priority="Critical">[\\s\\S]*?<\\/revision>\\n/u, "")
+              .replace(/<recommendation_preflight_integrity_gate priority="Critical">[\\s\\S]*?<\\/recommendation_preflight_integrity_gate>\\n\\n/u, "")
+              .replace(/Recommendation-preflight check:[^\\n]*\\n\\n/u, "");
+            expect(sha256(priorRecommendationUniversal)).toBe(
+              "6f17c7285f383a71306cea46249e7eb45c3d5e890b10edd983e178ab6e173ef5",
+            );
+
+            const priorLongitudinalUniversal = priorRecommendationUniversal
+              .replace('version="20.5.25" revisionDate="2026-09-14"', 'version="20.5.24" revisionDate="2026-09-12"')'''
+          if s.count(old_anchor) != 1:
+              raise SystemExit("reasoning-selection historical anchor mismatch")
+          reasoning.write_text(s.replace(old_anchor, new_anchor, 1))
+          PY
+          git diff --check
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add tests
