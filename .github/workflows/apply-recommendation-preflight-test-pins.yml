@@ -2,8 +2,7 @@ name: Apply recommendation preflight test pins
 
 on:
   push:
-    branches:
-      - task/universal-recommendation-preflight-20260917
+    branches: [task/universal-recommendation-preflight-20260917]
 
 permissions:
   contents: write
@@ -23,24 +22,19 @@ jobs:
           git fetch --depth=1 origin "${GITHUB_REF_NAME}"
           git checkout -B "${GITHUB_REF_NAME}" FETCH_HEAD
           if grep -q 'c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2' tests/mcp-tools.test.ts; then
-            echo "Reviewed test-pin edits already applied."
+            echo "Reviewed edits already applied."
             exit 0
           fi
           python3 - <<'PY'
           from pathlib import Path
+          OLD_SHA="6f17c7285f383a71306cea46249e7eb45c3d5e890b10edd983e178ab6e173ef5"
+          NEW_SHA="c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2"
+          def r(path, old, new, n=1):
+              p=Path(path); s=p.read_text(); got=s.count(old)
+              if got != n: raise SystemExit(f"{path}: expected {n}, found {got}: {old!r}")
+              p.write_text(s.replace(old,new,n))
 
-          OLD_SHA = "6f17c7285f383a71306cea46249e7eb45c3d5e890b10edd983e178ab6e173ef5"
-          NEW_SHA = "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2"
-
-          def replace(path: str, old: str, new: str, count: int = 1) -> None:
-              p = Path(path)
-              s = p.read_text()
-              found = s.count(old)
-              if found != count:
-                  raise SystemExit(f"{path}: expected {count} occurrences of {old!r}, found {found}")
-              p.write_text(s.replace(old, new, count))
-
-          simple_regex_files = [
+          for path in [
               "tests/epistemic-phase-routing.test.ts",
               "tests/explicit-commitment-obligation-structure.test.ts",
               "tests/interview-evidence-integrity.test.ts",
@@ -48,54 +42,26 @@ jobs:
               "tests/normality-base-rate-structure.test.ts",
               "tests/research-before-reinvention-structure.test.ts",
               "tests/whole-argument-reconstruction-structure.test.ts",
-          ]
-          for path in simple_regex_files:
-              replace(path, '20\\.5\\.25" revisionDate="2026-09-14', '20\\.5\\.26" revisionDate="2026-09-17')
+          ]:
+              r(path,'20\\.5\\.25" revisionDate="2026-09-14','20\\.5\\.26" revisionDate="2026-09-17')
 
-          replace("tests/mcp-tools.test.ts", 'version: "20.5.25"', 'version: "20.5.26"', 3)
-          replace("tests/mcp-tools.test.ts", 'revisionDate: "2026-09-14"', 'revisionDate: "2026-09-17"', 2)
-          replace("tests/mcp-tools.test.ts", OLD_SHA, NEW_SHA, 3)
+          r("tests/mcp-tools.test.ts",'version: "20.5.25"','version: "20.5.26"',3)
+          r("tests/mcp-tools.test.ts",'revisionDate: "2026-09-14"','revisionDate: "2026-09-17"',2)
+          r("tests/mcp-tools.test.ts",OLD_SHA,NEW_SHA,3)
+          r("tests/protocol.test.ts",OLD_SHA,NEW_SHA)
+          r("tests/protocol.test.ts",'version: "20.5.25",\n      revisionDate: "2026-09-14"','version: "20.5.26",\n      revisionDate: "2026-09-17"')
+          r("tests/release-packet.test.ts","Universal Instructions `20.5.25`","Universal Instructions `20.5.26`")
+          r("tests/release-packet.test.ts",OLD_SHA,NEW_SHA)
+          r("tests/research-frontier-repository.test.ts",'version: "20.5.25",\n        revisionDate: "2026-09-14",\n        sha256: "'+OLD_SHA+'",','version: "20.5.26",\n        revisionDate: "2026-09-17",\n        sha256: "'+NEW_SHA+'",')
 
-          replace("tests/protocol.test.ts", OLD_SHA, NEW_SHA)
-          replace(
-              "tests/protocol.test.ts",
-              'version: "20.5.25",\n      revisionDate: "2026-09-14"',
-              'version: "20.5.26",\n      revisionDate: "2026-09-17"',
-          )
-
-          replace("tests/release-packet.test.ts", "Universal Instructions `20.5.25`", "Universal Instructions `20.5.26`")
-          replace("tests/release-packet.test.ts", OLD_SHA, NEW_SHA)
-
-          replace(
-              "tests/research-frontier-repository.test.ts",
-              'version: "20.5.25",\n        revisionDate: "2026-09-14",\n        sha256: "' + OLD_SHA + '",',
-              'version: "20.5.26",\n        revisionDate: "2026-09-17",\n        sha256: "' + NEW_SHA + '",',
-          )
-
-          reasoning = Path("tests/reasoning-selection-structure.test.ts")
-          s = reasoning.read_text()
-          old_root = 'version="20\\.5\\.25" revisionDate="2026-09-14"'
-          new_root = 'version="20\\.5\\.26" revisionDate="2026-09-17"'
-          if s.count(old_root) != 1:
-              raise SystemExit("reasoning-selection root pin mismatch")
-          s = s.replace(old_root, new_root, 1)
-          old_anchor = '''    const priorLongitudinalUniversal = universal
-              .replace('version="20.5.25" revisionDate="2026-09-14"', 'version="20.5.24" revisionDate="2026-09-12"')'''
-          new_anchor = '''    const priorRecommendationUniversal = universal
-              .replace('version="20.5.26" revisionDate="2026-09-17"', 'version="20.5.25" revisionDate="2026-09-14"')
-              .replace("Important-Task Optimization, Recommendation-Preflight Integrity, Approval", "Important-Task Optimization, Approval")
-              .replace(/<revision version="20\\.5\\.26" priority="Critical">[\\s\\S]*?<\\/revision>\\n/u, "")
-              .replace(/<recommendation_preflight_integrity_gate priority="Critical">[\\s\\S]*?<\\/recommendation_preflight_integrity_gate>\\n\\n/u, "")
-              .replace(/Recommendation-preflight check:[^\\n]*\\n\\n/u, "");
-            expect(sha256(priorRecommendationUniversal)).toBe(
-              "6f17c7285f383a71306cea46249e7eb45c3d5e890b10edd983e178ab6e173ef5",
-            );
-
-            const priorLongitudinalUniversal = priorRecommendationUniversal
-              .replace('version="20.5.25" revisionDate="2026-09-14"', 'version="20.5.24" revisionDate="2026-09-12"')'''
-          if s.count(old_anchor) != 1:
-              raise SystemExit("reasoning-selection historical anchor mismatch")
-          reasoning.write_text(s.replace(old_anchor, new_anchor, 1))
+          p=Path("tests/reasoning-selection-structure.test.ts"); s=p.read_text()
+          old='version="20\\.5\\.25" revisionDate="2026-09-14"'; new='version="20\\.5\\.26" revisionDate="2026-09-17"'
+          if s.count(old)!=1: raise SystemExit("reasoning root pin mismatch")
+          s=s.replace(old,new,1)
+          marker="    const priorLongitudinalUniversal = universal"
+          if s.count(marker)!=1: raise SystemExit("reasoning lineage marker mismatch")
+          prefix='''    const priorRecommendationUniversal = universal\n      .replace('version="20.5.26" revisionDate="2026-09-17"', 'version="20.5.25" revisionDate="2026-09-14"')\n      .replace("Important-Task Optimization, Recommendation-Preflight Integrity, Approval", "Important-Task Optimization, Approval")\n      .replace(/<revision version="20\\.5\\.26" priority="Critical">[\\s\\S]*?<\\/revision>\\n/u, "")\n      .replace(/<recommendation_preflight_integrity_gate priority="Critical">[\\s\\S]*?<\\/recommendation_preflight_integrity_gate>\\n\\n/u, "")\n      .replace(/Recommendation-preflight check:[^\\n]*\\n\\n/u, "");\n    expect(sha256(priorRecommendationUniversal)).toBe(\n      "6f17c7285f383a71306cea46249e7eb45c3d5e890b10edd983e178ab6e173ef5",\n    );\n\n    const priorLongitudinalUniversal = priorRecommendationUniversal'''
+          p.write_text(s.replace(marker,prefix,1))
           PY
           git diff --check
           git config user.name "github-actions[bot]"
