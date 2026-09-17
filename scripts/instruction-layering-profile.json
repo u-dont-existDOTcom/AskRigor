@@ -73,7 +73,7 @@
     ],
     "protocols/Universal_Instructions.xml": [
       "ruleId=\"portable.obligation-boundary.v1\"",
-      "version=\"20.5.25\""
+      "version=\"20.5.26\""
     ],
     "protocols/HRP_Full.xml": [
       "ruleId=\"portable.obligation-boundary.v1\"",

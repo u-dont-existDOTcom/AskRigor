@@ -98,7 +98,7 @@ describe("canonical Reasoning Selection application", () => {
 
     expect(XMLValidator.validate(universal)).toBe(true);
     expect(universal).toMatch(
-      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.25" revisionDate="2026-09-14"/u,
+      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.26" revisionDate="2026-09-17"/u,
     );
     expect(Buffer.byteLength(REASONING_SELECTION_TEXT, "utf8")).toBe(2884);
     expect(sha256(REASONING_SELECTION_TEXT)).toBe(
@@ -126,7 +126,17 @@ describe("canonical Reasoning Selection application", () => {
       expect(occurrences(CURRENT_REASONING_SELECTION_TEXT, `- ${method}:`), method).toBe(1);
     }
 
-    const priorLongitudinalUniversal = universal
+    const priorRecommendationUniversal = universal
+      .replace('version="20.5.26" revisionDate="2026-09-17"', 'version="20.5.25" revisionDate="2026-09-14"')
+      .replace("Important-Task Optimization, Recommendation-Preflight Integrity, Approval", "Important-Task Optimization, Approval")
+      .replace(/<revision version="20\.5\.26" priority="Critical">[\s\S]*?<\/revision>\n/u, "")
+      .replace(/<recommendation_preflight_integrity_gate priority="Critical">[\s\S]*?<\/recommendation_preflight_integrity_gate>\n\n/u, "")
+      .replace(/Recommendation-preflight check:[^\n]*\n\n/u, "");
+    expect(sha256(priorRecommendationUniversal)).toBe(
+      "6f17c7285f383a71306cea46249e7eb45c3d5e890b10edd983e178ab6e173ef5",
+    );
+
+    const priorLongitudinalUniversal = priorRecommendationUniversal
       .replace('version="20.5.25" revisionDate="2026-09-14"', 'version="20.5.24" revisionDate="2026-09-12"')
       .replace("Target-Preservation, Claim-Scope / Predicate-Alignment, Normality-Base-Rate", "Target-Preservation, Normality-Base-Rate")
       .replace(/<revision version="20\.5\.25" priority="Critical">[\s\S]*?<\/revision>\n/u, "")

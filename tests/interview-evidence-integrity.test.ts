@@ -89,7 +89,7 @@ describe("interview-evidence protocol integration", () => {
   it("adds the Universal 20.5.22 gate without weakening current integrity controls", async () => {
     const text = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
     expect(XMLValidator.validate(text)).toBe(true);
-    expect(text).toMatch(/version="20\.5\.25" revisionDate="2026-09-14"/u);
+    expect(text).toMatch(/version="20\.5\.26" revisionDate="2026-09-17"/u);
     for (const required of [
       '<revision version="20.5.22" priority="Critical">',
       '<interview_evidence_information_gain_gate priority="Critical">',
