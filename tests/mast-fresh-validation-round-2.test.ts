@@ -139,8 +139,10 @@ describe("MAST Fresh Validation Round 2 runtime schemas", () => {
       exactInputSha256: digest("input"),
       exactOutputSha256: digest("output"),
       outputUtf8Bytes: 10,
+      transportReceiptSha256: digest("transport"),
       provider: provider("GENERATION"),
     };
+    base.provider = { ...base.provider, chatMode: "TEMPORARY" } as any;
     expect(generationCaptureSchema.parse(base).provider.toolsUsed).toBe(false);
     expect(() => generationCaptureSchema.parse({ ...base,
       provider: { ...base.provider, reasoningVisibleLabel: "High" } })).toThrow();

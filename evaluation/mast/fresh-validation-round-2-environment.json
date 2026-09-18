@@ -43,10 +43,20 @@
     "topP": null,
     "samplingSeed": null,
     "maxOutputTokens": null,
-    "freshPersistentOrdinaryChatPerSubmission": true,
+    "freshTemporaryChatPerSubmission": true,
     "personalization": "UNPERSONALIZED",
     "toolsAllowed": false,
-    "providerApiCredentials": false
+    "providerApiCredentials": false,
+    "transport": {
+      "primary": "DIRECT_BROWSER_CONTENTEDITABLE_FILL",
+      "fallback": "OS_CLIPBOARD_NORMAL_KEYBOARD_PASTE",
+      "fileAttachmentAllowed": false,
+      "wrapperTextAllowed": false,
+      "lineEndingNormalization": "CRLF_OR_CR_TO_LF_ONLY",
+      "completeComposerReadbackRequired": true,
+      "sourceComposerSha256EqualityRequiredBeforeSend": true,
+      "messageMayHaveBeenSentFailureRetryAllowed": false
+    }
   },
   "evaluation": {
     "J1": {
@@ -71,18 +81,23 @@
   },
   "executableHashManifest": {
     "evaluation/mast/src/fresh-validation.ts": "08f2170214f24f2120b0e7977bae41345708498e6c5ce3cd882c6e988f9c697a",
-    "evaluation/mast/src/fresh-validation-round-2.ts": "6248a382ef1d674c1a15b113d058b755e6665df3df9cd54a342a9b8ba42fed01",
-    "scripts/mast-fresh-validation-round-2.mts": "1f4a50022cf620e3c04ef01b0138e6727e46cb0aaebb5ca6020529c009f890ac",
+    "evaluation/mast/src/fresh-validation-round-2.ts": "843f519a6c9f63822a54ddbe56d19a9a50dbe6f22cf2a6e59be1362f93f03bb5",
+    "evaluation/mast/src/chatgpt-browser-transport.ts": "3df60a5a137de3a249823dd40585f3b21f4b3bbfa969868756ddfd6c1374fa93",
+    "scripts/mast-fresh-validation-round-2.mts": "9b17d2b8c0c92dd7808a6758412e0fcf249532dc289b0a188a914f6e301a2994",
+    "scripts/mast-chatgpt-browser-transport.mts": "285350474a264d3bdadcc3391a98b9679392e4aec89ab41a037d53a463d7de56",
     "evaluation/mast/prompts/fresh-round-2-primary-judge.md": "74320d015531a15ab38b1cb53778a829b9c9f86c8e9893817246b8ef37b7df08",
     "evaluation/mast/prompts/fresh-round-2-adjudicator.md": "c2f8c3040c9821f156027eb46dbf6155cb72377720dcb127d49f877ebfd19558",
     "evaluation/mast/prompts/fresh-round-2-benchmark-integrity.md": "066fdc53c246b67461c4eebaddba8498f0e97c6b8b65cf747a5b209e88c9f796",
-    "tests/mast-fresh-validation-round-2.test.ts": "b5ed7081ea5c2c307e7940bd18d9a51ca846b2fdec0f5e101260be0a71c0d73a"
+    "tests/mast-fresh-validation-round-2.test.ts": "8e81a659a6486d660b6be04414f9abc50d4788ca706d38b28969382fda62f2e4",
+    "tests/mast-chatgpt-browser-transport.test.ts": "35e37e4c6173283046b968fd8dbd9c45a9423b740679f44a466c187164417a9b",
+    "package.json": "c552976c3ea9454e73c18f01a378181d07170b671f52a563ad21d934ba361fc1"
   },
   "componentBindings": {
     "cohortSelectorAndExposureLedger": "evaluation/mast/src/fresh-validation-round-2.ts",
     "familyManifest": "evaluation/mast/fresh-validation-round-2-family-manifest.json",
     "generationPacketBuilder": "scripts/mast-fresh-validation-round-2.mts",
-    "generationRunner": "scripts/mast-fresh-validation-round-2.mts",
+    "generationRunner": "scripts/mast-fresh-validation-round-2.mts + scripts/mast-chatgpt-browser-transport.mts",
+    "generationBrowserTransport": "evaluation/mast/src/chatgpt-browser-transport.ts + scripts/mast-chatgpt-browser-transport.mts",
     "appendOnlyCaptureEquivalent": "scripts/mast-fresh-validation-round-2.mts",
     "runtimeSchemas": "evaluation/mast/src/fresh-validation-round-2.ts",
     "blindPacketBuilder": "scripts/mast-fresh-validation-round-2.mts",

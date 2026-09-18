@@ -83,10 +83,12 @@ export const generationCaptureSchema = z.object({
   exactInputSha256: digestSchema,
   exactOutputSha256: digestSchema,
   outputUtf8Bytes: z.number().int().positive(),
+  transportReceiptSha256: digestSchema,
   provider: providerReceiptSchema.extend({
     modelVisibleLabel: z.literal("GPT-5.6 Sol"),
     reasoningVisibleLabel: z.literal("Extra High"),
     reasoningOrdinal: z.null(),
+    chatMode: z.literal("TEMPORARY"),
   }),
 }).strict();
 

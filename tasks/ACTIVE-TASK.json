@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-mast-fresh-validation-round-2-20260918",
-  "status": "active_pre_generation_freeze_implementation",
+  "status": "active_pre_generation_transport_refreeze",
   "exclusive": true,
   "requiredBranch": "task/mast-fresh-validation-round-2-20260918",
   "baselineCommit": "65a867518303a369c7e9786b030a97af12dd81ea",
@@ -24,6 +24,7 @@
     "Any material post-response-1 component change invalidates validation status",
     "Never rerun a successful generation, judgment, or unchanged green deterministic check",
     "Resume from sealed append-only artifacts after interruption"
+    ,"Require exact automated source-to-composer equality before Send; never substitute human relay or file attachment"
   ],
   "suspendedTaskSources": [
     "the older askrigor-external-evaluation-contribution-v1 active lock on main",

@@ -4,6 +4,7 @@
   "name": "MAST Fresh Validation Round 2",
   "classification": "VALIDATION_NOT_CONFIRMATION",
   "sourceDirectiveSha256": "6c924c31658517a2015d3626b2659299d8b3fde5cc92b44d4b79361fb9fb0b17",
+  "transportDirectiveSha256": "51c3ca3f5a972a285cc1e5b6575b0499485545d6ac7f83ae5791a2ca53206850",
   "ownerOverrides": {
     "eligibleFreshFamilyCount": 12,
     "implementationModel": "GPT-5.6 Sol",
@@ -18,7 +19,7 @@
     "resumeFromSealedArtifacts": true
   },
   "bindings": {
-    "environmentSha256": "dcc346773f8736eaf946535f06d3f0156a1e125e33bbbff834a203ea8d6d2631",
+    "environmentSha256": "2adc77c1f0987f7820f9d5cb037378626f7fe77a10a76a421c7316630c0e56cc",
     "familyManifestSha256": "4ec28890ae2cd1d0cf9177c8e724c110310ad48ae38b11a6019e029407199f31"
   },
   "sourceBindings": {
@@ -77,8 +78,19 @@
     "surface": "CHATGPT_CONSUMER",
     "modelVisibleLabel": "GPT-5.6 Sol",
     "reasoningVisibleLabel": "Extra High",
-    "chatMode": "FRESH_PERSISTENT_ORDINARY_CHAT_PER_SUBMISSION",
+    "chatMode": "FRESH_TEMPORARY_CHAT_PER_SUBMISSION",
     "personalization": "UNPERSONALIZED",
+    "transport": {
+      "primary": "DIRECT_BROWSER_CONTENTEDITABLE_FILL",
+      "fallback": "OS_CLIPBOARD_NORMAL_KEYBOARD_PASTE",
+      "fileAttachmentAllowed": false,
+      "wrapperTextAllowed": false,
+      "canonicalization": "CRLF_OR_CR_TO_LF_ONLY",
+      "completeComposerReadbackRequired": true,
+      "fullSourceComposerHashAndLengthEqualityRequired": true,
+      "mismatchDisposition": "FAIL_CLOSED_BEFORE_SEND_WITH_STRUCTURED_RECEIPT",
+      "postSendCaptureAmbiguityDisposition": "PRESERVE_AND_DO_NOT_RETRY"
+    },
     "contentBasedRetry": false,
     "maximumAttemptsPerSlot": 2,
     "parallelExecutionPermitted": true,
@@ -142,6 +154,7 @@
     "repository governance validation",
     "git diff --check",
     "exact hash verification",
+    "consumer ChatGPT source-to-composer exactness acceptance",
     "green freeze pull request checks"
   ]
 }

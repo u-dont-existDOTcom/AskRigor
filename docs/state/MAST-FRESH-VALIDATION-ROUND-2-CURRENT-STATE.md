@@ -8,7 +8,9 @@ Owner-outcome status: `OPEN`
 
 ## Current boundary
 
-Round 2 is in pre-generation implementation and freeze verification. No Round 2 benchmark response has been generated. The private dispatch seed exists outside the repository; only its commitment is public. The selected 12-family validation cohort and one-family limited reserve were derived from identifier-only Git-tree filenames.
+Round 2 is being re-frozen before response 1 to add automated consumer-ChatGPT transport. No Round 2 benchmark response has been generated. The private dispatch seed exists outside the repository; only its commitment is public. The selected 12-family validation cohort and one-family limited reserve were derived from identifier-only Git-tree filenames.
+
+The transport uses direct contenteditable fill when the authenticated browser exposes a local automation endpoint, with OS clipboard plus one normal paste as the only fallback. It requires complete DOM readback equality under line-ending-only normalization before Send, fresh temporary unpersonalized state, GPT-5.6 Sol Extra High, append-only response capture, duplicate-send prevention, and non-retryable ambiguity after any possible Send. The current browser-control extension exposes no local-file, system-clipboard, or local debugging bridge; this is a pre-send capability blocker, not authorization for human relay or attachment.
 
 ## First recovery action
 

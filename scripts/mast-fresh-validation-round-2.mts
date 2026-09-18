@@ -15,6 +15,7 @@ import { promisify } from "node:util";
 import { z } from "zod";
 
 import { loadCanonicalHrpInstructions } from "../evaluation/mast/src/paired-condition.js";
+import { generationTransportReceiptSchema } from "../evaluation/mast/src/chatgpt-browser-transport.js";
 import {
   appendExposureEvent,
   benchmarkConflictReviewSchema,
@@ -403,15 +404,22 @@ async function nextGeneration(mastGitDirectory: string, artifactRoot: string) {
 }
 
 async function captureGeneration(mastGitDirectory: string, artifactRoot: string, opaqueInputId: string,
-  outputPath: string, providerPath: string) {
+  outputPath: string, providerPath: string, transportReceiptPath: string) {
   const privateRoot = await ensurePrivateRoot(artifactRoot);
   await verifyRuntimeBinding(mastGitDirectory, privateRoot);
   const packetMap = await readJson(resolve(privateRoot, "generation/packet-map.json"));
   const record = packetMap.records.find((candidate: any) => candidate.opaqueInputId === opaqueInputId);
   if (!record) throw new Error("ROUND_2_GENERATION_SLOT_UNKNOWN");
-  const [output, providerValue] = await Promise.all([readFile(outputPath), readJson(providerPath)]);
+  const [output, providerValue, transportBytes] = await Promise.all([
+    readFile(outputPath), readJson(providerPath), readFile(transportReceiptPath),
+  ]);
   if (output.byteLength === 0) throw new Error("ROUND_2_GENERATION_OUTPUT_EMPTY");
   const provider = providerReceiptSchema.parse(providerValue);
+  const transport = generationTransportReceiptSchema.parse(JSON.parse(transportBytes.toString("utf8")));
+  if (transport.opaqueInputId !== opaqueInputId || transport.sourceSha256 !== record.exactInputSha256
+    || transport.state !== "RESPONSE_COMPLETE") {
+    throw new Error("ROUND_2_GENERATION_TRANSPORT_RECEIPT_INVALID");
+  }
   const capture = generationCaptureSchema.parse({
     schemaVersion: 1,
     studyId: ROUND_2_STUDY_ID,
@@ -419,6 +427,7 @@ async function captureGeneration(mastGitDirectory: string, artifactRoot: string,
     exactInputSha256: record.exactInputSha256,
     exactOutputSha256: sha256(output),
     outputUtf8Bytes: output.byteLength,
+    transportReceiptSha256: sha256(transportBytes),
     provider,
   });
   await writePrivate(resolve(privateRoot, `generation/raw/${opaqueInputId}.txt`), output);
@@ -710,7 +719,8 @@ async function main(): Promise<void> {
     requiredArgument("--artifact-root"));
   else if (command === "capture-generation") result = await captureGeneration(requiredArgument("--mast-git-dir"),
     requiredArgument("--artifact-root"), requiredArgument("--opaque-input-id"),
-    requiredArgument("--output-file"), requiredArgument("--provider-receipt"));
+    requiredArgument("--output-file"), requiredArgument("--provider-receipt"),
+    requiredArgument("--transport-receipt"));
   else if (command === "seal-generation") result = await sealGeneration(requiredArgument("--mast-git-dir"),
     requiredArgument("--artifact-root"));
   else if (command === "build-blind-packets") result = await buildBlindPackets(requiredArgument("--mast-git-dir"),
