@@ -24,7 +24,7 @@
     "Any material post-response-1 component change invalidates validation status",
     "Never rerun a successful generation, judgment, or unchanged green deterministic check",
     "Resume from sealed append-only artifacts after interruption"
-    ,"Require exact automated source-to-composer equality before Send; never substitute human relay or file attachment"
+    ,"Require exact automated source-to-relay-page-to-composer equality before Send; never substitute human relay or file attachment"
   ],
   "suspendedTaskSources": [
     "the older askrigor-external-evaluation-contribution-v1 active lock on main",

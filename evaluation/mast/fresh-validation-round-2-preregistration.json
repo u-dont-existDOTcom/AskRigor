@@ -4,7 +4,8 @@
   "name": "MAST Fresh Validation Round 2",
   "classification": "VALIDATION_NOT_CONFIRMATION",
   "sourceDirectiveSha256": "6c924c31658517a2015d3626b2659299d8b3fde5cc92b44d4b79361fb9fb0b17",
-  "transportDirectiveSha256": "51c3ca3f5a972a285cc1e5b6575b0499485545d6ac7f83ae5791a2ca53206850",
+  "supersededTransportDirectiveSha256": "51c3ca3f5a972a285cc1e5b6575b0499485545d6ac7f83ae5791a2ca53206850",
+  "textRelayDirectiveSha256": "3a04ac8f91dff5ff6103f86abb07f5565af41f61eaa0ef48c512f8de7f4d40b0",
   "ownerOverrides": {
     "eligibleFreshFamilyCount": 12,
     "implementationModel": "GPT-5.6 Sol",
@@ -19,7 +20,7 @@
     "resumeFromSealedArtifacts": true
   },
   "bindings": {
-    "environmentSha256": "2adc77c1f0987f7820f9d5cb037378626f7fe77a10a76a421c7316630c0e56cc",
+    "environmentSha256": "83af6616b29571ba6a6e5b6cce0d8ff014ddae0e05aca5b3d4c99976b4a7e69b",
     "familyManifestSha256": "4ec28890ae2cd1d0cf9177c8e724c110310ad48ae38b11a6019e029407199f31"
   },
   "sourceBindings": {
@@ -81,11 +82,20 @@
     "chatMode": "FRESH_TEMPORARY_CHAT_PER_SUBMISSION",
     "personalization": "UNPERSONALIZED",
     "transport": {
-      "primary": "DIRECT_BROWSER_CONTENTEDITABLE_FILL",
-      "fallback": "OS_CLIPBOARD_NORMAL_KEYBOARD_PASTE",
+      "primary": "ONE_TIME_LOCAL_TEXT_RELAY_THROUGH_TEMPORARY_HTTPS_TUNNEL",
+      "fallback": "LOCAL_AUTHENTICATED_BROWSER_CDP_PLAYWRIGHT",
+      "tunnelProvider": "TRY_CLOUDFLARE_QUICK_TUNNEL",
+      "tunnelExecutableVersion": "2026.9.1",
+      "tunnelExecutableLinuxAmd64Sha256": "03f1f25d1cc93b9ad6c60569d44060bc4f17ed97075760ed8cfca4b12dcd68cc",
+      "tunnelUrlPermanentRecordingAllowed": false,
       "fileAttachmentAllowed": false,
       "wrapperTextAllowed": false,
+      "largePayloadAllowedInBrowserControlChannel": false,
+      "tokenMinimumEntropyBytes": 32,
+      "maximumRelayServesBeforeInvalidation": 2,
+      "tokenPermanentRecordingAllowed": false,
       "canonicalization": "CRLF_OR_CR_TO_LF_ONLY",
+      "fullSourceRelayPageHashAndLengthEqualityRequired": true,
       "completeComposerReadbackRequired": true,
       "fullSourceComposerHashAndLengthEqualityRequired": true,
       "mismatchDisposition": "FAIL_CLOSED_BEFORE_SEND_WITH_STRUCTURED_RECEIPT",
@@ -154,7 +164,7 @@
     "repository governance validation",
     "git diff --check",
     "exact hash verification",
-    "consumer ChatGPT source-to-composer exactness acceptance",
+    "consumer ChatGPT source-to-relay-page-to-composer exactness acceptance",
     "green freeze pull request checks"
   ]
 }

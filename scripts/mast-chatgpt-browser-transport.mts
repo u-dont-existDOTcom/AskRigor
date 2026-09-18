@@ -1,12 +1,13 @@
-import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import {
+  createOneTimeTextRelay,
+  relayPageObservationSchema,
+  verifyRelayPageTransfer,
+} from "../evaluation/mast/src/authenticated-text-relay.js";
+import {
   composerObservationSchema,
-  encodeBrowserFillPayload,
-  normalizeTransportText,
   transportTextIdentity,
   verifyComposerTransfer,
 } from "../evaluation/mast/src/chatgpt-browser-transport.js";
@@ -16,79 +17,105 @@ function argument(name: string): string | null {
   return index >= 0 ? process.argv[index + 1] ?? null : null;
 }
 
-function requiredArgument(name: string): string {
+function requiredValue(name: string): string {
   const value = argument(name);
   if (!value) throw new Error(`TRANSPORT_ARGUMENT_REQUIRED:${name}`);
-  return resolve(value);
+  return value;
 }
 
-async function copyq(args: string[], input?: Uint8Array): Promise<Buffer> {
-  return new Promise((accept, reject) => {
-    const child = spawn("copyq", args, { stdio: ["pipe", "pipe", "pipe"] });
-    const stdout: Buffer[] = [];
-    const stderr: Buffer[] = [];
-    child.stdout.on("data", (chunk) => stdout.push(Buffer.from(chunk)));
-    child.stderr.on("data", (chunk) => stderr.push(Buffer.from(chunk)));
-    child.on("error", reject);
-    child.on("close", (code) => code === 0
-      ? accept(Buffer.concat(stdout))
-      : reject(new Error(`COPYQ_FAILED:${code}:${Buffer.concat(stderr).toString("utf8").trim()}`)));
-    if (input) child.stdin.end(input); else child.stdin.end();
+function requiredPath(name: string): string {
+  return resolve(requiredValue(name));
+}
+
+async function startRelay() {
+  const packetPath = requiredPath("--packet");
+  const relay = await createOneTimeTextRelay({
+    packetPath,
+    opaqueInputId: requiredValue("--opaque-input-id"),
+    expectedPacketSha256: requiredValue("--expected-sha256"),
+    ttlMs: Number(argument("--ttl-ms") ?? "300000"),
+    maxServes: Number(argument("--max-serves") ?? "2"),
+    onEvent: (event) => process.stderr.write(`${JSON.stringify(event)}\n`),
+  });
+  process.stdout.write(`${JSON.stringify({
+    status: "TEXT_RELAY_READY",
+    opaqueInputId: relay.opaqueInputId,
+    expectedPacketSha256: relay.expectedPacketSha256,
+    sourceIdentity: relay.sourceIdentity,
+    localUrl: relay.localUrl,
+    port: relay.port,
+    tokenSha256: relay.tokenSha256,
+    startedAt: relay.startedAt,
+    expiresAt: relay.expiresAt,
+  })}\n`);
+  process.stdin.setEncoding("utf8");
+  let pending = "";
+  await new Promise<void>((accept, reject) => {
+    let stopping = false;
+    let onData: (chunk: string) => void;
+    const stop = async () => {
+      if (stopping) return;
+      stopping = true;
+      try {
+        process.stdin.off("data", onData);
+        process.stdin.pause();
+        await relay.close();
+        process.stdout.write(`${JSON.stringify({ status: "TEXT_RELAY_STOPPED", ...relay.status() })}\n`);
+        accept();
+      } catch (error) { reject(error); }
+    };
+    process.once("SIGINT", () => void stop());
+    process.once("SIGTERM", () => void stop());
+    onData = (chunk: string) => {
+      pending += chunk;
+      while (pending.includes("\n")) {
+        const index = pending.indexOf("\n");
+        const command = pending.slice(0, index).trim();
+        pending = pending.slice(index + 1);
+        if (command === "status") process.stdout.write(`${JSON.stringify(relay.status())}\n`);
+        else if (command === "invalidate") {
+          relay.invalidate();
+          process.stdout.write(`${JSON.stringify({ status: "TEXT_RELAY_INVALIDATED", ...relay.status() })}\n`);
+        } else if (command === "stop") void stop();
+        else if (command.length > 0) process.stdout.write(`${JSON.stringify({ status: "TEXT_RELAY_COMMAND_REJECTED" })}\n`);
+      }
+    };
+    process.stdin.on("data", onData);
   });
 }
 
-async function stageClipboard(packetPath: string) {
-  const sourceRaw = await readFile(packetPath, "utf8");
-  const source = normalizeTransportText(sourceRaw);
-  const identity = transportTextIdentity(source);
-  await copyq(["disable"]);
-  try {
-    await copyq(["copy", "-"], Buffer.from(source, "utf8"));
-    const clipboard = normalizeTransportText((await copyq(["clipboard"])).toString("utf8"));
-    const clipboardIdentity = transportTextIdentity(clipboard);
-    if (JSON.stringify(identity) !== JSON.stringify(clipboardIdentity)) {
-      throw new Error("CLIPBOARD_SOURCE_MISMATCH");
-    }
-    return { status: "CLIPBOARD_STAGED", packetPath, source: identity, clipboard: clipboardIdentity };
-  } catch (error) {
-    await copyq(["enable"]).catch(() => undefined);
-    throw error;
-  }
+async function verifyRelayObservation() {
+  const packet = await readFile(requiredPath("--packet"), "utf8");
+  const source = transportTextIdentity(packet);
+  const observation = relayPageObservationSchema.parse(JSON.parse(
+    await readFile(requiredPath("--observation"), "utf8"),
+  ));
+  return {
+    status: "RELAY_PAGE_EXACT",
+    ...verifyRelayPageTransfer({
+      expectedPacketSha256: source.sha256,
+      expectedUtf8Bytes: source.utf8Bytes,
+      expectedCodePoints: source.codePoints,
+      expectedPathname: requiredValue("--expected-pathname"),
+      observation,
+    }),
+  };
 }
 
-async function clearClipboard() {
-  await copyq(["copy", "" ]);
-  await copyq(["enable"]);
-  return { status: "CLIPBOARD_CLEARED_AND_HISTORY_ENABLED" };
-}
-
-async function verifyObservation(packetPath: string, observationPath: string) {
-  const source = await readFile(packetPath, "utf8");
-  const observation = composerObservationSchema.parse(JSON.parse(await readFile(observationPath, "utf8")));
+async function verifyComposerObservation() {
+  const source = await readFile(requiredPath("--packet"), "utf8");
+  const observation = composerObservationSchema.parse(JSON.parse(
+    await readFile(requiredPath("--observation"), "utf8"),
+  ));
   return { status: "COMPOSER_EXACT", ...verifyComposerTransfer({ source, observation }) };
 }
 
-async function encodePacket(packetPath: string, outputPath: string) {
-  const payload = encodeBrowserFillPayload(await readFile(packetPath, "utf8"));
-  await writeFile(outputPath, `${JSON.stringify(payload, null, 2)}\n`, { flag: "wx", mode: 0o600 });
-  return { status: "BROWSER_FILL_PAYLOAD_ENCODED", outputPath, source: payload.source,
-    chunkCount: payload.chunks.length, encodedUtf8Bytes: Buffer.byteLength(JSON.stringify(payload), "utf8") };
-}
-
-async function captureClipboard(outputPath: string) {
-  const bytes = await copyq(["clipboard"]);
-  if (bytes.byteLength === 0) throw new Error("CAPTURED_CLIPBOARD_EMPTY");
-  await writeFile(outputPath, bytes, { flag: "wx", mode: 0o600 });
-  return { status: "CLIPBOARD_CAPTURED", outputPath, utf8Bytes: bytes.byteLength,
-    sha256: createHash("sha256").update(bytes).digest("hex") };
-}
-
 const command = process.argv[2];
-let result: unknown;
-if (command === "stage-clipboard") result = await stageClipboard(requiredArgument("--packet"));
-else if (command === "clear-clipboard") result = await clearClipboard();
-else if (command === "encode-packet") result = await encodePacket(requiredArgument("--packet"), requiredArgument("--output"));
-else if (command === "verify-observation") result = await verifyObservation(requiredArgument("--packet"), requiredArgument("--observation"));
-else if (command === "capture-clipboard") result = await captureClipboard(requiredArgument("--output"));
-else throw new Error("TRANSPORT_COMMAND_INVALID");
-process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+if (command === "start-relay") await startRelay();
+else {
+  let result: unknown;
+  if (command === "verify-relay-observation") result = await verifyRelayObservation();
+  else if (command === "verify-composer-observation") result = await verifyComposerObservation();
+  else throw new Error("TRANSPORT_COMMAND_INVALID");
+  process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+}

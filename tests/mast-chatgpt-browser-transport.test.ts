@@ -3,8 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   assertPreSendEligible,
   composerObservationSchema,
-  decodeBrowserFillPayload,
-  encodeBrowserFillPayload,
   generationTransportReceiptSchema,
   normalizeTransportText,
   retryDisposition,
@@ -50,15 +48,6 @@ describe("MAST ChatGPT browser transport", () => {
     expect(verifyComposerTransfer({ source, observation }).exactEquality).toBe(true);
   });
 
-  it("round-trips deterministic gzip chunks for one direct browser fill", () => {
-    const payload = encodeBrowserFillPayload(source);
-    expect(payload.chunks.length).toBeGreaterThan(1);
-    expect(decodeBrowserFillPayload(payload)).toBe(source);
-    const changed = structuredClone(payload);
-    changed.chunks[0]!.gzipBase64 = `${changed.chunks[0]!.gzipBase64.slice(0, -2)}AA`;
-    expect(() => decodeBrowserFillPayload(changed)).toThrow("BROWSER_FILL_COMPRESSED_CHUNK_HASH_MISMATCH");
-  });
-
   it("permits only line-ending canonicalization", () => {
     const crlf = source.replace(/\n/gu, "\r\n");
     expect(normalizeTransportText(crlf)).toBe(source);
@@ -94,8 +83,11 @@ describe("MAST ChatGPT browser transport", () => {
       opaqueInputId: "run-000000000000000000000001", attempt: 1,
       state: "COMPOSER_VERIFIED", normalization: "LINE_ENDINGS_TO_LF_ONLY",
       sourceUtf8Bytes: identity.utf8Bytes, sourceCodePoints: identity.codePoints, sourceSha256: identity.sha256,
+      relayPageUtf8Bytes: identity.utf8Bytes, relayPageCodePoints: identity.codePoints,
+      relayPageSha256: identity.sha256,
       composerUtf8Bytes: identity.utf8Bytes, composerCodePoints: identity.codePoints, composerSha256: identity.sha256,
-      exactEquality: true, ui, verifiedAt: instant, sentAt: null,
+      exactEquality: true, ui, tunnelStarted: true, tunnelStopped: false,
+      responseArtifactSha256: null, verifiedAt: instant, sentAt: null,
     }).exactEquality).toBe(true);
     expect(transportFailureReceiptSchema.parse({
       schemaVersion: 1, studyId: ROUND_2_STUDY_ID,

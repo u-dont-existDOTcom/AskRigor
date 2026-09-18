@@ -10,7 +10,7 @@ Owner-outcome status: `OPEN`
 
 Round 2 is being re-frozen before response 1 to add automated consumer-ChatGPT transport. No Round 2 benchmark response has been generated. The private dispatch seed exists outside the repository; only its commitment is public. The selected 12-family validation cohort and one-family limited reserve were derived from identifier-only Git-tree filenames.
 
-The transport uses direct contenteditable fill when the authenticated browser exposes a local automation endpoint, with OS clipboard plus one normal paste as the only fallback. It requires complete DOM readback equality under line-ending-only normalization before Send, fresh temporary unpersonalized state, GPT-5.6 Sol Extra High, append-only response capture, duplicate-send prevention, and non-retryable ambiguity after any possible Send. The current browser-control extension exposes no local-file, system-clipboard, or local debugging bridge; this is a pre-send capability blocker, not authorization for human relay or attachment.
+The controlling transport is a short-lived local text relay exposed only through a temporary HTTPS tunnel. A cryptographically random single-run path serves the hash-verified packet as non-cacheable UTF-8 text. The remote browser must prove exact source-to-relay-page equality, copy within its own clipboard, then prove exact relay-page-to-composer equality under line-ending-only normalization before Send. The fallback is direct CDP/Playwright control of the authenticated local browser, never human relay or attachment.
 
 ## First recovery action
 
@@ -19,7 +19,7 @@ Run `npm run external-evaluation:mast-fresh-r2 -- verify-freeze --mast-git-dir <
 ## Frozen execution topology
 
 - 12 validation families, 4 arms, 3 trials: 144 generation slots.
-- Generation: ChatGPT consumer GPT-5.6 Sol, Extra High, fresh ordinary unpersonalized chat, no tools.
+- Generation: ChatGPT consumer GPT-5.6 Sol, Extra High, fresh temporary unpersonalized chat, no tools.
 - J1/J2: ChatGPT consumer GPT-5.6 Sol, Extra High.
 - J3: ChatGPT consumer Latest, Pro, 5 of 5, only for score-vector disagreements.
 - Successful captures are append-only and are never rerun.

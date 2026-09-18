@@ -12,7 +12,7 @@ Create and execute a new prospective 12-family MAST validation study without reu
 4. Run focused adversarial tests, typecheck, build, repository governance checks, `git diff --check`, and the complete deterministic gate once at the freeze checkpoint.
 5. Commit, push, open a draft freeze pull request, and wait for required checks to pass.
 6. Seal the private freeze receipt against the exact commit/tree, CI receipt, dispatch seed, and preregistration digest.
-7. Before response 1, require an automated consumer seam acceptance proving exact local UTF-8 packet insertion, complete in-DOM readback equality, the frozen model/effort/session state, response capture, and append-only sealing. Human copy/paste and file attachment are forbidden substitutes.
+7. Before response 1, require an automated consumer seam acceptance proving exact source-to-relay-page and relay-page-to-composer equality, the frozen model/effort/session state, response capture, and append-only sealing. Human copy/paste and file attachment are forbidden substitutes.
 
 No benchmark payload is opened and no response is generated before Phase 1 passes.
 
@@ -20,13 +20,13 @@ No benchmark payload is opened and no response is generated before Phase 1 passe
 
 1. Build 144 private packets only after the freeze receipt passes.
 2. Execute independent generation slots in parallel only where browser/session controls safely permit it.
-3. Use one direct contenteditable fill or the host OS clipboard plus one normal paste; compare the complete composer hash and lengths with the source before Send. Capture raw output, exact transport receipt, and visible provider configuration append-only. Reject tool use or configuration drift.
+3. Serve only the current packet through the one-time local relay and temporary HTTPS tunnel; hash it in the remote page, copy and paste wholly inside the remote browser, then compare the complete composer hash and lengths with the source before Send. Capture raw output, exact transport receipt, and visible provider configuration append-only. Reject tool use or configuration drift.
 4. Never rerun a successful slot. Resume from the first missing slot after interruption.
 5. Seal generation only at 144/144 valid captures.
 
 ### Consumer transport boundary
 
-The local packet never becomes an attachment and receives no wrapper text. Browser-required line-ending conversion is prospectively limited to CRLF or CR becoming LF. Pre-send transport/UI failures may receive one bounded retry; any state in which Send may have occurred is preserved as ambiguous and is never blindly regenerated. The current Codex browser extension exposes a controlled remote tab but no local-file, OS-clipboard, or local debugging bridge; the executable remains fail-closed until an ordinary text-ingress bridge is available and run 001 passes end to end.
+The local packet never becomes an attachment and receives no wrapper text. It never crosses the browser-control command channel. The relay token is single-run, high entropy, short-lived, absent from permanent artifacts, and invalidated after successful transport. Browser-required line-ending conversion is prospectively limited to CRLF or CR becoming LF. Pre-send transport/UI failures may receive one bounded retry; any state in which Send may have occurred is preserved as ambiguous and is never blindly regenerated. If the temporary HTTPS tunnel is inaccessible, direct CDP/Playwright control of the authenticated local browser is the only fallback.
 
 ## Phase 3 — blinded evaluation
 

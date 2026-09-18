@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { gunzipSync, gzipSync } from "node:zlib";
 
 import { z } from "zod";
 
@@ -11,7 +10,6 @@ const opaqueInputSchema = z.string().regex(/^run-[0-9a-f]{24}$/u);
 
 export const TRANSPORT_NORMALIZATION = "LINE_ENDINGS_TO_LF_ONLY" as const;
 export const GENERATION_TRANSPORT_MAXIMUM_ATTEMPTS = 2;
-export const BROWSER_TRANSPORT_CHUNK_UTF8_BYTES = 64 * 1024;
 
 export function normalizeTransportText(value: string): string {
   return value.replace(/\r\n?/gu, "\n");
@@ -26,45 +24,6 @@ export function transportTextIdentity(value: string) {
     codePoints: [...normalized].length,
     sha256: createHash("sha256").update(bytes).digest("hex"),
   };
-}
-
-export function encodeBrowserFillPayload(value: string) {
-  const normalized = normalizeTransportText(value);
-  const bytes = Buffer.from(normalized, "utf8");
-  const chunks = [];
-  for (let offset = 0; offset < bytes.byteLength; offset += BROWSER_TRANSPORT_CHUNK_UTF8_BYTES) {
-    const raw = bytes.subarray(offset, Math.min(offset + BROWSER_TRANSPORT_CHUNK_UTF8_BYTES, bytes.byteLength));
-    const compressed = gzipSync(raw, { level: 9, mtime: 0 });
-    chunks.push({
-      index: chunks.length,
-      rawUtf8Bytes: raw.byteLength,
-      rawSha256: createHash("sha256").update(raw).digest("hex"),
-      gzipBase64: compressed.toString("base64"),
-      gzipSha256: createHash("sha256").update(compressed).digest("hex"),
-    });
-  }
-  return { schemaVersion: 1 as const, encoding: "GZIP_BASE64_CHUNKS" as const,
-    normalization: TRANSPORT_NORMALIZATION, source: transportTextIdentity(normalized), chunks };
-}
-
-export function decodeBrowserFillPayload(payload: ReturnType<typeof encodeBrowserFillPayload>): string {
-  const bytes = Buffer.concat(payload.chunks.map((chunk, index) => {
-    if (chunk.index !== index) throw new Error("BROWSER_FILL_CHUNK_ORDER_INVALID");
-    const compressed = Buffer.from(chunk.gzipBase64, "base64");
-    if (createHash("sha256").update(compressed).digest("hex") !== chunk.gzipSha256) {
-      throw new Error("BROWSER_FILL_COMPRESSED_CHUNK_HASH_MISMATCH");
-    }
-    const raw = gunzipSync(compressed);
-    if (raw.byteLength !== chunk.rawUtf8Bytes
-      || createHash("sha256").update(raw).digest("hex") !== chunk.rawSha256) {
-      throw new Error("BROWSER_FILL_RAW_CHUNK_HASH_MISMATCH");
-    }
-    return raw;
-  }));
-  const value = bytes.toString("utf8");
-  const identity = transportTextIdentity(value);
-  if (JSON.stringify(identity) !== JSON.stringify(payload.source)) throw new Error("BROWSER_FILL_SOURCE_HASH_MISMATCH");
-  return value;
 }
 
 export const composerObservationSchema = z.object({
@@ -115,22 +74,37 @@ export const generationTransportReceiptSchema = z.object({
   sourceUtf8Bytes: z.number().int().positive(),
   sourceCodePoints: z.number().int().positive(),
   sourceSha256: digestSchema,
+  relayPageUtf8Bytes: z.number().int().positive(),
+  relayPageCodePoints: z.number().int().positive(),
+  relayPageSha256: digestSchema,
   composerUtf8Bytes: z.number().int().nonnegative(),
   composerCodePoints: z.number().int().nonnegative(),
   composerSha256: digestSchema,
   exactEquality: z.literal(true),
   ui: generationUiAttestationSchema,
+  tunnelStarted: z.literal(true),
+  tunnelStopped: z.boolean(),
+  responseArtifactSha256: digestSchema.nullable(),
   verifiedAt: instantSchema,
   sentAt: instantSchema.nullable(),
 }).strict().superRefine((receipt, context) => {
   if (receipt.sourceUtf8Bytes !== receipt.composerUtf8Bytes
+    || receipt.sourceUtf8Bytes !== receipt.relayPageUtf8Bytes
     || receipt.sourceCodePoints !== receipt.composerCodePoints
+    || receipt.sourceCodePoints !== receipt.relayPageCodePoints
+    || receipt.sourceSha256 !== receipt.relayPageSha256
     || receipt.sourceSha256 !== receipt.composerSha256) {
     context.addIssue({ code: "custom", message: "GENERATION_COMPOSER_SOURCE_MISMATCH" });
   }
   const sent = ["SENT", "RESPONSE_COMPLETE", "SEALED", "POST_SEND_AMBIGUOUS"].includes(receipt.state);
   if (sent !== (receipt.sentAt !== null)) {
     context.addIssue({ code: "custom", message: "GENERATION_SENT_TIMESTAMP_STATE_MISMATCH" });
+  }
+  if (["RESPONSE_COMPLETE", "SEALED"].includes(receipt.state) !== (receipt.responseArtifactSha256 !== null)) {
+    context.addIssue({ code: "custom", message: "GENERATION_RESPONSE_ARTIFACT_STATE_MISMATCH" });
+  }
+  if (receipt.state === "SEALED" && !receipt.tunnelStopped) {
+    context.addIssue({ code: "custom", message: "GENERATION_TUNNEL_NOT_STOPPED_BEFORE_SEAL" });
   }
 });
 
@@ -139,7 +113,7 @@ export const transportFailureReceiptSchema = z.object({
   studyId: z.literal(ROUND_2_STUDY_ID),
   opaqueInputId: opaqueInputSchema,
   attempt: z.number().int().min(1).max(GENERATION_TRANSPORT_MAXIMUM_ATTEMPTS),
-  stage: z.enum(["CLIPBOARD_STAGE", "COMPOSER_INSERT", "COMPOSER_VERIFY", "UI_ATTEST", "SUBMIT", "RESPONSE_CAPTURE"]),
+  stage: z.enum(["RELAY_START", "TUNNEL_START", "RELAY_FETCH", "RELAY_VERIFY", "REMOTE_COPY", "COMPOSER_INSERT", "COMPOSER_VERIFY", "UI_ATTEST", "SUBMIT", "RESPONSE_CAPTURE", "TUNNEL_STOP"]),
   failureCode: z.string().regex(/^[A-Z0-9_]+$/u),
   sourceSha256: digestSchema,
   observedComposerSha256: digestSchema.nullable(),
