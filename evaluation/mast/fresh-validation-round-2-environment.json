@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "studyId": "askrigor-mast-fresh-validation-round-2-20260918",
+  "askRigor": {
+    "repository": "u-dont-existDOTcom/AskRigor",
+    "baselineCommit": "65a867518303a369c7e9786b030a97af12dd81ea",
+    "baselineTree": "4ddcb05c00630e9be2774ddb86225dee14e62ec9",
+    "universal": {
+      "version": "20.5.26",
+      "revisionDate": "2026-09-17",
+      "sha256": "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2",
+      "canonicalRepository": "u-dont-existDOTcom/universal-dev-architecture",
+      "canonicalCommit": "1df60d86a08acceb34076488d7cbb33363a1c4d9",
+      "canonicalTree": "52e8a73f2d872af41c46ed7864882a93db73704e"
+    },
+    "hrp": {
+      "version": "20.5.29",
+      "revisionDate": "2026-09-12",
+      "sha256": "254759df38934c28b06709dace9fcb266fc9967913be1296de99a461be596816"
+    }
+  },
+  "mast": {
+    "repository": "ARISENetwork/mast",
+    "commit": "57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee",
+    "tree": "f73e1cb717d3e76353b190abc13739d7f3476798"
+  },
+  "runtime": {
+    "node": "24.18.0",
+    "npm": "11.16.0",
+    "os": "linux"
+  },
+  "implementationRuntime": {
+    "model": "GPT-5.6 Sol",
+    "reasoningEffort": "Medium",
+    "escalationUsed": false
+  },
+  "generation": {
+    "surface": "CHATGPT_CONSUMER",
+    "modelVisibleLabel": "GPT-5.6 Sol",
+    "reasoningVisibleLabel": "Extra High",
+    "backendModelSlug": null,
+    "temperature": null,
+    "topP": null,
+    "samplingSeed": null,
+    "maxOutputTokens": null,
+    "freshPersistentOrdinaryChatPerSubmission": true,
+    "personalization": "UNPERSONALIZED",
+    "toolsAllowed": false,
+    "providerApiCredentials": false
+  },
+  "evaluation": {
+    "J1": {
+      "surface": "CHATGPT_CONSUMER",
+      "modelVisibleLabel": "GPT-5.6 Sol",
+      "reasoningVisibleLabel": "Extra High"
+    },
+    "J2": {
+      "surface": "CHATGPT_CONSUMER",
+      "modelVisibleLabel": "GPT-5.6 Sol",
+      "reasoningVisibleLabel": "Extra High"
+    },
+    "J3": {
+      "surface": "CHATGPT_CONSUMER",
+      "modelVisibleLabel": "Latest",
+      "reasoningVisibleLabel": "Pro",
+      "reasoningOrdinal": "5 of 5"
+    },
+    "primaryPassCount": 2,
+    "adjudicationTrigger": "ANY_SCORE_VECTOR_DISAGREEMENT",
+    "blinding": "OPAQUE_RESPONSE_IDS_WITH_SEALED_CONDITION_MAP"
+  },
+  "executableHashManifest": {
+    "evaluation/mast/src/fresh-validation.ts": "08f2170214f24f2120b0e7977bae41345708498e6c5ce3cd882c6e988f9c697a",
+    "evaluation/mast/src/fresh-validation-round-2.ts": "6248a382ef1d674c1a15b113d058b755e6665df3df9cd54a342a9b8ba42fed01",
+    "scripts/mast-fresh-validation-round-2.mts": "1f4a50022cf620e3c04ef01b0138e6727e46cb0aaebb5ca6020529c009f890ac",
+    "evaluation/mast/prompts/fresh-round-2-primary-judge.md": "74320d015531a15ab38b1cb53778a829b9c9f86c8e9893817246b8ef37b7df08",
+    "evaluation/mast/prompts/fresh-round-2-adjudicator.md": "c2f8c3040c9821f156027eb46dbf6155cb72377720dcb127d49f877ebfd19558",
+    "evaluation/mast/prompts/fresh-round-2-benchmark-integrity.md": "066fdc53c246b67461c4eebaddba8498f0e97c6b8b65cf747a5b209e88c9f796",
+    "tests/mast-fresh-validation-round-2.test.ts": "b5ed7081ea5c2c307e7940bd18d9a51ca846b2fdec0f5e101260be0a71c0d73a"
+  },
+  "componentBindings": {
+    "cohortSelectorAndExposureLedger": "evaluation/mast/src/fresh-validation-round-2.ts",
+    "familyManifest": "evaluation/mast/fresh-validation-round-2-family-manifest.json",
+    "generationPacketBuilder": "scripts/mast-fresh-validation-round-2.mts",
+    "generationRunner": "scripts/mast-fresh-validation-round-2.mts",
+    "appendOnlyCaptureEquivalent": "scripts/mast-fresh-validation-round-2.mts",
+    "runtimeSchemas": "evaluation/mast/src/fresh-validation-round-2.ts",
+    "blindPacketBuilder": "scripts/mast-fresh-validation-round-2.mts",
+    "opaqueIdMapping": "scripts/mast-fresh-validation-round-2.mts",
+    "J1Orchestration": "scripts/mast-fresh-validation-round-2.mts",
+    "J2Orchestration": "scripts/mast-fresh-validation-round-2.mts",
+    "J3AdjudicationOrchestration": "scripts/mast-fresh-validation-round-2.mts",
+    "disagreementDetection": "evaluation/mast/src/fresh-validation-round-2.ts",
+    "rawAndCorrectedJudgmentPreservation": "scripts/mast-fresh-validation-round-2.mts",
+    "explicitUnblindAndAliasSafeJoin": "evaluation/mast/src/fresh-validation.ts",
+    "scoring": "evaluation/mast/src/fresh-validation.ts",
+    "errorCalculations": "evaluation/mast/src/fresh-validation.ts",
+    "benchmarkTargetIntegrity": "evaluation/mast/src/fresh-validation-round-2.ts",
+    "clinicalValidityReconciliation": "evaluation/mast/src/fresh-validation-round-2.ts",
+    "familyAndAggregateReporting": "scripts/mast-fresh-validation-round-2.mts",
+    "machineReadableFinalSummary": "evaluation/mast/src/fresh-validation-round-2.ts",
+    "structuredFailureReceipts": "evaluation/mast/src/fresh-validation-round-2.ts"
+  },
+  "unavailableProviderParametersRecordedAsNull": true
+}

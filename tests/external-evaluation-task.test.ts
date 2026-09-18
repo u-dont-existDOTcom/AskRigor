@@ -10,6 +10,26 @@ describe("external evaluation current-slice contract", () => {
       await readFile(rootFile("tasks/ACTIVE-TASK.json"), "utf8"),
     ) as Record<string, unknown>;
 
+    if (task.taskId === "askrigor-mast-fresh-validation-round-2-20260918") {
+      expect(task).toMatchObject({
+        taskId: "askrigor-mast-fresh-validation-round-2-20260918",
+        status: "active_pre_generation_freeze_implementation",
+        exclusive: true,
+        requiredBranch: "task/mast-fresh-validation-round-2-20260918",
+        baselineCommit: "65a867518303a369c7e9786b030a97af12dd81ea",
+        ownerOutcomeStatus: "OPEN",
+        currentState: "docs/state/MAST-FRESH-VALIDATION-ROUND-2-CURRENT-STATE.md",
+        activeLessonContract: "docs/state/MAST-FRESH-VALIDATION-ROUND-2-ACTIVE-LESSON-CONTRACT.json",
+        preflightCommand: expect.stringContaining("verify-freeze"),
+        completionCommand: expect.stringContaining("finalize"),
+        suspendedTaskSources: expect.arrayContaining([
+          "the older askrigor-external-evaluation-contribution-v1 active lock on main",
+          "Round 1 branch and draft pull request",
+        ]),
+      });
+      return;
+    }
+
     expect(task).toMatchObject({
       taskId: "askrigor-external-evaluation-contribution-v1",
       status: expect.stringContaining("private_upload_menu_diagnostic"),
