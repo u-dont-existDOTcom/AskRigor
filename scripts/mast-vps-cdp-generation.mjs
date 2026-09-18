@@ -90,6 +90,34 @@ function selectChatGptPage(contexts) {
 }
 
 async function ensureChatGptPage(contexts) {
+  const inventory = inventoryPages(contexts);
+  const chatPages = inventory.filter(({ url }) => {
+    try { return new URL(url).origin === CHATGPT_ORIGIN; } catch { return false; }
+  });
+  if (chatPages.length === 2) {
+    const audits = await Promise.all(chatPages.map(async ({ page, url }) => ({
+      page,
+      url,
+      state: await page.evaluate(() => {
+        const composer = document.querySelector("#prompt-textarea");
+        const text = composer?.tagName === "TEXTAREA" ? composer.value : composer?.innerText;
+        return {
+          userMessageCount: document.querySelectorAll("[data-message-author-role='user']").length,
+          assistantMessageCount: document.querySelectorAll("[data-message-author-role='assistant']").length,
+          composerEmpty: text === "",
+        };
+      }),
+    })));
+    if (audits.some(({ state }) => state.userMessageCount !== 0 || state.assistantMessageCount !== 0 || !state.composerEmpty)) {
+      throw new Error("CHATGPT_CONTENT_TAB_AMBIGUOUS_NONEMPTY");
+    }
+    audits.sort((left, right) => {
+      const leftCanonical = left.url === `${CHATGPT_ORIGIN}/` ? 0 : 1;
+      const rightCanonical = right.url === `${CHATGPT_ORIGIN}/` ? 0 : 1;
+      return leftCanonical - rightCanonical || left.url.localeCompare(right.url);
+    });
+    await audits[1].page.close({ runBeforeUnload: false });
+  } else if (chatPages.length > 2) throw new Error("CHATGPT_CONTENT_TAB_AMBIGUOUS");
   const selected = selectChatGptPage(contexts);
   if (selected.bootstrapRequired) await selected.page.goto(`${CHATGPT_ORIGIN}/`, { waitUntil: "domcontentloaded", timeout: 60_000 });
   return selected;

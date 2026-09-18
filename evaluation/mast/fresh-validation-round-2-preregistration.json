@@ -21,7 +21,7 @@
     "resumeFromSealedArtifacts": true
   },
   "bindings": {
-    "environmentSha256": "4ea1e5c3c09ae93ab6a1551eec52498dca560c38027cc3938d28c9d18683c33d",
+    "environmentSha256": "5624c5921587bf2a957dcc64f923382e038561692fd1685e55eeff5b5beb6d80",
     "familyManifestSha256": "4ec28890ae2cd1d0cf9177c8e724c110310ad48ae38b11a6019e029407199f31"
   },
   "sourceBindings": {

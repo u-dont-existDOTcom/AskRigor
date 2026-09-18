@@ -82,6 +82,8 @@ describe("MAST Round 2 VPS CDP transport", () => {
     expect(source.indexOf("composerObservation(page)")).toBeLessThan(source.indexOf("send.click"));
     expect(source).toContain("POST_SEND_AMBIGUITY_REQUIRES_STOP");
     expect(source).toContain("INTERRUPTED_AFTER_SEND_CAPTURE_AMBIGUOUS");
+    expect(source).toContain("CHATGPT_CONTENT_TAB_AMBIGUOUS_NONEMPTY");
+    expect(source).toContain("page.close({ runBeforeUnload: false })");
     expect(source).not.toMatch(/wl-copy|xclip|clipboard|cloudflared|trycloudflare/iu);
     expect(source).not.toContain("keyboard.type");
   });

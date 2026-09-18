@@ -100,7 +100,7 @@
     "evaluation/mast/vps-runtime/package.json": "e445910484fb4ba7f8a08fec3b2d8e6dc00371dd129338b30fa604d2ac849c1c",
     "evaluation/mast/vps-runtime/package-lock.json": "6652cf9525cb3b59a18df5ffec72634fb072b29d599e8a61134e6242aa918f61",
     "scripts/mast-fresh-validation-round-2.mts": "9b17d2b8c0c92dd7808a6758412e0fcf249532dc289b0a188a914f6e301a2994",
-    "scripts/mast-vps-cdp-generation.mjs": "73cb5ce3a8cc21d4d6038dcdf8bd83d39f68868dee7000820a35032e7348956c",
+    "scripts/mast-vps-cdp-generation.mjs": "97b91726118dde1e2d7c94885622b869df15fefce8d4fb9043369f5187abacea",
     "scripts/mast-vps-round2-orchestrator.mts": "af0dc2250c877432240a34bd59e696a067f02b5ee979943cab16af0e2cc0eb4d",
     "docs/directives/2026-09-18-mast-round-2-vps-cdp-transport.json": "65d887aeca903df908ca1d2fb337899af031324833c7b9744d94ea4b56aa9191",
     "evaluation/mast/prompts/fresh-round-2-primary-judge.md": "74320d015531a15ab38b1cb53778a829b9c9f86c8e9893817246b8ef37b7df08",
@@ -108,7 +108,7 @@
     "evaluation/mast/prompts/fresh-round-2-benchmark-integrity.md": "066fdc53c246b67461c4eebaddba8498f0e97c6b8b65cf747a5b209e88c9f796",
     "tests/mast-fresh-validation-round-2.test.ts": "8e81a659a6486d660b6be04414f9abc50d4788ca706d38b28969382fda62f2e4",
     "tests/mast-chatgpt-browser-transport.test.ts": "84d9dc1a192bd3b268b0bd2533041121ae5321af5db9e8102eba2ff745dff534",
-    "tests/mast-vps-cdp-transport.test.ts": "a8b637fbe9f773f174963aec7fe2493bc38e00c7a84db4284dd7caaad3b72763",
+    "tests/mast-vps-cdp-transport.test.ts": "591f290f1e860b9ab093b9cd5e63af1e580848bf3a1ed6139b9ec913d6b8db1c",
     "package.json": "1fc137fe465cc8eaf2df93e51c26539539beb2582cbfb555cc48edf59f4f90ca",
     "package-lock.json": "3f54a7c2001c62a7fefbbceab0ba0ed15bfcedbc6868d1eaf4915ef176478a17"
   },
