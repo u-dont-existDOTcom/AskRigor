@@ -12,21 +12,21 @@ Create and execute a new prospective 12-family MAST validation study without reu
 4. Run focused adversarial tests, typecheck, build, repository governance checks, `git diff --check`, and the complete deterministic gate once at the freeze checkpoint.
 5. Commit, push, open a draft freeze pull request, and wait for required checks to pass.
 6. Seal the private freeze receipt against the exact commit/tree, CI receipt, dispatch seed, and preregistration digest.
-7. Before response 1, require an automated consumer seam acceptance proving exact source-to-relay-page and relay-page-to-composer equality, the frozen model/effort/session state, response capture, and append-only sealing. Human copy/paste and file attachment are forbidden substitutes.
+7. Before response 1, require an automated VPS consumer seam acceptance proving exact source-to-destination and destination-to-composer equality, the frozen model/effort/session state, response capture, and append-only sealing. Human copy/paste and file attachment are forbidden substitutes.
 
 No benchmark payload is opened and no response is generated before Phase 1 passes.
 
 ## Phase 2 — generation
 
 1. Build 144 private packets only after the freeze receipt passes.
-2. Execute independent generation slots in parallel only where browser/session controls safely permit it.
-3. Serve only the current packet through the one-time local relay and temporary HTTPS tunnel; hash it in the remote page, copy and paste wholly inside the remote browser, then compare the complete composer hash and lengths with the source before Send. Capture raw output, exact transport receipt, and visible provider configuration append-only. Reject tool use or configuration drift.
+2. Execute generation sequentially through the single authenticated VPS ChatGPT tab; independent later evaluation slots may be parallelized only where the frozen browser/session controls safely permit it.
+3. Transfer the complete frozen packet set once into the private VPS filesystem using the authenticated machine-to-machine channel. Verify every source and destination hash, then have local Node/Playwright attach to the existing Brave browser over loopback CDP. Read only the current local packet, insert it directly in one DOM operation, and compare the complete composer hash and lengths with source and destination before Send. Capture raw output, citation/tool provenance, exact transport receipt, and visible provider configuration append-only. Reject tool use or configuration drift.
 4. Never rerun a successful slot. Resume from the first missing slot after interruption.
 5. Seal generation only at 144/144 valid captures.
 
 ### Consumer transport boundary
 
-The local packet never becomes an attachment and receives no wrapper text. It never crosses the browser-control command channel. The relay token is single-run, high entropy, short-lived, absent from permanent artifacts, and invalidated after successful transport. Browser-required line-ending conversion is prospectively limited to CRLF or CR becoming LF. Pre-send transport/UI failures may receive one bounded retry; any state in which Send may have occurred is preserved as ambiguous and is never blindly regenerated. If the temporary HTTPS tunnel is inaccessible, direct CDP/Playwright control of the authenticated local browser is the only fallback.
+The packet never becomes an attachment, receives no wrapper text, enters a public location, or crosses an external relay. Packet contents remain inside the VPS filesystem and local browser-automation process. Browser-required line-ending conversion is prospectively limited to CRLF or CR becoming LF. Pre-send transport/UI failures may receive one bounded retry; any state in which Send may have occurred is preserved as ambiguous and is never blindly regenerated. A successfully captured or locally sealed run is never sent again.
 
 ## Phase 3 — blinded evaluation
 

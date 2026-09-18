@@ -48,6 +48,8 @@ export const generationUiAttestationSchema = z.object({
   reasoningOrdinal: z.literal("4 of 5"),
   chatMode: z.literal("TEMPORARY"),
   personalization: z.literal("UNPERSONALIZED"),
+  authenticated: z.literal(true),
+  freshConversation: z.literal(true),
   userMessageCount: z.literal(0),
   assistantMessageCount: z.literal(0),
   attachmentCount: z.literal(0),
@@ -74,25 +76,31 @@ export const generationTransportReceiptSchema = z.object({
   sourceUtf8Bytes: z.number().int().positive(),
   sourceCodePoints: z.number().int().positive(),
   sourceSha256: digestSchema,
-  relayPageUtf8Bytes: z.number().int().positive(),
-  relayPageCodePoints: z.number().int().positive(),
-  relayPageSha256: digestSchema,
+  destinationPacketUtf8Bytes: z.number().int().positive(),
+  destinationPacketCodePoints: z.number().int().positive(),
+  destinationPacketSha256: digestSchema,
   composerUtf8Bytes: z.number().int().nonnegative(),
   composerCodePoints: z.number().int().nonnegative(),
   composerSha256: digestSchema,
   exactEquality: z.literal(true),
   ui: generationUiAttestationSchema,
-  tunnelStarted: z.literal(true),
-  tunnelStopped: z.boolean(),
+  vpsDevice: z.literal("srv1894948"),
+  vpsUser: z.literal("cloudbrowser"),
+  cdpEndpoint: z.literal("http://127.0.0.1:9222"),
+  cdpAttached: z.literal(true),
+  browser: z.literal("Brave"),
+  tabCount: z.number().int().min(1).max(2),
+  citationUrls: z.array(z.string().url()),
+  toolProvenance: z.array(z.string().min(1)),
   responseArtifactSha256: digestSchema.nullable(),
   verifiedAt: instantSchema,
   sentAt: instantSchema.nullable(),
 }).strict().superRefine((receipt, context) => {
   if (receipt.sourceUtf8Bytes !== receipt.composerUtf8Bytes
-    || receipt.sourceUtf8Bytes !== receipt.relayPageUtf8Bytes
+    || receipt.sourceUtf8Bytes !== receipt.destinationPacketUtf8Bytes
     || receipt.sourceCodePoints !== receipt.composerCodePoints
-    || receipt.sourceCodePoints !== receipt.relayPageCodePoints
-    || receipt.sourceSha256 !== receipt.relayPageSha256
+    || receipt.sourceCodePoints !== receipt.destinationPacketCodePoints
+    || receipt.sourceSha256 !== receipt.destinationPacketSha256
     || receipt.sourceSha256 !== receipt.composerSha256) {
     context.addIssue({ code: "custom", message: "GENERATION_COMPOSER_SOURCE_MISMATCH" });
   }
@@ -103,8 +111,8 @@ export const generationTransportReceiptSchema = z.object({
   if (["RESPONSE_COMPLETE", "SEALED"].includes(receipt.state) !== (receipt.responseArtifactSha256 !== null)) {
     context.addIssue({ code: "custom", message: "GENERATION_RESPONSE_ARTIFACT_STATE_MISMATCH" });
   }
-  if (receipt.state === "SEALED" && !receipt.tunnelStopped) {
-    context.addIssue({ code: "custom", message: "GENERATION_TUNNEL_NOT_STOPPED_BEFORE_SEAL" });
+  if (receipt.toolProvenance.length > 0) {
+    context.addIssue({ code: "custom", message: "GENERATION_TOOL_USE_FORBIDDEN" });
   }
 });
 
@@ -113,7 +121,7 @@ export const transportFailureReceiptSchema = z.object({
   studyId: z.literal(ROUND_2_STUDY_ID),
   opaqueInputId: opaqueInputSchema,
   attempt: z.number().int().min(1).max(GENERATION_TRANSPORT_MAXIMUM_ATTEMPTS),
-  stage: z.enum(["RELAY_START", "TUNNEL_START", "RELAY_FETCH", "RELAY_VERIFY", "REMOTE_COPY", "COMPOSER_INSERT", "COMPOSER_VERIFY", "UI_ATTEST", "SUBMIT", "RESPONSE_CAPTURE", "TUNNEL_STOP"]),
+  stage: z.enum(["PACKET_SOURCE_VERIFY", "PACKET_TRANSFER", "PACKET_DESTINATION_VERIFY", "CDP_ATTACH", "AUTH_VERIFY", "FRESH_CHAT", "MODEL_SELECT", "SESSION_ATTEST", "COMPOSER_INSERT", "COMPOSER_VERIFY", "UI_ATTEST", "SUBMIT", "RESPONSE_CAPTURE", "LOCAL_SEAL"]),
   failureCode: z.string().regex(/^[A-Z0-9_]+$/u),
   sourceSha256: digestSchema,
   observedComposerSha256: digestSchema.nullable(),

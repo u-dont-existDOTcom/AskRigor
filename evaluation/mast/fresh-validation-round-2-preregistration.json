@@ -6,6 +6,7 @@
   "sourceDirectiveSha256": "6c924c31658517a2015d3626b2659299d8b3fde5cc92b44d4b79361fb9fb0b17",
   "supersededTransportDirectiveSha256": "51c3ca3f5a972a285cc1e5b6575b0499485545d6ac7f83ae5791a2ca53206850",
   "textRelayDirectiveSha256": "3a04ac8f91dff5ff6103f86abb07f5565af41f61eaa0ef48c512f8de7f4d40b0",
+  "vpsCdpTransportDirectiveSha256": "65d887aeca903df908ca1d2fb337899af031324833c7b9744d94ea4b56aa9191",
   "ownerOverrides": {
     "eligibleFreshFamilyCount": 12,
     "implementationModel": "GPT-5.6 Sol",
@@ -20,7 +21,7 @@
     "resumeFromSealedArtifacts": true
   },
   "bindings": {
-    "environmentSha256": "83af6616b29571ba6a6e5b6cce0d8ff014ddae0e05aca5b3d4c99976b4a7e69b",
+    "environmentSha256": "4ea1e5c3c09ae93ab6a1551eec52498dca560c38027cc3938d28c9d18683c33d",
     "familyManifestSha256": "4ec28890ae2cd1d0cf9177c8e724c110310ad48ae38b11a6019e029407199f31"
   },
   "sourceBindings": {
@@ -82,28 +83,32 @@
     "chatMode": "FRESH_TEMPORARY_CHAT_PER_SUBMISSION",
     "personalization": "UNPERSONALIZED",
     "transport": {
-      "primary": "ONE_TIME_LOCAL_TEXT_RELAY_THROUGH_TEMPORARY_HTTPS_TUNNEL",
-      "fallback": "LOCAL_AUTHENTICATED_BROWSER_CDP_PLAYWRIGHT",
-      "tunnelProvider": "TRY_CLOUDFLARE_QUICK_TUNNEL",
-      "tunnelExecutableVersion": "2026.9.1",
-      "tunnelExecutableLinuxAmd64Sha256": "03f1f25d1cc93b9ad6c60569d44060bc4f17ed97075760ed8cfca4b12dcd68cc",
-      "tunnelUrlPermanentRecordingAllowed": false,
+      "primary": "VPS_LOCAL_PLAYWRIGHT_OVER_LOOPBACK_CDP",
+      "fallback": null,
+      "device": "srv1894948",
+      "user": "cloudbrowser",
+      "browser": "Brave",
+      "browserProfile": "/home/cloudbrowser/.config/brave-cloud-browser",
+      "cdpEndpoint": "http://127.0.0.1:9222",
+      "nodeVersion": "22.23.2",
+      "playwrightCoreVersion": "1.63.0",
+      "privateRoot": "/home/cloudbrowser/.local/share/askrigor-mast-round2",
+      "authenticatedMachineToMachinePacketTransfer": true,
       "fileAttachmentAllowed": false,
       "wrapperTextAllowed": false,
-      "largePayloadAllowedInBrowserControlChannel": false,
-      "tokenMinimumEntropyBytes": 32,
-      "maximumRelayServesBeforeInvalidation": 2,
-      "tokenPermanentRecordingAllowed": false,
+      "clipboardAllowed": false,
+      "externalRelayAllowed": false,
+      "maximumNormalTabCount": 2,
       "canonicalization": "CRLF_OR_CR_TO_LF_ONLY",
-      "fullSourceRelayPageHashAndLengthEqualityRequired": true,
+      "fullSourceDestinationHashAndLengthEqualityRequired": true,
       "completeComposerReadbackRequired": true,
-      "fullSourceComposerHashAndLengthEqualityRequired": true,
+      "fullSourceDestinationComposerHashAndLengthEqualityRequired": true,
       "mismatchDisposition": "FAIL_CLOSED_BEFORE_SEND_WITH_STRUCTURED_RECEIPT",
       "postSendCaptureAmbiguityDisposition": "PRESERVE_AND_DO_NOT_RETRY"
     },
     "contentBasedRetry": false,
     "maximumAttemptsPerSlot": 2,
-    "parallelExecutionPermitted": true,
+    "parallelExecutionPermitted": false,
     "successfulSlotRerunPermitted": false
   },
   "evaluation": {
@@ -164,7 +169,7 @@
     "repository governance validation",
     "git diff --check",
     "exact hash verification",
-    "consumer ChatGPT source-to-relay-page-to-composer exactness acceptance",
+    "consumer ChatGPT source-to-VPS-destination-to-composer exactness acceptance",
     "green freeze pull request checks"
   ]
 }

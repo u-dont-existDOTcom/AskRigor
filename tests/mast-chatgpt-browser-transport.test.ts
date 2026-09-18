@@ -36,6 +36,8 @@ const ui = {
   reasoningOrdinal: "4 of 5" as const,
   chatMode: "TEMPORARY" as const,
   personalization: "UNPERSONALIZED" as const,
+  authenticated: true as const,
+  freshConversation: true as const,
   userMessageCount: 0 as const,
   assistantMessageCount: 0 as const,
   attachmentCount: 0 as const,
@@ -66,6 +68,8 @@ describe("MAST ChatGPT browser transport", () => {
     expect(() => assertPreSendEligible({ source, observation, ui: { ...ui, modelVisibleLabel: "Latest" }, priorStates: [], attempt: 1 })).toThrow();
     expect(() => assertPreSendEligible({ source, observation, ui: { ...ui, reasoningVisibleLabel: "High" }, priorStates: [], attempt: 1 })).toThrow();
     expect(() => assertPreSendEligible({ source, observation, ui: { ...ui, chatMode: "ORDINARY" }, priorStates: [], attempt: 1 })).toThrow();
+    expect(() => assertPreSendEligible({ source, observation, ui: { ...ui, authenticated: false }, priorStates: [], attempt: 1 })).toThrow();
+    expect(() => assertPreSendEligible({ source, observation, ui: { ...ui, freshConversation: false }, priorStates: [], attempt: 1 })).toThrow();
     expect(() => assertPreSendEligible({ source, observation, ui, priorStates: ["SENT"], attempt: 2 }))
       .toThrow("GENERATION_DUPLICATE_SEND_BLOCKED");
   });
@@ -83,10 +87,13 @@ describe("MAST ChatGPT browser transport", () => {
       opaqueInputId: "run-000000000000000000000001", attempt: 1,
       state: "COMPOSER_VERIFIED", normalization: "LINE_ENDINGS_TO_LF_ONLY",
       sourceUtf8Bytes: identity.utf8Bytes, sourceCodePoints: identity.codePoints, sourceSha256: identity.sha256,
-      relayPageUtf8Bytes: identity.utf8Bytes, relayPageCodePoints: identity.codePoints,
-      relayPageSha256: identity.sha256,
+      destinationPacketUtf8Bytes: identity.utf8Bytes, destinationPacketCodePoints: identity.codePoints,
+      destinationPacketSha256: identity.sha256,
       composerUtf8Bytes: identity.utf8Bytes, composerCodePoints: identity.codePoints, composerSha256: identity.sha256,
-      exactEquality: true, ui, tunnelStarted: true, tunnelStopped: false,
+      exactEquality: true, ui,
+      vpsDevice: "srv1894948", vpsUser: "cloudbrowser",
+      cdpEndpoint: "http://127.0.0.1:9222", cdpAttached: true, browser: "Brave", tabCount: 1,
+      citationUrls: [], toolProvenance: [],
       responseArtifactSha256: null, verifiedAt: instant, sentAt: null,
     }).exactEquality).toBe(true);
     expect(transportFailureReceiptSchema.parse({

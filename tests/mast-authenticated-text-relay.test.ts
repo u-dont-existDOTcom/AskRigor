@@ -155,7 +155,7 @@ describe("authenticated one-time MAST text relay", () => {
       studyId: ROUND_2_STUDY_ID,
       opaqueInputId,
       attempt: 1,
-      stage: "TUNNEL_START",
+      stage: "PACKET_TRANSFER",
       failureCode: "QUICK_TUNNEL_INTERRUPTED_BEFORE_SEND",
       sourceSha256: identity.sha256,
       observedComposerSha256: null,

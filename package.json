@@ -54,6 +54,7 @@
     "external-evaluation:noharm-pilot": "tsx scripts/validate-mast-noharm-pilot.mts",
     "external-evaluation:mast-fresh-r2": "tsx scripts/mast-fresh-validation-round-2.mts",
     "external-evaluation:mast-chatgpt-transport": "tsx scripts/mast-chatgpt-browser-transport.mts",
+    "external-evaluation:mast-vps-round2": "tsx scripts/mast-vps-round2-orchestrator.mts",
     "validate:chat-work-authority": "tsx scripts/validate-chat-work-authority-policy.mts",
     "community-forum:lab-validate": "tsx scripts/validate-discourse-synthetic-lab.mts",
     "community-forum:acceptance": "tsx scripts/community-forum-synthetic-acceptance.mts",

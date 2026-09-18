@@ -10,11 +10,11 @@ Owner-outcome status: `OPEN`
 
 Round 2 is being re-frozen before response 1 to add automated consumer-ChatGPT transport. No Round 2 benchmark response has been generated. The private dispatch seed exists outside the repository; only its commitment is public. The selected 12-family validation cohort and one-family limited reserve were derived from identifier-only Git-tree filenames.
 
-The controlling transport is a short-lived local text relay exposed only through a temporary HTTPS tunnel. A cryptographically random single-run path serves the hash-verified packet as non-cacheable UTF-8 text. The remote browser must prove exact source-to-relay-page equality, copy within its own clipboard, then prove exact relay-page-to-composer equality under line-ending-only normalization before Send. The fallback is direct CDP/Playwright control of the authenticated local browser, never human relay or attachment.
+The controlling transport runs on VPS `srv1894948` as user `cloudbrowser`. Frozen packets are transferred once over the authenticated machine-to-machine channel to a private VPS directory, with source and destination SHA-256 verification before eligibility. A local Node/Playwright process attaches to the existing authenticated Brave profile through `http://127.0.0.1:9222`, uses one ChatGPT content tab, inserts text directly in one DOM operation, and proves complete source-to-destination-to-composer equality under line-ending-only normalization before Send. The laptop browser, remote-browser backend, public tunnels, external relays, clipboard, human paste, and attachment paths are forbidden.
 
 ## First recovery action
 
-Run `npm run external-evaluation:mast-fresh-r2 -- verify-freeze --mast-git-dir <PINNED_MAST_BARE_GIT_DIR>`. Before response 1, the exact branch must be committed, pushed, covered by the complete deterministic gate, and green in the freeze pull request. Then create and validate the private CI receipt and run `seal-freeze`. Do not run `prepare-generation` before that receipt exists.
+Run `npm run external-evaluation:mast-fresh-r2 -- verify-freeze --mast-git-dir <PINNED_MAST_BARE_GIT_DIR>`. Before response 1, the exact branch must be committed after `60a1e32e6585c2f70b2136c7ed734101d310fc05`, pushed, covered by the complete deterministic gate, and green in pull request #228. Then create and validate the private CI receipt, run `seal-freeze`, prepare generation, execute the authenticated VPS packet transfer, and require the live pre-send CDP acceptance. Do not Send response 1 before all of those receipts exist.
 
 ## Frozen execution topology
 
