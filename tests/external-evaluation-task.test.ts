@@ -13,7 +13,7 @@ describe("external evaluation current-slice contract", () => {
     if (task.taskId === "askrigor-mast-fresh-validation-round-2-20260918") {
       expect(task).toMatchObject({
         taskId: "askrigor-mast-fresh-validation-round-2-20260918",
-        status: "active_pre_generation_freeze_implementation",
+        status: "active_pre_generation_transport_refreeze",
         exclusive: true,
         requiredBranch: "task/mast-fresh-validation-round-2-20260918",
         baselineCommit: "65a867518303a369c7e9786b030a97af12dd81ea",
