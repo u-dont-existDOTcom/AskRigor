@@ -5,7 +5,7 @@
   "classification": "VALIDATION_NOT_CONFIRMATION",
   "sourceDirectiveSha256": "16c302bc3b0646f6b86597ba53191dd1d5c37a3c98a6ff996a03d1c1f67c41d6",
   "bindings": {
-    "environmentSha256": "9372c3321e9f5935ce2a5f5f1f6834c76040a5bd89e6dc2cedad1062a6b1ee0a",
+    "environmentSha256": "194ca857fe66bac0726241cd19d22a3cf4613f47f109c9945e90a1e6663fc710",
     "familyManifestSha256": "9a848c072bba245a8ad7cfd6898d93c691f492a61f4c4dde1cda0580d62fafd2"
   },
   "sourceBindings": {

@@ -707,9 +707,41 @@ async function pageRecoveryCandidate(page, candidateId) {
   }
 }
 
-async function exactRecoveryCandidate(source) {
+function exactConversationUrl(value) {
+  if (typeof value !== "string") return null;
+  try {
+    const url = new URL(value);
+    return url.origin === CHATGPT_ORIGIN && /^\/c\/[A-Za-z0-9_-]+\/?$/u.test(url.pathname)
+      ? `${url.origin}${url.pathname}` : null;
+  } catch {
+    return null;
+  }
+}
+
+async function waitForSubmittedConversationIdentity(page, source) {
+  const deadline = Date.now() + 60_000;
+  while (Date.now() < deadline) {
+    const candidate = await pageRecoveryCandidate(page, "submitted-conversation");
+    const conversationUrl = exactConversationUrl(candidate?.url);
+    if (candidate
+      && candidate.normalizedUserMessageSha256 === source.sha256
+      && candidate.normalizedUserMessageUtf8Bytes === source.utf8Bytes
+      && conversationUrl) {
+      return { ...candidate, conversationUrl };
+    }
+    await sleep(250);
+  }
+  throw new Error("ROUND_3_SUBMITTED_CONVERSATION_IDENTITY_NOT_OBSERVED");
+}
+
+async function exactRecoveryCandidate(source, preferredConversationUrl = null) {
+  const exactPreferredUrl = preferredConversationUrl === null ? null : exactConversationUrl(preferredConversationUrl);
+  if (preferredConversationUrl !== null && exactPreferredUrl === null) {
+    throw new Error("ROUND_3_RECOVERY_CONVERSATION_URL_INVALID");
+  }
   const deadline = Date.now() + RECOVERY_TIMEOUT_MS;
   let lastCandidateCount = 0;
+  let preferredNavigationAttempted = false;
   while (Date.now() < deadline) {
     try {
       const browser = await connect();
@@ -725,6 +757,12 @@ async function exactRecoveryCandidate(source) {
       lastCandidateCount = matching.length;
       if (matching.length > 1) throw new Error("ROUND_3_RECOVERY_CANDIDATE_MULTIPLE");
       if (matching.length === 1) return matching[0];
+      if (exactPreferredUrl && !preferredNavigationAttempted && inventory.length === 1
+        && (inventory[0].url === "about:blank" || inventory[0].url === "chrome://newtab/")) {
+        preferredNavigationAttempted = true;
+        await inventory[0].page.goto(exactPreferredUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
+        continue;
+      }
     } catch (error) {
       if (safeFailureCode(error) === "ROUND_3_RECOVERY_CANDIDATE_MULTIPLE") throw error;
     }
@@ -795,7 +833,7 @@ async function recoverExistingSubmission({ workspace, record, attempt }) {
     ...verifiedFields
   } = sent;
   const source = { sha256: sent.sourceSha256, utf8Bytes: sent.sourceUtf8Bytes };
-  const candidate = await exactRecoveryCandidate(source);
+  const candidate = await exactRecoveryCandidate(source, sent.conversationUrl ?? null);
   const recoveredAt = now();
   await writePrivateJson(join(runDirectory, `attempt-${attempt}-recovery.json`), {
     schemaVersion: 1,
@@ -928,11 +966,14 @@ async function runAttempt({ workspace, record, attempt, runtimeAttestation }) {
     });
     messageMayHaveBeenSent = true;
     await send.click({ timeout: 10_000 });
+    const submitted = await waitForSubmittedConversationIdentity(page, source);
     const sentAt = now();
     await writePrivateJson(join(runDirectory, `attempt-${attempt}-sent.json`), {
       ...verifiedReceipt,
       state: "SENT",
       sentAt,
+      conversationUrl: submitted.conversationUrl,
+      conversationId: new URL(submitted.conversationUrl).pathname.split("/")[2],
       automaticResendAllowed: false,
     });
     stage = "RESPONSE_CAPTURE";
@@ -1063,7 +1104,7 @@ async function recoverExistingJudgeSubmission({ workspace, record, attempt, conf
   const { state: ignoredState, sentAt: ignoredSentAt, sendInitiatedAt: ignoredSendInitiatedAt,
     automaticResendAllowed: ignoredAutomaticResendAllowed, ...verifiedFields } = sent;
   const source = { sha256: sent.sourceSha256, utf8Bytes: sent.sourceUtf8Bytes };
-  const candidate = await exactRecoveryCandidate(source);
+  const candidate = await exactRecoveryCandidate(source, sent.conversationUrl ?? null);
   await writePrivateJson(join(runDirectory, `attempt-${attempt}-recovery.json`), {
     schemaVersion: 1, studyId: STUDY_ID, judge: config.judge,
     opaqueResponseId: record.opaqueResponseId, attempt, state: "RECOVERY_EXISTING_SUBMISSION",
@@ -1125,9 +1166,13 @@ async function runJudgeAttempt({ workspace, record, attempt, runtimeAttestation,
     });
     messageMayHaveBeenSent = true;
     await send.click({ timeout: 10_000 });
+    const submitted = await waitForSubmittedConversationIdentity(page, source);
     const sentAt = now();
     await writePrivateJson(join(runDirectory, `attempt-${attempt}-sent.json`), {
-      ...verifiedReceipt, state: "SENT", sentAt, automaticResendAllowed: false,
+      ...verifiedReceipt, state: "SENT", sentAt,
+      conversationUrl: submitted.conversationUrl,
+      conversationId: new URL(submitted.conversationUrl).pathname.split("/")[2],
+      automaticResendAllowed: false,
     });
     stage = "RESPONSE_CAPTURE";
     return persistCompletedJudgeResponse({ page, runDirectory, record, attempt,
@@ -1295,7 +1340,7 @@ async function syntheticCrashRecoveryAcceptance() {
     process.exit(0);
   }
   const runtimeBefore = await verifyRuntime(expectedRuntimeHashes);
-  const prompt = "Reply with exactly DURABLE_OK and nothing else.";
+  const prompt = "Synthetic durability acceptance v2: reply with exactly DURABLE_OK_V2 and nothing else.";
   const source = textIdentity(prompt);
   const record = { opaqueInputId: "synthetic-durability", sequence: 0 };
   const attempt = 1;
@@ -1347,9 +1392,13 @@ async function syntheticCrashRecoveryAcceptance() {
     ...verifiedReceipt, state: "SEND_INTENT", sendInitiatedAt, automaticResendAllowed: false,
   });
   await send.click({ timeout: 10_000 });
+  const submitted = await waitForSubmittedConversationIdentity(page, source);
   const sentAt = now();
   await writePrivateJson(join(runDirectory, "sent.json"), {
-    ...verifiedReceipt, state: "SENT", sentAt, automaticResendAllowed: false,
+    ...verifiedReceipt, state: "SENT", sentAt,
+    conversationUrl: submitted.conversationUrl,
+    conversationId: new URL(submitted.conversationUrl).pathname.split("/")[2],
+    automaticResendAllowed: false,
   });
 
   let result;
@@ -1358,7 +1407,7 @@ async function syntheticCrashRecoveryAcceptance() {
       page, runDirectory, record, attempt, verifiedReceipt, sentAt, recovered: false,
     });
   } catch {
-    const candidate = await exactRecoveryCandidate(source);
+    const candidate = await exactRecoveryCandidate(source, submitted.conversationUrl);
     await writePrivateJson(join(runDirectory, "recovery.json"), {
       schemaVersion: 1,
       studyId: STUDY_ID,
@@ -1379,7 +1428,7 @@ async function syntheticCrashRecoveryAcceptance() {
     });
   }
   const response = (await readFile(join(runDirectory, "response.txt"), "utf8")).trim();
-  if (response !== "DURABLE_OK") throw new Error("SYNTHETIC_RESPONSE_CONTENT_INVALID");
+  if (response !== "DURABLE_OK_V2") throw new Error("SYNTHETIC_RESPONSE_CONTENT_INVALID");
   const runtimeAfter = await verifyRuntime(expectedRuntimeHashes);
   if (runtimeAfter.browserMainPid === runtimeBefore.browserMainPid) {
     throw new Error("SYNTHETIC_BROWSER_RESTART_NOT_OBSERVED");

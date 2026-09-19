@@ -247,6 +247,10 @@ describe("Round 3 durable VPS runtime and recovery", () => {
     expect(transport).toContain('inventory[0].url === "chrome://newtab/"');
     expect(transport).toContain("RECOVERY_EXISTING_SUBMISSION");
     expect(transport).toContain("ROUND_3_RECOVERY_CANDIDATE_MULTIPLE");
+    expect(transport).toContain("waitForSubmittedConversationIdentity");
+    expect(transport).toContain("ROUND_3_SUBMITTED_CONVERSATION_IDENTITY_NOT_OBSERVED");
+    expect(transport).toContain("exactRecoveryCandidate(source, sent.conversationUrl ?? null)");
+    expect(transport).toContain("inventory[0].page.goto(exactPreferredUrl");
     expect(transport).toContain("ROUND_3_RUNTIME_SERVICE_NOT_RUNNING");
     expect(transport).toContain("SYNTHETIC_BROWSER_RESTART_NOT_OBSERVED");
     expect(transport).toContain("automaticResendAllowed: false");
