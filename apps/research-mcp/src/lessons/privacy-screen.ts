@@ -75,6 +75,11 @@ export function lessonFingerprint(canonical: CanonicalLesson): string {
 }
 
 function candidateTextValues(candidate: LessonCandidate): string[] {
+  // Incident provenance is schema-validated, server-owned linkage metadata.
+  // Do not apply free-text identifier heuristics to its opaque IDs or digests:
+  // arbitrary numeric runs can look phone-like even though they contain no
+  // user-controlled narrative. The submission service keeps this tuple out of
+  // generalization and reattaches the exact validated value afterward.
   return [
     candidate.general_lesson,
     candidate.expected_behavior,
@@ -82,13 +87,6 @@ function candidateTextValues(candidate: LessonCandidate): string[] {
     candidate.synthetic_regression_example,
     ...(candidate.askrigor_version ? [candidate.askrigor_version] : []),
     ...(candidate.protocol_identities?.flatMap((identity) => [identity.name, identity.version]) ?? []),
-    ...(candidate.incident_provenance
-      ? [
-          candidate.incident_provenance.incident_id,
-          candidate.incident_provenance.incident_sha256,
-          candidate.incident_provenance.preservation_status,
-        ]
-      : []),
   ];
 }
 
