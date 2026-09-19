@@ -172,7 +172,8 @@ function selectChatGptPage(contexts) {
   const matches = inventory.filter(({ url }) => {
     try { return new URL(url).origin === CHATGPT_ORIGIN; } catch { return false; }
   });
-  if (matches.length === 0 && inventory.length === 1 && inventory[0].url === "about:blank") {
+  if (matches.length === 0 && inventory.length === 1
+    && (inventory[0].url === "about:blank" || inventory[0].url === "chrome://newtab/")) {
     return { page: inventory[0].page, tabCount: 1, bootstrapRequired: true };
   }
   if (matches.length !== 1) throw new Error(matches.length ? "CHATGPT_CONTENT_TAB_AMBIGUOUS" : "CHATGPT_CONTENT_TAB_NOT_FOUND");

@@ -244,6 +244,7 @@ describe("Round 3 durable VPS runtime and recovery", () => {
     const orchestrator = readFileSync(resolve(root, "scripts/mast-vps-round3-orchestrator.mts"), "utf8");
     expect(transport).toContain("chromium.connectOverCDP(CDP_ENDPOINT");
     expect(transport).toContain("element.innerText = text");
+    expect(transport).toContain('inventory[0].url === "chrome://newtab/"');
     expect(transport).toContain("RECOVERY_EXISTING_SUBMISSION");
     expect(transport).toContain("ROUND_3_RECOVERY_CANDIDATE_MULTIPLE");
     expect(transport).toContain("ROUND_3_RUNTIME_SERVICE_NOT_RUNNING");
