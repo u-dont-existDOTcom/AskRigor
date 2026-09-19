@@ -35,6 +35,19 @@ describe("deterministic lesson privacy screen", () => {
     expect(screenLessonCandidate(candidate)).toEqual({ safe: true, candidate });
   });
 
+  it("treats schema-validated opaque incident provenance as linkage metadata", () => {
+    const candidate: LessonCandidate = {
+      ...validCandidate,
+      incident_provenance: {
+        incident_id: "ali_9a5490754181425b8efcffcb589a4eca",
+        incident_sha256: "accd74f6d7185265bc9e7025778420d7ab0835f188970dafae7e866c3f3cfe44",
+        preservation_status: "EXACT_TRANSCRIPT_PRESERVED",
+      },
+    };
+
+    expect(screenLessonCandidate(candidate)).toEqual({ safe: true, candidate });
+  });
+
   it.each([
     ["contact me@example.com for evidence", "direct_identifier"],
     ["call +1 (415) 555-0123 before changing the response", "direct_identifier"],
