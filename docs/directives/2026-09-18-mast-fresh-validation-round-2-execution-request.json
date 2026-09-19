@@ -1,0 +1,16 @@
+{
+  "requestId": "askrigor-mast-fresh-validation-round-2-20260918-execution",
+  "actor": "CODEX",
+  "action": "EXECUTE_SOURCE_BOUND_BOUNDED_DIRECTIVE",
+  "sourceReceipt": {
+    "messageId": "attachment-sha256:6c924c31658517a2015d3626b2659299d8b3fde5cc92b44d4b79361fb9fb0b17",
+    "exactBodySha256": "6c924c31658517a2015d3626b2659299d8b3fde5cc92b44d4b79361fb9fb0b17",
+    "claimedSurface": "OWNER_ATTACHMENT",
+    "observedSurface": "OWNER_ATTACHMENT",
+    "provenanceStatus": "OWNER_ATTESTED"
+  },
+  "modelApiSpendUsd": 0,
+  "boundedExecution": true,
+  "taskRequiresExecutionOutsideChat": true,
+  "internalRoute": null
+}

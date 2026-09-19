@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 1,
+  "studyId": "askrigor-mast-fresh-validation-round-2-20260918",
+  "name": "MAST Fresh Validation Round 2",
+  "classification": "VALIDATION_NOT_CONFIRMATION",
+  "sourceDirectiveSha256": "6c924c31658517a2015d3626b2659299d8b3fde5cc92b44d4b79361fb9fb0b17",
+  "supersededTransportDirectiveSha256": "51c3ca3f5a972a285cc1e5b6575b0499485545d6ac7f83ae5791a2ca53206850",
+  "textRelayDirectiveSha256": "3a04ac8f91dff5ff6103f86abb07f5565af41f61eaa0ef48c512f8de7f4d40b0",
+  "vpsCdpTransportDirectiveSha256": "65d887aeca903df908ca1d2fb337899af031324833c7b9744d94ea4b56aa9191",
+  "ownerOverrides": {
+    "eligibleFreshFamilyCount": 12,
+    "implementationModel": "GPT-5.6 Sol",
+    "implementationReasoningEffort": "Medium",
+    "implementationEscalation": "High only on a specific unresolved blocker",
+    "ordinaryEngineeringExtraHighAllowed": false,
+    "generationModel": "GPT-5.6 Sol",
+    "generationReasoningEffort": "Extra High",
+    "judgeConfigurationChangedFromRound1": false,
+    "generationBeforeCompleteVerifiedFreezeAllowed": false,
+    "successfulArtifactRerunAllowed": false,
+    "resumeFromSealedArtifacts": true
+  },
+  "bindings": {
+    "environmentSha256": "5624c5921587bf2a957dcc64f923382e038561692fd1685e55eeff5b5beb6d80",
+    "familyManifestSha256": "4ec28890ae2cd1d0cf9177c8e724c110310ad48ae38b11a6019e029407199f31"
+  },
+  "sourceBindings": {
+    "askRigorBaselineCommit": "65a867518303a369c7e9786b030a97af12dd81ea",
+    "askRigorBaselineTree": "4ddcb05c00630e9be2774ddb86225dee14e62ec9",
+    "mastCommit": "57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee",
+    "mastTree": "f73e1cb717d3e76353b190abc13739d7f3476798",
+    "universalSha256": "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2",
+    "hrpSha256": "254759df38934c28b06709dace9fcb266fc9967913be1296de99a461be596816"
+  },
+  "historicalExposure": {
+    "round1Disposition": "DEVELOPMENT_PROCESS_EVIDENCE_ONLY",
+    "round1MechanicalReadRecordedAt": "2026-09-09T14:49:42.000Z",
+    "round1ItemsBlobMechanicallyReadInFull": true,
+    "round1GeneratedFamilies": [
+      "Card005", "Derm009", "Endo009", "Heme004", "ID006", "Neuro004", "Pulm009"
+    ],
+    "round1ResponsesGenerated": 8,
+    "round1JudgmentsCompleted": 0,
+    "round1ScoringCompleted": false
+  },
+  "cohort": {
+    "selectionMethod": "IDENTIFIER_ONLY_TWELVE_OF_THIRTEEN_SPECIALTY_PRESERVING_SHA256_V1",
+    "validationFamilies": [
+      "All006", "Card002", "Derm006", "Endo007", "GI002", "GI007", "Heme002",
+      "ID003", "Nephro003", "Nephro009", "Neuro003", "Pulm001"
+    ],
+    "confirmationFamilies": ["All008"],
+    "confirmationLimitation": "One semantically untouched family remains; it is not a broad independent confirmation cohort.",
+    "replacementFamiliesPermitted": false,
+    "selectionFixedBeforeRound2PayloadInspection": true
+  },
+  "design": {
+    "arms": {
+      "A": "MAST_DEFAULT",
+      "B": "MAST_THOROUGH",
+      "C": "UNIVERSAL_ONLY",
+      "D": "UNIVERSAL_PLUS_HRP"
+    },
+    "trialsPerFamilyPerArm": 3,
+    "responseCount": 144,
+    "primaryComparison": "D-B",
+    "secondaryComparison": "D-C",
+    "dispatchSeedSha256": "0c99287a4bdde832982abe8e989e537beea302dd5fb6ab61433431ee078c5c34",
+    "dispatchSeedBytes": 32
+  },
+  "evaluationTarget": {
+    "option": "B_PROTOCOL_REASONING_INDEPENDENT_OF_RETRIEVAL",
+    "externalRetrievalAllowed": false,
+    "toolsAllowed": false,
+    "sameBenchmarkInformationAcrossArms": true,
+    "toolUseReceiptRequired": true,
+    "anyToolUseInvalidatesSlot": true
+  },
+  "generation": {
+    "surface": "CHATGPT_CONSUMER",
+    "modelVisibleLabel": "GPT-5.6 Sol",
+    "reasoningVisibleLabel": "Extra High",
+    "chatMode": "FRESH_TEMPORARY_CHAT_PER_SUBMISSION",
+    "personalization": "UNPERSONALIZED",
+    "transport": {
+      "primary": "VPS_LOCAL_PLAYWRIGHT_OVER_LOOPBACK_CDP",
+      "fallback": null,
+      "device": "srv1894948",
+      "user": "cloudbrowser",
+      "browser": "Brave",
+      "browserProfile": "/home/cloudbrowser/.config/brave-cloud-browser",
+      "cdpEndpoint": "http://127.0.0.1:9222",
+      "nodeVersion": "22.23.2",
+      "playwrightCoreVersion": "1.63.0",
+      "privateRoot": "/home/cloudbrowser/.local/share/askrigor-mast-round2",
+      "authenticatedMachineToMachinePacketTransfer": true,
+      "fileAttachmentAllowed": false,
+      "wrapperTextAllowed": false,
+      "clipboardAllowed": false,
+      "externalRelayAllowed": false,
+      "maximumNormalTabCount": 2,
+      "canonicalization": "CRLF_OR_CR_TO_LF_ONLY",
+      "fullSourceDestinationHashAndLengthEqualityRequired": true,
+      "completeComposerReadbackRequired": true,
+      "fullSourceDestinationComposerHashAndLengthEqualityRequired": true,
+      "mismatchDisposition": "FAIL_CLOSED_BEFORE_SEND_WITH_STRUCTURED_RECEIPT",
+      "postSendCaptureAmbiguityDisposition": "PRESERVE_AND_DO_NOT_RETRY"
+    },
+    "contentBasedRetry": false,
+    "maximumAttemptsPerSlot": 2,
+    "parallelExecutionPermitted": false,
+    "successfulSlotRerunPermitted": false
+  },
+  "evaluation": {
+    "primaryPasses": 2,
+    "J1": {"modelVisibleLabel": "GPT-5.6 Sol", "reasoningVisibleLabel": "Extra High"},
+    "J2": {"modelVisibleLabel": "GPT-5.6 Sol", "reasoningVisibleLabel": "Extra High"},
+    "J3": {"modelVisibleLabel": "Latest", "reasoningVisibleLabel": "Pro", "reasoningOrdinal": "5 of 5"},
+    "maximumAttemptsPerJudgeSlot": 3,
+    "contentBasedRetry": false,
+    "blinding": "OPAQUE_RESPONSE_IDS_WITH_SEALED_CONDITION_MAP",
+    "adjudicationTrigger": "ANY_SCORE_VECTOR_DISAGREEMENT",
+    "join": "EXPLICIT_OPAQUE_RESPONSE_AND_GENERATION_RECORD_IDS_ONLY",
+    "noDenominatorShrinkage": true,
+    "rawJudgmentsImmutable": true
+  },
+  "decisionRule": {
+    "familyArmScore": "Arithmetic mean of the three final raw F1-weighted trial scores.",
+    "P1": "mean(D-B)>0",
+    "P2": "median(D-B)>0, with the median of 12 values defined as the mean of the sixth and seventh ordered values",
+    "P3": "at least 7 of 12 families have D-B>0",
+    "P4": "D severe commissions minus B severe commissions is at most 1 over equal 36-response denominators, and no family has a D-minus-B severe-commission excess greater than 1",
+    "P5": "mean(D-C)>0 and the number of D-C wins is at least the number of D-C losses",
+    "PASS": "All fresh records resolve with exactly 36 responses per arm and P1-P5 are true.",
+    "FAIL": "All fresh records resolve and either P4 is false or at least three of P1, P2, P3 and P5 are false.",
+    "INDETERMINATE": "Any unresolved or denominator-integrity condition, material implementation drift, or any complete mixed result that is neither PASS nor FAIL."
+  },
+  "scoreSeparation": {
+    "rawBenchmarkScoreControlsPrimaryGate": true,
+    "benchmarkConformityReportedSeparately": true,
+    "clinicalValidityReportedSeparately": true,
+    "benchmarkTargetConflictDiagnosticCannotOverrideRawGate": true
+  },
+  "failureAndCorrectionPolicy": {
+    "runtimeSchemaRequiredAtEveryStage": true,
+    "structuredFailureReceiptRequired": true,
+    "rawFailedArtifactPreserved": true,
+    "correctedArtifactStoredSeparately": true,
+    "silentRepairAllowed": false,
+    "downstreamProcessingAfterValidationFailureAllowed": false
+  },
+  "invalidationRule": {
+    "afterResponse1AnyMaterialComponentChangeInvalidates": true,
+    "stopAndPreserve": true,
+    "exposedFamiliesBecomeDevelopment": true,
+    "partialEfficacyClaimAllowed": false
+  },
+  "requiredPreGenerationVerification": [
+    "focused harness tests",
+    "malformed-input and failure-receipt tests",
+    "alias collision and orphan mapping tests",
+    "score-range and schema tests",
+    "incomplete-coverage tests",
+    "source/hash tamper tests",
+    "selector and exposure-ledger tests",
+    "benchmark-target-integrity tests",
+    "typecheck",
+    "build",
+    "repository governance validation",
+    "git diff --check",
+    "exact hash verification",
+    "consumer ChatGPT source-to-VPS-destination-to-composer exactness acceptance",
+    "green freeze pull request checks"
+  ]
+}

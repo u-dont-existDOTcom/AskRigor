@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "studyId": "askrigor-mast-fresh-validation-round-2-20260918",
+  "recordedAt": "2026-09-18T19:52:00Z",
+  "phase": "PRE_RESPONSE_1_DEVELOPMENT",
+  "generationCompleted": 0,
+  "architecture": {
+    "primary": "DIRECT_BROWSER_CONTENTEDITABLE_FILL",
+    "fallback": "OS_CLIPBOARD_NORMAL_KEYBOARD_PASTE",
+    "exactness": "COMPLETE_DOM_READBACK_SHA256_AND_LENGTH_EQUALITY",
+    "canonicalization": "CRLF_OR_CR_TO_LF_ONLY",
+    "fileAttachmentAllowed": false,
+    "humanRelayAllowed": false
+  },
+  "syntheticAcceptance": {
+    "sourceUtf8Bytes": 180000,
+    "sourceSha256": "e8353e2584ecce1af375b6e9956543dff2f44d808a66579c559970c4004d74db",
+    "copyqStageAndReadback": "PASS",
+    "browserInsertion": "BLOCKED_BEFORE_SEND",
+    "modelInferencePerformed": false
+  },
+  "observedBoundary": {
+    "controlledBrowserProvidesContenteditableFill": true,
+    "controlledBrowserVirtualClipboardHasLocalPacket": false,
+    "systemClipboardReachesControlledBrowser": false,
+    "pageNavigatorClipboardAvailable": false,
+    "authenticatedBrowserLocalProcessVisible": false,
+    "authenticatedBrowserLocalDebugEndpointAvailable": false,
+    "cause": "The authenticated Brave surface is controlled through a remote extension session whose virtual clipboard and process boundary are isolated from the local filesystem and Wayland clipboard."
+  },
+  "verification": {
+    "focusedTransportAndRound2Tests": "PASS_19_OF_19",
+    "build": "PASS",
+    "benchmarkGovernance": "PASS",
+    "chatWorkAuthority": "PASS",
+    "freezeHashPreflight": "PASS",
+    "fullLocalSuite": "INFRASTRUCTURE_FAILURE_AFTER_TYPECHECK",
+    "fullLocalSuiteDetail": "The unchanged broad HTTP/runtime suite produced widespread environment failures and then stopped making progress; it was terminated rather than blindly rerun. Hosted CI is the required clean-environment authority."
+  },
+  "disposition": {
+    "code": "AUTHENTICATED_BROWSER_LOCAL_TEXT_INGRESS_UNAVAILABLE",
+    "stoppedBeforeSend": true,
+    "messageMayHaveBeenSent": false,
+    "retryableWithoutCapabilityChange": false,
+    "response1Allowed": false
+  }
+}
