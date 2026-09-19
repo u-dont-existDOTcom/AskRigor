@@ -5,10 +5,19 @@ umask 077
 source_profile=/home/cloudbrowser/.config/brave-cloud-browser
 destination_profile=/home/cloudbrowser/.config/brave-mast-round3
 
-if /usr/bin/pgrep -af brave | /usr/bin/grep -F -- "--user-data-dir=$source_profile" >/dev/null 2>&1; then
-  echo SOURCE_PROFILE_IS_OPEN >&2
-  exit 1
-fi
+for command_line in /proc/[0-9]*/cmdline; do
+  [ -r "$command_line" ] || continue
+  executable=$(/usr/bin/tr '\0' '\n' <"$command_line" 2>/dev/null | /usr/bin/sed -n '1p' || true)
+  case "$executable" in
+    */brave|*/brave-browser)
+      if /usr/bin/tr '\0' '\n' <"$command_line" 2>/dev/null \
+          | /usr/bin/grep -F -x -- "--user-data-dir=$source_profile" >/dev/null 2>&1; then
+        echo SOURCE_PROFILE_IS_OPEN >&2
+        exit 1
+      fi
+      ;;
+  esac
+done
 if [ -e "$destination_profile" ]; then
   echo DESTINATION_PROFILE_ALREADY_EXISTS >&2
   exit 1

@@ -240,6 +240,7 @@ describe("Round 3 durable VPS runtime and recovery", () => {
     const transport = readFileSync(resolve(root, "scripts/mast-vps-cdp-generation-round-3.mjs"), "utf8");
     const braveUnit = readFileSync(resolve(root, "deploy/systemd/askrigor-mast-round3-brave.service"), "utf8");
     const wrapper = readFileSync(resolve(root, "deploy/vps/brave-mast-round3.sh"), "utf8");
+    const profileClone = readFileSync(resolve(root, "deploy/vps/clone-round3-profile.sh"), "utf8");
     expect(transport).toContain("chromium.connectOverCDP(CDP_ENDPOINT");
     expect(transport).toContain("element.innerText = text");
     expect(transport).toContain("RECOVERY_EXISTING_SUBMISSION");
@@ -256,5 +257,8 @@ describe("Round 3 durable VPS runtime and recovery", () => {
     expect(wrapper).toContain("--remote-debugging-address=127.0.0.1");
     expect(wrapper).toContain("--remote-debugging-port=9224");
     expect(wrapper).toContain("--restore-last-session");
+    expect(profileClone).toContain("/proc/[0-9]*/cmdline");
+    expect(profileClone).toContain('grep -F -x -- "--user-data-dir=$source_profile"');
+    expect(profileClone).not.toContain("pgrep -af brave");
   });
 });
