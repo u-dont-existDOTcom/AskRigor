@@ -2,7 +2,7 @@
 set -eu
 umask 077
 
-exec /usr/bin/brave-browser \
+exec /opt/brave.com/brave/brave \
   --user-data-dir=/home/cloudbrowser/.config/brave-mast-round3 \
   --remote-debugging-address=127.0.0.1 \
   --remote-debugging-port=9224 \

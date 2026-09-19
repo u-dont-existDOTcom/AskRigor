@@ -115,7 +115,7 @@
     "browserUnitSha256": "bff4d9206034adb0b593cceb44f9cdce775b80978cc36300705b5768df853be0",
     "displayUnitSha256": "48507c3730a93786a704d76783afd1a06bed6d1e013a94677d26ba6ad1c5f1c5",
     "watchdogUnitSha256": "e8a3aed3878d28d3e21130e66e86009be574b3516622fef0be91365cbdb68881",
-    "browserWrapperSha256": "b775cfc66434903c2686e1a886b894109565d89a0151cfd5982d72cbd0fd1ff5",
+    "browserWrapperSha256": "94b46d2083f7a0dffc5071a4ac6e164bbd2eff4092d2bd094ecd90b11ba1421f",
     "watchdogScriptSha256": "44cadf1cb597ba0d68b227aea762be0e921d80e1e5147cbfcaa49cec00ba392e",
     "transportScriptSha256": "6e92b3ea2edc438f9e423a1cad20d74d7760522330c01e3243cf65ab841a28fb"
   },
@@ -134,7 +134,7 @@
     "deploy/systemd/askrigor-mast-round3-xvfb.service": "48507c3730a93786a704d76783afd1a06bed6d1e013a94677d26ba6ad1c5f1c5",
     "deploy/systemd/askrigor-mast-round3-brave.service": "bff4d9206034adb0b593cceb44f9cdce775b80978cc36300705b5768df853be0",
     "deploy/systemd/askrigor-mast-round3-watchdog.service": "e8a3aed3878d28d3e21130e66e86009be574b3516622fef0be91365cbdb68881",
-    "deploy/vps/brave-mast-round3.sh": "b775cfc66434903c2686e1a886b894109565d89a0151cfd5982d72cbd0fd1ff5",
+    "deploy/vps/brave-mast-round3.sh": "94b46d2083f7a0dffc5071a4ac6e164bbd2eff4092d2bd094ecd90b11ba1421f",
     "deploy/vps/cdp-watchdog.sh": "44cadf1cb597ba0d68b227aea762be0e921d80e1e5147cbfcaa49cec00ba392e",
     "deploy/vps/clone-round3-profile.sh": "d338a8a942ebeef2f088fe38e21121e6fe86e23cb3d094c1fff6739a963759ae",
     "docs/directives/2026-09-19-mast-fresh-validation-round-3-durable-vps.md": "16c302bc3b0646f6b86597ba53191dd1d5c37a3c98a6ff996a03d1c1f67c41d6",
@@ -143,7 +143,7 @@
     "evaluation/mast/prompts/fresh-round-3-adjudicator.md": "c2f8c3040c9821f156027eb46dbf6155cb72377720dcb127d49f877ebfd19558",
     "evaluation/mast/prompts/fresh-round-3-benchmark-integrity.md": "aa15e140d6d73802de46e6a4c35fc66efccbdf3dbff71b2476ccc4df3c217cb4",
     "tests/mast-fresh-validation-round-3.test.ts": "41b914d1c982197cdd98382e9d57307f8346f723c58432bfe575523ce4ca8b53",
-    "tests/mast-round-3-durable-vps.test.ts": "9d8651b5138afad27ae2727dfd17fe2b45f445338d266202c5e1f4585f2d4354",
+    "tests/mast-round-3-durable-vps.test.ts": "f73846828d274a043a60722958b3d755c2542fc3df5cee345f8779bcfcfe8052",
     "tests/external-evaluation-task.test.ts": "44389d034490634c44d9d616511205a3a65ff94442c6a587a034309b5448811c",
     "package.json": "1fc137fe465cc8eaf2df93e51c26539539beb2582cbfb555cc48edf59f4f90ca",
     "package-lock.json": "3f54a7c2001c62a7fefbbceab0ba0ed15bfcedbc6868d1eaf4915ef176478a17"

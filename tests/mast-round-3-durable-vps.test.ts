@@ -259,6 +259,8 @@ describe("Round 3 durable VPS runtime and recovery", () => {
     expect(wrapper).toContain("--remote-debugging-address=127.0.0.1");
     expect(wrapper).toContain("--remote-debugging-port=9224");
     expect(wrapper).toContain("--restore-last-session");
+    expect(wrapper).toContain("exec /opt/brave.com/brave/brave");
+    expect(wrapper).not.toContain("exec /usr/bin/brave-browser");
     expect(profileClone).toContain("/proc/[0-9]*/cmdline");
     expect(profileClone).toContain('grep -F -x -- "--user-data-dir=$source_profile"');
     expect(profileClone).not.toContain("pgrep -af brave");
