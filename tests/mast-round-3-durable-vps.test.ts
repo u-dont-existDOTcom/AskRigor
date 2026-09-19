@@ -248,6 +248,8 @@ describe("Round 3 durable VPS runtime and recovery", () => {
     expect(transport).toContain("RECOVERY_EXISTING_SUBMISSION");
     expect(transport).toContain("ROUND_3_RECOVERY_CANDIDATE_MULTIPLE");
     expect(transport).toContain("waitForSubmittedConversationIdentity");
+    expect(transport).toContain("const temporaryDeadline = Date.now() + 10_000");
+    expect(transport).toContain("TEMPORARY_CHAT_STATE_AMBIGUOUS");
     expect(transport).toContain("ROUND_3_SUBMITTED_CONVERSATION_IDENTITY_NOT_OBSERVED");
     expect(transport).toContain("exactRecoveryCandidate(source, sent.conversationUrl ?? null)");
     expect(transport).toContain("inventory[0].page.goto(exactPreferredUrl");
