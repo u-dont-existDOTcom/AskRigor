@@ -15,7 +15,9 @@ Restart=always
 RestartSec=3s
 TimeoutStopSec=20s
 KillMode=control-group
-NoNewPrivileges=true
+# Brave's installed setuid sandbox must be allowed to gain its narrowly scoped
+# sandboxing privilege; blocking privilege gain prevents Brave from starting.
+NoNewPrivileges=false
 PrivateTmp=true
 ProtectSystem=strict
 ReadWritePaths=/home/cloudbrowser/.config/brave-mast-round3 /home/cloudbrowser/.cache /home/cloudbrowser/.local/share/askrigor-mast-round3

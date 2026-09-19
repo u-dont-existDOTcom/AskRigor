@@ -254,6 +254,8 @@ describe("Round 3 durable VPS runtime and recovery", () => {
     expect(transport).not.toMatch(/wl-copy|xclip|clipboard|cloudflared|trycloudflare|keyboard\.type/iu);
     expect(braveUnit).toContain("Restart=always");
     expect(braveUnit).toContain("User=cloudbrowser");
+    expect(braveUnit).toContain("NoNewPrivileges=false");
+    expect(braveUnit).not.toContain("NoNewPrivileges=true");
     expect(wrapper).toContain("--remote-debugging-address=127.0.0.1");
     expect(wrapper).toContain("--remote-debugging-port=9224");
     expect(wrapper).toContain("--restore-last-session");
