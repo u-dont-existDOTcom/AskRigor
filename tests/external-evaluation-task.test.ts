@@ -5,10 +5,34 @@ import { describe, expect, it } from "vitest";
 const rootFile = (path: string) => new URL(`../${path}`, import.meta.url);
 
 describe("external evaluation current-slice contract", () => {
-  it("preserves the canonical parent program during the bounded upload-menu diagnostic", async () => {
+  it("preserves the declared exclusive external-evaluation task contract", async () => {
     const task = JSON.parse(
       await readFile(rootFile("tasks/ACTIVE-TASK.json"), "utf8"),
     ) as Record<string, unknown>;
+
+    if (task.taskId === "askrigor-mast-fresh-validation-round-3-20260919") {
+      expect(task).toMatchObject({
+        taskId: "askrigor-mast-fresh-validation-round-3-20260919",
+        status: "active_pre_response_1_durable_runtime_freeze",
+        exclusive: true,
+        requiredBranch: "task/mast-fresh-validation-round-3-20260919",
+        baselineCommit: "6da40dd8eab9f5eb51722733268abeb627d0b1ad",
+        ownerOutcomeStatus: "OPEN",
+        currentState: "docs/state/MAST-FRESH-VALIDATION-ROUND-3-CURRENT-STATE.md",
+        activeLessonContract: "docs/state/MAST-FRESH-VALIDATION-ROUND-3-ACTIVE-LESSON-CONTRACT.json",
+        preflightCommand: expect.stringContaining("verify-freeze"),
+        completionCommand: expect.stringContaining("finalize"),
+        targetedHardGates: expect.arrayContaining([
+          "No further Round-2 prompt submission under any condition",
+          "Never rerun a sealed generation or judgment; resume from sealed artifacts",
+          "Any material post-response-1 drift invalidates validation status",
+        ]),
+        suspendedTaskSources: expect.arrayContaining([
+          "Round 2 branch, PR, and private artifacts except as immutable historical evidence",
+        ]),
+      });
+      return;
+    }
 
     if (task.taskId === "askrigor-mast-fresh-validation-round-2-20260918") {
       expect(task).toMatchObject({

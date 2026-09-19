@@ -1,0 +1,12 @@
+{
+  "name": "askrigor-mast-round-3-vps-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.23.2 <23"
+  },
+  "dependencies": {
+    "playwright-core": "1.63.0"
+  }
+}
