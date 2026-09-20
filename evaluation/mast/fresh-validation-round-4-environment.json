@@ -154,7 +154,7 @@
     "evaluation/mast/prompts/fresh-round-4-benchmark-integrity.md": "c0315649bd0428792c831f25147cd8dc4a85ec8d1db01ef09c8fb8ca719c299e",
     "tests/mast-fresh-validation-round-4.test.ts": "92cceb66e9ab376cedc5974b62439b07c368190914fe0b057c6359e14871bb7f",
     "tests/mast-round-4-durable-vps.test.ts": "6f800967d2e5023a0fb5900ac6686a153b0ac2d614b6848f5471f646a4e2845d",
-    "tests/external-evaluation-task.test.ts": "ab8276d47fda320964c52476d0140bc113b2d11aa97d57e0a8bcea81471f4ee1",
+    "tests/external-evaluation-task.test.ts": "a7435255f6b60af1834984dcadb1272705f48c6beda9709b1591b571a534c779",
     "package.json": "1fc137fe465cc8eaf2df93e51c26539539beb2582cbfb555cc48edf59f4f90ca",
     "package-lock.json": "3f54a7c2001c62a7fefbbceab0ba0ed15bfcedbc6868d1eaf4915ef176478a17"
   },

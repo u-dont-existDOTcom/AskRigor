@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
-  "studyId": "askrigor-mast-fresh-validation-round-3-20260919",
-  "name": "MAST Fresh Validation Round 3",
+  "studyId": "askrigor-mast-fresh-validation-round-5-20260920",
+  "name": "MAST Fresh Validation Round 5",
   "classification": "VALIDATION_NOT_CONFIRMATION",
-  "sourceDirectiveSha256": "16c302bc3b0646f6b86597ba53191dd1d5c37a3c98a6ff996a03d1c1f67c41d6",
+  "sourceDirectiveSha256": "98bef05689b4210e8d86beee0542e50bf6fafe37a5bd37c305884a38caa41656",
   "bindings": {
-    "environmentSha256": "c7cc31748bf9e56d5f4ff15920a4f5245cbe50e10cd55d49a39a1ac6bc284c66",
-    "familyManifestSha256": "9a848c072bba245a8ad7cfd6898d93c691f492a61f4c4dde1cda0580d62fafd2"
+    "environmentSha256": "343a1724ded3aabd32d7adf36dc5a5b3d2a913e5c34a438705af163de6e17bef",
+    "familyManifestSha256": "b1fc5a4fc6edf9dc352682680d894d1a02a9a3ad6bde5a50b6d3488d70804dbf"
   },
   "sourceBindings": {
-    "askRigorBaselineCommit": "6da40dd8eab9f5eb51722733268abeb627d0b1ad",
-    "askRigorBaselineTree": "8b528664548dc8a4aac208ad8d4be265b11e84c0",
+    "askRigorBaselineCommit": "b67441959d73a667d87c08369aa9b5613c700738",
+    "askRigorBaselineTree": "2f370321615347df1a1aa7d3f6ffc470e04803d1",
     "mastCommit": "57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee",
     "mastTree": "f73e1cb717d3e76353b190abc13739d7f3476798",
     "universalSha256": "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2",
@@ -34,19 +34,36 @@
     "round2ValidationEligible": false,
     "round2SealedResponses": 1,
     "round2PlannedResponses": 144,
-    "round2TerminalRecordedAt": "2026-09-19T02:10:56.511Z",
+    "round2TerminalRecordedAt": "2026-09-20T02:10:56.511Z",
     "round2DispositionSha256": "594bb0d255ac3dcd1fd555a6397f50470451d80ad1a47e8dac090f5b7c3211bc",
     "round2ExposedFamilies": [
       "ID003",
       "GI007"
     ],
-    "round2FurtherPromptSubmissionsAuthorized": false
+    "round2FurtherPromptSubmissionsAuthorized": false,
+    "round3Status": "STOPPED_PRE_RESPONSE_1",
+    "round3ValidationEligible": false,
+    "round3SealedResponses": 0,
+    "round3PlannedResponses": 120,
+    "round3ExposedFamilies": [],
+    "round3FurtherPromptSubmissionsAuthorized": false,
+    "round4Status": "INDETERMINATE",
+    "round4ValidationEligible": false,
+    "round4SealedResponses": 0,
+    "round4CompletedProviderResponses": 1,
+    "round4PlannedResponses": 120,
+    "round4ExposedFamilies": [
+      "Card002"
+    ],
+    "round4FurtherPromptSubmissionsAuthorized": false,
+    "round4FailureBoundary": "GENERATION_CAPTURE_PROVIDER_SCHEMA_REJECTED_REQUIRED_CHAT_MODE",
+    "round4TerminalRecordedAt": "2026-09-20T21:15:40.000Z"
   },
   "cohort": {
-    "selectionMethod": "OWNER_EXPLICIT_TEN_FAMILY_ROUND_3_V1",
+    "selectionMethod": "OWNER_AUTHORIZED_SUCCESSOR_ROUND_5_AFTER_ROUND_4_EXPOSURE_V1",
     "validationFamilies": [
       "All006",
-      "Card002",
+      "All008",
       "Derm006",
       "Endo007",
       "GI002",
@@ -56,13 +73,14 @@
       "Neuro003",
       "Pulm001"
     ],
-    "reserveFamilies": [
-      "All008"
+    "reserveFamilies": [],
+    "reserveStatus": "NO_REMAINING_SEMANTIC_RESERVE",
+    "round4ExposedExcludedFamilies": [
+      "Card002"
     ],
-    "reserveStatus": "LIMITED_RESERVE_NOT_CONFIRMATORY",
-    "reserveLimitation": "One semantically untouched family remains; it is not a broad independent confirmation cohort.",
+    "reserveLimitation": "All008 was semantically untouched before Round 5 and is now consumed as the replacement validation family; no reserve remains.",
     "replacementFamiliesPermitted": false,
-    "selectionFixedBeforeRound3PayloadInspection": true
+    "selectionFixedBeforeRound5PayloadInspection": true
   },
   "design": {
     "arms": {
@@ -75,7 +93,7 @@
     "responseCount": 120,
     "primaryComparison": "D-B",
     "secondaryComparison": "D-C",
-    "dispatchSeedSha256": "b61c8b2cc74568949f0afc292a9b54593bc7dac8e862cfc896879bc76edebaf2",
+    "dispatchSeedSha256": "0b437a1cbe1c4e267cf0d39308399de1b888d9d12c90048881bb162ea235fbc0",
     "dispatchSeedBytes": 32
   },
   "evaluationTarget": {
@@ -104,7 +122,7 @@
       "browserService": "askrigor-mast-round3-brave.service",
       "watchdogService": "askrigor-mast-round3-watchdog.service",
       "cdpEndpoint": "http://127.0.0.1:9224",
-      "privateRoot": "/home/cloudbrowser/.local/share/askrigor-mast-round3",
+      "privateRoot": "/home/cloudbrowser/.local/share/askrigor-mast-round5",
       "authenticatedMachineToMachinePacketTransfer": true,
       "fileAttachmentAllowed": false,
       "wrapperTextAllowed": false,
@@ -118,7 +136,9 @@
       "fullSourceDestinationComposerHashAndLengthEqualityRequired": true,
       "mismatchDisposition": "FAIL_CLOSED_BEFORE_SEND_WITH_STRUCTURED_RECEIPT",
       "runtimeHashAndProcessVerificationBeforeEverySend": true,
-      "liveSyntheticCrashRecoveryAcceptanceBeforeResponse1": true
+      "liveSyntheticNormalPathAcceptanceBeforeResponse1": true,
+      "deliberatePostSendBrowserRestartRequired": false,
+      "deterministicPreSendSupervisionAcceptanceRequired": true
     },
     "contentBasedRetry": false,
     "maximumPreSendAttemptsPerSlot": 2,
@@ -129,6 +149,8 @@
     "sendIntentPersistedBeforeClick": true,
     "sentReceiptPersistedImmediatelyAfterClick": true,
     "automaticResendAllowed": false,
+    "recoveryAttemptRequired": false,
+    "recoveryIfNaturallyAvailableAllowed": true,
     "recoveryState": "RECOVERY_EXISTING_SUBMISSION",
     "sameDedicatedProfileRequired": true,
     "exactNormalizedFullUserMessageSha256Required": true,
@@ -193,7 +215,8 @@
     "partialEfficacyClaimAllowed": false
   },
   "requiredPreGenerationVerification": [
-    "focused Round-3 harness and hostile recovery tests",
+    "focused Round-5 harness and hostile recovery tests",
+    "end-to-end generation capture admission regression with required chatMode metadata",
     "service/runtime hash tamper tests",
     "browser missing and restart tests",
     "pre-Send and post-Send disconnect tests",
@@ -208,8 +231,9 @@
     "git diff --check",
     "exact executable hash verification",
     "green freeze pull-request checks",
-    "installed VPS runtime identity verification",
-    "live synthetic post-Send browser-kill recovery without resend"
+    "sealed private freeze receipt",
+    "deterministic supervision acceptance",
+    "live synthetic normal-path acceptance"
   ],
-  "finalNonclaim": "Round 3 is bounded fresh validation over the remaining eligible MAST families. A PASS is not proof of general clinical superiority, and All008 is not a broad independent confirmatory cohort."
+  "finalNonclaim": "Round 5 is bounded fresh validation over the final ten semantically eligible MAST families. A PASS is not proof of general clinical superiority, and no semantic reserve remains after All008 is promoted into validation."
 }

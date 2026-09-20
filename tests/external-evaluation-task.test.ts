@@ -10,6 +10,31 @@ describe("external evaluation current-slice contract", () => {
       await readFile(rootFile("tasks/ACTIVE-TASK.json"), "utf8"),
     ) as Record<string, unknown>;
 
+    if (task.taskId === "askrigor-mast-fresh-validation-round-5-20260920") {
+      expect(task).toMatchObject({
+        taskId: "askrigor-mast-fresh-validation-round-5-20260920",
+        status: "active_pre_response_1_source_fixed_successor",
+        exclusive: true,
+        requiredBranch: "task/mast-fresh-validation-round-5-20260920",
+        baselineCommit: "b67441959d73a667d87c08369aa9b5613c700738",
+        ownerOutcomeStatus: "OPEN",
+        currentState: "docs/state/MAST-FRESH-VALIDATION-ROUND-5-CURRENT-STATE.md",
+        activeLessonContract: "docs/state/MAST-FRESH-VALIDATION-ROUND-5-ACTIVE-LESSON-CONTRACT.json",
+        preflightCommand: expect.stringContaining("verify-freeze"),
+        completionCommand: expect.stringContaining("finalize"),
+        targetedHardGates: expect.arrayContaining([
+          "No further Round-2, Round-3, or Round-4 prompt submission under any condition",
+          "Use one shared generation-provider schema containing required chatMode across outer capture and stored capture",
+          "Never rerun a sealed generation or judgment; resume from sealed artifacts",
+          "Any material post-response-1 drift invalidates validation status",
+        ]),
+        suspendedTaskSources: expect.arrayContaining([
+          "Rounds 1–4 branches and private artifacts except immutable historical evidence",
+        ]),
+      });
+      return;
+    }
+
     if (task.taskId === "askrigor-mast-fresh-validation-round-4-20260919") {
       expect(task).toMatchObject({
         taskId: "askrigor-mast-fresh-validation-round-4-20260919",
