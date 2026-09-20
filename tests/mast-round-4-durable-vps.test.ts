@@ -251,12 +251,14 @@ describe("Round 4 durable VPS runtime and recovery", () => {
     expect(transport).toContain('inventory[0].url === "chrome://newtab/"');
     expect(transport).toContain("RECOVERY_EXISTING_SUBMISSION");
     expect(transport).toContain("ROUND_4_RECOVERY_CANDIDATE_MULTIPLE");
-    expect(transport).toContain("waitForSubmittedConversationIdentity");
+    expect(transport).toContain("waitForSubmittedRequestIdentity");
     expect(transport).toContain("const temporaryDeadline = Date.now() + 10_000");
     expect(transport).toContain("TEMPORARY_CHAT_STATE_AMBIGUOUS");
     expect(transport).toContain("ROUND_4_SUBMITTED_CONVERSATION_IDENTITY_NOT_OBSERVED");
     expect(transport).toContain("sentIdentity?.conversationUrl ?? sent.conversationUrl ?? null");
     expect(transport).toContain('conversationUrl: null, conversationId: null');
+    expect(transport).toContain("requestMessageId: submitted.requestMessageId");
+    expect(transport).toContain("TEMPORARY_REQUEST_IDENTITY_UNPROVABLE");
     expect(transport).toContain("inventory[0].page.goto(exactPreferredUrl");
     expect(transport).toContain("ROUND_4_RUNTIME_SERVICE_NOT_RUNNING");
     expect(transport).toContain("SYNTHETIC_BROWSER_RESTARTED_DURING_NORMAL_PATH");

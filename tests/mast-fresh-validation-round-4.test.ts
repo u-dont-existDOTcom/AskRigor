@@ -33,6 +33,7 @@ function provider(judge: "J1" | "J2" | "J3" | "GENERATION") {
     reasoningVisibleLabel: j3 ? "Pro" : "Extra High",
     reasoningOrdinal: j3 ? "5 of 5" : null,
     conversationId: `${judge}-conversation`,
+    requestMessageId: `${judge}-message`,
     submittedAt: instant,
     completedAt: instant,
     toolsUsed: false as const,

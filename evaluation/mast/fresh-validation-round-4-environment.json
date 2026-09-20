@@ -128,19 +128,19 @@
     "watchdogUnitSha256": "e8a3aed3878d28d3e21130e66e86009be574b3516622fef0be91365cbdb68881",
     "browserWrapperSha256": "94b46d2083f7a0dffc5071a4ac6e164bbd2eff4092d2bd094ecd90b11ba1421f",
     "watchdogScriptSha256": "44cadf1cb597ba0d68b227aea762be0e921d80e1e5147cbfcaa49cec00ba392e",
-    "transportScriptSha256": "0f03e9532f7c6008641e6dacb68c1de3afdc3098c50b9e0bf2261cdfd0150fac"
+    "transportScriptSha256": "d15d62de09f98d837a678d97b89fb213229079f7b1e690bf84f91138a2b58d8f"
   },
   "executableHashManifest": {
     "evaluation/mast/src/fresh-validation.ts": "08f2170214f24f2120b0e7977bae41345708498e6c5ce3cd882c6e988f9c697a",
     "evaluation/mast/src/fresh-validation-round-4-base.ts": "71b4b73e45007dbf0a540c5b4527237f0c7d9329b9066af4271e6cdf8887272e",
-    "evaluation/mast/src/fresh-validation-round-4.ts": "46419ba32986c16e4d4d247d8f4af0e51bd782d22e653ac831e48626347a2336",
+    "evaluation/mast/src/fresh-validation-round-4.ts": "211d0a7a6439d2b0baa240f2d3074781ab45f161781f77b98e908b97136678d4",
     "evaluation/mast/src/chatgpt-browser-transport-round-4.ts": "40dfa9eae1ba4786a0a7d5ca5ba81791290729c0252952a540403ecf83b57526",
     "evaluation/mast/src/durable-vps-round-4.ts": "563ea04a5f3fcfda3b27255db62712e3da2071f39cc3dfb3ac61ac1d78633894",
     "evaluation/mast/src/vps-cdp-transport-round-4.ts": "ff5c83c82686217ab1dbaf4e60bb4f706a2447cf5861521d52ec8136b430f25e",
     "evaluation/mast/vps-runtime-round-3/package.json": "71cb85dc2273c6730e4bf5e40595db0ca0ef67728503da34d4faf2ccece1f730",
     "evaluation/mast/vps-runtime-round-3/package-lock.json": "2bb3c7768a284636fbe968ce71980b515e1e7f33e9ba60e897812b3a28c79ab8",
     "scripts/mast-fresh-validation-round-4.mts": "f1735ef1dddc068e379c3669a1de3617c80a6f272eb53cdc24af62832b4fa10c",
-    "scripts/mast-vps-cdp-generation-round-4.mjs": "0f03e9532f7c6008641e6dacb68c1de3afdc3098c50b9e0bf2261cdfd0150fac",
+    "scripts/mast-vps-cdp-generation-round-4.mjs": "d15d62de09f98d837a678d97b89fb213229079f7b1e690bf84f91138a2b58d8f",
     "scripts/mast-vps-round4-orchestrator.mts": "95b5e615bfa682b619a712a28bf5511ce6ea744decd5feaf275fd2e8b854ffb9",
     "deploy/systemd/askrigor-mast-round3-xvfb.service": "48507c3730a93786a704d76783afd1a06bed6d1e013a94677d26ba6ad1c5f1c5",
     "deploy/systemd/askrigor-mast-round3-brave.service": "bff4d9206034adb0b593cceb44f9cdce775b80978cc36300705b5768df853be0",
@@ -152,8 +152,8 @@
     "evaluation/mast/prompts/fresh-round-4-primary-judge.md": "74320d015531a15ab38b1cb53778a829b9c9f86c8e9893817246b8ef37b7df08",
     "evaluation/mast/prompts/fresh-round-4-adjudicator.md": "c2f8c3040c9821f156027eb46dbf6155cb72377720dcb127d49f877ebfd19558",
     "evaluation/mast/prompts/fresh-round-4-benchmark-integrity.md": "c0315649bd0428792c831f25147cd8dc4a85ec8d1db01ef09c8fb8ca719c299e",
-    "tests/mast-fresh-validation-round-4.test.ts": "c2f4baac2ad3d0799ca4abb7d92fa206e1c3b690870fd65a26c78b9375110843",
-    "tests/mast-round-4-durable-vps.test.ts": "7394581cc0fcf55fb323867fa9786a29689a9a7ff3049b9cb29d0c95e5e9a5d8",
+    "tests/mast-fresh-validation-round-4.test.ts": "92cceb66e9ab376cedc5974b62439b07c368190914fe0b057c6359e14871bb7f",
+    "tests/mast-round-4-durable-vps.test.ts": "6f800967d2e5023a0fb5900ac6686a153b0ac2d614b6848f5471f646a4e2845d",
     "tests/external-evaluation-task.test.ts": "ab8276d47fda320964c52476d0140bc113b2d11aa97d57e0a8bcea81471f4ee1",
     "package.json": "1fc137fe465cc8eaf2df93e51c26539539beb2582cbfb555cc48edf59f4f90ca",
     "package-lock.json": "3f54a7c2001c62a7fefbbceab0ba0ed15bfcedbc6868d1eaf4915ef176478a17"

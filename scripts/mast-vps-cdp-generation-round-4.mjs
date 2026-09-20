@@ -699,8 +699,10 @@ async function pageRecoveryCandidate(page, candidateId) {
     const snapshot = await page.evaluate(() => {
       const users = [...document.querySelectorAll("[data-message-author-role='user']")];
       const assistants = document.querySelectorAll("[data-message-author-role='assistant']");
-      const text = users.length === 1 && users[0] instanceof HTMLElement ? users[0].innerText : null;
-      return { userMessageCount: users.length, assistantMessageCount: assistants.length, text };
+      const user = users.length === 1 && users[0] instanceof HTMLElement ? users[0] : null;
+      const text = user?.innerText ?? null;
+      const requestMessageId = user?.getAttribute("data-message-id") ?? null;
+      return { userMessageCount: users.length, assistantMessageCount: assistants.length, text, requestMessageId };
     });
     if (snapshot.userMessageCount !== 1 || snapshot.assistantMessageCount > 1 || snapshot.text === null) return null;
     const identity = textIdentity(snapshot.text);
@@ -710,6 +712,7 @@ async function pageRecoveryCandidate(page, candidateId) {
       url: page.url(),
       normalizedUserMessageSha256: identity.sha256,
       normalizedUserMessageUtf8Bytes: identity.utf8Bytes,
+      requestMessageId: snapshot.requestMessageId,
       userMessageCount: 1,
       assistantMessageCount: snapshot.assistantMessageCount,
     };
@@ -729,7 +732,7 @@ function exactConversationUrl(value) {
   }
 }
 
-async function waitForSubmittedConversationIdentity(page, source) {
+async function waitForSubmittedRequestIdentity(page, source) {
   const deadline = Date.now() + 60_000;
   while (Date.now() < deadline) {
     const candidate = await pageRecoveryCandidate(page, "submitted-conversation");
@@ -737,15 +740,20 @@ async function waitForSubmittedConversationIdentity(page, source) {
     if (candidate
       && candidate.normalizedUserMessageSha256 === source.sha256
       && candidate.normalizedUserMessageUtf8Bytes === source.utf8Bytes
-      && conversationUrl) {
-      return { ...candidate, conversationUrl };
+      && typeof candidate.requestMessageId === "string"
+      && /^[A-Za-z0-9_-]+$/u.test(candidate.requestMessageId)) {
+      return {
+        ...candidate,
+        conversationUrl,
+        conversationId: conversationUrl ? new URL(conversationUrl).pathname.split("/")[2] : null,
+      };
     }
     await sleep(250);
   }
   throw new Error("ROUND_4_SUBMITTED_CONVERSATION_IDENTITY_NOT_OBSERVED");
 }
 
-async function exactRecoveryCandidate(source, preferredConversationUrl = null) {
+async function exactRecoveryCandidate(source, preferredConversationUrl = null, expectedRequestMessageId = null) {
   const exactPreferredUrl = preferredConversationUrl === null ? null : exactConversationUrl(preferredConversationUrl);
   if (preferredConversationUrl !== null && exactPreferredUrl === null) {
     throw new Error("ROUND_4_RECOVERY_CONVERSATION_URL_INVALID");
@@ -764,6 +772,7 @@ async function exactRecoveryCandidate(source, preferredConversationUrl = null) {
       const matching = candidates.filter((candidate) => (
         candidate.normalizedUserMessageSha256 === source.sha256
           && candidate.normalizedUserMessageUtf8Bytes === source.utf8Bytes
+          && (expectedRequestMessageId === null || candidate.requestMessageId === expectedRequestMessageId)
       ));
       lastCandidateCount = matching.length;
       if (matching.length > 1) throw new Error("ROUND_4_RECOVERY_CANDIDATE_MULTIPLE");
@@ -783,22 +792,26 @@ async function exactRecoveryCandidate(source, preferredConversationUrl = null) {
     ? "ROUND_4_RECOVERY_CANDIDATE_ZERO" : "ROUND_4_RECOVERY_CANDIDATE_UNRESOLVED");
 }
 
-async function persistCompletedResponse({ page, runDirectory, record, attempt, verifiedReceipt, sentAt, recovered }) {
+async function persistCompletedResponse({ page, runDirectory, record, attempt, verifiedReceipt, sentAt, recovered, requestIdentity }) {
   const response = await waitForCompleteResponse(page);
   const provenance = await captureProvenance(page);
   if (provenance.toolProvenance.length > 0) throw new Error("GENERATION_TOOL_USE_FORBIDDEN");
   const responseBytes = Buffer.from(response, "utf8");
   const responseSha256 = sha256(responseBytes);
-  const url = new URL(page.url());
-  const conversationMatch = url.pathname.match(/^\/c\/([A-Za-z0-9_-]+)\/?$/u);
-  if (!conversationMatch) throw new Error("TEMPORARY_CONVERSATION_ID_UNPROVABLE");
+  const currentIdentity = await pageRecoveryCandidate(page, "completed-response");
+  if (!currentIdentity || currentIdentity.requestMessageId !== requestIdentity.requestMessageId
+    || currentIdentity.normalizedUserMessageSha256 !== verifiedReceipt.sourceSha256
+    || currentIdentity.normalizedUserMessageUtf8Bytes !== verifiedReceipt.sourceUtf8Bytes) {
+    throw new Error("TEMPORARY_REQUEST_IDENTITY_UNPROVABLE");
+  }
   const completedAt = now();
   const provider = {
     surface: "CHATGPT_CONSUMER",
     modelVisibleLabel: EXPECTED_MODEL,
     reasoningVisibleLabel: EXPECTED_REASONING,
     reasoningOrdinal: null,
-    conversationId: conversationMatch[1],
+    conversationId: requestIdentity.conversationId,
+    requestMessageId: requestIdentity.requestMessageId,
     submittedAt: sentAt,
     completedAt,
     toolsUsed: false,
@@ -846,7 +859,8 @@ async function recoverExistingSubmission({ workspace, record, attempt }) {
     ...verifiedFields
   } = sent;
   const source = { sha256: sent.sourceSha256, utf8Bytes: sent.sourceUtf8Bytes };
-  const candidate = await exactRecoveryCandidate(source, sentIdentity?.conversationUrl ?? sent.conversationUrl ?? null);
+  const candidate = await exactRecoveryCandidate(source, sentIdentity?.conversationUrl ?? sent.conversationUrl ?? null,
+    sentIdentity?.requestMessageId ?? null);
   const recoveredAt = now();
   await writePrivateJson(join(runDirectory, `attempt-${attempt}-recovery.json`), {
     schemaVersion: 1,
@@ -859,6 +873,7 @@ async function recoverExistingSubmission({ workspace, record, attempt }) {
     matchingCandidateCount: 1,
     candidateId: candidate.candidateId,
     conversationUrl: candidate.url,
+    requestMessageId: candidate.requestMessageId,
     recoveredUserMessageSha256: candidate.normalizedUserMessageSha256,
     recoveredUserMessageUtf8Bytes: candidate.normalizedUserMessageUtf8Bytes,
     resent: false,
@@ -872,6 +887,11 @@ async function recoverExistingSubmission({ workspace, record, attempt }) {
     verifiedReceipt: { ...verifiedFields, state: "COMPOSER_VERIFIED", sentAt: null },
     sentAt: sent.sentAt ?? sent.sendInitiatedAt,
     recovered: true,
+    requestIdentity: {
+      conversationUrl: exactConversationUrl(candidate.url),
+      conversationId: exactConversationUrl(candidate.url)?.split("/").at(-1) ?? null,
+      requestMessageId: candidate.requestMessageId,
+    },
   });
 }
 
@@ -985,16 +1005,18 @@ async function runAttempt({ workspace, record, attempt, runtimeAttestation, expe
       conversationUrl: null, conversationId: null,
       automaticResendAllowed: false,
     });
-    const submitted = await waitForSubmittedConversationIdentity(page, source);
+    const submitted = await waitForSubmittedRequestIdentity(page, source);
     await writePrivateJson(join(runDirectory, `attempt-${attempt}-sent-identity.json`), {
       schemaVersion: 1, studyId: STUDY_ID, opaqueInputId: record.opaqueInputId, attempt,
       conversationUrl: submitted.conversationUrl,
-      conversationId: new URL(submitted.conversationUrl).pathname.split("/")[2],
+      conversationId: submitted.conversationId,
+      requestMessageId: submitted.requestMessageId,
       sourceSha256: source.sha256, sourceUtf8Bytes: source.utf8Bytes, observedAt: now(),
     });
     stage = "RESPONSE_CAPTURE";
     const result = await persistCompletedResponse({
       page, runDirectory, record, attempt, verifiedReceipt, sentAt, recovered: false,
+      requestIdentity: submitted,
     });
     const runtimeAfter = await verifyRuntime(expectedRuntimeHashes);
     await writePrivateJson(join(runDirectory, `attempt-${attempt}-post-response-runtime.json`), runtimeAfter);
@@ -1075,22 +1097,26 @@ async function runOne() {
   throw new Error("GENERATION_TRANSPORT_ATTEMPT_CEILING_EXHAUSTED");
 }
 
-async function persistCompletedJudgeResponse({ page, runDirectory, record, attempt, verifiedReceipt, sentAt, recovered, config }) {
+async function persistCompletedJudgeResponse({ page, runDirectory, record, attempt, verifiedReceipt, sentAt, recovered, config, requestIdentity }) {
   const response = await waitForCompleteResponse(page);
   const provenance = await captureProvenance(page);
   if (provenance.toolProvenance.length > 0) throw new Error("JUDGMENT_TOOL_USE_FORBIDDEN");
   const responseBytes = Buffer.from(response, "utf8");
   const responseSha256 = sha256(responseBytes);
-  const url = new URL(page.url());
-  const conversationMatch = url.pathname.match(/^\/c\/([A-Za-z0-9_-]+)\/?$/u);
-  if (!conversationMatch) throw new Error("TEMPORARY_CONVERSATION_ID_UNPROVABLE");
+  const currentIdentity = await pageRecoveryCandidate(page, "completed-judge-response");
+  if (!currentIdentity || currentIdentity.requestMessageId !== requestIdentity.requestMessageId
+    || currentIdentity.normalizedUserMessageSha256 !== verifiedReceipt.sourceSha256
+    || currentIdentity.normalizedUserMessageUtf8Bytes !== verifiedReceipt.sourceUtf8Bytes) {
+    throw new Error("TEMPORARY_REQUEST_IDENTITY_UNPROVABLE");
+  }
   const completedAt = now();
   const provider = {
     surface: "CHATGPT_CONSUMER",
     modelVisibleLabel: config.model,
     reasoningVisibleLabel: config.reasoning,
     reasoningOrdinal: config.providerReasoningOrdinal,
-    conversationId: conversationMatch[1],
+    conversationId: requestIdentity.conversationId,
+    requestMessageId: requestIdentity.requestMessageId,
     submittedAt: sentAt,
     completedAt,
     toolsUsed: false,
@@ -1125,19 +1151,26 @@ async function recoverExistingJudgeSubmission({ workspace, record, attempt, conf
   const { state: ignoredState, sentAt: ignoredSentAt, sendInitiatedAt: ignoredSendInitiatedAt,
     automaticResendAllowed: ignoredAutomaticResendAllowed, ...verifiedFields } = sent;
   const source = { sha256: sent.sourceSha256, utf8Bytes: sent.sourceUtf8Bytes };
-  const candidate = await exactRecoveryCandidate(source, sentIdentity?.conversationUrl ?? sent.conversationUrl ?? null);
+  const candidate = await exactRecoveryCandidate(source, sentIdentity?.conversationUrl ?? sent.conversationUrl ?? null,
+    sentIdentity?.requestMessageId ?? null);
   await writePrivateJson(join(runDirectory, `attempt-${attempt}-recovery.json`), {
     schemaVersion: 1, studyId: STUDY_ID, judge: config.judge,
     opaqueResponseId: record.opaqueResponseId, attempt, state: "RECOVERY_EXISTING_SUBMISSION",
     expectedUserMessageSha256: source.sha256, expectedUserMessageUtf8Bytes: source.utf8Bytes,
     matchingCandidateCount: 1, candidateId: candidate.candidateId, conversationUrl: candidate.url,
+    requestMessageId: candidate.requestMessageId,
     recoveredUserMessageSha256: candidate.normalizedUserMessageSha256,
     recoveredUserMessageUtf8Bytes: candidate.normalizedUserMessageUtf8Bytes,
     resent: false, recoveredAt: now(),
   });
   return persistCompletedJudgeResponse({ page: candidate.page, runDirectory, record, attempt,
     verifiedReceipt: { ...verifiedFields, state: "COMPOSER_VERIFIED", sentAt: null },
-    sentAt: sent.sentAt ?? sent.sendInitiatedAt, recovered: true, config });
+    sentAt: sent.sentAt ?? sent.sendInitiatedAt, recovered: true, config,
+    requestIdentity: {
+      conversationUrl: exactConversationUrl(candidate.url),
+      conversationId: exactConversationUrl(candidate.url)?.split("/").at(-1) ?? null,
+      requestMessageId: candidate.requestMessageId,
+    } });
 }
 
 async function runJudgeAttempt({ workspace, record, attempt, runtimeAttestation, expectedRuntimeHashes, config }) {
@@ -1193,17 +1226,18 @@ async function runJudgeAttempt({ workspace, record, attempt, runtimeAttestation,
       conversationUrl: null, conversationId: null,
       automaticResendAllowed: false,
     });
-    const submitted = await waitForSubmittedConversationIdentity(page, source);
+    const submitted = await waitForSubmittedRequestIdentity(page, source);
     await writePrivateJson(join(runDirectory, `attempt-${attempt}-sent-identity.json`), {
       schemaVersion: 1, studyId: STUDY_ID, judge: config.judge,
       opaqueResponseId: record.opaqueResponseId, attempt,
       conversationUrl: submitted.conversationUrl,
-      conversationId: new URL(submitted.conversationUrl).pathname.split("/")[2],
+      conversationId: submitted.conversationId,
+      requestMessageId: submitted.requestMessageId,
       sourceSha256: source.sha256, sourceUtf8Bytes: source.utf8Bytes, observedAt: now(),
     });
     stage = "RESPONSE_CAPTURE";
     const result = await persistCompletedJudgeResponse({ page, runDirectory, record, attempt,
-      verifiedReceipt, sentAt, recovered: false, config });
+      verifiedReceipt, sentAt, recovered: false, config, requestIdentity: submitted });
     const runtimeAfter = await verifyRuntime(expectedRuntimeHashes);
     await writePrivateJson(join(runDirectory, `attempt-${attempt}-post-response-runtime.json`), runtimeAfter);
     return result;
@@ -1453,16 +1487,18 @@ async function syntheticNormalPathAcceptance() {
     conversationUrl: null, conversationId: null,
     automaticResendAllowed: false,
   });
-  const submitted = await waitForSubmittedConversationIdentity(page, source);
+  const submitted = await waitForSubmittedRequestIdentity(page, source);
   await writePrivateJson(join(runDirectory, "sent-identity.json"), {
     schemaVersion: 1, studyId: STUDY_ID, opaqueInputId: record.opaqueInputId, attempt,
     conversationUrl: submitted.conversationUrl,
-    conversationId: new URL(submitted.conversationUrl).pathname.split("/")[2],
+    conversationId: submitted.conversationId,
+    requestMessageId: submitted.requestMessageId,
     sourceSha256: source.sha256, sourceUtf8Bytes: source.utf8Bytes, observedAt: now(),
   });
 
   const result = await persistCompletedResponse({
     page, runDirectory, record, attempt, verifiedReceipt, sentAt, recovered: false,
+    requestIdentity: submitted,
   });
   const response = (await readFile(join(runDirectory, "response.txt"), "utf8")).trim();
   if (response !== "ROUND4_OK") throw new Error("SYNTHETIC_RESPONSE_CONTENT_INVALID");
