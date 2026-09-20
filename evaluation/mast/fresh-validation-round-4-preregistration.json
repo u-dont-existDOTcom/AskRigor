@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
-  "studyId": "askrigor-mast-fresh-validation-round-3-20260919",
-  "name": "MAST Fresh Validation Round 3",
+  "studyId": "askrigor-mast-fresh-validation-round-4-20260919",
+  "name": "MAST Fresh Validation Round 4",
   "classification": "VALIDATION_NOT_CONFIRMATION",
-  "sourceDirectiveSha256": "16c302bc3b0646f6b86597ba53191dd1d5c37a3c98a6ff996a03d1c1f67c41d6",
+  "sourceDirectiveSha256": "8add457e8ff07131e8c8141889ae30ae8af01392567a8fe98da76854f0a89c6a",
   "bindings": {
-    "environmentSha256": "f894c7b7fdf10428cc8021b435ce84188d0f626b08b051261782f59b4cf9cc77",
-    "familyManifestSha256": "9a848c072bba245a8ad7cfd6898d93c691f492a61f4c4dde1cda0580d62fafd2"
+    "environmentSha256": "0408eb20500d79ea46f7bf63abba87fb8ea6b28f473b4271351c9b195f52fa14",
+    "familyManifestSha256": "d512ca927b88fb6e4fb0d620670938a2a0aabe0965160e7e19490229ee79df3d"
   },
   "sourceBindings": {
-    "askRigorBaselineCommit": "6da40dd8eab9f5eb51722733268abeb627d0b1ad",
-    "askRigorBaselineTree": "8b528664548dc8a4aac208ad8d4be265b11e84c0",
+    "askRigorBaselineCommit": "b67441959d73a667d87c08369aa9b5613c700738",
+    "askRigorBaselineTree": "2f370321615347df1a1aa7d3f6ffc470e04803d1",
     "mastCommit": "57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee",
     "mastTree": "f73e1cb717d3e76353b190abc13739d7f3476798",
     "universalSha256": "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2",
@@ -34,16 +34,22 @@
     "round2ValidationEligible": false,
     "round2SealedResponses": 1,
     "round2PlannedResponses": 144,
-    "round2TerminalRecordedAt": "2026-09-19T02:10:56.511Z",
+    "round2TerminalRecordedAt": "2026-09-20T02:10:56.511Z",
     "round2DispositionSha256": "594bb0d255ac3dcd1fd555a6397f50470451d80ad1a47e8dac090f5b7c3211bc",
     "round2ExposedFamilies": [
       "ID003",
       "GI007"
     ],
-    "round2FurtherPromptSubmissionsAuthorized": false
+    "round2FurtherPromptSubmissionsAuthorized": false,
+    "round3Status": "STOPPED_PRE_RESPONSE_1",
+    "round3ValidationEligible": false,
+    "round3SealedResponses": 0,
+    "round3PlannedResponses": 120,
+    "round3ExposedFamilies": [],
+    "round3FurtherPromptSubmissionsAuthorized": false
   },
   "cohort": {
-    "selectionMethod": "OWNER_EXPLICIT_TEN_FAMILY_ROUND_3_V1",
+    "selectionMethod": "OWNER_EXPLICIT_TEN_FAMILY_ROUND_4_V1",
     "validationFamilies": [
       "All006",
       "Card002",
@@ -62,7 +68,7 @@
     "reserveStatus": "LIMITED_RESERVE_NOT_CONFIRMATORY",
     "reserveLimitation": "One semantically untouched family remains; it is not a broad independent confirmation cohort.",
     "replacementFamiliesPermitted": false,
-    "selectionFixedBeforeRound3PayloadInspection": true
+    "selectionFixedBeforeRound4PayloadInspection": true
   },
   "design": {
     "arms": {
@@ -75,7 +81,7 @@
     "responseCount": 120,
     "primaryComparison": "D-B",
     "secondaryComparison": "D-C",
-    "dispatchSeedSha256": "b61c8b2cc74568949f0afc292a9b54593bc7dac8e862cfc896879bc76edebaf2",
+    "dispatchSeedSha256": "ee1833a010ef31a5475a148ef5ecce28f902b47e2ca7aa89215bf369c8ea927d",
     "dispatchSeedBytes": 32
   },
   "evaluationTarget": {
@@ -104,7 +110,7 @@
       "browserService": "askrigor-mast-round3-brave.service",
       "watchdogService": "askrigor-mast-round3-watchdog.service",
       "cdpEndpoint": "http://127.0.0.1:9224",
-      "privateRoot": "/home/cloudbrowser/.local/share/askrigor-mast-round3",
+      "privateRoot": "/home/cloudbrowser/.local/share/askrigor-mast-round4",
       "authenticatedMachineToMachinePacketTransfer": true,
       "fileAttachmentAllowed": false,
       "wrapperTextAllowed": false,
@@ -118,7 +124,9 @@
       "fullSourceDestinationComposerHashAndLengthEqualityRequired": true,
       "mismatchDisposition": "FAIL_CLOSED_BEFORE_SEND_WITH_STRUCTURED_RECEIPT",
       "runtimeHashAndProcessVerificationBeforeEverySend": true,
-      "liveSyntheticCrashRecoveryAcceptanceBeforeResponse1": true
+      "liveSyntheticNormalPathAcceptanceBeforeResponse1": true,
+      "deliberatePostSendBrowserRestartRequired": false,
+      "deterministicPreSendSupervisionAcceptanceRequired": true
     },
     "contentBasedRetry": false,
     "maximumPreSendAttemptsPerSlot": 2,
@@ -129,6 +137,8 @@
     "sendIntentPersistedBeforeClick": true,
     "sentReceiptPersistedImmediatelyAfterClick": true,
     "automaticResendAllowed": false,
+    "recoveryAttemptRequired": false,
+    "recoveryIfNaturallyAvailableAllowed": true,
     "recoveryState": "RECOVERY_EXISTING_SUBMISSION",
     "sameDedicatedProfileRequired": true,
     "exactNormalizedFullUserMessageSha256Required": true,
@@ -193,7 +203,7 @@
     "partialEfficacyClaimAllowed": false
   },
   "requiredPreGenerationVerification": [
-    "focused Round-3 harness and hostile recovery tests",
+    "focused Round-4 harness and hostile recovery tests",
     "service/runtime hash tamper tests",
     "browser missing and restart tests",
     "pre-Send and post-Send disconnect tests",
@@ -209,7 +219,8 @@
     "exact executable hash verification",
     "green freeze pull-request checks",
     "installed VPS runtime identity verification",
-    "live synthetic post-Send browser-kill recovery without resend"
+    "deterministic pre-Send supervision/restart/CDP/XRDP-independence tests with no model call",
+    "live synthetic normal-path completion, fresh-chat reset, and bounded service-health soak"
   ],
-  "finalNonclaim": "Round 3 is bounded fresh validation over the remaining eligible MAST families. A PASS is not proof of general clinical superiority, and All008 is not a broad independent confirmatory cohort."
+  "finalNonclaim": "Round 4 is bounded fresh validation over the remaining eligible MAST families. A PASS is not proof of general clinical superiority, and All008 is not a broad independent confirmatory cohort."
 }

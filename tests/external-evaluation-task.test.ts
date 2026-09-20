@@ -10,25 +10,25 @@ describe("external evaluation current-slice contract", () => {
       await readFile(rootFile("tasks/ACTIVE-TASK.json"), "utf8"),
     ) as Record<string, unknown>;
 
-    if (task.taskId === "askrigor-mast-fresh-validation-round-3-20260919") {
+    if (task.taskId === "askrigor-mast-fresh-validation-round-4-20260919") {
       expect(task).toMatchObject({
-        taskId: "askrigor-mast-fresh-validation-round-3-20260919",
-        status: "active_pre_response_1_durable_runtime_freeze",
+        taskId: "askrigor-mast-fresh-validation-round-4-20260919",
+        status: "active_pre_response_1_normal_path_freeze",
         exclusive: true,
-        requiredBranch: "task/mast-fresh-validation-round-3-20260919",
-        baselineCommit: "6da40dd8eab9f5eb51722733268abeb627d0b1ad",
+        requiredBranch: "task/mast-fresh-validation-round-4-20260919",
+        baselineCommit: "b67441959d73a667d87c08369aa9b5613c700738",
         ownerOutcomeStatus: "OPEN",
-        currentState: "docs/state/MAST-FRESH-VALIDATION-ROUND-3-CURRENT-STATE.md",
-        activeLessonContract: "docs/state/MAST-FRESH-VALIDATION-ROUND-3-ACTIVE-LESSON-CONTRACT.json",
+        currentState: "docs/state/MAST-FRESH-VALIDATION-ROUND-4-CURRENT-STATE.md",
+        activeLessonContract: "docs/state/MAST-FRESH-VALIDATION-ROUND-4-ACTIVE-LESSON-CONTRACT.json",
         preflightCommand: expect.stringContaining("verify-freeze"),
         completionCommand: expect.stringContaining("finalize"),
         targetedHardGates: expect.arrayContaining([
-          "No further Round-2 prompt submission under any condition",
+          "No further Round-2 or Round-3 prompt submission under any condition",
           "Never rerun a sealed generation or judgment; resume from sealed artifacts",
           "Any material post-response-1 drift invalidates validation status",
         ]),
         suspendedTaskSources: expect.arrayContaining([
-          "Round 2 branch, PR, and private artifacts except as immutable historical evidence",
+          "Round 2 and Round 3 branches, PRs, and private artifacts except as immutable historical evidence",
         ]),
       });
       return;
