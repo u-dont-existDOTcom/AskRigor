@@ -341,24 +341,20 @@ async function verifyTransfer() {
 }
 
 function judgeConfig(judge) {
-  if (judge === "J1" || judge === "J2") return {
-    judge, model: "GPT-5.6 Sol", reasoning: "Extra High", reasoningOrdinal: "4 of 5",
-    providerReasoningOrdinal: null, sliderNow: 3,
+  if (!["J1", "J2", "J3"].includes(judge)) throw new Error("ROUND_5_JUDGE_INVALID");
+  return {
+    judge,
+    modelSelectionPolicy: GENERATION_MODEL_SELECTION_POLICY,
+    reasoningSelectionPolicy: GENERATION_REASONING_SELECTION_POLICY,
   };
-  if (judge === "J3") return {
-    judge, model: "Latest", reasoning: "Pro", reasoningOrdinal: "5 of 5",
-    providerReasoningOrdinal: "5 of 5", sliderNow: 4,
-  };
-  throw new Error("ROUND_5_JUDGE_INVALID");
 }
 
 function validateJudgeManifest(manifest) {
   const config = judgeConfig(manifest?.judge);
   const expectedCount = config.judge === "J3" ? null : 120;
   if (manifest?.schemaVersion !== 1 || manifest?.studyId !== STUDY_ID
-    || manifest?.modelVisibleLabel !== config.model
-    || manifest?.reasoningVisibleLabel !== config.reasoning
-    || manifest?.reasoningOrdinal !== config.reasoningOrdinal
+    || manifest?.modelSelectionPolicy !== config.modelSelectionPolicy
+    || manifest?.reasoningSelectionPolicy !== config.reasoningSelectionPolicy
     || !Array.isArray(manifest.records)
     || (expectedCount !== null && manifest.records.length !== expectedCount)) {
     throw new Error("ROUND_5_JUDGE_MANIFEST_INVALID");
@@ -1235,9 +1231,13 @@ async function persistCompletedJudgeResponse({ page, runDirectory, record, attem
   const completedAt = now();
   const provider = {
     surface: "CHATGPT_CONSUMER",
-    modelVisibleLabel: config.model,
-    reasoningVisibleLabel: config.reasoning,
-    reasoningOrdinal: config.providerReasoningOrdinal,
+    modelVisibleLabel: verifiedReceipt.ui.modelVisibleLabel,
+    reasoningVisibleLabel: verifiedReceipt.ui.reasoningVisibleLabel,
+    reasoningOrdinal: verifiedReceipt.ui.reasoningOrdinal,
+    modelSelectionPolicy: verifiedReceipt.ui.modelSelectionPolicy,
+    modelSelectorIndex: verifiedReceipt.ui.modelSelectorIndex,
+    modelOptionCount: verifiedReceipt.ui.modelOptionCount,
+    reasoningSelectionPolicy: verifiedReceipt.ui.reasoningSelectionPolicy,
     conversationId: requestIdentity.conversationId,
     requestMessageId: requestIdentity.requestMessageId,
     submittedAt: sentAt,
@@ -1315,12 +1315,12 @@ async function runJudgeAttempt({ workspace, record, attempt, runtimeAttestation,
     stage = "FRESH_CHAT";
     await establishFreshTemporaryUnpersonalized(page);
     stage = "MODEL_SELECT";
-    await ensureModelAndReasoning(page, config);
+    const judgeSelection = await ensureExactModelAndReasoning(page);
     stage = "COMPOSER_INSERT";
     const composer = await insertAndVerifyComposer(page, packetText, source);
     observedComposerSha256 = composer.composerSha256;
     const send = await findSendButton(page);
-    const ui = await attestUi(page, tabCount, true, config);
+    const ui = await attestUi(page, tabCount, true, judgeSelection);
     const verifiedReceipt = {
       schemaVersion: 1, studyId: STUDY_ID, judge: config.judge,
       opaqueResponseId: record.opaqueResponseId, attempt, state: "COMPOSER_VERIFIED",

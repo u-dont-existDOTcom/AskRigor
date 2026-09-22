@@ -402,13 +402,11 @@ async function runGeneration() {
 }
 
 function judgeRuntimeConfig(judge: string) {
-  if (judge === "J1" || judge === "J2") return {
-    modelVisibleLabel: "GPT-5.6 Sol", reasoningVisibleLabel: "Extra High", reasoningOrdinal: "4 of 5",
+  if (!["J1", "J2", "J3"].includes(judge)) throw new Error("ROUND_5_JUDGE_INVALID");
+  return {
+    modelSelectionPolicy: "TOP_VISIBLE_SELECTABLE_MODEL" as const,
+    reasoningSelectionPolicy: "MAXIMUM_AVAILABLE" as const,
   };
-  if (judge === "J3") return {
-    modelVisibleLabel: "Latest", reasoningVisibleLabel: "Pro", reasoningOrdinal: "5 of 5",
-  };
-  throw new Error("ROUND_5_JUDGE_INVALID");
 }
 
 async function buildJudgeManifest(artifactRoot: string, judge: string) {
@@ -530,9 +528,7 @@ async function captureJudgeOne(input: { repositoryRoot: string; mastGitDirectory
   const transport = await readJson(join(staging, "transport-receipt.json"));
   const config = judgeRuntimeConfig(judge);
   if (transport.state !== "RESPONSE_COMPLETE" || transport.sourceSha256 !== record.expectedSha256
-    || transport.ui.modelVisibleLabel !== config.modelVisibleLabel
-    || transport.ui.reasoningVisibleLabel !== config.reasoningVisibleLabel
-    || transport.ui.reasoningOrdinal !== config.reasoningOrdinal
+    || !generationSelectionIsLatest(transport.ui)
     || transport.toolProvenance.length !== 0) {
     throw new Error("ROUND_5_JUDGMENT_TRANSPORT_RECEIPT_INVALID");
   }

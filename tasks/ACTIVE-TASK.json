@@ -23,7 +23,8 @@
     "Use one shared generation-provider schema containing required chatMode across outer capture and stored capture",
     "Never automatically resend after a Send may have occurred; exact-one full-message-hash recovery or whole-study INDETERMINATE stop",
     "Never rerun a sealed generation or judgment; resume from sealed artifacts",
-    "No unapproved post-response-1 drift is permitted; the sole model-selection change is the explicit owner amendment effective at sequence 27 and must remain separately provenance-bound"
+    "No unapproved post-response-1 drift is permitted; the sole model-selection change is the explicit owner amendment effective at sequence 27 and must remain separately provenance-bound",
+    "Before any J1/J2/J3 submission, select the top visible selectable model and maximum available reasoning; no judgment may use the stale hardcoded GPT-5.6 path"
   ],
   "suspendedTaskSources": [
     "Rounds 1\u20134 branches and private artifacts except immutable historical evidence",
@@ -47,6 +48,7 @@
       1,
       26
     ],
-    "noResendOfSealedOrCrossedSend": true
+    "noResendOfSealedOrCrossedSend": true,
+    "futureJudgmentSelectionPolicy": "TOP_VISIBLE_SELECTABLE_MODEL + MAXIMUM_AVAILABLE for J1/J2/J3 before first judgment"
   }
 }

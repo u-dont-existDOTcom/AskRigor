@@ -304,7 +304,9 @@ describe("Round 5 durable VPS runtime and recovery", () => {
     expect(transport).toContain("NO_RESEND_STOP_ROUND");
     expect(transport).toContain("automaticResendAllowed: false");
     expect(transport).toContain("run-judge-one");
-    expect(transport).toContain('model: "Latest", reasoning: "Pro", reasoningOrdinal: "5 of 5"');
+    expect(transport).toContain('modelSelectionPolicy: GENERATION_MODEL_SELECTION_POLICY');
+    expect(transport).toContain('reasoningSelectionPolicy: GENERATION_REASONING_SELECTION_POLICY');
+    expect(transport).toContain('const judgeSelection = await ensureExactModelAndReasoning(page)');
     expect(transport).toContain("ROUND_5_JUDGMENT_TRANSPORT_ATTEMPT_CEILING_EXHAUSTED");
     expect(transport).not.toMatch(/wl-copy|xclip|clipboard|cloudflared|trycloudflare|keyboard\.type/iu);
     expect(braveUnit).toContain("Restart=always");

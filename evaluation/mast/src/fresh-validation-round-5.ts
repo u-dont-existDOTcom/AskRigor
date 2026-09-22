@@ -73,6 +73,10 @@ export const providerReceiptSchema = z.object({
   toolsUsed: z.literal(false),
   freshConversation: z.literal(true),
   personalization: z.literal("UNPERSONALIZED"),
+  modelSelectionPolicy: z.literal("TOP_VISIBLE_SELECTABLE_MODEL").optional(),
+  modelSelectorIndex: z.literal(0).optional(),
+  modelOptionCount: z.number().int().positive().optional(),
+  reasoningSelectionPolicy: z.literal("MAXIMUM_AVAILABLE").optional(),
 }).strict();
 
 const legacyGenerationProviderReceiptSchema = providerReceiptSchema.extend({
@@ -141,7 +145,18 @@ export const judgmentCaptureSchema = z.object({
   if (record.benchmarkTargetConflictFlag !== (conflictActionIds.size > 0)) {
     context.addIssue({ code: "custom", message: "BENCHMARK_TARGET_CONFLICT_FLAG_ACTION_MISMATCH" });
   }
-  if (record.judge === "J1" || record.judge === "J2") {
+  const amendedProvider = record.provider.modelSelectionPolicy === "TOP_VISIBLE_SELECTABLE_MODEL";
+  if (amendedProvider) {
+    const ordinal = record.provider.reasoningOrdinal ?? "";
+    const match = /^(\d+) of (\d+)$/u.exec(ordinal);
+    if (record.provider.modelSelectorIndex !== 0
+      || !Number.isSafeInteger(record.provider.modelOptionCount)
+      || (record.provider.modelOptionCount ?? 0) < 1
+      || record.provider.reasoningSelectionPolicy !== "MAXIMUM_AVAILABLE"
+      || match === null || Number(match[1]) !== Number(match[2])) {
+      context.addIssue({ code: "custom", message: "AMENDED_JUDGE_CONFIGURATION_DRIFT" });
+    }
+  } else if (record.judge === "J1" || record.judge === "J2") {
     if (record.provider.modelVisibleLabel !== "GPT-5.6 Sol"
       || record.provider.reasoningVisibleLabel !== "Extra High"
       || record.provider.reasoningOrdinal !== null) {

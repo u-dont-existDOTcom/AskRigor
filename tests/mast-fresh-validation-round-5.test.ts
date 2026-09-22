@@ -322,6 +322,27 @@ describe("MAST Fresh Validation Round 5 schema, blinding, and completion boundar
       .toThrow("BENCHMARK_TARGET_CONFLICT_FLAG_ACTION_MISMATCH");
   });
 
+  it("admits owner-amended top-model judgment provenance for every judge and rejects nonmaximum reasoning", () => {
+    for (const judgeId of ["J1", "J2", "J3"] as const) {
+      const record: any = judgment(judgeId, "EVAL-000000000000000000000001");
+      record.provider = {
+        ...record.provider,
+        modelVisibleLabel: "Latest",
+        reasoningVisibleLabel: "Pro",
+        reasoningOrdinal: "5 of 5",
+        modelSelectionPolicy: "TOP_VISIBLE_SELECTABLE_MODEL",
+        modelSelectorIndex: 0,
+        modelOptionCount: 3,
+        reasoningSelectionPolicy: "MAXIMUM_AVAILABLE",
+      };
+      expect(judgmentCaptureSchema.parse(record).provider.modelVisibleLabel).toBe("Latest");
+      expect(() => judgmentCaptureSchema.parse({
+        ...record,
+        provider: { ...record.provider, reasoningOrdinal: "4 of 5" },
+      })).toThrow("AMENDED_JUDGE_CONFIGURATION_DRIFT");
+    }
+  });
+
   it("requires one integrity review for every unique flagged family/action target", () => {
     const mapping = [
       { generationLedgerRecordId: "run-000000000000000000000001",
