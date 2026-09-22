@@ -83,7 +83,12 @@ async function runtimeHashes(repositoryRoot: string) {
 async function writeExpectedRuntimeHashes(repositoryRoot: string, artifactRoot: string) {
   const observed = await runtimeHashes(repositoryRoot);
   const environment = await readJson(join(repositoryRoot, "evaluation/mast/fresh-validation-round-5-environment.json"));
-  if (canonicalJson(observed) !== canonicalJson(environment.runtimeFileHashes)) {
+  const amendment = await readJson(join(repositoryRoot,
+    "evaluation/mast/fresh-validation-round-5-owner-model-amendment-20260922.json"));
+  const expected = { ...environment.runtimeFileHashes };
+  const amendedTransportHash = amendment.executableHashOverrides?.["scripts/mast-vps-cdp-generation-round-5.mjs"];
+  if (typeof amendedTransportHash === "string") expected.transportScriptSha256 = amendedTransportHash;
+  if (canonicalJson(observed) !== canonicalJson(expected)) {
     throw new Error("ROUND_5_RUNTIME_HASH_MANIFEST_DRIFT");
   }
   const path = join(artifactRoot, "environment/expected-runtime-hashes.json");

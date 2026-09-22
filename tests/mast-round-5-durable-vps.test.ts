@@ -322,6 +322,8 @@ describe("Round 5 durable VPS runtime and recovery", () => {
     expect(orchestrator).toContain("systemctl kill --signal=KILL --kill-whom=main ${BROWSER_SERVICE}");
     expect(orchestrator).toContain("NO_RESEND_STOP_ROUND");
     expect(orchestrator).toContain("JSON.parse(verify.stdout.trim())");
+    expect(orchestrator).toContain("fresh-validation-round-5-owner-model-amendment-20260922.json");
+    expect(orchestrator).toContain('amendment.executableHashOverrides?.["scripts/mast-vps-cdp-generation-round-5.mjs"]');
     expect(orchestrator).not.toContain('verify.stdout.trim().split("\\n")');
   });
 });

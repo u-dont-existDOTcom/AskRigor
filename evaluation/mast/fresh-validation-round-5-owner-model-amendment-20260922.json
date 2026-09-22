@@ -43,9 +43,9 @@
     "evaluation/mast/src/durable-vps-round-5.ts": "3a9975eb8715dcaad62346d430496b45b2d38fe5fee21443acaff07497a6c71c",
     "scripts/mast-fresh-validation-round-5.mts": "753e1f3aeadd2bd919376504f2e0aa190fc6df08038d014ed566dd2b37e8d77a",
     "scripts/mast-vps-cdp-generation-round-5.mjs": "c8546f5d2e7ccd7ca477eca72bbbb2de69cd51bb3db74f04bc2c8d6acee150b8",
-    "scripts/mast-vps-round5-orchestrator.mts": "7e5b972adc1246a4f5fbfec46349732fd94b54fd481b6696b038533999042d4e",
+    "scripts/mast-vps-round5-orchestrator.mts": "a8d7b61de9b2edb8b74d984920af1f70ebe84413372cb61ffaf6393b4f49e178",
     "tests/mast-fresh-validation-round-5.test.ts": "447a4005541df0cd02f59d79d87f1dd9a6edaf19437c6d8ae7e7fd99764f6186",
-    "tests/mast-round-5-durable-vps.test.ts": "a7ae26d62b0aeb7404f7b8872cd51275e3bf7bb2619c30da33002ca30c37f68b"
+    "tests/mast-round-5-durable-vps.test.ts": "953151a0551175489300ff36c73f31b183d4dd6780736bfcad859d4825ff062a"
   },
   "ownerWordsSummary": "Use the latest/current top item in the model selector rather than GPT-5.6; prefer selector position over literal model naming.",
   "recordedAt": "2026-09-22T19:33:00Z",
