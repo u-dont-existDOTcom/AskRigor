@@ -693,25 +693,61 @@ async function captureProvenance(page) {
   });
 }
 
-async function pageRecoveryCandidate(page, candidateId) {
+async function pageRecoveryCandidate(page, candidateId, expectedSource = null) {
   try {
     await page.waitForLoadState("domcontentloaded", { timeout: 15_000 });
-    const snapshot = await page.evaluate(() => {
+    const snapshot = await page.evaluate(({ expectedUtf8Bytes }) => {
       const users = [...document.querySelectorAll("[data-message-author-role='user']")];
       const assistants = document.querySelectorAll("[data-message-author-role='assistant']");
       const user = users.length === 1 && users[0] instanceof HTMLElement ? users[0] : null;
-      const text = user?.innerText ?? null;
+      const renderedText = user?.innerText ?? null;
       const requestMessageId = user?.getAttribute("data-message-id") ?? null;
-      return { userMessageCount: users.length, assistantMessageCount: assistants.length, text, requestMessageId };
-    });
-    if (snapshot.userMessageCount !== 1 || snapshot.assistantMessageCount > 1 || snapshot.text === null) return null;
-    const identity = textIdentity(snapshot.text);
+      const rawCandidates = [];
+      if (user && Number.isSafeInteger(expectedUtf8Bytes) && expectedUtf8Bytes > 0) {
+        const propsKey = Object.getOwnPropertyNames(user).find((key) => key.startsWith("__reactProps$"));
+        const root = propsKey ? user[propsKey] : null;
+        const seen = new WeakSet();
+        const stack = root && typeof root === "object" ? [[root, 0]] : [];
+        const encoder = new TextEncoder();
+        let visited = 0;
+        while (stack.length > 0 && visited < 50_000 && rawCandidates.length < 8) {
+          const [value, depth] = stack.pop();
+          visited += 1;
+          if (typeof value === "string") {
+            const normalized = value.replace(/\r\n?/gu, "\n");
+            if (encoder.encode(normalized).byteLength === expectedUtf8Bytes
+              && !rawCandidates.includes(normalized)) rawCandidates.push(normalized);
+            continue;
+          }
+          if (!value || typeof value !== "object" || depth > 12 || seen.has(value)) continue;
+          seen.add(value);
+          for (const [key, child] of Object.entries(value)) {
+            if (key === "return" || key === "_owner" || key === "stateNode") continue;
+            stack.push([child, depth + 1]);
+          }
+        }
+      }
+      return {
+        userMessageCount: users.length, assistantMessageCount: assistants.length,
+        renderedText, requestMessageId, rawCandidates,
+      };
+    }, { expectedUtf8Bytes: expectedSource?.utf8Bytes ?? null });
+    if (snapshot.userMessageCount !== 1 || snapshot.assistantMessageCount > 1 || snapshot.renderedText === null) return null;
+    const renderedIdentity = textIdentity(snapshot.renderedText);
+    const rawIdentity = expectedSource === null ? null : snapshot.rawCandidates
+      .map((value) => textIdentity(value))
+      .find((identity) => identity.sha256 === expectedSource.sha256
+        && identity.utf8Bytes === expectedSource.utf8Bytes) ?? null;
+    const identity = rawIdentity ?? renderedIdentity;
     return {
       page,
       candidateId,
       url: page.url(),
       normalizedUserMessageSha256: identity.sha256,
       normalizedUserMessageUtf8Bytes: identity.utf8Bytes,
+      rawMessageIdentityProven: rawIdentity !== null,
+      renderedUserMessageSha256: renderedIdentity.sha256,
+      renderedUserMessageUtf8Bytes: renderedIdentity.utf8Bytes,
       requestMessageId: snapshot.requestMessageId,
       userMessageCount: 1,
       assistantMessageCount: snapshot.assistantMessageCount,
@@ -735,7 +771,7 @@ function exactConversationUrl(value) {
 async function waitForSubmittedRequestIdentity(page, source) {
   const deadline = Date.now() + 60_000;
   while (Date.now() < deadline) {
-    const candidate = await pageRecoveryCandidate(page, "submitted-conversation");
+    const candidate = await pageRecoveryCandidate(page, "submitted-conversation", source);
     const conversationUrl = exactConversationUrl(candidate?.url);
     if (candidate
       && candidate.normalizedUserMessageSha256 === source.sha256
@@ -767,10 +803,11 @@ async function exactRecoveryCandidate(source, preferredConversationUrl = null, e
       const inventory = inventoryPages(browser.contexts());
       if (inventory.length > 2) throw new Error("BROWSER_TAB_CEILING_EXCEEDED");
       const candidates = (await Promise.all(inventory.map(({ page }, index) => (
-        pageRecoveryCandidate(page, `tab-${index + 1}`)
+        pageRecoveryCandidate(page, `tab-${index + 1}`, source)
       )))).filter(Boolean);
       const matching = candidates.filter((candidate) => (
-        candidate.normalizedUserMessageSha256 === source.sha256
+        candidate.rawMessageIdentityProven === true
+          && candidate.normalizedUserMessageSha256 === source.sha256
           && candidate.normalizedUserMessageUtf8Bytes === source.utf8Bytes
           && (expectedRequestMessageId === null || candidate.requestMessageId === expectedRequestMessageId)
       ));
@@ -798,8 +835,11 @@ async function persistCompletedResponse({ page, runDirectory, record, attempt, v
   if (provenance.toolProvenance.length > 0) throw new Error("GENERATION_TOOL_USE_FORBIDDEN");
   const responseBytes = Buffer.from(response, "utf8");
   const responseSha256 = sha256(responseBytes);
-  const currentIdentity = await pageRecoveryCandidate(page, "completed-response");
-  if (!currentIdentity || currentIdentity.requestMessageId !== requestIdentity.requestMessageId
+  const currentIdentity = await pageRecoveryCandidate(page, "completed-response", {
+    sha256: verifiedReceipt.sourceSha256, utf8Bytes: verifiedReceipt.sourceUtf8Bytes,
+  });
+  if (!currentIdentity || currentIdentity.rawMessageIdentityProven !== true
+    || currentIdentity.requestMessageId !== requestIdentity.requestMessageId
     || currentIdentity.normalizedUserMessageSha256 !== verifiedReceipt.sourceSha256
     || currentIdentity.normalizedUserMessageUtf8Bytes !== verifiedReceipt.sourceUtf8Bytes) {
     throw new Error("TEMPORARY_REQUEST_IDENTITY_UNPROVABLE");
@@ -1059,7 +1099,7 @@ async function runOne() {
     process.exit(0);
   }
   const runtimeAttestation = await verifyRuntime(expectedRuntimeHashes);
-  if (await exists(join(runDirectory, "ambiguity-receipt.json"))) throw new Error("POST_SEND_AMBIGUITY_REQUIRES_STOP");
+  const ambiguityPresent = await exists(join(runDirectory, "ambiguity-receipt.json"));
   if (await exists(runDirectory)) {
     const submissionAttempts = [...new Set((await readdir(runDirectory)).map((name) => (
       /^attempt-(\d+)-(?:send-intent|sent)\.json$/u.exec(name)?.[1]
@@ -1081,6 +1121,7 @@ async function runOne() {
       }
     }
   }
+  if (ambiguityPresent) throw new Error("POST_SEND_AMBIGUITY_REQUIRES_STOP");
   let prior = await priorAttemptCount(runDirectory);
   while (prior < MAXIMUM_ATTEMPTS) {
     const attempt = prior + 1;
@@ -1103,8 +1144,11 @@ async function persistCompletedJudgeResponse({ page, runDirectory, record, attem
   if (provenance.toolProvenance.length > 0) throw new Error("JUDGMENT_TOOL_USE_FORBIDDEN");
   const responseBytes = Buffer.from(response, "utf8");
   const responseSha256 = sha256(responseBytes);
-  const currentIdentity = await pageRecoveryCandidate(page, "completed-judge-response");
-  if (!currentIdentity || currentIdentity.requestMessageId !== requestIdentity.requestMessageId
+  const currentIdentity = await pageRecoveryCandidate(page, "completed-judge-response", {
+    sha256: verifiedReceipt.sourceSha256, utf8Bytes: verifiedReceipt.sourceUtf8Bytes,
+  });
+  if (!currentIdentity || currentIdentity.rawMessageIdentityProven !== true
+    || currentIdentity.requestMessageId !== requestIdentity.requestMessageId
     || currentIdentity.normalizedUserMessageSha256 !== verifiedReceipt.sourceSha256
     || currentIdentity.normalizedUserMessageUtf8Bytes !== verifiedReceipt.sourceUtf8Bytes) {
     throw new Error("TEMPORARY_REQUEST_IDENTITY_UNPROVABLE");
@@ -1276,7 +1320,7 @@ async function runJudgeOne() {
     process.exit(0);
   }
   const runtimeAttestation = await verifyRuntime(expectedRuntimeHashes);
-  if (await exists(join(runDirectory, "ambiguity-receipt.json"))) throw new Error("POST_SEND_AMBIGUITY_REQUIRES_STOP");
+  const ambiguityPresent = await exists(join(runDirectory, "ambiguity-receipt.json"));
   if (await exists(runDirectory)) {
     const submissionAttempts = [...new Set((await readdir(runDirectory)).map((name) => (
       /^attempt-(\d+)-(?:send-intent|sent)\.json$/u.exec(name)?.[1]
@@ -1297,6 +1341,7 @@ async function runJudgeOne() {
       }
     }
   }
+  if (ambiguityPresent) throw new Error("POST_SEND_AMBIGUITY_REQUIRES_STOP");
   let prior = await priorAttemptCount(runDirectory);
   while (prior < MAXIMUM_JUDGE_ATTEMPTS) {
     const attempt = prior + 1;

@@ -252,6 +252,9 @@ describe("Round 5 durable VPS runtime and recovery", () => {
     expect(transport).toContain("RECOVERY_EXISTING_SUBMISSION");
     expect(transport).toContain("ROUND_5_RECOVERY_CANDIDATE_MULTIPLE");
     expect(transport).toContain("waitForSubmittedRequestIdentity");
+    expect(transport).toContain('key.startsWith("__reactProps$")');
+    expect(transport).toContain("rawMessageIdentityProven");
+    expect(transport).toContain("renderedUserMessageSha256");
     expect(transport).toContain("const temporaryDeadline = Date.now() + 10_000");
     expect(transport).toContain("TEMPORARY_CHAT_STATE_AMBIGUOUS");
     expect(transport).toContain("ROUND_5_SUBMITTED_CONVERSATION_IDENTITY_NOT_OBSERVED");
