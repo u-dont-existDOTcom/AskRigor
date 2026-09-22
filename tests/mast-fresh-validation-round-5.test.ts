@@ -169,7 +169,7 @@ describe("MAST Fresh Validation Round 5 schema, blinding, and completion boundar
       "evaluation/mast/fresh-validation-round-5-owner-model-amendment-20260922.json"), "utf8"));
     expect(amendment).toMatchObject({
       amendmentId: "ROUND5-OWNER-LATEST-MODEL-20260922",
-      effectiveGenerationSequence: 26,
+      effectiveGenerationSequence: 27,
       baseEnvironmentSha256: preregistration.bindings.environmentSha256,
       baseFamilyManifestSha256: preregistration.bindings.familyManifestSha256,
     });

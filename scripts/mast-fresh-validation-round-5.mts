@@ -192,7 +192,7 @@ async function verifyFrozenSources(mastGitDirectory: string): Promise<JsonObject
   const ownerAmendment = await readJson(ownerModelAmendmentPath);
   if (ownerAmendment.studyId !== ROUND_5_STUDY_ID
     || ownerAmendment.amendmentId !== "ROUND5-OWNER-LATEST-MODEL-20260922"
-    || ownerAmendment.effectiveGenerationSequence !== 26
+    || ownerAmendment.effectiveGenerationSequence !== 27
     || ownerAmendment.basePreregistrationSha256 !== sha256(await readFile(preregistrationPath))
     || ownerAmendment.baseEnvironmentSha256 !== preregistration.bindings.environmentSha256
     || ownerAmendment.baseFamilyManifestSha256 !== preregistration.bindings.familyManifestSha256) {
@@ -243,7 +243,7 @@ async function verifyRuntimeBinding(mastGitDirectory: string, artifactRoot: stri
     if (amendmentReceipt.studyId !== ROUND_5_STUDY_ID
       || amendmentReceipt.amendmentId !== "ROUND5-OWNER-LATEST-MODEL-20260922"
       || amendmentReceipt.ownerAuthorized !== true
-      || amendmentReceipt.effectiveGenerationSequence !== 26
+      || amendmentReceipt.effectiveGenerationSequence !== 27
       || amendmentReceipt.baseAskRigorCommit !== freeze.identities.askRigorCommit
       || amendmentReceipt.baseAskRigorTree !== freeze.identities.askRigorTree
       || amendmentReceipt.amendedAskRigorCommit !== verification.identities.askRigorCommit
