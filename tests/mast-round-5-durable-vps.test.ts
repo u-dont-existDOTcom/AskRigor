@@ -15,6 +15,7 @@ import {
   ROUND_5_WATCHDOG_SERVICE,
   selectExactRecoveryCandidate,
   sentReceiptSchema,
+  uiAttestationSchema,
   verifyRuntimeFileHashes,
 } from "../evaluation/mast/src/durable-vps-round-5.js";
 import {
@@ -185,6 +186,33 @@ describe("Round 5 durable VPS runtime and recovery", () => {
       .toThrow("ROUND_5_SENT_IDENTITY_MISMATCH");
   });
 
+  it("admits the owner-amended top-model maximum-reasoning generation UI while preserving legacy receipts", () => {
+    const source = normalizedTextIdentity("packet");
+    const legacy = {
+      schemaVersion: 1 as const, observedAt: instant, origin: "https://chatgpt.com" as const,
+      modelVisibleLabel: "GPT-5.6 Sol" as const, reasoningVisibleLabel: "Extra High" as const,
+      reasoningOrdinal: "4 of 5" as const, chatMode: "TEMPORARY" as const,
+      personalization: "UNPERSONALIZED" as const, authenticated: true as const,
+      freshConversation: true as const, userMessageCount: 0 as const, assistantMessageCount: 0 as const,
+      attachmentCount: 0 as const, sendEnabled: true as const,
+    };
+    expect(uiAttestationSchema.parse(legacy).modelVisibleLabel).toBe("GPT-5.6 Sol");
+    const amended = {
+      ...legacy,
+      modelVisibleLabel: "Latest",
+      reasoningVisibleLabel: "Pro",
+      reasoningOrdinal: "5 of 5",
+      modelSelectionPolicy: "TOP_VISIBLE_SELECTABLE_MODEL" as const,
+      modelSelectorIndex: 0 as const,
+      modelOptionCount: 3,
+      reasoningSelectionPolicy: "MAXIMUM_AVAILABLE" as const,
+    };
+    expect(uiAttestationSchema.parse(amended).modelVisibleLabel).toBe("Latest");
+    expect(() => uiAttestationSchema.parse({ ...amended, reasoningOrdinal: "4 of 5" })).toThrow();
+    expect(() => uiAttestationSchema.parse({ ...amended, modelSelectorIndex: 1 })).toThrow();
+    expect(source.sha256).toHaveLength(64);
+  });
+
   it("rejects wrong model, effort, session, personalization, and transport provenance", () => {
     const source = normalizedTextIdentity("packet");
     const runtime = {
@@ -254,6 +282,11 @@ describe("Round 5 durable VPS runtime and recovery", () => {
     expect(transport).toContain("waitForSubmittedRequestIdentity");
     expect(transport).toContain('key.startsWith("__reactProps$")');
     expect(transport).toContain("rawMessageIdentityProven");
+    expect(transport).toContain('GENERATION_MODEL_SELECTION_POLICY = "TOP_VISIBLE_SELECTABLE_MODEL"');
+    expect(transport).toContain('GENERATION_REASONING_SELECTION_POLICY = "MAXIMUM_AVAILABLE"');
+    expect(transport).toContain('menu.locator("[role=\'menuitemradio\']")');
+    expect(transport).toContain(".nth(0)");
+    expect(transport).toContain("observation.sliderMax");
     expect(transport).toContain("renderedUserMessageSha256");
     expect(transport).toContain("const temporaryDeadline = Date.now() + 30_000");
     expect(transport).toContain("TEMPORARY_CHAT_STATE_AMBIGUOUS");

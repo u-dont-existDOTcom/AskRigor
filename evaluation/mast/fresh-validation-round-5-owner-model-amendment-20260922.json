@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "studyId": "askrigor-mast-fresh-validation-round-5-20260920",
+  "amendmentId": "ROUND5-OWNER-LATEST-MODEL-20260922",
+  "status": "OWNER_AUTHORIZED_ACTIVE",
+  "authority": "explicit current owner correction",
+  "effectiveGenerationSequence": 26,
+  "legacyGenerationSequences": {
+    "first": 1,
+    "last": 25,
+    "modelVisibleLabel": "GPT-5.6 Sol",
+    "reasoningVisibleLabel": "Extra High"
+  },
+  "amendedGenerationSelection": {
+    "modelSelectionPolicy": "TOP_VISIBLE_SELECTABLE_MODEL",
+    "modelSelectorIndex": 0,
+    "reasoningSelectionPolicy": "MAXIMUM_AVAILABLE",
+    "visibleLabelIsRecordedNotHardcoded": true
+  },
+  "unchangedScientificInputs": [
+    "generation prompt bytes",
+    "family cohort",
+    "arm construction",
+    "trial order",
+    "benchmark source",
+    "decision rule",
+    "no-tool requirement",
+    "no-resend rule"
+  ],
+  "interpretationBoundary": "The final Round-5 result is owner-amended and mixed-model across the generation boundary. It must not be represented as a homogeneous GPT-5.6 generation run.",
+  "baseFreeze": {
+    "askRigorCommit": "931a0cab893b7532c7a78356fc4dfeffc4ca7017",
+    "askRigorTree": "4c558dfaeee18b2138b2a0b8a41c9c13527b172d",
+    "mastCommit": "57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee",
+    "mastTree": "f73e1cb717d3e76353b190abc13739d7f3476798"
+  },
+  "basePreregistrationSha256": "cb444a54dae01865b866d4e57279c55c1c8b14a8689b2d9d0bf66118f07f1f0c",
+  "baseEnvironmentSha256": "343a1724ded3aabd32d7adf36dc5a5b3d2a913e5c34a438705af163de6e17bef",
+  "baseFamilyManifestSha256": "b1fc5a4fc6edf9dc352682680d894d1a02a9a3ad6bde5a50b6d3488d70804dbf",
+  "executableHashOverrides": {
+    "evaluation/mast/src/fresh-validation-round-5.ts": "1d2779737de581d07e33140959575b4be389769e5deaf1973ae27ffc9c78ba11",
+    "evaluation/mast/src/chatgpt-browser-transport-round-5.ts": "6ad07cd1c3537463292602f8ec742e9abd78161eae0075aa9b124c10d24583fa",
+    "evaluation/mast/src/durable-vps-round-5.ts": "3a9975eb8715dcaad62346d430496b45b2d38fe5fee21443acaff07497a6c71c",
+    "scripts/mast-fresh-validation-round-5.mts": "7e44e8bffd3ee6cee475cf684ed0df97acd21bc8c8e1ebb34387b21daf334cca",
+    "scripts/mast-vps-cdp-generation-round-5.mjs": "2cf534b03f7fd0d3fc44c9f4cda34df14749daeb3df937599e2451128e0ff3c4",
+    "scripts/mast-vps-round5-orchestrator.mts": "05daf8618d14acfa7878160286b377fec53f25afb8a4b308522e053ffd0d41b5",
+    "tests/mast-fresh-validation-round-5.test.ts": "25c3c111c60df0e5861aff5b21cc7100dcc331376b4e70c144252452d2b599a9",
+    "tests/mast-round-5-durable-vps.test.ts": "8030e7fa2a600629bd96c9ac4a8439760c1533754a0c0eccf79c74f9bcd858d1"
+  },
+  "ownerWordsSummary": "Use the latest/current top item in the model selector rather than GPT-5.6; prefer selector position over literal model naming.",
+  "recordedAt": "2026-09-22T19:33:00Z"
+}

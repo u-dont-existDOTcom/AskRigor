@@ -165,8 +165,17 @@ describe("MAST Fresh Validation Round 5 schema, blinding, and completion boundar
       "evaluation/mast/fresh-validation-round-5-environment.json"), "utf8"));
     const preregistration = JSON.parse(readFileSync(resolve(root,
       "evaluation/mast/fresh-validation-round-5-preregistration.json"), "utf8"));
+    const amendment = JSON.parse(readFileSync(resolve(root,
+      "evaluation/mast/fresh-validation-round-5-owner-model-amendment-20260922.json"), "utf8"));
+    expect(amendment).toMatchObject({
+      amendmentId: "ROUND5-OWNER-LATEST-MODEL-20260922",
+      effectiveGenerationSequence: 26,
+      baseEnvironmentSha256: preregistration.bindings.environmentSha256,
+      baseFamilyManifestSha256: preregistration.bindings.familyManifestSha256,
+    });
     for (const [path, expected] of Object.entries(environment.executableHashManifest) as Array<[string, string]>) {
-      expect(createHash("sha256").update(readFileSync(resolve(root, path))).digest("hex")).toBe(expected);
+      const actual = createHash("sha256").update(readFileSync(resolve(root, path))).digest("hex");
+      expect(actual === expected || amendment.executableHashOverrides[path] === actual).toBe(true);
     }
     expect(createHash("sha256").update(readFileSync(resolve(root,
       "docs/directives/2026-09-20-mast-fresh-validation-round-5.md"))).digest("hex"))
@@ -265,6 +274,38 @@ describe("MAST Fresh Validation Round 5 schema, blinding, and completion boundar
       provider: { ...base.provider, reasoningVisibleLabel: "High" } })).toThrow();
     expect(() => generationCaptureSchema.parse({ ...base,
       provider: { ...base.provider, toolsUsed: true } })).toThrow();
+  });
+
+  it("admits owner-amended top-model generation provenance only with maximum reasoning proof", () => {
+    const base: any = {
+      schemaVersion: 1,
+      studyId: ROUND_5_STUDY_ID,
+      opaqueInputId: "run-000000000000000000000001",
+      exactInputSha256: digest("input"),
+      exactOutputSha256: digest("output"),
+      outputUtf8Bytes: 10,
+      transportReceiptSha256: digest("transport"),
+      provider: {
+        ...provider("GENERATION"),
+        modelVisibleLabel: "Latest",
+        reasoningVisibleLabel: "Pro",
+        reasoningOrdinal: "5 of 5",
+        modelSelectionPolicy: "TOP_VISIBLE_SELECTABLE_MODEL",
+        modelSelectorIndex: 0,
+        modelOptionCount: 3,
+        reasoningSelectionPolicy: "MAXIMUM_AVAILABLE",
+        chatMode: "TEMPORARY",
+      },
+    };
+    expect(generationCaptureSchema.parse(base).provider.modelVisibleLabel).toBe("Latest");
+    expect(() => generationCaptureSchema.parse({
+      ...base,
+      provider: { ...base.provider, reasoningOrdinal: "4 of 5" },
+    })).toThrow();
+    expect(() => generationCaptureSchema.parse({
+      ...base,
+      provider: { ...base.provider, modelSelectorIndex: 1 },
+    })).toThrow();
   });
 
   it("rejects malformed score types and preserves the established J3 configuration", () => {

@@ -75,12 +75,31 @@ export const providerReceiptSchema = z.object({
   personalization: z.literal("UNPERSONALIZED"),
 }).strict();
 
-export const generationProviderReceiptSchema = providerReceiptSchema.extend({
+const legacyGenerationProviderReceiptSchema = providerReceiptSchema.extend({
   modelVisibleLabel: z.literal("GPT-5.6 Sol"),
   reasoningVisibleLabel: z.literal("Extra High"),
   reasoningOrdinal: z.null(),
   chatMode: z.literal("TEMPORARY"),
 });
+
+const amendedGenerationProviderReceiptSchema = providerReceiptSchema.extend({
+  modelVisibleLabel: z.string().min(1),
+  reasoningVisibleLabel: z.string().min(1),
+  reasoningOrdinal: z.string().regex(/^\d+ of \d+$/u),
+  modelSelectionPolicy: z.literal("TOP_VISIBLE_SELECTABLE_MODEL"),
+  modelSelectorIndex: z.literal(0),
+  modelOptionCount: z.number().int().positive(),
+  reasoningSelectionPolicy: z.literal("MAXIMUM_AVAILABLE"),
+  chatMode: z.literal("TEMPORARY"),
+}).superRefine((provider, context) => {
+  const [position, count] = provider.reasoningOrdinal.split(" of ").map(Number);
+  if (position !== count) context.addIssue({ code: "custom", message: "GENERATION_PROVIDER_REASONING_NOT_MAXIMUM" });
+});
+
+export const generationProviderReceiptSchema = z.union([
+  legacyGenerationProviderReceiptSchema,
+  amendedGenerationProviderReceiptSchema,
+]);
 
 export const generationCaptureSchema = z.object({
   schemaVersion: z.literal(1),

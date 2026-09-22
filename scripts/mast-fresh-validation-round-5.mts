@@ -42,6 +42,7 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const preregistrationPath = resolve(root, "evaluation/mast/fresh-validation-round-5-preregistration.json");
 const environmentPath = resolve(root, "evaluation/mast/fresh-validation-round-5-environment.json");
 const familyManifestPath = resolve(root, "evaluation/mast/fresh-validation-round-5-family-manifest.json");
+const ownerModelAmendmentPath = resolve(root, "evaluation/mast/fresh-validation-round-5-owner-model-amendment-20260922.json");
 const primaryJudgePromptPath = resolve(root, "evaluation/mast/prompts/fresh-round-5-primary-judge.md");
 const adjudicatorPromptPath = resolve(root, "evaluation/mast/prompts/fresh-round-5-adjudicator.md");
 
@@ -188,8 +189,18 @@ async function verifyFrozenSources(mastGitDirectory: string): Promise<JsonObject
     || sha256(hrpBytes) !== environment.askRigor.hrp.sha256) {
     throw new Error("ROUND_5_PROTOCOL_SOURCE_DRIFT");
   }
+  const ownerAmendment = await readJson(ownerModelAmendmentPath);
+  if (ownerAmendment.studyId !== ROUND_5_STUDY_ID
+    || ownerAmendment.amendmentId !== "ROUND5-OWNER-LATEST-MODEL-20260922"
+    || ownerAmendment.effectiveGenerationSequence !== 26
+    || ownerAmendment.basePreregistrationSha256 !== sha256(await readFile(preregistrationPath))
+    || ownerAmendment.baseEnvironmentSha256 !== preregistration.bindings.environmentSha256
+    || ownerAmendment.baseFamilyManifestSha256 !== preregistration.bindings.familyManifestSha256) {
+    throw new Error("ROUND_5_OWNER_MODEL_AMENDMENT_BINDING_INVALID");
+  }
   for (const [relativePath, expected] of Object.entries(environment.executableHashManifest) as Array<[string, string]>) {
-    if (sha256(await readFile(resolve(root, relativePath))) !== expected) {
+    const actual = sha256(await readFile(resolve(root, relativePath)));
+    if (actual !== expected && ownerAmendment.executableHashOverrides?.[relativePath] !== actual) {
       throw new Error(`ROUND_5_EXECUTABLE_HASH_DRIFT:${relativePath}`);
     }
   }
@@ -208,6 +219,7 @@ async function verifyFrozenSources(mastGitDirectory: string): Promise<JsonObject
     preregistrationSha256: sha256(await readFile(preregistrationPath)),
     environmentSha256: sha256(await readFile(environmentPath)),
     familyManifestSha256: sha256(await readFile(familyManifestPath)),
+    ownerModelAmendmentSha256: sha256(await readFile(ownerModelAmendmentPath)),
     identifierOnlyFamilyCount: ids.length,
     activeTaskAndBranchVerified: true,
     executableHashManifestVerified: true,
@@ -218,14 +230,27 @@ async function verifyRuntimeBinding(mastGitDirectory: string, artifactRoot: stri
   const verification = await verifyFrozenSources(mastGitDirectory);
   const freeze = await readJson(resolve(artifactRoot, "freeze/freeze-receipt.json"));
   if (freeze.studyId !== ROUND_5_STUDY_ID
-    || freeze.identities.askRigorCommit !== verification.identities.askRigorCommit
-    || freeze.identities.askRigorTree !== verification.identities.askRigorTree
     || freeze.identities.mastCommit !== verification.identities.mastCommit
     || freeze.identities.mastTree !== verification.identities.mastTree
     || freeze.preregistrationSha256 !== verification.preregistrationSha256
     || freeze.environmentSha256 !== verification.environmentSha256
     || freeze.familyManifestSha256 !== verification.familyManifestSha256) {
     throw new Error("ROUND_5_RUNTIME_SOURCE_BINDING_MISMATCH");
+  }
+  if (freeze.identities.askRigorCommit !== verification.identities.askRigorCommit
+    || freeze.identities.askRigorTree !== verification.identities.askRigorTree) {
+    const amendmentReceipt = await readJson(resolve(artifactRoot, "amendments/owner-model-selection-20260922.json"));
+    if (amendmentReceipt.studyId !== ROUND_5_STUDY_ID
+      || amendmentReceipt.amendmentId !== "ROUND5-OWNER-LATEST-MODEL-20260922"
+      || amendmentReceipt.ownerAuthorized !== true
+      || amendmentReceipt.effectiveGenerationSequence !== 26
+      || amendmentReceipt.baseAskRigorCommit !== freeze.identities.askRigorCommit
+      || amendmentReceipt.baseAskRigorTree !== freeze.identities.askRigorTree
+      || amendmentReceipt.amendedAskRigorCommit !== verification.identities.askRigorCommit
+      || amendmentReceipt.amendedAskRigorTree !== verification.identities.askRigorTree
+      || amendmentReceipt.publicAmendmentSha256 !== verification.ownerModelAmendmentSha256) {
+      throw new Error("ROUND_5_OWNER_MODEL_AMENDMENT_RECEIPT_INVALID");
+    }
   }
   return verification;
 }

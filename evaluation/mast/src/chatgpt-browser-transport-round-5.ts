@@ -39,7 +39,7 @@ export const composerObservationSchema = z.object({
   composerSha256: digestSchema,
 }).strict();
 
-export const generationUiAttestationSchema = z.object({
+const legacyGenerationUiAttestationSchema = z.object({
   schemaVersion: z.literal(1),
   observedAt: instantSchema,
   origin: z.literal("https://chatgpt.com"),
@@ -55,6 +55,35 @@ export const generationUiAttestationSchema = z.object({
   attachmentCount: z.literal(0),
   sendEnabled: z.literal(true),
 }).strict();
+
+const amendedGenerationUiAttestationSchema = z.object({
+  schemaVersion: z.literal(1),
+  observedAt: instantSchema,
+  origin: z.literal("https://chatgpt.com"),
+  modelVisibleLabel: z.string().min(1),
+  reasoningVisibleLabel: z.string().min(1),
+  reasoningOrdinal: z.string().regex(/^\d+ of \d+$/u),
+  modelSelectionPolicy: z.literal("TOP_VISIBLE_SELECTABLE_MODEL"),
+  modelSelectorIndex: z.literal(0),
+  modelOptionCount: z.number().int().positive(),
+  reasoningSelectionPolicy: z.literal("MAXIMUM_AVAILABLE"),
+  chatMode: z.literal("TEMPORARY"),
+  personalization: z.literal("UNPERSONALIZED"),
+  authenticated: z.literal(true),
+  freshConversation: z.literal(true),
+  userMessageCount: z.literal(0),
+  assistantMessageCount: z.literal(0),
+  attachmentCount: z.literal(0),
+  sendEnabled: z.literal(true),
+}).strict().superRefine((ui, context) => {
+  const [position, count] = ui.reasoningOrdinal.split(" of ").map(Number);
+  if (position !== count) context.addIssue({ code: "custom", message: "GENERATION_REASONING_NOT_MAXIMUM" });
+});
+
+export const generationUiAttestationSchema = z.union([
+  legacyGenerationUiAttestationSchema,
+  amendedGenerationUiAttestationSchema,
+]);
 
 const runtimeHashObservationSchema = z.object({
   browserUnitSha256: digestSchema,

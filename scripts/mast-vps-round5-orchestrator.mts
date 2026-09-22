@@ -165,6 +165,24 @@ async function buildPacketManifest(artifactRoot: string) {
   return { schemaVersion: 1, studyId: STUDY_ID, device: DEVICE, user: USER, records };
 }
 
+function generationSelectionIsLatest(value: any): boolean {
+  if (value?.modelSelectionPolicy !== "TOP_VISIBLE_SELECTABLE_MODEL"
+    || value?.modelSelectorIndex !== 0
+    || !Number.isSafeInteger(value?.modelOptionCount) || value.modelOptionCount < 1
+    || value?.reasoningSelectionPolicy !== "MAXIMUM_AVAILABLE"
+    || typeof value?.modelVisibleLabel !== "string" || value.modelVisibleLabel.length === 0
+    || typeof value?.reasoningVisibleLabel !== "string" || value.reasoningVisibleLabel.length === 0
+    || typeof value?.reasoningOrdinal !== "string") return false;
+  const match = /^(\d+) of (\d+)$/u.exec(value.reasoningOrdinal);
+  return match !== null && Number(match[1]) === Number(match[2]);
+}
+
+function generationSelectionIsLegacy(value: any): boolean {
+  return value?.modelVisibleLabel === "GPT-5.6 Sol"
+    && value?.reasoningVisibleLabel === "Extra High"
+    && value?.reasoningOrdinal === "4 of 5";
+}
+
 async function transferPackets() {
   const repositoryRoot = resolve(requiredArgument("--repository-root"));
   const artifactRoot = resolve(requiredArgument("--artifact-root"));
@@ -185,8 +203,7 @@ async function transferPackets() {
   const acceptance = JSON.parse(acceptanceResult.stdout.trim().split("\n").at(-1)!);
   if (acceptance.status !== "PRE_SEND_ACCEPTANCE_PASS" || acceptance.sent !== false
     || acceptance.sourceSha256 !== acceptance.composerSha256 || acceptance.sourceUtf8Bytes < 167_433
-    || acceptance.modelVisibleLabel !== "GPT-5.6 Sol" || acceptance.reasoningVisibleLabel !== "Extra High"
-    || acceptance.reasoningOrdinal !== "4 of 5" || acceptance.chatMode !== "TEMPORARY"
+    || !generationSelectionIsLatest(acceptance) || acceptance.chatMode !== "TEMPORARY"
     || acceptance.personalization !== "UNPERSONALIZED" || acceptance.authenticated !== true) {
     throw new Error("VPS_PRE_SEND_ACCEPTANCE_INVALID");
   }
@@ -269,9 +286,8 @@ async function runSyntheticNormalPath() {
   if (acceptance.studyId !== STUDY_ID || acceptance.status !== "PASS"
     || acceptance.exactEquality !== true || acceptance.responseCapturedNormally !== true
     || acceptance.freshTemporaryConversationAfterward !== true || acceptance.browserHealthyThroughSoak !== true
-    || acceptance.modelVisibleLabel !== "GPT-5.6 Sol" || acceptance.reasoningVisibleLabel !== "Extra High"
-    || acceptance.reasoningOrdinal !== "4 of 5" || acceptance.chatMode !== "TEMPORARY"
-    || acceptance.personalization !== "UNPERSONALIZED") {
+    || (!generationSelectionIsLatest(acceptance) && !generationSelectionIsLegacy(acceptance))
+    || acceptance.chatMode !== "TEMPORARY" || acceptance.personalization !== "UNPERSONALIZED") {
     throw new Error("ROUND_5_SYNTHETIC_NORMAL_PATH_ACCEPTANCE_INVALID");
   }
   process.stdout.write(`${JSON.stringify({ status: "ROUND_5_SYNTHETIC_NORMAL_PATH_PASS", acceptanceSha256: sha256(await readFile(join(localAcceptanceDirectory, "acceptance.json"))), browserPid: acceptance.browserPidAfter })}\n`);

@@ -18,6 +18,8 @@ const CHATGPT_ORIGIN = "https://chatgpt.com";
 const EXPECTED_MODEL = "GPT-5.6 Sol";
 const EXPECTED_REASONING = "Extra High";
 const EXPECTED_REASONING_ORDINAL = "4 of 5";
+const GENERATION_MODEL_SELECTION_POLICY = "TOP_VISIBLE_SELECTABLE_MODEL";
+const GENERATION_REASONING_SELECTION_POLICY = "MAXIMUM_AVAILABLE";
 const NORMALIZATION = "LINE_ENDINGS_TO_LF_ONLY";
 const MAXIMUM_ATTEMPTS = 2;
 const MAXIMUM_JUDGE_ATTEMPTS = 3;
@@ -556,20 +558,83 @@ async function ensureModelAndReasoning(page, config) {
   return observation;
 }
 
-async function ensureExactModelAndReasoning(page) {
-  return ensureModelAndReasoning(page, {
-    model: EXPECTED_MODEL,
-    reasoning: EXPECTED_REASONING,
-    reasoningOrdinal: EXPECTED_REASONING_ORDINAL,
-    sliderNow: 3,
+async function inspectTopModelAndReasoning(page) {
+  return page.evaluate(() => {
+    const visible = (element) => element instanceof HTMLElement && element.getClientRects().length > 0
+      && getComputedStyle(element).visibility !== "hidden" && getComputedStyle(element).display !== "none";
+    const label = (element) => ((element.getAttribute("aria-label") || element.textContent || "").trim().replace(/\s+/gu, " "));
+    const roots = [...document.querySelectorAll("[role='menu']")].filter(visible);
+    if (roots.length !== 1) return { valid: false, failureCode: "MODEL_MENU_NOT_UNIQUE" };
+    const root = roots[0];
+    const modelOptions = [...root.querySelectorAll("[role='menuitemradio']")].filter(visible);
+    const sliders = [...root.querySelectorAll("[role='slider']")].filter(visible);
+    const indicator = [...root.querySelectorAll("[role='menuitem'][aria-label='Select model']")].filter(visible);
+    const top = modelOptions[0] ?? null;
+    const slider = sliders[0] ?? null;
+    const leaves = indicator.length === 1 ? [...indicator[0].querySelectorAll("*")]
+      .filter(visible).filter((element) => element.children.length === 0)
+      .map((element) => (element.textContent || "").trim().replace(/\s+/gu, " ")).filter(Boolean) : [];
+    return {
+      valid: Boolean(top) && modelOptions.length >= 1 && sliders.length === 1,
+      modelOptionCount: modelOptions.length,
+      modelSelectorIndex: 0,
+      modelVisibleLabel: top ? label(top) : null,
+      modelSelected: Boolean(top) && (
+        top.getAttribute("aria-checked") === "true"
+        || top.getAttribute("aria-selected") === "true"
+        || top.getAttribute("data-state") === "checked"
+        || Boolean(top.querySelector("[aria-checked='true'], [aria-selected='true'], [data-state='checked']"))
+      ),
+      sliderCount: sliders.length,
+      sliderNow: slider ? Number(slider.getAttribute("aria-valuenow")) : null,
+      sliderMin: slider ? Number(slider.getAttribute("aria-valuemin")) : null,
+      sliderMax: slider ? Number(slider.getAttribute("aria-valuemax")) : null,
+      reasoningVisibleLabel: leaves.at(-1) ?? null,
+    };
   });
 }
 
-async function attestUi(page, tabCount, sendEnabled, config = {
-  model: EXPECTED_MODEL,
-  reasoning: EXPECTED_REASONING,
-  reasoningOrdinal: EXPECTED_REASONING_ORDINAL,
-}) {
+async function ensureExactModelAndReasoning(page) {
+  let menu = await openModelMenu(page);
+  let observation = await inspectTopModelAndReasoning(page);
+  if (!observation.valid || !observation.modelVisibleLabel) throw new Error("TOP_MODEL_OPTION_UNPROVABLE");
+  if (!observation.modelSelected) {
+    const top = menu.locator("[role='menuitemradio']").filter({ visible: true }).nth(0);
+    await domClick(top, "TOP_MODEL_OPTION_UNPROVABLE");
+    await sleep(500);
+    menu = await openModelMenu(page);
+    observation = await inspectTopModelAndReasoning(page);
+  }
+  if (!observation.valid || !observation.modelSelected || observation.modelSelectorIndex !== 0) {
+    throw new Error("TOP_MODEL_SELECTION_UNPROVABLE");
+  }
+  if (observation.sliderMin !== 0 || !Number.isInteger(observation.sliderMax)
+    || !Number.isInteger(observation.sliderNow) || observation.sliderMax < observation.sliderMin) {
+    throw new Error("THINKING_SLIDER_BOUNDS_INVALID");
+  }
+  const slider = menu.locator("[role='slider']").filter({ visible: true });
+  while (observation.sliderNow !== observation.sliderMax) {
+    await slider.focus();
+    await slider.press("ArrowRight");
+    await sleep(150);
+    observation = await inspectTopModelAndReasoning(page);
+  }
+  if (!observation.reasoningVisibleLabel) throw new Error("MAX_REASONING_VISIBLE_LABEL_UNPROVABLE");
+  const ordinal = `${observation.sliderNow - observation.sliderMin + 1} of ${observation.sliderMax - observation.sliderMin + 1}`;
+  await page.keyboard.press("Escape");
+  return {
+    ...observation,
+    model: observation.modelVisibleLabel,
+    reasoning: observation.reasoningVisibleLabel,
+    reasoningOrdinal: ordinal,
+    sliderNow: observation.sliderNow,
+    modelSelectionPolicy: GENERATION_MODEL_SELECTION_POLICY,
+    reasoningSelectionPolicy: GENERATION_REASONING_SELECTION_POLICY,
+  };
+}
+
+async function attestUi(page, tabCount, sendEnabled, config) {
+  if (!config) throw new Error("GENERATION_MODEL_CONFIGURATION_MISSING");
   const safe = await safePageState(page);
   const counts = await page.evaluate(() => ({
     user: document.querySelectorAll("[data-message-author-role='user']").length,
@@ -588,6 +653,12 @@ async function attestUi(page, tabCount, sendEnabled, config = {
     modelVisibleLabel: config.model,
     reasoningVisibleLabel: config.reasoning,
     reasoningOrdinal: config.reasoningOrdinal,
+    ...(config.modelSelectionPolicy ? {
+      modelSelectionPolicy: config.modelSelectionPolicy,
+      modelSelectorIndex: config.modelSelectorIndex,
+      modelOptionCount: config.modelOptionCount,
+      reasoningSelectionPolicy: config.reasoningSelectionPolicy,
+    } : {}),
     chatMode: "TEMPORARY",
     personalization: "UNPERSONALIZED",
     authenticated: true,
@@ -847,9 +918,15 @@ async function persistCompletedResponse({ page, runDirectory, record, attempt, v
   const completedAt = now();
   const provider = {
     surface: "CHATGPT_CONSUMER",
-    modelVisibleLabel: EXPECTED_MODEL,
-    reasoningVisibleLabel: EXPECTED_REASONING,
-    reasoningOrdinal: null,
+    modelVisibleLabel: verifiedReceipt.ui.modelVisibleLabel,
+    reasoningVisibleLabel: verifiedReceipt.ui.reasoningVisibleLabel,
+    reasoningOrdinal: verifiedReceipt.ui.reasoningOrdinal,
+    ...(verifiedReceipt.ui.modelSelectionPolicy ? {
+      modelSelectionPolicy: verifiedReceipt.ui.modelSelectionPolicy,
+      modelSelectorIndex: verifiedReceipt.ui.modelSelectorIndex,
+      modelOptionCount: verifiedReceipt.ui.modelOptionCount,
+      reasoningSelectionPolicy: verifiedReceipt.ui.reasoningSelectionPolicy,
+    } : {}),
     conversationId: requestIdentity.conversationId,
     requestMessageId: requestIdentity.requestMessageId,
     submittedAt: sentAt,
@@ -986,14 +1063,14 @@ async function runAttempt({ workspace, record, attempt, runtimeAttestation, expe
     stage = "FRESH_CHAT";
     await establishFreshTemporaryUnpersonalized(page);
     stage = "MODEL_SELECT";
-    await ensureExactModelAndReasoning(page);
+    const generationConfig = await ensureExactModelAndReasoning(page);
     stage = "COMPOSER_INSERT";
     const composer = await insertAndVerifyComposer(page, packetText, source);
     observedComposerSha256 = composer.composerSha256;
     stage = "COMPOSER_VERIFY";
     const send = await findSendButton(page);
     stage = "UI_ATTEST";
-    const ui = await attestUi(page, tabCount, true);
+    const ui = await attestUi(page, tabCount, true, generationConfig);
     const verifiedAt = now();
     const verifiedReceipt = {
       schemaVersion: 1,
@@ -1407,7 +1484,7 @@ async function preSendAcceptance() {
   if (source.utf8Bytes < 167_433) throw new Error("SYNTHETIC_PACKET_SIZE_TOO_SMALL");
   const composer = await insertAndVerifyComposer(page, sourceText, source);
   await findSendButton(page);
-  const ui = await attestUi(page, tabCount, true);
+  const ui = await attestUi(page, tabCount, true, model);
   await page.locator("#prompt-textarea").filter({ visible: true }).evaluate((element) => {
     if (element instanceof HTMLTextAreaElement) element.value = "";
     else if (element instanceof HTMLElement) element.innerText = "";
@@ -1426,6 +1503,10 @@ async function preSendAcceptance() {
     modelVisibleLabel: ui.modelVisibleLabel,
     reasoningVisibleLabel: ui.reasoningVisibleLabel,
     reasoningOrdinal: ui.reasoningOrdinal,
+    modelSelectionPolicy: ui.modelSelectionPolicy,
+    modelSelectorIndex: ui.modelSelectorIndex,
+    modelOptionCount: ui.modelOptionCount,
+    reasoningSelectionPolicy: ui.reasoningSelectionPolicy,
     chatMode: ui.chatMode,
     personalization: ui.personalization,
     modelSelected: model.modelSelected,
@@ -1484,10 +1565,10 @@ async function syntheticNormalPathAcceptance() {
   const browser = await connect();
   const { page, tabCount } = await ensureChatGptPage(browser.contexts());
   await establishFreshTemporaryUnpersonalized(page);
-  await ensureExactModelAndReasoning(page);
+  const syntheticConfig = await ensureExactModelAndReasoning(page);
   const composer = await insertAndVerifyComposer(page, prompt, source);
   const send = await findSendButton(page);
-  const ui = await attestUi(page, tabCount, true);
+  const ui = await attestUi(page, tabCount, true, syntheticConfig);
   const verifiedAt = now();
   const verifiedReceipt = {
     schemaVersion: 1,
@@ -1551,8 +1632,8 @@ async function syntheticNormalPathAcceptance() {
   const response = (await readFile(join(runDirectory, "response.txt"), "utf8")).trim();
   if (response !== "ROUND4_OK") throw new Error("SYNTHETIC_RESPONSE_CONTENT_INVALID");
   await establishFreshTemporaryUnpersonalized(page);
-  await ensureExactModelAndReasoning(page);
-  const nextChat = await attestUi(page, tabCount, true);
+  const nextConfig = await ensureExactModelAndReasoning(page);
+  const nextChat = await attestUi(page, tabCount, true, nextConfig);
   await sleep(30_000);
   const runtimeAfter = await verifyRuntime(expectedRuntimeHashes);
   if (runtimeAfter.browserMainPid !== runtimeBefore.browserMainPid) throw new Error("SYNTHETIC_BROWSER_RESTARTED_DURING_NORMAL_PATH");
@@ -1565,9 +1646,13 @@ async function syntheticNormalPathAcceptance() {
     sourceUtf8Bytes: source.utf8Bytes,
     composerSha256: composer.composerSha256,
     exactEquality: true,
-    modelVisibleLabel: EXPECTED_MODEL,
-    reasoningVisibleLabel: EXPECTED_REASONING,
-    reasoningOrdinal: EXPECTED_REASONING_ORDINAL,
+    modelVisibleLabel: ui.modelVisibleLabel,
+    reasoningVisibleLabel: ui.reasoningVisibleLabel,
+    reasoningOrdinal: ui.reasoningOrdinal,
+    modelSelectionPolicy: ui.modelSelectionPolicy,
+    modelSelectorIndex: ui.modelSelectorIndex,
+    modelOptionCount: ui.modelOptionCount,
+    reasoningSelectionPolicy: ui.reasoningSelectionPolicy,
     chatMode: "TEMPORARY",
     personalization: "UNPERSONALIZED",
     browserService: BROWSER_SERVICE,
