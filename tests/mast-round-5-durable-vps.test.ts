@@ -260,6 +260,8 @@ describe("Round 5 durable VPS runtime and recovery", () => {
     expect(transport).toContain("ROUND_5_SUBMITTED_CONVERSATION_IDENTITY_NOT_OBSERVED");
     expect(transport).toContain("sentIdentity?.conversationUrl ?? sent.conversationUrl ?? null");
     expect(transport).toContain('conversationUrl: null, conversationId: null');
+    expect(transport).toContain("conversationUrl: ignoredConversationUrl");
+    expect(transport).toContain("conversationId: ignoredConversationId");
     expect(transport).toContain("requestMessageId: submitted.requestMessageId");
     expect(transport).toContain("TEMPORARY_REQUEST_IDENTITY_UNPROVABLE");
     expect(transport).toContain("inventory[0].page.goto(exactPreferredUrl");

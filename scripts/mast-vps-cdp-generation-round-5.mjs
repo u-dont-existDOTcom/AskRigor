@@ -896,6 +896,8 @@ async function recoverExistingSubmission({ workspace, record, attempt }) {
     sentAt: ignoredSentAt,
     sendInitiatedAt: ignoredSendInitiatedAt,
     automaticResendAllowed: ignoredAutomaticResendAllowed,
+    conversationUrl: ignoredConversationUrl,
+    conversationId: ignoredConversationId,
     ...verifiedFields
   } = sent;
   const source = { sha256: sent.sourceSha256, utf8Bytes: sent.sourceUtf8Bytes };
@@ -1193,7 +1195,8 @@ async function recoverExistingJudgeSubmission({ workspace, record, attempt, conf
   const sent = await readJson(await exists(sentPath) ? sentPath : intentPath);
   const sentIdentity = await exists(sentIdentityPath) ? await readJson(sentIdentityPath) : null;
   const { state: ignoredState, sentAt: ignoredSentAt, sendInitiatedAt: ignoredSendInitiatedAt,
-    automaticResendAllowed: ignoredAutomaticResendAllowed, ...verifiedFields } = sent;
+    automaticResendAllowed: ignoredAutomaticResendAllowed, conversationUrl: ignoredConversationUrl,
+    conversationId: ignoredConversationId, ...verifiedFields } = sent;
   const source = { sha256: sent.sourceSha256, utf8Bytes: sent.sourceUtf8Bytes };
   const candidate = await exactRecoveryCandidate(source, sentIdentity?.conversationUrl ?? sent.conversationUrl ?? null,
     sentIdentity?.requestMessageId ?? null);
