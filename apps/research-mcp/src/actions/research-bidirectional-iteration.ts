@@ -9,6 +9,10 @@ import { z } from "zod";
 
 import type { ResearchCandidateDiscoveryState } from "./research-candidate-frontier.js";
 import {
+  sourceRecordSha256,
+  type ResearchBoundedEvidenceState
+} from "./research-bounded-evidence.js";
+import {
   appendResearchFormalHypotheses,
   type CommunityFormalHypothesisInput,
   type ResearchFormalEvidenceState
@@ -65,8 +69,24 @@ const communityEvidenceReferenceSchema = z.object({
   transcript_receipt_sha256: digest,
   discussion_status: z.enum(["COMPLETE", "BLOCKED_TERMINAL"]),
   discussion_receipt_sha256: digest,
-  discussion_corpus_sha256: digest.optional()
-}).strict();
+  discussion_corpus_sha256: digest.optional(),
+  bounded_evidence_sha256: digest.optional(),
+  creator_finding_count: z.number().int().nonnegative().max(24).optional(),
+  community_finding_count: z.number().int().nonnegative().max(40).optional()
+}).strict().superRefine((reference, context) => {
+  const boundedFields = [
+    reference.bounded_evidence_sha256,
+    reference.creator_finding_count,
+    reference.community_finding_count
+  ];
+  if (boundedFields.some((value) => value !== undefined) &&
+      boundedFields.some((value) => value === undefined)) {
+    context.addIssue({
+      code: "custom",
+      message: "Bounded community evidence identity and finding counts must travel together"
+    });
+  }
+});
 
 const formalEvidenceReferenceSchema = z.object({
   evidence_ref_id: digest,
@@ -336,6 +356,53 @@ export interface BidirectionalEvidenceState {
   candidates: ResearchCandidateDiscoveryState;
   videoDepth: ResearchVideoDepthState;
   formalEvidence: ResearchFormalEvidenceState;
+  boundedEvidence?: ResearchBoundedEvidenceState;
+}
+
+export function createBidirectionalIterationEvidenceContext(
+  evidence: BidirectionalEvidenceState,
+  rawWork: BidirectionalIterationWorkPackage
+): {
+  community_sources: Array<{
+    evidence_ref_id: string;
+    video_id: string;
+    bounded_evidence_sha256: string;
+    creator_findings: ResearchBoundedEvidenceState["videos"][number]["creator_findings"];
+    community_findings: ResearchBoundedEvidenceState["videos"][number]["community_findings"];
+    limitations: string[];
+  }>;
+} {
+  const work = bidirectionalIterationWorkPackageSchema.parse(rawWork);
+  if (
+    work.evidence_basis_digest !== bidirectionalEvidenceBasisDigest(evidence) ||
+    evidence.boundedEvidence === undefined
+  ) {
+    throw new Error("Bidirectional evidence context is stale or lacks exact bounded findings");
+  }
+  const records = new Map(evidence.boundedEvidence.videos.map((record) => [
+    record.video_id,
+    record
+  ]));
+  return {
+    community_sources: work.community_evidence.map((reference) => {
+      const record = records.get(reference.video_id);
+      if (
+        record === undefined ||
+        reference.bounded_evidence_sha256 === undefined ||
+        sourceRecordSha256(record) !== reference.bounded_evidence_sha256
+      ) {
+        throw new Error("Bidirectional work does not match the exact bounded community findings");
+      }
+      return {
+        evidence_ref_id: reference.evidence_ref_id,
+        video_id: reference.video_id,
+        bounded_evidence_sha256: reference.bounded_evidence_sha256,
+        creator_findings: record.creator_findings,
+        community_findings: record.community_findings,
+        limitations: record.limitations
+      };
+    })
+  };
 }
 
 export interface BidirectionalCommentSearchExecutor {
@@ -780,6 +847,10 @@ function deriveCommunityEvidenceReferences(
     record.source.video_id,
     record
   ]));
+  const boundedById = new Map(evidence.boundedEvidence?.videos.map((record) => [
+    record.video_id,
+    record
+  ]) ?? []);
   return evidence.videoDepth.selected_video_ids.map((videoId) => {
     const candidate = candidateById.get(videoId);
     const transcript = transcriptById.get(videoId);
@@ -794,6 +865,13 @@ function deriveCommunityEvidenceReferences(
     }
     const transcriptReceiptHash = sha256(JSON.stringify(transcript.receipt));
     const discussionReceiptHash = sha256(JSON.stringify(discussion.receipt));
+    const boundedEvidence = boundedById.get(videoId);
+    if (
+      evidence.boundedEvidence !== undefined &&
+      (boundedEvidence === undefined || boundedEvidence.status === "NOT_STARTED")
+    ) {
+      throw new Error("Bidirectional evidence requires terminal bounded findings for every selected video");
+    }
     const core = {
       video_id: videoId,
       program_signature: candidate.program_signature,
@@ -805,7 +883,14 @@ function deriveCommunityEvidenceReferences(
       discussion_receipt_sha256: discussionReceiptHash,
       ...(discussion.corpus_rolling_sha256 === undefined
         ? {}
-        : { discussion_corpus_sha256: discussion.corpus_rolling_sha256 })
+        : { discussion_corpus_sha256: discussion.corpus_rolling_sha256 }),
+      ...(boundedEvidence === undefined
+        ? {}
+        : {
+            bounded_evidence_sha256: sourceRecordSha256(boundedEvidence),
+            creator_finding_count: boundedEvidence.creator_findings.length,
+            community_finding_count: boundedEvidence.community_findings.length
+          })
     };
     return communityEvidenceReferenceSchema.parse({
       ...core,

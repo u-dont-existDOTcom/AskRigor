@@ -29,6 +29,7 @@ import {
 } from "../research-semantic-worker.js";
 import {
   createResearchSemanticPolicyInputs,
+  loadResearchRuntimeBinding,
   ResearchSemanticPolicyInputError,
   type ResearchSemanticPolicyDependencies
 } from "../research-semantic-policy-input.js";
@@ -42,6 +43,7 @@ import {
 import { isDeidentifiedResearchTarget } from "./gemini-scout-route.js";
 import {
   applyProtocolRecheck,
+  applyRuntimeRecheck,
   createInitialResearchSessionState,
   evaluateResearchFinalization,
   finalizationDecisionSchema,
@@ -62,6 +64,7 @@ const digestSchema = z.string().regex(/^[a-f0-9]{64}$/u);
 const startInputSchema = z.object({
   research_target: z.string().trim().min(1).max(1_000),
   diagnosis_status: z.enum(["diagnosis_not_specified", "user_supplied_diagnosis"]),
+  source_scope: z.enum(["all_available_sources", "community_only"]).optional(),
   acceptance_challenge_id: z.literal(CUSTOM_GPT_ACCEPTANCE_CHALLENGE_ID).optional()
 }).strict();
 const statusInputSchema = z.object({ session_id: sessionIdSchema }).strict();
@@ -111,6 +114,7 @@ const workerPageSchema = z.object({
 const controlledViewSchema = z.object({
   session_id: sessionIdSchema,
   state_digest: digestSchema,
+  source_scope: z.enum(["all_available_sources", "community_only"]),
   directive: z.enum([
     "continue_research",
     "perform_semantic_work",
@@ -124,7 +128,8 @@ const controlledViewSchema = z.object({
     "BLOCKED_TERMINAL",
     "BOUNDED",
     "READY_TO_FINALIZE",
-    "PROTOCOL_DRIFT"
+    "PROTOCOL_DRIFT",
+    "POLICY_DRIFT"
   ]),
   output_boundary: z.enum([
     "CONTINUE_RESEARCH",
@@ -141,6 +146,7 @@ const controlledViewSchema = z.object({
       "progress_recorded",
       "semantic_work_recorded",
       "protocol_drift",
+      "policy_drift",
       "blocked_retryable",
       "blocked_terminal"
     ])
@@ -181,6 +187,7 @@ const controlledViewActionSchema: Record<string, unknown> = {
   required: [
     "session_id",
     "state_digest",
+    "source_scope",
     "directive",
     "execution_status",
     "output_boundary",
@@ -190,6 +197,10 @@ const controlledViewActionSchema: Record<string, unknown> = {
   properties: {
     session_id: { type: "string" },
     state_digest: { type: "string", pattern: "^[a-f0-9]{64}$" },
+    source_scope: {
+      type: "string",
+      enum: ["all_available_sources", "community_only"]
+    },
     directive: {
       type: "string",
       enum: [
@@ -208,7 +219,8 @@ const controlledViewActionSchema: Record<string, unknown> = {
         "BLOCKED_TERMINAL",
         "BOUNDED",
         "READY_TO_FINALIZE",
-        "PROTOCOL_DRIFT"
+        "PROTOCOL_DRIFT",
+        "POLICY_DRIFT"
       ]
     },
     output_boundary: {
@@ -491,6 +503,7 @@ export function createControlledResearchRoutes(
   const manifests = options.getProtocolManifest ?? getProtocolManifest;
   const challengeSessions = new Set<string>();
   const transitionTraces = new Map<string, CustomGptAcceptanceTransition[]>();
+  const workerInputs = new Map<string, Promise<unknown>>();
 
   return Object.freeze([
     route("start_research_session", startInputSchema, controlledViewSchema,
@@ -514,14 +527,22 @@ export function createControlledResearchRoutes(
     if (!isDeidentifiedResearchTarget(researchTarget)) {
       throw new ControlledInputError();
     }
+    const identity = await currentRuntimeIdentity(
+      manifests,
+      options.semanticPolicyDependencies
+    );
     const state = createInitialResearchSessionState(
       {
         research_target: researchTarget,
         diagnosis_status: input.acceptance_challenge_id === undefined
           ? input.diagnosis_status
-          : "user_supplied_diagnosis"
+          : "user_supplied_diagnosis",
+        source_scope: input.acceptance_challenge_id === undefined
+          ? input.source_scope
+          : "all_available_sources"
       },
-      await currentProtocolBindings(manifests)
+      identity.protocols,
+      identity.runtime
     );
     const sessionId = store.issue(state);
     if (input.acceptance_challenge_id !== undefined) {
@@ -540,18 +561,31 @@ export function createControlledResearchRoutes(
     if (researchSessionStateDigest(current) !== input.state_digest) {
       throw new ControlledStateStaleError();
     }
-    const checked = applyProtocolRecheck(
-      current,
-      await currentProtocolBindings(manifests)
+    const identity = await currentRuntimeIdentity(
+      manifests,
+      options.semanticPolicyDependencies
     );
-    if (checked.protocol_binding.currency === "DRIFTED") {
+    const checked = applyRuntimeRecheck(
+      applyProtocolRecheck(current, identity.protocols),
+      identity.runtime
+    );
+    if (
+      checked.protocol_binding.currency === "DRIFTED" ||
+      checked.runtime_binding?.currency === "DRIFTED"
+    ) {
+      const policyDrift = checked.protocol_binding.currency === "CURRENT" &&
+        checked.runtime_binding?.currency === "DRIFTED";
       commit(input.session_id, current, checked, {
-        capability: "protocol_currency_recheck",
-        result: "protocol_drift"
+        capability: policyDrift
+          ? "runtime_policy_currency_recheck"
+          : "protocol_currency_recheck",
+        result: policyDrift ? "policy_drift" : "protocol_drift"
       });
       return project(input.session_id, checked, undefined, {
-        capability: "protocol_currency_recheck",
-        result: "protocol_drift"
+        capability: policyDrift
+          ? "runtime_policy_currency_recheck"
+          : "protocol_currency_recheck",
+        result: policyDrift ? "policy_drift" : "protocol_drift"
       });
     }
 
@@ -562,7 +596,7 @@ export function createControlledResearchRoutes(
     }
     if (input.semantic_result !== undefined) {
       if (work === null) throw new ControlledWorkMismatchError();
-      const workerInput = await createWorkerInput(input.session_id, checked, work);
+      const workerInput = await workerInputFor(input.session_id, checked, work);
       verifyControlledWorkerPayloadReceipt({
         receipt: input.worker_payload_receipt,
         identity: workIdentity(input.session_id, checked, work),
@@ -639,9 +673,13 @@ export function createControlledResearchRoutes(
     if (researchSessionStateDigest(current) !== input.state_digest) {
       throw new ControlledStateStaleError();
     }
-    const checked = applyProtocolRecheck(
-      current,
-      await currentProtocolBindings(manifests)
+    const identity = await currentRuntimeIdentity(
+      manifests,
+      options.semanticPolicyDependencies
+    );
+    const checked = applyRuntimeRecheck(
+      applyProtocolRecheck(current, identity.protocols),
+      identity.runtime
     );
     const decision = evaluateResearchFinalization(input.session_id, checked, {
       signingSecret: options.finalizationSigningSecret,
@@ -687,7 +725,7 @@ export function createControlledResearchRoutes(
     work: ResearchSemanticWork,
     cursor?: string
   ) {
-    const workerInput = await createWorkerInput(sessionId, state, work);
+    const workerInput = await workerInputFor(sessionId, state, work);
     const page = createControlledWorkerPayloadPage({
       identity: workIdentity(sessionId, state, work),
       workerInput,
@@ -696,6 +734,32 @@ export function createControlledResearchRoutes(
       ...(options.now === undefined ? {} : { now: options.now })
     });
     return project(sessionId, state, { work, page });
+  }
+
+  async function workerInputFor(
+    sessionId: string,
+    state: ResearchSessionState,
+    work: ResearchSemanticWork
+  ): Promise<unknown> {
+    const identity = workIdentity(sessionId, state, work);
+    const key = `${identity.sessionId}:${identity.stateDigest}:${identity.workDigest}`;
+    const cached = workerInputs.get(key);
+    if (cached !== undefined) {
+      workerInputs.delete(key);
+      workerInputs.set(key, cached);
+      return cached;
+    }
+    while (workerInputs.size >= 32) {
+      const oldest = workerInputs.keys().next().value;
+      if (oldest === undefined) break;
+      workerInputs.delete(oldest);
+    }
+    const created = createWorkerInput(sessionId, state, work).catch((error) => {
+      workerInputs.delete(key);
+      throw error;
+    });
+    workerInputs.set(key, created);
+    return created;
   }
 
   async function createWorkerInput(
@@ -708,6 +772,9 @@ export function createControlledResearchRoutes(
       policyInputs = await createResearchSemanticPolicyInputs({
         kind: work.kind,
         expectedProtocols: state.protocol_binding.expected,
+        ...(state.runtime_binding === undefined
+          ? {}
+          : { expectedRuntime: state.runtime_binding.expected }),
         ...(options.semanticPolicyDependencies === undefined
           ? {}
           : { dependencies: options.semanticPolicyDependencies })
@@ -792,7 +859,8 @@ function project(
     Object.hasOwn(state.operations, next) &&
     state.operations[next as keyof ResearchSessionState["operations"]].status ===
       "BLOCKED_RETRYABLE";
-  const directive = view.protocol_binding.currency === "DRIFTED"
+  const directive = view.execution_status === "PROTOCOL_DRIFT" ||
+    view.execution_status === "POLICY_DRIFT"
     ? "restart_required" as const
     : semantic !== undefined
       ? "perform_semantic_work" as const
@@ -804,6 +872,7 @@ function project(
   return controlledViewSchema.parse({
     session_id: sessionId,
     state_digest: researchSessionStateDigest(state),
+    source_scope: view.source_scope,
     directive,
     execution_status: view.execution_status,
     output_boundary: view.output_boundary,
@@ -890,6 +959,24 @@ async function currentProtocolBindings(manifests: typeof getProtocolManifest) {
     manifests("hrp")
   ]);
   return protocolBindingsFromManifests(universal, hrp);
+}
+
+async function currentRuntimeIdentity(
+  manifests: typeof getProtocolManifest,
+  dependencies: ResearchSemanticPolicyDependencies | undefined
+) {
+  try {
+    const protocols = await currentProtocolBindings(manifests);
+    return {
+      protocols,
+      runtime: await loadResearchRuntimeBinding(protocols, dependencies)
+    };
+  } catch (error) {
+    if (error instanceof ResearchSemanticPolicyInputError) {
+      throw new ControlledDependencyUnavailableError();
+    }
+    throw error;
+  }
 }
 
 function actionJsonSchema(schema: z.ZodType): Record<string, unknown> {

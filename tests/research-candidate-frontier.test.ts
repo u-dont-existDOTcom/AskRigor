@@ -173,6 +173,30 @@ describe("server-owned research candidate frontier", () => {
     expect(candidateDiscoveryReadyForScreening(discovered)).toBe(true);
   });
 
+  it.each([
+    "broad treatment experiences for chronic joint pain",
+    "ways people manage persistent post-viral exercise intolerance"
+  ])("keeps broad discovery unseeded and transferable before deep screening: %s", (target) => {
+    const unseeded = markExternalScoutFrontierBoundary(
+      initialResearchCandidateDiscoveryState(),
+      "BLOCKED_TERMINAL",
+      "AUTOMATED_SCOUT_INVALID_PACKET"
+    );
+    const input = nativeSurveyInputFromCandidateDiscovery(unseeded, target);
+
+    expect(input.searches.flatMap(({ direction }) => direction)).toEqual([
+      "general",
+      "benefit",
+      "no_effect",
+      "harm",
+      "discontinuation",
+      "formal_discriminator"
+    ]);
+    expect(input.searches.every(({ query }) => query.includes(target))).toBe(true);
+    expect(JSON.stringify(input)).not.toContain("Program 1");
+    expect(candidateDiscoveryReadyForScreening(unseeded)).toBe(false);
+  });
+
   it("bounds fallback queries for a long research target without losing its leading clinical scope", () => {
     const terminal = markExternalScoutFrontierBoundary(
       initialResearchCandidateDiscoveryState(),

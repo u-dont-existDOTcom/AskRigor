@@ -475,7 +475,8 @@ function completionFixture(): ResearchSessionState {
     {
       candidates: ready.candidate_discovery,
       videoDepth: ready.video_depth,
-      formalEvidence: ready.formal_evidence
+      formalEvidence: ready.formal_evidence,
+      boundedEvidence: ready.bounded_evidence
     }
   );
   ready = recordResearchSessionBidirectionalIteration(ready, {
@@ -501,6 +502,7 @@ function completionFixture(): ResearchSessionState {
       researchTarget: ready.research_target,
       candidates: ready.candidate_discovery,
       videoDepth: ready.video_depth,
+      boundedEvidence: ready.bounded_evidence,
       formalEvidence: ready.formal_evidence,
       bidirectional: ready.bidirectional_iteration
     }
@@ -670,6 +672,79 @@ describe("research session controller core", () => {
       "route_module_applicability",
       "native_video_discovery"
     ]);
+  });
+
+  it("enforces community-only scope without suppressing bounded community evidence", () => {
+    const scoped = createInitialResearchSessionState({
+      research_target: "de-identified treatment comparison",
+      diagnosis_status: "diagnosis_not_specified",
+      source_scope: "community_only"
+    }, protocolBindingsFromManifests(manifest("universal"), manifest("hrp")));
+
+    expect(projectResearchSessionView(SESSION_ID, scoped)).toMatchObject({
+      source_scope: "community_only",
+      output_boundary: "CONTINUE_RESEARCH",
+      modules: {
+        HRP: { applicability: "REQUIRED", execution_status: "BLOCKED" },
+        DIRECT_HUMAN: { applicability: "NOT_REQUIRED" },
+        EXTENDED_GREY: { applicability: "NOT_REQUIRED" },
+        FORUM_SIGNAL: { applicability: "REQUIRED" },
+        BIDIRECTIONAL_ITERATION: { applicability: "NOT_REQUIRED" }
+      },
+      operations: {
+        automated_video_scout: { status: "NOT_STARTED" },
+        native_video_discovery: { status: "NOT_STARTED" },
+        transcript_acquisition: { status: "NOT_STARTED" },
+        community_discussion_audit: { status: "NOT_STARTED" },
+        formal_evidence_search: {
+          status: "BLOCKED_TERMINAL",
+          boundary: { code: "SOURCE_SCOPE_COMMUNITY_ONLY" }
+        },
+        accessible_full_text_acquisition: {
+          status: "BLOCKED_TERMINAL",
+          boundary: { code: "SOURCE_SCOPE_COMMUNITY_ONLY" }
+        }
+      },
+      required_next_capabilities: [
+        "automated_video_scout"
+      ]
+    });
+    expect(deriveRequiredNextCapabilities(scoped)).not.toEqual(expect.arrayContaining([
+      "formal_evidence_search",
+      "accessible_full_text_acquisition",
+      "study_method_audit",
+      "external_study_evidence_audit",
+      "linked_replication_and_review_audit",
+      "claim_capability_recalculation"
+    ]));
+    expect(deriveResearchFinalizationLimitations(scoped)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          scope: "source_scope",
+          plain_language: expect.stringMatching(/community-only.*formal research.*excluded/iu)
+        })
+      ])
+    );
+
+    const discovered = recordNativeYoutubeDiscovery(
+      scoutComplete(scoped),
+      nativeSurvey()
+    );
+    const screened = recordCandidateScreeningCompletion(
+      discovered,
+      screeningSubmissionFor(discovered.candidate_discovery)
+    );
+    expect(screened.video_depth.selected_video_ids.length).toBeGreaterThan(0);
+    expect(deriveRequiredNextCapabilities(screened)).toEqual(expect.arrayContaining([
+      "transcript_acquisition",
+      "community_discussion_audit"
+    ]));
+    expect(deriveRequiredNextCapabilities(screened)).not.toContain(
+      "formal_evidence_search"
+    );
+    expect(deriveResearchFinalizationReadiness(screened)).not.toBe(
+      "FINALIZATION_ALLOWED"
+    );
   });
 
   it("makes REQUIRED applicability monotonic in both controller and store", () => {

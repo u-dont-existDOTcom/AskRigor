@@ -8,7 +8,13 @@ const EXPECTED_FILES = [
   ".codex-plugin/plugin.json",
   "assets/askrigor-composer-icon.svg",
   "assets/askrigor-logo.svg",
+  "skills/askrigor/MCP_INITIALIZATION.md",
   "skills/askrigor/SKILL.md",
+  "skills/askrigor/public-runtime-source-manifest.json",
+  "skills/askrigor/references/FORUM_SIGNAL_MODULE.md",
+  "skills/askrigor/references/PROJECT_INSTRUCTIONS.md",
+  "skills/askrigor/references/PUBLIC_PLUGIN_ADAPTER.md",
+  "skills/askrigor/references/public-runtime-bindings.json",
   "skills/browser-archive-downloading/GVSU-REFERENCE.md",
   "skills/browser-archive-downloading/SCENARIOS.md",
   "skills/browser-archive-downloading/SKILL.md",
@@ -60,14 +66,31 @@ export async function createPluginPackageReceipt(packageRoot) {
   if (manifest.name !== "askrigor" || typeof manifest.version !== "string") {
     throw new Error("Plugin manifest identity is not the expected AskRigor package.");
   }
+  const runtimeManifest = JSON.parse(
+    await readFile(resolve(root, "skills/askrigor/public-runtime-source-manifest.json"), "utf8"),
+  );
+  for (const artifact of runtimeManifest.artifacts ?? []) {
+    if (!String(artifact.path).startsWith("skills/")) continue;
+    const member = inventory.find(({ path }) => path === artifact.path);
+    if (
+      member === undefined ||
+      member.bytes !== artifact.utf8_bytes ||
+      member.sha256 !== artifact.sha256
+    ) {
+      throw new Error(`Generated public runtime package mismatch: ${artifact.path}`);
+    }
+  }
   const packageDigestInput = inventory
     .map(({ path, bytes, sha256: digest }) => `${path}\0${bytes}\0${digest}\n`)
     .join("");
   return {
-    schema_version: 1,
+    schema_version: 2,
     package_name: manifest.name,
     package_version: manifest.version,
     package_sha256: sha256(Buffer.from(packageDigestInput, "utf8")),
+    public_runtime_source_manifest_sha256: sha256(
+      await readFile(resolve(root, "skills/askrigor/public-runtime-source-manifest.json")),
+    ),
     inventory,
   };
 }

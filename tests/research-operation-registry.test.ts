@@ -6,6 +6,7 @@ const EXPECTED_NAMES = [
   "get_protocol_manifest",
   "load_protocol",
   "verify_protocol_integrity",
+  "load_research_runtime",
   "search_pubmed",
   "fetch_pubmed_record",
   "search_europe_pmc",
@@ -43,7 +44,7 @@ interface RegistryEntry {
 }
 
 describe("shared research-operation registry", () => {
-  it("is the exact frozen 27-operation source with executable full-text audits", async () => {
+  it("is the exact standard-v2 28-operation source with executable full-text audits", async () => {
     const researchModule = await import("../apps/research-mcp/src/index.js") as
       Record<string, unknown>;
     const operations = researchModule.RESEARCH_OPERATIONS as
@@ -51,7 +52,7 @@ describe("shared research-operation registry", () => {
 
     expect(operations).toBeDefined();
     expect(operations!.map(({ name }) => name)).toEqual(EXPECTED_NAMES);
-    expect(new Set(operations!.map(({ actionPath }) => actionPath)).size).toBe(27);
+    expect(new Set(operations!.map(({ actionPath }) => actionPath)).size).toBe(28);
     expect(operations!.every(({ name, actionPath, annotations }) =>
       actionPath === `/actions/research/${name}` &&
       annotations.readOnlyHint === !([
@@ -65,6 +66,6 @@ describe("shared research-operation registry", () => {
 
     const inventory = await createToolInventory();
     expect(inventory.tools.map(({ name }) => name)).toEqual(EXPECTED_NAMES);
-    expect(inventory.tools).toHaveLength(27);
+    expect(inventory.tools).toHaveLength(28);
   });
 });

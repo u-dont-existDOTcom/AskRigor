@@ -14,7 +14,7 @@ const EXPECTED_FILES = [
   "docs/research-contributor-access.md",
   "site/privacy/index.html",
   "site/terms/index.html",
-  "skills/askrigor/SKILL.md",
+  "skills/askrigor/MCP_INITIALIZATION.md",
 ] as const;
 
 async function main(): Promise<void> {
@@ -63,10 +63,25 @@ async function main(): Promise<void> {
   ) {
     throw new Error("RESEARCH_CONTRIBUTION_REVIEW_MIGRATION_INCOMPLETE");
   }
-  const skill = files.find(({ path }) => path === "skills/askrigor/SKILL.md")!.text;
+  const initialization = files.find(({ path }) =>
+    path === "skills/askrigor/MCP_INITIALIZATION.md"
+  )!.text;
+  const accessDocument = files.find(({ path }) =>
+    path === "docs/research-contributor-access.md"
+  )!.text;
   const privacy = files.find(({ path }) => path === "site/privacy/index.html")!.text;
   const terms = files.find(({ path }) => path === "site/terms/index.html")!.text;
-  for (const [name, text] of [["skill", skill], ["privacy", privacy], ["terms", terms]] as const) {
+  if (
+    !initialization.includes("`manage_research_access`") ||
+    !initialization.includes('`action: "inspect"`')
+  ) {
+    throw new Error("CONTRIBUTOR_ACCESS_INITIALIZATION_GATE_MISSING");
+  }
+  for (const [name, text] of [
+    ["access_document", accessDocument],
+    ["privacy", privacy],
+    ["terms", terms]
+  ] as const) {
     for (const required of [
       "free contributor",
       "paid private",

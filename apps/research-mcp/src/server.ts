@@ -98,7 +98,7 @@ import {
   type AskRigorOAuthResourceServer,
 } from "./oauth-resource-server.js";
 
-export type McpToolCatalogProfile = "standard" | "gemini";
+export type McpToolCatalogProfile = "legacy" | "standard-v2" | "gemini";
 
 export interface AskRigorMcpServerOptions {
   publicEvidenceGapReviewService?: PublicEvidenceGapIntakeService;
@@ -110,7 +110,7 @@ export interface AskRigorMcpServerOptions {
 }
 
 export function createAskRigorServer(
-  profile: McpToolCatalogProfile = "standard",
+  profile: McpToolCatalogProfile = "standard-v2",
   options: AskRigorMcpServerOptions = {},
 ): McpServer {
   const server = new McpServer(
@@ -120,7 +120,7 @@ export function createAskRigorServer(
     },
     { instructions: SERVER_INSTRUCTIONS }
   );
-  registerTools(server, options);
+  registerTools(server, { ...options, catalogProfile: profile });
   if (profile === "gemini") {
     installGeminiCompatibleToolCatalog(server);
   }
@@ -560,7 +560,7 @@ export function createAskRigorHttpServer(
         await attachOptionalOAuthIdentity(request, oauthResourceServer);
         const profile = pathname === GEMINI_COMPATIBLE_MCP_PATH
           ? "gemini"
-          : "standard";
+          : "standard-v2";
         server = createMcpServer(profile);
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: undefined

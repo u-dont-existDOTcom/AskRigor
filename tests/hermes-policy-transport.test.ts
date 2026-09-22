@@ -475,6 +475,8 @@ function semanticWorkFixtures(): ResearchSemanticWork[] {
         channel_title: "Synthetic channel",
         transcript_receipt_sha256: d("c"),
         discussion_receipt_sha256: d("d"),
+        transcript_status: "COMPLETE",
+        discussion_status: "COMPLETE",
         transcript_record_count: 1,
         discussion_analysis_record_count: 0
       }

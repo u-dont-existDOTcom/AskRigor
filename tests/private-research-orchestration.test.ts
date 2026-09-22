@@ -661,7 +661,7 @@ class AIAgent:
     });
   });
 
-  it("fails before executor dispatch when canonical policy loading fails", async () => {
+  it("fails session creation before executor dispatch when canonical policy loading fails", async () => {
     const execute = vi.fn(async () => {
       throw new Error("executor must not be called");
     });
@@ -683,25 +683,14 @@ class AIAgent:
         research_target: "de-identified policy failure fixture",
         diagnosis_status: "diagnosis_not_specified"
       });
-      const start = await started.json() as PrivateView;
-      const failed = await privatePost(baseUrl, "/advance", {
-        session_id: start.session_id,
-        state_digest: start.state_digest
-      });
-
-      expect(failed.status).toBe(503);
-      expect(await failed.json()).toEqual({
+      expect(started.status).toBe(503);
+      expect(await started.json()).toEqual({
         error: {
-          code: "private_orchestration_worker_failed",
+          code: "private_orchestration_policy_unavailable",
           retryable: true
         }
       });
       expect(execute).not.toHaveBeenCalled();
-
-      const status = await privatePost(baseUrl, "/status", {
-        session_id: start.session_id
-      });
-      expect((await status.json() as PrivateView).state_digest).toBe(start.state_digest);
     });
   });
 

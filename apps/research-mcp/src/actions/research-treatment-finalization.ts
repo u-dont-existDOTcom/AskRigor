@@ -13,6 +13,7 @@ import {
   type ResearchFormalEvidenceState
 } from "./research-formal-evidence.js";
 import type { ResearchVideoDepthState } from "./research-video-depth-controller.js";
+import type { ResearchBoundedEvidenceState } from "./research-bounded-evidence.js";
 import {
   assessTreatmentLandscapeCoverage,
   deriveProgramSignature,
@@ -169,6 +170,7 @@ export interface TreatmentFinalizationEvidence {
   researchTarget: string;
   candidates: ResearchCandidateDiscoveryState;
   videoDepth: ResearchVideoDepthState;
+  boundedEvidence?: ResearchBoundedEvidenceState;
   formalEvidence: ResearchFormalEvidenceState;
   bidirectional: ResearchBidirectionalIterationState;
 }
@@ -787,7 +789,10 @@ function bidirectionalEvidence(evidence: TreatmentFinalizationEvidence) {
   return {
     candidates: evidence.candidates,
     videoDepth: evidence.videoDepth,
-    formalEvidence: evidence.formalEvidence
+    formalEvidence: evidence.formalEvidence,
+    ...(evidence.boundedEvidence === undefined
+      ? {}
+      : { boundedEvidence: evidence.boundedEvidence })
   };
 }
 

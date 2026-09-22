@@ -25,6 +25,7 @@
     "generate:patient-story-evidence-schema": "tsx scripts/generate-patient-story-evidence-v0.3-schema.mts",
     "generate:patient-story-evidence-v0.2-schema": "tsx scripts/generate-patient-story-evidence-v0.2-schema.mts",
     "generate:custom-gpt": "tsx scripts/generate-custom-gpt-packet.mts",
+    "generate:public-runtime": "tsx scripts/generate-public-plugin-runtime.mts",
     "sync:retraction-watch": "tsx scripts/sync-retraction-watch.mts",
     "sync:retraction-watch:runtime": "node apps/research-mcp/dist/retraction-watch-sync-cli.js",
     "pilot:hermes": "tsx scripts/run-hermes-worker-pilot.mts",

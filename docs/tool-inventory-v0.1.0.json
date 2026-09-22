@@ -338,6 +338,161 @@
       }
     },
     {
+      "name": "load_research_runtime",
+      "description": "Load the complete immutable public AskRigor runtime bundle in ordered, checksum-bound chunks. Select a profile only on the first call; continue with the returned handle until complete is true.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "profile": {
+            "type": "string",
+            "enum": [
+              "legacy",
+              "standard-v2",
+              "gemini"
+            ]
+          },
+          "continuation_handle": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "format_version": {
+            "type": "string",
+            "const": "askrigor_public_runtime_bundle_v1"
+          },
+          "profile": {
+            "type": "string",
+            "enum": [
+              "legacy",
+              "standard-v2",
+              "gemini"
+            ]
+          },
+          "release_manifest_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "bundle_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "document_order_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "document_hashes": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "document_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              },
+              "required": [
+                "document_id",
+                "sha256"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "chunk_index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "chunk_count": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "byte_start": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "byte_end_exclusive": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "total_bytes": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "chunk_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "text": {
+            "type": "string"
+          },
+          "next_handle": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "complete": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "format_version",
+          "profile",
+          "release_manifest_sha256",
+          "bundle_sha256",
+          "document_order_sha256",
+          "document_hashes",
+          "chunk_index",
+          "chunk_count",
+          "byte_start",
+          "byte_end_exclusive",
+          "total_bytes",
+          "chunk_sha256",
+          "text",
+          "complete"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "_meta": {
+        "securitySchemes": [
+          {
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "name": "search_pubmed",
       "description": "Search PubMed citations and return stable PMIDs with explicit pagination and access state; no medical conclusions are generated.",
       "inputSchema": {

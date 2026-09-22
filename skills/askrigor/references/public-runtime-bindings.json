@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "profiles": {
+    "legacy": {
+      "binding": "PUBLIC_DIRECT",
+      "operation_ids": [
+        "get_protocol_manifest",
+        "load_protocol",
+        "verify_protocol_integrity",
+        "search_pubmed",
+        "fetch_pubmed_record",
+        "search_europe_pmc",
+        "acquire_open_full_text",
+        "continue_open_full_text",
+        "validate_study_method_audit",
+        "validate_review_method_audit",
+        "search_clinical_trials",
+        "fetch_clinical_trial",
+        "resolve_doi",
+        "check_retraction_status",
+        "search_youtube",
+        "get_youtube_video",
+        "get_youtube_comments",
+        "search_youtube_comments",
+        "audit_youtube_community",
+        "survey_youtube_community",
+        "audit_youtube_video_community",
+        "get_research_frontier",
+        "search_research_frontiers",
+        "manage_research_access",
+        "submit_research_contribution",
+        "review_research_contribution",
+        "review_evidence_gap_submissions"
+      ]
+    },
+    "standard-v2": {
+      "binding": "PUBLIC_DIRECT",
+      "operation_ids": [
+        "get_protocol_manifest",
+        "load_protocol",
+        "verify_protocol_integrity",
+        "load_research_runtime",
+        "search_pubmed",
+        "fetch_pubmed_record",
+        "search_europe_pmc",
+        "acquire_open_full_text",
+        "continue_open_full_text",
+        "validate_study_method_audit",
+        "validate_review_method_audit",
+        "search_clinical_trials",
+        "fetch_clinical_trial",
+        "resolve_doi",
+        "check_retraction_status",
+        "search_youtube",
+        "get_youtube_video",
+        "get_youtube_comments",
+        "search_youtube_comments",
+        "audit_youtube_community",
+        "survey_youtube_community",
+        "audit_youtube_video_community",
+        "get_research_frontier",
+        "search_research_frontiers",
+        "manage_research_access",
+        "submit_research_contribution",
+        "review_research_contribution",
+        "review_evidence_gap_submissions"
+      ]
+    },
+    "gemini": {
+      "binding": "PUBLIC_DIRECT",
+      "operation_ids": [
+        "get_protocol_manifest",
+        "load_protocol",
+        "verify_protocol_integrity",
+        "search_pubmed",
+        "fetch_pubmed_record",
+        "search_europe_pmc",
+        "acquire_open_full_text",
+        "continue_open_full_text",
+        "validate_study_method_audit",
+        "validate_review_method_audit",
+        "search_clinical_trials",
+        "fetch_clinical_trial",
+        "resolve_doi",
+        "check_retraction_status",
+        "search_youtube",
+        "get_youtube_video",
+        "get_youtube_comments",
+        "search_youtube_comments",
+        "audit_youtube_community",
+        "survey_youtube_community",
+        "audit_youtube_video_community",
+        "get_research_frontier"
+      ]
+    }
+  },
+  "capabilities": {
+    "CONTROLLER_INTERNAL": [
+      "automated_video_scout",
+      "native_video_discovery",
+      "candidate_screening",
+      "transcript_acquisition",
+      "community_discussion_audit",
+      "video_evidence_synthesis",
+      "formal_evidence_search",
+      "accessible_full_text_acquisition",
+      "study_method_audit",
+      "external_study_evidence_audit",
+      "linked_replication_and_review_audit",
+      "claim_capability_recalculation",
+      "bidirectional_evidence_return",
+      "treatment_landscape_finalization",
+      "report_synthesis",
+      "final_completion_audit"
+    ],
+    "HOST_PROVIDED": [
+      "browser_navigation",
+      "host_web_search"
+    ],
+    "UNAVAILABLE": [
+      "arbitrary_private_file_read",
+      "conversation_history_write"
+    ]
+  }
+}

@@ -171,10 +171,10 @@ describe("read-only research-frontier catalog search", () => {
     expect(JSON.stringify(failed)).not.toContain("must-never-cross-the-boundary");
   });
 
-  it("remains operation 23 while access operations append after both frontier reads", () => {
-    expect(RESEARCH_OPERATIONS).toHaveLength(27);
-    expect(RESEARCH_OPERATIONS.at(21)?.name).toBe("get_research_frontier");
-    expect(RESEARCH_OPERATIONS.at(22)).toMatchObject({
+  it("is operation 24 while access operations append after both frontier reads", () => {
+    expect(RESEARCH_OPERATIONS).toHaveLength(28);
+    expect(RESEARCH_OPERATIONS.at(22)?.name).toBe("get_research_frontier");
+    expect(RESEARCH_OPERATIONS.at(23)).toMatchObject({
       name: "search_research_frontiers",
       actionPath: "/actions/research/search_research_frontiers",
       annotations: {

@@ -24,11 +24,16 @@ import {
 } from
   "../apps/research-mcp/src/youtube-audit-continuation.js";
 import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
+import {
+  InMemoryResearchContributorAccessStore,
+  ResearchContributorAccessService
+} from "../packages/evidence-repository/src/index.js";
 
 const TOOL_NAMES = [
   "get_protocol_manifest",
   "load_protocol",
   "verify_protocol_integrity",
+  "load_research_runtime",
   "search_pubmed",
   "fetch_pubmed_record",
   "search_europe_pmc",
@@ -61,6 +66,7 @@ const GEMINI_TOOL_NAMES = TOOL_NAMES.filter((name) =>
     "search_research_frontiers",
     "manage_research_access",
     "submit_research_contribution",
+    "load_research_runtime",
   ].includes(name)
 );
 
@@ -86,11 +92,59 @@ afterEach(async () => {
   resetClinicalTrialsFreshnessCacheForTests();
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   await Promise.all(clients.splice(0).map((client) => client.close()));
 });
 
 describe("AskRigor MCP tools", () => {
-  it("registers the exact twenty-seven-tool catalog with three declared writes", async () => {
+  it("executes a diagnostic-only invocation without research or access mutation", async () => {
+    const store = new InMemoryResearchContributorAccessStore();
+    const access = new ResearchContributorAccessService({
+      store,
+      identitySecret: new Uint8Array(32).fill(7)
+    });
+    const inspect = vi.spyOn(access, "inspect");
+    const requireActive = vi.spyOn(access, "requireActive");
+    const accept = vi.spyOn(access, "acceptFreeContributor");
+    const activate = vi.spyOn(access, "activatePaidPrivate");
+    const revoke = vi.spyOn(access, "revoke");
+    const submit = vi.spyOn(access, "submitProposal");
+    const server = createAskRigorServer("standard-v2", {
+      researchContributorAccessService: access
+    });
+    const client = new Client({ name: "diagnostic-only-test", version: "1.0.0" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    clients.push(client);
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+
+    try {
+      const result = await client.callTool({
+        name: "get_protocol_manifest",
+        arguments: { protocol: "hrp" }
+      });
+
+      expect(result.isError).not.toBe(true);
+      expect(result.structuredContent).toMatchObject({
+        ok: true,
+        protocol: "hrp"
+      });
+      expect([
+        inspect,
+        requireActive,
+        accept,
+        activate,
+        revoke,
+        submit
+      ].every((spy) => spy.mock.calls.length === 0)).toBe(true);
+      expect(store.allAccounts()).toEqual([]);
+      expect(store.allProposals()).toEqual([]);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("registers the exact standard-v2 catalog with three declared writes", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {
@@ -112,24 +166,75 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
-  it("prioritizes reciprocal access before the adaptive research workflow", () => {
+  it("delivers the complete standard-v2 runtime through the real MCP operation", async () => {
+    vi.stubEnv("ASKRIGOR_RUNTIME_CONTINUATION_SECRET", "m".repeat(32));
+    const { client, server } = await createInMemoryClient();
+    const chunks: Array<{
+      chunk_index: number;
+      text: string;
+      complete: boolean;
+      next_handle?: string;
+    }> = [];
+    let arguments_: { profile?: "standard-v2"; continuation_handle?: string } = {
+      profile: "standard-v2"
+    };
+
+    try {
+      do {
+        const result = await client.callTool({
+          name: "load_research_runtime",
+          arguments: arguments_
+        });
+        expect(result.isError).not.toBe(true);
+        const chunk = result.structuredContent as typeof chunks[number];
+        chunks.push(chunk);
+        arguments_ = { continuation_handle: chunk.next_handle };
+      } while (arguments_.continuation_handle !== undefined);
+
+      expect(chunks.map(({ chunk_index }) => chunk_index)).toEqual(
+        Array.from({ length: chunks.length }, (_, index) => index)
+      );
+      expect(chunks.at(-1)).toMatchObject({ complete: true });
+      const bundle = JSON.parse(chunks.map(({ text }) => text).join("")) as {
+        profile: string;
+        operation_ids: string[];
+        documents: Array<{ document_id: string }>;
+      };
+      expect(bundle.profile).toBe("standard-v2");
+      expect(bundle.operation_ids).toEqual(TOOL_NAMES);
+      expect(bundle.documents.map(({ document_id }) => document_id)).toEqual([
+        "universal",
+        "hrp",
+        "project_router",
+        "forum_signal_module",
+        "public_plugin_adapter",
+        "public_runtime_bindings",
+        "mcp_initialization",
+        "public_runtime_source_manifest"
+      ]);
+    } finally {
+      await server.close();
+    }
+  }, 120_000);
+
+  it("publishes the generated diagnostic, access, runtime, and provenance bootstrap", () => {
     const criticalInstructions = SERVER_INSTRUCTIONS.slice(0, 512);
 
+    expect(criticalInstructions).toContain("For a diagnostic request");
+    expect(criticalInstructions).toContain("only the named diagnostic operation");
+    expect(criticalInstructions).toContain("Do not enroll");
     expect(criticalInstructions).toContain("manage_research_access");
-    expect(criticalInstructions).toContain("explicitly accept free contributor mode");
-    expect(criticalInstructions).toContain("never infer consent");
-    expect(criticalInstructions).toContain("never raw chat");
-    expect(SERVER_INSTRUCTIONS).toContain("submit_research_contribution");
-    expect(SERVER_INSTRUCTIONS).toContain("Paid-private mode submits nothing");
-    expect(SERVER_INSTRUCTIONS).toContain("survey_youtube_community");
-    expect(SERVER_INSTRUCTIONS).toContain("audit_youtube_video_community");
-    expect(SERVER_INSTRUCTIONS).toContain("could plausibly matter");
-    expect(SERVER_INSTRUCTIONS).toContain("excellent RCT does not remove this requirement");
-    expect(SERVER_INSTRUCTIONS).toContain("continuation_recommended");
-    expect(SERVER_INSTRUCTIONS).toContain("expected information gain is positive");
-    expect(SERVER_INSTRUCTIONS).toContain("unfiltered YouTube comments and replies");
+    expect(criticalInstructions).toContain("render the returned notice");
+    expect(criticalInstructions).toContain("without inventing agreement");
+    expect(SERVER_INSTRUCTIONS).toContain("load_research_runtime");
+    expect(SERVER_INSTRUCTIONS).toContain("until `complete` is true");
+    expect(SERVER_INSTRUCTIONS).toContain("server-owned start/continue/status/finalize");
+    expect(SERVER_INSTRUCTIONS).toContain("A missing provider is not zero results");
     expect(SERVER_INSTRUCTIONS).toContain(
-      "search_youtube_comments is query-bounded discovery only"
+      "a missing transcript does not erase separately retrieved comments"
+    );
+    expect(SERVER_INSTRUCTIONS).toContain(
+      "runtime checksum proves delivery rather than comprehension"
     );
   });
 

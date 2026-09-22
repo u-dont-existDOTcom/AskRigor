@@ -7,6 +7,9 @@ COPY packages ./packages
 COPY protocols ./protocols
 COPY project/PROJECT_INSTRUCTIONS.md ./project/PROJECT_INSTRUCTIONS.md
 COPY project/FORUM_SIGNAL_MODULE.md ./project/FORUM_SIGNAL_MODULE.md
+COPY project/PUBLIC_PLUGIN_ADAPTER.md ./project/PUBLIC_PLUGIN_ADAPTER.md
+COPY project/public-runtime-bindings.json ./project/public-runtime-bindings.json
+COPY skills/askrigor ./skills/askrigor
 COPY integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md ./integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md
 COPY tsconfig.base.json ./
 RUN npm ci
@@ -24,6 +27,9 @@ COPY --from=build /app/packages ./packages
 COPY --from=build /app/protocols ./protocols
 COPY --from=build /app/project/PROJECT_INSTRUCTIONS.md ./project/PROJECT_INSTRUCTIONS.md
 COPY --from=build /app/project/FORUM_SIGNAL_MODULE.md ./project/FORUM_SIGNAL_MODULE.md
+COPY --from=build /app/project/PUBLIC_PLUGIN_ADAPTER.md ./project/PUBLIC_PLUGIN_ADAPTER.md
+COPY --from=build /app/project/public-runtime-bindings.json ./project/public-runtime-bindings.json
+COPY --from=build /app/skills/askrigor ./skills/askrigor
 COPY --from=build /app/integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md ./integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md
 
 USER node

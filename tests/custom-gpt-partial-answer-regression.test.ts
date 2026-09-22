@@ -52,14 +52,17 @@ describe("Custom GPT partial-answer regressions", () => {
   });
 
   it("makes a partial label unable to waive executable required work", async () => {
-    const [project, forum, skill, generated] = await Promise.all([
+    const [project, forum, packagedProject, packagedForum, generated] = await Promise.all([
       readFile(rootFile("project/PROJECT_INSTRUCTIONS.md"), "utf8"),
       readFile(rootFile("project/FORUM_SIGNAL_MODULE.md"), "utf8"),
-      readFile(rootFile("skills/askrigor/SKILL.md"), "utf8"),
+      readFile(rootFile("skills/askrigor/references/PROJECT_INSTRUCTIONS.md"), "utf8"),
+      readFile(rootFile("skills/askrigor/references/FORUM_SIGNAL_MODULE.md"), "utf8"),
       readFile(rootFile("docs/custom-gpt-instructions.md"), "utf8"),
     ]);
 
-    for (const surface of [project, forum, skill]) {
+    expect(packagedProject).toBe(project);
+    expect(packagedForum).toBe(forum);
+    for (const surface of [project, forum, packagedProject, packagedForum]) {
       expect(surface).toContain("A partial or bounded answer does not waive executable required work");
       expect(surface).toContain("one unavailable full text or inaccessible private community");
     }
@@ -68,31 +71,24 @@ describe("Custom GPT partial-answer regressions", () => {
   });
 
   it("requires program-specific inference and discovery on every instruction surface", async () => {
-    const [project, forum, skill, generated] = await Promise.all([
+    const [project, forum, packagedProject, packagedForum, generated] = await Promise.all([
       readFile(rootFile("project/PROJECT_INSTRUCTIONS.md"), "utf8"),
       readFile(rootFile("project/FORUM_SIGNAL_MODULE.md"), "utf8"),
-      readFile(rootFile("skills/askrigor/SKILL.md"), "utf8"),
+      readFile(rootFile("skills/askrigor/references/PROJECT_INSTRUCTIONS.md"), "utf8"),
+      readFile(rootFile("skills/askrigor/references/FORUM_SIGNAL_MODULE.md"), "utf8"),
       readFile(rootFile("docs/custom-gpt-instructions.md"), "utf8"),
     ]);
 
-    for (const surface of [project, forum, skill]) {
+    expect(packagedProject).toBe(project);
+    expect(packagedForum).toBe(forum);
+    for (const surface of [project, forum, packagedProject, packagedForum]) {
       expect(surface).toContain("program not described");
     }
     expect(project).toContain("Fingerprint components");
     expect(forum).toContain("cannot support a class-wide benefit, failure, comparison, or ranking");
     expect(forum).toContain("materially distinct program hypotheses");
 
-    for (const compactSurface of [skill]) {
-      expect(compactSurface).toContain("Fingerprint components");
-      expect(compactSurface).toContain("no class-wide benefit/failure/ranking follows");
-      expect(compactSurface).toContain("Mismatched comparators narrow inference");
-      expect(compactSurface).toContain("materially distinct program hypotheses");
-      expect(compactSurface).toContain(
-        "general/exact/contrarian/benefit/failure/harm/discriminator queries",
-      );
-      expect(compactSurface).toContain("what finally worked");
-    }
-    for (const fullSurface of [project, forum]) {
+    for (const fullSurface of [project, forum, packagedProject, packagedForum]) {
       expect(fullSurface).toContain("weak or mismatched comparator narrows inference");
     }
     expect(generated).toContain("Keep distinct treatments and distinct implementations separate");
@@ -100,14 +96,17 @@ describe("Custom GPT partial-answer regressions", () => {
   });
 
   it("keeps machine enums out of ordinary user-facing prose", async () => {
-    const [project, forum, skill, generated] = await Promise.all([
+    const [project, forum, packagedProject, packagedForum, generated] = await Promise.all([
       readFile(rootFile("project/PROJECT_INSTRUCTIONS.md"), "utf8"),
       readFile(rootFile("project/FORUM_SIGNAL_MODULE.md"), "utf8"),
-      readFile(rootFile("skills/askrigor/SKILL.md"), "utf8"),
+      readFile(rootFile("skills/askrigor/references/PROJECT_INSTRUCTIONS.md"), "utf8"),
+      readFile(rootFile("skills/askrigor/references/FORUM_SIGNAL_MODULE.md"), "utf8"),
       readFile(rootFile("docs/custom-gpt-instructions.md"), "utf8"),
     ]);
 
-    for (const surface of [project, forum, skill]) {
+    expect(packagedProject).toBe(project);
+    expect(packagedForum).toBe(forum);
+    for (const surface of [project, forum, packagedProject, packagedForum]) {
       expect(surface).toContain("Translate internal status codes into plain language");
       expect(surface).toContain("only when the user explicitly asks for a technical audit or debug export");
     }

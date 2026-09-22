@@ -1,3 +1,6 @@
+import { PUBLIC_RUNTIME_INITIALIZATION_INSTRUCTIONS } from
+  "./generated/public-runtime-initialization.js";
+
 export const SERVICE_NAME = "askrigor-research";
 export const GEMINI_COMPATIBLE_SERVICE_NAME = "askrigor_research";
 export const SERVICE_VERSION = "0.1.0";
@@ -335,8 +338,7 @@ export function parseTrustedClientIpHeader(
   return value === "cf-connecting-ip" ? value : undefined;
 }
 
-export const SERVER_INSTRUCTIONS =
-  "Before ordinary research use, call manage_research_access with action inspect. If access is unregistered or revoked, present the returned exact notice and let the user explicitly accept free contributor mode or use an already entitled paid-private account; never infer consent or claim that checkout exists. Free contributor mode permits only eligible deidentified structured formal-research proposals, never raw chat, identity, private health narratives, uploads, raw source/provider bodies, or YouTube/community data. At the end of eligible free research, submit the strict frontier and each complete performed source analysis with submit_research_contribution; a pending proposal is not canonical evidence. Paid-private mode submits nothing. Before final synthesis, if firsthand community evidence could plausibly matter, call survey_youtube_community, then audit_youtube_video_community for each material video. Finding an excellent RCT does not remove this requirement. Automatically continue while continuation_recommended is true and widen while expected information gain is positive. Retrieve unfiltered YouTube comments and replies; search_youtube_comments is query-bounded discovery only and never satisfies corpus acquisition. Preserve provenance and blocking receipts. For each decision-important full-text chain, call acquire_open_full_text once with exactly one doi and an optional pmcid; bind coverage_receipt.document_handle and coverage_receipt.source_content_sha256; call continue_open_full_text only while exhausted is false; then call one matching method-audit validator with the same bound document_handle. When repository_study_audit.status is reusable, pass its repository_analysis_version_id to the study validator instead of constructing a new audit; the server rechecks compatibility and runs the same validator. If reuse returns fresh_study_audit_required, call the same validator again with a newly performed audit on the unchanged exhausted handle. Require its returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 to match the acquisition byte-for-byte; any mismatch blocks synthesis. A fresh_study_audit_required boundary is not validated and also blocks synthesis until the named next capability succeeds. If the handle expires or is invalidated, discard that chain and reacquire; never combine chains. Review usable records from partial corpora as bounded evidence and label them partial; completion locks do not make observed records ineligible. Read-only retrieval.";
+export const SERVER_INSTRUCTIONS = PUBLIC_RUNTIME_INITIALIZATION_INSTRUCTIONS;
 
 export const HEALTH_PAYLOAD = {
   status: "ok",

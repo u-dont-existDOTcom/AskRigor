@@ -178,19 +178,28 @@ const videoEvidenceRecordSchema = z.object({
   community_findings: z.array(communityFindingSchema).max(40),
   limitations: z.array(bounded(1_000)).max(30)
 }).strict().superRefine((record, context) => {
-  const completed = record.status === "COMPLETE";
-  if (completed !== (
+  const hasAnyMaterialBinding =
     record.transcript_receipt_sha256 !== undefined &&
     record.discussion_receipt_sha256 !== undefined &&
-    record.source_material_digest !== undefined
-  )) {
+    record.source_material_digest !== undefined;
+  const hasPartialMaterialBinding =
+    record.transcript_receipt_sha256 !== undefined ||
+    record.discussion_receipt_sha256 !== undefined ||
+    record.source_material_digest !== undefined;
+  if (hasAnyMaterialBinding !== hasPartialMaterialBinding) {
+    context.addIssue({
+      code: "custom",
+      message: "Video evidence material bindings must travel together"
+    });
+  }
+  if (record.status === "COMPLETE" && !hasAnyMaterialBinding) {
     context.addIssue({
       code: "custom",
       message: "Completed video evidence requires exact transcript, discussion, and material bindings"
     });
   }
   if (
-    completed &&
+    record.status === "COMPLETE" &&
     !record.creator_findings.some(({ finding_type }) => finding_type === "program")
   ) {
     context.addIssue({
@@ -228,7 +237,9 @@ export const videoEvidenceWorkPackageSchema = z.object({
   channel_title: bounded(500),
   transcript_receipt_sha256: digest,
   discussion_receipt_sha256: digest,
-  transcript_record_count: z.number().int().positive(),
+  transcript_status: z.enum(["COMPLETE", "BLOCKED_TERMINAL"]),
+  discussion_status: z.enum(["COMPLETE", "BLOCKED_TERMINAL"]),
+  transcript_record_count: z.number().int().nonnegative(),
   discussion_analysis_record_count: z.number().int().nonnegative()
 }).strict();
 
@@ -236,7 +247,7 @@ export const videoEvidenceSubmissionSchema = z.object({
   package_version: z.literal("askrigor_video_evidence_v1"),
   evidence_basis_digest: digest,
   video_id: youtubeVideoId,
-  creator_findings: z.array(creatorFindingSubmissionSchema).min(1).max(24),
+  creator_findings: z.array(creatorFindingSubmissionSchema).max(24),
   community_findings: z.array(communityFindingSubmissionSchema).max(40),
   limitations: z.array(bounded(1_000)).max(30)
 }).strict();
@@ -300,7 +311,7 @@ export function reconcileVideoEvidenceBoundaries(
     const discussion = videoDepth.discussions.find(({ source }) =>
       source.video_id === record.video_id
     );
-    const terminal = transcript?.status === "BLOCKED_TERMINAL" ||
+    const terminal = transcript?.status === "BLOCKED_TERMINAL" &&
       discussion?.status === "BLOCKED_TERMINAL";
     if (!terminal) return record;
     const limitations = [
@@ -343,7 +354,11 @@ export function createVideoEvidenceWorkPackage(
   );
   if (
     record?.status !== "NOT_STARTED" || candidate === undefined ||
-    transcript?.status !== "COMPLETE" || discussion?.status !== "COMPLETE" ||
+    transcript === undefined || discussion === undefined ||
+    !["COMPLETE", "BLOCKED_TERMINAL"].includes(transcript.status) ||
+    !["COMPLETE", "BLOCKED_TERMINAL"].includes(discussion.status) ||
+    transcript.status === "BLOCKED_TERMINAL" &&
+      discussion.status === "BLOCKED_TERMINAL" ||
     transcript.receipt === undefined || discussion.receipt === undefined
   ) throw new Error("Video evidence does not have one exact executable source frontier");
   const transcriptHash = sha256(canonicalJson(transcript.receipt));
@@ -368,6 +383,8 @@ export function createVideoEvidenceWorkPackage(
     channel_title: candidate.channel_title,
     transcript_receipt_sha256: transcriptHash,
     discussion_receipt_sha256: discussionHash,
+    transcript_status: transcript.status,
+    discussion_status: discussion.status,
     transcript_record_count: material?.transcript_segments.length ??
       transcript.receipt.pagination.records_returned_cumulative,
     discussion_analysis_record_count: material?.discussion_comments.length ??
@@ -389,6 +406,18 @@ export function ingestVideoEvidenceSubmission(
     submission.video_id !== work.video_id ||
     submission.evidence_basis_digest !== work.evidence_basis_digest
   ) throw new Error("Video evidence submission is stale or bound to another source frontier");
+  if (
+    (work.transcript_status === "COMPLETE" && submission.creator_findings.length === 0) ||
+    (work.transcript_status === "BLOCKED_TERMINAL" && submission.creator_findings.length > 0)
+  ) {
+    throw new Error("Creator findings must match the exact transcript availability boundary");
+  }
+  if (
+    work.discussion_status === "BLOCKED_TERMINAL" &&
+    submission.community_findings.length > 0
+  ) {
+    throw new Error("Community findings require an accessible discussion corpus");
+  }
   const transcriptByHash = new Map(material.transcript_segments.map((segment) => [
     segment.record_sha256,
     segment
@@ -441,13 +470,24 @@ export function ingestVideoEvidenceSubmission(
   const videos = [...state.videos];
   videos[index] = videoEvidenceRecordSchema.parse({
     video_id: submission.video_id,
-    status: "COMPLETE",
+    status: work.transcript_status === "COMPLETE" &&
+        work.discussion_status === "COMPLETE"
+      ? "COMPLETE"
+      : "BOUNDED_TERMINAL",
     transcript_receipt_sha256: work.transcript_receipt_sha256,
     discussion_receipt_sha256: work.discussion_receipt_sha256,
     source_material_digest: material.source_material_digest,
     creator_findings: creatorFindings,
     community_findings: communityFindings,
-    limitations: submission.limitations
+    limitations: [
+      ...submission.limitations,
+      ...(work.transcript_status === "BLOCKED_TERMINAL"
+        ? ["The creator's spoken content could not be verified from an accessible transcript; no creator findings were authorized."]
+        : []),
+      ...(work.discussion_status === "BLOCKED_TERMINAL"
+        ? ["The public discussion reached a source-specific access boundary; no community findings were authorized."]
+        : [])
+    ]
   });
   return researchBoundedEvidenceStateSchema.parse({ ...state, videos });
 }
@@ -520,7 +560,10 @@ export function nextVideoEvidenceId(
     const discussion = videoDepth.discussions.find(({ source }) =>
       source.video_id === record.video_id
     );
-    return transcript?.status === "COMPLETE" && discussion?.status === "COMPLETE";
+    return transcript !== undefined && discussion !== undefined &&
+      ["COMPLETE", "BLOCKED_TERMINAL"].includes(transcript.status) &&
+      ["COMPLETE", "BLOCKED_TERMINAL"].includes(discussion.status) &&
+      (transcript.status === "COMPLETE" || discussion.status === "COMPLETE");
   })?.video_id;
 }
 

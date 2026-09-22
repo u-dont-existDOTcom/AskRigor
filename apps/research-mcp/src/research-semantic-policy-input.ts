@@ -13,6 +13,20 @@ import {
   type ResearchSemanticWork
 } from "./research-semantic-worker.js";
 import { controlledWorkerWorkDigest } from "./controlled-worker-payload.js";
+import {
+  runtimeBindingFromDocumentIdentities,
+  runtimeBindingFromPolicyContext,
+  sameRuntimeBinding,
+  type ResearchRuntimeBinding
+} from "./research-runtime-binding.js";
+
+export {
+  RESEARCH_RUNTIME_BINDING_VERSION,
+  runtimeBindingFromDocumentIdentities,
+  runtimeBindingFromPolicyContext,
+  sameRuntimeBinding,
+  type ResearchRuntimeBinding
+} from "./research-runtime-binding.js";
 
 export const RESEARCH_SEMANTIC_POLICY_CONTEXT_VERSION =
   "askrigor_semantic_policy_context_v1" as const;
@@ -99,15 +113,68 @@ export class ResearchSemanticPolicyInputError extends Error {
 export async function createResearchSemanticPolicyInputs(input: {
   kind: ResearchSemanticWork["kind"];
   expectedProtocols: ExpectedResearchProtocolBinding;
+  expectedRuntime?: ResearchRuntimeBinding;
   dependencies?: ResearchSemanticPolicyDependencies;
 }): Promise<ResearchSemanticPolicyInputs> {
+  const policyContext = await loadResearchSemanticPolicyContext(
+    input.expectedProtocols,
+    input.dependencies
+  );
+  if (
+    input.expectedRuntime !== undefined &&
+    !sameRuntimeBinding(
+      input.expectedRuntime,
+      runtimeBindingFromPolicyContext(policyContext)
+    )
+  ) {
+    throw new ResearchSemanticPolicyInputError(
+      "Canonical semantic policy does not match the session runtime binding"
+    );
+  }
   return {
     instruction: researchSemanticPolicyWorkerInstruction(input.kind),
-    policy_context: await loadResearchSemanticPolicyContext(
-      input.expectedProtocols,
-      input.dependencies
-    )
+    policy_context: policyContext
   };
+}
+
+/** Build the four-document session identity without loading protocol text twice. */
+export async function loadResearchRuntimeBinding(
+  expectedProtocols: ExpectedResearchProtocolBinding,
+  dependencies: ResearchSemanticPolicyDependencies = {}
+): Promise<ResearchRuntimeBinding> {
+  const projectReader = dependencies.readProjectDocument ?? readCanonicalProjectDocument;
+  let projectRouterBytes: Uint8Array;
+  let forumSignalBytes: Uint8Array;
+  try {
+    [projectRouterBytes, forumSignalBytes] = await Promise.all([
+      projectReader("project_router"),
+      projectReader("forum_signal_module")
+    ]);
+  } catch (error) {
+    throw policyError("Unable to load canonical operational policy", error);
+  }
+  return runtimeBindingFromDocumentIdentities([
+    {
+      document_id: "universal",
+      path: "protocols/Universal_Instructions.xml",
+      sha256: expectedProtocols[0].sha256
+    },
+    {
+      document_id: "hrp",
+      path: "protocols/HRP_Full.xml",
+      sha256: expectedProtocols[1].sha256
+    },
+    {
+      document_id: "project_router",
+      path: "project/PROJECT_INSTRUCTIONS.md",
+      sha256: sha256(projectRouterBytes)
+    },
+    {
+      document_id: "forum_signal_module",
+      path: "project/FORUM_SIGNAL_MODULE.md",
+      sha256: sha256(forumSignalBytes)
+    }
+  ]);
 }
 
 /** Load all four fixed policy sources and bind them to the session tuple. */

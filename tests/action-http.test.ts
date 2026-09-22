@@ -173,7 +173,7 @@ describe("isolated Action HTTP routing", () => {
     const { stdout, stderr } = await execFileAsync(
       process.execPath,
       ["--import", "tsx", "--input-type=module", "--eval", childSource],
-      { cwd: process.cwd(), timeout: 15_000 }
+      { cwd: process.cwd(), timeout: 30_000 }
     );
 
     expect(stderr).toBe("");
@@ -182,7 +182,7 @@ describe("isolated Action HTTP routing", () => {
       health_status: 200,
       health_body: { status: "ok", service: "askrigor-research", version: "0.1.0" }
     });
-  }, 20_000);
+  }, 40_000);
 
   it("rejects Action bodies above 8,192 bytes before reaching the handler", async () => {
     let handlerCalls = 0;

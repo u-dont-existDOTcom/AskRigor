@@ -165,9 +165,9 @@ describe("dedicated read-only research-frontier tool", () => {
     expect(JSON.stringify(failed)).not.toContain("must-never-cross-the-boundary");
   });
 
-  it("is operation 22 with read-only MCP and non-consequential Action/OpenAPI contracts", () => {
-    const operation = RESEARCH_OPERATIONS.at(21);
-    expect(RESEARCH_OPERATIONS).toHaveLength(27);
+  it("is operation 23 with read-only MCP and non-consequential Action/OpenAPI contracts", () => {
+    const operation = RESEARCH_OPERATIONS.at(22);
+    expect(RESEARCH_OPERATIONS).toHaveLength(28);
     expect(operation).toMatchObject({
       name: "get_research_frontier",
       actionPath: "/actions/research/get_research_frontier",
