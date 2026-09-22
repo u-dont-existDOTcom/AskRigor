@@ -424,7 +424,7 @@ async function establishFreshTemporaryUnpersonalized(page) {
     throw new Error(safe.loginRequired ? "CHATGPT_AUTHENTICATION_REQUIRED" : "FRESH_CHAT_SURFACE_INVALID");
   }
   let temporaryState = null;
-  const temporaryDeadline = Date.now() + 10_000;
+  const temporaryDeadline = Date.now() + 30_000;
   while (Date.now() < temporaryDeadline) {
     const offCount = await exactVisibleButton(page, "Temporary chat").count();
     const onCount = await exactVisibleButton(page, "Turn off temporary chat").count();
@@ -437,7 +437,7 @@ async function establishFreshTemporaryUnpersonalized(page) {
   }
   if (temporaryState === "OFF") {
     await domClick(exactVisibleButton(page, "Temporary chat"), "TEMPORARY_CHAT_CONTROL_INVALID");
-    await waitForExactButton(page, "Turn off temporary chat");
+    await waitForExactButton(page, "Turn off temporary chat", 30_000);
   } else if (temporaryState !== "ON") {
     throw new Error("TEMPORARY_CHAT_STATE_UNPROVABLE");
   }
