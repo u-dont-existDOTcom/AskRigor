@@ -127,13 +127,10 @@ export function createResearchSessionPrototypeRoutes(
       async handle({ session_id: sessionId }) {
         const claimed = store.claim(sessionId);
         try {
-          const identity = await currentRuntimeIdentity(
+          const checked = await recheckCurrentRuntime(
+            claimed,
             manifests,
             options.semanticPolicyDependencies
-          );
-          const checked = applyRuntimeRecheck(
-            applyProtocolRecheck(claimed, identity.protocols),
-            identity.runtime
           );
           if (
             checked.protocol_binding.currency === "DRIFTED" ||
@@ -236,13 +233,10 @@ export function createResearchSessionPrototypeRoutes(
       async handle({ session_id: sessionId }) {
         const claimed = store.claim(sessionId);
         try {
-          const identity = await currentRuntimeIdentity(
+          const checked = await recheckCurrentRuntime(
+            claimed,
             manifests,
             options.semanticPolicyDependencies
-          );
-          const checked = applyRuntimeRecheck(
-            applyProtocolRecheck(claimed, identity.protocols),
-            identity.runtime
           );
           const decision = evaluateResearchFinalization(sessionId, checked, {
             ...(options.finalizationSigningSecret === undefined
@@ -330,6 +324,22 @@ async function currentProtocolBindings(
     manifests("hrp")
   ]);
   return protocolBindingsFromManifests(universal, hrp);
+}
+
+async function recheckCurrentRuntime(
+  state: ResearchSessionState,
+  manifests: typeof getProtocolManifest,
+  dependencies: ResearchSemanticPolicyDependencies | undefined
+): Promise<ResearchSessionState> {
+  const protocols = await currentProtocolBindings(manifests);
+  const protocolChecked = applyProtocolRecheck(state, protocols);
+  if (protocolChecked.protocol_binding.currency === "DRIFTED") {
+    return protocolChecked;
+  }
+  return applyRuntimeRecheck(
+    protocolChecked,
+    await loadResearchRuntimeBinding(protocols, dependencies)
+  );
 }
 
 async function currentRuntimeIdentity(

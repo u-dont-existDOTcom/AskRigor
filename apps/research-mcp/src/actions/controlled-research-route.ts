@@ -561,13 +561,10 @@ export function createControlledResearchRoutes(
     if (researchSessionStateDigest(current) !== input.state_digest) {
       throw new ControlledStateStaleError();
     }
-    const identity = await currentRuntimeIdentity(
+    const checked = await recheckCurrentRuntime(
+      current,
       manifests,
       options.semanticPolicyDependencies
-    );
-    const checked = applyRuntimeRecheck(
-      applyProtocolRecheck(current, identity.protocols),
-      identity.runtime
     );
     if (
       checked.protocol_binding.currency === "DRIFTED" ||
@@ -673,13 +670,10 @@ export function createControlledResearchRoutes(
     if (researchSessionStateDigest(current) !== input.state_digest) {
       throw new ControlledStateStaleError();
     }
-    const identity = await currentRuntimeIdentity(
+    const checked = await recheckCurrentRuntime(
+      current,
       manifests,
       options.semanticPolicyDependencies
-    );
-    const checked = applyRuntimeRecheck(
-      applyProtocolRecheck(current, identity.protocols),
-      identity.runtime
     );
     const decision = evaluateResearchFinalization(input.session_id, checked, {
       signingSecret: options.finalizationSigningSecret,
@@ -959,6 +953,29 @@ async function currentProtocolBindings(manifests: typeof getProtocolManifest) {
     manifests("hrp")
   ]);
   return protocolBindingsFromManifests(universal, hrp);
+}
+
+async function recheckCurrentRuntime(
+  state: ResearchSessionState,
+  manifests: typeof getProtocolManifest,
+  dependencies: ResearchSemanticPolicyDependencies | undefined
+): Promise<ResearchSessionState> {
+  try {
+    const protocols = await currentProtocolBindings(manifests);
+    const protocolChecked = applyProtocolRecheck(state, protocols);
+    if (protocolChecked.protocol_binding.currency === "DRIFTED") {
+      return protocolChecked;
+    }
+    return applyRuntimeRecheck(
+      protocolChecked,
+      await loadResearchRuntimeBinding(protocols, dependencies)
+    );
+  } catch (error) {
+    if (error instanceof ResearchSemanticPolicyInputError) {
+      throw new ControlledDependencyUnavailableError();
+    }
+    throw error;
+  }
 }
 
 async function currentRuntimeIdentity(

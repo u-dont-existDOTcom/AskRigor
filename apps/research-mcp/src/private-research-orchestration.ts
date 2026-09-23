@@ -455,13 +455,16 @@ export function createPrivateResearchOrchestrationHandler(
         await manifests("universal"),
         await manifests("hrp")
       );
-      checked = applyRuntimeRecheck(
-        applyProtocolRecheck(current, protocols),
-        await loadResearchRuntimeBinding(
-          protocols,
-          options.semanticPolicyDependencies
-        )
-      );
+      const protocolChecked = applyProtocolRecheck(current, protocols);
+      checked = protocolChecked.protocol_binding.currency === "DRIFTED"
+        ? protocolChecked
+        : applyRuntimeRecheck(
+            protocolChecked,
+            await loadResearchRuntimeBinding(
+              protocols,
+              options.semanticPolicyDependencies
+            )
+          );
     } catch (error) {
       if (error instanceof ResearchSemanticPolicyInputError) {
         throw new PrivatePolicyUnavailableError();
