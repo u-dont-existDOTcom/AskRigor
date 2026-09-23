@@ -22,7 +22,7 @@ describe("deployment, plugin, and Custom GPT completion continuity", () => {
       "source merge is an intermediate state",
       "Custom GPT editor installation",
       "fresh product-interface acceptance",
-      "exact 27-tool MCP catalog",
+      "exact profile-bound MCP catalog (28 standard-v2, 27 legacy, or 22 Gemini operations)",
       "live HRP/Universal manifests",
       "exact installed-package receipt",
       "skills/askrigor/SKILL.md",
@@ -113,12 +113,20 @@ describe("deployment, plugin, and Custom GPT completion continuity", () => {
       fileURLToPath(new URL("..", import.meta.url)),
     );
     expect(parsed.package_name).toBe("askrigor");
+    expect(parsed.schema_version).toBe(2);
     expect(parsed.package_sha256).toMatch(/^[a-f0-9]{64}$/u);
+    expect(parsed.public_runtime_source_manifest_sha256).toMatch(/^[a-f0-9]{64}$/u);
     expect(parsed.inventory.map(({ path }: { path: string }) => path)).toEqual([
       ".codex-plugin/plugin.json",
       "assets/askrigor-composer-icon.svg",
       "assets/askrigor-logo.svg",
+      "skills/askrigor/MCP_INITIALIZATION.md",
       "skills/askrigor/SKILL.md",
+      "skills/askrigor/public-runtime-source-manifest.json",
+      "skills/askrigor/references/FORUM_SIGNAL_MODULE.md",
+      "skills/askrigor/references/PROJECT_INSTRUCTIONS.md",
+      "skills/askrigor/references/PUBLIC_PLUGIN_ADAPTER.md",
+      "skills/askrigor/references/public-runtime-bindings.json",
       "skills/browser-archive-downloading/GVSU-REFERENCE.md",
       "skills/browser-archive-downloading/SCENARIOS.md",
       "skills/browser-archive-downloading/SKILL.md",

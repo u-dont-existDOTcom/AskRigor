@@ -69,12 +69,13 @@ describe("treatment option-space prompt matrix", () => {
   });
 
   it("preserves internal breadth triggers while keeping the public comparison educational", async () => {
-    const [projectRouter, skill, generated] = await Promise.all([
+    const [projectRouter, packagedRouter, generated] = await Promise.all([
       readFile(rootFile("project/PROJECT_INSTRUCTIONS.md"), "utf8"),
-      readFile(rootFile("skills/askrigor/SKILL.md"), "utf8"),
+      readFile(rootFile("skills/askrigor/references/PROJECT_INSTRUCTIONS.md"), "utf8"),
       readFile(rootFile("docs/custom-gpt-instructions.md"), "utf8"),
     ]);
-    for (const instruction of [projectRouter, skill]) {
+    expect(packagedRouter).toBe(projectRouter);
+    for (const instruction of [projectRouter, packagedRouter]) {
       for (const fragment of [
         "option-space ledger",
         "do you agree",

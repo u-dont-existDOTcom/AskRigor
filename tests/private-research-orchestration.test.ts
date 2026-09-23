@@ -24,6 +24,10 @@ import {
   createAskRigorHttpServer
 } from "../apps/research-mcp/src/server.js";
 import {
+  loadPackagedPublicRuntimeBundle,
+  type PublicRuntimeBundle
+} from "../apps/research-mcp/src/public-runtime-bundle.js";
+import {
   createConcurrencyLimiter,
   createTokenBucketLimiter,
   type ConcurrencyLimiter,
@@ -40,8 +44,8 @@ import {
 } from "./helpers/research-session-fixtures.js";
 
 const API_KEY = "phase-h-private-orchestration-key-long-enough";
-const HASH_A = "a".repeat(64);
-const HASH_B = "b".repeat(64);
+const HASH_A = "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2";
+const HASH_B = "254759df38934c28b06709dace9fcb266fc9967913be1296de99a461be596816";
 
 function expectReasoningSelectionDelivery(policyContext: any): void {
   const universal = policyContext.documents.find(
@@ -644,7 +648,14 @@ class AIAgent:
       privateOrchestrationEnabled: true,
       privateOrchestrationApiKey: API_KEY,
       privateOrchestrationHandler: fixtureHandler(undefined, worker, {
-        readProjectDocument: async (documentId) => expected.get(documentId)!
+        readProjectDocument: async (documentId) => expected.get(documentId)!,
+        loadPublicRuntimeBundle: async () => syntheticRuntimeBundleWithHashOverrides(
+          await loadPackagedPublicRuntimeBundle("standard-v2"),
+          {
+            project_router: createHash("sha256").update(projectRouter).digest("hex"),
+            forum_signal_module: createHash("sha256").update(forumSignal).digest("hex")
+          }
+        )
       })
     }, async (baseUrl) => {
       const started = await privatePost(baseUrl, "/start", {
@@ -661,7 +672,7 @@ class AIAgent:
     });
   });
 
-  it("fails before executor dispatch when canonical policy loading fails", async () => {
+  it("fails session creation before executor dispatch when canonical policy loading fails", async () => {
     const execute = vi.fn(async () => {
       throw new Error("executor must not be called");
     });
@@ -683,25 +694,14 @@ class AIAgent:
         research_target: "de-identified policy failure fixture",
         diagnosis_status: "diagnosis_not_specified"
       });
-      const start = await started.json() as PrivateView;
-      const failed = await privatePost(baseUrl, "/advance", {
-        session_id: start.session_id,
-        state_digest: start.state_digest
-      });
-
-      expect(failed.status).toBe(503);
-      expect(await failed.json()).toEqual({
+      expect(started.status).toBe(503);
+      expect(await started.json()).toEqual({
         error: {
-          code: "private_orchestration_worker_failed",
+          code: "private_orchestration_policy_unavailable",
           retryable: true
         }
       });
       expect(execute).not.toHaveBeenCalled();
-
-      const status = await privatePost(baseUrl, "/status", {
-        session_id: start.session_id
-      });
-      expect((await status.json() as PrivateView).state_digest).toBe(start.state_digest);
     });
   });
 
@@ -986,6 +986,28 @@ function candidateSubmission(work: {
       };
     })
   };
+}
+
+function syntheticRuntimeBundleWithHashOverrides(
+  base: PublicRuntimeBundle,
+  overrides: Readonly<Record<string, string>>
+): PublicRuntimeBundle {
+  const documentHashes = base.document_hashes.map((identity) => ({
+    document_id: identity.document_id,
+    sha256: overrides[identity.document_id] ?? identity.sha256
+  }));
+  const identityBytes = JSON.stringify({
+    profile: "standard-v2",
+    document_hashes: documentHashes
+  });
+  return Object.freeze({
+    ...base,
+    release_manifest_sha256: createHash("sha256")
+      .update(JSON.stringify(documentHashes))
+      .digest("hex"),
+    bundle_sha256: createHash("sha256").update(identityBytes).digest("hex"),
+    document_hashes: Object.freeze(documentHashes)
+  });
 }
 
 async function privatePost(baseUrl: URL, suffix: string, body: unknown) {

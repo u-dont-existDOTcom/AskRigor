@@ -14,7 +14,7 @@ import {
 } from "@askrigor/evidence-repository";
 import {
   getProtocolManifest,
-  loadProtocol,
+  loadProtocolSnapshot,
   verifyProtocolIntegrity,
   type ProtocolName
 } from "@askrigor/protocol";
@@ -105,6 +105,11 @@ import {
   researchFrontierSearchOutputSchema,
   researchFrontierSearchToolResult,
 } from "./research-frontier-search-tool.js";
+import {
+  createPublicRuntimeChunk,
+  loadResearchRuntimeInputSchema,
+  loadResearchRuntimeOutputSchema
+} from "./public-runtime-bundle.js";
 import {
   acquireOpenFullTextActionInputSchema,
   availableOpenFullTextActionOutputSchema,
@@ -474,8 +479,19 @@ const RESEARCH_ACCESS_CONTROL_OPERATION_NAMES = new Set([
   "manage_research_access",
   "submit_research_contribution",
 ]);
+const GEMINI_EXCLUDED_OPERATION_NAMES = new Set([
+  "load_research_runtime",
+  "review_evidence_gap_submissions",
+  "review_research_contribution",
+  "search_research_frontiers",
+  "manage_research_access",
+  "submit_research_contribution",
+]);
+
+export type ResearchOperationProfile = "legacy" | "standard-v2" | "gemini";
 
 export interface RegisterToolsOptions {
+  catalogProfile?: ResearchOperationProfile;
   publicEvidenceGapReviewService?: PublicEvidenceGapIntakeService;
   oauthResourceMetadataUrl?: URL;
   allowedReviewerSubjects?: ReadonlySet<string>;
@@ -534,10 +550,7 @@ function defineResearchOperations(
     },
     async ({ protocol }) => {
       try {
-        const [text, manifest] = await Promise.all([
-          loadProtocol(protocol),
-          getProtocolManifest(protocol)
-        ]);
+        const { text, manifest } = await loadProtocolSnapshot(protocol);
         return successfulToolResult(
           `Loaded the complete canonical ${manifest.name} protocol.`,
           { ok: true, protocol, manifest, text }
@@ -579,6 +592,30 @@ function defineResearchOperations(
       } catch (error) {
         return protocolErrorResult(protocol, error);
       }
+    }
+  );
+
+  registrar.registerTool(
+    "load_research_runtime",
+    {
+      description: "Load the complete immutable public AskRigor runtime bundle in ordered, checksum-bound chunks. Select a profile only on the first call; continue with the returned handle until complete is true.",
+      inputSchema: loadResearchRuntimeInputSchema.shape,
+      outputSchema: loadResearchRuntimeOutputSchema.shape,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async (input) => {
+      const parsed = loadResearchRuntimeInputSchema.parse(input);
+      const chunk = await createPublicRuntimeChunk(parsed, {
+        continuationSecret:
+          process.env.ASKRIGOR_RUNTIME_CONTINUATION_SECRET ??
+          process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET ?? ""
+      });
+      return successfulToolResult(
+        chunk.complete
+          ? "Loaded the complete immutable public AskRigor runtime bundle."
+          : "Loaded one ordered public AskRigor runtime chunk; continue with next_handle.",
+        chunk
+      );
     }
   );
 
@@ -1179,6 +1216,17 @@ async function invokeOpenFullTextMcp(
 
 export const RESEARCH_OPERATIONS = Object.freeze(collectResearchOperations());
 
+export function researchOperationsForProfile(
+  profile: ResearchOperationProfile,
+  operations: readonly ResearchOperation[] = RESEARCH_OPERATIONS
+): readonly ResearchOperation[] {
+  if (profile === "standard-v2") return operations;
+  const excluded = profile === "legacy"
+    ? new Set(["load_research_runtime"])
+    : GEMINI_EXCLUDED_OPERATION_NAMES;
+  return Object.freeze(operations.filter(({ name }) => !excluded.has(name)));
+}
+
 export function registerTools(
   server: McpServer,
   options: RegisterToolsOptions = {},
@@ -1191,7 +1239,8 @@ export function registerTools(
   const operations = Object.keys(options).length === 0
     ? RESEARCH_OPERATIONS
     : collectResearchOperations(options);
-  for (const operation of operations) {
+  const profile = options.catalogProfile ?? "standard-v2";
+  for (const operation of researchOperationsForProfile(profile, operations)) {
     register(operation.name, operation.mcpConfig, operation.execute);
   }
 }
@@ -1256,8 +1305,8 @@ function collectResearchOperations(
   } as unknown as Pick<McpServer, "registerTool">;
 
   defineResearchOperations(registrar, options);
-  if (operations.length !== 27) {
-    throw new Error(`Expected 27 research operations; received ${operations.length}`);
+  if (operations.length !== 28) {
+    throw new Error(`Expected 28 research operations; received ${operations.length}`);
   }
   if (new Set(operations.map(({ name }) => name)).size !== operations.length) {
     throw new Error("Research operation names must be unique");

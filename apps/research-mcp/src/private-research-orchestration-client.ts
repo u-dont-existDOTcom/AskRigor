@@ -34,6 +34,7 @@ export interface PrivateResearchOrchestrationClient {
   start(input: {
     research_target: string;
     diagnosis_status: "diagnosis_not_specified" | "user_supplied_diagnosis";
+    source_scope?: "all_available_sources" | "community_only";
   }): Promise<PrivateResearchView>;
   status(sessionId: string): Promise<PrivateResearchView>;
   resume(input: {

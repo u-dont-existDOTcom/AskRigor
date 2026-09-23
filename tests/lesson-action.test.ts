@@ -475,7 +475,7 @@ describe("consequential lesson Action", () => {
     await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
     try {
       const tools = await client.listTools();
-      expect(tools.tools).toHaveLength(27);
+      expect(tools.tools).toHaveLength(28);
       expect(tools.tools.map(({ name }) => name)).not.toContain("submit_lesson_candidate");
     } finally {
       await Promise.all([client.close(), server.close()]);

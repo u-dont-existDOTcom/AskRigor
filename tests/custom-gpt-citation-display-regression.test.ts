@@ -38,7 +38,8 @@ async function loadInstructionSurfaces(): Promise<string[]> {
   return Promise.all([
     readFile(rootFile("project/PROJECT_INSTRUCTIONS.md"), "utf8"),
     readFile(rootFile("project/FORUM_SIGNAL_MODULE.md"), "utf8"),
-    readFile(rootFile("skills/askrigor/SKILL.md"), "utf8"),
+    readFile(rootFile("skills/askrigor/references/PROJECT_INSTRUCTIONS.md"), "utf8"),
+    readFile(rootFile("skills/askrigor/references/FORUM_SIGNAL_MODULE.md"), "utf8"),
   ]);
 }
 

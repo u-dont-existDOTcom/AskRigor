@@ -1,12 +1,13 @@
 import { z } from "zod";
 import {
-  getProtocolManifest,
-  loadProtocol
+  loadProtocolSnapshot
 } from "@askrigor/protocol";
 
 import { RESEARCH_OPERATIONS } from "../register-tools.js";
 import type { ResearchOperation } from "../research-operation.js";
 import { RESEARCH_ACTION_RESPONSE_MAX_BYTES } from "../config.js";
+import { PublicRuntimeContinuationError } from
+  "../public-runtime-bundle.js";
 import { youtubeVideoCommunityAuditOutputSchema } from
   "../youtube-video-community-audit.js";
 import {
@@ -84,6 +85,30 @@ const YOUTUBE_ACTION_CONTINUATION_ERROR_SCHEMA = {
       required: ["code", "retryable"],
       properties: {
         code: { const: "youtube_action_continuation_invalid_or_expired" },
+        retryable: { const: false }
+      }
+    }
+  }
+} as const;
+
+const PUBLIC_RUNTIME_CONTINUATION_ERROR_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["error"],
+  properties: {
+    error: {
+      type: "object",
+      additionalProperties: false,
+      required: ["code", "retryable"],
+      properties: {
+        code: {
+          type: "string",
+          enum: [
+            "public_runtime_continuation_invalid",
+            "public_runtime_continuation_expired",
+            "public_runtime_source_changed_or_unavailable"
+          ]
+        },
         retryable: { const: false }
       }
     }
@@ -197,7 +222,14 @@ function createResearchActionRoute(
               YOUTUBE_ACTION_CONTINUATION_ERROR_SCHEMA
             ]
           }
-        : ACTION_INPUT_INVALID_SCHEMA
+        : operation.name === "load_research_runtime"
+          ? {
+              oneOf: [
+                ACTION_INPUT_INVALID_SCHEMA,
+                PUBLIC_RUNTIME_CONTINUATION_ERROR_SCHEMA
+              ]
+            }
+          : ACTION_INPUT_INVALID_SCHEMA
     },
     async handle({ body }: ActionRequestContext): Promise<ActionResult> {
       const parsedInput = inputSchema.safeParse(body);
@@ -283,6 +315,12 @@ function createResearchActionRoute(
         if (previousHandle !== undefined) {
           youtubeContinuationHandles.rollback(previousHandle);
         }
+        if (error instanceof PublicRuntimeContinuationError) {
+          return {
+            status: 422,
+            body: { error: { code: error.code, retryable: false } }
+          };
+        }
         throw error;
       }
     }
@@ -354,7 +392,6 @@ function actionJsonSchema(schema: z.ZodType): Record<string, unknown> {
 function defaultProtocolChunkDependencies(): ProtocolActionChunkDependencies {
   return {
     continuationSecret: process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET ?? "",
-    loadProtocol,
-    getProtocolManifest
+    loadProtocolSnapshot
   };
 }

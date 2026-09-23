@@ -490,10 +490,10 @@ describe("server-owned selected-video depth", () => {
     });
     expect(boundedSession.bounded_evidence.videos[0]).toMatchObject({
       video_id: VIDEO_ONE,
-      status: "BOUNDED_TERMINAL"
+      status: "NOT_STARTED"
     });
     expect(boundedSession.operations.video_evidence_synthesis.status)
-      .toBe("IN_PROGRESS");
+      .toBe("NOT_STARTED");
     const fullyBoundedSession = recordTranscriptDepthResult(
       boundedSession,
       VIDEO_TWO,
@@ -503,11 +503,12 @@ describe("server-owned selected-video depth", () => {
         cumulative: 0
       })
     );
-    expect(fullyBoundedSession.operations.video_evidence_synthesis)
-      .toMatchObject({
-        status: "BLOCKED_TERMINAL",
-        boundary: { code: "VIDEO_EVIDENCE_BOUNDED_TERMINAL" }
-      });
+    expect(fullyBoundedSession.operations.video_evidence_synthesis.status)
+      .toBe("NOT_STARTED");
+    expect(deriveResearchVideoDepthWorkPackages(
+      fullyBoundedSession.video_depth
+    ).some(({ capability }) => capability === "community_discussion_audit"))
+      .toBe(true);
   });
 
   it("requires every selected discussion to pass its own completion lock", () => {
@@ -655,21 +656,22 @@ describe("server-owned selected-video depth", () => {
     );
     expect(boundedSession.bounded_evidence.videos[0]).toMatchObject({
       video_id: VIDEO_ONE,
-      status: "BOUNDED_TERMINAL"
+      status: "NOT_STARTED"
     });
     expect(boundedSession.operations.video_evidence_synthesis.status)
-      .toBe("IN_PROGRESS");
+      .toBe("NOT_STARTED");
     const fullyBoundedSession = recordDiscussionDepthResult(
       boundedSession,
       VIDEO_TWO,
       undefined,
       discussionOutput(VIDEO_TWO, { terminal: true })
     );
-    expect(fullyBoundedSession.operations.video_evidence_synthesis)
-      .toMatchObject({
-        status: "BLOCKED_TERMINAL",
-        boundary: { code: "VIDEO_EVIDENCE_BOUNDED_TERMINAL" }
-      });
+    expect(fullyBoundedSession.operations.video_evidence_synthesis.status)
+      .toBe("NOT_STARTED");
+    expect(deriveResearchVideoDepthWorkPackages(
+      fullyBoundedSession.video_depth
+    ).some(({ capability }) => capability === "transcript_acquisition"))
+      .toBe(true);
   });
 
   it("terminalizes an exact no-progress membership boundary and schedules the next video", () => {

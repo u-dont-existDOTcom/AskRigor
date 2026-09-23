@@ -22,8 +22,8 @@ import {
   researchReceipt
 } from "./helpers/research-session-fixtures.js";
 
-const HASH_A = "a".repeat(64);
-const HASH_B = "b".repeat(64);
+const HASH_A = "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2";
+const HASH_B = "254759df38934c28b06709dace9fcb266fc9967913be1296de99a461be596816";
 const roots: string[] = [];
 
 afterEach(() => {

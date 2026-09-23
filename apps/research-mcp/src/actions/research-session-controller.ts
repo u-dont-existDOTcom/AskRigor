@@ -11,6 +11,14 @@ import { z } from "zod";
 
 import type { YoutubeCommunitySurveyOutput } from "../youtube-community-survey.js";
 import {
+  LEGACY_RESEARCH_RUNTIME_BINDING_VERSION,
+  RESEARCH_RUNTIME_BINDING_VERSION,
+  RESEARCH_RUNTIME_CONTEXT_VERSION,
+  sameRuntimeBinding,
+  type ResearchRuntimeBinding
+} from "../research-runtime-binding.js";
+import { PUBLIC_RUNTIME_FORMAT_VERSION } from "../public-runtime-bundle.js";
+import {
   bidirectionalIterationDiagnosticsSchema,
   bidirectionalIterationWorkPackageSchema,
   bidirectionalReturnAssessmentWorkPackageSchema,
@@ -180,6 +188,13 @@ export const researchOutputBoundarySchema = z.enum([
   "FINALIZATION_ALLOWED"
 ]);
 
+export const researchSourceScopeSchema = z.enum([
+  "all_available_sources",
+  "community_only"
+]);
+
+export type ResearchSourceScope = z.output<typeof researchSourceScopeSchema>;
+
 export type ResearchOutputBoundary = z.output<
   typeof researchOutputBoundarySchema
 >;
@@ -196,6 +211,86 @@ const protocolTupleSchema = z.tuple([
   protocolIdentitySchema.extend({ protocol: z.literal("universal") }).strict(),
   protocolIdentitySchema.extend({ protocol: z.literal("hrp") }).strict()
 ]);
+
+const runtimeSemanticDocumentsSchema = z.array(z.object({
+  document_id: z.enum([
+    "universal",
+    "hrp",
+    "project_router",
+    "forum_signal_module"
+  ]),
+  path: z.string().min(1),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/u)
+}).strict()).length(4);
+
+const legacyRuntimeBindingIdentitySchema = z.object({
+  binding_version: z.literal(LEGACY_RESEARCH_RUNTIME_BINDING_VERSION),
+  context_version: z.literal(RESEARCH_RUNTIME_CONTEXT_VERSION),
+  context_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  documents: runtimeSemanticDocumentsSchema
+}).strict();
+
+const runtimePublicIdentitySchema = z.object({
+  format_version: z.literal(PUBLIC_RUNTIME_FORMAT_VERSION),
+  profile: z.literal("standard-v2"),
+  release_manifest_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  bundle_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  document_hashes: z.array(z.object({
+    document_id: z.string().min(1),
+    sha256: z.string().regex(/^[a-f0-9]{64}$/u)
+  }).strict()).min(8)
+}).strict().superRefine((identity, context) => {
+  const ids = identity.document_hashes.map(({ document_id }) => document_id);
+  if (new Set(ids).size !== ids.length) {
+    context.addIssue({
+      code: "custom",
+      message: "Public runtime identity cannot contain duplicate documents"
+    });
+  }
+});
+
+const runtimeBindingIdentitySchema = z.object({
+  binding_version: z.literal(RESEARCH_RUNTIME_BINDING_VERSION),
+  context_version: z.literal(RESEARCH_RUNTIME_CONTEXT_VERSION),
+  context_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  documents: runtimeSemanticDocumentsSchema,
+  public_runtime: runtimePublicIdentitySchema,
+  runtime_sha256: z.string().regex(/^[a-f0-9]{64}$/u)
+}).strict();
+
+const persistedRuntimeBindingIdentitySchema = z.union([
+  runtimeBindingIdentitySchema,
+  legacyRuntimeBindingIdentitySchema
+]);
+
+const runtimeBindingStateSchema = z.object({
+  expected: persistedRuntimeBindingIdentitySchema,
+  currency: z.enum(["CURRENT", "DRIFTED"]),
+  observed_current: runtimeBindingIdentitySchema.optional(),
+  drift_reason: z.enum([
+    "POLICY_SOURCE_CHANGED",
+    "LEGACY_SESSION_UNBOUND"
+  ]).optional()
+}).strict().superRefine((binding, context) => {
+  if (
+    binding.currency === "CURRENT" &&
+    (binding.observed_current !== undefined || binding.drift_reason !== undefined)
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Current runtime binding cannot retain drift evidence"
+    });
+  }
+  if (
+    binding.currency === "DRIFTED" &&
+    (binding.observed_current === undefined || binding.drift_reason === undefined)
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Runtime drift must preserve its observed identity and reason"
+    });
+  }
+});
 
 const moduleStateSchema = z.object({
   applicability: z.enum(["REQUIRED", "NOT_REQUIRED", "UNRESOLVED"]),
@@ -348,11 +443,15 @@ export const researchSessionStateSchema = z.object({
   state_version: z.literal("4.0"),
   research_target: z.string().min(1).max(1_000),
   diagnosis_status: z.enum(["diagnosis_not_specified", "user_supplied_diagnosis"]),
+  // Optional only for compatibility with sessions persisted before source-scope
+  // binding. New sessions always write an explicit value.
+  source_scope: researchSourceScopeSchema.optional(),
   protocol_binding: z.object({
     expected: protocolTupleSchema,
     currency: z.enum(["CURRENT", "DRIFTED"]),
     observed_current: protocolTupleSchema.optional()
   }).strict(),
+  runtime_binding: runtimeBindingStateSchema.optional(),
   modules: moduleStatesSchema,
   operations: operationStatesSchema,
   scout: scoutStateSchema,
@@ -593,7 +692,8 @@ export const researchSessionStateSchema = z.object({
     ] as const) {
       const expected = formalEvidenceOperationProjection(
         state.formal_evidence,
-        capability
+        capability,
+        effectiveSourceScope(state)
       );
       if (JSON.stringify(state.operations[capability]) !== JSON.stringify(expected)) {
         context.addIssue({
@@ -702,6 +802,43 @@ export type ResearchSessionState = z.output<typeof researchSessionStateSchema>;
 export type ResearchModuleId = typeof RESEARCH_MODULE_IDS[number];
 export type ResearchOperationId = typeof RESEARCH_OPERATION_IDS[number];
 
+function effectiveSourceScope(
+  state: Pick<ResearchSessionState, "source_scope">
+): ResearchSourceScope {
+  return state.source_scope ?? "all_available_sources";
+}
+
+function sourceScopeExcludedOperation(): ResearchSessionState["operations"][ResearchOperationId] {
+  return {
+    status: "BLOCKED_TERMINAL",
+    boundary: {
+      classification: "TERMINAL_NONRETRYABLE",
+      code: "SOURCE_SCOPE_COMMUNITY_ONLY",
+      summary: "The user restricted this execution to community sources, so formal research and cross-layer study retrieval are excluded."
+    }
+  };
+}
+
+function notRequiredModule(
+  authority: "SERVER_ROUTER" | "SERVER_EVIDENCE"
+): ResearchSessionState["modules"][ResearchModuleId] {
+  return {
+    applicability: "NOT_REQUIRED",
+    execution_status: "NOT_APPLICABLE",
+    authority
+  };
+}
+
+function requiredModule(
+  authority: "SERVER_ROUTER" | "SERVER_EVIDENCE"
+): ResearchSessionState["modules"][ResearchModuleId] {
+  return {
+    applicability: "REQUIRED",
+    execution_status: "NOT_STARTED",
+    authority
+  };
+}
+
 export const researchNextCapabilitySchema = z.enum([
   "route_module_applicability",
   "automated_video_scout",
@@ -736,7 +873,8 @@ export const researchFinalizationLimitationSchema = z.object({
     "linked_source",
     "claim_capability",
     "treatment_landscape",
-    "source_access"
+    "source_access",
+    "source_scope"
   ]),
   source_id: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
   provider: z.enum([
@@ -789,6 +927,7 @@ export type FinalizationPermit = z.output<typeof finalizationPermitSchema>;
 
 const finalizationDenialReasonSchema = z.enum([
   "PROTOCOL_DRIFT",
+  "RUNTIME_POLICY_DRIFT",
   "MODULE_APPLICABILITY_UNRESOLVED",
   "REQUIRED_MODULE_INCOMPLETE",
   "REQUIRED_OPERATION_INCOMPLETE",
@@ -799,13 +938,15 @@ const finalizationDenialReasonSchema = z.enum([
 
 export const researchSessionViewSchema = z.object({
   session_id: z.string().regex(/^ars1_[A-Za-z0-9_-]{32}$/u),
+  source_scope: researchSourceScopeSchema,
   execution_status: z.enum([
     "IN_PROGRESS",
     "BLOCKED_RETRYABLE",
     "BLOCKED_TERMINAL",
     "BOUNDED",
     "READY_TO_FINALIZE",
-    "PROTOCOL_DRIFT"
+    "PROTOCOL_DRIFT",
+    "POLICY_DRIFT"
   ]),
   output_boundary: researchOutputBoundarySchema,
   finalization_readiness: researchOutputBoundarySchema,
@@ -814,6 +955,7 @@ export const researchSessionViewSchema = z.object({
     currency: z.enum(["CURRENT", "DRIFTED"]),
     observed_current: protocolTupleSchema.optional()
   }).strict(),
+  runtime_binding: runtimeBindingStateSchema.optional(),
   modules: moduleStatesSchema,
   operations: operationStatesSchema,
   scout: z.object({
@@ -986,6 +1128,7 @@ export interface ResearchFinalizationPermitVerification {
 export interface ResearchSessionStartInput {
   research_target: string;
   diagnosis_status: "diagnosis_not_specified" | "user_supplied_diagnosis";
+  source_scope?: ResearchSourceScope;
 }
 
 export interface AutomatedScoutCompletion {
@@ -1008,7 +1151,8 @@ export function protocolBindingsFromManifests(
 
 export function createInitialResearchSessionState(
   input: ResearchSessionStartInput,
-  protocols: ResearchSessionState["protocol_binding"]["expected"]
+  protocols: ResearchSessionState["protocol_binding"]["expected"],
+  runtimeBinding?: ResearchRuntimeBinding
 ): ResearchSessionState {
   const notStarted = (): ResearchSessionState["operations"][ResearchOperationId] => ({
     status: "NOT_STARTED"
@@ -1018,25 +1162,44 @@ export function createInitialResearchSessionState(
     execution_status: "NOT_STARTED",
     authority: "PENDING_SERVER_ROUTER"
   });
+  const sourceScope = input.source_scope ?? "all_available_sources";
+  const communityOnly = sourceScope === "community_only";
 
   return parseProjectedResearchSessionState({
     state_version: "4.0",
     research_target: input.research_target,
     diagnosis_status: input.diagnosis_status,
+    source_scope: sourceScope,
     protocol_binding: {
       expected: protocols,
       currency: "CURRENT"
     },
+    ...(runtimeBinding === undefined
+      ? {}
+      : {
+          runtime_binding: {
+            expected: runtimeBinding,
+            currency: "CURRENT" as const
+          }
+        }),
     modules: {
       HRP: {
         applicability: "REQUIRED",
         execution_status: "IN_PROGRESS",
         authority: "SERVER_RESEARCH_SESSION"
       },
-      DIRECT_HUMAN: unresolvedModule(),
-      EXTENDED_GREY: unresolvedModule(),
-      FORUM_SIGNAL: unresolvedModule(),
-      BIDIRECTIONAL_ITERATION: unresolvedModule(),
+      DIRECT_HUMAN: communityOnly
+        ? notRequiredModule("SERVER_ROUTER")
+        : unresolvedModule(),
+      EXTENDED_GREY: communityOnly
+        ? notRequiredModule("SERVER_ROUTER")
+        : unresolvedModule(),
+      FORUM_SIGNAL: communityOnly
+        ? requiredModule("SERVER_ROUTER")
+        : unresolvedModule(),
+      BIDIRECTIONAL_ITERATION: communityOnly
+        ? notRequiredModule("SERVER_ROUTER")
+        : unresolvedModule(),
       FINAL_COMPLETION_AUDIT: {
         applicability: "REQUIRED",
         execution_status: "NOT_STARTED",
@@ -1050,13 +1213,13 @@ export function createInitialResearchSessionState(
       transcript_acquisition: notStarted(),
       community_discussion_audit: notStarted(),
       video_evidence_synthesis: notStarted(),
-      formal_evidence_search: notStarted(),
-      accessible_full_text_acquisition: notStarted(),
-      study_method_audit: notStarted(),
-      external_study_evidence_audit: notStarted(),
-      linked_replication_and_review_audit: notStarted(),
-      claim_capability_recalculation: notStarted(),
-      bidirectional_evidence_return: notStarted(),
+      formal_evidence_search: communityOnly ? sourceScopeExcludedOperation() : notStarted(),
+      accessible_full_text_acquisition: communityOnly ? sourceScopeExcludedOperation() : notStarted(),
+      study_method_audit: communityOnly ? sourceScopeExcludedOperation() : notStarted(),
+      external_study_evidence_audit: communityOnly ? sourceScopeExcludedOperation() : notStarted(),
+      linked_replication_and_review_audit: communityOnly ? sourceScopeExcludedOperation() : notStarted(),
+      claim_capability_recalculation: communityOnly ? sourceScopeExcludedOperation() : notStarted(),
+      bidirectional_evidence_return: communityOnly ? sourceScopeExcludedOperation() : notStarted(),
       treatment_landscape_finalization: notStarted(),
       report_synthesis: notStarted(),
       final_completion_audit: notStarted()
@@ -1124,6 +1287,42 @@ export function applyProtocolRecheck(
       expected: state.protocol_binding.expected,
       currency: "DRIFTED",
       observed_current: observedCurrent
+    },
+    modules: {
+      ...state.modules,
+      FINAL_COMPLETION_AUDIT: {
+        ...state.modules.FINAL_COMPLETION_AUDIT,
+        execution_status: "NOT_STARTED",
+        authority: "SERVER_EVIDENCE"
+      }
+    },
+    operations: {
+      ...state.operations,
+      final_completion_audit: { status: "NOT_STARTED" }
+    },
+    final_completion_audit: undefined
+  });
+}
+
+export function applyRuntimeRecheck(
+  rawState: ResearchSessionState,
+  observedCurrent: ResearchRuntimeBinding
+): ResearchSessionState {
+  const state = researchSessionStateSchema.parse(rawState);
+  if (state.runtime_binding?.currency === "DRIFTED") return state;
+  if (
+    state.runtime_binding !== undefined &&
+    sameRuntimeBinding(state.runtime_binding.expected, observedCurrent)
+  ) return state;
+  return parseProjectedResearchSessionState({
+    ...state,
+    runtime_binding: {
+      expected: state.runtime_binding?.expected ?? observedCurrent,
+      currency: "DRIFTED",
+      observed_current: observedCurrent,
+      drift_reason: state.runtime_binding === undefined
+        ? "LEGACY_SESSION_UNBOUND"
+        : "POLICY_SOURCE_CHANGED"
     },
     modules: {
       ...state.modules,
@@ -1363,27 +1562,33 @@ export function recordCandidateScreeningCompletion(
       ),
       formal_evidence_search: formalEvidenceOperationProjection(
         formalEvidence,
-        "formal_evidence_search"
+        "formal_evidence_search",
+        effectiveSourceScope(state)
       ),
       accessible_full_text_acquisition: formalEvidenceOperationProjection(
         formalEvidence,
-        "accessible_full_text_acquisition"
+        "accessible_full_text_acquisition",
+        effectiveSourceScope(state)
       ),
       study_method_audit: formalEvidenceOperationProjection(
         formalEvidence,
-        "study_method_audit"
+        "study_method_audit",
+        effectiveSourceScope(state)
       ),
       external_study_evidence_audit: formalEvidenceOperationProjection(
         formalEvidence,
-        "external_study_evidence_audit"
+        "external_study_evidence_audit",
+        effectiveSourceScope(state)
       ),
       linked_replication_and_review_audit: formalEvidenceOperationProjection(
         formalEvidence,
-        "linked_replication_and_review_audit"
+        "linked_replication_and_review_audit",
+        effectiveSourceScope(state)
       ),
       claim_capability_recalculation: formalEvidenceOperationProjection(
         formalEvidence,
-        "claim_capability_recalculation"
+        "claim_capability_recalculation",
+        effectiveSourceScope(state)
       )
     },
     candidate_discovery: candidateDiscovery,
@@ -1922,7 +2127,7 @@ export function deriveRequiredNextCapabilities(
   rawState: ResearchSessionState
 ): ResearchNextCapability[] {
   const state = researchSessionStateSchema.parse(rawState);
-  if (state.protocol_binding.currency === "DRIFTED") {
+  if (!runtimeIdentityCurrent(state)) {
     return ["restart_under_current_protocols"];
   }
 
@@ -2049,7 +2254,7 @@ export function deriveResearchFinalizationReadiness(
   rawState: ResearchSessionState
 ): ResearchOutputBoundary {
   const state = researchSessionStateSchema.parse(rawState);
-  if (state.protocol_binding.currency === "DRIFTED") return "CONTINUE_RESEARCH";
+  if (!runtimeIdentityCurrent(state)) return "CONTINUE_RESEARCH";
   if (
     state.final_completion_audit?.status === "PASS" &&
     state.final_completion_audit.basis_digest === finalCompletionAuditBasisDigest(state) &&
@@ -2084,8 +2289,11 @@ export function projectResearchSessionView(
   );
   return researchSessionViewSchema.parse({
     session_id: sessionId,
+    source_scope: effectiveSourceScope(state),
     execution_status: state.protocol_binding.currency === "DRIFTED"
       ? "PROTOCOL_DRIFT"
+      : state.runtime_binding?.currency === "DRIFTED"
+        ? "POLICY_DRIFT"
       : outputBoundary === "FINALIZATION_ALLOWED"
         ? "READY_TO_FINALIZE"
       : outputBoundary === "BOUNDED_NONRANKING_ONLY"
@@ -2098,6 +2306,9 @@ export function projectResearchSessionView(
     output_boundary: outputBoundary,
     finalization_readiness: deriveResearchFinalizationReadiness(state),
     protocol_binding: state.protocol_binding,
+    ...(state.runtime_binding === undefined
+      ? {}
+      : { runtime_binding: state.runtime_binding }),
     modules: state.modules,
     operations: state.operations,
     scout: {
@@ -2113,17 +2324,17 @@ export function projectResearchSessionView(
       state.candidate_discovery
     ),
     candidate_screening_work_package:
-      state.protocol_binding.currency === "CURRENT" &&
+      runtimeIdentityCurrent(state) &&
       state.operations.candidate_screening.status !== "COMPLETE" &&
       candidateDiscoveryReadyForScreening(state.candidate_discovery)
         ? createCandidateScreeningWorkPackage(state.candidate_discovery)
         : null,
     video_depth: deriveResearchVideoDepthDiagnostics(state.video_depth),
-    next_video_work_packages: state.protocol_binding.currency === "CURRENT"
+    next_video_work_packages: runtimeIdentityCurrent(state)
       ? deriveResearchVideoDepthWorkPackages(state.video_depth)
       : [],
     next_video_evidence_work_package:
-      state.protocol_binding.currency === "CURRENT"
+      runtimeIdentityCurrent(state)
         ? videoEvidenceWorkPackageOrNull(state)
         : null,
     video_evidence: {
@@ -2140,28 +2351,28 @@ export function projectResearchSessionView(
     },
     formal_evidence: deriveFormalEvidenceDiagnostics(state.formal_evidence),
     formal_source_screening_work_package:
-      state.protocol_binding.currency === "CURRENT"
+      runtimeIdentityCurrent(state)
         ? formalScreeningWorkPackageOrNull(state.formal_evidence)
         : null,
     formal_method_audit_work_packages:
-      state.protocol_binding.currency === "CURRENT"
+      runtimeIdentityCurrent(state)
         ? createFormalMethodAuditWorkPackages(state.formal_evidence)
         : [],
     formal_external_evidence_work_packages:
-      state.protocol_binding.currency === "CURRENT"
+      runtimeIdentityCurrent(state)
         ? createFormalExternalEvidenceWorkPackages(state.formal_evidence)
         : [],
     formal_claim_recalculation_work_packages:
-      state.protocol_binding.currency === "CURRENT"
+      runtimeIdentityCurrent(state)
         ? createFormalClaimRecalculationWorkPackages(state.formal_evidence)
         : [],
     bidirectional_iteration: projectBidirectionalIterationDiagnostics(state),
     bidirectional_iteration_work_package:
-      state.protocol_binding.currency === "CURRENT"
+      runtimeIdentityCurrent(state)
         ? bidirectionalWorkPackageOrNull(state)
         : null,
     bidirectional_return_assessment_work_packages:
-      state.protocol_binding.currency === "CURRENT"
+      runtimeIdentityCurrent(state)
         ? createBidirectionalReturnAssessmentWorkPackages(
           state.bidirectional_iteration
         )
@@ -2171,11 +2382,11 @@ export function projectResearchSessionView(
       treatmentFinalizationEvidence(state)
     ),
     treatment_landscape_work_package:
-      state.protocol_binding.currency === "CURRENT"
+      runtimeIdentityCurrent(state)
         ? treatmentWorkPackageOrNull(state)
         : null,
     report_synthesis_work_package:
-      state.protocol_binding.currency === "CURRENT"
+      runtimeIdentityCurrent(state)
         ? reportWorkPackageOrNull(state)
         : null,
     report_digest: currentResearchReport(
@@ -2199,6 +2410,9 @@ export function evaluateResearchFinalization(
   const reasons: z.output<typeof finalizationDenialReasonSchema>[] = [];
   if (state.protocol_binding.currency === "DRIFTED") {
     reasons.push("PROTOCOL_DRIFT");
+  }
+  if (state.runtime_binding?.currency === "DRIFTED") {
+    reasons.push("RUNTIME_POLICY_DRIFT");
   }
   if (Object.values(state.modules).some(({ applicability }) =>
     applicability === "UNRESOLVED"
@@ -2321,6 +2535,13 @@ function deriveResearchFinalizationLimitationsFromState(
       limitation_id: sha256(`finalization-limitation:${canonicalJson(core)}`)
     }));
   };
+
+  if (effectiveSourceScope(state) === "community_only") {
+    add({
+      scope: "source_scope",
+      plain_language: "This was a community-only request. Formal research was excluded by the requested source scope, so the report can describe bounded observed community evidence and missing layers but cannot claim full-HRP completion or a clinical comparative verdict."
+    });
+  }
 
   for (const source of state.formal_evidence.sources.filter(({ decision_importance }) =>
     decision_importance === "DECISION_IMPORTANT"
@@ -2688,6 +2909,7 @@ export function assertResearchSessionTransition(
   if (
     previous.research_target !== next.research_target ||
     previous.diagnosis_status !== next.diagnosis_status ||
+    effectiveSourceScope(previous) !== effectiveSourceScope(next) ||
     !sameProtocols(
       previous.protocol_binding.expected,
       next.protocol_binding.expected
@@ -2696,10 +2918,26 @@ export function assertResearchSessionTransition(
     throw new Error("Research session identity is immutable");
   }
   if (
+    previous.runtime_binding !== undefined &&
+    next.runtime_binding !== undefined &&
+    !sameRuntimeBinding(
+      previous.runtime_binding.expected,
+      next.runtime_binding.expected
+    )
+  ) {
+    throw new Error("Research session runtime identity is immutable");
+  }
+  if (
     previous.protocol_binding.currency === "DRIFTED" &&
     next.protocol_binding.currency !== "DRIFTED"
   ) {
     throw new Error("Protocol drift cannot be cleared without a new execution");
+  }
+  if (
+    previous.runtime_binding?.currency === "DRIFTED" &&
+    next.runtime_binding?.currency !== "DRIFTED"
+  ) {
+    throw new Error("Runtime policy drift cannot be cleared without a new execution");
   }
   for (const moduleId of RESEARCH_MODULE_IDS) {
     if (
@@ -2854,6 +3092,9 @@ function requireDepthReady(rawState: ResearchSessionState): ResearchSessionState
 
 function requireFormalReady(rawState: ResearchSessionState): ResearchSessionState {
   const state = requireCurrentProtocols(rawState);
+  if (effectiveSourceScope(state) === "community_only") {
+    throw new Error("Formal evidence work is excluded by the community-only source scope");
+  }
   if (state.operations.candidate_screening.status !== "COMPLETE") {
     throw new Error("Formal evidence work requires completed candidate screening");
   }
@@ -2916,7 +3157,8 @@ function withFormalEvidence(
   ] as const) {
     operations[capability] = formalEvidenceOperationProjection(
       formalEvidence,
-      capability
+      capability,
+      effectiveSourceScope(state)
     );
   }
   const draft = {
@@ -3134,6 +3376,7 @@ function bidirectionalEvidenceState(state: ResearchSessionState) {
   return {
     candidates: state.candidate_discovery,
     videoDepth: state.video_depth,
+    boundedEvidence: state.bounded_evidence,
     formalEvidence: state.formal_evidence
   };
 }
@@ -3141,8 +3384,11 @@ function bidirectionalEvidenceState(state: ResearchSessionState) {
 function bidirectionalOperationProjection(
   state: Pick<ResearchSessionState,
     "candidate_discovery" | "video_depth" | "formal_evidence" |
-    "bidirectional_iteration">
+    "bidirectional_iteration" | "source_scope">
 ): ResearchSessionState["operations"]["bidirectional_evidence_return"] {
+  if (effectiveSourceScope(state) === "community_only") {
+    return sourceScopeExcludedOperation();
+  }
   const status = deriveBidirectionalIterationStatus(
     state.bidirectional_iteration,
     bidirectionalEvidenceState(state as ResearchSessionState)
@@ -3198,6 +3444,7 @@ function treatmentFinalizationEvidence(state: ResearchSessionState) {
     researchTarget: state.research_target,
     candidates: state.candidate_discovery,
     videoDepth: state.video_depth,
+    boundedEvidence: state.bounded_evidence,
     formalEvidence: state.formal_evidence,
     bidirectional: state.bidirectional_iteration
   };
@@ -3205,7 +3452,7 @@ function treatmentFinalizationEvidence(state: ResearchSessionState) {
 
 function treatmentFinalizationOperationProjection(
   state: Pick<ResearchSessionState,
-    "research_target" | "candidate_discovery" | "video_depth" |
+    "research_target" | "candidate_discovery" | "video_depth" | "bounded_evidence" |
     "formal_evidence" | "bidirectional_iteration" | "treatment_finalization">
 ): ResearchSessionState["operations"]["treatment_landscape_finalization"] {
   const status = deriveTreatmentFinalizationStatus(
@@ -3378,8 +3625,10 @@ function formalEvidenceOperationProjection(
     | "study_method_audit"
     | "external_study_evidence_audit"
     | "linked_replication_and_review_audit"
-    | "claim_capability_recalculation"
+    | "claim_capability_recalculation",
+  sourceScope: ResearchSourceScope = "all_available_sources"
 ): ResearchSessionState["operations"][typeof capability] {
+  if (sourceScope === "community_only") return sourceScopeExcludedOperation();
   const status = deriveFormalEvidenceOperationStatus(formalEvidence, capability);
   if (status === "BLOCKED_RETRYABLE") {
     return {
@@ -4030,6 +4279,11 @@ function deriveFinalCompletionChecks(state: ResearchSessionState) {
     "The execution remains bound to the current exact protocol identities."
   );
   add(
+    "RUNTIME_POLICY_IDENTITY_CURRENT",
+    runtimeIdentityCurrent(state),
+    "The execution remains bound to its exact protocols and operational policy documents."
+  );
+  add(
     "MODULE_APPLICABILITY_RESOLVED",
     Object.values(state.modules).every(({ applicability }) =>
       applicability !== "UNRESOLVED"
@@ -4094,6 +4348,9 @@ function finalCompletionAuditBasisDigest(state: ResearchSessionState): string {
     state_version: state.state_version,
     research_target: state.research_target,
     diagnosis_status: state.diagnosis_status,
+    ...(state.source_scope === undefined
+      ? {}
+      : { source_scope: state.source_scope }),
     protocol_binding: state.protocol_binding,
     modules: {
       ...state.modules,
@@ -4120,7 +4377,7 @@ function finalCompletionAuditBasisDigest(state: ResearchSessionState): string {
 
 function boundedNonrankingReady(state: ResearchSessionState): boolean {
   if (
-    state.protocol_binding.currency !== "CURRENT" ||
+    !runtimeIdentityCurrent(state) ||
     Object.values(state.modules).some(({ applicability }) =>
       applicability === "UNRESOLVED"
     )
@@ -4161,8 +4418,8 @@ function formalPipelineTerminal(state: ResearchSessionState): boolean {
 
 function requireCurrentProtocols(rawState: ResearchSessionState): ResearchSessionState {
   const state = parseProjectedResearchSessionState(rawState);
-  if (state.protocol_binding.currency !== "CURRENT") {
-    throw new Error("Research session protocol binding is no longer current");
+  if (!runtimeIdentityCurrent(state)) {
+    throw new Error("Research session runtime binding is no longer current");
   }
   return state;
 }
@@ -4187,7 +4444,7 @@ function operationCompleteOrTerminal(
 }
 
 function hasExecutableOrIncompleteWork(state: ResearchSessionState): boolean {
-  if (state.protocol_binding.currency === "DRIFTED") return true;
+  if (!runtimeIdentityCurrent(state)) return true;
   if (Object.values(state.modules).some((module) =>
     module.applicability === "UNRESOLVED" ||
     (module.applicability === "REQUIRED" && module.execution_status !== "COMPLETE")
@@ -4197,6 +4454,11 @@ function hasExecutableOrIncompleteWork(state: ResearchSessionState): boolean {
     status === "IN_PROGRESS" ||
     status === "BLOCKED_RETRYABLE"
   );
+}
+
+function runtimeIdentityCurrent(state: ResearchSessionState): boolean {
+  return state.protocol_binding.currency === "CURRENT" &&
+    state.runtime_binding?.currency !== "DRIFTED";
 }
 
 function hasTerminalBoundary(state: ResearchSessionState): boolean {

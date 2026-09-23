@@ -123,7 +123,8 @@ surfaces are technically accessible and no genuine consequential boundary
 intervenes.
 
 At every backend or Custom GPT release, also verify the installed AskRigor
-plugin against the release: exact 27-tool MCP catalog, live HRP/Universal
+plugin against the release: exact profile-bound MCP catalog (28 standard-v2,
+27 legacy, or 22 Gemini operations), live HRP/Universal
 manifests, one read-only connector probe, and an exact installed-package
 receipt covering `.codex-plugin/plugin.json`, every file under the
 manifest-declared `skills/` tree (including `skills/askrigor/SKILL.md`), and

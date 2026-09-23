@@ -149,6 +149,7 @@ export interface RunHermesResearchTaskInput {
   research_target?: string;
   deidentified_research_context?: string;
   diagnosis_status?: "diagnosis_not_specified" | "user_supplied_diagnosis";
+  source_scope?: "all_available_sources" | "community_only";
   maximum_transitions?: number;
   maximum_no_progress_transitions?: number;
 }
@@ -166,7 +167,8 @@ export async function runHermesResearchTask(
   let view = !("existing_session_id" in input)
     ? await client.start({
       research_target: input.research_target!,
-      diagnosis_status: input.diagnosis_status
+      diagnosis_status: input.diagnosis_status,
+      source_scope: input.source_scope
     })
     : await client.status(input.existing_session_id);
   let decision = await client.finalize(view.session_id);
@@ -551,6 +553,7 @@ function normalizeRunInput(input: RunHermesResearchTaskInput) {
     research_target: bounded(1_000).parse(input.research_target),
     research_context: bounded(1_000).parse(input.research_target),
     diagnosis_status: input.diagnosis_status ?? "diagnosis_not_specified" as const,
+    source_scope: input.source_scope ?? "all_available_sources" as const,
     maximum_transitions: maximumTransitions,
     maximum_no_progress_transitions: maximumNoProgressTransitions
   };

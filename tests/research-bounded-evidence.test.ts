@@ -42,7 +42,7 @@ function manifest(protocol: "universal" | "hrp") {
   };
 }
 
-function videoFrontier(): {
+function videoFrontier(options: { missingTranscript?: boolean } = {}): {
   state: ResearchSessionState;
   material: VideoEvidenceMaterial;
   transcript: ReturnType<typeof transcriptOutput>;
@@ -77,7 +77,13 @@ function videoFrontier(): {
     }))
   });
   const videoId = RESEARCH_FIXTURE_VIDEO_IDS[0]!;
-  const transcript = transcriptOutput(videoId);
+  const transcript = options.missingTranscript
+    ? transcriptOutput(videoId, {
+        timestamped: false,
+        returned: 0,
+        cumulative: 0
+      })
+    : transcriptOutput(videoId);
   const discussion = discussionOutput(videoId);
   state = recordTranscriptDepthResult(state, videoId, transcript);
   state = recordDiscussionDepthResult(state, videoId, undefined, discussion);
@@ -126,6 +132,64 @@ function videoFrontier(): {
 }
 
 describe("bounded selected-video evidence", () => {
+  it("preserves accessible comments when the creator transcript is unavailable", () => {
+    const { state, material } = videoFrontier({ missingTranscript: true });
+    const work = createVideoEvidenceWorkPackage(
+      state.bounded_evidence,
+      state.candidate_discovery,
+      state.video_depth,
+      material
+    );
+
+    expect(work).toMatchObject({
+      transcript_status: "BLOCKED_TERMINAL",
+      discussion_status: "COMPLETE",
+      transcript_record_count: 0,
+      discussion_analysis_record_count: 1
+    });
+    expect(() => recordResearchSessionVideoEvidence(state, material, {
+      package_version: work.package_version,
+      evidence_basis_digest: work.evidence_basis_digest,
+      video_id: work.video_id,
+      creator_findings: [{
+        finding_type: "program",
+        plain_language: "An unauthorized creator claim.",
+        transcript_segment_sha256s: ["a".repeat(64)],
+        program: boundedProgram("Unauthorized creator program")
+      }],
+      community_findings: [],
+      limitations: []
+    })).toThrow(/creator findings.*transcript availability/iu);
+
+    const next = recordResearchSessionVideoEvidence(state, material, {
+      package_version: work.package_version,
+      evidence_basis_digest: work.evidence_basis_digest,
+      video_id: work.video_id,
+      creator_findings: [],
+      community_findings: [{
+        direction: "mixed",
+        non_identifying_wording: "One commenter described mixed results.",
+        regimen_clues: ["Program details were incomplete."],
+        reported_outcome: "Some improvement and some persistent symptoms.",
+        counter_signals: ["Diagnosis was not independently verified."],
+        program: boundedProgram("Commenter-described program"),
+        comment_record_sha256s: [material.discussion_comments[0]!.record_sha256]
+      }],
+      limitations: ["The discussion is self-selected and cannot establish rates."]
+    });
+
+    expect(next.bounded_evidence.videos[0]).toMatchObject({
+      status: "BOUNDED_TERMINAL",
+      creator_findings: [],
+      community_findings: [{ direction: "mixed" }],
+      limitations: expect.arrayContaining([
+        expect.stringMatching(/creator.*could not be verified/iu)
+      ])
+    });
+    expect(next.operations.video_evidence_synthesis.status)
+      .toBe("BLOCKED_TERMINAL");
+  });
+
   it("accepts only exact receipt-bound segment/comment references and stores de-identified findings", () => {
     const { state, material } = videoFrontier();
     const work = createVideoEvidenceWorkPackage(

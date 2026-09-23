@@ -112,13 +112,16 @@ describe("heterodox discovery and weighting matrix", () => {
   });
 
   it("links every executable control to Project, Forum, skill, and generated surfaces", async () => {
-    const [project, forum, skill, generated] = await Promise.all([
+    const [project, forum, packagedProject, packagedForum, generated] = await Promise.all([
       readFile(rootFile("project/PROJECT_INSTRUCTIONS.md"), "utf8"),
       readFile(rootFile("project/FORUM_SIGNAL_MODULE.md"), "utf8"),
-      readFile(rootFile("skills/askrigor/SKILL.md"), "utf8"),
+      readFile(rootFile("skills/askrigor/references/PROJECT_INSTRUCTIONS.md"), "utf8"),
+      readFile(rootFile("skills/askrigor/references/FORUM_SIGNAL_MODULE.md"), "utf8"),
       readFile(rootFile("docs/custom-gpt-instructions.md"), "utf8"),
     ]);
-    for (const surface of [project, forum, skill]) {
+    expect(packagedProject).toBe(project);
+    expect(packagedForum).toBe(forum);
+    for (const surface of [project, forum, packagedProject, packagedForum]) {
       for (const fragment of [
         "steelman without inflation",
         "get_youtube_transcript",
@@ -138,21 +141,6 @@ describe("heterodox discovery and weighting matrix", () => {
     expect(forum).toContain("relevant timestamp");
     expect(forum).toContain("No content-verified watchlist candidate located");
 
-    for (const compactSurface of [skill]) {
-      for (const compactControl of [
-        "how I cured/reversed/fixed",
-        "are hooks",
-        "Rewrite/use cursors/new batches",
-        "components; dose/intensity/frequency/duration",
-        "supervision/adherence/cointerventions",
-        "Planning heuristics, not quotas",
-        "defer false tokens",
-        "Metadata/comments cannot establish creator content",
-        "Videos worth watching",
-      ]) {
-        expect(compactSurface, compactControl).toContain(compactControl);
-      }
-    }
     expect(generated).toContain("perform only the exact bounded work");
     expect(generated).toContain("treatment-program distinctions");
     expect(generated).toContain("never turn all exercise");
@@ -206,7 +194,8 @@ describe("heterodox discovery and weighting matrix", () => {
     const production = (await Promise.all([
       readFile(rootFile("project/PROJECT_INSTRUCTIONS.md"), "utf8"),
       readFile(rootFile("project/FORUM_SIGNAL_MODULE.md"), "utf8"),
-      readFile(rootFile("skills/askrigor/SKILL.md"), "utf8"),
+      readFile(rootFile("skills/askrigor/references/PROJECT_INSTRUCTIONS.md"), "utf8"),
+      readFile(rootFile("skills/askrigor/references/FORUM_SIGNAL_MODULE.md"), "utf8"),
       readFile(rootFile("docs/custom-gpt-instructions.md"), "utf8"),
     ])).join("\n").toLowerCase();
     for (const term of fixture.production_leakage_terms) {

@@ -1,0 +1,213 @@
+{
+  "artifacts": [
+    {
+      "document_id": "generated_public_skill",
+      "path": "skills/askrigor/SKILL.md",
+      "runtime_document": false,
+      "sha256": "2407ad4c48f53cd1f83e21bf57e27f44af250817d92c11596dc48e5f3dc51bda",
+      "source_paths": [
+        "project/PUBLIC_PLUGIN_ADAPTER.md",
+        "project/public-runtime-bindings.json"
+      ],
+      "utf8_bytes": 1207
+    },
+    {
+      "document_id": "packaged_project_router",
+      "path": "skills/askrigor/references/PROJECT_INSTRUCTIONS.md",
+      "runtime_document": false,
+      "sha256": "093aeeb0029eb7ba5e6238e74eef1788841524acf21b9f4ac35281e2587b7285",
+      "source_paths": [
+        "project/PROJECT_INSTRUCTIONS.md"
+      ],
+      "utf8_bytes": 7978
+    },
+    {
+      "document_id": "packaged_forum_signal_module",
+      "path": "skills/askrigor/references/FORUM_SIGNAL_MODULE.md",
+      "runtime_document": false,
+      "sha256": "75c088ba0edeb821d3d664d2f0b48b33f7dd3e627c01dfe830053d6dac2aed13",
+      "source_paths": [
+        "project/FORUM_SIGNAL_MODULE.md"
+      ],
+      "utf8_bytes": 27888
+    },
+    {
+      "document_id": "packaged_public_plugin_adapter",
+      "path": "skills/askrigor/references/PUBLIC_PLUGIN_ADAPTER.md",
+      "runtime_document": false,
+      "sha256": "9dc5b586bd62222f99cac580154f70e12939b8bdd3c1fde9fc7c814ef207ed95",
+      "source_paths": [
+        "project/PUBLIC_PLUGIN_ADAPTER.md"
+      ],
+      "utf8_bytes": 3141
+    },
+    {
+      "document_id": "packaged_public_runtime_bindings",
+      "path": "skills/askrigor/references/public-runtime-bindings.json",
+      "runtime_document": false,
+      "sha256": "69136358200db95692b952827a9da2f8c8ac83a7c440c9dcc47c47a54a8007d7",
+      "source_paths": [
+        "project/public-runtime-bindings.json"
+      ],
+      "utf8_bytes": 3696
+    },
+    {
+      "document_id": "mcp_initialization",
+      "path": "skills/askrigor/MCP_INITIALIZATION.md",
+      "runtime_document": true,
+      "sha256": "94e8fc55c4227eca9cfe1fce3e34e2394295053ded11b2fc353da68ad0178fac",
+      "source_paths": [
+        "project/PUBLIC_PLUGIN_ADAPTER.md",
+        "project/public-runtime-bindings.json"
+      ],
+      "utf8_bytes": 1676
+    },
+    {
+      "document_id": "mcp_initialization_module",
+      "path": "apps/research-mcp/src/generated/public-runtime-initialization.ts",
+      "runtime_document": false,
+      "sha256": "5dc6381db19b2c013f0193fbcc2418d67366a3ad277917a7c7dfd850fc457590",
+      "source_paths": [
+        "skills/askrigor/MCP_INITIALIZATION.md"
+      ],
+      "utf8_bytes": 1833
+    }
+  ],
+  "bundle_format_version": "askrigor_public_runtime_bundle_v1",
+  "profiles": {
+    "gemini": {
+      "operation_ids": [
+        "get_protocol_manifest",
+        "load_protocol",
+        "verify_protocol_integrity",
+        "search_pubmed",
+        "fetch_pubmed_record",
+        "search_europe_pmc",
+        "acquire_open_full_text",
+        "continue_open_full_text",
+        "validate_study_method_audit",
+        "validate_review_method_audit",
+        "search_clinical_trials",
+        "fetch_clinical_trial",
+        "resolve_doi",
+        "check_retraction_status",
+        "search_youtube",
+        "get_youtube_video",
+        "get_youtube_comments",
+        "search_youtube_comments",
+        "audit_youtube_community",
+        "survey_youtube_community",
+        "audit_youtube_video_community",
+        "get_research_frontier"
+      ]
+    },
+    "legacy": {
+      "operation_ids": [
+        "get_protocol_manifest",
+        "load_protocol",
+        "verify_protocol_integrity",
+        "search_pubmed",
+        "fetch_pubmed_record",
+        "search_europe_pmc",
+        "acquire_open_full_text",
+        "continue_open_full_text",
+        "validate_study_method_audit",
+        "validate_review_method_audit",
+        "search_clinical_trials",
+        "fetch_clinical_trial",
+        "resolve_doi",
+        "check_retraction_status",
+        "search_youtube",
+        "get_youtube_video",
+        "get_youtube_comments",
+        "search_youtube_comments",
+        "audit_youtube_community",
+        "survey_youtube_community",
+        "audit_youtube_video_community",
+        "get_research_frontier",
+        "search_research_frontiers",
+        "manage_research_access",
+        "submit_research_contribution",
+        "review_research_contribution",
+        "review_evidence_gap_submissions"
+      ]
+    },
+    "standard-v2": {
+      "operation_ids": [
+        "get_protocol_manifest",
+        "load_protocol",
+        "verify_protocol_integrity",
+        "load_research_runtime",
+        "search_pubmed",
+        "fetch_pubmed_record",
+        "search_europe_pmc",
+        "acquire_open_full_text",
+        "continue_open_full_text",
+        "validate_study_method_audit",
+        "validate_review_method_audit",
+        "search_clinical_trials",
+        "fetch_clinical_trial",
+        "resolve_doi",
+        "check_retraction_status",
+        "search_youtube",
+        "get_youtube_video",
+        "get_youtube_comments",
+        "search_youtube_comments",
+        "audit_youtube_community",
+        "survey_youtube_community",
+        "audit_youtube_video_community",
+        "get_research_frontier",
+        "search_research_frontiers",
+        "manage_research_access",
+        "submit_research_contribution",
+        "review_research_contribution",
+        "review_evidence_gap_submissions"
+      ]
+    }
+  },
+  "schema_version": 1,
+  "sources": [
+    {
+      "document_id": "universal",
+      "path": "protocols/Universal_Instructions.xml",
+      "runtime_document": true,
+      "sha256": "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2",
+      "utf8_bytes": 167008
+    },
+    {
+      "document_id": "hrp",
+      "path": "protocols/HRP_Full.xml",
+      "runtime_document": true,
+      "sha256": "254759df38934c28b06709dace9fcb266fc9967913be1296de99a461be596816",
+      "utf8_bytes": 592540
+    },
+    {
+      "document_id": "project_router",
+      "path": "project/PROJECT_INSTRUCTIONS.md",
+      "runtime_document": true,
+      "sha256": "093aeeb0029eb7ba5e6238e74eef1788841524acf21b9f4ac35281e2587b7285",
+      "utf8_bytes": 7978
+    },
+    {
+      "document_id": "forum_signal_module",
+      "path": "project/FORUM_SIGNAL_MODULE.md",
+      "runtime_document": true,
+      "sha256": "75c088ba0edeb821d3d664d2f0b48b33f7dd3e627c01dfe830053d6dac2aed13",
+      "utf8_bytes": 27888
+    },
+    {
+      "document_id": "public_plugin_adapter",
+      "path": "project/PUBLIC_PLUGIN_ADAPTER.md",
+      "runtime_document": true,
+      "sha256": "9dc5b586bd62222f99cac580154f70e12939b8bdd3c1fde9fc7c814ef207ed95",
+      "utf8_bytes": 3141
+    },
+    {
+      "document_id": "public_runtime_bindings",
+      "path": "project/public-runtime-bindings.json",
+      "runtime_document": true,
+      "sha256": "69136358200db95692b952827a9da2f8c8ac83a7c440c9dcc47c47a54a8007d7",
+      "utf8_bytes": 3696
+    }
+  ]
+}

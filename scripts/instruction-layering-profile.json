@@ -37,7 +37,12 @@
       ],
       "local_sources": [
         "skills/askrigor/SKILL.md",
-        "project/PROJECT_INSTRUCTIONS.md"
+        "skills/askrigor/MCP_INITIALIZATION.md",
+        "skills/askrigor/references/PROJECT_INSTRUCTIONS.md",
+        "skills/askrigor/references/FORUM_SIGNAL_MODULE.md",
+        "skills/askrigor/references/PUBLIC_PLUGIN_ADAPTER.md",
+        "skills/askrigor/references/public-runtime-bindings.json",
+        "skills/askrigor/public-runtime-source-manifest.json"
       ]
     },
     "public_controlled_backend": {
@@ -80,8 +85,8 @@
       "version=\"20.5.29\""
     ],
     "skills/askrigor/SKILL.md": [
-      "complete",
-      "final-answer content"
+      "load_research_runtime",
+      "public-runtime-source-manifest.json"
     ],
     "project/PROJECT_INSTRUCTIONS.md": [
       "actual final answer",

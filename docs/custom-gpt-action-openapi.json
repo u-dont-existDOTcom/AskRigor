@@ -36,6 +36,7 @@
                   "required": [
                     "session_id",
                     "state_digest",
+                    "source_scope",
                     "directive",
                     "execution_status",
                     "output_boundary",
@@ -49,6 +50,13 @@
                     "state_digest": {
                       "type": "string",
                       "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "source_scope": {
+                      "type": "string",
+                      "enum": [
+                        "all_available_sources",
+                        "community_only"
+                      ]
                     },
                     "directive": {
                       "type": "string",
@@ -68,7 +76,8 @@
                         "BLOCKED_TERMINAL",
                         "BOUNDED",
                         "READY_TO_FINALIZE",
-                        "PROTOCOL_DRIFT"
+                        "PROTOCOL_DRIFT",
+                        "POLICY_DRIFT"
                       ]
                     },
                     "output_boundary": {
@@ -499,6 +508,13 @@
                       "user_supplied_diagnosis"
                     ]
                   },
+                  "source_scope": {
+                    "type": "string",
+                    "enum": [
+                      "all_available_sources",
+                      "community_only"
+                    ]
+                  },
                   "acceptance_challenge_id": {
                     "type": "string",
                     "const": "askrigor-controlled-research-acceptance-v1"
@@ -532,6 +548,7 @@
                   "required": [
                     "session_id",
                     "state_digest",
+                    "source_scope",
                     "directive",
                     "execution_status",
                     "output_boundary",
@@ -545,6 +562,13 @@
                     "state_digest": {
                       "type": "string",
                       "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "source_scope": {
+                      "type": "string",
+                      "enum": [
+                        "all_available_sources",
+                        "community_only"
+                      ]
                     },
                     "directive": {
                       "type": "string",
@@ -564,7 +588,8 @@
                         "BLOCKED_TERMINAL",
                         "BOUNDED",
                         "READY_TO_FINALIZE",
-                        "PROTOCOL_DRIFT"
+                        "PROTOCOL_DRIFT",
+                        "POLICY_DRIFT"
                       ]
                     },
                     "output_boundary": {
@@ -1101,6 +1126,7 @@
                   "required": [
                     "session_id",
                     "state_digest",
+                    "source_scope",
                     "directive",
                     "execution_status",
                     "output_boundary",
@@ -1114,6 +1140,13 @@
                     "state_digest": {
                       "type": "string",
                       "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "source_scope": {
+                      "type": "string",
+                      "enum": [
+                        "all_available_sources",
+                        "community_only"
+                      ]
                     },
                     "directive": {
                       "type": "string",
@@ -1133,7 +1166,8 @@
                         "BLOCKED_TERMINAL",
                         "BOUNDED",
                         "READY_TO_FINALIZE",
-                        "PROTOCOL_DRIFT"
+                        "PROTOCOL_DRIFT",
+                        "POLICY_DRIFT"
                       ]
                     },
                     "output_boundary": {

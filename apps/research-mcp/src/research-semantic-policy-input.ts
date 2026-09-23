@@ -13,6 +13,30 @@ import {
   type ResearchSemanticWork
 } from "./research-semantic-worker.js";
 import { controlledWorkerWorkDigest } from "./controlled-worker-payload.js";
+import {
+  runtimeBindingFromDocumentIdentities,
+  runtimeBindingFromPolicyContext,
+  runtimeBindingMatchesPolicyContext,
+  runtimeBundleIdentityFromPublicBundle,
+  sameRuntimeBinding,
+  type PersistedResearchRuntimeBinding,
+  type ResearchRuntimeBinding
+} from "./research-runtime-binding.js";
+import {
+  loadPackagedPublicRuntimeBundle,
+  type PublicRuntimeBundle
+} from "./public-runtime-bundle.js";
+
+export {
+  RESEARCH_RUNTIME_BINDING_VERSION,
+  runtimeBindingFromDocumentIdentities,
+  runtimeBindingFromPolicyContext,
+  runtimeBindingMatchesPolicyContext,
+  runtimeBundleIdentityFromPublicBundle,
+  sameRuntimeBinding,
+  type PersistedResearchRuntimeBinding,
+  type ResearchRuntimeBinding
+} from "./research-runtime-binding.js";
 
 export const RESEARCH_SEMANTIC_POLICY_CONTEXT_VERSION =
   "askrigor_semantic_policy_context_v1" as const;
@@ -81,6 +105,9 @@ export interface ResearchSemanticPolicyDependencies {
   readProjectDocument?: (
     documentId: ResearchSemanticProjectDocumentId
   ) => Promise<Uint8Array>;
+  loadPublicRuntimeBundle?: (
+    profile: "standard-v2"
+  ) => Promise<PublicRuntimeBundle>;
 }
 
 export interface ResearchSemanticPolicyInputs {
@@ -99,15 +126,88 @@ export class ResearchSemanticPolicyInputError extends Error {
 export async function createResearchSemanticPolicyInputs(input: {
   kind: ResearchSemanticWork["kind"];
   expectedProtocols: ExpectedResearchProtocolBinding;
+  expectedRuntime?: PersistedResearchRuntimeBinding;
   dependencies?: ResearchSemanticPolicyDependencies;
 }): Promise<ResearchSemanticPolicyInputs> {
-  return {
-    instruction: researchSemanticPolicyWorkerInstruction(input.kind),
-    policy_context: await loadResearchSemanticPolicyContext(
+  const [policyContext, currentRuntime] = await Promise.all([
+    loadResearchSemanticPolicyContext(
       input.expectedProtocols,
       input.dependencies
+    ),
+    input.expectedRuntime === undefined
+      ? Promise.resolve(undefined)
+      : loadResearchRuntimeBinding(
+          input.expectedProtocols,
+          input.dependencies
+        )
+  ]);
+  if (
+    input.expectedRuntime !== undefined &&
+    (
+      currentRuntime === undefined ||
+      !sameRuntimeBinding(input.expectedRuntime, currentRuntime) ||
+      !runtimeBindingMatchesPolicyContext(input.expectedRuntime, policyContext)
     )
+  ) {
+    throw new ResearchSemanticPolicyInputError(
+      "Canonical semantic policy does not match the session runtime binding"
+    );
+  }
+  return {
+    instruction: researchSemanticPolicyWorkerInstruction(input.kind),
+    policy_context: policyContext
   };
+}
+
+/** Build the whole-session runtime identity without loading protocol text twice. */
+export async function loadResearchRuntimeBinding(
+  expectedProtocols: ExpectedResearchProtocolBinding,
+  dependencies: ResearchSemanticPolicyDependencies = {}
+): Promise<ResearchRuntimeBinding> {
+  const projectReader = dependencies.readProjectDocument ?? readCanonicalProjectDocument;
+  const bundleLoader = dependencies.loadPublicRuntimeBundle ??
+    loadPackagedPublicRuntimeBundle;
+  let projectRouterBytes: Uint8Array;
+  let forumSignalBytes: Uint8Array;
+  let publicRuntime: PublicRuntimeBundle;
+  try {
+    [projectRouterBytes, forumSignalBytes, publicRuntime] = await Promise.all([
+      projectReader("project_router"),
+      projectReader("forum_signal_module"),
+      bundleLoader("standard-v2")
+    ]);
+  } catch (error) {
+    throw policyError("Unable to load canonical operational policy", error);
+  }
+  try {
+    return runtimeBindingFromDocumentIdentities([
+    {
+      document_id: "universal",
+      path: "protocols/Universal_Instructions.xml",
+      sha256: expectedProtocols[0].sha256
+    },
+    {
+      document_id: "hrp",
+      path: "protocols/HRP_Full.xml",
+      sha256: expectedProtocols[1].sha256
+    },
+    {
+      document_id: "project_router",
+      path: "project/PROJECT_INSTRUCTIONS.md",
+      sha256: sha256(projectRouterBytes)
+    },
+    {
+      document_id: "forum_signal_module",
+      path: "project/FORUM_SIGNAL_MODULE.md",
+      sha256: sha256(forumSignalBytes)
+    }
+    ], runtimeBundleIdentityFromPublicBundle(publicRuntime));
+  } catch (error) {
+    throw policyError(
+      "Canonical operational policy is not aligned to the public runtime",
+      error
+    );
+  }
 }
 
 /** Load all four fixed policy sources and bind them to the session tuple. */

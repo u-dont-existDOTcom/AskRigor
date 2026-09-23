@@ -20,6 +20,7 @@ const TOOL_NAMES = [
   "get_protocol_manifest",
   "load_protocol",
   "verify_protocol_integrity",
+  "load_research_runtime",
   "search_pubmed",
   "fetch_pubmed_record",
   "search_europe_pmc",
@@ -613,7 +614,7 @@ describe("AskRigor public-review packet", () => {
       endpoint: "https://mcp.askrigor.com/mcp"
     });
     expect(inventory.tools.map(({ name }: { name: string }) => name)).toEqual(TOOL_NAMES);
-    expect(inventory.tools).toHaveLength(27);
+    expect(inventory.tools).toHaveLength(28);
 
     for (const tool of inventory.tools) {
       const isWrite = tool.name === "manage_research_access" ||

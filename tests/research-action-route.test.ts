@@ -18,6 +18,8 @@ import { youtubeVideoCommunityAuditOutputSchema } from
   "../apps/research-mcp/src/youtube-video-community-audit.js";
 import { youtubeVideoCommunityAuditInputSchema } from
   "../apps/research-mcp/src/youtube-video-community-audit.js";
+import { PublicRuntimeContinuationError } from
+  "../apps/research-mcp/src/public-runtime-bundle.js";
 
 const context = (body: unknown) => ({
   request: {} as never,
@@ -449,7 +451,7 @@ describe("read-only research Action routes", () => {
     ]);
   });
 
-  it("generates 19 unsecured read operations plus two secured lesson writes", () => {
+  it("generates 20 unsecured read operations plus two secured lesson writes", () => {
     const document = createActionOpenApiDocument([
       ...createResearchActionRoutes(),
       ...createDefaultActionRoutes()
@@ -463,8 +465,8 @@ describe("read-only research Action routes", () => {
     const operations = Object.values(document.paths)
       .flatMap((path) => Object.values(path));
 
-    expect(operations).toHaveLength(21);
-    expect(new Set(operations.map(({ operationId }) => operationId)).size).toBe(21);
+    expect(operations).toHaveLength(22);
+    expect(new Set(operations.map(({ operationId }) => operationId)).size).toBe(22);
     const lesson = operations.find(({ operationId }) =>
       operationId === "submit_lesson_candidate"
     );
@@ -568,12 +570,14 @@ describe("read-only research Action routes", () => {
       protocolChunkDependencies: {
         continuationSecret: string;
         now: () => number;
-        loadProtocol: () => Promise<string>;
-        getProtocolManifest: () => Promise<{
+        loadProtocolSnapshot: () => Promise<{
+          text: string;
+          manifest: {
           name: string;
           version: string;
           revisionDate: string;
           sha256: string;
+          };
         }>;
       };
     }) => readonly ActionRoute[];
@@ -585,15 +589,15 @@ describe("read-only research Action routes", () => {
       protocolChunkDependencies: {
         continuationSecret: "c".repeat(32),
         now: () => 1_787_000_000_000,
-        async loadProtocol() {
-          return protocolText;
-        },
-        async getProtocolManifest() {
+        async loadProtocolSnapshot() {
           return {
-            name: "AskRigor HRP",
-            version: "test",
-            revisionDate: "2026-08-16",
-            sha256: digest
+            text: protocolText,
+            manifest: {
+              name: "AskRigor HRP",
+              version: "test",
+              revisionDate: "2026-08-16",
+              sha256: digest
+            }
           };
         }
       }
@@ -628,6 +632,41 @@ describe("read-only research Action routes", () => {
         }
       }
     });
+  });
+
+  it("returns typed public-runtime continuation failures at the Action boundary", async () => {
+    const operation: ResearchOperation = {
+      name: "load_research_runtime",
+      actionPath: "/actions/research/load_research_runtime",
+      description: "Load the immutable public runtime.",
+      inputSchema: z.object({ continuation_handle: z.string() }).strict(),
+      outputSchema: z.object({ ok: z.literal(true) }).strict(),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false
+      },
+      mcpConfig: {},
+      async execute() {
+        throw new PublicRuntimeContinuationError(
+          "public_runtime_continuation_expired",
+          "expired"
+        );
+      }
+    };
+    const [route] = createResearchActionRoutes({ operations: [operation] });
+
+    expect(route!.responseSchemas[422]).toMatchObject({ oneOf: expect.any(Array) });
+    await expect(route!.handle(context({ continuation_handle: "opaque" })))
+      .resolves.toEqual({
+        status: 422,
+        body: {
+          error: {
+            code: "public_runtime_continuation_expired",
+            retryable: false
+          }
+        }
+      });
   });
 });
 

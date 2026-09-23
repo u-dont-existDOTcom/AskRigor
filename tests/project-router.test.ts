@@ -33,7 +33,9 @@ describe("AskRigor ChatGPT Project router", () => {
       "FORUM_SIGNAL_MODULE.md",
       "LESSON_CAPTURE_MODULE.md",
       "PROJECT_INSTRUCTIONS.md",
-      "README.md"
+      "PUBLIC_PLUGIN_ADAPTER.md",
+      "README.md",
+      "public-runtime-bindings.json"
     ]);
     expect(files.filter((file) => repositoryControlFiles.has(file)).sort()).toEqual([
       "AGENTS.md",

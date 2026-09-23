@@ -4,7 +4,7 @@ import {
   timingSafeEqual
 } from "node:crypto";
 
-import type { ProtocolName } from "@askrigor/protocol";
+import type { ProtocolName, ProtocolSnapshot } from "@askrigor/protocol";
 import { z } from "zod";
 
 const TOKEN_VERSION = 1;
@@ -79,8 +79,7 @@ export interface ProtocolActionChunk {
 export interface ProtocolActionChunkDependencies {
   continuationSecret: string;
   now?: () => number;
-  loadProtocol(protocol: ProtocolName): Promise<string>;
-  getProtocolManifest(protocol: ProtocolName): Promise<ProtocolActionManifest>;
+  loadProtocolSnapshot(protocol: ProtocolName): Promise<ProtocolSnapshot>;
 }
 
 export class ProtocolActionContinuationError extends Error {
@@ -102,10 +101,8 @@ export async function createProtocolActionChunk(
 ): Promise<ProtocolActionChunk> {
   validateProtocolActionContinuationSecret(dependencies.continuationSecret);
   const nowMs = readNow(dependencies.now);
-  const [text, rawManifest] = await Promise.all([
-    dependencies.loadProtocol(input.protocol),
-    dependencies.getProtocolManifest(input.protocol)
-  ]);
+  const { text, manifest: rawManifest } = await dependencies
+    .loadProtocolSnapshot(input.protocol);
   const manifest = protocolActionManifestSchema.parse(rawManifest);
   const bytes = Buffer.from(text, "utf8");
   if (bytes.length === 0) {

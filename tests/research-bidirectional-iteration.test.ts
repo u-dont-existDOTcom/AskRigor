@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createBidirectionalIterationWorkPackage,
+  createBidirectionalIterationEvidenceContext,
   createBidirectionalReturnAssessmentWorkPackages,
   deriveBidirectionalIterationStatus,
   executeBidirectionalReturnSearch,
@@ -17,6 +18,7 @@ import {
   initialResearchCandidateDiscoveryState,
   initializeResearchFormalEvidence,
   initializeResearchVideoDepth,
+  researchBoundedEvidenceStateSchema,
   reconcileBidirectionalIterationAfterEphemeralLoss,
   type BidirectionalEvidenceState
 } from "../apps/research-mcp/src/index.js";
@@ -102,6 +104,61 @@ function program() {
     horizon: "six months",
     care_stage: "before procedure"
   };
+}
+
+function boundedProgram(name: string) {
+  return {
+    name,
+    components: [name],
+    dose_or_intensity: "as reported",
+    frequency: "as reported",
+    duration: "as reported",
+    supervision: "not described",
+    adherence: "not described",
+    co_interventions: [],
+    care_stage: "nonsurgical" as const
+  };
+}
+
+function fixtureDigest(value: number): string {
+  return value.toString(16).slice(-1).repeat(64);
+}
+
+function evidenceWithCommentOnlyCandidate(): BidirectionalEvidenceState {
+  const evidence = evidenceFixture();
+  evidence.boundedEvidence = researchBoundedEvidenceStateSchema.parse({
+    state_version: "askrigor_bounded_evidence_v1",
+    selection_digest: evidence.videoDepth.selection_digest,
+    videos: evidence.videoDepth.selected_video_ids.map((videoId, index) => ({
+      video_id: videoId,
+      status: "COMPLETE",
+      transcript_receipt_sha256: fixtureDigest(index + 1),
+      discussion_receipt_sha256: fixtureDigest(index + 3),
+      source_material_digest: fixtureDigest(index + 5),
+      creator_findings: [{
+        finding_id: fixtureDigest(index + 7),
+        finding_type: "program",
+        plain_language: "The creator describes only the original source program.",
+        transcript_segment_sha256s: [fixtureDigest(index + 9)],
+        program: boundedProgram("Original creator program"),
+        timestamp_url: `https://www.youtube.com/watch?v=${videoId}&t=0s`,
+        start_ms: 0
+      }],
+      community_findings: index === 0 ? [{
+        finding_id: "b".repeat(64),
+        direction: "benefit",
+        non_identifying_wording:
+          "A commenter reports a synthetic comment-only candidate called Signal Alpha.",
+        regimen_clues: ["Signal Alpha"],
+        reported_outcome: "A bounded improvement report.",
+        counter_signals: ["Diagnosis was not independently verified."],
+        program: boundedProgram("Signal Alpha"),
+        comment_record_sha256s: ["c".repeat(64)]
+      }] : [],
+      limitations: []
+    }))
+  });
+  return evidence;
 }
 
 describe("server-owned bidirectional evidence iteration", () => {
@@ -215,6 +272,85 @@ describe("server-owned bidirectional evidence iteration", () => {
     )).toBe(true);
     expect(deriveBidirectionalIterationStatus(result.bidirectional, nextEvidence))
       .toBe("IN_PROGRESS");
+  });
+
+  it("reopens discovery for a source-bound comment-only candidate without inventing absent candidates", () => {
+    const evidence = evidenceWithCommentOnlyCandidate();
+    const state = initialResearchBidirectionalIterationState();
+    const firstWork = createBidirectionalIterationWorkPackage(state, evidence);
+    const context = createBidirectionalIterationEvidenceContext(evidence, firstWork);
+    const serialized = JSON.stringify(context);
+
+    expect(serialized).toContain("Signal Alpha");
+    expect(serialized).not.toContain("Signal Omega");
+    expect(firstWork.community_evidence[0]).toMatchObject({
+      community_finding_count: 1,
+      creator_finding_count: 1,
+      bounded_evidence_sha256: expect.stringMatching(/^[a-f0-9]{64}$/u)
+    });
+
+    const settled = ingestBidirectionalIterationSubmission(
+      state,
+      evidence,
+      noTransferSubmission(firstWork)
+    );
+    expect(deriveBidirectionalIterationStatus(settled.bidirectional, {
+      ...evidence,
+      formalEvidence: settled.formalEvidence
+    })).toBe("COMPLETE");
+
+    const laterEvidence = structuredClone(evidence);
+    laterEvidence.formalEvidence = settled.formalEvidence;
+    laterEvidence.boundedEvidence!.videos[0]!.community_findings[0] = {
+      ...laterEvidence.boundedEvidence!.videos[0]!.community_findings[0]!,
+      finding_id: "d".repeat(64),
+      non_identifying_wording:
+        "A later comment reports a synthetic comment-only candidate called Signal Beta.",
+      regimen_clues: ["Signal Beta"],
+      program: boundedProgram("Signal Beta")
+    };
+    expect(deriveBidirectionalIterationStatus(
+      settled.bidirectional,
+      laterEvidence
+    )).toBe("IN_PROGRESS");
+
+    const reopenedWork = createBidirectionalIterationWorkPackage(
+      settled.bidirectional,
+      laterEvidence
+    );
+    expect(JSON.stringify(createBidirectionalIterationEvidenceContext(
+      laterEvidence,
+      reopenedWork
+    ))).toContain("Signal Beta");
+    const submission = noTransferSubmission(reopenedWork);
+    const source = reopenedWork.community_evidence[0]!;
+    submission.community_to_formal_assessments[0] = {
+      evidence_ref_id: source.evidence_ref_id,
+      disposition: "MATERIAL_TRANSFER",
+      rationale: "The later comment introduces a source-grounded candidate."
+    };
+    const reopened = ingestBidirectionalIterationSubmission(
+      settled.bidirectional,
+      laterEvidence,
+      {
+        ...submission,
+        transfers: [{
+          direction: "COMMUNITY_TO_FORMAL",
+          source_evidence_ref_ids: [source.evidence_ref_id],
+          category: "PROGRAM",
+          treatment_class: "Signal Beta class",
+          claim_summary: "Signal Beta is a bounded candidate for follow-up.",
+          program: program(),
+          formal_query: "Signal Beta condition outcome",
+          possible_decision_impact: "unknown"
+        }]
+      }
+    );
+    expect(reopened.formalEvidence.hypotheses).toHaveLength(
+      laterEvidence.formalEvidence.hypotheses.length + 1
+    );
+    expect(reopened.formalEvidence.hypotheses.at(-1)?.formal_query)
+      .toContain("Signal Beta");
   });
 
   it("keeps formal-to-community return searches receipt-bound and retryable", async () => {

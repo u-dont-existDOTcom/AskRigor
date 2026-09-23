@@ -28,7 +28,8 @@ export const customGptAcceptanceTransitionSchema = z.object({
     "blocked_retryable",
     "blocked_terminal",
     "semantic_work_recorded",
-    "protocol_drift"
+    "protocol_drift",
+    "policy_drift"
   ]),
   before_state_digest: digest,
   after_state_digest: digest

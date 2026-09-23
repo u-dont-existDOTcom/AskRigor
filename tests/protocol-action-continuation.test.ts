@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
+import * as researchMcp from "../apps/research-mcp/src/index.js";
+
 const NOW = 1_787_000_000_000;
 const SECRET = "p".repeat(32);
 const text = [
@@ -30,19 +32,15 @@ const dependencies = (options: {
 } = {}) => ({
   continuationSecret: options.secret ?? SECRET,
   now: () => options.now ?? NOW,
-  async loadProtocol() {
-    return options.value ?? text;
-  },
-  async getProtocolManifest() {
-    return manifest(options.value ?? text);
+  async loadProtocolSnapshot() {
+    const value = options.value ?? text;
+    return { text: value, manifest: manifest(value) };
   }
 });
 
 describe("protocol Action continuation", () => {
   it("reconstructs exact UTF-8 bytes through ordered bounded chunks", async () => {
-    const module = await import("../apps/research-mcp/src/index.js") as
-      Record<string, unknown>;
-    const createChunk = module.createProtocolActionChunk as
+    const createChunk = researchMcp.createProtocolActionChunk as
       ((input: { protocol: "hrp"; cursor?: string }, deps: ReturnType<typeof dependencies>) =>
         Promise<{
           protocol: "hrp";

@@ -29,6 +29,9 @@ import {
 import { createReportSynthesisEvidenceContext } from
   "./actions/research-report-synthesis.js";
 import {
+  createBidirectionalIterationEvidenceContext
+} from "./actions/research-bidirectional-iteration.js";
+import {
   executeDiscussionDepthChain,
   executeTranscriptDepthChain,
   createCompletedVideoDepthReplay
@@ -208,6 +211,14 @@ export function createResearchSessionRuntimeDependencies(
             updated_at: comment.updated_at
           }))
         };
+      }
+      if (work.kind === "bidirectional_iteration") {
+        return createBidirectionalIterationEvidenceContext({
+          candidates: state.candidate_discovery,
+          videoDepth: state.video_depth,
+          formalEvidence: state.formal_evidence,
+          boundedEvidence: state.bounded_evidence
+        }, work.package);
       }
       if (work.kind === "formal_method_audit") {
         if (openFullText.readAuditMaterial === undefined) {

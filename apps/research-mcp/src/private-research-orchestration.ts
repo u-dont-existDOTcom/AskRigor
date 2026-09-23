@@ -18,6 +18,7 @@ import {
 } from "./actions/body.js";
 import {
   applyProtocolRecheck,
+  applyRuntimeRecheck,
   finalizationDecisionSchema,
   projectResearchSessionView,
   protocolBindingsFromManifests,
@@ -57,6 +58,8 @@ import {
 } from "./research-semantic-worker.js";
 import {
   createResearchSemanticPolicyInputs,
+  loadResearchRuntimeBinding,
+  ResearchSemanticPolicyInputError,
   type ResearchSemanticPolicyDependencies
 } from "./research-semantic-policy-input.js";
 import {
@@ -80,7 +83,8 @@ const startInputSchema = z.object({
   diagnosis_status: z.enum([
     "diagnosis_not_specified",
     "user_supplied_diagnosis"
-  ])
+  ]),
+  source_scope: z.enum(["all_available_sources", "community_only"]).optional()
 }).strict();
 const stateBoundSessionInputSchema = sessionInputSchema.extend({
   state_digest: digestSchema
@@ -111,6 +115,7 @@ export const privateResearchOrchestrationViewSchema = z.object({
     result: z.enum([
       "protocol_current",
       "protocol_drift",
+      "policy_drift",
       "complete",
       "progress_recorded",
       "blocked_retryable",
@@ -139,6 +144,7 @@ const privateErrorSchema = z.object({
       "private_orchestration_concurrency_limited",
       "private_orchestration_response_too_large",
       "private_orchestration_worker_unavailable",
+      "private_orchestration_policy_unavailable",
       "private_orchestration_worker_failed",
       "private_orchestration_worker_output_rejected",
       "private_orchestration_internal_error"
@@ -295,6 +301,8 @@ export function createPrivateResearchOrchestrationHandler(
           writeError(response, 422, "private_orchestration_input_invalid", false);
         } else if (error instanceof PrivateWorkerUnavailableError) {
           writeError(response, 503, "private_orchestration_worker_unavailable", true);
+        } else if (error instanceof PrivatePolicyUnavailableError) {
+          writeError(response, 503, "private_orchestration_policy_unavailable", true);
         } else if (error instanceof PrivateWorkerFailedError) {
           writeError(response, 503, "private_orchestration_worker_failed", true);
         } else if (error instanceof PrivateWorkerOutputRejectedError) {
@@ -326,9 +334,16 @@ export function createPrivateResearchOrchestrationHandler(
       ) {
         throw new PrivateInputInvalidError();
       }
-      return projectActionResult(
-        await invokeRoute(routes, "start_research_session", parsed.data)
-      );
+      try {
+        return projectActionResult(
+          await invokeRoute(routes, "start_research_session", parsed.data)
+        );
+      } catch (error) {
+        if (error instanceof ResearchSemanticPolicyInputError) {
+          throw new PrivatePolicyUnavailableError();
+        }
+        throw error;
+      }
     }
     if (pathname === `${PRIVATE_RESEARCH_ORCHESTRATION_PREFIX}/resume`) {
       return advanceServerDirectedWork(body);
@@ -434,14 +449,34 @@ export function createPrivateResearchOrchestrationHandler(
       throw new PrivateStateStaleError();
     }
     const manifests = options.getProtocolManifest ?? getProtocolManifest;
-    const checked = applyProtocolRecheck(
-      current,
-      protocolBindingsFromManifests(
+    let checked: ResearchSessionState;
+    try {
+      const protocols = protocolBindingsFromManifests(
         await manifests("universal"),
         await manifests("hrp")
-      )
-    );
-    if (checked.protocol_binding.currency === "DRIFTED") {
+      );
+      const protocolChecked = applyProtocolRecheck(current, protocols);
+      checked = protocolChecked.protocol_binding.currency === "DRIFTED"
+        ? protocolChecked
+        : applyRuntimeRecheck(
+            protocolChecked,
+            await loadResearchRuntimeBinding(
+              protocols,
+              options.semanticPolicyDependencies
+            )
+          );
+    } catch (error) {
+      if (error instanceof ResearchSemanticPolicyInputError) {
+        throw new PrivatePolicyUnavailableError();
+      }
+      throw error;
+    }
+    if (
+      checked.protocol_binding.currency === "DRIFTED" ||
+      checked.runtime_binding?.currency === "DRIFTED"
+    ) {
+      const policyDrift = checked.protocol_binding.currency === "CURRENT" &&
+        checked.runtime_binding?.currency === "DRIFTED";
       const claimed = store.claim(parsed.data.session_id);
       try {
         if (researchSessionStateDigest(claimed) !== currentDigest) {
@@ -451,8 +486,10 @@ export function createPrivateResearchOrchestrationHandler(
           parsed.data.session_id,
           checked,
           {
-            capability: "protocol_currency_recheck",
-            result: "protocol_drift"
+            capability: policyDrift
+              ? "runtime_policy_currency_recheck"
+              : "protocol_currency_recheck",
+            result: policyDrift ? "policy_drift" : "protocol_drift"
           }
         );
         store.replace(parsed.data.session_id, checked);
@@ -476,6 +513,9 @@ export function createPrivateResearchOrchestrationHandler(
         const policyInputs = await createResearchSemanticPolicyInputs({
           kind: semanticWork.kind,
           expectedProtocols: checked.protocol_binding.expected,
+          ...(checked.runtime_binding === undefined
+            ? {}
+            : { expectedRuntime: checked.runtime_binding.expected }),
           ...(options.semanticPolicyDependencies === undefined
             ? {}
             : { dependencies: options.semanticPolicyDependencies })
@@ -700,5 +740,6 @@ class PrivateStateStaleError extends Error {}
 class PrivateWorkMismatchError extends Error {}
 class PrivateInputInvalidError extends Error {}
 class PrivateWorkerUnavailableError extends Error {}
+class PrivatePolicyUnavailableError extends Error {}
 class PrivateWorkerFailedError extends Error {}
 class PrivateWorkerOutputRejectedError extends Error {}

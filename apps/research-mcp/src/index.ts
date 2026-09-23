@@ -88,9 +88,11 @@ export {
   RESEARCH_MODULE_IDS,
   RESEARCH_OPERATION_IDS,
   applyProtocolRecheck,
+  applyRuntimeRecheck,
   applyServerModuleApplicability,
   assertResearchSessionTransition,
   createInitialResearchSessionState,
+  researchSourceScopeSchema,
   deriveRequiredNextCapabilities,
   deriveResearchFinalizationLimitations,
   deriveResearchOutputBoundary,
@@ -144,8 +146,23 @@ export {
   type ResearchOperationId,
   type ResearchOutputBoundary,
   type ResearchSessionStartInput,
+  type ResearchSourceScope,
   type ResearchSessionState
 } from "./actions/research-session-controller.js";
+export {
+  PUBLIC_RUNTIME_FORMAT_VERSION,
+  PUBLIC_RUNTIME_RESPONSE_MAX_BYTES,
+  createPublicRuntimeBundleStore,
+  createPublicRuntimeChunk,
+  loadPackagedPublicRuntimeBundle,
+  loadResearchRuntimeInputSchema,
+  loadResearchRuntimeOutputSchema,
+  publicRuntimeProfileSchema,
+  PublicRuntimeContinuationError,
+  type PublicRuntimeBundle,
+  type PublicRuntimeBundleStore,
+  type PublicRuntimeProfile
+} from "./public-runtime-bundle.js";
 export {
   createVideoEvidenceWorkPackage,
   deriveVideoEvidenceStatus,
@@ -252,6 +269,7 @@ export {
   bidirectionalReturnAssessmentSubmissionSchema,
   bidirectionalReturnAssessmentWorkPackageSchema,
   bidirectionalEvidenceBasisDigest,
+  createBidirectionalIterationEvidenceContext,
   createBidirectionalIterationWorkPackage,
   createBidirectionalReturnAssessmentWorkPackages,
   deriveBidirectionalIterationDiagnostics,

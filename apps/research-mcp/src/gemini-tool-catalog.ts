@@ -2,7 +2,9 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
-import { RESEARCH_OPERATIONS } from "./register-tools.js";
+import {
+  researchOperationsForProfile
+} from "./register-tools.js";
 
 const GEMINI_DESCRIPTION_MAX_CHARACTERS = 170;
 
@@ -21,14 +23,7 @@ const GEMINI_FUNCTION_SCHEMA_KEYS = new Set([
 ]);
 
 export function installGeminiCompatibleToolCatalog(server: McpServer): void {
-  const tools = RESEARCH_OPERATIONS
-    .filter(({ name }) => ![
-      "review_evidence_gap_submissions",
-      "review_research_contribution",
-      "search_research_frontiers",
-      "manage_research_access",
-      "submit_research_contribution",
-    ].includes(name))
+  const tools = researchOperationsForProfile("gemini")
     .map((operation) => ({
     name: operation.name,
     description: compactGeminiDescription(operation.description),

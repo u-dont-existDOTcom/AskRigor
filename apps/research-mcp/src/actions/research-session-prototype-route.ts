@@ -3,7 +3,12 @@ import { z } from "zod";
 
 import { RESEARCH_ACTION_RESPONSE_MAX_BYTES } from "../config.js";
 import {
+  loadResearchRuntimeBinding,
+  type ResearchSemanticPolicyDependencies
+} from "../research-semantic-policy-input.js";
+import {
   applyProtocolRecheck,
+  applyRuntimeRecheck,
   createInitialResearchSessionState,
   evaluateResearchFinalization,
   finalizationDecisionSchema,
@@ -25,7 +30,8 @@ import type { ActionRequestContext, ActionResult, ActionRoute } from "./types.js
 
 const startInputSchema = z.object({
   research_target: z.string().trim().min(1).max(1_000),
-  diagnosis_status: z.enum(["diagnosis_not_specified", "user_supplied_diagnosis"])
+  diagnosis_status: z.enum(["diagnosis_not_specified", "user_supplied_diagnosis"]),
+  source_scope: z.enum(["all_available_sources", "community_only"]).optional()
 }).strict();
 const sessionInputSchema = z.object({
   session_id: z.string().regex(/^ars1_[A-Za-z0-9_-]{32}$/u)
@@ -34,12 +40,14 @@ const continuationOutputSchema = researchSessionViewSchema.extend({
   last_transition: z.object({
     capability: z.enum([
       "protocol_currency_recheck",
+      "runtime_policy_currency_recheck",
       "automated_video_scout",
       "native_video_discovery"
     ]),
     result: z.enum([
       "protocol_current",
       "protocol_drift",
+      "policy_drift",
       "complete",
       "blocked_retryable",
       "blocked_terminal",
@@ -58,6 +66,7 @@ export interface CreateResearchSessionPrototypeRoutesOptions
   extends CreateResearchSessionDiscoveryExecutorsOptions {
   store?: ResearchSessionStore;
   getProtocolManifest?: typeof getProtocolManifest;
+  semanticPolicyDependencies?: ResearchSemanticPolicyDependencies;
   finalizationSigningSecret?: string;
   finalizationKeyId?: string;
   finalizationNow?: () => Date;
@@ -89,8 +98,15 @@ export function createResearchSessionPrototypeRoutes(
       inputSchema: startInputSchema,
       outputSchema: researchSessionViewSchema,
       async handle(input) {
-        const protocols = await currentProtocolBindings(manifests);
-        const state = createInitialResearchSessionState(input, protocols);
+        const identity = await currentRuntimeIdentity(
+          manifests,
+          options.semanticPolicyDependencies
+        );
+        const state = createInitialResearchSessionState(
+          input,
+          identity.protocols,
+          identity.runtime
+        );
         const sessionId = store.issue(state);
         try {
           return projectResearchSessionView(sessionId, state);
@@ -111,16 +127,26 @@ export function createResearchSessionPrototypeRoutes(
       async handle({ session_id: sessionId }) {
         const claimed = store.claim(sessionId);
         try {
-          const checked = applyProtocolRecheck(
+          const checked = await recheckCurrentRuntime(
             claimed,
-            await currentProtocolBindings(manifests)
+            manifests,
+            options.semanticPolicyDependencies
           );
-          if (checked.protocol_binding.currency === "DRIFTED") {
+          if (
+            checked.protocol_binding.currency === "DRIFTED" ||
+            checked.runtime_binding?.currency === "DRIFTED"
+          ) {
+            const policyDrift = checked.protocol_binding.currency === "CURRENT" &&
+              checked.runtime_binding?.currency === "DRIFTED";
             const projected = {
               ...projectResearchSessionView(sessionId, checked),
               last_transition: {
-                capability: "protocol_currency_recheck" as const,
-                result: "protocol_drift" as const
+                capability: policyDrift
+                  ? "runtime_policy_currency_recheck" as const
+                  : "protocol_currency_recheck" as const,
+                result: policyDrift
+                  ? "policy_drift" as const
+                  : "protocol_drift" as const
               }
             };
             store.replace(sessionId, checked);
@@ -207,9 +233,10 @@ export function createResearchSessionPrototypeRoutes(
       async handle({ session_id: sessionId }) {
         const claimed = store.claim(sessionId);
         try {
-          const checked = applyProtocolRecheck(
+          const checked = await recheckCurrentRuntime(
             claimed,
-            await currentProtocolBindings(manifests)
+            manifests,
+            options.semanticPolicyDependencies
           );
           const decision = evaluateResearchFinalization(sessionId, checked, {
             ...(options.finalizationSigningSecret === undefined
@@ -297,6 +324,33 @@ async function currentProtocolBindings(
     manifests("hrp")
   ]);
   return protocolBindingsFromManifests(universal, hrp);
+}
+
+async function recheckCurrentRuntime(
+  state: ResearchSessionState,
+  manifests: typeof getProtocolManifest,
+  dependencies: ResearchSemanticPolicyDependencies | undefined
+): Promise<ResearchSessionState> {
+  const protocols = await currentProtocolBindings(manifests);
+  const protocolChecked = applyProtocolRecheck(state, protocols);
+  if (protocolChecked.protocol_binding.currency === "DRIFTED") {
+    return protocolChecked;
+  }
+  return applyRuntimeRecheck(
+    protocolChecked,
+    await loadResearchRuntimeBinding(protocols, dependencies)
+  );
+}
+
+async function currentRuntimeIdentity(
+  manifests: typeof getProtocolManifest,
+  dependencies: ResearchSemanticPolicyDependencies | undefined
+) {
+  const protocols = await currentProtocolBindings(manifests);
+  return {
+    protocols,
+    runtime: await loadResearchRuntimeBinding(protocols, dependencies)
+  };
 }
 
 function invalidInput(): ActionResult {

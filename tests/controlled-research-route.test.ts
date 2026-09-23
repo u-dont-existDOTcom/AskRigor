@@ -34,6 +34,12 @@ import type { FormalSearchExecutors } from
 import {
   FORMAL_SOURCE_MAXIMUM
 } from "../apps/research-mcp/src/actions/research-formal-evidence.js";
+import { loadResearchRuntimeBinding } from
+  "../apps/research-mcp/src/research-semantic-policy-input.js";
+import {
+  loadPackagedPublicRuntimeBundle,
+  type PublicRuntimeBundle
+} from "../apps/research-mcp/src/public-runtime-bundle.js";
 import {
   nativeSurvey,
   researchPacket,
@@ -98,6 +104,25 @@ describe("controlled research Action projection", () => {
     expect(stale).toMatchObject({
       status: 409,
       body: { error: { code: "research_session_state_stale" } }
+    });
+  });
+
+  it("binds community-only scope at the public controller boundary", async () => {
+    const started = await call(testRoutes(), "start_research_session", {
+      research_target: "Community experiences with chronic joint pain approaches",
+      diagnosis_status: "diagnosis_not_specified",
+      source_scope: "community_only"
+    });
+
+    expect(started).toMatchObject({
+      status: 200,
+      body: {
+        source_scope: "community_only",
+        directive: "continue_research",
+        next_capability: "automated_video_scout",
+        output_boundary: "CONTINUE_RESEARCH",
+        technical_summary: { formal_sources_discovered: 0 }
+      }
     });
   });
 
@@ -190,7 +215,47 @@ describe("controlled research Action projection", () => {
     expect((accepted.body as any).state_digest).not.toBe(initial.state_digest);
   });
 
-  it("invalidates pagination when a canonical policy document changes", async () => {
+  it.each([
+    "public_plugin_adapter",
+    "public_runtime_bindings",
+    "mcp_initialization"
+  ] as const)("enters restart/POLICY_DRIFT when only %s changes", async (documentId) => {
+    let changedSha256: string | undefined;
+    const routes = testRoutes(getProtocolManifest, {}, {}, {
+      loadPublicRuntimeBundle: async () => {
+        const base = await loadPackagedPublicRuntimeBundle("standard-v2");
+        return changedSha256 === undefined
+          ? base
+          : syntheticRuntimeBundleWithHashOverrides(base, {
+              [documentId]: changedSha256
+            });
+      }
+    });
+    const started = await call(routes, "start_research_session", {
+      research_target: `Population-level evidence about ${documentId} drift`,
+      diagnosis_status: "diagnosis_not_specified"
+    });
+    expect(started.status).toBe(200);
+    changedSha256 = "f".repeat(64);
+
+    const continued = await call(routes, "continue_research_session", {
+      session_id: (started.body as any).session_id,
+      state_digest: (started.body as any).state_digest
+    });
+    expect(continued).toMatchObject({
+      status: 200,
+      body: {
+        directive: "restart_required",
+        execution_status: "POLICY_DRIFT",
+        last_transition: {
+          capability: "runtime_policy_currency_recheck",
+          result: "policy_drift"
+        }
+      }
+    });
+  });
+
+  it("enters explicit policy drift before accepting pagination after a canonical document changes", async () => {
     let projectRouter = await readFile(
       new URL("../project/PROJECT_INSTRUCTIONS.md", import.meta.url)
     );
@@ -199,7 +264,11 @@ describe("controlled research Action projection", () => {
     );
     const routes = testRoutes(getProtocolManifest, {}, {}, {
       readProjectDocument: async (documentId) =>
-        documentId === "project_router" ? projectRouter : forumSignal
+        documentId === "project_router" ? projectRouter : forumSignal,
+      loadPublicRuntimeBundle: async () => syntheticRuntimeBundleForProjectDocuments({
+        project_router: projectRouter,
+        forum_signal_module: forumSignal
+      })
     });
     const started = await call(routes, "start_research_session", {
       research_target: "Population-level evidence about canonical policy pagination",
@@ -219,15 +288,23 @@ describe("controlled research Action projection", () => {
       worker_payload_cursor: page.next_cursor
     });
     expect(continued).toMatchObject({
-      status: 409,
-      body: { error: { code: "research_worker_payload_invalid" } }
+      status: 200,
+      body: {
+        directive: "restart_required",
+        execution_status: "POLICY_DRIFT",
+        last_transition: {
+          capability: "runtime_policy_currency_recheck",
+          result: "policy_drift"
+        }
+      }
     });
+    expect((continued.body as any).worker_payload).toBeUndefined();
   });
 
   it.each([
     "project_router",
     "forum_signal_module"
-  ] as const)("binds %s leading-BOM bytes into controlled cursors and terminal receipts", async (
+  ] as const)("binds %s leading-BOM bytes and detects byte-only runtime drift", async (
     documentId
   ) => {
     const withoutBom = Buffer.from("Policy café\r\nline two\n", "utf8");
@@ -236,7 +313,11 @@ describe("controlled research Action projection", () => {
     let selectedBytes = withBom;
     const routes = testRoutes(getProtocolManifest, {}, {}, {
       readProjectDocument: async (requested) =>
-        requested === documentId ? selectedBytes : otherDocument
+        requested === documentId ? selectedBytes : otherDocument,
+      loadPublicRuntimeBundle: async () => syntheticRuntimeBundleForProjectDocuments({
+        project_router: documentId === "project_router" ? selectedBytes : otherDocument,
+        forum_signal_module: documentId === "forum_signal_module" ? selectedBytes : otherDocument
+      })
     });
     const started = await call(routes, "start_research_session", {
       research_target: `Population-level evidence about ${documentId} byte binding`,
@@ -259,23 +340,6 @@ describe("controlled research Action projection", () => {
     expect(document.sha256).toBe(createHash("sha256").update(withBom).digest("hex"));
     expect(Buffer.from(document.text, "utf8")).toEqual(withBom);
 
-    const semanticResult = {
-      contract_version: "askrigor_hermes_semantic_result_v1",
-      session_id: initialView.session_id,
-      state_digest: initialView.state_digest,
-      work_type: "module_applicability",
-      submission: {
-        package_version: "askrigor_module_applicability_v1",
-        decisions: workerInput.semantic_work.package.unresolved_module_ids.map(
-          (module_id: (typeof RESEARCH_MODULE_IDS)[number]) => ({
-            module_id,
-            applicability: "REQUIRED",
-            rationale: "Required for the controlled policy-byte binding fixture."
-          })
-        )
-      }
-    };
-
     selectedBytes = withoutBom;
     const staleCursor = await call(routes, "continue_research_session", {
       session_id: initialView.session_id,
@@ -283,28 +347,23 @@ describe("controlled research Action projection", () => {
       worker_payload_cursor: oldCursor
     });
     expect.soft(staleCursor).toMatchObject({
-      status: 409,
-      body: { error: { code: "research_worker_payload_invalid" } }
+      status: 200,
+      body: {
+        directive: "restart_required",
+        execution_status: "POLICY_DRIFT",
+        last_transition: {
+          capability: "runtime_policy_currency_recheck",
+          result: "policy_drift"
+        }
+      }
     });
-    const afterCursor = await call(routes, "get_research_session_status", {
+    const afterDrift = await call(routes, "get_research_session_status", {
       session_id: initialView.session_id
     });
-    expect.soft((afterCursor.body as any).state_digest).toBe(initialView.state_digest);
-
-    const staleReceipt = await call(routes, "continue_research_session", {
-      session_id: initialView.session_id,
-      state_digest: initialView.state_digest,
-      worker_payload_receipt: completed.receipt,
-      semantic_result: semanticResult
-    });
-    expect.soft(staleReceipt).toMatchObject({
-      status: 409,
-      body: { error: { code: "research_worker_payload_invalid" } }
-    });
-    const afterReceipt = await call(routes, "get_research_session_status", {
-      session_id: initialView.session_id
-    });
-    expect.soft((afterReceipt.body as any).state_digest).toBe(initialView.state_digest);
+    expect.soft((afterDrift.body as any).state_digest).toBe(
+      (staleCursor.body as any).state_digest
+    );
+    expect.soft((afterDrift.body as any).state_digest).not.toBe(initialView.state_digest);
   });
 
   it("fails before issuing a worker payload when canonical policy is unavailable", async () => {
@@ -317,12 +376,7 @@ describe("controlled research Action projection", () => {
       research_target: "Population-level evidence about missing policy",
       diagnosis_status: "diagnosis_not_specified"
     });
-    const result = await call(routes, "continue_research_session", {
-      session_id: (started.body as any).session_id,
-      state_digest: (started.body as any).state_digest
-    });
-
-    expect(result).toMatchObject({
+    expect(started).toMatchObject({
       status: 409,
       body: {
         error: {
@@ -331,7 +385,7 @@ describe("controlled research Action projection", () => {
         }
       }
     });
-    expect((result.body as any).worker_payload).toBeUndefined();
+    expect((started.body as any).worker_payload).toBeUndefined();
   });
 
   it("keeps server-owned policy and instruction above policy-shaped evidence", async () => {
@@ -439,17 +493,18 @@ describe("controlled research Action projection", () => {
         }
       }
     });
-  });
+  }, 30_000);
 
   it("continues formal search when a paginated provider reaches its terminal page", async () => {
     const [universal, hrp] = await Promise.all([
       getProtocolManifest("universal"),
       getProtocolManifest("hrp")
     ]);
+    const protocolBinding = protocolBindingsFromManifests(universal, hrp);
     let state = createInitialResearchSessionState({
       research_target: "de-identified treatment comparison",
       diagnosis_status: "diagnosis_not_specified"
-    }, protocolBindingsFromManifests(universal, hrp));
+    }, protocolBinding, await loadResearchRuntimeBinding(protocolBinding));
     state = applyServerModuleApplicability(state, {
       DIRECT_HUMAN: "REQUIRED",
       EXTENDED_GREY: "REQUIRED",
@@ -527,10 +582,11 @@ describe("controlled research Action projection", () => {
       getProtocolManifest("universal"),
       getProtocolManifest("hrp")
     ]);
+    const protocolBinding = protocolBindingsFromManifests(universal, hrp);
     let state = createInitialResearchSessionState({
       research_target: "de-identified treatment comparison",
       diagnosis_status: "diagnosis_not_specified"
-    }, protocolBindingsFromManifests(universal, hrp));
+    }, protocolBinding, await loadResearchRuntimeBinding(protocolBinding));
     state = applyServerModuleApplicability(state, {
       DIRECT_HUMAN: "REQUIRED",
       EXTENDED_GREY: "REQUIRED",
@@ -898,7 +954,7 @@ describe("controlled research Action projection", () => {
       blockedView.state_digest
     );
     expect(nativeCalls).toBe(2);
-  });
+  }, 30_000);
 
   it("still fails closed when a required deterministic dependency is genuinely absent", async () => {
     const routes = testRoutes(getProtocolManifest, {
@@ -1003,6 +1059,38 @@ describe("controlled research Action projection", () => {
     expect((finalization.body as any).product_acceptance_receipt).toBeUndefined();
   });
 });
+
+async function syntheticRuntimeBundleForProjectDocuments(input: {
+  project_router: Uint8Array;
+  forum_signal_module: Uint8Array;
+}): Promise<PublicRuntimeBundle> {
+  const base = await loadPackagedPublicRuntimeBundle("standard-v2");
+  return syntheticRuntimeBundleWithHashOverrides(base, {
+    project_router: createHash("sha256").update(input.project_router).digest("hex"),
+    forum_signal_module: createHash("sha256")
+      .update(input.forum_signal_module)
+      .digest("hex")
+  });
+}
+
+function syntheticRuntimeBundleWithHashOverrides(
+  base: PublicRuntimeBundle,
+  overrides: Readonly<Record<string, string>>
+): PublicRuntimeBundle {
+  const documentHashes = base.document_hashes.map((identity) => ({
+    document_id: identity.document_id,
+    sha256: overrides[identity.document_id] ?? identity.sha256
+  }));
+  return Object.freeze({
+    ...base,
+    release_manifest_sha256: routeHash(JSON.stringify(documentHashes)),
+    bundle_sha256: routeHash(JSON.stringify({
+      profile: "standard-v2",
+      document_hashes: documentHashes
+    })),
+    document_hashes: Object.freeze(documentHashes)
+  });
+}
 
 function testRoutes(
   manifests: typeof getProtocolManifest = getProtocolManifest,

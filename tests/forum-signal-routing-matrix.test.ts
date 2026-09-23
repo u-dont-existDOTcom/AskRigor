@@ -97,12 +97,13 @@ describe("Forum Signal routing prompt matrix", () => {
   });
 
   it("preserves internal routing while the public surface stays educational-only", async () => {
-    const [projectRouter, skill, generated] = await Promise.all([
+    const [projectRouter, packagedRouter, generated] = await Promise.all([
       readFile(rootFile("project/PROJECT_INSTRUCTIONS.md"), "utf8"),
-      readFile(rootFile("skills/askrigor/SKILL.md"), "utf8"),
+      readFile(rootFile("skills/askrigor/references/PROJECT_INSTRUCTIONS.md"), "utf8"),
       readFile(rootFile("docs/custom-gpt-instructions.md"), "utf8"),
     ]);
-    for (const instruction of [projectRouter, skill]) {
+    expect(packagedRouter).toBe(projectRouter);
+    for (const instruction of [projectRouter, packagedRouter]) {
       for (const fragment of [
         "personal or practical treatment decision",
         "good idea for me",

@@ -2,6 +2,8 @@ import { readFile, stat } from "node:fs/promises";
 
 import { XMLParser } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
+import { researchOperationsForProfile } from
+  "../apps/research-mcp/src/register-tools.js";
 
 const rootFile = (path: string) => new URL(`../${path}`, import.meta.url);
 
@@ -92,7 +94,7 @@ describe("AskRigor public submission packet", () => {
     });
   });
 
-  it("binds submission claims to the committed MCP inventory", async () => {
+  it("preserves the released legacy submission while the candidate inventory advances", async () => {
     const packet = await loadJson<SubmissionPacket>(
       "docs/public-submission-packet-v0.1.0.json"
     );
@@ -100,11 +102,16 @@ describe("AskRigor public submission packet", () => {
       "docs/tool-inventory-v0.1.0.json"
     );
 
-    expect(packet.mcp.expectedToolCount).toBe(inventory.tools.length);
-    expect(packet.releaseNotes.join(" ")).toContain(`${inventory.tools.length} OAuth-scoped tools`);
+    const legacy = researchOperationsForProfile("legacy");
+    expect(packet.mcp.expectedToolCount).toBe(legacy.length);
+    expect(packet.mcp.expectedToolCount).toBe(27);
+    expect(inventory.tools).toHaveLength(28);
+    expect(inventory.tools.some(({ name }) => name === "load_research_runtime")).toBe(true);
+    expect(legacy.some(({ name }) => name === "load_research_runtime")).toBe(false);
+    expect(packet.releaseNotes.join(" ")).toContain(`${legacy.length} OAuth-scoped tools`);
     expect(packet.releaseNotes.join(" ")).toContain("24 read-only operations");
     expect(packet.externalGates.scanTools?.note).toContain(
-      `${inventory.tools.length}-tool inventory`
+      `${legacy.length}-tool inventory`
     );
   });
 
