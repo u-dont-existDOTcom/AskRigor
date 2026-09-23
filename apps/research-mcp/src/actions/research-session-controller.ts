@@ -11,11 +11,13 @@ import { z } from "zod";
 
 import type { YoutubeCommunitySurveyOutput } from "../youtube-community-survey.js";
 import {
+  LEGACY_RESEARCH_RUNTIME_BINDING_VERSION,
   RESEARCH_RUNTIME_BINDING_VERSION,
   RESEARCH_RUNTIME_CONTEXT_VERSION,
   sameRuntimeBinding,
   type ResearchRuntimeBinding
 } from "../research-runtime-binding.js";
+import { PUBLIC_RUNTIME_FORMAT_VERSION } from "../public-runtime-bundle.js";
 import {
   bidirectionalIterationDiagnosticsSchema,
   bidirectionalIterationWorkPackageSchema,
@@ -210,24 +212,59 @@ const protocolTupleSchema = z.tuple([
   protocolIdentitySchema.extend({ protocol: z.literal("hrp") }).strict()
 ]);
 
+const runtimeSemanticDocumentsSchema = z.array(z.object({
+  document_id: z.enum([
+    "universal",
+    "hrp",
+    "project_router",
+    "forum_signal_module"
+  ]),
+  path: z.string().min(1),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/u)
+}).strict()).length(4);
+
+const legacyRuntimeBindingIdentitySchema = z.object({
+  binding_version: z.literal(LEGACY_RESEARCH_RUNTIME_BINDING_VERSION),
+  context_version: z.literal(RESEARCH_RUNTIME_CONTEXT_VERSION),
+  context_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  documents: runtimeSemanticDocumentsSchema
+}).strict();
+
+const runtimePublicIdentitySchema = z.object({
+  format_version: z.literal(PUBLIC_RUNTIME_FORMAT_VERSION),
+  profile: z.literal("standard-v2"),
+  release_manifest_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  bundle_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  document_hashes: z.array(z.object({
+    document_id: z.string().min(1),
+    sha256: z.string().regex(/^[a-f0-9]{64}$/u)
+  }).strict()).min(8)
+}).strict().superRefine((identity, context) => {
+  const ids = identity.document_hashes.map(({ document_id }) => document_id);
+  if (new Set(ids).size !== ids.length) {
+    context.addIssue({
+      code: "custom",
+      message: "Public runtime identity cannot contain duplicate documents"
+    });
+  }
+});
+
 const runtimeBindingIdentitySchema = z.object({
   binding_version: z.literal(RESEARCH_RUNTIME_BINDING_VERSION),
   context_version: z.literal(RESEARCH_RUNTIME_CONTEXT_VERSION),
   context_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
-  documents: z.array(z.object({
-    document_id: z.enum([
-      "universal",
-      "hrp",
-      "project_router",
-      "forum_signal_module"
-    ]),
-    path: z.string().min(1),
-    sha256: z.string().regex(/^[a-f0-9]{64}$/u)
-  }).strict()).length(4)
+  documents: runtimeSemanticDocumentsSchema,
+  public_runtime: runtimePublicIdentitySchema,
+  runtime_sha256: z.string().regex(/^[a-f0-9]{64}$/u)
 }).strict();
 
+const persistedRuntimeBindingIdentitySchema = z.union([
+  runtimeBindingIdentitySchema,
+  legacyRuntimeBindingIdentitySchema
+]);
+
 const runtimeBindingStateSchema = z.object({
-  expected: runtimeBindingIdentitySchema,
+  expected: persistedRuntimeBindingIdentitySchema,
   currency: z.enum(["CURRENT", "DRIFTED"]),
   observed_current: runtimeBindingIdentitySchema.optional(),
   drift_reason: z.enum([

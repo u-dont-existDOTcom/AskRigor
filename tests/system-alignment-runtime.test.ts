@@ -7,6 +7,7 @@ import {
   PUBLIC_RUNTIME_RESPONSE_MAX_BYTES,
   createPublicRuntimeBundleStore,
   createPublicRuntimeChunk,
+  loadPackagedPublicRuntimeBundle,
   type PublicRuntimeBundle
 } from "../apps/research-mcp/src/public-runtime-bundle.js";
 import {
@@ -19,8 +20,14 @@ import {
   projectResearchSessionView,
   protocolBindingsFromManifests
 } from "../apps/research-mcp/src/actions/research-session-controller.js";
-import type { ResearchRuntimeBinding } from
-  "../apps/research-mcp/src/research-runtime-binding.js";
+import {
+  LEGACY_RESEARCH_RUNTIME_BINDING_VERSION,
+  RESEARCH_RUNTIME_BINDING_VERSION,
+  type ResearchRuntimeBinding
+} from "../apps/research-mcp/src/research-runtime-binding.js";
+import { loadResearchRuntimeBinding } from
+  "../apps/research-mcp/src/research-semantic-policy-input.js";
+import { getProtocolManifest } from "@askrigor/protocol";
 import { generatePublicPluginRuntime } from
   "../scripts/generate-public-plugin-runtime.mts";
 
@@ -202,9 +209,41 @@ describe("system-aligned public runtime", () => {
     });
   });
 
-  it("turns a module-only source change into explicit policy drift", () => {
-    const original = syntheticRuntimeBinding("1".repeat(64));
-    const observed = syntheticRuntimeBinding("2".repeat(64));
+  it("anchors the session identity to the complete standard-v2 public runtime release", async () => {
+    const [universal, hrp, bundle] = await Promise.all([
+      getProtocolManifest("universal"),
+      getProtocolManifest("hrp"),
+      loadPackagedPublicRuntimeBundle("standard-v2")
+    ]);
+    const binding = await loadResearchRuntimeBinding(
+      protocolBindingsFromManifests(universal, hrp)
+    );
+
+    expect(binding.public_runtime).toMatchObject({
+      format_version: bundle.format_version,
+      profile: "standard-v2",
+      release_manifest_sha256: bundle.release_manifest_sha256,
+      bundle_sha256: bundle.bundle_sha256
+    });
+    expect(binding.public_runtime.document_hashes).toEqual(bundle.document_hashes);
+    expect(binding.public_runtime.document_hashes.map(({ document_id }) => document_id))
+      .toEqual(expect.arrayContaining([
+        "public_plugin_adapter",
+        "public_runtime_bindings",
+        "mcp_initialization",
+        "public_runtime_source_manifest"
+      ]));
+  });
+
+  it.each([
+    "public_plugin_adapter",
+    "public_runtime_bindings",
+    "mcp_initialization"
+  ] as const)("turns %s-only runtime drift into restart/POLICY_DRIFT", (documentId) => {
+    const original = syntheticRuntimeBinding();
+    const observed = syntheticRuntimeBinding({
+      runtime: { [documentId]: "9".repeat(64) }
+    });
     const state = createInitialResearchSessionState({
       research_target: "Synthetic bounded treatment comparison",
       diagnosis_status: "user_supplied_diagnosis"
@@ -228,6 +267,87 @@ describe("system-aligned public runtime", () => {
     expect(view).toMatchObject({
       execution_status: "POLICY_DRIFT",
       required_next_capabilities: ["restart_under_current_protocols"]
+    });
+  });
+
+  it("turns a semantic-source-only change into explicit policy drift", () => {
+    const original = syntheticRuntimeBinding();
+    const observed = syntheticRuntimeBinding({
+      semantic: { project_router: "2".repeat(64) }
+    });
+    const state = createInitialResearchSessionState({
+      research_target: "Synthetic bounded treatment comparison",
+      diagnosis_status: "user_supplied_diagnosis"
+    }, protocolBindingsFromManifests(
+      syntheticProtocolManifest("Universal", "3".repeat(64)),
+      syntheticProtocolManifest("HRP", "4".repeat(64))
+    ), original);
+
+    const drifted = applyRuntimeRecheck(state, observed);
+    const view = projectResearchSessionView(
+      "ars1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      drifted
+    );
+    expect(drifted.protocol_binding.currency).toBe("CURRENT");
+    expect(drifted.runtime_binding).toMatchObject({
+      expected: original,
+      currency: "DRIFTED",
+      observed_current: observed,
+      drift_reason: "POLICY_SOURCE_CHANGED"
+    });
+    expect(view).toMatchObject({
+      execution_status: "POLICY_DRIFT",
+      required_next_capabilities: ["restart_under_current_protocols"]
+    });
+  });
+
+
+  it("keeps persisted v1 and unbound legacy sessions parseable but restart-required", () => {
+    const current = syntheticRuntimeBinding();
+    const base = createInitialResearchSessionState({
+      research_target: "Synthetic bounded treatment comparison",
+      diagnosis_status: "user_supplied_diagnosis"
+    }, protocolBindingsFromManifests(
+      syntheticProtocolManifest("Universal", "3".repeat(64)),
+      syntheticProtocolManifest("HRP", "4".repeat(64))
+    ), current);
+    const legacyUnsigned = {
+      binding_version: LEGACY_RESEARCH_RUNTIME_BINDING_VERSION,
+      context_version: current.context_version,
+      documents: current.documents
+    };
+    const legacyState = {
+      ...base,
+      runtime_binding: {
+        expected: {
+          ...legacyUnsigned,
+          context_sha256: sha256(JSON.stringify(legacyUnsigned))
+        },
+        currency: "CURRENT" as const
+      }
+    };
+    const rebound = applyRuntimeRecheck(legacyState, current);
+    expect(rebound.runtime_binding).toMatchObject({
+      currency: "DRIFTED",
+      drift_reason: "POLICY_SOURCE_CHANGED",
+      observed_current: current
+    });
+    expect(projectResearchSessionView(
+      "ars1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      rebound
+    ).execution_status).toBe("POLICY_DRIFT");
+
+    const unbound = createInitialResearchSessionState({
+      research_target: "Synthetic bounded treatment comparison",
+      diagnosis_status: "user_supplied_diagnosis"
+    }, protocolBindingsFromManifests(
+      syntheticProtocolManifest("Universal", "3".repeat(64)),
+      syntheticProtocolManifest("HRP", "4".repeat(64))
+    ));
+    expect(applyRuntimeRecheck(unbound, current).runtime_binding).toMatchObject({
+      currency: "DRIFTED",
+      drift_reason: "LEGACY_SESSION_UNBOUND",
+      observed_current: current
     });
   });
 });
@@ -263,22 +383,81 @@ function sha256(value: string | Uint8Array): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function syntheticRuntimeBinding(projectSha256: string): ResearchRuntimeBinding {
-  const documents = [
-    ["universal", "protocols/Universal_Instructions.xml", "3".repeat(64)],
-    ["hrp", "protocols/HRP_Full.xml", "4".repeat(64)],
-    ["project_router", "project/PROJECT_INSTRUCTIONS.md", projectSha256],
-    ["forum_signal_module", "project/FORUM_SIGNAL_MODULE.md", "5".repeat(64)]
+function syntheticRuntimeBinding(
+  changes: {
+    semantic?: Partial<Record<
+      "universal" | "hrp" | "project_router" | "forum_signal_module",
+      string
+    >>;
+    runtime?: Partial<Record<
+      "public_plugin_adapter" | "public_runtime_bindings" | "mcp_initialization",
+      string
+    >>;
+  } = {}
+): ResearchRuntimeBinding {
+  const semanticDocuments = [
+    ["universal", "protocols/Universal_Instructions.xml",
+      changes.semantic?.universal ?? "3".repeat(64)],
+    ["hrp", "protocols/HRP_Full.xml",
+      changes.semantic?.hrp ?? "4".repeat(64)],
+    ["project_router", "project/PROJECT_INSTRUCTIONS.md",
+      changes.semantic?.project_router ?? "1".repeat(64)],
+    ["forum_signal_module", "project/FORUM_SIGNAL_MODULE.md",
+      changes.semantic?.forum_signal_module ?? "5".repeat(64)]
   ] as const;
-  return {
-    binding_version: "askrigor_research_runtime_binding_v1",
-    context_version: "askrigor_semantic_policy_context_v1",
-    context_sha256: sha256(documents.flat().join("\0")),
-    documents: documents.map(([document_id, path, digest]) => ({
+  const runtimeHashes = [
+    ...semanticDocuments.map(([document_id, , digest]) => ({
       document_id,
-      path,
       sha256: digest
-    }))
+    })),
+    {
+      document_id: "public_plugin_adapter",
+      sha256: changes.runtime?.public_plugin_adapter ?? "6".repeat(64)
+    },
+    {
+      document_id: "public_runtime_bindings",
+      sha256: changes.runtime?.public_runtime_bindings ?? "7".repeat(64)
+    },
+    {
+      document_id: "mcp_initialization",
+      sha256: changes.runtime?.mcp_initialization ?? "8".repeat(64)
+    },
+    {
+      document_id: "public_runtime_source_manifest",
+      sha256: sha256(JSON.stringify({
+        semantic: semanticDocuments,
+        runtime: changes.runtime ?? {}
+      }))
+    }
+  ];
+  const documents = semanticDocuments.map(([document_id, path, digest]) => ({
+    document_id,
+    path,
+    sha256: digest
+  }));
+  const contextIdentity = {
+    binding_version: RESEARCH_RUNTIME_BINDING_VERSION,
+    context_version: "askrigor_semantic_policy_context_v1" as const,
+    documents
+  };
+  const publicRuntime = {
+    format_version: "askrigor_public_runtime_bundle_v1" as const,
+    profile: "standard-v2" as const,
+    release_manifest_sha256: sha256(JSON.stringify(runtimeHashes)),
+    bundle_sha256: sha256(JSON.stringify({
+      profile: "standard-v2",
+      runtimeHashes
+    })),
+    document_hashes: runtimeHashes
+  };
+  const unsigned = {
+    ...contextIdentity,
+    context_sha256: sha256(JSON.stringify(contextIdentity)),
+    public_runtime: publicRuntime
+  };
+  return {
+    ...unsigned,
+    runtime_sha256: sha256(JSON.stringify(unsigned))
   };
 }
 

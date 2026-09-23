@@ -16,14 +16,22 @@ import { controlledWorkerWorkDigest } from "./controlled-worker-payload.js";
 import {
   runtimeBindingFromDocumentIdentities,
   runtimeBindingFromPolicyContext,
+  runtimeBindingMatchesPolicyContext,
+  runtimeBundleIdentityFromPublicBundle,
   sameRuntimeBinding,
   type ResearchRuntimeBinding
 } from "./research-runtime-binding.js";
+import {
+  loadPackagedPublicRuntimeBundle,
+  type PublicRuntimeBundle
+} from "./public-runtime-bundle.js";
 
 export {
   RESEARCH_RUNTIME_BINDING_VERSION,
   runtimeBindingFromDocumentIdentities,
   runtimeBindingFromPolicyContext,
+  runtimeBindingMatchesPolicyContext,
+  runtimeBundleIdentityFromPublicBundle,
   sameRuntimeBinding,
   type ResearchRuntimeBinding
 } from "./research-runtime-binding.js";
@@ -95,6 +103,9 @@ export interface ResearchSemanticPolicyDependencies {
   readProjectDocument?: (
     documentId: ResearchSemanticProjectDocumentId
   ) => Promise<Uint8Array>;
+  loadPublicRuntimeBundle?: (
+    profile: "standard-v2"
+  ) => Promise<PublicRuntimeBundle>;
 }
 
 export interface ResearchSemanticPolicyInputs {
@@ -116,15 +127,24 @@ export async function createResearchSemanticPolicyInputs(input: {
   expectedRuntime?: ResearchRuntimeBinding;
   dependencies?: ResearchSemanticPolicyDependencies;
 }): Promise<ResearchSemanticPolicyInputs> {
-  const policyContext = await loadResearchSemanticPolicyContext(
-    input.expectedProtocols,
-    input.dependencies
-  );
+  const [policyContext, currentRuntime] = await Promise.all([
+    loadResearchSemanticPolicyContext(
+      input.expectedProtocols,
+      input.dependencies
+    ),
+    input.expectedRuntime === undefined
+      ? Promise.resolve(undefined)
+      : loadResearchRuntimeBinding(
+          input.expectedProtocols,
+          input.dependencies
+        )
+  ]);
   if (
     input.expectedRuntime !== undefined &&
-    !sameRuntimeBinding(
-      input.expectedRuntime,
-      runtimeBindingFromPolicyContext(policyContext)
+    (
+      currentRuntime === undefined ||
+      !sameRuntimeBinding(input.expectedRuntime, currentRuntime) ||
+      !runtimeBindingMatchesPolicyContext(input.expectedRuntime, policyContext)
     )
   ) {
     throw new ResearchSemanticPolicyInputError(
@@ -137,23 +157,28 @@ export async function createResearchSemanticPolicyInputs(input: {
   };
 }
 
-/** Build the four-document session identity without loading protocol text twice. */
+/** Build the whole-session runtime identity without loading protocol text twice. */
 export async function loadResearchRuntimeBinding(
   expectedProtocols: ExpectedResearchProtocolBinding,
   dependencies: ResearchSemanticPolicyDependencies = {}
 ): Promise<ResearchRuntimeBinding> {
   const projectReader = dependencies.readProjectDocument ?? readCanonicalProjectDocument;
+  const bundleLoader = dependencies.loadPublicRuntimeBundle ??
+    loadPackagedPublicRuntimeBundle;
   let projectRouterBytes: Uint8Array;
   let forumSignalBytes: Uint8Array;
+  let publicRuntime: PublicRuntimeBundle;
   try {
-    [projectRouterBytes, forumSignalBytes] = await Promise.all([
+    [projectRouterBytes, forumSignalBytes, publicRuntime] = await Promise.all([
       projectReader("project_router"),
-      projectReader("forum_signal_module")
+      projectReader("forum_signal_module"),
+      bundleLoader("standard-v2")
     ]);
   } catch (error) {
     throw policyError("Unable to load canonical operational policy", error);
   }
-  return runtimeBindingFromDocumentIdentities([
+  try {
+    return runtimeBindingFromDocumentIdentities([
     {
       document_id: "universal",
       path: "protocols/Universal_Instructions.xml",
@@ -174,7 +199,13 @@ export async function loadResearchRuntimeBinding(
       path: "project/FORUM_SIGNAL_MODULE.md",
       sha256: sha256(forumSignalBytes)
     }
-  ]);
+    ], runtimeBundleIdentityFromPublicBundle(publicRuntime));
+  } catch (error) {
+    throw policyError(
+      "Canonical operational policy is not aligned to the public runtime",
+      error
+    );
+  }
 }
 
 /** Load all four fixed policy sources and bind them to the session tuple. */
