@@ -19,6 +19,7 @@ import {
   runtimeBindingMatchesPolicyContext,
   runtimeBundleIdentityFromPublicBundle,
   sameRuntimeBinding,
+  type PersistedResearchRuntimeBinding,
   type ResearchRuntimeBinding
 } from "./research-runtime-binding.js";
 import {
@@ -33,6 +34,7 @@ export {
   runtimeBindingMatchesPolicyContext,
   runtimeBundleIdentityFromPublicBundle,
   sameRuntimeBinding,
+  type PersistedResearchRuntimeBinding,
   type ResearchRuntimeBinding
 } from "./research-runtime-binding.js";
 
@@ -124,7 +126,7 @@ export class ResearchSemanticPolicyInputError extends Error {
 export async function createResearchSemanticPolicyInputs(input: {
   kind: ResearchSemanticWork["kind"];
   expectedProtocols: ExpectedResearchProtocolBinding;
-  expectedRuntime?: ResearchRuntimeBinding;
+  expectedRuntime?: PersistedResearchRuntimeBinding;
   dependencies?: ResearchSemanticPolicyDependencies;
 }): Promise<ResearchSemanticPolicyInputs> {
   const [policyContext, currentRuntime] = await Promise.all([
