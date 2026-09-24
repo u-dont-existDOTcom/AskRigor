@@ -17,7 +17,48 @@ export interface AskRigorOAuthResourceServer {
   resourceUrl: URL;
   authorizationServerUrls: readonly URL[];
   reviewerSubjects: ReadonlySet<string>;
+  // Scopes advertised in protected-resource metadata. Defaults to both scopes.
+  scopesSupported?: readonly string[];
   verifier: OAuthTokenVerifier;
+}
+
+// Separate resource for the Claude custom connector (/mcp/claude). It is off
+// unless ASKRIGOR_OAUTH_CLAUDE_CLIENT_ID is set; it binds tokens to its own
+// audience and its own OAuth client, advertises research:use only, and has no
+// reviewer subjects, so owner case review stays on the primary client.
+export function claudeOAuthResourceServerFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): AskRigorOAuthResourceServer | undefined {
+  if (env.ASKRIGOR_OAUTH_ENABLED !== "true") return undefined;
+  if (env.ASKRIGOR_OAUTH_CLAUDE_CLIENT_ID === undefined) return undefined;
+
+  const resourceUrl = parseHttpsUrl(
+    env.ASKRIGOR_OAUTH_CLAUDE_RESOURCE_URL,
+    "ASKRIGOR_OAUTH_CLAUDE_RESOURCE_URL",
+  );
+  if (resourceUrl.pathname !== "/mcp/claude") {
+    throw new Error("ASKRIGOR_OAUTH_CLAUDE_RESOURCE_URL_INVALID");
+  }
+  const issuerUrl = parseHttpsUrl(
+    env.ASKRIGOR_OAUTH_ISSUER_URL,
+    "ASKRIGOR_OAUTH_ISSUER_URL",
+  );
+  const jwksUrl = parseHttpsUrl(
+    env.ASKRIGOR_OAUTH_JWKS_URL,
+    "ASKRIGOR_OAUTH_JWKS_URL",
+  );
+  const clientId = parseTokenBinding(
+    env.ASKRIGOR_OAUTH_CLAUDE_CLIENT_ID,
+    "ASKRIGOR_OAUTH_CLAUDE_CLIENT_ID",
+  );
+  return createJwtOAuthResourceServer({
+    resourceUrl,
+    issuerUrl,
+    jwks: createRemoteJWKSet(jwksUrl),
+    allowedClientIds: [clientId],
+    reviewerSubjects: [],
+    scopesSupported: [RESEARCH_USE_SCOPE],
+  });
 }
 
 export function oauthResourceServerFromEnv(
@@ -61,6 +102,7 @@ export function createJwtOAuthResourceServer(options: {
   allowedClientIds?: readonly string[];
   allowedSubjects?: readonly string[];
   reviewerSubjects?: readonly string[];
+  scopesSupported?: readonly string[];
 }): AskRigorOAuthResourceServer {
   const resourceUrl = parseHttpsUrl(
     options.resourceUrl.href,
@@ -77,6 +119,9 @@ export function createJwtOAuthResourceServer(options: {
     resourceUrl,
     authorizationServerUrls: Object.freeze([issuerUrl]),
     reviewerSubjects,
+    ...(options.scopesSupported === undefined
+      ? {}
+      : { scopesSupported: Object.freeze([...options.scopesSupported]) }),
     verifier: {
       async verifyAccessToken(token: string): Promise<AuthInfo> {
         if (token.length === 0 || token.length > 16_384) {
@@ -157,8 +202,43 @@ export function oauthProtectedResourceMetadata(
   return {
     resource: config.resourceUrl.href,
     authorization_servers: config.authorizationServerUrls.map(({ href }) => href),
-    scopes_supported: [RESEARCH_USE_SCOPE, CASE_REVIEW_SCOPE],
+    scopes_supported: config.scopesSupported ?? [RESEARCH_USE_SCOPE, CASE_REVIEW_SCOPE],
   };
+}
+
+// Verifies a required bearer for a resource. Returns true and attaches the
+// identity only when the token is valid for exactly this resource and client.
+export async function attachRequiredOAuthIdentity(
+  request: IncomingMessage,
+  config: AskRigorOAuthResourceServer,
+): Promise<boolean> {
+  const token = bearerToken(request.headers.authorization);
+  if (token === null) return false;
+  try {
+    const authInfo = await config.verifier.verifyAccessToken(token);
+    validateVerifiedAuthInfo(authInfo, token, config.resourceUrl);
+    (request as IncomingMessage & { auth?: AuthInfo }).auth = authInfo;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Transport-level challenge (HTTP 401) so clients that only honor 401, such as
+// Claude, start their OAuth flow instead of receiving a tool error.
+export function writeOAuthChallenge(
+  response: ServerResponse,
+  config: AskRigorOAuthResourceServer,
+): void {
+  const scope = (config.scopesSupported ?? [RESEARCH_USE_SCOPE]).join(" ");
+  response.writeHead(401, {
+    "content-type": "application/json",
+    "www-authenticate": `Bearer error="invalid_token", error_description="Authentication required", resource_metadata="${protectedResourceMetadataUrl(config.resourceUrl).href}", scope="${scope}"`,
+  });
+  response.end(JSON.stringify({
+    error: "invalid_token",
+    error_description: "Authentication required",
+  }));
 }
 
 export function protectedResourceMetadataUrl(resourceUrl: URL): URL {
