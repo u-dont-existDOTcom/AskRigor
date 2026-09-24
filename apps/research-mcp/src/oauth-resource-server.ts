@@ -24,8 +24,9 @@ export interface AskRigorOAuthResourceServer {
 
 // Separate resource for the Claude custom connector (/mcp/claude). It is off
 // unless ASKRIGOR_OAUTH_CLAUDE_CLIENT_ID is set; it binds tokens to its own
-// audience and its own OAuth client, advertises research:use only, and has no
-// reviewer subjects, so owner case review stays on the primary client.
+// audience and its own OAuth client and offers the same functionality as the
+// primary surface: research:use for connected research and cases:review for
+// the same single owner subject.
 export function claudeOAuthResourceServerFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): AskRigorOAuthResourceServer | undefined {
@@ -51,13 +52,17 @@ export function claudeOAuthResourceServerFromEnv(
     env.ASKRIGOR_OAUTH_CLAUDE_CLIENT_ID,
     "ASKRIGOR_OAUTH_CLAUDE_CLIENT_ID",
   );
+  const ownerSubject = parseTokenBinding(
+    env.ASKRIGOR_OAUTH_ALLOWED_SUBJECT,
+    "ASKRIGOR_OAUTH_ALLOWED_SUBJECT",
+  );
   return createJwtOAuthResourceServer({
     resourceUrl,
     issuerUrl,
     jwks: createRemoteJWKSet(jwksUrl),
     allowedClientIds: [clientId],
-    reviewerSubjects: [],
-    scopesSupported: [RESEARCH_USE_SCOPE],
+    reviewerSubjects: [ownerSubject],
+    scopesSupported: [RESEARCH_USE_SCOPE, CASE_REVIEW_SCOPE],
   });
 }
 

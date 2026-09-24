@@ -25,9 +25,9 @@ import {
 } from "../apps/research-mcp/src/oauth-resource-server.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 
-// The Claude custom connector gets its own resource (/mcp/claude): its own audience,
-// its own OAuth client, research:use only, no case review, and a transport-level 401
-// so Claude starts OAuth. The existing /mcp surface (ChatGPT) must be unchanged.
+// The Claude custom connector gets its own resource (/mcp/claude): its own audience and
+// OAuth client, the same functionality as /mcp (research, plus case review for the single
+// owner subject), and a transport-level 401 so Claude starts OAuth. /mcp must be unchanged.
 const primaryResource = new URL("https://mcp.askrigor.example/mcp");
 const claudeResource = new URL("https://mcp.askrigor.example/mcp/claude");
 const issuerUrl = new URL("https://identity.askrigor.example/");
@@ -72,8 +72,8 @@ async function start(options: { claude: boolean }) {
     claudeOAuthResourceServer: options.claude
       ? createJwtOAuthResourceServer({
         resourceUrl: claudeResource, issuerUrl, jwks,
-        allowedClientIds: ["claude-client"], reviewerSubjects: [],
-        scopesSupported: [RESEARCH_USE_SCOPE],
+        allowedClientIds: ["claude-client"], reviewerSubjects: ["owner"],
+        scopesSupported: [RESEARCH_USE_SCOPE, CASE_REVIEW_SCOPE],
       })
       : null,
     researchContributorAccessService: new ResearchContributorAccessService({
@@ -121,14 +121,14 @@ describe("Claude custom-connector surface", () => {
     expect((await fetch(new URL("/.well-known/oauth-protected-resource/mcp/claude", base))).status).toBe(404);
   });
 
-  it("publishes its own metadata: exact resource, research:use only", async () => {
+  it("publishes its own metadata: exact resource, both scopes", async () => {
     const { base } = await start({ claude: true });
     const response = await fetch(new URL("/.well-known/oauth-protected-resource/mcp/claude", base));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       resource: claudeResource.href,
       authorization_servers: [issuerUrl.href],
-      scopes_supported: [RESEARCH_USE_SCOPE],
+      scopes_supported: [RESEARCH_USE_SCOPE, CASE_REVIEW_SCOPE],
     });
   });
 
@@ -148,7 +148,7 @@ describe("Claude custom-connector surface", () => {
       const challenge = response.headers.get("www-authenticate") ?? "";
       expect(challenge).toContain('Bearer error="invalid_token"');
       expect(challenge).toContain('resource_metadata="https://mcp.askrigor.example/.well-known/oauth-protected-resource/mcp/claude"');
-      expect(challenge).toContain(`scope="${RESEARCH_USE_SCOPE}"`);
+      expect(challenge).toContain(`scope="${RESEARCH_USE_SCOPE} ${CASE_REVIEW_SCOPE}"`);
     }
   });
 
@@ -159,12 +159,17 @@ describe("Claude custom-connector surface", () => {
     expect(tools.map((tool) => tool.name)).toContain("manage_research_access");
   });
 
-  it("never grants owner case review through the Claude surface, even with cases:review in the token", async () => {
+  it("allows owner case review for the owner subject only", async () => {
     const { base, sign } = await start({ claude: true });
-    const client = await connect(base, "/mcp/claude", await token(sign, { scope: `${RESEARCH_USE_SCOPE} ${CASE_REVIEW_SCOPE}` }));
-    const result = await client.callTool({ name: "review_evidence_gap_submissions", arguments: { gap_slug: "prolactinoma-spontaneous-remission" } });
-    expect(result.isError).toBe(true);
-    expect(JSON.stringify(result.content)).toContain("not an allowed AskRigor case reviewer");
+    const review = { name: "review_evidence_gap_submissions", arguments: { gap_slug: "prolactinoma-spontaneous-remission" } };
+    const both = `${RESEARCH_USE_SCOPE} ${CASE_REVIEW_SCOPE}`;
+    const owner = await connect(base, "/mcp/claude", await token(sign, { scope: both }));
+    const ownerResult = JSON.stringify((await owner.callTool(review)).content);
+    expect(ownerResult).not.toContain("not an allowed AskRigor case reviewer");
+    expect(ownerResult).not.toContain("lacks the cases:review permission");
+    expect(ownerResult).not.toContain("Connect the reviewer account");
+    const other = await connect(base, "/mcp/claude", await token(sign, { scope: both, sub: "someone-else" }));
+    expect(JSON.stringify((await other.callTool(review)).content)).toContain("not an allowed AskRigor case reviewer");
   });
 
   it("leaves /mcp unchanged: anonymous initialize still works and a Claude token is not accepted there", async () => {
@@ -191,6 +196,7 @@ describe("claudeOAuthResourceServerFromEnv", () => {
     ASKRIGOR_OAUTH_ENABLED: "true",
     ASKRIGOR_OAUTH_ISSUER_URL: issuerUrl.href,
     ASKRIGOR_OAUTH_JWKS_URL: "https://identity.askrigor.example/.well-known/jwks.json",
+    ASKRIGOR_OAUTH_ALLOWED_SUBJECT: "owner",
   };
 
   it("is off unless the Claude client is configured", () => {
@@ -203,8 +209,8 @@ describe("claudeOAuthResourceServerFromEnv", () => {
       ...base, ASKRIGOR_OAUTH_CLAUDE_CLIENT_ID: "claude-client", ASKRIGOR_OAUTH_CLAUDE_RESOURCE_URL: claudeResource.href,
     });
     expect(ok?.resourceUrl.href).toBe(claudeResource.href);
-    expect(ok?.scopesSupported).toEqual([RESEARCH_USE_SCOPE]);
-    expect(ok?.reviewerSubjects.size).toBe(0);
+    expect(ok?.scopesSupported).toEqual([RESEARCH_USE_SCOPE, CASE_REVIEW_SCOPE]);
+    expect([...(ok?.reviewerSubjects ?? [])]).toEqual(["owner"]);
     for (const resource of [primaryResource.href, "http://mcp.askrigor.example/mcp/claude", undefined]) {
       expect(() => claudeOAuthResourceServerFromEnv({
         ...base, ASKRIGOR_OAUTH_CLAUDE_CLIENT_ID: "claude-client", ASKRIGOR_OAUTH_CLAUDE_RESOURCE_URL: resource,
