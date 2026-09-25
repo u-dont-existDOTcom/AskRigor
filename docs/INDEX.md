@@ -202,6 +202,9 @@ complete XML protocol.
   protected paid-provider configuration, privacy/cost bounds, strict query-
   reconciled candidate packet, independent YouTube identity validation,
   provisional-summary boundary, removal path, and acceptance check
+- `claude-connector.md`: disabled-by-default `/mcp/claude` surface for the
+  Claude custom connector (own OAuth audience and client, transport-level 401,
+  same functionality as `/mcp`), Auth0 setup, verification and rollback
 - `live-validation-v3.md`: bounded live-validation procedure
 - `release-evidence-v0.1.0.md`: current release evidence
 - `public-review-checklist.md`: public-release review gate

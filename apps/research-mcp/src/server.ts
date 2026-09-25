@@ -20,6 +20,7 @@ import {
 import {
   actionApiKeyFromEnv,
   actionsAreEnabled,
+  CLAUDE_MCP_PATH,
   GEMINI_COMPATIBLE_MCP_PATH,
   GEMINI_COMPATIBLE_SERVICE_NAME,
   HEALTH_PAYLOAD,
@@ -92,7 +93,10 @@ import {
 } from "./public-evidence-gap-http.js";
 import {
   attachOptionalOAuthIdentity,
+  attachRequiredOAuthIdentity,
+  claudeOAuthResourceServerFromEnv,
   oauthResourceServerFromEnv,
+  writeOAuthChallenge,
   protectedResourceMetadataUrl,
   writeOAuthProtectedResourceMetadata,
   type AskRigorOAuthResourceServer,
@@ -155,6 +159,8 @@ export interface AskRigorHttpServerOptions {
   publicEvidenceGapIntakeHandler?: PublicEvidenceGapIntakeHandler;
   publicEvidenceGapReviewService?: PublicEvidenceGapIntakeService;
   oauthResourceServer?: AskRigorOAuthResourceServer;
+  // Claude custom-connector resource (/mcp/claude). null forces it off.
+  claudeOAuthResourceServer?: AskRigorOAuthResourceServer | null;
   researchContributorAccessService?: ResearchContributorAccessService;
   researchContributionReviewService?: ResearchContributionReviewService;
 }
@@ -196,9 +202,11 @@ export interface McpHandshakeDiagnosticRecord {
 type McpHandshakeDiagnosticRoute =
   | "mcp"
   | "mcp_gemini"
+  | "mcp_claude"
   | "oauth_protected_resource"
   | "oauth_protected_resource_mcp"
   | "oauth_protected_resource_mcp_gemini"
+  | "oauth_protected_resource_mcp_claude"
   | "oauth_authorization_server"
   | "oauth_authorization_server_mcp"
   | "openid_configuration"
@@ -380,11 +388,28 @@ export function createAskRigorHttpServer(
   const oauthResourceMetadataUrl = oauthResourceServer === undefined
     ? undefined
     : protectedResourceMetadataUrl(oauthResourceServer.resourceUrl);
+  // The Claude surface exists only alongside the primary OAuth resource.
+  const claudeOAuthResourceServer = oauthResourceServer === undefined
+    ? undefined
+    : options.claudeOAuthResourceServer === null
+      ? undefined
+      : options.claudeOAuthResourceServer ?? claudeOAuthResourceServerFromEnv();
   const createMcpServer = options.createMcpServer ??
     ((profile?: McpToolCatalogProfile) => createAskRigorServer(profile, {
       publicEvidenceGapReviewService,
       oauthResourceMetadataUrl,
       allowedReviewerSubjects: oauthResourceServer?.reviewerSubjects,
+      researchContributorAccessService,
+      researchContributionReviewService,
+      researchAccessRequired,
+    }));
+  const createClaudeMcpServer = options.createMcpServer ??
+    (() => createAskRigorServer("standard", {
+      publicEvidenceGapReviewService,
+      oauthResourceMetadataUrl: claudeOAuthResourceServer === undefined
+        ? undefined
+        : protectedResourceMetadataUrl(claudeOAuthResourceServer.resourceUrl),
+      allowedReviewerSubjects: claudeOAuthResourceServer?.reviewerSubjects,
       researchContributorAccessService,
       researchContributionReviewService,
       researchAccessRequired,
@@ -421,6 +446,15 @@ export function createAskRigorHttpServer(
       ].includes(pathname)
     ) {
       writeOAuthProtectedResourceMetadata(response, oauthResourceServer);
+      return;
+    }
+
+    if (
+      request.method === "GET" &&
+      claudeOAuthResourceServer !== undefined &&
+      pathname === `/.well-known/oauth-protected-resource${CLAUDE_MCP_PATH}`
+    ) {
+      writeOAuthProtectedResourceMetadata(response, claudeOAuthResourceServer);
       return;
     }
 
@@ -494,7 +528,13 @@ export function createAskRigorHttpServer(
       return;
     }
 
-    if (pathname !== "/mcp" && pathname !== GEMINI_COMPATIBLE_MCP_PATH) {
+    const claudeSurface = pathname === CLAUDE_MCP_PATH &&
+      claudeOAuthResourceServer !== undefined;
+    if (
+      pathname !== "/mcp" &&
+      pathname !== GEMINI_COMPATIBLE_MCP_PATH &&
+      !claudeSurface
+    ) {
       response.writeHead(404).end();
       return;
     }
@@ -555,13 +595,23 @@ export function createAskRigorHttpServer(
         }
       }
 
+      if (
+        claudeSurface &&
+        !(await attachRequiredOAuthIdentity(request, claudeOAuthResourceServer!))
+      ) {
+        writeOAuthChallenge(response, claudeOAuthResourceServer!);
+        return;
+      }
+
       let server: McpServer | undefined;
       try {
-        await attachOptionalOAuthIdentity(request, oauthResourceServer);
+        if (!claudeSurface) {
+          await attachOptionalOAuthIdentity(request, oauthResourceServer);
+        }
         const profile = pathname === GEMINI_COMPATIBLE_MCP_PATH
           ? "gemini"
           : "standard";
-        server = createMcpServer(profile);
+        server = claudeSurface ? createClaudeMcpServer() : createMcpServer(profile);
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: undefined
         });
@@ -595,6 +645,7 @@ const MCP_HANDSHAKE_DIAGNOSTIC_ROUTES = new Map<
 >([
   ["/mcp", "mcp"],
   [GEMINI_COMPATIBLE_MCP_PATH, "mcp_gemini"],
+  [CLAUDE_MCP_PATH, "mcp_claude"],
   ["/.well-known/oauth-protected-resource", "oauth_protected_resource"],
   [
     "/.well-known/oauth-protected-resource/mcp",
@@ -603,6 +654,10 @@ const MCP_HANDSHAKE_DIAGNOSTIC_ROUTES = new Map<
   [
     "/.well-known/oauth-protected-resource/mcp/gemini",
     "oauth_protected_resource_mcp_gemini"
+  ],
+  [
+    "/.well-known/oauth-protected-resource/mcp/claude",
+    "oauth_protected_resource_mcp_claude"
   ],
   ["/.well-known/oauth-authorization-server", "oauth_authorization_server"],
   [

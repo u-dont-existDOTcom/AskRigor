@@ -4,6 +4,9 @@ export const SERVICE_VERSION = "0.1.0";
 export const DEFAULT_PORT = 3000;
 export const MAX_MCP_REQUEST_BYTES = 1_048_576;
 export const GEMINI_COMPATIBLE_MCP_PATH = "/mcp/gemini";
+// Claude custom-connector surface. Off unless its OAuth client is configured;
+// requires a valid bearer on every request so Claude runs its OAuth flow.
+export const CLAUDE_MCP_PATH = "/mcp/claude";
 export const ACTION_REQUEST_MAX_BYTES = 8_192;
 export const RESEARCH_ACTION_RESPONSE_MAX_BYTES = 60_000;
 export const PRIVATE_ORCHESTRATION_REQUEST_MAX_BYTES = 256 * 1_024;
