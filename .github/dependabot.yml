@@ -9,6 +9,11 @@ updates:
       - dependencies
     commit-message:
       prefix: chore(deps)
+    ignore:
+      # The runtime is pinned to Node 24 (engines, .nvmrc, Docker images);
+      # @types/node must track that major, not the latest Node release.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
