@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "mast_fresh_validation_round_1_protocol_change_disposition",
+  "studyName": "MAST Fresh Validation Round 1",
+  "publicBranch": "task/mast-fresh-validation-round-1-20260909",
+  "publicCommit": "e006a6c95786651d136f27c04188688128c17d81",
+  "pullRequest": 207,
+  "sourceProtocol": {
+    "askRigorCommit": "0565222b1080f65ee70cde1be8daea160668e978",
+    "universalVersion": "20.5.22",
+    "universalSha256": "d9364d98aa8c9805061aa53d21e7e3ed219675d8456b975b634bf54b2910c1b6",
+    "hrpVersion": "20.5.27",
+    "hrpSha256": "65b099ce808012214e78f5f7b910e6a68858746978c160e29e177c3b444bf85a"
+  },
+  "disposition": {
+    "classification": "DEVELOPMENT_DATA",
+    "incomplete": true,
+    "developmentOnly": true,
+    "plannedFreshGenerationSlots": 144,
+    "capturedFreshGenerationSlots": 8,
+    "protocolChangedAfterPartialGeneration": true,
+    "confirmationReuseForbidden": true,
+    "privateArtifactsUninspected": true,
+    "generationScoringHalt": true,
+    "laterCohortMustBeSeparatelyFrozen": true
+  },
+  "preservation": {
+    "rawAndDerivedArtifacts": "UNCHANGED",
+    "historicalScores": "UNCHANGED",
+    "familyExposureLedger": "RETAIN_EXISTING_PRIVATE_AND_PUBLIC_BINDINGS",
+    "privacy": "No private case, response, rubric, judgment, condition-map, seed, locator, or payload was read or copied for this disposition."
+  },
+  "interpretation": "The eight captured responses do not provide fresh efficacy or generalization evidence. Every family exposed by this partial round is development data and cannot be reused as an untouched confirmatory family.",
+  "requiredNextValidation": "After the protocol release, freeze a separately selected still-untouched cohort under a new source-bound method before any generation."
+}
