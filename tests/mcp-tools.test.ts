@@ -1928,7 +1928,7 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
-  it("returns the complete canonical protocol in structured content", async () => {
+  it("returns the complete canonical protocol losslessly in bounded pages", async () => {
     const { client, server } = await createInMemoryClient();
     const canonicalText = await readFile(
       new URL("../protocols/HRP_Full.xml", import.meta.url),
@@ -1936,19 +1936,13 @@ describe("AskRigor MCP tools", () => {
     );
 
     try {
-      const result = await client.callTool({
+      const first = await client.callTool({
         name: "load_protocol",
         arguments: { protocol: "hrp" }
       });
 
-      expect(result.isError).not.toBe(true);
-      expect(result.content).toEqual([
-        {
-          type: "text",
-          text: "Loaded the complete canonical HRP protocol."
-        }
-      ]);
-      expect(result.structuredContent).toMatchObject({
+      expect(first.isError).not.toBe(true);
+      expect(first.structuredContent).toMatchObject({
         ok: true,
         protocol: "hrp",
         manifest: {
@@ -1957,48 +1951,103 @@ describe("AskRigor MCP tools", () => {
           revisionDate: "2026-09-12",
           sha256: "254759df38934c28b06709dace9fcb266fc9967913be1296de99a461be596816"
         },
-        text: canonicalText
+        scope: "full",
+        page: 1,
+        next_page: 2,
+        complete: false,
+        scope_sha256: "254759df38934c28b06709dace9fcb266fc9967913be1296de99a461be596816"
       });
+      const pageCount = (first.structuredContent as { page_count: number }).page_count;
+      expect(first.content).toEqual([
+        {
+          type: "text",
+          text: `Loaded complete canonical HRP text, page 1 of ${pageCount} (exact canonical bytes). Call load_protocol again with page 2 to continue.`
+        }
+      ]);
+      const texts = [(first.structuredContent as { text: string }).text];
+      for (let page = 2; page <= pageCount; page += 1) {
+        const result = await client.callTool({
+          name: "load_protocol",
+          arguments: { protocol: "hrp", page }
+        });
+        expect(result.isError).not.toBe(true);
+        expect(Buffer.byteLength(JSON.stringify(result), "utf8")).toBeLessThan(60_000);
+        texts.push((result.structuredContent as { text: string }).text);
+      }
+      expect(texts.join("")).toBe(canonicalText);
     } finally {
       await server.close();
     }
   });
 
-  it("exposes the complete Universal normality guidance in structured content", async () => {
+  it("serves the section index and exact Universal sections", async () => {
     const { client, server } = await createInMemoryClient();
-    const canonicalText = await readFile(
-      new URL("../protocols/Universal_Instructions.xml", import.meta.url),
-      "utf8"
+    const canonicalBytes = await readFile(
+      new URL("../protocols/Universal_Instructions.xml", import.meta.url)
     );
 
     try {
-      const result = await client.callTool({
+      const index = await client.callTool({
         name: "load_protocol",
-        arguments: { protocol: "universal" }
+        arguments: { protocol: "universal", section: "index" }
       });
+      expect(index.isError).not.toBe(true);
+      const indexContent = index.structuredContent as {
+        manifest: { version: string; sha256: string };
+        index: Array<{ name: string; core: boolean; runtime: boolean; sha256: string }>;
+        core_sections: string[];
+      };
+      expect(indexContent.manifest).toMatchObject({
+        version: "20.5.26",
+        sha256: "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2"
+      });
+      expect(indexContent.index).toHaveLength(39);
+      expect(indexContent.core_sections).toContain("epistemics");
+      expect(indexContent.index.find(({ name }) => name === "revision_history")?.runtime).toBe(false);
 
-      expect(result.isError).not.toBe(true);
-      expect(result.content).toEqual([
-        {
-          type: "text",
-          text: "Loaded the complete canonical AskRigor.com universal saved instructions protocol."
-        }
-      ]);
-      expect(result.structuredContent).toMatchObject({
-        ok: true,
-        protocol: "universal",
-        manifest: {
-          name: "AskRigor.com universal saved instructions",
-          version: "20.5.26",
-          revisionDate: "2026-09-17",
-          sha256: "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2"
-        },
-        text: canonicalText
+      const section = await client.callTool({
+        name: "load_protocol",
+        arguments: { protocol: "universal", section: "normality_base_rate_gate" }
       });
-      expect(canonicalText).toContain('<normality_base_rate_gate priority="Critical">');
-      expect(canonicalText).toContain(
+      expect(section.isError).not.toBe(true);
+      const sectionContent = section.structuredContent as {
+        scope: string;
+        section: string;
+        complete: boolean;
+        byte_start: number;
+        byte_end_exclusive: number;
+        scope_sha256: string;
+        text: string;
+      };
+      expect(sectionContent).toMatchObject({ scope: "section", section: "normality_base_rate_gate", complete: true });
+      expect(sectionContent.text).toBe(
+        canonicalBytes.subarray(sectionContent.byte_start, sectionContent.byte_end_exclusive).toString("utf8")
+      );
+      expect(sectionContent.scope_sha256).toBe(
+        indexContent.index.find(({ name }) => name === "normality_base_rate_gate")?.sha256
+      );
+      expect(sectionContent.text).toContain('<normality_base_rate_gate priority="Critical">');
+      expect(sectionContent.text).toContain(
         "For frequency questions, explaining why X can happen does not answer how often X happens."
       );
+    } finally {
+      await server.close();
+    }
+  });
+
+  it.each([
+    [{ protocol: "hrp", section: "NoSuchSection" }, "protocol_section_not_found"],
+    [{ protocol: "hrp", page: 999 }, "protocol_page_out_of_range"],
+    [{ protocol: "hrp", page: 0 }, "protocol_page_out_of_range"],
+    [{ protocol: "hrp", page: 1.5 }, "protocol_page_out_of_range"],
+    [{ protocol: "hrp", section: "index", page: 2 }, "protocol_request_invalid"]
+  ])("rejects an invalid protocol request %j with %s", async (args, code) => {
+    const { client, server } = await createInMemoryClient();
+
+    try {
+      const result = await client.callTool({ name: "load_protocol", arguments: args });
+      expect(result.isError).toBe(true);
+      expect(result.structuredContent).toMatchObject({ ok: false, error: { code } });
     } finally {
       await server.close();
     }

@@ -14,7 +14,8 @@ import {
 } from "@askrigor/evidence-repository";
 import {
   getProtocolManifest,
-  loadProtocol,
+  loadProtocolSectionSnapshot,
+  protocolTextPage,
   verifyProtocolIntegrity,
   type ProtocolName
 } from "@askrigor/protocol";
@@ -43,7 +44,11 @@ import {
   PUBLIC_TOOL_LIMITS,
   optionalLivingEvidenceReuseConfigFromEnv
 } from "./config.js";
-import { protocolErrorResult, successfulToolResult } from "./tool-result.js";
+import {
+  protocolErrorResult,
+  protocolRequestError,
+  successfulToolResult
+} from "./tool-result.js";
 import {
   auditYoutubeCommunity,
   youtubeCommunityAuditInputSchema,
@@ -130,6 +135,16 @@ const manifestSchema = z.object({
   revisionDate: z.string(),
   sha256: z.string()
 });
+const PROTOCOL_INDEX_SECTION = "index";
+const protocolSectionIndexSchema = z.object({
+  name: z.string(),
+  bytes: z.number().int(),
+  pages: z.number().int(),
+  core: z.boolean(),
+  runtime: z.boolean(),
+  sha256: z.string(),
+  summary: z.string()
+}).strict();
 const errorSchema = z.object({
   code: z.string(),
   message: z.string(),
@@ -519,28 +534,121 @@ function defineResearchOperations(
   registrar.registerTool(
     "load_protocol",
     {
-      description: "Load the complete, unmodified canonical protocol text.",
+      // The compact Gemini catalog has a 25,000-byte budget, so usage lives in
+      // this description and the parameters carry no descriptions.
+      description:
+        'Canonical protocol text in 40,000-byte pages. section "index" lists sections; ' +
+        "section <name> loads one; page N continues.",
       inputSchema: {
-        protocol: protocolSchema.describe("Canonical protocol to load in full.")
+        protocol: protocolSchema,
+        section: z.string().optional(),
+        page: z.number().optional()
       },
       outputSchema: {
         ok: z.boolean(),
         protocol: protocolSchema,
         manifest: manifestSchema.optional(),
+        index: z.array(protocolSectionIndexSchema).optional(),
+        core_sections: z.array(z.string()).optional(),
+        scope: z.enum(["full", "section"]).optional(),
+        section: z.string().optional(),
+        page: z.number().int().optional(),
+        page_count: z.number().int().optional(),
+        next_page: z.number().int().optional(),
+        complete: z.boolean().optional(),
+        byte_start: z.number().int().optional(),
+        byte_end_exclusive: z.number().int().optional(),
+        scope_bytes: z.number().int().optional(),
+        scope_sha256: z.string().optional(),
         text: z.string().optional(),
         error: errorSchema.optional()
       },
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async ({ protocol }) => {
+    async ({ protocol, section, page }) => {
       try {
-        const [text, manifest] = await Promise.all([
-          loadProtocol(protocol),
-          getProtocolManifest(protocol)
-        ]);
+        const snapshot = await loadProtocolSectionSnapshot(protocol);
+        const { manifest, sections } = snapshot;
+        if (page !== undefined && (!Number.isInteger(page) || page < 1)) {
+          return protocolRequestError(protocol, "protocol_page_out_of_range", "Pages are whole numbers from 1.");
+        }
+        if (section === PROTOCOL_INDEX_SECTION) {
+          if (page !== undefined && page !== 1) {
+            return protocolRequestError(
+              protocol,
+              "protocol_request_invalid",
+              "The index has one page."
+            );
+          }
+          const core = sections.filter((entry) => entry.core).map(({ name }) => name);
+          return successfulToolResult(
+            `${manifest.name} ${manifest.version} index: ${sections.length} sections. ` +
+              `Load the core sections first (${core.join(", ")}), then each runtime section your question needs, ` +
+              "before the step that uses it. Sections marked runtime: false are maintainer material.",
+            {
+              ok: true,
+              protocol,
+              manifest,
+              index: sections.map(({ name, bytes, pages, core: isCore, runtime, summary, sha256 }) => ({
+                name,
+                bytes,
+                pages,
+                core: isCore,
+                runtime,
+                sha256,
+                summary
+              })),
+              core_sections: core
+            }
+          );
+        }
+        const bytes = Buffer.from(snapshot.text, "utf8");
+        const target = section === undefined
+          ? undefined
+          : sections.find(({ name }) => name === section);
+        if (section !== undefined && target === undefined) {
+          return protocolRequestError(
+            protocol,
+            "protocol_section_not_found",
+            `${manifest.name} has no top-level section named ${section}. Call load_protocol with section "index" for exact names.`
+          );
+        }
+        const scope = target === undefined
+          ? bytes
+          : bytes.subarray(target.byte_start, target.byte_end_exclusive);
+        const requestedPage = page ?? 1;
+        const pageCount = target?.pages ?? protocolTextPage(scope, 1).page_count;
+        if (requestedPage > pageCount) {
+          return protocolRequestError(
+            protocol,
+            "protocol_page_out_of_range",
+            `Page ${requestedPage} does not exist; this text has ${pageCount} page${pageCount === 1 ? "" : "s"}.`
+          );
+        }
+        const textPage = protocolTextPage(scope, requestedPage);
+        const offset = target?.byte_start ?? 0;
+        const label = target === undefined
+          ? `complete canonical ${manifest.name} text`
+          : `${manifest.name} section ${target.name}`;
         return successfulToolResult(
-          `Loaded the complete canonical ${manifest.name} protocol.`,
-          { ok: true, protocol, manifest, text }
+          `Loaded ${label}, page ${textPage.page} of ${textPage.page_count} (exact canonical bytes).` +
+            (textPage.complete ? "" : ` Call load_protocol again with page ${textPage.page + 1} to continue.`),
+          {
+            ok: true,
+            protocol,
+            manifest,
+            scope: target === undefined ? "full" : "section",
+            ...(target === undefined ? {} : { section: target.name }),
+            page: textPage.page,
+            page_count: textPage.page_count,
+            ...(textPage.complete ? {} : { next_page: textPage.page + 1 }),
+            complete: textPage.complete,
+            byte_start: offset + textPage.byte_start,
+            byte_end_exclusive: offset + textPage.byte_end_exclusive,
+            scope_bytes: textPage.scope_bytes,
+            scope_sha256: textPage.scope_sha256,
+            text: textPage.text
+          }
         );
       } catch (error) {
         return protocolErrorResult(protocol, error);

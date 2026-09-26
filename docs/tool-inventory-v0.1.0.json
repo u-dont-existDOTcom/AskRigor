@@ -112,7 +112,7 @@
     },
     {
       "name": "load_protocol",
-      "description": "Load the complete, unmodified canonical protocol text.",
+      "description": "Canonical protocol text in 40,000-byte pages. section \"index\" lists sections; section <name> loads one; page N continues.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -121,8 +121,13 @@
             "enum": [
               "hrp",
               "universal"
-            ],
-            "description": "Canonical protocol to load in full."
+            ]
+          },
+          "section": {
+            "type": "string"
+          },
+          "page": {
+            "type": "number"
           }
         },
         "required": [
@@ -166,6 +171,101 @@
               "sha256"
             ],
             "additionalProperties": false
+          },
+          "index": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "bytes": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "pages": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "core": {
+                  "type": "boolean"
+                },
+                "runtime": {
+                  "type": "boolean"
+                },
+                "sha256": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "bytes",
+                "pages",
+                "core",
+                "runtime",
+                "sha256",
+                "summary"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "core_sections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "full",
+              "section"
+            ]
+          },
+          "section": {
+            "type": "string"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "page_count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "next_page": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "byte_start": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "byte_end_exclusive": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "scope_bytes": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "scope_sha256": {
+            "type": "string"
           },
           "text": {
             "type": "string"
