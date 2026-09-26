@@ -132,7 +132,6 @@ import {
   studyMethodAuditActionInputSchema,
   studyMethodAuditRouteOutputSchema
 } from "./actions/open-full-text-route.js";
-import { boundYoutubeAuditForAction } from "./actions/research-output.js";
 import {
   finalizeResearch,
   finalizeResearchInputSchema,
@@ -144,6 +143,10 @@ import {
   type ResearchReceiptClaims,
   type ResearchReceiptKind
 } from "./research-receipts.js";
+import {
+  compactYoutubeAuditForMcp,
+  mcpYoutubeVideoCommunityAuditOutputSchema
+} from "./youtube-mcp-sample.js";
 
 const LIVING_EVIDENCE_READER = configuredLivingEvidenceRepository();
 const OPEN_FULL_TEXT_MCP_ROUTES = createOpenFullTextActionRoutes(
@@ -1111,9 +1114,9 @@ function defineResearchOperations(
     "audit_youtube_video_community",
     {
       description:
-        "Retrieve one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation. Returns exact retrieved-versus-analyzed counts, usable partial-corpus records for bounded review, and a separate completion receipt; no medical conclusions are generated.",
+        "Retrieve one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation. Returns exact retrieved-versus-analyzed counts, usable partial-corpus records for bounded review, and a separate completion receipt; no medical conclusions are generated. Sample records are compact: id, reply_to, a per-video pseudonymous author key for counting distinct people, date, likes, text.",
       inputSchema: youtubeVideoCommunityAuditInputSchema,
-      outputSchema: youtubeVideoCommunityAuditOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
+      outputSchema: mcpYoutubeVideoCommunityAuditOutputSchema,
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (rawInput) => {
@@ -1137,19 +1140,14 @@ function defineResearchOperations(
       } catch (error) {
         result = youtubeVideoCommunityAuditFailure(input, error);
       }
-      try {
-        result = boundYoutubeAuditForAction(
-          result,
-          MCP_YOUTUBE_AUDIT_MAX_BYTES,
-          MCP_BOUNDED_SAMPLE_LIMITATION
-        );
-      } catch (_error) {
-        // An envelope that cannot fit even one record is returned unchanged;
-        // the client then reports its own size boundary.
-      }
+      const view = compactYoutubeAuditForMcp(
+        result,
+        MCP_YOUTUBE_AUDIT_MAX_BYTES,
+        MCP_BOUNDED_SAMPLE_LIMITATION
+      );
       return withResearchReceipt(youtubeToolResult(
         `YouTube video audit retrieved ${result.records_retrieved_cumulative} record(s) cumulatively; synthesis lock ${result.receipt.synthesis_lock}.`,
-        result
+        view
       ), result.receipt.completion_state === "incomplete"
         ? undefined
         : researchReceipt("youtube_video_audit", {

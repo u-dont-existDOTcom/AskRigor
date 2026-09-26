@@ -10,6 +10,7 @@ import {
   youtubeVideoCommunityAuditInputSchema,
   type YoutubeVideoCommunityAuditDependencies
 } from "../apps/research-mcp/src/youtube-video-community-audit.js";
+import { compactYoutubeAuditForMcp } from "../apps/research-mcp/src/youtube-mcp-sample.js";
 
 const NOW = 1_786_579_200_000;
 const SECRET = "s".repeat(32);
@@ -222,6 +223,62 @@ describe("adaptive per-video YouTube community audit", () => {
     expect(bounded.limitations).toContain("MCP bounded sample.");
     expect(bounded.limitations.some((text) => text.startsWith("The Custom GPT Action"))).toBe(false);
     expect(bounded.receipt).toEqual(original.receipt);
+  });
+
+  it("gives MCP clients compact, pseudonymous, budgeted sample records", async () => {
+    const comments = makeComments(200).map((comment, index) => ({
+      ...comment,
+      author_channel_id: `UC${String(index % 40).padStart(22, "0")}`,
+      author_display_name: `@person${index % 40}`,
+      text: `${comment.text} ${"firsthand report ".repeat(12)}`,
+      ...(index % 5 === 0 ? { updated_at: "2026-01-02T00:00:00Z" } : {})
+    }));
+    const original = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID },
+      CONFIG,
+      { now: () => NOW, dependencies: completeDependencies(comments) }
+    );
+    const view = compactYoutubeAuditForMcp(original, 40_000, "MCP bounded sample.");
+    const serialized = JSON.stringify(view);
+
+    expect(Buffer.byteLength(serialized, "utf8")).toBeLessThanOrEqual(40_000);
+    expect(serialized).not.toContain("@person");
+    expect(serialized).not.toContain("UC0000");
+    expect(view.receipt).toEqual(original.receipt);
+    expect(view.records_retrieved_cumulative).toBe(200);
+    const sample = view.sample!;
+    expect(sample.comments.length).toBe(view.records_returned_for_analysis);
+    expect(sample.sampled_count).toBe(sample.comments.length);
+    // Twice as many records fit as with full records (about 60 at this size).
+    expect(sample.comments.length).toBeGreaterThan(100);
+    expect(sample.comments.length).toBeLessThan(200);
+    expect(sample.mode).toBe("deterministic_hash_chronological");
+    expect(view.limitations).toContain("MCP bounded sample.");
+    expect(Object.keys(sample.comments[0]!).sort()).toEqual(
+      expect.arrayContaining(["author", "date", "id", "likes", "text"])
+    );
+    // The same person keeps one key within a video.
+    const byAuthor = new Map<string, Set<string>>();
+    for (const record of sample.comments) {
+      const index = Number(record.id.slice("comment-".length));
+      const person = `@person${index % 40}`;
+      byAuthor.set(person, (byAuthor.get(person) ?? new Set()).add(record.author));
+    }
+    for (const keys of byAuthor.values()) expect(keys.size).toBe(1);
+    expect(sample.comments.some((record) => record.edited === true)).toBe(true);
+    expect(sample.comments.every((record) => /^\d{4}-\d{2}-\d{2}$/u.test(record.date))).toBe(true);
+
+    const small = compactYoutubeAuditForMcp(
+      await auditYoutubeVideoCommunity(
+        { video_id_or_url: VIDEO_ID },
+        CONFIG,
+        { now: () => NOW, dependencies: completeDependencies(makeComments(5)) }
+      ),
+      40_000,
+      "MCP bounded sample."
+    );
+    expect(small.sample).toMatchObject({ mode: "all", sampled_count: 5 });
+    expect(small.limitations).not.toContain("MCP bounded sample.");
   });
 
   it("fails closed when fixed non-comment fields cannot fit the Action response ceiling", async () => {

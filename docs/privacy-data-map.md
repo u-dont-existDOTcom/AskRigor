@@ -681,6 +681,15 @@ pending-proposal stores have their own strict contracts and authority boundaries
   assessor and the automated Gemini scout are also MCP tools; on MCP they sit
   behind the same research-access guard as the other research tools, and the
   assessor accepts videos without transcripts because MCP has no transcript tool.
+- The MCP `audit_youtube_video_community` tool returns its analysis sample as
+  compact records: comment id, parent id for a reply, a per-video pseudonymous
+  author key (the first 8 hex characters of a SHA-256 over a fixed label, the
+  video id and the author's channel id or display name), date, likes, an edited
+  flag and the text. Author channel ids and display names are not sent to the
+  MCP client; the key only lets the model count distinct people within one
+  video. Records are cut to a 40,000-byte response budget in the deterministic
+  sample order; retrieval counts, corpus hashes and receipts cover the whole
+  corpus. The Custom GPT Action output is unchanged.
 - MCP research receipts (`research_receipt`) are HMAC-SHA256 tokens under a
   domain-separated key derived from the finalization signing secret, or else the
   YouTube continuation secret. They carry only public identifiers (YouTube
