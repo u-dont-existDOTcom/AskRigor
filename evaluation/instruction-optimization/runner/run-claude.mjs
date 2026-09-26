@@ -947,6 +947,30 @@ function analyze(run, context) {
     status: outcome(call, ["data", "status"]),
     access_status: pick(call, ["access_status"]) ?? null
   }));
+  // Gate compliance: receipts the server issued, receipts passed back, and each
+  // finalize_research outcome. In -p mode every call precedes the final answer,
+  // so the last finalize outcome is the state the answer was written in.
+  const issuedReceipts = new Set();
+  for (const call of calls) {
+    const receipt = pick(call, ["research_receipt"]);
+    if (typeof receipt === "string") issuedReceipts.add(receipt);
+  }
+  const finalizations = named("finalize_research").map((call) => {
+    const passed = Array.isArray(call.input.receipts) ? call.input.receipts : [];
+    return {
+      ...where(call),
+      is_error: call.is_error,
+      status: pick(call, ["status"]) ?? null,
+      receipts_passed: passed.length,
+      receipts_passed_that_server_issued: passed.filter((token) => issuedReceipts.has(token)).length,
+      receipts_verified: pick(call, ["receipts_verified"]) ?? null,
+      receipts_rejected: (pick(call, ["receipts_rejected"]) ?? []).length,
+      next_steps: (pick(call, ["next_steps"]) ?? []).length,
+      limits: (pick(call, ["limits"]) ?? []).length,
+      community_evidence: call.input.community_evidence ?? null,
+      key_sources: Array.isArray(call.input.key_sources) ? call.input.key_sources.length : null
+    };
+  });
   const researchAccess = named("manage_research_access").map((call) => ({
     ...where(call),
     action: call.input.action ?? null,
@@ -1045,7 +1069,14 @@ function analyze(run, context) {
           validate_review_method_audit: reviewAudits
         },
         check_retraction_status: { count: retractions.length, calls: retractions },
-        submit_research_contribution: { count: contributions.length, calls: contributions }
+        submit_research_contribution: { count: contributions.length, calls: contributions },
+        finalize_research: {
+          research_receipts_issued: issuedReceipts.size,
+          count: finalizations.length,
+          final_status: finalizations.at(-1)?.status ?? null,
+          answered_after_gate_passed: ["ready", "ready_with_limits"].includes(finalizations.at(-1)?.status),
+          calls: finalizations
+        }
       },
       skill_invocations: skillCalls,
       claude_session: {

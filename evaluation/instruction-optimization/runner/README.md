@@ -102,6 +102,12 @@ Known secret values (continuation secret, provider keys) are replaced with
   `method_audits` by status; `check_retraction_status` calls. Every entry has
   `seq` and `index_before_final_answer`. In `-p` mode all calls precede the
   final answer.
+- `receipts.finalize_research` (gate compliance): `research_receipts_issued`
+  (distinct `research_receipt` tokens in tool results), each `finalize_research`
+  call with its status, receipts passed and how many of those the server
+  issued in this run, rejected receipts, next steps, limits and declarations,
+  plus `final_status` and `answered_after_gate_passed` (the last call returned
+  `ready` or `ready_with_limits`).
 - `server.unhandled_socket_errors`: socket `error` events that no listener
   handled. Pilot run 1 lost its server to one (`read ECONNRESET`, no
   application frame in the stack); the runner's server bootstrap now logs each
