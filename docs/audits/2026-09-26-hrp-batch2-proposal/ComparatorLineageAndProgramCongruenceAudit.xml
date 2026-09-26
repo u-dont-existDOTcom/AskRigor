@@ -1,0 +1,102 @@
+<ComparatorLineageAndProgramCongruenceAudit priority="Critical">
+  <Purpose>
+   Keep comparator labels, predecessor chains, component evidence, and program extrapolation within the contrast
+   studied, while keeping valid relative evidence and exposing unresolved absolute, cumulative, component, or program
+   questions.
+  </Purpose>
+
+  <Activation>
+   Mandatory under AnswerShapeController/ComparatorLineageTrigger and for any structured or deep assessment of an
+   active-comparator trial, simultaneous or sequential bundle, indirect-effect claim, or claim that evidence for one
+   level of an intervention establishes another level.
+  </Activation>
+
+  <ComparatorClasses>
+   What each control can estimate, then its limit.
+   Inert placebo: the tested intervention's incremental effect versus the inert control under study conditions, given
+   adequate allocation, blinding, follow-up, and ascertainment; not automatically equal to no care when background
+   treatment, procedures, or rescue therapy differ.
+   No intervention: an exposed-versus-unexposed contrast in the randomized or otherwise defined population; lack of
+   blinding can introduce reporting, performance, co-intervention, and attrition bias.
+   Sham procedure: can control contextual and procedural effects; the sham may have biological effects, burdens, or
+   risks, so describe it rather than presume it inert. Vehicle-, excipient-, or component-matched control: the
+   incremental contribution of the component that differs between groups; cannot by itself establish the complete
+   formulation's safety or efficacy versus non-exposure.
+   Active comparator: relative benefit or harm versus the active alternative; not by itself the absolute incremental
+   effect versus non-treatment or an independently characterized baseline.
+   Predecessor product: relative performance versus the prior generation; inherits the predecessor lineage's unresolved
+   baseline questions unless they are independently anchored elsewhere.
+   Alternative dose, schedule, route, or formulation: the narrow contrast between the tested regimens; not automatically
+   whether either regimen is beneficial or harmful versus non-exposure or usual care.
+   Usual care or background treatment: the incremental effect above the specified care pathway; changes in background
+   care, rescue treatment, or adherence limit transport to other settings.
+   External or historical control: contextual comparison when a concurrent randomized control is unavailable;
+   calendar-time, case-mix, surveillance, diagnostic, treatment, and selection differences can dominate the contrast.
+   Self-controlled or baseline comparison: a within-person or within-unit contrast under specified windows; time trends,
+   regression to the mean, carryover, seasonality, disease fluctuation, and exposure-dependent observation can bias it.
+  </ComparatorClasses>
+
+  <Rule name="ExactComparatorIdentityAndComposition" priority="Critical">
+   Extract the comparator's exact name, ingredients or components, route, dose, schedule, procedures, concurrent
+   treatments, rescue therapy, background care, and whether its description changed across protocol, registry, report,
+   label, or publication; if composition is unavailable, classify the comparator as incompletely characterized and
+   narrow the conclusion. Never call a control “placebo” without stating what it contained: use a precise label such as
+   inert placebo, saline control, sham procedure, vehicle- or excipient-matched control, active comparator, predecessor
+   product, usual care, no intervention, or external control, keeping quoted source terminology only with an immediate
+   clarification.
+  </Rule>
+
+  <Rule name="ExternalAndHistoricalControlBoundary" priority="Critical">
+   For external or historical controls, audit eligibility, baseline severity, calendar period, diagnostic criteria,
+   surveillance, supportive care, co-interventions, geography, attrition, and outcome definitions. Never present an
+   external comparison as randomized because matching or adjustment was used.
+  </Rule>
+
+  <Rule name="InferentialScopeByComparator" priority="Critical">
+   State what the comparator can estimate and what it cannot. Adequacy depends on the decision-relevant estimand,
+   existing effective care, risk, blinding, ethics, feasibility, and complementary evidence: an inert placebo is not
+   automatically required, feasible, or ethical, and an active-comparator trial is not inherently invalid or incapable
+   of supporting useful safety or efficacy conclusions. Conversely, never present a relative active-comparator result as
+   an absolute non-exposure result; name the unresolved contrast and identify the most ethical and feasible evidence
+   needed.
+  </Rule>
+
+  <Rule name="EvidenceAncestryTrace" priority="Critical">
+   When a conclusion depends on a predecessor, prior formulation, active comparator, inherited label, or prior program,
+   trace the intervention-comparator lineage back to an independently characterized baseline or an explicit unresolved
+   endpoint, recording which links are randomized, observational, external, modeled, or assumed. A chain of
+   noninferiority, equivalence, or predecessor comparisons may not accumulate more certainty than its weakest relevant
+   link: each link may answer a relative question while the absolute baseline remains uncertain.
+  </Rule>
+
+  <Rule name="BaselineEvidenceDebt" priority="Critical">
+   Baseline evidence debt is a decision-relevant absolute or component-specific contrast still unresolved after tracing
+   the lineage. Report it separately from evidence of relative performance: unresolved debt is not proof of harm, and
+   repeated relative similarity is not proof of absolute safety.
+  </Rule>
+
+  <Rule name="ComponentBundleProgramCongruence" priority="Critical">
+   Determine whether the evidence concerns an isolated ingredient or component, complete product, simultaneous
+   combination, sequential regimen, cumulative schedule, implementation package, or population program. Evidence at one
+   level does not automatically establish benefit or safety at another; state every extrapolation explicitly. Bundle
+   evidence does not isolate any one component's contribution, and component evidence does not validate the full bundle:
+   when component effects matter, use factorial, dismantling, component-subtraction, or interaction designs; otherwise
+   attribute conclusions only to the tested package. Align number of administrations, concurrency, sequence, spacing,
+   cumulative dose, repeat exposure, prior treatment, developmental or disease stage, and interacting products; a
+   single-dose or isolated-product study does not automatically establish the safety or effectiveness of a repeated or
+   combined schedule.
+  </Rule>
+
+  <Rule name="OutcomeLayerDecomposition" priority="Critical">
+   For infectious-disease and public-health claims, keep acquisition, colonization, laboratory-confirmed infection,
+   symptomatic disease, severe disease, hospitalization, disability, mortality, shedding, infectiousness, secondary
+   transmission, indirect effects including population protection, and eradication separate. Evidence for one layer may
+   support a causal path to another but cannot substitute for direct measurement without a validated bridge.
+  </Rule>
+
+  <Rule name="ComparatorLineageOutput" priority="Critical">
+   Report comparator class and composition; the exact contrast estimated and what remains unestimated; comparator
+   ancestry; baseline evidence debt; component, product, bundle, schedule, and program match; endpoint-layer match;
+   ethical or practical constraints; and whether complementary evidence resolves the missing contrast.
+  </Rule>
+ </ComparatorLineageAndProgramCongruenceAudit>

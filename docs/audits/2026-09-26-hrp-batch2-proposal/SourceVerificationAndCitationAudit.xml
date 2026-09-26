@@ -1,0 +1,134 @@
+<SourceVerificationAndCitationAudit priority="Critical">
+  <Purpose>
+   Verify what each source is and can establish, and that each citation supports its exact claim, including historical
+   and multilingual sources, books, public-facing summaries, abstracts, and supplied reports.
+  </Purpose>
+
+  <SourceHierarchy>
+   <Tier rank="1">
+    Original empirical papers and preprints, protocols, trial registries, datasets, conference abstracts or posters with
+    original data, theses and dissertations, institutional or government research reports, practitioner or protocol
+    datasets with auditable methods, laboratory reports, regulatory submissions and labels, compassionate-use and
+    pharmacovigilance records, official records, legal texts, surveillance datasets, and official actions: primary only
+    for the claims they directly document; incomplete reporting or lack of peer review lowers confidence.
+   </Tier>
+   <Tier rank="2">
+    Systematic reviews, evidence-based guidelines, technical reports, textbooks, professional societies, and rigorous
+    domain experts; audit their search methods, inclusion criteria, source currency, and citation entailment.
+   </Tier>
+   <Tier rank="3">
+    Reputable news and institutional summaries: for chronology, current events, and locating primary sources; not enough
+    alone for scientific adjudication.
+   </Tier>
+   <Tier rank="4">
+    Forums, social media, testimonials, promotional material, clinic pages, podcasts, videos, and unsourced summaries:
+    leads, signal evidence, evidence of lived experience, or evidence of what someone said, not population proof.
+   </Tier>
+  </SourceHierarchy>
+
+  <Rule name="PrimarySourceVerification" priority="Critical">
+   Prefer original papers and preprints, protocols, trial registries, datasets, conference records, theses,
+   institutional reports, regulatory records, labels, official records, legal texts, and guideline documents, and verify
+   DOI, PMID, NCT or registry number, title, author or investigator, year, venue, repository, and document identity when
+   possible. Do not exclude a relevant human source solely because it is non-indexed, unpublished, observational,
+   community-generated, available only as an abstract, or not peer reviewed: include it at the appropriate evidence
+   tier, verify what it actually reports, and lower confidence for incompleteness, bias, and inability to audit methods.
+   For a pharmacological question, never rank sources on design quality or institutional authority alone: record whether
+   each matches the dose, route, formulation, timing, indication, population, co-exposures, and dependence state; a
+   high-internal-validity source with poor exposure match is indirect evidence for the exact question.
+  </Rule>
+
+  <Rule name="CitationEntailment" priority="Critical">
+   Every important citation must support the exact claim attached to it: never cite a paper about a related adverse
+   event as evidence for an unstudied interaction, or a review's speculation as the primary study's finding.
+  </Rule>
+
+  <Rule name="CitationChainAudit" priority="Critical">
+   Follow consequential claims through reviews and summaries to the source that actually generated the evidence,
+   checking for citation drift, circular citation, misquoted thresholds, and references that support only a weaker
+   claim. AI reports, external-extractor outputs, narrative reviews, webpages, and synthesized documents are citation
+   maps and claim inventories: verify decision-relevant claims against primary sources before final synthesis. Citation
+   backchaining tracks where a claim originated; comparator ancestry
+   (ComparatorLineageAndProgramCongruenceAudit/EvidenceAncestryTrace) tracks which prior intervention or baseline
+   supports the current comparison. Perform both when material; completing one does not complete the other.
+  </Rule>
+
+  <Rule name="PublicFacingSummaryBoundary" priority="Critical">
+   Public-facing charity, hospital, government-education, advocacy, or institutional webpages may summarize consensus
+   and help locate evidence but cannot alone adjudicate a contested mechanistic or safety claim. Trace decision-relevant
+   claims to original studies, technical risk assessments, labels, datasets, or systematic reviews with auditable
+   methods, then report source currency, sponsor role, conflicts, evidence gaps, and whether the cited source supports
+   the exact strength of the conclusion.
+  </Rule>
+
+  <Rule name="BooksAreCitationMapsNotAutomaticAuthorities" priority="Critical">
+   Use specialist books, textbooks, monographs, conference volumes, and books by principal investigators actively to
+   expand the source map (hard-to-find terminology, clinical series, unpublished leads, adverse reports, references),
+   but trace decision-relevant claims to primary evidence whenever possible. Audit author involvement, royalties,
+   institutional or ideological commitments, search selectivity, omitted contrary evidence, publication date, and
+   whether several documents recycle the same underlying patients or datasets.
+  </Rule>
+
+  <Rule name="AbstractPreambleAndEscalation" priority="Critical">
+   Never confidently describe inclusion criteria, adjustment variables, endpoint definitions, subgroup models,
+   adverse-event methods, or limitations not inspected in the full text or an auditable extraction. When only abstracts,
+   snippets, or secondary descriptions are available, state that methods and tables may materially change
+   interpretation, and lower confidence. For a decision-critical source this disclosure does not turn the abstract into
+   inspected evidence: apply the UniversalFullTextAcquisitionProtocol (automatic lawful full-text discovery, then a
+   possibly useful lead with the limitation bound to the claims its unseen methods or results could change).
+  </Rule>
+
+  <Rule name="DecisionRelevantControlDocuments" priority="Critical">
+   When comparator composition, adverse-event capture, or relatedness adjudication is decision-relevant, inspect the
+   protocol, statistical analysis plan, registry history, clinical study report, appendices, regulatory review, label or
+   package insert, and publication corrections when available; the abstract or methods summary may omit the operative
+   details. Do not confidently state that adverse events were comprehensively monitored or unrelated unless the full
+   methods disclose solicitation, windows, event definitions, adjudication, post-discontinuation capture, and all-event
+   denominators.
+  </Rule>
+
+  <Rule name="WholeReportAudit" priority="Critical">
+   For a user-supplied multi-claim report, audit the complete evidence hierarchy and the most decision-relevant claims,
+   including exact comparator composition and inferential scope, comparator ancestry and baseline evidence debt,
+   adverse-event capture and relatedness adjudication, component-to-program congruence, and unsupported intent
+   attribution. Do not focus only on the most novel or interesting factor.
+  </Rule>
+
+  <Rule name="HistoricalVocabularyAndCitationBackchain" priority="Critical">
+   For old, neglected, renamed, regional, or specialty-specific topics, search historical names, spelling variants,
+   abbreviations, exact clinical endpoints, route and formulation terms, named investigators, institutions, journals,
+   conferences, and references identified in reviews or books. Follow consequential citations backward to the
+   originating evidence and forward to replications, critiques, corrections, and later syntheses. Broad modern query
+   failure is not evidence of absence: do not conclude that human evidence is absent, anecdotal only, or purely
+   preclinical until the historical vocabulary map and citation chains have been searched or explicitly classified as
+   inaccessible.
+  </Rule>
+
+  <Rule name="HistoricalSourceStratificationAndTextualDependency" priority="Critical">
+   For historical or multilingual claims, identify the earliest accessible witness and distinguish original statement,
+   later quotation, commentary, compilation, interpolation, reconstructed text, modern critical edition, standardized
+   pharmacopoeial restatement, and contemporary commercial summary. Do not count later compilations, translations, or
+   webpages reproducing the same passage as independent evidence. Preserve decision-critical original-language wording
+   when feasible, separate literal from contextual translation, and disclose contested readings, edition limits, and
+   source-state uncertainty. Do not map a historical disease, symptom, syndrome, or theoretical category to one modern
+   diagnosis without an explicit evidentiary bridge; state the historical term, its source-specific meaning, plausible
+   modern correspondences, excluded or competing mappings, and the uncertainty created by diagnostic, anatomical, and
+   conceptual change.
+  </Rule>
+
+  <Rule name="HistoricalMaterialAndPreparationIdentity" priority="Critical">
+   Distinguish biological or mineral source, species, tissue or excreta, freshness or aging, cleaning, washing, sifting,
+   drying, roasting, frying, calcining, fermentation, extraction, carrier, co-ingredients, complete formula, route, and
+   administration context. Historical evidence for a processed or compounded preparation does not automatically
+   transport to raw material, another animal part, a different species, a modern commercial product, or a different
+   route. When the historical intervention is a compound formula, carrier, food, organ, or multi-step preparation, do
+   not attribute a reported outcome to one named component without a component-specific contrast or other explicit
+   bridge, and do not assign adverse evidence for a related material to the intervention without an identity bridge.
+  </Rule>
+
+  <Rule name="DocumentScopeAndCurrentStatus" priority="High">
+   A document supports claims about what that document reports; pattern-level claims require multiple appropriate
+   sources. Verify current guidelines, labels, recalls, laws, product status, trial status, and recent evidence as of
+   the relevant date.
+  </Rule>
+ </SourceVerificationAndCitationAudit>

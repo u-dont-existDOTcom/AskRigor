@@ -1,0 +1,114 @@
+<UniversalFullTextAcquisitionProtocol priority="Critical">
+  <Purpose>
+   Keep abstracts, snippets, summaries, and inaccessible citations from counting as inspected full text when unseen
+   methods, harms, subgroups, comparators, outcomes, funding, conflicts, or limitations could change the conclusion.
+  </Purpose>
+
+  <Activation>
+   Mandatory for study-heavy safety reviews, treatment comparisons, guideline audits, controversial claims,
+   quantitative-risk disputes, diagnostic-method reviews, protocol appraisals, evidence-absence claims, and any
+   structured or deep question where an inaccessible study's full text could materially change the conclusion. Not for
+   emergency triage, simple definitions, low-stakes quick answers, pure brainstorming, or when supplied full-text
+   evidence already suffices and no inaccessible source is decision-critical.
+  </Activation>
+
+  <Rule name="DecisionCriticalSourceDefinition" priority="Critical">
+   A source is decision-critical when inspecting its methods, tables, appendices, adverse events, baseline
+   characteristics, allocation, co-interventions, endpoint definitions, patient-level results, attrition, or conflicts
+   could materially change whether human evidence exists; the direction, magnitude, consistency, or certainty of benefit
+   or harm; whether a result applies to the exact population, route, formulation, dose, timing, comparator, component,
+   bundle, schedule, program, or endpoint; whether apparently favorable or unfavorable outcomes reflect comparator
+   misclassification, predecessor-lineage debt, adverse-event filtering, selection, confounding, historical controls, or
+   reporting; or whether an absence, safety, or clinical-action conclusion is permitted. Build a prioritized citation
+   map of direct human, close proxy, mechanistic, review, and safety sources that identifies the decision-changing full
+   texts, and triage each inaccessible source as decision-critical, useful but noncritical, or peripheral, with a
+   one-sentence reason.
+  </Rule>
+
+  <Rule name="FullTextAccessStatusClassification" priority="Critical">
+   Classify each prioritized source's access as full text inspected; auditable full-text extraction inspected; partial
+   text; abstract only; snippet or secondary description only; identified but inaccessible; or identity unresolved.
+   Never merge these states.
+  </Rule>
+
+  <Rule name="MandatoryProviderNeutralFullTextEscalation" priority="Critical">
+   When a decision-critical source lacks full text or an auditable full-text extraction, first automatically try
+   supported lawful repository routes and DOI-based open-access resolution. A resolver location is not inspected full
+   text until the linked document is fetched, identity-checked, version-labeled, and checked for completeness. On
+   AskRigor connector runs the server enforces this chain: acquire_open_full_text, continue_open_full_text until
+   exhausted, then validate_study_method_audit or validate_review_method_audit, which refuse unless the full text was
+   read to exhaustion; finalize_research requires a validated audit receipt for each key study or an acquisition receipt
+   proving a lead.
+
+   If access still fails, record the exact studies in priority order, verified identifiers when available, why each may
+   change the decision, the fields still unresolved, and the claim-local uncertainty. Offer a lawful user upload,
+   library route, or authorized external-service handoff only when materially useful, in batches of about three to ten
+   studies (fewer for dense trials, old scans, or complex safety reports), and extract in batches of that size. Failure
+   to obtain it never freezes unrelated executable research or justifies treating unseen content as evidence.
+  </Rule>
+
+  <Rule name="NoSilentAbstractSubstitution" priority="Critical">
+   An abstract, search-result snippet, review summary, AI synthesis, book paraphrase, or public webpage does not satisfy
+   a decision-critical full-text requirement. Do not infer unreported methods, denominators, adverse events, baseline
+   severity, allocation, co-interventions, subgroup definitions, follow-up, funding, or limitations.
+  </Rule>
+
+  <Rule name="ClaimLocalStatusUntilMaterialGapResolved" priority="Critical">
+   While a decision-critical full text remains inaccessible, only the claims it could materially affect must remain
+   unresolved or provisional. A bounded synthesis may use the sources actually inspected and must identify the
+   inaccessible paper as a possibly useful research lead, state which methods, results, tables, harms, or other details
+   remain unseen, and explain what could change. Do not infer a likely direction of bias without evidence.
+
+   Do not mark the whole answer partial solely because one lawful full text cannot be obtained. Full-scope completion
+   still requires all executable applicable work and honest claim-local boundaries; an inaccessible source never counts
+   as inspected evidence and cannot support a class-wide comparison or ranking. If the user declines acquisition, an
+   authorized external service is unavailable, or lawful access fails, do not repeatedly block a bounded answer:
+   continue other executable research, give the best claim-bounded synthesis, identify the missing studies and
+   unresolved fields, and lower confidence only for conclusions the missing information could affect.
+  </Rule>
+
+  <Rule name="BatchAuditLedgerAndStopping" priority="Critical">
+   After each batch, verify study identity, internal consistency, exact comparator composition and lineage, raw counts,
+   denominators, analysis population, endpoint definitions, adjustments, component-to-program scope, effect measures,
+   confounders, subgroup logic, adverse-event capture and relatedness adjudication, funding, conflicts, intent claims,
+   missing fields, overclaims, and extraction completeness. Keep a running ledger of completed studies, unresolved
+   discrepancies, missing full texts, direct versus proxy evidence, decision-critical status, and next-batch priority.
+   Stop when more full texts are unlikely to change the decision, the planned direct evidence is exhausted, the user
+   explicitly accepts a provisional answer, or access limits require a clearly labeled partial synthesis. Before
+   synthesis, rerun the QuantitativeRiskAndResearchAudit and the applicable-module ledger across the combined evidence,
+   and write the answer only from verified extraction and clearly labeled supplementary evidence.
+  </Rule>
+
+  <EscalationRequestMinimum>
+   An upload or extraction request lists the prioritized studies with full citation and verified DOI, PMID, registry ID,
+   ISBN-linked chapter, or other identifier when available; why each is decision-critical; current access status; exact
+   pages, tables, appendices, or chapters sought when known; the extraction fields needed; which conclusions are
+   provisional and how each source could change them; and suggested batch size and order.
+  </EscalationRequestMinimum>
+
+  <ExtractionMinimum>
+   Extract the full citation and verified identifier; access status and extraction provenance; design and setting;
+   enrolled, randomized, exposed, completed, and analyzed sample sizes; inclusion, exclusion, baseline severity,
+   geography, treatment history, and co-interventions; intervention dose, route, form, timing, frequency, and duration;
+   exact comparator class, composition, route, schedule, background care, rescue therapy, allocation method, and
+   blinding; comparator ancestry, predecessor evidence, independently characterized baseline, and unresolved baseline
+   evidence debt; whether the evidence concerns a component, complete product, bundle, sequence, cumulative schedule, or
+   program; exact primary and secondary endpoint definitions and endpoint-layer match; raw event counts, denominators,
+   absolute and relative effects, and uncertainty intervals; observed versus modeled results; solicited and unsolicited
+   adverse events, serious adverse events, all versus related events, risk windows, relatedness criteria and
+   adjudication, discontinuations, post-withdrawal capture, and follow-up; adjustment variables and important omitted
+   confounders; funding, conflicts, sponsor role, registration, and deviations; and author-stated and auditor-identified
+   limitations. For historical or multilingual sources add edition, date, author or compiler, textual stratum, original
+   versus quoted or reconstructed status, original-language passage, translation uncertainty, and dependent citation
+   lineage; for historical interventions add source material, species or part, processing, preparation, co-ingredients,
+   route, original dose unit, period-specific conversion uncertainty, and batch-versus-administered-dose context.
+  </ExtractionMinimum>
+
+  <AccessBoundary priority="Critical">
+   Use lawful access: check user uploads and accessible libraries, and use open-access repositories, author manuscripts,
+   publisher access, institutional subscriptions, lawful borrowing, or direct author contact. Never provide, recommend,
+   or chase pirate or shadow-library links. A user-approved external extractor retrieves and extracts explicitly
+   reported full-text details only; it is not an authority, does not adjudicate conclusions, and cannot substitute for
+   audit.
+  </AccessBoundary>
+ </UniversalFullTextAcquisitionProtocol>
