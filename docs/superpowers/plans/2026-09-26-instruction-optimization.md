@@ -177,6 +177,31 @@ output clutter hurts. Consolidation should keep the substance and cut the
 process text, which the server gate now covers. One question and one judge
 is weak evidence; the held-out comparison decides.
 
+### Third arm: the finalize gate (6e2763d, same question)
+
+`6e2763d` added signed receipts, `finalize_research` and MCP size budgets (HRP
+still 20.5.30): 110.7 min, 212 tool calls, 31 protocol loads (326K characters),
+29.4M cache reads, API-equivalent $36.38, answer 27.1K characters. The gate
+verified all 48 receipts the model passed back (none rejected) and returned
+`not_ready` twice: three material videos were never fully audited, because a
+continuation bug (an echoed `analysis_limit`, fixed in `1ca754f`) failed their
+later pages. The model then answered with the limits stated. Most of the cost
+came from 61 video-audit calls (about 60 comments per bounded response, repeated
+re-audits of the same videos) and long reasoning (584K output tokens); compact
+comment records (`9c13287`) and the continuation fixes target that waste.
+
+Blinded judgments (Opus 5.5 max, citation spot-checks):
+- `main` vs `6e2763d`: `6e2763d` won overall (medium): options, heterodox
+  judgment, safety and usefulness; `main` narrowly won appraisal.
+- `e1176f8` vs `6e2763d`: `e1176f8` narrowly won overall (low): `6e2763d` won
+  appraisal and heterodox judgment, options tied, `e1176f8` won safety and
+  usefulness (a tighter, more actionable plan; guideline-based medicine advice
+  that `6e2763d` could not source because the guidelines were lead-only).
+- Every judgment faulted the protocol arms for length and research-process
+  clutter (status notes first, audit lists, forum prompt, research to-do list).
+  HRP 20.6.0's output rules (no opener, one short limits note at the end,
+  capped handoff) target exactly this; the next smoke run measures it.
+
 Both answers stayed mostly mainstream: neither surfaced firsthand community
 options such as diet changes, gelatin or collagen, or named physiotherapy
 methods. The `e1176f8` run left 12 of 20 video audits incomplete (continuation
