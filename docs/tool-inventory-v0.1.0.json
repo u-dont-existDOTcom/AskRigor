@@ -862,6 +862,9 @@
               }
             },
             "additionalProperties": false
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -4698,6 +4701,9 @@
               ],
               "additionalProperties": false
             }
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -13093,6 +13099,9 @@
                 "const": "No YouTube transcript or discussion was retrieved by this operation; required downstream research remains required."
               }
             ]
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -13198,7 +13207,7 @@
               ],
               "additionalProperties": false
             },
-            "description": "Each study your conclusions depend on: validated after a full-text method audit, or lead_only when no open full text exists."
+            "description": "Each study your conclusions depend on: validated after a full-text method audit, or lead_only when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text."
           }
         },
         "required": [

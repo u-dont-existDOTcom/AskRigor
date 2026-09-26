@@ -33,7 +33,7 @@ export const finalizeResearchInputSchema = z.object({
     status: z.enum(["validated", "lead_only"]),
     reason: z.string().trim().min(1).max(1_000).optional()
   }).strict()).max(60)
-    .describe("Each study your conclusions depend on: validated after a full-text method audit, or lead_only when no open full text exists.")
+    .describe("Each study your conclusions depend on: validated after a full-text method audit, or lead_only when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text.")
 }).strict();
 
 export type FinalizeResearchInput = z.output<typeof finalizeResearchInputSchema>;
@@ -127,11 +127,23 @@ export function finalizeResearch(
     );
   }
 
-  // Community evidence.
+  // Community evidence. Discovery receipts (surveys, one-call community audits,
+  // the Gemini scout, YouTube searches) list the videos they found; a material
+  // video must come from one passed in the same call, which binds the audits to
+  // this research's discovery rather than to any valid receipt.
   let surveys = 0;
+  let partialSurveys = 0;
+  const discovered = new Set<string>();
   const audited = new Map<string, VideoAudit>();
   for (const { kind, claims } of verified) {
-    if (kind === "youtube_survey") surveys += 1;
+    if (kind === "youtube_survey") {
+      surveys += 1;
+      if (text(claims.access) !== "complete") partialSurveys += 1;
+    }
+    if (kind === "youtube_survey" || kind === "youtube_scout" || kind === "youtube_search" ||
+        kind === "youtube_community_audit") {
+      for (const video of list(claims.videos)) discovered.add(video);
+    }
     if (kind === "youtube_video_audit") {
       recordVideoAudit(audited, text(claims.video), text(claims.state), text(claims.lock));
     }
@@ -156,6 +168,12 @@ export function finalizeResearch(
         "Survey community evidence with survey_youtube_community (widen the searches while new programs keep appearing), then audit each material video."
       );
     }
+    if (partialSurveys > 0) {
+      limits.push(
+        `${partialSurveys} community survey(s) were only partly completed (some searches failed or hit limits); ` +
+          "say the community picture may be incomplete."
+      );
+    }
     materialVideos = [...new Set(input.material_video_ids ?? auditedVideos)].sort();
     if (materialVideos.length === 0) {
       nextSteps.push(
@@ -163,6 +181,12 @@ export function finalizeResearch(
       );
     }
     for (const video of materialVideos) {
+      if (!discovered.has(video)) {
+        nextSteps.push(
+          `Video ${video} is not among the videos found by the surveys, scouts or searches whose receipts were passed; ` +
+            "pass the receipt of the discovery call that found it, or drop it from material_video_ids."
+        );
+      }
       const audit = audited.get(video);
       if (audit === undefined) {
         nextSteps.push(
@@ -185,7 +209,12 @@ export function finalizeResearch(
   // Key studies.
   const validatedIds = new Set<string>();
   const leadIds = new Set<string>();
+  // PMID -> DOI ("" when the PubMed record has none), from fetch_pubmed_record receipts.
+  const pubmedDois = new Map<string, string>();
   for (const { kind, claims } of verified) {
+    if (kind === "pubmed_record" && typeof claims.pmid === "string") {
+      pubmedDois.set(normalizeIdentifier(claims.pmid), typeof claims.doi === "string" ? normalizeIdentifier(claims.doi) : "");
+    }
     if (kind === "study_audit" || kind === "review_audit") {
       for (const key of ["id", "doi", "pmid", "pmcid"]) {
         const value = claims[key];
@@ -203,36 +232,47 @@ export function finalizeResearch(
   const leadSources: string[] = [];
   for (const source of input.key_sources) {
     const id = normalizeIdentifier(source.id);
-    if (validatedIds.has(id)) {
+    // A PMID's DOI (from its PubMed record receipt) also identifies the study.
+    const pubmedDoi = isPmid(id) ? pubmedDois.get(id) : undefined;
+    const ids = pubmedDoi === undefined || pubmedDoi === "" ? [id] : [id, pubmedDoi];
+    if (ids.some((candidate) => validatedIds.has(candidate))) {
       validatedSources.push(source.id);
       continue;
     }
-    if (leadIds.has(id)) {
+    if (ids.some((candidate) => leadIds.has(candidate))) {
       leadSources.push(source.id);
       limits.push(
         `Cite ${source.id} as a lead: no open full text was available, so its methods were not audited.`
       );
       continue;
     }
-    if (source.status === "validated") {
+    if (!isDoi(id) && !isPmid(id) && !isPmcid(id)) {
       nextSteps.push(
-        `For ${source.id}: acquire_open_full_text, continue_open_full_text until exhausted, then validate_study_method_audit ` +
-          "(or validate_review_method_audit) and pass its research_receipt. If no open full text exists, the acquisition receipt lets you list it as lead_only."
+        `Identify ${source.id} by DOI, PMID or PMCID, or leave it out of key_sources and label it unverified in the answer.`
       );
       continue;
     }
-    if (isDoi(id)) {
+    if (isPmid(id) && pubmedDoi === undefined) {
       nextSteps.push(
-        `Try acquire_open_full_text for ${source.id} before treating it as lead_only; pass the research_receipt it returns.`
+        `Fetch PMID ${id} with fetch_pubmed_record and pass its research_receipt; if it has a DOI, try acquire_open_full_text.`
       );
       continue;
     }
-    if (source.reason === undefined) {
-      nextSteps.push(`Give a reason for lead_only source ${source.id}.`);
+    if (isPmid(id) && pubmedDoi === "") {
+      // PubMed lists no DOI, so the open full-text chain cannot run; the lead is proven.
+      leadSources.push(source.id);
+      limits.push(
+        `Cite ${source.id} as a lead: PubMed lists no DOI, so no open full text could be acquired and its methods were not audited.`
+      );
       continue;
     }
-    leadSources.push(source.id);
-    limits.push(`Cite ${source.id} as a lead (${source.reason}).`);
+    const target = pubmedDoi ?? source.id;
+    nextSteps.push(source.status === "validated"
+      ? `For ${source.id}: acquire_open_full_text${target === source.id ? "" : ` (DOI ${target})`}, continue_open_full_text until exhausted, ` +
+          "then validate_study_method_audit (or validate_review_method_audit) and pass its research_receipt. If no open full text exists, " +
+          "the acquisition receipt lets you list it as lead_only."
+      : `Try acquire_open_full_text for ${source.id}${target === source.id ? "" : ` (DOI ${target})`}${isPmcid(id) ? " with its DOI and this pmcid" : ""} ` +
+          "before treating it as lead_only; pass the research_receipt it returns.");
   }
   if (input.key_sources.length === 0) {
     limits.push(
@@ -295,15 +335,23 @@ export function normalizeIdentifier(value: string): string {
   const trimmed = value.trim();
   const doi = trimmed.replace(/^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)/iu, "");
   if (/^10\.\d{4,9}\//u.test(doi)) return doi.toLowerCase();
-  const pmcid = /^(?:pmcid:\s*)?(pmc\d+)$/iu.exec(trimmed);
+  const pmcid = /^(?:pmcid:?\s*)?(pmc\d+)$/iu.exec(trimmed);
   if (pmcid !== null) return pmcid[1]!.toUpperCase();
-  const pmid = /^(?:pmid:\s*)?(\d{1,9})$/iu.exec(trimmed);
+  const pmid = /^(?:pmid:?\s*)?(\d{1,9})$/iu.exec(trimmed);
   if (pmid !== null) return pmid[1]!;
   return trimmed.toLowerCase();
 }
 
 function isDoi(normalized: string): boolean {
   return /^10\.\d{4,9}\//u.test(normalized);
+}
+
+function isPmid(normalized: string): boolean {
+  return /^\d{1,9}$/u.test(normalized);
+}
+
+function isPmcid(normalized: string): boolean {
+  return /^PMC\d+$/u.test(normalized);
 }
 
 function text(value: string | string[] | undefined): string {

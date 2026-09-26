@@ -763,16 +763,21 @@ function defineResearchOperations(
       inputSchema: z.object({
         pmid: z.string().regex(/^[1-9]\d{0,15}$/).describe("PubMed identifier.")
       }).strict(),
-      outputSchema: pubmedRecordEnvelopeSchema,
+      outputSchema: pubmedRecordEnvelopeSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
     async ({ pmid }) => {
       try {
         const result = await fetchPubmedRecord(pmid, ncbiConfig());
-        return pubmedToolResult(
+        // The receipt records whether PubMed lists a DOI, which decides whether
+        // finalize_research may accept this PMID as a lead without acquisition.
+        const record = result.data as { pmid?: string; doi?: string } | undefined;
+        return withResearchReceipt(pubmedToolResult(
           `PubMed record ${pmid} retrieval finished with access status ${result.access_status}.`,
           result
-        );
+        ), result.access_status === "complete" && record?.pmid === pmid
+          ? researchReceipt("pubmed_record", { pmid, doi: record.doi })
+          : undefined);
       } catch (error) {
         return pubmedToolResult(
           `PubMed record ${pmid} retrieval failed; access status error.`,
@@ -934,7 +939,7 @@ function defineResearchOperations(
       description:
         "Search YouTube videos and return API-visible metadata with explicit pagination and access state; no medical conclusions are generated.",
       inputSchema: youtubeSearchInputSchema,
-      outputSchema: youtubeSearchEnvelopeSchema,
+      outputSchema: youtubeSearchEnvelopeSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
     async ({ query, page_size, cursor }) => {
@@ -944,10 +949,13 @@ function defineResearchOperations(
           ...(page_size === undefined ? {} : { pageSize: page_size }),
           ...(cursor === undefined ? {} : { cursor })
         }, youtubeConfig());
-        return youtubeToolResult(
+        const videos = result.data.flatMap((record) =>
+          "video_id" in record && typeof record.video_id === "string" ? [record.video_id] : []
+        );
+        return withResearchReceipt(youtubeToolResult(
           `YouTube search returned ${result.pagination.returned} video record(s); access status ${result.access_status}.`,
           result
-        );
+        ), videos.length === 0 ? undefined : researchReceipt("youtube_search", { videos }));
       } catch (_error) {
         return youtubeToolResult(
           "YouTube search returned 0 video record(s); access status error.",
@@ -1104,7 +1112,7 @@ function defineResearchOperations(
         ? researchReceipt("youtube_survey", {
             access: result.access_status,
             searches: result.searches.length,
-            candidates: result.candidates.length
+            videos: result.candidates.map(({ video_id }) => video_id)
           })
         : undefined);
     }
@@ -1274,7 +1282,7 @@ function defineResearchOperations(
         "Ask Gemini with Google Search for YouTube videos on a de-identified, population-level treatment target, " +
         "then validate each video's identity. Gemini's summaries are unverified leads, not evidence of what a video says.",
       inputSchema: automatedScoutInputSchema,
-      outputSchema: automatedGeminiScoutReceiptSchema,
+      outputSchema: automatedGeminiScoutReceiptSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (input) => {
@@ -1290,10 +1298,15 @@ function defineResearchOperations(
           isError: true
         };
       }
-      return successfulToolResult(
+      const validated = (result.body as {
+        validation?: { validated_candidates?: Array<{ video_id: string }> } | null;
+      }).validation?.validated_candidates ?? [];
+      return withResearchReceipt(successfulToolResult(
         "Gemini scout completed; candidate summaries are unverified discovery leads.",
         result.body as Record<string, unknown>
-      );
+      ), validated.length === 0
+        ? undefined
+        : researchReceipt("youtube_scout", { videos: validated.map(({ video_id }) => video_id) }));
     }
   );
 

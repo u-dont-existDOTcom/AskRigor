@@ -39,7 +39,8 @@ describe("protocol sections", () => {
       bytes.subarray(sections[index]!.byte_end_exclusive, section.byte_start).toString("utf8")
     );
     for (const gap of between) {
-      expect(gap.replace(/<!--[\s\S]*?-->/gu, "").trim()).toBe("");
+      // Only whitespace and complete comments may sit between sections.
+      expect(gap).toMatch(/^(?:\s|<!--[\s\S]*?-->)*$/u);
     }
     for (const core of coreSectionNames(name)) {
       expect(sections.find((section) => section.name === core)?.core).toBe(true);

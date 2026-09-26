@@ -15,7 +15,9 @@ const options = { secret: SECRET, now };
 const sign = (...args: Parameters<typeof issueResearchReceipt>) =>
   issueResearchReceipt(args[0], args[1], options);
 
-const survey = sign("youtube_survey", { access: "complete", searches: 4, candidates: 31 }, options);
+const survey = sign("youtube_survey", {
+  access: "complete", searches: 4, videos: ["aaaaaaaaaaa", "bbbbbbbbbbb", "ccccccccccc"]
+}, options);
 const videoA = sign("youtube_video_audit", {
   video: "aaaaaaaaaaa", state: "api_visible_complete", lock: "pass", records: 240
 }, options);
@@ -85,9 +87,10 @@ describe("finalize_research gate", () => {
     expect(result.next_steps[1]).toMatch(/^Try acquire_open_full_text for 10\.1000\/unattempted/u);
   });
 
-  it("turns bounded audits, server-confirmed leads and reasoned non-DOI leads into limits", () => {
+  it("turns bounded audits and server-proven leads into limits", () => {
+    const noDoiRecord = sign("pubmed_record", { pmid: "31234567" }, options);
     const result = finalizeResearch({
-      receipts: [survey, videoA, videoB, study, lead],
+      receipts: [survey, videoA, videoB, study, lead, noDoiRecord],
       community_evidence: "researched",
       key_sources: [
         { id: "10.1002/art.41142", status: "validated" },
@@ -103,9 +106,72 @@ describe("finalize_research gate", () => {
     expect(result.limits).toEqual([
       "Comments on video bbbbbbbbbbb were only partly accessible; treat its community signal as bounded.",
       "Cite 10.1016/j.joca.2020.01.001 as a lead: no open full text was available, so its methods were not audited.",
-      "Cite PMID: 31234567 as a lead (abstract only; no DOI)."
+      "Cite PMID: 31234567 as a lead: PubMed lists no DOI, so no open full text could be acquired and its methods were not audited."
     ]);
     expect(result.finalization_receipt).toBeDefined();
+  });
+
+  it("binds material videos to discovery receipts passed in the same call", () => {
+    const otherSurvey = sign("youtube_survey", { access: "complete", searches: 2, videos: ["zzzzzzzzzzz"] }, options);
+    const unbound = finalizeResearch({
+      receipts: [otherSurvey, videoA, study],
+      community_evidence: "researched",
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
+    }, options);
+    expect(unbound.status).toBe("not_ready");
+    expect(unbound.next_steps).toEqual([
+      "Video aaaaaaaaaaa is not among the videos found by the surveys, scouts or searches whose receipts were passed; " +
+        "pass the receipt of the discovery call that found it, or drop it from material_video_ids."
+    ]);
+
+    const scout = sign("youtube_scout", { videos: ["aaaaaaaaaaa"] }, options);
+    expect(finalizeResearch({
+      receipts: [otherSurvey, scout, videoA, study],
+      community_evidence: "researched",
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
+    }, options).status).toBe("ready");
+  });
+
+  it("states a partial survey as a limit", () => {
+    const partial = sign("youtube_survey", { access: "partial", searches: 3, videos: ["aaaaaaaaaaa"] }, options);
+    const result = finalizeResearch({
+      receipts: [partial, videoA, study],
+      community_evidence: "researched",
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
+    }, options);
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.limits).toEqual([
+      "1 community survey(s) were only partly completed (some searches failed or hit limits); say the community picture may be incomplete."
+    ]);
+  });
+
+  it("needs server evidence before accepting PMID, PMCID or other leads", () => {
+    const withDoi = sign("pubmed_record", { pmid: "4242", doi: "10.1016/j.joca.2020.01.001" }, options);
+    const result = finalizeResearch({
+      receipts: [survey, videoA, withDoi],
+      community_evidence: "researched",
+      key_sources: [
+        { id: "PMC123", status: "lead_only", reason: "not retrieved" },
+        { id: "PMID 999", status: "lead_only", reason: "abstract only" },
+        { id: "4242", status: "lead_only" },
+        { id: "WHO guideline 2024", status: "lead_only", reason: "no identifier" }
+      ]
+    }, options);
+    expect(result.status).toBe("not_ready");
+    expect(result.next_steps).toEqual([
+      "Try acquire_open_full_text for PMC123 with its DOI and this pmcid before treating it as lead_only; pass the research_receipt it returns.",
+      "Fetch PMID 999 with fetch_pubmed_record and pass its research_receipt; if it has a DOI, try acquire_open_full_text.",
+      "Try acquire_open_full_text for 4242 (DOI 10.1016/j.joca.2020.01.001) before treating it as lead_only; pass the research_receipt it returns.",
+      "Identify WHO guideline 2024 by DOI, PMID or PMCID, or leave it out of key_sources and label it unverified in the answer."
+    ]);
+
+    // The PMID's DOI links it to an acquisition lead and to a validated audit.
+    const byDoi = finalizeResearch({
+      receipts: [survey, videoA, withDoi, lead],
+      community_evidence: "researched",
+      key_sources: [{ id: "4242", status: "lead_only" }]
+    }, options);
+    expect(byDoi.sources.lead_only).toEqual(["4242"]);
   });
 
   it("lists rejected receipts and requires a reason to skip community research", () => {
@@ -145,5 +211,7 @@ describe("finalize_research gate", () => {
     expect(normalizeIdentifier("https://dx.doi.org/10.1002/art.41142")).toBe("10.1002/art.41142");
     expect(normalizeIdentifier("pmc123")).toBe("PMC123");
     expect(normalizeIdentifier("PMID: 42")).toBe("42");
+    expect(normalizeIdentifier("PMID 42")).toBe("42");
+    expect(normalizeIdentifier("PMCID PMC7")).toBe("PMC7");
   });
 });

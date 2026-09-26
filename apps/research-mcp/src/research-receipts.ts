@@ -3,9 +3,10 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 /**
  * Signed research receipts for the MCP route.
  *
- * A tool that finishes a unit of research work (a community survey, a terminal
- * per-video comment audit, a validated full-text method audit, or a failed
- * full-text acquisition that leaves only a lead) returns one short token. The
+ * A tool that finishes a unit of research work (a community survey, search or
+ * scout that found videos, a terminal per-video comment audit, a PubMed record,
+ * a validated full-text method audit, or a failed full-text acquisition that
+ * leaves only a lead) returns one short token. The
  * finalize_research gate verifies the tokens, so completion is checked by the
  * server instead of taken from the model's own report. Tokens are stateless:
  * they survive restarts and need no session store.
@@ -19,8 +20,11 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 export const RESEARCH_RECEIPT_KINDS = [
   "youtube_survey",
+  "youtube_search",
+  "youtube_scout",
   "youtube_video_audit",
   "youtube_community_audit",
+  "pubmed_record",
   "full_text_lead",
   "study_audit",
   "review_audit",
