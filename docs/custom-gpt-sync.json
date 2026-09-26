@@ -33,6 +33,7 @@
   "internal_scout_skill_sha256": "562505f1c39843940d983c1b208e273be30d97c43ecbd9d9d6ea4b9226a62645",
   "mcp_research_operation_ids": [
     "acquire_open_full_text",
+    "assess_treatment_landscape_coverage",
     "audit_youtube_community",
     "audit_youtube_video_community",
     "check_retraction_status",
@@ -48,6 +49,7 @@
     "resolve_doi",
     "review_evidence_gap_submissions",
     "review_research_contribution",
+    "scout_gemini_youtube_candidates",
     "search_clinical_trials",
     "search_europe_pmc",
     "search_pubmed",

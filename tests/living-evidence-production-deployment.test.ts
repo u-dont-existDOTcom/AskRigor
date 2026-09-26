@@ -202,7 +202,7 @@ describe("production living-evidence deployment", () => {
     expect(admin).toContain('command === "import-frontier"');
     expect(admin).toContain("prepareResearchFrontierImport");
     expect(runbook).toContain("Requested and confirmed");
-    expect(registry).toContain("Expected 27 research operations");
+    expect(registry).toContain("Expected 29 research operations");
     expect(registry).toContain('registerTool(\n    "get_research_frontier"');
   });
 });

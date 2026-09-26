@@ -11,6 +11,7 @@ import {
   PROGRAM_NOT_DESCRIBED,
   projectDiscussionCoverageReceipt,
   projectTranscriptCoverageReceipt,
+  treatmentLandscapeCoverageInputSchema,
   youtubeTranscriptActionOutputSchema,
   type TreatmentLandscapeCoverageInput
 } from "../apps/research-mcp/src/index.js";
@@ -102,7 +103,7 @@ const completeInput = (): TreatmentLandscapeCoverageInput => {
 };
 
 describe("treatment-landscape coverage Action", () => {
-  it("is a public read-only Action and remains outside the frozen MCP registry", async () => {
+  it("is a public read-only Action and an MCP tool that does not replace the Action", async () => {
     const module = await import("../apps/research-mcp/src/index.js") as {
       RESEARCH_OPERATIONS: readonly { name: string }[];
     };
@@ -122,8 +123,61 @@ describe("treatment-landscape coverage Action", () => {
       maximumRequestBytes: 65_536,
       maximumResponseBytes: 60_000
     });
-    expect(module.RESEARCH_OPERATIONS.map(({ name }) => name))
-      .not.toContain("assess_treatment_landscape_coverage");
+    const operation = (module.RESEARCH_OPERATIONS as readonly {
+      name: string;
+      actionEnabled: boolean;
+    }[]).find(({ name }) => name === "assess_treatment_landscape_coverage");
+    expect(operation).toMatchObject({ actionEnabled: false });
+  });
+
+  it("lets a complete discussion audit carry depth only where no transcript tool exists", () => {
+    const input = completeInput();
+    input.selected_videos = input.selected_videos.map(({ transcript_receipt: _receipt, ...video }) => ({
+      ...video,
+      transcript_unavailable: "transcript_tool_unavailable" as const
+    }));
+
+    const withTranscriptTool = assessTreatmentLandscapeCoverage(input);
+    expect(withTranscriptTool).toMatchObject({
+      material_videos_fully_audited: 0,
+      per_video_depth_lock: "block",
+      synthesis_lock: "block"
+    });
+    expect(withTranscriptTool.invalid_record_ids.selected_videos).toHaveLength(8);
+
+    const withoutTranscriptTool = assessTreatmentLandscapeCoverage(input, {
+      transcriptToolAvailable: false
+    });
+    expect(withoutTranscriptTool).toMatchObject({
+      material_videos_fully_audited: 8,
+      materially_distinct_programs_fully_audited: 6,
+      creator_content_unverified_videos: 8,
+      per_video_depth_lock: "pass",
+      synthesis_lock: "pass",
+      answer_boundary: "ledger_consistent_for_synthesis"
+    });
+    expect(withoutTranscriptTool.videos_actually_audited[0]).toMatchObject({
+      transcript_access_status: "inaccessible",
+      transcript_timestamp_provenance: "unavailable",
+      creator_content_verified: false,
+      discussion_synthesis_lock: "pass"
+    });
+    expect(assessTreatmentLandscapeCoverage(completeInput(), { transcriptToolAvailable: false }))
+      .toMatchObject({ creator_content_unverified_videos: 0, material_videos_fully_audited: 8 });
+  });
+
+  it("requires exactly one of a transcript receipt or the unavailable marker", () => {
+    const input = completeInput();
+    const [first] = input.selected_videos;
+    const neither = { ...input, selected_videos: [{ ...first!, transcript_receipt: undefined }] };
+    const both = {
+      ...input,
+      selected_videos: [{ ...first!, transcript_unavailable: "transcript_tool_unavailable" }]
+    };
+
+    expect(treatmentLandscapeCoverageInputSchema.safeParse(input).success).toBe(true);
+    expect(treatmentLandscapeCoverageInputSchema.safeParse(neither).success).toBe(false);
+    expect(treatmentLandscapeCoverageInputSchema.safeParse(both).success).toBe(false);
   });
 
   it("passes only a receipt-linked, internally consistent diverse ledger", () => {

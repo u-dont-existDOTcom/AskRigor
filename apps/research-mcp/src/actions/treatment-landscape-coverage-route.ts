@@ -242,10 +242,16 @@ const selectedVideoSchema = z.object({
   stage_or_baseline: outputDisplayText,
   outcome_and_horizon: outputDisplayText,
   nonredundant_value: outputDisplayText,
-  transcript_receipt: transcriptReceiptSchema,
+  transcript_receipt: transcriptReceiptSchema.optional(),
+  // Only accepted where the server offers no transcript tool; creator content
+  // then stays unverified and the discussion audit carries the video's depth.
+  transcript_unavailable: z.literal("transcript_tool_unavailable").optional(),
   discussion_receipt: discussionReceiptSchema,
   what_it_changed: outputDisplayText
-}).strict();
+}).strict().refine(
+  (video) => (video.transcript_receipt === undefined) !== (video.transcript_unavailable === undefined),
+  { message: "Provide exactly one of transcript_receipt or transcript_unavailable." }
+);
 
 const directionalSearchSchema = z.object({
   status: directionalStatusSchema,
@@ -295,6 +301,7 @@ const auditedVideoSchema = z.object({
   ]),
   transcript_is_auto_generated: z.union([z.boolean(), z.literal("not_reported")]),
   transcript_timestamp_provenance: z.enum(["segment_timestamp_urls", "unavailable"]),
+  creator_content_verified: z.boolean(),
   discussion_access_status: accessStatusSchema,
   discussion_records_retrieved_cumulative: z.number().int().nonnegative(),
   discussion_records_returned_for_analysis: z.number().int().min(0).max(500),
@@ -332,6 +339,7 @@ export const treatmentLandscapeCoverageOutputSchema = z.object({
   material_videos_selected: z.number().int().nonnegative(),
   material_videos_fully_audited: z.number().int().nonnegative(),
   materially_distinct_programs_fully_audited: z.number().int().nonnegative(),
+  creator_content_unverified_videos: z.number().int().nonnegative(),
   independent_channels_or_pools: z.number().int().nonnegative(),
   treatment_classes_with_no_selected_video: z.array(shortId),
   treatment_classes_with_no_formal_evidence_follow_up: z.array(shortId),
@@ -452,9 +460,17 @@ export function projectDiscussionCoverageReceipt(
   });
 }
 
+export interface TreatmentLandscapeCoverageOptions {
+  /** False where the serving surface has no transcript tool (the MCP connector). */
+  transcriptToolAvailable?: boolean;
+}
+
 export function assessTreatmentLandscapeCoverage(
-  input: TreatmentLandscapeCoverageInput
+  input: TreatmentLandscapeCoverageInput,
+  options: TreatmentLandscapeCoverageOptions = {}
 ): TreatmentLandscapeCoverageOutput {
+  const transcriptToolAvailable = options.transcriptToolAvailable ?? true;
+  let creatorContentUnverifiedVideos = 0;
   const selectionBlockers: string[] = [];
   const depthBlockers: string[] = [];
   const selectionBoundaryBlockers: string[] = [];
@@ -891,8 +907,14 @@ export function assessTreatmentLandscapeCoverage(
         `Selected video ${video.video_id} has no state-consistent material candidate and fingerprint.`);
       continue;
     }
+    if (video.transcript_receipt === undefined && transcriptToolAvailable) {
+      invalidate(invalid.selected_videos, video.video_id, depthBlockers,
+        `Selected video ${video.video_id} has no transcript receipt although this surface provides the transcript tool.`);
+      continue;
+    }
     if (
-      video.transcript_receipt.source_video_id !== video.video_id ||
+      (video.transcript_receipt !== undefined &&
+        video.transcript_receipt.source_video_id !== video.video_id) ||
       video.discussion_receipt.source_video_id !== video.video_id
     ) {
       invalidate(invalid.selected_videos, video.video_id, depthBlockers,
@@ -911,10 +933,14 @@ export function assessTreatmentLandscapeCoverage(
     selectedClasses.add(candidate.treatment_class_id);
     selectedFingerprintIds.add(candidate.fingerprint_id);
     selectedSignatureCounts.set(signature, (selectedSignatureCounts.get(signature) ?? 0) + 1);
-    const transcriptComplete = evaluateTranscriptReceipt(
-      video.video_id, video.transcript_receipt, boundaryById, usedBoundaryIds,
+    const transcriptReceipt = video.transcript_receipt;
+    const creatorContentVerified = transcriptReceipt !== undefined && evaluateTranscriptReceipt(
+      video.video_id, transcriptReceipt, boundaryById, usedBoundaryIds,
       depthBlockers, depthBoundaryBlockers
     );
+    // Without a transcript tool, a complete discussion audit carries the depth.
+    const transcriptComplete = transcriptReceipt === undefined || creatorContentVerified;
+    if (transcriptReceipt === undefined) creatorContentUnverifiedVideos += 1;
     const discussionComplete = evaluateDiscussionReceipt(
       video.video_id, video.discussion_receipt, boundaryById, usedBoundaryIds,
       depthBlockers, depthBoundaryBlockers
@@ -939,12 +965,14 @@ export function assessTreatmentLandscapeCoverage(
       stage_or_baseline: compactText(video.stage_or_baseline),
       outcome_and_horizon: compactText(video.outcome_and_horizon),
       nonredundant_value: compactText(video.nonredundant_value),
-      transcript_access_status: video.transcript_receipt.access_status,
-      transcript_language_code: video.transcript_receipt.selected_track.language_code,
+      transcript_access_status: transcriptReceipt?.access_status ?? "inaccessible",
+      transcript_language_code:
+        transcriptReceipt?.selected_track.language_code ?? "not_reported",
       transcript_is_auto_generated:
-        video.transcript_receipt.selected_track.is_auto_generated,
+        transcriptReceipt?.selected_track.is_auto_generated ?? "not_reported",
       transcript_timestamp_provenance:
-        video.transcript_receipt.timestamp_provenance,
+        transcriptReceipt?.timestamp_provenance ?? "unavailable",
+      creator_content_verified: creatorContentVerified,
       discussion_access_status: video.discussion_receipt.access_status,
       discussion_records_retrieved_cumulative:
         video.discussion_receipt.records_retrieved_cumulative,
@@ -1409,6 +1437,7 @@ export function assessTreatmentLandscapeCoverage(
     material_videos_selected: videosActuallyAudited.length,
     material_videos_fully_audited: fullyAuditedVideos,
     materially_distinct_programs_fully_audited: fullyAuditedSignatures.size,
+    creator_content_unverified_videos: creatorContentUnverifiedVideos,
     independent_channels_or_pools: independentChannelIds.size,
     treatment_classes_with_no_selected_video: materialClasses
       .filter(({ class_id }) => !selectedClasses.has(class_id))

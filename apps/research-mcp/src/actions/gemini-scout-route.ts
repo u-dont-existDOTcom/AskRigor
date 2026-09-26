@@ -30,7 +30,7 @@ const GEMINI_INPUT_TOKEN_NANO_USD = 750;
 const GEMINI_OUTPUT_OR_THOUGHT_TOKEN_NANO_USD = 3_750;
 const GEMINI_SEARCH_QUERY_NANO_USD = 14_000_000;
 
-const automatedScoutInputSchema = z.object({
+export const automatedScoutInputSchema = z.object({
   research_target: z.string().trim().min(1).max(1_000),
   diagnosis_status: z.enum([
     "diagnosis_not_specified",

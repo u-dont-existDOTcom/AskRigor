@@ -50,6 +50,16 @@ import {
   successfulToolResult
 } from "./tool-result.js";
 import {
+  automatedGeminiScoutReceiptSchema,
+  automatedScoutInputSchema,
+  createAutomatedGeminiScoutActionRoute
+} from "./actions/gemini-scout-route.js";
+import {
+  assessTreatmentLandscapeCoverage,
+  treatmentLandscapeCoverageInputSchema,
+  treatmentLandscapeCoverageOutputSchema
+} from "./actions/treatment-landscape-coverage-route.js";
+import {
   auditYoutubeCommunity,
   youtubeCommunityAuditInputSchema,
   youtubeCommunityAuditOutputSchema,
@@ -475,6 +485,11 @@ const DEFAULT_CLINICAL_TRIALS_PAGE_SIZE = 20;
 const MAX_CLINICAL_TRIALS_PAGE_SIZE = 100;
 const PUBMED_EFETCH_LIMITATION =
   "PubMed EFetch returns indexed citation metadata and abstracts when present; full-text availability was not evaluated.";
+// MCP tools that wrap an existing research Action; the Action keeps its own route.
+const ACTION_BACKED_MCP_OPERATION_NAMES = new Set([
+  "assess_treatment_landscape_coverage",
+  "scout_gemini_youtube_candidates"
+]);
 const OPEN_FULL_TEXT_MCP_OPERATION_NAMES = new Set([
   "acquire_open_full_text",
   "continue_open_full_text",
@@ -1179,7 +1194,64 @@ function defineResearchOperations(
       allowedReviewerSubjects: options.allowedReviewerSubjects,
     }),
   );
+
+  registrar.registerTool(
+    "assess_treatment_landscape_coverage",
+    {
+      description:
+        "Check a receipt-linked treatment-discovery ledger before a broad treatment answer: program diversity, " +
+        "selection coverage, and per-video depth. This connector has no transcript tool, so mark each selected " +
+        "video transcript_unavailable; its complete discussion audit then carries depth and creator claims stay unverified.",
+      inputSchema: treatmentLandscapeCoverageInputSchema,
+      outputSchema: treatmentLandscapeCoverageOutputSchema,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async (input) => {
+      const result = assessTreatmentLandscapeCoverage(
+        treatmentLandscapeCoverageInputSchema.parse(input),
+        { transcriptToolAvailable: false }
+      );
+      return successfulToolResult(
+        `Treatment-landscape coverage: synthesis lock ${result.synthesis_lock}; ` +
+          `${result.material_videos_fully_audited} videos fully audited across ` +
+          `${result.materially_distinct_programs_fully_audited} distinct programs; answer boundary ${result.answer_boundary}.`,
+        result as unknown as Record<string, unknown>
+      );
+    }
+  );
+
+  registrar.registerTool(
+    "scout_gemini_youtube_candidates",
+    {
+      description:
+        "Ask Gemini with Google Search for YouTube videos on a de-identified, population-level treatment target, " +
+        "then validate each video's identity. Gemini's summaries are unverified leads, not evidence of what a video says.",
+      inputSchema: automatedScoutInputSchema,
+      outputSchema: automatedGeminiScoutReceiptSchema,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async (input) => {
+      const result = await GEMINI_SCOUT_ROUTE.handle({
+        request: {} as never,
+        clientIp: "mcp",
+        body: input
+      });
+      if (result.status !== 200) {
+        const code = (result.body as { error?: { code?: string } }).error?.code ?? "scout_failed";
+        return {
+          content: [{ type: "text", text: `scout gemini youtube candidates could not complete: ${code}.` }],
+          isError: true
+        };
+      }
+      return successfulToolResult(
+        "Gemini scout completed; candidate summaries are unverified discovery leads.",
+        result.body as Record<string, unknown>
+      );
+    }
+  );
 }
+
+const GEMINI_SCOUT_ROUTE = createAutomatedGeminiScoutActionRoute();
 
 function registerOpenFullTextMcpTools(
   registrar: Pick<McpServer, "registerTool">
@@ -1354,6 +1426,7 @@ function collectResearchOperations(
         annotations,
         actionEnabled:
           !OPEN_FULL_TEXT_MCP_OPERATION_NAMES.has(name) &&
+          !ACTION_BACKED_MCP_OPERATION_NAMES.has(name) &&
           !PRIVATE_MCP_OPERATION_NAMES.has(name) &&
           !RESEARCH_ACCESS_CONTROL_OPERATION_NAMES.has(name),
         execute: guardedExecute,
@@ -1364,8 +1437,8 @@ function collectResearchOperations(
   } as unknown as Pick<McpServer, "registerTool">;
 
   defineResearchOperations(registrar, options);
-  if (operations.length !== 27) {
-    throw new Error(`Expected 27 research operations; received ${operations.length}`);
+  if (operations.length !== 29) {
+    throw new Error(`Expected 29 research operations; received ${operations.length}`);
   }
   if (new Set(operations.map(({ name }) => name)).size !== operations.length) {
     throw new Error("Research operation names must be unique");

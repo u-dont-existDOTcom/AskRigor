@@ -256,7 +256,9 @@ AskRigor has deliberately separate processing paths:
   privacy check, and writes a private GitHub review candidate plus anonymous
   occurrence metadata. It is not an MCP operation and cannot change code,
   protocols, instructions, providers, or releases.
-- **Automated Gemini-candidate path:** a public read-only Action accepts only a
+- **Automated Gemini-candidate path:** a public read-only Action and the
+  `scout_gemini_youtube_candidates` MCP tool (behind the research-access guard)
+  share one implementation and accept only a
   de-identified population-level research target and a diagnosis-status enum.
   Deterministic screening rejects personal narratives, identifiers,
   credentials, raw chat, URLs, and control/injection-like text before any
@@ -675,7 +677,10 @@ pending-proposal stores have their own strict contracts and authority boundaries
   an active free-contributor or paid-private mode. The Action-only transcript,
   treatment-landscape, automated Gemini-candidate, and legacy validation routes
   remain read-only; legacy research Actions are omitted whenever OAuth research
-  access is active so they cannot bypass the mode choice.
+  access is active so they cannot bypass the mode choice. The treatment-landscape
+  assessor and the automated Gemini scout are also MCP tools; on MCP they sit
+  behind the same research-access guard as the other research tools, and the
+  assessor accepts videos without transcripts because MCP has no transcript tool.
 - Strict Zod input/output schemas reject undeclared input fields. Pagination cursors are opaque at the MCP boundary.
 - Internal external-evidence receipts use a server-held secret of at least 32
   UTF-8 bytes and domain-separated HMAC-SHA256; they bind session, study,

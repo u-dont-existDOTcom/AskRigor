@@ -52,7 +52,9 @@ const TOOL_NAMES = [
   "manage_research_access",
   "submit_research_contribution",
   "review_research_contribution",
-  "review_evidence_gap_submissions"
+  "review_evidence_gap_submissions",
+  "assess_treatment_landscape_coverage",
+  "scout_gemini_youtube_candidates"
 ];
 const GEMINI_TOOL_NAMES = TOOL_NAMES.filter((name) =>
   ![
@@ -61,6 +63,8 @@ const GEMINI_TOOL_NAMES = TOOL_NAMES.filter((name) =>
     "search_research_frontiers",
     "manage_research_access",
     "submit_research_contribution",
+    "assess_treatment_landscape_coverage",
+    "scout_gemini_youtube_candidates",
   ].includes(name)
 );
 
@@ -90,7 +94,7 @@ afterEach(async () => {
 });
 
 describe("AskRigor MCP tools", () => {
-  it("registers the exact twenty-seven-tool catalog with three declared writes", async () => {
+  it("registers the exact twenty-nine-tool catalog with three declared writes", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {

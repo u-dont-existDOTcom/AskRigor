@@ -169,7 +169,7 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
     );
 
     expect(manifest.isError).toBe(true);
-    expect(tools).toHaveLength(27);
+    expect(tools).toHaveLength(29);
     expect(review?._meta).toEqual({
       securitySchemes: [{ type: "oauth2", scopes: [CASE_REVIEW_SCOPE] }],
     });
