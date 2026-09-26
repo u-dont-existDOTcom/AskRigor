@@ -9,6 +9,7 @@ import { z } from "zod";
 
 import { decodeCursor, encodeCursor } from "./cursor.js";
 import { fetchJson, fetchText } from "./http.js";
+import { waitForNcbiRequestSlot } from "./ncbi-pacing.js";
 
 const ESEARCH_URL =
   "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi";
@@ -132,6 +133,7 @@ export const searchPubmed = async (
 
     let response: unknown;
     try {
+      await waitForNcbiRequestSlot(parsedConfig.apiKey !== undefined && parsedConfig.apiKey.length > 0);
       response = await fetchJson(url.toString());
     } catch (error) {
       if (error instanceof Error && error.message === "Invalid upstream JSON response") {
@@ -212,6 +214,7 @@ export const fetchPubmedRecord = async (
     url.searchParams.set("id", pmid);
     url.searchParams.set("retmode", "xml");
 
+    await waitForNcbiRequestSlot(parsedConfig.apiKey !== undefined && parsedConfig.apiKey.length > 0);
     const parsedRecord = parsePubmedRecord(await fetchText(url.toString()));
     if (parsedRecord.kind === "not_found") {
       return errorEnvelope({

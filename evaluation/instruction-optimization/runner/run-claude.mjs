@@ -55,7 +55,8 @@ const CHILD_ENV_REMOVE = [
   "ANTHROPIC_API_KEY",
   // Credentials the child does not need (it has no shell or web tools).
   "GH_TOKEN", "GITHUB_TOKEN", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY",
-  "AWS_SESSION_TOKEN", "CLOUDSDK_AUTH_ACCESS_TOKEN", "YOUTUBE_API_KEY", "NCBI_API_KEY"
+  "AWS_SESSION_TOKEN", "CLOUDSDK_AUTH_ACCESS_TOKEN", "YOUTUBE_API_KEY", "NCBI_API_KEY",
+  "GEMINI_API_KEY", "ASKRIGOR_GEMINI_API_KEY"
 ];
 const CHILD_ENV_REMOVE_PREFIXES = ["CLAUDE_CODE_ARTIFACT_", "ASKRIGOR_"];
 
@@ -1193,6 +1194,7 @@ async function main() {
     environment: {
       youtube_api_key_present: Boolean(process.env.YOUTUBE_API_KEY),
       ncbi_api_key_present: Boolean(process.env.NCBI_API_KEY),
+      gemini_api_key_present: Boolean(process.env.ASKRIGOR_GEMINI_API_KEY || process.env.GEMINI_API_KEY),
       ncbi_email_present: Boolean(process.env.NCBI_EMAIL),
       crossref_mailto_present: Boolean(process.env.CROSSREF_MAILTO),
       unpaywall_email_present: Boolean(process.env.ASKRIGOR_UNPAYWALL_EMAIL),
@@ -1227,7 +1229,12 @@ async function main() {
     for (const name of [...SERVER_ENV_BASE, ...SERVER_ENV_NETWORK, ...SERVER_ENV_SECRETS, ...SERVER_ENV_PROVIDER_CONFIG]) {
       if (process.env[name] !== undefined && process.env[name] !== "") serverEnv[name] = process.env[name];
     }
-    for (const name of SERVER_ENV_SECRETS) if (serverEnv[name] !== undefined) secrets.push(serverEnv[name]);
+    // The server reads ASKRIGOR_GEMINI_API_KEY; the environment may name it GEMINI_API_KEY.
+    const geminiKey = process.env.ASKRIGOR_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    if (geminiKey) serverEnv.ASKRIGOR_GEMINI_API_KEY = geminiKey;
+    for (const name of [...SERVER_ENV_SECRETS, "ASKRIGOR_GEMINI_API_KEY"]) {
+      if (serverEnv[name] !== undefined) secrets.push(serverEnv[name]);
+    }
     const proxied = Boolean(serverEnv.HTTPS_PROXY ?? serverEnv.https_proxy);
     if (proxied && serverEnv.NODE_USE_ENV_PROXY === undefined) serverEnv.NODE_USE_ENV_PROXY = "1";
     Object.assign(serverEnv, {
