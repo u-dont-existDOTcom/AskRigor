@@ -49,7 +49,12 @@ import {
 import type { ActionRequestContext, ActionResult, ActionRoute } from "./types.js";
 
 const SEGMENT_CHARACTERS = 10_000;
-const RESPONSE_TEXT_CHARACTERS = 38_000;
+// Page budget in serialized characters: segment text plus each segment's
+// metadata (ids, hashes, section path). Claude clients reject MCP results near
+// 50,000 characters; a text-only 38,000 budget produced 52 KB pages on
+// documents with many short blocks.
+const RESPONSE_PAGE_CHARACTERS = 34_000;
+const SEGMENT_METADATA_CHARACTERS = 200;
 const handleSchema = z.string().regex(/^aft1_[A-Za-z0-9_-]{32}$/u);
 const actionDoiSchema = z.string().trim().max(2_048).regex(
   /^(?:https?:\/\/(?:dx\.)?doi\.org\/)?10\.\d{4,9}\/[!#$%&'*+\-._;()/:a-z0-9]+$/iu
@@ -654,7 +659,9 @@ function pageFrom(
       continue;
     }
     const length = Math.min(SEGMENT_CHARACTERS, remaining);
-    if (blocks.length > 0 && usedCharacters + length > RESPONSE_TEXT_CHARACTERS) break;
+    const cost = length + SEGMENT_METADATA_CHARACTERS +
+      JSON.stringify(block.section_path).length + block.kind.length;
+    if (blocks.length > 0 && usedCharacters + cost > RESPONSE_PAGE_CHARACTERS) break;
     const text = block.text.slice(characterOffset, characterOffset + length);
     const segmentNumber = Math.floor(characterOffset / SEGMENT_CHARACTERS) + 1;
     const segmentCount = Math.ceil(block.text.length / SEGMENT_CHARACTERS);
@@ -668,7 +675,7 @@ function pageFrom(
       text,
       source_block_text_sha256: block.text_sha256
     });
-    usedCharacters += length;
+    usedCharacters += cost;
     retrieved += 1;
     characterOffset += length;
     if (characterOffset >= block.text.length) {

@@ -36,6 +36,45 @@ describe("open-full-text Actions", () => {
     expect(acquire).not.toHaveBeenCalled();
   });
 
+  it("keeps every page of a many-block document within MCP client result limits", async () => {
+    const base = documentIndex("placeholder");
+    const blocks = Array.from({ length: 400 }, (_, index) => {
+      const text = `Results paragraph ${index}: "quoted" values\nwith line breaks. `.repeat(4);
+      const hash = createHash("sha256").update(text, "utf8").digest("hex");
+      return {
+        block_id: `pdf_${String(index + 1).padStart(6, "0")}_${hash.slice(0, 12)}`,
+        kind: "paragraph",
+        section_path: ["Results", `Subgroup analysis ${index % 7}`],
+        page_number: Math.floor(index / 20) + 1,
+        text,
+        text_sha256: hash
+      };
+    });
+    const index = {
+      ...base,
+      section_paths: [...new Set(blocks.map(({ section_path }) => JSON.stringify(section_path)))]
+        .map((path) => JSON.parse(path) as string[]),
+      blocks
+    };
+    const routes = createOpenFullTextActionRoutes({
+      acquire: async () => acquisition(index),
+      unpaywallConfig: { email: "research@example.org" }
+    });
+
+    let page = await action(routes, "acquire_open_full_text", { doi: DOI });
+    const handle = (page.body as { coverage_receipt: { document_handle: string } })
+      .coverage_receipt.document_handle;
+    let pages = 1;
+    for (;;) {
+      expect(page.status).toBe(200);
+      expect(JSON.stringify(page.body).length).toBeLessThanOrEqual(40_000);
+      if ((page.body as { coverage_receipt: { exhausted: boolean } }).coverage_receipt.exhausted) break;
+      page = await action(routes, "continue_open_full_text", { document_handle: handle });
+      pages += 1;
+    }
+    expect(pages).toBeGreaterThan(2);
+  });
+
   it("forces contiguous full-text reading before accepting a method audit", async () => {
     const index = documentIndex("A method-rich source paragraph. ".repeat(1_500));
     const routes = createOpenFullTextActionRoutes({
