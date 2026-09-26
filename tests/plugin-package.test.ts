@@ -114,9 +114,8 @@ describe("AskRigor plugin package", () => {
 
     expect(gate).toContain("Load Universal first:");
     expectFragmentsInOrder(gate, [
-      "`get_protocol_manifest`",
-      "`verify_protocol_integrity`",
-      "every `load_protocol` chunk",
+      "`load_protocol` with `section: \"index\"`",
+      "then core sections and any that apply",
       "Use its activation boundary."
     ]);
     expect(gate).toContain(
@@ -124,7 +123,7 @@ describe("AskRigor plugin package", () => {
     );
     expect(gate).toContain("if unclear, ask");
     expect(gate).toContain(
-      "For HRP repeat the sequence with `protocol: \"hrp\"`."
+      "For HRP repeat the sequence with `protocol: \"hrp\"`, loading each section whose purpose or activation applies before the step that uses it."
     );
   });
 
@@ -137,9 +136,8 @@ describe("AskRigor plugin package", () => {
     );
     expect(gate).toContain("Use one orchestration/approval and applicability ledger.");
     expectFragmentsInOrder(gate, [
-      "`get_protocol_manifest`",
-      "`verify_protocol_integrity`",
-      "every `load_protocol` chunk",
+      "`load_protocol` with `section: \"index\"`",
+      "then core sections and any that apply",
       "Use its activation boundary.",
       "For HRP repeat the sequence",
       "Use one orchestration/approval and applicability ledger.",

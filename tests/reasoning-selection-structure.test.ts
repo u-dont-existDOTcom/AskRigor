@@ -92,13 +92,29 @@ function occurrences(text: string, needle: string): number {
   return text.split(needle).length - 1;
 }
 
+// Universal 20.5.27 changed only protocol loading to the section index;
+// each pair is [20.5.27 text, 20.5.26 text].
+const UNIVERSAL_20_5_27_SECTION_LOADING: ReadonlyArray<readonly [string, string]> = [
+  ["<Protocol name=\"AskRigor.com universal saved instructions\" version=\"20.5.27\" revisionDate=\"2026-09-26\"", "<Protocol name=\"AskRigor.com universal saved instructions\" version=\"20.5.26\" revisionDate=\"2026-09-17\""],
+  ["<revision_history>\n<revision version=\"20.5.27\" priority=\"Critical\">\nProtocol loading is now section-based. Connector tools reject or truncate a tool result the size of a complete protocol file, so a model could not read the protocols at all on some surfaces. Load Universal's core sections and any section that applies; for HRP, load its section index, core sections, and each section whose purpose or activation applies, before the step that uses it. Sections are exact canonical text; remembered summaries still never substitute. No reasoning, safety, or source rule changed.\n</revision>\n<revision version=\"20.5.26\" priority=\"Critical\">", "<revision_history>\n<revision version=\"20.5.26\" priority=\"Critical\">"],
+  ["1. Load HRP through its section index: every core section, then each runtime section whose purpose or activation applies, before the step that uses it. Sections are exact canonical text; a complete user-supplied exact file or another direct authoritative full copy may supply them when the canonical source is unavailable.", "1. Load and inspect the complete saved canonical `HRP_Full.xml`. A complete user-supplied exact file or another direct authoritative full copy may be used when the saved canonical file is unavailable."],
+  ["For the universal instructions themselves, load their core sections and any section that applies for ordinary use.", "For the universal instructions themselves, load the complete saved canonical `Universal_Instructions.xml` for ordinary use."],
+  ["1. Verify the protocol title, version, and revision or internal identifier from the loaded canonical text or its manifest.", "1. Verify the protocol title, version, and revision or internal identifier from inside the loaded complete copy."],
+  ["4. Before answering, audit the completed work against the ledger and the loaded canonical sections.", "4. Before answering, audit the completed work against the ledger and the operative full text."],
+  ["If a required protocol section cannot be loaded or an applicable mandatory item remains incomplete,", "If a required complete protocol cannot be loaded or an applicable mandatory item remains incomplete,"],
+  ["6. Higher reasoning mode does not substitute for loading the required protocol sections, internal version verification,", "6. Higher reasoning mode does not substitute for loading the complete protocol, internal version verification,"],
+  ["Replace every version placeholder with the verified version of the operative HRP actually used.", "Replace every version placeholder with the version verified inside the complete operative HRP actually used."],
+  ["2. Load Universal's core sections and any section that applies; for a health or research task that triggers HRP, also load HRP's section index, core sections, and every section that applies before substantive analysis.", "2. Load the complete saved canonical `Universal_Instructions.xml`; for a health or research task that triggers HRP, also load the complete saved canonical `HRP_Full.xml` before substantive analysis."],
+  ["6. If a required protocol section cannot be retrieved, state that clearly,", "6. If a required complete protocol cannot be retrieved, state that clearly,"],
+];
+
 describe("canonical Reasoning Selection application", () => {
   it("adds the exact Critical selector and revision without reserializing Universal", async () => {
     const universal = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
 
     expect(XMLValidator.validate(universal)).toBe(true);
     expect(universal).toMatch(
-      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.26" revisionDate="2026-09-17"/u,
+      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.27" revisionDate="2026-09-26"/u,
     );
     expect(Buffer.byteLength(REASONING_SELECTION_TEXT, "utf8")).toBe(2884);
     expect(sha256(REASONING_SELECTION_TEXT)).toBe(
@@ -126,7 +142,18 @@ describe("canonical Reasoning Selection application", () => {
       expect(occurrences(CURRENT_REASONING_SELECTION_TEXT, `- ${method}:`), method).toBe(1);
     }
 
-    const priorRecommendationUniversal = universal
+    const priorSectionLoadingUniversal = UNIVERSAL_20_5_27_SECTION_LOADING.reduce(
+      (text, [current, prior]) => {
+        expect(occurrences(text, current), current.slice(0, 60)).toBe(1);
+        return text.replace(current, prior);
+      },
+      universal,
+    );
+    expect(sha256(priorSectionLoadingUniversal)).toBe(
+      "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2",
+    );
+
+    const priorRecommendationUniversal = priorSectionLoadingUniversal
       .replace('version="20.5.26" revisionDate="2026-09-17"', 'version="20.5.25" revisionDate="2026-09-14"')
       .replace("Important-Task Optimization, Recommendation-Preflight Integrity, Approval", "Important-Task Optimization, Approval")
       .replace(/<revision version="20\.5\.26" priority="Critical">[\s\S]*?<\/revision>\n/u, "")
@@ -228,7 +255,7 @@ describe("canonical Reasoning Selection application", () => {
     ]);
 
     expect(sha256(hrp)).toBe(
-      "254759df38934c28b06709dace9fcb266fc9967913be1296de99a461be596816",
+      "c7e4835777477063c435c4290a27c51ba420cccdace3a316f8a017f772f821fa",
     );
     expect(sha256(forum)).toBe(
       "75c088ba0edeb821d3d664d2f0b48b33f7dd3e627c01dfe830053d6dac2aed13",

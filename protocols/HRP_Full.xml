@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.5.29" revisionDate="2026-09-12" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.5.30" revisionDate="2026-09-26" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -51,6 +51,15 @@
 </InstructionObligationLifecycle>
 
  <RevisionHistory>
+  <Revision version="20.5.30" priority="Critical">
+   Protocol loading is now section-based. Connector tools reject or truncate a tool result the size of the complete file,
+   so a model could not read HRP at all on some surfaces. Load the section index, every core section, and each runtime
+   section whose purpose or activation applies, before the step that uses it. Sections are exact canonical text; the
+   anti-substitution rule is unchanged. Revision history, version and release process, and stress tests are maintainer
+   material and need not be loaded. Removed a stray character in the treatment-landscape gate. No research method,
+   safety, or source rule changed.
+  </Revision>
+
   <Revision version="20.5.29" priority="Critical">
    Added explicit obligation boundaries to the existing protocol ledger so required research, qualifications, citations, and completion labels are verified at their actual action or delivery surface. Existing modules and safety/source gates remain unchanged.
   </Revision>
@@ -1396,7 +1405,7 @@
    all counts from valid records and exclude invalid records from aggregates. Hard-block decision-relevant or uncertain
    omissions. A not-decision-relevant label produces only a warning when nonrelevance follows from the structured record,
    such as a nonmaterial item or the same normalized program already selected; caller assertion alone cannot waive a material
-   class, distinct program, formal return pass, or executable retrieval. A
+   class, distinct program, formal return pass, or executable retrieval.
    When a broad substantial valid ledger contains at least eight material candidate videos across at least six available
    distinct programs, selection_coverage_lock also blocks unless at least eight material videos across at least six such
    programs have completed both selected-video depth requirements. A caller's optimistic aggregate, corpus-size or scope label, renamed ID, or unsupported relevance label cannot turn
@@ -1517,17 +1526,18 @@
 
   <Rule name="AuthoritativeProtocolLoad" priority="Critical">
    When the user explicitly invokes HRP, references the canonical HRP source, or requests an in-depth task governed by HRP,
-   load and inspect the complete operative full protocol before substantive research begins.
+   load the operative protocol before substantive research begins: its section index, every core section, and each runtime
+   section whose purpose or activation applies to the question, each before the step that uses it.
 
-   Acceptable operative forms are: a complete saved canonical HRP copy, a user-supplied exact file, the current raw canonical
-   source, or another direct authoritative full copy. A current website fetch is not required when a complete saved canonical
-   copy is available and its version and revision can be verified from inside the full text.
+   Sections are exact canonical text. They may come from the canonical protocol tool, a complete saved canonical HRP copy, a
+   user-supplied exact file, the current raw canonical source, or another direct authoritative full copy. A current website
+   fetch is not required when the canonical version and revision can be verified. Sections the index marks as maintainer
+   material (revision history, version and release process, stress tests) need not be loaded.
 
-   Except for immediate safety triage, do not begin or present substantive work as full HRP analysis until this load succeeds.
-   Do not rely on remembered themes, a condensed memory or instruction, a prior answer, a filename or version label, a partial
-   excerpt, a search snippet, a rendered summary, or generic knowledge of HRP as a substitute for the operative full text.
-   A complete saved canonical protocol copy is distinct from a condensed memory summary and is valid when its full contents
-   can be inspected.
+   Except for immediate safety triage, do not begin or present substantive work as full HRP analysis until the required
+   sections are loaded. Do not rely on remembered themes, a condensed memory or instruction, a prior answer, a filename or
+   version label, a search snippet, a rendered summary, or generic knowledge of HRP as a substitute for the canonical text of
+   a required section.
   </Rule>
 
   <Rule name="CanonicalSourceVerificationAttestation" priority="Critical">
@@ -1537,7 +1547,7 @@
    operative-copy location or identifier;
    source form: saved canonical full copy, user-supplied exact file, current raw canonical source, or other direct authoritative copy;
    version and revision found inside the full copy;
-   whether the complete text was loaded and parsed;
+   which sections were loaded, by name;
    whether any source-state conflict remains unresolved;
    whether loading occurred before substantive analysis;
    whether an update check was requested or materially indicated and, if performed, its result.
@@ -1615,8 +1625,8 @@
   <Rule name="CondensedIsNotFullProtocol" priority="Critical">
    A condensed saved instruction or memory summary may guide ordinary answers but is not equivalent to the full HRP. It cannot
    support a claim that full HRP was applied to an in-depth, contested, quantitative-risk, comparative-treatment, or
-   forum-sensitive task. A complete saved canonical copy whose full text can be inspected is equivalent to other acceptable
-   authoritative full-copy forms for execution purposes.
+   forum-sensitive task. Canonical sections loaded through the section index are exact protocol text and satisfy execution for
+   the sections the task requires.
   </Rule>
 
   <Rule name="ApplicableModuleLedger" priority="Critical">
@@ -1829,7 +1839,7 @@
    otherwise materially required.
 
    Optional protocol-update retrieval is not a research-source access failure. Do not surface optional update diagnostics in
-   routine answers when the operative complete protocol was loaded successfully.</Rule>
+   routine answers when the required protocol sections were loaded successfully.</Rule>
 
   <Rule name="IncompleteModuleContinuationHandoff" priority="Critical">
    When any mandatory-triggered module remains incomplete, inaccessible, provisionally resolved, or completed-with-access-boundary
@@ -7960,14 +7970,14 @@ Final integrated synthesis rule:
   <Check id="FS33">For an excretion-blockade mechanism, did I perform a quantitative mass-balance audit before inferring retention or toxicity?</Check>
   <Check id="FS34">Did I contextualize the risk with absolute risk when available, the exposure unit and time horizon, like-for-like alternatives, and the risk of doing nothing without cherry-picking comparators?</Check>
   <Check id="FS35">For a forum-signal audit, did I compare unique firsthand claimed-effect, opposite-effect, no-effect, adverse-effect, and discontinuation reports; separate objective outcomes from subjective impressions and actual experiences from questions, recommendations, speculation, proxy summaries, reposts, and duplicates; classify only the sampled signal; state search limits; and avoid inferring population incidence?</Check>
-  <Check id="FS36">Did I load and internally verify a complete operative full HRP copy—including a saved canonical full copy when available—rather than rely only on a remembered or condensed version?</Check>
+  <Check id="FS36">Did I load the HRP section index, every core section, and every section my question required, rather than rely only on a remembered or condensed version?</Check>
   <Check id="FS37">Did I create and complete the applicable-module ledger?</Check>
   <Check id="FS38">Did I affirmatively decide whether ForumSignalDefaultTrigger applies rather than treating forums as optional by default?</Check>
   <Check id="FS39">If forum signal was triggered, did I perform an actual current search rather than infer the result from memory, reputation, one anecdote, or a proxy summary?</Check>
   <Check id="FS40">If feasible, did I search multiple independent communities and actively seek opposite, no-effect, adverse, and discontinuation reports?</Check>
   <Check id="FS41">If any applicable Critical module remains incomplete after every authorized access-boundary path, did I identify the incomplete work and its limitation; and did I avoid treating a properly recorded claim-local inaccessible-source boundary as though all unrelated research were incomplete?</Check>
   <Check id="FS42">Did I use the completed-HRP opening only after the completion gate passed, with the exact version used and the informational update location?</Check>
-  <Check id="FS43">Before substantive analysis, did I inspect the complete operative full protocol rather than rely on a condensed memory, prior answer, filename, version label, snippet, or rendered summary?</Check>
+  <Check id="FS43">Before substantive analysis, did I inspect the canonical text of every required section rather than rely on a condensed memory, prior answer, filename, version label, snippet, or rendered summary?</Check>
   <Check id="FS44">Did I verify the protocol name, version, and revision from inside the operative full copy and record its form, completeness, and loading time in the ledger?</Check>
   <Check id="FS45">If live source state or a source-version conflict was materially at issue, did I inspect the current raw canonical source or supplied exact file rather than assert live state from a cached or indirect rendering?</Check>
   <Check id="FS46">Did I execute the operative rules and triggered modules rather than merely load or summarize the protocol?</Check>
