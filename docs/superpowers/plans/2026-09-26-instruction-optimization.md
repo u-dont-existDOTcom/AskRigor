@@ -82,6 +82,21 @@ Claude Opus 5.5 (owner, 2026-09-26).
 | 5 Serve the protocol by step | Planned | Keep canonical files and hashes |
 | 6 Final comparison, cross-family check (GPT-6 Pro), PRs, owner-approved deploy | Planned | Release lane |
 
+## Pilot run 1 (2026-09-26, not a clean baseline)
+
+`main`, Claude Opus 5.5 at max effort, Claude Code tool surface (file-reading
+and sub-agent tools available), question `dev-hip-avoid-replacement`, no
+YouTube key: 21.6 minutes, 80 tool calls, about 12.4M tokens processed (11.7M
+cached reads, 0.53M cache writes, 96K output), API-equivalent estimate $9.71
+(actual spend $0 on the plan). `load_protocol` failed on size; the model read
+about 780,000 characters of the saved results from disk with `Read`, which
+drives most of the token cost. Four full-text chains were read to the end and
+validated; the YouTube survey was inaccessible; PubMed and Crossref calls
+failed intermittently; the local server process then crashed on an unhandled
+socket `ECONNRESET` (the runner uses the production server factory, so this
+may affect production). The answer was labelled partial. Later baseline runs
+use the Claude app tool surface and need the YouTube key.
+
 ## Time and cost estimate (to be replaced by pilot measurements)
 
 - Phase 0 used about 4.1M subagent tokens on the Claude plan, about 40 minutes
