@@ -12,7 +12,7 @@ const protocol = readFileSync(
 describe("Universal claim-scope / predicate-alignment gate", () => {
   it("preserves the 20.5.25 unified gate under Universal 20.5.26", () => {
     expect(XMLValidator.validate(protocol)).toBe(true);
-    expect(protocol).toContain('version="20.5.27" revisionDate="2026-09-26"');
+    expect(protocol).toContain('version="20.5.28" revisionDate="2026-09-26"');
     expect(protocol.match(/<claim_scope_predicate_alignment_gate\b/gu)).toHaveLength(1);
     expect(protocol).not.toContain("<claim_scope_contradiction_gate");
     expect(protocol).not.toContain("<predicate_alignment_before_correction_gate");

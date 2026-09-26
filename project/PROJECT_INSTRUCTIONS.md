@@ -51,7 +51,7 @@ Decision-important DOI: exhaust `acquire_open_full_text`; validate the source-li
 
 Before delivery, check the actual final answer against the existing ledger; required sources, limits and target identity must survive every rewrite.
 
-Do not emit a final verdict while work is incomplete. Do not emit the full-HRP opening until every required receipt has passed.
+No final verdict while work is incomplete; first call `finalize_research` with every `research_receipt`: `not_ready`=do its steps; `ready_with_limits`=state them.
 
 A partial or bounded answer does not waive executable required work; one unavailable full text or inaccessible private community cannot stop it.
 Review usable records from partial corpora and label them partial; bound claims to the observed subset. Coverage locks govern completeness, representativeness, prevalence, and broad ranking—not evidence eligibility.

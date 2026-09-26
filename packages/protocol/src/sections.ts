@@ -8,23 +8,27 @@ export const PROTOCOL_PAGE_MAX_BYTES = 40_000;
 const SUMMARY_MAX_CHARACTERS = 240;
 
 /**
- * Sections kept in the canonical files for maintainers and tests but not
- * needed by a model doing research: revision history, release and version
- * process, and regression cases that restate rules found elsewhere.
+ * Sections kept in the canonical files but not needed by a model doing
+ * ordinary research (index `runtime: false`): maintainer material (revision
+ * history, release and version process, regression cases that restate rules
+ * found elsewhere) and HRP's audit-record forms, which its own Purpose says to
+ * load only for a technical audit or debug export.
  */
-const MAINTAINER_SECTIONS: Record<ProtocolName, ReadonlySet<string>> = {
+const NON_RUNTIME_SECTIONS: Record<ProtocolName, ReadonlySet<string>> = {
   hrp: new Set([
     "RevisionHistory",
     "VersionDiscipline",
     "ReleasePackagingRequirements",
-    "StressTestExpectations"
+    "StressTestExpectations",
+    "ResearchAuditTemplates"
   ]),
   universal: new Set(["revision_history"])
 };
 
 /**
- * Sections every research run loads first. HRP's Architecture section maps the
- * remaining modules and says to activate only the ones the question needs.
+ * Sections every research run loads first. The section index maps the
+ * remaining modules; HRP's Architecture section says to load and apply only
+ * the ones the question needs.
  */
 const CORE_SECTIONS: Record<ProtocolName, readonly string[]> = {
   hrp: [
@@ -85,7 +89,7 @@ export function protocolSections(
 ): ProtocolSection[] {
   const bytes = Buffer.from(text, "utf8");
   const core = new Set(CORE_SECTIONS[protocolName]);
-  const maintainer = MAINTAINER_SECTIONS[protocolName];
+  const nonRuntime = NON_RUNTIME_SECTIONS[protocolName];
 
   return topLevelSpans(text).map((span, ordinal) => {
     const byteStart = Buffer.byteLength(text.slice(0, span.start), "utf8");
@@ -100,7 +104,7 @@ export function protocolSections(
       pages: pageBoundaries(sectionBytes).length - 1,
       sha256: sha256(sectionBytes),
       core: core.has(span.name),
-      runtime: !maintainer.has(span.name),
+      runtime: !nonRuntime.has(span.name),
       summary: sectionSummary(text.slice(span.start, span.end))
     };
   });

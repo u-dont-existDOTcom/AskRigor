@@ -92,6 +92,16 @@ function occurrences(text: string, needle: string): number {
   return text.split(needle).length - 1;
 }
 
+// Universal 20.5.28 added the finalize_research completion check and deferred
+// the opening to HRP's rules; each pair is [20.5.28 text, 20.5.27 text].
+const UNIVERSAL_20_5_28_FINALIZE: ReadonlyArray<readonly [string, string]> = [
+  ["<Protocol name=\"AskRigor.com universal saved instructions\" version=\"20.5.28\" revisionDate=\"2026-09-26\"", "<Protocol name=\"AskRigor.com universal saved instructions\" version=\"20.5.27\" revisionDate=\"2026-09-26\""],
+  ["<revision_history>\n<revision version=\"20.5.28\" priority=\"Critical\">\nOn AskRigor connector runs the server now checks research completion: research tools return signed receipts, and finalize_research verifies them before the final answer. The completion audit includes that call. HRP 20.6.0 removed its fixed opening, so a completed HRP analysis follows HRP's own opening and version-line rules. No reasoning, safety, or source rule changed.\n</revision>\n<revision version=\"20.5.27\" priority=\"Critical\">", "<revision_history>\n<revision version=\"20.5.27\" priority=\"Critical\">"],
+  ["4. Before answering, audit the completed work against the ledger and the loaded canonical sections; on AskRigor connector runs this includes calling `finalize_research` with every `research_receipt` the tools returned.", "4. Before answering, audit the completed work against the ledger and the loaded canonical sections."],
+  ["For a completed HRP analysis, follow the operative HRP's opening and version-line rules; do not preserve an older opening from Universal when HRP has changed it.", "For a completed HRP analysis, use the exact opening required by the operative HRP; do not preserve an older opening from Universal when HRP has changed it."],
+  ["9. Do not claim AskRigor compliance unless every applicable protocol was actually loaded and followed.\n10. On AskRigor connector runs, call `finalize_research` before the final answer with every `research_receipt` the tools returned; on `not_ready` do its next steps, and on `ready_with_limits` state its limits.", "9. Do not claim AskRigor compliance unless every applicable protocol was actually loaded and followed."],
+];
+
 // Universal 20.5.27 changed only protocol loading to the section index;
 // each pair is [20.5.27 text, 20.5.26 text].
 const UNIVERSAL_20_5_27_SECTION_LOADING: ReadonlyArray<readonly [string, string]> = [
@@ -114,7 +124,7 @@ describe("canonical Reasoning Selection application", () => {
 
     expect(XMLValidator.validate(universal)).toBe(true);
     expect(universal).toMatch(
-      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.27" revisionDate="2026-09-26"/u,
+      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.28" revisionDate="2026-09-26"/u,
     );
     expect(Buffer.byteLength(REASONING_SELECTION_TEXT, "utf8")).toBe(2884);
     expect(sha256(REASONING_SELECTION_TEXT)).toBe(
@@ -142,12 +152,19 @@ describe("canonical Reasoning Selection application", () => {
       expect(occurrences(CURRENT_REASONING_SELECTION_TEXT, `- ${method}:`), method).toBe(1);
     }
 
-    const priorSectionLoadingUniversal = UNIVERSAL_20_5_27_SECTION_LOADING.reduce(
+    const universal20527 = UNIVERSAL_20_5_28_FINALIZE.reduce(
       (text, [current, prior]) => {
         expect(occurrences(text, current), current.slice(0, 60)).toBe(1);
         return text.replace(current, prior);
       },
       universal,
+    );
+    const priorSectionLoadingUniversal = UNIVERSAL_20_5_27_SECTION_LOADING.reduce(
+      (text, [current, prior]) => {
+        expect(occurrences(text, current), current.slice(0, 60)).toBe(1);
+        return text.replace(current, prior);
+      },
+      universal20527,
     );
     expect(sha256(priorSectionLoadingUniversal)).toBe(
       "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2",
@@ -232,18 +249,24 @@ describe("canonical Reasoning Selection application", () => {
       "d5a4b02bc53fda30bbb586d2ec34233f19bb981d38427f6311f453b84209ba5a",
     );
     expect(project).toContain(`\n${CURRENT_PROJECT_APPLICATION}## 1. Run before HRP/research`);
-    expect(Buffer.byteLength(project, "utf8")).toBe(7976);
-    expect(Array.from(project)).toHaveLength(7960);
-    expect(project.split(/\s+/u).filter(Boolean)).toHaveLength(921);
+    expect(Buffer.byteLength(project, "utf8")).toBe(8011);
+    expect(Array.from(project)).toHaveLength(7995);
+    expect(project.split(/\s+/u).filter(Boolean)).toHaveLength(917);
     expect(sha256(project)).toBe(
-      "190ed7cf9fbe2931d3ee70ae88256473c7cb097bac3a4ebea6713d14f4d48a9d",
+      "33d85f488493e6ef75259b24bf92329286ee2b09a33089170fb7be65d5ba06fe",
     );
+    // 2026-09-26: the synthesis gate points to finalize_research.
+    const priorFinalizeRule = project.replace(
+      "No final verdict while work is incomplete; first call `finalize_research` with every `research_receipt`: `not_ready`=do its steps; `ready_with_limits`=state them.",
+      "Do not emit a final verdict while work is incomplete. Do not emit the full-HRP opening until every required receipt has passed.",
+    );
+    expect(priorFinalizeRule).not.toBe(project);
     // 2026-09-26: connectors without a transcript tool label creator claims unverified.
-    const priorTranscriptRule = project.replace(
+    const priorTranscriptRule = priorFinalizeRule.replace(
       "record `transcript_tool_unavailable`, label creator claims unverified, and never call an undeclared tool.",
       "record `transcript_tool_unavailable`, withhold creator claims/watchlist, and never call an undeclared tool.",
     );
-    expect(priorTranscriptRule).not.toBe(project);
+    expect(priorTranscriptRule).not.toBe(priorFinalizeRule);
     expect(sha256(priorTranscriptRule.replace(CURRENT_PROJECT_APPLICATION, PROJECT_APPLICATION))).toBe(
       "0a6085528b6f4412198d0e9a3b225a1069a40e8f494b47cbd652b69fb07a4ca8",
     );
@@ -261,7 +284,7 @@ describe("canonical Reasoning Selection application", () => {
     ]);
 
     expect(sha256(hrp)).toBe(
-      "0d6acb90002fb00aef24ee265323f22bcdc013028a56a4c4adededcd8fbb3f49",
+      "bb8bb68d009dce0fa7c20449a65a51ae165f5f6f82e81526def34cfaaee69866",
     );
     expect(sha256(forum)).toBe(
       "5fa8374564ebc37d46a4980c7090a1af6dd8d01cd9f224f52a4cf032e02f5701",

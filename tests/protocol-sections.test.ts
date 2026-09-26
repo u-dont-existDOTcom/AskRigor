@@ -46,7 +46,7 @@ describe("protocol sections", () => {
     }
   });
 
-  it("marks maintainer material as not needed at runtime", async () => {
+  it("marks maintainer material and audit-record forms as not needed at runtime", async () => {
     const hrp = await loadProtocolSectionSnapshot("hrp");
     const universal = await loadProtocolSectionSnapshot("universal");
 
@@ -54,8 +54,11 @@ describe("protocol sections", () => {
       "RevisionHistory",
       "VersionDiscipline",
       "ReleasePackagingRequirements",
+      "ResearchAuditTemplates",
       "StressTestExpectations"
     ]);
+    expect(hrp.sections.find(({ name }) => name === "ResearchAuditTemplates")?.summary)
+      .toMatch(/^Reference forms for the full audit record\. Load only for a technical audit or debug export/u);
     expect(universal.sections.filter((section) => !section.runtime).map(({ name }) => name)).toEqual([
       "revision_history"
     ]);

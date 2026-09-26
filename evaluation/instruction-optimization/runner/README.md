@@ -112,7 +112,11 @@ Known secret values (continuation secret, provider keys) are replaced with
   handled. Pilot run 1 lost its server to one (`read ECONNRESET`, no
   application frame in the stack); the runner's server bootstrap now logs each
   one to `server.log` with its local and remote address and whether it was a
-  server-side socket, and keeps serving.
+  server-side socket, and keeps serving. In the first instrumented run (three
+  events) every socket was outbound (`server_side=false`) and had already lost
+  its addresses, which fits the sandbox's HTTPS proxy tunnel
+  (`NODE_USE_ENV_PROXY=1`); the production deployment configures no outbound
+  proxy, so this is treated as a harness issue, not a production crash.
 
 ## Notes
 

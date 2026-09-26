@@ -19,9 +19,9 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "0d6acb90002fb00aef24ee265323f22bcdc013028a56a4c4adededcd8fbb3f49";
+  "bb8bb68d009dce0fa7c20449a65a51ae165f5f6f82e81526def34cfaaee69866";
 const UNIVERSAL_SHA_256 =
-  "f7436c887bac37d78d79a1d096cdf6a3433a41fc2292789e118b521663f9c960";
+  "6d7584c3b25104e70e80caf126a0a1bcb662bde2eb95a9976f90673263060d0c";
 
 describe("canonical protocol loader", () => {
   let actualReadFile: typeof import("node:fs/promises").readFile;
@@ -37,7 +37,7 @@ describe("canonical protocol loader", () => {
   it("derives the HRP manifest from its root attributes", async () => {
     await expect(getProtocolManifest("hrp")).resolves.toMatchObject({
       name: "HRP",
-      version: "20.5.30",
+      version: "20.6.0",
       revisionDate: "2026-09-26"
     });
   });
@@ -254,7 +254,7 @@ describe("canonical protocol loader", () => {
     };
 
     expect(text).toMatch(
-      /<Protocol name="HRP" version="20\.5\.30" revisionDate="2026-09-26"/
+      /<Protocol name="HRP" version="20\.6\.0" revisionDate="2026-09-26"/
     );
     for (const required of [
       '<Revision version="20.5.19" priority="Critical">',
@@ -387,7 +387,7 @@ describe("canonical protocol loader", () => {
       "Unpaywall",
       'name="ClaimLocalStatusUntilMaterialGapResolved"',
       "possibly useful research lead",
-      "Do not impose a global `Partial HRP` label",
+      "Do not mark the whole answer partial solely because one lawful full text cannot be obtained",
       'Case id="RandomizedPeerReviewedStudyUsedAsScienceShortcut"'
     ]) {
       expect(text).toContain(required);
@@ -419,7 +419,7 @@ describe("canonical protocol loader", () => {
   it("derives the Universal manifest from its root attributes", async () => {
     await expect(getProtocolManifest("universal")).resolves.toMatchObject({
       name: "AskRigor.com universal saved instructions",
-      version: "20.5.27",
+      version: "20.5.28",
       revisionDate: "2026-09-26"
     });
   });

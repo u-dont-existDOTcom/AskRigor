@@ -111,7 +111,7 @@ Development-fitted evidence is not confirmation; missing access is neither negat
     expect(instructions).toContain(
       "`HRP-complete` requires per-program formal retrieval and passed receipts."
     );
-    expect(instructions).toContain("Do not emit the full-HRP opening until every required receipt has passed.");
+    expect(instructions).toContain("No final verdict while work is incomplete; first call `finalize_research` with every `research_receipt`");
     expect(instructions).toContain("or `incomplete` directional/bidirectional field");
     expect(instructions).toContain("`youtube_synthesis_lock: pass`");
     expect(instructions).toContain("selected discussion audits' `synthesis_lock: pass`");
@@ -131,8 +131,8 @@ Development-fitted evidence is not confirmation; missing access is neither negat
     expect(instructions).toContain("Finding an excellent RCT does not satisfy or deselect FORUM_SIGNAL");
     expect(instructions).toContain("`survey_youtube_community`");
     expect(instructions).toContain("`audit_youtube_video_community`");
-    expect(instructions).toContain("Do not emit a final verdict");
-    expect(instructions).toContain("Do not emit the full-HRP opening");
+    expect(instructions).toContain("No final verdict while work is incomplete");
+    expect(instructions).toContain("`ready_with_limits`=state them.");
     expect(instructions).toContain("synthesis_lock: pass");
   });
 
