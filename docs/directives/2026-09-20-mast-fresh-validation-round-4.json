@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "directiveId": "askrigor-mast-fresh-validation-round-4-20260920",
+  "studyId": "askrigor-mast-fresh-validation-round-4-20260919",
+  "authority": "OWNER_CURRENT_CHAT_AND_ATTACHED_DIRECTIVE",
+  "source": {
+    "repositoryMirror": "docs/directives/2026-09-20-mast-fresh-validation-round-4.md",
+    "sha256": "8add457e8ff07131e8c8141889ae30ae8af01392567a8fe98da76854f0a89c6a",
+    "utf8Bytes": 9948
+  },
+  "ownerRequest": "Execute MAST Fresh Validation Round 4 with the corrected normal-path durability boundary. Preserve Rounds 2 and 3 as immutable historical process evidence and do not submit prompts under either identity.",
+  "round2HistoricalBoundary": {
+    "status": "INDETERMINATE",
+    "sealed": 1,
+    "planned": 144,
+    "furtherPromptsAuthorized": false,
+    "dispositionSha256": "594bb0d255ac3dcd1fd555a6397f50470451d80ad1a47e8dac090f5b7c3211bc",
+    "newlyExposedFamilies": ["ID003", "GI007"]
+  },
+  "round4": {
+    "classification": "VALIDATION_NOT_CONFIRMATION",
+    "validationFamilies": [
+      "All006", "Card002", "Derm006", "Endo007", "GI002", "Heme002",
+      "Nephro003", "Nephro009", "Neuro003", "Pulm001"
+    ],
+    "limitedReserveNotConfirmatory": ["All008"],
+    "generationCount": 120,
+    "generationModel": "GPT-5.6 Sol",
+    "generationReasoning": "Extra High",
+    "implementationModel": "GPT-5.6 Sol",
+    "implementationReasoning": "Medium",
+    "dedicatedProfile": "/home/cloudbrowser/.config/brave-mast-round3",
+    "cdpEndpoint": "http://127.0.0.1:9224",
+    "postSendAutomaticResendAllowed": false,
+    "response1BeforeDurabilityAcceptanceAllowed": false,
+    "normalPathSyntheticAcceptanceRequired": true,
+    "deliberatePostSendRestartAcceptanceRequired": false
+  }
+}

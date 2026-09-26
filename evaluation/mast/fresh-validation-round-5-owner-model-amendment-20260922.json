@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "studyId": "askrigor-mast-fresh-validation-round-5-20260920",
+  "amendmentId": "ROUND5-OWNER-LATEST-MODEL-20260922",
+  "status": "OWNER_AUTHORIZED_ACTIVE",
+  "authority": "explicit current owner correction",
+  "effectiveGenerationSequence": 27,
+  "legacyGenerationSequences": {
+    "first": 1,
+    "last": 26,
+    "modelVisibleLabel": "GPT-5.6 Sol",
+    "reasoningVisibleLabel": "Extra High"
+  },
+  "amendedGenerationSelection": {
+    "modelSelectionPolicy": "TOP_VISIBLE_SELECTABLE_MODEL",
+    "modelSelectorIndex": 0,
+    "reasoningSelectionPolicy": "MAXIMUM_AVAILABLE",
+    "visibleLabelIsRecordedNotHardcoded": true
+  },
+  "unchangedScientificInputs": [
+    "generation prompt bytes",
+    "family cohort",
+    "arm construction",
+    "trial order",
+    "benchmark source",
+    "decision rule",
+    "no-tool requirement",
+    "no-resend rule"
+  ],
+  "interpretationBoundary": "The final Round-5 result is owner-amended and mixed-model across the generation boundary. Sequences 1-26 preserve legacy GPT-5.6 generation provenance; sequence 27 onward and all future J1/J2/J3 judgment calls use the owner-amended top-model/max-reasoning policy. It must not be represented as a homogeneous GPT-5.6 generation run.",
+  "baseFreeze": {
+    "askRigorCommit": "931a0cab893b7532c7a78356fc4dfeffc4ca7017",
+    "askRigorTree": "4c558dfaeee18b2138b2a0b8a41c9c13527b172d",
+    "mastCommit": "57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee",
+    "mastTree": "f73e1cb717d3e76353b190abc13739d7f3476798"
+  },
+  "basePreregistrationSha256": "cb444a54dae01865b866d4e57279c55c1c8b14a8689b2d9d0bf66118f07f1f0c",
+  "baseEnvironmentSha256": "343a1724ded3aabd32d7adf36dc5a5b3d2a913e5c34a438705af163de6e17bef",
+  "baseFamilyManifestSha256": "b1fc5a4fc6edf9dc352682680d894d1a02a9a3ad6bde5a50b6d3488d70804dbf",
+  "executableHashOverrides": {
+    "evaluation/mast/src/fresh-validation-round-5.ts": "e60a38466bab3de4c706f4ad2d7872719dd1eed77c729ba0ea46f141139e6b94",
+    "evaluation/mast/src/chatgpt-browser-transport-round-5.ts": "6ad07cd1c3537463292602f8ec742e9abd78161eae0075aa9b124c10d24583fa",
+    "evaluation/mast/src/durable-vps-round-5.ts": "3a9975eb8715dcaad62346d430496b45b2d38fe5fee21443acaff07497a6c71c",
+    "scripts/mast-fresh-validation-round-5.mts": "753e1f3aeadd2bd919376504f2e0aa190fc6df08038d014ed566dd2b37e8d77a",
+    "scripts/mast-vps-cdp-generation-round-5.mjs": "c8546f5d2e7ccd7ca477eca72bbbb2de69cd51bb3db74f04bc2c8d6acee150b8",
+    "scripts/mast-vps-round5-orchestrator.mts": "a8d7b61de9b2edb8b74d984920af1f70ebe84413372cb61ffaf6393b4f49e178",
+    "tests/mast-fresh-validation-round-5.test.ts": "447a4005541df0cd02f59d79d87f1dd9a6edaf19437c6d8ae7e7fd99764f6186",
+    "tests/mast-round-5-durable-vps.test.ts": "953151a0551175489300ff36c73f31b183d4dd6780736bfcad859d4825ff062a"
+  },
+  "ownerWordsSummary": "Use the latest/current top item in the model selector rather than GPT-5.6; prefer selector position over literal model naming.",
+  "recordedAt": "2026-09-22T19:33:00Z",
+  "amendedJudgmentSelection": {
+    "appliesTo": [
+      "J1",
+      "J2",
+      "J3"
+    ],
+    "modelSelectionPolicy": "TOP_VISIBLE_SELECTABLE_MODEL",
+    "modelSelectorIndex": 0,
+    "reasoningSelectionPolicy": "MAXIMUM_AVAILABLE",
+    "effectiveBeforeFirstJudgment": true
+  }
+}

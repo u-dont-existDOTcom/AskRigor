@@ -1,0 +1,18 @@
+[Unit]
+Description=AskRigor MAST Round 3 CDP health watchdog
+After=askrigor-mast-round3-brave.service
+Requires=askrigor-mast-round3-brave.service
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/lib/askrigor-mast-round3/cdp-watchdog.sh
+Restart=always
+RestartSec=3s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target

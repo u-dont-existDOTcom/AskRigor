@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "studyId": "askrigor-mast-fresh-validation-round-3-20260919",
+  "name": "MAST Fresh Validation Round 3",
+  "classification": "VALIDATION_NOT_CONFIRMATION",
+  "sourceDirectiveSha256": "16c302bc3b0646f6b86597ba53191dd1d5c37a3c98a6ff996a03d1c1f67c41d6",
+  "bindings": {
+    "environmentSha256": "c7cc31748bf9e56d5f4ff15920a4f5245cbe50e10cd55d49a39a1ac6bc284c66",
+    "familyManifestSha256": "9a848c072bba245a8ad7cfd6898d93c691f492a61f4c4dde1cda0580d62fafd2"
+  },
+  "sourceBindings": {
+    "askRigorBaselineCommit": "6da40dd8eab9f5eb51722733268abeb627d0b1ad",
+    "askRigorBaselineTree": "8b528664548dc8a4aac208ad8d4be265b11e84c0",
+    "mastCommit": "57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee",
+    "mastTree": "f73e1cb717d3e76353b190abc13739d7f3476798",
+    "universalSha256": "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2",
+    "hrpSha256": "254759df38934c28b06709dace9fcb266fc9967913be1296de99a461be596816"
+  },
+  "historicalExposure": {
+    "originalDevelopmentRecordedAt": "2026-09-01T00:00:00.000Z",
+    "round1Disposition": "DEVELOPMENT_PROCESS_EVIDENCE_ONLY",
+    "round1MechanicalReadRecordedAt": "2026-09-09T14:49:42.000Z",
+    "round1GenerationRecordedAt": "2026-09-09T14:49:42.000Z",
+    "round1GeneratedFamilies": [
+      "Card005",
+      "Derm009",
+      "Endo009",
+      "Heme004",
+      "ID006",
+      "Neuro004",
+      "Pulm009"
+    ],
+    "round2Status": "INDETERMINATE",
+    "round2ValidationEligible": false,
+    "round2SealedResponses": 1,
+    "round2PlannedResponses": 144,
+    "round2TerminalRecordedAt": "2026-09-19T02:10:56.511Z",
+    "round2DispositionSha256": "594bb0d255ac3dcd1fd555a6397f50470451d80ad1a47e8dac090f5b7c3211bc",
+    "round2ExposedFamilies": [
+      "ID003",
+      "GI007"
+    ],
+    "round2FurtherPromptSubmissionsAuthorized": false
+  },
+  "cohort": {
+    "selectionMethod": "OWNER_EXPLICIT_TEN_FAMILY_ROUND_3_V1",
+    "validationFamilies": [
+      "All006",
+      "Card002",
+      "Derm006",
+      "Endo007",
+      "GI002",
+      "Heme002",
+      "Nephro003",
+      "Nephro009",
+      "Neuro003",
+      "Pulm001"
+    ],
+    "reserveFamilies": [
+      "All008"
+    ],
+    "reserveStatus": "LIMITED_RESERVE_NOT_CONFIRMATORY",
+    "reserveLimitation": "One semantically untouched family remains; it is not a broad independent confirmation cohort.",
+    "replacementFamiliesPermitted": false,
+    "selectionFixedBeforeRound3PayloadInspection": true
+  },
+  "design": {
+    "arms": {
+      "A": "MAST_DEFAULT",
+      "B": "MAST_THOROUGH",
+      "C": "UNIVERSAL_ONLY",
+      "D": "UNIVERSAL_PLUS_HRP"
+    },
+    "trialsPerFamilyPerArm": 3,
+    "responseCount": 120,
+    "primaryComparison": "D-B",
+    "secondaryComparison": "D-C",
+    "dispatchSeedSha256": "b61c8b2cc74568949f0afc292a9b54593bc7dac8e862cfc896879bc76edebaf2",
+    "dispatchSeedBytes": 32
+  },
+  "evaluationTarget": {
+    "option": "B_PROTOCOL_REASONING_INDEPENDENT_OF_RETRIEVAL",
+    "externalRetrievalAllowed": false,
+    "toolsAllowed": false,
+    "sameBenchmarkInformationAcrossArms": true,
+    "toolUseReceiptRequired": true,
+    "anyToolUseInvalidatesSlot": true
+  },
+  "generation": {
+    "surface": "CHATGPT_CONSUMER",
+    "modelVisibleLabel": "GPT-5.6 Sol",
+    "reasoningVisibleLabel": "Extra High",
+    "reasoningOrdinal": "4 of 5",
+    "chatMode": "FRESH_TEMPORARY_CHAT_PER_SUBMISSION",
+    "personalization": "UNPERSONALIZED",
+    "transport": {
+      "primary": "DEDICATED_SYSTEMD_SUPERVISED_VPS_PLAYWRIGHT_OVER_LOOPBACK_CDP",
+      "fallback": null,
+      "device": "srv1894948",
+      "user": "cloudbrowser",
+      "browser": "Brave",
+      "browserProfile": "/home/cloudbrowser/.config/brave-mast-round3",
+      "displayService": "askrigor-mast-round3-xvfb.service",
+      "browserService": "askrigor-mast-round3-brave.service",
+      "watchdogService": "askrigor-mast-round3-watchdog.service",
+      "cdpEndpoint": "http://127.0.0.1:9224",
+      "privateRoot": "/home/cloudbrowser/.local/share/askrigor-mast-round3",
+      "authenticatedMachineToMachinePacketTransfer": true,
+      "fileAttachmentAllowed": false,
+      "wrapperTextAllowed": false,
+      "clipboardAllowed": false,
+      "externalRelayAllowed": false,
+      "maximumNormalTabs": 2,
+      "steadyStateTabs": 1,
+      "canonicalization": "CRLF_OR_CR_TO_LF_ONLY",
+      "fullSourceDestinationHashAndLengthEqualityRequired": true,
+      "completeComposerReadbackRequired": true,
+      "fullSourceDestinationComposerHashAndLengthEqualityRequired": true,
+      "mismatchDisposition": "FAIL_CLOSED_BEFORE_SEND_WITH_STRUCTURED_RECEIPT",
+      "runtimeHashAndProcessVerificationBeforeEverySend": true,
+      "liveSyntheticCrashRecoveryAcceptanceBeforeResponse1": true
+    },
+    "contentBasedRetry": false,
+    "maximumPreSendAttemptsPerSlot": 2,
+    "parallelExecutionPermitted": false,
+    "successfulSlotRerunPermitted": false
+  },
+  "postSendRecovery": {
+    "sendIntentPersistedBeforeClick": true,
+    "sentReceiptPersistedImmediatelyAfterClick": true,
+    "automaticResendAllowed": false,
+    "recoveryState": "RECOVERY_EXISTING_SUBMISSION",
+    "sameDedicatedProfileRequired": true,
+    "exactNormalizedFullUserMessageSha256Required": true,
+    "exactNormalizedFullUserMessageUtf8LengthRequired": true,
+    "matchingCandidateCountRequired": 1,
+    "zeroOrMultipleCandidateDisposition": "INDETERMINATE_STOP_WHOLE_STUDY",
+    "recoveryWindowMilliseconds": 180000,
+    "identityByTitleTimingOrOrderAllowed": false
+  },
+  "evaluation": {
+    "primaryPasses": 2,
+    "J1": {
+      "modelVisibleLabel": "GPT-5.6 Sol",
+      "reasoningVisibleLabel": "Extra High"
+    },
+    "J2": {
+      "modelVisibleLabel": "GPT-5.6 Sol",
+      "reasoningVisibleLabel": "Extra High"
+    },
+    "J3": {
+      "modelVisibleLabel": "Latest",
+      "reasoningVisibleLabel": "Pro",
+      "reasoningOrdinal": "5 of 5"
+    },
+    "maximumAttemptsPerJudgeSlot": 3,
+    "contentBasedRetry": false,
+    "blinding": "OPAQUE_RESPONSE_IDS_WITH_SEALED_CONDITION_MAP",
+    "adjudicationTrigger": "ANY_SCORE_VECTOR_DISAGREEMENT",
+    "join": "EXPLICIT_OPAQUE_RESPONSE_AND_GENERATION_RECORD_IDS_ONLY",
+    "noDenominatorShrinkage": true,
+    "rawJudgmentsImmutable": true
+  },
+  "decisionRule": {
+    "familyArmScore": "Arithmetic mean of the three final raw F1-weighted trial scores.",
+    "P1": "mean(D-B)>0",
+    "P2": "median(D-B)>0, with the median of 10 values defined as the mean of the fifth and sixth ordered values",
+    "P3": "at least 6 of 10 families have D-B>0",
+    "P4": "D severe commissions minus B severe commissions is at most 1 over equal 30-response denominators, and no family has a D-minus-B severe-commission excess greater than 1",
+    "P5": "mean(D-C)>0 and the number of D-C wins is at least the number of D-C losses",
+    "PASS": "All 120 generations, required judgments and adjudications resolve; equal arm denominators and integrity hold; P1-P5 are all true.",
+    "FAIL": "All required records resolve cleanly and either P4 is false or at least three of P1, P2, P3 and P5 are false.",
+    "INDETERMINATE": "Any unresolved denominator/integrity condition, unresolved post-Send ambiguity, material post-response drift, or complete mixed result that is neither PASS nor FAIL."
+  },
+  "scoreSeparation": {
+    "rawBenchmarkScoreControlsPrimaryGate": true,
+    "benchmarkConformityReportedSeparately": true,
+    "clinicalValidityReportedSeparately": true,
+    "benchmarkTargetConflictDiagnosticCannotOverrideRawGate": true
+  },
+  "failureAndCorrectionPolicy": {
+    "runtimeSchemaRequiredAtEveryStage": true,
+    "structuredFailureReceiptRequired": true,
+    "rawFailedArtifactPreserved": true,
+    "correctedArtifactStoredSeparately": true,
+    "silentRepairAllowed": false,
+    "downstreamProcessingAfterValidationFailureAllowed": false
+  },
+  "invalidationRule": {
+    "afterResponse1AnyMaterialComponentChangeInvalidates": true,
+    "stopAndPreserve": true,
+    "exposedFamiliesBecomeDevelopment": true,
+    "partialEfficacyClaimAllowed": false
+  },
+  "requiredPreGenerationVerification": [
+    "focused Round-3 harness and hostile recovery tests",
+    "service/runtime hash tamper tests",
+    "browser missing and restart tests",
+    "pre-Send and post-Send disconnect tests",
+    "exact user-message recovery zero/one/multiple candidate tests",
+    "wrong model/effort/chat/personalization tests",
+    "source/destination/composer mismatch and real-size truncation tests",
+    "duplicate Send and post-Send no-resend tests",
+    "malformed generation and score schema tests",
+    "alias collision, orphan, judge coverage, adjudication coverage, and decision-rule tests",
+    "typecheck and build",
+    "repository governance validation",
+    "git diff --check",
+    "exact executable hash verification",
+    "green freeze pull-request checks",
+    "installed VPS runtime identity verification",
+    "live synthetic post-Send browser-kill recovery without resend"
+  ],
+  "finalNonclaim": "Round 3 is bounded fresh validation over the remaining eligible MAST families. A PASS is not proof of general clinical superiority, and All008 is not a broad independent confirmatory cohort."
+}

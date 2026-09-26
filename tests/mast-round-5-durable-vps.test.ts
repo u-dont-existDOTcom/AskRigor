@@ -1,0 +1,329 @@
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+import { describe, expect, it } from "vitest";
+
+import {
+  determineResumeAction,
+  normalizedTextIdentity,
+  postSendDisconnectAction,
+  ROUND_5_BROWSER_PROFILE,
+  ROUND_5_BROWSER_SERVICE,
+  ROUND_5_CDP_ENDPOINT,
+  ROUND_5_DISPLAY_SERVICE,
+  ROUND_5_WATCHDOG_SERVICE,
+  selectExactRecoveryCandidate,
+  sentReceiptSchema,
+  uiAttestationSchema,
+  verifyRuntimeFileHashes,
+} from "../evaluation/mast/src/durable-vps-round-5.js";
+import {
+  assertPreSendEligible,
+  generationTransportReceiptSchema,
+  retryDisposition,
+  transportTextIdentity,
+  verifyComposerTransfer,
+} from
+  "../evaluation/mast/src/chatgpt-browser-transport-round-5.js";
+import { ROUND_5_STUDY_ID } from "../evaluation/mast/src/fresh-validation-round-5.js";
+import { vpsPacketTransferReceiptSchema } from
+  "../evaluation/mast/src/vps-cdp-transport-round-5.js";
+
+const root = resolve(import.meta.dirname, "..");
+const digest = (value: string) => createHash("sha256").update(value).digest("hex");
+const hashSet = {
+  browserUnitSha256: "1".repeat(64),
+  displayUnitSha256: "2".repeat(64),
+  watchdogUnitSha256: "3".repeat(64),
+  browserWrapperSha256: "4".repeat(64),
+  watchdogScriptSha256: "5".repeat(64),
+  transportScriptSha256: "6".repeat(64),
+};
+const instant = "2026-09-20T12:00:00.000Z";
+
+function candidate(id: string, text: string) {
+  const identity = normalizedTextIdentity(text);
+  return {
+    candidateId: id,
+    url: `https://chatgpt.com/c/${id}`,
+    normalizedUserMessageSha256: identity.sha256,
+    normalizedUserMessageUtf8Bytes: identity.utf8Bytes,
+    userMessageCount: 1 as const,
+    assistantMessageCount: 1,
+  };
+}
+
+describe("Round 5 durable VPS runtime and recovery", () => {
+  it("detects every frozen runtime file tamper", () => {
+    expect(verifyRuntimeFileHashes(hashSet, hashSet)).toEqual(hashSet);
+    expect(() => verifyRuntimeFileHashes(hashSet, { ...hashSet,
+      browserWrapperSha256: "f".repeat(64) })).toThrow("ROUND_5_RUNTIME_HASH_DRIFT");
+  });
+
+  it("normalizes line endings only and recovers exactly one full-message-hash match", () => {
+    const expected = normalizedTextIdentity("alpha\r\nbeta\rchar");
+    expect(expected).toEqual(normalizedTextIdentity("alpha\nbeta\nchar"));
+    const selected = selectExactRecoveryCandidate({ expectedSha256: expected.sha256,
+      expectedUtf8Bytes: expected.utf8Bytes,
+      candidates: [candidate("wrong", "different"), candidate("right", "alpha\nbeta\nchar")] });
+    expect(selected.candidateId).toBe("right");
+  });
+
+  it("fails closed for zero or multiple exact recovery candidates", () => {
+    const expected = normalizedTextIdentity("same");
+    expect(() => selectExactRecoveryCandidate({ ...expected, expectedSha256: expected.sha256,
+      expectedUtf8Bytes: expected.utf8Bytes, candidates: [] })).toThrow("ROUND_5_RECOVERY_CANDIDATE_ZERO");
+    expect(() => selectExactRecoveryCandidate({ expectedSha256: expected.sha256,
+      expectedUtf8Bytes: expected.utf8Bytes,
+      candidates: [candidate("one", "same"), candidate("two", "same")] }))
+      .toThrow("ROUND_5_RECOVERY_CANDIDATE_MULTIPLE");
+  });
+
+  it("blocks duplicate Send and resumes only recovery after send-intent or SENT", () => {
+    expect(determineResumeAction({ localSealed: true, responseReady: false, ambiguityReceipt: false,
+      sendIntent: true, sentReceipt: true, preSendFailureCount: 0 })).toBe("SKIP_SEALED");
+    expect(determineResumeAction({ localSealed: false, responseReady: false, ambiguityReceipt: false,
+      sendIntent: true, sentReceipt: false, preSendFailureCount: 0 })).toBe("RECOVER_EXISTING_SUBMISSION");
+    expect(determineResumeAction({ localSealed: false, responseReady: false, ambiguityReceipt: true,
+      sendIntent: false, sentReceipt: false, preSendFailureCount: 0 })).toBe("STOP_AMBIGUOUS");
+    expect(determineResumeAction({ localSealed: false, responseReady: false, ambiguityReceipt: false,
+      sendIntent: false, sentReceipt: false, preSendFailureCount: 1 })).toBe("NEW_PRE_SEND_ATTEMPT");
+    expect(retryDisposition({ attempt: 1, messageMayHaveBeenSent: true, sealed: false }))
+      .toBe("PRESERVE_AMBIGUITY_NO_RETRY");
+  });
+
+  it("distinguishes bounded pre-Send retry from post-Send recovery without duplicate submission", () => {
+    expect(determineResumeAction({ localSealed: false, responseReady: false, ambiguityReceipt: false,
+      sendIntent: false, sentReceipt: false, preSendFailureCount: 0 })).toBe("NEW_PRE_SEND_ATTEMPT");
+    expect(determineResumeAction({ localSealed: false, responseReady: false, ambiguityReceipt: false,
+      sendIntent: false, sentReceipt: true, preSendFailureCount: 0 })).toBe("RECOVER_EXISTING_SUBMISSION");
+    expect(determineResumeAction({ localSealed: false, responseReady: false, ambiguityReceipt: false,
+      sendIntent: false, sentReceipt: false, preSendFailureCount: 2 })).toBe("STOP_AMBIGUOUS");
+    expect(postSendDisconnectAction({ sentReceipt: true, exactRequestAndResponseProven: false }))
+      .toBe("NO_RESEND_STOP_ROUND");
+    expect(postSendDisconnectAction({ sentReceipt: true, exactRequestAndResponseProven: true }))
+      .toBe("CAPTURE_EXISTING_RESPONSE");
+  });
+
+  it("accepts a real-size exact composer projection and rejects truncation or one altered character", () => {
+    const source = `${"round5-exactness-αβγ".repeat(9_000)}\nterminal`;
+    const identity = transportTextIdentity(source);
+    expect(identity.utf8Bytes).toBeGreaterThanOrEqual(167_433);
+    const observation = {
+      schemaVersion: 1 as const, observedAt: instant, origin: "https://chatgpt.com" as const,
+      composerSelector: "#prompt-textarea" as const, composerCount: 1 as const,
+      extraction: "CONTENTEDITABLE_INNER_TEXT" as const,
+      normalization: "LINE_ENDINGS_TO_LF_ONLY" as const,
+      composerUtf8Bytes: identity.utf8Bytes, composerCodePoints: identity.codePoints,
+      composerSha256: identity.sha256,
+    };
+    expect(verifyComposerTransfer({ source, observation }).exactEquality).toBe(true);
+    expect(() => verifyComposerTransfer({ source, observation: { ...observation,
+      composerUtf8Bytes: observation.composerUtf8Bytes - 1 } })).toThrow("GENERATION_COMPOSER_SOURCE_MISMATCH");
+    expect(() => verifyComposerTransfer({ source, observation: { ...observation,
+      composerSha256: digest("one altered character") } })).toThrow("GENERATION_COMPOSER_SOURCE_MISMATCH");
+  });
+
+  it("fails pre-Send admission for wrong session state and for any prior sent state", () => {
+    const source = "packet";
+    const identity = transportTextIdentity(source);
+    const observation = {
+      schemaVersion: 1 as const, observedAt: instant, origin: "https://chatgpt.com" as const,
+      composerSelector: "#prompt-textarea" as const, composerCount: 1 as const,
+      extraction: "CONTENTEDITABLE_INNER_TEXT" as const,
+      normalization: "LINE_ENDINGS_TO_LF_ONLY" as const,
+      composerUtf8Bytes: identity.utf8Bytes, composerCodePoints: identity.codePoints,
+      composerSha256: identity.sha256,
+    };
+    const ui = { schemaVersion: 1 as const, observedAt: instant, origin: "https://chatgpt.com" as const,
+      modelVisibleLabel: "GPT-5.6 Sol" as const, reasoningVisibleLabel: "Extra High" as const,
+      reasoningOrdinal: "4 of 5" as const, chatMode: "TEMPORARY" as const,
+      personalization: "UNPERSONALIZED" as const, authenticated: true as const,
+      freshConversation: true as const, userMessageCount: 0 as const,
+      assistantMessageCount: 0 as const, attachmentCount: 0 as const, sendEnabled: true as const };
+    expect(assertPreSendEligible({ source, observation, ui, priorStates: [], attempt: 1 }).sendAuthorized)
+      .toBe(true);
+    expect(() => assertPreSendEligible({ source, observation, ui, priorStates: ["SENT"], attempt: 2 }))
+      .toThrow("GENERATION_DUPLICATE_SEND_BLOCKED");
+    expect(() => assertPreSendEligible({ source, observation,
+      ui: { ...ui, chatMode: "NORMAL" }, priorStates: [], attempt: 1 })).toThrow();
+  });
+
+  it("requires source, destination, and composer equality in the SENT receipt", () => {
+    const source = normalizedTextIdentity("packet");
+    const base = {
+      schemaVersion: 1 as const,
+      studyId: ROUND_5_STUDY_ID,
+      opaqueInputId: "run-000000000000000000000001",
+      attempt: 1,
+      state: "SENT" as const,
+      normalization: "LINE_ENDINGS_TO_LF_ONLY" as const,
+      sourceUtf8Bytes: source.utf8Bytes,
+      sourceSha256: source.sha256,
+      destinationPacketUtf8Bytes: source.utf8Bytes,
+      destinationPacketSha256: source.sha256,
+      composerUtf8Bytes: source.utf8Bytes,
+      composerSha256: source.sha256,
+      exactEquality: true as const,
+      ui: {
+        schemaVersion: 1 as const, observedAt: instant, origin: "https://chatgpt.com" as const,
+        modelVisibleLabel: "GPT-5.6 Sol" as const, reasoningVisibleLabel: "Extra High" as const,
+        reasoningOrdinal: "4 of 5" as const, chatMode: "TEMPORARY" as const,
+        personalization: "UNPERSONALIZED" as const, authenticated: true as const,
+        freshConversation: true as const, userMessageCount: 0 as const,
+        assistantMessageCount: 0 as const, attachmentCount: 0 as const, sendEnabled: true as const,
+      },
+      browserProfile: ROUND_5_BROWSER_PROFILE,
+      browserService: ROUND_5_BROWSER_SERVICE,
+      displayService: ROUND_5_DISPLAY_SERVICE,
+      watchdogService: ROUND_5_WATCHDOG_SERVICE,
+      cdpEndpoint: ROUND_5_CDP_ENDPOINT,
+      sentAt: instant,
+    };
+    expect(sentReceiptSchema.parse(base).exactEquality).toBe(true);
+    expect(() => sentReceiptSchema.parse({ ...base, composerSha256: digest("altered") }))
+      .toThrow("ROUND_5_SENT_IDENTITY_MISMATCH");
+  });
+
+  it("admits the owner-amended top-model maximum-reasoning generation UI while preserving legacy receipts", () => {
+    const source = normalizedTextIdentity("packet");
+    const legacy = {
+      schemaVersion: 1 as const, observedAt: instant, origin: "https://chatgpt.com" as const,
+      modelVisibleLabel: "GPT-5.6 Sol" as const, reasoningVisibleLabel: "Extra High" as const,
+      reasoningOrdinal: "4 of 5" as const, chatMode: "TEMPORARY" as const,
+      personalization: "UNPERSONALIZED" as const, authenticated: true as const,
+      freshConversation: true as const, userMessageCount: 0 as const, assistantMessageCount: 0 as const,
+      attachmentCount: 0 as const, sendEnabled: true as const,
+    };
+    expect(uiAttestationSchema.parse(legacy).modelVisibleLabel).toBe("GPT-5.6 Sol");
+    const amended = {
+      ...legacy,
+      modelVisibleLabel: "Latest",
+      reasoningVisibleLabel: "Pro",
+      reasoningOrdinal: "5 of 5",
+      modelSelectionPolicy: "TOP_VISIBLE_SELECTABLE_MODEL" as const,
+      modelSelectorIndex: 0 as const,
+      modelOptionCount: 3,
+      reasoningSelectionPolicy: "MAXIMUM_AVAILABLE" as const,
+    };
+    expect(uiAttestationSchema.parse(amended).modelVisibleLabel).toBe("Latest");
+    expect(() => uiAttestationSchema.parse({ ...amended, reasoningOrdinal: "4 of 5" })).toThrow();
+    expect(() => uiAttestationSchema.parse({ ...amended, modelSelectorIndex: 1 })).toThrow();
+    expect(source.sha256).toHaveLength(64);
+  });
+
+  it("rejects wrong model, effort, session, personalization, and transport provenance", () => {
+    const source = normalizedTextIdentity("packet");
+    const runtime = {
+      schemaVersion: 1 as const, studyId: ROUND_5_STUDY_ID,
+      browserProfile: ROUND_5_BROWSER_PROFILE, browserService: ROUND_5_BROWSER_SERVICE,
+      displayService: ROUND_5_DISPLAY_SERVICE, watchdogService: ROUND_5_WATCHDOG_SERVICE,
+      cdpEndpoint: ROUND_5_CDP_ENDPOINT, browserMainPid: 123, observed: hashSet, observedAt: instant,
+    };
+    const receipt: any = {
+      schemaVersion: 1, studyId: ROUND_5_STUDY_ID,
+      opaqueInputId: "run-000000000000000000000001", attempt: 1, state: "RESPONSE_COMPLETE",
+      normalization: "LINE_ENDINGS_TO_LF_ONLY", sourceUtf8Bytes: source.utf8Bytes,
+      sourceCodePoints: 6, sourceSha256: source.sha256,
+      destinationPacketUtf8Bytes: source.utf8Bytes, destinationPacketCodePoints: 6,
+      destinationPacketSha256: source.sha256, composerUtf8Bytes: source.utf8Bytes,
+      composerCodePoints: 6, composerSha256: source.sha256, exactEquality: true,
+      ui: { schemaVersion: 1, observedAt: instant, origin: "https://chatgpt.com",
+        modelVisibleLabel: "GPT-5.6 Sol", reasoningVisibleLabel: "Extra High", reasoningOrdinal: "4 of 5",
+        chatMode: "TEMPORARY", personalization: "UNPERSONALIZED", authenticated: true,
+        freshConversation: true, userMessageCount: 0, assistantMessageCount: 0,
+        attachmentCount: 0, sendEnabled: true },
+      vpsDevice: "srv1894948", vpsUser: "cloudbrowser", cdpEndpoint: ROUND_5_CDP_ENDPOINT,
+      cdpAttached: true, browser: "Brave", browserProfile: ROUND_5_BROWSER_PROFILE,
+      browserService: ROUND_5_BROWSER_SERVICE, displayService: ROUND_5_DISPLAY_SERVICE,
+      watchdogService: ROUND_5_WATCHDOG_SERVICE, runtimeAttestation: runtime, tabCount: 1,
+      citationUrls: [], toolProvenance: [], responseArtifactSha256: digest("response"),
+      verifiedAt: instant, sentAt: instant, completedAt: instant, recoveredExistingSubmission: true,
+    };
+    expect(generationTransportReceiptSchema.parse(receipt).recoveredExistingSubmission).toBe(true);
+    for (const uiDrift of [
+      { modelVisibleLabel: "Latest" }, { reasoningVisibleLabel: "High" },
+      { chatMode: "NORMAL" }, { personalization: "Personalized" },
+    ]) expect(() => generationTransportReceiptSchema.parse({ ...receipt,
+      ui: { ...receipt.ui, ...uiDrift } })).toThrow();
+  });
+
+  it("requires exact 120-packet transfer coverage and rejects a destination mismatch", () => {
+    const records = Array.from({ length: 120 }, (_, index) => {
+      const sequence = index + 1;
+      const opaqueInputId = `run-${sequence.toString(16).padStart(24, "0")}`;
+      return { sequence, opaqueInputId,
+        sourceRelativePath: `generation/inputs/${String(sequence).padStart(3, "0")}-${opaqueInputId}.txt`,
+        destinationRelativePath: `packets/${String(sequence).padStart(3, "0")}-${opaqueInputId}.txt`,
+        expectedSha256: "a".repeat(64), sourceSha256: "a".repeat(64), destinationSha256: "a".repeat(64),
+        sourceUtf8Bytes: 167_433, destinationUtf8Bytes: 167_433, eligible: true };
+    });
+    const receipt = { schemaVersion: 1, studyId: ROUND_5_STUDY_ID, device: "srv1894948",
+      user: "cloudbrowser", privateRoot: "/home/cloudbrowser/.local/share/askrigor-mast-round5",
+      transferredAt: instant, records };
+    expect(vpsPacketTransferReceiptSchema.parse(receipt).records).toHaveLength(120);
+    expect(() => vpsPacketTransferReceiptSchema.parse({ ...receipt,
+      records: records.map((record, index) => index === 0
+        ? { ...record, destinationSha256: "b".repeat(64) } : record) }))
+      .toThrow("VPS_PACKET_TRANSFER_IDENTITY_MISMATCH");
+  });
+
+  it("freezes the supervised single-tab direct-DOM architecture with no relay, clipboard, or typing", () => {
+    const transport = readFileSync(resolve(root, "scripts/mast-vps-cdp-generation-round-5.mjs"), "utf8");
+    const braveUnit = readFileSync(resolve(root, "deploy/systemd/askrigor-mast-round3-brave.service"), "utf8");
+    const wrapper = readFileSync(resolve(root, "deploy/vps/brave-mast-round3.sh"), "utf8");
+    const orchestrator = readFileSync(resolve(root, "scripts/mast-vps-round5-orchestrator.mts"), "utf8");
+    expect(transport).toContain("chromium.connectOverCDP(CDP_ENDPOINT");
+    expect(transport).toContain("element.innerText = text");
+    expect(transport).toContain('inventory[0].url === "chrome://newtab/"');
+    expect(transport).toContain("RECOVERY_EXISTING_SUBMISSION");
+    expect(transport).toContain("ROUND_5_RECOVERY_CANDIDATE_MULTIPLE");
+    expect(transport).toContain("waitForSubmittedRequestIdentity");
+    expect(transport).toContain('key.startsWith("__reactProps$")');
+    expect(transport).toContain("rawMessageIdentityProven");
+    expect(transport).toContain('GENERATION_MODEL_SELECTION_POLICY = "TOP_VISIBLE_SELECTABLE_MODEL"');
+    expect(transport).toContain('GENERATION_REASONING_SELECTION_POLICY = "MAXIMUM_AVAILABLE"');
+    expect(transport).toContain('menu.locator("[role=\'menuitemradio\']")');
+    expect(transport).toContain(".nth(0)");
+    expect(transport).toContain("observation.sliderMax");
+    expect(transport).toContain("renderedUserMessageSha256");
+    expect(transport).toContain("const temporaryDeadline = Date.now() + 30_000");
+    expect(transport).toContain("TEMPORARY_CHAT_STATE_AMBIGUOUS");
+    expect(transport).toContain("ROUND_5_SUBMITTED_CONVERSATION_IDENTITY_NOT_OBSERVED");
+    expect(transport).toContain("sentIdentity?.conversationUrl ?? sent.conversationUrl ?? null");
+    expect(transport).toContain('conversationUrl: null, conversationId: null');
+    expect(transport).toContain("conversationUrl: ignoredConversationUrl");
+    expect(transport).toContain("conversationId: ignoredConversationId");
+    expect(transport).toContain("requestMessageId: submitted.requestMessageId");
+    expect(transport).toContain("TEMPORARY_REQUEST_IDENTITY_UNPROVABLE");
+    expect(transport).toContain("inventory[0].page.goto(exactPreferredUrl");
+    expect(transport).toContain("ROUND_5_RUNTIME_SERVICE_NOT_RUNNING");
+    expect(transport).toContain("SYNTHETIC_BROWSER_RESTARTED_DURING_NORMAL_PATH");
+    expect(transport).toContain("DETERMINISTIC_SUPERVISION_PASS");
+    expect(transport).toContain("NO_RESEND_STOP_ROUND");
+    expect(transport).toContain("automaticResendAllowed: false");
+    expect(transport).toContain("run-judge-one");
+    expect(transport).toContain('modelSelectionPolicy: GENERATION_MODEL_SELECTION_POLICY');
+    expect(transport).toContain('reasoningSelectionPolicy: GENERATION_REASONING_SELECTION_POLICY');
+    expect(transport).toContain('const judgeSelection = await ensureExactModelAndReasoning(page)');
+    expect(transport).toContain("ROUND_5_JUDGMENT_TRANSPORT_ATTEMPT_CEILING_EXHAUSTED");
+    expect(transport).not.toMatch(/wl-copy|xclip|clipboard|cloudflared|trycloudflare|keyboard\.type/iu);
+    expect(braveUnit).toContain("Restart=always");
+    expect(braveUnit).toContain("User=cloudbrowser");
+    expect(braveUnit).toContain("NoNewPrivileges=false");
+    expect(braveUnit).not.toContain("NoNewPrivileges=true");
+    expect(wrapper).toContain("--remote-debugging-address=127.0.0.1");
+    expect(wrapper).toContain("--remote-debugging-port=9224");
+    expect(wrapper).toContain("--restore-last-session");
+    expect(wrapper).toContain("exec /opt/brave.com/brave/brave");
+    expect(wrapper).not.toContain("exec /usr/bin/brave-browser");
+    expect(orchestrator).toContain("systemctl restart ${BROWSER_SERVICE}");
+    expect(orchestrator).toContain("systemctl kill --signal=KILL --kill-whom=main ${BROWSER_SERVICE}");
+    expect(orchestrator).toContain("NO_RESEND_STOP_ROUND");
+    expect(orchestrator).toContain("JSON.parse(verify.stdout.trim())");
+    expect(orchestrator).toContain("fresh-validation-round-5-owner-model-amendment-20260922.json");
+    expect(orchestrator).toContain('amendment.executableHashOverrides?.["scripts/mast-vps-cdp-generation-round-5.mjs"]');
+    expect(orchestrator).not.toContain('verify.stdout.trim().split("\\n")');
+  });
+});

@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "directiveId": "askrigor-mast-fresh-validation-round-5-20260920",
+  "studyId": "askrigor-mast-fresh-validation-round-5-20260920",
+  "authority": "OWNER_CURRENT_CHAT_AND_ATTACHED_DIRECTIVE",
+  "source": {
+    "repositoryMirror": "docs/directives/2026-09-20-mast-fresh-validation-round-5.md",
+    "sha256": "98bef05689b4210e8d86beee0542e50bf6fafe37a5bd37c305884a38caa41656",
+    "utf8Bytes": 11439
+  },
+  "ownerRequest": "Execute a clean MAST Fresh Validation Round 5 after terminal Round 4, fixing the contradictory chatMode capture-admission path before the new freeze, excluding Round-4-exposed Card002, and continuing to a frozen PASS, FAIL, or INDETERMINATE result.",
+  "round2HistoricalBoundary": {
+    "status": "INDETERMINATE",
+    "sealed": 1,
+    "planned": 144,
+    "furtherPromptsAuthorized": false,
+    "dispositionSha256": "594bb0d255ac3dcd1fd555a6397f50470451d80ad1a47e8dac090f5b7c3211bc",
+    "newlyExposedFamilies": [
+      "ID003",
+      "GI007"
+    ]
+  },
+  "round4HistoricalBoundary": {
+    "status": "INDETERMINATE",
+    "sealed": 0,
+    "completedProviderResponses": 1,
+    "planned": 120,
+    "furtherPromptsAuthorized": false,
+    "newlyExposedFamilies": [
+      "Card002"
+    ],
+    "failureBoundary": "GENERATION_CAPTURE_PROVIDER_SCHEMA_REJECTED_REQUIRED_CHAT_MODE"
+  },
+  "round5": {
+    "classification": "VALIDATION_NOT_CONFIRMATION",
+    "validationFamilies": [
+      "All006",
+      "All008",
+      "Derm006",
+      "Endo007",
+      "GI002",
+      "Heme002",
+      "Nephro003",
+      "Nephro009",
+      "Neuro003",
+      "Pulm001"
+    ],
+    "reserveFamilies": [],
+    "round4ExposedExcludedFamilies": [
+      "Card002"
+    ],
+    "generationCount": 120,
+    "generationModel": "GPT-5.6 Sol",
+    "generationReasoning": "Extra High",
+    "implementationModel": "GPT-5.6 Sol",
+    "implementationReasoning": "Medium",
+    "dedicatedProfile": "/home/cloudbrowser/.config/brave-mast-round3",
+    "cdpEndpoint": "http://127.0.0.1:9224",
+    "postSendAutomaticResendAllowed": false,
+    "response1BeforeDurabilityAcceptanceAllowed": false,
+    "normalPathSyntheticAcceptanceRequired": true,
+    "endToEndGenerationCaptureAdmissionRegressionRequired": true,
+    "deliberatePostSendRestartAcceptanceRequired": false
+  }
+}

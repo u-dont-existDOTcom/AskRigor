@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "directiveId": "askrigor-mast-fresh-validation-round-3-durable-vps-20260919",
+  "studyId": "askrigor-mast-fresh-validation-round-3-20260919",
+  "authority": "OWNER_CURRENT_CHAT_AND_ATTACHED_DIRECTIVE",
+  "source": {
+    "repositoryMirror": "docs/directives/2026-09-19-mast-fresh-validation-round-3-durable-vps.md",
+    "sha256": "16c302bc3b0646f6b86597ba53191dd1d5c37a3c98a6ff996a03d1c1f67c41d6",
+    "utf8Bytes": 15947
+  },
+  "ownerRequest": "Execute CODEX_MAST_FRESH_VALIDATION_ROUND_3_DURABLE_VPS.md as the controlling directive. Preserve Round 2 as historical INDETERMINATE evidence and do not submit any further Round-2 prompts.",
+  "round2HistoricalBoundary": {
+    "status": "INDETERMINATE",
+    "sealed": 1,
+    "planned": 144,
+    "furtherPromptsAuthorized": false,
+    "dispositionSha256": "594bb0d255ac3dcd1fd555a6397f50470451d80ad1a47e8dac090f5b7c3211bc",
+    "newlyExposedFamilies": ["ID003", "GI007"]
+  },
+  "round3": {
+    "classification": "VALIDATION_NOT_CONFIRMATION",
+    "validationFamilies": [
+      "All006", "Card002", "Derm006", "Endo007", "GI002", "Heme002",
+      "Nephro003", "Nephro009", "Neuro003", "Pulm001"
+    ],
+    "limitedReserveNotConfirmatory": ["All008"],
+    "generationCount": 120,
+    "generationModel": "GPT-5.6 Sol",
+    "generationReasoning": "Extra High",
+    "implementationModel": "GPT-5.6 Sol",
+    "implementationReasoning": "Medium",
+    "dedicatedProfile": "/home/cloudbrowser/.config/brave-mast-round3",
+    "cdpEndpoint": "http://127.0.0.1:9224",
+    "postSendAutomaticResendAllowed": false,
+    "response1BeforeDurabilityAcceptanceAllowed": false
+  }
+}

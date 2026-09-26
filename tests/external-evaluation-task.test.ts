@@ -5,10 +5,79 @@ import { describe, expect, it } from "vitest";
 const rootFile = (path: string) => new URL(`../${path}`, import.meta.url);
 
 describe("external evaluation current-slice contract", () => {
-  it("preserves the canonical parent program during the bounded upload-menu diagnostic", async () => {
+  it("preserves the declared exclusive external-evaluation task contract", async () => {
     const task = JSON.parse(
       await readFile(rootFile("tasks/ACTIVE-TASK.json"), "utf8"),
     ) as Record<string, unknown>;
+
+    if (task.taskId === "askrigor-mast-fresh-validation-round-5-20260920") {
+      expect(task).toMatchObject({
+        taskId: "askrigor-mast-fresh-validation-round-5-20260920",
+        status: "active_pre_response_1_source_fixed_successor",
+        exclusive: true,
+        requiredBranch: "task/mast-fresh-validation-round-5-20260920",
+        baselineCommit: "b67441959d73a667d87c08369aa9b5613c700738",
+        ownerOutcomeStatus: "OPEN",
+        currentState: "docs/state/MAST-FRESH-VALIDATION-ROUND-5-CURRENT-STATE.md",
+        activeLessonContract: "docs/state/MAST-FRESH-VALIDATION-ROUND-5-ACTIVE-LESSON-CONTRACT.json",
+        preflightCommand: expect.stringContaining("verify-freeze"),
+        completionCommand: expect.stringContaining("finalize"),
+        targetedHardGates: expect.arrayContaining([
+          "No further Round-2, Round-3, or Round-4 prompt submission under any condition",
+          "Use one shared generation-provider schema containing required chatMode across outer capture and stored capture",
+          "Never rerun a sealed generation or judgment; resume from sealed artifacts",
+          "Any material post-response-1 drift invalidates validation status",
+        ]),
+        suspendedTaskSources: expect.arrayContaining([
+          "Rounds 1–4 branches and private artifacts except immutable historical evidence",
+        ]),
+      });
+      return;
+    }
+
+    if (task.taskId === "askrigor-mast-fresh-validation-round-4-20260919") {
+      expect(task).toMatchObject({
+        taskId: "askrigor-mast-fresh-validation-round-4-20260919",
+        status: "active_pre_response_1_normal_path_freeze",
+        exclusive: true,
+        requiredBranch: "task/mast-fresh-validation-round-4-20260919",
+        baselineCommit: "b67441959d73a667d87c08369aa9b5613c700738",
+        ownerOutcomeStatus: "OPEN",
+        currentState: "docs/state/MAST-FRESH-VALIDATION-ROUND-4-CURRENT-STATE.md",
+        activeLessonContract: "docs/state/MAST-FRESH-VALIDATION-ROUND-4-ACTIVE-LESSON-CONTRACT.json",
+        preflightCommand: expect.stringContaining("verify-freeze"),
+        completionCommand: expect.stringContaining("finalize"),
+        targetedHardGates: expect.arrayContaining([
+          "No further Round-2 or Round-3 prompt submission under any condition",
+          "Never rerun a sealed generation or judgment; resume from sealed artifacts",
+          "Any material post-response-1 drift invalidates validation status",
+        ]),
+        suspendedTaskSources: expect.arrayContaining([
+          "Round 2 and Round 3 branches, PRs, and private artifacts except as immutable historical evidence",
+        ]),
+      });
+      return;
+    }
+
+    if (task.taskId === "askrigor-mast-fresh-validation-round-2-20260918") {
+      expect(task).toMatchObject({
+        taskId: "askrigor-mast-fresh-validation-round-2-20260918",
+        status: "active_pre_generation_transport_refreeze",
+        exclusive: true,
+        requiredBranch: "task/mast-fresh-validation-round-2-20260918",
+        baselineCommit: "65a867518303a369c7e9786b030a97af12dd81ea",
+        ownerOutcomeStatus: "OPEN",
+        currentState: "docs/state/MAST-FRESH-VALIDATION-ROUND-2-CURRENT-STATE.md",
+        activeLessonContract: "docs/state/MAST-FRESH-VALIDATION-ROUND-2-ACTIVE-LESSON-CONTRACT.json",
+        preflightCommand: expect.stringContaining("verify-freeze"),
+        completionCommand: expect.stringContaining("finalize"),
+        suspendedTaskSources: expect.arrayContaining([
+          "the older askrigor-external-evaluation-contribution-v1 active lock on main",
+          "Round 1 branch and draft pull request",
+        ]),
+      });
+      return;
+    }
 
     expect(task).toMatchObject({
       taskId: "askrigor-external-evaluation-contribution-v1",

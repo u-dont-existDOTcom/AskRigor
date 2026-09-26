@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 1,
+  "studyId": "askrigor-mast-fresh-validation-round-5-20260920",
+  "askRigor": {
+    "repository": "u-dont-existDOTcom/AskRigor",
+    "baselineCommit": "b67441959d73a667d87c08369aa9b5613c700738",
+    "baselineTree": "2f370321615347df1a1aa7d3f6ffc470e04803d1",
+    "universal": {
+      "version": "20.5.26",
+      "revisionDate": "2026-09-17",
+      "sha256": "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2",
+      "canonicalRepository": "u-dont-existDOTcom/universal-dev-architecture",
+      "canonicalCommit": "1df60d86a08acceb34076488d7cbb33363a1c4d9",
+      "canonicalTree": "52e8a73f2d872af41c46ed7864882a93db73704e"
+    },
+    "hrp": {
+      "version": "20.5.29",
+      "revisionDate": "2026-09-12",
+      "sha256": "254759df38934c28b06709dace9fcb266fc9967913be1296de99a461be596816"
+    }
+  },
+  "mast": {
+    "repository": "ARISENetwork/mast",
+    "commit": "57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee",
+    "tree": "f73e1cb717d3e76353b190abc13739d7f3476798"
+  },
+  "historicalRounds": {
+    "round1": "DEVELOPMENT_PROCESS_EVIDENCE_ONLY",
+    "round2": {
+      "status": "INDETERMINATE",
+      "validationEligible": false,
+      "sealedResponses": 1,
+      "plannedResponses": 144,
+      "furtherPromptsAuthorized": false,
+      "dispositionSha256": "594bb0d255ac3dcd1fd555a6397f50470451d80ad1a47e8dac090f5b7c3211bc"
+    },
+    "round3": {
+      "status": "STOPPED_PRE_RESPONSE_1",
+      "validationEligible": false,
+      "sealedResponses": 0,
+      "plannedResponses": 120,
+      "exposedFamilies": [],
+      "furtherPromptsAuthorized": false
+    },
+    "round4": {
+      "status": "INDETERMINATE",
+      "validationEligible": false,
+      "sealedResponses": 0,
+      "completedProviderResponses": 1,
+      "plannedResponses": 120,
+      "exposedFamilies": [
+        "Card002"
+      ],
+      "failureBoundary": "GENERATION_CAPTURE_PROVIDER_SCHEMA_REJECTED_REQUIRED_CHAT_MODE",
+      "furtherPromptsAuthorized": false
+    }
+  },
+  "runtime": {
+    "node": "24.18.0",
+    "npm": "11.16.0",
+    "os": "linux"
+  },
+  "implementationRuntime": {
+    "model": "GPT-5.6 Sol",
+    "reasoningEffort": "Medium",
+    "escalationUsed": false
+  },
+  "generation": {
+    "surface": "CHATGPT_CONSUMER",
+    "modelVisibleLabel": "GPT-5.6 Sol",
+    "reasoningVisibleLabel": "Extra High",
+    "reasoningOrdinal": "4 of 5",
+    "backendModelSlug": null,
+    "temperature": null,
+    "topP": null,
+    "samplingSeed": null,
+    "maxOutputTokens": null,
+    "freshTemporaryChatPerSubmission": true,
+    "personalization": "UNPERSONALIZED",
+    "toolsAllowed": false,
+    "providerApiCredentials": false,
+    "transport": {
+      "primary": "VPS_LOCAL_PLAYWRIGHT_OVER_DURABLE_LOOPBACK_CDP",
+      "fallback": null,
+      "device": "srv1894948",
+      "user": "cloudbrowser",
+      "browser": "Brave",
+      "browserProfile": "/home/cloudbrowser/.config/brave-mast-round3",
+      "displayService": "askrigor-mast-round3-xvfb.service",
+      "browserService": "askrigor-mast-round3-brave.service",
+      "watchdogService": "askrigor-mast-round3-watchdog.service",
+      "cdpEndpoint": "http://127.0.0.1:9224",
+      "nodeVersion": "22.23.2",
+      "playwrightCoreVersion": "1.63.0",
+      "privateRoot": "/home/cloudbrowser/.local/share/askrigor-mast-round5",
+      "authenticatedMachineToMachinePacketTransfer": true,
+      "sourceDestinationSha256EqualityRequired": true,
+      "fileAttachmentAllowed": false,
+      "wrapperTextAllowed": false,
+      "clipboardAllowed": false,
+      "externalRelayAllowed": false,
+      "maximumNormalTabCount": 2,
+      "lineEndingNormalization": "CRLF_OR_CR_TO_LF_ONLY",
+      "completeComposerReadbackRequired": true,
+      "sourceDestinationComposerSha256EqualityRequiredBeforeSend": true,
+      "sendIntentPersistedBeforeClick": true,
+      "sentReceiptPersistedImmediatelyAfterClick": true,
+      "postSendAutomaticResendAllowed": false,
+      "exactOneFullMessageHashRecoveryRequired": true,
+      "unresolvedRecoveryStopsWholeStudy": true,
+      "postSendRecoveryOptional": true,
+      "normalPathAcceptanceRequired": true,
+      "deliberatePostSendRestartAcceptanceRequired": false
+    }
+  },
+  "evaluation": {
+    "J1": {
+      "surface": "CHATGPT_CONSUMER",
+      "modelVisibleLabel": "GPT-5.6 Sol",
+      "reasoningVisibleLabel": "Extra High"
+    },
+    "J2": {
+      "surface": "CHATGPT_CONSUMER",
+      "modelVisibleLabel": "GPT-5.6 Sol",
+      "reasoningVisibleLabel": "Extra High"
+    },
+    "J3": {
+      "surface": "CHATGPT_CONSUMER",
+      "modelVisibleLabel": "Latest",
+      "reasoningVisibleLabel": "Pro",
+      "reasoningOrdinal": "5 of 5"
+    },
+    "primaryPassCount": 2,
+    "adjudicationTrigger": "ANY_SCORE_VECTOR_DISAGREEMENT",
+    "blinding": "OPAQUE_RESPONSE_IDS_WITH_SEALED_CONDITION_MAP"
+  },
+  "runtimeFileHashes": {
+    "browserUnitSha256": "bff4d9206034adb0b593cceb44f9cdce775b80978cc36300705b5768df853be0",
+    "displayUnitSha256": "48507c3730a93786a704d76783afd1a06bed6d1e013a94677d26ba6ad1c5f1c5",
+    "watchdogUnitSha256": "e8a3aed3878d28d3e21130e66e86009be574b3516622fef0be91365cbdb68881",
+    "browserWrapperSha256": "94b46d2083f7a0dffc5071a4ac6e164bbd2eff4092d2bd094ecd90b11ba1421f",
+    "watchdogScriptSha256": "44cadf1cb597ba0d68b227aea762be0e921d80e1e5147cbfcaa49cec00ba392e",
+    "transportScriptSha256": "df9937ff54749cd7be394b40d25f236de12de40b4f0b530991d4f09321551530"
+  },
+  "executableHashManifest": {
+    "evaluation/mast/src/fresh-validation.ts": "08f2170214f24f2120b0e7977bae41345708498e6c5ce3cd882c6e988f9c697a",
+    "evaluation/mast/src/fresh-validation-round-5-base.ts": "71b4b73e45007dbf0a540c5b4527237f0c7d9329b9066af4271e6cdf8887272e",
+    "evaluation/mast/src/fresh-validation-round-5.ts": "37a9c0c5878d0c7efd9de9c6dbc37ec4af07189543091068ad601ad782035c01",
+    "evaluation/mast/src/chatgpt-browser-transport-round-5.ts": "e00b455390fa9357c0423142b96559e4990024879fa777bf63e1336c7eb172c6",
+    "evaluation/mast/src/durable-vps-round-5.ts": "e084374d856dfa05ee46b697691ee79ec826d2fd27bf70d7234a934475a05b9e",
+    "evaluation/mast/src/vps-cdp-transport-round-5.ts": "1ec691e2b3635794e21aa9ee617a16f93557f1fe806282a9a0e80cd3d21f4ba8",
+    "evaluation/mast/vps-runtime-round-3/package.json": "71cb85dc2273c6730e4bf5e40595db0ca0ef67728503da34d4faf2ccece1f730",
+    "evaluation/mast/vps-runtime-round-3/package-lock.json": "2bb3c7768a284636fbe968ce71980b515e1e7f33e9ba60e897812b3a28c79ab8",
+    "scripts/mast-fresh-validation-round-5.mts": "c50a52042316234bf9a6ed899b699338e7f6f5231599f011ba432e3aeb707950",
+    "scripts/mast-vps-cdp-generation-round-5.mjs": "df9937ff54749cd7be394b40d25f236de12de40b4f0b530991d4f09321551530",
+    "scripts/mast-vps-round5-orchestrator.mts": "f519fa58eb205dcee6dc8f8be631678d9deace7ccb69017d4a8f957e6ed35083",
+    "deploy/systemd/askrigor-mast-round3-xvfb.service": "48507c3730a93786a704d76783afd1a06bed6d1e013a94677d26ba6ad1c5f1c5",
+    "deploy/systemd/askrigor-mast-round3-brave.service": "bff4d9206034adb0b593cceb44f9cdce775b80978cc36300705b5768df853be0",
+    "deploy/systemd/askrigor-mast-round3-watchdog.service": "e8a3aed3878d28d3e21130e66e86009be574b3516622fef0be91365cbdb68881",
+    "deploy/vps/brave-mast-round3.sh": "94b46d2083f7a0dffc5071a4ac6e164bbd2eff4092d2bd094ecd90b11ba1421f",
+    "deploy/vps/cdp-watchdog.sh": "44cadf1cb597ba0d68b227aea762be0e921d80e1e5147cbfcaa49cec00ba392e",
+    "docs/directives/2026-09-20-mast-fresh-validation-round-5.md": "98bef05689b4210e8d86beee0542e50bf6fafe37a5bd37c305884a38caa41656",
+    "docs/directives/2026-09-20-mast-fresh-validation-round-5.json": "1d87b83aeccea36e838099de223e0e08e01c08a6c190bd0bec15ec5bf55210ae",
+    "evaluation/mast/prompts/fresh-round-5-primary-judge.md": "74320d015531a15ab38b1cb53778a829b9c9f86c8e9893817246b8ef37b7df08",
+    "evaluation/mast/prompts/fresh-round-5-adjudicator.md": "c2f8c3040c9821f156027eb46dbf6155cb72377720dcb127d49f877ebfd19558",
+    "evaluation/mast/prompts/fresh-round-5-benchmark-integrity.md": "7419806624fa2dc25c4cd840b789a25866613eb64bf4f36111efdc5e7d2cd401",
+    "tests/mast-fresh-validation-round-5.test.ts": "302fe7e4b30dd0bc679f50243c697ea9094b0efba4f9c0d751815ed7e46affdf",
+    "tests/mast-round-5-durable-vps.test.ts": "1294fbeb45841cd0487b8df69e1ea83943402589204466690b158cf425e97fae",
+    "tests/external-evaluation-task.test.ts": "a7435255f6b60af1834984dcadb1272705f48c6beda9709b1591b571a534c779",
+    "package.json": "1fc137fe465cc8eaf2df93e51c26539539beb2582cbfb555cc48edf59f4f90ca",
+    "package-lock.json": "3f54a7c2001c62a7fefbbceab0ba0ed15bfcedbc6868d1eaf4915ef176478a17"
+  },
+  "componentBindings": {
+    "cohortSelectorAndExposureLedger": "evaluation/mast/src/fresh-validation-round-5.ts + evaluation/mast/fresh-validation-round-5-family-manifest.json",
+    "generationPacketBuilder": "scripts/mast-fresh-validation-round-5.mts",
+    "generationBrowserTransport": "scripts/mast-vps-cdp-generation-round-5.mjs",
+    "generationVpsOrchestrator": "scripts/mast-vps-round5-orchestrator.mts",
+    "durableBrowserRuntime": "unchanged Round-3 systemd units/profile/wrappers, hash-bound into Round 5",
+    "generationProviderAdmission": "shared generationProviderReceiptSchema used by both generationCaptureSchema and captureGeneration",
+    "postSendRecovery": "evaluation/mast/src/durable-vps-round-5.ts + scripts/mast-vps-cdp-generation-round-5.mjs",
+    "responseCaptureAndSealing": "scripts/mast-fresh-validation-round-5.mts + scripts/mast-vps-round5-orchestrator.mts",
+    "blindPacketBuilderAndOpaqueMapping": "scripts/mast-fresh-validation-round-5.mts",
+    "J1J2AndJ3Orchestration": "scripts/mast-fresh-validation-round-5.mts + scripts/mast-vps-cdp-generation-round-5.mjs + scripts/mast-vps-round5-orchestrator.mts",
+    "disagreementDetectionAndAdjudication": "evaluation/mast/src/fresh-validation-round-5.ts",
+    "explicitUnblindAndAliasSafeJoin": "evaluation/mast/src/fresh-validation.ts",
+    "round5ScoringAndDecisionRule": "evaluation/mast/src/fresh-validation-round-5-base.ts + evaluation/mast/src/fresh-validation-round-5.ts",
+    "benchmarkTargetIntegrityAndFinalReport": "scripts/mast-fresh-validation-round-5.mts",
+    "structuredFailureAndInvalidationReceipts": "evaluation/mast/src/fresh-validation-round-5.ts + scripts/mast-vps-round5-orchestrator.mts"
+  },
+  "unavailableProviderParametersRecordedAsNull": true
+}
