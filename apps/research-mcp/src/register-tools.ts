@@ -132,6 +132,7 @@ import {
   studyMethodAuditActionInputSchema,
   studyMethodAuditRouteOutputSchema
 } from "./actions/open-full-text-route.js";
+import { boundYoutubeAuditForAction } from "./actions/research-output.js";
 import {
   finalizeResearch,
   finalizeResearchInputSchema,
@@ -1130,6 +1131,16 @@ function defineResearchOperations(
       } catch (error) {
         result = youtubeVideoCommunityAuditFailure(input, error);
       }
+      try {
+        result = boundYoutubeAuditForAction(
+          result,
+          MCP_YOUTUBE_AUDIT_MAX_BYTES,
+          MCP_BOUNDED_SAMPLE_LIMITATION
+        );
+      } catch (_error) {
+        // An envelope that cannot fit even one record is returned unchanged;
+        // the client then reports its own size boundary.
+      }
       return withResearchReceipt(youtubeToolResult(
         `YouTube video audit retrieved ${result.records_retrieved_cumulative} record(s) cumulatively; synthesis lock ${result.receipt.synthesis_lock}.`,
         result
@@ -1304,6 +1315,13 @@ function defineResearchOperations(
     }
   );
 }
+
+// Claude clients reject MCP results near 50,000 characters, and one returned
+// comment record is about 600. The sample is cut in the same deterministic
+// order the Custom GPT Action uses; counts and the receipt cover the corpus.
+const MCP_YOUTUBE_AUDIT_MAX_BYTES = 40_000;
+const MCP_BOUNDED_SAMPLE_LIMITATION =
+  "This response returns a deterministic subset of the analysis sample to fit client result-size limits; retrieval coverage and corpus counts are reported separately.";
 
 const RESEARCH_RECEIPT_OUTPUT_SHAPE = {
   research_receipt: z.string().optional()

@@ -6,6 +6,7 @@ import type { YoutubeComment } from "@askrigor/sources";
 import {
   allocateYoutubeCommunityCommentElapsedMs,
   auditYoutubeCommunity,
+  sampleWithinResponseBudget,
   sampleYoutubeComments
 } from "../apps/research-mcp/src/youtube-community-audit.js";
 
@@ -149,6 +150,31 @@ describe("YouTube community audit", () => {
       "comment-12", "comment-13", "comment-15", "comment-16", "comment-17",
       "comment-18", "comment-20", "comment-21", "comment-22", "comment-24"
     ]);
+  });
+
+  it("shrinks a video's systematic sample until it fits the response budget", () => {
+    const comments = Array.from({ length: 300 }, (_, index): YoutubeComment => ({
+      video_id: "XpZHKGGCK-o",
+      comment_id: `comment-${String(index).padStart(3, "0")}`,
+      parent_id: null,
+      top_level_comment_id: `comment-${String(index).padStart(3, "0")}`,
+      is_reply: false,
+      text: `Comment ${index} ${"long firsthand report ".repeat(20)}`,
+      like_count: index,
+      published_at: new Date(Date.UTC(2025, 0, 1) + index * 3_600_000).toISOString(),
+      updated_at: new Date(Date.UTC(2025, 0, 1) + index * 3_600_000).toISOString()
+    }));
+    const budget = 15_000;
+    const sampled = sampleWithinResponseBudget(comments, 250, budget);
+    const size = sampled.reduce((total, comment) => total + JSON.stringify(comment).length + 1, 0);
+
+    expect(size).toBeLessThanOrEqual(budget);
+    expect(sampled.length).toBeGreaterThan(10);
+    expect(sampled.length).toBeLessThan(250);
+    // Still spread across the whole period, not the earliest comments only.
+    expect(sampled[0]!.comment_id).toBe("comment-000");
+    expect(sampled.at(-1)!.comment_id).toBe("comment-299");
+    expect(sampleWithinResponseBudget(comments.slice(0, 5), 250, budget)).toHaveLength(5);
   });
 
   it("treats an exhausted zero-candidate search as terminal without inventing signal", async () => {

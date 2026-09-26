@@ -206,6 +206,24 @@ describe("adaptive per-video YouTube community audit", () => {
     );
   });
 
+  it("labels a bounded sample with the caller's transport limitation", async () => {
+    const comments = makeComments(200).map((comment) => ({
+      ...comment,
+      text: `${comment.text} ${"evidence ".repeat(60)}`
+    }));
+    const original = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID },
+      CONFIG,
+      { now: () => NOW, dependencies: completeDependencies(comments) }
+    );
+    const bounded = boundYoutubeAuditForAction(original, 40_000, "MCP bounded sample.");
+
+    expect(Buffer.byteLength(JSON.stringify(bounded), "utf8")).toBeLessThanOrEqual(40_000);
+    expect(bounded.limitations).toContain("MCP bounded sample.");
+    expect(bounded.limitations.some((text) => text.startsWith("The Custom GPT Action"))).toBe(false);
+    expect(bounded.receipt).toEqual(original.receipt);
+  });
+
   it("fails closed when fixed non-comment fields cannot fit the Action response ceiling", async () => {
     const original = await auditYoutubeVideoCommunity(
       { video_id_or_url: VIDEO_ID },

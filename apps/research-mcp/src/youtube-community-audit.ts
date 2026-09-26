@@ -213,7 +213,11 @@ export async function auditYoutubeCommunity(
       (commentsResult.access_status === "partial" && commentData.data.comments.length > 0)
     )) {
       const comments = commentData.data.comments;
-      const sampled = sampleYoutubeComments(comments, parsed.sample_comments_per_video);
+      const sampled = sampleWithinResponseBudget(
+        comments,
+        parsed.sample_comments_per_video,
+        Math.floor(COMMUNITY_AUDIT_SAMPLE_BUDGET_CHARACTERS / selectedVideoIds.length)
+      );
       video.manifest = commentData.data.manifest;
       video.corpus_sha256 = hashYoutubeCommentCorpus(comments);
       video.sample = {
@@ -315,6 +319,31 @@ export async function auditYoutubeCommunity(
       blockers: uniqueStrings(blockers)
     }
   });
+}
+
+// MCP clients reject large tool results (Claude clients near 50,000
+// characters). All selected videos share this sample budget; a video's
+// systematic sample shrinks until it fits, so it stays spread over time.
+const COMMUNITY_AUDIT_SAMPLE_BUDGET_CHARACTERS = 30_000;
+
+export function sampleWithinResponseBudget(
+  comments: readonly YoutubeComment[],
+  requestedLimit: number,
+  budgetCharacters: number
+): YoutubeComment[] {
+  let limit = requestedLimit;
+  let sampled = sampleYoutubeComments(comments, limit);
+  let size = serializedSize(sampled);
+  while (size > budgetCharacters && limit > 1) {
+    limit = Math.max(1, Math.min(limit - 1, Math.floor(limit * budgetCharacters / size)));
+    sampled = sampleYoutubeComments(comments, limit);
+    size = serializedSize(sampled);
+  }
+  return sampled;
+}
+
+function serializedSize(comments: readonly YoutubeComment[]): number {
+  return comments.reduce((total, comment) => total + JSON.stringify(comment).length + 1, 0);
 }
 
 export function sampleYoutubeComments(

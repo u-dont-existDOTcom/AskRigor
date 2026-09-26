@@ -12,7 +12,8 @@ export const ACTION_BOUNDED_SAMPLE_LIMITATION =
 
 export function boundYoutubeAuditForAction(
   output: YoutubeVideoCommunityAuditOutput,
-  maximumBytes: number
+  maximumBytes: number,
+  boundedSampleLimitation: string = ACTION_BOUNDED_SAMPLE_LIMITATION
 ): YoutubeVideoCommunityAuditOutput {
   if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1) {
     throw new Error("Action response byte limit must be a positive safe integer");
@@ -35,7 +36,7 @@ export function boundYoutubeAuditForAction(
   let best: YoutubeVideoCommunityAuditOutput | undefined;
   while (lower <= upper) {
     const count = Math.floor((lower + upper) / 2);
-    const candidate = createBoundedCandidate(original, ranked.slice(0, count));
+    const candidate = createBoundedCandidate(original, ranked.slice(0, count), boundedSampleLimitation);
     if (serializedBytes(candidate) <= maximumBytes) {
       best = candidate;
       lower = count + 1;
@@ -53,7 +54,8 @@ export function boundYoutubeAuditForAction(
 
 function createBoundedCandidate(
   original: YoutubeVideoCommunityAuditOutput,
-  selected: readonly YoutubeComment[]
+  selected: readonly YoutubeComment[],
+  boundedSampleLimitation: string
 ): YoutubeVideoCommunityAuditOutput {
   const comments = chronological(selected);
   const topLevel = comments.filter(({ is_reply }) => !is_reply).length;
@@ -65,7 +67,7 @@ function createBoundedCandidate(
     reply_records_returned_for_analysis: comments.length - topLevel,
     limitations: [...new Set([
       ...original.limitations,
-      ACTION_BOUNDED_SAMPLE_LIMITATION
+      boundedSampleLimitation
     ])],
     sample: {
       ...original.sample!,
