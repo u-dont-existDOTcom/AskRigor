@@ -1,5 +1,16 @@
 # AskRigor current state
 
+## Active owner task: instruction optimization (2026-09-26)
+
+The owner started a new task in a Claude Code session: make AskRigor at least as
+rigorous with far less instruction text and more server-enforced rules, so it
+can run well on GPT consumer chats as well as Claude. Plan, owner decisions, and
+status: `docs/superpowers/plans/2026-09-26-instruction-optimization.md`.
+Phase 0 findings: `docs/audits/2026-09-26-instruction-optimization-phase0.md`.
+Checkpoint: Phase 0 complete; no product, protocol, server, or deployment change
+yet. The MAST records below are unchanged; the owner set aside a full MAST rerun
+for this task.
+
 ## Authority and parent task
 
 Read `AGENTS.md` and `governance/chat-work-authority-policy.json` first.

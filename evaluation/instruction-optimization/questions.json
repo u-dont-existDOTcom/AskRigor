@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Real-user-style health questions for comparing AskRigor before and after the instruction-optimization refactor. There is no answer key: AskRigor's job is to find better answers than the mainstream one, so runs are compared side by side by blinded judges.",
+  "style": "Short, casual questions as a real person would type them. No point-by-point test specifications, no rubric text, no private details.",
+  "splitRule": "DEVELOPMENT questions may be run at any time and may influence changes. HELD_OUT questions are run only in the final before/after comparison, after the refactor is frozen; their outputs may not influence any change.",
+  "questions": [
+    {"id": "dev-hip-fix", "split": "DEVELOPMENT", "origin": "real de-identified user prompt (docs/audits/2026-08-21-unspecified-hip-pain-full-hrp.md)", "text": "how can i fix my bad hip"},
+    {"id": "dev-hip-avoid-replacement", "split": "DEVELOPMENT", "origin": "owner: latest real question", "text": "how can I avoid hip replacement surgery? I can barely walk and I'm in a lot of pain"},
+    {"id": "dev-subdermal-infection", "split": "DEVELOPMENT", "origin": "owner example", "text": "what's the best way to cure a subdermal infection?"},
+    {"id": "dev-ppi-reflux", "split": "DEVELOPMENT", "origin": "generated in owner's style", "text": "how do i get off PPIs for acid reflux without the reflux coming back"},
+    {"id": "dev-tinnitus", "split": "DEVELOPMENT", "origin": "generated in owner's style", "text": "i've had ringing in my ears for 2 years, is there anything that actually helps tinnitus?"},
+    {"id": "ho-knee-cartilage", "split": "HELD_OUT", "origin": "generated in owner's style", "text": "my knee cartilage is worn down, is there anything that actually helps it grow back or at least stops the pain?"},
+    {"id": "ho-frozen-shoulder", "split": "HELD_OUT", "origin": "generated in owner's style", "text": "frozen shoulder for 8 months and PT isn't helping much. what else can i try?"},
+    {"id": "ho-psoriasis", "split": "HELD_OUT", "origin": "generated in owner's style", "text": "my psoriasis keeps coming back even with steroid creams, what else actually works?"},
+    {"id": "ho-long-covid-fatigue", "split": "HELD_OUT", "origin": "generated in owner's style", "text": "what actually helps long covid fatigue? it's been a year"},
+    {"id": "ho-antidepressant-taper", "split": "HELD_OUT", "origin": "generated in owner's style", "text": "how do i come off my antidepressant without bad withdrawal?"},
+    {"id": "ho-hashimotos-fatigue", "split": "HELD_OUT", "origin": "generated in owner's style", "text": "i have hashimoto's and my TSH is normal on levothyroxine but i'm still exhausted all the time. what can i do?"}
+  ]
+}

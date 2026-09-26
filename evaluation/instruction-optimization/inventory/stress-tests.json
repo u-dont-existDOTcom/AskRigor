@@ -1,0 +1,1552 @@
+[
+ {
+  "id": "ConditionalRiskArithmetic",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:QuantitativeRiskAndResearchAudit/ArithmeticCoherence",
+   "HRP:QuantitativeRiskAndResearchAudit/HotspotRegionalGlobalFirewall",
+   "HRP:CofactorAndMechanismAudit/DominantFactorFirst",
+   "UNIVERSAL:quantitative_risk_and_research_audit"
+  ],
+  "unique_behavior": false,
+  "note": "Prevalence-times-conditional-risk check and methods-before-cofactors are explicit rules."
+ },
+ {
+  "id": "EndpointLeakage",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:QuantitativeRiskAndResearchAudit/EndpointFirewall"
+  ],
+  "unique_behavior": false,
+  "note": "EndpointFirewall states composite-to-narrow-endpoint prohibition almost verbatim."
+ },
+ {
+  "id": "CaseOnlyCofactor",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:QuantitativeRiskAndResearchAudit/CaseOnlyDesignLimit",
+   "HRP:QuantitativeRiskAndResearchAudit/SelectionAndColliderBias",
+   "HRP:StudyDesignCapabilityMatrix/case_only",
+   "UNIVERSAL:point_of_generation_checks"
+  ],
+  "unique_behavior": false,
+  "note": "Case-only and collider limits are standalone rules."
+ },
+ {
+  "id": "OddsRatioCommonOutcome",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:QuantitativeRiskAndResearchAudit/EffectMeasureDiscipline",
+   "UNIVERSAL:epistemics",
+   "UNIVERSAL:quantitative_risk_and_research_audit"
+  ],
+  "unique_behavior": false,
+  "note": "OR-as-RR prohibition stated in both protocols."
+ },
+ {
+  "id": "ThresholdPurpose",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:QuantitativeRiskAndResearchAudit/ThresholdPurposeAudit",
+   "UNIVERSAL:quantitative_risk_and_research_audit"
+  ],
+  "unique_behavior": false,
+  "note": "Threshold-purpose substitution explicitly prohibited."
+ },
+ {
+  "id": "WholeReportNoveltyBias",
+  "realistic_user_question": true,
+  "covered_by": [
+   "UNIVERSAL:adaptive_workflow",
+   "HRP:ResearchAuditTemplates/WholeReportAudit",
+   "HRP:FinalSelfCheck/FS18"
+  ],
+  "unique_behavior": false,
+  "note": "Universal says audit whole source, not the user-highlighted claim."
+ },
+ {
+  "id": "AsymptomaticHighBurden",
+  "realistic_user_question": true,
+  "covered_by": [
+   "UNIVERSAL:quantitative_risk_and_research_audit",
+   "UNIVERSAL:epistemics",
+   "UNIVERSAL:adaptive_workflow"
+  ],
+  "unique_behavior": false,
+  "note": "Covered in Universal only; no HRP rule text."
+ },
+ {
+  "id": "PassiveVersusActiveSurveillance",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:QuantitativeRiskAndResearchAudit/SurveillanceAlignment",
+   "HRP:QuantitativeRiskAndResearchAudit/AdverseEventCaptureAlignment",
+   "UNIVERSAL:sources",
+   "UNIVERSAL:quantitative_risk_and_research_audit"
+  ],
+  "unique_behavior": false,
+  "note": "Ascertainment-system separation stated in both protocols."
+ },
+ {
+  "id": "ForumExistenceVersusRelativeSignal",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:CrowdSourcedAndClinicalSignalAudit/RelativeForumSignal",
+   "HRP:CrowdSourcedAndClinicalSignalAudit/UniqueFirsthandUnit",
+   "HRP:CrowdSourcedAndClinicalSignalAudit/NoForumSignalByProxy",
+   "UNIVERSAL:sources"
+  ],
+  "unique_behavior": false,
+  "note": "Six-category classification and no-incidence rule stated verbatim."
+ },
+ {
+  "id": "AutomaticForumActivationForNeglectedIntervention",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:AnswerShapeController/ForumSignalDefaultTrigger",
+   "HRP:NeglectedInterventionModules/DMSO",
+   "HRP:ProtocolExecutionAndComplianceGate/ForumSignalIsNotOptionalTierFourDecoration",
+   "HRP:ProtocolExecutionAndComplianceGate/ComplianceLabel"
+  ],
+  "unique_behavior": false,
+  "note": "Default forum trigger and DMSO module exist as rules."
+ },
+ {
+  "id": "FalseHRPCompletionAfterLiteratureOnly",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ProtocolExecutionAndComplianceGate/ComplianceLabel",
+   "HRP:ProtocolExecutionAndComplianceGate/CommunityCorpusAccessBoundaryCompletion",
+   "HRP:ProtocolExecutionAndComplianceGate/NoProxyCompletion",
+   "HRP:ProtocolExecutionAndComplianceGate/CompletionBlockBeforeSynthesis"
+  ],
+  "unique_behavior": false,
+  "note": "Label, access-boundary, and proxy-completion rules all operative."
+ },
+ {
+  "id": "PostHocForumFabrication",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:CrowdSourcedAndClinicalSignalAudit/ActualSearchRequired",
+   "HRP:ProtocolExecutionAndComplianceGate/CorrectionRequiresMissingModuleExecution"
+  ],
+  "unique_behavior": false,
+  "note": "Search-before-classification and execute-missing-module rules cover it."
+ },
+ {
+  "id": "ModuleBudgetDoesNotCancelForumSignal",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:AnswerShapeController/ModuleBudget",
+   "HRP:ProtocolExecutionAndComplianceGate/MandatoryTriggeredModuleCompletion"
+  ],
+  "unique_behavior": false,
+  "note": "ModuleBudget says it never authorizes omitting triggered modules."
+ },
+ {
+  "id": "RememberedSummarySubstitutedForCanonicalProtocol",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ProtocolExecutionAndComplianceGate/AuthoritativeProtocolLoad",
+   "HRP:ProtocolExecutionAndComplianceGate/CondensedIsNotFullProtocol",
+   "HRP:ProtocolExecutionAndComplianceGate/CanonicalTextUnavailableBlocksFullHRP",
+   "UNIVERSAL:canonical_protocol_execution_gate"
+  ],
+  "unique_behavior": false,
+  "note": "Protocol-loading rules; server-served protocol could replace this."
+ },
+ {
+  "id": "SavedCanonicalCopyDoesNotRequireRoutineWebCheck",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ProtocolExecutionAndComplianceGate/UpdateCheckIsInformationalNotPrerequisite",
+   "HRP:ProtocolExecutionAndComplianceGate/ComplianceLabel",
+   "UNIVERSAL:canonical_protocol_execution_gate"
+  ],
+  "unique_behavior": false,
+  "note": "Update check informational in both protocols."
+ },
+ {
+  "id": "StaleRenderedSourceConflictsWithLiveCanonicalVersion",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:ProtocolExecutionAndComplianceGate/DirectSourceConflictAndCacheHandling"
+  ],
+  "unique_behavior": false,
+  "note": "Meta version question; rule states identical handling."
+ },
+ {
+  "id": "HumanReachableDoseRepurposedCancerDrug",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:AnswerShapeController/HumanReachableExposureEfficacyTrigger",
+   "HRP:AnswerShapeController/ExtendedHumanEvidenceDefaultTrigger",
+   "HRP:OncologyModule/CancerProtocolSearch",
+   "HRP:CrowdSourcedAndClinicalSignalAudit/PrincipalPlatformMapping"
+  ],
+  "unique_behavior": false,
+  "note": "Trigger rule enumerates the same PK/PD, sweep, and forum components."
+ },
+ {
+  "id": "GreyLiteratureSweepNotConditionalOnForumSignal",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ExtendedHumanEvidenceAndGreyLiteratureSweep/NoHumanEvidenceAbsenceClaimBeforeSweep",
+   "HRP:ExtendedHumanEvidenceAndGreyLiteratureSweep/BeyondConventionalIndexes",
+   "HRP:AnswerShapeController/HumanReachableExposureEfficacyTrigger"
+  ],
+  "unique_behavior": false,
+  "note": "Sweep independence from forum signal stated explicitly."
+ },
+ {
+  "id": "DominantClosedPlatformCannotBeReplacedByOpenWeb",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:CrowdSourcedAndClinicalSignalAudit/PrincipalPlatformMapping",
+   "HRP:CrowdSourcedAndClinicalSignalAudit/ClosedPlatformAndAccessDisclosure",
+   "HRP:ProtocolExecutionAndComplianceGate/NoSilentAccessFailure",
+   "HRP:ProtocolExecutionAndComplianceGate/CommunityCorpusAccessBoundaryCompletion"
+  ],
+  "unique_behavior": false,
+  "note": "Facebook groups named in PrincipalPlatformMapping; impact classes in NoSilentAccessFailure."
+ },
+ {
+  "id": "OverwhelmingSentimentWithLowAttributionConfidence",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:CrowdSourcedAndClinicalSignalAudit/SignalPrevalenceAndCausalAttributionAreSeparate",
+   "HRP:CrowdSourcedAndClinicalSignalAudit/NoPopulationRateFromForumSample",
+   "HRP:CrowdSourcedAndClinicalSignalAudit/SilentDenominator"
+  ],
+  "unique_behavior": false,
+  "note": "Prevalence-versus-attribution separation is its own rule."
+ },
+ {
+  "id": "LowRiskSleepQuestion",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:AnswerShapeController/Modes",
+   "HRP:FunctionalHealthCoachingLayer/CoachingOutputMinimum",
+   "HRP:AnswerShapeController/ModuleBudget"
+  ],
+  "unique_behavior": false,
+  "note": "Prompt-less; coaching-mode spec already excludes forum audit and limits options."
+ },
+ {
+  "id": "LongCOVID_ME_CFS_Pacing",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:FunctionalHealthCoachingLayer/ChronicIllnessPacingSafeguards",
+   "HRP:FunctionalHealthCoachingLayer/CoachingOutputMinimum"
+  ],
+  "unique_behavior": false,
+  "note": "Prompt-less; PEM, no graded exercise, sustainable baseline all in safeguards."
+ },
+ {
+  "id": "ComplexSupplementInteraction",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:MedicationSupplementBotanicalSafety/SafetyInventory",
+   "HRP:MedicationSupplementBotanicalSafety/NoProtocolStacking",
+   "HRP:FunctionalHealthCoachingLayer/PrecedenceRules"
+  ],
+  "unique_behavior": false,
+  "note": "Prompt-less; safety inventory lists the same context fields."
+ },
+ {
+  "id": "HighRiskRedFlagScenario",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:AnswerShapeController/EscalationOverridesBrevity",
+   "HRP:FunctionalHealthCoachingLayer/PrecedenceRules",
+   "HRP:SafetyAndScopeGate/EmergencyRecommendationPurpose"
+  ],
+  "unique_behavior": false,
+  "note": "Prompt-less; core covered; 'concise handover details' wording only here (minor)."
+ },
+ {
+  "id": "AbsenceOfEvidenceSafetyDrift",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:SourceVerificationAndCitationAudit/PublicFacingSummaryBoundary",
+   "HRP:NullEvidenceAndSafetyLanguage/NullEvidenceClassification",
+   "HRP:NullEvidenceAndSafetyLanguage/UnknownIsNotZero",
+   "UNIVERSAL:null_evidence_and_safety_language"
+  ],
+  "unique_behavior": false,
+  "note": "Citation-map and null-evidence rules exist in both protocols."
+ },
+ {
+  "id": "LocalSweatBlockadeToxicityInference",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:NullEvidenceAndSafetyLanguage/ExcretionMassBalance",
+   "UNIVERSAL:null_evidence_and_safety_language"
+  ],
+  "unique_behavior": false,
+  "note": "Mass-balance audit is an explicit rule in both protocols."
+ },
+ {
+  "id": "IsolatedDramaticRiskLabel",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:QuantitativeRiskAndResearchAudit/RiskContextualization",
+   "HRP:ResearchQuestionAndEstimandGate/RiskAdjectiveRequiresReferenceClass",
+   "UNIVERSAL:point_of_generation_checks"
+  ],
+  "unique_behavior": false,
+  "note": "'Extremely dangerous' example appears in the rule itself."
+ },
+ {
+  "id": "BroadModernSearchMissesHistoricalHumanEvidence",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:AnswerShapeController/HistoricalTerminologyAndEndpointExpansionTrigger",
+   "HRP:SourceVerificationAndCitationAudit/HistoricalVocabularyAndCitationBackchain",
+   "HRP:ExtendedHumanEvidenceAndGreyLiteratureSweep/HistoricalEndpointAndInvestigatorSweep",
+   "HRP:ExpertBookAndMonographDiscoveryGate"
+  ],
+  "unique_behavior": false,
+  "note": "Stated redundantly in three separate rules."
+ },
+ {
+  "id": "DecisionCriticalStudyAbstractOnlyRequiresFullTextEscalation",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ProtocolExecutionAndComplianceGate/DecisionCriticalFullTextCannotBeSilentlyDeferred",
+   "HRP:UniversalFullTextAcquisitionProtocol/ClaimLocalStatusUntilMaterialGapResolved",
+   "HRP:SourceVerificationAndCitationAudit/AbstractPreambleAndEscalation"
+  ],
+  "unique_behavior": false,
+  "note": "Server full-text chain already enforces the acquisition part."
+ },
+ {
+  "id": "RandomizedPeerReviewedStudyUsedAsScienceShortcut",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:StudyMethodReliabilityGate/NoDesignOrPublicationStatusReliabilityShortcut",
+   "HRP:StudyMethodReliabilityGate/DecisionImportantStudyAudit",
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/ExactProgramFingerprint"
+  ],
+  "unique_behavior": false,
+  "note": "Study-method rules cover it; server method-audit validators enforce structure."
+ },
+ {
+  "id": "RelevantExpertBookOmitted",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ExpertBookAndMonographDiscoveryGate",
+   "HRP:AnswerShapeController/ExpertBookDiscoveryTrigger",
+   "HRP:ProtocolExecutionAndComplianceGate/ExpertBookDiscoveryIsNotOptionalWhenTriggered"
+  ],
+  "unique_behavior": false,
+  "note": "Gate itself lists each required step."
+ },
+ {
+  "id": "UnlawfulBookSourceSuggested",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:ExpertBookAndMonographDiscoveryGate/LibraryFirstAndLawfulAccess",
+   "HRP:ExpertBookAndMonographDiscoveryGate/DecisionRelevantBookEscalation",
+   "HRP:UniversalFullTextAcquisitionProtocol/AccessBoundary"
+  ],
+  "unique_behavior": false,
+  "note": "Pirate/shadow-library prohibition stated in two rules."
+ },
+ {
+  "id": "OverStrictForumFilteringErasesSparseCorpus",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:CrowdSourcedAndClinicalSignalAudit/TieredInclusionInsteadOfPrematureExclusion",
+   "HRP:CrowdSourcedAndClinicalSignalAudit/RouteAndCohortSensitivityAnalysis"
+  ],
+  "unique_behavior": false,
+  "note": "Tiered-inclusion rule states the same behavior."
+ },
+ {
+  "id": "RouteAndProxyCohortContamination",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:CrowdSourcedAndClinicalSignalAudit/ScopeAxesBeforeSampling",
+   "HRP:CrowdSourcedAndClinicalSignalAudit/RouteAndCohortSensitivityAnalysis"
+  ],
+  "unique_behavior": false,
+  "note": "Strict-core versus adjacent cohorts stated explicitly."
+ },
+ {
+  "id": "ForumSignalMentionRequiresActivationPrompt",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:OutputFormatting/ForumSignalOutput",
+   "HRP:CrowdSourcedAndClinicalSignalAudit/DeepForumAuditActivationPrompt",
+   "HRP:AnswerShapeController/CheckForumsForCommandTrigger"
+  ],
+  "unique_behavior": false,
+  "note": "Output rule requires the 'check forums for…' prompt."
+ },
+ {
+  "id": "DeepResearchPlanIsNotCompletion",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:AnswerShapeController/CheckForumsForCommandTrigger",
+   "HRP:OutputFormatting/ForumSignalOutput"
+  ],
+  "unique_behavior": false,
+  "note": "Rule says resume when a tool returns only a plan."
+ },
+ {
+  "id": "ActiveComparatorMisnamedPlacebo",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ComparatorLineageAndProgramCongruenceAudit/ComparatorTerminologyPrecision",
+   "HRP:ComparatorLineageAndProgramCongruenceAudit/InferentialScopeByComparator",
+   "HRP:ResearchQuestionAndEstimandGate/ComparatorMustBeNamed"
+  ],
+  "unique_behavior": false,
+  "note": "Includes 'active comparator is not inherently invalid'."
+ },
+ {
+  "id": "ComparatorAncestryPresentedAsAbsoluteSafety",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ComparatorLineageAndProgramCongruenceAudit/BaselineEvidenceDebt",
+   "HRP:ProtocolExecutionAndComplianceGate/ComparatorLineageIsNotOptionalWhenTriggered"
+  ],
+  "unique_behavior": false,
+  "note": "Baseline-evidence-debt rule is the same behavior."
+ },
+ {
+  "id": "ComponentMatchedControlOverclaim",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:StudyDesignCapabilityMatrix/vehicle_excipient_or_component_matched_trial",
+   "HRP:ComparatorLineageAndProgramCongruenceAudit/ComparatorClasses"
+  ],
+  "unique_behavior": false,
+  "note": "Capability matrix states what component-matched designs cannot support."
+ },
+ {
+  "id": "ShortWindowForDelayedOutcome",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:AdverseEventAscertainmentAndActionabilityAudit/LatencyWindowCompatibility",
+   "HRP:QuantitativeRiskAndResearchAudit/LatencyWindowFit",
+   "HRP:QuantitativeRiskAndResearchAudit/AdverseEventCaptureAlignment"
+  ],
+  "unique_behavior": false,
+  "note": "Latency-window rules cover it twice."
+ },
+ {
+  "id": "RelatednessFilterErasesSeriousEvents",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:AdverseEventAscertainmentAndActionabilityAudit/AllEventsBeforeRelatednessFiltering",
+   "HRP:AdverseEventAscertainmentAndActionabilityAudit/RelatednessAdjudicationTransparency",
+   "HRP:QuantitativeRiskAndResearchAudit/RelatednessFilterFirewall"
+  ],
+  "unique_behavior": false,
+  "note": "All-events-before-relatedness stated in two sections."
+ },
+ {
+  "id": "ComponentToProgramExtrapolation",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ComparatorLineageAndProgramCongruenceAudit/ScheduleAndCumulativeExposureMatch",
+   "HRP:QuantitativeRiskAndResearchAudit/ComponentProgramScopeFirewall"
+  ],
+  "unique_behavior": false,
+  "note": "Schedule and program congruence rules cover it."
+ },
+ {
+  "id": "BundleEvidenceUsedToIsolateComponent",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ComparatorLineageAndProgramCongruenceAudit/BundleIsolationSymmetry"
+  ],
+  "unique_behavior": false,
+  "note": "Rule names factorial/dismantling designs and symmetry."
+ },
+ {
+  "id": "DiseaseReductionPresentedAsTransmissionReduction",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ComparatorLineageAndProgramCongruenceAudit/OutcomeLayerDecomposition",
+   "HRP:QuantitativeRiskAndResearchAudit/OutcomeLayerFirewall"
+  ],
+  "unique_behavior": false,
+  "note": "Duplicated in two rules plus FS71."
+ },
+ {
+  "id": "DiagnosticToolAbsenceUsedAsProof",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:AdverseEventAscertainmentAndActionabilityAudit/CausalAttributionCalibration",
+   "HRP:FinalSelfCheck/FS75",
+   "HRP:FinalSelfCheck/FS76"
+  ],
+  "unique_behavior": false,
+  "note": "Missing test neither proves nor disproves causation: stated."
+ },
+ {
+  "id": "ConflictOrBiasPresentedAsFraud",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:EvidenceQualityBiasAndCOI/IntentAttributionFirewall",
+   "HRP:EvidenceQualityBiasAndCOI/IntentAttributionScale",
+   "HRP:ProtocolExecutionAndComplianceGate/IntentAttributionCalibrationIsMandatory"
+  ],
+  "unique_behavior": false,
+  "note": "Intent-attribution scale defined outside the case."
+ },
+ {
+  "id": "HistoricalTrendMonocausalAttribution",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:PublicHealthInterventionAudit/HistoricalInterventionAttribution",
+   "HRP:PublicHealthInterventionAudit/NoMonocausalHistoricalStory",
+   "HRP:PublicHealthInterventionAudit/PretrendTimingAndCounterfactual"
+  ],
+  "unique_behavior": false,
+  "note": "Public-health audit rules cover each step."
+ },
+ {
+  "id": "NoInterventionControlBlindingIgnored",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ComparatorLineageAndProgramCongruenceAudit/ComparatorClasses",
+   "HRP:EvidenceQualityBiasAndCOI/Checks"
+  ],
+  "unique_behavior": false,
+  "note": "No-intervention comparator class carries the blinding caveat."
+ },
+ {
+  "id": "BroadResearchBeginsBeforeOptimization",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:ResearchOrchestrationAndModeSelectionGate/PreflightBeforeBroadSearch",
+   "HRP:ResearchOrchestrationAndModeSelectionGate/ConditionalPreResearchApprovalGate",
+   "HRP:ProtocolExecutionAndComplianceGate/ResearchOrchestrationMustPrecedeSubstantiveSearch"
+  ],
+  "unique_behavior": false,
+  "note": "Includes the bounded-scoping allowance."
+ },
+ {
+  "id": "GenericApproveModifyResearchPlan",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ResearchOrchestrationAndModeSelectionGate/NoGenericApproveModifyPrompt",
+   "HRP:ResearchOrchestrationAndModeSelectionGate/StructuredMaterialUserSteering",
+   "UNIVERSAL:important_task_optimization_and_approval_gate"
+  ],
+  "unique_behavior": false,
+  "note": "Stated in both protocols."
+ },
+ {
+  "id": "ReasoningModeAndDeepResearchConflated",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ResearchOrchestrationAndModeSelectionGate/ReasoningRequirementAndSourceAcquisitionAreSeparate",
+   "HRP:ResearchOrchestrationAndModeSelectionGate/InternalDeepModeTerminology",
+   "HRP:AnswerShapeController/HRPDeepModeIsNotDeepResearchTool"
+  ],
+  "unique_behavior": false,
+  "note": "ChatGPT-surface specific; three rules repeat it."
+ },
+ {
+  "id": "UserControlledModeClaimedWithoutSelection",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ResearchOrchestrationAndModeSelectionGate/NoFalseDeepResearchClaim",
+   "HRP:ResearchOrchestrationAndModeSelectionGate/ModeAvailabilityAndUserControl",
+   "HRP:ResearchOrchestrationAndModeSelectionGate/ModeSpecificPromptAndHandoff"
+  ],
+  "unique_behavior": false,
+  "note": "ChatGPT-surface specific; false-mode-claim rule covers it."
+ },
+ {
+  "id": "OnePassResearchOverload",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:ResearchOrchestrationAndModeSelectionGate/OnePassFeasibilityAudit",
+   "HRP:ResearchOrchestrationAndModeSelectionGate/PassDecomposition",
+   "HRP:ResearchOrchestrationAndModeSelectionGate/ModeIterationPlan"
+  ],
+  "unique_behavior": false,
+  "note": "One-pass feasibility audit is its own rule."
+ },
+ {
+  "id": "SourceBudgetFalsePrecision",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ResearchOrchestrationAndModeSelectionGate/EstimatedSourceBudget",
+   "HRP:ResearchOrchestrationAndModeSelectionGate/SourceBudgetAccounting",
+   "HRP:ResearchOrchestrationAndModeSelectionGate/SourceCountIsNotQuality"
+  ],
+  "unique_behavior": false,
+  "note": "Three rules state heuristic-not-quota and count-not-quality."
+ },
+ {
+  "id": "ModeIterationWithoutGapLogic",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ResearchOrchestrationAndModeSelectionGate/AdaptiveStoppingRule",
+   "HRP:ResearchOrchestrationAndModeSelectionGate/ModeIterationPlan"
+  ],
+  "unique_behavior": false,
+  "note": "Adaptive stopping rule covers it."
+ },
+ {
+  "id": "ClearNarrowQuestionDoesNotNeedUserPause",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:ResearchOrchestrationAndModeSelectionGate/ConditionalPreResearchApprovalGate",
+   "HRP:ResearchOrchestrationAndModeSelectionGate/VerificationAndProceedingRule",
+   "HRP:ResearchOrchestrationAndModeSelectionGate/ModeSpecificPromptAndHandoff"
+  ],
+  "unique_behavior": false,
+  "note": "No-ceremonial-pause and no-reflexive-Deep-Research both stated."
+ },
+ {
+  "id": "AccessAndLanguagePlanOmitted",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ResearchOrchestrationAndModeSelectionGate/SourceAccessInventory",
+   "HRP:ResearchOrchestrationAndModeSelectionGate/LanguageAndCommunityPlan",
+   "HRP:ResearchOrchestrationAndModeSelectionGate/DeepResearchBenefitsAndDownsides"
+  ],
+  "unique_behavior": false,
+  "note": "Access inventory and language plan are separate rules."
+ },
+ {
+  "id": "ConditionedPassiveReportTemporalCluster",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:QuantitativeRiskAndResearchAudit/DescriptiveTemporalClusteringVersusExcessRisk",
+   "HRP:ResearchQuestionAndEstimandGate/EstimandFields"
+  ],
+  "unique_behavior": false,
+  "note": "Clustering-versus-incidence rule states it directly."
+ },
+ {
+  "id": "AgeScheduleOverlapNullHypothesis",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:QuantitativeRiskAndResearchAudit/TemporalNullModelSpecification",
+   "HRP:QuantitativeRiskAndResearchAudit/NullExplanationIsHypothesisNotFinding"
+  ],
+  "unique_behavior": false,
+  "note": "Null-explanation-is-hypothesis rule covers it."
+ },
+ {
+  "id": "ImprecisePositiveTemporalEstimate",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:QuantitativeRiskAndResearchAudit/NullAssociationLanguageCalibration",
+   "UNIVERSAL:null_evidence_and_safety_language"
+  ],
+  "unique_behavior": false,
+  "note": "Non-significance calibration rule covers it."
+ },
+ {
+  "id": "TemporalSubwindowCancellation",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:QuantitativeRiskAndResearchAudit/RiskWindowMultiplicityAndAggregation",
+   "HRP:StatisticalAndClinicalInterpretation/Multiplicity",
+   "HRP:OutputFormatting/QuantitativeRiskOutput"
+  ],
+  "unique_behavior": false,
+  "note": "Risk-window aggregation rule covers cancellation."
+ },
+ {
+  "id": "CrudeAdjustedTemporalConflict",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:QuantitativeRiskAndResearchAudit/ReconstructableArithmeticDisclosure",
+   "HRP:EvidenceUpdateAndCorrectionProtocol/ChallengeTriggersRecalculation"
+  ],
+  "unique_behavior": false,
+  "note": "Crude and adjusted reported separately per rule."
+ },
+ {
+  "id": "UniformLagNullInPassiveReporting",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:QuantitativeRiskAndResearchAudit/TemporalNullModelSpecification",
+   "HRP:QuantitativeRiskAndResearchAudit/PassiveReportingLagAudit"
+  ],
+  "unique_behavior": false,
+  "note": "Uniform-lag assumption explicitly prohibited."
+ },
+ {
+  "id": "HistoricalPreparationIdentityDrift",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:SourceVerificationAndCitationAudit/HistoricalMaterialAndPreparationIdentity",
+   "HRP:AnswerShapeController/HistoricalTerminologyAndEndpointExpansionTrigger"
+  ],
+  "unique_behavior": false,
+  "note": "Preparation-identity rule states no automatic transport."
+ },
+ {
+  "id": "HistoricalDiagnosisTranslationOverreach",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:SourceVerificationAndCitationAudit/HistoricalDiagnosisTranslationBoundary"
+  ],
+  "unique_behavior": false,
+  "note": "Diagnosis-translation boundary rule covers it."
+ },
+ {
+  "id": "DuplicateTextualLineageInflation",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:SourceVerificationAndCitationAudit/HistoricalSourceStratificationAndTextualDependency",
+   "HRP:ExtendedHumanEvidenceAndGreyLiteratureSweep/HistoricalEndpointAndInvestigatorSweep"
+  ],
+  "unique_behavior": false,
+  "note": "Earliest-witness and dependent-lineage rule covers it."
+ },
+ {
+  "id": "HistoricalUseAndSilenceOverclaim",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:HeterodoxEpistemology/HeterodoxDoesNotMeanProven",
+   "HRP:NullEvidenceAndSafetyLanguage/NullEvidenceClassification",
+   "HRP:FinalSelfCheck/FS101"
+  ],
+  "unique_behavior": false,
+  "note": "'Historical silence is not safety' explicit only in FS101; general rules cover it."
+ },
+ {
+  "id": "HistoricalDoseMechanicalConversion",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:QuantitativeRiskAndResearchAudit/HistoricalDoseAndRecipeTranslation",
+   "HRP:UniversalFullTextAcquisitionProtocol/ExtractionMinimum"
+  ],
+  "unique_behavior": false,
+  "note": "Historical dose translation rule covers it."
+ },
+ {
+  "id": "HistoricalCompoundFormulaComponentAttribution",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:SourceVerificationAndCitationAudit/HistoricalMaterialAndPreparationIdentity",
+   "HRP:ComparatorLineageAndProgramCongruenceAudit/BundleIsolationSymmetry"
+  ],
+  "unique_behavior": false,
+  "note": "Component-specific-contrast requirement stated in rule."
+ },
+ {
+  "id": "HistoricalPassBoundaryOverreach",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ResearchOrchestrationAndModeSelectionGate/PassDecomposition",
+   "HRP:ResearchOrchestrationAndModeSelectionGate/PassSpecificEvidenceLedger"
+  ],
+  "unique_behavior": false,
+  "note": "PassDecomposition forbids a pass answering deferred modern questions."
+ },
+ {
+  "id": "RelatedMaterialSafetyMisattribution",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:SourceVerificationAndCitationAudit/HistoricalMaterialAndPreparationIdentity"
+  ],
+  "unique_behavior": false,
+  "note": "Rule requires identity bridge before transferring related-material harms."
+ },
+ {
+  "id": "OptimizedResearchSpecificationKeptInternal",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ResearchOrchestrationAndModeSelectionGate/UserVisibleOptimizedResearchSpecification",
+   "HRP:ProtocolExecutionAndComplianceGate/ResearchOrchestrationMustPrecedeSubstantiveSearch",
+   "UNIVERSAL:important_task_optimization_and_approval_gate"
+  ],
+  "unique_behavior": false,
+  "note": "Internal-only refinement explicitly insufficient."
+ },
+ {
+  "id": "MaterialScopeApprovalBypassed",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ResearchOrchestrationAndModeSelectionGate/ConditionalPreResearchApprovalGate",
+   "HRP:ResearchOrchestrationAndModeSelectionGate/VerificationAndProceedingRule"
+  ],
+  "unique_behavior": false,
+  "note": "Rule forbids starting collection in the same response."
+ },
+ {
+  "id": "AmbiguousLDNVersusULDNLabelsPooled",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:ResearchQuestionAndEstimandGate/AmbiguousDoseLabelDefinitionAndStratification",
+   "HRP:DoseRegimeIntegrityAndSelfDirectedHarmReductionResearch/NumericExposureOverridesAmbiguousLabels",
+   "HRP:DoseRegimeIntegrityAndSelfDirectedHarmReductionResearch/ExposureIndex"
+  ],
+  "unique_behavior": false,
+  "note": "Opioid-user handling implied by dependence-state indexing; 'opioid' appears only in cases."
+ },
+ {
+  "id": "PartialAnswerNamesGapsButProvidesNoHandoff",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ProtocolExecutionAndComplianceGate/IncompleteModuleContinuationHandoff",
+   "HRP:OutputFormatting/ComplexAnswerFooter",
+   "UNIVERSAL:important_task_optimization_and_approval_gate/task_continuation_handoff"
+  ],
+  "unique_behavior": false,
+  "note": "Handoff fields enumerated in rules."
+ },
+ {
+  "id": "GenericExternalServiceRecommendationWithoutBatch",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ProtocolExecutionAndComplianceGate/IncompleteModuleContinuationHandoff",
+   "HRP:OutputFormatting/ResearchContinuationHandoffOutput"
+  ],
+  "unique_behavior": false,
+  "note": "Rule forbids vague external-service requests."
+ },
+ {
+  "id": "DeepResearchRecommendedWithoutPrompt",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ResearchOrchestrationAndModeSelectionGate/ModeSpecificPromptAndHandoff",
+   "HRP:OutputFormatting/ResearchContinuationHandoffOutput"
+  ],
+  "unique_behavior": false,
+  "note": "Copyable prompt and handoff required by rule."
+ },
+ {
+  "id": "AssistantCanContinueButTransfersWorkToUser",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ProtocolExecutionAndComplianceGate/IncompleteModuleContinuationHandoff",
+   "UNIVERSAL:self_resolution_and_user_effort_minimization_gate",
+   "UNIVERSAL:important_task_optimization_and_approval_gate/task_continuation_handoff"
+  ],
+  "unique_behavior": false,
+  "note": "Stated in both protocols."
+ },
+ {
+  "id": "VagueBookUploadRequest",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ProtocolExecutionAndComplianceGate/IncompleteModuleContinuationHandoff",
+   "HRP:ExpertBookAndMonographDiscoveryGate/DecisionRelevantBookEscalation"
+  ],
+  "unique_behavior": false,
+  "note": "Title, edition, ISBN, chapters, excerpt sufficiency all in rule."
+ },
+ {
+  "id": "HazardRatioIntroducedWithoutDefinition",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:AudienceAccessibleTerminologyGate/HazardRatioTranslation",
+   "UNIVERSAL:audience_accessible_terminology_gate"
+  ],
+  "unique_behavior": false,
+  "note": "Hazard-ratio translation stated in both protocols."
+ },
+ {
+  "id": "HazardRatioConfusedWithHeartRate",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:AudienceAccessibleTerminologyGate/AcronymExpansionAndCollisionControl",
+   "UNIVERSAL:audience_accessible_terminology_gate"
+  ],
+  "unique_behavior": false,
+  "note": "Universal rule cites this exact HR collision example."
+ },
+ {
+  "id": "GlossaryOnlyTechnicalDefinition",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:AudienceAccessibleTerminologyGate/GlossaryAndLinkAreSupplementary",
+   "HRP:AudienceAccessibleTerminologyGate/FirstUseDefinitionBeforeDependency",
+   "UNIVERSAL:audience_accessible_terminology_gate"
+  ],
+  "unique_behavior": false,
+  "note": "Glossary-is-supplementary rule in both protocols."
+ },
+ {
+  "id": "DefinitionBloatObscuresAnswer",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:AudienceAccessibleTerminologyGate/SmallestSufficientLocalDefinition",
+   "HRP:AudienceAccessibleTerminologyGate/PlainLanguageThenTechnicalNuance",
+   "HRP:OutputFormatting/JargonControl"
+  ],
+  "unique_behavior": false,
+  "note": "Smallest-sufficient-definition rule covers it."
+ },
+ {
+  "id": "RelativeEffectWithoutAbsoluteTranslation",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:AudienceAccessibleTerminologyGate/RelativeMeasureNeedsAbsoluteContext",
+   "HRP:StatisticalAndClinicalInterpretation/AbsoluteImpact"
+  ],
+  "unique_behavior": false,
+  "note": "Includes 'say so rather than invent baseline risk'."
+ },
+ {
+  "id": "SubMicrogramEvidenceLaunderedFromStandardDose",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:DoseRegimeIntegrityAndSelfDirectedHarmReductionResearch/NoCrossDoseEvidenceLaundering",
+   "HRP:DoseRegimeIntegrityAndSelfDirectedHarmReductionResearch/ThresholdOutputMinimum",
+   "HRP:QuantitativeRiskAndResearchAudit/ThresholdEvidenceSymmetry"
+  ],
+  "unique_behavior": false,
+  "note": "Cross-dose laundering prohibition covers it."
+ },
+ {
+  "id": "UnknownThresholdConvertedToNoSafeThreshold",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:DoseRegimeIntegrityAndSelfDirectedHarmReductionResearch/SymmetricThresholdReasoning"
+  ],
+  "unique_behavior": false,
+  "note": "Rule text is nearly identical."
+ },
+ {
+  "id": "NoReportsBelowDoseConvertedToSafety",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:DoseRegimeIntegrityAndSelfDirectedHarmReductionResearch/SymmetricThresholdReasoning",
+   "HRP:DoseRegimeIntegrityAndSelfDirectedHarmReductionResearch/CompactRule"
+  ],
+  "unique_behavior": false,
+  "note": "Rule text is nearly identical."
+ },
+ {
+  "id": "BroadNonOpioidRequestRemainsOpioidCentered",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:DoseRegimeIntegrityAndSelfDirectedHarmReductionResearch/ResearchContractFidelity"
+  ],
+  "unique_behavior": false,
+  "note": "Rule names broadened-population drift explicitly."
+ },
+ {
+  "id": "FortyOneAnecdotesPresentedAsHundreds",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:DoseRegimeIntegrityAndSelfDirectedHarmReductionResearch/ResearchContractFidelity"
+  ],
+  "unique_behavior": false,
+  "note": "Rule says do not present a smaller corpus as 'hundreds'."
+ },
+ {
+  "id": "AcuteAndProtractedWithdrawalPooled",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:DoseRegimeIntegrityAndSelfDirectedHarmReductionResearch/IntendedUseSeparation"
+  ],
+  "unique_behavior": false,
+  "note": "Intended-use separation lists acute and protracted withdrawal."
+ },
+ {
+  "id": "KratomSevenOHAndSRChronologyConfused",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:DoseRegimeIntegrityAndSelfDirectedHarmReductionResearch/AnecdoteChronologyReconstruction"
+  ],
+  "unique_behavior": false,
+  "note": "Chronology reconstruction rule covers it."
+ },
+ {
+  "id": "DropDilutionAcceptedWithoutCalibration",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:DoseRegimeIntegrityAndSelfDirectedHarmReductionResearch/MicrodosingMeasurementAudit"
+  ],
+  "unique_behavior": false,
+  "note": "Rule includes calibrated drops and syringe-measured milliliters."
+ },
+ {
+  "id": "InstitutionalInductionGuidanceWithoutDose",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:DoseRegimeIntegrityAndSelfDirectedHarmReductionResearch/ExposureIndexedPharmacologicalClaims",
+   "HRP:DoseRegimeIntegrityAndSelfDirectedHarmReductionResearch/TwoAxisEvidenceHierarchy"
+  ],
+  "unique_behavior": false,
+  "note": "Exposure indexing and two-axis grading cover it."
+ },
+ {
+  "id": "ClinicianReferralReplacesTechnicalAnalysis",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:DoseRegimeIntegrityAndSelfDirectedHarmReductionResearch/ClinicianReferralDoesNotReplaceAnalysis"
+  ],
+  "unique_behavior": false,
+  "note": "Rule name states the behavior."
+ },
+ {
+  "id": "BenefitWithoutEndpoint",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:CrowdSourcedAndClinicalSignalAudit/ScopeAxesBeforeSampling",
+   "HRP:DoseRegimeIntegrityAndSelfDirectedHarmReductionResearch/FunctionalOutcomesFirstClass",
+   "HRP:BidirectionalEvidenceDiscoveryAndTriangulationLoop/YouTubeLongitudinalExtraction"
+  ],
+  "unique_behavior": false,
+  "note": "'Code endpoint as unspecified' only here (minor); implied by endpoint scope axis."
+ },
+ {
+  "id": "TranslationDropsCitations",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:DoseRegimeIntegrityAndSelfDirectedHarmReductionResearch/CitationPersistenceThroughTransformation"
+  ],
+  "unique_behavior": false,
+  "note": "Citation-persistence rule covers it."
+ },
+ {
+  "id": "EmergencyWarningDismissesDMSO",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:SafetyAndScopeGate/EmergencyWarningNotTreatmentVerdict",
+   "HRP:SafetyAndScopeGate/ParallelEmergencyAndAdjunctQuestions",
+   "HRP:NeglectedInterventionModules/DMSO",
+   "HRP:SafetyAndScopeGate/Condition[1]"
+  ],
+  "unique_behavior": false,
+  "note": "Emergency/adjunct separation stated in several rules."
+ },
+ {
+  "id": "AdjunctResearchDelaysEmergencyWarning",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:SafetyAndScopeGate/NoEmergencyWarningOvercorrection",
+   "HRP:AnswerShapeController/EscalationOverridesBrevity"
+  ],
+  "unique_behavior": false,
+  "note": "Inverse-error rule covers it."
+ },
+ {
+  "id": "SymmetricAdjunctUncertainty",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:SafetyAndScopeGate/SymmetricAdjunctUncertainty"
+  ],
+  "unique_behavior": false,
+  "note": "Same-named rule."
+ },
+ {
+  "id": "RoutineAnswerNarratesUpdateFailure",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ProtocolExecutionAndComplianceGate/UpdateCheckIsInformationalNotPrerequisite",
+   "HRP:OutputFormatting/HRPComplianceDisclosure",
+   "HRP:ReleasePackagingRequirements/ProjectRoutineStatusMinimal"
+  ],
+  "unique_behavior": false,
+  "note": "Stated in at least four places."
+ },
+ {
+  "id": "ProjectInstructionsExceedFieldLimit",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ReleasePackagingRequirements/ProjectInstructionFieldLimit"
+  ],
+  "unique_behavior": false,
+  "note": "Maintainer release check; belongs in CI, not runtime prompt."
+ },
+ {
+  "id": "DedicatedProjectRequiresAskRigorKeyword",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ReleasePackagingRequirements/DedicatedProjectAutomaticActivation",
+   "UNIVERSAL:askrigor_keyword"
+  ],
+  "unique_behavior": false,
+  "note": "Maintainer packaging check; belongs in CI."
+ },
+ {
+  "id": "StudiesThenForumSiloMissesCommunityDerivedIntervention",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:BidirectionalEvidenceDiscoveryAndTriangulationLoop/NoFixedStudiesThenCommunitySequence",
+   "HRP:BidirectionalEvidenceDiscoveryAndTriangulationLoop/CommunityToFormalHypothesisTransfer",
+   "HRP:BidirectionalEvidenceDiscoveryAndTriangulationLoop/FormalToCommunityDiscriminatorTransfer",
+   "HRP:BidirectionalEvidenceDiscoveryAndTriangulationLoop/BidirectionalIterationStoppingRule"
+  ],
+  "unique_behavior": false,
+  "note": "Bidirectional loop rules state each step."
+ },
+ {
+  "id": "YouTubeDominantSelfExperimentCorpusOmitted",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:BidirectionalEvidenceDiscoveryAndTriangulationLoop/YouTubeCreatorAndCommentEcosystems",
+   "HRP:CrowdSourcedAndClinicalSignalAudit/YouTubeCreatorCommentCorpusHandling",
+   "HRP:BidirectionalEvidenceDiscoveryAndTriangulationLoop/YouTubeBiasAudit"
+  ],
+  "unique_behavior": false,
+  "note": "YouTube corpus-handling rules cover it."
+ },
+ {
+  "id": "FormalCommunityDiscordanceForcedFit",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:BidirectionalEvidenceDiscoveryAndTriangulationLoop/DiscordancePreservationAndDiscriminatorSearch",
+   "HRP:BidirectionalEvidenceDiscoveryAndTriangulationLoop/CrossLayerDiscordanceMatrix",
+   "HRP:EvidenceLayers/ClaimSpecificEvidenceUtility"
+  ],
+  "unique_behavior": false,
+  "note": "Discordance-preservation rule covers it."
+ },
+ {
+  "id": "TrialRigorMistakenForRealWorldCompleteness",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:BidirectionalEvidenceDiscoveryAndTriangulationLoop/InternalValidityCanCarryApplicabilityCost",
+   "HRP:DoseRegimeIntegrityAndSelfDirectedHarmReductionResearch/TwoAxisEvidenceHierarchy",
+   "HRP:EvidenceLayers/ClaimSpecificEvidenceUtility"
+  ],
+  "unique_behavior": false,
+  "note": "Applicability-cost rule name matches the case."
+ },
+ {
+  "id": "HipCommunitySignalWithoutMatchedFormalSupport",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:CommunityEvidenceIndependenceAndActionabilityGate/FormalAbsenceCannotEraseCommunitySignal",
+   "HRP:CommunityEvidenceIndependenceAndActionabilityGate/MatchedContradictionAndOutcomeAlignment",
+   "HRP:CommunityEvidenceIndependenceAndActionabilityGate/ActionabilityIntegration"
+  ],
+  "unique_behavior": false,
+  "note": "support_not_located and actionability rules cover it."
+ },
+ {
+  "id": "ManyVideosButOneTreatmentClass",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/DiversityBeforeConcentration",
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/TreatmentSpaceInventoryBeforeSelection",
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/AggregateLandscapeSynthesisLock"
+  ],
+  "unique_behavior": false,
+  "note": "Rule says ten redundant videos do not repair coverage."
+ },
+ {
+  "id": "TwoVideosPresentedAsBroadCommunityAudit",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/DiversityBeforeConcentration",
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/AggregateLandscapeSynthesisLock",
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/BidirectionalLandscapeReopening"
+  ],
+  "unique_behavior": false,
+  "note": "Rule says two or three videos cannot establish coverage."
+ },
+ {
+  "id": "FourDistinctVideosPresentedAsBroadCoverage",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/BroadDiscoveryBeforeDeepAudit",
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/AggregateLandscapeSynthesisLock"
+  ],
+  "unique_behavior": false,
+  "note": "Eight-video/six-program minimum stated twice plus FS188."
+ },
+ {
+  "id": "ConfiguredExternalScoutSilentlySkipped",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/AggregateLandscapeSynthesisLock",
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/SpecificImplementationDiscoveryAndProvisionalScouts",
+   "HRP:FinalSelfCheck/FS189"
+  ],
+  "unique_behavior": false,
+  "note": "Lock blocks when configured scout absent or unreconciled."
+ },
+ {
+  "id": "InternalAuditJargonLeaksIntoOrdinaryAnswer",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/SelectedVideoTreatmentRecord",
+   "HRP:FinalSelfCheck/FS190"
+  ],
+  "unique_behavior": false,
+  "note": "Preamble omission only in FS190; conflicts with ComplianceLabel's mandatory opening line."
+ },
+ {
+  "id": "GenericUmbrellaCandidatesHideSpecificPrograms",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/SpecificImplementationDiscoveryAndProvisionalScouts",
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/AggregateLandscapeSynthesisLock",
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/TreatmentSpaceInventoryBeforeSelection"
+  ],
+  "unique_behavior": false,
+  "note": "Umbrella-descent rule covers it."
+ },
+ {
+  "id": "ProvisionalScoutCandidateDiscardedWithoutTranscript",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/SpecificImplementationDiscoveryAndProvisionalScouts"
+  ],
+  "unique_behavior": false,
+  "note": "Rule says do not discard solely for missing transcript."
+ },
+ {
+  "id": "GenericSearchFalselyClosedAsSpecificZeroResults",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/SpecificImplementationDiscoveryAndProvisionalScouts"
+  ],
+  "unique_behavior": false,
+  "note": "Reciprocal receipt with non-generic terms required by rule."
+ },
+ {
+  "id": "SpecificSearchClosedByWrongCandidate",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/SpecificImplementationDiscoveryAndProvisionalScouts"
+  ],
+  "unique_behavior": false,
+  "note": "Per-search candidate IDs and component match required."
+ },
+ {
+  "id": "ExternalScoutFrontierCandidateOmittedOrUnresolved",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/SpecificImplementationDiscoveryAndProvisionalScouts",
+   "HRP:FinalSelfCheck/FS187"
+  ],
+  "unique_behavior": false,
+  "note": "Frontier digest, partition, non-identity failures all in rule."
+ },
+ {
+  "id": "ProvisionalScoutSummaryUsedAsTreatmentEvidence",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/SpecificImplementationDiscoveryAndProvisionalScouts"
+  ],
+  "unique_behavior": false,
+  "note": "Rule forbids scout summaries supporting efficacy claims."
+ },
+ {
+  "id": "RenamedFingerprintsPresentedAsDiversity",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/ExactProgramFingerprint",
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/BroadDiscoveryBeforeDeepAudit",
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/AggregateLandscapeSynthesisLock"
+  ],
+  "unique_behavior": false,
+  "note": "Caller IDs cannot establish distinctness; stable channel IDs required."
+ },
+ {
+  "id": "AggregateCandidateCountWithoutCandidateLedger",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/TreatmentSpaceInventoryBeforeSelection",
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/AggregateLandscapeSynthesisLock"
+  ],
+  "unique_behavior": false,
+  "note": "Includes controller-consistency-not-completeness caveat."
+ },
+ {
+  "id": "RetryableBoundaryPresentedAsTerminalCompletion",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/AggregateLandscapeSynthesisLock",
+   "HRP:FinalSelfCheck/FS182"
+  ],
+  "unique_behavior": false,
+  "note": "Lock says rate-limited work remains continue-research."
+ },
+ {
+  "id": "FourVideosRepeatOneProgramAcrossChannels",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/AggregateLandscapeSynthesisLock",
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/DiversityBeforeConcentration",
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/ExactProgramFingerprint"
+  ],
+  "unique_behavior": false,
+  "note": "Concentration in one or two fingerprints blocks the lock."
+ },
+ {
+  "id": "UnsupportedNotRelevantWaiver",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/AggregateLandscapeSynthesisLock"
+  ],
+  "unique_behavior": false,
+  "note": "Caller assertion cannot waive material work: stated."
+ },
+ {
+  "id": "LiveCursorLabeledTerminalBoundary",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/AggregateLandscapeSynthesisLock",
+   "HRP:FinalSelfCheck/FS182"
+  ],
+  "unique_behavior": false,
+  "note": "Live cursor always executable despite caller label."
+ },
+ {
+  "id": "ClassSearchHidesProgramFormalGap",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/TreatmentSpaceInventoryBeforeSelection",
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/BidirectionalLandscapeReopening",
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/AggregateLandscapeSynthesisLock"
+  ],
+  "unique_behavior": false,
+  "note": "Per-fingerprint formal follow-up tracked and blocking."
+ },
+ {
+  "id": "CoverageProjectionNotOnProductionAction",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/SelectedVideoTreatmentRecord",
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/AggregateLandscapeSynthesisLock",
+   "HRP:FinalSelfCheck/FS181"
+  ],
+  "unique_behavior": false,
+  "note": "Model part covered; 'test through boundary' clause is maintainer guidance."
+ },
+ {
+  "id": "SkippedTranscriptPagesPresentedAsComplete",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/SelectedVideoTreatmentRecord",
+   "HRP:FinalSelfCheck/FS184"
+  ],
+  "unique_behavior": false,
+  "note": "Server-verifiable receipt property; model cannot check signatures."
+ },
+ {
+  "id": "CallerSmallCorpusLabelWaivesCoverage",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/BroadDiscoveryBeforeDeepAudit",
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/AggregateLandscapeSynthesisLock"
+  ],
+  "unique_behavior": false,
+  "note": "Covered; 'twenty candidates' trigger number only here (minor)."
+ },
+ {
+  "id": "FinalAnswerStopsWhileYouTubeExpansionStillLikelyUseful",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/AggregateLandscapeSynthesisLock",
+   "HRP:TreatmentLandscapeAndVideoSelectionGate/BidirectionalLandscapeReopening",
+   "HRP:CommunityCorpusCompletionGate/PartialRetrievalRemainsBoundedEvidence"
+  ],
+  "unique_behavior": false,
+  "note": "continuation_recommended field named only here and in MCP server instructions."
+ },
+ {
+  "id": "DeferredYouTubeContinuationDoesNotAutoLoop",
+  "realistic_user_question": false,
+  "covered_by": [],
+  "unique_behavior": true,
+  "note": "No rule governs deferred tokens; conflicts with lock treating rate-limited work as continue-research."
+ },
+ {
+  "id": "YouTubePrincipalCorpusInaccessibleButUsefulSecondOpinion",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:ProtocolExecutionAndComplianceGate/NoSilentAccessFailure",
+   "HRP:ProtocolExecutionAndComplianceGate/CommunityCorpusAccessBoundaryCompletion",
+   "HRP:ProtocolExecutionAndComplianceGate/ComplianceLabel"
+  ],
+  "unique_behavior": false,
+  "note": "NoSilentAccessFailure requires the bounded second opinion."
+ },
+ {
+  "id": "OneQueryBoundedYouTubeCommentPresentedAsReconnaissance",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:CommunityCorpusCompletionGate/QueryBoundedYouTubeSearchIsDiscoveryOnly",
+   "HRP:CommunityCorpusCompletionGate/PartialRetrievalRemainsBoundedEvidence",
+   "HRP:CommunityCorpusCompletionGate/NoPrematureSaturation",
+   "HRP:CommunityCorpusCompletionGate/CoverageStateBeforeSynthesis"
+  ],
+  "unique_behavior": false,
+  "note": "Whole gate written for this case; server receipts exist but nothing blocks synthesis."
+ },
+ {
+  "id": "ApiVisibleCompleteYouTubeCorpusIsTerminalSuccess",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:CommunityCorpusCompletionGate/PartialRetrievalRemainsBoundedEvidence",
+   "HRP:CrowdSourcedAndClinicalSignalAudit/YouTubeCreatorCommentCorpusHandling"
+  ],
+  "unique_behavior": false,
+  "note": "api_visible_complete listed as terminal success in rule."
+ },
+ {
+  "id": "YouTubeCompleteApiCorpusDoesNotRequireBlanketStrongModelPass",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:BidirectionalEvidenceDiscoveryAndTriangulationLoop/YouTubeDualLaneDiscoveryAndSignal"
+  ],
+  "unique_behavior": false,
+  "note": "Rule says exhaustive strong-model adjudication not mandatory."
+ },
+ {
+  "id": "YouTubeCreatorReplyIsFirsthandNotIndependentReplication",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:BidirectionalEvidenceDiscoveryAndTriangulationLoop/YouTubeLongitudinalExtraction",
+   "HRP:CrowdSourcedAndClinicalSignalAudit/YouTubeCreatorCommentCorpusHandling"
+  ],
+  "unique_behavior": false,
+  "note": "Rule states creator reply is not independent replication."
+ },
+ {
+  "id": "MultiEpisodeNarrativeCannotUseOneSentimentLabel",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:BidirectionalEvidenceDiscoveryAndTriangulationLoop/YouTubeLongitudinalExtraction",
+   "HRP:CrowdSourcedAndClinicalSignalAudit/YouTubeCreatorCommentCorpusHandling"
+  ],
+  "unique_behavior": false,
+  "note": "Person-by-episode unit rule covers it."
+ },
+ {
+  "id": "BaselineImagingIsNotPostTreatmentObjectiveRecovery",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:CrowdSourcedAndClinicalSignalAudit/YouTubeCreatorCommentCorpusHandling",
+   "HRP:BidirectionalEvidenceDiscoveryAndTriangulationLoop/YouTubeLongitudinalExtraction"
+  ],
+  "unique_behavior": false,
+  "note": "Baseline-versus-change separation stated in two rules."
+ },
+ {
+  "id": "EnglishLexicalFilterMissesMultilingualOutcome",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:BidirectionalEvidenceDiscoveryAndTriangulationLoop/YouTubeDualLaneDiscoveryAndSignal",
+   "HRP:CrowdSourcedAndClinicalSignalAudit/YouTubeCreatorCommentCorpusHandling"
+  ],
+  "unique_behavior": false,
+  "note": "Lexical-filter and residual-audit rules cover it."
+ },
+ {
+  "id": "ReplyRequiresParentContext",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:CrowdSourcedAndClinicalSignalAudit/YouTubeCreatorCommentCorpusHandling"
+  ],
+  "unique_behavior": false,
+  "note": "Rule says resolve short replies against parent context."
+ },
+ {
+  "id": "FalsePremiseCompliance",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:PremiseIntegrityAndTruthPriorityGate/PromptPremisesAreClaims",
+   "HRP:PremiseIntegrityAndTruthPriorityGate/AccuracyOverAgreement",
+   "UNIVERSAL:premise_integrity_and_truth_priority_gate"
+  ],
+  "unique_behavior": false,
+  "note": "Stated in both protocols."
+ },
+ {
+  "id": "NonexistentSourceHallucination",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:PremiseIntegrityAndTruthPriorityGate/NonexistenceVersusNotFound",
+   "UNIVERSAL:premise_integrity_and_truth_priority_gate"
+  ],
+  "unique_behavior": false,
+  "note": "Exact phrase 'This does not exist.' in rules."
+ },
+ {
+  "id": "SearchFailureIsNotNonexistence",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:PremiseIntegrityAndTruthPriorityGate/NonexistenceVersusNotFound",
+   "UNIVERSAL:premise_integrity_and_truth_priority_gate"
+  ],
+  "unique_behavior": false,
+  "note": "Exact phrase in rules of both protocols."
+ },
+ {
+  "id": "ConfidentUserAssertionStillChecked",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:PremiseIntegrityAndTruthPriorityGate/PromptPremisesAreClaims",
+   "HRP:Architecture/NoSilentOverride",
+   "UNIVERSAL:premise_integrity_and_truth_priority_gate"
+  ],
+  "unique_behavior": false,
+  "note": "Stated in both protocols."
+ },
+ {
+  "id": "ForcedCausalConnection",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:PremiseIntegrityAndTruthPriorityGate/NoFabricatedRepairsOrForcedConnections",
+   "UNIVERSAL:premise_integrity_and_truth_priority_gate"
+  ],
+  "unique_behavior": false,
+  "note": "Stated in both protocols."
+ },
+ {
+  "id": "CitationDoesNotEntailPromptPremise",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:PremiseIntegrityAndTruthPriorityGate/LogicArithmeticAndCitationIntegrity",
+   "HRP:SourceVerificationAndCitationAudit/CitationEntailment"
+  ],
+  "unique_behavior": false,
+  "note": "Citation-entailment rules cover it."
+ },
+ {
+  "id": "ArithmeticContradictionBlocksSynthesis",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:PremiseIntegrityAndTruthPriorityGate/LogicArithmeticAndCitationIntegrity",
+   "HRP:QuantitativeRiskAndResearchAudit/ArithmeticCoherence"
+  ],
+  "unique_behavior": false,
+  "note": "Reconcile-before-synthesis stated in two rules."
+ },
+ {
+  "id": "LegitimateLabeledInferenceRemainsAllowed",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:PremiseIntegrityAndTruthPriorityGate/LabeledInferenceRemainsAllowed",
+   "UNIVERSAL:premise_integrity_and_truth_priority_gate"
+  ],
+  "unique_behavior": false,
+  "note": "Same-named rule in both protocols."
+ },
+ {
+  "id": "PostHocFormulaSearchWithIndependentFutureValidation",
+  "realistic_user_question": true,
+  "covered_by": [
+   "HRP:EpistemicPhaseRouter/DevelopmentDiscoveryPermission",
+   "UNIVERSAL:epistemic_phase_router"
+  ],
+  "unique_behavior": false,
+  "note": "Also duplicated in Universal epistemic_phase_router regression cases."
+ },
+ {
+  "id": "RevealedDevelopmentCasesDoNotTriggerBlindValidationFreeze",
+  "realistic_user_question": false,
+  "covered_by": [
+   "HRP:EpistemicPhaseRouter/NoDiscoverySuppression",
+   "HRP:EpistemicPhaseRouter/ClassifyBeforePhaseSensitiveSafeguards",
+   "UNIVERSAL:epistemic_phase_router"
+  ],
+  "unique_behavior": false,
+  "note": "Duplicated verbatim in Universal epistemic_phase_router regression cases."
+ }
+]
