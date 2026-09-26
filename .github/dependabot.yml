@@ -14,6 +14,12 @@ updates:
       # @types/node must track that major, not the latest Node release.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # zod >= 4.5 changes generated JSON Schema (nullable -> anyOf, tuple
+      # items:false), which alters the public MCP / Custom GPT / Gemini tool
+      # schemas. Owner decision 2026-09-26: stay on 4.4.x until a release
+      # window; patch updates still apply.
+      - dependency-name: "zod"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
