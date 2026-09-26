@@ -26,6 +26,18 @@ tool returns each file whole.
 A typical MCP run therefore carries about 800 KB of instructions, roughly
 190–240K tokens, before the first source is read. The two protocols are 95% of it.
 
+**On Claude Code the protocols never arrive.** Claude Code rejects MCP tool
+results above its output limit. `load_protocol` returns each file whole (about
+604,000 characters of tool-result JSON for HRP and 168,000 for Universal), so
+the model receives an error message and none of the protocol text; the result
+is saved to a file only a model with file-reading tools could page through.
+Checked 2026-09-26 with Claude Code 2.1.283 and Claude Opus 5.5 against a local
+server built from `main` (`evaluation/instruction-optimization/runner/`).
+Whether claude.ai and ChatGPT connectors truncate, reject, or accept results of
+this size has not been checked yet. The chunked `load_protocol` (48,000-byte
+pages) exists only on the Custom GPT action route, which production does not
+serve.
+
 ## 2. What the server enforces today
 
 Full map with file/line/test references: `inventory/server-enforcement-map.md`.
