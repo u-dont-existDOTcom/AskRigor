@@ -30,6 +30,7 @@ export function installGeminiCompatibleToolCatalog(server: McpServer): void {
       "submit_research_contribution",
       "assess_treatment_landscape_coverage",
       "scout_gemini_youtube_candidates",
+      "finalize_research",
     ].includes(name))
     .map((operation) => ({
     name: operation.name,

@@ -47,6 +47,9 @@ Other options: `--prompt <text>` instead of `--question-id`, `--max-turns`
    random `ASKRIGOR_YOUTUBE_CONTINUATION_SECRET` per run; `YOUTUBE_API_KEY`,
    `NCBI_API_KEY`, `NCBI_TOOL`, `NCBI_EMAIL`, `CROSSREF_MAILTO` and
    `ASKRIGOR_UNPAYWALL_EMAIL` only when set (presence is recorded as booleans);
+   `ASKRIGOR_GEMINI_API_KEY` (from itself or `GEMINI_API_KEY`) with a monthly
+   budget ledger at `<work-dir>/ai-budget-ledger.json` capped at USD 50, as in
+   production, so the Gemini scout can run;
    proxy and CA variables, plus `NODE_USE_ENV_PROXY=1` behind a proxy. It waits
    for `/healthz`, lists the MCP tools, and checks that `get_protocol_manifest`
    returns the SHA-256 of the ref's protocol files.
@@ -99,6 +102,11 @@ Known secret values (continuation secret, provider keys) are replaced with
   `method_audits` by status; `check_retraction_status` calls. Every entry has
   `seq` and `index_before_final_answer`. In `-p` mode all calls precede the
   final answer.
+- `server.unhandled_socket_errors`: socket `error` events that no listener
+  handled. Pilot run 1 lost its server to one (`read ECONNRESET`, no
+  application frame in the stack); the runner's server bootstrap now logs each
+  one to `server.log` with its local and remote address and whether it was a
+  server-side socket, and keeps serving.
 
 ## Notes
 

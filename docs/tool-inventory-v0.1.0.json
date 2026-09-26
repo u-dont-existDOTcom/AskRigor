@@ -1522,6 +1522,9 @@
           "unseen_content_used_as_evidence": {
             "type": "boolean",
             "const": false
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -2757,6 +2760,9 @@
           "next_capability": {
             "type": "string",
             "const": "validate_study_method_audit_with_fresh_audit"
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -3380,6 +3386,9 @@
               "synthesis_use"
             ],
             "additionalProperties": false
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -6531,6 +6540,9 @@
               "blockers"
             ],
             "additionalProperties": false
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -6972,6 +6984,9 @@
               ],
               "additionalProperties": false
             }
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -7458,6 +7473,9 @@
               "blockers"
             ],
             "additionalProperties": false
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -13121,6 +13139,228 @@
           "validation",
           "boundary",
           "access_boundaries"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "_meta": {
+        "securitySchemes": [
+          {
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "finalize_research",
+      "description": "Call before the final answer. Pass every research_receipt you received, whether community evidence was researched, and the studies your conclusions depend on. not_ready lists the remaining steps; ready_with_limits lists limits the answer must state.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "receipts": {
+            "maxItems": 300,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 2048
+            },
+            "description": "Every research_receipt AskRigor tools returned during this research, copied exactly."
+          },
+          "community_evidence": {
+            "type": "string",
+            "enum": [
+              "researched",
+              "not_relevant"
+            ],
+            "description": "researched when firsthand community evidence could plausibly matter; not_relevant needs a reason."
+          },
+          "not_relevant_reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "material_video_ids": {
+            "description": "Videos whose comments your answer draws on; defaults to every audited video.",
+            "maxItems": 60,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{11}$"
+            }
+          },
+          "key_sources": {
+            "maxItems": 60,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300,
+                  "description": "DOI, PMID or PMCID."
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "validated",
+                    "lead_only"
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1000
+                }
+              },
+              "required": [
+                "id",
+                "status"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Each study your conclusions depend on: validated after a full-text method audit, or lead_only when no open full text exists."
+          }
+        },
+        "required": [
+          "receipts",
+          "community_evidence",
+          "key_sources"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "ready_with_limits",
+              "not_ready",
+              "receipts_unavailable"
+            ]
+          },
+          "next_steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limits": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "receipts_verified": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "receipts_rejected": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "index",
+                "reason"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "community": {
+            "type": "object",
+            "properties": {
+              "decision": {
+                "type": "string",
+                "enum": [
+                  "researched",
+                  "not_relevant"
+                ]
+              },
+              "surveys": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "audited_videos": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "material_videos": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "decision",
+              "surveys",
+              "audited_videos",
+              "material_videos"
+            ],
+            "additionalProperties": false
+          },
+          "sources": {
+            "type": "object",
+            "properties": {
+              "validated": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "lead_only": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "validated",
+              "lead_only"
+            ],
+            "additionalProperties": false
+          },
+          "finalization_receipt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "next_steps",
+          "limits",
+          "receipts_verified",
+          "receipts_rejected",
+          "community",
+          "sources"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false

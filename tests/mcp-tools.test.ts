@@ -24,6 +24,7 @@ import {
 } from
   "../apps/research-mcp/src/youtube-audit-continuation.js";
 import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
+import { verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 
 const TOOL_NAMES = [
   "get_protocol_manifest",
@@ -54,7 +55,8 @@ const TOOL_NAMES = [
   "review_research_contribution",
   "review_evidence_gap_submissions",
   "assess_treatment_landscape_coverage",
-  "scout_gemini_youtube_candidates"
+  "scout_gemini_youtube_candidates",
+  "finalize_research"
 ];
 const GEMINI_TOOL_NAMES = TOOL_NAMES.filter((name) =>
   ![
@@ -65,6 +67,7 @@ const GEMINI_TOOL_NAMES = TOOL_NAMES.filter((name) =>
     "submit_research_contribution",
     "assess_treatment_landscape_coverage",
     "scout_gemini_youtube_candidates",
+    "finalize_research",
   ].includes(name)
 );
 
@@ -94,7 +97,7 @@ afterEach(async () => {
 });
 
 describe("AskRigor MCP tools", () => {
-  it("registers the exact twenty-nine-tool catalog with three declared writes", async () => {
+  it("registers the exact thirty-tool catalog with three declared writes", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {
@@ -134,6 +137,11 @@ describe("AskRigor MCP tools", () => {
     expect(SERVER_INSTRUCTIONS).toContain("unfiltered YouTube comments and replies");
     expect(SERVER_INSTRUCTIONS).toContain(
       "search_youtube_comments is query-bounded discovery only"
+    );
+    // Claude clients cut server instructions near 2,048 characters.
+    expect(SERVER_INSTRUCTIONS.length).toBeLessThanOrEqual(2_048);
+    expect(SERVER_INSTRUCTIONS.slice(0, 1_024)).toContain(
+      "call finalize_research with every research_receipt"
     );
   });
 
@@ -447,6 +455,56 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
+  it("gates the final answer on server-issued research receipts", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previousContinuationSecret = process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET;
+    const previousFinalizationSecret = process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET;
+    process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET = "mcp-continuation-secret-value-32-bytes";
+    delete process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET;
+    try {
+      const unsupported = await client.callTool({
+        name: "finalize_research",
+        arguments: {
+          receipts: ["rr1~study_audit~doi=10.1000%2Fforged~1790000000~AAAAAAAAAAAAAAAAAAAAAA"],
+          community_evidence: "researched",
+          key_sources: [{ id: "10.1000/forged", status: "validated" }]
+        }
+      });
+      expect(unsupported.isError).not.toBe(true);
+      expect(unsupported.structuredContent).toMatchObject({
+        status: "not_ready",
+        receipts_verified: 0,
+        receipts_rejected: [{ index: 0, reason: "signature_invalid" }]
+      });
+      const steps = (unsupported.structuredContent as { next_steps: string[] }).next_steps.join(" ");
+      expect(steps).toContain("survey_youtube_community");
+      expect(steps).toContain("For 10.1000/forged: acquire_open_full_text");
+
+      const declined = await client.callTool({
+        name: "finalize_research",
+        arguments: {
+          receipts: [],
+          community_evidence: "not_relevant",
+          not_relevant_reason: "A dosing arithmetic question with no treatment choice.",
+          key_sources: []
+        }
+      });
+      expect(declined.structuredContent).toMatchObject({
+        status: "ready_with_limits",
+        limits: ["No study was declared decision-critical; say that no study's methods were checked in full text."]
+      });
+      const permit = (declined.structuredContent as { finalization_receipt: string }).finalization_receipt;
+      expect(verifyResearchReceipt(permit, {
+        secret: "mcp-continuation-secret-value-32-bytes"
+      })).toMatchObject({ ok: true, kind: "finalization", claims: { status: "ready_with_limits" } });
+    } finally {
+      restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
+      restoreEnvironment("ASKRIGOR_FINALIZATION_SIGNING_SECRET", previousFinalizationSecret);
+      await client.close();
+      await server.close();
+    }
+  });
+
   it("starts, continues, and completes one video audit through the MCP boundary", async () => {
     const { client, server } = await createInMemoryClient();
     const previousApiKey = process.env.YOUTUBE_API_KEY;
@@ -513,10 +571,24 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(second.isError).not.toBe(true);
+      const researchReceipt = (second.structuredContent as { research_receipt: string }).research_receipt;
       expect(second.content).toEqual([{
         type: "text",
         text: "YouTube video audit retrieved 6 record(s) cumulatively; synthesis lock pass."
+      }, {
+        type: "text",
+        text: `research_receipt: ${researchReceipt}`
       }]);
+      // Only the completed audit carries a receipt; it binds the video and its terminal state.
+      expect((first.structuredContent as { research_receipt?: string }).research_receipt).toBeUndefined();
+      const verified = verifyResearchReceipt(researchReceipt, {
+        secret: "mcp-continuation-secret-value-32-bytes"
+      });
+      expect(verified).toMatchObject({
+        ok: true,
+        kind: "youtube_video_audit",
+        claims: { state: "api_visible_complete", lock: "pass", records: "6" }
+      });
       expect(second.structuredContent).toMatchObject({
         access_status: "api_visible_complete",
         top_level_comments_retrieved_cumulative: 2,

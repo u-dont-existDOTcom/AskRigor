@@ -49,7 +49,7 @@ exact receipt. Never expose or infer contributor identity.
 
 ## Protocol gate
 
-This public skill does not load the maintainers' development or private supervision instructions. Apply material protocol obligations at their actual action or delivery boundary using the existing ledger. Required final-answer content must appear in the delivered answer, not only earlier commentary. Source loading, execution, scientific interpretation, and final delivery are distinct; preserve every gate below.
+Before the final answer, call `finalize_research` with every `research_receipt` you received, whether community evidence was researched, and the studies your conclusions depend on. On `not_ready`, do its next steps and call it again; on `ready_with_limits`, state each limit in the answer. The server verifies receipts; never claim a step it did not verify.
 
 Load Universal first: `load_protocol` with `section: "index"`, then core sections and any that apply. Use its activation boundary. HRP applies unless the health/research task is both very simple and genuinely uncontroversial; if unclear, ask.
 

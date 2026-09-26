@@ -40,6 +40,7 @@
     "continue_open_full_text",
     "fetch_clinical_trial",
     "fetch_pubmed_record",
+    "finalize_research",
     "get_protocol_manifest",
     "get_research_frontier",
     "get_youtube_comments",

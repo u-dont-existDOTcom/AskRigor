@@ -125,12 +125,24 @@ import {
   availableOpenFullTextActionOutputSchema,
   continueOpenFullTextActionInputSchema,
   createOpenFullTextActionRoutes,
+  createOpenFullTextExecutor,
   openFullTextMcpOutputSchema,
   reviewMethodAuditActionInputSchema,
   reviewMethodAuditActionOutputSchema,
   studyMethodAuditActionInputSchema,
   studyMethodAuditRouteOutputSchema
 } from "./actions/open-full-text-route.js";
+import {
+  finalizeResearch,
+  finalizeResearchInputSchema,
+  finalizeResearchOutputSchema
+} from "./research-finalization-gate.js";
+import {
+  issueResearchReceipt,
+  researchReceiptSecretFromEnv,
+  type ResearchReceiptClaims,
+  type ResearchReceiptKind
+} from "./research-receipts.js";
 
 const LIVING_EVIDENCE_READER = configuredLivingEvidenceRepository();
 const OPEN_FULL_TEXT_MCP_ROUTES = createOpenFullTextActionRoutes(
@@ -488,7 +500,8 @@ const PUBMED_EFETCH_LIMITATION =
 // MCP tools that wrap an existing research Action; the Action keeps its own route.
 const ACTION_BACKED_MCP_OPERATION_NAMES = new Set([
   "assess_treatment_landscape_coverage",
-  "scout_gemini_youtube_candidates"
+  "scout_gemini_youtube_candidates",
+  "finalize_research"
 ]);
 const OPEN_FULL_TEXT_MCP_OPERATION_NAMES = new Set([
   "acquire_open_full_text",
@@ -1036,7 +1049,7 @@ function defineResearchOperations(
       description:
         "Use before synthesis whenever firsthand community evidence could plausibly matter. In one read-only call, search YouTube, deduplicate bounded provider-ranked videos, retrieve metadata, unfiltered comments and all accessible replies, and return a deterministic completion receipt; no medical conclusions are generated.",
       inputSchema: youtubeCommunityAuditInputSchema,
-      outputSchema: youtubeCommunityAuditOutputSchema,
+      outputSchema: youtubeCommunityAuditOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (input) => {
@@ -1050,10 +1063,17 @@ function defineResearchOperations(
       } catch (_error) {
         result = youtubeCommunityAuditFailure(input);
       }
-      return youtubeToolResult(
+      return withResearchReceipt(youtubeToolResult(
         `YouTube community audit selected ${result.receipt.selected_video_ids.length} video(s); completion state ${result.receipt.completion_state}; synthesis lock ${result.receipt.synthesis_lock}.`,
         result
-      );
+      ), result.receipt.completion_state === "incomplete" ||
+          result.receipt.completion_state === "complete_no_candidates"
+        ? undefined
+        : researchReceipt("youtube_community_audit", {
+            videos: result.receipt.selected_video_ids,
+            state: result.receipt.completion_state,
+            lock: result.receipt.synthesis_lock
+          }));
     }
   );
 
@@ -1063,7 +1083,7 @@ function defineResearchOperations(
       description:
         "Survey bounded YouTube video candidates for a community-evidence question and return deduplicated metadata, canonical watch links, provider comment counts, pagination, and access receipts; no medical conclusions are generated.",
       inputSchema: youtubeCommunitySurveyInputSchema,
-      outputSchema: youtubeCommunitySurveyOutputSchema,
+      outputSchema: youtubeCommunitySurveyOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (input) => {
@@ -1073,10 +1093,16 @@ function defineResearchOperations(
       } catch (_error) {
         result = youtubeCommunitySurveyFailure(input);
       }
-      return youtubeToolResult(
+      return withResearchReceipt(youtubeToolResult(
         `YouTube community survey returned ${result.candidates.length} deduplicated candidate video(s).`,
         result
-      );
+      ), result.searches.some(({ access_status }) => access_status === "complete")
+        ? researchReceipt("youtube_survey", {
+            access: result.access_status,
+            searches: result.searches.length,
+            candidates: result.candidates.length
+          })
+        : undefined);
     }
   );
 
@@ -1086,7 +1112,7 @@ function defineResearchOperations(
       description:
         "Retrieve one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation. Returns exact retrieved-versus-analyzed counts, usable partial-corpus records for bounded review, and a separate completion receipt; no medical conclusions are generated.",
       inputSchema: youtubeVideoCommunityAuditInputSchema,
-      outputSchema: youtubeVideoCommunityAuditOutputSchema,
+      outputSchema: youtubeVideoCommunityAuditOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (input) => {
@@ -1104,10 +1130,17 @@ function defineResearchOperations(
       } catch (error) {
         result = youtubeVideoCommunityAuditFailure(input, error);
       }
-      return youtubeToolResult(
+      return withResearchReceipt(youtubeToolResult(
         `YouTube video audit retrieved ${result.records_retrieved_cumulative} record(s) cumulatively; synthesis lock ${result.receipt.synthesis_lock}.`,
         result
-      );
+      ), result.receipt.completion_state === "incomplete"
+        ? undefined
+        : researchReceipt("youtube_video_audit", {
+            video: result.video_id,
+            state: result.receipt.completion_state,
+            lock: result.receipt.synthesis_lock,
+            records: result.records_retrieved_cumulative
+          }));
     }
   );
 
@@ -1249,6 +1282,52 @@ function defineResearchOperations(
       );
     }
   );
+
+  registrar.registerTool(
+    "finalize_research",
+    {
+      description:
+        "Call before the final answer. Pass every research_receipt you received, whether community evidence was " +
+        "researched, and the studies your conclusions depend on. not_ready lists the remaining steps; " +
+        "ready_with_limits lists limits the answer must state.",
+      inputSchema: finalizeResearchInputSchema,
+      outputSchema: finalizeResearchOutputSchema,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async (input) => {
+      const result = finalizeResearch(input, { secret: researchReceiptSecretFromEnv() });
+      return successfulToolResult(
+        `Research finalization: ${result.status}; ${result.next_steps.length} next step(s), ` +
+          `${result.limits.length} limit(s) to state; ${result.receipts_verified} receipt(s) verified.`,
+        result as unknown as Record<string, unknown>
+      );
+    }
+  );
+}
+
+const RESEARCH_RECEIPT_OUTPUT_SHAPE = {
+  research_receipt: z.string().optional()
+};
+
+/** Signs a receipt when a signing secret is configured; see research-receipts.ts. */
+function researchReceipt(
+  kind: ResearchReceiptKind,
+  claims: ResearchReceiptClaims
+): string | undefined {
+  const secret = researchReceiptSecretFromEnv();
+  return secret === undefined ? undefined : issueResearchReceipt(kind, claims, { secret });
+}
+
+function withResearchReceipt(
+  result: CallToolResult,
+  receipt: string | undefined
+): CallToolResult {
+  if (receipt === undefined || result.isError === true) return result;
+  return {
+    ...result,
+    content: [...result.content, { type: "text", text: `research_receipt: ${receipt}` }],
+    structuredContent: { ...result.structuredContent, research_receipt: receipt }
+  };
 }
 
 const GEMINI_SCOUT_ROUTE = createAutomatedGeminiScoutActionRoute();
@@ -1261,7 +1340,7 @@ function registerOpenFullTextMcpTools(
     {
       description: "Start one lawful full-text chain. Input is exactly one doi string plus an optional pmcid string, never an identifier array. Bind the returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 for every continuation and validation. If repository_study_audit.status is reusable, also bind its repository_analysis_version_id; otherwise perform a fresh audit.",
       inputSchema: acquireOpenFullTextActionInputSchema,
-      outputSchema: openFullTextMcpOutputSchema,
+      outputSchema: openFullTextMcpOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (input) => invokeOpenFullTextMcp("acquire_open_full_text", input)
@@ -1281,7 +1360,7 @@ function registerOpenFullTextMcpTools(
     {
       description: "Validate a full-text, source-linked individual-study audit on the exact exhausted document_handle. Supply either a newly performed audit or the repository_analysis_version_id advertised by this same acquisition. Repository reuse repeats exact source/protocol/rubric/freshness/impact checks and runs the same validator; fresh_study_audit_required means call again with a newly performed audit. Before synthesis, require the returned validated coverage receipt to match the acquisition byte-for-byte.",
       inputSchema: studyMethodAuditActionInputSchema,
-      outputSchema: studyMethodAuditRouteOutputSchema,
+      outputSchema: studyMethodAuditRouteOutputSchema.safeExtend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (input) => invokeOpenFullTextMcp("validate_study_method_audit", input)
@@ -1291,7 +1370,7 @@ function registerOpenFullTextMcpTools(
     {
       description: "Validate a full-text, source-linked review or guideline audit on the exact bound acquisition document_handle, including search coverage, study ancestry, heterogeneity, bias, conflicts, and claim scope. Before synthesis, require the returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 to match the acquisition byte-for-byte; mismatch blocks synthesis.",
       inputSchema: reviewMethodAuditActionInputSchema,
-      outputSchema: reviewMethodAuditActionOutputSchema,
+      outputSchema: reviewMethodAuditActionOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (input) => invokeOpenFullTextMcp("validate_review_method_audit", input)
@@ -1348,13 +1427,52 @@ async function invokeOpenFullTextMcp(
       isError: true
     };
   }
-  return {
+  return withResearchReceipt({
     content: [{
       type: "text",
       text: `${operationId.replaceAll("_", " ")} completed.`
     }],
     structuredContent: result.body as Record<string, unknown>
+  }, openFullTextResearchReceipt(operationId, result.body));
+}
+
+const OPEN_FULL_TEXT_READER = createOpenFullTextExecutor();
+
+function openFullTextResearchReceipt(operationId: string, body: unknown): string | undefined {
+  const output = body as {
+    status?: string;
+    requested_doi?: string;
+    requested_pmcid?: string;
+    audit_receipt?: { audit_status?: string };
+    coverage_receipt?: { document_handle?: string };
   };
+  if (operationId === "acquire_open_full_text" && output.status === "possibly_useful_lead") {
+    return researchReceipt("full_text_lead", {
+      doi: output.requested_doi,
+      pmcid: output.requested_pmcid
+    });
+  }
+  const kind = output.status === "source_linked_study_audit_validated"
+    ? "study_audit"
+    : output.status === "source_linked_review_audit_validated"
+      ? "review_audit"
+      : undefined;
+  const handle = output.coverage_receipt?.document_handle;
+  if (kind === undefined || handle === undefined) return undefined;
+  let source: { primary_identifier: string; doi?: string; pmid?: string; pmcid?: string } | undefined;
+  try {
+    source = OPEN_FULL_TEXT_READER.readAuditMaterial?.(handle).source;
+  } catch {
+    return undefined;
+  }
+  if (source === undefined) return undefined;
+  return researchReceipt(kind, {
+    id: source.primary_identifier,
+    doi: source.doi,
+    pmid: source.pmid,
+    pmcid: source.pmcid,
+    status: output.audit_receipt?.audit_status ?? "validated"
+  });
 }
 
 export const RESEARCH_OPERATIONS = Object.freeze(collectResearchOperations());
@@ -1437,8 +1555,8 @@ function collectResearchOperations(
   } as unknown as Pick<McpServer, "registerTool">;
 
   defineResearchOperations(registrar, options);
-  if (operations.length !== 29) {
-    throw new Error(`Expected 29 research operations; received ${operations.length}`);
+  if (operations.length !== 30) {
+    throw new Error(`Expected 30 research operations; received ${operations.length}`);
   }
   if (new Set(operations.map(({ name }) => name)).size !== operations.length) {
     throw new Error("Research operation names must be unique");

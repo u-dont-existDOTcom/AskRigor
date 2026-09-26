@@ -404,7 +404,20 @@ function startServer({ worktree, port, env, logStream }) {
   // Same factory and environment switches as the production container
   // (node apps/research-mcp/dist/index.js); only the bind address differs,
   // because index.js always binds 0.0.0.0.
+  // Diagnostic: pilot run 1 lost its server to an unhandled socket ECONNRESET
+  // with no application frame in the stack. Log which socket it was (server
+  // side or outbound) and keep serving, so one reset does not end the run.
   const bootstrap = [
+    "const { Socket } = await import('node:net');",
+    "const emit = Socket.prototype.emit;",
+    "Socket.prototype.emit = function (event, ...args) {",
+    "  if (event === 'error' && this.listenerCount('error') === 0) {",
+    "    const error = args[0];",
+    "    console.error(`[runner-diagnostic] unhandled socket error ${error?.code ?? error?.message} local=${this.localAddress}:${this.localPort} remote=${this.remoteAddress}:${this.remotePort} server_side=${Boolean(this.server ?? this._server)}; server kept running`);",
+    "    return false;",
+    "  }",
+    "  return emit.call(this, event, ...args);",
+    "};",
     "const { createAskRigorHttpServer } = await import(process.env.ASKRIGOR_RUNNER_SERVER_ENTRY);",
     "const port = Number(process.env.PORT);",
     "createAskRigorHttpServer().listen(port, '127.0.0.1', () => {",
@@ -1231,7 +1244,12 @@ async function main() {
     }
     // The server reads ASKRIGOR_GEMINI_API_KEY; the environment may name it GEMINI_API_KEY.
     const geminiKey = process.env.ASKRIGOR_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-    if (geminiKey) serverEnv.ASKRIGOR_GEMINI_API_KEY = geminiKey;
+    if (geminiKey) {
+      serverEnv.ASKRIGOR_GEMINI_API_KEY = geminiKey;
+      // The scout refuses without the shared monthly budget ledger production uses.
+      serverEnv.ASKRIGOR_AI_BUDGET_LEDGER = path.join(options.workDir, "ai-budget-ledger.json");
+      serverEnv.ASKRIGOR_AI_MONTHLY_BUDGET_USD = "50";
+    }
     for (const name of [...SERVER_ENV_SECRETS, "ASKRIGOR_GEMINI_API_KEY"]) {
       if (serverEnv[name] !== undefined) secrets.push(serverEnv[name]);
     }
@@ -1346,7 +1364,14 @@ async function main() {
       const stop = await stopServer(server, port);
       metrics.server = { ...(metrics.server ?? {}), ...stop };
     }
-    if (serverLog !== undefined) await new Promise((resolve) => serverLog.end(resolve));
+    if (serverLog !== undefined) {
+      await new Promise((resolve) => serverLog.end(resolve));
+      const logText = fs.readFileSync(path.join(outDir, "server.log"), "utf8");
+      metrics.server = {
+        ...(metrics.server ?? {}),
+        unhandled_socket_errors: (logText.match(/\[runner-diagnostic\] unhandled socket error/gu) ?? []).length
+      };
+    }
     metrics.total_runner_seconds = Number(((Date.now() - runnerStartMs) / 1000).toFixed(3));
     writeMetrics();
     log(`outputs in ${outDir}`);

@@ -681,6 +681,14 @@ pending-proposal stores have their own strict contracts and authority boundaries
   assessor and the automated Gemini scout are also MCP tools; on MCP they sit
   behind the same research-access guard as the other research tools, and the
   assessor accepts videos without transcripts because MCP has no transcript tool.
+- MCP research receipts (`research_receipt`) are HMAC-SHA256 tokens under a
+  domain-separated key derived from the finalization signing secret, or else the
+  YouTube continuation secret. They carry only public identifiers (YouTube
+  video IDs, DOIs, PMIDs, PMCIDs), completion states, counts, and the issue
+  time; never comments, source text, questions, or user data. They expire after
+  24 hours. `finalize_research` verifies the receipts the client passes back and
+  returns next steps or limits; it keeps no ledger, and its optional free-text
+  reasons are processed for that call only.
 - Strict Zod input/output schemas reject undeclared input fields. Pagination cursors are opaque at the MCP boundary.
 - Internal external-evidence receipts use a server-held secret of at least 32
   UTF-8 bytes and domain-separated HMAC-SHA256; they bind session, study,

@@ -290,7 +290,7 @@ describe("private lesson incident Action surface", () => {
     await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
     try {
       const tools = await client.listTools();
-      expect(tools.tools).toHaveLength(29);
+      expect(tools.tools).toHaveLength(30);
       expect(tools.tools.map(({ name }) => name)).not.toContain(LESSON_INCIDENT_ACTION_OPERATION_ID);
     } finally {
       await Promise.all([client.close(), server.close()]);

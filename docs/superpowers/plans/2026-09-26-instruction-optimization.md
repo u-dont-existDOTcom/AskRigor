@@ -77,7 +77,7 @@ Claude Opus 5.5 (owner, 2026-09-26).
 | 0 Orient: sources, sizes, rule inventory, server map | Done | Findings doc above |
 | 1 Baseline pilot: one run per model on a development question | Next | Needs runner; YouTube key for Claude-side community tools |
 | 2 Fix broken tool references and stray text; runtime view without stress tests, revision history, maintainer rules | Planned | No method change |
-| 3 MCP research session, ledger, finalize gate (community receipts, study validator receipts, no open continuations) | Planned | Reuse controlled-session logic |
+| 3 MCP research session, ledger, finalize gate (community receipts, study validator receipts, no open continuations) | Built | Signed receipts plus `finalize_research`; see below |
 | 4 Consolidate protocol text; resolve contradictions; owner approval list for method changes | Planned | Batches, smoke-tested |
 | 5 Serve the protocol by step | Planned | Keep canonical files and hashes |
 | 6 Final comparison, cross-family check (GPT-6 Pro), PRs, owner-approved deploy | Planned | Release lane |
@@ -96,6 +96,66 @@ failed intermittently; the local server process then crashed on an unhandled
 socket `ECONNRESET` (the runner uses the production server factory, so this
 may affect production). The answer was labelled partial. Later baseline runs
 use the Claude app tool surface and need the YouTube key.
+
+## Server gate: research receipts and `finalize_research` (built 2026-09-26)
+
+Before this change no MCP tool issued a verifiable completion receipt: the
+survey and audit receipts were plain JSON, full-text handles lived in a
+process-local store, and `assess_treatment_landscape_coverage` checked only the
+internal consistency of what the model reported. The gate now works like this:
+
+- Five tools return a signed `research_receipt` when a unit of work finishes:
+  `survey_youtube_community` (at least one completed search),
+  `audit_youtube_video_community` and `audit_youtube_community` (terminal
+  completion state only), `acquire_open_full_text` (only when it returns
+  `possibly_useful_lead`, proving the attempt), and both method-audit
+  validators (only when validated; the receipt names the study's DOI, PMID and
+  PMCID from the server-held document index).
+- Receipts are HMAC-SHA256 tokens with readable claims
+  (`rr1~kind~claims~issued~mac`), keyed by a domain-separated key from
+  `ASKRIGOR_FINALIZATION_SIGNING_SECRET` or else the existing YouTube
+  continuation secret, so production needs no new configuration. They are
+  stateless (survive restarts), carry only public identifiers and counts, and
+  expire after 24 hours.
+- `finalize_research` takes the receipts, the community decision (researched,
+  or not relevant with a reason), and the key studies (validated or lead-only).
+  It returns `not_ready` with next steps (no survey, an unaudited material
+  video, a key study without a validator receipt, a DOI lead without an
+  acquisition attempt, a forged or altered receipt), `ready_with_limits` with the
+  limits the answer must state (bounded audits, server-confirmed leads), or
+  `ready`, plus a signed finalization receipt that the run ledger records.
+- Instruction side: one sentence in the skill (replacing 60 words of meta text)
+  and in the MCP server instructions, which were also cut from 2,531 to 2,030
+  characters because Claude clients truncate server instructions near 2,048
+  characters (the old text lost its last sentences there). The protocol and
+  router edits that point to the gate, and the deletion of the prose gates it
+  replaces, go in the next protocol batch.
+- MCP only: the tool is not a Custom GPT Action (the controlled session keeps
+  its own finalization permits) and is left out of the Gemini catalog budget.
+
+## Clean baseline pair (2026-09-26, running)
+
+Claude app tool surface (AskRigor tools plus `Skill` and `ToolSearch`), Opus
+5.5 at max effort, `dev-hip-avoid-replacement`, YouTube key working, Gemini
+scout available on the branch (free-tier key, no billing; local budget ledger
+capped at USD 50 as in production):
+
+- `main`: `load_protocol` still fails on size, so this arm researches with no
+  protocol text at all (the skill and tool descriptions only).
+- `e1176f8` (section loading): the model loaded the Universal and HRP indexes
+  and then 62 sections one by one, about 569,000 characters (about 140K
+  tokens), nearly every runtime section. Section loading makes the protocol
+  reachable but does not by itself reduce instruction load; that needs the
+  consolidation phase and server-enforced gates.
+
+The pair is therefore also a natural test of whether the protocol text adds
+research quality for a strong model: no protocol versus nearly all of it.
+
+YouTube Data API quota bounds the test rate: about 10,000 units per day per
+project, 100 units per search, up to 6 searches per `survey_youtube_community`
+call, so roughly 2,000 to 3,000 units per research run, or about 3 to 4
+community-heavy Claude runs per day on the test key. Production runs (ChatGPT
+arm) use the production key's separate quota.
 
 ## Time and cost estimate (to be replaced by pilot measurements)
 

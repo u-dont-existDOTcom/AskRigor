@@ -45,7 +45,8 @@ const TOOL_NAMES = [
   "review_research_contribution",
   "review_evidence_gap_submissions",
   "assess_treatment_landscape_coverage",
-  "scout_gemini_youtube_candidates"
+  "scout_gemini_youtube_candidates",
+  "finalize_research"
 ];
 
 describe("AskRigor public-review packet", () => {
@@ -615,7 +616,7 @@ describe("AskRigor public-review packet", () => {
       endpoint: "https://mcp.askrigor.com/mcp"
     });
     expect(inventory.tools.map(({ name }: { name: string }) => name)).toEqual(TOOL_NAMES);
-    expect(inventory.tools).toHaveLength(29);
+    expect(inventory.tools).toHaveLength(30);
 
     for (const tool of inventory.tools) {
       const isWrite = tool.name === "manage_research_access" ||
