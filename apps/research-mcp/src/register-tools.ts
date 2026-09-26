@@ -1116,7 +1116,13 @@ function defineResearchOperations(
       outputSchema: youtubeVideoCommunityAuditOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async (input) => {
+    async (rawInput) => {
+      // The continuation token carries the chain's analysis limit, and bounded
+      // responses report the returned sample size in analysis_limit; a limit
+      // echoed back with a token would otherwise fail the whole audit.
+      const input = rawInput.continuation_token === undefined
+        ? rawInput
+        : { continuation_token: rawInput.continuation_token };
       let result: YoutubeVideoCommunityAuditOutput;
       try {
         result = await auditYoutubeVideoCommunity(input, {
@@ -1796,12 +1802,25 @@ function crossrefToolResult(
 
 function youtubeToolResult(
   text: string,
-  structuredContent: object & { error?: unknown }
+  structuredContent: object & { error?: unknown; limitations?: unknown }
 ): CallToolResult {
+  if (structuredContent.error === undefined) {
+    return { content: [{ type: "text", text }], structuredContent: { ...structuredContent } };
+  }
+  // Clients such as Claude show only the text of an error result, so the text
+  // carries the error code and the server's guidance.
+  const error = structuredContent.error as { code?: unknown };
+  const guidance = Array.isArray(structuredContent.limitations)
+    ? structuredContent.limitations.filter((item): item is string => typeof item === "string").slice(0, 2)
+    : [];
   return {
-    content: [{ type: "text", text }],
+    content: [{
+      type: "text",
+      text: [text, typeof error.code === "string" ? `Error: ${error.code}.` : "", ...guidance]
+        .filter((part) => part.length > 0).join(" ")
+    }],
     structuredContent: { ...structuredContent },
-    ...(structuredContent.error === undefined ? {} : { isError: true })
+    isError: true
   };
 }
 

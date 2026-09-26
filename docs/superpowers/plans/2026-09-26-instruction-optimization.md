@@ -157,6 +157,51 @@ call, so roughly 2,000 to 3,000 units per research run, or about 3 to 4
 community-heavy Claude runs per day on the test key. Production runs (ChatGPT
 arm) use the production key's separate quota.
 
+### Results of the pair and the first blinded judgment
+
+| Arm | Wall time | Tool calls | Protocol text loaded | Cache reads | API-equivalent | Answer |
+|---|---|---|---|---|---|---|
+| `main` (no protocol text) | 19.2 min | 89 | 0 (load failed on size) | 4.9M | $7.77 | 11.5K chars, complete |
+| `e1176f8` (section loading) | 26.9 min | 145 (64 protocol loads) | about 569K chars | 13.1M | $12.25 | 18.0K chars, partial: local server crashed mid-run |
+
+Judge (Opus 5.5 at max effort through `claude -p`, blinded order and
+redacted protocol identifiers, three citation spot-checks per answer):
+`e1176f8` won all five criteria (options, appraisal, heterodox judgment,
+safety, usefulness), overall confidence medium. `main`'s headline figure
+("about 77% had the operation within two years") is not in the paper it
+cites; all spot-checked `e1176f8` figures held. The judge faulted `e1176f8`
+for length and research-process clutter (status notes first, a forum-audit
+prompt and research handoff at the end). Reading: the protocol's substance
+(red flags, option coverage, concrete next steps) helps; its process and
+output clutter hurts. Consolidation should keep the substance and cut the
+process text, which the server gate now covers. One question and one judge
+is weak evidence; the held-out comparison decides.
+
+Both answers stayed mostly mainstream: neither surfaced firsthand community
+options such as diet changes, gelatin or collagen, or named physiotherapy
+methods. The `e1176f8` run left 12 of 20 video audits incomplete (continuation
+not followed); the server gate now blocks that.
+
+## GPT route: state and owner decision needed
+
+The Mission Control ChatGPT relay on the VPS
+(`mission-control-chatgpt-relay@cloudbrowser`) is installed but inactive and
+disabled. By design it sends only exact Mission Control route packets to
+allowlisted ChatGPT chats and never reads ChatGPT output (OpenAI's terms
+prohibit automated output extraction), so answers must come back through the
+chat's own connector or by hand. Starting it could release queued Mission
+Control work, and the A19–A20 alignment task must stay on hold, so it stays off
+until the owner decides. Options:
+
+1. Manual GPT arm: the owner pastes each question into a GPT-6 chat with the
+   AskRigor connector and saves the answer (old arm: production connector; new
+   arm: a staging connector after a staging deploy).
+2. Relay: the owner confirms which chats the relay may use and that no queued
+   packets would be sent, adds a staging connector for the new arm (an account
+   change), and each chat saves its answer to a file through its GitHub
+   connector.
+3. GPT-6 Pro as judge only: blinded answer packets pasted by hand.
+
 ## Time and cost estimate (to be replaced by pilot measurements)
 
 - Phase 0 used about 4.1M subagent tokens on the Claude plan, about 40 minutes

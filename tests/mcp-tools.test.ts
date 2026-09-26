@@ -565,9 +565,11 @@ describe("AskRigor MCP tools", () => {
       const token = (first.structuredContent as { continuation_token: string }).continuation_token;
       expect(token).toEqual(expect.any(String));
 
+      // A limit echoed back with the token (bounded responses report the returned
+      // sample size in analysis_limit) must not fail the chain.
       const second = await client.callTool({
         name: "audit_youtube_video_community",
-        arguments: { continuation_token: token }
+        arguments: { continuation_token: token, analysis_limit: 7 }
       });
 
       expect(second.isError).not.toBe(true);
@@ -637,7 +639,7 @@ describe("AskRigor MCP tools", () => {
       expect(result.isError).toBe(true);
       expect(result.content).toEqual([{
         type: "text",
-        text: "YouTube video audit retrieved 0 record(s) cumulatively; synthesis lock block."
+        text: "YouTube video audit retrieved 0 record(s) cumulatively; synthesis lock block. Error: youtube_video_community_audit_failed. YouTube video community audit failed before reaching a valid completion state."
       }]);
       expect(result.structuredContent).toMatchObject({
         provider: "youtube",
@@ -1056,7 +1058,7 @@ describe("AskRigor MCP tools", () => {
       expect(result.isError).toBe(true);
       expect(result.content).toEqual([{
         type: "text",
-        text: "YouTube search returned 0 video record(s); access status inaccessible."
+        text: "YouTube search returned 0 video record(s); access status inaccessible. Error: youtube_api_key_missing. YouTube retrieval cannot run until the server-side API key is configured."
       }]);
       expect(result.structuredContent).toMatchObject({
         provider: "youtube",
@@ -1088,7 +1090,7 @@ describe("AskRigor MCP tools", () => {
       expect(result.isError).toBe(true);
       expect(result.content).toEqual([{
         type: "text",
-        text: "YouTube video retrieval finished with access status inaccessible."
+        text: "YouTube video retrieval finished with access status inaccessible. Error: youtube_api_key_missing. YouTube retrieval cannot run until the server-side API key is configured."
       }]);
       expect(result.structuredContent).toMatchObject({
         provider: "youtube",
@@ -1310,7 +1312,7 @@ describe("AskRigor MCP tools", () => {
       expect(missingKey.isError).toBe(true);
       expect(missingKey.content).toEqual([{
         type: "text",
-        text: "YouTube comment retrieval returned 0 comment/reply record(s); access status inaccessible."
+        text: "YouTube comment retrieval returned 0 comment/reply record(s); access status inaccessible. Error: youtube_api_key_missing. YouTube retrieval cannot run until the server-side API key is configured."
       }]);
       expect(missingKey.structuredContent).toMatchObject({
         access_status: "inaccessible",
@@ -1329,7 +1331,7 @@ describe("AskRigor MCP tools", () => {
       expect(disabled.isError).toBe(true);
       expect(disabled.content).toEqual([{
         type: "text",
-        text: "YouTube comment retrieval returned 0 comment/reply record(s); access status comments_disabled."
+        text: "YouTube comment retrieval returned 0 comment/reply record(s); access status comments_disabled. Error: youtube_comments_disabled. YouTube top-level comment retrieval stopped before every API-visible page could be exhausted."
       }]);
       expect(disabled.structuredContent).toMatchObject({
         access_status: "comments_disabled",
@@ -1363,7 +1365,7 @@ describe("AskRigor MCP tools", () => {
       expect(result.isError).toBe(true);
       expect(result.content).toEqual([{
         type: "text",
-        text: "YouTube comment retrieval returned 5 comment/reply record(s); access status partial."
+        text: "YouTube comment retrieval returned 5 comment/reply record(s); access status partial. Error: youtube_access_denied. Reply counts did not reconcile for 2 top-level comment(s). YouTube reply retrieval stopped before every expected reply corpus could be exhausted."
       }]);
       expect(result.structuredContent).toMatchObject({
         access_status: "partial",
