@@ -1115,14 +1115,13 @@ function defineResearchOperations(
     {
       description:
         "Retrieve one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation. Returns exact retrieved-versus-analyzed counts, usable partial-corpus records for bounded review, and a separate completion receipt; no medical conclusions are generated. Sample records are compact: id, reply_to, a per-video pseudonymous author key for counting distinct people, date, likes, text.",
-      inputSchema: youtubeVideoCommunityAuditInputSchema,
+      inputSchema: MCP_YOUTUBE_VIDEO_AUDIT_INPUT_SCHEMA,
       outputSchema: mcpYoutubeVideoCommunityAuditOutputSchema,
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (rawInput) => {
-      // The continuation token carries the chain's analysis limit, and bounded
-      // responses report the returned sample size in analysis_limit; a limit
-      // echoed back with a token would otherwise fail the whole audit.
+      // A continuation token carries the chain's video and analysis limit, so
+      // anything else sent with it is ignored rather than failing the audit.
       const input = rawInput.continuation_token === undefined
         ? rawInput
         : { continuation_token: rawInput.continuation_token };
@@ -1326,6 +1325,19 @@ function defineResearchOperations(
 const MCP_YOUTUBE_AUDIT_MAX_BYTES = 40_000;
 const MCP_BOUNDED_SAMPLE_LIMITATION =
   "This response returns a deterministic subset of the analysis sample to fit client result-size limits; retrieval coverage and corpus counts are reported separately.";
+
+// The core schema requires exactly one of a video and a continuation token.
+// Models sometimes send both; on MCP the token then wins (see the handler).
+const MCP_YOUTUBE_VIDEO_AUDIT_INPUT_SCHEMA = z.object(
+  youtubeVideoCommunityAuditInputSchema.shape
+).strict().superRefine((value, context) => {
+  if (value.video_id_or_url === undefined && value.continuation_token === undefined) {
+    context.addIssue({
+      code: "custom",
+      message: "Provide video_id_or_url or continuation_token"
+    });
+  }
+});
 
 const RESEARCH_RECEIPT_OUTPUT_SHAPE = {
   research_receipt: z.string().optional()

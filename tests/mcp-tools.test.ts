@@ -565,11 +565,11 @@ describe("AskRigor MCP tools", () => {
       const token = (first.structuredContent as { continuation_token: string }).continuation_token;
       expect(token).toEqual(expect.any(String));
 
-      // A limit echoed back with the token (bounded responses report the returned
-      // sample size in analysis_limit) must not fail the chain.
+      // A limit or another video sent with the token must not fail the chain:
+      // the token carries the chain's video and analysis limit.
       const second = await client.callTool({
         name: "audit_youtube_video_community",
-        arguments: { continuation_token: token, analysis_limit: 7 }
+        arguments: { continuation_token: token, analysis_limit: 7, video_id_or_url: "dQw4w9WgXcQ" }
       });
 
       expect(second.isError).not.toBe(true);
