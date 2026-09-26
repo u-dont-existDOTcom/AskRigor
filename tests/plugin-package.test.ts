@@ -192,7 +192,7 @@ describe("AskRigor plugin package", () => {
     expect(skill).toContain("caller corpus-size/scope labels cannot waive them");
     expect(skill).toContain("If `get_youtube_transcript` is unavailable");
     expect(skill).toContain("`transcript_tool_unavailable`");
-    expect(skill).toContain("never call an undeclared tool");
+    expect(skill).toContain("never call undeclared tools");
     expect(skill).toContain("Accept `api_visible_complete` only after all accessible top-level/reply pages");
     expect(skill).toContain(
       "it excludes deleted, moderated, private, hidden, unavailable, and never-posted material"

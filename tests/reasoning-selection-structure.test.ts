@@ -232,13 +232,19 @@ describe("canonical Reasoning Selection application", () => {
       "d5a4b02bc53fda30bbb586d2ec34233f19bb981d38427f6311f453b84209ba5a",
     );
     expect(project).toContain(`\n${CURRENT_PROJECT_APPLICATION}## 1. Run before HRP/research`);
-    expect(Buffer.byteLength(project, "utf8")).toBe(7978);
-    expect(Array.from(project)).toHaveLength(7962);
-    expect(project.split(/\s+/u).filter(Boolean)).toHaveLength(920);
+    expect(Buffer.byteLength(project, "utf8")).toBe(7976);
+    expect(Array.from(project)).toHaveLength(7960);
+    expect(project.split(/\s+/u).filter(Boolean)).toHaveLength(921);
     expect(sha256(project)).toBe(
-      "093aeeb0029eb7ba5e6238e74eef1788841524acf21b9f4ac35281e2587b7285",
+      "190ed7cf9fbe2931d3ee70ae88256473c7cb097bac3a4ebea6713d14f4d48a9d",
     );
-    expect(sha256(project.replace(CURRENT_PROJECT_APPLICATION, PROJECT_APPLICATION))).toBe(
+    // 2026-09-26: connectors without a transcript tool label creator claims unverified.
+    const priorTranscriptRule = project.replace(
+      "record `transcript_tool_unavailable`, label creator claims unverified, and never call an undeclared tool.",
+      "record `transcript_tool_unavailable`, withhold creator claims/watchlist, and never call an undeclared tool.",
+    );
+    expect(priorTranscriptRule).not.toBe(project);
+    expect(sha256(priorTranscriptRule.replace(CURRENT_PROJECT_APPLICATION, PROJECT_APPLICATION))).toBe(
       "0a6085528b6f4412198d0e9a3b225a1069a40e8f494b47cbd652b69fb07a4ca8",
     );
 
@@ -255,10 +261,10 @@ describe("canonical Reasoning Selection application", () => {
     ]);
 
     expect(sha256(hrp)).toBe(
-      "c7e4835777477063c435c4290a27c51ba420cccdace3a316f8a017f772f821fa",
+      "0d6acb90002fb00aef24ee265323f22bcdc013028a56a4c4adededcd8fbb3f49",
     );
     expect(sha256(forum)).toBe(
-      "75c088ba0edeb821d3d664d2f0b48b33f7dd3e627c01dfe830053d6dac2aed13",
+      "5fa8374564ebc37d46a4980c7090a1af6dd8d01cd9f224f52a4cf032e02f5701",
     );
   });
 });

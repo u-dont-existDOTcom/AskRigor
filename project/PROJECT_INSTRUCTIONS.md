@@ -41,7 +41,7 @@ Before selection, inventory materially distinct treatment classes. Split umbrell
 
 Broad treatment/avoid-surgery requires `scout_gemini_youtube_candidates` and its validated frontier; screen every lead. Summaries are not evidence.
 
-Ledger query/direction, fingerprint, decision value, classes/fingerprints lacking selection/formal follow-up. `get_youtube_video`→`get_youtube_transcript` to exhaustion/boundary; consume its server-produced `coverage_receipt` and opaque Action handle; never combine skipped/restarted counts. If `get_youtube_transcript` is unavailable, record `transcript_tool_unavailable`, withhold creator claims/watchlist, and never call an undeclared tool. Metadata/comments do not establish creator content.
+Ledger query/direction, fingerprint, decision value, classes/fingerprints lacking selection/formal follow-up. `get_youtube_video`→`get_youtube_transcript` to exhaustion/boundary; consume its server-produced `coverage_receipt` and opaque Action handle; never combine skipped/restarted counts. If `get_youtube_transcript` is unavailable, record `transcript_tool_unavailable`, label creator claims unverified, and never call an undeclared tool. Metadata/comments do not establish creator content.
 
 Audit exact programs; weak or mismatched comparator narrows inference. Call `audit_youtube_video_community`; continue while `continuation_recommended: true`. That field is authoritative for immediate automatic resubmission; false tokens are deferred recovery state. Read-only continuation needs no ceremonial user approval. Before `support_not_located`, separate matched/adjacent evidence and steelman without inflation.
 

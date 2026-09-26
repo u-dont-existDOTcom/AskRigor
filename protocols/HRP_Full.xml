@@ -56,8 +56,11 @@
    so a model could not read HRP at all on some surfaces. Load the section index, every core section, and each runtime
    section whose purpose or activation applies, before the step that uses it. Sections are exact canonical text; the
    anti-substitution rule is unchanged. Revision history, version and release process, and stress tests are maintainer
-   material and need not be loaded. Removed a stray character in the treatment-landscape gate. No research method,
-   safety, or source rule changed.
+   material and need not be loaded. Removed a stray character in the treatment-landscape gate.
+
+   Owner-approved method change for surfaces without a transcript tool, such as the MCP connector: a complete discussion
+   audit carries a selected video's depth, and what the creator says is reported only as the scout's reading, labeled not
+   checked against a transcript. Where a transcript tool exists, transcript verification is still required.
   </Revision>
 
   <Revision version="20.5.29" priority="Critical">
@@ -1325,8 +1328,11 @@
    transcript cannot be retrieved. State in ordinary language that AskRigor did not check that summary against a transcript.
    Do not discard an otherwise useful candidate solely for that reason. The same summary cannot establish what the creator
    said for evidentiary synthesis and cannot support efficacy, safety, causal, comparative, structural, or recommendation
-   claims. Selected creator-content evidence still requires transcript verification. A genuine terminal boundary permits only
-   bounded output that withholds creator-content claims; comments, metadata, titles, and scout summaries do not replace it.
+   claims. Where the serving surface offers a transcript tool, selected creator-content evidence still requires transcript
+   verification, and a genuine terminal boundary permits only bounded output that withholds creator-content claims. Where
+   it offers none, report what a creator says only as the scout's reading, labeled not checked against a transcript, and
+   let the complete discussion audit carry that video's depth. Comments, metadata, titles, and scout summaries never become
+   verified creator content.
   </Rule>
 
   <Rule name="BroadDiscoveryBeforeDeepAudit" priority="Critical">
@@ -1408,11 +1414,11 @@
    class, distinct program, formal return pass, or executable retrieval.
    When a broad substantial valid ledger contains at least eight material candidate videos across at least six available
    distinct programs, selection_coverage_lock also blocks unless at least eight material videos across at least six such
-   programs have completed both selected-video depth requirements. A caller's optimistic aggregate, corpus-size or scope label, renamed ID, or unsupported relevance label cannot turn
+   programs have completed the selected-video depth requirements that apply on the serving surface. A caller's optimistic aggregate, corpus-size or scope label, renamed ID, or unsupported relevance label cannot turn
    discoverable material into coverage or disable a structural check.
 
-   per_video_depth_lock is block when any selected transcript track is not exhausted and content-verified or any selected
-   discussion audit has not passed its own receipt synthesis lock. A live cursor, recommended continuation, retryable error,
+   per_video_depth_lock is block when, on a surface that offers a transcript tool, any selected transcript track is not
+   exhausted and content-verified, or when any selected discussion audit has not passed its own receipt synthesis lock. A live cursor, recommended continuation, retryable error,
    incomplete source receipt, or blocked source synthesis lock always remains executable work even if a caller labels an
    associated boundary terminal. Do not normalize a literal provider status into a more
    favorable state. treatment_landscape_synthesis_lock is block when either component lock blocks or a reconciled material

@@ -253,7 +253,7 @@ describe("canonical longitudinal-evidence and phenotype–etiology gates", () =>
 
   it("activates the rules in the compact Project router", async () => {
     const project = await readFile(new URL("project/PROJECT_INSTRUCTIONS.md", ROOT), "utf8");
-    expect(Array.from(project)).toHaveLength(7962);
+    expect(Array.from(project)).toHaveLength(7960);
     for (const required of [
       "### Reasoning, interview, and longitudinal evidence",
       "Before an individual-case differential, extract the 3–7 strongest longitudinal constraints",

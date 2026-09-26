@@ -19,7 +19,7 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "c7e4835777477063c435c4290a27c51ba420cccdace3a316f8a017f772f821fa";
+  "0d6acb90002fb00aef24ee265323f22bcdc013028a56a4c4adededcd8fbb3f49";
 const UNIVERSAL_SHA_256 =
   "f7436c887bac37d78d79a1d096cdf6a3433a41fc2292789e118b521663f9c960";
 
@@ -345,8 +345,8 @@ describe("canonical protocol loader", () => {
       'Case id="ProvisionalScoutCandidateDiscardedWithoutTranscript"',
       'Case id="ExternalScoutFrontierCandidateOmittedOrUnresolved"',
       'Case id="ProvisionalScoutSummaryUsedAsTreatmentEvidence"',
-      "Selected creator-content evidence still requires transcript verification",
-      "A genuine terminal boundary permits only",
+      "selected creator-content evidence still requires transcript",
+      "genuine terminal boundary permits only",
       '<Check id="FS186">',
       '<Check id="FS187">'
     ]) {
