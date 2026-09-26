@@ -24,6 +24,15 @@ const QUESTIONS_PATH = "evaluation/instruction-optimization/questions.json";
 // Only the AskRigor tools and skill are pre-approved; these are removed outright.
 const DISALLOWED_TOOLS = ["Bash", "Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch"];
 
+// Built-in tools per surface. "claude-app" mirrors a Claude app user with the
+// AskRigor connector and skill: no file, shell, or sub-agent tools, so the model
+// cannot page a saved oversized tool result from disk or delegate to sub-agents.
+// "claude-code" keeps Claude Code's other built-ins (Read, Agent, ...).
+const SURFACE_BUILTIN_TOOLS = {
+  "claude-app": "Skill,ToolSearch",
+  "claude-code": null
+};
+
 // Removed from the child `claude` environment. Values are never read or saved;
 // only these names are recorded in metrics.json.
 const CHILD_ENV_REMOVE = [
@@ -143,6 +152,7 @@ function parseOptions() {
       "allow-held-out": { type: "boolean", default: false },
       "setup-only": { type: "boolean", default: false },
       "no-harness-note": { type: "boolean", default: false },
+      surface: { type: "string", default: "claude-app" },
       reanalyze: { type: "string" },
       help: { type: "boolean", short: "h", default: false }
     },
@@ -179,7 +189,10 @@ function parseOptions() {
     timeoutMinutes: positiveInt("timeout-minutes", values["timeout-minutes"], 10_000),
     allowHeldOut: values["allow-held-out"],
     setupOnly: values["setup-only"],
-    harnessNote: !values["no-harness-note"]
+    harnessNote: !values["no-harness-note"],
+    surface: Object.hasOwn(SURFACE_BUILTIN_TOOLS, values.surface)
+      ? values.surface
+      : fail(`--surface must be one of: ${Object.keys(SURFACE_BUILTIN_TOOLS).join(", ")}.`)
   };
 }
 
@@ -1282,6 +1295,9 @@ async function main() {
     if (options.effort !== undefined) args.push("--effort", options.effort);
     if (options.harnessNote) args.push("--append-system-prompt", HARNESS_NOTE);
     metrics.harness_note = options.harnessNote ? HARNESS_NOTE : null;
+    const builtinTools = SURFACE_BUILTIN_TOOLS[options.surface];
+    if (builtinTools !== null) args.push("--tools", builtinTools);
+    metrics.surface = { name: options.surface, builtin_tools: builtinTools ?? "default" };
     metrics.claude_command = { bin: claudeBin, args, cwd: workspace, env_removed: childEnvRemoved };
     metrics.setup_seconds = Number(((Date.now() - runnerStartMs) / 1000).toFixed(3));
     if (options.setupOnly) {

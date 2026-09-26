@@ -108,6 +108,11 @@ Known secret values (continuation secret, provider keys) are replaced with
   is not required on the local server, and no user can reply, so approvals and
   clarifications are treated as granted with sensible defaults. The note is
   identical for every arm; `--no-harness-note` turns it off.
+- `--surface claude-app` (default) gives the model only the `Skill` and
+  `ToolSearch` built-ins plus the AskRigor tools, like a Claude app user with the
+  connector and skill. `--surface claude-code` keeps Claude Code's other
+  built-ins (`Read`, `Agent`, ...), with which the model can page an oversized
+  tool result from disk or delegate to sub-agents.
 - Claude Code rejects MCP tool results above its output limit. On `main`,
   `load_protocol` returns each protocol whole (about 604,000 characters for HRP
   and 168,000 for Universal as tool-result JSON), so the model receives an error
