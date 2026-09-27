@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isPopulationLevelResearchTarget } from "../apps/research-mcp/src/actions/gemini-scout-route.js";
+import { isPopulationLevelResearchTarget, isPublicLeadTerm } from "../apps/research-mcp/src/actions/gemini-scout-route.js";
 
 describe("population-level scout targets", () => {
   it("accepts targets that describe a group of people and their goal", () => {
@@ -42,5 +42,27 @@ describe("population-level scout targets", () => {
       // A condition with no group of people is refused; the error asks for one.
       "Hip osteoarthritis: avoiding a hip replacement"
     ]) expect(isPopulationLevelResearchTarget(target), target).toBe(false);
+  });
+
+  it("accepts a rediscovery lead only as a short public term", () => {
+    for (const lead of [
+      "gelatin",
+      "collagen peptides",
+      "red light therapy",
+      "low dose naltrexone",
+      "Egoscue Method",
+      "bob and brad hip exercises",
+      "GROWING HIP BACK SHAPEFIXER"
+    ]) expect(isPublicLeadTerm(lead), lead).toBe(true);
+    for (const lead of [
+      "Jane Doe in Boston says chemotherapy cured her",
+      "jane doe says chemotherapy cured the tumor",
+      "she fixed her hip without surgery",
+      "Dr. Berg",
+      "Shawn Baker",
+      "a 47-year-old woman's routine",
+      "my hip routine",
+      "gelatin every morning with orange juice and ten minutes of walking daily"
+    ]) expect(isPublicLeadTerm(lead), lead).toBe(false);
   });
 });

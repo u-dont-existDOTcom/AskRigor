@@ -336,7 +336,7 @@ describe("canonical Reasoning Selection application", () => {
       "8495506e7299d3ee511574329f39a69bcc5efa6c5fac7023f746e1ee84aa344e",
     );
     expect(sha256(forum)).toBe(
-      "cf99f70ead889edb55a0e6a3799cf9c1841cad300ae783ea849379d0b55e314c",
+      "20bc49737b7844d95ea1ec373e5c9bdf7c62eb14d7c3c7bb8088b1f1c1489415",
     );
   });
 });

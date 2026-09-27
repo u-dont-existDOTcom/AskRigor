@@ -11,13 +11,15 @@ import { discoveryQueryDigest, verifyResearchReceipt } from "../apps/research-mc
 
 const execute = vi.hoisted(() => vi.fn());
 const search = vi.hoisted(() => vi.fn());
+const getVideo = vi.hoisted(() => vi.fn());
 vi.mock("../apps/research-mcp/src/actions/gemini-scout-route.js", async (importOriginal) => ({
   ...await importOriginal<typeof import("../apps/research-mcp/src/actions/gemini-scout-route.js")>(),
   executeResumableAutomatedGeminiScout: execute
 }));
 vi.mock("@askrigor/sources", async (importOriginal) => ({
   ...await importOriginal<typeof import("@askrigor/sources")>(),
-  searchYoutube: search
+  searchYoutube: search,
+  getYoutubeVideo: getVideo
 }));
 
 const { createAskRigorServer } = await import("../apps/research-mcp/src/server.js");
@@ -47,6 +49,7 @@ describe("MCP Gemini scout continuation", () => {
     delete process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET;
     execute.mockReset();
     search.mockReset();
+    getVideo.mockReset();
   });
   afterEach(() => {
     for (const [name, value] of [
@@ -306,7 +309,37 @@ describe("MCP Gemini scout continuation", () => {
     expect(personal.isError).toBe(true);
     expect((personal.content as Array<{ text: string }>)[0]!.text).toContain("research_target_not_deidentified");
     expect(badLead.isError).toBe(true);
-    expect((badLead.content as Array<{ text: string }>)[0]!.text).toContain("rediscovery_lead_not_deidentified");
+    expect((badLead.content as Array<{ text: string }>)[0]!.text).toContain("rediscovery_lead_not_public_term");
+  });
+
+  it("refuses a lead that names or describes a person, and sends a video lead as YouTube's own title and channel", async () => {
+    const client = await connect();
+    const narrative = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { ...TARGET, rediscovery_leads: ["Jane Doe in Boston says chemotherapy cured her"] }
+    });
+    expect(narrative.isError).toBe(true);
+    expect((narrative.content as Array<{ text: string }>)[0]!.text).toContain("rediscovery_lead_not_public_term");
+
+    getVideo.mockImplementation(async (videoId: string) => videoId === "XpZHKGGCK-o"
+      ? { access_status: "api_visible_complete", data: { title: "GROWING MY HIP BACK", channel_title: "SHAPEFIXER" } }
+      : { access_status: "not_found", data: {} });
+    const missing = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { ...TARGET, rediscovery_leads: ["video:dQw4w9WgXcQ"] }
+    });
+    expect(missing.isError).toBe(true);
+    expect((missing.content as Array<{ text: string }>)[0]!.text).toContain("rediscovery_lead_video_unavailable");
+    expect(execute).not.toHaveBeenCalled();
+
+    execute.mockResolvedValueOnce({ controller_progress: { checkpoint: CHECKPOINT, accounted_nano_usd: 1_000_000_000 } });
+    await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { ...TARGET, rediscovery_leads: ["collagen peptides", "video:XpZHKGGCK-o"] }
+    });
+    expect(execute).toHaveBeenCalledWith(
+      TARGET, undefined, { deadlineMs: expect.any(Number) }, ["collagen peptides", "GROWING MY HIP BACK (SHAPEFIXER)"]
+    );
   });
 
   it("runs a rediscovery round from comment-named leads and carries them through the continuation", async () => {

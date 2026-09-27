@@ -975,6 +975,7 @@ function analyze(run, context) {
       next_steps: (pick(call, ["next_steps"]) ?? []).length,
       limits: (pick(call, ["limits"]) ?? []).length,
       community_evidence: call.input.community_evidence ?? null,
+      treatment_choice: call.input.treatment_choice ?? null,
       research_depth: pick(call, ["community", "depth"]) ?? call.input.research_depth ?? null,
       discovery_rounds: pick(call, ["community", "discovery_rounds"]) ?? null,
       saturated: pick(call, ["community", "saturated"]) ?? null,

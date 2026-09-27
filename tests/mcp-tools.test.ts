@@ -467,6 +467,7 @@ describe("AskRigor MCP tools", () => {
         arguments: {
           receipts: ["rr1~study_audit~doi=10.1000%2Fforged~1790000000~AAAAAAAAAAAAAAAAAAAAAA"],
           community_evidence: "researched",
+      treatment_choice: "not_compared",
           key_sources: [{ id: "10.1000/forged", status: "validated" }]
         }
       });
@@ -485,6 +486,7 @@ describe("AskRigor MCP tools", () => {
         arguments: {
           receipts: [],
           community_evidence: "not_relevant",
+      treatment_choice: "not_compared",
           not_relevant_reason: "A dosing arithmetic question with no treatment choice.",
           key_sources: []
         }

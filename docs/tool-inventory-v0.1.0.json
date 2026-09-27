@@ -12321,6 +12321,9 @@
               "maxLength": 80,
               "pattern": "^[A-Za-z0-9._:-]+$"
             }
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -12385,7 +12388,7 @@
     },
     {
       "name": "scout_gemini_youtube_candidates",
-      "description": "Ask Gemini with Google Search for YouTube videos on a de-identified, population-level target, then validate each video's identity. Describe a group of people, their condition and their goal (for example, adults trying to avoid a hip replacement and what they tried), with no names, places or personal details, and not a list of treatments: the scout searches natural, supplement, self-directed and conventional angles itself. After auditing comments, call it again with the remedies, methods, products, videos or creators the comments name as rediscovery_leads (public terms only, no commenter details). A grounded search takes about a minute, so the result may be pending with a continuation_token; call again with only that token. Summaries are unverified leads.",
+      "description": "Ask Gemini with Google Search for YouTube videos on a de-identified, population-level target, then validate each video's identity. Describe a group of people, their condition and their goal (for example, adults trying to avoid a hip replacement and what they tried), with no names, places or personal details, and not a list of treatments: the scout searches natural, supplement, self-directed and conventional angles itself. After auditing comments, call it again with the remedies, methods and products the comments name as rediscovery_leads (short lowercase public terms), and a video or creator as video:<id>; never commenter details. A grounded search takes about a minute, so the result may be pending with a continuation_token; call again with only that token. Summaries are unverified leads.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -12600,7 +12603,7 @@
     },
     {
       "name": "finalize_research",
-      "description": "Call before the final answer. Pass every research_receipt you received, whether community evidence was researched, and the studies your conclusions depend on. not_ready lists the remaining steps; ready_with_limits lists limits the answer must state; receipts_unavailable means this server cannot verify completion, so do the required work anyway and say that completion was not server-verified.",
+      "description": "Call before the final answer. Pass every research_receipt you received, whether community evidence was researched, whether the answer compares treatment options, and the studies your conclusions depend on. not_ready lists the remaining steps; ready_with_limits lists limits the answer must state; receipts_unavailable means this server cannot verify completion, so do the required work anyway and say that completion was not server-verified.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -12640,6 +12643,14 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 1000
+          },
+          "treatment_choice": {
+            "type": "string",
+            "enum": [
+              "compared",
+              "not_compared"
+            ],
+            "description": "compared when the answer compares, ranks or recommends treatment options; it then needs an assess_treatment_landscape_coverage result."
           },
           "research_depth": {
             "default": "first_pass",
@@ -12712,6 +12723,7 @@
         "required": [
           "receipts",
           "community_evidence",
+          "treatment_choice",
           "key_sources"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",

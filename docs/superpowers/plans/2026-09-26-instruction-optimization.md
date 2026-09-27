@@ -378,6 +378,29 @@ run went from 07:12 to 09:44 UTC.
   - The runner recorded each audit's video from an input field audits don't
     use, so every audit was filed under "null". It now reads the audited
     video from the result.
+- **Codex review of 6d805b8** (two P1 findings, both fixed):
+  - `finalize_research` ignored `assess_treatment_landscape_coverage`, so a
+    blocked treatment comparison could still finalize. The Project router
+    and skill already require the check for treatment answers; the server
+    now enforces it. The checker issues a signed `treatment_coverage`
+    receipt (answer boundary and lock), and the latest one passed binds the
+    answer:
+    - `continue_research` blocks;
+    - `bounded_nonranking_only` becomes a limit (no ranking);
+    - a first-pass result is a limit in a first pass, and blocks deep
+      research.
+
+    `finalize_research` takes a required `treatment_choice`. `compared`
+    with no coverage receipt is `not_ready`. Each video the check judged must
+    come from a discovery receipt passed in the same call, so a check made
+    for another question cannot pass.
+  - Rediscovery leads kept only the base screen, so a lead such as "Jane Doe
+    in Boston says chemotherapy cured her" reached Gemini. A lead is now a
+    short lowercase public term (at most eight words) that fails closed on
+    the target screen's person markers and on report verbs, or
+    `video:<id>`, which the server replaces with YouTube's own title and
+    channel (one quota unit per video). As with the target, a name written
+    without capitals can still pass.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 

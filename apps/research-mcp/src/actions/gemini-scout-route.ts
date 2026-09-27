@@ -584,7 +584,6 @@ async function waitForBackgroundPoll(milliseconds: number): Promise<void> {
  * A name no dictionary knows ("Xiomara Garcia") is still refused. No pattern
  * check can catch every name (a lowercase name with no marker passes), so the
  * tool contract still asks the calling model for a population-level target.
- * Rediscovery leads may name public creators, so they keep the base screen.
  */
 export function isPopulationLevelResearchTarget(value: string): boolean {
   if (!isDeidentifiedResearchTarget(value)) return false;
@@ -593,31 +592,54 @@ export function isPopulationLevelResearchTarget(value: string): boolean {
   const text = value.replace(/\s+/gu, " ");
   const words = text.toLowerCase().split(/[^\p{L}\p{N}]+/u);
   if (!words.some((word) => POPULATION_WORDS.has(word))) return false;
-  if (/\b(?:he|she|him|his|her|hers|himself|herself)\b/iu.test(text)) return false;
-  if (/\b(?:[Mm]rs?|[Mm]s|[Mm]iss|[Mm]x|[Dd]r|[Pp]rof)\.? [A-Z]/u.test(text)) return false;
+  return !mayDescribeAPerson(text);
+}
+
+/**
+ * Screen for a rediscovery lead, which goes to Gemini with the target: a short
+ * public term for a remedy, method or product ("collagen peptides"), written in
+ * lowercase. It fails closed on anything that could name or describe a person,
+ * as the target screen does, and on report verbs ("says", "cured"). A video or
+ * creator is named as video:<id> instead, and the server sends YouTube's own
+ * title and channel for it.
+ */
+export function isPublicLeadTerm(value: string): boolean {
+  if (!isDeidentifiedResearchTarget(value)) return false;
+  const text = value.replace(/\s+/gu, " ").trim();
+  if (text.split(" ").length > MAXIMUM_LEAD_WORDS) return false;
+  if (/\b(?:says|said|tells|told|claims|claimed|cured|healed)\b/iu.test(text)) return false;
+  return !mayDescribeAPerson(text);
+}
+
+const MAXIMUM_LEAD_WORDS = 8;
+
+/** Person markers shared by the target and lead screens; text has single spaces. */
+function mayDescribeAPerson(text: string): boolean {
+  if (/\b(?:he|she|him|his|her|hers|himself|herself)\b/iu.test(text)) return true;
+  if (/\b(?:[Mm]rs?|[Mm]s|[Mm]iss|[Mm]x|[Dd]r|[Pp]rof)\.? [A-Z]/u.test(text)) return true;
   if (
     /(?<!\b(?:over|under|above|below|past|beyond|from) )\baged? \d{1,3}\b(?! ?(?:\+|-|–|to\b|and\b|or\b|through\b|plus\b))/iu
       .test(text)
-  ) return false;
-  if (/\b\d{1,3} ?-? ?(?:years?|yrs?) ?-? ?old\b(?!s)/iu.test(text)) return false;
-  if (/\b\d{1,3} ?(?:y\/o|yo)\b/iu.test(text)) return false;
+  ) return true;
+  if (/\b\d{1,3} ?-? ?(?:years?|yrs?) ?-? ?old\b(?!s)/iu.test(text)) return true;
+  if (/\b\d{1,3} ?(?:y\/o|yo)\b/iu.test(text)) return true;
   // Identity and example markers work in any capitalization: a target names a
   // group, not an example person ("adults like xiomara garcia") or a list.
-  if (/\b(?:named|called|nicknamed|aka|including)\b|\bsuch as\b|\be\.g\.|\bi\.e\./iu.test(text)) return false;
+  if (/\b(?:named|called|nicknamed|aka|including)\b|\bsuch as\b|\be\.g\.|\bi\.e\./iu.test(text)) return true;
   for (const [, next] of text.matchAll(/\blike (\p{L}+)/giu)) {
-    if (!POPULATION_WORDS.has(next!.toLowerCase())) return false;
+    if (!POPULATION_WORDS.has(next!.toLowerCase())) return true;
   }
   for (const [, first, second] of text.matchAll(/(?=\b([A-Z][a-z'’-]+) ([A-Z][a-z'’-]+)\b)/gu)) {
     const [head, tail] = [first!.toLowerCase(), second!.toLowerCase()];
     const eponym = /['’]s$/u.test(head) || CAPITALIZED_TERM_WORDS.has(tail);
     const styling = TITLE_CASE_FUNCTION_WORDS.has(head) || TITLE_CASE_FUNCTION_WORDS.has(tail) ||
       POPULATION_WORDS.has(head);
-    if (!eponym && !styling) return false;
+    if (!eponym && !styling) return true;
   }
   for (const [, subject] of text.matchAll(/\b([A-Z][a-z'’-]+) (?:has|is|was|wants|needs|takes|tries|gets|got|had|tried|took)\b/gu)) {
-    if (!POPULATION_WORDS.has(subject!.toLowerCase())) return false;
+    if (!POPULATION_WORDS.has(subject!.toLowerCase())) return true;
   }
-  return true;
+  return false;
 }
 
 // Words that describe a group of people rather than one person.

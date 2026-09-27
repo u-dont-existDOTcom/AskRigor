@@ -722,10 +722,13 @@ pending-proposal stores have their own strict contracts and authority boundaries
   the calling model for a population-level target. Under the
   owner's zero-spend policy it starts a new scout only when the deployment
   sets `ASKRIGOR_GEMINI_BILLING=none` for a key without billing. A later round may add up
-  to eight rediscovery leads: public remedies, methods, products, video titles
-  or creator names that audited comments mention, each at most 120
-  characters and screened the same way. Leads never carry commenter identity
-  or comment text. It runs in Gemini's background
+  to eight rediscovery leads that audited comments mention. A lead is either
+  a short public term for a remedy, method or product (at most eight words,
+  refused if it could name or describe a person: names, pronouns, ages,
+  titles or report verbs such as "says" or "cured"), or `video:<id>`, which
+  AskRigor replaces with YouTube's own public title and channel for that video.
+  Leads never carry commenter identity or comment text. The screen is
+  heuristic in the same way: a name written without capitals can still pass. It runs in Gemini's background
   mode: Google stores the interaction until AskRigor consumes it and requests
   deletion, and the result reports `provider_storage_mode`. While the scout is
   still searching, the tool returns a signed, expiring continuation token that

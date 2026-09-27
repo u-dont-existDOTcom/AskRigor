@@ -55,8 +55,8 @@ import {
 import {
   automatedScoutInputSchema,
   executeResumableAutomatedGeminiScout,
-  isDeidentifiedResearchTarget,
-  isPopulationLevelResearchTarget
+  isPopulationLevelResearchTarget,
+  isPublicLeadTerm
 } from "./actions/gemini-scout-route.js";
 import {
   decodeScoutContinuation,
@@ -1277,7 +1277,7 @@ function defineResearchOperations(
         "selection coverage, and per-video depth. This connector has no transcript tool, so mark each selected " +
         "video transcript_unavailable; its complete discussion audit then carries depth and creator claims stay unverified.",
       inputSchema: treatmentLandscapeCoverageInputSchema,
-      outputSchema: treatmentLandscapeCoverageOutputSchema,
+      outputSchema: treatmentLandscapeCoverageOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (input) => {
@@ -1285,7 +1285,8 @@ function defineResearchOperations(
         treatmentLandscapeCoverageInputSchema.parse(input),
         { transcriptToolAvailable: false }
       );
-      return successfulToolResult(
+      // finalize_research binds a treatment comparison to the latest check.
+      return withResearchReceipt(successfulToolResult(
         `Treatment-landscape coverage: synthesis lock ${result.synthesis_lock}; ` +
           `${result.material_videos_fully_audited} videos fully audited across ` +
           `${result.materially_distinct_programs_fully_audited} distinct programs; answer boundary ${result.answer_boundary}.` +
@@ -1294,7 +1295,11 @@ function defineResearchOperations(
             : " Fix the record problems first: selection_blockers not in breadth_gaps, and depth_blockers. " +
               "In a first pass, breadth_gaps become the answer's open leads once first_pass_complete is true."),
         result as unknown as Record<string, unknown>
-      );
+      ), researchReceipt("treatment_coverage", {
+        boundary: result.answer_boundary,
+        lock: result.synthesis_lock,
+        videos: result.videos_actually_audited.map(({ video_id }) => video_id)
+      }));
     }
   );
 
@@ -1307,8 +1312,8 @@ function defineResearchOperations(
         "to avoid a hip replacement and what they tried), with no names, places or personal details, and not a list of " +
         "treatments: the scout searches natural, supplement, " +
         "self-directed and conventional angles itself. After auditing comments, call it again with the remedies, " +
-        "methods, products, videos or creators the comments name as rediscovery_leads (public terms only, no " +
-        "commenter details). A grounded search takes about a minute, so the result may be pending with a " +
+        "methods and products the comments name as rediscovery_leads (short lowercase public terms), and a video " +
+        "or creator as video:<id>; never commenter details. A grounded search takes about a minute, so the result may be pending with a " +
         "continuation_token; call again with only that token. Summaries are unverified leads.",
       inputSchema: MCP_SCOUT_INPUT_SCHEMA,
       outputSchema: MCP_SCOUT_OUTPUT_SCHEMA,
@@ -1353,11 +1358,19 @@ function defineResearchOperations(
               "trying to avoid a replacement), without first-person words, he or she, names, places, a person's age, " +
               "contact details or links.");
         }
-        if (!leads.every(isDeidentifiedResearchTarget)) {
-          return scoutError("rediscovery_lead_not_deidentified", false,
-            "Give each lead as a public remedy, method, product, video title or creator name, without first-person " +
-              "words, commenter details, contact details or links.");
+        if (!leads.every((lead) => VIDEO_LEAD.test(lead) || isPublicLeadTerm(lead))) {
+          return scoutError("rediscovery_lead_not_public_term", false,
+            "Give each lead as a short lowercase public term for a remedy, method or product (for example: collagen " +
+              "peptides), with no names, pronouns, places or quotes from comments. Give a video or creator as " +
+              "video:<id>.");
         }
+        // Videos and creators travel as YouTube's own public title and channel.
+        const resolved = await resolveVideoLeads(leads);
+        if (resolved === undefined) {
+          return scoutError("rediscovery_lead_video_unavailable", false,
+            "A video:<id> lead is not an available YouTube video; remove it or use another video ID.");
+        }
+        leads = resolved;
       }
 
       // Poll within one call only while a further provider request still fits
@@ -1465,7 +1478,8 @@ function defineResearchOperations(
     {
       description:
         "Call before the final answer. Pass every research_receipt you received, whether community evidence was " +
-        "researched, and the studies your conclusions depend on. not_ready lists the remaining steps; " +
+        "researched, whether the answer compares treatment options, and the studies your conclusions depend on. " +
+        "not_ready lists the remaining steps; " +
         "ready_with_limits lists limits the answer must state; receipts_unavailable means this server cannot " +
         "verify completion, so do the required work anyway and say that completion was not server-verified.",
       inputSchema: finalizeResearchInputSchema,
@@ -1578,6 +1592,28 @@ function scoutError(code: string, retryable: boolean, guidance?: string): CallTo
     }],
     isError: true
   };
+}
+
+const VIDEO_LEAD = /^video:([A-Za-z0-9_-]{11})$/u;
+
+/**
+ * Replaces each video:<id> lead with the video's public title and channel from
+ * YouTube; undefined when one is not an available video.
+ */
+async function resolveVideoLeads(leads: readonly string[]): Promise<string[] | undefined> {
+  const resolved = await Promise.all(leads.map(async (lead) => {
+    const videoId = VIDEO_LEAD.exec(lead)?.[1];
+    if (videoId === undefined) return lead;
+    try {
+      const video = await getYoutubeVideo(videoId, youtubeConfig());
+      const { title, channel_title: channel } = video.data as { title?: string; channel_title?: string };
+      if (video.access_status !== "api_visible_complete" || title === undefined) return undefined;
+      return `${title}${channel === undefined ? "" : ` (${channel})`}`.slice(0, GEMINI_YOUTUBE_SCOUT_MAX_LEAD_CHARACTERS);
+    } catch {
+      return undefined;
+    }
+  }));
+  return resolved.every((lead): lead is string => lead !== undefined) ? resolved : undefined;
 }
 
 /** True when the Custom GPT Action adapter, not an MCP client, made the call. */

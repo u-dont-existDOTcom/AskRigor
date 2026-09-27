@@ -33,10 +33,75 @@ const study = sign("study_audit", {
 const lead = sign("full_text_lead", { doi: "10.1016/j.joca.2020.01.001" }, options);
 
 describe("finalize_research gate", () => {
+  it("binds a treatment comparison to the latest treatment-coverage check", () => {
+    const base = {
+      community_evidence: "researched" as const,
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
+    };
+    const ready = [survey, emptySearch, repeatScout, videoA, study];
+    const coverage = (boundary: string, at: string) => issueResearchReceipt(
+      "treatment_coverage", { boundary, lock: boundary === "ledger_consistent_for_synthesis" ? "pass" : "block" },
+      { secret: SECRET, now: () => new Date(at) }
+    );
+
+    const missing = finalizeResearch({ ...base, receipts: ready, treatment_choice: "compared" }, options);
+    expect(missing.status).toBe("not_ready");
+    expect(missing.next_steps.join(" ")).toContain("call assess_treatment_landscape_coverage");
+
+    // A blocking result binds the answer even when the caller says no comparison was made.
+    const blocked = finalizeResearch({
+      ...base, receipts: [...ready, coverage("continue_research", "2026-09-26T11:00:00.000Z")], treatment_choice: "not_compared"
+    }, options);
+    expect(blocked.status).toBe("not_ready");
+    expect(blocked.next_steps.join(" ")).toContain("was continue_research");
+
+    const bounded = finalizeResearch({
+      ...base, receipts: [...ready, coverage("bounded_nonranking_only", "2026-09-26T11:00:00.000Z")], treatment_choice: "compared"
+    }, options);
+    expect(bounded.status).toBe("ready_with_limits");
+    expect(bounded.limits.join(" ")).toContain("do not rank or recommend");
+
+    const firstPass = [...ready, coverage("first_pass_with_open_leads", "2026-09-26T11:00:00.000Z")];
+    expect(finalizeResearch({ ...base, receipts: firstPass, treatment_choice: "compared" }, options).limits.join(" "))
+      .toContain("present it as provisional");
+    expect(finalizeResearch({
+      ...base, receipts: firstPass, treatment_choice: "compared", research_depth: "deep"
+    }, options).next_steps.join(" ")).toContain("deep research needs ledger_consistent_for_synthesis");
+
+    // The latest check wins, whatever order the receipts are passed in.
+    const later = finalizeResearch({
+      ...base,
+      receipts: [
+        coverage("ledger_consistent_for_synthesis", "2026-09-26T11:30:00.000Z"),
+        ...ready,
+        coverage("continue_research", "2026-09-26T11:00:00.000Z")
+      ],
+      treatment_choice: "compared"
+    }, options);
+    expect(later.status).toBe("ready");
+    expect(verifyResearchReceipt(later.finalization_receipt!, options)).toMatchObject({
+      ok: true, claims: { coverage: "ledger_consistent_for_synthesis" }
+    });
+
+    // A check made for another question judged videos this research never found.
+    const judged = (videos: string[]) => issueResearchReceipt(
+      "treatment_coverage", { boundary: "ledger_consistent_for_synthesis", lock: "pass", videos }, options
+    );
+    expect(finalizeResearch({
+      ...base, receipts: [...ready, judged(["aaaaaaaaaaa"])], treatment_choice: "compared"
+    }, options).status).toBe("ready");
+    const foreign = finalizeResearch({
+      ...base, receipts: [...ready, judged(["aaaaaaaaaaa", "zzzzzzzzzzz"])], treatment_choice: "compared"
+    }, options);
+    expect(foreign.status).toBe("not_ready");
+    expect(foreign.next_steps.join(" ")).toContain("judged video(s) zzzzzzzzzzz that no discovery receipt");
+  });
+
   it("is ready when community and key studies are backed by receipts", () => {
     const result = finalizeResearch({
       receipts: [survey, emptySearch, repeatScout, videoA, study],
       community_evidence: "researched",
+      treatment_choice: "not_compared",
       key_sources: [{ id: "https://doi.org/10.1002/ART.41142", status: "validated" }]
     }, options);
     expect(result.status).toBe("ready");
@@ -62,6 +127,7 @@ describe("finalize_research gate", () => {
     const result = finalizeResearch({
       receipts: [repeatScout, videoB, study],
       community_evidence: "researched",
+      treatment_choice: "not_compared",
       material_video_ids: ["bbbbbbbbbbb"],
       key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
     }, options);
@@ -74,6 +140,7 @@ describe("finalize_research gate", () => {
     const noSurvey = finalizeResearch({
       receipts: [study],
       community_evidence: "researched",
+      treatment_choice: "not_compared",
       key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
     }, options);
     expect(noSurvey.status).toBe("not_ready");
@@ -83,6 +150,7 @@ describe("finalize_research gate", () => {
     const missingVideo = finalizeResearch({
       receipts: [survey, emptySearch, repeatScout, videoA, study],
       community_evidence: "researched",
+      treatment_choice: "not_compared",
       material_video_ids: ["aaaaaaaaaaa", "ccccccccccc"],
       key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
     }, options);
@@ -96,6 +164,7 @@ describe("finalize_research gate", () => {
     const result = finalizeResearch({
       receipts: [survey, emptySearch, repeatScout, videoA],
       community_evidence: "researched",
+      treatment_choice: "not_compared",
       key_sources: [
         { id: "10.1002/art.41142", status: "validated" },
         { id: "10.1000/unattempted", status: "lead_only", reason: "paywalled" }
@@ -112,6 +181,7 @@ describe("finalize_research gate", () => {
     const result = finalizeResearch({
       receipts: [survey, emptySearch, repeatScout, videoA, videoB, study, lead, noDoiRecord],
       community_evidence: "researched",
+      treatment_choice: "not_compared",
       key_sources: [
         { id: "10.1002/art.41142", status: "validated" },
         { id: "10.1016/j.joca.2020.01.001", status: "validated" },
@@ -136,6 +206,7 @@ describe("finalize_research gate", () => {
     const result = finalizeResearch({
       receipts: [survey, emptySearch, repeatScout, videoA, study, pmcRecord],
       community_evidence: "researched",
+      treatment_choice: "not_compared",
       key_sources: [
         { id: "10.1002/art.41142", status: "validated" },
         { id: "PMID: 31234567", status: "lead_only", reason: "no DOI" }
@@ -155,6 +226,7 @@ describe("finalize_research gate", () => {
     const unbound = finalizeResearch({
       receipts: [otherSurvey, emptySearch, videoA, study],
       community_evidence: "researched",
+      treatment_choice: "not_compared",
       key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
     }, options);
     expect(unbound.status).toBe("not_ready");
@@ -167,6 +239,7 @@ describe("finalize_research gate", () => {
     expect(finalizeResearch({
       receipts: [scout, otherSurvey, emptySearch, videoA, study],
       community_evidence: "researched",
+      treatment_choice: "not_compared",
       key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
     }, options).status).toBe("ready");
   });
@@ -176,6 +249,7 @@ describe("finalize_research gate", () => {
     const result = finalizeResearch({
       receipts: [partial, emptySearch, repeatScout, videoA, study],
       community_evidence: "researched",
+      treatment_choice: "not_compared",
       key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
     }, options);
     expect(result.status).toBe("ready_with_limits");
@@ -189,6 +263,7 @@ describe("finalize_research gate", () => {
     const result = finalizeResearch({
       receipts: [survey, emptySearch, repeatScout, videoA, withDoi],
       community_evidence: "researched",
+      treatment_choice: "not_compared",
       key_sources: [
         { id: "PMC123", status: "lead_only", reason: "not retrieved" },
         { id: "PMID 999", status: "lead_only", reason: "abstract only" },
@@ -208,13 +283,14 @@ describe("finalize_research gate", () => {
     const byDoi = finalizeResearch({
       receipts: [survey, emptySearch, repeatScout, videoA, withDoi, lead],
       community_evidence: "researched",
+      treatment_choice: "not_compared",
       key_sources: [{ id: "4242", status: "lead_only" }]
     }, options);
     expect(byDoi.sources.lead_only).toEqual(["4242"]);
   });
 
   it("keeps discovering until two rounds from new angles add no video worth auditing", () => {
-    const base = { community_evidence: "researched" as const, key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }] };
+    const base = { community_evidence: "researched" as const, treatment_choice: "not_compared" as const, key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }] };
 
     const oneRound = finalizeResearch({ ...base, receipts: [survey, videoA, study] }, options);
     expect(oneRound.status).toBe("not_ready");
@@ -239,7 +315,7 @@ describe("finalize_research gate", () => {
   });
 
   it("does not count repeated searches or unverified scout candidates as saturation", () => {
-    const base = { community_evidence: "researched" as const, key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }] };
+    const base = { community_evidence: "researched" as const, treatment_choice: "not_compared" as const, key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }] };
     // A later call repeating the same query (a byte-identical receipt would count once).
     const sameAngle = sign("youtube_search", { videos: ["zzzzzzzzzzz"], q: "b2b2b2b2b2b2" }, options);
     expect(finalizeResearch({ ...base, receipts: [survey, emptySearch, sameAngle, videoA, study] }, options).next_steps)
@@ -251,7 +327,7 @@ describe("finalize_research gate", () => {
   });
 
   it("lets a first pass stop at its cap and hand back open leads instead of searching on", () => {
-    const base = { community_evidence: "researched" as const, key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }] };
+    const base = { community_evidence: "researched" as const, treatment_choice: "not_compared" as const, key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }] };
     // Four rounds, the last still finding a video worth auditing: not saturated, but the first pass is done.
     const round = (q: string, videos: string[]) => sign("youtube_search", { videos, q }, options);
     const lateVideo = sign("youtube_video_audit", { video: "eeeeeeeeeee", state: "api_visible_complete", lock: "pass", records: 50 }, options);
@@ -287,7 +363,7 @@ describe("finalize_research gate", () => {
 
   it("does not count a repeated receipt or a repeated query toward the first-pass cap", () => {
     const base = {
-      community_evidence: "researched" as const,
+      community_evidence: "researched" as const, treatment_choice: "not_compared" as const,
       key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }],
       open_leads: [{ topic: "Anything else", why: "Stopping early." }]
     };
@@ -307,7 +383,7 @@ describe("finalize_research gate", () => {
   });
 
   it("does not let a first pass stop before it has audited or searched enough", () => {
-    const base = { community_evidence: "researched" as const, key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }] };
+    const base = { community_evidence: "researched" as const, treatment_choice: "not_compared" as const, key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }] };
     const lateFind = sign("youtube_scout", { videos: ["ddddddddddd"], open: 0, q: "g7g7g7g7g7g7" }, options);
     const videoD = sign("youtube_video_audit", { video: "ddddddddddd", state: "api_visible_complete", lock: "pass", records: 90 }, options);
     const early = finalizeResearch({
@@ -321,7 +397,7 @@ describe("finalize_research gate", () => {
   });
 
   it("lets a niche topic finish with no video once discovery has saturated", () => {
-    const base = { community_evidence: "researched" as const, key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }] };
+    const base = { community_evidence: "researched" as const, treatment_choice: "not_compared" as const, key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }] };
     const emptySurvey = sign("youtube_survey", { access: "complete", searches: 6, videos: [], q: "j0j0j0j0j0j0" }, options);
     const nothing = finalizeResearch({ ...base, receipts: [emptySurvey, emptySearch, study] }, options);
     expect(nothing.status).toBe("ready_with_limits");
@@ -346,6 +422,7 @@ describe("finalize_research gate", () => {
     const result = finalizeResearch({
       receipts: [`${study.slice(0, -2)}xx`, "not-a-receipt"],
       community_evidence: "not_relevant",
+      treatment_choice: "not_compared",
       key_sources: []
     }, options);
     expect(result.status).toBe("not_ready");
@@ -358,6 +435,7 @@ describe("finalize_research gate", () => {
     const reasoned = finalizeResearch({
       receipts: [study],
       community_evidence: "not_relevant",
+      treatment_choice: "not_compared",
       not_relevant_reason: "Dose conversion question with no treatment choice.",
       key_sources: [{ id: "PMC10518852", status: "validated" }]
     }, options);
@@ -368,6 +446,7 @@ describe("finalize_research gate", () => {
     const result = finalizeResearch({
       receipts: [],
       community_evidence: "researched",
+      treatment_choice: "not_compared",
       key_sources: []
     }, { secret: undefined });
     expect(result.status).toBe("receipts_unavailable");

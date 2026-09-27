@@ -30,6 +30,8 @@ export const finalizeResearchInputSchema = z.object({
     .describe("Videos worth auditing: each adds an approach or substantial firsthand experience. Defaults to every audited video."),
   no_material_video_reason: z.string().trim().min(1).max(1_000).optional()
     .describe("Why none of the videos found was worth auditing; needed only when discovery found videos but material_video_ids is empty."),
+  treatment_choice: z.enum(["compared", "not_compared"])
+    .describe("compared when the answer compares, ranks or recommends treatment options; it then needs an assess_treatment_landscape_coverage result."),
   research_depth: z.enum(["first_pass", "deep"]).default("first_pass")
     .describe("first_pass unless the user or an automated research brief asked for deep research."),
   open_leads: z.array(z.object({
@@ -198,8 +200,8 @@ export function finalizeResearch(
     if (rounds.length === 0) {
       nextSteps.push(
         "Find community videos with scout_gemini_youtube_candidates (survey_youtube_community only if the scout is " +
-          "unavailable), audit each material video, and pass the remedies, videos and creators its comments name " +
-          "back to the scout as rediscovery_leads."
+          "unavailable), audit each material video, and pass the remedies its comments name back to the scout as " +
+          "rediscovery_leads (a video or creator as video:<id>)."
       );
     }
     if (partialSurveys > 0) {
@@ -275,6 +277,42 @@ export function finalizeResearch(
         );
       }
     }
+  }
+
+  // Treatment coverage. The latest assess_treatment_landscape_coverage result
+  // passed binds the answer, and a treatment comparison needs one.
+  const coverage = verified.filter(({ kind }) => kind === "treatment_coverage")
+    .sort((left, right) => left.issuedAt.localeCompare(right.issuedAt) || left.index - right.index)
+    .at(-1);
+  const coverageBoundary = coverage === undefined ? undefined : text(coverage.claims.boundary);
+  // Like a material video, each video the check judged must come from this
+  // research's discovery, so a check made for another question cannot pass.
+  const foreignCoverageVideos = list(coverage?.claims.videos).filter((video) => !discovered.has(video));
+  if (foreignCoverageVideos.length > 0) {
+    nextSteps.push(
+      `The treatment-coverage check judged video(s) ${foreignCoverageVideos.join(", ")} that no discovery receipt ` +
+        "passed here found; pass the receipts of the discovery calls that found them, or rerun the check."
+    );
+  }
+  if (coverageBoundary === undefined) {
+    if (input.treatment_choice === "compared") {
+      nextSteps.push(
+        "The answer compares treatment options: call assess_treatment_landscape_coverage with the treatment ledger " +
+          "and pass its research_receipt."
+      );
+    }
+  } else if (coverageBoundary === "bounded_nonranking_only") {
+    limits.push(
+      "The treatment-coverage check allows only a bounded answer: do not rank or recommend among the treatment options."
+    );
+  } else if (coverageBoundary === "first_pass_with_open_leads" && input.research_depth === "first_pass") {
+    limits.push("The treatment comparison rests on a first pass: present it as provisional.");
+  } else if (coverageBoundary !== "ledger_consistent_for_synthesis") {
+    nextSteps.push(
+      `The latest assess_treatment_landscape_coverage result was ${coverageBoundary}: fix its selection and depth ` +
+        "blockers and call it again until it allows the answer" +
+        (input.research_depth === "deep" ? " (deep research needs ledger_consistent_for_synthesis)." : ".")
+    );
   }
 
   // Key studies.
@@ -398,6 +436,7 @@ export function finalizeResearch(
       receipts: verified.length,
       videos: materialVideos.length,
       depth: input.research_depth,
+      coverage: coverageBoundary ?? "none",
       open_leads: openLeads.length,
       validated: validatedSources.length,
       leads: leadSources.length,
