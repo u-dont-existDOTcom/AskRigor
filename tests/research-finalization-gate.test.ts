@@ -131,6 +131,25 @@ describe("finalize_research gate", () => {
     expect(result.finalization_receipt).toBeDefined();
   });
 
+  it("does not accept a DOI-less PMID as a lead when PubMed lists an open copy in PMC", () => {
+    const pmcRecord = sign("pubmed_record", { pmid: "31234567", pmcid: "PMC7654321" }, options);
+    const result = finalizeResearch({
+      receipts: [survey, emptySearch, repeatScout, videoA, study, pmcRecord],
+      community_evidence: "researched",
+      key_sources: [
+        { id: "10.1002/art.41142", status: "validated" },
+        { id: "PMID: 31234567", status: "lead_only", reason: "no DOI" }
+      ]
+    }, options);
+    expect(result.status).toBe("not_ready");
+    expect(result.sources.lead_only).toEqual([]);
+    expect(result.next_steps).toEqual([
+      "PubMed lists an open full text in PubMed Central (PMC7654321) for PMID 31234567 but no DOI. Find its DOI " +
+        "(search_europe_pmc for PMC7654321) and read it with acquire_open_full_text and that pmcid, or leave it out of " +
+        "key_sources and label its claims unverified."
+    ]);
+  });
+
   it("binds material videos to discovery receipts passed in the same call", () => {
     const otherSurvey = sign("youtube_survey", { access: "complete", searches: 2, videos: ["zzzzzzzzzzz"], q: "d4d4d4d4d4d4" }, options);
     const unbound = finalizeResearch({

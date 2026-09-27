@@ -92,6 +92,8 @@ export interface PubmedRecord {
   dates?: PubmedRecordDate[];
   authors?: string[];
   doi?: string;
+  // PubMed Central identifier: the article has an open full text in PMC.
+  pmcid?: string;
   publication_types?: string[];
 }
 
@@ -476,6 +478,7 @@ const parseArticleRecord = (article: XmlElement): PubmedRecord => {
     ...articleIdsAt(pubmedData),
     ...elementsAt(articleData, "ELocationID")
   ]);
+  const pmcid = parsePmcid(articleIdsAt(pubmedData));
   const dates = parseArticleDates(citation, articleData, pubmedData);
 
   return recordFromFields({
@@ -486,6 +489,7 @@ const parseArticleRecord = (article: XmlElement): PubmedRecord => {
     dates,
     authors,
     doi,
+    pmcid,
     publicationTypes
   });
 };
@@ -510,6 +514,7 @@ const parseBookRecord = (bookArticle: XmlElement): PubmedRecord => {
     ...articleIdsAt(pubmedData),
     ...elementsAt(book, "ELocationID")
   ]);
+  const pmcid = parsePmcid([...articleIdsAt(document), ...articleIdsAt(pubmedData)]);
   const dates = parseBookDates(document, book, pubmedData);
 
   return recordFromFields({
@@ -519,6 +524,7 @@ const parseBookRecord = (bookArticle: XmlElement): PubmedRecord => {
     dates,
     authors,
     doi,
+    pmcid,
     publicationTypes
   });
 };
@@ -531,6 +537,7 @@ interface RecordFields {
   dates: PubmedRecordDate[];
   authors: string[];
   doi?: string;
+  pmcid?: string;
   publicationTypes: string[];
 }
 
@@ -542,6 +549,7 @@ const recordFromFields = ({
   dates,
   authors,
   doi,
+  pmcid,
   publicationTypes
 }: RecordFields): PubmedRecord => ({
   ...(pmid === undefined ? {} : { pmid }),
@@ -551,6 +559,7 @@ const recordFromFields = ({
   ...(dates.length === 0 ? {} : { dates }),
   ...(authors.length === 0 ? {} : { authors }),
   ...(doi === undefined ? {} : { doi }),
+  ...(pmcid === undefined ? {} : { pmcid }),
   ...(publicationTypes.length === 0 ? {} : { publication_types: publicationTypes })
 });
 
@@ -588,6 +597,16 @@ const parseDoi = (values: XmlElement[]): string | undefined => {
       attributeAt(value, "@EIdType") === "doi"
     ) {
       return textAt(value);
+    }
+  }
+  return undefined;
+};
+
+const parsePmcid = (values: XmlElement[]): string | undefined => {
+  for (const value of values) {
+    if (attributeAt(value, "@IdType") === "pmc") {
+      const text = textAt(value)?.trim().toUpperCase();
+      if (text !== undefined && /^PMC[1-9]\d{0,15}$/u.test(text)) return text;
     }
   }
   return undefined;

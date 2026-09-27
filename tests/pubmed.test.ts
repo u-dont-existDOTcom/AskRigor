@@ -275,6 +275,19 @@ describe("PubMed ESearch", () => {
 });
 
 describe("PubMed EFetch", () => {
+  it("reports the PubMed Central identifier, which marks an open full text", async () => {
+    const body = (await fixture("efetch-record.xml")).replace(
+      '<ArticleId IdType="doi">10.1234/recorded.example</ArticleId>',
+      '<ArticleId IdType="pmc">pmc7654321</ArticleId>'
+    );
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+
+    const result = await fetchPubmedRecord("40123456", NCBI);
+
+    expect(result.data).toMatchObject({ pmid: "40123456", pmcid: "PMC7654321" });
+    expect(result.data).not.toHaveProperty("doi");
+  });
+
   it("normalizes only explicitly present citation fields without full-text claims", async () => {
     const body = await fixture("efetch-record.xml");
     const requests: URL[] = [];

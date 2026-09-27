@@ -282,9 +282,14 @@ export function finalizeResearch(
   const leadIds = new Set<string>();
   // PMID -> DOI ("" when the PubMed record has none), from fetch_pubmed_record receipts.
   const pubmedDois = new Map<string, string>();
+  // PMID -> PMCID when PubMed lists an open copy in PubMed Central.
+  const pubmedPmcids = new Map<string, string>();
   for (const { kind, claims } of verified) {
     if (kind === "pubmed_record" && typeof claims.pmid === "string") {
       pubmedDois.set(normalizeIdentifier(claims.pmid), typeof claims.doi === "string" ? normalizeIdentifier(claims.doi) : "");
+      if (typeof claims.pmcid === "string" && claims.pmcid !== "") {
+        pubmedPmcids.set(normalizeIdentifier(claims.pmid), claims.pmcid.toUpperCase());
+      }
     }
     if (kind === "study_audit" || kind === "review_audit") {
       for (const key of ["id", "doi", "pmid", "pmcid"]) {
@@ -329,8 +334,19 @@ export function finalizeResearch(
       );
       continue;
     }
+    const pubmedPmcid = isPmid(id) ? pubmedPmcids.get(id) : undefined;
+    if (isPmid(id) && pubmedDoi === "" && pubmedPmcid !== undefined) {
+      // An open copy exists in PMC, so this is not a lead; the full-text chain
+      // needs a DOI, so find one or keep the study out of the key sources.
+      nextSteps.push(
+        `PubMed lists an open full text in PubMed Central (${pubmedPmcid}) for PMID ${id} but no DOI. Find its DOI ` +
+          `(search_europe_pmc for ${pubmedPmcid}) and read it with acquire_open_full_text and that pmcid, or leave it out of ` +
+          "key_sources and label its claims unverified."
+      );
+      continue;
+    }
     if (isPmid(id) && pubmedDoi === "") {
-      // PubMed lists no DOI, so the open full-text chain cannot run; the lead is proven.
+      // PubMed lists no DOI and no PMC copy, so the open full-text chain cannot run; the lead is proven.
       leadSources.push(source.id);
       limits.push(
         `Cite ${source.id} as a lead: PubMed lists no DOI, so no open full text could be acquired and its methods were not audited.`

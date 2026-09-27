@@ -266,6 +266,18 @@ run went from 07:12 to 09:44 UTC.
     four-round cap, so four batches of one query completed a first pass.
     It now counts distinct normalized queries, as `finalize_research`
     does.
+- **Codex review of 47ec138** (two findings):
+  - A PMID without a DOI was accepted as a lead even when PubMed lists an
+    open copy in PubMed Central; the PubMed parser dropped the PMC ID.
+    Records and receipts now carry the PMCID. Such a study is no longer a
+    lead: `acquire_open_full_text` needs a DOI, so the next step is to find
+    its DOI or leave it out of the key sources and label it unverified.
+  - `receipts_unavailable` (a server without a signing secret) gave no next
+    step. HRP's FinalizeResearch rule already says to state that completion
+    was not server-verified, and the deployment requires the secret at
+    startup when research Actions are enabled. So the status is not made
+    blocking: the model cannot fix server configuration. The
+    `finalize_research` description now tells every client what to do.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 

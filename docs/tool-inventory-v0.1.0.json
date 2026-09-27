@@ -854,6 +854,9 @@
               "doi": {
                 "type": "string"
               },
+              "pmcid": {
+                "type": "string"
+              },
               "publication_types": {
                 "type": "array",
                 "items": {
@@ -12597,7 +12600,7 @@
     },
     {
       "name": "finalize_research",
-      "description": "Call before the final answer. Pass every research_receipt you received, whether community evidence was researched, and the studies your conclusions depend on. not_ready lists the remaining steps; ready_with_limits lists limits the answer must state.",
+      "description": "Call before the final answer. Pass every research_receipt you received, whether community evidence was researched, and the studies your conclusions depend on. not_ready lists the remaining steps; ready_with_limits lists limits the answer must state; receipts_unavailable means this server cannot verify completion, so do the required work anyway and say that completion was not server-verified.",
       "inputSchema": {
         "type": "object",
         "properties": {

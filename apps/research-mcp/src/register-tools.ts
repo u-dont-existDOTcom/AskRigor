@@ -248,6 +248,7 @@ const pubmedRecordSchema = z.object({
   dates: z.array(pubmedDateSchema).optional(),
   authors: z.array(z.string()).optional(),
   doi: z.string().optional(),
+  pmcid: z.string().optional(),
   publication_types: z.array(z.string()).optional()
 }).strict();
 const pubmedRecordEnvelopeSchema = z.object({
@@ -780,15 +781,16 @@ function defineResearchOperations(
     async ({ pmid }) => {
       try {
         const result = await fetchPubmedRecord(pmid, ncbiConfig());
-        // The receipt records whether PubMed lists a DOI, which decides whether
-        // finalize_research may accept this PMID as a lead without acquisition.
-        const record = result.data as { pmid?: string; doi?: string } | undefined;
+        // The receipt records whether PubMed lists a DOI or a PMC copy, which
+        // decides whether finalize_research may accept this PMID as a lead
+        // without acquisition.
+        const record = result.data as { pmid?: string; doi?: string; pmcid?: string } | undefined;
         const retrieved = result.access_status === "api_visible_complete" || result.access_status === "complete";
         return withResearchReceipt(pubmedToolResult(
           `PubMed record ${pmid} retrieval finished with access status ${result.access_status}.`,
           result
         ), retrieved && record?.pmid === pmid
-          ? researchReceipt("pubmed_record", { pmid, doi: record.doi })
+          ? researchReceipt("pubmed_record", { pmid, doi: record.doi, pmcid: record.pmcid })
           : undefined);
       } catch (error) {
         return pubmedToolResult(
@@ -1440,7 +1442,8 @@ function defineResearchOperations(
       description:
         "Call before the final answer. Pass every research_receipt you received, whether community evidence was " +
         "researched, and the studies your conclusions depend on. not_ready lists the remaining steps; " +
-        "ready_with_limits lists limits the answer must state.",
+        "ready_with_limits lists limits the answer must state; receipts_unavailable means this server cannot " +
+        "verify completion, so do the required work anyway and say that completion was not server-verified.",
       inputSchema: finalizeResearchInputSchema,
       outputSchema: finalizeResearchOutputSchema,
       annotations: READ_ONLY_ANNOTATIONS
