@@ -738,7 +738,12 @@ pending-proposal stores have their own strict contracts and authority boundaries
   showed (benefit, no-effect and adverse reports, creators versus commenters,
   effect on the answer, and the public video IDs), are checked against the
   audit receipts and returned in `must_report` for the same call only; the
-  summary should not quote commenters or name them.
+  summary should not quote commenters or name them. Its `answer_draft`, the
+  answer the model is about to give, can contain whatever the user shared; it
+  is read in memory for that call only, to find internal labels, bare video
+  IDs, a pasted long prompt and a missing comment lane, and is not stored,
+  logged or returned: the result names only the labels and public video IDs
+  it found.
 - The MCP `scout_gemini_youtube_candidates` tool runs the same de-identified,
   population-level scout as the controlled Action route, applying the same
   screen: a target with first-person words, contact details, links, keys or

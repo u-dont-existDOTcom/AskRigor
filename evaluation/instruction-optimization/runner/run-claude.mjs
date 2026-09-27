@@ -981,9 +981,15 @@ function analyze(run, context) {
       saturated: pick(call, ["community", "saturated"]) ?? null,
       first_pass_complete: pick(call, ["community", "first_pass_complete"]) ?? null,
       open_leads: pick(call, ["community", "open_leads"]) ?? [],
-      key_sources: Array.isArray(call.input.key_sources) ? call.input.key_sources.length : null
+      key_sources: Array.isArray(call.input.key_sources) ? call.input.key_sources.length : null,
+      answer_draft_passed: typeof call.input.answer_draft === "string",
+      answer_checked: pick(call, ["answer_checked"]) ?? null
     };
   });
+  // Whether the answer the user saw is the draft the gate last read.
+  const lastDraft = named("finalize_research").map((call) => call.input.answer_draft)
+    .filter((draft) => typeof draft === "string").at(-1);
+  const sameText = (left, right) => left.replace(/\s+/gu, " ").trim() === right.replace(/\s+/gu, " ").trim();
   const researchAccess = named("manage_research_access").map((call) => ({
     ...where(call),
     action: call.input.action ?? null,
@@ -1094,6 +1100,7 @@ function analyze(run, context) {
           count: finalizations.length,
           final_status: finalizations.at(-1)?.status ?? null,
           answered_after_gate_passed: ["ready", "ready_with_limits"].includes(finalizations.at(-1)?.status),
+          answer_is_last_checked_draft: lastDraft === undefined ? null : sameText(lastDraft, answer),
           calls: finalizations
         }
       },

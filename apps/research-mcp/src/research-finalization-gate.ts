@@ -65,7 +65,10 @@ export const finalizeResearchInputSchema = z.object({
     status: z.enum(["validated", "lead_only"]),
     reason: z.string().trim().min(1).max(1_000).optional()
   }).strict()).max(60)
-    .describe("Each study your conclusions depend on: validated after a full-text method audit, or lead_only when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text.")
+    .describe("Each study your conclusions depend on: validated after a full-text method audit, or lead_only when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text."),
+  answer_draft: z.string().trim().min(1).max(60_000).optional()
+    .describe("The answer you are about to give, exactly as the user will see it. Needed before the gate reports ready; " +
+      "it is checked for internal labels, bare video IDs, a pasted long prompt and the comment lane, and is not stored.")
 }).strict();
 
 export type FinalizeResearchInput = z.output<typeof finalizeResearchInputSchema>;
@@ -103,6 +106,7 @@ export const finalizeResearchOutputSchema = z.object({
     validated: z.array(z.string()),
     lead_only: z.array(z.string())
   }).strict(),
+  answer_checked: z.boolean().describe("Whether answer_draft was read in this call."),
   finalization_receipt: z.string().optional()
 }).strict();
 
@@ -111,6 +115,9 @@ export type FinalizeResearchOutput = z.output<typeof finalizeResearchOutputSchem
 export interface FinalizeResearchOptions {
   secret: string | undefined;
   now?: () => Date;
+  // Rule, module and case names from the canonical protocols, which the answer
+  // must not show (the rerun's answer headed its prompt with one).
+  protocolNames?: ReadonlySet<string>;
 }
 
 const TERMINAL_VIDEO_STATES = new Set([
@@ -154,7 +161,8 @@ export function finalizeResearch(
         audited_videos: [],
         material_videos: []
       },
-      sources: { validated: [], lead_only: [] }
+      sources: { validated: [], lead_only: [] },
+      answer_checked: false
     };
   }
 
@@ -515,6 +523,25 @@ export function finalizeResearch(
     );
   }
 
+  // The answer itself, read for this call only. HRP keeps internal states out
+  // of the answer and links audited videos by title (ReaderFacingAnswer,
+  // FS190), offers a long deeper-research prompt rather than pasting it
+  // (LimitsNote), and the comments that were read must reach it (must_report).
+  const draft = input.answer_draft;
+  if (draft === undefined) {
+    if (nextSteps.length === 0) {
+      nextSteps.push(
+        "Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final check reads it."
+      );
+    }
+  } else {
+    nextSteps.push(...answerDraftProblems(draft, {
+      commentsRead: commentVideos.size > 0,
+      videoIds: [...new Set([...discovered, ...auditedAtAll])],
+      protocolNames: options.protocolNames ?? new Set()
+    }));
+  }
+
   const status = nextSteps.length > 0
     ? "not_ready"
     : limits.length > 0
@@ -538,7 +565,8 @@ export function finalizeResearch(
       audited_videos: auditedVideos,
       material_videos: materialVideos
     },
-    sources: { validated: validatedSources, lead_only: leadSources }
+    sources: { validated: validatedSources, lead_only: leadSources },
+    answer_checked: draft !== undefined
   };
   if (status !== "not_ready") {
     output.finalization_receipt = issueResearchReceipt("finalization", {
@@ -559,6 +587,66 @@ export function finalizeResearch(
     });
   }
   return finalizeResearchOutputSchema.parse(output);
+}
+
+// Retrieval and error codes, tool names and the internal action map's labels
+// (REQUIRED_NOW, api_visible_complete, finalize_research) are snake case, which
+// ordinary prose never uses; receipt and lock names can also appear as words.
+const SNAKE_CASE_LABEL = /(?<![\w.-])[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+(?![\w-])/gu;
+const INTERNAL_PHRASE = /\b(?:synthesis[ -]lock|research[ -]receipts?)\b|\brr1~/giu;
+const CAMEL_CASE_NAME = /(?<![A-Za-z0-9_-])[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+(?![A-Za-z0-9_-])/gu;
+const ELEVEN_CHARACTERS = /(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{11}(?![A-Za-z0-9_-])/gu;
+// YouTube IDs are random: mixed case with a digit or underscore, which words
+// (even hyphenated ones such as Self-Report) are not.
+const looksLikeVideoId = (token: string) =>
+  /^[A-Za-z0-9_-]{11}$/u.test(token) && /[A-Z]/u.test(token) && /[a-z]/u.test(token) && /[0-9_]/u.test(token);
+// A sentence only the full deep forum-audit template contains.
+const PASTED_FORUM_TEMPLATE = /strict-core cohort and separately labeled adjacent cohorts/iu;
+const URL = /https?:\/\/\S+/gu;
+
+function answerDraftProblems(
+  draft: string,
+  context: { commentsRead: boolean; videoIds: string[]; protocolNames: ReadonlySet<string> }
+): string[] {
+  const problems: string[] = [];
+  // Links may carry IDs and underscores legitimately; the words around them may not.
+  const prose = draft.replace(URL, " ");
+  const labels = [...new Set([
+    ...[...prose.matchAll(SNAKE_CASE_LABEL)].map(([label]) => label).filter((label) => !looksLikeVideoId(label)),
+    ...[...prose.matchAll(CAMEL_CASE_NAME)].map(([name]) => name).filter((name) => context.protocolNames.has(name)),
+    ...[...prose.matchAll(INTERNAL_PHRASE)].map(([label]) => label.toLowerCase())
+  ])];
+  if (labels.length > 0) {
+    problems.push(
+      `The answer shows internal labels (${labels.slice(0, 8).join(", ")}${labels.length > 8 ? ", and more" : ""}): ` +
+        "say what each means in plain words, or leave it out."
+    );
+  }
+  // Video IDs are letters, digits, "-" and "_", none of them special here.
+  const bareIds = [...new Set([
+    ...context.videoIds.filter((id) =>
+      /^[A-Za-z0-9_-]{11}$/u.test(id) && new RegExp(`(?<![A-Za-z0-9_-])${id}(?![A-Za-z0-9_-])`, "u").test(prose)),
+    ...[...prose.matchAll(ELEVEN_CHARACTERS)].map(([token]) => token).filter(looksLikeVideoId)
+  ])].sort();
+  if (bareIds.length > 0) {
+    problems.push(
+      `The answer names video(s) by bare ID (${bareIds.slice(0, 10).join(", ")}` +
+        `${bareIds.length > 10 ? `, and ${bareIds.length - 10} more` : ""}): give each its linked title instead.`
+    );
+  }
+  if (PASTED_FORUM_TEMPLATE.test(draft)) {
+    problems.push(
+      "The answer pastes the full deep forum-audit prompt. Say what the deeper research would focus on and how to " +
+        "start it, and offer the full prompt instead (\"Show me the full deeper-research prompt and help me fine-tune it\")."
+    );
+  }
+  if (context.commentsRead && !/youtube/iu.test(prose)) {
+    problems.push(
+      "The answer does not report the YouTube comments that were read. Add that lane from must_report, even if its " +
+        "signal is weak."
+    );
+  }
+  return problems;
 }
 
 function communityLane(

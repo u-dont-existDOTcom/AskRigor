@@ -12013,7 +12013,7 @@
     },
     {
       "name": "finalize_research",
-      "description": "Call before the final answer. Pass every research_receipt you received, the research_target (the same text given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits; discovery for any other target does not count), whether community evidence was researched, whether the answer compares treatment options, what the comments you read showed (community_findings), and the studies your conclusions depend on. not_ready lists the remaining steps; ready_with_limits lists limits the answer must state; must_report lists what the answer must report from each lane researched; receipts_unavailable means this server cannot verify completion, so do the required work anyway and say that completion was not server-verified.",
+      "description": "Call before the final answer. Pass every research_receipt you received, the research_target (the same text given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits; discovery for any other target does not count), whether community evidence was researched, whether the answer compares treatment options, what the comments you read showed (community_findings), the studies your conclusions depend on, and the answer you are about to give (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt and the comment lane, and is not stored. not_ready lists the remaining steps; ready_with_limits lists limits the answer must state; must_report lists what the answer must report from each lane researched; receipts_unavailable means this server cannot verify completion, so do the required work anyway and say that completion was not server-verified.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -12184,6 +12184,12 @@
               "additionalProperties": false
             },
             "description": "Each study your conclusions depend on: validated after a full-text method audit, or lead_only when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text."
+          },
+          "answer_draft": {
+            "description": "The answer you are about to give, exactly as the user will see it. Needed before the gate reports ready; it is checked for internal labels, bare video IDs, a pasted long prompt and the comment lane, and is not stored.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60000
           }
         },
         "required": [
@@ -12340,6 +12346,10 @@
             ],
             "additionalProperties": false
           },
+          "answer_checked": {
+            "type": "boolean",
+            "description": "Whether answer_draft was read in this call."
+          },
           "finalization_receipt": {
             "type": "string"
           }
@@ -12352,7 +12362,8 @@
           "receipts_verified",
           "receipts_rejected",
           "community",
-          "sources"
+          "sources",
+          "answer_checked"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false

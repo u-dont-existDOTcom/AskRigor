@@ -14,6 +14,7 @@ import {
 } from "@askrigor/evidence-repository";
 import {
   getProtocolManifest,
+  loadProtocol,
   loadProtocolSectionSnapshot,
   protocolTextPage,
   verifyProtocolIntegrity,
@@ -1645,8 +1646,9 @@ function defineResearchOperations(
         "Call before the final answer. Pass every research_receipt you received, the research_target (the same text " +
         "given to the scout, search_youtube and the coverage check, and as research_question to surveys and community " +
         "audits; discovery for any other target does not count), whether community evidence was researched, whether " +
-        "the answer compares treatment options, what the comments you read showed (community_findings), and the " +
-        "studies your conclusions depend on. " +
+        "the answer compares treatment options, what the comments you read showed (community_findings), the " +
+        "studies your conclusions depend on, and the answer you are about to give (answer_draft), which is checked " +
+        "for internal labels, bare video IDs, a pasted long prompt and the comment lane, and is not stored. " +
         "not_ready lists the remaining steps; " +
         "ready_with_limits lists limits the answer must state; must_report lists what the answer must report from " +
         "each lane researched; receipts_unavailable means this server cannot " +
@@ -1656,7 +1658,10 @@ function defineResearchOperations(
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (input) => {
-      const result = finalizeResearch(input, { secret: researchReceiptSecretFromEnv() });
+      const result = finalizeResearch(input, {
+        secret: researchReceiptSecretFromEnv(),
+        protocolNames: await protocolNames()
+      });
       return successfulToolResult(
         `Research finalization: ${result.status}; ${result.next_steps.length} next step(s), ` +
           `${result.limits.length} limit(s) to state; ${result.receipts_verified} receipt(s) verified.` +
@@ -1665,6 +1670,23 @@ function defineResearchOperations(
       );
     }
   );
+}
+
+// Compound rule, module and case names in the canonical protocols, such as
+// DeepForumAuditActivationPrompt; an answer that shows one has leaked protocol
+// notation. Read once per process; a failed read checks without them.
+let protocolNamesLoad: Promise<ReadonlySet<string>> | undefined;
+function protocolNames(): Promise<ReadonlySet<string>> {
+  protocolNamesLoad ??= Promise.all([loadProtocol("hrp"), loadProtocol("universal")])
+    .then((texts): ReadonlySet<string> => new Set(texts.flatMap((text) => [
+      ...[...text.matchAll(/(?:name|id)="([A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+)"/gu)].map(([, name]) => name!),
+      ...[...text.matchAll(/<([A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+)[\s>/]/gu)].map(([, name]) => name!)
+    ])))
+    .catch(() => {
+      protocolNamesLoad = undefined;
+      return new Set<string>();
+    });
+  return protocolNamesLoad;
 }
 
 // Claude clients reject MCP results near 50,000 characters, and one returned

@@ -623,7 +623,7 @@ instead of 95–151 KB. A later step can keep the ledger between calls.
 - Next:
   - `finalize_research` checks the answer draft for leaked internal labels,
     and that an executed comment lane is present (server enforcement of
-    existing HRP rules);
+    existing HRP rules): built, see "Answer-draft check" below;
   - server-derived access boundaries for discovery rounds;
   - owner question on the pasted deep-forum prompt: answered at 19:14 UTC
     and built as HRP 20.6.5 (decision 10 above).
@@ -681,6 +681,37 @@ rules, no protocol change):
   mismatches). The view lists 20 mismatches with a stated limit, and a view
   that still cannot fit returns
   `youtube_video_community_audit_response_too_large`, never a cut result.
+
+## Answer-draft check (2026-09-27)
+
+Both blind judges of the option A rerun marked the answer down for text HRP
+already forbids: `REQUIRED_NOW`/`CONTINGENT_LATER`, lock and retrieval terms,
+and a pasted deep-forum prompt. The sermorelin answer also dropped the YouTube
+lane. `finalize_research` now takes `answer_draft`, the answer about to be
+given, and reports `ready` or `ready_with_limits` only after reading it:
+
+- snake-case labels (action-map labels, retrieval and error codes, tool
+  names), receipt or lock names, and the canonical protocols' own rule,
+  module and case names (740 compound names such as
+  `DeepForumAuditActivationPrompt`, read from the XML once per process),
+  outside links (`ReaderFacingAnswer`, FS190);
+- a video named by bare ID instead of a linked title (FS190): any discovered
+  or audited video, and any mixed-case 11-character token with a digit or
+  underscore;
+- the full deep forum-audit template pasted into the answer (HRP 20.6.5);
+- no mention of YouTube in the prose when comments were read (`must_report`).
+
+Each finding is a next step, so the model fixes the draft and calls again.
+Replayed on saved answers: main, e1176f8 and 6e2763d pass; 4d4fae8 goes back
+for 23 bare video IDs; 4fe4858 for `REQUIRED_NOW`, `CONTINGENT_LATER`,
+`OPTIONAL_ALTERNATIVE`, `research_depth`, `finalize_research` and
+`DeepForumAuditActivationPrompt`, the same defects the blind judges cited.
+Links keep their IDs and underscores; R-levels stay allowed (the answer footer
+lists them). The draft is read in memory for that call only, never stored,
+logged or returned (privacy map). The server instructions and the tool
+description ask for it. The runner records whether each call passed a draft
+and whether the final answer is the last checked draft. Cost: one more
+`finalize_research` call when the first omits the draft.
 
 ## Comment-audit call budget (2026-09-27)
 

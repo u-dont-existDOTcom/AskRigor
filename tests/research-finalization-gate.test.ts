@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  finalizeResearch as finalizeResearchGate,
+  finalizeResearch as finalizeResearchRaw,
   normalizeIdentifier
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import {
@@ -38,6 +38,12 @@ const commentVideos = (receipts: readonly string[]) => [...new Set(receipts.flat
     : verified.kind === "youtube_community_audit" ? verified.claims.videos : undefined;
   return videos === undefined ? [] : typeof videos === "string" ? [videos] : videos;
 }))];
+// The gate reads the answer before it reports ready. Tests of other checks
+// pass this clean draft; a test can pass its own answer_draft, or undefined.
+const CLEAN_DRAFT = "Exercise therapy has the strongest evidence for hip osteoarthritis. People commenting on " +
+  "YouTube videos about it reported less pain after several months; a few noticed no change.";
+const finalizeResearchGate = (input: Record<string, unknown>, gateOptions: typeof options) =>
+  finalizeResearchRaw({ answer_draft: CLEAN_DRAFT, ...input }, gateOptions);
 const findingsFor = (videos: string[]) => ({
   videos_reviewed: videos,
   benefit_reports: "About a third of commenters reported less pain after several months.",
@@ -226,6 +232,54 @@ describe("finalize_research gate", () => {
     const permit = verifyResearchReceipt(result.finalization_receipt!, options);
     expect(permit.ok && permit.kind).toBe("finalization");
     expect(permit.ok && permit.claims.status).toBe("ready");
+    expect(result.answer_checked).toBe(true);
+  });
+
+  it("reads the answer before it reports ready", () => {
+    const request = {
+      receipts: [survey, emptySearch, repeatScout, videoA, study],
+      community_evidence: "researched" as const,
+      treatment_choice: "not_compared" as const,
+      research_target: TARGET,
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }],
+      community_findings: findingsFor(["aaaaaaaaaaa"])
+    };
+    // Everything else passes, so the gate asks for the answer itself.
+    const withoutDraft = finalizeResearchRaw(request, options);
+    expect(withoutDraft).toMatchObject({ status: "not_ready", answer_checked: false });
+    expect(withoutDraft.next_steps).toEqual([
+      "Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final check reads it."
+    ]);
+    expect(withoutDraft.finalization_receipt).toBeUndefined();
+
+    // What the option A rerun's answer did: internal labels, a bare video ID,
+    // the pasted forum prompt, and no word on the YouTube comments.
+    const leaky = finalizeResearchRaw({
+      ...request,
+      answer_draft: "REQUIRED_NOW: see a physiotherapist. CONTINGENT_LATER: an injection. The comments on " +
+        "aaaaaaaaaaa and Z8jn_6WMquo were api_visible_complete with a synthesis lock pass, so finalize_research " +
+        "is ready. DeepForumAuditActivationPrompt: Check forums for collagen in adults with hip osteoarthritis. " +
+        "Use a strict-core cohort and separately labeled adjacent cohorts. Self-Report scales from " +
+        "GlaxoSmithKline trials. [Hip exercises](https://www.youtube.com/watch?v=bbbbbbbbbbb&list=my_list_1)"
+    }, { ...options, protocolNames: new Set(["DeepForumAuditActivationPrompt", "LimitsNote"]) });
+    expect(leaky).toMatchObject({ status: "not_ready", answer_checked: true });
+    expect(leaky.next_steps).toEqual([
+      "The answer shows internal labels (REQUIRED_NOW, CONTINGENT_LATER, api_visible_complete, finalize_research, " +
+        "DeepForumAuditActivationPrompt, synthesis lock): say what each means in plain words, or leave it out.",
+      "The answer names video(s) by bare ID (Z8jn_6WMquo, aaaaaaaaaaa): give each its linked title instead.",
+      "The answer pastes the full deep forum-audit prompt. Say what the deeper research would focus on and how to " +
+        "start it, and offer the full prompt instead (\"Show me the full deeper-research prompt and help me fine-tune it\").",
+      "The answer does not report the YouTube comments that were read. Add that lane from must_report, even if its " +
+        "signal is weak."
+    ]);
+
+    // Links keep their IDs and underscores; a short command is fine.
+    const clean = finalizeResearchRaw({
+      ...request,
+      answer_draft: `${CLEAN_DRAFT} See [Hip exercises that helped me](https://www.youtube.com/watch?v=aaaaaaaaaaa). ` +
+        "To go deeper, reply: Check forums for collagen in adults with hip osteoarthritis, focusing on dose and pain."
+    }, options);
+    expect(clean).toMatchObject({ status: "ready", next_steps: [], answer_checked: true });
   });
 
   it("accepts a Gemini scout round as community discovery without a YouTube survey", () => {

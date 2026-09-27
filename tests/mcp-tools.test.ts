@@ -745,17 +745,43 @@ describe("AskRigor MCP tools", () => {
           treatment_choice: "not_compared",
           research_target: "Adults asking about a dosing calculation",
           not_relevant_reason: "A dosing arithmetic question with no treatment choice.",
-          key_sources: []
+          key_sources: [],
+          answer_draft: "Multiply the dose per kilogram by the body weight: 5 mg/kg for 20 kg is 100 mg."
         }
       });
       expect(declined.structuredContent).toMatchObject({
         status: "ready_with_limits",
+        answer_checked: true,
         limits: ["No study was declared decision-critical; say that no study's methods were checked in full text."]
       });
       const permit = (declined.structuredContent as { finalization_receipt: string }).finalization_receipt;
       expect(verifyResearchReceipt(permit, {
         secret: "mcp-continuation-secret-value-32-bytes"
       })).toMatchObject({ ok: true, kind: "finalization", claims: { status: "ready_with_limits" } });
+
+      // The server knows the canonical protocols' rule names, so an answer
+      // that shows one goes back, as the option A rerun's did.
+      const leaky = await client.callTool({
+        name: "finalize_research",
+        arguments: {
+          receipts: [],
+          community_evidence: "not_relevant",
+          treatment_choice: "not_compared",
+          research_target: "Adults asking about a dosing calculation",
+          not_relevant_reason: "A dosing arithmetic question with no treatment choice.",
+          key_sources: [],
+          answer_draft: "5 mg/kg for 20 kg is 100 mg. DeepForumAuditActivationPrompt: none needed (LimitsNote)."
+        }
+      });
+      expect(leaky.structuredContent).toMatchObject({
+        status: "not_ready",
+        answer_checked: true,
+        next_steps: [
+          "The answer shows internal labels (DeepForumAuditActivationPrompt, LimitsNote): say what each means in " +
+            "plain words, or leave it out."
+        ]
+      });
+      expect((leaky.structuredContent as { finalization_receipt?: string }).finalization_receipt).toBeUndefined();
     } finally {
       restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
       restoreEnvironment("ASKRIGOR_FINALIZATION_SIGNING_SECRET", previousFinalizationSecret);
