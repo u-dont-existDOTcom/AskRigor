@@ -865,6 +865,13 @@ and whether the final answer is the last checked draft. Cost: one more
   each fail a test. A later sentence that contradicts a caveat is not
   detected; the check guards against omitted and garbled limits, not a
   model arguing against them.
+- Codex on 9d2a4ef (one P1, fixed): the caveat check stripped backticks, so a
+  caveat shown as code still counted. Text an answer shows without stating
+  is now left out before matching: fenced and indented code blocks, inline
+  code in single or double backticks, and HTML comments (not displayed at
+  all). An indented paragraph under a list item still continues it. Each
+  exclusion reads a long draft in linear time; five mutations, one per rule,
+  each fail a test.
 
 ## Comment-audit call budget (2026-09-27)
 

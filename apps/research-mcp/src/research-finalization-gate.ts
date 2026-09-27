@@ -826,25 +826,77 @@ function caveatForm(text: string): string {
 const BLOCK_START = /^(?:[-*+]|\d{1,3}[.)])\s|^#{1,6}\s|^>/u;
 const LIST_OR_HEADING_MARKER = /^(?:[-*+]|\d{1,3}[.)]|#{1,6})\s+/u;
 
+// Inline code in single or double backticks; each alternative reads one
+// character at a time, so a long draft is read in linear time.
+const CODE_SPAN = /``(?:[^`]|`(?!`))*``|`[^`]*`/gu;
+const LIST_ITEM = /^(?:[-*+]|\d{1,3}[.)])\s/u;
+const FENCE = /^(`{3,}|~{3,})/u;
+const INDENTED = /^(?: {4}|\t)/u;
+
+/** The draft without HTML comments, which are not displayed; their line breaks stay. */
+function withoutHtmlComments(draft: string): string {
+  let result = "";
+  let from = 0;
+  for (let open = draft.indexOf("<!--"); open >= 0; open = draft.indexOf("<!--", from)) {
+    const close = draft.indexOf("-->", open + 4);
+    const hidden = draft.slice(open, close < 0 ? draft.length : close + 3);
+    result += draft.slice(from, open) + "\n".repeat(hidden.split("\n").length - 1);
+    if (close < 0) return result;
+    from = close + 3;
+  }
+  return result + draft.slice(from);
+}
+
 /**
  * The draft's paragraphs, list items and headings in caveat form, without
- * their list or heading markers; a wrapped line joins its paragraph. A
- * quotation keeps its marker, so a quoted caveat is not stated.
+ * their list or heading markers; a wrapped line joins its paragraph. Text an
+ * answer shows without stating is left out: code (fenced, indented or
+ * inline) and HTML comments. A quotation keeps its marker, so a quoted caveat
+ * is not stated either.
  */
 function draftBlocks(draft: string): string[] {
   const blocks: string[] = [];
   let current: string[] = [];
+  let fence: string | undefined;
+  let indentedCode = false;
+  // An indented paragraph after a list item continues it; elsewhere it is code.
+  let inList = false;
   const flush = (): void => {
-    if (current.length > 0) blocks.push(caveatForm(current.join(" ").replace(LIST_OR_HEADING_MARKER, "")));
+    if (current.length > 0) {
+      blocks.push(caveatForm(current.join(" ").replace(CODE_SPAN, "").replace(LIST_OR_HEADING_MARKER, "")));
+    }
     current = [];
   };
-  for (const line of draft.split(/\r?\n/u)) {
+  for (const line of withoutHtmlComments(draft).split(/\r?\n/u)) {
     const trimmed = line.trim();
+    const marker = FENCE.exec(trimmed)?.[1];
+    if (fence !== undefined) {
+      if (marker !== undefined && marker[0] === fence[0] && marker.length >= fence.length) fence = undefined;
+      continue;
+    }
+    if (marker !== undefined) {
+      flush();
+      fence = marker;
+      continue;
+    }
+    if (indentedCode) {
+      if (trimmed === "" || INDENTED.test(line)) continue;
+      indentedCode = false;
+    }
     if (trimmed === "") {
       flush();
       continue;
     }
-    if (BLOCK_START.test(trimmed)) flush();
+    if (BLOCK_START.test(trimmed)) {
+      flush();
+      inList = LIST_ITEM.test(trimmed);
+    } else if (current.length === 0) {
+      if (INDENTED.test(line) && !inList) {
+        indentedCode = true;
+        continue;
+      }
+      inList = inList && INDENTED.test(line);
+    }
     current.push(trimmed);
   }
   flush();

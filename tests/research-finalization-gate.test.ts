@@ -902,14 +902,25 @@ describe("finalize_research gate", () => {
       `It is false that ${rateCaveat}`,
       `"${rateCaveat}" That is wrong.`,
       `${rateCaveat.replace(/\.$/u, "")}, but that is not what happened.`,
-      `\n\n> ${rateCaveat}\n\nThat claim is false.\n\n`
+      `\n\n> ${rateCaveat}\n\nThat claim is false.\n\n`,
+      // Shown as code or hidden in a comment, it is not stated either.
+      `\`${rateCaveat}\``,
+      `\n\n\`\`\`\n${rateCaveat}\n\`\`\`\n\n`,
+      `\n\n    ${rateCaveat}\n\n`,
+      `<!-- ${rateCaveat} -->`,
+      // Blank lines inside the code block or comment do not bring the caveat out.
+      `\n\n\`\`\`\n\n${rateCaveat}\n\n\`\`\`\n\n`,
+      `\n\n<!--\n\n${rateCaveat}\n\n-->\n\n`
     ]) {
       expect(answered(fullDraft.replace(rateCaveat, denial))).toEqual(leftOutRate);
     }
     // In a list item, after a heading or in bold it is stated.
     for (const stated of [
       `\n\n**Limits**\n\n- ${rateCaveat}\n\n`,
-      `\n\n## Limits\n1. **${rateCaveat}**\n\n`
+      `\n\n## Limits\n1. **${rateCaveat}**\n\n`,
+      // An indented paragraph under a list item continues it; text after a closed code block counts.
+      `\n\n- Limits of this pass:\n\n    ${rateCaveat}\n\n`,
+      `\n\n\`\`\`\nsearch log\n\`\`\`\n\n${rateCaveat}`
     ]) {
       expect(answered(fullDraft.replace(rateCaveat, stated))).toEqual([]);
     }
@@ -979,9 +990,11 @@ describe("finalize_research gate", () => {
       open_leads: [{ topic: "PRP for hip pain", why: "Two commenters credit injections with relief." }],
       answer_draft: `${CLEAN_DRAFT} ${expected[0]} Comments suggest hip pain needs more study. ${expected[3]}`
     }, options).next_steps).toEqual([leftOut("Open lead: PRP for hip pain. Two commenters credit injections with relief.")]);
-    // A long draft is read in linear time, however many brackets it has.
+    // A long draft is read in linear time, however many brackets or backticks it has.
     const started = Date.now();
     expect(check(`${CLEAN_DRAFT} ${"[a](".repeat(14_000)}`).status).toBe("not_ready");
+    expect(check(`${CLEAN_DRAFT} ${"``a`".repeat(14_000)}`).status).toBe("not_ready");
+    expect(check(`${CLEAN_DRAFT} ${"<!--".repeat(14_000)}`).status).toBe("not_ready");
     expect(Date.now() - started).toBeLessThan(1_000);
     // Another pass needs an estimate with a number and a unit.
     for (const estimate of [undefined, "a while"]) {
