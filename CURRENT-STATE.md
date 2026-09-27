@@ -17,7 +17,10 @@ change; review at `docs/audits/2026-09-26-hrp-20.6.0-consolidation.md`); HRP
 8-video / 6-program minimum, enforced by `finalize_research` and the landscape
 checker); HRP 20.6.2 (owner-approved: ten method sections shortened with the
 same meaning, after two independent meaning reviews); Universal 20.5.29
-(owner-approved: precise clinical terms replace the euphemism rule). Claude test runner and blinded Opus judge under
+(owner-approved: precise clinical terms replace the euphemism rule); scout-first
+discovery (owner-approved: the Gemini scout finds videos, comment-named remedies
+go back to it as `rediscovery_leads`, and the YouTube survey is the fallback,
+because YouTube search is capped at 100 calls a day per project). Claude test runner and blinded Opus judge under
 `evaluation/instruction-optimization/`. Open: method-section consolidation as an
 owner approval packet; the GPT route (owner decision, see the plan); smoke and
 held-out comparison runs (YouTube quota about 3 runs a day per key). The MAST
