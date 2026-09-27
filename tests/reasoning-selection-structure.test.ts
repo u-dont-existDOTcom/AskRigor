@@ -333,7 +333,7 @@ describe("canonical Reasoning Selection application", () => {
     ]);
 
     expect(sha256(hrp)).toBe(
-      "8495506e7299d3ee511574329f39a69bcc5efa6c5fac7023f746e1ee84aa344e",
+      "f2ed625d854926142011cf13a908e551c573e7a22282f8b9c0b229163979d3ad",
     );
     expect(sha256(forum)).toBe(
       "20bc49737b7844d95ea1ec373e5c9bdf7c62eb14d7c3c7bb8088b1f1c1489415",

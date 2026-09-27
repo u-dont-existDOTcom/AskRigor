@@ -19,16 +19,21 @@ checker); HRP 20.6.2 (owner-approved: ten method sections shortened with the
 same meaning, after two independent meaning reviews); HRP 20.6.3 (conformance
 with 20.6.1: a final self-check, a regression case, the Project router and the
 Forum Signal module still stated the old minimum or told the model to keep
-widening during a first pass); a coverage-checker fix from the smoke-run replay
+widening during a first pass); HRP 20.6.4 (owner-approved from the owner's
+lesson of 2026-09-26: a source's advice to avoid or reduce a treatment is read in
+its own use context, maintenance or rescue, before any safety label); on MCP the
+treatment-coverage check builds its ledger from signed receipts (option A,
+owner-chosen); a coverage-checker fix from the smoke-run replay
 (first-pass breadth gaps become open leads, and complete grouped blocker lists
 replace eleven messages per call); Universal 20.5.29
 (owner-approved: precise clinical terms replace the euphemism rule); scout-first
 discovery (owner-approved: the Gemini scout finds videos, comment-named remedies
 go back to it as `rediscovery_leads`, and the YouTube survey is the fallback,
 because YouTube search is capped at 100 calls a day per project). Claude test runner and blinded Opus judge under
-`evaluation/instruction-optimization/`. Open: the coverage-checker cost (owner
-decision, see the plan); the GPT route (owner decision); the rerun on the fixed
-head and the held-out comparison runs (YouTube search is capped at 100 calls a
+`evaluation/instruction-optimization/`. Open questions for the owner live on one
+private page, kept current (link in the plan). Open work: the GPT route (owner
+approved the relay; Custom GPT work is dropped where it limits the design); the
+rerun on the fixed head and the held-out comparison runs (YouTube search is capped at 100 calls a
 day per project, and saved runs used 22 to 49 searches each). The MAST
 records below are unchanged; the owner set aside a full MAST rerun for this task.
 

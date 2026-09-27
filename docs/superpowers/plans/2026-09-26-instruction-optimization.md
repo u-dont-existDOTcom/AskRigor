@@ -122,7 +122,10 @@ Claude Opus 5.5 (owner, 2026-09-26).
        `RelevanceBeforeWarning` checks AskRigor's own warnings against the
        use context, not the source's advice. Proposed one sentence in that
        rule plus a regression case, as HRP 20.6.4; owner question 2, since
-       it is method text.
+       it is method text. The owner approved it ("2 yes") at about 16:20
+       UTC; it is HRP 20.6.4, with stress case
+       `ReductionAdviceReadAsRescueWithholding`. The lesson record in the
+       lessons repository moves from provisional once this reaches main.
      - Issue #17 (three older Universal drafts): forum denominators are
        mostly covered by `SilentDenominator`; causal coupling has no rule;
        subgroup nulls are covered for time windows only. Default: draft the

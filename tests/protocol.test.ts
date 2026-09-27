@@ -19,7 +19,7 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "8495506e7299d3ee511574329f39a69bcc5efa6c5fac7023f746e1ee84aa344e";
+  "f2ed625d854926142011cf13a908e551c573e7a22282f8b9c0b229163979d3ad";
 const UNIVERSAL_SHA_256 =
   "5d9a9d76339ff1794b93bb1e932466f703c4a8c006a607b811f40b43ea703d36";
 
@@ -37,7 +37,7 @@ describe("canonical protocol loader", () => {
   it("derives the HRP manifest from its root attributes", async () => {
     await expect(getProtocolManifest("hrp")).resolves.toMatchObject({
       name: "HRP",
-      version: "20.6.3",
+      version: "20.6.4",
       revisionDate: "2026-09-27"
     });
   });
@@ -254,7 +254,7 @@ describe("canonical protocol loader", () => {
     };
 
     expect(text).toMatch(
-      /<Protocol name="HRP" version="20\.6\.3" revisionDate="2026-09-27"/
+      /<Protocol name="HRP" version="20\.6\.4" revisionDate="2026-09-27"/
     );
     for (const required of [
       '<Revision version="20.5.19" priority="Critical">',
@@ -308,6 +308,20 @@ describe("canonical protocol loader", () => {
     expect(fourDistinct).toContain("the first pass has reached neither about six fully audited videos nor about four rounds");
     expect(fourDistinct).toContain("open leads of a provisional answer, never a final comparison or ranking");
     expect(fourDistinct).not.toContain("completion minimum");
+
+    // HRP 20.6.4 (owner lesson of 2026-09-26): a source's advice is read in its own use context before a safety label.
+    const relevance = normalizedText.match(/<Rule name="RelevanceBeforeWarning"[^>]*>.*?<\/Rule>/u)?.[0] ?? "";
+    for (const required of [
+      "Apply the same test to a source's advice to avoid, reduce, stop, space, replace or not rely on a treatment",
+      "read it in the source's own use context (maintenance or rescue, starting or stopping, combined or spaced, dose, duration, population and stage)",
+      "state remaining ambiguity instead of assuming the riskiest reading",
+      "An explicit call to withhold rescue treatment in an emergency still gets a warning."
+    ]) expect(relevance).toContain(required);
+    const reduction = normalizedText.match(
+      /<Case id="ReductionAdviceReadAsRescueWithholding">.*?<\/Case>/u
+    )?.[0] ?? "";
+    expect(reduction).toContain("separate maintenance from rescue use and combined from spaced use");
+    expect(reduction).toContain("Warn about withholding rescue treatment only when the source actually advises it");
 
     const many = section("ManyVideosButOneTreatmentClass");
     expect(many).toContain("ten videos");
