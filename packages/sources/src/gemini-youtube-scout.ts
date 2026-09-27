@@ -30,6 +30,8 @@ const GEMINI_YOUTUBE_BACKGROUND_MAX_POLLS = 120;
  * few more. Accept up to this many instead of failing the whole scout.
  */
 export const GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES = 30;
+/** Matches the title_only_candidates bound in the v2 handoff packet. */
+export const GEMINI_YOUTUBE_SCOUT_MAX_TITLE_ONLY_CANDIDATES = 6;
 const diagnosisStatusSchema = z.enum([
   "diagnosis_not_specified",
   "user_supplied_diagnosis"
@@ -89,6 +91,8 @@ const compactProviderPacketSchema = z.object({
   diagnosis_status: compactTextSchema,
   discovery_query_rows: z.array(compactDiscoveryQueryRowSchema).max(GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES),
   candidate_rows: z.array(compactCandidateRowSchema).max(16),
+  title_only_rows: z.array(z.tuple([compactTextSchema, compactTextSchema, compactTextSchema]))
+    .max(GEMINI_YOUTUBE_SCOUT_MAX_TITLE_ONLY_CANDIDATES).optional(),
   suggested_seed_video_ids: z.array(compactTextSchema).max(8),
   search_gaps: z.array(compactTextSchema).max(8),
   disclosures: z.array(compactTextSchema).max(4)
@@ -753,6 +757,7 @@ function buildScoutPrompt(input: z.output<typeof scoutInputSchema>): string {
     "",
     "Perform between 8 and 18 Google Search queries and no more than 18. Copy every executed query string exactly into discovery_query_rows and do not list an unexecuted query.",
     "Use public web and YouTube discovery context for candidate selection. Treat every creator summary as provisional and not transcript-verified by AskRigor.",
+    `Search results here often show no YouTube watch URL, so spend searches on discovery, not on finding video IDs. When a result names a promising video but shows no 11-character ID, never guess or reconstruct one: add [title, channel, why_surfaced] to title_only_rows (at most ${GEMINI_YOUTUBE_SCOUT_MAX_TITLE_ONLY_CANDIDATES}, most promising first) and AskRigor will look it up on YouTube by exact title. Use not described for an unknown channel.`,
     compactTransportInstructions()
   ].join("\n");
 }
@@ -760,10 +765,11 @@ function buildScoutPrompt(input: z.output<typeof scoutInputSchema>): string {
 function compactTransportInstructions(): string {
   return [
     "AUTOMATED COMPACT TRANSPORT — this changes encoding only; every substantive discovery and safety rule above still applies.",
-    "Return exactly these top-level keys: packet_name, packet_version, research_target, diagnosis_status, discovery_query_rows, candidate_rows, suggested_seed_video_ids, search_gaps, disclosures.",
+    "Return exactly these top-level keys: packet_name, packet_version, research_target, diagnosis_status, discovery_query_rows, candidate_rows, title_only_rows, suggested_seed_video_ids, search_gaps, disclosures.",
     "Set packet_name to gemini_youtube_candidate_handoff and packet_version to 2.0.",
     "Each discovery_query_rows entry is exactly [purpose, query]. Return one unique row per executed query (normally 8–18), reproduce every executed query exactly, and cover all five required purposes.",
     "Each candidate_rows entry is exactly 12 strings in this order: [video_id, canonical_url, title, channel, target_distance, provisional_intervention_family, creator_claim_summary, provisional_specific_program, provisional_population_or_stage, provisional_outcome_and_horizon, summary_basis, why_surfaced].",
+    "Each title_only_rows entry is exactly [title, channel, why_surfaced]; return an empty array when every useful video has an ID.",
     "For a broad treatment-choice or avoid-procedure target, return 8–16 unique candidate rows spanning materially different programs and trajectories when public candidates exist. For a narrower target, normally return 6–16. Return only 3–5 when the executed searches genuinely surface fewer useful candidates, and state that concrete gap in search_gaps. Use not described for an unavailable program, population/stage, outcome, or horizon.",
     `Set every summary_basis cell to ${GEMINI_YOUTUBE_SUMMARY_BASIS}.`,
     "Set disclosures, in order, to comments_not_retrieved, provider_metadata_not_validated_by_gemini, creator_claims_not_validated, not_medical_advice.",
@@ -787,6 +793,10 @@ function compactStructuredPacketSchema(): Record<string, unknown> {
         type: "array",
         items: { type: "array", items: { type: "string" } }
       },
+      title_only_rows: {
+        type: "array",
+        items: { type: "array", items: { type: "string" } }
+      },
       suggested_seed_video_ids: { type: "array", items: { type: "string" } },
       search_gaps: { type: "array", items: { type: "string" } },
       disclosures: { type: "array", items: { type: "string" } }
@@ -798,6 +808,7 @@ function compactStructuredPacketSchema(): Record<string, unknown> {
       "diagnosis_status",
       "discovery_query_rows",
       "candidate_rows",
+      "title_only_rows",
       "suggested_seed_video_ids",
       "search_gaps",
       "disclosures"
@@ -915,6 +926,15 @@ function decodeCompactProviderPacket(output: string): GeminiYoutubeCandidatePack
       why_surfaced: whySurfaced
     })),
     suggested_seed_video_ids: compact.data.suggested_seed_video_ids,
+    ...(compact.data.title_only_rows === undefined || compact.data.title_only_rows.length === 0
+      ? {}
+      : {
+          title_only_candidates: compact.data.title_only_rows.map(([title, channel, whySurfaced]) => ({
+            title,
+            channel,
+            why_surfaced: whySurfaced
+          }))
+        }),
     search_gaps: compact.data.search_gaps,
     disclosures: compact.data.disclosures
   };

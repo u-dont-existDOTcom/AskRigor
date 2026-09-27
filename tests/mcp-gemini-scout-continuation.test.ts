@@ -10,9 +10,14 @@ import {
 import { verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 
 const execute = vi.hoisted(() => vi.fn());
+const search = vi.hoisted(() => vi.fn());
 vi.mock("../apps/research-mcp/src/actions/gemini-scout-route.js", async (importOriginal) => ({
   ...await importOriginal<typeof import("../apps/research-mcp/src/actions/gemini-scout-route.js")>(),
   executeResumableAutomatedGeminiScout: execute
+}));
+vi.mock("@askrigor/sources", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@askrigor/sources")>(),
+  searchYoutube: search
 }));
 
 const { createAskRigorServer } = await import("../apps/research-mcp/src/server.js");
@@ -39,6 +44,7 @@ describe("MCP Gemini scout continuation", () => {
     process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET = SECRET;
     delete process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET;
     execute.mockReset();
+    search.mockReset();
   });
   afterEach(() => {
     for (const [name, value] of [
@@ -63,7 +69,7 @@ describe("MCP Gemini scout continuation", () => {
       .toThrow(new ScoutContinuationError("gemini_scout_continuation_expired"));
   });
 
-  it("returns a continuation while the scout searches, then the validated videos and a discovery receipt", async () => {
+  it("returns a continuation while the scout searches, then validated and title-found videos with a discovery receipt", async () => {
     const progress = { controller_progress: { checkpoint: CHECKPOINT, accounted_nano_usd: 1_000_000_000 } };
     const now = vi.spyOn(Date, "now");
     let clock = 1_790_000_000_000;
@@ -90,8 +96,11 @@ describe("MCP Gemini scout continuation", () => {
           discovery_queries: [{ purpose: "firsthand_outcome", query: "avoided hip replacement what worked" }],
           search_gaps: [],
           candidates: [
-            { video_id: "dQw4w9WgXcQ", title: "Real video", channel: "Real channel" },
-            { video_id: "Zz9Yy8Xx7Ww", title: "GROWING MY HIP BACK", channel: "SHAPEFIXER" }
+            { video_id: "dQw4w9WgXcQ", title: "Real video", channel: "Real channel", why_surfaced: "Outcome" },
+            { video_id: "Zz9Yy8Xx7Ww", title: "GROWING MY HIP BACK", channel: "SHAPEFIXER", why_surfaced: "Recovery" }
+          ],
+          title_only_candidates: [
+            { title: "Gelatin for my hip, one year later", channel: "not described", why_surfaced: "Named remedy" }
           ]
         },
         validation: {
@@ -108,6 +117,12 @@ describe("MCP Gemini scout continuation", () => {
         accounted_nano_usd: 900_000_000
       }
     });
+    search.mockImplementation(async ({ query }: { query: string }) => ({
+      access_status: "complete",
+      data: query === "GROWING MY HIP BACK"
+        ? [{ video_id: "XpZHKGGCK-o", title: "GROWING MY HIP BACK - How I Restored Full Function", channel_title: "SHAPEFIXER" }]
+        : []
+    }));
     const second = await client.callTool({
       name: "scout_gemini_youtube_candidates",
       arguments: { continuation_token: pending.continuation_token }
@@ -117,19 +132,37 @@ describe("MCP Gemini scout continuation", () => {
     expect(execute).toHaveBeenCalledWith(TARGET, { checkpoint: CHECKPOINT, accountedNanoUsd: 1_000_000_000 });
     expect(second.isError).not.toBe(true);
     const done = second.structuredContent as { scout_status: string; provider_storage_mode: string; research_receipt: string };
+    // Title-only finds come first, then the candidate whose ID did not exist.
+    expect(search.mock.calls.map(([request]) => request.query)).toEqual([
+      "Gelatin for my hip, one year later",
+      "GROWING MY HIP BACK"
+    ]);
     expect(done).toMatchObject({
       scout_status: "complete",
       provider_storage_mode: "TEMPORARY_BACKGROUND_DELETE_REQUESTED",
-      // The garbled ID's title comes back so the model can search it exactly.
-      invalid_id_candidates: [{ title: "GROWING MY HIP BACK", channel: "SHAPEFIXER" }]
+      title_lookup: {
+        found: [{
+          video_id: "XpZHKGGCK-o",
+          title: "GROWING MY HIP BACK - How I Restored Full Function",
+          channel: "SHAPEFIXER",
+          declared_title: "GROWING MY HIP BACK",
+          why_surfaced: "Recovery"
+        }],
+        unresolved: [{
+          title: "Gelatin for my hip, one year later",
+          channel: "not described",
+          why_surfaced: "Named remedy",
+          reason: "no_matching_video"
+        }]
+      }
     });
-    expect((second.content as Array<{ text: string }>)[0]!.text).toContain(
-      "1 proposed video(s) had IDs that do not exist (invalid_id_candidates)"
-    );
+    const text = (second.content as Array<{ text: string }>)[0]!.text;
+    expect(text).toContain("validated 1 video(s) and found 1 more by exact title (title_lookup.found)");
+    expect(text).toContain("1 named video(s) could not be identified (title_lookup.unresolved)");
     expect(verifyResearchReceipt(done.research_receipt, { secret: SECRET })).toMatchObject({
       ok: true,
       kind: "youtube_scout",
-      claims: { videos: ["dQw4w9WgXcQ"], open: "0" }
+      claims: { videos: ["dQw4w9WgXcQ", "XpZHKGGCK-o"], open: "0" }
     });
 
     const tampered = await client.callTool({

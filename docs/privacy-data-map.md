@@ -710,6 +710,11 @@ pending-proposal stores have their own strict contracts and authority boundaries
   carries only that target, the diagnosis status, the provider checkpoint
   (opaque interaction identity, executed public search queries, counters) and
   the budget already charged; AskRigor stores none of it.
+  When the scout names a video it could not identify (a title with no visible
+  ID, or an ID that does not exist), the tool sends that public title to
+  YouTube search, at most four per call (100 quota units each), and returns
+  only the matching public video IDs, titles and channels plus the titles it
+  could not match.
 - Strict Zod input/output schemas reject undeclared input fields. Pagination cursors are opaque at the MCP boundary.
 - Internal external-evidence receipts use a server-held secret of at least 32
   UTF-8 bytes and domain-separated HMAC-SHA256; they bind session, study,

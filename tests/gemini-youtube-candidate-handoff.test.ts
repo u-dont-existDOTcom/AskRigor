@@ -157,6 +157,24 @@ describe("Gemini YouTube candidate handoff", () => {
     expect(parsed.discovery_queries.map(({ purpose }) => purpose)).toContain("radical_outcome");
   });
 
+  it("accepts up to six title-only finds and nothing unbounded", () => {
+    const lead = { title: "GROWING MY HIP BACK", channel: "SHAPEFIXER", why_surfaced: "First-person recovery" };
+    const withLeads = { ...packet(), title_only_candidates: [lead] } as GeminiYoutubeCandidatePacket;
+    expect(parseGeminiYoutubeCandidateHandoff(response(withLeads))).toMatchObject({
+      title_only_candidates: [lead]
+    });
+    const tooMany = { ...packet(), title_only_candidates: Array.from({ length: 7 }, (_, index) => ({
+      ...lead,
+      title: `${lead.title} ${index}`
+    })) } as GeminiYoutubeCandidatePacket;
+    const blankChannel = { ...packet(), title_only_candidates: [{ ...lead, channel: " " }] } as GeminiYoutubeCandidatePacket;
+    for (const input of [tooMany, blankChannel]) {
+      expect(() => parseGeminiYoutubeCandidateHandoff(response(input))).toThrowError(
+        expect.objectContaining({ code: "invalid_packet" })
+      );
+    }
+  });
+
   it("retains exact framed-packet compatibility", () => {
     const parsed = parseGeminiYoutubeCandidateHandoff(
       legacyFramedResponse().replace(/\n/gu, "\r\n")

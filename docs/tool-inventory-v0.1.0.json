@@ -12459,24 +12459,76 @@
             },
             "additionalProperties": {}
           },
-          "invalid_id_candidates": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "title": {
-                  "type": "string"
-                },
-                "channel": {
-                  "type": "string"
+          "title_lookup": {
+            "type": "object",
+            "properties": {
+              "found": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "video_id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "channel": {
+                      "type": "string"
+                    },
+                    "declared_title": {
+                      "type": "string"
+                    },
+                    "why_surfaced": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "video_id",
+                    "title",
+                    "channel",
+                    "declared_title"
+                  ],
+                  "additionalProperties": false
                 }
               },
-              "required": [
-                "title",
-                "channel"
-              ],
-              "additionalProperties": false
-            }
+              "unresolved": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "channel": {
+                      "type": "string"
+                    },
+                    "why_surfaced": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "no_matching_video",
+                        "search_failed",
+                        "not_searched"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "channel",
+                    "reason"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "found",
+              "unresolved"
+            ],
+            "additionalProperties": false
           },
           "provider_storage_mode": {
             "type": "string",

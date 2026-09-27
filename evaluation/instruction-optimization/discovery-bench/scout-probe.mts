@@ -8,15 +8,18 @@
  *     --terms gelatin,collagen,hydration,water,diet --out /tmp/probe.json \
  *     [--skill path/to/scout-SKILL.md]   # default: the production scout skill
  *
- * Costs: one free-tier Gemini grounded interaction and about one YouTube Data
- * API unit per candidate for identity validation. Output keeps public video
- * IDs, titles, channels, queries and Gemini's provisional annotations only.
+ * Costs: one free-tier Gemini grounded interaction, about one YouTube Data API
+ * unit per candidate for identity validation, and 100 units per exact-title
+ * lookup (at most SCOUT_TITLE_LOOKUP_LIMIT), as on the MCP tool. Output keeps
+ * public video IDs, titles, channels, queries and Gemini's provisional
+ * annotations only.
  */
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
 
 import { executeResumableAutomatedGeminiScout } from "../../../apps/research-mcp/src/actions/gemini-scout-route.js";
+import { lookUpScoutTitles } from "../../../apps/research-mcp/src/scout-title-lookup.js";
 import { advanceGeminiYoutubeScoutBackground } from "../../../packages/sources/src/gemini-youtube-scout.js";
 
 const { values } = parseArgs({
@@ -77,12 +80,29 @@ const validated = validation.validated_candidates.map((candidate) => ({
   program: candidate.gemini_provisional_annotations.specific_program,
   limitations: candidate.limitations.filter((limitation) => limitation.startsWith("The scout's declared"))
 }));
-const text = JSON.stringify([packet.discovery_queries, validated]).toLowerCase();
+// Same leads, order and limit as the MCP scout tool.
+const notFound = new Set(validation.rejected_candidates
+  .filter(({ rejection_reasons: reasons }) => reasons.includes("metadata_not_api_visible_complete"))
+  .map(({ video_id }) => video_id));
+const titleLeads = [
+  ...("title_only_candidates" in packet ? packet.title_only_candidates ?? [] : []),
+  ...packet.candidates
+    .filter(({ video_id }) => notFound.has(video_id))
+    .map(({ title, channel, why_surfaced }) => ({ title, channel, why_surfaced }))
+];
+const titleLookup = await lookUpScoutTitles(titleLeads, {
+  config: { apiKey: process.env.YOUTUBE_API_KEY ?? "" },
+  knownVideoIds: new Set(validated.map(({ video_id }) => video_id))
+});
+const text = JSON.stringify([packet.discovery_queries, validated, titleLookup.found]).toLowerCase();
 const report = {
   seconds,
   advances,
   status: validation.status,
   validated: validated.length,
+  title_found: titleLookup.found.length,
+  // Searches spent looking for a watch URL instead of discovering videos.
+  id_hunting_queries: packet.discovery_queries.filter(({ query }) => /watch\?v=|youtube\.com\/watch/u.test(query)).length,
   rejected: validation.rejected_candidates.map(({ video_id, rejection_reasons }) => ({ video_id, rejection_reasons })),
   unresolved: validation.unresolved_candidates.length,
   families: Object.fromEntries([...new Set(validated.map(({ family }) => family))]
@@ -90,7 +110,15 @@ const report = {
   terms_found: Object.fromEntries(terms.map((term) => [term, text.includes(term)])),
   queries: packet.discovery_queries,
   search_gaps: packet.search_gaps,
-  videos: validated
+  videos: validated,
+  title_lookup: titleLookup
 };
 if (values.out !== undefined) await writeFile(values.out, `${JSON.stringify(report, null, 2)}\n`);
-console.log(JSON.stringify({ ...report, videos: validated.map(({ title, family }) => `${family}: ${title}`) }, null, 2));
+console.log(JSON.stringify({
+  ...report,
+  videos: validated.map(({ title, family }) => `${family}: ${title}`),
+  title_lookup: {
+    found: titleLookup.found.map(({ title, channel }) => `${title} (${channel})`),
+    unresolved: titleLookup.unresolved.map(({ title, reason }) => `${title}: ${reason}`)
+  }
+}, null, 2));

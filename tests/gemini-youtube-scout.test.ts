@@ -223,6 +223,41 @@ describe("Gemini YouTube scout adapter", () => {
     );
   });
 
+  it("carries finds without a visible video ID as title-only candidates instead of guessed IDs", async () => {
+    const title = "GROWING MY HIP BACK - How I Restored Full Function Without Surgery";
+    const withTitles = {
+      ...compactPacketValue(),
+      title_only_rows: [[title, "SHAPEFIXER", "First-person account of avoiding surgery"]]
+    };
+    const fetchMock = vi.fn(async () => interactionResponse(JSON.stringify(withTitles)));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await scoutGeminiYoutubeCandidates(INPUT, CONFIG);
+
+    expect(result.access_status).toBe("complete");
+    expect(result.data?.packet).toMatchObject({
+      title_only_candidates: [{
+        title,
+        channel: "SHAPEFIXER",
+        why_surfaced: "First-person account of avoiding surgery"
+      }]
+    });
+    const request = JSON.parse(String(fetchMock.mock.calls[0]![1]?.body)) as {
+      input: string;
+      response_format: { schema: { properties: Record<string, unknown>; required: string[] } };
+    };
+    expect(request.input).toContain("never guess or reconstruct one: add [title, channel, why_surfaced] to title_only_rows");
+    expect(request.response_format.schema.required).toContain("title_only_rows");
+
+    // An empty list adds nothing to the canonical packet.
+    vi.stubGlobal("fetch", vi.fn(async () => interactionResponse(JSON.stringify({
+      ...compactPacketValue(),
+      title_only_rows: []
+    }))));
+    const empty = await scoutGeminiYoutubeCandidates(INPUT, CONFIG);
+    expect(empty.data?.packet).not.toHaveProperty("title_only_candidates");
+  });
+
   it("accepts the stateless live response shape without an interaction id", async () => {
     const fetchMock = vi.fn(async () => interactionResponse(
       compactPacket(),

@@ -112,6 +112,12 @@ const REQUIRED_DISCLOSURES = [
   "not_medical_advice"
 ] as const;
 
+export const geminiTitleOnlyCandidateSchema = z.object({
+  title: boundedText(500),
+  channel: boundedText(500),
+  why_surfaced: boundedText(300)
+}).strict();
+
 const packetCommonShape = {
   packet_name: z.literal(GEMINI_YOUTUBE_CANDIDATE_PACKET_NAME),
   research_target: boundedText(1_000),
@@ -139,7 +145,10 @@ export const geminiYoutubeCandidateV2PacketSchema = z.object({
   // Matches GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES in gemini-youtube-scout.ts.
   discovery_queries: z.array(discoveryQuerySchema).min(8).max(30),
   candidates: z.array(geminiCandidateV2Schema).min(3).max(16),
-  suggested_seed_video_ids: z.array(youtubeVideoIdSchema).min(1).max(8)
+  suggested_seed_video_ids: z.array(youtubeVideoIdSchema).min(1).max(8),
+  // Videos the scout found by title but whose ID no search result showed.
+  // AskRigor looks them up by exact title instead of accepting a guessed ID.
+  title_only_candidates: z.array(geminiTitleOnlyCandidateSchema).max(6).optional()
 }).strict().superRefine(addPacketRelationshipIssues);
 
 export const geminiYoutubeCandidatePacketSchema = z.union([
@@ -602,9 +611,9 @@ function validateCandidateIdentity(
   // Scouts often paraphrase a title or misremember a channel while the video ID
   // is right, and YouTube's metadata stays authoritative for what the video is.
   // Only a video whose title and channel both differ is a wrong identity.
-  const titleMatches = providerVideo.title === undefined || labelsMatch(providerVideo.title, candidate.title);
+  const titleMatches = providerVideo.title === undefined || youtubeLabelsMatch(providerVideo.title, candidate.title);
   const channelMatches = providerVideo.channel_title === undefined ||
-    labelsMatch(providerVideo.channel_title, candidate.channel);
+    youtubeLabelsMatch(providerVideo.channel_title, candidate.channel);
   if (!titleMatches && !channelMatches) {
     reasons.push("declared_title_mismatch", "declared_channel_mismatch");
   }
@@ -730,7 +739,7 @@ function comparableLabel(value: string): string {
  * spacing and punctuation, or when at least 60% of the declared words of three
  * or more characters appear in YouTube's label.
  */
-function labelsMatch(provider: string, declared: string): boolean {
+export function youtubeLabelsMatch(provider: string, declared: string): boolean {
   const compact = (value: string) => value.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
   if (compact(provider) === compact(declared)) return true;
   const words = (value: string) => new Set(
