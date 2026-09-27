@@ -1282,6 +1282,9 @@ async function main() {
     const geminiKey = process.env.ASKRIGOR_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
     if (geminiKey) {
       serverEnv.ASKRIGOR_GEMINI_API_KEY = geminiKey;
+      // The owner confirmed on 2026-09-26 that this Gemini key has no billing,
+      // so scouting stays within the zero-spend policy.
+      serverEnv.ASKRIGOR_GEMINI_BILLING = "none";
       // The scout refuses without the shared monthly budget ledger production uses.
       serverEnv.ASKRIGOR_AI_BUDGET_LEDGER = path.join(options.workDir, "ai-budget-ledger.json");
       serverEnv.ASKRIGOR_AI_MONTHLY_BUDGET_USD = "50";

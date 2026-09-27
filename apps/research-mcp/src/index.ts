@@ -32,6 +32,7 @@ export {
   calculateGeminiScoutNanoUsd,
   createAutomatedGeminiScoutActionRoute,
   isDeidentifiedResearchTarget,
+  isPopulationLevelResearchTarget,
   type AutomatedGeminiScoutReceipt,
   type CreateAutomatedGeminiScoutActionRouteOptions
 } from "./actions/gemini-scout-route.js";

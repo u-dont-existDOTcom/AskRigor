@@ -549,6 +549,53 @@ async function waitForBackgroundPoll(milliseconds: number): Promise<void> {
   await new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 }
 
+/**
+ * Stricter screen for a scout target, which goes to an external provider: it
+ * must describe a group of people, not one person. Third-person singular
+ * pronouns, a single person's age, a title before a name, or a common given
+ * name followed by a surname or a narrative verb mark an individual narrative.
+ * It is a heuristic layer on top of the tool contract, which asks for the
+ * condition and goal of a population. Rediscovery leads may name public
+ * creators, so they keep the base screen.
+ */
+export function isPopulationLevelResearchTarget(value: string): boolean {
+  if (!isDeidentifiedResearchTarget(value)) return false;
+  if (/\b(?:he|she|him|his|her|hers|himself|herself)\b/iu.test(value)) return false;
+  if (/\b(?:[Mm]rs?|[Mm]s|[Mm]iss|[Mm]x|[Dd]r|[Pp]rof)\.?\s+[A-Z]/u.test(value)) return false;
+  if (
+    /(?<!\b(?:over|under|above|below|past|beyond|from)\s+)\baged?\s+\d{1,3}\b(?!\s*(?:\+|-|–|to\b|and\b|or\b|through\b|plus\b))/iu
+      .test(value)
+  ) return false;
+  if (/\b\d{1,3}\s*-?\s*(?:years?|yrs?)\s*-?\s*old\b(?!s)/iu.test(value)) return false;
+  if (/\b\d{1,3}\s*(?:y\/o|yo)\b/iu.test(value)) return false;
+  for (const match of value.matchAll(
+    /\b([A-Z][a-z]+)\s+(?:[A-Z][a-z'’-]+|has|had|is|was|got|tried|takes|took|wants|needs)\b/gu
+  )) {
+    if (COMMON_GIVEN_NAMES.has(match[1]!.toLowerCase())) return false;
+  }
+  return true;
+}
+
+const COMMON_GIVEN_NAMES: ReadonlySet<string> = new Set([
+  "aaron", "abigail", "adam", "adrian", "aiden", "alex", "alexander", "alice", "alicia", "allison",
+  "amanda", "amy", "andrea", "andrew", "angela", "anna", "anne", "anthony", "ashley", "barbara",
+  "benjamin", "betty", "brandon", "brenda", "brian", "brittany", "carl", "carlos", "carol", "caroline",
+  "catherine", "charles", "charlotte", "cheryl", "chris", "christina", "christine", "christopher", "cindy", "claire",
+  "cynthia", "daniel", "david", "deborah", "debra", "denise", "dennis", "diana", "diane", "donald",
+  "donna", "dorothy", "douglas", "dylan", "edward", "elizabeth", "emily", "emma", "eric", "ethan",
+  "evelyn", "gary", "george", "gregory", "hannah", "heather", "helen", "henry", "isabella", "jacob",
+  "james", "jane", "janet", "janice", "jason", "jean", "jeffrey", "jennifer", "jeremy", "jerry",
+  "jessica", "joan", "john", "jonathan", "joseph", "joshua", "joyce", "juan", "julia", "julie",
+  "justin", "karen", "katherine", "kathleen", "kathy", "kelly", "kenneth", "kevin", "kimberly", "kyle",
+  "larry", "laura", "lauren", "linda", "lisa", "logan", "louis", "madison", "margaret", "maria",
+  "marie", "marilyn", "martha", "mary", "matthew", "megan", "melissa", "michael", "michelle", "nancy",
+  "natalie", "nathan", "nicholas", "nicole", "noah", "olivia", "pamela", "patricia", "patrick", "paul",
+  "peter", "rachel", "raymond", "rebecca", "richard", "robert", "ronald", "ruth", "ryan", "samantha",
+  "samuel", "sandra", "sara", "sarah", "scott", "sean", "sharon", "shirley", "sophia", "stephanie",
+  "stephen", "steven", "susan", "teresa", "thomas", "timothy", "tyler", "victoria", "vincent", "virginia",
+  "walter", "william", "zachary"
+]);
+
 export function isDeidentifiedResearchTarget(value: string): boolean {
   if (/[\u0000-\u001F\u007F]/u.test(value)) return false;
   if (/[\u00AD\u034F\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/u.test(value)) {

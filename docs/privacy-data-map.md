@@ -705,7 +705,16 @@ pending-proposal stores have their own strict contracts and authority boundaries
 - The MCP `scout_gemini_youtube_candidates` tool runs the same de-identified,
   population-level scout as the controlled Action route, applying the same
   screen: a target with first-person words, contact details, links, keys or
-  record fields is refused before any provider call. A later round may add up
+  record fields is refused before any provider call. Its target also passes a
+  stricter population-level screen. A target is refused if it has any of:
+  - third-person singular pronouns;
+  - a single person's age;
+  - a title before a name;
+  - a common given name followed by a surname or a narrative verb.
+
+  So a narrative about one named person does not reach Gemini. Under the
+  owner's zero-spend policy it starts a new scout only when the deployment
+  sets `ASKRIGOR_GEMINI_BILLING=none` for a key without billing. A later round may add up
   to eight rediscovery leads: public remedies, methods, products, video titles
   or creator names that audited comments mention, each at most 120
   characters and screened the same way. Leads never carry commenter identity

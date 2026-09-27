@@ -38,10 +38,12 @@ const TARGET = {
 describe("MCP Gemini scout continuation", () => {
   const previous = {
     continuation: process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET,
-    finalization: process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET
+    finalization: process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET,
+    billing: process.env.ASKRIGOR_GEMINI_BILLING
   };
   beforeEach(() => {
     process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET = SECRET;
+    process.env.ASKRIGOR_GEMINI_BILLING = "none";
     delete process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET;
     execute.mockReset();
     search.mockReset();
@@ -49,7 +51,8 @@ describe("MCP Gemini scout continuation", () => {
   afterEach(() => {
     for (const [name, value] of [
       ["ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previous.continuation],
-      ["ASKRIGOR_FINALIZATION_SIGNING_SECRET", previous.finalization]
+      ["ASKRIGOR_FINALIZATION_SIGNING_SECRET", previous.finalization],
+      ["ASKRIGOR_GEMINI_BILLING", previous.billing]
     ] as const) {
       if (value === undefined) delete process.env[name];
       else process.env[name] = value;
@@ -218,6 +221,28 @@ describe("MCP Gemini scout continuation", () => {
       ok: true,
       claims: { open: "2" }
     });
+  });
+
+  it("starts no scout unless the deployment declares the Gemini key has no billing", async () => {
+    delete process.env.ASKRIGOR_GEMINI_BILLING;
+    const client = await connect();
+    const refused = await client.callTool({ name: "scout_gemini_youtube_candidates", arguments: TARGET });
+    expect(execute).not.toHaveBeenCalled();
+    expect(refused.isError).toBe(true);
+    const text = (refused.content as Array<{ text: string }>)[0]!.text;
+    expect(text).toContain("gemini_scout_spend_not_authorized");
+    expect(text).toContain("Use survey_youtube_community instead.");
+  });
+
+  it("refuses a target about one named person before any provider call", async () => {
+    const client = await connect();
+    const named = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { ...TARGET, research_target: "Jane Doe, age 47, in Boston has a rare cancer" }
+    });
+    expect(execute).not.toHaveBeenCalled();
+    expect(named.isError).toBe(true);
+    expect((named.content as Array<{ text: string }>)[0]!.text).toContain("research_target_not_deidentified");
   });
 
   it("sends only screened text to Gemini: a first-person target or lead is refused before any provider call", async () => {

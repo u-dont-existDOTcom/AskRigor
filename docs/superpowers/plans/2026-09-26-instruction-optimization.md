@@ -278,6 +278,30 @@ run went from 07:12 to 09:44 UTC.
     startup when research Actions are enabled. So the status is not made
     blocking: the model cannot fix server configuration. The
     `finalize_research` description now tells every client what to do.
+- **Codex review of a028d9d** (two findings, both fixed):
+  - Zero spend. The MCP scout could start a Gemini interaction with any
+    configured key, and `docs/custom-gpt-actions-setup.md` describes the
+    production key as a paid project key.
+    - A new scout on MCP now runs only when the deployment sets
+      `ASKRIGOR_GEMINI_BILLING=none` for a key without billing; otherwise the
+      model uses the survey. Polling a started scout costs nothing more.
+    - The owner confirmed on 2026-09-26 that this environment's key has no
+      billing, so the runner sets the flag.
+    - Enabling the scout in production is a deployment decision for the
+      owner: either the key has no billing, or a newer explicit spend
+      decision.
+  - Privacy. The shared de-identification screen accepted a named person
+    ("Jane Doe, age 47, in Boston has a rare cancer"). MCP scout targets now
+    also pass a population-level screen, which refuses:
+    - third-person singular pronouns;
+    - a single person's age;
+    - a title before a name;
+    - a common given name followed by a surname or narrative verb.
+
+    Leads keep the base screen, since they may name public creators. The
+    Custom GPT Action and controlled routes on main use only the base screen;
+    hardening them changes the Custom GPT's behavior, so it needs its own
+    acceptance.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 

@@ -55,7 +55,8 @@ import {
 import {
   automatedScoutInputSchema,
   executeResumableAutomatedGeminiScout,
-  isDeidentifiedResearchTarget
+  isDeidentifiedResearchTarget,
+  isPopulationLevelResearchTarget
 } from "./actions/gemini-scout-route.js";
 import {
   decodeScoutContinuation,
@@ -1335,10 +1336,19 @@ function defineResearchOperations(
           diagnosis_status: input.diagnosis_status
         });
         leads = input.rediscovery_leads ?? [];
+        // The owner's zero-spend policy: a new scout starts a Gemini interaction,
+        // so it runs only with a key the deployment declares has no billing.
+        // Polling an interaction already started costs nothing more.
+        if (process.env.ASKRIGOR_GEMINI_BILLING?.trim() !== "none") {
+          return scoutError("gemini_scout_spend_not_authorized", false,
+            "The zero-spend policy allows the Gemini scout only with a key that has no billing " +
+              "(ASKRIGOR_GEMINI_BILLING=none). Use survey_youtube_community instead.");
+        }
         // Only screened, population-level text reaches Gemini.
-        if (!isDeidentifiedResearchTarget(target.research_target)) {
+        if (!isPopulationLevelResearchTarget(target.research_target)) {
           return scoutError("research_target_not_deidentified", false,
-            "Describe the population and goal without first-person words, names, contact details or links.");
+            "Describe a group of people and their goal, without first-person words, he or she, names, a " +
+              "person's age, contact details or links.");
         }
         if (!leads.every(isDeidentifiedResearchTarget)) {
           return scoutError("rediscovery_lead_not_deidentified", false,
