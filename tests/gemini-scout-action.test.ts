@@ -7,6 +7,8 @@ import {
   createAutomatedGeminiScoutActionRoute,
   isDeidentifiedResearchTarget
 } from "../apps/research-mcp/src/index.js";
+import { executeResumableAutomatedGeminiScout } from
+  "../apps/research-mcp/src/actions/gemini-scout-route.js";
 import { RESEARCH_ACTION_RESPONSE_MAX_BYTES } from
   "../apps/research-mcp/src/config.js";
 import type { AiBudget, BudgetReservation } from
@@ -448,6 +450,96 @@ describe("automated Gemini YouTube scout Action", () => {
     expect(forfeit).toHaveBeenCalledOnce();
     expect(validate).not.toHaveBeenCalled();
     expect(JSON.stringify(result.body)).not.toContain("private upstream detail");
+  });
+
+  it("refuses a scout whose reported usage costs more than its reservation instead of charging the clamped maximum", async () => {
+    const run = async (usage: GeminiYoutubeScoutData["usage"]) => {
+      const commit = vi.fn(async () => undefined);
+      const forfeit = vi.fn(async () => undefined);
+      const data = { ...scoutData(), usage };
+      const validate = vi.fn(async () => validationReceipt());
+      const route = createAutomatedGeminiScoutActionRoute({
+        geminiApiKey: "gemini-secret",
+        youtubeApiKey: "youtube-secret",
+        budget: budget({ commit, forfeit }),
+        scout: vi.fn(async () => okEnvelope({
+          provider: "gemini_api",
+          recordType: "gemini_youtube_candidate_frontier",
+          primaryIdentifier: data.response_id,
+          query: { research_target: TARGET },
+          pagination: { exhausted: true },
+          returned: data.packet.candidates.length,
+          accessStatus: "complete",
+          limitations: [],
+          rawMetadata: {},
+          data
+        })),
+        validate,
+        loadScoutInstructions: async () => "fixture scout instructions"
+      });
+      const result = await route.handle(context({
+        research_target: TARGET,
+        diagnosis_status: "diagnosis_not_specified"
+      }));
+      return { body: result.body, commit, forfeit, validate };
+    };
+
+    // 50 searches ($0.70) and 400,000 input tokens ($0.30) cost exactly the reservation.
+    const exact = await run({
+      total_input_tokens: 400_000,
+      total_output_tokens: 0,
+      total_thought_tokens: 0,
+      google_search_queries: 50
+    });
+    expect(exact.body).toMatchObject({ status: "accepted", boundary: null });
+    expect(exact.commit).toHaveBeenCalledWith(GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD);
+
+    for (const usage of [
+      { total_input_tokens: 400_001, total_output_tokens: 0, total_thought_tokens: 0, google_search_queries: 50 },
+      // 72 searches alone cost $1.008, even with no token counts reported.
+      { google_search_queries: 72 }
+    ]) {
+      const over = await run(usage);
+      expect(over.body).toMatchObject({
+        status: "blocked",
+        boundary: { code: "gemini_scout_request_over_budget", retryable: false },
+        scout_receipt: { accounted_nano_usd: GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD }
+      });
+      expect(over.commit).not.toHaveBeenCalled();
+      expect(over.forfeit).toHaveBeenCalledOnce();
+      expect(over.validate).not.toHaveBeenCalled();
+    }
+  });
+
+  it("refuses an over-budget background scout when it completes on a later call", async () => {
+    const validate = vi.fn(async () => validationReceipt());
+    const result = await executeResumableAutomatedGeminiScout(
+      { research_target: TARGET, diagnosis_status: "diagnosis_not_specified" },
+      {
+        checkpoint: {
+          interaction_id: "interaction-1",
+          phase: "INITIAL",
+          provider_interaction_count: 1,
+          poll_attempts: 1,
+          executed_search_queries: []
+        },
+        accountedNanoUsd: GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
+      },
+      {
+        geminiApiKey: "gemini-secret",
+        youtubeApiKey: "youtube-secret",
+        backgroundScout: vi.fn(async () => ({
+          kind: "complete",
+          frontier: { data: { ...scoutData(), usage: { google_search_queries: 72 } } }
+        })) as never,
+        validate,
+        loadScoutInstructions: async () => "fixture scout instructions"
+      }
+    );
+    expect(result).toEqual({
+      controller_boundary: { code: "gemini_scout_request_over_budget", retryable: false }
+    });
+    expect(validate).not.toHaveBeenCalled();
   });
 
   it("uses the conservative reservation when token accounting is absent or implausible", () => {

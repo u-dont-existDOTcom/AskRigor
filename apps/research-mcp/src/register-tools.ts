@@ -37,7 +37,6 @@ import {
   youtubeSearchRecordListSchema,
   youtubeVideoDataSchema,
   youtubeVideoFailureDataSchema,
-  youtubeLabelsMatch,
   GEMINI_YOUTUBE_SCOUT_MAX_LEAD_CHARACTERS,
   GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS,
   type GeminiYoutubeScoutBackgroundCheckpoint
@@ -1395,18 +1394,13 @@ function defineResearchOperations(
       const notFound = new Set(validation.rejected_candidates
         .filter(({ rejection_reasons: reasons }) => reasons.includes("metadata_not_api_visible_complete"))
         .map(({ video_id }) => video_id));
-      // A validated ID whose YouTube title differs from the declared one may be
-      // another video from the same channel: confirm it by the declared title
-      // instead of trusting the ID (a paraphrased title still matches).
-      const declared = new Map(packet.candidates.map((candidate) => [candidate.video_id, candidate]));
-      const titleConflicts = new Set(validation.validated_candidates
-        .filter(({ video_id, provider_metadata: metadata }) => {
-          const candidate = declared.get(video_id);
-          const title = (metadata as { title?: string } | undefined)?.title;
-          return candidate !== undefined && title !== undefined && !youtubeLabelsMatch(title, candidate.title);
-        })
+      // An ID whose YouTube title differs from the declared one (beyond a
+      // paraphrase) may be another video from the same channel. Validation
+      // leaves it unresolved; confirm it by the declared title instead.
+      const titleConflicts = new Set(validation.unresolved_candidates
+        .filter(({ provider_error_code: code }) => code === "youtube_candidate_title_conflict")
         .map(({ video_id }) => video_id));
-      const confirmed = validation.validated_candidates.filter(({ video_id }) => !titleConflicts.has(video_id));
+      const confirmed = validation.validated_candidates;
       const titleLeads = [
         ...("title_only_candidates" in packet ? packet.title_only_candidates ?? [] : []),
         ...packet.candidates
@@ -1457,7 +1451,8 @@ function defineResearchOperations(
           ...confirmed.map(({ video_id }) => video_id),
           ...found.map(({ video_id }) => video_id)
         ],
-        open: validation.unresolved_candidates.length +
+        // Title conflicts were looked up by title, so the lookup settles them.
+        open: validation.unresolved_candidates.length - titleConflicts.size +
           unresolvedTitles.filter(({ reason }) => reason !== "no_matching_video").length,
         q: discoveryQueryDigest([target.research_target, ...leads])
       }));

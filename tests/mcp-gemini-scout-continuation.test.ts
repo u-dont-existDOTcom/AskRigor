@@ -183,12 +183,21 @@ describe("MCP Gemini scout continuation", () => {
     }]);
   });
 
-  it("looks up a validated ID by its declared title when YouTube's title differs, instead of trusting it", async () => {
+  it("looks up an ID whose YouTube title conflicts with the declared title, instead of trusting it", async () => {
+    // Validation leaves an ID unresolved when YouTube's title for it differs
+    // from the declared one on the same channel.
     const receipt = {
       ...validationReceipt(),
-      validated_candidates: [{ video_id: "dQw4w9WgXcQ", provider_metadata: { title: "Real video", channel_title: "Real channel" } }]
+      status: "blocked",
+      validated_candidates: [],
+      unresolved_candidates: [{
+        video_id: "dQw4w9WgXcQ",
+        metadata_access_status: "api_visible_complete",
+        retryable: false,
+        provider_error_code: "youtube_candidate_title_conflict",
+        limitations: []
+      }]
     };
-    const [validated] = receipt.validated_candidates;
     execute.mockResolvedValueOnce({
       controller_completion: {
         provider_response_id: "response-4",
@@ -196,8 +205,7 @@ describe("MCP Gemini scout continuation", () => {
           discovery_queries: [],
           search_gaps: [],
           candidates: [
-            // Same channel, but the ID points at another of its videos.
-            { video_id: validated!.video_id, title: "How I avoided a hip replacement", channel: "Real channel", why_surfaced: "Outcome" }
+            { video_id: "dQw4w9WgXcQ", title: "How I avoided a hip replacement", channel: "Real channel", why_surfaced: "Outcome" }
           ]
         },
         validation: receipt,

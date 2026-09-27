@@ -309,8 +309,25 @@ describe("Gemini YouTube candidate handoff", () => {
     });
   });
 
-  it("keeps a paraphrased title and rejects a video whose title and channel both differ", async () => {
+  it("keeps a paraphrased title, leaves a same-channel title conflict unresolved, and rejects a video whose title and channel both differ", async () => {
     const paraphrased = await validateGeminiYoutubeCandidateHandoff(
+      response(),
+      YOUTUBE,
+      { get_video: vi.fn(async (videoId: string) => videoEnvelope(
+        videoId,
+        videoId === VIDEO_IDS[0]
+          ? { title: "My first outcome video, one year on", channel: "An independent runner" }
+          : {}
+      )) }
+    );
+    expect(paraphrased.status).toBe("accepted");
+    expect(paraphrased.validated_candidates.find(({ video_id }) => video_id === VIDEO_IDS[0])).toMatchObject({
+      provider_metadata: { title: "My first outcome video, one year on" }
+    });
+
+    // The ID may point at another video from the declared channel: not trusted,
+    // not rejected either.
+    const conflicting = await validateGeminiYoutubeCandidateHandoff(
       response(),
       YOUTUBE,
       { get_video: vi.fn(async (videoId: string) => videoEnvelope(
@@ -318,11 +335,30 @@ describe("Gemini YouTube candidate handoff", () => {
         videoId === VIDEO_IDS[0] ? { title: "Different provider title" } : {}
       )) }
     );
-    expect(paraphrased.rejected_candidates).toEqual([]);
-    expect(paraphrased.validated_candidates.find(({ video_id }) => video_id === VIDEO_IDS[0])).toMatchObject({
-      provider_metadata: { title: "Different provider title" },
+    expect(conflicting.status).toBe("partial");
+    expect(conflicting.rejected_candidates).toEqual([]);
+    expect(conflicting.validated_candidates.map(({ video_id }) => video_id)).toEqual(VIDEO_IDS.slice(1));
+    expect(conflicting.unresolved_candidates).toEqual([
+      expect.objectContaining({
+        video_id: VIDEO_IDS[0],
+        retryable: false,
+        provider_error_code: "youtube_candidate_title_conflict"
+      })
+    ]);
+    expect(conflicting.candidate_frontier.unresolved_candidate_video_ids).toEqual([VIDEO_IDS[0]]);
+
+    const renamedChannel = await validateGeminiYoutubeCandidateHandoff(
+      response(),
+      YOUTUBE,
+      { get_video: vi.fn(async (videoId: string) => videoEnvelope(
+        videoId,
+        videoId === VIDEO_IDS[0] ? { channel: "Unrelated channel" } : {}
+      )) }
+    );
+    expect(renamedChannel.validated_candidates.find(({ video_id }) => video_id === VIDEO_IDS[0])).toMatchObject({
+      provider_metadata: { channel_title: "Unrelated channel" },
       limitations: expect.arrayContaining([
-        "The scout's declared title differed from YouTube's; YouTube's metadata is used."
+        "The scout's declared channel differed from YouTube's; YouTube's metadata is used."
       ])
     });
 

@@ -103,7 +103,9 @@ The server enforces one shared hard monthly cap of **$50.00**, recorded as an ag
 nano-USD ledger. Each Gemini scout reserves at most **$1.00** from that
 same cap before provider execution. One scout can use one grounded-search
 interaction and, only if its packet fails strict validation, one no-search
-correction interaction under the same reservation. The server accepts only the fixed privacy model
+correction interaction under the same reservation. A scout whose reported usage costs more
+than its reservation is refused (`gemini_scout_request_over_budget`) and charged the full $1.
+The server accepts only the fixed privacy model
 `gpt-5.4-nano-2026-03-17`; no moving alias is allowed.
 The lesson privacy check and the low-level Gemini route use provider storage-disabled modes. Controlled Gemini scouting uses temporary provider storage for background execution and requests deletion after each interaction. Budget exhaustion, ledger failure,
 privacy-model failure, or invalid structured output fails closed; none bypasses

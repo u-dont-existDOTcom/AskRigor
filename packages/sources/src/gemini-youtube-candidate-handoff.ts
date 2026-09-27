@@ -617,9 +617,26 @@ function validateCandidateIdentity(
   if (!titleMatches && !channelMatches) {
     reasons.push("declared_title_mismatch", "declared_channel_mismatch");
   }
-  const declarationLimitations = titleMatches && channelMatches
+  // A different title on the declared channel may be another video by the
+  // same creator, so the ID is not trusted; it is not a wrong identity either.
+  if (reasons.length === 0 && !titleMatches) {
+    return {
+      kind: "unresolved",
+      candidate: {
+        video_id: candidate.video_id,
+        metadata_access_status: metadata.access_status,
+        retryable: false,
+        provider_error_code: "youtube_candidate_title_conflict",
+        limitations: [
+          ...metadata.limitations,
+          "YouTube's title for this ID differs from the scout's declared title beyond a paraphrase, so the ID may point to another video from the same channel. Look the declared title up before using it."
+        ]
+      }
+    };
+  }
+  const declarationLimitations = channelMatches
     ? []
-    : [`The scout's declared ${titleMatches ? "channel" : "title"} differed from YouTube's; YouTube's metadata is used.`];
+    : ["The scout's declared channel differed from YouTube's; YouTube's metadata is used."];
 
   if (reasons.length > 0) {
     return {

@@ -318,10 +318,8 @@ run went from 07:12 to 09:44 UTC.
     while the channel matched, was trusted, and could be another video from
     the same channel. The MCP tool now confirms such IDs by looking up the
     declared title; they count as found only if that lookup finds them.
-    - The shared validator is unchanged: HRP allows a terminal rejection only
-      when title and channel both differ.
-    - In the Custom GPT session flow, an unresolved candidate could stay
-      stuck.
+    - The shared validator was left unchanged here; the 94d496c round below
+      moved the check into it.
     - In the 4d4fae8 smoke run, 1 of 20 validated candidates took this path.
 - **Codex review of 2dbe52d** (two findings):
   - The discovery-bench probe called the Gemini executor directly and
@@ -336,6 +334,24 @@ run went from 07:12 to 09:44 UTC.
     calling model for a population-level target. MCP scouting stays off unless
     the owner sets the unbilled-key flag, so the owner accepts this residual
     risk or keeps it off at deployment.
+- **Codex review of 94d496c** (two findings, both fixed):
+  - 9f6d0f1 let a scout report up to 200 Google searches, but one $1
+    reservation pays for at most 71 at $0.014 each. A costlier run was
+    committed at the clamped $1, so the ledger undercounted it. The accepted
+    count now derives from the reservation (71). A scout whose reported usage
+    costs more than $1 is refused (`gemini_scout_request_over_budget`, not
+    retryable) and charged the full reservation. Limit: the ledger cannot
+    record a refused run's real cost above $1. The scout prompt asks for 8–18
+    searches.
+  - Only the MCP route caught a same-channel ID with a different title; the
+    Custom GPT Action and the session controller still used it as validated.
+    The shared validator now leaves such an ID unresolved
+    (`youtube_candidate_title_conflict`, not retryable). That is not a
+    terminal rejection, so HRP's both-differ rule still holds. The MCP tool
+    looks these IDs up by the declared title as before. The d1c9c99 note
+    that the session flow would get stuck was wrong: a non-retryable
+    unresolved candidate leaves the session on its validated subset, and
+    native discovery continues.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 

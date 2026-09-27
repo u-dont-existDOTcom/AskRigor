@@ -31,6 +31,10 @@ export const GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD = 1_000_000_000 as const;
 const GEMINI_INPUT_TOKEN_NANO_USD = 750;
 const GEMINI_OUTPUT_OR_THOUGHT_TOKEN_NANO_USD = 3_750;
 const GEMINI_SEARCH_QUERY_NANO_USD = 14_000_000;
+/** More searches than this cost more than one scout's reservation. */
+const GEMINI_SCOUT_MAXIMUM_BILLABLE_SEARCH_QUERIES = Math.floor(
+  GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD / GEMINI_SEARCH_QUERY_NANO_USD
+);
 
 export const automatedScoutInputSchema = z.object({
   research_target: z.string().trim().min(1).max(1_000),
@@ -44,8 +48,9 @@ const providerUsageSchema = z.object({
   total_input_tokens: z.number().int().nonnegative().optional(),
   total_output_tokens: z.number().int().nonnegative().optional(),
   total_thought_tokens: z.number().int().nonnegative().optional(),
-  // The real count, which can exceed the recorded query ledger.
-  google_search_queries: z.number().int().min(8).max(200)
+  // The real count, which can exceed the recorded query ledger but never what
+  // one reservation pays for.
+  google_search_queries: z.number().int().min(8).max(GEMINI_SCOUT_MAXIMUM_BILLABLE_SEARCH_QUERIES)
 }).strict();
 
 const scoutProviderReceiptSchema = z.object({
@@ -68,6 +73,7 @@ const automatedScoutBoundarySchema = z.object({
     "youtube_provider_not_configured",
     "gemini_scout_budget_unavailable",
     "gemini_scout_budget_exhausted",
+    "gemini_scout_request_over_budget",
     "gemini_youtube_scout_rate_limited",
     "gemini_youtube_scout_inaccessible",
     "gemini_youtube_scout_invalid_response",
@@ -294,6 +300,16 @@ export async function executeAutomatedGeminiScout(
   }
 
   const scoutData = frontier.data as GeminiYoutubeScoutData;
+  if (costsMoreThanReservation(scoutData.usage)) {
+    await reservation.forfeit();
+    return { receipt: successfulBoundaryReceipt(
+      parsed,
+      "gemini_scout_request_over_budget",
+      false,
+      "error",
+      GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
+    ) };
+  }
   const accountedNanoUsd = calculateGeminiScoutNanoUsd(scoutData.usage);
   try {
     await reservation.commit(accountedNanoUsd);
@@ -490,6 +506,10 @@ export async function executeResumableAutomatedGeminiScout(
   }
 
   const scoutData = advance.frontier.data;
+  if (costsMoreThanReservation(scoutData.usage)) {
+    if (reservation !== undefined) await reservation.forfeit();
+    return controllerBoundary("gemini_scout_request_over_budget", false);
+  }
   let accountedNanoUsd = resume?.accountedNanoUsd;
   if (reservation !== undefined) {
     accountedNanoUsd = calculateGeminiScoutNanoUsd(scoutData.usage);
@@ -659,6 +679,21 @@ export function isDeidentifiedResearchTarget(value: string): boolean {
     return false;
   }
   return true;
+}
+
+/**
+ * True when a completed scout's reported usage cost more than its reservation.
+ * The ledger cannot hold more than the reservation, so such a scout is refused
+ * rather than accepted at the clamped maximum. Unreported token counts count as
+ * zero here; calculateGeminiScoutNanoUsd charges the full reservation for them.
+ */
+function costsMoreThanReservation(usage: GeminiYoutubeScoutData["usage"]): boolean {
+  const reportedNanoUsd = (usage.total_input_tokens ?? 0) * GEMINI_INPUT_TOKEN_NANO_USD +
+    ((usage.total_output_tokens ?? 0) + (usage.total_thought_tokens ?? 0)) *
+      GEMINI_OUTPUT_OR_THOUGHT_TOKEN_NANO_USD +
+    usage.google_search_queries * GEMINI_SEARCH_QUERY_NANO_USD;
+  return !Number.isSafeInteger(reportedNanoUsd) ||
+    reportedNanoUsd > GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD;
 }
 
 export function calculateGeminiScoutNanoUsd(
