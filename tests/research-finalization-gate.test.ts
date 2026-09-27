@@ -905,6 +905,8 @@ describe("finalize_research gate", () => {
       `\n\n> ${rateCaveat}\n\nThat claim is false.\n\n`,
       // Shown as code or hidden in a comment, it is not stated either.
       `\`${rateCaveat}\``,
+      `\`\`\`\`${rateCaveat}\`\`\`\``,
+      `\n\n\`\`\` ${rateCaveat} \`\`\`\n\n`,
       `\n\n\`\`\`\n${rateCaveat}\n\`\`\`\n\n`,
       `\n\n    ${rateCaveat}\n\n`,
       `<!-- ${rateCaveat} -->`,
@@ -920,7 +922,9 @@ describe("finalize_research gate", () => {
       `\n\n## Limits\n1. **${rateCaveat}**\n\n`,
       // An indented paragraph under a list item continues it; text after a closed code block counts.
       `\n\n- Limits of this pass:\n\n    ${rateCaveat}\n\n`,
-      `\n\n\`\`\`\nsearch log\n\`\`\`\n\n${rateCaveat}`
+      `\n\n\`\`\`\nsearch log\n\`\`\`\n\n${rateCaveat}`,
+      // A line that opens with inline code is not a fence, so what follows still counts.
+      `\n\n\`\`\`search log\`\`\` shown above.\n\n${rateCaveat}`
     ]) {
       expect(answered(fullDraft.replace(rateCaveat, stated))).toEqual([]);
     }
@@ -995,6 +999,8 @@ describe("finalize_research gate", () => {
     expect(check(`${CLEAN_DRAFT} ${"[a](".repeat(14_000)}`).status).toBe("not_ready");
     expect(check(`${CLEAN_DRAFT} ${"``a`".repeat(14_000)}`).status).toBe("not_ready");
     expect(check(`${CLEAN_DRAFT} ${"<!--".repeat(14_000)}`).status).toBe("not_ready");
+    expect(check(`${CLEAN_DRAFT} ${Array.from({ length: 11_000 }, (_, index) => `${"`".repeat(index % 7 + 1)}a`).join("")}`).status)
+      .toBe("not_ready");
     expect(Date.now() - started).toBeLessThan(1_000);
     // Another pass needs an estimate with a number and a unit.
     for (const estimate of [undefined, "a while"]) {

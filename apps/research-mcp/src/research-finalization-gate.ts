@@ -826,11 +826,52 @@ function caveatForm(text: string): string {
 const BLOCK_START = /^(?:[-*+]|\d{1,3}[.)])\s|^#{1,6}\s|^>/u;
 const LIST_OR_HEADING_MARKER = /^(?:[-*+]|\d{1,3}[.)]|#{1,6})\s+/u;
 
-// Inline code in single or double backticks; each alternative reads one
-// character at a time, so a long draft is read in linear time.
-const CODE_SPAN = /``(?:[^`]|`(?!`))*``|`[^`]*`/gu;
 const LIST_ITEM = /^(?:[-*+]|\d{1,3}[.)])\s/u;
 const FENCE = /^(`{3,}|~{3,})/u;
+const BACKTICK = 96;
+
+/**
+ * Text without inline code: as in CommonMark, a run of backticks opens a span
+ * that the next run of the same length closes, and a run with no match is
+ * literal. Runs are paired in one pass, so a long draft is read in linear time.
+ */
+function withoutCodeSpans(text: string): string {
+  const runs: Array<{ start: number; end: number }> = [];
+  for (let at = text.indexOf("`"); at >= 0; at = text.indexOf("`", at)) {
+    const start = at;
+    while (at < text.length && text.charCodeAt(at) === BACKTICK) at += 1;
+    runs.push({ start, end: at });
+  }
+  // For each run, the next run of the same length.
+  const closer = new Array<number>(runs.length).fill(-1);
+  const laterByLength = new Map<number, number>();
+  for (let index = runs.length - 1; index >= 0; index -= 1) {
+    const length = runs[index]!.end - runs[index]!.start;
+    closer[index] = laterByLength.get(length) ?? -1;
+    laterByLength.set(length, index);
+  }
+  let result = "";
+  let from = 0;
+  for (let index = 0; index < runs.length; index += 1) {
+    const close = closer[index]!;
+    if (close < 0) continue;
+    result += text.slice(from, runs[index]!.start);
+    from = runs[close]!.end;
+    index = close;
+  }
+  return result + text.slice(from);
+}
+
+/**
+ * A code fence's marker, or undefined: a backtick fence's info string has no
+ * backticks (otherwise the line starts with inline code), per CommonMark.
+ */
+function fenceMarker(line: string): string | undefined {
+  const marker = FENCE.exec(line)?.[1];
+  return marker !== undefined && marker.startsWith("`") && line.slice(marker.length).includes("`")
+    ? undefined
+    : marker;
+}
 const INDENTED = /^(?: {4}|\t)/u;
 
 /** The draft without HTML comments, which are not displayed; their line breaks stay. */
@@ -863,15 +904,17 @@ function draftBlocks(draft: string): string[] {
   let inList = false;
   const flush = (): void => {
     if (current.length > 0) {
-      blocks.push(caveatForm(current.join(" ").replace(CODE_SPAN, "").replace(LIST_OR_HEADING_MARKER, "")));
+      blocks.push(caveatForm(withoutCodeSpans(current.join(" ")).replace(LIST_OR_HEADING_MARKER, "")));
     }
     current = [];
   };
   for (const line of withoutHtmlComments(draft).split(/\r?\n/u)) {
     const trimmed = line.trim();
-    const marker = FENCE.exec(trimmed)?.[1];
+    const marker = fenceMarker(trimmed);
     if (fence !== undefined) {
-      if (marker !== undefined && marker[0] === fence[0] && marker.length >= fence.length) fence = undefined;
+      // A closing fence repeats the opening character, at least as many times, and nothing else.
+      if (marker !== undefined && marker[0] === fence[0] && marker.length >= fence.length &&
+        trimmed.slice(marker.length).trim() === "") fence = undefined;
       continue;
     }
     if (marker !== undefined) {

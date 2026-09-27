@@ -872,6 +872,14 @@ and whether the final answer is the last checked draft. Cost: one more
   all). An indented paragraph under a list item still continues it. Each
   exclusion reads a long draft in linear time; five mutations, one per rule,
   each fail a test.
+- Codex on 9bb7d47 (one P1, fixed): inline code was matched with one or two
+  backticks only, so a caveat in a four-backtick span still counted. Inline
+  code is now found as CommonMark defines it: a run of backticks opens a span
+  that the next run of the same length closes, and a run with no match is
+  literal. Runs are paired in one pass, so any draft is read in linear time.
+  A line that opens with inline code (three backticks, with more backticks
+  later on the line) is no longer taken for a code fence, and a fence closes
+  only on a line with nothing after its marker.
 
 ## Comment-audit call budget (2026-09-27)
 
