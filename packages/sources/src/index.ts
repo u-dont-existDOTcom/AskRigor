@@ -205,6 +205,7 @@ export {
   GEMINI_YOUTUBE_SCOUT_MAX_TITLE_ONLY_CANDIDATES,
   GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS,
   GEMINI_YOUTUBE_SCOUT_MAX_LEAD_CHARACTERS,
+  GEMINI_YOUTUBE_BACKGROUND_REQUEST_TIMEOUT_MS,
   advanceGeminiYoutubeScoutBackground,
   geminiYoutubeScoutBackgroundCheckpointSchema,
   scoutGeminiYoutubeCandidates,

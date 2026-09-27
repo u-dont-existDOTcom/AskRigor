@@ -23,7 +23,7 @@ const GEMINI_INTERACTIONS_ENDPOINT =
 export const GEMINI_YOUTUBE_SCOUT_MODEL = "gemini-3.6-flash" as const;
 export const GEMINI_YOUTUBE_SCOUT_MAX_OUTPUT_TOKENS = 12_000 as const;
 const GEMINI_YOUTUBE_SCOUT_TIMEOUT_MS = 45_000;
-const GEMINI_YOUTUBE_BACKGROUND_REQUEST_TIMEOUT_MS = 20_000;
+export const GEMINI_YOUTUBE_BACKGROUND_REQUEST_TIMEOUT_MS = 20_000;
 const GEMINI_YOUTUBE_BACKGROUND_MAX_POLLS = 120;
 /**
  * The scout is asked for 8 to 18 searches, but grounded Gemini sometimes runs a

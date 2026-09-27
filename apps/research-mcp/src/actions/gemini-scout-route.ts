@@ -3,6 +3,7 @@ import { isAbsolute, normalize } from "node:path";
 
 import { ACCESS_STATUSES } from "@askrigor/contracts";
 import {
+  GEMINI_YOUTUBE_BACKGROUND_REQUEST_TIMEOUT_MS,
   GEMINI_YOUTUBE_SCOUT_MODEL,
   GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES,
   advanceGeminiYoutubeScoutBackground,
@@ -123,6 +124,11 @@ export interface CreateAutomatedGeminiScoutActionRouteOptions {
   scout?: typeof scoutGeminiYoutubeCandidates;
   backgroundScout?: typeof advanceGeminiYoutubeScoutBackground;
   backgroundPollDelayMs?: number;
+  // Epoch milliseconds by which provider polling must finish (MCP tool calls,
+  // which clients abandon after 60 seconds). A further poll starts only while
+  // its full request timeout still fits; without a deadline, polling stops
+  // after a fixed number of advances.
+  deadlineMs?: number;
   validate?: typeof validateGeminiYoutubeCandidateHandoff;
   loadScoutInstructions?: () => Promise<string>;
 }
@@ -432,14 +438,18 @@ export async function executeResumableAutomatedGeminiScout(
       model: GEMINI_YOUTUBE_SCOUT_MODEL
     };
     let activeCheckpoint = resume?.checkpoint;
-    const maximumAdvances = activeCheckpoint === undefined ? 1 : 3;
+    const maximumAdvances = options.deadlineMs !== undefined
+      ? MAXIMUM_DEADLINE_ADVANCES
+      : activeCheckpoint === undefined ? 1 : 3;
     const pollDelayMs = boundedBackgroundPollDelay(
       options.backgroundPollDelayMs ?? 5_000
     );
+    const anotherPollFits = (): boolean => options.deadlineMs === undefined ||
+      Date.now() + pollDelayMs + GEMINI_YOUTUBE_BACKGROUND_REQUEST_TIMEOUT_MS <= options.deadlineMs;
     advance = await backgroundScout(scoutInput, scoutConfig, activeCheckpoint);
     for (
       let attempt = 1;
-      advance.kind === "progress" && attempt < maximumAdvances;
+      advance.kind === "progress" && attempt < maximumAdvances && anotherPollFits();
       attempt += 1
     ) {
       activeCheckpoint = advance.checkpoint;
@@ -516,6 +526,9 @@ export async function executeResumableAutomatedGeminiScout(
     }
   };
 }
+
+// Bounds the polls of one deadline-paced call even if the poll delay is zero.
+const MAXIMUM_DEADLINE_ADVANCES = 12;
 
 function controllerBoundary(
   code: z.output<typeof automatedScoutBoundarySchema>["code"],

@@ -244,6 +244,19 @@ run went from 07:12 to 09:44 UTC.
   "A". That is a no-op whenever the value already ends in "A" (1 in 16 for
   a permit signature), which explains an earlier one-off failure. They now
   change the first character instead.
+- **Codex review of c623eb8** (three findings, all confirmed and fixed):
+  - `finalize_research` counted a receipt passed several times as several
+    rounds, so one round passed four times reached the first-pass cap. It
+    now counts each receipt once, and counts rounds toward the cap by
+    distinct query.
+  - The scout receipt's `open` count left out titles it had not yet looked
+    up, so two such rounds could count as saturated. Titles that were not
+    searched, or whose search failed or hit the quota, now count as open.
+  - One MCP scout call could poll Gemini for about 70 seconds, past
+    Claude's 60-second tool timeout. Polling now takes a deadline: a
+    further poll starts only if its 20-second timeout ends by 40 seconds.
+    Title searches run only if they can end by 55 seconds; otherwise the
+    titles stay open leads.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 

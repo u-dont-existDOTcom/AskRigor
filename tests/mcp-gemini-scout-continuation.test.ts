@@ -74,19 +74,21 @@ describe("MCP Gemini scout continuation", () => {
     const now = vi.spyOn(Date, "now");
     let clock = 1_790_000_000_000;
     now.mockImplementation(() => clock);
-    // Every advance "takes" 15 seconds, so the first call hands back a token.
+    // The executor polls until its deadline and is still searching, so the call hands back a token.
     execute.mockImplementation(async () => {
-      clock += 15_000;
+      clock += 38_000;
       return progress;
     });
     const client = await connect();
+    const startedAt = clock;
 
     const first = await client.callTool({ name: "scout_gemini_youtube_candidates", arguments: TARGET });
     expect(first.isError).not.toBe(true);
     const pending = first.structuredContent as { scout_status: string; continuation_token: string };
     expect(pending.scout_status).toBe("pending");
-    expect(execute).toHaveBeenCalledTimes(2);
-    expect(execute).toHaveBeenNthCalledWith(1, TARGET, undefined, {}, []);
+    // One deadline-paced advance per call keeps the call under Claude's 60-second tool timeout.
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(execute).toHaveBeenNthCalledWith(1, TARGET, undefined, { deadlineMs: startedAt + 40_000 }, []);
 
     execute.mockReset();
     execute.mockResolvedValueOnce({
@@ -129,7 +131,9 @@ describe("MCP Gemini scout continuation", () => {
     });
     now.mockRestore();
 
-    expect(execute).toHaveBeenCalledWith(TARGET, { checkpoint: CHECKPOINT, accountedNanoUsd: 1_000_000_000 }, {}, []);
+    expect(execute).toHaveBeenCalledWith(
+      TARGET, { checkpoint: CHECKPOINT, accountedNanoUsd: 1_000_000_000 }, { deadlineMs: expect.any(Number) }, []
+    );
     expect(second.isError).not.toBe(true);
     const done = second.structuredContent as { scout_status: string; provider_storage_mode: string; research_receipt: string };
     // Title-only finds come first, then the candidate whose ID did not exist.
@@ -176,6 +180,46 @@ describe("MCP Gemini scout continuation", () => {
     }]);
   });
 
+  it("leaves named titles unsearched when the call is running long, and counts them as open", async () => {
+    const now = vi.spyOn(Date, "now");
+    let clock = 1_790_000_000_000;
+    now.mockImplementation(() => clock);
+    execute.mockImplementation(async () => {
+      clock += 40_000;
+      return {
+        controller_completion: {
+          provider_response_id: "response-3",
+          packet: {
+            discovery_queries: [],
+            search_gaps: [],
+            candidates: [],
+            title_only_candidates: [
+              { title: "Gelatin for my hip, one year later", channel: "not described", why_surfaced: "Named remedy" },
+              { title: "Hip pain gone after hydration", channel: "not described", why_surfaced: "Named remedy" }
+            ]
+          },
+          validation: validationReceipt(),
+          provider_storage_mode: "TEMPORARY_BACKGROUND_DELETE_REQUESTED",
+          accounted_nano_usd: 900_000_000
+        }
+      };
+    });
+    const client = await connect();
+    const done = await client.callTool({ name: "scout_gemini_youtube_candidates", arguments: TARGET });
+    now.mockRestore();
+
+    expect(search).not.toHaveBeenCalled();
+    const output = done.structuredContent as {
+      title_lookup: { unresolved: Array<{ reason: string }> };
+      research_receipt: string;
+    };
+    expect(output.title_lookup.unresolved.map(({ reason }) => reason)).toEqual(["not_searched", "not_searched"]);
+    expect(verifyResearchReceipt(output.research_receipt, { secret: SECRET })).toMatchObject({
+      ok: true,
+      claims: { open: "2" }
+    });
+  });
+
   it("sends only screened text to Gemini: a first-person target or lead is refused before any provider call", async () => {
     const client = await connect();
     const personal = await client.callTool({
@@ -210,7 +254,7 @@ describe("MCP Gemini scout continuation", () => {
     });
     const pending = first.structuredContent as { continuation_token: string; rediscovery_leads: string[] };
     expect(pending.rediscovery_leads).toEqual(leads);
-    expect(execute).toHaveBeenNthCalledWith(1, TARGET, undefined, {}, leads);
+    expect(execute).toHaveBeenNthCalledWith(1, TARGET, undefined, { deadlineMs: expect.any(Number) }, leads);
 
     const both = await client.callTool({
       name: "scout_gemini_youtube_candidates",
@@ -233,7 +277,9 @@ describe("MCP Gemini scout continuation", () => {
       arguments: { continuation_token: pending.continuation_token }
     });
     now.mockRestore();
-    expect(execute).toHaveBeenCalledWith(TARGET, { checkpoint: CHECKPOINT, accountedNanoUsd: 1_000_000_000 }, {}, leads);
+    expect(execute).toHaveBeenCalledWith(
+      TARGET, { checkpoint: CHECKPOINT, accountedNanoUsd: 1_000_000_000 }, { deadlineMs: expect.any(Number) }, leads
+    );
     const receipt = (done.structuredContent as { research_receipt: string }).research_receipt;
     // A rediscovery round is a different angle from the first scout of the same target.
     expect(verifyResearchReceipt(receipt, { secret: SECRET })).toMatchObject({

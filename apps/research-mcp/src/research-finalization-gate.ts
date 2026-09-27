@@ -129,7 +129,11 @@ export function finalizeResearch(
 
   const verified: VerifiedReceipt[] = [];
   const rejected: FinalizeResearchOutput["receipts_rejected"] = [];
+  // The same receipt passed twice is one unit of work, never two rounds.
+  const seen = new Set<string>();
   input.receipts.forEach((token, index) => {
+    if (seen.has(token)) return;
+    seen.add(token);
     const result = verifyResearchReceipt(token, {
       secret: options.secret!,
       ...(options.now === undefined ? {} : { now: options.now })
@@ -209,9 +213,11 @@ export function finalizeResearch(
     saturated = saturation.saturated;
     // A first pass is a broad sweep with a cap: it may stop before saturation
     // once enough is audited or searched, and then hands back its open leads.
+    // Its rounds come from new angles, so a repeated query does not count.
     const auditedMaterial = materialVideos.filter((video) => audited.has(video)).length;
+    const angles = new Set(rounds.map((round) => text(round.claims.q) || `${round.kind}#${round.index}`)).size;
     firstPassComplete = input.research_depth === "first_pass" &&
-      (saturated || auditedMaterial >= FIRST_PASS_AUDITED_VIDEOS || rounds.length >= FIRST_PASS_ROUNDS);
+      (saturated || auditedMaterial >= FIRST_PASS_AUDITED_VIDEOS || angles >= FIRST_PASS_ROUNDS);
     if (!saturated && firstPassComplete) {
       if (openLeads.length === 0) {
         nextSteps.push(
@@ -453,7 +459,8 @@ function discoverySaturation(
     );
   } else if (unchecked) {
     nextSteps.push(
-      `A recent scout round left candidates it could not verify; run another round from a new angle (${NEW_ANGLE_HINT}).` + stop
+      "A recent scout round left candidates it could not verify or look up; search a promising one by its exact title " +
+        `with search_youtube, or run another round from a new angle (${NEW_ANGLE_HINT}).` + stop
     );
   } else if (previousAngle === "" || previousAngle === lastAngle) {
     nextSteps.push(

@@ -1345,16 +1345,12 @@ function defineResearchOperations(
         }
       }
 
-      // Poll within one call only while a further bounded advance still fits
+      // Poll within one call only while a further provider request still fits
       // under the client's tool timeout; otherwise hand back a continuation.
       const started = Date.now();
-      let execution = await executeResumableAutomatedGeminiScout(target, resume, {}, leads);
-      while ("controller_progress" in execution && Date.now() - started < MCP_SCOUT_POLL_WINDOW_MS) {
-        execution = await executeResumableAutomatedGeminiScout(target, {
-          checkpoint: execution.controller_progress.checkpoint,
-          accountedNanoUsd: execution.controller_progress.accounted_nano_usd
-        }, {}, leads);
-      }
+      const execution = await executeResumableAutomatedGeminiScout(
+        target, resume, { deadlineMs: started + MCP_SCOUT_POLL_WINDOW_MS }, leads
+      );
       if ("controller_boundary" in execution) {
         return scoutError(execution.controller_boundary.code, execution.controller_boundary.retryable);
       }
@@ -1390,9 +1386,13 @@ function defineResearchOperations(
           .filter(({ video_id }) => notFound.has(video_id))
           .map(({ title, channel, why_surfaced }) => ({ title, channel, why_surfaced }))
       ];
+      // Title searches run in parallel; skip them when they might not finish
+      // before the client gives up, and leave the titles as open leads.
+      const lookupFits = Date.now() + MCP_SCOUT_TITLE_LOOKUP_MS <= started + MCP_SCOUT_CALL_LIMIT_MS;
       const titleLookup = titleLeads.length === 0 ? undefined : await lookUpScoutTitles(titleLeads, {
         config: youtubeConfig(),
-        knownVideoIds: new Set(validation.validated_candidates.map(({ video_id }) => video_id))
+        knownVideoIds: new Set(validation.validated_candidates.map(({ video_id }) => video_id)),
+        ...(lookupFits ? {} : { limit: 0 })
       });
       const output = MCP_SCOUT_OUTPUT_SCHEMA.parse({
         scout_status: "complete",
@@ -1408,7 +1408,9 @@ function defineResearchOperations(
         return scoutError("gemini_youtube_candidate_validation_response_too_large", false);
       }
       // A scout that ran identity validation is a discovery round even when it
-      // found nothing; `open` counts candidates that could not be checked.
+      // found nothing; `open` counts candidates that could not be checked,
+      // including named titles not yet looked up (a title searched without a
+      // match is settled).
       const found = titleLookup?.found ?? [];
       const unresolvedTitles = titleLookup?.unresolved ?? [];
       return withResearchReceipt(successfulToolResult(
@@ -1425,7 +1427,8 @@ function defineResearchOperations(
           ...validation.validated_candidates.map(({ video_id }) => video_id),
           ...found.map(({ video_id }) => video_id)
         ],
-        open: validation.unresolved_candidates.length,
+        open: validation.unresolved_candidates.length +
+          unresolvedTitles.filter(({ reason }) => reason !== "no_matching_video").length,
         q: discoveryQueryDigest([target.research_target, ...leads])
       }));
     }
@@ -1477,8 +1480,11 @@ const RESEARCH_RECEIPT_OUTPUT_SHAPE = {
   research_receipt: z.string().optional()
 };
 
-/** Stay under MCP client tool timeouts (Claude clients stop at 60 seconds). */
-const MCP_SCOUT_POLL_WINDOW_MS = 20_000;
+// Claude clients abandon a tool call after 60 seconds. Provider polling ends
+// by 40 seconds; title searches start only if their timeout ends by 55.
+const MCP_SCOUT_POLL_WINDOW_MS = 40_000;
+const MCP_SCOUT_TITLE_LOOKUP_MS = 20_000;
+const MCP_SCOUT_CALL_LIMIT_MS = 55_000;
 const MCP_SCOUT_RETRY_AFTER_SECONDS = 10;
 const MCP_SCOUT_MAX_BYTES = 45_000;
 

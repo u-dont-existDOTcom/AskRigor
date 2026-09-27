@@ -221,7 +221,8 @@ describe("finalize_research gate", () => {
 
   it("does not count repeated searches or unverified scout candidates as saturation", () => {
     const base = { community_evidence: "researched" as const, key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }] };
-    const sameAngle = sign("youtube_search", { videos: [], q: "b2b2b2b2b2b2" }, options);
+    // A later call repeating the same query (a byte-identical receipt would count once).
+    const sameAngle = sign("youtube_search", { videos: ["zzzzzzzzzzz"], q: "b2b2b2b2b2b2" }, options);
     expect(finalizeResearch({ ...base, receipts: [survey, emptySearch, sameAngle, videoA, study] }, options).next_steps)
       .toEqual([expect.stringMatching(/^The last two discovery rounds repeated the same searches/u)]);
 
@@ -263,6 +264,27 @@ describe("finalize_research gate", () => {
     expect(deep.status).toBe("not_ready");
     expect(deep.community).toMatchObject({ depth: "deep", first_pass_complete: false });
     expect(deep.next_steps).toEqual([expect.stringMatching(/^Discovery has not saturated: eeeeeeeeeee first turned up/u)]);
+  });
+
+  it("does not count a repeated receipt or a repeated query toward the first-pass cap", () => {
+    const base = {
+      community_evidence: "researched" as const,
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }],
+      open_leads: [{ topic: "Anything else", why: "Stopping early." }]
+    };
+    const round = sign("youtube_search", { videos: [], q: "k1k1k1k1k1k1" }, options);
+    const duplicated = finalizeResearch({ ...base, receipts: [survey, round, round, round, round, videoA, study] }, options);
+    expect(duplicated.receipts_verified).toBe(4);
+    expect(duplicated.community).toMatchObject({ discovery_rounds: 2, first_pass_complete: false });
+    expect(duplicated.status).toBe("not_ready");
+
+    // Distinct receipts that repeat one query are still one angle.
+    const sameQuery = ["fffffffffff", "ggggggggggg", "hhhhhhhhhhh"].map((video) =>
+      sign("youtube_search", { videos: [video], q: "k1k1k1k1k1k1" }, options)
+    );
+    const repeated = finalizeResearch({ ...base, receipts: [survey, ...sameQuery, videoA, study] }, options);
+    expect(repeated.community).toMatchObject({ discovery_rounds: 4, first_pass_complete: false });
+    expect(repeated.status).toBe("not_ready");
   });
 
   it("does not let a first pass stop before it has audited or searched enough", () => {
