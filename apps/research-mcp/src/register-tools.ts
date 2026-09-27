@@ -161,6 +161,8 @@ import {
 } from "./research-receipts.js";
 import {
   compactYoutubeAuditForMcp,
+  compactYoutubeCommunityAuditForMcp,
+  mcpYoutubeCommunityAuditOutputSchema,
   mcpYoutubeVideoCommunityAuditOutputSchema
 } from "./youtube-mcp-sample.js";
 
@@ -502,6 +504,19 @@ const youtubeCommentEnvelopeSchema = z.object({
   error: errorSchema.optional(),
   data: youtubeCommentDataUnionSchema
 }).strict();
+
+// A query-bounded search sees only the comments that match its terms, so no
+// result, not even zero matches, says what the other comments contain.
+const youtubeCommentSearchOutputSchema = youtubeCommentEnvelopeSchema.extend({
+  absence_inference_permitted: z.literal(false)
+}).strict();
+const COMMENT_SEARCH_NON_EVIDENCE =
+  "Query-bounded: matches show only comments that contain these terms. Zero or few matches are no evidence that " +
+  "commenters do not report something; read the full comments with audit_youtube_video_community before saying so.";
+
+function commentSearchOutput(result: object): z.output<typeof youtubeCommentSearchOutputSchema> {
+  return youtubeCommentSearchOutputSchema.parse({ ...result, absence_inference_permitted: false });
+}
 
 const READ_ONLY_ANNOTATIONS: ToolAnnotations = {
   readOnlyHint: true,
@@ -1063,7 +1078,7 @@ function defineResearchOperations(
       description:
         "Retrieve a query-bounded API-visible YouTube comment-thread subset and independently paginate replies with explicit partial coverage; no medical conclusions are generated.",
       inputSchema: youtubeCommentSearchInputSchema,
-      outputSchema: youtubeCommentEnvelopeSchema,
+      outputSchema: youtubeCommentSearchOutputSchema,
       annotations: READ_ONLY_ANNOTATIONS
     },
     async ({ video_id_or_url, query, include_replies, cursor }) => {
@@ -1075,14 +1090,14 @@ function defineResearchOperations(
           ...(cursor === undefined ? {} : { cursor })
         }, youtubeConfig(), { budgets: youtubeCommentBudgets() });
         return youtubeToolResult(
-          `YouTube targeted comment retrieval returned ${result.pagination.returned} comment/reply record(s); access status ${result.access_status}.`,
-          result
+          `YouTube targeted comment retrieval returned ${result.pagination.returned} comment/reply record(s); access status ${result.access_status}. ${COMMENT_SEARCH_NON_EVIDENCE}`,
+          commentSearchOutput(result)
         );
       } catch (_error) {
         const result = youtubeCommentsFailure(query);
         return youtubeToolResult(
-          "YouTube targeted comment retrieval returned 0 comment/reply record(s); access status error.",
-          result
+          `YouTube targeted comment retrieval returned 0 comment/reply record(s); access status error. ${COMMENT_SEARCH_NON_EVIDENCE}`,
+          commentSearchOutput(result)
         );
       }
     }
@@ -1095,10 +1110,10 @@ function defineResearchOperations(
         "Use before synthesis whenever firsthand community evidence could plausibly matter. In one read-only call, search YouTube, deduplicate bounded provider-ranked videos, retrieve metadata, unfiltered comments and all accessible replies, and return a deterministic completion receipt; no medical conclusions are generated. " +
           "research_question must be the research_target given to the other tools.",
       inputSchema: youtubeCommunityAuditInputSchema,
-      outputSchema: youtubeCommunityAuditOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
+      outputSchema: mcpYoutubeCommunityAuditOutputSchema,
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async (input) => {
+    async (input, extra) => {
       let result: YoutubeCommunityAuditOutput;
       try {
         result = await auditYoutubeCommunity(
@@ -1109,9 +1124,17 @@ function defineResearchOperations(
       } catch (_error) {
         result = youtubeCommunityAuditFailure(input);
       }
+      const summary = `YouTube community audit selected ${result.receipt.selected_video_ids.length} video(s); completion state ${result.receipt.completion_state}; synthesis lock ${result.receipt.synthesis_lock}.`;
+      // The Custom GPT Action bounds the full audit itself.
+      if (isActionCall(extra)) return youtubeToolResult(summary, result);
+      const view = compactYoutubeCommunityAuditForMcp(
+        result,
+        MCP_YOUTUBE_AUDIT_MAX_BYTES,
+        MCP_BOUNDED_SAMPLE_LIMITATION
+      );
       return withResearchReceipt(youtubeToolResult(
-        `YouTube community audit selected ${result.receipt.selected_video_ids.length} video(s); completion state ${result.receipt.completion_state}; synthesis lock ${result.receipt.synthesis_lock}.`,
-        result
+        result.receipt.completion_state === "incomplete" ? summary : `${summary} ${MCP_COMMENT_FINDINGS_HANDOFF}`,
+        view
       ), result.receipt.completion_state === "incomplete"
         ? undefined
         : researchReceipt("youtube_community_audit", {
@@ -1206,7 +1229,10 @@ function defineResearchOperations(
         MCP_YOUTUBE_AUDIT_MAX_BYTES,
         MCP_BOUNDED_SAMPLE_LIMITATION
       );
-      return withResearchReceipt(youtubeToolResult(summary, view), result.receipt.completion_state === "incomplete"
+      return withResearchReceipt(youtubeToolResult(
+        result.receipt.completion_state === "incomplete" ? summary : `${summary} ${MCP_COMMENT_FINDINGS_HANDOFF}`,
+        view
+      ), result.receipt.completion_state === "incomplete"
         ? undefined
         : researchReceipt("youtube_video_audit", {
             video: result.video_id,
@@ -1570,9 +1596,11 @@ function defineResearchOperations(
         "Call before the final answer. Pass every research_receipt you received, the research_target (the same text " +
         "given to the scout, search_youtube and the coverage check, and as research_question to surveys and community " +
         "audits; discovery for any other target does not count), whether community evidence was researched, whether " +
-        "the answer compares treatment options, and the studies your conclusions depend on. " +
+        "the answer compares treatment options, what the comments you read showed (community_findings), and the " +
+        "studies your conclusions depend on. " +
         "not_ready lists the remaining steps; " +
-        "ready_with_limits lists limits the answer must state; receipts_unavailable means this server cannot " +
+        "ready_with_limits lists limits the answer must state; must_report lists what the answer must report from " +
+        "each lane researched; receipts_unavailable means this server cannot " +
         "verify completion, so do the required work anyway and say that completion was not server-verified.",
       inputSchema: finalizeResearchInputSchema,
       outputSchema: finalizeResearchOutputSchema,
@@ -1582,7 +1610,8 @@ function defineResearchOperations(
       const result = finalizeResearch(input, { secret: researchReceiptSecretFromEnv() });
       return successfulToolResult(
         `Research finalization: ${result.status}; ${result.next_steps.length} next step(s), ` +
-          `${result.limits.length} limit(s) to state; ${result.receipts_verified} receipt(s) verified.`,
+          `${result.limits.length} limit(s) to state; ${result.receipts_verified} receipt(s) verified.` +
+          result.must_report.map((lane) => `\nThe answer must report: ${lane}`).join(""),
         result as unknown as Record<string, unknown>
       );
     }
@@ -1593,6 +1622,10 @@ function defineResearchOperations(
 // comment record is about 600. The sample is cut in the same deterministic
 // order the Custom GPT Action uses; counts and the receipt cover the corpus.
 const MCP_YOUTUBE_AUDIT_MAX_BYTES = 40_000;
+// A pass lock says the comments were retrieved, not that they reached the answer.
+const MCP_COMMENT_FINDINGS_HANDOFF =
+  "The synthesis lock covers comment retrieval only. Note now what these comments show (benefit, no-effect and " +
+  "adverse reports), and give it to finalize_research as community_findings, even if the signal is weak or neutral.";
 const MCP_BOUNDED_SAMPLE_LIMITATION =
   "This response returns a deterministic subset of the analysis sample to fit client result-size limits; retrieval coverage and corpus counts are reported separately.";
 

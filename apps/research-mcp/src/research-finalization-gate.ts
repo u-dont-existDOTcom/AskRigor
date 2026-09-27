@@ -47,6 +47,19 @@ export const finalizeResearchInputSchema = z.object({
     why: z.string().trim().min(1).max(500)
   }).strict()).max(12).optional()
     .describe("When a first pass stops before discovery saturates: each topic or subtopic where more community signal is likely, and why."),
+  community_findings: z.object({
+    videos_reviewed: z.array(youtubeVideoIdSchema).min(1).max(60)
+      .describe("Every video whose comments you read."),
+    benefit_reports: z.string().trim().min(1).max(800),
+    no_effect_reports: z.string().trim().min(1).max(800),
+    adverse_reports: z.string().trim().min(1).max(800),
+    creators_versus_commenters: z.string().trim().min(1).max(500),
+    effect_on_answer: z.string().trim().min(1).max(800)
+  }).strict().optional()
+    .describe("What the YouTube comments you read showed: benefit, no-effect and adverse reports with rough counts, " +
+      "how creators differ from independent commenters, and what this changes in the answer. Summarize; do not quote " +
+      "or name commenters. Needed whenever a comment audit ran, even if the signal was weak or neutral; the answer " +
+      "must report it (must_report)."),
   key_sources: z.array(z.object({
     id: z.string().trim().min(1).max(300).describe("DOI, PMID or PMCID."),
     status: z.enum(["validated", "lead_only"]),
@@ -68,6 +81,8 @@ export const finalizeResearchOutputSchema = z.object({
   status: finalizationStatusSchema,
   next_steps: z.array(z.string()),
   limits: z.array(z.string()),
+  must_report: z.array(z.string())
+    .describe("What the answer must report from each evidence lane researched, even when weak or neutral."),
   receipts_verified: z.number().int().nonnegative(),
   receipts_rejected: z.array(z.object({
     index: z.number().int().nonnegative(),
@@ -120,6 +135,7 @@ export function finalizeResearch(
       limits: [
         "This AskRigor server cannot verify research receipts, so say that research completion was not server-verified."
       ],
+      must_report: input.community_findings === undefined ? [] : [communityLane(input.community_findings)],
       receipts_verified: 0,
       receipts_rejected: [],
       community: {
@@ -307,6 +323,35 @@ export function finalizeResearch(
     }
   }
 
+  // Comments that were read must reach the answer, even when their signal is
+  // weak: a lane that ran early can otherwise vanish behind later sources.
+  const mustReport: string[] = [];
+  const commentVideos = new Set([...audited.keys(), ...communityAudited]);
+  const findings = input.community_findings;
+  if (commentVideos.size > 0 && findings === undefined) {
+    nextSteps.push(
+      "Say what the comments you read showed: give community_findings (benefit, no-effect and adverse reports, " +
+        "creators versus independent commenters, and the effect on the answer), even if the signal is weak or neutral."
+    );
+  } else if (findings !== undefined) {
+    const reviewed = new Set(findings.videos_reviewed);
+    const unlisted = [...commentVideos].filter((video) => !reviewed.has(video)).sort();
+    const unaudited = [...reviewed].filter((video) => !commentVideos.has(video)).sort();
+    if (unlisted.length > 0) {
+      nextSteps.push(
+        `Add ${unlisted.join(", ")} to community_findings.videos_reviewed: their comments were read, so the ` +
+          "findings must account for them."
+      );
+    }
+    if (unaudited.length > 0) {
+      nextSteps.push(
+        `community_findings.videos_reviewed lists ${unaudited.join(", ")}, but no comment-audit receipt passed here ` +
+          "covers them; pass the receipt or drop them."
+      );
+    }
+    if (unlisted.length === 0 && unaudited.length === 0) mustReport.push(communityLane(findings));
+  }
+
   // Treatment coverage. The latest assess_treatment_landscape_coverage result
   // for this research target binds the answer, and a treatment comparison
   // needs one; a check made for another target does not count.
@@ -461,6 +506,7 @@ export function finalizeResearch(
     status,
     next_steps: nextSteps,
     limits,
+    must_report: mustReport,
     receipts_verified: verified.length,
     receipts_rejected: [...rejected, ...offTarget].sort((left, right) => left.index - right.index),
     community: {
@@ -495,6 +541,13 @@ export function finalizeResearch(
     });
   }
   return finalizeResearchOutputSchema.parse(output);
+}
+
+function communityLane(findings: NonNullable<FinalizeResearchInput["community_findings"]>): string {
+  return `YouTube comments (${findings.videos_reviewed.length} video(s) read): Benefits: ${findings.benefit_reports} ` +
+    `No effect: ${findings.no_effect_reports} Adverse: ${findings.adverse_reports} Creators versus commenters: ` +
+    `${findings.creators_versus_commenters} Effect on the answer: ${findings.effect_on_answer} Report this lane in ` +
+    "the answer even if later sources dominate; if its signal is weak, say so.";
 }
 
 interface VerifiedReceipt {

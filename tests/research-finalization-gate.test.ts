@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  finalizeResearch,
+  finalizeResearch as finalizeResearchGate,
   normalizeIdentifier
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import {
@@ -26,6 +26,33 @@ const sign = (...args: Parameters<typeof issueResearchReceipt>) =>
     t: (issueOrder += 1_000),
     ...args[1]
   }, options);
+
+// The gate needs community_findings whenever comments were read. Tests of
+// other checks get findings for exactly the videos their receipts audited; a
+// test can pass its own community_findings, or undefined, to check them.
+const commentVideos = (receipts: readonly string[]) => [...new Set(receipts.flatMap((receipt) => {
+  const verified = verifyResearchReceipt(receipt, options);
+  if (!verified.ok) return [];
+  const videos = verified.kind === "youtube_video_audit"
+    ? verified.claims.video
+    : verified.kind === "youtube_community_audit" ? verified.claims.videos : undefined;
+  return videos === undefined ? [] : typeof videos === "string" ? [videos] : videos;
+}))];
+const findingsFor = (videos: string[]) => ({
+  videos_reviewed: videos,
+  benefit_reports: "About a third of commenters reported less pain after several months.",
+  no_effect_reports: "Several reported no change.",
+  adverse_reports: "None reported.",
+  creators_versus_commenters: "The creators sell programs; commenters have no stake.",
+  effect_on_answer: "Supports trying it before surgery, as weak firsthand evidence."
+});
+const finalizeResearch = (input: Record<string, unknown> & { receipts: string[] }, gateOptions: typeof options) => {
+  const videos = commentVideos(input.receipts);
+  return finalizeResearchGate(
+    videos.length === 0 ? input : { community_findings: findingsFor(videos), ...input },
+    gateOptions
+  );
+};
 
 const survey = sign("youtube_survey", {
   access: "complete", searches: 4, videos: ["aaaaaaaaaaa", "bbbbbbbbbbb", "ccccccccccc"], q: "a1a1a1a1a1a1"
@@ -272,6 +299,54 @@ describe("finalize_research gate", () => {
     }, options);
     expect(audited.status).toBe("ready");
     expect(audited.community).toMatchObject({ audited_videos: ["aaaaaaaaaaa"] });
+  });
+
+  it("carries the comments that were read into the answer, even when later sources dominate", () => {
+    // The reported failure: a one-call audit read three videos' comments, then
+    // PubMed and web searches followed and the answer never mentioned YouTube.
+    const communityAudit = sign("youtube_community_audit", {
+      videos: ["aaaaaaaaaaa", "bbbbbbbbbbb", "ccccccccccc"], state: "api_visible_complete", lock: "pass",
+      q: "e5e5e5e5e5e5", open: 0, t: Date.parse("2026-09-26T10:00:00.000Z")
+    }, options);
+    const request = {
+      receipts: [communityAudit, emptySearch, repeatScout, study],
+      community_evidence: "researched" as const,
+      treatment_choice: "not_compared" as const,
+      research_target: TARGET,
+      no_material_video_reason: "The comments were read in the one-call audit and add no approach worth a full audit.",
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
+    };
+    const silent = finalizeResearchGate(request, options);
+    expect(silent.status).toBe("not_ready");
+    expect(silent.next_steps).toEqual([
+      "Say what the comments you read showed: give community_findings (benefit, no-effect and adverse reports, " +
+        "creators versus independent commenters, and the effect on the answer), even if the signal is weak or neutral."
+    ]);
+    expect(silent.must_report).toEqual([]);
+
+    const partial = finalizeResearchGate({
+      ...request,
+      community_findings: findingsFor(["aaaaaaaaaaa", "ccccccccccc", "ddddddddddd"])
+    }, options);
+    expect(partial.next_steps).toEqual([
+      "Add bbbbbbbbbbb to community_findings.videos_reviewed: their comments were read, so the findings must account for them.",
+      "community_findings.videos_reviewed lists ddddddddddd, but no comment-audit receipt passed here covers them; " +
+        "pass the receipt or drop them."
+    ]);
+
+    // A weak lane still reaches the answer.
+    const weak = finalizeResearchGate({
+      ...request,
+      community_findings: {
+        ...findingsFor(["aaaaaaaaaaa", "bbbbbbbbbbb", "ccccccccccc"]),
+        benefit_reports: "Two commenters reported deeper sleep.",
+        effect_on_answer: "Adds no strong independent signal; the answer rests on the studies."
+      }
+    }, options);
+    expect(weak.status).not.toBe("not_ready");
+    expect(weak.must_report).toEqual([expect.stringMatching(
+      /^YouTube comments \(3 video\(s\) read\): Benefits: Two commenters reported deeper sleep\. .*Effect on the answer: Adds no strong independent signal; the answer rests on the studies\. Report this lane in the answer even if later sources dominate; if its signal is weak, say so\.$/u
+    )]);
   });
 
   it("does not accept model-reported validation or lead status without receipts", () => {

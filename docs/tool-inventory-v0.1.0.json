@@ -5789,6 +5789,10 @@
                 "additionalProperties": false
               }
             ]
+          },
+          "absence_inference_permitted": {
+            "type": "boolean",
+            "const": false
           }
         },
         "required": [
@@ -5799,7 +5803,8 @@
           "pagination",
           "access_status",
           "limitations",
-          "data"
+          "data",
+          "absence_inference_permitted"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false
@@ -6364,7 +6369,8 @@
                       "type": "string",
                       "enum": [
                         "all",
-                        "systematic_chronological"
+                        "systematic_chronological",
+                        "deterministic_hash_chronological"
                       ]
                     },
                     "corpus_count": {
@@ -6383,71 +6389,39 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "video_id": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "reply_to": {
+                            "type": "string"
+                          },
+                          "author": {
                             "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{11}$"
+                            "pattern": "^[a-f0-9]{8}$"
                           },
-                          "comment_id": {
+                          "date": {
                             "type": "string",
-                            "minLength": 1,
-                            "maxLength": 512
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
                           },
-                          "parent_id": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 512
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "top_level_comment_id": {
-                            "type": "string",
-                            "minLength": 1,
-                            "maxLength": 512
-                          },
-                          "is_reply": {
-                            "type": "boolean"
-                          },
-                          "author_channel_id": {
-                            "type": "string",
-                            "pattern": "^UC[A-Za-z0-9_-]{22}$"
-                          },
-                          "author_display_name": {
-                            "type": "string",
-                            "maxLength": 10000
-                          },
-                          "text": {
-                            "type": "string",
-                            "maxLength": 1000000
-                          },
-                          "like_count": {
+                          "likes": {
                             "type": "integer",
                             "minimum": 0,
                             "maximum": 9007199254740991
                           },
-                          "published_at": {
-                            "type": "string",
-                            "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$"
+                          "edited": {
+                            "type": "boolean",
+                            "const": true
                           },
-                          "updated_at": {
-                            "type": "string",
-                            "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$"
+                          "text": {
+                            "type": "string"
                           }
                         },
                         "required": [
-                          "video_id",
-                          "comment_id",
-                          "parent_id",
-                          "top_level_comment_id",
-                          "is_reply",
-                          "text",
-                          "like_count",
-                          "published_at",
-                          "updated_at"
+                          "id",
+                          "author",
+                          "date",
+                          "likes",
+                          "text"
                         ],
                         "additionalProperties": false
                       }
@@ -12039,7 +12013,7 @@
     },
     {
       "name": "finalize_research",
-      "description": "Call before the final answer. Pass every research_receipt you received, the research_target (the same text given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits; discovery for any other target does not count), whether community evidence was researched, whether the answer compares treatment options, and the studies your conclusions depend on. not_ready lists the remaining steps; ready_with_limits lists limits the answer must state; receipts_unavailable means this server cannot verify completion, so do the required work anyway and say that completion was not server-verified.",
+      "description": "Call before the final answer. Pass every research_receipt you received, the research_target (the same text given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits; discovery for any other target does not count), whether community evidence was researched, whether the answer compares treatment options, what the comments you read showed (community_findings), and the studies your conclusions depend on. not_ready lists the remaining steps; ready_with_limits lists limits the answer must state; must_report lists what the answer must report from each lane researched; receipts_unavailable means this server cannot verify completion, so do the required work anyway and say that completion was not server-verified.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -12128,6 +12102,56 @@
               "additionalProperties": false
             }
           },
+          "community_findings": {
+            "description": "What the YouTube comments you read showed: benefit, no-effect and adverse reports with rough counts, how creators differ from independent commenters, and what this changes in the answer. Summarize; do not quote or name commenters. Needed whenever a comment audit ran, even if the signal was weak or neutral; the answer must report it (must_report).",
+            "type": "object",
+            "properties": {
+              "videos_reviewed": {
+                "minItems": 1,
+                "maxItems": 60,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{11}$"
+                },
+                "description": "Every video whose comments you read."
+              },
+              "benefit_reports": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 800
+              },
+              "no_effect_reports": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 800
+              },
+              "adverse_reports": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 800
+              },
+              "creators_versus_commenters": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "effect_on_answer": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 800
+              }
+            },
+            "required": [
+              "videos_reviewed",
+              "benefit_reports",
+              "no_effect_reports",
+              "adverse_reports",
+              "creators_versus_commenters",
+              "effect_on_answer"
+            ],
+            "additionalProperties": false
+          },
           "key_sources": {
             "maxItems": 60,
             "type": "array",
@@ -12195,6 +12219,13 @@
             "items": {
               "type": "string"
             }
+          },
+          "must_report": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "What the answer must report from each evidence lane researched, even when weak or neutral."
           },
           "receipts_verified": {
             "type": "integer",
@@ -12317,6 +12348,7 @@
           "status",
           "next_steps",
           "limits",
+          "must_report",
           "receipts_verified",
           "receipts_rejected",
           "community",

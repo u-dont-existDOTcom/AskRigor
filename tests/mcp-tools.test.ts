@@ -447,10 +447,21 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(result.isError).not.toBe(true);
-      expect(result.content).toEqual([{
+      expect((result.content as unknown[])[0]).toEqual({
         type: "text",
-        text: "YouTube community audit selected 1 video(s); completion state api_visible_complete; synthesis lock pass."
-      }]);
+        text: "YouTube community audit selected 1 video(s); completion state api_visible_complete; synthesis lock pass. " +
+          "The synthesis lock covers comment retrieval only. Note now what these comments show (benefit, no-effect and " +
+          "adverse reports), and give it to finalize_research as community_findings, even if the signal is weak or neutral."
+      });
+      // MCP gets compact records: a per-video pseudonymous author key, never
+      // the commenter's display name or channel ID.
+      const comments = (result.structuredContent as {
+        videos: Array<{ sample: { comments: Array<Record<string, unknown>> } }>
+      }).videos[0]!.sample.comments;
+      expect(Object.keys(comments[0]!).sort()).toEqual(expect.arrayContaining(["author", "date", "id", "likes", "text"]));
+      expect(comments.every((comment) => typeof comment.author === "string" && /^[a-f0-9]{8}$/u.test(comment.author)))
+        .toBe(true);
+      expect(JSON.stringify(result.structuredContent)).not.toMatch(/author_display_name|author_channel_id/u);
       expect(result.structuredContent).toMatchObject({
         provider: "youtube",
         record_type: "youtube_community_audit",
@@ -647,7 +658,9 @@ describe("AskRigor MCP tools", () => {
       const researchReceipt = (second.structuredContent as { research_receipt: string }).research_receipt;
       expect(second.content).toEqual([{
         type: "text",
-        text: "YouTube video audit retrieved 6 record(s) cumulatively; synthesis lock pass."
+        text: "YouTube video audit retrieved 6 record(s) cumulatively; synthesis lock pass. The synthesis lock covers " +
+          "comment retrieval only. Note now what these comments show (benefit, no-effect and adverse reports), and " +
+          "give it to finalize_research as community_findings, even if the signal is weak or neutral."
       }, {
         type: "text",
         text: `research_receipt: ${researchReceipt}`
@@ -1410,9 +1423,14 @@ describe("AskRigor MCP tools", () => {
       expect(result.isError).not.toBe(true);
       expect(result.content).toEqual([{
         type: "text",
-        text: "YouTube targeted comment retrieval returned 2 comment/reply record(s); access status partial."
+        text: "YouTube targeted comment retrieval returned 2 comment/reply record(s); access status partial. " +
+          "Query-bounded: matches show only comments that contain these terms. Zero or few matches are no evidence " +
+          "that commenters do not report something; read the full comments with audit_youtube_video_community before " +
+          "saying so."
       }]);
+      // No count from a query-bounded search, zero included, may be read as absence.
       expect(result.structuredContent).toMatchObject({
+        absence_inference_permitted: false,
         query: { query: "recorded episode" },
         access_status: "partial",
         data: { manifest: { extraction_coverage: "partial" } }

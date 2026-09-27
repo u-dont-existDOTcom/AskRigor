@@ -7,6 +7,7 @@ import {
 import { RESEARCH_OPERATIONS } from "../register-tools.js";
 import type { ResearchOperation } from "../research-operation.js";
 import { RESEARCH_ACTION_RESPONSE_MAX_BYTES } from "../config.js";
+import { youtubeCommunityAuditOutputSchema } from "../youtube-community-audit.js";
 import { youtubeVideoCommunityAuditOutputSchema } from
   "../youtube-video-community-audit.js";
 import {
@@ -171,10 +172,12 @@ function createResearchActionRoute(
   youtubeContinuationHandles: YoutubeActionContinuationHandleStore
 ): ActionRoute {
   const inputSchema = objectSchema(operation.inputSchema, operation.name, "input");
-  // The MCP audit tool declares its compact view; Action calls get the full audit.
+  // The MCP audit tools declare their compact views; Action calls get the full audits.
   const outputSchema = operation.name === "audit_youtube_video_community"
     ? youtubeVideoCommunityAuditOutputSchema
-    : objectSchema(operation.outputSchema, operation.name, "output");
+    : operation.name === "audit_youtube_community"
+      ? youtubeCommunityAuditOutputSchema
+      : objectSchema(operation.outputSchema, operation.name, "output");
   const actionOutputSchema = operation.name === "audit_youtube_video_community"
     ? youtubeVideoCommunityAuditOutputSchema.extend({
         coverage_receipt: discussionReceiptSchema

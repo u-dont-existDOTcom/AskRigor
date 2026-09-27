@@ -562,6 +562,37 @@ Expected size: 100 candidates and 15 selected videos take about 15 KB instead
 of about 70 KB; with classes and programs a full check is about 55–60 KB
 instead of 95–151 KB. A later step can keep the ledger between calls.
 
+## Owner error report: YouTube lane dropped from the answer (2026-09-27)
+
+A sermorelin question ("does it work for sleep and digestion, what are the side
+effects") ran `audit_youtube_community` with five directional searches: 10
+candidates, 3 videos, one with 233 comments and replies, complete, lock
+`pass`. The result was about 63,000 tokens and the client truncated it. PubMed,
+FDA and Reddit searches followed, and the answer never mentioned YouTube.
+Afterwards, zero hits from `search_youtube_comments` were read as "no YouTube
+signal", which HRP already forbids. Fixes (server enforcement of existing HRP
+rules, no protocol change):
+
+- **Size.** On MCP the one-call audit returns compact records (pseudonymous
+  author key, no names or channel IDs) within one 40,000-byte budget shared by
+  its videos; manifests, hashes and the receipt still cover every record. The
+  Custom GPT Action keeps the full audit.
+- **Lock meaning.** Completed audit results now say the synthesis lock covers
+  comment retrieval only, and ask the model to note what the comments show for
+  `finalize_research`.
+- **Carry-through.** `finalize_research` requires `community_findings`
+  (benefit, no-effect and adverse reports, creators versus commenters, effect
+  on the answer) whenever a comment audit ran, covering exactly the videos the
+  audit receipts name, and returns it in `must_report` (also in the result
+  text), so the lane is restated right before the answer, even when weak.
+- **Zero matches.** `search_youtube_comments` results carry
+  `absence_inference_permitted: false`, and their text says zero or few matches
+  are no evidence about the other comments.
+- Regression tests: the gate refuses a run whose comments were read without
+  findings and returns a weak lane in `must_report`; a three-video, 1,500-record
+  audit stays under 40,000 bytes on MCP; the comment search result carries the
+  non-evidence flag.
+
 ## Comment-audit call budget (2026-09-27)
 
 - Each per-video audit call requests the replies of every top-level comment,

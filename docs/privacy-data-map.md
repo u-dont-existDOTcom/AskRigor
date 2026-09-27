@@ -700,7 +700,12 @@ pending-proposal stores have their own strict contracts and authority boundaries
   MCP client; the key only lets the model count distinct people within one
   video. Records are cut to a 40,000-byte response budget in the deterministic
   sample order; retrieval counts, corpus hashes and receipts cover the whole
-  corpus. The Custom GPT Action output is unchanged.
+  corpus. The MCP one-call `audit_youtube_community` tool returns the same
+  compact records, with one 40,000-byte budget shared by its videos, each
+  keeping the same number of records. The Custom GPT Action output is
+  unchanged. `search_youtube_comments` results carry
+  `absence_inference_permitted: false`, since a query-bounded search says
+  nothing about comments that did not match.
 - MCP research receipts (`research_receipt`) are HMAC-SHA256 tokens under a
   domain-separated key derived from the finalization signing secret, or else the
   YouTube continuation secret. They carry only public identifiers (YouTube
@@ -726,7 +731,12 @@ pending-proposal stores have their own strict contracts and authority boundaries
   after 24 hours. `finalize_research` verifies the receipts the client passes
   back and returns next steps or limits; it keeps no ledger, and its optional
   free-text reasons, open-lead topics and its required research target are
-  processed for that call only (the target only to compare its digest).
+  processed for that call only (the target only to compare its digest). Its
+  `community_findings`, the model's short summary of what the comments it read
+  showed (benefit, no-effect and adverse reports, creators versus commenters,
+  effect on the answer, and the public video IDs), are checked against the
+  audit receipts and returned in `must_report` for the same call only; the
+  summary should not quote commenters or name them.
 - The MCP `scout_gemini_youtube_candidates` tool runs the same de-identified,
   population-level scout as the controlled Action route, applying the same
   screen: a target with first-person words, contact details, links, keys or

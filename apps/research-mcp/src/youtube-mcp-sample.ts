@@ -5,6 +5,10 @@ import { z } from "zod";
 
 import { rankYoutubeCommentIdentifier } from "./youtube-audit-continuation.js";
 import {
+  youtubeCommunityAuditOutputSchema,
+  type YoutubeCommunityAuditOutput
+} from "./youtube-community-audit.js";
+import {
   youtubeVideoCommunityAuditOutputSchema,
   type YoutubeVideoCommunityAuditOutput
 } from "./youtube-video-community-audit.js";
@@ -101,6 +105,90 @@ export function compactYoutubeAuditForMcp(
     }
   }
   return mcpYoutubeVideoCommunityAuditOutputSchema.parse(best);
+}
+
+const mcpCommunityAuditVideoSchema = youtubeCommunityAuditOutputSchema.shape.videos.element.extend({
+  sample: z.object({
+    mode: z.enum(["all", "systematic_chronological", "deterministic_hash_chronological"]),
+    corpus_count: z.number().int().nonnegative(),
+    sampled_count: z.number().int().min(0).max(500),
+    comments: z.array(compactYoutubeCommentSchema).max(500)
+  }).strict().optional()
+});
+
+export const mcpYoutubeCommunityAuditOutputSchema = youtubeCommunityAuditOutputSchema.extend({
+  videos: z.array(mcpCommunityAuditVideoSchema).max(3),
+  research_receipt: z.string().optional()
+});
+
+export type McpYoutubeCommunityAuditOutput = z.output<typeof mcpYoutubeCommunityAuditOutputSchema>;
+
+/**
+ * MCP view of a one-call community audit: the same compact records, with one
+ * response budget shared by up to three videos. Uncompacted, three samples of
+ * up to 500 records reached about 63,000 tokens, which clients truncate, and
+ * the audit's findings were then lost before the answer. Each video keeps the
+ * same number of records, in its deterministic sample order, shown
+ * chronologically; manifests, corpus hashes and the receipt still cover every
+ * retrieved record.
+ */
+export function compactYoutubeCommunityAuditForMcp(
+  output: YoutubeCommunityAuditOutput,
+  maximumBytes: number,
+  boundedSampleLimitation: string
+): McpYoutubeCommunityAuditOutput {
+  const ranked = output.videos.map((video) => [...(video.sample?.comments ?? [])].sort((left, right) =>
+    rankYoutubeCommentIdentifier(left.comment_id).localeCompare(rankYoutubeCommentIdentifier(right.comment_id)) ||
+    left.comment_id.localeCompare(right.comment_id)
+  ));
+  const build = (perVideo: number): McpYoutubeCommunityAuditOutput => {
+    let trimmedAny = false;
+    const videos = output.videos.map((video, index) => {
+      const { sample, ...rest } = video;
+      if (sample === undefined) return rest;
+      const kept = ranked[index]!.slice(0, perVideo).sort((left, right) =>
+        left.published_at.localeCompare(right.published_at) ||
+        left.comment_id.localeCompare(right.comment_id)
+      );
+      const trimmed = kept.length < sample.comments.length;
+      trimmedAny ||= trimmed;
+      return {
+        ...rest,
+        limitations: trimmed ? [...new Set([...rest.limitations, boundedSampleLimitation])] : rest.limitations,
+        sample: {
+          mode: trimmed ? "deterministic_hash_chronological" as const : sample.mode,
+          corpus_count: sample.corpus_count,
+          sampled_count: kept.length,
+          comments: kept.map((comment) => compactComment(video.video_id, comment))
+        }
+      };
+    });
+    return {
+      ...output,
+      limitations: trimmedAny ? [...new Set([...output.limitations, boundedSampleLimitation])] : output.limitations,
+      videos
+    };
+  };
+  const fits = (candidate: McpYoutubeCommunityAuditOutput) =>
+    Buffer.byteLength(JSON.stringify(candidate), "utf8") <= maximumBytes;
+
+  const largest = Math.max(0, ...ranked.map((comments) => comments.length));
+  const full = build(largest);
+  if (fits(full)) return mcpYoutubeCommunityAuditOutputSchema.parse(full);
+  let lower = 0;
+  let upper = largest - 1;
+  let best = build(0);
+  while (lower <= upper) {
+    const count = Math.floor((lower + upper) / 2);
+    const candidate = build(count);
+    if (fits(candidate)) {
+      best = candidate;
+      lower = count + 1;
+    } else {
+      upper = count - 1;
+    }
+  }
+  return mcpYoutubeCommunityAuditOutputSchema.parse(best);
 }
 
 function compactComment(
