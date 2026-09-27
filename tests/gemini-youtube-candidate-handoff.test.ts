@@ -175,6 +175,40 @@ describe("Gemini YouTube candidate handoff", () => {
     }
   });
 
+  it("counts title-only finds toward the three-video floor and asks for a seed only among ID-backed candidates", async () => {
+    const lead = (index: number) => ({
+      title: `Hip recovery story ${index}`, channel: "not described", why_surfaced: "First-person recovery"
+    });
+    const withLeads = (candidates: number, leads: number, seeds: number) => ({
+      ...packet(),
+      candidates: packet().candidates.slice(0, candidates),
+      suggested_seed_video_ids: VIDEO_IDS.slice(0, seeds),
+      title_only_candidates: Array.from({ length: leads }, (_, index) => lead(index))
+    }) as GeminiYoutubeCandidatePacket;
+
+    // One ID and two titles, or three titles and no ID (so no seed), are enough.
+    expect(parseGeminiYoutubeCandidateHandoff(response(withLeads(1, 2, 1))).candidates).toHaveLength(1);
+    const titlesOnly = parseGeminiYoutubeCandidateHandoff(response(withLeads(0, 3, 0)));
+    expect(titlesOnly).toMatchObject({ candidates: [], suggested_seed_video_ids: [] });
+    // Two finds in all, or ID-backed candidates without a seed, are not.
+    for (const input of [withLeads(1, 1, 1), withLeads(1, 3, 0)]) {
+      expect(() => parseGeminiYoutubeCandidateHandoff(response(input))).toThrowError(
+        expect.objectContaining({ code: "invalid_packet" })
+      );
+    }
+
+    // With no ID to check, validation calls nobody and leaves the titles to be looked up.
+    const getVideo = vi.fn();
+    const receipt = await validateGeminiYoutubeCandidateHandoff(response(withLeads(0, 3, 0)), YOUTUBE, { get_video: getVideo });
+    expect(getVideo).not.toHaveBeenCalled();
+    expect(receipt).toMatchObject({
+      status: "accepted",
+      validated_candidates: [],
+      suggested_seed_receipts: [],
+      candidate_frontier: { source_candidate_video_ids: [] }
+    });
+  });
+
   it("retains exact framed-packet compatibility", () => {
     const parsed = parseGeminiYoutubeCandidateHandoff(
       legacyFramedResponse().replace(/\n/gu, "\r\n")
@@ -346,6 +380,26 @@ describe("Gemini YouTube candidate handoff", () => {
       })
     ]);
     expect(conflicting.candidate_frontier.unresolved_candidate_video_ids).toEqual([VIDEO_IDS[0]]);
+
+    // On another channel a paraphrase is not enough: "Second outcome video"
+    // shares most of "First outcome video" but may be another video entirely.
+    const lookalike = await validateGeminiYoutubeCandidateHandoff(
+      response(),
+      YOUTUBE,
+      { get_video: vi.fn(async (videoId: string) => videoEnvelope(
+        videoId,
+        videoId === VIDEO_IDS[0] ? { title: "Second outcome video", channel: "Unrelated channel" } : {}
+      )) }
+    );
+    expect(lookalike.validated_candidates.map(({ video_id }) => video_id)).toEqual(VIDEO_IDS.slice(1));
+    expect(lookalike.rejected_candidates).toEqual([]);
+    expect(lookalike.unresolved_candidates).toEqual([
+      expect.objectContaining({
+        video_id: VIDEO_IDS[0],
+        provider_error_code: "youtube_candidate_title_conflict",
+        limitations: expect.arrayContaining([expect.stringMatching(/only partly matches the scout's declared title and its channel differs/u)])
+      })
+    ]);
 
     const renamedChannel = await validateGeminiYoutubeCandidateHandoff(
       response(),

@@ -144,8 +144,10 @@ export const geminiYoutubeCandidateV2PacketSchema = z.object({
   packet_version: z.literal(GEMINI_YOUTUBE_CANDIDATE_PACKET_VERSION),
   // Matches GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES in gemini-youtube-scout.ts.
   discovery_queries: z.array(discoveryQuerySchema).min(8).max(30),
-  candidates: z.array(geminiCandidateV2Schema).min(3).max(16),
-  suggested_seed_video_ids: z.array(youtubeVideoIdSchema).min(1).max(8),
+  // At least three finds in all, counting title-only ones (below).
+  candidates: z.array(geminiCandidateV2Schema).max(16),
+  // Required when candidates has any.
+  suggested_seed_video_ids: z.array(youtubeVideoIdSchema).max(8),
   // Videos the scout found by title but whose ID no search result showed.
   // AskRigor looks them up by exact title instead of accepting a guessed ID.
   title_only_candidates: z.array(geminiTitleOnlyCandidateSchema).max(6).optional()
@@ -172,6 +174,25 @@ function addPacketRelationshipIssues(
     context
   );
   addDuplicateIssues(packet.suggested_seed_video_ids, "suggested_seed_video_ids", context);
+
+  if (packet.packet_version === GEMINI_YOUTUBE_CANDIDATE_PACKET_VERSION) {
+    // Search results often show no watch URL, so a scout may find most videos
+    // by title only: those count toward the floor, and no ID means no seed.
+    if (packet.candidates.length + (packet.title_only_candidates?.length ?? 0) < 3) {
+      context.addIssue({
+        code: "custom",
+        path: ["candidates"],
+        message: "must list at least 3 videos in all, counting title_only_candidates"
+      });
+    }
+    if (packet.candidates.length > 0 && packet.suggested_seed_video_ids.length === 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["suggested_seed_video_ids"],
+        message: "must suggest at least one candidate"
+      });
+    }
+  }
 
   const purposes = new Set(packet.discovery_queries.map(({ purpose }) => purpose));
   for (const purpose of geminiYoutubeDiscoveryPurposeSchema.options) {
@@ -278,7 +299,8 @@ const suggestedSeedReceiptSchema = z.object({
 
 export const geminiYoutubeCandidateFrontierSchema = z.object({
   frontier_digest: z.string().regex(/^[a-f0-9]{64}$/u),
-  source_candidate_video_ids: z.array(youtubeVideoIdSchema).min(3).max(16),
+  // Empty when the scout found its videos by title only.
+  source_candidate_video_ids: z.array(youtubeVideoIdSchema).max(16),
   validated_candidate_video_ids: z.array(youtubeVideoIdSchema).max(16),
   terminally_rejected_video_ids: z.array(youtubeVideoIdSchema).max(16),
   unresolved_candidate_video_ids: z.array(youtubeVideoIdSchema).max(16)
@@ -301,7 +323,7 @@ export const geminiYoutubeCandidateValidationReceiptSchema = z.object({
   validated_candidates: z.array(validatedCandidateSchema).max(16),
   rejected_candidates: z.array(rejectedCandidateSchema).max(16),
   unresolved_candidates: z.array(unresolvedCandidateSchema).max(16),
-  suggested_seed_receipts: z.array(suggestedSeedReceiptSchema).min(1).max(8),
+  suggested_seed_receipts: z.array(suggestedSeedReceiptSchema).max(8),
   eligible_seed_video_ids: z.array(youtubeVideoIdSchema).max(8),
   access_boundaries: z.tuple([
     z.literal(
@@ -513,13 +535,17 @@ export async function validateGeminiYoutubeCandidateHandoff(
   const allSuggestedSeedsEligible = suggestedSeedReceipts.every(
     ({ disposition }) => disposition === "eligible"
   );
-  const status = validatedCandidates.length === 0
-    ? unresolvedCandidates.length > 0
-      ? "blocked" as const
-      : "rejected" as const
-    : allCandidatesValidated && allSuggestedSeedsEligible
-      ? "accepted" as const
-      : "partial" as const;
+  // A packet of title-only finds has no identity to fail; its titles are
+  // looked up separately.
+  const status = packet.candidates.length === 0
+    ? "accepted" as const
+    : validatedCandidates.length === 0
+      ? unresolvedCandidates.length > 0
+        ? "blocked" as const
+        : "rejected" as const
+      : allCandidatesValidated && allSuggestedSeedsEligible
+        ? "accepted" as const
+        : "partial" as const;
   const candidateFrontier = deriveGeminiYoutubeCandidateFrontier(
     packet.candidates.map(({ video_id }) => video_id),
     validatedCandidates.map(({ video_id }) => video_id),
@@ -617,9 +643,16 @@ function validateCandidateIdentity(
   if (!titleMatches && !channelMatches) {
     reasons.push("declared_title_mismatch", "declared_channel_mismatch");
   }
+  // Without the declared channel, a paraphrase is not enough: "How I healed
+  // hip pain" shares most words with "How I healed back pain". Only a nearly
+  // identical title vouches for the ID then.
+  const titleVouches = providerVideo.title === undefined ||
+    youtubeTitlesNearlySame(providerVideo.title, candidate.title);
   // A different title on the declared channel may be another video by the
-  // same creator, so the ID is not trusted; it is not a wrong identity either.
-  if (reasons.length === 0 && !titleMatches) {
+  // same creator, and a partly matching title on another channel may be
+  // another video altogether, so the ID is not trusted; it is not a wrong
+  // identity either, and the declared title can be looked up.
+  if (reasons.length === 0 && (!titleMatches || (!channelMatches && !titleVouches))) {
     return {
       kind: "unresolved",
       candidate: {
@@ -629,7 +662,9 @@ function validateCandidateIdentity(
         provider_error_code: "youtube_candidate_title_conflict",
         limitations: [
           ...metadata.limitations,
-          "YouTube's title for this ID differs from the scout's declared title beyond a paraphrase, so the ID may point to another video from the same channel. Look the declared title up before using it."
+          titleMatches
+            ? "YouTube's title for this ID only partly matches the scout's declared title and its channel differs, so the ID may point to another video. Look the declared title up before using it."
+            : "YouTube's title for this ID differs from the scout's declared title beyond a paraphrase, so the ID may point to another video from the same channel. Look the declared title up before using it."
         ]
       }
     };
@@ -749,6 +784,27 @@ export function deriveGeminiYoutubeCandidateFrontier(
 
 function comparableLabel(value: string): string {
   return value.normalize("NFC").replace(/\s+/gu, " ").trim();
+}
+
+// Fewer words than this are too generic to identify a video inside a longer title.
+const MINIMUM_CONTAINED_TITLE_WORDS = 4;
+
+function compactTitle(value: string): string {
+  return value.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+/**
+ * The same words in the same order, or a specific declared title that
+ * YouTube's longer title contains (YouTube titles often add " | Channel").
+ * Stricter than youtubeLabelsMatch, for identity without channel agreement.
+ */
+export function youtubeTitlesNearlySame(provider: string, declared: string): boolean {
+  const declaredTitle = compactTitle(declared);
+  if (declaredTitle.length === 0) return false;
+  if (compactTitle(provider) === declaredTitle) return true;
+  const declaredWords = declared.normalize("NFKC").toLowerCase().split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word.length >= 3).length;
+  return declaredWords >= MINIMUM_CONTAINED_TITLE_WORDS && compactTitle(provider).includes(declaredTitle);
 }
 
 /**

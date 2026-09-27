@@ -2,6 +2,7 @@ import {
   searchYoutube,
   YOUTUBE_SEARCH_QUOTA_EXHAUSTED_CODE,
   youtubeLabelsMatch,
+  youtubeTitlesNearlySame,
   type YoutubeConfig
 } from "@askrigor/sources";
 
@@ -14,7 +15,7 @@ import {
  * video when a result's title matches the declared one. A matching title alone
  * can name another video (a generic "Recovery Story" also matches "Cancer
  * Recovery Story"), so a result is accepted only when the declared channel
- * agrees or the titles are nearly the same (see nearlySameTitle). YouTube's
+ * agrees or the titles are nearly the same (youtubeTitlesNearlySame). YouTube's
  * metadata stays authoritative for what the video is. Titles beyond the
  * per-call limit are returned unsearched so the model can decide whether they
  * are worth a search.
@@ -22,8 +23,6 @@ import {
 export const SCOUT_TITLE_LOOKUP_LIMIT = 4;
 const LOOKUP_PAGE_SIZE = 10;
 const UNKNOWN_CHANNEL = "not described";
-// Fewer words than this are too generic to identify a video inside a longer title.
-const MINIMUM_CONTAINED_TITLE_WORDS = 4;
 // YouTube search snippets HTML-escape titles and channel names.
 const HTML_ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'" };
 
@@ -35,23 +34,6 @@ function decodeHtmlEntities(value: string): string {
     }
     return HTML_ENTITIES[body.toLowerCase()] ?? entity;
   });
-}
-
-function compactTitle(value: string): string {
-  return value.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
-}
-
-/**
- * The same words in the same order, or a specific declared title that
- * YouTube's longer title contains (YouTube titles often add " | Channel").
- */
-function nearlySameTitle(provider: string, declared: string): boolean {
-  const declaredTitle = compactTitle(declared);
-  if (declaredTitle.length === 0) return false;
-  if (compactTitle(provider) === declaredTitle) return true;
-  const declaredWords = declared.normalize("NFKC").toLowerCase().split(/[^\p{L}\p{N}]+/u)
-    .filter((word) => word.length >= 3).length;
-  return declaredWords >= MINIMUM_CONTAINED_TITLE_WORDS && compactTitle(provider).includes(declaredTitle);
 }
 
 export interface ScoutTitleLead {
@@ -132,7 +114,7 @@ export async function lookUpScoutTitles(
       lead.channel.trim().toLowerCase() !== UNKNOWN_CHANNEL &&
       record.channel_title !== undefined &&
       youtubeLabelsMatch(record.channel_title, lead.channel)
-    ) ?? titled.find((record) => nearlySameTitle(record.title, lead.title));
+    ) ?? titled.find((record) => youtubeTitlesNearlySame(record.title, lead.title));
     if (match === undefined) {
       unresolved.push({ ...lead, reason: "no_matching_video" });
       continue;

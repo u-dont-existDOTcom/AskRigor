@@ -775,6 +775,20 @@ and whether the final answer is the last checked draft. Cost: one more
     more searches passed as 30 and escaped the $1 refusal. The repair
     checkpoint now carries the full count (`executed_search_count`, optional
     so stored checkpoints from before it still load).
+- Codex on d280f31 (one P1, one P2, both fixed):
+  - Scout identity accepted a paraphrased title even when the channel also
+    differed, so "How I healed back pain" could validate an ID declared as
+    "How I healed hip pain". Without channel agreement only a nearly
+    identical title (the rule the title lookup already used, now shared as
+    `youtubeTitlesNearlySame`) vouches for the ID; a partly matching title is
+    a title conflict, which the MCP tool looks up by the declared title.
+  - A v2 packet needed three ID-backed candidates and an ID-backed seed, so a
+    scout whose search results showed few watch URLs failed before its
+    title-only finds could be looked up. Title-only finds now count toward
+    the three-video floor, a seed is needed only when there are ID-backed
+    candidates, and a packet with none validates as accepted with an empty
+    frontier (the Custom GPT session then continues without re-running the
+    scout). The committed Action OpenAPI does not change.
   - Rounds a rate limit or the daily quota stopped were unsigned or counted as
     settled. They are now signed with their limits (`inc`, `rl`), including a
     wholly stopped survey or search and a one-call audit left incomplete. An
