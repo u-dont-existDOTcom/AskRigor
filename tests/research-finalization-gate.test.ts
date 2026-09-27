@@ -912,6 +912,8 @@ describe("finalize_research gate", () => {
       `<!-- ${rateCaveat} -->`,
       // Blank lines inside the code block or comment do not bring the caveat out.
       `\n\n\`\`\`\n\n${rateCaveat}\n\n\`\`\`\n\n`,
+      // A fence line with text after its marker does not close the block.
+      `\n\n\`\`\`\nsearch log\n\`\`\` not a closing fence\n\n${rateCaveat}\n\n\`\`\`\n\n`,
       `\n\n<!--\n\n${rateCaveat}\n\n-->\n\n`
     ]) {
       expect(answered(fullDraft.replace(rateCaveat, denial))).toEqual(leftOutRate);
