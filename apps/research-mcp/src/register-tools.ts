@@ -1679,9 +1679,9 @@ function defineResearchOperations(
         "audits; discovery for any other target does not count), whether community evidence was researched, whether " +
         "the answer compares treatment options, what the comments you read showed (community_findings), the " +
         "studies your conclusions depend on, and the answer you are about to give (answer_draft), which is checked " +
-        "for internal labels, bare video IDs, a pasted long prompt and the comment lane, and is not stored. " +
-        "not_ready lists the remaining steps; " +
-        "ready_with_limits lists limits the answer must state; must_report lists what the answer must report from " +
+        "for internal labels, bare video IDs, a pasted long prompt, the comment lane and the limits, and is not " +
+        "stored. not_ready lists the remaining steps; ready_with_limits lists limits the answer must state, each in " +
+        "the sentence that names what it qualifies; must_report lists what the answer must report from " +
         "each lane researched; receipts_unavailable means this server cannot " +
         "verify completion, so do the required work anyway and say that completion was not server-verified.",
       inputSchema: finalizeResearchInputSchema,

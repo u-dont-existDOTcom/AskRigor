@@ -807,6 +807,31 @@ and whether the final answer is the last checked draft. Cost: one more
     pass. Each listed limit now carries a plain-words check, and the draft is
     sent back naming any it leaves out. A first pass must name each open lead
     and offer to continue. Every limit sentence passes its own check.
+- Codex on a756cb7 (three P1s, all fixed): the limit checks still accepted
+  matching words anywhere in the draft. "There was no quota problem" passed the
+  rate-limit caveat; naming the open leads with a generic offer passed without
+  their reasons or cost; one lead-only study's caveat covered every other lead.
+  Each limit is now checked where it applies, sentence by sentence (a heading
+  joins the paragraph after it):
+  - a community limit shares a sentence with a mention of the community
+    evidence;
+  - the rate-limit caveat needs a sentence naming the limit (not "no quota" or
+    "never hit the quota"), with it or its neighbor saying searches were
+    stopped and that another pass can rerun them;
+  - a lead-only study's caveat sits in the sentence that cites it by link or
+    identifier (its DOI, PMID or PMCID, including those its PubMed record links),
+    or in the next one unless that cites another key study; a video's caveat
+    likewise sits beside its link;
+  - each open lead is named with its reason (words from its `why`), and the
+    answer says roughly what another pass would take (minutes or searches)
+    and offers to continue.
+
+  Two word lists were loose as well: "a few commenters" counted as saying
+  community evidence is thin, and "some searches found" as saying the picture
+  is incomplete. A lead whose topic has only short words ("tai chi") is named
+  by its whole text, so it can be met. The `finalize_research` description now
+  says the limits are checked where they apply. Ten mutations, one per
+  binding or pattern, each fail a test.
 
 ## Comment-audit call budget (2026-09-27)
 

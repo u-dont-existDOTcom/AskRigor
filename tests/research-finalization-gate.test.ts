@@ -48,20 +48,27 @@ const CLEAN_DRAFT = "Exercise therapy has the strongest evidence for hip osteoar
   "YouTube videos about it reported less pain after several months; a few noticed no change, and none reported side " +
   "effects. The channels' creators sell programs; the commenters have no stake. This weak firsthand signal supports " +
   "trying exercise before surgery.";
-// It also states every limit the gate can require, and names the open leads,
-// so tests of other checks pass the limit check; its own test passes drafts.
+// It also states every limit the gate can require, each next to what it
+// qualifies (every audited video, key study and open lead), so tests of other
+// checks pass the limit check; its own tests pass drafts.
 const LIMITS_PARAGRAPH = " Limits: the community picture may be incomplete, since YouTube's daily search quota " +
-  "stopped some searches; community evidence could not be checked yet in places, and where nothing turned up it is " +
-  "thin. Some comments could not be read, and one video's comments cannot carry a conclusion on their own. I do not " +
-  "rank or recommend among the options; this comparison is provisional. Studies cited as leads were not read in " +
-  "full, and no study's methods were checked in full text.";
-const finalizeResearchGate = (input: Record<string, unknown>, gateOptions: typeof options) => {
-  const leads = (input.open_leads as Array<{ topic: string }> | undefined) ?? [];
-  const draft = CLEAN_DRAFT + LIMITS_PARAGRAPH +
-    (leads.length === 0 ? "" : ` Open leads: ${leads.map(({ topic }) => topic).join("; ")}.`) +
+  "stopped some searches; another pass can rerun them once it resets. Community evidence could not be checked yet " +
+  "in places, and where nothing turned up it is thin. I do not rank or recommend among the options; this comparison " +
+  "is provisional. No study's methods were checked in full text.";
+const standardDraft = (input: Record<string, unknown>, sourcesText?: string): string => {
+  const videos = commentVideos((input.receipts as string[] | undefined) ?? []);
+  const sources = (input.key_sources as Array<{ id: string }> | undefined) ?? [];
+  const leads = (input.open_leads as Array<{ topic: string; why: string }> | undefined) ?? [];
+  return CLEAN_DRAFT + LIMITS_PARAGRAPH +
+    videos.map((video) => ` In [a video on this](https://www.youtube.com/watch?v=${video}) some comments could not ` +
+      "be read, so its comments cannot carry a conclusion on their own.").join("") +
+    (sourcesText ?? sources.map(({ id }) => ` Where ${id} is cited as a lead, it was not read in full.`).join("")) +
+    leads.map(({ topic, why }) => ` Open lead: ${topic}, because ${why}`).join("") +
+    (leads.length === 0 ? "" : " Another pass would take about 20 minutes.") +
     " Want me to continue with another pass?";
-  return finalizeResearchRaw({ answer_draft: draft, ...input }, gateOptions);
 };
+const finalizeResearchGate = (input: Record<string, unknown>, gateOptions: typeof options) =>
+  finalizeResearchRaw({ answer_draft: standardDraft(input), ...input }, gateOptions);
 const findingsFor = (videos: string[]) => ({
   videos_reviewed: videos,
   benefit_reports: "About a third of commenters reported less pain after several months.",
@@ -598,6 +605,41 @@ describe("finalize_research gate", () => {
       "Cite PMID: 31234567 as a lead: PubMed lists no DOI, so no open full text could be acquired and its methods were not audited."
     ]);
     expect(result.finalization_receipt).toBeDefined();
+
+    // Each lead is qualified where it is cited: one caveat does not cover the other study.
+    const request = {
+      receipts: [survey, emptySearch, repeatScout, videoA, videoB, study, lead, noDoiRecord],
+      community_evidence: "researched" as const,
+      treatment_choice: "not_compared" as const,
+      research_target: TARGET,
+      community_findings: findingsFor(["aaaaaaaaaaa", "bbbbbbbbbbb"]),
+      key_sources: [
+        { id: "10.1002/art.41142", status: "validated" as const },
+        { id: "10.1016/j.joca.2020.01.001", status: "validated" as const },
+        { id: "PMID: 31234567", status: "lead_only" as const, reason: "abstract only; no DOI" }
+      ]
+    };
+    const withSources = (text: string) =>
+      finalizeResearchRaw({ ...request, answer_draft: standardDraft(request, text) }, options).next_steps;
+    const pubmedLead = "that PMID: 31234567 was not read in full, next to where the answer cites it by link or identifier";
+    const doiLead = "that 10.1016/j.joca.2020.01.001 was not read in full, next to where the answer cites it by link or identifier";
+    expect(withSources(" A [trial](https://doi.org/10.1016/j.joca.2020.01.001) was only available as an abstract. " +
+      "A cohort study (PMID 31234567) found less pain."))
+      .toEqual([expect.stringContaining(`required limits: ${pubmedLead}. State each`)]);
+    expect(withSources(" Some sources were unverified."))
+      .toEqual([expect.stringContaining(`required limits: ${doiLead}; ${pubmedLead}. State each`)]);
+    expect(withSources(" A [trial](https://doi.org/10.1016/j.joca.2020.01.001) and a cohort study " +
+      "([PubMed](https://pubmed.ncbi.nlm.nih.gov/31234567/)) were only available as abstracts.")).toEqual([]);
+    // A video's caveat sits next to its link, not another video's.
+    expect(finalizeResearchRaw({
+      ...request,
+      answer_draft: standardDraft(request).replace(
+        "[a video on this](https://www.youtube.com/watch?v=bbbbbbbbbbb) some comments could not be read",
+        "[a video on this](https://www.youtube.com/watch?v=bbbbbbbbbbb) commenters reported relief"
+      )
+    }, options).next_steps).toEqual([expect.stringContaining(
+      "that some comments on video bbbbbbbbbbb could not be read, next to its linked title"
+    )]);
   });
 
   it("does not accept a DOI-less PMID as a lead when PubMed lists an open copy in PMC", () => {
@@ -796,6 +838,23 @@ describe("finalize_research gate", () => {
       "YouTube's rate limit or daily quota stopped 1 search(es) in the latest discovery rounds; say so, and that " +
         "another pass can rerun them once the limit resets."
     );
+    // The answer says the limit stopped searches and that another pass can rerun them, not just the word.
+    const rateLimited = {
+      ...firstPass,
+      community_findings: findingsFor(["aaaaaaaaaaa"]),
+      open_leads: [{ topic: "What commenters say helped", why: "Commenters named remedies no search covered." }]
+    };
+    const draftWith = (text: string) => finalizeResearchRaw({
+      ...rateLimited,
+      answer_draft: standardDraft(rateLimited).replace(
+        "since YouTube's daily search quota stopped some searches; another pass can rerun them once it resets", text
+      )
+    }, options).next_steps;
+    const searchLimit = "that YouTube's search limit stopped some searches, and that another pass can rerun them once it resets";
+    expect(draftWith("although there was no quota problem")).toEqual([expect.stringContaining(`required limits: ${searchLimit}.`)]);
+    expect(draftWith("although we never hit the quota, so no rerun is needed")).toEqual([expect.stringContaining(searchLimit)]);
+    expect(draftWith("since YouTube's daily quota stopped one search")).toEqual([expect.stringContaining(searchLimit)]);
+    expect(draftWith("since YouTube's daily quota stopped one search, which another pass can rerun tomorrow")).toEqual([]);
 
     // A search that failed for another reason is rerun, in either depth.
     const failedSearch = sign("youtube_search", { videos: [], access: "error", rl: 0, inc: 1, open: 0, q: "n4n4n4n4n4n4" }, options);
@@ -840,22 +899,48 @@ describe("finalize_research gate", () => {
     };
     const check = (answerDraft: string) => finalizeResearchRaw({ ...request, answer_draft: answerDraft }, options);
 
+    const whyA = "why the open lead \"Gelatin and collagen for hip pain\" looks promising, next to it";
+    const whyB = "why the open lead \"Named physiotherapy programs\" looks promising, next to it";
+    const cost = "roughly what another pass would take, such as the minutes or searches";
     expect(check(CLEAN_DRAFT)).toMatchObject({
       status: "not_ready",
       next_steps: [
-        "The answer leaves out required limits: that the community picture may be incomplete; the open leads " +
-          "(Gelatin and collagen for hip pain; Named physiotherapy programs) and an offer to continue. Add each in " +
-          "plain words, as the limits list below says."
+        `The answer leaves out required limits: that the community picture may be incomplete; ${whyA}; ${whyB}; ` +
+          `${cost}; an offer to continue on all or part of the open leads. State each in plain words, in the ` +
+          "sentence that names what it qualifies, as the limits list below says."
       ]
     });
-    // Naming one lead is not naming both.
-    expect(check(`${CLEAN_DRAFT} Some searches failed. Want me to look into collagen and gelatin next?`).next_steps)
-      .toEqual([expect.stringContaining("the open leads (Gelatin and collagen for hip pain; Named physiotherapy programs)")]);
-    // In the answer's own words, the limits are there.
-    const caveated = `${CLEAN_DRAFT} Some searches failed, so this picture may be incomplete. Two leads look ` +
-      "promising: collagen and gelatin for hip pain, and the physiotherapy programs commenters named. Want me to " +
-      "continue on either?";
+    const missing = (answerDraft: string) =>
+      /^The answer leaves out required limits: (.*)\. State each/u.exec(check(answerDraft).next_steps.join(" "))?.[1]
+        ?.split("; ") ?? [];
+    // Naming the leads and offering to continue is not saying why they look promising, or what a pass would take.
+    expect(missing(`${CLEAN_DRAFT} Some searches failed, so the YouTube picture may be incomplete. Collagen, gelatin and ` +
+      "hip pain, and the named physiotherapy programs, are mentioned above. Want me to continue?"))
+      .toEqual([whyA, whyB, cost]);
+    // A reason given for one lead does not cover the next.
+    const reasonA = "Collagen and gelatin for hip pain look promising because several commenters report them.";
+    expect(missing(`${CLEAN_DRAFT} Some searches failed, so the YouTube picture may be incomplete. ${reasonA} Named ` +
+      "physiotherapy programs are another lead. Another pass would take about 20 minutes. Want me to continue?"))
+      .toEqual([whyB]);
+    // In the answer's own words, next to each lead, the limits are there.
+    const caveated = `${CLEAN_DRAFT} Some searches failed, so the YouTube picture may be incomplete. ${reasonA} The ` +
+      "physiotherapy programs commenters named also look promising, since no search covered them. Another pass " +
+      "would take about 20 minutes and a dozen searches. Want me to continue on either?";
     expect(check(caveated)).toMatchObject({ status: "ready_with_limits", next_steps: [] });
+    // "Incomplete" about something else does not qualify the community picture.
+    expect(missing(caveated.replace("Some searches failed, so the YouTube picture may be incomplete.",
+      "The trial record is incomplete."))).toEqual(["that the community picture may be incomplete"]);
+    expect(missing(caveated.replace("Some searches failed, so the YouTube picture may be incomplete.",
+      "Some searches on YouTube found only sales videos."))).toEqual(["that the community picture may be incomplete"]);
+    // A lead named only by short words is still found.
+    const taiChi = finalizeResearchRaw({
+      ...request,
+      open_leads: [{ topic: "Tai chi", why: "Several commenters credit tai chi with steadier walking." }],
+      answer_draft: `${CLEAN_DRAFT} Some searches failed, so the YouTube picture may be incomplete. Tai chi looks ` +
+        "promising: several commenters credit it with steadier walking. Another pass would take about 15 minutes. " +
+        "Want me to continue?"
+    }, options);
+    expect(taiChi).toMatchObject({ status: "ready_with_limits", next_steps: [] });
   });
 
   it("lets a first pass stop at its cap and hand back open leads instead of searching on", () => {
@@ -934,6 +1019,14 @@ describe("finalize_research gate", () => {
     const nothing = finalizeResearch({ ...base, receipts: [emptySurvey, emptySearch, study] }, options);
     expect(nothing.status).toBe("ready_with_limits");
     expect(nothing.limits).toEqual(["No video turned up in 2 discovery rounds; say that community evidence on this is thin."]);
+    // "A few commenters" is a count, not scarcity.
+    const thinDraft = (text: string) => finalizeResearchRaw({
+      ...base, receipts: [emptySurvey, emptySearch, study], answer_draft: `${CLEAN_DRAFT} ${text}`
+    }, options).next_steps;
+    expect(thinDraft("A few commenters on YouTube reported relief.")).toEqual([
+      expect.stringContaining("required limits: that community evidence on this is thin.")
+    ]);
+    expect(thinDraft("Very few YouTube videos discuss this, so community evidence is thin.")).toEqual([]);
 
     // Videos were found but none was audited: the model must say why.
     const unexplained = finalizeResearch({ ...base, receipts: [survey, emptySearch, repeatScout, study] }, options);
