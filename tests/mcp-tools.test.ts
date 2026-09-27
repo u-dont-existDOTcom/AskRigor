@@ -806,16 +806,30 @@ describe("AskRigor MCP tools", () => {
       expect(steps).toContain("survey_youtube_community");
       expect(steps).toContain("For 10.1000/forged: acquire_open_full_text");
 
+      const dosing = {
+        receipts: [],
+        community_evidence: "not_relevant",
+        treatment_choice: "not_compared",
+        research_target: "Adults asking about a dosing calculation",
+        not_relevant_reason: "A dosing arithmetic question with no treatment choice.",
+        key_sources: []
+      };
+      // The answer must carry the limit before it is signed.
+      const uncaveated = await client.callTool({
+        name: "finalize_research",
+        arguments: { ...dosing, answer_draft: "Multiply the dose per kilogram by the body weight: 5 mg/kg for 20 kg is 100 mg." }
+      });
+      expect(uncaveated.structuredContent).toMatchObject({
+        status: "not_ready",
+        next_steps: [expect.stringMatching(/^The answer leaves out required limits: that no study's methods were checked in full text\./u)]
+      });
+      expect((uncaveated.structuredContent as { finalization_receipt?: string }).finalization_receipt).toBeUndefined();
       const declined = await client.callTool({
         name: "finalize_research",
         arguments: {
-          receipts: [],
-          community_evidence: "not_relevant",
-          treatment_choice: "not_compared",
-          research_target: "Adults asking about a dosing calculation",
-          not_relevant_reason: "A dosing arithmetic question with no treatment choice.",
-          key_sources: [],
-          answer_draft: "Multiply the dose per kilogram by the body weight: 5 mg/kg for 20 kg is 100 mg."
+          ...dosing,
+          answer_draft: "Multiply the dose per kilogram by the body weight: 5 mg/kg for 20 kg is 100 mg. No study's " +
+            "methods were checked in full text."
         }
       });
       expect(declined.structuredContent).toMatchObject({
@@ -839,7 +853,8 @@ describe("AskRigor MCP tools", () => {
           research_target: "Adults asking about a dosing calculation",
           not_relevant_reason: "A dosing arithmetic question with no treatment choice.",
           key_sources: [],
-          answer_draft: "5 mg/kg for 20 kg is 100 mg. DeepForumAuditActivationPrompt: none needed (LimitsNote)."
+          answer_draft: "5 mg/kg for 20 kg is 100 mg; no study's methods were checked in full text. " +
+            "DeepForumAuditActivationPrompt: none needed (LimitsNote)."
         }
       });
       expect(leaky.structuredContent).toMatchObject({

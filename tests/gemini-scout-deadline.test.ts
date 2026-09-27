@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   executeResumableAutomatedGeminiScout,
@@ -40,6 +40,18 @@ const options = (backgroundScout: ReturnType<typeof scoutStub>, deadlineMs?: num
   loadScoutInstructions: async () => "Find firsthand videos.",
   backgroundScout: backgroundScout as never,
   ...(deadlineMs === undefined ? {} : { deadlineMs })
+});
+
+
+// The owner's zero-spend policy gates every scout route on a Gemini key
+// declared unbilled; these tests run the scout against test doubles with it.
+const previousGeminiBilling = process.env.ASKRIGOR_GEMINI_BILLING;
+beforeEach(() => {
+  process.env.ASKRIGOR_GEMINI_BILLING = "none";
+});
+afterEach(() => {
+  if (previousGeminiBilling === undefined) delete process.env.ASKRIGOR_GEMINI_BILLING;
+  else process.env.ASKRIGOR_GEMINI_BILLING = previousGeminiBilling;
 });
 
 describe("deadline-paced Gemini scout polling", () => {

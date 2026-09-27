@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { errorEnvelope, okEnvelope } from "@askrigor/contracts";
 import { scoutGeminiYoutubeCandidates } from "@askrigor/sources";
 
@@ -122,6 +122,18 @@ async function depthReadyState(): Promise<ResearchSessionState> {
   }
   return researchSessionStateSchema.parse(state);
 }
+
+
+// The owner's zero-spend policy gates every scout route on a Gemini key
+// declared unbilled; these tests run the scout against test doubles with it.
+const previousGeminiBilling = process.env.ASKRIGOR_GEMINI_BILLING;
+beforeEach(() => {
+  process.env.ASKRIGOR_GEMINI_BILLING = "none";
+});
+afterEach(() => {
+  if (previousGeminiBilling === undefined) delete process.env.ASKRIGOR_GEMINI_BILLING;
+  else process.env.ASKRIGOR_GEMINI_BILLING = previousGeminiBilling;
+});
 
 describe("transport-independent research-session advancement", () => {
   it("does not loop native discovery after exact daily search-quota exhaustion", async () => {

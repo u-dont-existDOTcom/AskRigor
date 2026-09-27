@@ -795,6 +795,18 @@ and whether the final answer is the last checked draft. Cost: one more
     incomplete search keeps discovery open: rerun in deep research; in a
     first pass a rate-limited one ends the pass as an open lead, and the
     answer says the limit stopped it (not that evidence is thin).
+- Codex on 64869b5 (two P1s, both fixed):
+  - Only the MCP scout tool read the zero-spend flag
+    (`ASKRIGOR_GEMINI_BILLING=none`), so the Custom GPT Action and research
+    sessions could still start or resume a Gemini scout on a billed key. The
+    shared scout executors now check it. Without it the Action and sessions
+    report `gemini_provider_not_configured` and continue with the YouTube
+    survey, and a resumed scout's stored search is deleted.
+  - The answer check never looked for the limits the gate listed, so a draft
+    could drop "provisional", "not read in full" or the open leads and still
+    pass. Each listed limit now carries a plain-words check, and the draft is
+    sent back naming any it leaves out. A first pass must name each open lead
+    and offer to continue. Every limit sentence passes its own check.
 
 ## Comment-audit call budget (2026-09-27)
 

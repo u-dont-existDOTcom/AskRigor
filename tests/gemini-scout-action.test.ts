@@ -20,7 +20,7 @@ import type {
   GeminiYoutubeCandidateValidationReceipt,
   GeminiYoutubeScoutData
 } from "../packages/sources/src/index.js";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const TARGET = "adults with unspecified hip pain comparing materially different treatment programs";
 const VIDEO_IDS = ["XpZHKGGCK-o", "0sZEvvPWq88", "qfPjRBqADKk"] as const;
@@ -165,6 +165,18 @@ function context(body: unknown) {
     body
   };
 }
+
+
+// The owner's zero-spend policy gates every scout route on a Gemini key
+// declared unbilled; these tests run the scout against test doubles with it.
+const previousGeminiBilling = process.env.ASKRIGOR_GEMINI_BILLING;
+beforeEach(() => {
+  process.env.ASKRIGOR_GEMINI_BILLING = "none";
+});
+afterEach(() => {
+  if (previousGeminiBilling === undefined) delete process.env.ASKRIGOR_GEMINI_BILLING;
+  else process.env.ASKRIGOR_GEMINI_BILLING = previousGeminiBilling;
+});
 
 describe("automated Gemini YouTube scout Action", () => {
   it("runs a budgeted stateless scout and returns the independently validated frontier", async () => {
@@ -479,6 +491,61 @@ describe("automated Gemini YouTube scout Action", () => {
       geminiApiKey: "", youtubeApiKey: "youtube-secret", backgroundScout
     })).toEqual({ controller_boundary: { code: "gemini_provider_not_configured", retryable: false } });
     expect(backgroundScout).not.toHaveBeenCalled();
+  });
+
+  it("reaches Gemini on no route unless the key is declared unbilled", async () => {
+    delete process.env.ASKRIGOR_GEMINI_BILLING;
+    const input = { research_target: TARGET, diagnosis_status: "diagnosis_not_specified" as const };
+    const keys = { geminiApiKey: "gemini-secret", youtubeApiKey: "youtube-secret" };
+    const scout = vi.fn();
+    const backgroundScout = vi.fn();
+    const spendBudget = budget(undefined);
+    const notConfigured = { controller_boundary: { code: "gemini_provider_not_configured", retryable: false } };
+
+    // The public Action, and the stateless executor research sessions use.
+    const route = createAutomatedGeminiScoutActionRoute({ ...keys, budget: spendBudget, scout });
+    expect((await route.handle(context(input))).body).toMatchObject({
+      status: "blocked",
+      boundary: { code: "gemini_provider_not_configured" }
+    });
+    // A new background scout, as research sessions start one.
+    expect(await executeResumableAutomatedGeminiScout(input, undefined, { ...keys, budget: spendBudget, backgroundScout }))
+      .toEqual(notConfigured);
+    // A resumed one has its stored search deleted, which costs nothing, and
+    // keeps its checkpoint until the delete succeeds.
+    const resumed = {
+      checkpoint: {
+        interaction_id: "interaction-before-billing-check",
+        phase: "INITIAL" as const,
+        provider_interaction_count: 1 as const,
+        poll_attempts: 1,
+        executed_search_queries: []
+      },
+      accountedNanoUsd: GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
+    };
+    const deleted = vi.fn(async () => true);
+    expect(await executeResumableAutomatedGeminiScout(input, resumed, {
+      ...keys, backgroundScout, deleteBackgroundInteraction: deleted
+    })).toEqual(notConfigured);
+    expect(deleted).toHaveBeenCalledWith(expect.objectContaining({ apiKey: "gemini-secret" }), "interaction-before-billing-check");
+    expect(await executeResumableAutomatedGeminiScout(input, resumed, {
+      ...keys, backgroundScout, deleteBackgroundInteraction: vi.fn(async () => false)
+    })).toEqual({
+      controller_progress: {
+        checkpoint: resumed.checkpoint,
+        accounted_nano_usd: GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD,
+        held_by: "gemini_provider_not_configured"
+      }
+    });
+    // Nothing was reserved and Gemini was never called.
+    expect(spendBudget.reserve).not.toHaveBeenCalled();
+    expect(scout).not.toHaveBeenCalled();
+    expect(backgroundScout).not.toHaveBeenCalled();
+
+    // The deployment's declaration, or an explicit one, lets the scout run.
+    process.env.ASKRIGOR_GEMINI_BILLING = "none";
+    await route.handle(context(input));
+    expect(spendBudget.reserve).toHaveBeenCalledTimes(1);
   });
 
   it("reports provider configuration as a provider boundary rather than a missing Action", async () => {

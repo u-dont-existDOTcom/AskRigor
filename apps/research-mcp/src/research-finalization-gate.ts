@@ -185,6 +185,13 @@ export function finalizeResearch(
 
   const nextSteps: string[] = [];
   const limits: string[] = [];
+  // What each limit needs the answer to say, so the final check can find it
+  // in the draft; the limit's own sentence always satisfies its check.
+  const limitChecks: LimitCheck[] = [];
+  const requireLimit = (text: string, check: LimitCheck): void => {
+    limits.push(text);
+    limitChecks.push(check);
+  };
   if (rejected.length > 0) {
     nextSteps.push(
       `${rejected.length} receipt(s) failed verification; pass each research_receipt exactly as the tool returned it.`
@@ -270,9 +277,10 @@ export function finalizeResearch(
       );
     }
     if (partialSurveys > 0) {
-      limits.push(
+      requireLimit(
         `${partialSurveys} community survey(s) were only partly completed (some searches failed or hit limits); ` +
-          "say the community picture may be incomplete."
+          "say the community picture may be incomplete.",
+        LIMIT_CHECKS.incomplete
       );
     }
     materialVideos = [...new Set(input.material_video_ids ?? auditedVideos)].sort();
@@ -296,15 +304,17 @@ export function finalizeResearch(
             (saturation.rateLimited > 0 ? " Include the searches YouTube's rate limit or daily quota stopped." : "")
         );
       } else {
-        limits.push(
+        requireLimit(
           `First pass only; discovery had not saturated. End the answer with the open leads (${openLeads.join("; ")}), ` +
             "in plain language for the user (no video IDs or internal codes), why each looks promising and roughly what " +
-            "another pass would cost, and ask whether to continue on all or part."
+            "another pass would cost, and ask whether to continue on all or part.",
+          openLeadsCheck(openLeads)
         );
         if (saturation.rateLimited > 0) {
-          limits.push(
+          requireLimit(
             `YouTube's rate limit or daily quota stopped ${saturation.rateLimited} search(es) in the latest discovery ` +
-              "rounds; say so, and that another pass can rerun them once the limit resets."
+              "rounds; say so, and that another pass can rerun them once the limit resets.",
+            LIMIT_CHECKS.searchLimit
           );
         }
       }
@@ -313,19 +323,28 @@ export function finalizeResearch(
     }
     if (materialVideos.length === 0 && (saturated || firstPassComplete)) {
       if (discovered.size === 0) {
-        limits.push(saturation.rateLimited > 0
-          ? "No video turned up before YouTube's rate limit or daily quota stopped discovery; say that community " +
-            "evidence could not be checked yet, not that it is thin."
-          : `No video turned up in ${rounds.length} discovery rounds; say that community evidence on this is thin.`);
+        if (saturation.rateLimited > 0) {
+          requireLimit(
+            "No video turned up before YouTube's rate limit or daily quota stopped discovery; say that community " +
+              "evidence could not be checked yet, not that it is thin.",
+            LIMIT_CHECKS.notChecked
+          );
+        } else {
+          requireLimit(
+            `No video turned up in ${rounds.length} discovery rounds; say that community evidence on this is thin.`,
+            LIMIT_CHECKS.thin
+          );
+        }
       } else if (input.no_material_video_reason === undefined) {
         nextSteps.push(
           `Discovery found ${discovered.size} video(s) but none is in material_video_ids: audit each one that adds an approach ` +
             "or substantial firsthand experience, or give no_material_video_reason."
         );
       } else {
-        limits.push(
+        requireLimit(
           `None of the ${discovered.size} video(s) found in ${rounds.length} discovery rounds was worth auditing; ` +
-            "say that community evidence on this is thin."
+            "say that community evidence on this is thin.",
+          LIMIT_CHECKS.thin
         );
       }
     }
@@ -346,12 +365,14 @@ export function finalizeResearch(
         continue;
       }
       if (audit.state === "completed_with_access_boundary") {
-        limits.push(
-          `Comments on video ${video} were only partly accessible; treat its community signal as bounded.`
+        requireLimit(
+          `Comments on video ${video} were only partly accessible; treat its community signal as bounded.`,
+          LIMIT_CHECKS.partlyAccessible
         );
       } else if (audit.lock === "block") {
-        limits.push(
-          `The comment audit of video ${video} ended with blockers; its community signal cannot carry a conclusion on its own.`
+        requireLimit(
+          `The comment audit of video ${video} ended with blockers; its community signal cannot carry a conclusion on its own.`,
+          LIMIT_CHECKS.notOnItsOwn
         );
       }
     }
@@ -436,11 +457,12 @@ export function finalizeResearch(
       );
     }
   } else if (coverageBoundary === "bounded_nonranking_only") {
-    limits.push(
-      "The treatment-coverage check allows only a bounded answer: do not rank or recommend among the treatment options."
+    requireLimit(
+      "The treatment-coverage check allows only a bounded answer: do not rank or recommend among the treatment options.",
+      LIMIT_CHECKS.noRanking
     );
   } else if (coverageBoundary === "first_pass_with_open_leads" && input.research_depth === "first_pass") {
-    limits.push("The treatment comparison rests on a first pass: present it as provisional.");
+    requireLimit("The treatment comparison rests on a first pass: present it as provisional.", LIMIT_CHECKS.provisional);
   } else if (coverageBoundary !== "ledger_consistent_for_synthesis") {
     nextSteps.push(
       `The latest assess_treatment_landscape_coverage result was ${coverageBoundary}: fix its selection and depth ` +
@@ -489,8 +511,9 @@ export function finalizeResearch(
     }
     if (ids.some((candidate) => leadIds.has(candidate))) {
       leadSources.push(source.id);
-      limits.push(
-        `Cite ${source.id} as a lead: no open full text was available, so its methods were not audited.`
+      requireLimit(
+        `Cite ${source.id} as a lead: no open full text was available, so its methods were not audited.`,
+        LIMIT_CHECKS.notReadInFull
       );
       continue;
     }
@@ -520,8 +543,9 @@ export function finalizeResearch(
     if (isPmid(id) && pubmedDoi === "") {
       // PubMed lists no DOI and no PMC copy, so the open full-text chain cannot run; the lead is proven.
       leadSources.push(source.id);
-      limits.push(
-        `Cite ${source.id} as a lead: PubMed lists no DOI, so no open full text could be acquired and its methods were not audited.`
+      requireLimit(
+        `Cite ${source.id} as a lead: PubMed lists no DOI, so no open full text could be acquired and its methods were not audited.`,
+        LIMIT_CHECKS.notReadInFull
       );
       continue;
     }
@@ -534,8 +558,9 @@ export function finalizeResearch(
           "before treating it as lead_only; pass the research_receipt it returns.");
   }
   if (input.key_sources.length === 0) {
-    limits.push(
-      "No study was declared decision-critical; say that no study's methods were checked in full text."
+    requireLimit(
+      "No study was declared decision-critical; say that no study's methods were checked in full text.",
+      LIMIT_CHECKS.noStudyChecked
     );
   }
 
@@ -555,6 +580,7 @@ export function finalizeResearch(
       commentsRead: commentVideos.size > 0,
       videoIds: [...new Set([...discovered, ...auditedAtAll])],
       protocolNames: options.protocolNames ?? new Set(),
+      limitChecks,
       ...(input.community_findings === undefined ? {} : { effectOnAnswer: input.community_findings.effect_on_answer })
     }));
   }
@@ -642,7 +668,13 @@ const URL = /https?:\/\/\S+/gu;
 
 function answerDraftProblems(
   draft: string,
-  context: { commentsRead: boolean; videoIds: string[]; protocolNames: ReadonlySet<string>; effectOnAnswer?: string }
+  context: {
+    commentsRead: boolean;
+    videoIds: string[];
+    protocolNames: ReadonlySet<string>;
+    limitChecks: readonly LimitCheck[];
+    effectOnAnswer?: string;
+  }
 ): string[] {
   const problems: string[] = [];
   // Links may carry IDs and underscores legitimately; the words around them may not.
@@ -695,7 +727,87 @@ function answerDraftProblems(
       );
     }
   }
+  // Each limit this research carries must reach the answer.
+  const missingLimits = [...new Set(context.limitChecks.filter(({ met }) => !met(prose)).map(({ label }) => label))];
+  if (missingLimits.length > 0) {
+    problems.push(
+      `The answer leaves out required limits: ${missingLimits.join("; ")}. Add each in plain words, as the limits ` +
+        "list below says."
+    );
+  }
   return problems;
+}
+
+interface LimitCheck {
+  label: string;
+  met: (prose: string) => boolean;
+}
+
+const says = (label: string, pattern: RegExp): LimitCheck => ({ label, met: (prose) => pattern.test(prose) });
+// Each pattern takes the answer's own words for the limit, and matches the
+// limit's own sentence.
+const LIMIT_CHECKS = {
+  incomplete: says(
+    "that the community picture may be incomplete",
+    /\b(?:incomplete|partial(?:ly)?|not (?:all|every|complete)|some searches|may be missing|missing some|limited (?:search|coverage|picture))/iu
+  ),
+  searchLimit: says(
+    "that YouTube's search limit stopped some searches, which another pass can rerun",
+    /\b(?:quota|rate[- ]?limit|daily limit|search limit)/iu
+  ),
+  notChecked: says(
+    "that community evidence could not be checked yet",
+    /\b(?:could(?:n['’]t| not)(?: yet)? (?:be )?(?:check|search|look|read)|not (?:yet )?(?:been )?(?:checked|searched)|unchecked)/iu
+  ),
+  thin: says(
+    "that community evidence on this is thin",
+    /\b(?:thin|little|scarce|sparse|few|limited|not much|hardly any|lack(?:s|ing)?|no (?:useful |relevant |firsthand )?(?:videos?|community|evidence|reports?))\b/iu
+  ),
+  partlyAccessible: says(
+    "that some comments on a video could not be read",
+    /\b(?:partly|partially|partial|not all (?:the |of the )?comments|some comments|could(?:n['’]t| not) (?:be )?(?:read|accessed|retrieved|loaded)|inaccessible|restricted|limited access)/iu
+  ),
+  notOnItsOwn: says(
+    "that one video's comment evidence cannot stand on its own",
+    /\b(?:can(?:not|['’]t)|could(?:n['’]t| not)|not enough|too (?:limited|few|thin|weak)|on its own|by itself|alone|incomplete|weak)\b/iu
+  ),
+  noRanking: says(
+    "that the options are not ranked or one recommended",
+    /\b(?:(?:can(?:not|['’]t)|won['’]t|do(?:es)? not|don['’]t|not) (?:(?:yet )?rank|recommend|say which|pick|choose)|no (?:clear )?(?:winner|ranking|best option)|without (?:a )?ranking)/iu
+  ),
+  provisional: says(
+    "that the treatment comparison is provisional",
+    /\b(?:provisional|preliminary|first pass|initial (?:look|pass|scan|search)|tentative|may change|not (?:yet )?(?:final|complete))\b/iu
+  ),
+  notReadInFull: says(
+    "that the studies cited as leads were not read in full",
+    /\b(?:not (?:been )?(?:read|checked|audited|verified|reviewed)|unverified|abstracts? only|only (?:the |its |their )?abstracts?|full text (?:was |is )?(?:not|n['’]t|un)available|no (?:open |free )?full text|as a lead|leads? only)/iu
+  ),
+  noStudyChecked: says(
+    "that no study's methods were checked in full text",
+    /\b(?:no stud(?:y|ies)|none of the studies|not (?:been )?(?:read|checked|audited|verified) in full|methods (?:were|was) not (?:read|checked|audited))/iu
+  )
+} as const;
+
+const OFFERS_ANOTHER_PASS =
+  /\b(?:(?:another|a second|a deeper|a further|the next|one more) (?:pass|round|search|look)|continue|dig deeper|keep (?:going|looking|searching)|want me to|would you like|shall I|should I)\b/iu;
+// Common words that do not identify a lead.
+const LEAD_STOP_WORDS: ReadonlySet<string> = new Set(["about", "after", "also", "from", "have", "into", "more", "that", "their", "them", "then", "they", "this", "what", "when", "with"]);
+
+/** The answer names each open lead (half its distinctive words) and offers another pass. */
+function openLeadsCheck(topics: readonly string[]): LimitCheck {
+  return {
+    label: `the open leads (${topics.join("; ")}) and an offer to continue`,
+    met: (prose) => {
+      if (!OFFERS_ANOTHER_PASS.test(prose)) return false;
+      const words = new Set(prose.toLowerCase().match(/\p{L}{4,}/gu) ?? []);
+      return topics.every((topic) => {
+        const topicWords = [...new Set(topic.toLowerCase().match(/\p{L}{4,}/gu) ?? [])]
+          .filter((word) => !LEAD_STOP_WORDS.has(word));
+        return topicWords.filter((word) => words.has(word)).length >= Math.ceil(topicWords.length / 2);
+      });
+    }
+  };
 }
 
 // How far after a mention of YouTube or comments the lane's findings are read.

@@ -127,6 +127,8 @@ export type AutomatedGeminiScoutReceipt = z.output<
 
 export interface CreateAutomatedGeminiScoutActionRouteOptions {
   geminiApiKey?: string;
+  // Whether the Gemini key has no billing; defaults to ASKRIGOR_GEMINI_BILLING.
+  geminiKeyUnbilled?: boolean;
   youtubeApiKey?: string;
   budget?: AiBudget;
   scout?: typeof scoutGeminiYoutubeCandidates;
@@ -211,6 +213,14 @@ export function createAutomatedGeminiScoutActionRoute(
 }
 
 /**
+ * The owner's zero-spend policy (governance/chat-work-authority-policy.json):
+ * Gemini runs only with a key the deployment declares has no billing.
+ */
+export function geminiKeyDeclaredUnbilled(): boolean {
+  return process.env.ASKRIGOR_GEMINI_BILLING?.trim() === "none";
+}
+
+/**
  * One budgeted provider implementation shared by the public scout Action and
  * the server-owned controller. The private completion material never enters
  * the public Action response.
@@ -231,7 +241,9 @@ export async function executeAutomatedGeminiScout(
     defaultScoutInstructions;
   const geminiApiKey = options.geminiApiKey ??
     process.env.ASKRIGOR_GEMINI_API_KEY ?? "";
-  if (geminiApiKey.trim().length === 0) {
+  // Under the zero-spend policy a key not declared unbilled counts as not
+  // configured, on every route, before any budget or provider request.
+  if (geminiApiKey.trim().length === 0 || !(options.geminiKeyUnbilled ?? geminiKeyDeclaredUnbilled())) {
     return { receipt: successfulBoundaryReceipt(
       parsed,
       "gemini_provider_not_configured",
@@ -435,6 +447,16 @@ export async function executeResumableAutomatedGeminiScout(
     return resume === undefined
       ? controllerBoundary("gemini_provider_not_configured", false)
       : heldResume(resume, "gemini_provider_not_configured");
+  }
+  // Under the zero-spend policy a key not declared unbilled counts as not
+  // configured, before any budget or provider request. A resumed scout's
+  // stored interaction is deleted (no inference); until that succeeds its
+  // checkpoint is handed back.
+  if (!(options.geminiKeyUnbilled ?? geminiKeyDeclaredUnbilled())) {
+    if (resume !== undefined && !await deleteResumedGeminiScoutInteraction(resume.checkpoint, options)) {
+      return heldResume(resume, "gemini_provider_not_configured");
+    }
+    return controllerBoundary("gemini_provider_not_configured", false);
   }
   const youtubeApiKey = options.youtubeApiKey ?? process.env.YOUTUBE_API_KEY ?? "";
   if (youtubeApiKey.trim().length === 0) {

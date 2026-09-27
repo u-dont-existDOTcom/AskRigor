@@ -58,6 +58,7 @@ import {
   automatedScoutInputSchema,
   deleteResumedGeminiScoutInteraction,
   executeResumableAutomatedGeminiScout,
+  geminiKeyDeclaredUnbilled,
   isPopulationLevelResearchTarget,
   isPublicLeadTerm
 } from "./actions/gemini-scout-route.js";
@@ -1828,11 +1829,6 @@ const SCOUT_SPEND_GUIDANCE =
   "(ASKRIGOR_GEMINI_BILLING=none). Use survey_youtube_community instead.";
 const SCOUT_DELETION_RETRY =
   "Its stored search could not be deleted yet; call again later with the same continuation_token to delete it.";
-
-/** The owner's zero-spend policy: the deployment declares its Gemini key has no billing. */
-function geminiKeyDeclaredUnbilled(): boolean {
-  return process.env.ASKRIGOR_GEMINI_BILLING?.trim() === "none";
-}
 
 function scoutError(code: string, retryable: boolean, guidance?: string): CallToolResult {
   return {

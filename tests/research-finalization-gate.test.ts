@@ -48,8 +48,20 @@ const CLEAN_DRAFT = "Exercise therapy has the strongest evidence for hip osteoar
   "YouTube videos about it reported less pain after several months; a few noticed no change, and none reported side " +
   "effects. The channels' creators sell programs; the commenters have no stake. This weak firsthand signal supports " +
   "trying exercise before surgery.";
-const finalizeResearchGate = (input: Record<string, unknown>, gateOptions: typeof options) =>
-  finalizeResearchRaw({ answer_draft: CLEAN_DRAFT, ...input }, gateOptions);
+// It also states every limit the gate can require, and names the open leads,
+// so tests of other checks pass the limit check; its own test passes drafts.
+const LIMITS_PARAGRAPH = " Limits: the community picture may be incomplete, since YouTube's daily search quota " +
+  "stopped some searches; community evidence could not be checked yet in places, and where nothing turned up it is " +
+  "thin. Some comments could not be read, and one video's comments cannot carry a conclusion on their own. I do not " +
+  "rank or recommend among the options; this comparison is provisional. Studies cited as leads were not read in " +
+  "full, and no study's methods were checked in full text.";
+const finalizeResearchGate = (input: Record<string, unknown>, gateOptions: typeof options) => {
+  const leads = (input.open_leads as Array<{ topic: string }> | undefined) ?? [];
+  const draft = CLEAN_DRAFT + LIMITS_PARAGRAPH +
+    (leads.length === 0 ? "" : ` Open leads: ${leads.map(({ topic }) => topic).join("; ")}.`) +
+    " Want me to continue with another pass?";
+  return finalizeResearchRaw({ answer_draft: draft, ...input }, gateOptions);
+};
 const findingsFor = (videos: string[]) => ({
   videos_reviewed: videos,
   benefit_reports: "About a third of commenters reported less pain after several months.",
@@ -806,6 +818,44 @@ describe("finalize_research gate", () => {
         "could not be checked yet, not that it is thin."
     );
     expect(nothingYet.limits.join(" ")).not.toContain("community evidence on this is thin");
+  });
+
+  it("sends back an answer that leaves out a required limit", () => {
+    // A first pass that stopped at its cap, with open leads, after a partly completed survey.
+    const partialSurvey = sign("youtube_survey", {
+      access: "partial", searches: 4, videos: ["aaaaaaaaaaa", "bbbbbbbbbbb"], q: "p1p1p1p1p1p1"
+    }, options);
+    const round = (q: string, videos: string[]) => sign("youtube_search", { videos, q }, options);
+    const lateVideo = sign("youtube_video_audit", { video: "eeeeeeeeeee", state: "api_visible_complete", lock: "pass", records: 50 }, options);
+    const request = {
+      community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }],
+      receipts: [partialSurvey, round("q2q2q2q2q2q2", []), round("q3q3q3q3q3q3", []), round("q4q4q4q4q4q4", ["eeeeeeeeeee"]),
+        videoA, lateVideo, study],
+      community_findings: findingsFor(["aaaaaaaaaaa", "eeeeeeeeeee"]),
+      open_leads: [
+        { topic: "Gelatin and collagen for hip pain", why: "Several commenters report it." },
+        { topic: "Named physiotherapy programs", why: "Comments name two programs no search covered." }
+      ]
+    };
+    const check = (answerDraft: string) => finalizeResearchRaw({ ...request, answer_draft: answerDraft }, options);
+
+    expect(check(CLEAN_DRAFT)).toMatchObject({
+      status: "not_ready",
+      next_steps: [
+        "The answer leaves out required limits: that the community picture may be incomplete; the open leads " +
+          "(Gelatin and collagen for hip pain; Named physiotherapy programs) and an offer to continue. Add each in " +
+          "plain words, as the limits list below says."
+      ]
+    });
+    // Naming one lead is not naming both.
+    expect(check(`${CLEAN_DRAFT} Some searches failed. Want me to look into collagen and gelatin next?`).next_steps)
+      .toEqual([expect.stringContaining("the open leads (Gelatin and collagen for hip pain; Named physiotherapy programs)")]);
+    // In the answer's own words, the limits are there.
+    const caveated = `${CLEAN_DRAFT} Some searches failed, so this picture may be incomplete. Two leads look ` +
+      "promising: collagen and gelatin for hip pain, and the physiotherapy programs commenters named. Want me to " +
+      "continue on either?";
+    expect(check(caveated)).toMatchObject({ status: "ready_with_limits", next_steps: [] });
   });
 
   it("lets a first pass stop at its cap and hand back open leads instead of searching on", () => {
