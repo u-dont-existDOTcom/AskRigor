@@ -66,11 +66,6 @@ import {
 } from "./scout-continuation.js";
 import { lookUpScoutTitles } from "./scout-title-lookup.js";
 import {
-  assessTreatmentLandscapeCoverage,
-  treatmentLandscapeCoverageInputSchema,
-  treatmentLandscapeCoverageOutputSchema
-} from "./actions/treatment-landscape-coverage-route.js";
-import {
   auditYoutubeCommunity,
   youtubeCommunityAuditInputSchema,
   youtubeCommunityAuditOutputSchema,
@@ -149,6 +144,11 @@ import {
   finalizeResearchInputSchema,
   finalizeResearchOutputSchema
 } from "./research-finalization-gate.js";
+import {
+  assessTreatmentCoverageFromReceipts,
+  treatmentCoverageFromReceiptsInputSchema,
+  treatmentCoverageFromReceiptsOutputSchema
+} from "./treatment-coverage-from-receipts.js";
 import {
   discoveryQueryDigest,
   issueResearchReceipt,
@@ -981,6 +981,7 @@ function defineResearchOperations(
           ? undefined
           : researchReceipt("youtube_search", {
             videos,
+            access: result.access_status,
             q: discoveryQueryDigest([query]),
             target: research_target === undefined ? undefined : researchTargetDigest(research_target),
             // An unread results page is discovery still to do, not a settled round.
@@ -1198,7 +1199,24 @@ function defineResearchOperations(
             video: result.video_id,
             state: result.receipt.completion_state,
             lock: result.receipt.synthesis_lock,
-            records: result.records_retrieved_cumulative
+            records: result.records_retrieved_cumulative,
+            // The audit's depth, so the coverage check needs no copy of it.
+            ch: result.channel_id ?? undefined,
+            ms: result.metadata_access_status,
+            acc: result.access_status,
+            cov: result.extraction_coverage,
+            prc: result.provider_reported_comments,
+            top: result.top_level_comments_retrieved_cumulative,
+            rep: result.replies_retrieved_cumulative,
+            ret: result.records_returned_for_analysis,
+            rtop: result.top_level_records_returned_for_analysis,
+            rrep: result.reply_records_returned_for_analysis,
+            mm: result.reply_count_mismatches.length,
+            cr: result.continuation_recommended ? 1 : 0,
+            f: result.receipt.chain_started_at_first_page ? 1 : 0,
+            tx: result.receipt.top_level_pagination_exhausted ? 1 : 0,
+            rr: result.receipt.replies_reconciled ? 1 : 0,
+            bl: result.receipt.blockers.length
           }));
     }
   );
@@ -1291,16 +1309,31 @@ function defineResearchOperations(
     "assess_treatment_landscape_coverage",
     {
       description:
-        "Check a receipt-linked treatment-discovery ledger before a broad treatment answer: program diversity, " +
-        "selection coverage, and per-video depth. This connector has no transcript tool, so mark each selected " +
-        "video transcript_unavailable; its complete discussion audit then carries depth and creator claims stay unverified.",
-      inputSchema: treatmentLandscapeCoverageInputSchema,
-      outputSchema: treatmentLandscapeCoverageOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
+        "Check treatment-landscape coverage before a broad treatment answer: program diversity, selection coverage " +
+        "and per-video depth. Pass your research receipts and only your judgment: treatment classes, program " +
+        "fingerprints, each discovered video as selected (with its four short notes), screened (fingerprint, " +
+        "materiality, why not selected) or not material (IDs by class), the classes each round searched, and " +
+        "specific-program searches with that round's exact queries. The server builds the discovery rounds " +
+        "(batch IDs r<receipt index>), candidates, audit depth and scout frontier from the receipts. Creator claims " +
+        "stay unverified because this connector has no transcript tool.",
+      inputSchema: treatmentCoverageFromReceiptsInputSchema,
+      outputSchema: treatmentCoverageFromReceiptsOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (input) => {
-      const ledger = treatmentLandscapeCoverageInputSchema.parse(input);
-      const result = assessTreatmentLandscapeCoverage(ledger, { transcriptToolAvailable: false });
+      const ledger = treatmentCoverageFromReceiptsInputSchema.parse(input);
+      const secret = researchReceiptSecretFromEnv();
+      if (secret === undefined) {
+        return {
+          content: [{
+            type: "text",
+            text: "This AskRigor server cannot verify research receipts, so it cannot check treatment coverage; " +
+              "say that the treatment comparison was not server-checked."
+          }],
+          isError: true
+        };
+      }
+      const result = assessTreatmentCoverageFromReceipts(ledger, { secret });
       // finalize_research binds a treatment comparison to the latest check.
       return withResearchReceipt(successfulToolResult(
         `Treatment-landscape coverage: synthesis lock ${result.synthesis_lock}; ` +
@@ -1490,7 +1523,12 @@ function defineResearchOperations(
         open: validation.unresolved_candidates.length - titleConflicts.size +
           unresolvedTitles.filter(({ reason }) => reason !== "no_matching_video").length,
         q: discoveryQueryDigest([target.research_target, ...leads]),
-        target: researchTargetDigest(target.research_target)
+        target: researchTargetDigest(target.research_target),
+        // The rest of the scout frontier, for the coverage check. A title
+        // conflict names another video, so it counts as rejected.
+        unres: validation.unresolved_candidates.map(({ video_id }) => video_id)
+          .filter((videoId) => !titleConflicts.has(videoId)),
+        rej: [...new Set([...validation.rejected_candidates.map(({ video_id }) => video_id), ...titleConflicts])]
       }));
     }
   );

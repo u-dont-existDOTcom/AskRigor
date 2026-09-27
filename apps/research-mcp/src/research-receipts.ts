@@ -82,6 +82,21 @@ export function researchTargetDigest(target: string): string {
   return discoveryQueryDigest([target]);
 }
 
+/**
+ * Signed issue order in milliseconds: the receipt's `t` claim, which strictly
+ * increases within one server process, or its whole-second issue time when it
+ * has none. Equal values are ties that the caller's order never breaks.
+ */
+export function receiptIssueOrder(receipt: {
+  claims: Readonly<Record<string, string | string[]>>;
+  issued_at: string;
+}): number {
+  const sequence = receipt.claims.t;
+  return typeof sequence === "string" && /^\d{1,16}$/u.test(sequence)
+    ? Number(sequence)
+    : Date.parse(receipt.issued_at);
+}
+
 export const RESEARCH_RECEIPT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 export const RESEARCH_RECEIPT_MAX_CHARACTERS = 2_048;
 

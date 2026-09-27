@@ -10,23 +10,23 @@ import type { ActionRequestContext, ActionResult, ActionRoute } from "./types.js
 
 export const PROGRAM_NOT_DESCRIBED = "program not described";
 
-const shortId = z.string().trim().min(1).max(80).regex(/^[A-Za-z0-9._:-]+$/u);
-const youtubeVideoId = z.string().trim().min(1).max(80).regex(/^[A-Za-z0-9_-]+$/u);
+export const shortId = z.string().trim().min(1).max(80).regex(/^[A-Za-z0-9._:-]+$/u);
+export const youtubeVideoId = z.string().trim().min(1).max(80).regex(/^[A-Za-z0-9_-]+$/u);
 const channelId = z.union([
   z.string().trim().min(1).max(80).regex(/^[A-Za-z0-9_-]+$/u),
   z.literal("not_reported")
 ]);
 const shortText = z.string().trim().min(1).max(300);
-const detailText = z.string().trim().min(1).max(800);
-const outputDisplayText = z.string().trim().min(1).max(160);
-const programField = z.string().trim().min(1).max(240);
+export const detailText = z.string().trim().min(1).max(800);
+export const outputDisplayText = z.string().trim().min(1).max(160);
+export const programField = z.string().trim().min(1).max(240);
 const accessStatusSchema = z.enum(ACCESS_STATUSES);
 const boundaryStatusSchema = z.enum([
   "partial", "abstract_only", "metadata_only", "comments_disabled", "inaccessible",
   "rate_limited", "not_found", "error"
 ]);
-const materialitySchema = z.enum(["material", "not_material", "uncertain"]);
-const omissionImpactSchema = z.enum([
+export const materialitySchema = z.enum(["material", "not_material", "uncertain"]);
+export const omissionImpactSchema = z.enum([
   "not_decision_relevant", "confidence_changing", "ranking_changing",
   "potentially_conclusion_changing", "uncertain"
 ]);
@@ -52,7 +52,7 @@ const omissionSchema = {
   omission_rationale: detailText
 } as const;
 
-const accessBoundarySchema = z.object({
+export const accessBoundarySchema = z.object({
   boundary_id: shortId,
   scope_type: z.enum([
     "landscape_scope", "discovery_batch", "treatment_class", "program_fingerprint",
@@ -83,7 +83,7 @@ const discoveryBatchSchema = z.object({
   access_boundary_id: shortId.optional()
 }).strict();
 
-const treatmentClassSchema = z.object({
+export const treatmentClassSchema = z.object({
   class_id: shortId,
   plain_language_label: shortText,
   materiality: materialitySchema,
@@ -130,7 +130,7 @@ const specificImplementationSearchSchema = z.object({
   access_boundary_id: shortId.optional()
 }).strict();
 
-const programFingerprintSchema = z.object({
+export const programFingerprintSchema = z.object({
   fingerprint_id: shortId,
   treatment_class_id: shortId,
   materiality: materialitySchema,
@@ -253,7 +253,7 @@ const selectedVideoSchema = z.object({
   { message: "Provide exactly one of transcript_receipt or transcript_unavailable." }
 );
 
-const directionalSearchSchema = z.object({
+export const directionalSearchSchema = z.object({
   status: directionalStatusSchema,
   access_boundary_id: shortId.optional()
 }).strict();
@@ -1800,7 +1800,7 @@ function sameStringSet(left: readonly string[], right: readonly string[]): boole
   return left.every((value) => rightSet.has(value));
 }
 
-function deriveExternalScoutFrontierDigest(
+export function deriveExternalScoutFrontierDigest(
   frontier: z.output<typeof externalScoutFrontierSchema>
 ): string {
   return createHash("sha256").update(JSON.stringify({

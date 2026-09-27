@@ -471,6 +471,52 @@ run went from 07:12 to 09:44 UTC.
     checks by it. Rounds it cannot separate from the last two all count as
     recent, so a tie can only delay saturation.
 
+## Option A: coverage ledger built from signed receipts (owner-chosen 2026-09-27)
+
+Problem: in the 4d4fae8 smoke run the model wrote four
+`assess_treatment_landscape_coverage` ledgers of 95 to 151 KB, about 39 of
+152 minutes. Candidate videos took 35–38% of each ledger, program details
+19–24%, copies of audit results 13–15%, discovery batches up to 9%.
+
+Design (MCP only; the Custom GPT Action keeps the full ledger):
+
+- The model passes its research receipts plus judgment only:
+  - treatment classes and program fingerprints, as before;
+  - which discovery rounds targeted which classes (`rounds`), with the exact
+    executed queries where a round serves as a specific-program search;
+  - selected videos with their four short texts;
+  - screened but unselected videos with fingerprint, materiality and
+    omission reason;
+  - not-material videos as ID lists per class;
+  - specific-program searches as round, class and terms;
+  - directional search states and access boundaries, as before.
+- The server derives everything mechanical from verified receipts for the
+  same research target:
+  - one discovery batch per round, in signed issue order, with its access,
+    pagination and videos; its classes are the mapped classes plus those of
+    the videos it found;
+  - every candidate video with its batch links and the audited channel;
+  - each selected video's discussion receipt, from the extended signed audit
+    receipt (counts, flags, coverage, channel);
+  - the scout frontier from scout receipts, which now sign unresolved and
+    rejected IDs; scout candidates take the model's screening;
+  - specific-search candidates by class and described components. The
+    queries the model supplies must match the round's signed query digest.
+- Every discovered video must be screened. An unscreened one enters as
+  `uncertain` with an omission blocker (a breadth gap, as the full ledger
+  would give), and an unscreened scout candidate blocks as before.
+  Server-made records (an unassigned class, per-class not-material programs)
+  are `not_material`, so they never satisfy a material check.
+- Problems in the compact input (a video no receipt found, queries that do
+  not match their digest, a listed video twice) are record blockers and
+  force `continue_research`.
+- The existing checker runs unchanged on the built ledger, so every check it
+  enforced still applies.
+
+Expected size: 100 candidates and 15 selected videos take about 15 KB instead
+of about 70 KB; with classes and programs a full check is about 55–60 KB
+instead of 95–151 KB. A later step can keep the ledger between calls.
+
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 
 - Iteration for each candidate: focused tests plus one or two development

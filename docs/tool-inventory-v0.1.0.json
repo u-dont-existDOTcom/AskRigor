@@ -10289,17 +10289,26 @@
     },
     {
       "name": "assess_treatment_landscape_coverage",
-      "description": "Check a receipt-linked treatment-discovery ledger before a broad treatment answer: program diversity, selection coverage, and per-video depth. This connector has no transcript tool, so mark each selected video transcript_unavailable; its complete discussion audit then carries depth and creator claims stay unverified.",
+      "description": "Check treatment-landscape coverage before a broad treatment answer: program diversity, selection coverage and per-video depth. Pass your research receipts and only your judgment: treatment classes, program fingerprints, each discovered video as selected (with its four short notes), screened (fingerprint, materiality, why not selected) or not material (IDs by class), the classes each round searched, and specific-program searches with that round's exact queries. The server builds the discovery rounds (batch IDs r<receipt index>), candidates, audit depth and scout frontier from the receipts. Creator claims stay unverified because this connector has no transcript tool.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "research_target": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 800
+            "maxLength": 800,
+            "description": "The research target every discovery tool received, copied exactly; only receipts for it count."
           },
           "broad_treatment_choice": {
             "type": "boolean"
+          },
+          "research_depth": {
+            "description": "first_pass unless the user or an automated research brief asked for deep research.",
+            "type": "string",
+            "enum": [
+              "first_pass",
+              "deep"
+            ]
           },
           "substantial_youtube_corpus": {
             "type": "string",
@@ -10309,185 +10318,23 @@
               "unknown"
             ]
           },
-          "discovery_batches": {
-            "minItems": 1,
-            "maxItems": 40,
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "batch_id": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 80,
-                  "pattern": "^[A-Za-z0-9._:-]+$"
-                },
-                "query_or_scope": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 800
-                },
-                "treatment_class_ids": {
-                  "minItems": 1,
-                  "maxItems": 30,
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 80,
-                    "pattern": "^[A-Za-z0-9._:-]+$"
-                  }
-                },
-                "access_status": {
-                  "type": "string",
-                  "enum": [
-                    "complete",
-                    "api_visible_complete",
-                    "partial",
-                    "abstract_only",
-                    "metadata_only",
-                    "comments_disabled",
-                    "inaccessible",
-                    "rate_limited",
-                    "not_found",
-                    "error"
-                  ]
-                },
-                "pagination": {
-                  "type": "object",
-                  "properties": {
-                    "exhausted": {
-                      "type": "boolean"
-                    },
-                    "next_cursor_present": {
-                      "type": "boolean"
-                    }
-                  },
-                  "required": [
-                    "exhausted",
-                    "next_cursor_present"
-                  ],
-                  "additionalProperties": false
-                },
-                "candidate_video_ids": {
-                  "maxItems": 100,
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 80,
-                    "pattern": "^[A-Za-z0-9_-]+$"
-                  }
-                },
-                "new_program_fingerprint_ids": {
-                  "maxItems": 40,
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 80,
-                    "pattern": "^[A-Za-z0-9._:-]+$"
-                  }
-                },
-                "access_boundary_id": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 80,
-                  "pattern": "^[A-Za-z0-9._:-]+$"
-                }
-              },
-              "required": [
-                "batch_id",
-                "query_or_scope",
-                "treatment_class_ids",
-                "access_status",
-                "pagination",
-                "candidate_video_ids",
-                "new_program_fingerprint_ids"
-              ],
-              "additionalProperties": false
-            }
+          "further_expansion_likely_to_improve_answer": {
+            "type": "string",
+            "enum": [
+              "yes",
+              "no",
+              "blocked"
+            ]
           },
-          "specific_implementation_searches": {
-            "maxItems": 120,
+          "receipts": {
+            "minItems": 1,
+            "maxItems": 300,
             "type": "array",
             "items": {
-              "type": "object",
-              "properties": {
-                "search_id": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 80,
-                  "pattern": "^[A-Za-z0-9._:-]+$"
-                },
-                "discovery_batch_id": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 80,
-                  "pattern": "^[A-Za-z0-9._:-]+$"
-                },
-                "treatment_class_id": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 80,
-                  "pattern": "^[A-Za-z0-9._:-]+$"
-                },
-                "implementation_terms": {
-                  "minItems": 1,
-                  "maxItems": 8,
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 240
-                  }
-                },
-                "discriminator_terms": {
-                  "minItems": 1,
-                  "maxItems": 8,
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 240
-                  }
-                },
-                "candidate_video_ids": {
-                  "maxItems": 100,
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 80,
-                    "pattern": "^[A-Za-z0-9_-]+$"
-                  }
-                },
-                "result_status": {
-                  "type": "string",
-                  "enum": [
-                    "specific_candidates_found",
-                    "exhausted_zero_results",
-                    "inaccessible"
-                  ]
-                },
-                "access_boundary_id": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 80,
-                  "pattern": "^[A-Za-z0-9._:-]+$"
-                }
-              },
-              "required": [
-                "search_id",
-                "discovery_batch_id",
-                "treatment_class_id",
-                "implementation_terms",
-                "discriminator_terms",
-                "candidate_video_ids",
-                "result_status"
-              ],
-              "additionalProperties": false
-            }
+              "type": "string",
+              "maxLength": 2048
+            },
+            "description": "Every research_receipt from discovery and comment audits so far, copied exactly."
           },
           "treatment_classes": {
             "minItems": 1,
@@ -10723,77 +10570,23 @@
               "additionalProperties": false
             }
           },
-          "candidate_videos": {
-            "maxItems": 100,
+          "rounds": {
+            "default": [],
+            "maxItems": 60,
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "video_id": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 80,
-                  "pattern": "^[A-Za-z0-9_-]+$"
+                "receipt": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 299,
+                  "description": "Index of the discovery round's receipt in receipts."
                 },
-                "title": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 160
-                },
-                "channel_id": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 80,
-                      "pattern": "^[A-Za-z0-9_-]+$"
-                    },
-                    {
-                      "type": "string",
-                      "const": "not_reported"
-                    }
-                  ]
-                },
-                "channel_title": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 160
-                    },
-                    {
-                      "type": "string",
-                      "const": "not_reported"
-                    }
-                  ]
-                },
-                "published_date": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
-                    },
-                    {
-                      "type": "string",
-                      "const": "not_reported"
-                    }
-                  ]
-                },
-                "treatment_class_id": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 80,
-                  "pattern": "^[A-Za-z0-9._:-]+$"
-                },
-                "fingerprint_id": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 80,
-                  "pattern": "^[A-Za-z0-9._:-]+$"
-                },
-                "discovery_batch_ids": {
-                  "minItems": 1,
-                  "maxItems": 12,
+                "treatment_class_ids": {
+                  "default": [],
+                  "description": "Classes this round searched for; classes of the videos it found are added.",
+                  "maxItems": 30,
                   "type": "array",
                   "items": {
                     "type": "string",
@@ -10802,228 +10595,26 @@
                     "pattern": "^[A-Za-z0-9._:-]+$"
                   }
                 },
-                "materiality": {
-                  "type": "string",
-                  "enum": [
-                    "material",
-                    "not_material",
-                    "uncertain"
-                  ]
-                },
-                "selection_status": {
-                  "type": "string",
-                  "enum": [
-                    "selected",
-                    "screened_not_selected",
-                    "inaccessible"
-                  ]
-                },
-                "omission_impact": {
-                  "type": "string",
-                  "enum": [
-                    "not_decision_relevant",
-                    "confidence_changing",
-                    "ranking_changing",
-                    "potentially_conclusion_changing",
-                    "uncertain"
-                  ]
-                },
-                "omission_rationale": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 800
-                },
-                "access_boundary_id": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 80,
-                  "pattern": "^[A-Za-z0-9._:-]+$"
-                }
-              },
-              "required": [
-                "video_id",
-                "title",
-                "channel_id",
-                "channel_title",
-                "published_date",
-                "treatment_class_id",
-                "fingerprint_id",
-                "discovery_batch_ids",
-                "materiality",
-                "selection_status",
-                "omission_impact",
-                "omission_rationale"
-              ],
-              "additionalProperties": false
-            }
-          },
-          "external_scout_frontiers": {
-            "default": [],
-            "maxItems": 8,
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "frontier_digest": {
-                  "type": "string",
-                  "pattern": "^[a-f0-9]{64}$"
-                },
-                "source": {
-                  "type": "string",
-                  "enum": [
-                    "gemini_spark",
-                    "other_external_scout"
-                  ]
-                },
-                "source_candidate_video_ids": {
+                "queries": {
+                  "description": "The round's exact executed queries (a scout round: its rediscovery leads); needed for a specific-program search on this round.",
                   "minItems": 1,
-                  "maxItems": 40,
+                  "maxItems": 12,
                   "type": "array",
                   "items": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 80,
-                    "pattern": "^[A-Za-z0-9_-]+$"
-                  }
-                },
-                "validated_candidate_video_ids": {
-                  "maxItems": 40,
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 80,
-                    "pattern": "^[A-Za-z0-9_-]+$"
-                  }
-                },
-                "terminally_rejected_video_ids": {
-                  "maxItems": 40,
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 80,
-                    "pattern": "^[A-Za-z0-9_-]+$"
-                  }
-                },
-                "unresolved_candidate_video_ids": {
-                  "maxItems": 40,
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 80,
-                    "pattern": "^[A-Za-z0-9_-]+$"
+                    "maxLength": 5000
                   }
                 }
               },
               "required": [
-                "frontier_digest",
-                "source",
-                "source_candidate_video_ids",
-                "validated_candidate_video_ids",
-                "terminally_rejected_video_ids",
-                "unresolved_candidate_video_ids"
-              ],
-              "additionalProperties": false
-            }
-          },
-          "external_scout_candidates": {
-            "default": [],
-            "maxItems": 40,
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "frontier_digest": {
-                  "type": "string",
-                  "pattern": "^[a-f0-9]{64}$"
-                },
-                "source": {
-                  "type": "string",
-                  "enum": [
-                    "gemini_spark",
-                    "other_external_scout"
-                  ]
-                },
-                "video_id": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 80,
-                  "pattern": "^[A-Za-z0-9_-]+$"
-                },
-                "materiality": {
-                  "type": "string",
-                  "enum": [
-                    "material",
-                    "not_material",
-                    "uncertain"
-                  ]
-                },
-                "redundancy": {
-                  "type": "string",
-                  "enum": [
-                    "distinct",
-                    "duplicate",
-                    "unknown"
-                  ]
-                },
-                "screening_status": {
-                  "type": "string",
-                  "enum": [
-                    "screened",
-                    "unscreened",
-                    "inaccessible"
-                  ]
-                },
-                "fingerprint_id": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 80,
-                  "pattern": "^[A-Za-z0-9._:-]+$"
-                },
-                "duplicate_of_video_id": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 80,
-                  "pattern": "^[A-Za-z0-9_-]+$"
-                },
-                "omission_impact": {
-                  "type": "string",
-                  "enum": [
-                    "not_decision_relevant",
-                    "confidence_changing",
-                    "ranking_changing",
-                    "potentially_conclusion_changing",
-                    "uncertain"
-                  ]
-                },
-                "omission_rationale": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 800
-                },
-                "access_boundary_id": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 80,
-                  "pattern": "^[A-Za-z0-9._:-]+$"
-                }
-              },
-              "required": [
-                "frontier_digest",
-                "source",
-                "video_id",
-                "materiality",
-                "redundancy",
-                "screening_status",
-                "omission_impact",
-                "omission_rationale"
+                "receipt"
               ],
               "additionalProperties": false
             }
           },
           "selected_videos": {
+            "default": [],
             "maxItems": 15,
             "type": "array",
             "items": {
@@ -11056,386 +10647,6 @@
                   "minLength": 1,
                   "maxLength": 160
                 },
-                "transcript_receipt": {
-                  "type": "object",
-                  "properties": {
-                    "source_video_id": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 80,
-                          "pattern": "^[A-Za-z0-9_-]+$"
-                        },
-                        {
-                          "type": "string",
-                          "const": "not_reported"
-                        }
-                      ]
-                    },
-                    "access_status": {
-                      "type": "string",
-                      "enum": [
-                        "complete",
-                        "api_visible_complete",
-                        "partial",
-                        "abstract_only",
-                        "metadata_only",
-                        "comments_disabled",
-                        "inaccessible",
-                        "rate_limited",
-                        "not_found",
-                        "error"
-                      ]
-                    },
-                    "pagination": {
-                      "type": "object",
-                      "properties": {
-                        "chain_started_at_first_page": {
-                          "type": "boolean"
-                        },
-                        "cursor_chain_reconciled": {
-                          "type": "boolean"
-                        },
-                        "page_count": {
-                          "anyOf": [
-                            {
-                              "type": "integer",
-                              "minimum": 1,
-                              "maximum": 10000
-                            },
-                            {
-                              "type": "string",
-                              "const": "not_reported"
-                            }
-                          ]
-                        },
-                        "records_returned_cumulative": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "exhausted": {
-                          "type": "boolean"
-                        },
-                        "next_cursor_present": {
-                          "type": "boolean"
-                        }
-                      },
-                      "required": [
-                        "chain_started_at_first_page",
-                        "cursor_chain_reconciled",
-                        "page_count",
-                        "records_returned_cumulative",
-                        "exhausted",
-                        "next_cursor_present"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "selected_track": {
-                      "type": "object",
-                      "properties": {
-                        "language_code": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "minLength": 2,
-                              "maxLength": 35
-                            },
-                            {
-                              "type": "string",
-                              "const": "not_reported"
-                            }
-                          ]
-                        },
-                        "language_name": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "minLength": 1,
-                              "maxLength": 300
-                            },
-                            {
-                              "type": "string",
-                              "const": "not_reported"
-                            }
-                          ]
-                        },
-                        "is_auto_generated": {
-                          "anyOf": [
-                            {
-                              "type": "boolean"
-                            },
-                            {
-                              "type": "string",
-                              "const": "not_reported"
-                            }
-                          ]
-                        }
-                      },
-                      "required": [
-                        "language_code",
-                        "language_name",
-                        "is_auto_generated"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "timestamp_provenance": {
-                      "type": "string",
-                      "enum": [
-                        "segment_timestamp_urls",
-                        "unavailable"
-                      ]
-                    },
-                    "error_retryable": {
-                      "anyOf": [
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "string",
-                          "const": "not_reported"
-                        }
-                      ]
-                    },
-                    "access_boundary_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 80,
-                      "pattern": "^[A-Za-z0-9._:-]+$"
-                    }
-                  },
-                  "required": [
-                    "source_video_id",
-                    "access_status",
-                    "pagination",
-                    "selected_track",
-                    "timestamp_provenance",
-                    "error_retryable"
-                  ],
-                  "additionalProperties": false
-                },
-                "transcript_unavailable": {
-                  "type": "string",
-                  "const": "transcript_tool_unavailable"
-                },
-                "discussion_receipt": {
-                  "type": "object",
-                  "properties": {
-                    "source_video_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 80,
-                      "pattern": "^[A-Za-z0-9_-]+$"
-                    },
-                    "channel_id": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 80,
-                          "pattern": "^[A-Za-z0-9_-]+$"
-                        },
-                        {
-                          "type": "string",
-                          "const": "not_reported"
-                        }
-                      ]
-                    },
-                    "metadata_access_status": {
-                      "type": "string",
-                      "enum": [
-                        "complete",
-                        "api_visible_complete",
-                        "partial",
-                        "abstract_only",
-                        "metadata_only",
-                        "comments_disabled",
-                        "inaccessible",
-                        "rate_limited",
-                        "not_found",
-                        "error"
-                      ]
-                    },
-                    "access_status": {
-                      "type": "string",
-                      "enum": [
-                        "complete",
-                        "api_visible_complete",
-                        "partial",
-                        "abstract_only",
-                        "metadata_only",
-                        "comments_disabled",
-                        "inaccessible",
-                        "rate_limited",
-                        "not_found",
-                        "error"
-                      ]
-                    },
-                    "extraction_coverage": {
-                      "type": "string",
-                      "enum": [
-                        "api_visible_complete",
-                        "partial",
-                        "completed_with_access_boundary"
-                      ]
-                    },
-                    "provider_reported_comments": {
-                      "type": "string",
-                      "pattern": "^(0|[1-9][0-9]*)$"
-                    },
-                    "top_level_comments_retrieved_cumulative": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    },
-                    "replies_retrieved_cumulative": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    },
-                    "records_retrieved_cumulative": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    },
-                    "records_returned_for_analysis": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 500
-                    },
-                    "top_level_records_returned_for_analysis": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 500
-                    },
-                    "reply_records_returned_for_analysis": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 500
-                    },
-                    "reply_count_mismatches": {
-                      "maxItems": 500,
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "parent_comment_id": {
-                            "type": "string",
-                            "minLength": 1,
-                            "maxLength": 512
-                          },
-                          "expected": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "retrieved": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          }
-                        },
-                        "required": [
-                          "parent_comment_id",
-                          "expected",
-                          "retrieved"
-                        ],
-                        "additionalProperties": false
-                      }
-                    },
-                    "continuation_recommended": {
-                      "type": "boolean"
-                    },
-                    "error_retryable": {
-                      "anyOf": [
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "string",
-                          "const": "not_reported"
-                        }
-                      ]
-                    },
-                    "receipt": {
-                      "type": "object",
-                      "properties": {
-                        "completion_state": {
-                          "type": "string",
-                          "enum": [
-                            "api_visible_complete",
-                            "completed_with_access_boundary",
-                            "incomplete"
-                          ]
-                        },
-                        "synthesis_lock": {
-                          "type": "string",
-                          "enum": [
-                            "pass",
-                            "block"
-                          ]
-                        },
-                        "chain_started_at_first_page": {
-                          "type": "boolean"
-                        },
-                        "top_level_pagination_exhausted": {
-                          "type": "boolean"
-                        },
-                        "replies_reconciled": {
-                          "type": "boolean"
-                        },
-                        "query_bounded_comments_used_as_corpus": {
-                          "type": "boolean",
-                          "const": false
-                        },
-                        "blockers": {
-                          "maxItems": 40,
-                          "type": "array",
-                          "items": {
-                            "type": "string",
-                            "minLength": 1,
-                            "maxLength": 800
-                          }
-                        }
-                      },
-                      "required": [
-                        "completion_state",
-                        "synthesis_lock",
-                        "chain_started_at_first_page",
-                        "top_level_pagination_exhausted",
-                        "replies_reconciled",
-                        "query_bounded_comments_used_as_corpus",
-                        "blockers"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "access_boundary_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 80,
-                      "pattern": "^[A-Za-z0-9._:-]+$"
-                    }
-                  },
-                  "required": [
-                    "source_video_id",
-                    "channel_id",
-                    "metadata_access_status",
-                    "access_status",
-                    "extraction_coverage",
-                    "top_level_comments_retrieved_cumulative",
-                    "replies_retrieved_cumulative",
-                    "records_retrieved_cumulative",
-                    "records_returned_for_analysis",
-                    "top_level_records_returned_for_analysis",
-                    "reply_records_returned_for_analysis",
-                    "reply_count_mismatches",
-                    "continuation_recommended",
-                    "error_retryable",
-                    "receipt"
-                  ],
-                  "additionalProperties": false
-                },
                 "what_it_changed": {
                   "type": "string",
                   "minLength": 1,
@@ -11448,26 +10659,159 @@
                 "stage_or_baseline",
                 "outcome_and_horizon",
                 "nonredundant_value",
-                "discussion_receipt",
                 "what_it_changed"
               ],
               "additionalProperties": false
             }
           },
-          "further_expansion_likely_to_improve_answer": {
-            "type": "string",
-            "enum": [
-              "yes",
-              "no",
-              "blocked"
-            ]
+          "screened_videos": {
+            "default": [],
+            "description": "Discovered videos not selected for audit that are material, uncertain, or tied to a described program.",
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "video_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9_-]+$"
+                },
+                "fingerprint_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "materiality": {
+                  "type": "string",
+                  "enum": [
+                    "material",
+                    "not_material",
+                    "uncertain"
+                  ]
+                },
+                "omission_impact": {
+                  "type": "string",
+                  "enum": [
+                    "not_decision_relevant",
+                    "confidence_changing",
+                    "ranking_changing",
+                    "potentially_conclusion_changing",
+                    "uncertain"
+                  ]
+                },
+                "omission_rationale": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 800
+                },
+                "duplicate_of_video_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9_-]+$"
+                },
+                "access_boundary_id": {
+                  "description": "Only for a video that could not be opened: its candidate_video access boundary.",
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                }
+              },
+              "required": [
+                "video_id",
+                "fingerprint_id",
+                "materiality",
+                "omission_impact",
+                "omission_rationale"
+              ],
+              "additionalProperties": false
+            }
           },
-          "research_depth": {
-            "type": "string",
-            "enum": [
-              "first_pass",
-              "deep"
-            ]
+          "not_material_videos": {
+            "default": [],
+            "description": "Discovered videos screened as not material, grouped by treatment class.",
+            "maxItems": 80,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "treatment_class_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "video_ids": {
+                  "minItems": 1,
+                  "maxItems": 100,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "pattern": "^[A-Za-z0-9_-]+$"
+                  }
+                }
+              },
+              "required": [
+                "treatment_class_id",
+                "video_ids"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "specific_searches": {
+            "default": [],
+            "maxItems": 120,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "round": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 299,
+                  "description": "Index of the round's receipt in receipts."
+                },
+                "treatment_class_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "implementation_terms": {
+                  "minItems": 1,
+                  "maxItems": 8,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  }
+                },
+                "discriminator_terms": {
+                  "minItems": 1,
+                  "maxItems": 8,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  }
+                }
+              },
+              "required": [
+                "round",
+                "treatment_class_id",
+                "implementation_terms",
+                "discriminator_terms"
+              ],
+              "additionalProperties": false
+            }
           },
           "directional_searches": {
             "type": "object",
@@ -11608,6 +10952,7 @@
             "additionalProperties": false
           },
           "access_boundaries": {
+            "default": [],
             "maxItems": 80,
             "type": "array",
             "items": {
@@ -11706,15 +11051,11 @@
           "research_target",
           "broad_treatment_choice",
           "substantial_youtube_corpus",
-          "discovery_batches",
-          "specific_implementation_searches",
+          "further_expansion_likely_to_improve_answer",
+          "receipts",
           "treatment_classes",
           "program_fingerprints",
-          "candidate_videos",
-          "selected_videos",
-          "further_expansion_likely_to_improve_answer",
-          "directional_searches",
-          "access_boundaries"
+          "directional_searches"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false
@@ -12328,6 +11669,87 @@
               "pattern": "^[A-Za-z0-9._:-]+$"
             }
           },
+          "receipt_derivation": {
+            "type": "object",
+            "properties": {
+              "receipts_verified": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "receipts_rejected": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "index": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "reason": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "index",
+                    "reason"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "discovery_rounds": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "rounds_for_other_targets": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "candidate_videos": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "unscreened_videos": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "audited_videos": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "scout_frontier_videos": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "input_problems": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "receipts_verified",
+              "receipts_rejected",
+              "discovery_rounds",
+              "rounds_for_other_targets",
+              "candidate_videos",
+              "unscreened_videos",
+              "audited_videos",
+              "scout_frontier_videos",
+              "input_problems"
+            ],
+            "additionalProperties": false
+          },
           "research_receipt": {
             "type": "string"
           }
@@ -12368,7 +11790,8 @@
           "boundary_blockers",
           "blockers",
           "planning_warnings",
-          "access_boundary_ids_used"
+          "access_boundary_ids_used",
+          "receipt_derivation"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false

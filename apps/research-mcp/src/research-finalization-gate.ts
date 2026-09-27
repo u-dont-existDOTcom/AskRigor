@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   issueResearchReceipt,
   RESEARCH_RECEIPT_MAX_CHARACTERS,
+  receiptIssueOrder,
   researchTargetDigest,
   verifyResearchReceipt,
   type ResearchReceiptKind
@@ -501,14 +502,8 @@ interface VerifiedReceipt {
   index: number;
 }
 
-/**
- * Signed issue order in milliseconds: the receipt's `t` claim, which strictly
- * increases within one server process, or its whole-second issue time when it
- * has none. Equal values are ties that the caller's order never breaks.
- */
 function receiptOrder(receipt: VerifiedReceipt): number {
-  const sequence = text(receipt.claims.t);
-  return /^\d{1,16}$/u.test(sequence) ? Number(sequence) : Date.parse(receipt.issuedAt);
+  return receiptIssueOrder({ claims: receipt.claims, issued_at: receipt.issuedAt });
 }
 
 const DISCOVERY_KINDS: ReadonlySet<ResearchReceiptKind> = new Set([
