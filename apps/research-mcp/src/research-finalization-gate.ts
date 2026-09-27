@@ -221,7 +221,8 @@ export function finalizeResearch(
       } else {
         limits.push(
           `First pass only; discovery had not saturated. End the answer with the open leads (${openLeads.join("; ")}), ` +
-            "why each looks promising and roughly what another pass would cost, and ask whether to continue on all or part."
+            "in plain language for the user (no video IDs or internal codes), why each looks promising and roughly what " +
+            "another pass would cost, and ask whether to continue on all or part."
         );
       }
     } else {

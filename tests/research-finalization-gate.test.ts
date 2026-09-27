@@ -254,7 +254,8 @@ describe("finalize_research gate", () => {
     expect(withLeads.community.open_leads).toEqual(["Gelatin and collagen for hip pain", "Named physiotherapy programs"]);
     expect(withLeads.limits).toEqual([
       "First pass only; discovery had not saturated. End the answer with the open leads (Gelatin and collagen for hip pain; " +
-        "Named physiotherapy programs), why each looks promising and roughly what another pass would cost, and ask whether to continue on all or part."
+        "Named physiotherapy programs), in plain language for the user (no video IDs or internal codes), why each looks " +
+        "promising and roughly what another pass would cost, and ask whether to continue on all or part."
     ]);
 
     // Deep research keeps going until discovery saturates.

@@ -173,6 +173,22 @@ run went from 07:12 to 09:44 UTC.
   - Also covered: radiofrequency ablation, an unloader brace, PRP and stem
     cells.
   - Still missing: gelatin, collagen and hydration.
+- **Blind judges** (Opus at max effort with web spot-checks, arm identities
+  hidden):
+  - **4d4fae8 beat e1176f8, the previous best (medium confidence).**
+    - It won options and heterodox judgment; appraisal and safety tied.
+    - e1176f8 won usefulness. The 4d4fae8 answer buried its plan among
+      internal R0–R5 codes, a 28-video list, open leads given as YouTube
+      IDs and a technical forum-audit prompt.
+  - **4d4fae8 beat main (medium confidence).**
+    - It won options, safety, heterodox judgment and, narrowly,
+      usefulness.
+    - main won appraisal, partly for the 77% two-year crossover-to-surgery
+      figure that 4d4fae8 missed.
+  - Follow-up: `finalize_research` now asks for the open leads in plain
+    language, with no video IDs or internal codes. It had echoed the
+    model's lead topics, IDs included.
+  - All arms are still one development question.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 
