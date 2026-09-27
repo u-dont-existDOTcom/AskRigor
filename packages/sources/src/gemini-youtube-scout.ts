@@ -296,7 +296,7 @@ export async function scoutGeminiYoutubeCandidates(
 
     const usage = providerUsage(
       responses.map(({ usage }) => usage),
-      executedSearchQueries.length
+      countExecutedSearchQueries(initialResponse.steps)
     );
     const responseIdentifier = responses.length === 1 && initialResponse.id !== undefined
       ? initialResponse.id
@@ -555,7 +555,7 @@ async function processGeminiBackgroundInteraction(
     phase === "REPAIR"
       ? [current.initial_usage, response.usage]
       : [response.usage],
-    executedSearchQueries.length
+    phase === "REPAIR" ? executedSearchQueries.length : countExecutedSearchQueries(response.steps)
   );
   const responseModel = response.model ?? config.model;
   const data: GeminiYoutubeScoutData = {
@@ -976,6 +976,24 @@ function findExecutedSearchQueries(
       queries.push(value.trim());
     }
   }
+  // The packet reproduces this ledger exactly. Grounded Gemini sometimes runs
+  // more searches than asked; the ledger keeps the first ones and cost
+  // accounting counts them all (countExecutedSearchQueries).
+  return uniqueSearchQueries(queries).slice(0, GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES);
+}
+
+function countExecutedSearchQueries(steps: z.output<typeof interactionStepSchema>[]): number {
+  const queries: string[] = [];
+  for (const step of steps) {
+    if (step.type !== "google_search_call") continue;
+    const values = (step.arguments as Record<string, unknown> | undefined)?.queries;
+    if (!Array.isArray(values)) continue;
+    for (const value of values) if (typeof value === "string" && value.trim().length > 0) queries.push(value.trim());
+  }
+  return uniqueSearchQueries(queries).length;
+}
+
+function uniqueSearchQueries(queries: readonly string[]): string[] {
   return [...new Map(queries.map((query) => [comparableSearchQuery(query), query])).values()];
 }
 

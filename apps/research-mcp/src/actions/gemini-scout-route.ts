@@ -43,7 +43,8 @@ const providerUsageSchema = z.object({
   total_input_tokens: z.number().int().nonnegative().optional(),
   total_output_tokens: z.number().int().nonnegative().optional(),
   total_thought_tokens: z.number().int().nonnegative().optional(),
-  google_search_queries: z.number().int().min(8).max(GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES)
+  // The real count, which can exceed the recorded query ledger.
+  google_search_queries: z.number().int().min(8).max(200)
 }).strict();
 
 const scoutProviderReceiptSchema = z.object({

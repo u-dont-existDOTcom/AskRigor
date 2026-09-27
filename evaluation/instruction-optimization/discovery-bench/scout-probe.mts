@@ -17,6 +17,7 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 
 import { executeResumableAutomatedGeminiScout } from "../../../apps/research-mcp/src/actions/gemini-scout-route.js";
+import { advanceGeminiYoutubeScoutBackground } from "../../../packages/sources/src/gemini-youtube-scout.js";
 
 const { values } = parseArgs({
   options: {
@@ -39,7 +40,19 @@ const input = {
 };
 const started = Date.now();
 const skillPath = values.skill;
-const options = skillPath === undefined ? {} : { loadScoutInstructions: () => readFile(skillPath, "utf8") };
+// The executor reports any thrown error as an unclassified failure; log the cause.
+const backgroundScout: typeof advanceGeminiYoutubeScoutBackground = async (...args) => {
+  try {
+    return await advanceGeminiYoutubeScoutBackground(...args);
+  } catch (error) {
+    console.error(`scout advance threw: ${(error as Error).message.slice(0, 600)}`);
+    throw error;
+  }
+};
+const options = {
+  backgroundScout,
+  ...(skillPath === undefined ? {} : { loadScoutInstructions: () => readFile(skillPath, "utf8") })
+};
 let execution = await executeResumableAutomatedGeminiScout(input, undefined, options);
 let advances = 1;
 while ("controller_progress" in execution && Date.now() - started < Number(values["max-seconds"]) * 1_000) {
