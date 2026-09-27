@@ -90,9 +90,12 @@ export const PUBLIC_TOOL_LIMITS = {
   // MCP calls read longer: every top-level comment costs at least one reply
   // request, so 50 requests covered only about 50 comments per call, and each
   // extra call costs the model a turn. 40 seconds stays well inside the 60
-  // seconds Claude waits for a tool call.
+  // seconds Claude waits for a tool call. Only a few calls at once read this
+  // long, so they cannot fill the shared public pool or multiply upstream
+  // requests; the rest use the Action's budget.
   mcpYoutubeVideoAuditElapsedMs: 40_000,
-  mcpYoutubeVideoAuditProviderRequests: 300
+  mcpYoutubeVideoAuditProviderRequests: 300,
+  mcpLongYoutubeVideoAuditSlots: 2
 } as const;
 
 export function publicServerIsEnabled(

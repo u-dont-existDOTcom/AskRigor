@@ -15,6 +15,7 @@ import {
 } from "../apps/research-mcp/src/server.js";
 import {
   GEMINI_COMPATIBLE_MCP_PATH,
+  PUBLIC_MCP_CONCURRENCY_LIMIT,
   PUBLIC_TOOL_LIMITS,
   SERVER_INSTRUCTIONS
 } from "../apps/research-mcp/src/config.js";
@@ -206,9 +207,69 @@ describe("AskRigor MCP tools", () => {
     expect(PUBLIC_TOOL_LIMITS.youtubeVideoAuditProviderRequests).toBe(50);
     expect(PUBLIC_TOOL_LIMITS.youtubeVideoAuditElapsedMs)
       .toBeLessThan(PUBLIC_TOOL_LIMITS.youtubeElapsedMs);
-    // MCP calls read longer, still well inside the 60 seconds Claude waits for a tool.
+    // MCP calls read longer, still well inside the 60 seconds Claude waits for a tool,
+    // and only two at once, so they cannot fill the shared public pool.
     expect(PUBLIC_TOOL_LIMITS.mcpYoutubeVideoAuditElapsedMs).toBe(40_000);
     expect(PUBLIC_TOOL_LIMITS.mcpYoutubeVideoAuditProviderRequests).toBe(300);
+    expect(PUBLIC_TOOL_LIMITS.mcpLongYoutubeVideoAuditSlots).toBe(2);
+    expect(PUBLIC_TOOL_LIMITS.mcpLongYoutubeVideoAuditSlots).toBeLessThan(PUBLIC_MCP_CONCURRENCY_LIMIT);
+  });
+
+  it("gives the longer MCP audit budget to at most two calls at once", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previousApiKey = process.env.YOUTUBE_API_KEY;
+    const previousContinuationSecret = process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET;
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET = "mcp-continuation-secret-value-32-bytes";
+    const holds: Array<() => void> = [];
+    let replyRequests = 0;
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/videos")) {
+        // Audits of this video wait in their first request, keeping their slots.
+        if (url.searchParams.get("id") === "dQw4w9WgXcQ") {
+          await new Promise<void>((resolve) => holds.push(resolve));
+        }
+        return new Response(await youtubeFixture("video-found.json"), { status: 200 });
+      }
+      if (url.pathname.endsWith("/commentThreads")) {
+        return new Response(await youtubeFixture("comment-threads-page-1.json"), { status: 200 });
+      }
+      if (url.searchParams.has("id")) return mcpCommentIdResponse(url);
+      // Replies never finish, so each call reads until its request budget ends.
+      replyRequests += 1;
+      return Response.json({
+        nextPageToken: `stalled-replies-${replyRequests}`,
+        pageInfo: { totalResults: 3, resultsPerPage: 0 },
+        items: []
+      });
+    }));
+    const audit = (video: string) => client.callTool({
+      name: "audit_youtube_video_community",
+      arguments: { video_id_or_url: video }
+    });
+
+    try {
+      const holders = [audit("dQw4w9WgXcQ"), audit("dQw4w9WgXcQ")];
+      await vi.waitFor(() => expect(holds).toHaveLength(2));
+      // Both slots are taken: this call reads with the Action's 50 requests,
+      // one thread page and 49 reply pages.
+      expect((await audit("XpZHKGGCK-o")).isError).not.toBe(true);
+      expect(replyRequests).toBe(PUBLIC_TOOL_LIMITS.youtubeVideoAuditProviderRequests - 1);
+
+      holds.forEach((release) => release());
+      await Promise.all(holders);
+      // The slots are free again, so the next call reads with the longer budget.
+      replyRequests = 0;
+      expect((await audit("XpZHKGGCK-o")).isError).not.toBe(true);
+      expect(replyRequests).toBe(PUBLIC_TOOL_LIMITS.mcpYoutubeVideoAuditProviderRequests - 1);
+    } finally {
+      holds.forEach((release) => release());
+      restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
+      restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
+      await client.close();
+      await server.close();
+    }
   });
 
   it("publishes strict read-only adaptive YouTube survey and per-video audit schemas", async () => {

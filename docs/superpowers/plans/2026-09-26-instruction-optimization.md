@@ -573,7 +573,10 @@ instead of 95–151 KB. A later step can keep the ledger between calls.
   request cap binds, not the 15-second budget (about 0.12 seconds a request).
 - MCP calls now read for up to 40 seconds and 300 requests, inside the 60
   seconds Claude waits for a tool; the Custom GPT Action keeps 15 seconds and
-  50 requests. The 91-comment video now completes in one call (7.7 seconds)
+  50 requests. Codex (on 75403a7) found that one client could then hold all
+  16 public MCP permits for 40 seconds and drive about 120 YouTube requests
+  a second, so only two calls at a time get the longer budget and the rest
+  read with the Action's. The 91-comment video now completes in one call (7.7 seconds)
   instead of two (8.3 seconds). Estimate, not yet measured: a large video
   needs about a fifth of the calls, from six times the requests per call
   less each call's page and sample refetches.

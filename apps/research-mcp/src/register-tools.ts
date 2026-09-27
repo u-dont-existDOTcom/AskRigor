@@ -47,6 +47,7 @@ import {
   PUBLIC_TOOL_LIMITS,
   optionalLivingEvidenceReuseConfigFromEnv
 } from "./config.js";
+import { createConcurrencyLimiter } from "./rate-limit.js";
 import {
   protocolErrorResult,
   protocolRequestError,
@@ -1173,23 +1174,29 @@ function defineResearchOperations(
         ? rawInput
         : { continuation_token: rawInput.continuation_token };
       const actionCall = isActionCall(extra);
+      // An MCP call reads longer only while one of a few process-wide slots is
+      // free; otherwise it uses the Action's budget.
+      const releaseLongSlot = actionCall ? undefined : LONG_VIDEO_AUDIT_SLOTS.tryAcquire();
+      const long = releaseLongSlot !== undefined;
       let result: YoutubeVideoCommunityAuditOutput;
       try {
         result = await auditYoutubeVideoCommunity(input, {
           youtube: youtubeConfig(),
           continuation_secret: youtubeAuditContinuationSecret()
         }, {
-          max_elapsed_ms: actionCall
-            ? PUBLIC_TOOL_LIMITS.youtubeVideoAuditElapsedMs
-            : PUBLIC_TOOL_LIMITS.mcpYoutubeVideoAuditElapsedMs,
+          max_elapsed_ms: long
+            ? PUBLIC_TOOL_LIMITS.mcpYoutubeVideoAuditElapsedMs
+            : PUBLIC_TOOL_LIMITS.youtubeVideoAuditElapsedMs,
           segment: {
-            max_provider_requests: actionCall
-              ? PUBLIC_TOOL_LIMITS.youtubeVideoAuditProviderRequests
-              : PUBLIC_TOOL_LIMITS.mcpYoutubeVideoAuditProviderRequests
+            max_provider_requests: long
+              ? PUBLIC_TOOL_LIMITS.mcpYoutubeVideoAuditProviderRequests
+              : PUBLIC_TOOL_LIMITS.youtubeVideoAuditProviderRequests
           }
         });
       } catch (error) {
         result = youtubeVideoCommunityAuditFailure(input, error);
+      } finally {
+        releaseLongSlot?.();
       }
       const summary = `YouTube video audit retrieved ${result.records_retrieved_cumulative} record(s) cumulatively; synthesis lock ${result.receipt.synthesis_lock}.`;
       // The Custom GPT Action bounds the full audit itself.
@@ -1667,6 +1674,9 @@ const MCP_SCOUT_OUTPUT_SCHEMA = z.object({
   provider_storage_mode: z.enum(["DISABLED", "TEMPORARY_BACKGROUND_DELETE_REQUESTED"]).optional(),
   research_receipt: z.string().optional()
 }).strict();
+
+// Shared by every MCP server this process creates, one per request.
+const LONG_VIDEO_AUDIT_SLOTS = createConcurrencyLimiter(PUBLIC_TOOL_LIMITS.mcpLongYoutubeVideoAuditSlots);
 
 const SCOUT_SPEND_GUIDANCE =
   "The zero-spend policy allows the Gemini scout only with a key that has no billing " +
