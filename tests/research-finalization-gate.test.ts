@@ -46,7 +46,8 @@ const commentVideos = (receipts: readonly string[]) => [...new Set(receipts.flat
 // pass this clean draft; a test can pass its own answer_draft, or undefined.
 const CLEAN_DRAFT = "Exercise therapy has the strongest evidence for hip osteoarthritis. People commenting on " +
   "YouTube videos about it reported less pain after several months; a few noticed no change, and none reported side " +
-  "effects. The channels' creators sell programs; the commenters have no stake.";
+  "effects. The channels' creators sell programs; the commenters have no stake. This weak firsthand signal supports " +
+  "trying exercise before surgery.";
 const finalizeResearchGate = (input: Record<string, unknown>, gateOptions: typeof options) =>
   finalizeResearchRaw({ answer_draft: CLEAN_DRAFT, ...input }, gateOptions);
 const findingsFor = (videos: string[]) => ({
@@ -312,13 +313,24 @@ describe("finalize_research gate", () => {
       finalizeResearchRaw({ ...request, answer_draft: answerDraft }, options).next_steps;
     expect(lane("Exercise helps most people with hip osteoarthritis. I also searched YouTube.")).toEqual([
       "The answer's YouTube comments section does not report benefit reports, no-effect reports, adverse reports, " +
-        "how creators differ from commenters. Add each from must_report, and say none were reported where there were none."
+        "how creators differ from commenters, what the comments mean for the answer. Add each from must_report, and " +
+        "say none were reported where there were none."
     ]);
     expect(lane("Exercise helps. I will not discuss the YouTube comments.")).toHaveLength(1);
     expect(lane("YouTube commenters reported less pain after a month; the channel creators sell courses.")).toEqual([
-      "The answer's YouTube comments section does not report no-effect reports, adverse reports. Add each from " +
+      "The answer's YouTube comments section does not report no-effect reports, adverse reports, what the comments " +
+        "mean for the answer. Add each from must_report, and say none were reported where there were none."
+    ]);
+    // Every finding but what the comments mean for the answer.
+    const withoutEffect = "YouTube commenters reported less pain after a month, a few noticed no change, and none " +
+      "reported side effects; the channel creators sell courses.";
+    expect(lane(withoutEffect)).toEqual([
+      "The answer's YouTube comments section does not report what the comments mean for the answer. Add each from " +
         "must_report, and say none were reported where there were none."
     ]);
+    // Said in the answer's own words, or echoing the effect the findings give.
+    expect(lane(`${withoutEffect} That is consistent with the trials.`)).toEqual([]);
+    expect(lane(`${withoutEffect} It makes trying the program before surgery look reasonable.`)).toEqual([]);
 
     // Links keep their IDs and underscores; a short command is fine.
     const clean = finalizeResearchRaw({

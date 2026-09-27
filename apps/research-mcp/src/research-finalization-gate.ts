@@ -554,7 +554,8 @@ export function finalizeResearch(
     nextSteps.push(...answerDraftProblems(draft, {
       commentsRead: commentVideos.size > 0,
       videoIds: [...new Set([...discovered, ...auditedAtAll])],
-      protocolNames: options.protocolNames ?? new Set()
+      protocolNames: options.protocolNames ?? new Set(),
+      ...(input.community_findings === undefined ? {} : { effectOnAnswer: input.community_findings.effect_on_answer })
     }));
   }
 
@@ -641,7 +642,7 @@ const URL = /https?:\/\/\S+/gu;
 
 function answerDraftProblems(
   draft: string,
-  context: { commentsRead: boolean; videoIds: string[]; protocolNames: ReadonlySet<string> }
+  context: { commentsRead: boolean; videoIds: string[]; protocolNames: ReadonlySet<string>; effectOnAnswer?: string }
 ): string[] {
   const problems: string[] = [];
   // Links may carry IDs and underscores legitimately; the words around them may not.
@@ -685,7 +686,8 @@ function answerDraftProblems(
     // carry what must_report lists, not just the word.
     const lane = [...prose.matchAll(/youtube|comment/giu)]
       .map(({ index }) => prose.slice(index, index + LANE_WINDOW_CHARACTERS)).join("\n");
-    const missing = LANE_FINDINGS.filter(({ pattern }) => !pattern.test(lane)).map(({ label }) => label);
+    const missing: string[] = LANE_FINDINGS.filter(({ pattern }) => !pattern.test(lane)).map(({ label }) => label);
+    if (!reportsEffectOnAnswer(lane, context.effectOnAnswer)) missing.push("what the comments mean for the answer");
     if (missing.length > 0) {
       problems.push(
         `The answer's YouTube comments section does not report ${missing.join(", ")}. Add each from must_report, ` +
@@ -717,6 +719,35 @@ const LANE_FINDINGS = [
     pattern: /\b(?:creators?|channels?|hosts?|sellers?|sponsor\w*|affiliate\w*|presenters?|youtubers?|video makers?)\b/iu
   }
 ] as const;
+
+// What the comments mean for the answer, in the words answers use for it.
+const EFFECT_ON_ANSWER = new RegExp([
+  "\\b(?:support(?:s|ed|ing)?|backs? up|backed up|consistent with|in line with|agrees? with|at odds with",
+  "contradict\\w*|confirm\\w*|corroborat\\w*|strengthen\\w*|weaken\\w*|reinforc\\w*|undercut\\w*",
+  "(?:does|do|did)(?: not|n['\u2019]t) (?:change|alter|affect|shift)",
+  "(?:changes?|changed|alters?|shifts?) (?:the|this|our|my) (?:answer|conclusion|recommendation|advice|picture)",
+  "adds? (?:little|nothing|weight|confidence)|no bearing on)\\b"
+].join("|"), "iu");
+// Common words that say nothing about what the comments mean.
+const EFFECT_STOP_WORDS: ReadonlySet<string> = new Set([
+  "about", "above", "after", "again", "against", "before", "because", "being", "below", "could", "every", "other",
+  "their", "there", "these", "those", "through", "under", "until", "where", "which", "while", "would", "should",
+  "answer", "comment", "comments", "commenters", "effect", "evidence", "people", "report", "reported", "reports",
+  "signal", "video", "videos", "youtube"
+]);
+
+/**
+ * The lane says what the comments mean for the answer: in words answers use
+ * for it, or in at least two of the distinctive words of the model's own
+ * effect_on_answer, so a paraphrase passes.
+ */
+function reportsEffectOnAnswer(lane: string, effect: string | undefined): boolean {
+  if (EFFECT_ON_ANSWER.test(lane)) return true;
+  const words = [...new Set(effect?.toLowerCase().match(/\p{L}{5,}/gu) ?? [])]
+    .filter((word) => !EFFECT_STOP_WORDS.has(word));
+  const laneWords = new Set(lane.toLowerCase().match(/\p{L}{5,}/gu) ?? []);
+  return words.length > 0 && words.filter((word) => laneWords.has(word)).length >= Math.min(2, words.length);
+}
 
 function communityLane(
   findings: NonNullable<FinalizeResearchInput["community_findings"]>,

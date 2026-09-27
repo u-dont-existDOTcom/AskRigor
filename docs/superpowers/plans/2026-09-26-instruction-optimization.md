@@ -723,8 +723,11 @@ given, and reports `ready` or `ready_with_limits` only after reading it:
   underscore;
 - the full deep forum-audit template pasted into the answer (HRP 20.6.5);
 - when comments were read, a YouTube comments section that leaves out any of
-  `must_report`'s benefit, no-effect and adverse reports or how creators
-  differ from commenters (each must be reported, or said to be absent).
+  `must_report`'s benefit, no-effect and adverse reports, how creators differ
+  from commenters, or what the comments mean for the answer (each must be
+  reported, or said to be absent; the last in words answers use for it, such
+  as "supports" or "does not change the answer", or in the words of the
+  findings' own `effect_on_answer`).
 
 Each finding is a next step, so the model fixes the draft and calls again.
 Replayed on saved answers: main, e1176f8 and 6e2763d pass; 4d4fae8 goes back
@@ -764,6 +767,14 @@ and whether the final answer is the last checked draft. Cost: one more
     the token itself, after the digest of the caller's own query (never a
     hash of result data), as they already sign result video IDs and access
     states.
+- Codex on b5078c9 (one P1, one P2, both fixed):
+  - The lane check did not ask what the comments mean for the answer, which
+    `must_report` lists; it does now (above).
+  - A background scout whose packet needed repair was charged from its
+    30-search ledger, so without the provider's search count a run of 72 or
+    more searches passed as 30 and escaped the $1 refusal. The repair
+    checkpoint now carries the full count (`executed_search_count`, optional
+    so stored checkpoints from before it still load).
   - Rounds a rate limit or the daily quota stopped were unsigned or counted as
     settled. They are now signed with their limits (`inc`, `rl`), including a
     wholly stopped survey or search and a one-call audit left incomplete. An

@@ -120,6 +120,9 @@ export const geminiYoutubeScoutBackgroundCheckpointSchema = z.object({
   provider_interaction_count: z.union([z.literal(1), z.literal(2)]),
   poll_attempts: z.number().int().min(0).max(GEMINI_YOUTUBE_BACKGROUND_MAX_POLLS),
   executed_search_queries: z.array(z.string().min(1).max(500)).max(GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES),
+  // Every distinct search the initial interaction ran, for cost; the ledger
+  // above keeps only the first ones. Checkpoints from before it have none.
+  executed_search_count: z.number().int().nonnegative().max(10_000).optional(),
   initial_usage: backgroundUsageSchema.optional()
 }).strict().superRefine((checkpoint, context) => {
   if (
@@ -127,6 +130,7 @@ export const geminiYoutubeScoutBackgroundCheckpointSchema = z.object({
     (
       checkpoint.provider_interaction_count !== 1 ||
       checkpoint.executed_search_queries.length !== 0 ||
+      checkpoint.executed_search_count !== undefined ||
       checkpoint.initial_usage !== undefined
     )
   ) {
@@ -139,7 +143,9 @@ export const geminiYoutubeScoutBackgroundCheckpointSchema = z.object({
     checkpoint.phase === "REPAIR" &&
     (
       checkpoint.provider_interaction_count !== 2 ||
-      checkpoint.executed_search_queries.length < 8
+      checkpoint.executed_search_queries.length < 8 ||
+      (checkpoint.executed_search_count !== undefined &&
+        checkpoint.executed_search_count < checkpoint.executed_search_queries.length)
     )
   ) {
     context.addIssue({
@@ -442,6 +448,9 @@ async function processGeminiBackgroundInteraction(
           )
         : prior.poll_attempts,
     executed_search_queries: prior?.executed_search_queries ?? [],
+    ...(prior?.executed_search_count === undefined
+      ? {}
+      : { executed_search_count: prior.executed_search_count }),
     ...(prior?.initial_usage === undefined
       ? {}
       : { initial_usage: prior.initial_usage })
@@ -548,6 +557,7 @@ async function processGeminiBackgroundInteraction(
       provider_interaction_count: 2,
       poll_attempts: 0,
       executed_search_queries: executedSearchQueries,
+      executed_search_count: countExecutedSearchQueries(response.steps),
       ...(response.usage === undefined ? {} : { initial_usage: response.usage })
     }, false);
   }
@@ -565,7 +575,9 @@ async function processGeminiBackgroundInteraction(
     phase === "REPAIR"
       ? [current.initial_usage, response.usage]
       : [response.usage],
-    phase === "REPAIR" ? executedSearchQueries.length : countExecutedSearchQueries(response.steps)
+    phase === "REPAIR"
+      ? current.executed_search_count ?? executedSearchQueries.length
+      : countExecutedSearchQueries(response.steps)
   );
   const responseModel = response.model ?? config.model;
   const data: GeminiYoutubeScoutData = {

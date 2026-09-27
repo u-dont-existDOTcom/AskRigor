@@ -587,4 +587,61 @@ describe("Gemini YouTube scout adapter", () => {
     expect(repairRequest.tools).toBeUndefined();
     expect(String(repairRequest.input)).toContain("Executed Google Search queries");
   });
+
+  it("charges a repaired background scout for every search its first interaction ran", async () => {
+    // 72 distinct searches and no provider search count: the ledger keeps the
+    // first 30, and cost still counts all 72.
+    const queries = Array.from({ length: 72 }, (_, index) => `"hip pain" program ${index + 1}`);
+    const ledger = queries.slice(0, 30);
+    const repaired: GeminiYoutubeCandidatePacket = {
+      ...packet(),
+      // Every purpose still appears, as the contract requires.
+      discovery_queries: ledger.map((query, index) => ({
+        purpose: packet().discovery_queries[index % 8]!.purpose,
+        query
+      }))
+    };
+    const invalid = compactPacketValue(repaired);
+    invalid.candidate_rows[0]!.pop();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: "interaction-background-1",
+        status: "completed",
+        model: CONFIG.model,
+        steps: [
+          { type: "google_search_call", arguments: { queries } },
+          { type: "google_search_result", results: [] },
+          { type: "model_output", content: [{ type: "text", text: JSON.stringify(invalid) }] }
+        ],
+        usage: { total_input_tokens: 1_000, total_output_tokens: 2_000, total_thought_tokens: 500 }
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: "interaction-background-repair-1",
+        status: "in_progress",
+        steps: []
+      }), { status: 200 }))
+      .mockResolvedValueOnce(repairInteractionResponse(compactPacket(repaired)))
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const started = await advanceGeminiYoutubeScoutBackground(INPUT, CONFIG, {
+      interaction_id: "interaction-background-1",
+      phase: "INITIAL",
+      provider_interaction_count: 1,
+      poll_attempts: 0,
+      executed_search_queries: []
+    });
+    expect(started).toMatchObject({
+      kind: "progress",
+      checkpoint: { phase: "REPAIR", executed_search_queries: ledger, executed_search_count: 72 }
+    });
+    if (started.kind !== "progress") throw new Error("expected a repair checkpoint");
+
+    const finished = await advanceGeminiYoutubeScoutBackground(INPUT, CONFIG, started.checkpoint);
+    expect(finished).toMatchObject({
+      kind: "complete",
+      frontier: { data: { correction_attempted: true, usage: { google_search_queries: 72 } } }
+    });
+  });
 });
