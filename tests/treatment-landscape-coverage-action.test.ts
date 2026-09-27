@@ -414,6 +414,34 @@ describe("treatment-landscape coverage Action", () => {
     expect(deep.answer_boundary).toBe("continue_research");
   });
 
+  it("counts a repeated discovery query once toward the first-pass cap", () => {
+    const input = completeInput();
+    // Two audited videos: only saturation or four distinct rounds can complete the first pass.
+    const kept = new Set(input.selected_videos.slice(0, 2).map(({ video_id }) => video_id));
+    input.selected_videos = input.selected_videos.filter(({ video_id }) => kept.has(video_id));
+    input.candidate_videos = input.candidate_videos.map((candidate) => kept.has(candidate.video_id)
+      ? candidate
+      : { ...candidate, selection_status: "screened_not_selected" as const });
+    const rounds = (queries: string[]) => [
+      ...input.discovery_batches.slice(0, 2),
+      ...queries.map((query, index) => closingBatch(`batch-late-${index}`, query, "strength"))
+    ];
+
+    // The same query twice (case and spacing aside) is one angle: two angles in all.
+    const repeated = assessTreatmentLandscapeCoverage({
+      ...input,
+      discovery_batches: rounds(["what finally worked for my joint pain", "  WHAT finally worked for my joint pain "])
+    });
+    expect(repeated).toMatchObject({ first_pass_complete: false, answer_boundary: "continue_research" });
+
+    // Four distinct angles complete the first pass.
+    const distinct = assessTreatmentLandscapeCoverage({
+      ...input,
+      discovery_batches: rounds(["what finally worked for my joint pain", "methods named in the audited comments"])
+    });
+    expect(distinct.first_pass_complete).toBe(true);
+  });
+
   it("keeps a terminal access boundary as a stated limit of a first-pass answer", () => {
     const input = completeInput();
     input.discovery_batches = input.discovery_batches.slice(0, -2);

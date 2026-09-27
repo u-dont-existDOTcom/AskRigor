@@ -1670,16 +1670,27 @@ async function invokeOpenFullTextMcp(
       isError: true
     };
   }
+  const failedLead = operationId === "acquire_open_full_text" &&
+    (result.body as { status?: string }).status === "possibly_useful_lead" &&
+    hasFailedFullTextSource(result.body);
   return withResearchReceipt({
     content: [{
       type: "text",
-      text: `${operationId.replaceAll("_", " ")} completed.`
+      text: `${operationId.replaceAll("_", " ")} completed.` + (failedLead
+        ? " A source failed (an outage or rate limit), so this is not yet a lead and has no receipt: " +
+          "call acquire_open_full_text again later before listing the study as lead_only."
+        : "")
     }],
     structuredContent: result.body as Record<string, unknown>
   }, openFullTextResearchReceipt(operationId, result.body));
 }
 
 const OPEN_FULL_TEXT_READER = createOpenFullTextExecutor();
+
+function hasFailedFullTextSource(body: unknown): boolean {
+  const attempts = (body as { discovery_attempts?: Array<{ result?: string }> }).discovery_attempts ?? [];
+  return attempts.some(({ result }) => result === "error");
+}
 
 function openFullTextResearchReceipt(operationId: string, body: unknown): string | undefined {
   const output = body as {
@@ -1690,6 +1701,10 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
     coverage_receipt?: { document_handle?: string };
   };
   if (operationId === "acquire_open_full_text" && output.status === "possibly_useful_lead") {
+    // A lead receipt proves that no open full text exists. A source that
+    // failed (an outage or rate limit) proves nothing, so the acquisition
+    // must be retried before the study can be listed as lead_only.
+    if (hasFailedFullTextSource(body)) return undefined;
     return researchReceipt("full_text_lead", {
       doi: output.requested_doi,
       pmcid: output.requested_pmcid

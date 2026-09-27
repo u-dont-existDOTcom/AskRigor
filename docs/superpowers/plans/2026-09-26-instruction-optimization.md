@@ -257,6 +257,15 @@ run went from 07:12 to 09:44 UTC.
     further poll starts only if its 20-second timeout ends by 40 seconds.
     Title searches run only if they can end by 55 seconds; otherwise the
     titles stay open leads.
+- **Codex review of 2e7a7c8** (two findings, both confirmed and fixed):
+  - `acquire_open_full_text` signed a `full_text_lead` receipt for any
+    acquisition without text, including a provider outage or rate limit.
+    That let `finalize_research` accept the study as `lead_only`. A source
+    that failed now yields no receipt, and the tool asks for a retry.
+  - The coverage checker still counted every valid batch toward the
+    four-round cap, so four batches of one query completed a first pass.
+    It now counts distinct normalized queries, as `finalize_research`
+    does.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 
