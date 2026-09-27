@@ -10,7 +10,10 @@ import {
   youtubeVideoCommunityAuditInputSchema,
   type YoutubeVideoCommunityAuditDependencies
 } from "../apps/research-mcp/src/youtube-video-community-audit.js";
-import { compactYoutubeAuditForMcp } from "../apps/research-mcp/src/youtube-mcp-sample.js";
+import {
+  compactYoutubeAuditForMcp,
+  YoutubeMcpResponseTooLargeError
+} from "../apps/research-mcp/src/youtube-mcp-sample.js";
 
 const NOW = 1_786_579_200_000;
 const SECRET = "s".repeat(32);
@@ -293,6 +296,38 @@ describe("adaptive per-video YouTube community audit", () => {
       "MCP bounded sample."
     );
     expect(new Set(view.sample!.comments.map(({ author }) => author)).size).toBe(4);
+  });
+
+  it("bounds the MCP view's fixed fields and never returns an oversized one", async () => {
+    const original = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID },
+      CONFIG,
+      { now: () => NOW, dependencies: completeDependencies(makeComments(50)) }
+    );
+    // A large video can report hundreds of reply-count mismatches.
+    const mismatched = {
+      ...original,
+      reply_count_mismatches: Array.from({ length: 500 }, (_, index) => ({
+        parent_comment_id: `UgxParent${String(index).padStart(14, "0")}`,
+        expected: 9,
+        retrieved: 3
+      }))
+    };
+    expect(Buffer.byteLength(JSON.stringify(mismatched), "utf8")).toBeGreaterThan(40_000);
+    const view = compactYoutubeAuditForMcp(mismatched, 40_000, "MCP bounded sample.");
+    expect(Buffer.byteLength(JSON.stringify(view), "utf8")).toBeLessThanOrEqual(40_000);
+    expect(view.reply_count_mismatches).toEqual(mismatched.reply_count_mismatches.slice(0, 20));
+    expect(view.limitations).toContain("This MCP view lists 20 of 500 reply-count mismatches.");
+    expect(view.sample!.comments.length).toBe(50);
+
+    // An unfinished audit whose state alone exceeds the budget is an explicit
+    // error, not a view the client would cut, losing the token.
+    const oversizedState = { ...original, continuation_token: "t".repeat(45_000) };
+    expect(() => compactYoutubeAuditForMcp(oversizedState, 40_000, "MCP bounded sample."))
+      .toThrow(YoutubeMcpResponseTooLargeError);
+    const { sample: _sample, ...withoutSample } = oversizedState;
+    expect(() => compactYoutubeAuditForMcp(withoutSample, 40_000, "MCP bounded sample."))
+      .toThrow(YoutubeMcpResponseTooLargeError);
   });
 
   it("fails closed when fixed non-comment fields cannot fit the Action response ceiling", async () => {

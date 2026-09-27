@@ -165,7 +165,8 @@ import {
   mcpYoutubeCommunityAuditOutputSchema,
   mcpYoutubeVideoCommunityAuditOutputSchema,
   YoutubeMcpResponseTooLargeError,
-  type McpYoutubeCommunityAuditOutput
+  type McpYoutubeCommunityAuditOutput,
+  type McpYoutubeVideoCommunityAuditOutput
 } from "./youtube-mcp-sample.js";
 
 const LIVING_EVIDENCE_READER = configuredLivingEvidenceRepository();
@@ -1283,11 +1284,27 @@ function defineResearchOperations(
             rr: result.receipt.replies_reconciled ? 1 : 0,
             bl: result.receipt.blockers.length
           });
-      const view = compactYoutubeAuditForMcp(
-        result,
-        MCP_YOUTUBE_AUDIT_MAX_BYTES - reservedResultBytes(text, receipt),
-        MCP_BOUNDED_SAMPLE_LIMITATION
-      );
+      let view: McpYoutubeVideoCommunityAuditOutput;
+      try {
+        view = compactYoutubeAuditForMcp(
+          result,
+          MCP_YOUTUBE_AUDIT_MAX_BYTES - reservedResultBytes(text, receipt),
+          MCP_BOUNDED_SAMPLE_LIMITATION
+        );
+      } catch (error) {
+        if (!(error instanceof YoutubeMcpResponseTooLargeError)) throw error;
+        // Never a truncated result: the client would cut it and lose the
+        // continuation token or the receipt.
+        return {
+          content: [{
+            type: "text",
+            text: "YouTube video audit could not return its state: youtube_video_community_audit_response_too_large " +
+              `after ${result.records_retrieved_cumulative} record(s). This video's audit cannot continue; state it as ` +
+              "incomplete and continue with the other videos."
+          }],
+          isError: true
+        };
+      }
       return withResearchReceipt(youtubeToolResult(text, view), receipt);
     }
   );

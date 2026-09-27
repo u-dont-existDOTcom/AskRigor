@@ -19,7 +19,7 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "30f11a2181c4a77bc2284ca951ac2c5faf8fb6874e2543872b9ce0c0c4c37483";
+  "ed9d6f91aa8ed720fb318b6cd03cc125881aad17e4a653119b6305432cc25cfe";
 const UNIVERSAL_SHA_256 =
   "5d9a9d76339ff1794b93bb1e932466f703c4a8c006a607b811f40b43ea703d36";
 
@@ -340,6 +340,14 @@ describe("canonical protocol loader", () => {
     expect(handoff).toContain("After analysis, a prompt longer than about 60 words comes as the LimitsNote's deeper-research offer");
     expect(handoff).not.toContain("offering one later");
     expect(normalizedText).toMatch(/<Case id="PastedDeepResearchPromptHidesItsFocus">.*?Show me the full deeper-research prompt/u);
+    // Older cases agree: before research the prompt still comes automatically; after analysis a long one is offered.
+    const deepResearchCase = normalizedText.match(/<Case id="DeepResearchRecommendedWithoutPrompt">.*?<\/Case>/u)?.[0] ?? "";
+    expect(deepResearchCase).toContain("Before research, provide the complete copyable prompt automatically.");
+    expect(deepResearchCase).toContain("After analysis, show a prompt of about 60 words or fewer and offer a longer one");
+    const modeClaimCase = normalizedText.match(/<Case id="UserControlledModeClaimedWithoutSelection">.*?<\/Case>/u)?.[0] ?? "";
+    expect(modeClaimCase).toContain("after analysis, one longer than about 60 words comes as the deeper-research offer");
+    const modeSelection = normalizedText.match(/<Rule name="ModeSelection"[^>]*>.*?<\/Rule>/u)?.[0] ?? "";
+    expect(modeSelection).toContain("after analysis, one longer than about 60 words comes as the LimitsNote's deeper-research offer");
 
     const many = section("ManyVideosButOneTreatmentClass");
     expect(many).toContain("ten videos");

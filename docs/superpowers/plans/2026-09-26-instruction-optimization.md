@@ -147,7 +147,11 @@ Claude Opus 5.5 (owner, 2026-09-26).
     - `ModeSpecificPromptAndHandoff`: after analysis, a long Deep Research
       prompt follows the same offer, with the mode to select and why. Before
       research (preflight) nothing changes.
-    - Stress case `PastedDeepResearchPromptHidesItsFocus`.
+    - Stress case `PastedDeepResearchPromptHidesItsFocus`. Codex on b62675e
+      (P1): `DeepResearchRecommendedWithoutPrompt` still required the full
+      prompt automatically; it and `UserControlledModeClaimedWithoutSelection`
+      and `ModeSelection` now keep that before research and use the offer
+      after analysis.
     - Tradeoff: someone who must run a long prompt in another tool needs one
       more turn to get it; in exchange every answer stays short and the user
       can adjust the prompt before it runs.
@@ -672,6 +676,11 @@ rules, no protocol change):
   `audit_youtube_video_community` instead of asking for findings. A later
   complete audit that finds no comments no longer erases an earlier audit's
   positive count, in either receipt order.
+- Codex on 09c1efd (P2): a per-video view could still exceed the budget with
+  no comments at all (a large continuation token, hundreds of reply-count
+  mismatches). The view lists 20 mismatches with a stated limit, and a view
+  that still cannot fit returns
+  `youtube_video_community_audit_response_too_large`, never a cut result.
 
 ## Comment-audit call budget (2026-09-27)
 

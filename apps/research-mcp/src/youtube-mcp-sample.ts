@@ -51,13 +51,34 @@ export const mcpYoutubeVideoCommunityAuditOutputSchema = youtubeVideoCommunityAu
 
 export type McpYoutubeVideoCommunityAuditOutput = z.output<typeof mcpYoutubeVideoCommunityAuditOutputSchema>;
 
+// A large video can report hundreds of reply-count mismatches; the view lists
+// the first few, and the counts and the receipt cover them all.
+const MCP_REPLY_MISMATCHES_SHOWN = 20;
+
 export function compactYoutubeAuditForMcp(
   output: YoutubeVideoCommunityAuditOutput,
   maximumBytes: number,
   boundedSampleLimitation: string
 ): McpYoutubeVideoCommunityAuditOutput {
-  const { sample, ...rest } = output;
-  if (sample === undefined) return mcpYoutubeVideoCommunityAuditOutputSchema.parse(rest);
+  const { sample, ...all } = output;
+  const mismatches = all.reply_count_mismatches.length;
+  const rest = mismatches <= MCP_REPLY_MISMATCHES_SHOWN ? all : {
+    ...all,
+    reply_count_mismatches: all.reply_count_mismatches.slice(0, MCP_REPLY_MISMATCHES_SHOWN),
+    limitations: [
+      ...all.limitations,
+      `This MCP view lists ${MCP_REPLY_MISMATCHES_SHOWN} of ${mismatches} reply-count mismatches.`
+    ]
+  };
+  const fits = (candidate: McpYoutubeVideoCommunityAuditOutput) =>
+    Buffer.byteLength(JSON.stringify(candidate), "utf8") <= maximumBytes;
+  // Never an oversized result: the client would cut it and lose the
+  // continuation token or the receipt.
+  if (sample === undefined) {
+    const view = mcpYoutubeVideoCommunityAuditOutputSchema.parse(rest);
+    if (!fits(view)) throw new YoutubeMcpResponseTooLargeError();
+    return view;
+  }
 
   const ranked = [...sample.comments].sort((left, right) =>
     rankYoutubeCommentIdentifier(left.comment_id).localeCompare(rankYoutubeCommentIdentifier(right.comment_id)) ||
@@ -86,14 +107,12 @@ export function compactYoutubeAuditForMcp(
       }
     };
   };
-  const fits = (candidate: McpYoutubeVideoCommunityAuditOutput) =>
-    Buffer.byteLength(JSON.stringify(candidate), "utf8") <= maximumBytes;
-
   const full = build(ranked.length);
   if (fits(full)) return mcpYoutubeVideoCommunityAuditOutputSchema.parse(full);
-  let lower = 0;
-  let upper = ranked.length - 1;
   let best = build(0);
+  if (!fits(best)) throw new YoutubeMcpResponseTooLargeError();
+  let lower = 1;
+  let upper = ranked.length - 1;
   while (lower <= upper) {
     const count = Math.floor((lower + upper) / 2);
     const candidate = build(count);
@@ -123,10 +142,10 @@ export const mcpYoutubeCommunityAuditOutputSchema = youtubeCommunityAuditOutputS
 
 export type McpYoutubeCommunityAuditOutput = z.output<typeof mcpYoutubeCommunityAuditOutputSchema>;
 
-/** Even with no comments, the audit's fixed fields do not fit the response budget. */
+/** Even with no comments, an audit's fixed fields do not fit the response budget. */
 export class YoutubeMcpResponseTooLargeError extends Error {
   constructor() {
-    super("youtube_community_audit_response_too_large");
+    super("youtube_audit_response_too_large");
   }
 }
 
