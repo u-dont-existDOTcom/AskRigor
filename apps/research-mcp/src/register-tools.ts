@@ -1129,9 +1129,31 @@ function defineResearchOperations(
       const summary = `YouTube community audit selected ${result.receipt.selected_video_ids.length} video(s); completion state ${result.receipt.completion_state}; synthesis lock ${result.receipt.synthesis_lock}.`;
       // The Custom GPT Action bounds the full audit itself.
       if (isActionCall(extra)) return youtubeToolResult(summary, result);
+      const complete = result.receipt.completion_state !== "incomplete";
+      // `read` names the videos whose comments the model receives, so a video
+      // whose comments did not fit the view needs no findings.
+      const receiptFor = (read: string[]) => complete
+        ? researchReceipt("youtube_community_audit", {
+            videos: result.receipt.selected_video_ids,
+            read,
+            state: result.receipt.completion_state,
+            lock: result.receipt.synthesis_lock,
+            q: discoveryQueryDigest(input.searches.map(({ query }) => query)),
+            target: researchTargetDigest(input.research_question),
+            open: unreadResultPages(result.searches)
+          })
+        : undefined;
       let view: McpYoutubeCommunityAuditOutput;
       try {
-        view = compactYoutubeCommunityAuditForMcp(result, MCP_YOUTUBE_AUDIT_MAX_BYTES, MCP_BOUNDED_SAMPLE_LIMITATION);
+        view = compactYoutubeCommunityAuditForMcp(
+          result,
+          // Room for the longest text and receipt this result can carry.
+          MCP_YOUTUBE_AUDIT_MAX_BYTES - reservedResultBytes(
+            complete ? `${summary} ${MCP_COMMENT_FINDINGS_HANDOFF} ${MCP_COMMENTS_NOT_SHOWN}` : summary,
+            receiptFor(result.receipt.selected_video_ids)
+          ),
+          MCP_BOUNDED_SAMPLE_LIMITATION
+        );
       } catch (error) {
         if (!(error instanceof YoutubeMcpResponseTooLargeError)) throw error;
         // Never a truncated result: the client would cut it and lose the audit.
@@ -1144,25 +1166,16 @@ function defineResearchOperations(
           isError: true
         };
       }
-      return withResearchReceipt(youtubeToolResult(
-        result.receipt.completion_state === "incomplete" ? summary : `${summary} ${MCP_COMMENT_FINDINGS_HANDOFF}`,
-        view
-      ), result.receipt.completion_state === "incomplete"
-        ? undefined
-        : researchReceipt("youtube_community_audit", {
-            videos: result.receipt.selected_video_ids,
-            // The videos whose comments were read; the others had comments
-            // disabled or inaccessible, so finalize_research needs no findings
-            // for them.
-            read: result.videos
-              .filter(({ manifest }) => (manifest?.total_comments_and_replies ?? 0) > 0)
-              .map(({ video_id }) => video_id),
-            state: result.receipt.completion_state,
-            lock: result.receipt.synthesis_lock,
-            q: discoveryQueryDigest(input.searches.map(({ query }) => query)),
-            target: researchTargetDigest(input.research_question),
-            open: unreadResultPages(result.searches)
-          }));
+      const read = view.videos.filter(({ sample }) => (sample?.comments.length ?? 0) > 0).map(({ video_id }) => video_id);
+      // Every video with comments shows the same number of them, so either
+      // each shows some or, when even one per video does not fit, none does.
+      const unshown = view.videos.some(({ sample }) => sample !== undefined && sample.corpus_count > 0 && sample.comments.length === 0);
+      const text = !complete
+        ? summary
+        : read.length > 0
+          ? `${summary} ${MCP_COMMENT_FINDINGS_HANDOFF}`
+          : unshown ? `${summary} ${MCP_COMMENTS_NOT_SHOWN}` : summary;
+      return withResearchReceipt(youtubeToolResult(text, view), receiptFor(read));
     }
   );
 
@@ -1242,15 +1255,10 @@ function defineResearchOperations(
       const summary = `YouTube video audit retrieved ${result.records_retrieved_cumulative} record(s) cumulatively; synthesis lock ${result.receipt.synthesis_lock}.`;
       // The Custom GPT Action bounds the full audit itself.
       if (actionCall) return youtubeToolResult(summary, result);
-      const view = compactYoutubeAuditForMcp(
-        result,
-        MCP_YOUTUBE_AUDIT_MAX_BYTES,
-        MCP_BOUNDED_SAMPLE_LIMITATION
-      );
-      return withResearchReceipt(youtubeToolResult(
-        result.receipt.completion_state === "incomplete" ? summary : `${summary} ${MCP_COMMENT_FINDINGS_HANDOFF}`,
-        view
-      ), result.receipt.completion_state === "incomplete"
+      const text = result.receipt.completion_state === "incomplete"
+        ? summary
+        : `${summary} ${MCP_COMMENT_FINDINGS_HANDOFF}`;
+      const receipt = result.receipt.completion_state === "incomplete"
         ? undefined
         : researchReceipt("youtube_video_audit", {
             video: result.video_id,
@@ -1274,7 +1282,13 @@ function defineResearchOperations(
             tx: result.receipt.top_level_pagination_exhausted ? 1 : 0,
             rr: result.receipt.replies_reconciled ? 1 : 0,
             bl: result.receipt.blockers.length
-          }));
+          });
+      const view = compactYoutubeAuditForMcp(
+        result,
+        MCP_YOUTUBE_AUDIT_MAX_BYTES - reservedResultBytes(text, receipt),
+        MCP_BOUNDED_SAMPLE_LIMITATION
+      );
+      return withResearchReceipt(youtubeToolResult(text, view), receipt);
     }
   );
 
@@ -1640,10 +1654,22 @@ function defineResearchOperations(
 // comment record is about 600. The sample is cut in the same deterministic
 // order the Custom GPT Action uses; counts and the receipt cover the corpus.
 const MCP_YOUTUBE_AUDIT_MAX_BYTES = 40_000;
+
+/**
+ * Bytes a result adds around its structured view: the text, and the receipt,
+ * which appears in both the text and the structured content. The view is cut
+ * to what remains, so the whole result stays within the response budget.
+ */
+function reservedResultBytes(text: string, receipt: string | undefined): number {
+  const receiptBytes = receipt === undefined ? 0 : Buffer.byteLength(receipt, "utf8");
+  return Buffer.byteLength(text, "utf8") + 2 * receiptBytes + 200;
+}
 // A pass lock says the comments were retrieved, not that they reached the answer.
 const MCP_COMMENT_FINDINGS_HANDOFF =
   "The synthesis lock covers comment retrieval only. Note now what these comments show (benefit, no-effect and " +
   "adverse reports), and give it to finalize_research as community_findings, even if the signal is weak or neutral.";
+const MCP_COMMENTS_NOT_SHOWN =
+  "No comment fitted in this view; read each video's comments with audit_youtube_video_community.";
 const MCP_BOUNDED_SAMPLE_LIMITATION =
   "This response returns a deterministic subset of the analysis sample to fit client result-size limits; retrieval coverage and corpus counts are reported separately.";
 

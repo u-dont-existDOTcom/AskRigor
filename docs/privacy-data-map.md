@@ -725,8 +725,8 @@ pending-proposal stores have their own strict contracts and authority boundaries
   per-video audit receipt also carries the audited video's public channel ID
   and the audit's counts and completion flags, a scout receipt the unresolved
   and rejected candidate video IDs, a search receipt its access status, and a
-  one-call community audit receipt the IDs of the videos whose comments it
-  read.
+  one-call community audit receipt the IDs of the videos whose comments its
+  response returned.
   Every MCP receipt carries `t`, its
   issue time in milliseconds made strictly increasing within the server
   process, so the gate orders rounds without trusting the caller. They expire

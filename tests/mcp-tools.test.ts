@@ -498,6 +498,171 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
+  it("keeps a full audit view, its text and its receipt within the MCP response budget", async () => {
+    // The view was once cut to the whole budget before the text and the
+    // receipt were added, so a full view pushed the result past it.
+    const { client, server } = await createInMemoryClient();
+    const previousApiKey = process.env.YOUTUBE_API_KEY;
+    const previousContinuationSecret = process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET;
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET = "mcp-continuation-secret-value-32-bytes";
+    const comment = (id: string) => ({
+      kind: "youtube#comment",
+      id,
+      snippet: {
+        videoId: "XpZHKGGCK-o",
+        textDisplay: "I took it for a few weeks; my sleep deepened and my digestion settled, then both faded. ".repeat(2),
+        authorDisplayName: `Author ${id}`,
+        authorChannelId: { value: `UC${id.slice(-22)}` },
+        likeCount: 1,
+        publishedAt: "2025-02-01T10:00:00Z",
+        updatedAt: "2025-02-01T10:00:00Z"
+      }
+    });
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/videos")) {
+        return new Response(await youtubeFixture("video-found.json"), { status: 200 });
+      }
+      if (url.pathname.endsWith("/commentThreads")) {
+        const page = Number(url.searchParams.get("pageToken")?.replace("page-", "") ?? "0");
+        return Response.json({
+          ...(page < 2 ? { nextPageToken: `page-${page + 1}` } : {}),
+          pageInfo: { totalResults: 250, resultsPerPage: 100 },
+          items: Array.from({ length: page < 2 ? 100 : 50 }, (_, index) => {
+            const id = `UgxLong${String(page * 100 + index).padStart(16, "0")}`;
+            return {
+              kind: "youtube#commentThread",
+              id: `UgxThread${id.slice(-15)}`,
+              snippet: { videoId: "XpZHKGGCK-o", topLevelComment: comment(id), totalReplyCount: 0 }
+            };
+          })
+        });
+      }
+      // The audit refetches its sample by identifier.
+      const ids = url.searchParams.get("id")?.split(",") ?? [];
+      return Response.json({ pageInfo: { totalResults: ids.length, resultsPerPage: ids.length }, items: ids.map(comment) });
+    }));
+
+    try {
+      const result = await client.callTool({
+        name: "audit_youtube_video_community",
+        arguments: { video_id_or_url: "XpZHKGGCK-o" }
+      });
+
+      expect(result.isError).not.toBe(true);
+      expect(result.structuredContent).toMatchObject({
+        records_retrieved_cumulative: 250,
+        receipt: { completion_state: "api_visible_complete", synthesis_lock: "pass" }
+      });
+      expect((result.structuredContent as { research_receipt?: string }).research_receipt).toEqual(expect.any(String));
+      // Cut to fit, and filled close to the budget.
+      const returned = (result.structuredContent as { records_returned_for_analysis: number }).records_returned_for_analysis;
+      expect(returned).toBeGreaterThan(100);
+      expect(returned).toBeLessThan(250);
+      const bytes = Buffer.byteLength(JSON.stringify(result), "utf8");
+      expect(bytes).toBeLessThanOrEqual(40_000);
+      expect(bytes).toBeGreaterThan(38_000);
+    } finally {
+      restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
+      restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
+      await server.close();
+    }
+  });
+
+  it("signs as read only the videos whose comments fit the one-call audit view", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previousApiKey = process.env.YOUTUBE_API_KEY;
+    const previousContinuationSecret = process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET;
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET = "mcp-continuation-secret-value-32-bytes";
+    const videoIds = ["XpZHKGGCK-o", "dQw4w9WgXcQ", "abcdefghijk"];
+    const video = JSON.parse(await youtubeFixture("video-found.json")) as { items: Array<Record<string, unknown>> };
+    const { nextPageToken: _next, ...search } = JSON.parse(await youtubeFixture("search-page-1.json")) as {
+      nextPageToken: string;
+      items: Array<{ id: Record<string, unknown>; snippet: Record<string, unknown> }>;
+    };
+    // One long comment per video (5,000 CJK characters, 15,000 bytes): three
+    // of them exceed the budget, so not even one per video fits.
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/search")) {
+        return Response.json({
+          ...search,
+          pageInfo: { totalResults: 3, resultsPerPage: 3 },
+          items: videoIds.map((videoId) => ({
+            ...search.items[0]!,
+            id: { ...search.items[0]!.id, videoId },
+            snippet: { ...search.items[0]!.snippet, title: `Recorded video ${videoId}` }
+          }))
+        });
+      }
+      if (url.pathname.endsWith("/videos")) {
+        return Response.json({ ...video, items: [{ ...video.items[0], id: url.searchParams.get("id") }] });
+      }
+      const videoId = url.searchParams.get("videoId")!;
+      return Response.json({
+        kind: "youtube#commentThreadListResponse",
+        pageInfo: { totalResults: 1, resultsPerPage: 1 },
+        items: [{
+          kind: "youtube#commentThread",
+          id: `UgxThread${videoId}`,
+          snippet: {
+            videoId,
+            topLevelComment: {
+              kind: "youtube#comment",
+              id: `UgxLong${videoId}`,
+              snippet: {
+                videoId,
+                textDisplay: "睡眠".repeat(2_500),
+                authorDisplayName: "Recorded Author",
+                authorChannelId: { value: "UC0123456789abcdefghijkl" },
+                likeCount: 0,
+                publishedAt: "2025-02-01T10:00:00Z",
+                updatedAt: "2025-02-01T10:00:00Z"
+              }
+            },
+            totalReplyCount: 0
+          }
+        }]
+      });
+    }));
+
+    try {
+      const result = await client.callTool({
+        name: "audit_youtube_community",
+        arguments: {
+          research_question: "Adults using sermorelin for sleep and digestion",
+          searches: [{ direction: "general", query: "sermorelin sleep digestion experience" }],
+          max_videos: 3,
+          sample_comments_per_video: 20
+        }
+      });
+
+      expect(result.isError).not.toBe(true);
+      expect(Buffer.byteLength(JSON.stringify(result), "utf8")).toBeLessThanOrEqual(40_000);
+      const view = result.structuredContent as {
+        research_receipt: string;
+        videos: Array<{ video_id: string; sample: { corpus_count: number; comments: unknown[] } }>;
+      };
+      expect(view.videos.map(({ video_id, sample }) => [video_id, sample.corpus_count, sample.comments.length]))
+        .toEqual(videoIds.map((videoId) => [videoId, 1, 0]));
+      // The model saw no comment, so it is told where to read them, and the
+      // receipt asks finalize_research for no findings on them.
+      expect((result.content as unknown[])[0]).toEqual({
+        type: "text",
+        text: "YouTube community audit selected 3 video(s); completion state api_visible_complete; synthesis lock pass. " +
+          "No comment fitted in this view; read each video's comments with audit_youtube_video_community."
+      });
+      expect(verifyResearchReceipt(view.research_receipt, { secret: "mcp-continuation-secret-value-32-bytes" }))
+        .toMatchObject({ ok: true, kind: "youtube_community_audit", claims: { videos: videoIds, read: [] } });
+    } finally {
+      restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
+      restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
+      await server.close();
+    }
+  });
+
   it("returns deduplicated survey candidates with canonical links and provider counts through MCP", async () => {
     const { client, server } = await createInMemoryClient();
     const previousApiKey = process.env.YOUTUBE_API_KEY;

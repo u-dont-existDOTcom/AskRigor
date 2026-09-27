@@ -643,6 +643,14 @@ rules, no protocol change):
   bytes; the MCP view shortens them, and a view that still cannot fit is an
   explicit `youtube_community_audit_response_too_large` error, never an
   oversized result.
+- Codex on 2fdd6df (three P2s, all fixed): the 40,000-byte budget now covers
+  the whole MCP result, text and receipt included (the view alone had been cut
+  to it, and the regression test's result reached 40,930 bytes). The one-call
+  receipt's `read` names only videos whose comments the view returns; when not
+  even one comment per video fits, the text says to read them with
+  `audit_youtube_video_community` instead of asking for findings. A later
+  complete audit that finds no comments no longer erases an earlier audit's
+  positive count, in either receipt order.
 
 ## Comment-audit call budget (2026-09-27)
 

@@ -668,9 +668,13 @@ function recordVideoAudit(
 ): void {
   if (video.length === 0 || !TERMINAL_VIDEO_STATES.has(state)) return;
   const previous = audited.get(video);
-  // A later complete audit of the same video supersedes a bounded one.
+  // Comments once read stay read, whatever order the audits come in (a later
+  // audit can find them deleted); a complete audit supersedes a bounded one.
+  const read = Math.max(previous?.records ?? 0, Number.isSafeInteger(records) ? records : 0);
   if (previous === undefined || previous.state !== "api_visible_complete") {
-    audited.set(video, { state, lock, records: Number.isSafeInteger(records) ? records : 0 });
+    audited.set(video, { state, lock, records: read });
+  } else {
+    audited.set(video, { ...previous, records: read });
   }
 }
 

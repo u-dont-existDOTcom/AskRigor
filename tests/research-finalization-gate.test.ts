@@ -392,6 +392,25 @@ describe("finalize_research gate", () => {
     const covered = finalizeResearchGate({ ...oneCallRequest, community_findings: findingsFor(["ddddddddddd"]) }, options);
     expect(covered.next_steps).toEqual([]);
     expect(covered.must_report).toHaveLength(1);
+
+    // Comments once read stay read: a complete audit that later finds none
+    // (deleted or since disabled) does not drop them, in either order.
+    const bounded = sign("youtube_video_audit", {
+      video: "bbbbbbbbbbb", state: "completed_with_access_boundary", lock: "pass", records: 50
+    }, options);
+    const emptied = sign("youtube_video_audit", {
+      video: "bbbbbbbbbbb", state: "api_visible_complete", lock: "pass", records: 0
+    }, options);
+    for (const audits of [[bounded, emptied], [emptied, bounded]]) {
+      const reread = finalizeResearchGate({
+        ...request,
+        receipts: [survey, emptySearch, repeatScout, videoA, ...audits, study],
+        community_findings: findingsFor(["aaaaaaaaaaa"])
+      }, options);
+      expect(reread.next_steps).toEqual([
+        "Add bbbbbbbbbbb to community_findings.videos_reviewed: their comments were read, so the findings must account for them."
+      ]);
+    }
   });
 
   it("does not accept model-reported validation or lead status without receipts", () => {
