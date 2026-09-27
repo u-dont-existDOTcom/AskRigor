@@ -112,6 +112,21 @@ Claude Opus 5.5 (owner, 2026-09-26).
      explained with a recommendation; replies say only what changed there).
    - ChatGPT plugins: keep only the newest AskRigor connector. The owner
      removes the others in ChatGPT settings; this session cannot reach them.
+9. Owner answers of about 15:55 UTC:
+   - "1: merge": universal-dev-architecture#274 was rechecked (mergeable,
+     7/7 checks) and squash-merged as `4563be0`.
+   - Lessons submitted on 26 Sep (private repo `AskRigor-lessons`):
+     - `askrigor.treatment-use-context-before-safety-label.v1` (ledger,
+       provisional): advice to use less of a medication in ongoing use was
+       read as advice to withhold it in an emergency. HRP's
+       `RelevanceBeforeWarning` checks AskRigor's own warnings against the
+       use context, not the source's advice. Proposed one sentence in that
+       rule plus a regression case, as HRP 20.6.4; owner question 2, since
+       it is method text.
+     - Issue #17 (three older Universal drafts): forum denominators are
+       mostly covered by `SilentDenominator`; causal coupling has no rule;
+       subgroup nulls are covered for time windows only. Default: draft the
+       two missing rules after AskRigor#246 merges.
 
 ## Discovery bench findings (2026-09-27)
 
