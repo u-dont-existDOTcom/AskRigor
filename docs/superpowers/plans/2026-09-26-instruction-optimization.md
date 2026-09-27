@@ -562,6 +562,47 @@ Expected size: 100 candidates and 15 selected videos take about 15 KB instead
 of about 70 KB; with classes and programs a full check is about 55–60 KB
 instead of 95–151 KB. A later step can keep the ledger between calls.
 
+## Rerun on 4fe4858 with option A (2026-09-27, 16:05 to 18:38 UTC)
+
+- 154 minutes and 266 tool calls (smoke run on 4d4fae8: 152 minutes, 313
+  calls). Claude Code's API-equivalent estimate: $43.86, on the plan, so no
+  spend.
+- Time before each call:
+  - comment audits: 62 minutes over 40 calls, 6 of them in the tool;
+  - five coverage checks: 31 minutes, about 6 each (about 10 before);
+  - the answer: 6 minutes.
+- Coverage checks under option A: inputs of 22 to 63 KB (95 to 151 KB before);
+  every receipt verified, no input problems. Each still returned
+  `continue_research`, on 4 to 23 problems in fields the model writes by hand:
+  access boundaries (the YouTube search cap written as both retryable and
+  terminal, then as a terminal rate limit), specific-search terms missing
+  from the executed query, and once a dropped screening list. The model
+  audited more videos instead (78 single-video `get_youtube_video` calls for
+  screening), and `finalize_research` ended `not_ready`; the model answered
+  anyway.
+- The answer found new options through the rediscovery loop (carnivore or
+  low-carb diet, collagen, turmeric, glucosamine, embolization); still no
+  gelatin or hydration.
+- Blind judges (Opus 5.5 at max effort, web spot-checks, seed 1), low
+  confidence both times:
+  - e1176f8 beat 4fe4858 overall. 4fe4858 won options, heterodox judgment
+    and safety; appraisal tied; e1176f8 won usefulness.
+  - 4d4fae8 beat 4fe4858 overall. 4fe4858 won appraisal; options,
+    heterodox judgment and safety tied; 4d4fae8 won usefulness.
+  - Both judges cited clutter: the internal action map under its
+    `REQUIRED_NOW`/`CONTINGENT_LATER` labels, "R-level: R3" (HRP's oversight
+    level, misnamed as "first-pass review"), attribution tags on every item,
+    and a pasted `DeepForumAuditActivationPrompt`. HRP already keeps the
+    first three internal (line 1243, the output rules near line 4466, FS190);
+    the prompt is a Critical HRP rule.
+- Next:
+  - `finalize_research` checks the answer draft for leaked internal labels,
+    and that an executed comment lane is present (server enforcement of
+    existing HRP rules);
+  - server-derived access boundaries for discovery rounds;
+  - owner question: keep the pasted deep-forum prompt, or offer a one-line
+    continuation instead.
+
 ## Owner error report: YouTube lane dropped from the answer (2026-09-27)
 
 A sermorelin question ("does it work for sleep and digestion, what are the side
@@ -618,9 +659,9 @@ rules, no protocol change):
   16 public MCP permits for 40 seconds and drive about 120 YouTube requests
   a second, so only two calls at a time get the longer budget and the rest
   read with the Action's. The 91-comment video now completes in one call (7.7 seconds)
-  instead of two (8.3 seconds). Estimate, not yet measured: a large video
-  needs about a fifth of the calls, from six times the requests per call
-  less each call's page and sample refetches.
+  instead of two (8.3 seconds). Measured after the rerun: the 723-comment
+  video completes in 2 calls (32.1 and 8.3 seconds, 723 records), where the
+  rerun had taken 7 calls to reach 641 records.
 - Reply requests are still sequential; running them in parallel is a later
   option.
 
