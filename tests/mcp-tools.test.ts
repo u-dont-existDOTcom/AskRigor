@@ -25,7 +25,7 @@ import {
 } from
   "../apps/research-mcp/src/youtube-audit-continuation.js";
 import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
-import { researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
+import { cursorDigest, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 
 const TOOL_NAMES = [
   "get_protocol_manifest",
@@ -563,6 +563,75 @@ describe("AskRigor MCP tools", () => {
       const bytes = Buffer.byteLength(JSON.stringify(result), "utf8");
       expect(bytes).toBeLessThanOrEqual(40_000);
       expect(bytes).toBeGreaterThan(38_000);
+    } finally {
+      restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
+      restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
+      await server.close();
+    }
+  });
+
+  it("signs how many comments a finished per-video view returned", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previousApiKey = process.env.YOUTUBE_API_KEY;
+    const previousContinuationSecret = process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET;
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET = "mcp-continuation-secret-value-32-bytes";
+    // One comment of 15,000 CJK characters (45,000 bytes): retrieved, but too
+    // large for any view.
+    const comment = (id: string) => ({
+      kind: "youtube#comment",
+      id,
+      snippet: {
+        videoId: "XpZHKGGCK-o",
+        textDisplay: "睡眠".repeat(7_500),
+        authorDisplayName: "Recorded Author",
+        authorChannelId: { value: "UC0123456789abcdefghijkl" },
+        likeCount: 0,
+        publishedAt: "2025-02-01T10:00:00Z",
+        updatedAt: "2025-02-01T10:00:00Z"
+      }
+    });
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/videos")) {
+        return new Response(await youtubeFixture("video-found.json"), { status: 200 });
+      }
+      if (url.pathname.endsWith("/commentThreads")) {
+        return Response.json({
+          pageInfo: { totalResults: 1, resultsPerPage: 1 },
+          items: [{
+            kind: "youtube#commentThread",
+            id: "UgxThreadLongComment01",
+            snippet: { videoId: "XpZHKGGCK-o", topLevelComment: comment("UgxLongComment0000000001"), totalReplyCount: 0 }
+          }]
+        });
+      }
+      const ids = url.searchParams.get("id")?.split(",") ?? [];
+      return Response.json({ pageInfo: { totalResults: ids.length, resultsPerPage: ids.length }, items: ids.map(comment) });
+    }));
+
+    try {
+      const result = await client.callTool({
+        name: "audit_youtube_video_community",
+        arguments: { video_id_or_url: "XpZHKGGCK-o" }
+      });
+
+      expect(result.isError).not.toBe(true);
+      expect(Buffer.byteLength(JSON.stringify(result), "utf8")).toBeLessThanOrEqual(40_000);
+      const view = result.structuredContent as {
+        records_retrieved_cumulative: number;
+        sample: { comments: unknown[] };
+        research_receipt: string;
+      };
+      expect(view.records_retrieved_cumulative).toBe(1);
+      expect(view.sample.comments).toEqual([]);
+      expect((result.content as unknown[])[0]).toEqual({
+        type: "text",
+        text: "YouTube video audit retrieved 1 record(s) cumulatively; synthesis lock pass. No comment fitted in this " +
+          "view, so none was returned; say in the answer that this video's comments could not be shown."
+      });
+      expect(verifyResearchReceipt(view.research_receipt, { secret: "mcp-continuation-secret-value-32-bytes" }))
+        .toMatchObject({ ok: true, kind: "youtube_video_audit", claims: { records: "1", shown: "0" } });
     } finally {
       restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
       restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
@@ -1490,6 +1559,80 @@ describe("AskRigor MCP tools", () => {
       expect(targeted).toMatchObject({ ok: true, claims: { target: researchTargetDigest("adults with  HIP pain") } });
       const order = [first, second, repeat, targeted].map((verification) => verification.ok ? Number(verification.claims.t) : NaN);
       expect(order.every((value, index) => index === 0 || value > order[index - 1]!)).toBe(true);
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previous.apiKey);
+      restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previous.continuationSecret);
+      restoreEnvironment("ASKRIGOR_FINALIZATION_SIGNING_SECRET", previous.finalizationSecret);
+      await server.close();
+    }
+  });
+
+  it("signs the pages a search read and the searches a limit stopped", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previous = {
+      apiKey: process.env.YOUTUBE_API_KEY,
+      continuationSecret: process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET,
+      finalizationSecret: process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET
+    };
+    const [firstPage, finalPage, quota] = await Promise.all([
+      youtubeFixture("search-page-1.json"),
+      youtubeFixture("search-partial-final.json"),
+      youtubeFixture("error-quota-exceeded.json")
+    ]);
+    const secret = "mcp-continuation-secret-value-32-bytes";
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET = secret;
+    delete process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET;
+    let quotaSpent = false;
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => quotaSpent
+      ? new Response(quota, { status: 403 })
+      : new Response(new URL(String(input)).searchParams.has("pageToken") ? finalPage : firstPage, { status: 200 })
+    ));
+    const target = "Adults with hip pain";
+    const receiptOf = async (name: string, args: Record<string, unknown>) => {
+      const result = await client.callTool({ name, arguments: args });
+      const receipt = (result.structuredContent as { research_receipt?: string }).research_receipt;
+      expect(receipt).toBeDefined();
+      return verifyResearchReceipt(receipt!, { secret });
+    };
+    const claimsOf = (verification: Awaited<ReturnType<typeof receiptOf>>) => verification.ok ? verification.claims : {};
+
+    try {
+      // Page one signs the page it left; page two, the page it read. Both
+      // digests bind the query, whatever its case and spacing.
+      const next = cursorDigest("hip pain what worked", "opaque+/next-token");
+      const pageOne = await receiptOf("search_youtube", { query: "hip pain what worked", page_size: 1, research_target: target });
+      const pageTwo = await receiptOf("search_youtube", {
+        query: "Hip pain  what worked", page_size: 1, cursor: "opaque+/next-token", research_target: target
+      });
+      expect(pageOne).toMatchObject({ ok: true, claims: { open: "1", nx: next, rl: "0", inc: "0" } });
+      expect(pageTwo).toMatchObject({ ok: true, claims: { open: "0", pg: next } });
+      expect(claimsOf(pageTwo).nx).toBeUndefined();
+
+      // With the daily quota spent, each discovery tool still signs its round
+      // and what stopped it; a page it could not read is not signed as read.
+      quotaSpent = true;
+      const stoppedPage = await receiptOf("search_youtube", {
+        query: "hip pain what worked", page_size: 1, cursor: "opaque+/next-token", research_target: target
+      });
+      expect(stoppedPage).toMatchObject({ ok: true, claims: { access: "rate_limited", rl: "1", inc: "1", videos: [] } });
+      expect(claimsOf(stoppedPage).pg).toBeUndefined();
+      const stoppedSurvey = await receiptOf("survey_youtube_community", {
+        research_question: target,
+        searches: [
+          { direction: "general", query: "hip pain what worked" },
+          { direction: "benefit", query: "hip pain finally helped" }
+        ]
+      });
+      expect(stoppedSurvey).toMatchObject({ ok: true, kind: "youtube_survey", claims: { rl: "2", inc: "2", videos: [] } });
+      const stoppedAudit = await receiptOf("audit_youtube_community", {
+        research_question: target,
+        searches: [{ direction: "general", query: "hip pain what worked" }],
+        max_videos: 1
+      });
+      expect(stoppedAudit).toMatchObject({
+        ok: true, kind: "youtube_community_audit", claims: { state: "incomplete", access: "partial", rl: "1", inc: "1", videos: [] }
+      });
     } finally {
       restoreEnvironment("YOUTUBE_API_KEY", previous.apiKey);
       restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previous.continuationSecret);

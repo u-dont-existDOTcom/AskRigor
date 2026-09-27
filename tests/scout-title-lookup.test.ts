@@ -37,6 +37,26 @@ describe("scout exact-title lookup", () => {
     });
   });
 
+  it("searches similar but distinct titles separately and merges only exact repeats", async () => {
+    const search = vi.fn(async ({ query }: { query: string }) => results(query === "How I healed hip pain"
+      ? [{ video_id: "aaaaaaaaaaa", title: "How I healed hip pain", channel_title: "Hip Diary" }]
+      : []));
+
+    const lookup = await lookUpScoutTitles([
+      { title: "How I healed hip pain", channel: "Hip Diary" },
+      // Most words shared, but another video: searched, and unresolved when not found.
+      { title: "How I healed back pain", channel: "Back Diary" },
+      // The same lead again, spelled differently: searched once.
+      { title: "How I Healed Hip Pain!", channel: "hip diary" }
+    ], { config: CONFIG, knownVideoIds: new Set(), search });
+
+    expect(search.mock.calls.map(([input]) => input.query)).toEqual(["How I healed hip pain", "How I healed back pain"]);
+    expect(lookup.found.map(({ video_id }) => video_id)).toEqual(["aaaaaaaaaaa"]);
+    expect(lookup.unresolved).toEqual([
+      { title: "How I healed back pain", channel: "Back Diary", reason: "no_matching_video" }
+    ]);
+  });
+
   it("accepts a loosely matching title only when the declared channel agrees or the titles are nearly the same", async () => {
     const byQuery: Record<string, Array<{ video_id: string; title: string; channel_title: string }>> = {
       "Recovery Story": [{ video_id: "aaaaaaaaaaa", title: "Cancer Recovery Story", channel_title: "Oncology Stories" }],

@@ -1,10 +1,12 @@
 import { z } from "zod";
 
 import {
+  continuedCursors,
   issueResearchReceipt,
   RESEARCH_RECEIPT_MAX_CHARACTERS,
   receiptIssueOrder,
   researchTargetDigest,
+  roundUnreadPages,
   verifyResearchReceipt,
   type ResearchReceiptKind
 } from "./research-receipts.js";
@@ -226,7 +228,10 @@ export function finalizeResearch(
       for (const video of list(claims.videos)) discovered.add(video);
     }
     if (kind === "youtube_video_audit") {
-      recordVideoAudit(audited, text(claims.video), text(claims.state), text(claims.lock), Number(text(claims.records)));
+      // Comments the audit's final view returned; receipts from before `shown`
+      // existed count every record retrieved.
+      recordVideoAudit(audited, text(claims.video), text(claims.state), text(claims.lock),
+        Number(text(claims.shown) || text(claims.records)));
     }
     if (kind === "youtube_community_audit") {
       // One call samples comments across its videos, so it counts as a
@@ -278,13 +283,17 @@ export function finalizeResearch(
     // Its rounds come from new angles, so a repeated query does not count.
     const auditedMaterial = materialVideos.filter((video) => audited.has(video)).length;
     const angles = new Set(rounds.map((round) => text(round.claims.q) || `${round.kind}#${round.index}`)).size;
+    // A search YouTube's rate limit or daily quota stopped cannot rerun until
+    // it resets, so it ends a first pass as an open lead; deep research waits.
     firstPassComplete = input.research_depth === "first_pass" &&
-      (saturated || auditedMaterial >= FIRST_PASS_AUDITED_VIDEOS || angles >= FIRST_PASS_ROUNDS);
+      (saturated || auditedMaterial >= FIRST_PASS_AUDITED_VIDEOS || angles >= FIRST_PASS_ROUNDS ||
+        saturation.rateLimited > 0);
     if (!saturated && firstPassComplete) {
       if (openLeads.length === 0) {
         nextSteps.push(
           "The first pass is done but discovery has not saturated: list open_leads (each topic or subtopic where more " +
-            "community signal is likely, and why) so the answer can offer another pass."
+            "community signal is likely, and why) so the answer can offer another pass." +
+            (saturation.rateLimited > 0 ? " Include the searches YouTube's rate limit or daily quota stopped." : "")
         );
       } else {
         limits.push(
@@ -292,15 +301,22 @@ export function finalizeResearch(
             "in plain language for the user (no video IDs or internal codes), why each looks promising and roughly what " +
             "another pass would cost, and ask whether to continue on all or part."
         );
+        if (saturation.rateLimited > 0) {
+          limits.push(
+            `YouTube's rate limit or daily quota stopped ${saturation.rateLimited} search(es) in the latest discovery ` +
+              "rounds; say so, and that another pass can rerun them once the limit resets."
+          );
+        }
       }
     } else {
       nextSteps.push(...saturation.nextSteps);
     }
     if (materialVideos.length === 0 && (saturated || firstPassComplete)) {
       if (discovered.size === 0) {
-        limits.push(
-          `No video turned up in ${rounds.length} discovery rounds; say that community evidence on this is thin.`
-        );
+        limits.push(saturation.rateLimited > 0
+          ? "No video turned up before YouTube's rate limit or daily quota stopped discovery; say that community " +
+            "evidence could not be checked yet, not that it is thin."
+          : `No video turned up in ${rounds.length} discovery rounds; say that community evidence on this is thin.`);
       } else if (input.no_material_video_reason === undefined) {
         nextSteps.push(
           `Discovery found ${discovered.size} video(s) but none is in material_video_ids: audit each one that adds an approach ` +
@@ -589,12 +605,31 @@ export function finalizeResearch(
   return finalizeResearchOutputSchema.parse(output);
 }
 
+/**
+ * The compound rule, module, case and section names in protocol texts, such as
+ * DeepForumAuditActivationPrompt or NNTAndNNH: at least two capitals and a
+ * lowercase letter, so single words (Rule, Purpose) and codes (FS190) are not
+ * names an answer could leak.
+ */
+export function protocolNamesFrom(texts: readonly string[]): Set<string> {
+  const names = new Set<string>();
+  for (const text of texts) {
+    for (const [, name] of [
+      ...text.matchAll(/(?:name|id)="([A-Z][A-Za-z0-9]*)"/gu),
+      ...text.matchAll(/<([A-Z][A-Za-z0-9]*)[\s>/]/gu)
+    ]) {
+      if (/[A-Z][^A-Z]*[A-Z]/u.test(name!) && /[a-z]/u.test(name!)) names.add(name!);
+    }
+  }
+  return names;
+}
+
 // Retrieval and error codes, tool names and the internal action map's labels
 // (REQUIRED_NOW, api_visible_complete, finalize_research) are snake case, which
 // ordinary prose never uses; receipt and lock names can also appear as words.
 const SNAKE_CASE_LABEL = /(?<![\w.-])[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+(?![\w-])/gu;
 const INTERNAL_PHRASE = /\b(?:synthesis[ -]lock|research[ -]receipts?)\b|\brr1~/giu;
-const CAMEL_CASE_NAME = /(?<![A-Za-z0-9_-])[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+(?![A-Za-z0-9_-])/gu;
+const CAPITALIZED_TOKEN = /(?<![A-Za-z0-9_-])[A-Z][A-Za-z0-9]*(?![A-Za-z0-9_-])/gu;
 const ELEVEN_CHARACTERS = /(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{11}(?![A-Za-z0-9_-])/gu;
 // YouTube IDs are random: mixed case with a digit or underscore, which words
 // (even hyphenated ones such as Self-Report) are not.
@@ -613,7 +648,7 @@ function answerDraftProblems(
   const prose = draft.replace(URL, " ");
   const labels = [...new Set([
     ...[...prose.matchAll(SNAKE_CASE_LABEL)].map(([label]) => label).filter((label) => !looksLikeVideoId(label)),
-    ...[...prose.matchAll(CAMEL_CASE_NAME)].map(([name]) => name).filter((name) => context.protocolNames.has(name)),
+    ...[...prose.matchAll(CAPITALIZED_TOKEN)].map(([name]) => name).filter((name) => context.protocolNames.has(name)),
     ...[...prose.matchAll(INTERNAL_PHRASE)].map(([label]) => label.toLowerCase())
   ])];
   if (labels.length > 0) {
@@ -645,9 +680,43 @@ function answerDraftProblems(
       "The answer does not report the YouTube comments that were read. Add that lane from must_report, even if its " +
         "signal is weak."
     );
+  } else if (context.commentsRead) {
+    // The lane is the text after each mention of YouTube or comments; it must
+    // carry what must_report lists, not just the word.
+    const lane = [...prose.matchAll(/youtube|comment/giu)]
+      .map(({ index }) => prose.slice(index, index + LANE_WINDOW_CHARACTERS)).join("\n");
+    const missing = LANE_FINDINGS.filter(({ pattern }) => !pattern.test(lane)).map(({ label }) => label);
+    if (missing.length > 0) {
+      problems.push(
+        `The answer's YouTube comments section does not report ${missing.join(", ")}. Add each from must_report, ` +
+          "and say none were reported where there were none."
+      );
+    }
   }
   return problems;
 }
+
+// How far after a mention of YouTube or comments the lane's findings are read.
+const LANE_WINDOW_CHARACTERS = 1_200;
+// What commenters reported, in the words an answer uses for each finding.
+const LANE_FINDINGS = [
+  {
+    label: "benefit reports",
+    pattern: /\b(?:help(?:s|ed)?|better|improv\w*|relie[fv]\w*|benefit\w*|work(?:s|ed)|eased|less pain|reduc\w*)\b/iu
+  },
+  {
+    label: "no-effect reports",
+    pattern: /\bno[ -](?:effect|change|difference|benefit|improvement|relief)\b|\b(?:did ?n[o']t|didn't|does ?n[o']t|doesn't) (?:help|work|change)\b|\bnothing changed\b|\bunchanged\b/iu
+  },
+  {
+    label: "adverse reports",
+    pattern: /\bside[ -]effects?\b|\badverse\b|\bharm\w*|\bworse\b|\breactions?\b|\binjur\w*|\bflare\w*/iu
+  },
+  {
+    label: "how creators differ from commenters",
+    pattern: /\b(?:creators?|channels?|hosts?|sellers?|sponsor\w*|affiliate\w*|presenters?|youtubers?|video makers?)\b/iu
+  }
+] as const;
 
 function communityLane(
   findings: NonNullable<FinalizeResearchInput["community_findings"]>,
@@ -696,24 +765,42 @@ function discoverySaturation(
   unordered: readonly VerifiedReceipt[],
   material: ReadonlySet<string>,
   depth: "first_pass" | "deep"
-): { saturated: boolean; nextSteps: string[] } {
+): { saturated: boolean; nextSteps: string[]; rateLimited: number } {
   const stop = depth === "first_pass"
     ? ` A first pass may also stop once ${FIRST_PASS_AUDITED_VIDEOS} material videos are audited or ${FIRST_PASS_ROUNDS} rounds are done, then lists open_leads.`
     : "";
   const rounds = [...unordered].sort((left, right) =>
     receiptOrder(left) - receiptOrder(right) || left.index - right.index
   );
+  const recentFrom = rounds.length < 2 ? -Infinity : receiptOrder(rounds[rounds.length - 2]!);
+  const recent = rounds.filter((round) => receiptOrder(round) >= recentFrom);
+  // Searches in the latest rounds that did not complete (a rate limit, the
+  // daily quota, an error) left their results unread, like an unread page.
+  const incomplete = signedCount(recent, "inc");
+  const rateLimited = signedCount(recent, "rl");
+  if (incomplete > 0) {
+    return {
+      saturated: false,
+      rateLimited,
+      nextSteps: [
+        `${incomplete} search(es) in the latest discovery rounds did not complete` +
+          (rateLimited > 0
+            ? `, ${rateLimited} stopped by YouTube's rate limit or daily quota. Rerun them once it resets`
+            : ". Rerun them") +
+          " and pass the new research_receipt." + stop
+      ]
+    };
+  }
   if (rounds.length < 2) {
     return {
       saturated: false,
+      rateLimited,
       nextSteps: [
         `Run another discovery round from a new angle (${NEW_ANGLE_HINT}) and pass its research_receipt. ` +
           "Discovery is done when two rounds in a row add no new video worth auditing; a niche topic may end with one video or none." + stop
       ]
     };
   }
-  const recentFrom = receiptOrder(rounds[rounds.length - 2]!);
-  const recent = rounds.filter((round) => receiptOrder(round) >= recentFrom);
   // When each video first turned up; the earliest round that found it counts.
   const firstFound = new Map<string, number>();
   for (const round of rounds) {
@@ -724,7 +811,9 @@ function discoverySaturation(
     }
   }
   const fresh = [...material].filter((video) => (firstFound.get(video) ?? -Infinity) >= recentFrom).sort();
-  const unchecked = recent.some((round) => Number(text(round.claims.open) || "0") > 0);
+  // A later page's receipt signs the page it read, which settles the page before it.
+  const continued = continuedCursors(rounds);
+  const unchecked = recent.some((round) => roundUnreadPages(round.claims, continued) > 0);
   const angles = recent.map((round) => text(round.claims.q));
   const repeated = angles.includes("") || new Set(angles).size < angles.length;
   const nextSteps: string[] = [];
@@ -744,7 +833,15 @@ function discoverySaturation(
       `The last two discovery rounds repeated the same searches; run one from a different angle (${NEW_ANGLE_HINT}).` + stop
     );
   }
-  return { saturated: nextSteps.length === 0, nextSteps };
+  return { saturated: nextSteps.length === 0, nextSteps, rateLimited };
+}
+
+/** The sum of a signed count claim (`inc`, `rl`) across rounds. */
+function signedCount(rounds: readonly VerifiedReceipt[], claim: string): number {
+  return rounds.reduce((sum, round) => {
+    const count = Number(text(round.claims[claim]) || "0");
+    return sum + (Number.isSafeInteger(count) && count > 0 ? count : 0);
+  }, 0);
 }
 
 function recordVideoAudit(

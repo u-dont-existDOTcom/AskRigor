@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  continuedCursors,
+  cursorDigest,
   issueResearchReceipt,
   researchReceiptSecretFromEnv,
+  roundUnreadPages,
   verifyResearchReceipt
 } from "../apps/research-mcp/src/research-receipts.js";
 
@@ -62,6 +65,26 @@ describe("research receipts", () => {
     for (const malformed of ["", "rr1~x", "rr0~a~b~1~c", `${token}~extra`]) {
       expect(verifyResearchReceipt(malformed, { secret: SECRET, now }).ok).toBe(false);
     }
+  });
+
+  it("binds page cursors to their query and settles a page a later round continued", () => {
+    const next = cursorDigest("Hip pain  what worked", "CAoQAA");
+    expect(next).toMatch(/^[a-f0-9]{12}$/u);
+    // Case and spacing in the query do not matter; the query does, because
+    // YouTube page tokens encode only an offset.
+    expect(cursorDigest(" hip pain what worked", "CAoQAA")).toBe(next);
+    expect(cursorDigest("hip gelatin", "CAoQAA")).not.toBe(next);
+    expect(cursorDigest("hip pain what worked", "CBQQAA")).not.toBe(next);
+
+    const pageOne = { claims: { open: "1", nx: next } };
+    const pageTwo = { claims: { open: "0", pg: next } };
+    expect(roundUnreadPages(pageOne.claims, continuedCursors([pageOne]))).toBe(1);
+    expect(roundUnreadPages(pageOne.claims, continuedCursors([pageOne, pageTwo]))).toBe(0);
+    // A survey signs lists: one of its two next pages is still unread.
+    expect(roundUnreadPages({ open: "2", nx: [next, "aaaaaaaaaaaa"] }, continuedCursors([pageTwo]))).toBe(1);
+    // Receipts without nx (scouts, and receipts from before it) report their open count.
+    expect(roundUnreadPages({ open: "3" }, continuedCursors([pageTwo]))).toBe(3);
+    expect(roundUnreadPages({}, new Set())).toBe(0);
   });
 
   it("uses the finalization secret when set, else the continuation secret, and needs 32 bytes", () => {

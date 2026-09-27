@@ -74,6 +74,42 @@ export function discoveryQueryDigest(queries: readonly string[]): string {
 }
 
 /**
+ * Short digest of a result-page cursor and the query it pages. A search receipt
+ * signs the page it read (`pg`) and any next page it left (`nx`), never the
+ * cursors themselves, so a later page settles the page before it. YouTube page
+ * tokens encode only an offset, so the query is part of the digest.
+ */
+export function cursorDigest(query: string, cursor: string): string {
+  return createHash("sha256")
+    .update(JSON.stringify(["askrigor-cursor-v1", query.trim().toLowerCase().replace(/\s+/gu, " "), cursor]))
+    .digest("hex")
+    .slice(0, 12);
+}
+
+/**
+ * Result pages a discovery round left unread: the next pages it signed (`nx`)
+ * that no round passed with it read (`pg`). Receipts without `nx` (scouts, and
+ * receipts from before it) report their `open` count.
+ */
+export function roundUnreadPages(
+  claims: Readonly<Record<string, string | string[] | undefined>>,
+  continued: ReadonlySet<string>
+): number {
+  const next = claims.nx;
+  if (next === undefined) return Number(typeof claims.open === "string" ? claims.open : "0") || 0;
+  return (Array.isArray(next) ? next : [next]).filter((digest) => digest !== "" && !continued.has(digest)).length;
+}
+
+/** The pages the given rounds read (`pg`), for roundUnreadPages. */
+export function continuedCursors(
+  rounds: ReadonlyArray<{ claims: Readonly<Record<string, string | string[] | undefined>> }>
+): Set<string> {
+  return new Set(rounds.flatMap(({ claims }) =>
+    claims.pg === undefined ? [] : Array.isArray(claims.pg) ? claims.pg : [claims.pg]
+  ).filter((digest) => digest !== ""));
+}
+
+/**
  * Short digest of the research target. Discovery and treatment-coverage
  * receipts sign it, so finalize_research counts only the research done for
  * the question it finalizes. Case and spacing are ignored.

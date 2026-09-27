@@ -726,9 +726,14 @@ pending-proposal stores have their own strict contracts and authority boundaries
   and the audit's counts and completion flags, a scout receipt the unresolved
   and rejected candidate video IDs, a search receipt its access status, and a
   one-call community audit receipt the IDs of the videos whose comments its
-  response returned. Survey and one-call community audit receipts also count
-  their searches that ended incomplete and those stopped by a rate limit or
-  the daily quota, so the check can state that limit itself.
+  response returned, and a per-video audit receipt how many comments its final
+  view returned. Survey, search and one-call community audit receipts also
+  count their searches that ended incomplete and those stopped by a rate limit
+  or the daily quota, so the checks can state that limit themselves; a round a
+  limit stopped is signed too. They also carry `pg` and `nx`: 12-hex digests
+  of each results-page cursor a search read and left, each bound to its
+  normalized query, never the cursor or the query, so a later page's receipt
+  settles the page before it.
   Every MCP receipt carries `t`, its
   issue time in milliseconds made strictly increasing within the server
   process, so the gate orders rounds without trusting the caller. They expire

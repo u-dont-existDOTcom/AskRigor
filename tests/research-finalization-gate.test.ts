@@ -1,10 +1,14 @@
+import { readFile } from "node:fs/promises";
+
 import { describe, expect, it } from "vitest";
 
 import {
   finalizeResearch as finalizeResearchRaw,
-  normalizeIdentifier
+  normalizeIdentifier,
+  protocolNamesFrom
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import {
+  cursorDigest,
   discoveryQueryDigest,
   issueResearchReceipt,
   researchTargetDigest,
@@ -41,7 +45,8 @@ const commentVideos = (receipts: readonly string[]) => [...new Set(receipts.flat
 // The gate reads the answer before it reports ready. Tests of other checks
 // pass this clean draft; a test can pass its own answer_draft, or undefined.
 const CLEAN_DRAFT = "Exercise therapy has the strongest evidence for hip osteoarthritis. People commenting on " +
-  "YouTube videos about it reported less pain after several months; a few noticed no change.";
+  "YouTube videos about it reported less pain after several months; a few noticed no change, and none reported side " +
+  "effects. The channels' creators sell programs; the commenters have no stake.";
 const finalizeResearchGate = (input: Record<string, unknown>, gateOptions: typeof options) =>
   finalizeResearchRaw({ answer_draft: CLEAN_DRAFT, ...input }, gateOptions);
 const findingsFor = (videos: string[]) => ({
@@ -235,6 +240,35 @@ describe("finalize_research gate", () => {
     expect(result.answer_checked).toBe(true);
   });
 
+  it("finds the protocols' own names in the answer, acronym runs included", async () => {
+    const names = protocolNamesFrom([
+      '<Rule name="COINotAutomaticDisqualification" priority="High"/><Rule name="NNTAndNNH"/><LimitsNote>' +
+        '<Section id="Purpose"/><Check id="FS190"/></LimitsNote>'
+    ]);
+    // Single words and codes are not names an answer could leak.
+    expect([...names].sort()).toEqual(["COINotAutomaticDisqualification", "LimitsNote", "NNTAndNNH"]);
+    const hrp = await readFile(new URL("../protocols/HRP_Full.xml", import.meta.url), "utf8");
+    const canonical = protocolNamesFrom([hrp]);
+    for (const name of ["COINotAutomaticDisqualification", "NNTAndNNH", "DeepForumAuditActivationPrompt"]) {
+      expect(canonical.has(name)).toBe(true);
+    }
+
+    const result = finalizeResearchRaw({
+      receipts: [survey, emptySearch, repeatScout, videoA, study],
+      community_evidence: "researched",
+      treatment_choice: "not_compared",
+      research_target: TARGET,
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" }],
+      community_findings: findingsFor(["aaaaaaaaaaa"]),
+      answer_draft: `${CLEAN_DRAFT} Under COINotAutomaticDisqualification the funded trial still counts, and ` +
+        "NNTAndNNH puts the benefit at about 1 in 8."
+    }, { ...options, protocolNames: canonical });
+    expect(result.next_steps).toEqual([
+      "The answer shows internal labels (COINotAutomaticDisqualification, NNTAndNNH): say what each means in plain " +
+        "words, or leave it out."
+    ]);
+  });
+
   it("reads the answer before it reports ready", () => {
     const request = {
       receipts: [survey, emptySearch, repeatScout, videoA, study],
@@ -271,6 +305,19 @@ describe("finalize_research gate", () => {
         "start it, and offer the full prompt instead (\"Show me the full deeper-research prompt and help me fine-tune it\").",
       "The answer does not report the YouTube comments that were read. Add that lane from must_report, even if its " +
         "signal is weak."
+    ]);
+
+    // Naming YouTube is not reporting what its commenters said.
+    const lane = (answerDraft: string) =>
+      finalizeResearchRaw({ ...request, answer_draft: answerDraft }, options).next_steps;
+    expect(lane("Exercise helps most people with hip osteoarthritis. I also searched YouTube.")).toEqual([
+      "The answer's YouTube comments section does not report benefit reports, no-effect reports, adverse reports, " +
+        "how creators differ from commenters. Add each from must_report, and say none were reported where there were none."
+    ]);
+    expect(lane("Exercise helps. I will not discuss the YouTube comments.")).toHaveLength(1);
+    expect(lane("YouTube commenters reported less pain after a month; the channel creators sell courses.")).toEqual([
+      "The answer's YouTube comments section does not report no-effect reports, adverse reports. Add each from " +
+        "must_report, and say none were reported where there were none."
     ]);
 
     // Links keep their IDs and underscores; a short command is fine.
@@ -446,6 +493,25 @@ describe("finalize_research gate", () => {
     const covered = finalizeResearchGate({ ...oneCallRequest, community_findings: findingsFor(["ddddddddddd"]) }, options);
     expect(covered.next_steps).toEqual([]);
     expect(covered.must_report).toHaveLength(1);
+
+    // Findings cover the comments the audit's final view returned: a comment
+    // too large for any view was retrieved but never shown.
+    const unshown = sign("youtube_video_audit", {
+      video: "bbbbbbbbbbb", state: "api_visible_complete", lock: "pass", records: 1, shown: 0
+    }, options);
+    expect(finalizeResearchGate({
+      ...request, receipts: [survey, emptySearch, repeatScout, videoA, unshown, study],
+      community_findings: findingsFor(["aaaaaaaaaaa"])
+    }, options).next_steps).toEqual([]);
+    const shownOne = sign("youtube_video_audit", {
+      video: "bbbbbbbbbbb", state: "api_visible_complete", lock: "pass", records: 1, shown: 1
+    }, options);
+    expect(finalizeResearchGate({
+      ...request, receipts: [survey, emptySearch, repeatScout, videoA, shownOne, study],
+      community_findings: findingsFor(["aaaaaaaaaaa"])
+    }, options).next_steps).toEqual([
+      "Add bbbbbbbbbbb to community_findings.videos_reviewed: their comments were read, so the findings must account for them."
+    ]);
 
     // Comments once read stay read: a complete audit that later finds none
     // (deleted or since disabled) does not drop them, in either order.
@@ -656,6 +722,78 @@ describe("finalize_research gate", () => {
       community: { saturated: false },
       next_steps: [expect.stringContaining("Continue a search with its next cursor")]
     });
+  });
+
+  it("lets a later page settle the page it continued", () => {
+    const base = {
+      community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }], research_depth: "deep" as const
+    };
+    const next = cursorDigest("hip pain what worked", "CAoQAA");
+    const pageOne = sign("youtube_search", { videos: [], open: 1, nx: next, q: "j0j0j0j0j0j0" }, options);
+    expect(finalizeResearch({ ...base, receipts: [survey, emptySearch, pageOne, videoA, study] }, options).next_steps)
+      .toEqual([expect.stringContaining("Continue a search with its next cursor")]);
+    // Page two read the rest: nothing is left unread, though two pages of one
+    // query are one angle, so saturation still needs a new one.
+    const pageTwo = sign("youtube_search", { videos: [], open: 0, pg: next, q: "j0j0j0j0j0j0" }, options);
+    expect(finalizeResearch({ ...base, receipts: [survey, pageOne, pageTwo, videoA, study] }, options).next_steps)
+      .toEqual([expect.stringMatching(/^The last two discovery rounds repeated the same searches/u)]);
+  });
+
+  it("keeps discovery open while YouTube's limits stop searches: an open lead in a first pass, a blocker in deep research", () => {
+    const base = {
+      community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
+    };
+    // One search finished with no next page and the daily quota stopped the
+    // other: nothing is unread, but the round is not settled.
+    const mixedSurvey = sign("youtube_survey", {
+      access: "partial", searches: 2, rl: 1, inc: 1, videos: [], open: 0, q: "l2l2l2l2l2l2"
+    }, options);
+    const receipts = [survey, emptySearch, mixedSurvey, videoA, study];
+    const deep = finalizeResearch({ ...base, receipts, research_depth: "deep" }, options);
+    expect(deep.status).toBe("not_ready");
+    expect(deep.community.saturated).toBe(false);
+    expect(deep.next_steps).toEqual([expect.stringMatching(
+      /^1 search\(es\) in the latest discovery rounds did not complete, 1 stopped by YouTube's rate limit or daily quota\. Rerun them once it resets and pass the new research_receipt\./u
+    )]);
+
+    // A first pass cannot rerun them until the limit resets, so it ends with them as open leads.
+    const firstPass = { ...base, receipts, research_depth: "first_pass" as const };
+    expect(finalizeResearch(firstPass, options).next_steps).toEqual([expect.stringMatching(
+      /^The first pass is done but discovery has not saturated: list open_leads .* Include the searches YouTube's rate limit or daily quota stopped\.$/u
+    )]);
+    const withLeads = finalizeResearch({
+      ...firstPass,
+      open_leads: [{ topic: "What commenters say helped", why: "The daily quota stopped one search before it ran." }]
+    }, options);
+    expect(withLeads.status).toBe("ready_with_limits");
+    expect(withLeads.limits).toContain(
+      "YouTube's rate limit or daily quota stopped 1 search(es) in the latest discovery rounds; say so, and that " +
+        "another pass can rerun them once the limit resets."
+    );
+
+    // A search that failed for another reason is rerun, in either depth.
+    const failedSearch = sign("youtube_search", { videos: [], access: "error", rl: 0, inc: 1, open: 0, q: "n4n4n4n4n4n4" }, options);
+    expect(finalizeResearch({ ...firstPass, receipts: [survey, emptySearch, failedSearch, videoA, study] }, options).next_steps)
+      .toEqual([expect.stringMatching(/^1 search\(es\) in the latest discovery rounds did not complete\. Rerun them and pass the new research_receipt\./u)]);
+
+    // The quota stopped the only round before any video turned up: community
+    // evidence is unchecked, not thin.
+    const stoppedSurvey = sign("youtube_survey", {
+      access: "rate_limited", searches: 2, rl: 2, inc: 2, videos: [], open: 0, q: "m3m3m3m3m3m3"
+    }, options);
+    const nothingYet = finalizeResearch({
+      ...firstPass,
+      receipts: [stoppedSurvey, study],
+      open_leads: [{ topic: "Firsthand experience with hip programs", why: "The daily quota stopped discovery." }]
+    }, options);
+    expect(nothingYet.status).toBe("ready_with_limits");
+    expect(nothingYet.limits).toContain(
+      "No video turned up before YouTube's rate limit or daily quota stopped discovery; say that community evidence " +
+        "could not be checked yet, not that it is thin."
+    );
+    expect(nothingYet.limits.join(" ")).not.toContain("community evidence on this is thin");
   });
 
   it("lets a first pass stop at its cap and hand back open leads instead of searching on", () => {

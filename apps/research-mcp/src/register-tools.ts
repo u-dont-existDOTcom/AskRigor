@@ -144,6 +144,7 @@ import {
 } from "./actions/open-full-text-route.js";
 import {
   finalizeResearch,
+  protocolNamesFrom,
   finalizeResearchInputSchema,
   finalizeResearchOutputSchema
 } from "./research-finalization-gate.js";
@@ -153,6 +154,7 @@ import {
   treatmentCoverageFromReceiptsOutputSchema
 } from "./treatment-coverage-from-receipts.js";
 import {
+  cursorDigest,
   discoveryQueryDigest,
   issueResearchReceipt,
   researchReceiptSecretFromEnv,
@@ -995,19 +997,25 @@ function defineResearchOperations(
         const videos = result.data.flatMap((record) =>
           "video_id" in record && typeof record.video_id === "string" ? [record.video_id] : []
         );
+        // A search a rate limit or the daily quota stopped is signed too: its
+        // signed limit keeps discovery open until it is rerun.
         return withResearchReceipt(youtubeToolResult(
           `YouTube search returned ${result.pagination.returned} video record(s); access status ${result.access_status}.`,
           result
-        ), videos.length === 0 && result.access_status !== "complete"
-          ? undefined
-          : researchReceipt("youtube_search", {
-            videos,
-            access: result.access_status,
-            q: discoveryQueryDigest([query]),
-            target: research_target === undefined ? undefined : researchTargetDigest(research_target),
-            // An unread results page is discovery still to do, not a settled round.
-            open: result.pagination.next_cursor === undefined ? 0 : 1
-          }));
+        ), researchReceipt("youtube_search", {
+          videos,
+          access: result.access_status,
+          ...searchLimits([result]),
+          q: discoveryQueryDigest([query]),
+          target: research_target === undefined ? undefined : researchTargetDigest(research_target),
+          // An unread results page is discovery still to do, not a settled round;
+          // the receipt of a search that reads the next page signs it, which settles it.
+          open: result.pagination.next_cursor === undefined ? 0 : 1,
+          pg: cursor === undefined || !pageRead(result.access_status) ? undefined : cursorDigest(query, cursor),
+          nx: result.pagination.next_cursor === undefined
+            ? undefined
+            : cursorDigest(query, result.pagination.next_cursor)
+        }), true);
       } catch (_error) {
         return youtubeToolResult(
           "YouTube search returned 0 video record(s); access status error.",
@@ -1119,6 +1127,7 @@ function defineResearchOperations(
     },
     async (input, extra) => {
       let result: YoutubeCommunityAuditOutput;
+      let failed = false;
       try {
         result = await auditYoutubeCommunity(
           input,
@@ -1127,14 +1136,16 @@ function defineResearchOperations(
         );
       } catch (_error) {
         result = youtubeCommunityAuditFailure(input);
+        failed = true;
       }
       const summary = `YouTube community audit selected ${result.receipt.selected_video_ids.length} video(s); completion state ${result.receipt.completion_state}; synthesis lock ${result.receipt.synthesis_lock}.`;
       // The Custom GPT Action bounds the full audit itself.
       if (isActionCall(extra)) return youtubeToolResult(summary, result);
-      const complete = result.receipt.completion_state !== "incomplete";
+      // An incomplete audit still signs what it found and the searches a limit
+      // stopped, which keep discovery open; only a failed call signs nothing.
       // `read` names the videos whose comments the model receives, so a video
       // whose comments did not fit the view needs no findings.
-      const receiptFor = (read: string[]) => complete
+      const receiptFor = (read: string[]) => !failed
         ? researchReceipt("youtube_community_audit", {
             videos: result.receipt.selected_video_ids,
             read,
@@ -1145,7 +1156,8 @@ function defineResearchOperations(
             lock: result.receipt.synthesis_lock,
             q: discoveryQueryDigest(input.searches.map(({ query }) => query)),
             target: researchTargetDigest(input.research_question),
-            open: unreadResultPages(result.searches)
+            open: unreadResultPages(result.searches),
+            ...cursorClaims(result.searches)
           })
         : undefined;
       let view: McpYoutubeCommunityAuditOutput;
@@ -1154,7 +1166,7 @@ function defineResearchOperations(
           result,
           // Room for the longest text and receipt this result can carry.
           MCP_YOUTUBE_AUDIT_MAX_BYTES - reservedResultBytes(
-            complete ? `${summary} ${MCP_COMMENT_FINDINGS_HANDOFF} ${MCP_COMMENTS_NOT_SHOWN}` : summary,
+            `${summary} ${MCP_COMMENT_FINDINGS_HANDOFF} ${MCP_COMMENTS_NOT_SHOWN}`,
             receiptFor(result.receipt.selected_video_ids)
           ),
           MCP_BOUNDED_SAMPLE_LIMITATION
@@ -1175,12 +1187,12 @@ function defineResearchOperations(
       // Every video with comments shows the same number of them, so either
       // each shows some or, when even one per video does not fit, none does.
       const unshown = view.videos.some(({ sample }) => sample !== undefined && sample.corpus_count > 0 && sample.comments.length === 0);
-      const text = !complete
+      const text = failed
         ? summary
         : read.length > 0
           ? `${summary} ${MCP_COMMENT_FINDINGS_HANDOFF}`
           : unshown ? `${summary} ${MCP_COMMENTS_NOT_SHOWN}` : summary;
-      return withResearchReceipt(youtubeToolResult(text, view), receiptFor(read));
+      return withResearchReceipt(youtubeToolResult(text, view), receiptFor(read), true);
     }
   );
 
@@ -1196,15 +1208,19 @@ function defineResearchOperations(
     },
     async (input) => {
       let result: YoutubeCommunitySurveyOutput;
+      let failed = false;
       try {
         result = await surveyYoutubeCommunity(input, youtubeConfig());
       } catch (_error) {
         result = youtubeCommunitySurveyFailure(input);
+        failed = true;
       }
+      // A round whose searches a rate limit or the daily quota stopped is
+      // signed too: its limits keep discovery open. Only a failed call signs nothing.
       return withResearchReceipt(youtubeToolResult(
         `YouTube community survey returned ${result.candidates.length} deduplicated candidate video(s).`,
         result
-      ), result.searches.some(({ access_status }) => access_status === "complete")
+      ), !failed
         ? researchReceipt("youtube_survey", {
             access: result.access_status,
             ...searchLimits(result.searches),
@@ -1212,9 +1228,10 @@ function defineResearchOperations(
             videos: result.candidates.map(({ video_id }) => video_id),
             q: discoveryQueryDigest(input.searches.map(({ query }) => query)),
             target: researchTargetDigest(input.research_question),
-            open: unreadResultPages(result.searches)
+            open: unreadResultPages(result.searches),
+            ...cursorClaims(result.searches)
           })
-        : undefined);
+        : undefined, true);
     }
   );
 
@@ -1261,16 +1278,17 @@ function defineResearchOperations(
       const summary = `YouTube video audit retrieved ${result.records_retrieved_cumulative} record(s) cumulatively; synthesis lock ${result.receipt.synthesis_lock}.`;
       // The Custom GPT Action bounds the full audit itself.
       if (actionCall) return youtubeToolResult(summary, result);
-      const text = result.receipt.completion_state === "incomplete"
-        ? summary
-        : `${summary} ${MCP_COMMENT_FINDINGS_HANDOFF}`;
-      const receipt = result.receipt.completion_state === "incomplete"
+      const complete = result.receipt.completion_state !== "incomplete";
+      // `shown` is how many comments the final view returns: findings are
+      // needed only for comments the model received.
+      const receiptFor = (shown: number) => !complete
         ? undefined
         : researchReceipt("youtube_video_audit", {
             video: result.video_id,
             state: result.receipt.completion_state,
             lock: result.receipt.synthesis_lock,
             records: result.records_retrieved_cumulative,
+            shown,
             // The audit's depth, so the coverage check needs no copy of it.
             ch: result.channel_id ?? undefined,
             ms: result.metadata_access_status,
@@ -1293,7 +1311,11 @@ function defineResearchOperations(
       try {
         view = compactYoutubeAuditForMcp(
           result,
-          MCP_YOUTUBE_AUDIT_MAX_BYTES - reservedResultBytes(text, receipt),
+          // Room for the longest text and receipt this result can carry.
+          MCP_YOUTUBE_AUDIT_MAX_BYTES - reservedResultBytes(
+            complete ? `${summary} ${MCP_COMMENT_FINDINGS_HANDOFF} ${MCP_VIDEO_COMMENTS_NOT_SHOWN}` : summary,
+            receiptFor(result.records_returned_for_analysis)
+          ),
           MCP_BOUNDED_SAMPLE_LIMITATION
         );
       } catch (error) {
@@ -1310,7 +1332,13 @@ function defineResearchOperations(
           isError: true
         };
       }
-      return withResearchReceipt(youtubeToolResult(text, view), receipt);
+      const shown = view.sample?.comments.length ?? 0;
+      const text = !complete
+        ? summary
+        : shown > 0
+          ? `${summary} ${MCP_COMMENT_FINDINGS_HANDOFF}`
+          : result.records_retrieved_cumulative > 0 ? `${summary} ${MCP_VIDEO_COMMENTS_NOT_SHOWN}` : summary;
+      return withResearchReceipt(youtubeToolResult(text, view), receiptFor(shown));
     }
   );
 
@@ -1682,10 +1710,7 @@ function defineResearchOperations(
 let protocolNamesLoad: Promise<ReadonlySet<string>> | undefined;
 function protocolNames(): Promise<ReadonlySet<string>> {
   protocolNamesLoad ??= Promise.all([loadProtocol("hrp"), loadProtocol("universal")])
-    .then((texts): ReadonlySet<string> => new Set(texts.flatMap((text) => [
-      ...[...text.matchAll(/(?:name|id)="([A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+)"/gu)].map(([, name]) => name!),
-      ...[...text.matchAll(/<([A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+)[\s>/]/gu)].map(([, name]) => name!)
-    ])))
+    .then((texts): ReadonlySet<string> => protocolNamesFrom(texts))
     .catch(() => {
       protocolNamesLoad = undefined;
       return new Set<string>();
@@ -1713,6 +1738,8 @@ const MCP_COMMENT_FINDINGS_HANDOFF =
   "adverse reports), and give it to finalize_research as community_findings, even if the signal is weak or neutral.";
 const MCP_COMMENTS_NOT_SHOWN =
   "No comment fitted in this view; read each video's comments with audit_youtube_video_community.";
+const MCP_VIDEO_COMMENTS_NOT_SHOWN =
+  "No comment fitted in this view, so none was returned; say in the answer that this video's comments could not be shown.";
 const MCP_BOUNDED_SAMPLE_LIMITATION =
   "This response returns a deterministic subset of the analysis sample to fit client result-size limits; retrieval coverage and corpus counts are reported separately.";
 
@@ -1835,6 +1862,27 @@ function searchLimits(searches: ReadonlyArray<{ access_status: string }>): { rl:
   };
 }
 
+/** A search read its page only when YouTube returned it; a failed page leaves its cursor unread. */
+function pageRead(accessStatus: string): boolean {
+  return accessStatus === "complete" || accessStatus === "api_visible_complete";
+}
+
+/** The page cursors a round's searches read (`pg`) and left (`nx`), as digests. */
+function cursorClaims(
+  searches: ReadonlyArray<{
+    query: string;
+    cursor?: string;
+    access_status: string;
+    pagination: { next_cursor?: string };
+  }>
+): { pg?: string[]; nx?: string[] } {
+  const pg = searches.flatMap(({ query, cursor, access_status }) =>
+    cursor === undefined || !pageRead(access_status) ? [] : [cursorDigest(query, cursor)]);
+  const nx = searches.flatMap(({ query, pagination }) =>
+    pagination.next_cursor === undefined ? [] : [cursorDigest(query, pagination.next_cursor)]);
+  return { ...(pg.length === 0 ? {} : { pg }), ...(nx.length === 0 ? {} : { nx }) };
+}
+
 function unreadResultPages(searches: ReadonlyArray<{ pagination: { next_cursor?: string } }>): number {
   return searches.filter(({ pagination }) => pagination.next_cursor !== undefined).length;
 }
@@ -1886,11 +1934,17 @@ function receiptSequence(): number {
   return lastReceiptMs;
 }
 
+/**
+ * Adds the receipt to a result. An error result carries none, except a
+ * discovery round's (`signsStoppedRound`): a search a rate limit or the daily
+ * quota stopped is signed with that limit, which keeps discovery open.
+ */
 function withResearchReceipt(
   result: CallToolResult,
-  receipt: string | undefined
+  receipt: string | undefined,
+  signsStoppedRound = false
 ): CallToolResult {
-  if (receipt === undefined || result.isError === true) return result;
+  if (receipt === undefined || (result.isError === true && !signsStoppedRound)) return result;
   return {
     ...result,
     content: [...result.content, { type: "text", text: `research_receipt: ${receipt}` }],

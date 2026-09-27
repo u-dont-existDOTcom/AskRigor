@@ -84,57 +84,68 @@ export async function lookUpScoutTitles(
 ): Promise<ScoutTitleLookupResult> {
   const search = options.search ?? searchYoutube;
   const limit = options.limit ?? SCOUT_TITLE_LOOKUP_LIMIT;
+  // Similar titles can name different videos (hip pain, back pain), so only
+  // an exact repeat of a title, ignoring case, spacing and punctuation, shares
+  // a search. Each lead is still matched with its own channel, and a lead
+  // whose title is past the search limit comes back unresolved.
+  const compact = (value: string) => value.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  const identity = (lead: ScoutTitleLead) => `${compact(lead.title)}\n${compact(lead.channel)}`;
   const unique = leads.filter((lead, index) =>
-    leads.findIndex((other) => youtubeLabelsMatch(other.title, lead.title) &&
-      youtubeLabelsMatch(lead.title, other.title)) === index
+    leads.findIndex((other) => identity(other) === identity(lead)) === index
   );
-  const searched = await Promise.all(unique.slice(0, limit).map(async (lead) => {
+  const titleKeys = [...new Set(unique.map(({ title }) => compact(title)))].slice(0, limit);
+  type TitleSearch =
+    | "search_quota_exhausted"
+    | "search_failed"
+    | Array<{ video_id: string; title: string; channel_title?: string }>;
+  const responses = new Map(await Promise.all(titleKeys.map(async (key): Promise<[string, TitleSearch]> => {
+    const query = unique.find(({ title }) => compact(title) === key)!.title;
     try {
-      const result = await search({ query: lead.title, pageSize: LOOKUP_PAGE_SIZE }, options.config);
-      if (result.error?.code === YOUTUBE_SEARCH_QUOTA_EXHAUSTED_CODE) {
-        return { lead, outcome: "search_quota_exhausted" as const };
-      }
-      if (result.access_status !== "complete") return { lead, outcome: "search_failed" as const };
-      const titled = result.data.flatMap((record) => {
-        if (record.title === undefined) return [];
-        const decoded = {
-          video_id: record.video_id,
-          title: decodeHtmlEntities(record.title),
-          ...(record.channel_title === undefined ? {} : { channel_title: decodeHtmlEntities(record.channel_title) })
-        };
-        return youtubeLabelsMatch(decoded.title, lead.title) ? [decoded] : [];
-      });
-      const match = titled.find((record) =>
-        lead.channel.trim().toLowerCase() !== UNKNOWN_CHANNEL &&
-        record.channel_title !== undefined &&
-        youtubeLabelsMatch(record.channel_title, lead.channel)
-      ) ?? titled.find((record) => nearlySameTitle(record.title, lead.title));
-      return match === undefined
-        ? { lead, outcome: "no_matching_video" as const }
-        : { lead, outcome: "found" as const, match };
+      const result = await search({ query, pageSize: LOOKUP_PAGE_SIZE }, options.config);
+      if (result.error?.code === YOUTUBE_SEARCH_QUOTA_EXHAUSTED_CODE) return [key, "search_quota_exhausted"];
+      if (result.access_status !== "complete") return [key, "search_failed"];
+      return [key, result.data.flatMap((record) => record.title === undefined ? [] : [{
+        video_id: record.video_id,
+        title: decodeHtmlEntities(record.title),
+        ...(record.channel_title === undefined ? {} : { channel_title: decodeHtmlEntities(record.channel_title) })
+      }])];
     } catch {
-      return { lead, outcome: "search_failed" as const };
+      return [key, "search_failed"];
     }
-  }));
+  })));
 
   const found: ScoutTitleLookupResult["found"] = [];
   const unresolved: ScoutTitleLookupResult["unresolved"] = [];
   const seen = new Set(options.knownVideoIds);
-  for (const entry of searched) {
-    if (entry.outcome !== "found") {
-      unresolved.push({ ...entry.lead, reason: entry.outcome });
+  for (const lead of unique) {
+    const response = responses.get(compact(lead.title));
+    if (response === undefined) {
+      unresolved.push({ ...lead, reason: "not_searched" });
       continue;
     }
-    if (seen.has(entry.match.video_id)) continue;
-    seen.add(entry.match.video_id);
+    if (typeof response === "string") {
+      unresolved.push({ ...lead, reason: response });
+      continue;
+    }
+    const titled = response.filter((record) => youtubeLabelsMatch(record.title, lead.title));
+    const match = titled.find((record) =>
+      lead.channel.trim().toLowerCase() !== UNKNOWN_CHANNEL &&
+      record.channel_title !== undefined &&
+      youtubeLabelsMatch(record.channel_title, lead.channel)
+    ) ?? titled.find((record) => nearlySameTitle(record.title, lead.title));
+    if (match === undefined) {
+      unresolved.push({ ...lead, reason: "no_matching_video" });
+      continue;
+    }
+    if (seen.has(match.video_id)) continue;
+    seen.add(match.video_id);
     found.push({
-      video_id: entry.match.video_id,
-      title: entry.match.title,
-      channel: entry.match.channel_title ?? entry.lead.channel,
-      declared_title: entry.lead.title,
-      ...(entry.lead.why_surfaced === undefined ? {} : { why_surfaced: entry.lead.why_surfaced })
+      video_id: match.video_id,
+      title: match.title,
+      channel: match.channel_title ?? lead.channel,
+      declared_title: lead.title,
+      ...(lead.why_surfaced === undefined ? {} : { why_surfaced: lead.why_surfaced })
     });
   }
-  for (const lead of unique.slice(limit)) unresolved.push({ ...lead, reason: "not_searched" });
   return { found, unresolved };
 }

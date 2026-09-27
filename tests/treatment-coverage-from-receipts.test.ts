@@ -9,6 +9,7 @@ import {
   type TreatmentCoverageFromReceiptsInput
 } from "../apps/research-mcp/src/treatment-coverage-from-receipts.js";
 import {
+  cursorDigest,
   discoveryQueryDigest,
   issueResearchReceipt,
   researchTargetDigest,
@@ -282,6 +283,43 @@ describe("treatment coverage from signed receipts", () => {
     }), { secret: SECRET, now });
     expect(bounded.blockers.join(" ")).not.toMatch(/lacks a structured access boundary|not linked to its claimed scope/u);
     expect(bounded.access_boundary_ids_used).toContain("survey_limit");
+  });
+
+  it("lets a later page settle the page it continued, but not a page it failed to read", () => {
+    // Page one of the collagen search left a next page.
+    const next = cursorDigest("collagen peptides hip pain", "CAoQAA");
+    const pageOne = discovery("youtube_search", {
+      videos: ["CCCCCCCCCCC", "DDDDDDDDDDD"], access: "complete", open: 1, nx: next,
+      q: discoveryQueryDigest(["collagen peptides hip pain"])
+    }, 2_000);
+    const withPageTwo = (pageTwo: string) => assessTreatmentCoverageFromReceipts(input({
+      receipts: [receipts[0]!, pageOne, receipts[2]!, pageTwo, ...receipts.slice(3)],
+      rounds: [
+        { receipt: 1, treatment_class_ids: ["nutrition"], queries: ["collagen peptides hip pain"] },
+        { receipt: 2, treatment_class_ids: ["exercise"], queries: ["progressive resistance training hip", "hip pain what worked"] },
+        { receipt: 3, treatment_class_ids: ["nutrition"], queries: ["collagen peptides hip pain"] }
+      ]
+    }), { secret: SECRET, now });
+
+    // Page two read the rest of the results: every page was read.
+    const read = withPageTwo(discovery("youtube_search", {
+      videos: [], access: "complete", rl: 0, inc: 0, open: 0, pg: next,
+      q: discoveryQueryDigest(["collagen peptides hip pain"])
+    }, 3_500));
+    expect(read.breadth_gaps.join(" ")).not.toContain("continuation cursor");
+    expect(read.answer_boundary).toBe("ledger_consistent_for_synthesis");
+
+    // The daily quota stopped page two, so it signed no page read: page one
+    // stays open and page two is a rate-limited round.
+    const stopped = withPageTwo(discovery("youtube_search", {
+      videos: [], access: "rate_limited", rl: 1, inc: 1, open: 0,
+      q: discoveryQueryDigest(["collagen peptides hip pain"])
+    }, 3_500));
+    expect(stopped.breadth_gaps).toEqual(expect.arrayContaining([
+      "Discovery batch r1 still has an executable continuation cursor.",
+      "Discovery batch r3 stopped at a rate limit or daily quota; rerun it once the limit resets."
+    ]));
+    expect(stopped.answer_boundary).toBe("first_pass_with_open_leads");
   });
 
   it("states a round's access limit from its receipt", () => {

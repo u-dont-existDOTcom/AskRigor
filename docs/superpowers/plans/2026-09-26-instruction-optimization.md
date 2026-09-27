@@ -715,14 +715,16 @@ given, and reports `ready` or `ready_with_limits` only after reading it:
 
 - snake-case labels (action-map labels, retrieval and error codes, tool
   names), receipt or lock names, and the canonical protocols' own rule,
-  module and case names (740 compound names such as
-  `DeepForumAuditActivationPrompt`, read from the XML once per process),
-  outside links (`ReaderFacingAnswer`, FS190);
+  module and case names (745 compound names such as
+  `DeepForumAuditActivationPrompt` and `NNTAndNNH`, read from the XML once per
+  process), outside links (`ReaderFacingAnswer`, FS190);
 - a video named by bare ID instead of a linked title (FS190): any discovered
   or audited video, and any mixed-case 11-character token with a digit or
   underscore;
 - the full deep forum-audit template pasted into the answer (HRP 20.6.5);
-- no mention of YouTube in the prose when comments were read (`must_report`).
+- when comments were read, a YouTube comments section that leaves out any of
+  `must_report`'s benefit, no-effect and adverse reports or how creators
+  differ from commenters (each must be reported, or said to be absent).
 
 Each finding is a next step, so the model fixes the draft and calls again.
 Replayed on saved answers: main, e1176f8 and 6e2763d pass; 4d4fae8 goes back
@@ -735,6 +737,29 @@ logged or returned (privacy map). The server instructions and the tool
 description ask for it. The runner records whether each call passed a draft
 and whether the final answer is the last checked draft. Cost: one more
 `finalize_research` call when the first omits the draft.
+
+- Codex on cf2f720, 25a8742 and bc5f8de (four P1s, four P2s, all fixed):
+  - Any mention of YouTube had satisfied the lane check; each comment finding
+    must now appear near the section that mentions YouTube comments.
+  - Protocol names with acronym runs (`COINotAutomaticDisqualification`) were
+    missed; the draft's capitalized tokens are matched against the loaded
+    names directly.
+  - The scout's title lookup merged distinct titles by word overlap, so a
+    second video was never searched and not counted as open; only exact
+    title-and-channel repeats are merged now.
+  - A per-video receipt signed the comments retrieved, not those its view
+    returned (`shown`), so findings were demanded for comments the model never
+    saw.
+  - Page one of a search stayed open after page two was read. Search, survey
+    and one-call receipts now sign digests of the page they read (`pg`) and
+    the page they left (`nx`), bound to the query, and a later page settles
+    the one before it; a page that failed to load settles nothing.
+  - Rounds a rate limit or the daily quota stopped were unsigned or counted as
+    settled. They are now signed with their limits (`inc`, `rl`), including a
+    wholly stopped survey or search and a one-call audit left incomplete. An
+    incomplete search keeps discovery open: rerun in deep research; in a
+    first pass a rate-limited one ends the pass as an open lead, and the
+    answer says the limit stopped it (not that evidence is thin).
 
 ## Comment-audit call budget (2026-09-27)
 
