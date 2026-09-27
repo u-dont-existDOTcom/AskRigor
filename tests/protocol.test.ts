@@ -19,7 +19,7 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "f2ed625d854926142011cf13a908e551c573e7a22282f8b9c0b229163979d3ad";
+  "30f11a2181c4a77bc2284ca951ac2c5faf8fb6874e2543872b9ce0c0c4c37483";
 const UNIVERSAL_SHA_256 =
   "5d9a9d76339ff1794b93bb1e932466f703c4a8c006a607b811f40b43ea703d36";
 
@@ -37,7 +37,7 @@ describe("canonical protocol loader", () => {
   it("derives the HRP manifest from its root attributes", async () => {
     await expect(getProtocolManifest("hrp")).resolves.toMatchObject({
       name: "HRP",
-      version: "20.6.4",
+      version: "20.6.5",
       revisionDate: "2026-09-27"
     });
   });
@@ -254,7 +254,7 @@ describe("canonical protocol loader", () => {
     };
 
     expect(text).toMatch(
-      /<Protocol name="HRP" version="20\.6\.4" revisionDate="2026-09-27"/
+      /<Protocol name="HRP" version="20\.6\.5" revisionDate="2026-09-27"/
     );
     for (const required of [
       '<Revision version="20.5.19" priority="Critical">',
@@ -322,6 +322,24 @@ describe("canonical protocol loader", () => {
     )?.[0] ?? "";
     expect(reduction).toContain("separate maintenance from rescue use and combined from spaced use");
     expect(reduction).toContain("Warn about withholding rescue treatment only when the source actually advises it");
+
+    // HRP 20.6.5 (owner direction of 2026-09-27): a deeper-research offer says what it would focus on; a long prompt
+    // comes on request instead of being pasted.
+    const limits = normalizedText.match(/<Rule name="LimitsNote"[^>]*>.*?<\/Rule>/u)?.[0] ?? "";
+    for (const required of [
+      "say in plain words what the deeper research would focus on",
+      "Show its prompt only when it is about 60 words or shorter",
+      "“Show me the full deeper-research prompt and help me fine-tune it,”",
+      "give the complete prompt and help adjust its scope before it runs"
+    ]) expect(limits).toContain(required);
+    const forumPrompt = normalizedText.match(/<Rule name="DeepForumAuditActivationPrompt"[^>]*>.*?<\/Rule>/u)?.[0] ?? "";
+    expect(forumPrompt).toContain("must end with a deeper-research offer for a dedicated deep forum-corpus audit");
+    expect(forumPrompt).toContain("When the user asks for the full prompt, give it from this template");
+    expect(forumPrompt).not.toContain("must include a concise, topic-specific, copyable prompt");
+    const handoff = normalizedText.match(/<Rule name="ModeSpecificPromptAndHandoff"[^>]*>.*?<\/Rule>/u)?.[0] ?? "";
+    expect(handoff).toContain("After analysis, a prompt longer than about 60 words comes as the LimitsNote's deeper-research offer");
+    expect(handoff).not.toContain("offering one later");
+    expect(normalizedText).toMatch(/<Case id="PastedDeepResearchPromptHidesItsFocus">.*?Show me the full deeper-research prompt/u);
 
     const many = section("ManyVideosButOneTreatmentClass");
     expect(many).toContain("ten videos");

@@ -130,6 +130,27 @@ Claude Opus 5.5 (owner, 2026-09-26).
        mostly covered by `SilentDenominator`; causal coupling has no rule;
        subgroup nulls are covered for time windows only. Default: draft the
        two missing rules after AskRigor#246 merges.
+10. Owner answer of 19:14 UTC to question 3 (the pasted deep-forum prompt that
+    both blind judges counted as clutter): the user should know what the
+    deeper research would focus on before approving it; offer "show me the
+    full deeper-research prompt and help me fine-tune it", or show a simple
+    prompt right there. Built as HRP 20.6.5, an output change with no method
+    change:
+    - `LimitsNote` holds the offer: what the deeper research would focus on
+      (options or open leads, population, sources or communities), what it
+      could change in the answer, and how to start it. A prompt of about 60
+      words or fewer is shown; a longer one comes when the user asks, with
+      help adjusting its scope.
+    - `DeepForumAuditActivationPrompt`: the one-line "Check forums for…"
+      command is the short form shown with the offer; the full template comes
+      on request.
+    - `ModeSpecificPromptAndHandoff`: after analysis, a long Deep Research
+      prompt follows the same offer, with the mode to select and why. Before
+      research (preflight) nothing changes.
+    - Stress case `PastedDeepResearchPromptHidesItsFocus`.
+    - Tradeoff: someone who must run a long prompt in another tool needs one
+      more turn to get it; in exchange every answer stays short and the user
+      can adjust the prompt before it runs.
 
 ## Discovery bench findings (2026-09-27)
 
@@ -600,8 +621,8 @@ instead of 95–151 KB. A later step can keep the ledger between calls.
     and that an executed comment lane is present (server enforcement of
     existing HRP rules);
   - server-derived access boundaries for discovery rounds;
-  - owner question: keep the pasted deep-forum prompt, or offer a one-line
-    continuation instead.
+  - owner question on the pasted deep-forum prompt: answered at 19:14 UTC
+    and built as HRP 20.6.5 (decision 10 above).
 
 ## Owner error report: YouTube lane dropped from the answer (2026-09-27)
 
