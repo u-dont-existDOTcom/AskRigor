@@ -560,16 +560,19 @@ async function waitForBackgroundPoll(milliseconds: number): Promise<void> {
  */
 export function isPopulationLevelResearchTarget(value: string): boolean {
   if (!isDeidentifiedResearchTarget(value)) return false;
-  if (/\b(?:he|she|him|his|her|hers|himself|herself)\b/iu.test(value)) return false;
-  if (/\b(?:[Mm]rs?|[Mm]s|[Mm]iss|[Mm]x|[Dd]r|[Pp]rof)\.?\s+[A-Z]/u.test(value)) return false;
+  // Collapse whitespace first, so every pattern below matches single spaces
+  // and none can backtrack over a long run of them.
+  const text = value.replace(/\s+/gu, " ");
+  if (/\b(?:he|she|him|his|her|hers|himself|herself)\b/iu.test(text)) return false;
+  if (/\b(?:[Mm]rs?|[Mm]s|[Mm]iss|[Mm]x|[Dd]r|[Pp]rof)\.? [A-Z]/u.test(text)) return false;
   if (
-    /(?<!\b(?:over|under|above|below|past|beyond|from)\s+)\baged?\s+\d{1,3}\b(?!\s*(?:\+|-|–|to\b|and\b|or\b|through\b|plus\b))/iu
-      .test(value)
+    /(?<!\b(?:over|under|above|below|past|beyond|from) )\baged? \d{1,3}\b(?! ?(?:\+|-|–|to\b|and\b|or\b|through\b|plus\b))/iu
+      .test(text)
   ) return false;
-  if (/\b\d{1,3}\s*-?\s*(?:years?|yrs?)\s*-?\s*old\b(?!s)/iu.test(value)) return false;
-  if (/\b\d{1,3}\s*(?:y\/o|yo)\b/iu.test(value)) return false;
-  for (const match of value.matchAll(
-    /\b([A-Z][a-z]+)\s+(?:[A-Z][a-z'’-]+|has|had|is|was|got|tried|takes|took|wants|needs)\b/gu
+  if (/\b\d{1,3} ?-? ?(?:years?|yrs?) ?-? ?old\b(?!s)/iu.test(text)) return false;
+  if (/\b\d{1,3} ?(?:y\/o|yo)\b/iu.test(text)) return false;
+  for (const match of text.matchAll(
+    /\b([A-Z][a-z]+) (?:[A-Z][a-z'’-]+|has|had|is|was|got|tried|takes|took|wants|needs)\b/gu
   )) {
     if (COMMON_GIVEN_NAMES.has(match[1]!.toLowerCase())) return false;
   }
