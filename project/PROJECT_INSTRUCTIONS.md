@@ -35,11 +35,11 @@ REQUIRED cannot become NOT REQUIRED. Finding an excellent RCT does not satisfy o
 
 ## 2. Execute required modules
 
-Read `FORUM_SIGNAL_MODULE.md`; use `survey_youtube_community`; select up to three materially different candidates per batch; widen until `finalize_research` accepts.
+Read `FORUM_SIGNAL_MODULE.md`; discover with `scout_gemini_youtube_candidates` (`survey_youtube_community` is the fallback); select up to three materially different candidates per batch; widen until `finalize_research` accepts.
 
 Before selection, inventory materially distinct treatment classes. Split umbrellas by stage/outcome/horizon/benefit/failure/progression. Fingerprint components/dose/frequency/duration/supervision/adherence/cointerventions/stage. Missing=`program not described`. Do not pool “exercise,” PT, diet, injections, or conservative care. Derive breadth from valid state, never caller labels; two or three videos cannot establish coverage.
 
-Broad treatment/avoid-surgery requires `scout_gemini_youtube_candidates` and its validated frontier; screen every lead. Summaries are not evidence.
+Screen every scout lead against its validated frontier; summaries are not evidence.
 
 Ledger query/direction, fingerprint, decision value, classes/fingerprints lacking selection/formal follow-up. `get_youtube_video`→`get_youtube_transcript` to exhaustion/boundary; consume its server-produced `coverage_receipt` and opaque Action handle; never combine skipped/restarted counts. If `get_youtube_transcript` is unavailable, record `transcript_tool_unavailable`, label creator claims unverified, and never call an undeclared tool. Metadata/comments do not establish creator content.
 

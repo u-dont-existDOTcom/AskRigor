@@ -183,13 +183,19 @@ export function finalizeResearch(
   if (input.community_evidence === "not_relevant") {
     if (input.not_relevant_reason === undefined) {
       nextSteps.push(
-        "Give not_relevant_reason, or research community evidence: survey_youtube_community, then audit_youtube_video_community for each material video."
+        "Give not_relevant_reason, or research community evidence: scout_gemini_youtube_candidates " +
+          "(survey_youtube_community only if the scout is unavailable), then audit_youtube_video_community for each " +
+          "material video."
       );
     }
   } else {
-    if (surveys === 0) {
+    // Any discovery round counts: the Gemini scout is the primary route, and
+    // YouTube's own search is capped at 100 calls a day per project.
+    if (rounds.length === 0) {
       nextSteps.push(
-        "Survey community evidence with survey_youtube_community (widen the searches while new programs keep appearing), then audit each material video."
+        "Find community videos with scout_gemini_youtube_candidates (survey_youtube_community only if the scout is " +
+          "unavailable), audit each material video, and pass the remedies, videos and creators its comments name " +
+          "back to the scout as rediscovery_leads."
       );
     }
     if (partialSurveys > 0) {

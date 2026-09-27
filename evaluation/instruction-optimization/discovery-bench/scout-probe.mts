@@ -7,6 +7,7 @@
  *     --target "Adults trying to avoid a hip replacement: what they tried and what happened" \
  *     --terms gelatin,collagen,hydration,water,diet --out /tmp/probe.json \
  *     [--skill path/to/scout-SKILL.md]   # default: the production scout skill
+ *     [--leads "gelatin,dead hangs"]     # a rediscovery round from comment-named leads
  *
  * Costs: one free-tier Gemini grounded interaction, about one YouTube Data API
  * unit per candidate for identity validation, and 100 units per exact-title
@@ -29,6 +30,7 @@ const { values } = parseArgs({
     terms: { type: "string", default: "" },
     out: { type: "string" },
     skill: { type: "string" },
+    leads: { type: "string" },
     "max-seconds": { type: "string", default: "300" }
   }
 });
@@ -41,6 +43,7 @@ const input = {
   research_target: values.target,
   diagnosis_status: values.diagnosis as "diagnosis_not_specified" | "user_supplied_diagnosis"
 };
+const leads = (values.leads ?? "").split(",").map((lead) => lead.trim()).filter(Boolean);
 const started = Date.now();
 const skillPath = values.skill;
 // The executor reports any thrown error as an unclassified failure; log the cause.
@@ -56,13 +59,13 @@ const options = {
   backgroundScout,
   ...(skillPath === undefined ? {} : { loadScoutInstructions: () => readFile(skillPath, "utf8") })
 };
-let execution = await executeResumableAutomatedGeminiScout(input, undefined, options);
+let execution = await executeResumableAutomatedGeminiScout(input, undefined, options, leads);
 let advances = 1;
 while ("controller_progress" in execution && Date.now() - started < Number(values["max-seconds"]) * 1_000) {
   execution = await executeResumableAutomatedGeminiScout(input, {
     checkpoint: execution.controller_progress.checkpoint,
     accountedNanoUsd: execution.controller_progress.accounted_nano_usd
-  }, options);
+  }, options, leads);
   advances += 1;
 }
 const seconds = Math.round((Date.now() - started) / 1_000);
@@ -96,6 +99,7 @@ const titleLookup = await lookUpScoutTitles(titleLeads, {
 });
 const text = JSON.stringify([packet.discovery_queries, validated, titleLookup.found]).toLowerCase();
 const report = {
+  ...(leads.length === 0 ? {} : { rediscovery_leads: leads }),
   seconds,
   advances,
   status: validation.status,

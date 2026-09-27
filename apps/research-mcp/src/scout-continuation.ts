@@ -2,6 +2,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { deflateRawSync, inflateRawSync } from "node:zlib";
 
 import {
+  GEMINI_YOUTUBE_SCOUT_MAX_LEAD_CHARACTERS,
+  GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS,
   geminiYoutubeScoutBackgroundCheckpointSchema,
   type GeminiYoutubeScoutBackgroundCheckpoint
 } from "@askrigor/sources";
@@ -13,10 +15,11 @@ import { z } from "zod";
  * A grounded scout often takes longer than MCP clients wait for one tool call
  * (Claude clients stop at 60 seconds), so the MCP tool runs the scout as a
  * background Interaction and hands the model a token to call again. The token
- * carries the de-identified target, the provider checkpoint (opaque identity,
- * public search receipts and counters) and the budget already charged, so a
- * later call resumes without reserving or charging again. It is signed under a
- * domain-separated key and expires; a tampered or stale token is rejected.
+ * carries the de-identified target and any rediscovery leads, the provider
+ * checkpoint (opaque identity, public search receipts and counters) and the
+ * budget already charged, so a later call resumes without reserving or charging
+ * again. It is signed under a domain-separated key and expires; a tampered or
+ * stale token is rejected.
  */
 
 const DOMAIN = "askrigor:gemini-scout-continuation:v1";
@@ -26,6 +29,8 @@ export const SCOUT_CONTINUATION_TTL_MS = 30 * 60 * 1000;
 const continuationStateSchema = z.object({
   research_target: z.string().trim().min(1).max(1_000),
   diagnosis_status: z.enum(["diagnosis_not_specified", "user_supplied_diagnosis"]),
+  rediscovery_leads: z.array(z.string().min(1).max(GEMINI_YOUTUBE_SCOUT_MAX_LEAD_CHARACTERS))
+    .min(1).max(GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS).optional(),
   checkpoint: geminiYoutubeScoutBackgroundCheckpointSchema,
   accounted_nano_usd: z.number().int().nonnegative(),
   expires_at_ms: z.number().int().positive()
@@ -34,6 +39,7 @@ const continuationStateSchema = z.object({
 export interface ScoutContinuationState {
   research_target: string;
   diagnosis_status: "diagnosis_not_specified" | "user_supplied_diagnosis";
+  rediscovery_leads?: string[];
   checkpoint: GeminiYoutubeScoutBackgroundCheckpoint;
   accounted_nano_usd: number;
   expires_at_ms: number;

@@ -81,8 +81,13 @@ Claude Opus 5.5 (owner, 2026-09-26).
    pass Gemini's upload security scan and to make evidence traceable. That
    dropped the remedy scan and the rediscovery mode. On 23 August the manual
    Spark handoff was replaced by the API scout, which has Google Search but
-   not the Gemini app's YouTube tool. The rediscovery loop is to be rebuilt in
-   the automated scout.
+   not the Gemini app's YouTube tool. The loop is now rebuilt in the automated
+   scout: after comment audits, the model passes the remedies, videos and
+   creators the comments name back to the scout as `rediscovery_leads`, and
+   the next round searches them. The skill, the Project router, the Forum
+   Signal module, the server instructions and `finalize_research` now put the
+   scout first. Any discovery round (scout, survey or search) counts as
+   community discovery, and `survey_youtube_community` is the fallback.
 
 ## Discovery bench findings (2026-09-27)
 

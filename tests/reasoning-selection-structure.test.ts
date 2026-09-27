@@ -267,14 +267,25 @@ describe("canonical Reasoning Selection application", () => {
       "d5a4b02bc53fda30bbb586d2ec34233f19bb981d38427f6311f453b84209ba5a",
     );
     expect(project).toContain(`\n${CURRENT_PROJECT_APPLICATION}## 1. Run before HRP/research`);
-    expect(Buffer.byteLength(project, "utf8")).toBe(8001);
-    expect(Array.from(project)).toHaveLength(7985);
-    expect(project.split(/\s+/u).filter(Boolean)).toHaveLength(914);
+    expect(Buffer.byteLength(project, "utf8")).toBe(7999);
+    expect(Array.from(project)).toHaveLength(7983);
+    expect(project.split(/\s+/u).filter(Boolean)).toHaveLength(916);
     expect(sha256(project)).toBe(
+      "ff137be40f46bf93eb8bcdb6c8f939d7a059b48805064e4af495693e074f6c46",
+    );
+    // 2026-09-27: the Gemini scout is the primary discovery route; the survey is the fallback.
+    const priorScoutRule = project.replace(
+      "discover with `scout_gemini_youtube_candidates` (`survey_youtube_community` is the fallback);",
+      "use `survey_youtube_community`;",
+    ).replace(
+      "Screen every scout lead against its validated frontier; summaries are not evidence.",
+      "Broad treatment/avoid-surgery requires `scout_gemini_youtube_candidates` and its validated frontier; screen every lead. Summaries are not evidence.",
+    );
+    expect(sha256(priorScoutRule)).toBe(
       "7aa4e0b9602609f11ef7a9911f6c41c719e625a8b8fb844e28e623ba47b56e49",
     );
     // 2026-09-27: discovery widens until finalize_research accepts (a capped first pass or saturation).
-    const priorWidenRule = project.replace(
+    const priorWidenRule = priorScoutRule.replace(
       "widen until `finalize_research` accepts.",
       "widen while expected information gain is positive.",
     );
@@ -314,7 +325,7 @@ describe("canonical Reasoning Selection application", () => {
       "e8a4d07048670a75083e5d5aec83d6669dc9111e1d44dccb4493b7769813421a",
     );
     expect(sha256(forum)).toBe(
-      "b1e7b56de22c7418a29693b7ad5fa6813e3abe9270235905869eaf10df8bda84",
+      "ea5cd439bf77bc25e233648cdc0c5a60b80a2e4b7e082b2c86290b07de4ee3d4",
     );
   });
 });

@@ -373,7 +373,8 @@ export async function executeResumableAutomatedGeminiScout(
     checkpoint: GeminiYoutubeScoutBackgroundCheckpoint;
     accountedNanoUsd: number;
   } | undefined,
-  options: CreateAutomatedGeminiScoutActionRouteOptions = {}
+  options: CreateAutomatedGeminiScoutActionRouteOptions = {},
+  rediscoveryLeads: readonly string[] = []
 ): Promise<ResumableAutomatedGeminiScoutExecution> {
   const parsed = automatedScoutInputSchema.parse(input);
   const backgroundScout = options.backgroundScout ??
@@ -423,7 +424,8 @@ export async function executeResumableAutomatedGeminiScout(
     const scoutInput = {
       researchTarget: parsed.research_target,
       diagnosisStatus: parsed.diagnosis_status,
-      scoutInstructions: await loadScoutInstructions()
+      scoutInstructions: await loadScoutInstructions(),
+      ...(rediscoveryLeads.length === 0 ? {} : { rediscoveryLeads: [...rediscoveryLeads] })
     };
     const scoutConfig = {
       apiKey: geminiApiKey,

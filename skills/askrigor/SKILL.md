@@ -7,7 +7,7 @@ description: Run AskRigor with canonical protocols, provenance/access boundaries
 
 ## Research access and shared learning
 
-Before any ordinary research call, call `manage_research_access` with
+Before any research call, call `manage_research_access` with
 `action: "inspect"`. If the result is `UNENROLLED` or `REVOKED`, show the exact
 returned notice and ask the user to choose one of these real options:
 
@@ -15,12 +15,12 @@ returned notice and ask the user to choose one of these real options:
 - use paid private mode if this account already has a verified entitlement.
 
 Never infer agreement from the research request, continued conversation,
-silence, prior use, or a general acceptance of site terms. Never claim that a
+silence, prior use, or general acceptance of site terms. Never claim that a
 price or checkout exists. Call `accept_free_contributor` only after the user
 explicitly chooses it, with the returned notice version and all four agreement
 fields true. Call `activate_paid_private` only when the user chooses it; if the
-server reports no entitlement, explain that private access is not currently
-available for that account and do not use research tools. `revoke` stops later
+server reports no entitlement, explain that private access is unavailable for
+that account and do not use research tools. `revoke` stops
 research access and withdraws still-pending proposals.
 
 Free contributor mode permits AskRigor to learn from eligible deidentified
@@ -34,9 +34,8 @@ frontier with its exact coverage, candidate decisions, partial state, and open
 trails. Submit every complete performed source-bound study/review analysis to
 the extent actually performed, including limitations and future-analysis items.
 Use `submit_research_contribution`; never invent missing fields or reconstruct
-analysis from memory. A returned pending proposal is not canonical evidence,
-does not establish a conclusion, and must not be presented as accepted merely
-because it was submitted. Preserve partial corpora as usable and label them
+analysis from memory. A returned pending proposal is not canonical evidence
+or a conclusion; never present it as accepted merely because it was submitted. Preserve partial corpora as usable and label them
 partial. If no eligible structured formal-research proposal exists, submit
 nothing.
 
@@ -67,7 +66,7 @@ For treatment endorsement/choice/start-defer-sequence (`do you agree`), build an
 
 For broad treatment/avoid-surgery, map classes before video selection. Never pool “exercise,” PT, diet, injections, or conservative care. Fingerprint components; dose/intensity/frequency/duration; supervision/adherence/cointerventions; stage/outcome/horizon; and pre-/postoperative care stage. Missing=`program not described`. Mismatched comparators narrow inference; no class-wide benefit/failure/ranking follows.
 
-Per round call `survey_youtube_community` with ≤6 general/exact/contrarian/benefit/failure/harm/discriminator queries; “how I cured/reversed/fixed” and “what finally worked” are hooks, not claims. Rewrite/use cursors/new batches from new angles, incl. comment-named methods, while information gain is positive. Broad results require `scout_gemini_youtube_candidates`; validate every lead. Planning heuristics, not quotas: seek materially distinct program hypotheses; first pass stops at saturation, ~6 audited videos or ~4 rounds, then offers leads; deep runs to saturation. Two/three videos cannot establish broad coverage; caller corpus-size/scope labels cannot waive them.
+Per round call `scout_gemini_youtube_candidates` (condition, goal); after comment audits pass comment-named remedies/videos/creators as `rediscovery_leads`. `survey_youtube_community` (≤6 general/exact/contrarian/benefit/failure/harm/discriminator queries) is the fallback (100 YouTube searches/day). “how I cured/reversed/fixed” and “what finally worked” are hooks, not claims. Rewrite/use cursors/new batches from new angles while information gain is positive; validate every lead. Planning heuristics, not quotas: seek materially distinct program hypotheses; first pass stops at saturation, ~6 audited videos or ~4 rounds, then offers leads; deep runs to saturation. Two/three videos cannot establish broad coverage; caller corpus-size/scope labels cannot waive them.
 
 `get_youtube_video`→`get_youtube_transcript`; require a contiguous first-to-exhausted chain and its opaque Action handle. If `get_youtube_transcript` is unavailable, record `transcript_tool_unavailable`, label creator claims unverified, and never call undeclared tools. Metadata/comments cannot establish creator content. Call `audit_youtube_video_community`; consume its coverage receipt, continue while `continuation_recommended: true`, and defer false tokens.
 

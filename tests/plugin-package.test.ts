@@ -184,7 +184,8 @@ describe("AskRigor plugin package", () => {
     expect(skill).toContain("Use installed Project router before HRP; otherwise require Forum Signal");
     expect(skill).toContain("endorsement/choice/start-defer-sequence");
     expect(skill).toContain("If uncertain, require it");
-    expect(skill).toContain("call `survey_youtube_community`");
+    expect(skill).toContain("call `scout_gemini_youtube_candidates`");
+    expect(skill).toContain("`rediscovery_leads`");
     expect(skill).toContain("formal evidence cannot deselect it");
     expect(skill).toContain("consume its coverage receipt");
     expect(skill).toContain("opaque Action handle");

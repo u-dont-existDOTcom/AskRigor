@@ -37,6 +37,8 @@ import {
   youtubeSearchRecordListSchema,
   youtubeVideoDataSchema,
   youtubeVideoFailureDataSchema,
+  GEMINI_YOUTUBE_SCOUT_MAX_LEAD_CHARACTERS,
+  GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS,
   type GeminiYoutubeScoutBackgroundCheckpoint
 } from "@askrigor/sources";
 import { z } from "zod";
@@ -52,7 +54,8 @@ import {
 } from "./tool-result.js";
 import {
   automatedScoutInputSchema,
-  executeResumableAutomatedGeminiScout
+  executeResumableAutomatedGeminiScout,
+  isDeidentifiedResearchTarget
 } from "./actions/gemini-scout-route.js";
 import {
   decodeScoutContinuation,
@@ -1294,8 +1297,10 @@ function defineResearchOperations(
         "Ask Gemini with Google Search for YouTube videos on a de-identified, population-level target, then validate " +
         "each video's identity. Describe the condition and the goal (for example, people trying to avoid a hip " +
         "replacement and what they tried), not a list of treatments: the scout searches natural, supplement, " +
-        "self-directed and conventional angles itself. A grounded search takes about a minute, so the result may be " +
-        "pending with a continuation_token; call again with only that token. Summaries are unverified leads.",
+        "self-directed and conventional angles itself. After auditing comments, call it again with the remedies, " +
+        "methods, products, videos or creators the comments name as rediscovery_leads (public terms only, no " +
+        "commenter details). A grounded search takes about a minute, so the result may be pending with a " +
+        "continuation_token; call again with only that token. Summaries are unverified leads.",
       inputSchema: MCP_SCOUT_INPUT_SCHEMA,
       outputSchema: MCP_SCOUT_OUTPUT_SCHEMA,
       annotations: READ_ONLY_ANNOTATIONS
@@ -1304,11 +1309,13 @@ function defineResearchOperations(
       const secret = researchReceiptSecretFromEnv();
       if (secret === undefined) return scoutError("gemini_scout_continuation_unavailable", false);
       let target: z.output<typeof automatedScoutInputSchema>;
+      let leads: string[] = [];
       let resume: { checkpoint: GeminiYoutubeScoutBackgroundCheckpoint; accountedNanoUsd: number } | undefined;
       if (input.continuation_token !== undefined) {
         try {
           const state = decodeScoutContinuation(input.continuation_token, secret, Date.now());
           target = { research_target: state.research_target, diagnosis_status: state.diagnosis_status };
+          leads = state.rediscovery_leads ?? [];
           resume = { checkpoint: state.checkpoint, accountedNanoUsd: state.accounted_nano_usd };
         } catch (error) {
           return scoutError(
@@ -1321,17 +1328,28 @@ function defineResearchOperations(
           research_target: input.research_target,
           diagnosis_status: input.diagnosis_status
         });
+        leads = input.rediscovery_leads ?? [];
+        // Only screened, population-level text reaches Gemini.
+        if (!isDeidentifiedResearchTarget(target.research_target)) {
+          return scoutError("research_target_not_deidentified", false,
+            "Describe the population and goal without first-person words, names, contact details or links.");
+        }
+        if (!leads.every(isDeidentifiedResearchTarget)) {
+          return scoutError("rediscovery_lead_not_deidentified", false,
+            "Give each lead as a public remedy, method, product, video title or creator name, without first-person " +
+              "words, commenter details, contact details or links.");
+        }
       }
 
       // Poll within one call only while a further bounded advance still fits
       // under the client's tool timeout; otherwise hand back a continuation.
       const started = Date.now();
-      let execution = await executeResumableAutomatedGeminiScout(target, resume);
+      let execution = await executeResumableAutomatedGeminiScout(target, resume, {}, leads);
       while ("controller_progress" in execution && Date.now() - started < MCP_SCOUT_POLL_WINDOW_MS) {
         execution = await executeResumableAutomatedGeminiScout(target, {
           checkpoint: execution.controller_progress.checkpoint,
           accountedNanoUsd: execution.controller_progress.accounted_nano_usd
-        });
+        }, {}, leads);
       }
       if ("controller_boundary" in execution) {
         return scoutError(execution.controller_boundary.code, execution.controller_boundary.retryable);
@@ -1339,6 +1357,7 @@ function defineResearchOperations(
       if ("controller_progress" in execution) {
         const continuation = encodeScoutContinuation({
           ...target,
+          ...(leads.length === 0 ? {} : { rediscovery_leads: leads }),
           checkpoint: execution.controller_progress.checkpoint,
           accounted_nano_usd: execution.controller_progress.accounted_nano_usd,
           expires_at_ms: Date.now() + SCOUT_CONTINUATION_TTL_MS
@@ -1349,6 +1368,7 @@ function defineResearchOperations(
           MCP_SCOUT_OUTPUT_SCHEMA.parse({
             scout_status: "pending",
             ...target,
+            ...(leads.length === 0 ? {} : { rediscovery_leads: leads }),
             continuation_token: continuation,
             retry_after_seconds: MCP_SCOUT_RETRY_AFTER_SECONDS
           })
@@ -1373,6 +1393,7 @@ function defineResearchOperations(
       const output = MCP_SCOUT_OUTPUT_SCHEMA.parse({
         scout_status: "complete",
         ...target,
+        ...(leads.length === 0 ? {} : { rediscovery_leads: leads }),
         discovery_queries: packet.discovery_queries,
         search_gaps: packet.search_gaps,
         validation,
@@ -1401,7 +1422,7 @@ function defineResearchOperations(
           ...found.map(({ video_id }) => video_id)
         ],
         open: validation.unresolved_candidates.length,
-        q: discoveryQueryDigest([target.research_target])
+        q: discoveryQueryDigest([target.research_target, ...leads])
       }));
     }
   );
@@ -1460,6 +1481,9 @@ const MCP_SCOUT_MAX_BYTES = 45_000;
 const MCP_SCOUT_INPUT_SCHEMA = z.object({
   research_target: automatedScoutInputSchema.shape.research_target.optional(),
   diagnosis_status: automatedScoutInputSchema.shape.diagnosis_status.optional(),
+  rediscovery_leads: z.array(z.string().trim().min(2).max(GEMINI_YOUTUBE_SCOUT_MAX_LEAD_CHARACTERS))
+    .min(1).max(GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS).optional()
+    .describe("Remedies, methods, products, videos or creators named in audited comments, to search next."),
   continuation_token: z.string().min(1).max(12_000).optional()
     .describe("Returned while the scout is still searching; call again with only this token.")
 }).strict().superRefine((value, context) => {
@@ -1470,12 +1494,19 @@ const MCP_SCOUT_INPUT_SCHEMA = z.object({
       message: "Provide research_target and diagnosis_status, or a continuation_token."
     });
   }
+  if (value.continuation_token !== undefined && value.rediscovery_leads !== undefined) {
+    context.addIssue({
+      code: "custom",
+      message: "The continuation_token already carries the rediscovery leads; send only the token."
+    });
+  }
 });
 
 const MCP_SCOUT_OUTPUT_SCHEMA = z.object({
   scout_status: z.enum(["pending", "complete"]),
   research_target: z.string(),
   diagnosis_status: z.enum(["diagnosis_not_specified", "user_supplied_diagnosis"]),
+  rediscovery_leads: z.array(z.string()).optional(),
   continuation_token: z.string().optional(),
   retry_after_seconds: z.number().int().positive().optional(),
   discovery_queries: z.array(z.object({ purpose: z.string(), query: z.string() }).passthrough()).optional(),
@@ -1501,11 +1532,12 @@ const MCP_SCOUT_OUTPUT_SCHEMA = z.object({
   research_receipt: z.string().optional()
 }).strict();
 
-function scoutError(code: string, retryable: boolean): CallToolResult {
+function scoutError(code: string, retryable: boolean, guidance?: string): CallToolResult {
   return {
     content: [{
       type: "text",
-      text: `scout gemini youtube candidates could not complete: ${code}${retryable ? " (retryable)" : ""}.`
+      text: `scout gemini youtube candidates could not complete: ${code}${retryable ? " (retryable)" : ""}.` +
+        (guidance === undefined ? "" : ` ${guidance}`)
     }],
     isError: true
   };

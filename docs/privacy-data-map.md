@@ -703,11 +703,17 @@ pending-proposal stores have their own strict contracts and authority boundaries
   next steps or limits; it keeps no ledger, and its optional free-text reasons
   and open-lead topics are processed and echoed for that call only.
 - The MCP `scout_gemini_youtube_candidates` tool runs the same de-identified,
-  population-level scout as the controlled Action route, in Gemini's background
+  population-level scout as the controlled Action route, applying the same
+  screen: a target with first-person words, contact details, links, keys or
+  record fields is refused before any provider call. A later round may add up
+  to eight rediscovery leads: public remedies, methods, products, video titles
+  or creator names that audited comments mention, each at most 120
+  characters and screened the same way. Leads never carry commenter identity
+  or comment text. It runs in Gemini's background
   mode: Google stores the interaction until AskRigor consumes it and requests
   deletion, and the result reports `provider_storage_mode`. While the scout is
   still searching, the tool returns a signed, expiring continuation token that
-  carries only that target, the diagnosis status, the provider checkpoint
+  carries only that target, its leads, the diagnosis status, the provider checkpoint
   (opaque interaction identity, executed public search queries, counters) and
   the budget already charged; AskRigor stores none of it.
   When the scout names a video it could not identify (a title with no visible

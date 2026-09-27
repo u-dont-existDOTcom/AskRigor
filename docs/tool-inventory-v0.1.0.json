@@ -12373,7 +12373,7 @@
     },
     {
       "name": "scout_gemini_youtube_candidates",
-      "description": "Ask Gemini with Google Search for YouTube videos on a de-identified, population-level target, then validate each video's identity. Describe the condition and the goal (for example, people trying to avoid a hip replacement and what they tried), not a list of treatments: the scout searches natural, supplement, self-directed and conventional angles itself. A grounded search takes about a minute, so the result may be pending with a continuation_token; call again with only that token. Summaries are unverified leads.",
+      "description": "Ask Gemini with Google Search for YouTube videos on a de-identified, population-level target, then validate each video's identity. Describe the condition and the goal (for example, people trying to avoid a hip replacement and what they tried), not a list of treatments: the scout searches natural, supplement, self-directed and conventional angles itself. After auditing comments, call it again with the remedies, methods, products, videos or creators the comments name as rediscovery_leads (public terms only, no commenter details). A grounded search takes about a minute, so the result may be pending with a continuation_token; call again with only that token. Summaries are unverified leads.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -12388,6 +12388,17 @@
               "diagnosis_not_specified",
               "user_supplied_diagnosis"
             ]
+          },
+          "rediscovery_leads": {
+            "description": "Remedies, methods, products, videos or creators named in audited comments, to search next.",
+            "minItems": 1,
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 120
+            }
           },
           "continuation_token": {
             "description": "Returned while the scout is still searching; call again with only this token.",
@@ -12418,6 +12429,12 @@
               "diagnosis_not_specified",
               "user_supplied_diagnosis"
             ]
+          },
+          "rediscovery_leads": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "continuation_token": {
             "type": "string"

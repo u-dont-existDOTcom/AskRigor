@@ -32,6 +32,8 @@ const GEMINI_YOUTUBE_BACKGROUND_MAX_POLLS = 120;
 export const GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES = 30;
 /** Matches the title_only_candidates bound in the v2 handoff packet. */
 export const GEMINI_YOUTUBE_SCOUT_MAX_TITLE_ONLY_CANDIDATES = 6;
+export const GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS = 8;
+export const GEMINI_YOUTUBE_SCOUT_MAX_LEAD_CHARACTERS = 120;
 const diagnosisStatusSchema = z.enum([
   "diagnosis_not_specified",
   "user_supplied_diagnosis"
@@ -39,7 +41,9 @@ const diagnosisStatusSchema = z.enum([
 const scoutInputSchema = z.object({
   researchTarget: z.string().trim().min(1).max(1_000),
   diagnosisStatus: diagnosisStatusSchema,
-  scoutInstructions: z.string().trim().min(1).max(30_000)
+  scoutInstructions: z.string().trim().min(1).max(30_000),
+  rediscoveryLeads: z.array(z.string().trim().min(2).max(GEMINI_YOUTUBE_SCOUT_MAX_LEAD_CHARACTERS))
+    .min(1).max(GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS).optional()
 }).strict();
 const scoutConfigSchema = z.object({
   apiKey: z.string().trim().min(1).max(4_096),
@@ -166,6 +170,8 @@ export interface GeminiYoutubeScoutInput {
   researchTarget: string;
   diagnosisStatus: z.output<typeof diagnosisStatusSchema>;
   scoutInstructions: string;
+  /** Public remedies, methods, products, videos or creators named in audited comments. */
+  rediscoveryLeads?: string[];
 }
 
 export interface GeminiYoutubeScoutConfig {
@@ -755,11 +761,22 @@ function buildScoutPrompt(input: z.output<typeof scoutInputSchema>): string {
     "",
     `Diagnosis status: ${input.diagnosisStatus}`,
     "",
+    ...rediscoveryInstructions(input.rediscoveryLeads),
     "Perform between 8 and 18 Google Search queries and no more than 18. Copy every executed query string exactly into discovery_query_rows and do not list an unexecuted query.",
     "Use public web and YouTube discovery context for candidate selection. Treat every creator summary as provisional and not transcript-verified by AskRigor.",
     `Search results here often show no YouTube watch URL, so spend searches on discovery, not on finding video IDs. When a result names a promising video but shows no 11-character ID, never guess or reconstruct one: add [title, channel, why_surfaced] to title_only_rows (at most ${GEMINI_YOUTUBE_SCOUT_MAX_TITLE_ONLY_CANDIDATES}, most promising first) and AskRigor will look it up on YouTube by exact title. Use not described for an unknown channel.`,
     compactTransportInstructions()
   ].join("\n");
+}
+
+function rediscoveryInstructions(leads: readonly string[] | undefined): string[] {
+  if (leads === undefined || leads.length === 0) return [];
+  return [
+    "TARGETED REDISCOVERY. AskRigor audited community comments for this target, and they name these remedies, methods, products, videos or creators:",
+    ...leads.map((lead) => `- ${lead}`),
+    "Spend most searches on these leads: for each one, look for firsthand videos about using it for this target (what people did, for how long, and what happened, good or bad). Find a named video or a named creator's videos on this target. A lead is a claim to test, not evidence. Still cover the required purposes, and use the remaining searches for new angles the leads suggest.",
+    ""
+  ];
 }
 
 function compactTransportInstructions(): string {

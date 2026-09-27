@@ -7,7 +7,7 @@ import {
   encodeScoutContinuation,
   ScoutContinuationError
 } from "../apps/research-mcp/src/scout-continuation.js";
-import { verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
+import { discoveryQueryDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 
 const execute = vi.hoisted(() => vi.fn());
 const search = vi.hoisted(() => vi.fn());
@@ -86,7 +86,7 @@ describe("MCP Gemini scout continuation", () => {
     const pending = first.structuredContent as { scout_status: string; continuation_token: string };
     expect(pending.scout_status).toBe("pending");
     expect(execute).toHaveBeenCalledTimes(2);
-    expect(execute).toHaveBeenNthCalledWith(1, TARGET, undefined);
+    expect(execute).toHaveBeenNthCalledWith(1, TARGET, undefined, {}, []);
 
     execute.mockReset();
     execute.mockResolvedValueOnce({
@@ -129,7 +129,7 @@ describe("MCP Gemini scout continuation", () => {
     });
     now.mockRestore();
 
-    expect(execute).toHaveBeenCalledWith(TARGET, { checkpoint: CHECKPOINT, accountedNanoUsd: 1_000_000_000 });
+    expect(execute).toHaveBeenCalledWith(TARGET, { checkpoint: CHECKPOINT, accountedNanoUsd: 1_000_000_000 }, {}, []);
     expect(second.isError).not.toBe(true);
     const done = second.structuredContent as { scout_status: string; provider_storage_mode: string; research_receipt: string };
     // Title-only finds come first, then the candidate whose ID did not exist.
@@ -174,6 +174,74 @@ describe("MCP Gemini scout continuation", () => {
       type: "text",
       text: "scout gemini youtube candidates could not complete: gemini_scout_continuation_invalid."
     }]);
+  });
+
+  it("sends only screened text to Gemini: a first-person target or lead is refused before any provider call", async () => {
+    const client = await connect();
+    const personal = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { ...TARGET, research_target: "My hip hurts and I want to avoid surgery" }
+    });
+    const badLead = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { ...TARGET, rediscovery_leads: ["gelatin", "see https://example.com/my-story"] }
+    });
+    expect(execute).not.toHaveBeenCalled();
+    expect(personal.isError).toBe(true);
+    expect((personal.content as Array<{ text: string }>)[0]!.text).toContain("research_target_not_deidentified");
+    expect(badLead.isError).toBe(true);
+    expect((badLead.content as Array<{ text: string }>)[0]!.text).toContain("rediscovery_lead_not_deidentified");
+  });
+
+  it("runs a rediscovery round from comment-named leads and carries them through the continuation", async () => {
+    const leads = ["gelatin", "hydration", "GROWING HIP BACK SHAPEFIXER"];
+    const progress = { controller_progress: { checkpoint: CHECKPOINT, accounted_nano_usd: 1_000_000_000 } };
+    const now = vi.spyOn(Date, "now");
+    let clock = 1_790_000_000_000;
+    now.mockImplementation(() => clock);
+    execute.mockImplementation(async () => {
+      clock += 15_000;
+      return progress;
+    });
+    const client = await connect();
+    const first = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { ...TARGET, rediscovery_leads: leads }
+    });
+    const pending = first.structuredContent as { continuation_token: string; rediscovery_leads: string[] };
+    expect(pending.rediscovery_leads).toEqual(leads);
+    expect(execute).toHaveBeenNthCalledWith(1, TARGET, undefined, {}, leads);
+
+    const both = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { continuation_token: pending.continuation_token, rediscovery_leads: leads }
+    });
+    expect(both.isError).toBe(true);
+
+    execute.mockReset();
+    execute.mockResolvedValueOnce({
+      controller_completion: {
+        provider_response_id: "response-2",
+        packet: { discovery_queries: [], search_gaps: [], candidates: [] },
+        validation: validationReceipt(),
+        provider_storage_mode: "TEMPORARY_BACKGROUND_DELETE_REQUESTED",
+        accounted_nano_usd: 900_000_000
+      }
+    });
+    const done = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { continuation_token: pending.continuation_token }
+    });
+    now.mockRestore();
+    expect(execute).toHaveBeenCalledWith(TARGET, { checkpoint: CHECKPOINT, accountedNanoUsd: 1_000_000_000 }, {}, leads);
+    const receipt = (done.structuredContent as { research_receipt: string }).research_receipt;
+    // A rediscovery round is a different angle from the first scout of the same target.
+    expect(verifyResearchReceipt(receipt, { secret: SECRET })).toMatchObject({
+      ok: true,
+      claims: { q: discoveryQueryDigest([TARGET.research_target, ...leads]) }
+    });
+    expect(discoveryQueryDigest([TARGET.research_target, ...leads]))
+      .not.toBe(discoveryQueryDigest([TARGET.research_target]));
   });
 
   it("reports provider boundaries as errors with their code", async () => {

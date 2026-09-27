@@ -258,6 +258,21 @@ describe("Gemini YouTube scout adapter", () => {
     expect(empty.data?.packet).not.toHaveProperty("title_only_candidates");
   });
 
+  it("turns comment-named leads into a targeted rediscovery section of the prompt", async () => {
+    const fetchMock = vi.fn(async () => interactionResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    await scoutGeminiYoutubeCandidates({ ...INPUT, rediscoveryLeads: ["gelatin", "dead hangs"] }, CONFIG);
+    await scoutGeminiYoutubeCandidates(INPUT, CONFIG);
+
+    const [withLeads, without] = fetchMock.mock.calls.map(([, init]) =>
+      String((JSON.parse(String(init?.body)) as { input: string }).input)
+    );
+    expect(withLeads).toContain("TARGETED REDISCOVERY");
+    expect(withLeads).toContain("- gelatin\n- dead hangs");
+    expect(without).not.toContain("TARGETED REDISCOVERY");
+  });
+
   it("accepts the stateless live response shape without an interaction id", async () => {
     const fetchMock = vi.fn(async () => interactionResponse(
       compactPacket(),

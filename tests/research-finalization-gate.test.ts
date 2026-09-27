@@ -58,6 +58,18 @@ describe("finalize_research gate", () => {
     expect(permit.ok && permit.claims.status).toBe("ready");
   });
 
+  it("accepts a Gemini scout round as community discovery without a YouTube survey", () => {
+    const result = finalizeResearch({
+      receipts: [repeatScout, videoB, study],
+      community_evidence: "researched",
+      material_video_ids: ["bbbbbbbbbbb"],
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
+    }, options);
+    const steps = result.next_steps.join(" ");
+    expect(steps).not.toMatch(/Find community videos/u);
+    expect(steps).not.toMatch(/Survey community evidence/u);
+  });
+
   it("is not ready when community research or a material video audit is missing", () => {
     const noSurvey = finalizeResearch({
       receipts: [study],
@@ -65,7 +77,7 @@ describe("finalize_research gate", () => {
       key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
     }, options);
     expect(noSurvey.status).toBe("not_ready");
-    expect(noSurvey.next_steps.join(" ")).toMatch(/survey_youtube_community/u);
+    expect(noSurvey.next_steps.join(" ")).toMatch(/scout_gemini_youtube_candidates .*survey_youtube_community only if the scout is unavailable.*rediscovery_leads/u);
     expect(noSurvey.finalization_receipt).toBeUndefined();
 
     const missingVideo = finalizeResearch({
