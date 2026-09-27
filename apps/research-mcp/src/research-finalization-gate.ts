@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { displayedProse } from "./displayed-prose.js";
 import {
   issueResearchReceipt,
   RESEARCH_RECEIPT_MAX_CHARACTERS,
@@ -792,7 +793,8 @@ function answerDraftProblems(
     }
   }
   // Each caveat the server wrote must reach the answer as a sentence of its own.
-  const blocks = draftBlocks(draft);
+  // Only prose a reader sees counts: not code, comments, quotations or image descriptions.
+  const blocks = displayedProse(draft).map(caveatForm);
   const missingCaveats = context.caveats.filter((caveat) => !statesCaveat(blocks, caveat));
   if (missingCaveats.length > 0) {
     problems.push(
@@ -820,152 +822,6 @@ function caveatForm(text: string): string {
     .replace(/\s+/gu, " ")
     .trim()
     .toLowerCase();
-}
-
-// A list item, heading or quotation starts a block of its own.
-const BLOCK_START = /^(?:[-*+]|\d{1,3}[.)])\s|^#{1,6}\s|^>/u;
-const LIST_OR_HEADING_MARKER = /^(?:[-*+]|\d{1,3}[.)]|#{1,6})\s+/u;
-
-const LIST_ITEM = /^(?:[-*+]|\d{1,3}[.)])\s/u;
-const FENCE = /^(`{3,}|~{3,})/u;
-const BACKTICK = 96;
-
-/**
- * Text without inline code: as in CommonMark, a run of backticks opens a span
- * that the next run of the same length closes, and a run with no match is
- * literal. Runs are paired in one pass, so a long draft is read in linear time.
- */
-function withoutCodeSpans(text: string): string {
-  const runs: Array<{ start: number; end: number }> = [];
-  for (let at = text.indexOf("`"); at >= 0; at = text.indexOf("`", at)) {
-    const start = at;
-    while (at < text.length && text.charCodeAt(at) === BACKTICK) at += 1;
-    runs.push({ start, end: at });
-  }
-  // For each run, the next run of the same length.
-  const closer = new Array<number>(runs.length).fill(-1);
-  const laterByLength = new Map<number, number>();
-  for (let index = runs.length - 1; index >= 0; index -= 1) {
-    const length = runs[index]!.end - runs[index]!.start;
-    closer[index] = laterByLength.get(length) ?? -1;
-    laterByLength.set(length, index);
-  }
-  let result = "";
-  let from = 0;
-  for (let index = 0; index < runs.length; index += 1) {
-    const close = closer[index]!;
-    if (close < 0) continue;
-    result += text.slice(from, runs[index]!.start);
-    from = runs[close]!.end;
-    index = close;
-  }
-  return result + text.slice(from);
-}
-
-/**
- * A code fence's marker, or undefined: a backtick fence's info string has no
- * backticks (otherwise the line starts with inline code), per CommonMark.
- */
-function fenceMarker(line: string): string | undefined {
-  const marker = FENCE.exec(line)?.[1];
-  return marker !== undefined && marker.startsWith("`") && line.slice(marker.length).includes("`")
-    ? undefined
-    : marker;
-}
-
-/** A line's indentation in columns, a tab reaching the next multiple of four. */
-function indentOf(line: string): number {
-  let width = 0;
-  for (const character of line) {
-    if (character === " ") width += 1;
-    else if (character === "\t") width += 4 - (width % 4);
-    else break;
-  }
-  return width;
-}
-
-/** The draft without HTML comments, which are not displayed; their line breaks stay. */
-function withoutHtmlComments(draft: string): string {
-  let result = "";
-  let from = 0;
-  for (let open = draft.indexOf("<!--"); open >= 0; open = draft.indexOf("<!--", from)) {
-    const close = draft.indexOf("-->", open + 4);
-    const hidden = draft.slice(open, close < 0 ? draft.length : close + 3);
-    result += draft.slice(from, open) + "\n".repeat(hidden.split("\n").length - 1);
-    if (close < 0) return result;
-    from = close + 3;
-  }
-  return result + draft.slice(from);
-}
-
-/**
- * The draft's paragraphs, list items and headings in caveat form, without
- * their list or heading markers; a wrapped line joins its paragraph. Text an
- * answer shows without stating is left out: code (fenced, indented or
- * inline) and HTML comments. A quotation keeps its marker, so a quoted caveat
- * is not stated either. Fences and indented code follow CommonMark at the top
- * level; inside a list, whose item offsets are not tracked, doubtful lines
- * count as code, so a caveat always counts once it is a plain paragraph.
- */
-function draftBlocks(draft: string): string[] {
-  const blocks: string[] = [];
-  let current: string[] = [];
-  let fence: { marker: string; indent: number; inList: boolean } | undefined;
-  // The indentation that keeps an indented code block going, while one is open.
-  let codeIndent: number | undefined;
-  // An indented paragraph after a list item continues it.
-  let inList = false;
-  const flush = (): void => {
-    if (current.length > 0) {
-      blocks.push(caveatForm(withoutCodeSpans(current.join(" ")).replace(LIST_OR_HEADING_MARKER, "")));
-    }
-    current = [];
-  };
-  for (const line of withoutHtmlComments(draft).split(/\r?\n/u)) {
-    const trimmed = line.trim();
-    const indent = indentOf(line);
-    const marker = fenceMarker(trimmed);
-    if (fence !== undefined) {
-      // A closing fence repeats the opening character, at least as many times, and nothing else. It
-      // is indented at most three spaces at the top level, and no deeper than its opening in a list.
-      if (marker !== undefined && marker[0] === fence.marker[0] && marker.length >= fence.marker.length &&
-        trimmed.slice(marker.length).trim() === "" && indent <= (fence.inList ? fence.indent : 3)) {
-        fence = undefined;
-      }
-      continue;
-    }
-    // A fence opens indented at most three spaces, or at any depth inside a list.
-    if (marker !== undefined && (indent <= 3 || inList)) {
-      flush();
-      fence = { marker, indent, inList };
-      continue;
-    }
-    if (codeIndent !== undefined) {
-      if (trimmed === "" || indent >= codeIndent) continue;
-      codeIndent = undefined;
-    }
-    if (trimmed === "") {
-      flush();
-      continue;
-    }
-    // A list item, heading or quotation starts a block, nested at any depth inside a list.
-    if (BLOCK_START.test(trimmed) && (indent <= 3 || inList)) {
-      flush();
-      inList = LIST_ITEM.test(trimmed) || (inList && indent >= 2);
-    } else if (current.length === 0) {
-      // Indented code starts four spaces in at the top level; inside a list, six spaces in is past
-      // any item's content, so it is taken as code.
-      const threshold = inList ? 6 : 4;
-      if (indent >= threshold) {
-        codeIndent = threshold;
-        continue;
-      }
-      inList = inList && indent >= 2;
-    }
-    current.push(trimmed);
-  }
-  flush();
-  return blocks;
 }
 
 /**

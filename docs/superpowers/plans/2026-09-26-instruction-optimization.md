@@ -892,6 +892,38 @@ and whether the final answer is the last checked draft. Cost: one more
   caveat always counts as a plain paragraph. Five mutations each fail a test.
   A Markdown library was considered and not added: the usual choice has had
   regular-expression slowdown advisories, and this parser is linear.
+- Codex on fd599dc (one P1, fixed): the fixed six-space rule inside lists let
+  a caveat through that CommonMark renders as code: after `100. Search log`
+  and a blank line, four spaces do not reach the item's content, so the line
+  is top-level indented code. This was the eighth round of corner cases in a
+  heuristic parser, so the parser was replaced rather than patched.
+  - `apps/research-mcp/src/displayed-prose.ts` ports the line-by-line
+    container matching of CommonMark's reference implementation
+    (commonmark.js): block quotes, list items with their own content offset
+    (marker offset plus marker width plus spaces), the empty-item and
+    paragraph-interruption rules, lazy continuation, fences closed with their
+    container, setext and ATX headings, and all seven kinds of HTML block.
+  - Inline: code becomes a placeholder, raw HTML (comments, processing
+    instructions, declarations, CDATA, tags and their attributes) is dropped,
+    and an image ends its paragraph's prose, since its description is not
+    shown. A paragraph that may open with a link reference definition is left
+    out, and nesting past 64 levels fails closed, which also bounds the work
+    at linear time.
+  - The old parser counted 8 of the 9 new test drafts as stating the caveat,
+    including Codex's case, a fence left open by its item, an HTML block, a
+    link definition's title, a tag's attribute and a comment over a fence.
+  - A differential test against commonmark.js 0.31 on about 594,000 random
+    drafts with a marker word (list markers, fences, HTML, quotes, tabs,
+    comments, images) found no draft where the gate counts text the reference
+    hides. The first runs found two divergences, both fixed: the
+    specification's text excludes `</pre>` alone on a line from the seventh
+    kind of HTML block, but commonmark.js and micromark include it; and inline
+    raw HTML other than comments (a declaration such as `<!X …>`, a tag's
+    attributes) hides text too. About 6 to 7% of drafts go the other way (text
+    left out that the reference shows), from the deliberate fail-closed
+    choices above and backslash-escaped backticks.
+  - All 25 earlier placement cases keep their results; 17 mutations, one per
+    rule, each fail a test.
 
 ## Comment-audit call budget (2026-09-27)
 

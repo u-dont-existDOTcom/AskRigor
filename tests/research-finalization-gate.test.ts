@@ -918,11 +918,26 @@ describe("finalize_research gate", () => {
       `\n\n\`\`\`\nsearch log\n    \`\`\`\n${rateCaveat}\n\n`,
       // A fence indented three spaces still opens one.
       `\n\n   \`\`\`\n${rateCaveat}\n\`\`\`\n\n`,
-      // Inside a list, a fence opens at any depth and closes no deeper than it opened,
+      // Inside a list item, a fence holds it as code, and so does a line four spaces past the item's content.
       `\n\n- Search log:\n\n    \`\`\`\n\n    ${rateCaveat}\n\n    \`\`\`\n\n`,
-      // and a paragraph indented six spaces or more is taken as code.
       `\n\n- Search log:\n\n        ${rateCaveat}\n\n`,
-      `\n\n<!--\n\n${rateCaveat}\n\n-->\n\n`
+      `\n\n<!--\n\n${rateCaveat}\n\n-->\n\n`,
+      // An item's content starts after its marker and spaces: four spaces do not reach "100. " content,
+      // so after a blank line the caveat is top-level indented code (Codex's case), and likewise for an indented marker.
+      `\n\n100. Search log\n\n    ${rateCaveat}\n\n`,
+      `\n\n   - Search log\n\n    ${rateCaveat}\n\n`,
+      // Five spaces after a marker make the item's content indented code.
+      `\n\n-     ${rateCaveat}\n\n`,
+      // A fence ends with its item, and an unindented fence line then opens a new one.
+      `\n\n- Search log\n  \`\`\`\n\`\`\`\n${rateCaveat}\n\n`,
+      // An HTML block runs to the next blank line, list marker and all.
+      `\n\n<div>\n- Search log\n</div>\n\n    ${rateCaveat}\n\n`,
+      // An image's description, a link definition's title and a tag's attributes are not shown.
+      `\n\nSee ![Search log. ${rateCaveat}](https://example.com/log.png)\n\n`,
+      `\n\n[1]: https://example.com "Search log. ${rateCaveat}"\n\n`,
+      `\n\nSee <span title="Search log. ${rateCaveat}">the log</span>.\n\n`,
+      // A comment that opens inside a paragraph cannot hide the fence on the next line.
+      `\n\nSearch log <!--\n\`\`\`\n--> ${rateCaveat}\n\n`
     ]) {
       expect(answered(fullDraft.replace(rateCaveat, denial))).toEqual(leftOutRate);
     }
@@ -940,7 +955,12 @@ describe("finalize_research gate", () => {
       // A closed list fence ends the code; the caveat after it counts.
       `\n\n- Search log:\n\n    \`\`\`\n    queries\n    \`\`\`\n\n${rateCaveat}`,
       // Four spaces in at the top level, three backticks are indented code, not a fence left open.
-      `\n\n    \`\`\`\n\n${rateCaveat}`
+      `\n\n    \`\`\`\n\n${rateCaveat}`,
+      // Five spaces reach "100. " content, and a nested item's content counts too.
+      `\n\n100. Search log\n\n     ${rateCaveat}\n\n`,
+      `\n\n- Limits\n  - Searches\n\n    ${rateCaveat}\n\n`,
+      // Bold tags are not shown, but the caveat inside them is.
+      `\n\n<b>${rateCaveat}</b>`
     ]) {
       expect(answered(fullDraft.replace(rateCaveat, stated))).toEqual([]);
     }
