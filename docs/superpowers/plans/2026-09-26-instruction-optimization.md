@@ -95,15 +95,16 @@ generalization.
   last run hit the search cap described below.
 - YouTube search cap (observed 2026-09-27 03:38 UTC): search.list is limited
   to 100 calls per day per project (`defaultSearchListPerDayPerProject`),
-  reported as HTTP 429; the window starts 07:00 UTC. Saved hip runs used
-  about 36-70 searches each (estimated from tool inputs), mostly
-  `survey_youtube_community` at 9 searches per call. d45ce15 reports the cap
-  as the daily search quota instead of a retryable rate limit.
+  reported as HTTP 429; the window starts 07:00 UTC. Saved hip runs made at
+  most 22, 24 and 49 searches (counted from tool inputs), mostly
+  `survey_youtube_community` at up to 6 searches per call, so the cap allows
+  about 2 to 4 research runs a day. d45ce15 reports the cap as the daily
+  search quota instead of a retryable rate limit.
 - Open: re-bench the generic patient-probe variant
   (`skill-variant-patient-probes-generic.md`, no hip title) with lookups
   after the cap resets. Owner decision proposed: move directional YouTube
-  discovery from survey keyword searches (9 search.list calls each) to the
-  Gemini scout, keeping YouTube searches for exact-title lookups.
+  discovery from survey keyword searches (up to 6 search.list calls each) to
+  the Gemini scout, keeping YouTube searches for exact-title lookups.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 
