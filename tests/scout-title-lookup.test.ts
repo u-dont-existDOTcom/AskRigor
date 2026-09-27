@@ -54,9 +54,16 @@ describe("scout exact-title lookup", () => {
     }]);
   });
 
-  it("keeps a title with no matching result, a failed search and titles over the limit unresolved", async () => {
+  it("keeps a title with no matching result, a failed search, the daily search cap and titles over the limit unresolved", async () => {
     const search = vi.fn(async ({ query }: { query: string }) => {
-      if (query === "Fails") return { access_status: "rate_limited", data: [] } as unknown as Awaited<ReturnType<typeof searchYoutube>>;
+      if (query === "Fails") return { access_status: "error", data: [] } as unknown as Awaited<ReturnType<typeof searchYoutube>>;
+      if (query === "Daily cap") {
+        return {
+          access_status: "rate_limited",
+          error: { code: "youtube_search_quota_exhausted" },
+          data: []
+        } as unknown as Awaited<ReturnType<typeof searchYoutube>>;
+      }
       if (query === "Throws") throw new Error("network");
       return results([{ video_id: "ccccccccccc", title: "Something else entirely", channel_title: "Channel" }]);
     });
@@ -65,15 +72,17 @@ describe("scout exact-title lookup", () => {
       { title: "No match here", channel: "not described" },
       { title: "Fails", channel: "A" },
       { title: "Throws", channel: "B" },
+      { title: "Daily cap", channel: "D" },
       { title: "Over the limit", channel: "C" }
-    ], { config: CONFIG, knownVideoIds: new Set(), search, limit: 3 });
+    ], { config: CONFIG, knownVideoIds: new Set(), search, limit: 4 });
 
-    expect(search).toHaveBeenCalledTimes(3);
+    expect(search).toHaveBeenCalledTimes(4);
     expect(lookup.found).toEqual([]);
     expect(lookup.unresolved.map(({ title, reason }) => [title, reason])).toEqual([
       ["No match here", "no_matching_video"],
       ["Fails", "search_failed"],
       ["Throws", "search_failed"],
+      ["Daily cap", "search_quota_exhausted"],
       ["Over the limit", "not_searched"]
     ]);
   });

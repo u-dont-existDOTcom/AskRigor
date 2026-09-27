@@ -1494,7 +1494,7 @@ const MCP_SCOUT_OUTPUT_SCHEMA = z.object({
       title: z.string(),
       channel: z.string(),
       why_surfaced: z.string().optional(),
-      reason: z.enum(["no_matching_video", "search_failed", "not_searched"])
+      reason: z.enum(["no_matching_video", "search_quota_exhausted", "search_failed", "not_searched"])
     }).strict())
   }).strict().optional(),
   provider_storage_mode: z.enum(["DISABLED", "TEMPORARY_BACKGROUND_DELETE_REQUESTED"]).optional(),

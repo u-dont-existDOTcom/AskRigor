@@ -12510,6 +12510,7 @@
                       "type": "string",
                       "enum": [
                         "no_matching_video",
+                        "search_quota_exhausted",
                         "search_failed",
                         "not_searched"
                       ]

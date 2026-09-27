@@ -1,5 +1,6 @@
 import {
   searchYoutube,
+  YOUTUBE_SEARCH_QUOTA_EXHAUSTED_CODE,
   youtubeLabelsMatch,
   type YoutubeConfig
 } from "@askrigor/sources";
@@ -46,7 +47,7 @@ export interface ScoutTitleLookupResult {
     why_surfaced?: string;
   }>;
   unresolved: Array<ScoutTitleLead & {
-    reason: "no_matching_video" | "search_failed" | "not_searched";
+    reason: "no_matching_video" | "search_quota_exhausted" | "search_failed" | "not_searched";
   }>;
 }
 
@@ -68,6 +69,9 @@ export async function lookUpScoutTitles(
   const searched = await Promise.all(unique.slice(0, limit).map(async (lead) => {
     try {
       const result = await search({ query: lead.title, pageSize: LOOKUP_PAGE_SIZE }, options.config);
+      if (result.error?.code === YOUTUBE_SEARCH_QUOTA_EXHAUSTED_CODE) {
+        return { lead, outcome: "search_quota_exhausted" as const };
+      }
       if (result.access_status !== "complete") return { lead, outcome: "search_failed" as const };
       const titled = result.data.flatMap((record) => {
         if (record.title === undefined) return [];

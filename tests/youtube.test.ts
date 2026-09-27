@@ -278,6 +278,41 @@ describe("YouTube discovery", () => {
     expect(JSON.stringify(result)).not.toContain("provider-secret");
   });
 
+  it("maps the per-day search cap that Google reports as a 429 to search quota exhaustion", async () => {
+    // Shape of a live response on 2026-09-27; the project identity is removed.
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      error: {
+        code: 429,
+        message: "provider-secret quota message",
+        errors: [{ message: "provider-secret", domain: "global", reason: "rateLimitExceeded" }],
+        status: "RESOURCE_EXHAUSTED",
+        details: [{
+          "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+          reason: "RATE_LIMIT_EXCEEDED",
+          domain: "googleapis.com",
+          metadata: {
+            quota_metric: "youtube.googleapis.com/search_list",
+            quota_limit: "defaultSearchListPerDayPerProject",
+            quota_limit_value: "100",
+            quota_unit: "1/d/{project}"
+          }
+        }]
+      }
+    }), { status: 429 })));
+
+    const result = await searchYoutube({ query: "recorded subject" }, youtubeConfig);
+
+    expect(result).toMatchObject({
+      access_status: "rate_limited",
+      error: {
+        code: "youtube_search_quota_exhausted",
+        message: "YouTube daily search quota reached",
+        http_status: 429
+      }
+    });
+    expect(JSON.stringify(result)).not.toContain("provider-secret");
+  });
+
   it("keeps a search HTTP 429 as a generic retryable rate limit", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("provider-secret", {
       status: 429

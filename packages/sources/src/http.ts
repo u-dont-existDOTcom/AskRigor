@@ -131,6 +131,14 @@ const responseText = async (response: Response): Promise<string> => {
   return new TextDecoder().decode(body);
 };
 
+const isPerDayQuotaInfo = (detail: unknown): boolean => {
+  if (typeof detail !== "object" || detail === null) return false;
+  const metadata = (detail as Record<string, unknown>).metadata;
+  if (typeof metadata !== "object" || metadata === null) return false;
+  const limit = (metadata as Record<string, unknown>).quota_limit;
+  return typeof limit === "string" && /PerDay/u.test(limit);
+};
+
 const providerErrorReason = (body: string): string | undefined => {
   try {
     const parsed: unknown = JSON.parse(body);
@@ -138,6 +146,9 @@ const providerErrorReason = (body: string): string | undefined => {
     const error = (parsed as Record<string, unknown>).error;
     if (typeof error !== "object" || error === null) return undefined;
     const record = error as Record<string, unknown>;
+    // Google reports a per-day quota (e.g. YouTube's search.list calls per
+    // day) as a 429 "rateLimitExceeded"; only the ErrorInfo names the limit.
+    if (Array.isArray(record.details) && record.details.some(isPerDayQuotaInfo)) return "dailyLimitExceeded";
     const direct = record.reason;
     if (typeof direct === "string" && direct.length <= 100) return direct;
     const errors = record.errors;
