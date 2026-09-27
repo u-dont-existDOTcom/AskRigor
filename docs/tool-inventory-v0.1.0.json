@@ -12652,6 +12652,12 @@
             ],
             "description": "compared when the answer compares, ranks or recommends treatment options; it then needs an assess_treatment_landscape_coverage result."
           },
+          "research_target": {
+            "description": "The research_target given to assess_treatment_landscape_coverage, copied exactly; needed with its receipt.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
           "research_depth": {
             "default": "first_pass",
             "description": "first_pass unless the user or an automated research brief asked for deep research.",

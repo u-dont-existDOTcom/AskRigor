@@ -1184,9 +1184,10 @@ describe("AskRigor MCP tools", () => {
       const second = await receiptOf("nothing here");
       const repeat = await receiptOf("  Recorded   SUBJECT ");
 
-      expect(first).toMatchObject({ ok: true, kind: "youtube_search", claims: { videos: ["XpZHKGGCK-o"] } });
+      // A page with more results after it leaves the round open.
+      expect(first).toMatchObject({ ok: true, kind: "youtube_search", claims: { videos: ["XpZHKGGCK-o"], open: "1" } });
       // An empty round is evidence that discovery has saturated, so it is signed too.
-      expect(second).toMatchObject({ ok: true, kind: "youtube_search", claims: { videos: [] } });
+      expect(second).toMatchObject({ ok: true, kind: "youtube_search", claims: { videos: [], open: "0" } });
       const angle = (verification: typeof first) => verification.ok ? verification.claims.q : undefined;
       expect(angle(first)).toMatch(/^[a-f0-9]{12}$/u);
       expect(angle(second)).not.toBe(angle(first));

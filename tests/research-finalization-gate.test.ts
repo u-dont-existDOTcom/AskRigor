@@ -5,6 +5,7 @@ import {
   normalizeIdentifier
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import {
+  discoveryQueryDigest,
   issueResearchReceipt,
   verifyResearchReceipt
 } from "../apps/research-mcp/src/research-receipts.js";
@@ -34,13 +35,19 @@ const lead = sign("full_text_lead", { doi: "10.1016/j.joca.2020.01.001" }, optio
 
 describe("finalize_research gate", () => {
   it("binds a treatment comparison to the latest treatment-coverage check", () => {
+    const target = "Adults with hip osteoarthritis trying to avoid a replacement";
     const base = {
       community_evidence: "researched" as const,
+      research_target: target,
       key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
     };
     const ready = [survey, emptySearch, repeatScout, videoA, study];
-    const coverage = (boundary: string, at: string) => issueResearchReceipt(
-      "treatment_coverage", { boundary, lock: boundary === "ledger_consistent_for_synthesis" ? "pass" : "block" },
+    const coverage = (boundary: string, at: string, forTarget = target) => issueResearchReceipt(
+      "treatment_coverage", {
+        boundary,
+        lock: boundary === "ledger_consistent_for_synthesis" ? "pass" : "block",
+        target: discoveryQueryDigest([forTarget])
+      },
       { secret: SECRET, now: () => new Date(at) }
     );
 
@@ -83,9 +90,26 @@ describe("finalize_research gate", () => {
       ok: true, claims: { coverage: "ledger_consistent_for_synthesis" }
     });
 
+    // A check made for another target does not count, and the target must be passed to match one.
+    const otherTarget = finalizeResearch({
+      ...base,
+      receipts: [...ready, coverage("ledger_consistent_for_synthesis", "2026-09-26T11:30:00.000Z", "Adults with tinnitus")],
+      treatment_choice: "compared"
+    }, options);
+    expect(otherTarget.status).toBe("not_ready");
+    expect(otherTarget.next_steps.join(" ")).toContain("was made for this research_target");
+    const { research_target: _target, ...withoutTarget } = base;
+    expect(finalizeResearch({
+      ...withoutTarget,
+      receipts: [...ready, coverage("ledger_consistent_for_synthesis", "2026-09-26T11:30:00.000Z")],
+      treatment_choice: "compared"
+    }, options).next_steps.join(" ")).toContain("Pass research_target exactly");
+
     // A check made for another question judged videos this research never found.
     const judged = (videos: string[]) => issueResearchReceipt(
-      "treatment_coverage", { boundary: "ledger_consistent_for_synthesis", lock: "pass", videos }, options
+      "treatment_coverage",
+      { boundary: "ledger_consistent_for_synthesis", lock: "pass", videos, target: discoveryQueryDigest([target]) },
+      options
     );
     expect(finalizeResearch({
       ...base, receipts: [...ready, judged(["aaaaaaaaaaa"])], treatment_choice: "compared"
@@ -323,7 +347,17 @@ describe("finalize_research gate", () => {
 
     const openScout = sign("youtube_scout", { videos: [], open: 3, q: "i9i9i9i9i9i9" }, options);
     expect(finalizeResearch({ ...base, receipts: [survey, emptySearch, openScout, videoA, study] }, options).next_steps)
-      .toEqual([expect.stringMatching(/^A recent scout round left candidates it could not verify/u)]);
+      .toEqual([expect.stringMatching(/^A recent round left results unchecked/u)]);
+
+    // A search whose results continue on an unread page is not a settled round.
+    const unreadPage = sign("youtube_search", { videos: [], open: 1, q: "j0j0j0j0j0j0" }, options);
+    expect(finalizeResearch({
+      ...base, receipts: [survey, emptySearch, unreadPage, videoA, study], research_depth: "deep"
+    }, options)).toMatchObject({
+      status: "not_ready",
+      community: { saturated: false },
+      next_steps: [expect.stringContaining("Continue a search with its next cursor")]
+    });
   });
 
   it("lets a first pass stop at its cap and hand back open leads instead of searching on", () => {

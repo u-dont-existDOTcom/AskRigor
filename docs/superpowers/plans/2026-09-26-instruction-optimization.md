@@ -401,6 +401,19 @@ run went from 07:12 to 09:44 UTC.
     `video:<id>`, which the server replaces with YouTube's own title and
     channel (one quota unit per video). As with the target, a name written
     without capitals can still pass.
+- **Codex review of 9197f32** (two P1 findings, both fixed):
+  - A coverage receipt did not say which question it was for, so a passing
+    check from another question with no videos, or only shared ones, could
+    satisfy the gate. The receipt now signs a 12-hex digest of the check's
+    research target, and `finalize_research` takes `research_target` and
+    counts only checks for that target.
+  - Search, survey and one-call audit receipts said nothing about unread
+    result pages, so two first-page searches that added nothing could declare
+    discovery saturated. They now sign `open` (searches with a next page),
+    and a round with unread pages is not settled, as in the coverage
+    checker's deep mode. First passes are unaffected: they end at the cap
+    and hand back open leads. Scout rounds have no pages, so deep research
+    can still saturate through the primary route.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 

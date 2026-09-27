@@ -698,11 +698,15 @@ pending-proposal stores have their own strict contracts and authority boundaries
   time; never comments, source text, questions, or user data. Discovery
   receipts (surveys, searches, scouts, one-call community audits) also carry
   `q`, the first 12 hex characters of a SHA-256 over the round's normalized
-  search terms, so the gate can tell rounds from different angles apart; the
-  terms themselves are not in the receipt. They expire after 24 hours.
-  `finalize_research` verifies the receipts the client passes back and returns
-  next steps or limits; it keeps no ledger, and its optional free-text reasons
-  and open-lead topics are processed and echoed for that call only.
+  search terms, so the gate can tell rounds from different angles apart, and
+  `open`, a count of unread result pages or unchecked candidates; the terms
+  themselves are not in the receipt. A treatment-coverage receipt carries the
+  check's answer boundary, lock, judged video IDs, and the same kind of 12-hex
+  digest of its research target, never the target itself. They expire after 24
+  hours. `finalize_research` verifies the receipts the client passes back and
+  returns next steps or limits; it keeps no ledger, and its optional free-text
+  reasons, open-lead topics and research target are processed for that call
+  only (the target only to compare its digest).
 - The MCP `scout_gemini_youtube_candidates` tool runs the same de-identified,
   population-level scout as the controlled Action route, applying the same
   screen: a target with first-person words, contact details, links, keys or

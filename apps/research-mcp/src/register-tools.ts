@@ -973,7 +973,12 @@ function defineResearchOperations(
           result
         ), videos.length === 0 && result.access_status !== "complete"
           ? undefined
-          : researchReceipt("youtube_search", { videos, q: discoveryQueryDigest([query]) }));
+          : researchReceipt("youtube_search", {
+            videos,
+            q: discoveryQueryDigest([query]),
+            // An unread results page is discovery still to do, not a settled round.
+            open: result.pagination.next_cursor === undefined ? 0 : 1
+          }));
       } catch (_error) {
         return youtubeToolResult(
           "YouTube search returned 0 video record(s); access status error.",
@@ -1102,7 +1107,8 @@ function defineResearchOperations(
             videos: result.receipt.selected_video_ids,
             state: result.receipt.completion_state,
             lock: result.receipt.synthesis_lock,
-            q: discoveryQueryDigest(input.searches.map(({ query }) => query))
+            q: discoveryQueryDigest(input.searches.map(({ query }) => query)),
+            open: unreadResultPages(result.searches)
           }));
     }
   );
@@ -1131,7 +1137,8 @@ function defineResearchOperations(
             access: result.access_status,
             searches: result.searches.length,
             videos: result.candidates.map(({ video_id }) => video_id),
-            q: discoveryQueryDigest(input.searches.map(({ query }) => query))
+            q: discoveryQueryDigest(input.searches.map(({ query }) => query)),
+            open: unreadResultPages(result.searches)
           })
         : undefined);
     }
@@ -1281,10 +1288,8 @@ function defineResearchOperations(
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (input) => {
-      const result = assessTreatmentLandscapeCoverage(
-        treatmentLandscapeCoverageInputSchema.parse(input),
-        { transcriptToolAvailable: false }
-      );
+      const ledger = treatmentLandscapeCoverageInputSchema.parse(input);
+      const result = assessTreatmentLandscapeCoverage(ledger, { transcriptToolAvailable: false });
       // finalize_research binds a treatment comparison to the latest check.
       return withResearchReceipt(successfulToolResult(
         `Treatment-landscape coverage: synthesis lock ${result.synthesis_lock}; ` +
@@ -1298,7 +1303,8 @@ function defineResearchOperations(
       ), researchReceipt("treatment_coverage", {
         boundary: result.answer_boundary,
         lock: result.synthesis_lock,
-        videos: result.videos_actually_audited.map(({ video_id }) => video_id)
+        videos: result.videos_actually_audited.map(({ video_id }) => video_id),
+        target: discoveryQueryDigest([ledger.research_target])
       }));
     }
   );
@@ -1592,6 +1598,11 @@ function scoutError(code: string, retryable: boolean, guidance?: string): CallTo
     }],
     isError: true
   };
+}
+
+/** Searches whose results continue on a page nobody has read yet. */
+function unreadResultPages(searches: ReadonlyArray<{ pagination: { next_cursor?: string } }>): number {
+  return searches.filter(({ pagination }) => pagination.next_cursor !== undefined).length;
 }
 
 const VIDEO_LEAD = /^video:([A-Za-z0-9_-]{11})$/u;

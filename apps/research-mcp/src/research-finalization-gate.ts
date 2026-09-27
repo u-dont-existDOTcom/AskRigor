@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  discoveryQueryDigest,
   issueResearchReceipt,
   RESEARCH_RECEIPT_MAX_CHARACTERS,
   verifyResearchReceipt,
@@ -32,6 +33,8 @@ export const finalizeResearchInputSchema = z.object({
     .describe("Why none of the videos found was worth auditing; needed only when discovery found videos but material_video_ids is empty."),
   treatment_choice: z.enum(["compared", "not_compared"])
     .describe("compared when the answer compares, ranks or recommends treatment options; it then needs an assess_treatment_landscape_coverage result."),
+  research_target: z.string().trim().min(1).max(1_000).optional()
+    .describe("The research_target given to assess_treatment_landscape_coverage, copied exactly; needed with its receipt."),
   research_depth: z.enum(["first_pass", "deep"]).default("first_pass")
     .describe("first_pass unless the user or an automated research brief asked for deep research."),
   open_leads: z.array(z.object({
@@ -280,10 +283,21 @@ export function finalizeResearch(
   }
 
   // Treatment coverage. The latest assess_treatment_landscape_coverage result
-  // passed binds the answer, and a treatment comparison needs one.
-  const coverage = verified.filter(({ kind }) => kind === "treatment_coverage")
+  // for this research target binds the answer, and a treatment comparison
+  // needs one; a check made for another target does not count.
+  const coverageChecks = verified.filter(({ kind }) => kind === "treatment_coverage");
+  const targetDigest = input.research_target === undefined
+    ? undefined
+    : discoveryQueryDigest([input.research_target]);
+  const coverage = coverageChecks.filter(({ claims }) => text(claims.target) === targetDigest)
     .sort((left, right) => left.issuedAt.localeCompare(right.issuedAt) || left.index - right.index)
     .at(-1);
+  if (coverageChecks.length > 0 && coverage === undefined) {
+    nextSteps.push(input.research_target === undefined
+      ? "Pass research_target exactly as you gave it to assess_treatment_landscape_coverage, so its result can be matched to this answer."
+      : "No assess_treatment_landscape_coverage receipt passed here was made for this research_target; pass the one " +
+        "for this question or run the check again.");
+  }
   const coverageBoundary = coverage === undefined ? undefined : text(coverage.claims.boundary);
   // Like a material video, each video the check judged must come from this
   // research's discovery, so a check made for another question cannot pass.
@@ -295,7 +309,7 @@ export function finalizeResearch(
     );
   }
   if (coverageBoundary === undefined) {
-    if (input.treatment_choice === "compared") {
+    if (input.treatment_choice === "compared" && coverageChecks.length === 0) {
       nextSteps.push(
         "The answer compares treatment options: call assess_treatment_landscape_coverage with the treatment ledger " +
           "and pass its research_receipt."
@@ -514,8 +528,9 @@ function discoverySaturation(
     );
   } else if (unchecked) {
     nextSteps.push(
-      "A recent scout round left candidates it could not verify or look up; search a promising one by its exact title " +
-        `with search_youtube, or run another round from a new angle (${NEW_ANGLE_HINT}).` + stop
+      "A recent round left results unchecked: unread result pages, or scout candidates it could not verify or look up. " +
+        "Continue a search with its next cursor, search a promising candidate by its exact title with search_youtube, " +
+        `or run another round from a new angle (${NEW_ANGLE_HINT}).` + stop
     );
   } else if (previousAngle === "" || previousAngle === lastAngle) {
     nextSteps.push(
