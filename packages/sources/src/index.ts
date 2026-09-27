@@ -207,6 +207,7 @@ export {
   GEMINI_YOUTUBE_SCOUT_MAX_LEAD_CHARACTERS,
   GEMINI_YOUTUBE_BACKGROUND_REQUEST_TIMEOUT_MS,
   advanceGeminiYoutubeScoutBackground,
+  deleteGeminiYoutubeScoutInteraction,
   geminiYoutubeScoutBackgroundCheckpointSchema,
   scoutGeminiYoutubeCandidates,
   type GeminiYoutubeScoutBackgroundAdvance,

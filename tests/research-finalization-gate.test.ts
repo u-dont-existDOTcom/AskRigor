@@ -241,6 +241,39 @@ describe("finalize_research gate", () => {
     ]);
   });
 
+  it("does not count a one-call community audit as an audit of each video", () => {
+    // Issued before the other rounds, so the later two still show saturation.
+    const communityAudit = sign("youtube_community_audit", {
+      videos: ["aaaaaaaaaaa", "bbbbbbbbbbb"], state: "api_visible_complete", lock: "pass", q: "d4d4d4d4d4d4",
+      open: 0, t: Date.parse("2026-09-26T10:00:00.000Z")
+    }, options);
+    const request = {
+      community_evidence: "researched" as const,
+      treatment_choice: "not_compared" as const,
+      research_target: TARGET,
+      material_video_ids: ["aaaaaaaaaaa"],
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
+    };
+    const communityOnly = finalizeResearch({
+      ...request,
+      receipts: [communityAudit, emptySearch, repeatScout, study]
+    }, options);
+    expect(communityOnly.status).toBe("not_ready");
+    expect(communityOnly.community).toMatchObject({ surveys: 1, discovery_rounds: 3, audited_videos: [] });
+    expect(communityOnly.next_steps).toEqual([
+      "Video aaaaaaaaaaa has only a one-call community audit. Audit video aaaaaaaaaaa with " +
+        "audit_youtube_video_community and continue until the audit completes."
+    ]);
+
+    // The video's own audit satisfies it.
+    const audited = finalizeResearch({
+      ...request,
+      receipts: [communityAudit, emptySearch, repeatScout, videoA, study]
+    }, options);
+    expect(audited.status).toBe("ready");
+    expect(audited.community).toMatchObject({ audited_videos: ["aaaaaaaaaaa"] });
+  });
+
   it("does not accept model-reported validation or lead status without receipts", () => {
     const result = finalizeResearch({
       receipts: [survey, emptySearch, repeatScout, videoA],

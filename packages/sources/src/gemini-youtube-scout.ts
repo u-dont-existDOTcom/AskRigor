@@ -667,6 +667,24 @@ async function pollGeminiBackgroundInteraction(
   );
 }
 
+/**
+ * Deletes one stored background Interaction without polling or repairing it,
+ * for a controller that abandons a checkpoint before advancing it. Returns
+ * false when the delete did not succeed, so the caller can keep the
+ * checkpoint and try again.
+ */
+export async function deleteGeminiYoutubeScoutInteraction(
+  config: GeminiYoutubeScoutConfig,
+  interactionId: string
+): Promise<boolean> {
+  const parsedConfig = scoutConfigSchema.safeParse(config);
+  if (!parsedConfig.success) throw new Error("Invalid Gemini YouTube scout configuration");
+  if (!/^[A-Za-z0-9._-]{1,500}$/u.test(interactionId)) {
+    throw new Error("Invalid Gemini background interaction id");
+  }
+  return deleteGeminiBackgroundInteraction(parsedConfig.data, interactionId);
+}
+
 async function deleteGeminiBackgroundInteraction(
   config: z.output<typeof scoutConfigSchema>,
   interactionId: string

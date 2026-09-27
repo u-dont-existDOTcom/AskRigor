@@ -488,6 +488,18 @@ run went from 07:12 to 09:44 UTC.
     increases within the process, and the gate orders rounds and coverage
     checks by it. Rounds it cannot separate from the last two all count as
     recent, so a tie can only delay saturation.
+- **Codex review of 168cbc5** (two P1s, both fixed):
+  - A resumed scout refused by the population screen returned before the
+    source layer could delete its stored (`store:true`) Gemini interaction.
+    The executor now deletes it first, without another poll; if the delete
+    fails, it hands the checkpoint back so the next call tries again, as the
+    source layer does for its other terminal outcomes.
+  - `finalize_research` marked every video of a one-call
+    `audit_youtube_community` receipt as audited, so a material video could
+    pass without its own video audit. That receipt now counts as a survey
+    and discovery round only; each material video needs an
+    `audit_youtube_video_community` receipt, as the ledger builder already
+    required.
 
 ## Option A: coverage ledger built from signed receipts (owner-chosen 2026-09-27)
 

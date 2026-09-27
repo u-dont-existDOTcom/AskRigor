@@ -168,6 +168,7 @@ export function finalizeResearch(
   let partialSurveys = 0;
   const discovered = new Set<string>();
   const audited = new Map<string, VideoAudit>();
+  const communityAudited = new Set<string>();
   const rounds: VerifiedReceipt[] = [];
   // Discovery for another target (an earlier question, say) is set aside, so
   // its rounds and videos cannot stand in for this research.
@@ -196,10 +197,10 @@ export function finalizeResearch(
       recordVideoAudit(audited, text(claims.video), text(claims.state), text(claims.lock));
     }
     if (kind === "youtube_community_audit") {
+      // One call samples comments across its videos, so it counts as a
+      // survey; each material video still needs its own video audit.
       surveys += 1;
-      for (const video of list(claims.videos)) {
-        recordVideoAudit(audited, video, text(claims.state), text(claims.lock));
-      }
+      for (const video of list(claims.videos)) communityAudited.add(video);
     }
   }
   const auditedVideos = [...audited.keys()].sort();
@@ -289,7 +290,8 @@ export function finalizeResearch(
       const audit = audited.get(video);
       if (audit === undefined) {
         nextSteps.push(
-          `Audit video ${video} with audit_youtube_video_community and continue until the audit completes.`
+          (communityAudited.has(video) ? `Video ${video} has only a one-call community audit. ` : "") +
+            `Audit video ${video} with audit_youtube_video_community and continue until the audit completes.`
         );
         continue;
       }

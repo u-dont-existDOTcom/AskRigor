@@ -380,12 +380,14 @@ describe("automated Gemini YouTube scout Action", () => {
     });
     const scout = vi.fn();
     const backgroundScout = vi.fn();
+    const deleteBackgroundInteraction = vi.fn(async () => true);
     const options = {
       geminiApiKey: "gemini-secret",
       youtubeApiKey: "youtube-secret",
       budget: aiBudget,
       scout,
-      backgroundScout
+      backgroundScout,
+      deleteBackgroundInteraction
     };
 
     // The public Action refuses it as input the caller can rewrite.
@@ -403,20 +405,37 @@ describe("automated Gemini YouTube scout Action", () => {
     expect(await executeResumableAutomatedGeminiScout(notPopulation, undefined, options)).toEqual({
       controller_boundary: { code: "research_target_not_population_level", retryable: false }
     });
+    expect(deleteBackgroundInteraction).not.toHaveBeenCalled();
     // A scout resumed from a session saved before the screen existed is
-    // refused too, before any poll could lead to a repair request.
-    expect(await executeResumableAutomatedGeminiScout(notPopulation, {
+    // refused too, before any poll could lead to a repair request, and its
+    // stored provider copy is deleted first.
+    const resumed = {
       checkpoint: {
         interaction_id: "interaction-saved-before-screen",
-        phase: "INITIAL",
-        provider_interaction_count: 1,
+        phase: "INITIAL" as const,
+        provider_interaction_count: 1 as const,
         poll_attempts: 1,
         executed_search_queries: []
       },
       accountedNanoUsd: GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
-    }, options)).toEqual({
+    };
+    expect(await executeResumableAutomatedGeminiScout(notPopulation, resumed, options)).toEqual({
       controller_boundary: { code: "research_target_not_population_level", retryable: false }
     });
+    expect(deleteBackgroundInteraction).toHaveBeenCalledTimes(1);
+    expect(deleteBackgroundInteraction).toHaveBeenCalledWith(
+      expect.objectContaining({ apiKey: "gemini-secret" }),
+      "interaction-saved-before-screen"
+    );
+    // A failed delete hands the checkpoint back so the next call tries again.
+    deleteBackgroundInteraction.mockResolvedValueOnce(false);
+    expect(await executeResumableAutomatedGeminiScout(notPopulation, resumed, options)).toEqual({
+      controller_progress: {
+        checkpoint: resumed.checkpoint,
+        accounted_nano_usd: GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
+      }
+    });
+    expect(deleteBackgroundInteraction).toHaveBeenCalledTimes(2);
     expect(aiBudget.reserve).not.toHaveBeenCalled();
     expect(scout).not.toHaveBeenCalled();
     expect(backgroundScout).not.toHaveBeenCalled();

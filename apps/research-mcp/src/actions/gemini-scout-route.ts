@@ -7,6 +7,7 @@ import {
   GEMINI_YOUTUBE_SCOUT_MODEL,
   GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES,
   advanceGeminiYoutubeScoutBackground,
+  deleteGeminiYoutubeScoutInteraction,
   geminiYoutubeCandidateValidationReceiptSchema,
   geminiYoutubeDiscoveryPurposeSchema,
   scoutGeminiYoutubeCandidates,
@@ -130,6 +131,7 @@ export interface CreateAutomatedGeminiScoutActionRouteOptions {
   budget?: AiBudget;
   scout?: typeof scoutGeminiYoutubeCandidates;
   backgroundScout?: typeof advanceGeminiYoutubeScoutBackground;
+  deleteBackgroundInteraction?: typeof deleteGeminiYoutubeScoutInteraction;
   backgroundPollDelayMs?: number;
   // Epoch milliseconds by which provider polling must finish (MCP tool calls,
   // which clients abandon after 60 seconds). A further poll starts only while
@@ -405,9 +407,30 @@ export async function executeResumableAutomatedGeminiScout(
   rediscoveryLeads: readonly string[] = []
 ): Promise<ResumableAutomatedGeminiScoutExecution> {
   const parsed = automatedScoutInputSchema.parse(input);
+  const geminiApiKey = options.geminiApiKey ??
+    process.env.ASKRIGOR_GEMINI_API_KEY ?? "";
   // Resumed scouts too: a session saved before this screen existed could
-  // otherwise send its target again in a repair request.
+  // otherwise send its target again in a repair request. A resumed scout's
+  // stored provider copy is deleted without another poll; if the delete
+  // fails, the checkpoint is handed back so the next call tries again, as
+  // the source layer does for its other terminal outcomes.
   if (!isPopulationLevelResearchTarget(parsed.research_target)) {
+    if (resume !== undefined && geminiApiKey.trim().length > 0) {
+      const deleteInteraction = options.deleteBackgroundInteraction ??
+        deleteGeminiYoutubeScoutInteraction;
+      const deleted = await deleteInteraction(
+        { apiKey: geminiApiKey, model: GEMINI_YOUTUBE_SCOUT_MODEL },
+        resume.checkpoint.interaction_id
+      ).catch(() => false);
+      if (!deleted) {
+        return {
+          controller_progress: {
+            checkpoint: resume.checkpoint,
+            accounted_nano_usd: resume.accountedNanoUsd
+          }
+        };
+      }
+    }
     return controllerBoundary("research_target_not_population_level", false);
   }
   const backgroundScout = options.backgroundScout ??
@@ -415,8 +438,6 @@ export async function executeResumableAutomatedGeminiScout(
   const validate = options.validate ?? validateGeminiYoutubeCandidateHandoff;
   const loadScoutInstructions = options.loadScoutInstructions ??
     defaultScoutInstructions;
-  const geminiApiKey = options.geminiApiKey ??
-    process.env.ASKRIGOR_GEMINI_API_KEY ?? "";
   if (geminiApiKey.trim().length === 0) {
     return controllerBoundary("gemini_provider_not_configured", false);
   }
