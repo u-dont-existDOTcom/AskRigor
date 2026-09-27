@@ -9,7 +9,10 @@ import {
   sampleWithinResponseBudget,
   sampleYoutubeComments
 } from "../apps/research-mcp/src/youtube-community-audit.js";
-import { compactYoutubeCommunityAuditForMcp } from "../apps/research-mcp/src/youtube-mcp-sample.js";
+import {
+  compactYoutubeCommunityAuditForMcp,
+  YoutubeMcpResponseTooLargeError
+} from "../apps/research-mcp/src/youtube-mcp-sample.js";
 
 const YOUTUBE = { apiKey: "recorded-youtube-key" };
 const fixture = (name: string) =>
@@ -208,6 +211,29 @@ describe("YouTube community audit", () => {
       expect(video.sample).toMatchObject({ mode: "deterministic_hash_chronological", corpus_count: 900 });
       expect(video.sample!.sampled_count).toBe(video.sample!.comments.length);
     });
+
+    // Long echoed fields are shortened so even the fixed part fits.
+    const longQuery = "sermorelin ".repeat(450).trim();
+    const echoing = {
+      ...large,
+      research_question: "Adults using sermorelin ".repeat(200).trim(),
+      searches: Array.from({ length: 6 }, () => ({ ...large.searches[0]!, query: longQuery })),
+      videos: large.videos.map((video) => ({
+        ...video,
+        search_queries: Array.from({ length: 6 }, () => longQuery),
+        metadata: { ...video.metadata!, description: "Channel notes. ".repeat(6_000) }
+      }))
+    };
+    const shortened = compactYoutubeCommunityAuditForMcp(echoing, 40_000, "MCP bounded sample.");
+    expect(Buffer.byteLength(JSON.stringify(shortened), "utf8")).toBeLessThanOrEqual(40_000);
+    expect(shortened.searches[0]!.query.length).toBeLessThanOrEqual(300);
+    expect(shortened.videos[0]!.metadata!.description!.length).toBeLessThanOrEqual(1_000);
+    expect(shortened.limitations).toContain(
+      "Long queries, the research question and video metadata are shortened in this MCP view."
+    );
+    // A budget the fixed fields cannot meet is an error, never an oversized result.
+    expect(() => compactYoutubeCommunityAuditForMcp(large, 2_000, "MCP bounded sample."))
+      .toThrow(YoutubeMcpResponseTooLargeError);
   });
 
   it("returns a deterministic evenly spaced chronological sample", () => {

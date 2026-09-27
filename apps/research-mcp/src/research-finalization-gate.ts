@@ -121,6 +121,9 @@ const TERMINAL_VIDEO_STATES = new Set([
 interface VideoAudit {
   state: string;
   lock: string;
+  // Comments and replies retrieved; zero when comments were disabled or
+  // inaccessible, so there is nothing to report.
+  records: number;
 }
 
 export function finalizeResearch(
@@ -135,7 +138,9 @@ export function finalizeResearch(
       limits: [
         "This AskRigor server cannot verify research receipts, so say that research completion was not server-verified."
       ],
-      must_report: input.community_findings === undefined ? [] : [communityLane(input.community_findings)],
+      must_report: input.community_findings === undefined
+        ? []
+        : [communityLane(input.community_findings, input.community_findings.videos_reviewed.length)],
       receipts_verified: 0,
       receipts_rejected: [],
       community: {
@@ -185,6 +190,9 @@ export function finalizeResearch(
   const discovered = new Set<string>();
   const audited = new Map<string, VideoAudit>();
   const communityAudited = new Set<string>();
+  // Videos a one-call audit read comments from; its other selected videos
+  // had comments disabled or inaccessible.
+  const communityRead = new Set<string>();
   const rounds: VerifiedReceipt[] = [];
   // Discovery for another target (an earlier question, say) is set aside, so
   // its rounds and videos cannot stand in for this research.
@@ -210,13 +218,15 @@ export function finalizeResearch(
       for (const video of list(claims.videos)) discovered.add(video);
     }
     if (kind === "youtube_video_audit") {
-      recordVideoAudit(audited, text(claims.video), text(claims.state), text(claims.lock));
+      recordVideoAudit(audited, text(claims.video), text(claims.state), text(claims.lock), Number(text(claims.records)));
     }
     if (kind === "youtube_community_audit") {
       // One call samples comments across its videos, so it counts as a
       // survey; each material video still needs its own video audit.
       surveys += 1;
       for (const video of list(claims.videos)) communityAudited.add(video);
+      // Receipts from before `read` existed count every selected video.
+      for (const video of list(claims.read ?? claims.videos)) communityRead.add(video);
     }
   }
   const auditedVideos = [...audited.keys()].sort();
@@ -326,7 +336,13 @@ export function finalizeResearch(
   // Comments that were read must reach the answer, even when their signal is
   // weak: a lane that ran early can otherwise vanish behind later sources.
   const mustReport: string[] = [];
-  const commentVideos = new Set([...audited.keys(), ...communityAudited]);
+  // Findings must cover every video whose comments were read; a video whose
+  // comments were disabled or inaccessible may be listed but need not be.
+  const commentVideos = new Set([
+    ...[...audited].filter(([, audit]) => audit.records > 0).map(([video]) => video),
+    ...communityRead
+  ]);
+  const auditedAtAll = new Set([...audited.keys(), ...communityAudited]);
   const findings = input.community_findings;
   if (commentVideos.size > 0 && findings === undefined) {
     nextSteps.push(
@@ -336,7 +352,7 @@ export function finalizeResearch(
   } else if (findings !== undefined) {
     const reviewed = new Set(findings.videos_reviewed);
     const unlisted = [...commentVideos].filter((video) => !reviewed.has(video)).sort();
-    const unaudited = [...reviewed].filter((video) => !commentVideos.has(video)).sort();
+    const unaudited = [...reviewed].filter((video) => !auditedAtAll.has(video)).sort();
     if (unlisted.length > 0) {
       nextSteps.push(
         `Add ${unlisted.join(", ")} to community_findings.videos_reviewed: their comments were read, so the ` +
@@ -349,7 +365,9 @@ export function finalizeResearch(
           "covers them; pass the receipt or drop them."
       );
     }
-    if (unlisted.length === 0 && unaudited.length === 0) mustReport.push(communityLane(findings));
+    if (unlisted.length === 0 && unaudited.length === 0) {
+      mustReport.push(communityLane(findings, findings.videos_reviewed.filter((video) => commentVideos.has(video)).length));
+    }
   }
 
   // Treatment coverage. The latest assess_treatment_landscape_coverage result
@@ -543,8 +561,11 @@ export function finalizeResearch(
   return finalizeResearchOutputSchema.parse(output);
 }
 
-function communityLane(findings: NonNullable<FinalizeResearchInput["community_findings"]>): string {
-  return `YouTube comments (${findings.videos_reviewed.length} video(s) read): Benefits: ${findings.benefit_reports} ` +
+function communityLane(
+  findings: NonNullable<FinalizeResearchInput["community_findings"]>,
+  videosRead: number
+): string {
+  return `YouTube comments (${videosRead} video(s) read): Benefits: ${findings.benefit_reports} ` +
     `No effect: ${findings.no_effect_reports} Adverse: ${findings.adverse_reports} Creators versus commenters: ` +
     `${findings.creators_versus_commenters} Effect on the answer: ${findings.effect_on_answer} Report this lane in ` +
     "the answer even if later sources dominate; if its signal is weak, say so.";
@@ -642,13 +663,14 @@ function recordVideoAudit(
   audited: Map<string, VideoAudit>,
   video: string,
   state: string,
-  lock: string
+  lock: string,
+  records: number
 ): void {
   if (video.length === 0 || !TERMINAL_VIDEO_STATES.has(state)) return;
   const previous = audited.get(video);
   // A later complete audit of the same video supersedes a bounded one.
   if (previous === undefined || previous.state !== "api_visible_complete") {
-    audited.set(video, { state, lock });
+    audited.set(video, { state, lock, records: Number.isSafeInteger(records) ? records : 0 });
   }
 }
 

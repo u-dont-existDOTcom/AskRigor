@@ -163,7 +163,9 @@ import {
   compactYoutubeAuditForMcp,
   compactYoutubeCommunityAuditForMcp,
   mcpYoutubeCommunityAuditOutputSchema,
-  mcpYoutubeVideoCommunityAuditOutputSchema
+  mcpYoutubeVideoCommunityAuditOutputSchema,
+  YoutubeMcpResponseTooLargeError,
+  type McpYoutubeCommunityAuditOutput
 } from "./youtube-mcp-sample.js";
 
 const LIVING_EVIDENCE_READER = configuredLivingEvidenceRepository();
@@ -1127,11 +1129,21 @@ function defineResearchOperations(
       const summary = `YouTube community audit selected ${result.receipt.selected_video_ids.length} video(s); completion state ${result.receipt.completion_state}; synthesis lock ${result.receipt.synthesis_lock}.`;
       // The Custom GPT Action bounds the full audit itself.
       if (isActionCall(extra)) return youtubeToolResult(summary, result);
-      const view = compactYoutubeCommunityAuditForMcp(
-        result,
-        MCP_YOUTUBE_AUDIT_MAX_BYTES,
-        MCP_BOUNDED_SAMPLE_LIMITATION
-      );
+      let view: McpYoutubeCommunityAuditOutput;
+      try {
+        view = compactYoutubeCommunityAuditForMcp(result, MCP_YOUTUBE_AUDIT_MAX_BYTES, MCP_BOUNDED_SAMPLE_LIMITATION);
+      } catch (error) {
+        if (!(error instanceof YoutubeMcpResponseTooLargeError)) throw error;
+        // Never a truncated result: the client would cut it and lose the audit.
+        return {
+          content: [{
+            type: "text",
+            text: "YouTube community audit could not complete: youtube_community_audit_response_too_large. Use " +
+              "survey_youtube_community with shorter queries, then audit_youtube_video_community for each video."
+          }],
+          isError: true
+        };
+      }
       return withResearchReceipt(youtubeToolResult(
         result.receipt.completion_state === "incomplete" ? summary : `${summary} ${MCP_COMMENT_FINDINGS_HANDOFF}`,
         view
@@ -1139,6 +1151,12 @@ function defineResearchOperations(
         ? undefined
         : researchReceipt("youtube_community_audit", {
             videos: result.receipt.selected_video_ids,
+            // The videos whose comments were read; the others had comments
+            // disabled or inaccessible, so finalize_research needs no findings
+            // for them.
+            read: result.videos
+              .filter(({ manifest }) => (manifest?.total_comments_and_replies ?? 0) > 0)
+              .map(({ video_id }) => video_id),
             state: result.receipt.completion_state,
             lock: result.receipt.synthesis_lock,
             q: discoveryQueryDigest(input.searches.map(({ query }) => query)),

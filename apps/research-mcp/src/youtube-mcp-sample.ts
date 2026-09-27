@@ -123,6 +123,16 @@ export const mcpYoutubeCommunityAuditOutputSchema = youtubeCommunityAuditOutputS
 
 export type McpYoutubeCommunityAuditOutput = z.output<typeof mcpYoutubeCommunityAuditOutputSchema>;
 
+/** Even with no comments, the audit's fixed fields do not fit the response budget. */
+export class YoutubeMcpResponseTooLargeError extends Error {
+  constructor() {
+    super("youtube_community_audit_response_too_large");
+  }
+}
+
+const SHORTENED_ECHO_LIMITATION =
+  "Long queries, the research question and video metadata are shortened in this MCP view.";
+
 /**
  * MCP view of a one-call community audit: the same compact records, with one
  * response budget shared by up to three videos. Uncompacted, three samples of
@@ -141,9 +151,41 @@ export function compactYoutubeCommunityAuditForMcp(
     rankYoutubeCommentIdentifier(left.comment_id).localeCompare(rankYoutubeCommentIdentifier(right.comment_id)) ||
     left.comment_id.localeCompare(right.comment_id)
   ));
+  // Echoed queries and provider metadata can be long; the model wrote the
+  // queries and can read full metadata elsewhere, so the view shortens them.
+  let shortenedAny = false;
+  const shorten = (value: string, maximum: number): string => {
+    if (value.length <= maximum) return value;
+    shortenedAny = true;
+    return `${value.slice(0, maximum - 1)}…`;
+  };
+  const firstTags = (tags: string[]): string[] => {
+    if (tags.length <= 20) return tags;
+    shortenedAny = true;
+    return tags.slice(0, 20);
+  };
+  const fixed = {
+    ...output,
+    research_question: shorten(output.research_question, 1_000),
+    searches: output.searches.map((search) => ({ ...search, query: shorten(search.query, 300) })),
+    videos: output.videos.map((video) => ({
+      ...video,
+      search_queries: video.search_queries.map((query) => shorten(query, 300)),
+      ...(video.metadata === undefined ? {} : {
+        metadata: {
+          ...video.metadata,
+          ...(video.metadata.title === undefined ? {} : { title: shorten(video.metadata.title, 300) }),
+          ...(video.metadata.channel_title === undefined ? {} : { channel_title: shorten(video.metadata.channel_title, 300) }),
+          ...(video.metadata.description === undefined ? {} : { description: shorten(video.metadata.description, 1_000) }),
+          ...(video.metadata.tags === undefined ? {} : { tags: firstTags(video.metadata.tags) })
+        }
+      })
+    }))
+  };
+  const baseLimitations = shortenedAny ? [...new Set([...output.limitations, SHORTENED_ECHO_LIMITATION])] : output.limitations;
   const build = (perVideo: number): McpYoutubeCommunityAuditOutput => {
     let trimmedAny = false;
-    const videos = output.videos.map((video, index) => {
+    const videos = fixed.videos.map((video, index) => {
       const { sample, ...rest } = video;
       if (sample === undefined) return rest;
       const kept = ranked[index]!.slice(0, perVideo).sort((left, right) =>
@@ -164,8 +206,8 @@ export function compactYoutubeCommunityAuditForMcp(
       };
     });
     return {
-      ...output,
-      limitations: trimmedAny ? [...new Set([...output.limitations, boundedSampleLimitation])] : output.limitations,
+      ...fixed,
+      limitations: trimmedAny ? [...new Set([...baseLimitations, boundedSampleLimitation])] : baseLimitations,
       videos
     };
   };
@@ -175,9 +217,10 @@ export function compactYoutubeCommunityAuditForMcp(
   const largest = Math.max(0, ...ranked.map((comments) => comments.length));
   const full = build(largest);
   if (fits(full)) return mcpYoutubeCommunityAuditOutputSchema.parse(full);
-  let lower = 0;
-  let upper = largest - 1;
   let best = build(0);
+  if (!fits(best)) throw new YoutubeMcpResponseTooLargeError();
+  let lower = 1;
+  let upper = largest - 1;
   while (lower <= upper) {
     const count = Math.floor((lower + upper) / 2);
     const candidate = build(count);

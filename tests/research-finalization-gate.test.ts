@@ -349,6 +349,51 @@ describe("finalize_research gate", () => {
     )]);
   });
 
+  it("needs findings only for videos whose comments were read", () => {
+    // Comments disabled: the audit ends at an access boundary with nothing read.
+    const disabled = sign("youtube_video_audit", {
+      video: "bbbbbbbbbbb", state: "completed_with_access_boundary", lock: "pass", records: 0
+    }, options);
+    const request = {
+      community_evidence: "researched" as const,
+      treatment_choice: "not_compared" as const,
+      research_target: TARGET,
+      material_video_ids: ["aaaaaaaaaaa", "bbbbbbbbbbb"],
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
+    };
+    const receipts = [survey, emptySearch, repeatScout, videoA, disabled, study];
+    const onlyRead = finalizeResearchGate({
+      ...request, receipts, community_findings: findingsFor(["aaaaaaaaaaa"])
+    }, options);
+    expect(onlyRead.next_steps).toEqual([]);
+    expect(onlyRead.must_report).toEqual([expect.stringMatching(/^YouTube comments \(1 video\(s\) read\): /u)]);
+    // Listing the disabled video is allowed, and it is not counted as read.
+    const both = finalizeResearchGate({
+      ...request, receipts, community_findings: findingsFor(["aaaaaaaaaaa", "bbbbbbbbbbb"])
+    }, options);
+    expect(both.next_steps).toEqual([]);
+    expect(both.must_report).toEqual([expect.stringMatching(/^YouTube comments \(1 video\(s\) read\): /u)]);
+
+    // A one-call audit signs which of its videos it read.
+    const oneCall = sign("youtube_community_audit", {
+      videos: ["ddddddddddd", "eeeeeeeeeee"], read: ["ddddddddddd"], state: "completed_with_access_boundary",
+      lock: "pass", q: "f6f6f6f6f6f6", open: 0, t: Date.parse("2026-09-26T10:00:00.000Z")
+    }, options);
+    const oneCallRequest = {
+      ...request,
+      material_video_ids: undefined,
+      no_material_video_reason: "Only the one-call audit read these comments.",
+      receipts: [oneCall, emptySearch, repeatScout, study]
+    };
+    expect(finalizeResearchGate(oneCallRequest, options).next_steps).toEqual([
+      "Say what the comments you read showed: give community_findings (benefit, no-effect and adverse reports, " +
+        "creators versus independent commenters, and the effect on the answer), even if the signal is weak or neutral."
+    ]);
+    const covered = finalizeResearchGate({ ...oneCallRequest, community_findings: findingsFor(["ddddddddddd"]) }, options);
+    expect(covered.next_steps).toEqual([]);
+    expect(covered.must_report).toHaveLength(1);
+  });
+
   it("does not accept model-reported validation or lead status without receipts", () => {
     const result = finalizeResearch({
       receipts: [survey, emptySearch, repeatScout, videoA],

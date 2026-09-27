@@ -420,7 +420,9 @@ describe("AskRigor MCP tools", () => {
   it("returns the complete community-audit receipt through the MCP boundary", async () => {
     const { client, server } = await createInMemoryClient();
     const previous = process.env.YOUTUBE_API_KEY;
+    const previousContinuationSecret = process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET;
     process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET = "mcp-continuation-secret-value-32-bytes";
     vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
       const url = new URL(String(input));
       if (url.pathname.endsWith("/search")) {
@@ -462,6 +464,16 @@ describe("AskRigor MCP tools", () => {
       expect(comments.every((comment) => typeof comment.author === "string" && /^[a-f0-9]{8}$/u.test(comment.author)))
         .toBe(true);
       expect(JSON.stringify(result.structuredContent)).not.toMatch(/author_display_name|author_channel_id/u);
+      // The receipt names the videos whose comments were read, for finalize_research.
+      const communityReceipt = verifyResearchReceipt(
+        (result.structuredContent as { research_receipt: string }).research_receipt,
+        { secret: "mcp-continuation-secret-value-32-bytes" }
+      );
+      expect(communityReceipt).toMatchObject({
+        ok: true,
+        kind: "youtube_community_audit",
+        claims: { videos: ["XpZHKGGCK-o"], read: ["XpZHKGGCK-o"] }
+      });
       expect(result.structuredContent).toMatchObject({
         provider: "youtube",
         record_type: "youtube_community_audit",
@@ -480,6 +492,7 @@ describe("AskRigor MCP tools", () => {
       });
       expect(JSON.stringify(result)).not.toContain("mcp-youtube-secret");
     } finally {
+      restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
       restoreEnvironment("YOUTUBE_API_KEY", previous);
       await server.close();
     }

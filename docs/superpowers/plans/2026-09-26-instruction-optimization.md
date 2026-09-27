@@ -592,6 +592,16 @@ rules, no protocol change):
   findings and returns a weak lane in `must_report`; a three-video, 1,500-record
   audit stays under 40,000 bytes on MCP; the comment search result carries the
   non-evidence flag.
+- Codex on baf32b2 (one P1, one P2, both fixed): a video whose comments were
+  disabled was counted as read, so findings were demanded for it and
+  `must_report` claimed it was read. Findings are now required only for
+  per-video audits that retrieved comments and for the videos a one-call audit
+  read, which its receipt now signs (`read`); a listed boundary video is
+  allowed but not counted. Separately, long echoed queries, the research
+  question and video metadata could push even a zero-comment view past 40,000
+  bytes; the MCP view shortens them, and a view that still cannot fit is an
+  explicit `youtube_community_audit_response_too_large` error, never an
+  oversized result.
 
 ## Comment-audit call budget (2026-09-27)
 
