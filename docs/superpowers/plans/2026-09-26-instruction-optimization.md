@@ -71,6 +71,40 @@ Claude Opus 5.5 (owner, 2026-09-26).
    well, then test search strategies on development questions with a
    discovery-only bench.
 
+## Discovery bench findings (2026-09-27)
+
+The bench (`evaluation/instruction-optimization/discovery-bench/`) runs only
+the automated Gemini scout plus YouTube identity checks on a neutral target:
+"Adults with severe hip osteoarthritis who want to avoid or delay a hip
+replacement: what they tried on their own and what happened". Tinnitus is the
+generalization check. Hip is development data; nothing here confirms
+generalization.
+
+- Why recent runs missed what Gemini Spark (staged skill v13, 001a47b) found:
+  the consumer Gemini app's YouTube tool returns real video IDs, but API
+  Google Search grounding usually shows no watch URL. The API scout spent
+  searches hunting for IDs (124 of 258 queries, 48%, before the fix),
+  invented IDs, or dropped finds.
+- The key first-person video ("GROWING MY HIP BACK", XpZHKGGCK-o) surfaced
+  in 1 of 7 production-skill runs. The patient-probe skill variant searched
+  its exact title in each of 3 measured runs and lost it at the ID step every
+  time.
+- Fix (e4bc7e5): the scout reports such finds by title and the MCP tool
+  looks up at most four per call by exact title. First runs recovered 2, 1,
+  4 and 0 videos per call, e.g. "Can Fasting Really Help Tinnitus?". The
+  last run hit the search cap described below.
+- YouTube search cap (observed 2026-09-27 03:38 UTC): search.list is limited
+  to 100 calls per day per project (`defaultSearchListPerDayPerProject`),
+  reported as HTTP 429; the window starts 07:00 UTC. Saved hip runs used
+  about 36-70 searches each (estimated from tool inputs), mostly
+  `survey_youtube_community` at 9 searches per call. d45ce15 reports the cap
+  as the daily search quota instead of a retryable rate limit.
+- Open: re-bench the generic patient-probe variant
+  (`skill-variant-patient-probes-generic.md`, no hip title) with lookups
+  after the cap resets. Owner decision proposed: move directional YouTube
+  discovery from survey keyword searches (9 search.list calls each) to the
+  Gemini scout, keeping YouTube searches for exact-title lookups.
+
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 
 - Iteration for each candidate: focused tests plus one or two development
