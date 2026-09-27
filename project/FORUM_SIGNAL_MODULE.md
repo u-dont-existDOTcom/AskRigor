@@ -65,7 +65,7 @@ Continue deeper immediately when a selected video reports `continuation_recommen
 
 Elapsed time is not evidence saturation. Stop after terminal video states and directional coverage when two consecutive wider expansions add no material intervention, outcome, discriminator, contradiction, or actionability change, independent pools have been sought for every material signal, and remaining candidates are unlikely to change the answer. A genuine access or quota boundary may also stop expansion.
 
-If wider or deeper work remains executable and `further_expansion_likely_to_improve_answer` would be `yes`, continue. A final answer may contain only `no` or `blocked` with an explicit reason.
+If wider or deeper work remains executable and `further_expansion_likely_to_improve_answer` would be `yes`, continue until the first pass stops; what remains then becomes the open leads of a provisional answer. Deep research continues while it would be `yes`, and a complete answer may contain only `no` or `blocked` with an explicit reason.
 
 A partial or bounded answer does not waive executable required work. Even one unavailable full text or inaccessible private community limits only that source or lane and cannot stop available YouTube discovery, creator transcripts, comment auditing, formal retrieval, or cross-layer iteration. Do not replace omitted required work with a long conventional summary.
 

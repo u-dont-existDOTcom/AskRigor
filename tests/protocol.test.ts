@@ -19,7 +19,7 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "e8a4d07048670a75083e5d5aec83d6669dc9111e1d44dccb4493b7769813421a";
+  "8495506e7299d3ee511574329f39a69bcc5efa6c5fac7023f746e1ee84aa344e";
 const UNIVERSAL_SHA_256 =
   "5d9a9d76339ff1794b93bb1e932466f703c4a8c006a607b811f40b43ea703d36";
 
@@ -37,7 +37,7 @@ describe("canonical protocol loader", () => {
   it("derives the HRP manifest from its root attributes", async () => {
     await expect(getProtocolManifest("hrp")).resolves.toMatchObject({
       name: "HRP",
-      version: "20.6.2",
+      version: "20.6.3",
       revisionDate: "2026-09-27"
     });
   });
@@ -254,7 +254,7 @@ describe("canonical protocol loader", () => {
     };
 
     expect(text).toMatch(
-      /<Protocol name="HRP" version="20\.6\.2" revisionDate="2026-09-27"/
+      /<Protocol name="HRP" version="20\.6\.3" revisionDate="2026-09-27"/
     );
     for (const required of [
       '<Revision version="20.5.19" priority="Critical">',
@@ -297,6 +297,17 @@ describe("canonical protocol loader", () => {
       "Deep research continues rounds until saturation",
       "authenticated opaque continuation or server-held state proving one contiguous chain"
     ]) expect(normalizedText).toContain(required);
+
+    // HRP 20.6.3: the final self-check and regression case follow the first-pass rule.
+    const selfCheck = normalizedText.match(/<Check id="FS188">[^<]*<\/Check>/u)?.[0] ?? "";
+    expect(selfCheck).toContain("Stop a first pass at the earliest of saturation, about six fully audited videos");
+    expect(selfCheck).not.toContain("at least eight");
+    const fourDistinct = normalizedText.match(
+      /<Case id="FourDistinctVideosPresentedAsBroadCoverage">.*?<\/Case>/u
+    )?.[0] ?? "";
+    expect(fourDistinct).toContain("the first pass has reached neither about six fully audited videos nor about four rounds");
+    expect(fourDistinct).toContain("open leads of a provisional answer, never a final comparison or ranking");
+    expect(fourDistinct).not.toContain("completion minimum");
 
     const many = section("ManyVideosButOneTreatmentClass");
     expect(many).toContain("ten videos");

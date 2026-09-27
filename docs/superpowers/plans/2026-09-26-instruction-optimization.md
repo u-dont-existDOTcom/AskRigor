@@ -189,6 +189,19 @@ run went from 07:12 to 09:44 UTC.
     language, with no video IDs or internal codes. It had echoed the
     model's lead topics, IDs included.
   - All arms are still one development question.
+- **Leftover minimum (fixed in HRP 20.6.3).** The first-pass rule of HRP
+  20.6.1 had not reached four places:
+  - final self-check FS188 and the FourDistinctVideosPresentedAsBroadCoverage
+    regression case still required at least eight fully audited videos
+    across six programs;
+  - the Project router still said a valid ledger blocks below 8 audited
+    videos and 6 programs;
+  - the router and the Forum Signal module still said to keep searching
+    while more work would improve the answer, with no first-pass stop.
+
+  All now state the first-pass stop and its open leads. HRP's completion-gate
+  text now names discovery receipts rather than survey receipts. Whether
+  these lines affected the 4d4fae8 run is not measured.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 

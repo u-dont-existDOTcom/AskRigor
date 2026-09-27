@@ -267,14 +267,25 @@ describe("canonical Reasoning Selection application", () => {
       "d5a4b02bc53fda30bbb586d2ec34233f19bb981d38427f6311f453b84209ba5a",
     );
     expect(project).toContain(`\n${CURRENT_PROJECT_APPLICATION}## 1. Run before HRP/research`);
-    expect(Buffer.byteLength(project, "utf8")).toBe(7999);
-    expect(Array.from(project)).toHaveLength(7983);
-    expect(project.split(/\s+/u).filter(Boolean)).toHaveLength(916);
+    expect(Buffer.byteLength(project, "utf8")).toBe(8008);
+    expect(Array.from(project)).toHaveLength(7996);
+    expect(project.split(/\s+/u).filter(Boolean)).toHaveLength(922);
     expect(sha256(project)).toBe(
+      "bfef8409e5ac27191988a2396e20331cd2a147a4ac2da7a22d443bff9f9e53aa",
+    );
+    // 2026-09-27: HRP 20.6.3 aligns the router with the first-pass rule of HRP 20.6.1.
+    const priorFirstPassRule = project.replace(
+      "Only terminal nonretryable boundaries permit bounded non-ranking output.",
+      "A valid ≥8-candidate/≥6-program ledger blocks below 8 fully audited videos/6 programs. Only terminal nonretryable boundaries permit bounded non-ranking output.",
+    ).replace(
+      "A first pass stops at saturation, ~6 fully audited videos or ~4 rounds, and ends with open leads. Deep research continues while `further_expansion_likely_to_improve_answer` would be `yes`; a complete answer reports only `no` or `blocked` with a reason.",
+      "Continue executable work if `further_expansion_likely_to_improve_answer` would be `yes`. A final answer may report only `no` or `blocked` with a reason.",
+    );
+    expect(sha256(priorFirstPassRule)).toBe(
       "ff137be40f46bf93eb8bcdb6c8f939d7a059b48805064e4af495693e074f6c46",
     );
     // 2026-09-27: the Gemini scout is the primary discovery route; the survey is the fallback.
-    const priorScoutRule = project.replace(
+    const priorScoutRule = priorFirstPassRule.replace(
       "discover with `scout_gemini_youtube_candidates` (`survey_youtube_community` is the fallback);",
       "use `survey_youtube_community`;",
     ).replace(
@@ -322,10 +333,10 @@ describe("canonical Reasoning Selection application", () => {
     ]);
 
     expect(sha256(hrp)).toBe(
-      "e8a4d07048670a75083e5d5aec83d6669dc9111e1d44dccb4493b7769813421a",
+      "8495506e7299d3ee511574329f39a69bcc5efa6c5fac7023f746e1ee84aa344e",
     );
     expect(sha256(forum)).toBe(
-      "ea5cd439bf77bc25e233648cdc0c5a60b80a2e4b7e082b2c86290b07de4ee3d4",
+      "cf99f70ead889edb55a0e6a3799cf9c1841cad300ae783ea849379d0b55e314c",
     );
   });
 });

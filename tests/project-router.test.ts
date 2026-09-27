@@ -150,9 +150,13 @@ Development-fitted evidence is not confirmation; missing access is neither negat
     expect(instructions).toContain("widen until `finalize_research` accepts");
     expect(instructions).toContain("needs no ceremonial user approval");
     expect(instructions).toContain(
-      "Continue executable work if `further_expansion_likely_to_improve_answer` would be `yes`."
+      "A first pass stops at saturation, ~6 fully audited videos or ~4 rounds, and ends with open leads."
     );
-    expect(instructions).toContain("A final answer may report only `no` or `blocked` with a reason.");
+    expect(instructions).toContain(
+      "Deep research continues while `further_expansion_likely_to_improve_answer` would be `yes`"
+    );
+    expect(instructions).toContain("a complete answer reports only `no` or `blocked` with a reason.");
+    expect(instructions).not.toContain("≥8-candidate");
   });
 
   it("blocks broad treatment synthesis until selection breadth and per-video depth both pass", async () => {
@@ -271,7 +275,8 @@ Development-fitted evidence is not confirmation; missing access is neither negat
       "one creator or discussion pool",
       "elapsed time is not evidence saturation",
       "further_expansion_likely_to_improve_answer: yes | no | blocked",
-      "A final answer may contain only `no` or `blocked`",
+      "continue until the first pass stops; what remains then becomes the open leads of a provisional answer",
+      "a complete answer may contain only `no` or `blocked`",
       "Normal Project chat is the primary YouTube pagination workflow",
       "Deep Research does not make YouTube pagination faster"
     ]) {

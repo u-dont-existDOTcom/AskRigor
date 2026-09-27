@@ -56,9 +56,9 @@ No final verdict while work is incomplete; first call `finalize_research` with e
 A partial or bounded answer does not waive executable required work; one unavailable full text or inaccessible private community cannot stop it.
 Review usable records from partial corpora and label them partial; bound claims to the observed subset. Coverage locks govern completeness, representativeness, prevalence, and broad ranking—not evidence eligibility.
 
-`HRP-complete` requires per-program formal retrieval and passed receipts. Require no unresolved material hypothesis or `incomplete` directional/bidirectional field; transcript-backed claims/withholding; all three treatment locks; `youtube_synthesis_lock: pass`; selected discussion audits' `synthesis_lock: pass`. Call `assess_treatment_landscape_coverage`; unavailable=`assessor_tool_unavailable` and fail closed. A valid ≥8-candidate/≥6-program ledger blocks below 8 fully audited videos/6 programs. Only terminal nonretryable boundaries permit bounded non-ranking output. **Videos actually audited** needs linked title, program, value, and plain-language boundary.
+`HRP-complete` requires per-program formal retrieval and passed receipts. Require no unresolved material hypothesis or `incomplete` directional/bidirectional field; transcript-backed claims/withholding; all three treatment locks; `youtube_synthesis_lock: pass`; selected discussion audits' `synthesis_lock: pass`. Call `assess_treatment_landscape_coverage`; unavailable=`assessor_tool_unavailable` and fail closed. Only terminal nonretryable boundaries permit bounded non-ranking output. **Videos actually audited** needs linked title, program, value, and plain-language boundary.
 
-Continue executable work if `further_expansion_likely_to_improve_answer` would be `yes`. A final answer may report only `no` or `blocked` with a reason.
+A first pass stops at saturation, ~6 fully audited videos or ~4 rounds, and ends with open leads. Deep research continues while `further_expansion_likely_to_improve_answer` would be `yes`; a complete answer reports only `no` or `blocked` with a reason.
 
 Translate internal status codes into plain language; expose codes only when the user explicitly asks for a technical audit or debug export.
 

@@ -16,14 +16,18 @@ change; review at `docs/audits/2026-09-26-hrp-20.6.0-consolidation.md`); HRP
 20.6.1 (owner-directed: a capped first pass with open leads replaces the fixed
 8-video / 6-program minimum, enforced by `finalize_research` and the landscape
 checker); HRP 20.6.2 (owner-approved: ten method sections shortened with the
-same meaning, after two independent meaning reviews); Universal 20.5.29
+same meaning, after two independent meaning reviews); HRP 20.6.3 (conformance
+with 20.6.1: a final self-check, a regression case, the Project router and the
+Forum Signal module still stated the old minimum or told the model to keep
+widening during a first pass); Universal 20.5.29
 (owner-approved: precise clinical terms replace the euphemism rule); scout-first
 discovery (owner-approved: the Gemini scout finds videos, comment-named remedies
 go back to it as `rediscovery_leads`, and the YouTube survey is the fallback,
 because YouTube search is capped at 100 calls a day per project). Claude test runner and blinded Opus judge under
-`evaluation/instruction-optimization/`. Open: method-section consolidation as an
-owner approval packet; the GPT route (owner decision, see the plan); smoke and
-held-out comparison runs (YouTube quota about 3 runs a day per key). The MAST
+`evaluation/instruction-optimization/`. Open: the coverage-checker cost (owner
+decision, see the plan); the GPT route (owner decision); the rerun on the fixed
+head and the held-out comparison runs (YouTube search is capped at 100 calls a
+day per project, and saved runs used 22 to 49 searches each). The MAST
 records below are unchanged; the owner set aside a full MAST rerun for this task.
 
 ## Authority and parent task
