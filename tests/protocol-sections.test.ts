@@ -13,6 +13,18 @@ import {
 
 const sha256 = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
 
+/** Linear scan, so no regular expression can backtrack on long comment runs. */
+function onlyWhitespaceAndComments(text: string): boolean {
+  let rest = text.trimStart();
+  while (rest.length > 0) {
+    if (!rest.startsWith("<!--")) return false;
+    const end = rest.indexOf("-->", 4);
+    if (end < 0) return false;
+    rest = rest.slice(end + 3).trimStart();
+  }
+  return true;
+}
+
 describe("protocol sections", () => {
   it.each([
     ["hrp", "HRP_Full.xml", 60],
@@ -40,7 +52,7 @@ describe("protocol sections", () => {
     );
     for (const gap of between) {
       // Only whitespace and complete comments may sit between sections.
-      expect(gap).toMatch(/^(?:\s|<!--[\s\S]*?-->)*$/u);
+      expect({ gap, clean: onlyWhitespaceAndComments(gap) }).toMatchObject({ clean: true });
     }
     for (const core of coreSectionNames(name)) {
       expect(sections.find((section) => section.name === core)?.core).toBe(true);

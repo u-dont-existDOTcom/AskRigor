@@ -659,10 +659,11 @@ function pageFrom(
       continue;
     }
     const length = Math.min(SEGMENT_CHARACTERS, remaining);
-    const cost = length + SEGMENT_METADATA_CHARACTERS +
+    const text = block.text.slice(characterOffset, characterOffset + length);
+    // Count the serialized text: JSON escaping doubles newline-heavy segments.
+    const cost = JSON.stringify(text).length + SEGMENT_METADATA_CHARACTERS +
       JSON.stringify(block.section_path).length + block.kind.length;
     if (blocks.length > 0 && usedCharacters + cost > RESPONSE_PAGE_CHARACTERS) break;
-    const text = block.text.slice(characterOffset, characterOffset + length);
     const segmentNumber = Math.floor(characterOffset / SEGMENT_CHARACTERS) + 1;
     const segmentCount = Math.ceil(block.text.length / SEGMENT_CHARACTERS);
     blocks.push({

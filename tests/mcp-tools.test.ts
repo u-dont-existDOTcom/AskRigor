@@ -1693,6 +1693,41 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
+  it("issues a pubmed_record receipt carrying the DOI PubMed lists", async () => {
+    const { client, server } = await createInMemoryClient();
+    const body = await readFile(new URL("fixtures/pubmed/efetch-record.xml", import.meta.url), "utf8");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const previous = {
+      tool: process.env.NCBI_TOOL,
+      email: process.env.NCBI_EMAIL,
+      continuationSecret: process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET,
+      finalizationSecret: process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET
+    };
+    process.env.NCBI_TOOL = "askrigor-mcp-tests";
+    process.env.NCBI_EMAIL = "maintainer@example.test";
+    process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET = "mcp-continuation-secret-value-32-bytes";
+    delete process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET;
+
+    try {
+      const result = await client.callTool({ name: "fetch_pubmed_record", arguments: { pmid: "40123456" } });
+
+      expect(result.isError).not.toBe(true);
+      expect(result.structuredContent).toMatchObject({ access_status: "api_visible_complete" });
+      const receipt = (result.structuredContent as { research_receipt: string }).research_receipt;
+      expect(verifyResearchReceipt(receipt, { secret: "mcp-continuation-secret-value-32-bytes" })).toMatchObject({
+        ok: true,
+        kind: "pubmed_record",
+        claims: { pmid: "40123456", doi: "10.1234/recorded.example" }
+      });
+    } finally {
+      restoreEnvironment("NCBI_TOOL", previous.tool);
+      restoreEnvironment("NCBI_EMAIL", previous.email);
+      restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previous.continuationSecret);
+      restoreEnvironment("ASKRIGOR_FINALIZATION_SIGNING_SECRET", previous.finalizationSecret);
+      await server.close();
+    }
+  });
+
   it("returns a normalized Europe PMC envelope with provider identifiers and cursor", async () => {
     const { client, server } = await createInMemoryClient();
     const body = await readFile(

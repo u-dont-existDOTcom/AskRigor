@@ -772,10 +772,11 @@ function defineResearchOperations(
         // The receipt records whether PubMed lists a DOI, which decides whether
         // finalize_research may accept this PMID as a lead without acquisition.
         const record = result.data as { pmid?: string; doi?: string } | undefined;
+        const retrieved = result.access_status === "api_visible_complete" || result.access_status === "complete";
         return withResearchReceipt(pubmedToolResult(
           `PubMed record ${pmid} retrieval finished with access status ${result.access_status}.`,
           result
-        ), result.access_status === "complete" && record?.pmid === pmid
+        ), retrieved && record?.pmid === pmid
           ? researchReceipt("pubmed_record", { pmid, doi: record.doi })
           : undefined);
       } catch (error) {

@@ -75,6 +75,24 @@ describe("open-full-text Actions", () => {
     expect(pages).toBeGreaterThan(2);
   });
 
+  it("budgets pages by serialized size when escaping doubles the text", async () => {
+    // Newlines serialize as two characters, so 30,000 raw characters become about 60,000.
+    const routes = createOpenFullTextActionRoutes({
+      acquire: async () => acquisition(documentIndex("a\n".repeat(15_000))),
+      unpaywallConfig: { email: "research@example.org" }
+    });
+
+    let page = await action(routes, "acquire_open_full_text", { doi: DOI });
+    const handle = (page.body as { coverage_receipt: { document_handle: string } })
+      .coverage_receipt.document_handle;
+    for (;;) {
+      expect(page.status).toBe(200);
+      expect(JSON.stringify(page.body).length).toBeLessThanOrEqual(40_000);
+      if ((page.body as { coverage_receipt: { exhausted: boolean } }).coverage_receipt.exhausted) break;
+      page = await action(routes, "continue_open_full_text", { document_handle: handle });
+    }
+  });
+
   it("forces contiguous full-text reading before accepting a method audit", async () => {
     const index = documentIndex("A method-rich source paragraph. ".repeat(1_500));
     const routes = createOpenFullTextActionRoutes({
