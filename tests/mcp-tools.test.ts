@@ -821,7 +821,11 @@ describe("AskRigor MCP tools", () => {
       });
       expect(uncaveated.structuredContent).toMatchObject({
         status: "not_ready",
-        next_steps: [expect.stringMatching(/^The answer leaves out required limits: that no study's methods were checked in full text\./u)]
+        caveats: ["No study's methods were checked in full text for this answer."],
+        next_steps: [
+          "The answer leaves out this caveat; include each as written (a link's text may change): \"No study's " +
+            "methods were checked in full text for this answer.\""
+        ]
       });
       expect((uncaveated.structuredContent as { finalization_receipt?: string }).finalization_receipt).toBeUndefined();
       const declined = await client.callTool({
@@ -829,7 +833,7 @@ describe("AskRigor MCP tools", () => {
         arguments: {
           ...dosing,
           answer_draft: "Multiply the dose per kilogram by the body weight: 5 mg/kg for 20 kg is 100 mg. No study's " +
-            "methods were checked in full text."
+            "methods were checked in full text for this answer."
         }
       });
       expect(declined.structuredContent).toMatchObject({
@@ -853,7 +857,7 @@ describe("AskRigor MCP tools", () => {
           research_target: "Adults asking about a dosing calculation",
           not_relevant_reason: "A dosing arithmetic question with no treatment choice.",
           key_sources: [],
-          answer_draft: "5 mg/kg for 20 kg is 100 mg; no study's methods were checked in full text. " +
+          answer_draft: "5 mg/kg for 20 kg is 100 mg. No study's methods were checked in full text for this answer. " +
             "DeepForumAuditActivationPrompt: none needed (LimitsNote)."
         }
       });

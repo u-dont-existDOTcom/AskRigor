@@ -49,6 +49,8 @@ export const finalizeResearchInputSchema = z.object({
     why: z.string().trim().min(1).max(500)
   }).strict()).max(12).optional()
     .describe("When a first pass stops before discovery saturates: each topic or subtopic where more community signal is likely, and why."),
+  another_pass_estimate: z.string().trim().min(1).max(200).optional()
+    .describe("With open_leads: roughly what another pass would take, with a number and unit, such as \"about 20 minutes and 15 YouTube searches\"."),
   community_findings: z.object({
     videos_reviewed: z.array(youtubeVideoIdSchema).min(1).max(60)
       .describe("Every video whose comments you read."),
@@ -70,8 +72,8 @@ export const finalizeResearchInputSchema = z.object({
     .describe("Each study your conclusions depend on: validated after a full-text method audit, or lead_only when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text."),
   answer_draft: z.string().trim().min(1).max(60_000).optional()
     .describe("The answer you are about to give, exactly as the user will see it. Needed before the gate reports ready; " +
-      "it is checked for internal labels, bare video IDs, a pasted long prompt, the comment lane and each listed " +
-      "limit (in the sentence that names what it qualifies), and is not stored.")
+      "it is checked for internal labels, bare video IDs, a pasted long prompt, the comment lane and the caveats " +
+      "(each as written), and is not stored.")
 }).strict();
 
 export type FinalizeResearchInput = z.output<typeof finalizeResearchInputSchema>;
@@ -87,6 +89,8 @@ export const finalizeResearchOutputSchema = z.object({
   status: finalizationStatusSchema,
   next_steps: z.array(z.string()),
   limits: z.array(z.string()),
+  caveats: z.array(z.string())
+    .describe("Sentences the answer must contain as written; a link's text may change, and context may surround them."),
   must_report: z.array(z.string())
     .describe("What the answer must report from each evidence lane researched, even when weak or neutral."),
   receipts_verified: z.number().int().nonnegative(),
@@ -148,6 +152,7 @@ export function finalizeResearch(
       limits: [
         "This AskRigor server cannot verify research receipts, so say that research completion was not server-verified."
       ],
+      caveats: [],
       must_report: input.community_findings === undefined
         ? []
         : [communityLane(input.community_findings, input.community_findings.videos_reviewed.length)],
@@ -186,12 +191,12 @@ export function finalizeResearch(
 
   const nextSteps: string[] = [];
   const limits: string[] = [];
-  // What each limit needs the answer to say, so the final check can find it
-  // in the draft; the limit's own sentence always satisfies its check.
-  const limitChecks: LimitCheck[] = [];
-  const requireLimit = (text: string, ...checks: LimitCheck[]): void => {
+  // Each limit's sentences for the user, written here so the answer carries
+  // them as they are: a caveat cannot be dropped, garbled or negated.
+  const caveats: string[] = [];
+  const requireLimit = (text: string, ...sentences: string[]): void => {
     limits.push(text);
-    limitChecks.push(...checks);
+    caveats.push(...sentences);
   };
   if (rejected.length > 0) {
     nextSteps.push(
@@ -281,7 +286,7 @@ export function finalizeResearch(
       requireLimit(
         `${partialSurveys} community survey(s) were only partly completed (some searches failed or hit limits); ` +
           "say the community picture may be incomplete.",
-        LIMIT_CHECKS.incomplete
+        "Some YouTube searches failed or hit limits, so the community picture may be incomplete."
       );
     }
     materialVideos = [...new Set(input.material_video_ids ?? auditedVideos)].sort();
@@ -305,17 +310,28 @@ export function finalizeResearch(
             (saturation.rateLimited > 0 ? " Include the searches YouTube's rate limit or daily quota stopped." : "")
         );
       } else {
-        requireLimit(
-          `First pass only; discovery had not saturated. End the answer with the open leads (${openLeads.join("; ")}), ` +
-            "in plain language for the user (no video IDs or internal codes), why each looks promising and roughly what " +
-            "another pass would cost, and ask whether to continue on all or part.",
-          ...openLeadsChecks(input.open_leads ?? [])
-        );
-        if (saturation.rateLimited > 0) {
+        const estimate = input.another_pass_estimate === undefined ? undefined : withoutEndPunctuation(input.another_pass_estimate);
+        if (estimate === undefined || !PASS_COST_AMOUNT.test(estimate)) {
+          nextSteps.push(
+            "Give another_pass_estimate: roughly what another pass over the open leads would take, with a number and " +
+              "unit (for example, \"about 20 minutes and 15 YouTube searches\")."
+          );
+        } else {
           requireLimit(
-            `YouTube's rate limit or daily quota stopped ${saturation.rateLimited} search(es) in the latest discovery ` +
+            `First pass only; discovery had not saturated. End the answer with the open leads (${openLeads.join("; ")}), ` +
+              "in plain language for the user (no video IDs or internal codes), why each looks promising and roughly what " +
+              "another pass would cost, and ask whether to continue on all or part.",
+            ...(input.open_leads ?? []).map(({ topic, why }) => `Open lead: ${topic.trim()}. ${asSentence(why)}`),
+            `Another pass would take ${estimate}; want me to continue with all or some of these leads?`
+          );
+        }
+        if (saturation.rateLimited > 0) {
+          const stopped = saturation.rateLimited;
+          requireLimit(
+            `YouTube's rate limit or daily quota stopped ${stopped} search(es) in the latest discovery ` +
               "rounds; say so, and that another pass can rerun them once the limit resets.",
-            LIMIT_CHECKS.searchLimit
+            `YouTube's daily search limit stopped ${stopped === 1 ? "1 search" : `${stopped} searches`} in this first ` +
+              `pass; another pass can rerun ${stopped === 1 ? "it" : "them"} after the limit resets.`
           );
         }
       }
@@ -328,12 +344,14 @@ export function finalizeResearch(
           requireLimit(
             "No video turned up before YouTube's rate limit or daily quota stopped discovery; say that community " +
               "evidence could not be checked yet, not that it is thin.",
-            LIMIT_CHECKS.notChecked
+            "YouTube's search limit stopped discovery before any video turned up, so community evidence could not be " +
+              "checked yet."
           );
         } else {
           requireLimit(
             `No video turned up in ${rounds.length} discovery rounds; say that community evidence on this is thin.`,
-            LIMIT_CHECKS.thin
+            `No relevant video turned up in ${rounds.length === 1 ? "1 round" : `${rounds.length} rounds`} of ` +
+              "searching, so community evidence on this is thin."
           );
         }
       } else if (input.no_material_video_reason === undefined) {
@@ -345,10 +363,14 @@ export function finalizeResearch(
         requireLimit(
           `None of the ${discovered.size} video(s) found in ${rounds.length} discovery rounds was worth auditing; ` +
             "say that community evidence on this is thin.",
-          LIMIT_CHECKS.thin
+          discovered.size === 1
+            ? "The only video found was not worth a close look, so community evidence on this is thin."
+            : `None of the ${discovered.size} videos found was worth a close look, so community evidence on this is thin.`
         );
       }
     }
+    const partlyRead: string[] = [];
+    const unfinished: string[] = [];
     for (const video of materialVideos) {
       if (!discovered.has(video)) {
         nextSteps.push(offTargetVideos.has(video)
@@ -366,16 +388,27 @@ export function finalizeResearch(
         continue;
       }
       if (audit.state === "completed_with_access_boundary") {
-        requireLimit(
-          `Comments on video ${video} were only partly accessible; treat its community signal as bounded.`,
-          LIMIT_CHECKS.partlyAccessible(video)
-        );
+        requireLimit(`Comments on video ${video} were only partly accessible; treat its community signal as bounded.`);
+        partlyRead.push(video);
       } else if (audit.lock === "block") {
         requireLimit(
-          `The comment audit of video ${video} ended with blockers; its community signal cannot carry a conclusion on its own.`,
-          LIMIT_CHECKS.notOnItsOwn(video)
+          `The comment audit of video ${video} ended with blockers; its community signal cannot carry a conclusion on its own.`
         );
+        unfinished.push(video);
       }
+    }
+    if (partlyRead.length > 0) {
+      caveats.push(partlyRead.length === 1
+        ? `Some comments on ${videoLink(partlyRead[0]!, "this video")} could not be read, so its comment evidence is incomplete.`
+        : "Some comments could not be read on these videos, so their comment evidence is incomplete: " +
+          `${partlyRead.map((video, index) => videoLink(video, `video ${index + 1}`)).join(", ")}.`);
+    }
+    if (unfinished.length > 0) {
+      caveats.push(unfinished.length === 1
+        ? `The comment review of ${videoLink(unfinished[0]!, "this video")} ended with problems, so its comments cannot ` +
+          "support a conclusion on their own."
+        : "The comment reviews of these videos ended with problems, so their comments cannot support a conclusion on " +
+          `their own: ${unfinished.map((video, index) => videoLink(video, `video ${index + 1}`)).join(", ")}.`);
     }
   }
 
@@ -460,10 +493,14 @@ export function finalizeResearch(
   } else if (coverageBoundary === "bounded_nonranking_only") {
     requireLimit(
       "The treatment-coverage check allows only a bounded answer: do not rank or recommend among the treatment options.",
-      LIMIT_CHECKS.noRanking
+      "The evidence check allows only a limited comparison here, so this answer does not rank or recommend among the " +
+        "options."
     );
   } else if (coverageBoundary === "first_pass_with_open_leads" && input.research_depth === "first_pass") {
-    requireLimit("The treatment comparison rests on a first pass: present it as provisional.", LIMIT_CHECKS.provisional);
+    requireLimit(
+      "The treatment comparison rests on a first pass: present it as provisional.",
+      "This comparison rests on a first pass through the evidence, so treat it as provisional."
+    );
   } else if (coverageBoundary !== "ledger_consistent_for_synthesis") {
     nextSteps.push(
       `The latest assess_treatment_landscape_coverage result was ${coverageBoundary}: fix its selection and depth ` +
@@ -479,6 +516,8 @@ export function finalizeResearch(
   const pubmedDois = new Map<string, string>();
   // PMID -> PMCID when PubMed lists an open copy in PubMed Central.
   const pubmedPmcids = new Map<string, string>();
+  // DOI -> the PMCIDs its full_text_lead receipts tried ("" when none was).
+  const leadAttempts = new Map<string, Set<string>>();
   for (const { kind, claims } of verified) {
     if (kind === "pubmed_record" && typeof claims.pmid === "string") {
       pubmedDois.set(normalizeIdentifier(claims.pmid), typeof claims.doi === "string" ? normalizeIdentifier(claims.doi) : "");
@@ -497,22 +536,23 @@ export function finalizeResearch(
         const value = claims[key];
         if (typeof value === "string" && value.length > 0) leadIds.add(normalizeIdentifier(value));
       }
+      if (typeof claims.doi === "string" && claims.doi !== "") {
+        const doi = normalizeIdentifier(claims.doi);
+        const tried = leadAttempts.get(doi) ?? new Set<string>();
+        tried.add(typeof claims.pmcid === "string" ? claims.pmcid.toUpperCase() : "");
+        leadAttempts.set(doi, tried);
+      }
     }
   }
-  // Every identifier the answer may cite each key study by: its own, and the
-  // DOI, PMCID or PMID its PubMed record receipt links to it.
-  const citedAs = input.key_sources.map((source) => {
-    const id = normalizeIdentifier(source.id);
-    const linked = isPmid(id)
-      ? [pubmedDois.get(id) ?? "", pubmedPmcids.get(id) ?? ""]
-      : [...pubmedDois].filter(([, doi]) => doi === id).map(([pmid]) => pmid);
-    return [...new Set([id, ...linked])].filter((identifier) => identifier !== "");
-  });
-  const leadCheck = (index: number, source: string): LimitCheck =>
-    LIMIT_CHECKS.notReadInFull(source, citedAs[index]!, citedAs.filter((_, other) => other !== index));
+  // The PubMed Central copy PubMed links to a study, by PMID or by DOI.
+  const pmcidFor = (id: string): string | undefined => {
+    if (isPmid(id)) return pubmedPmcids.get(id);
+    const pmid = isDoi(id) ? [...pubmedDois].find(([candidate, doi]) => doi === id && pubmedPmcids.has(candidate))?.[0] : undefined;
+    return pmid === undefined ? undefined : pubmedPmcids.get(pmid);
+  };
   const validatedSources: string[] = [];
   const leadSources: string[] = [];
-  for (const [index, source] of input.key_sources.entries()) {
+  for (const source of input.key_sources) {
     const id = normalizeIdentifier(source.id);
     // A PMID's DOI (from its PubMed record receipt) also identifies the study.
     const pubmedDoi = isPmid(id) ? pubmedDois.get(id) : undefined;
@@ -522,10 +562,21 @@ export function finalizeResearch(
       continue;
     }
     if (ids.some((candidate) => leadIds.has(candidate))) {
+      // An open copy PubMed links to the study must be tried before it is a lead.
+      const doi = isDoi(id) ? id : pubmedDoi !== undefined && pubmedDoi !== "" ? pubmedDoi : undefined;
+      const openCopy = pmcidFor(id);
+      if (doi !== undefined && openCopy !== undefined && !(leadAttempts.get(doi)?.has(openCopy) ?? false)) {
+        nextSteps.push(
+          `PubMed lists an open copy of ${source.id} in PubMed Central (${openCopy}) that the full-text attempt did not ` +
+            `try: call acquire_open_full_text with DOI ${doi} and pmcid ${openCopy}, then audit it, or pass the new ` +
+            "research_receipt if it still finds no full text."
+        );
+        continue;
+      }
       leadSources.push(source.id);
       requireLimit(
         `Cite ${source.id} as a lead: no open full text was available, so its methods were not audited.`,
-        leadCheck(index, source.id)
+        unreadStudyCaveat(id)
       );
       continue;
     }
@@ -557,7 +608,7 @@ export function finalizeResearch(
       leadSources.push(source.id);
       requireLimit(
         `Cite ${source.id} as a lead: PubMed lists no DOI, so no open full text could be acquired and its methods were not audited.`,
-        leadCheck(index, source.id)
+        unreadStudyCaveat(id)
       );
       continue;
     }
@@ -572,7 +623,7 @@ export function finalizeResearch(
   if (input.key_sources.length === 0) {
     requireLimit(
       "No study was declared decision-critical; say that no study's methods were checked in full text.",
-      LIMIT_CHECKS.noStudyChecked
+      "No study's methods were checked in full text for this answer."
     );
   }
 
@@ -592,7 +643,7 @@ export function finalizeResearch(
       commentsRead: commentVideos.size > 0,
       videoIds: [...new Set([...discovered, ...auditedAtAll])],
       protocolNames: options.protocolNames ?? new Set(),
-      limitChecks,
+      caveats,
       ...(input.community_findings === undefined ? {} : { effectOnAnswer: input.community_findings.effect_on_answer })
     }));
   }
@@ -606,6 +657,7 @@ export function finalizeResearch(
     status,
     next_steps: nextSteps,
     limits,
+    caveats,
     must_report: mustReport,
     receipts_verified: verified.length,
     receipts_rejected: [...rejected, ...offTarget].sort((left, right) => left.index - right.index),
@@ -684,7 +736,7 @@ function answerDraftProblems(
     commentsRead: boolean;
     videoIds: string[];
     protocolNames: ReadonlySet<string>;
-    limitChecks: readonly LimitCheck[];
+    caveats: readonly string[];
     effectOnAnswer?: string;
   }
 ): string[] {
@@ -739,213 +791,64 @@ function answerDraftProblems(
       );
     }
   }
-  // Each limit this research carries must reach the answer, next to what it qualifies.
-  const sentences = draftSentences(draft);
-  const missingLimits = [...new Set(context.limitChecks.filter(({ met }) => !met(sentences)).map(({ label }) => label))];
-  if (missingLimits.length > 0) {
+  // Each caveat the server wrote must reach the answer as written.
+  const answer = caveatForm(draft);
+  const missingCaveats = context.caveats.filter((caveat) => !answer.includes(caveatForm(caveat).replace(/[.!?]$/u, "")));
+  if (missingCaveats.length > 0) {
     problems.push(
-      `The answer leaves out required limits: ${missingLimits.join("; ")}. State each in plain words, in the ` +
-        "sentence that names what it qualifies, as the limits list below says."
+      `The answer leaves out ${missingCaveats.length === 1 ? "this caveat" : "these caveats"}; include each as written ` +
+        `(a link's text may change): ${missingCaveats.map((caveat) => `"${caveat}"`).join(" ")}`
     );
   }
   return problems;
 }
 
-/** One sentence of the answer draft, with its links and without them. */
-interface DraftSentence {
-  raw: string;
-  prose: string;
-  words: ReadonlySet<string>;
-  // The paragraph or list item it belongs to; a heading joins the block after it.
-  block: number;
-}
-
-interface LimitCheck {
-  label: string;
-  met: (sentences: readonly DraftSentence[]) => boolean;
-}
-
-// A heading, or a line that is only bold text, introduces the block after it.
-const HEADING_LINE = /^(?:#{1,6}\s.*|(?:[-*+]\s+|\d+[.)]\s+)?(?:\*\*[^*]+\*\*|__[^_]+__):?)$/u;
-
-function draftSentences(draft: string): DraftSentence[] {
-  const blocks: string[] = [];
-  let heading = "";
-  for (const line of draft.split(/\r?\n/u).map((text) => text.trim()).filter((text) => text !== "")) {
-    if (HEADING_LINE.test(line)) {
-      heading = heading === "" ? line : `${heading}. ${line}`;
-      continue;
-    }
-    blocks.push(heading === "" ? line : `${heading}. ${line}`);
-    heading = "";
-  }
-  if (heading !== "") blocks.push(heading);
-  return blocks.flatMap((block, index) => block.split(/(?<=[.!?])\s+/u).map((raw) => {
-    const prose = raw.replace(URL, " ");
-    return { raw, prose, words: new Set(prose.toLowerCase().match(/\p{L}{4,}/gu) ?? []), block: index };
-  }));
-}
-
-/** The sentence at index and its neighbors in the same paragraph or list item. */
-function nearby(sentences: readonly DraftSentence[], index: number): DraftSentence[] {
-  const block = sentences[index]!.block;
-  return sentences.filter((sentence, other) => Math.abs(other - index) <= 1 && sentence.block === block);
-}
+// Bounded and closed to brackets and parentheses, so a long draft is read in linear time.
+const MARKDOWN_LINK = /\[[^[\]\n]{0,500}\]\(([^\s()[\]]{1,2048})\)/gu;
 
 /**
- * A limit stated next to what it qualifies: in a sentence that names the item,
- * or in the sentence before or after it within the same paragraph or list
- * item, unless that sentence names another item of the same kind.
+ * Text as the caveat check compares it: a link by its target (so its text may
+ * change), with quotes, dashes, emphasis, spacing and case ignored.
  */
-function statedNear(
-  label: string,
-  names: (sentence: DraftSentence) => boolean,
-  qualifies: (sentence: DraftSentence) => boolean,
-  namesOther: (sentence: DraftSentence) => boolean = () => false
-): LimitCheck {
-  return {
-    label,
-    met: (sentences) => sentences.some((sentence, index) =>
-      names(sentence) &&
-      nearby(sentences, index).some((near) => (near === sentence || !namesOther(near)) && qualifies(near)))
-  };
+function caveatForm(text: string): string {
+  return text
+    .replace(MARKDOWN_LINK, "$1")
+    .replace(/[\u2018\u2019\u02BC]/gu, "'")
+    .replace(/[\u201C\u201D]/gu, "\"")
+    .replace(/[\u2013\u2014]/gu, "-")
+    .replace(/[*_`]/gu, "")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .toLowerCase();
 }
 
-const matches = (pattern: RegExp) => (sentence: DraftSentence): boolean => pattern.test(sentence.prose);
-/** A limit stated in one sentence that matches every pattern. */
-const stated = (label: string, ...patterns: RegExp[]): LimitCheck => ({
-  label,
-  met: (sentences) => sentences.some((sentence) => patterns.every((pattern) => pattern.test(sentence.prose)))
-});
+const videoLink = (video: string, text: string): string => `[${text}](https://www.youtube.com/watch?v=${video})`;
 
-const COMMUNITY =
-  /\b(?:youtube|videos?|comments?|commenters?|viewers?|community|firsthand|first-hand|forums?|anecdot\w*|experiences?|people (?:who|posting|commenting|online))\b/iu;
-const SEARCH_LIMIT = /\b(?:quota|rate[- ]?limit(?:ed|s)?|daily (?:search )?limit|search limit|youtube['’]?s? limit)\b/iu;
-const NO_SEARCH_LIMIT = /\b(?:no|never|without) (?:\S+ ){0,2}?(?:quota|rate[- ]?limits?|daily (?:search )?limit|search limit)\b/iu;
-const LIMIT_STOPPED =
-  /\b(?:stopp(?:ed|ing)|stops?|cut (?:short|off)|blocked|halted|interrupted|prevented|hit|reached|ran out|run out|exhausted|used up|could(?:n['’]t| not) (?:run|finish|complete)|did(?:n['’]t| not) (?:run|finish|complete)|unfinished|incomplete)\b/iu;
-const LIMIT_RERUN =
-  /\b(?:re-?run|run (?:them |it |those |these )?again|another pass|next pass|second pass|try(?:ing)? (?:them |it )?again|retry|resets?|tomorrow)\b/iu;
-const VIDEO_LINK = /(?:youtube\.com\/(?:watch\?(?:[^\s)&]*&)*v=|shorts\/|embed\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/gu;
-const linkedVideos = (raw: string): string[] => [...raw.matchAll(VIDEO_LINK)].map(([, id]) => id!);
-const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-
-/** Whether text cites a study identifier (normalized), bare or inside a link. */
-function citesIdentifier(raw: string, identifier: string): boolean {
-  const forms = isDoi(identifier) ? [identifier, encodeURIComponent(identifier)] : [identifier];
-  return forms.some((form) =>
-    new RegExp(`(?<![A-Za-z0-9])${escapeRegExp(form)}(?![A-Za-z0-9])`, "iu").test(raw));
+/** The caveat for a key study read only as a lead, linked by its identifier. */
+function unreadStudyCaveat(id: string): string {
+  // A DOI may contain parentheses, which would end a Markdown link.
+  const url = isDoi(id)
+    ? `https://doi.org/${id.replace(/\(/gu, "%28").replace(/\)/gu, "%29")}`
+    : isPmid(id) ? `https://pubmed.ncbi.nlm.nih.gov/${id}/` : `https://www.ncbi.nlm.nih.gov/pmc/articles/${id}/`;
+  return `The full text of [this study](${url}) was not openly available, so its methods were not checked.`;
 }
 
-// Each pattern takes the answer's own words for the limit. A community limit
-// shares a sentence with a mention of the community evidence; a video's or a
-// study's sits next to its link or identifier.
-const LIMIT_CHECKS = {
-  incomplete: stated(
-    "that the community picture may be incomplete",
-    COMMUNITY,
-    /\b(?:incomplete|partial(?:ly)?|not (?:all|every) (?:searches|search|videos?|comments?|results?)|not complete|some searches (?:failed|did(?:n['’]t| not)|were (?:stopped|cut)|stopped|hit)|may be missing|missing some|limited (?:search|coverage|picture))/iu
-  ),
-  searchLimit: {
-    label: "that YouTube's search limit stopped some searches, and that another pass can rerun them once it resets",
-    met: (sentences) => sentences.some((sentence, index) => {
-      if (!SEARCH_LIMIT.test(sentence.prose) || NO_SEARCH_LIMIT.test(sentence.prose)) return false;
-      const around = nearby(sentences, index).map(({ prose }) => prose).join(" ");
-      return LIMIT_STOPPED.test(around) && LIMIT_RERUN.test(around);
-    })
-  } satisfies LimitCheck,
-  notChecked: stated(
-    "that community evidence could not be checked yet",
-    COMMUNITY,
-    /\b(?:could(?:n['’]t| not)(?: yet)? (?:be )?(?:check|search|look|read)|not (?:yet )?(?:been )?(?:checked|searched)|unchecked)/iu
-  ),
-  thin: stated(
-    "that community evidence on this is thin",
-    COMMUNITY,
-    /\b(?:thin|scarce|sparse|not much|hardly any|lack(?:s|ing)?|(?:very )?little (?:evidence|signal|discussion|data|to go on)|limited (?:evidence|signal|discussion|data)|(?<!\ba )few (?:videos?|reports?|people|commenters|sources|posts)|no (?:useful |relevant |firsthand )?(?:videos?|community|evidence|reports?))\b/iu
-  ),
-  partlyAccessible: (video: string) => statedNear(
-    `that some comments on video ${video} could not be read, next to its linked title`,
-    (sentence) => linkedVideos(sentence.raw).includes(video),
-    matches(/\b(?:partly|partially|partial|not all (?:the |of the )?comments|some comments|could(?:n['’]t| not) (?:be )?(?:read|accessed|retrieved|loaded)|inaccessible|restricted|limited access)/iu),
-    (sentence) => linkedVideos(sentence.raw).some((other) => other !== video)
-  ),
-  notOnItsOwn: (video: string) => statedNear(
-    `that the comments on video ${video} cannot carry a conclusion on their own, next to its linked title`,
-    (sentence) => linkedVideos(sentence.raw).includes(video),
-    matches(/\b(?:on (?:its|their) own|by (?:itself|themselves)|alone)\b|\bcan(?:not|['’]t) (?:carry|support|settle|decide|establish|stand)\b|\b(?:not enough|too (?:limited|few|thin|weak|incomplete)) (?:to|for)\b|\b(?:weak|limited|thin|incomplete|partial) (?:signal|evidence|picture)\b/iu),
-    (sentence) => linkedVideos(sentence.raw).some((other) => other !== video)
-  ),
-  noRanking: stated(
-    "that the options are not ranked or one recommended",
-    /\b(?:(?:can(?:not|['’]t)|won['’]t|do(?:es)? not|don['’]t|not) (?:(?:yet )?rank|recommend|say which|pick|choose)|no (?:clear )?(?:winner|ranking|best option)|without (?:a )?ranking)/iu
-  ),
-  provisional: stated(
-    "that the treatment comparison is provisional",
-    /\b(?:provisional|preliminary|first pass|initial (?:look|pass|scan|search)|tentative|may change|not (?:yet )?(?:final|complete))\b/iu
-  ),
-  // own: the study's identifiers; others: every other key study's.
-  notReadInFull: (source: string, own: readonly string[], others: ReadonlyArray<readonly string[]>) => statedNear(
-    `that ${source} was not read in full, next to where the answer cites it by link or identifier`,
-    (sentence) => own.some((identifier) => citesIdentifier(sentence.raw, identifier)),
-    matches(/\b(?:not (?:been )?(?:read|checked|audited|verified|reviewed)|n['’]t (?:been )?(?:read|checked|audited|verified)|could(?:n['’]t| not) (?:be )?(?:read|checked|obtained|accessed)|unverified|paywall\w*|abstracts? only|only (?:the |its |their |an )?abstracts?|full text (?:was |is )?(?:not|n['’]t|un)available|no (?:open |free )?full text|as a lead|leads? only)/iu),
-    (sentence) => others.some((identifiers) => identifiers.some((identifier) => citesIdentifier(sentence.raw, identifier)))
-  ),
-  noStudyChecked: stated(
-    "that no study's methods were checked in full text",
-    /\b(?:no stud(?:y|ies)|none of the studies)\b[^.!?]*\b(?:methods?|full[- ]?text|in full)\b|\bnot (?:been )?(?:read|checked|audited|verified) in full\b|\bmethods? (?:were|was) not (?:read|checked|audited)\b/iu
-  )
-} as const;
+/** Text without surrounding spaces or a closing period or semicolon, spaces made single. */
+function withoutEndPunctuation(text: string): string {
+  let result = text.replace(/\s+/gu, " ").trim();
+  while (result.endsWith(".") || result.endsWith(";")) result = result.slice(0, -1).trimEnd();
+  return result;
+}
 
-const OFFERS_ANOTHER_PASS =
-  /\b(?:(?:another|a second|a deeper|a further|the next|one more) (?:pass|round|search|look)|continue|dig deeper|keep (?:going|looking|searching)|want me to|would you like|shall I|should I)\b/iu;
-// What another pass would take, in the answer's words.
-const PASS_COST_SUBJECT =
-  /\b(?:(?:another|a second|a deeper|a further|the next|one more|each) (?:pass|round|search|look)|continu\w*|dig(?:ging)? deeper|follow(?:ing)?[- ]?up|more (?:searches|research|rounds|digging)|would (?:take|cost|need|use|add))\b/iu;
+const asSentence = (text: string): string => {
+  const trimmed = text.trim();
+  const capitalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  return /[.!?]$/u.test(capitalized) ? capitalized : `${capitalized}.`;
+};
+
+// What another pass would take: a number or amount with a unit of time or work.
 const PASS_COST_AMOUNT =
-  /\b(?:(?:\d+|a few|a couple of|several|one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty|thirty|forty|fifty|sixty)(?:\s*(?:to|-|–|or)\s*(?:\d+|two|three|four|five|ten|fifteen|twenty|thirty|sixty))?\s+(?:more\s+)?(?:minutes?|mins?|hours?|searches|search calls|tool calls|calls|rounds|passes)|(?:half )?an hour)\b/iu;
-// Common words that do not identify a lead or its reason.
-const LEAD_STOP_WORDS: ReadonlySet<string> = new Set([
-  "about", "after", "also", "been", "because", "both", "could", "does", "each", "from", "have", "into", "just",
-  "like", "many", "more", "most", "much", "only", "over", "said", "says", "some", "such", "than", "that", "their",
-  "them", "then", "there", "these", "they", "this", "those", "very", "were", "what", "when", "where", "which",
-  "while", "will", "with", "would", "your"
-]);
-const distinctiveWords = (text: string): string[] =>
-  [...new Set(text.toLowerCase().match(/\p{L}{4,}/gu) ?? [])].filter((word) => !LEAD_STOP_WORDS.has(word));
-
-/**
- * A first pass's open leads reach the answer: each named (half its topic's
- * words in one sentence) with its reason next to it (words from its `why`),
- * roughly what another pass would take, and an offer to continue.
- */
-function openLeadsChecks(leads: ReadonlyArray<{ topic: string; why: string }>): LimitCheck[] {
-  const topicWords = leads.map(({ topic }) => distinctiveWords(topic));
-  // A topic of short words only ("tai chi") is named by its whole text.
-  const namesLead = (index: number) => (sentence: DraftSentence): boolean => {
-    const words = topicWords[index]!;
-    return words.length === 0
-      ? sentence.prose.toLowerCase().includes(leads[index]!.topic.trim().toLowerCase())
-      : words.filter((word) => sentence.words.has(word)).length >= Math.ceil(words.length / 2);
-  };
-  return [
-    ...leads.map(({ topic, why }, index) => {
-      const reasonWords = distinctiveWords(why).filter((word) => !topicWords[index]!.includes(word));
-      const needed = reasonWords.length >= 3 ? Math.max(2, Math.ceil(reasonWords.length / 3)) : Math.min(1, reasonWords.length);
-      return statedNear(
-        `why the open lead "${topic}" looks promising, next to it`,
-        namesLead(index),
-        (sentence) => reasonWords.filter((word) => sentence.words.has(word)).length >= needed,
-        (sentence) => leads.some((_, other) => other !== index && namesLead(other)(sentence))
-      );
-    }),
-    {
-      label: "roughly what another pass would take, such as the minutes or searches",
-      met: (sentences) => sentences.some((sentence) => PASS_COST_SUBJECT.test(sentence.prose) && PASS_COST_AMOUNT.test(sentence.prose))
-    },
-    stated("an offer to continue on all or part of the open leads", OFFERS_ANOTHER_PASS)
-  ];
-}
+  /\b(?:(?:\d+|a few|a couple of|several|one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty|thirty|forty|fifty|sixty)(?: ?(?:to|-|\u2013|or) ?(?:\d+|two|three|four|five|ten|fifteen|twenty|thirty|sixty))? (?:more )?(?:minutes?|mins?|hours?|searches|search calls|tool calls|calls|rounds|passes|youtube searches)|(?:half )?an hour)\b/iu;
 
 // How far after a mention of YouTube or comments the lane's findings are read.
 const LANE_WINDOW_CHARACTERS = 1_200;

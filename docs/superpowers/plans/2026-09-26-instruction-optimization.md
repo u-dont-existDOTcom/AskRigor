@@ -832,6 +832,30 @@ and whether the final answer is the last checked draft. Cost: one more
   by its whole text, so it can be met. The `finalize_research` description now
   says the limits are checked where they apply. Ten mutations, one per
   binding or pattern, each fail a test.
+- Codex on d5daf1e (three P1s, all fixed):
+  - The pattern checks still took a denial as the caveat ("YouTube's quota did
+    not stop any searches, but another pass can rerun them"), and matched the
+    lead "PRP for hip pain" on "pain" alone. This was the third round of
+    counterexamples to reading the model's own wording, so the answer no longer
+    words its limits itself: the server writes each limit's caveat for the
+    user (`caveats` in the result), and the answer must contain every caveat as
+    written. The check compares text after ignoring spacing, case, quotes,
+    dashes and emphasis, and a link by its target, so a video or study can keep
+    its title as the link text. Open leads become caveats built from their
+    topic and `why`, and a new input, `another_pass_estimate` (a number and a
+    unit), gives what another pass would take. The sentence-level matching
+    from d5daf1e is gone; the change removes 89 lines net.
+  - A DOI-only full-text attempt was accepted as a lead even when a PubMed
+    record linked the study to an open PubMed Central copy. That copy must now
+    be tried (`acquire_open_full_text` with its pmcid) before the study is a
+    lead.
+  - The server instructions and skill now say to copy the caveats (the
+    instructions stay at 2,047 of 2,048 characters).
+  - Found in review before pushing: the first link pattern backtracked, so a
+    draft of 20,000 "[" characters took about half a second (the 60,000
+    allowed would take seconds). The pattern is now bounded and closed to
+    brackets and parentheses, and reads such drafts in about a millisecond; a
+    test pins it. A DOI's parentheses are percent-encoded in its link.
 
 ## Comment-audit call budget (2026-09-27)
 

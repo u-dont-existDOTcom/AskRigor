@@ -1679,10 +1679,10 @@ function defineResearchOperations(
         "audits; discovery for any other target does not count), whether community evidence was researched, whether " +
         "the answer compares treatment options, what the comments you read showed (community_findings), the " +
         "studies your conclusions depend on, and the answer you are about to give (answer_draft), which is checked " +
-        "for internal labels, bare video IDs, a pasted long prompt, the comment lane and the limits, and is not " +
-        "stored. not_ready lists the remaining steps; ready_with_limits lists limits the answer must state, each in " +
-        "the sentence that names what it qualifies; must_report lists what the answer must report from " +
-        "each lane researched; receipts_unavailable means this server cannot " +
+        "for internal labels, bare video IDs, a pasted long prompt, the comment lane and the caveats, and is not " +
+        "stored. not_ready lists the remaining steps; ready_with_limits lists limits, and caveats gives the " +
+        "sentences the answer must contain as written (a link's text may change); must_report lists what the " +
+        "answer must report from each lane researched; receipts_unavailable means this server cannot " +
         "verify completion, so do the required work anyway and say that completion was not server-verified.",
       inputSchema: finalizeResearchInputSchema,
       outputSchema: finalizeResearchOutputSchema,
@@ -1696,6 +1696,7 @@ function defineResearchOperations(
       return successfulToolResult(
         `Research finalization: ${result.status}; ${result.next_steps.length} next step(s), ` +
           `${result.limits.length} limit(s) to state; ${result.receipts_verified} receipt(s) verified.` +
+          result.caveats.map((caveat) => `\nThe answer must contain, as written: ${caveat}`).join("") +
           result.must_report.map((lane) => `\nThe answer must report: ${lane}`).join(""),
         result as unknown as Record<string, unknown>
       );
