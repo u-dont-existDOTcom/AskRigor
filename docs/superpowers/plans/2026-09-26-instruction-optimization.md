@@ -624,7 +624,8 @@ instead of 95–151 KB. A later step can keep the ledger between calls.
   - `finalize_research` checks the answer draft for leaked internal labels,
     and that an executed comment lane is present (server enforcement of
     existing HRP rules): built, see "Answer-draft check" below;
-  - server-derived access boundaries for discovery rounds;
+  - server-derived access boundaries for discovery rounds: built, see
+    "Access limits from receipts" below;
   - owner question on the pasted deep-forum prompt: answered at 19:14 UTC
     and built as HRP 20.6.5 (decision 10 above).
 
@@ -681,6 +682,28 @@ rules, no protocol change):
   mismatches). The view lists 20 mismatches with a stated limit, and a view
   that still cannot fit returns
   `youtube_video_community_audit_response_too_large`, never a cut result.
+
+## Access limits from receipts (2026-09-27)
+
+In the option A rerun, every coverage check returned `continue_research` in
+part because YouTube's daily search cap stopped discovery rounds, and the
+checker required a rate-limited boundary to stay retryable while treating any
+retryable boundary as unfinished work: the model could not state the cap as a
+limit (it wrote it as both retryable and terminal, then as a terminal rate
+limit). Now:
+
+- The checker treats a round stopped by a rate limit or daily quota like one
+  with an unread page: an open lead in a first pass, still blocking in deep
+  research. This follows the owner-directed first-pass rule; the 4fe4858
+  answer already listed "results after the search limit resets" as a lead.
+- The receipt-built ledger states a round's boundary from its receipt: a rate
+  limit or quota (retryable once it resets) or a refusal or missing resource
+  (terminal). A boundary the model supplies for such a round is set aside;
+  it still supplies boundaries for rounds that are partial or failed for
+  other reasons, and for videos and classes.
+- Survey and one-call community audit receipts count incomplete and
+  rate-limited searches (`inc`, `rl`), and a one-call audit signs its
+  searches' access apart from any comment boundary.
 
 ## Answer-draft check (2026-09-27)
 

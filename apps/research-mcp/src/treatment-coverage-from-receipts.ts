@@ -102,6 +102,9 @@ export const treatmentCoverageFromReceiptsInputSchema = z.object({
     eventual_standard_treatment: directionalSearchSchema
   }).strict(),
   access_boundaries: z.array(accessBoundarySchema).max(80).default([])
+    .describe("Access boundaries for videos, classes and other scopes. The server states a discovery round's own " +
+      "boundary when its receipt shows a rate limit, the daily search quota or a refusal; supply one only for a " +
+      "round that is partial or failed for another reason.")
 }).strict();
 
 export type TreatmentCoverageFromReceiptsInput = z.output<typeof treatmentCoverageFromReceiptsInputSchema>;
@@ -117,6 +120,8 @@ export const receiptDerivationSchema = z.object({
   scout_frontier_videos: z.number().int().nonnegative(),
   open_scout_titles: z.number().int().nonnegative()
     .describe("Titles scouts named but could not look up; search them by exact title with search_youtube."),
+  access_boundaries_derived: z.number().int().nonnegative()
+    .describe("Discovery rounds whose access boundary the server stated from the round's receipt."),
   input_problems: z.array(z.string())
 }).strict();
 
@@ -208,7 +213,8 @@ export function assessTreatmentCoverageFromReceipts(
   // The model's judgment. IDs starting "server:" are the server's own records.
   for (const id of [
     ...input.treatment_classes.map(({ class_id }) => class_id),
-    ...input.program_fingerprints.map(({ fingerprint_id }) => fingerprint_id)
+    ...input.program_fingerprints.map(({ fingerprint_id }) => fingerprint_id),
+    ...input.access_boundaries.map(({ boundary_id }) => boundary_id)
   ]) {
     if (id.startsWith("server:")) {
       problems.push(`ID ${id} is reserved for server-made records; rename it.`);
@@ -383,6 +389,9 @@ export function assessTreatmentCoverageFromReceipts(
       }
     }
   }
+  // A round's own access boundary comes from its receipt, so the model does
+  // not write it; a supplied one for the same round is set aside.
+  const derivedBoundaries: Ledger["access_boundaries"] = [];
   const batches: Ledger["discovery_batches"] = orderedRounds.map((round) => {
     const videos = unique(list(round.claims.videos));
     const classIds = unique([
@@ -396,13 +405,16 @@ export function assessTreatmentCoverageFromReceipts(
     const open = round.kind === "youtube_scout"
       ? openScoutTitles(round) > 0
       : Number(text(round.claims.open) || "0") > 0;
-    const boundaryId = boundaryIdFor("discovery_batch", batchId(round.index));
+    const access = roundAccess(round);
+    const derived = derivedRoundBoundary(batchId(round.index), access);
+    if (derived !== undefined) derivedBoundaries.push(derived);
+    const boundaryId = derived?.boundary_id ?? boundaryIdFor("discovery_batch", batchId(round.index));
     return {
       batch_id: batchId(round.index),
       query_or_scope: queryText.get(round.index) ??
         `${round.kind.replace("youtube_", "")} round, query digest ${text(round.claims.q) || "not signed"}`,
       treatment_class_ids: classIds.length === 0 ? [UNASSIGNED_CLASS] : classIds,
-      access_status: roundAccess(round),
+      access_status: access,
       pagination: { exhausted: !open, next_cursor_present: open },
       candidate_video_ids: videos,
       new_program_fingerprint_ids: [...firstRoundOfFingerprint.entries()]
@@ -584,7 +596,11 @@ export function assessTreatmentCoverageFromReceipts(
     further_expansion_likely_to_improve_answer: input.further_expansion_likely_to_improve_answer,
     ...(input.research_depth === undefined ? {} : { research_depth: input.research_depth }),
     directional_searches: input.directional_searches,
-    access_boundaries: input.access_boundaries
+    access_boundaries: [
+      ...derivedBoundaries,
+      ...input.access_boundaries.filter((boundary) => !(boundary.scope_type === "discovery_batch" &&
+        derivedBoundaries.some(({ scope_id }) => scope_id === boundary.scope_id)))
+    ]
   };
   const result = assessTreatmentLandscapeCoverage(ledger, { transcriptToolAvailable: false });
 
@@ -598,6 +614,7 @@ export function assessTreatmentCoverageFromReceipts(
     unscreened_videos: unscreened.sort(),
     audited_videos: [...auditByVideo.keys()].sort(),
     scout_frontier_videos: validated.length,
+    access_boundaries_derived: derivedBoundaries.length,
     open_scout_titles: scoutRounds.reduce((total, round) => total + openScoutTitles(round), 0),
     input_problems: problems
   });
@@ -687,10 +704,56 @@ type AccessStatus = typeof ACCESS_STATUSES[number];
 
 function roundAccess(round: Receipt): AccessStatus {
   const access = text(round.claims.access) || text(round.claims.state);
+  // Searches that only a rate limit or the daily quota stopped (rl of inc
+  // incomplete) can be rerun once it resets.
+  const incomplete = Number(text(round.claims.inc) || "0");
+  if (access !== "complete" && incomplete > 0 && Number(text(round.claims.rl) || "0") === incomplete) {
+    return "rate_limited";
+  }
   if ((ACCESS_STATUSES as readonly string[]).includes(access)) return access as AccessStatus;
   // A scout round is complete once its receipt exists; any other round that
   // did not sign its access is treated as partial.
   return round.kind === "youtube_scout" ? "complete" : "partial";
+}
+
+/**
+ * The access boundary a round's signed state settles: a rate limit or the
+ * daily quota is retryable once it resets (an open lead in a first pass), and a
+ * refusal or a missing resource is terminal. Other states say too little, so a
+ * supplied boundary is used.
+ */
+function derivedRoundBoundary(
+  scopeId: string,
+  access: AccessStatus
+): Ledger["access_boundaries"][number] | undefined {
+  const common = {
+    boundary_id: `server:access:${scopeId}`,
+    scope_type: "discovery_batch" as const,
+    scope_id: scopeId,
+    materiality: "uncertain" as const,
+    impact: "uncertain" as const
+  };
+  if (access === "rate_limited") {
+    return {
+      ...common,
+      access_status: access,
+      terminal: false,
+      retryable: true,
+      recovery_attempted: false,
+      description: "A YouTube rate limit or the daily search quota stopped this round; rerun it once the limit resets."
+    };
+  }
+  if (access === "inaccessible" || access === "not_found") {
+    return {
+      ...common,
+      access_status: access,
+      terminal: true,
+      retryable: false,
+      recovery_attempted: true,
+      description: "YouTube refused this round's searches or did not find what they asked for; retrying cannot change it."
+    };
+  }
+  return undefined;
 }
 
 /** Named titles a scout round could not look up: its open count beyond its unresolved IDs. */

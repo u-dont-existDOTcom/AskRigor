@@ -10927,6 +10927,7 @@
           },
           "access_boundaries": {
             "default": [],
+            "description": "Access boundaries for videos, classes and other scopes. The server states a discovery round's own boundary when its receipt shows a rate limit, the daily search quota or a refusal; supply one only for a round that is partial or failed for another reason.",
             "maxItems": 80,
             "type": "array",
             "items": {
@@ -11710,6 +11711,12 @@
                 "maximum": 9007199254740991,
                 "description": "Titles scouts named but could not look up; search them by exact title with search_youtube."
               },
+              "access_boundaries_derived": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Discovery rounds whose access boundary the server stated from the round's receipt."
+              },
               "input_problems": {
                 "type": "array",
                 "items": {
@@ -11727,6 +11734,7 @@
               "audited_videos",
               "scout_frontier_videos",
               "open_scout_titles",
+              "access_boundaries_derived",
               "input_problems"
             ],
             "additionalProperties": false

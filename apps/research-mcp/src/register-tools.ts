@@ -1138,6 +1138,9 @@ function defineResearchOperations(
         ? researchReceipt("youtube_community_audit", {
             videos: result.receipt.selected_video_ids,
             read,
+            // Its searches' access, apart from any comment boundary.
+            access: searchLimits(result.searches).inc === 0 ? "complete" : "partial",
+            ...searchLimits(result.searches),
             state: result.receipt.completion_state,
             lock: result.receipt.synthesis_lock,
             q: discoveryQueryDigest(input.searches.map(({ query }) => query)),
@@ -1204,6 +1207,7 @@ function defineResearchOperations(
       ), result.searches.some(({ access_status }) => access_status === "complete")
         ? researchReceipt("youtube_survey", {
             access: result.access_status,
+            ...searchLimits(result.searches),
             searches: result.searches.length,
             videos: result.candidates.map(({ video_id }) => video_id),
             q: discoveryQueryDigest(input.searches.map(({ query }) => query)),
@@ -1817,6 +1821,20 @@ function scoutError(code: string, retryable: boolean, guidance?: string): CallTo
 }
 
 /** Searches whose results continue on a page nobody has read yet. */
+/**
+ * How far a discovery round's searches got: `inc` ended incomplete, `rl` of
+ * them at a rate limit or the daily search quota, which the coverage ledger
+ * treats as retryable once it resets.
+ */
+function searchLimits(searches: ReadonlyArray<{ access_status: string }>): { rl: number; inc: number } {
+  const incomplete = searches.filter(({ access_status }) =>
+    access_status !== "complete" && access_status !== "api_visible_complete");
+  return {
+    rl: incomplete.filter(({ access_status }) => access_status === "rate_limited").length,
+    inc: incomplete.length
+  };
+}
+
 function unreadResultPages(searches: ReadonlyArray<{ pagination: { next_cursor?: string } }>): number {
   return searches.filter(({ pagination }) => pagination.next_cursor !== undefined).length;
 }

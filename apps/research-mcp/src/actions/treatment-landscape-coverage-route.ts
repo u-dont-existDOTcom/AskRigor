@@ -674,10 +674,12 @@ export function assessTreatmentLandscapeCoverage(
         invalidate(invalid.discovery_batches, batch.batch_id, selectionBlockers,
           `Discovery batch ${batch.batch_id} cites an access boundary despite exhausted retrieval.`);
       }
-    } else if (batch.pagination.next_cursor_present) {
-      // An unread results page is more discovery: an open lead once a first pass stops.
-      asBreadth(() => selectionBlockers.push(
-        `Discovery batch ${batch.batch_id} still has an executable continuation cursor.`
+    } else if (batch.pagination.next_cursor_present || batch.access_status === "rate_limited") {
+      // An unread results page, or a round a provider rate limit or daily quota
+      // stopped, is more discovery: an open lead once a first pass stops.
+      asBreadth(() => selectionBlockers.push(batch.pagination.next_cursor_present
+        ? `Discovery batch ${batch.batch_id} still has an executable continuation cursor.`
+        : `Discovery batch ${batch.batch_id} stopped at a rate limit or daily quota; rerun it once the limit resets.`
       ));
       reconcileBoundaryReference({
         boundaryId: batch.access_boundary_id,
@@ -1389,7 +1391,9 @@ export function assessTreatmentLandscapeCoverage(
 
 
   for (const boundary of boundaryById.values()) {
-    if (!usedBoundaryIds.has(boundary.boundary_id)) {
+    // A server-stated boundary is linked by construction; if its round is
+    // invalid, that round's own problem says so.
+    if (!usedBoundaryIds.has(boundary.boundary_id) && !boundary.boundary_id.startsWith("server:")) {
       selectionBlockers.push(`Access boundary ${boundary.boundary_id} is not linked to its claimed scope.`);
     }
   }

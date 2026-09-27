@@ -138,6 +138,7 @@ describe("treatment coverage from signed receipts", () => {
   it("builds the ledger from receipts and passes a complete check", () => {
     const result = assessTreatmentCoverageFromReceipts(input(), { secret: SECRET, now });
     expect(result.receipt_derivation).toEqual({
+      access_boundaries_derived: 0,
       receipts_verified: 6,
       receipts_rejected: [],
       discovery_rounds: 3,
@@ -281,6 +282,68 @@ describe("treatment coverage from signed receipts", () => {
     }), { secret: SECRET, now });
     expect(bounded.blockers.join(" ")).not.toMatch(/lacks a structured access boundary|not linked to its claimed scope/u);
     expect(bounded.access_boundary_ids_used).toContain("survey_limit");
+  });
+
+  it("states a round's access limit from its receipt", () => {
+    // The option A rerun's loop: the daily search cap stopped survey searches,
+    // and every check rejected the boundary the model wrote for it.
+    const cappedSurvey = discovery("youtube_survey", {
+      access: "partial", rl: 2, inc: 2, searches: 3, videos: ["EEEEEEEEEEE"], open: 0,
+      q: discoveryQueryDigest(["progressive resistance training hip", "hip pain what worked"])
+    }, 3_000);
+    const firstPass = assessTreatmentCoverageFromReceipts(input({
+      receipts: [...receipts.slice(0, 2), cappedSurvey, ...receipts.slice(3)],
+      specific_searches: [
+        { round: 1, treatment_class_id: "nutrition", implementation_terms: ["collagen peptides"], discriminator_terms: ["hip pain"] }
+      ],
+      // A supplied boundary for the same round is set aside.
+      access_boundaries: [{
+        boundary_id: "cap", scope_type: "discovery_batch", scope_id: "r2", access_status: "rate_limited",
+        materiality: "uncertain", impact: "uncertain", terminal: true, retryable: true,
+        recovery_attempted: false, description: "Search cap."
+      }]
+    }), { secret: SECRET, now });
+    expect(firstPass.receipt_derivation.access_boundaries_derived).toBe(1);
+    expect(firstPass.receipt_derivation.input_problems).toEqual([]);
+    expect(firstPass.answer_boundary).toBe("first_pass_with_open_leads");
+    expect(firstPass.breadth_gaps).toContain(
+      "Discovery batch r2 stopped at a rate limit or daily quota; rerun it once the limit resets."
+    );
+    expect(firstPass.access_boundary_ids_used).toEqual(["server:access:r2"]);
+    expect(firstPass.blockers.join(" ")).not.toMatch(/both retryable and terminal|lacks a structured access boundary/u);
+
+    // Deep research waits for the limit to reset.
+    const deep = assessTreatmentCoverageFromReceipts(input({
+      receipts: [...receipts.slice(0, 2), cappedSurvey, ...receipts.slice(3)],
+      specific_searches: [
+        { round: 1, treatment_class_id: "nutrition", implementation_terms: ["collagen peptides"], discriminator_terms: ["hip pain"] }
+      ],
+      research_depth: "deep"
+    }), { secret: SECRET, now });
+    expect(deep.answer_boundary).toBe("continue_research");
+
+    // A refused search is a terminal limit the answer states, not more work.
+    const refused = discovery("youtube_search", {
+      videos: ["CCCCCCCCCCC", "DDDDDDDDDDD"], access: "inaccessible", open: 0,
+      q: discoveryQueryDigest(["collagen peptides hip pain"])
+    }, 2_000);
+    const bounded = assessTreatmentCoverageFromReceipts(input({
+      receipts: [receipts[0]!, refused, ...receipts.slice(2)]
+    }), { secret: SECRET, now });
+    expect(bounded.access_boundary_ids_used).toContain("server:access:r1");
+    expect(bounded.blockers.join(" ")).not.toMatch(/r1 lacks a structured access boundary|still has executable recovery work/u);
+
+    // server: IDs stay the server's.
+    const reserved = assessTreatmentCoverageFromReceipts(input({
+      access_boundaries: [{
+        boundary_id: "server:access:r9", scope_type: "other", scope_id: "x", access_status: "partial",
+        materiality: "uncertain", impact: "uncertain", terminal: false, retryable: true,
+        recovery_attempted: false, description: "Taken ID."
+      }]
+    }), { secret: SECRET, now });
+    expect(reserved.receipt_derivation.input_problems).toContain(
+      "ID server:access:r9 is reserved for server-made records; rename it."
+    );
   });
 
   it("reports tampered receipts and never lets a tie hide a late find", () => {
