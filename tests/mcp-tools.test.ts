@@ -823,8 +823,8 @@ describe("AskRigor MCP tools", () => {
         status: "not_ready",
         caveats: ["No study's methods were checked in full text for this answer."],
         next_steps: [
-          "The answer leaves out this caveat; include each as written (a link's text may change): \"No study's " +
-            "methods were checked in full text for this answer.\""
+          "The answer leaves out this caveat; include each as its own sentence, as written (a link's text may " +
+            "change): \"No study's methods were checked in full text for this answer.\""
         ]
       });
       expect((uncaveated.structuredContent as { finalization_receipt?: string }).finalization_receipt).toBeUndefined();

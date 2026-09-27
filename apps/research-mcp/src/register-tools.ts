@@ -1681,7 +1681,7 @@ function defineResearchOperations(
         "studies your conclusions depend on, and the answer you are about to give (answer_draft), which is checked " +
         "for internal labels, bare video IDs, a pasted long prompt, the comment lane and the caveats, and is not " +
         "stored. not_ready lists the remaining steps; ready_with_limits lists limits, and caveats gives the " +
-        "sentences the answer must contain as written (a link's text may change); must_report lists what the " +
+        "sentences the answer must contain, each as its own sentence and as written; must_report lists what the " +
         "answer must report from each lane researched; receipts_unavailable means this server cannot " +
         "verify completion, so do the required work anyway and say that completion was not server-verified.",
       inputSchema: finalizeResearchInputSchema,

@@ -625,7 +625,7 @@ describe("finalize_research gate", () => {
       finalizeResearchRaw({ ...request, answer_draft: [CLEAN_DRAFT, ...sentences].join(" ") }, options);
     // Qualifying one study does not cover the other, and other words are not the caveat.
     expect(answerWith(caveats[0]!, caveats[1]!, "The PubMed study was only an abstract.").next_steps).toEqual([
-      `The answer leaves out this caveat; include each as written (a link's text may change): "${caveats[2]}"`
+      `The answer leaves out this caveat; include each as its own sentence, as written (a link's text may change): "${caveats[2]}"`
     ]);
     // A link's text may change, and formatting and line breaks do not matter.
     expect(answerWith(
@@ -892,10 +892,27 @@ describe("finalize_research gate", () => {
       ...rateLimited, another_pass_estimate: PASS_ESTIMATE, answer_draft: answerDraft
     }, options).next_steps;
     expect(answered(fullDraft)).toEqual([]);
+    const leftOutRate = [
+      `The answer leaves out this caveat; include each as its own sentence, as written (a link's text may change): "${rateCaveat}"`
+    ];
     expect(answered(fullDraft.replace(rateCaveat,
-      "YouTube's quota did not stop any searches, but another pass can rerun them once it resets."))).toEqual([
-      `The answer leaves out this caveat; include each as written (a link's text may change): "${rateCaveat}"`
-    ]);
+      "YouTube's quota did not stop any searches, but another pass can rerun them once it resets."))).toEqual(leftOutRate);
+    // The caveat must stand as its own sentence: not embedded, quoted, continued or in a quotation block.
+    for (const denial of [
+      `It is false that ${rateCaveat}`,
+      `"${rateCaveat}" That is wrong.`,
+      `${rateCaveat.replace(/\.$/u, "")}, but that is not what happened.`,
+      `\n\n> ${rateCaveat}\n\nThat claim is false.\n\n`
+    ]) {
+      expect(answered(fullDraft.replace(rateCaveat, denial))).toEqual(leftOutRate);
+    }
+    // In a list item, after a heading or in bold it is stated.
+    for (const stated of [
+      `\n\n**Limits**\n\n- ${rateCaveat}\n\n`,
+      `\n\n## Limits\n1. **${rateCaveat}**\n\n`
+    ]) {
+      expect(answered(fullDraft.replace(rateCaveat, stated))).toEqual([]);
+    }
 
     // A search that failed for another reason is rerun, in either depth.
     const failedSearch = sign("youtube_search", { videos: [], access: "error", rl: 0, inc: 1, open: 0, q: "n4n4n4n4n4n4" }, options);
@@ -941,8 +958,8 @@ describe("finalize_research gate", () => {
     };
     const check = (answerDraft: string) => finalizeResearchRaw({ ...request, answer_draft: answerDraft }, options);
     const leftOut = (...caveats: string[]) =>
-      `The answer leaves out ${caveats.length === 1 ? "this caveat" : "these caveats"}; include each as written ` +
-      `(a link's text may change): ${caveats.map((caveat) => `"${caveat}"`).join(" ")}`;
+      `The answer leaves out ${caveats.length === 1 ? "this caveat" : "these caveats"}; include each as its ` +
+      `own sentence, as written (a link's text may change): ${caveats.map((caveat) => `"${caveat}"`).join(" ")}`;
 
     const expected = [
       "Some YouTube searches failed or hit limits, so the community picture may be incomplete.",
@@ -1056,7 +1073,7 @@ describe("finalize_research gate", () => {
       ...base, receipts: [emptySurvey, emptySearch, study], answer_draft: `${CLEAN_DRAFT} ${text}`
     }, options).next_steps;
     expect(thinDraft("A few commenters on YouTube reported relief.")).toEqual([
-      `The answer leaves out this caveat; include each as written (a link's text may change): "${thinCaveat}"`
+      `The answer leaves out this caveat; include each as its own sentence, as written (a link's text may change): "${thinCaveat}"`
     ]);
     expect(thinDraft(thinCaveat)).toEqual([]);
 

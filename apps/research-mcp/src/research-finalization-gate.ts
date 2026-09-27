@@ -73,7 +73,7 @@ export const finalizeResearchInputSchema = z.object({
   answer_draft: z.string().trim().min(1).max(60_000).optional()
     .describe("The answer you are about to give, exactly as the user will see it. Needed before the gate reports ready; " +
       "it is checked for internal labels, bare video IDs, a pasted long prompt, the comment lane and the caveats " +
-      "(each as written), and is not stored.")
+      "(each as its own sentence, as written), and is not stored.")
 }).strict();
 
 export type FinalizeResearchInput = z.output<typeof finalizeResearchInputSchema>;
@@ -90,7 +90,7 @@ export const finalizeResearchOutputSchema = z.object({
   next_steps: z.array(z.string()),
   limits: z.array(z.string()),
   caveats: z.array(z.string())
-    .describe("Sentences the answer must contain as written; a link's text may change, and context may surround them."),
+    .describe("Sentences the answer must contain, each as its own sentence and as written; a link's text may change."),
   must_report: z.array(z.string())
     .describe("What the answer must report from each evidence lane researched, even when weak or neutral."),
   receipts_verified: z.number().int().nonnegative(),
@@ -791,13 +791,13 @@ function answerDraftProblems(
       );
     }
   }
-  // Each caveat the server wrote must reach the answer as written.
-  const answer = caveatForm(draft);
-  const missingCaveats = context.caveats.filter((caveat) => !answer.includes(caveatForm(caveat).replace(/[.!?]$/u, "")));
+  // Each caveat the server wrote must reach the answer as a sentence of its own.
+  const blocks = draftBlocks(draft);
+  const missingCaveats = context.caveats.filter((caveat) => !statesCaveat(blocks, caveat));
   if (missingCaveats.length > 0) {
     problems.push(
-      `The answer leaves out ${missingCaveats.length === 1 ? "this caveat" : "these caveats"}; include each as written ` +
-        `(a link's text may change): ${missingCaveats.map((caveat) => `"${caveat}"`).join(" ")}`
+      `The answer leaves out ${missingCaveats.length === 1 ? "this caveat" : "these caveats"}; include each as its ` +
+        `own sentence, as written (a link's text may change): ${missingCaveats.map((caveat) => `"${caveat}"`).join(" ")}`
     );
   }
   return problems;
@@ -820,6 +820,52 @@ function caveatForm(text: string): string {
     .replace(/\s+/gu, " ")
     .trim()
     .toLowerCase();
+}
+
+// A list item, heading or quotation starts a block of its own.
+const BLOCK_START = /^(?:[-*+]|\d{1,3}[.)])\s|^#{1,6}\s|^>/u;
+const LIST_OR_HEADING_MARKER = /^(?:[-*+]|\d{1,3}[.)]|#{1,6})\s+/u;
+
+/**
+ * The draft's paragraphs, list items and headings in caveat form, without
+ * their list or heading markers; a wrapped line joins its paragraph. A
+ * quotation keeps its marker, so a quoted caveat is not stated.
+ */
+function draftBlocks(draft: string): string[] {
+  const blocks: string[] = [];
+  let current: string[] = [];
+  const flush = (): void => {
+    if (current.length > 0) blocks.push(caveatForm(current.join(" ").replace(LIST_OR_HEADING_MARKER, "")));
+    current = [];
+  };
+  for (const line of draft.split(/\r?\n/u)) {
+    const trimmed = line.trim();
+    if (trimmed === "") {
+      flush();
+      continue;
+    }
+    if (BLOCK_START.test(trimmed)) flush();
+    current.push(trimmed);
+  }
+  flush();
+  return blocks;
+}
+
+/**
+ * Whether a caveat stands as a sentence of its own: it begins a block or
+ * follows a sentence's end, and ends its sentence. Embedded ("It is false
+ * that …"), quoted or continued, it is not stated.
+ */
+function statesCaveat(blocks: readonly string[], caveat: string): boolean {
+  const core = caveatForm(caveat).replace(/[.!?]$/u, "");
+  return blocks.some((block) => {
+    for (let at = block.indexOf(core); at >= 0; at = block.indexOf(core, at + 1)) {
+      const before = block.slice(Math.max(0, at - 2), at);
+      const after = block.charAt(at + core.length);
+      if ((at === 0 || /^[.!?] $/u.test(before)) && (after === "" || ".!?".includes(after))) return true;
+    }
+    return false;
+  });
 }
 
 const videoLink = (video: string, text: string): string => `[${text}](https://www.youtube.com/watch?v=${video})`;

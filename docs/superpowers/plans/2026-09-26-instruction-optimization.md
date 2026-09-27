@@ -856,6 +856,15 @@ and whether the final answer is the last checked draft. Cost: one more
     allowed would take seconds). The pattern is now bounded and closed to
     brackets and parentheses, and reads such drafts in about a millisecond; a
     test pins it. A DOI's parentheses are percent-encoded in its link.
+- Codex on 2f039e3 (one P1, fixed): the caveat could sit inside a denial
+  ("It is false that …") or a quotation and still count. A caveat now counts
+  only as a sentence of its own: it begins a paragraph, list item or heading
+  (markers set aside) or follows a sentence's end, and it ends its sentence.
+  A quotation block keeps its marker, so a quoted caveat does not count, and
+  a wrapped line joins its paragraph. Four mutations, one per boundary rule,
+  each fail a test. A later sentence that contradicts a caveat is not
+  detected; the check guards against omitted and garbled limits, not a
+  model arguing against them.
 
 ## Comment-audit call budget (2026-09-27)
 
