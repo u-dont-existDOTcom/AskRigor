@@ -1083,6 +1083,12 @@ function analyze(run, context) {
         },
         check_retraction_status: { count: retractions.length, calls: retractions },
         submit_research_contribution: { count: contributions.length, calls: contributions },
+        // A comment lane that ran must appear in the answer (owner error
+        // report of 2026-09-27: the YouTube audit ran, the answer dropped it).
+        community_lane: {
+          comment_audits_ran: videoAudits.length + named("audit_youtube_community").length > 0,
+          answer_mentions_youtube: /youtube/iu.test(answer)
+        },
         finalize_research: {
           research_receipts_issued: issuedReceipts.size,
           count: finalizations.length,

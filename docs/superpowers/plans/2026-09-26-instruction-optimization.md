@@ -634,9 +634,12 @@ rules, no protocol change):
 
 ## Test design
 
-- Questions: `evaluation/instruction-optimization/questions.json`: 5 development
-  (including the owner's two real hip questions) and 6 held out. Held-out
+- Questions: `evaluation/instruction-optimization/questions.json`: 6 development
+  (including the owner's two real hip questions and, since 2026-09-27, the
+  sermorelin question from the owner's error report) and 6 held out. Held-out
   questions run only in the final comparison, after the refactor is frozen.
+  Runner metrics record whether an answer mentions YouTube when a comment audit
+  ran (`receipts.community_lane`).
 - Claude runs: local AskRigor server (old = `main`, new = branch) and a child
   `claude -p` session per run, started outside the repository so developer
   instructions are not loaded, connected through `--mcp-config`. Community tools
