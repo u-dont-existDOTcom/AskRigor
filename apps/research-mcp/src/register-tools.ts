@@ -1172,15 +1172,20 @@ function defineResearchOperations(
       const input = rawInput.continuation_token === undefined
         ? rawInput
         : { continuation_token: rawInput.continuation_token };
+      const actionCall = isActionCall(extra);
       let result: YoutubeVideoCommunityAuditOutput;
       try {
         result = await auditYoutubeVideoCommunity(input, {
           youtube: youtubeConfig(),
           continuation_secret: youtubeAuditContinuationSecret()
         }, {
-          max_elapsed_ms: PUBLIC_TOOL_LIMITS.youtubeVideoAuditElapsedMs,
+          max_elapsed_ms: actionCall
+            ? PUBLIC_TOOL_LIMITS.youtubeVideoAuditElapsedMs
+            : PUBLIC_TOOL_LIMITS.mcpYoutubeVideoAuditElapsedMs,
           segment: {
-            max_provider_requests: PUBLIC_TOOL_LIMITS.youtubeVideoAuditProviderRequests
+            max_provider_requests: actionCall
+              ? PUBLIC_TOOL_LIMITS.youtubeVideoAuditProviderRequests
+              : PUBLIC_TOOL_LIMITS.mcpYoutubeVideoAuditProviderRequests
           }
         });
       } catch (error) {
@@ -1188,7 +1193,7 @@ function defineResearchOperations(
       }
       const summary = `YouTube video audit retrieved ${result.records_retrieved_cumulative} record(s) cumulatively; synthesis lock ${result.receipt.synthesis_lock}.`;
       // The Custom GPT Action bounds the full audit itself.
-      if (isActionCall(extra)) return youtubeToolResult(summary, result);
+      if (actionCall) return youtubeToolResult(summary, result);
       const view = compactYoutubeAuditForMcp(
         result,
         MCP_YOUTUBE_AUDIT_MAX_BYTES,

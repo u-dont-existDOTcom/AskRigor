@@ -206,6 +206,9 @@ describe("AskRigor MCP tools", () => {
     expect(PUBLIC_TOOL_LIMITS.youtubeVideoAuditProviderRequests).toBe(50);
     expect(PUBLIC_TOOL_LIMITS.youtubeVideoAuditElapsedMs)
       .toBeLessThan(PUBLIC_TOOL_LIMITS.youtubeElapsedMs);
+    // MCP calls read longer, still well inside the 60 seconds Claude waits for a tool.
+    expect(PUBLIC_TOOL_LIMITS.mcpYoutubeVideoAuditElapsedMs).toBe(40_000);
+    expect(PUBLIC_TOOL_LIMITS.mcpYoutubeVideoAuditProviderRequests).toBe(300);
   });
 
   it("publishes strict read-only adaptive YouTube survey and per-video audit schemas", async () => {
@@ -535,7 +538,8 @@ describe("AskRigor MCP tools", () => {
         return new Response(await youtubeFixture("comments-top-2-page-1.json"), { status: 200 });
       }
       stalledReplyRequests += 1;
-      if (stalledReplyRequests <= 49) {
+      // Stall until the first call has spent its MCP request budget.
+      if (stalledReplyRequests < PUBLIC_TOOL_LIMITS.mcpYoutubeVideoAuditProviderRequests) {
         return Response.json({
           nextPageToken: `resume-replies-${stalledReplyRequests}`,
           pageInfo: { totalResults: 3, resultsPerPage: 0 },

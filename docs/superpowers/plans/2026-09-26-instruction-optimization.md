@@ -562,6 +562,24 @@ Expected size: 100 candidates and 15 selected videos take about 15 KB instead
 of about 70 KB; with classes and programs a full check is about 55–60 KB
 instead of 95–151 KB. A later step can keep the ledger between calls.
 
+## Comment-audit call budget (2026-09-27)
+
+- Each per-video audit call requests the replies of every top-level comment,
+  so the 50-request cap covered about 49 comments per call. In the 4fe4858
+  rerun, 21 audit calls had covered six videos when checked; a 723-comment
+  video took 7 calls and was still unfinished. The model reasons between
+  calls: 20 to 230 seconds per gap in that run.
+- Measured on a 91-comment video: 50 requests took 6.4 seconds, so the
+  request cap binds, not the 15-second budget (about 0.12 seconds a request).
+- MCP calls now read for up to 40 seconds and 300 requests, inside the 60
+  seconds Claude waits for a tool; the Custom GPT Action keeps 15 seconds and
+  50 requests. The 91-comment video now completes in one call (7.7 seconds)
+  instead of two (8.3 seconds). Estimate, not yet measured: a large video
+  needs about a fifth of the calls, from six times the requests per call
+  less each call's page and sample refetches.
+- Reply requests are still sequential; running them in parallel is a later
+  option.
+
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 
 - Iteration for each candidate: focused tests plus one or two development

@@ -531,7 +531,8 @@ material video and repeats with its authenticated continuation token while
 comments, API-visible records actually retrieved, and records returned for
 analysis; they include exact page/reply accounting, a deterministic sample of
 at most 500, and a literal `synthesis_lock` of `pass` or `block`. Each call is
-bounded to 15 seconds, while the reasoning controller may continue for several
+bounded to 15 seconds on the Custom GPT Action and 40 seconds on MCP, while the
+reasoning controller may continue for several
 minutes when expected information gain remains positive. The legacy
 `audit_youtube_community` remains advertised for compatibility. None of these
 tools makes an efficacy, safety, causality, prevalence, or treatment judgment.

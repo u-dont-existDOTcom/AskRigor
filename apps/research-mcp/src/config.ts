@@ -86,7 +86,13 @@ export const PUBLIC_TOOL_LIMITS = {
   youtubeElapsedMs: 120_000,
   youtubeCommunityAuditElapsedMs: 15_000,
   youtubeVideoAuditElapsedMs: 15_000,
-  youtubeVideoAuditProviderRequests: 50
+  youtubeVideoAuditProviderRequests: 50,
+  // MCP calls read longer: every top-level comment costs at least one reply
+  // request, so 50 requests covered only about 50 comments per call, and each
+  // extra call costs the model a turn. 40 seconds stays well inside the 60
+  // seconds Claude waits for a tool call.
+  mcpYoutubeVideoAuditElapsedMs: 40_000,
+  mcpYoutubeVideoAuditProviderRequests: 300
 } as const;
 
 export function publicServerIsEnabled(

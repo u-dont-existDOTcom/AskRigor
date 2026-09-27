@@ -240,7 +240,8 @@ clickable canonical links and provider-reported comment counts. It selects up
 to three materially different videos, then calls
 `audit_youtube_video_community` for each and automatically resubmits the opaque
 continuation token while `continuation_recommended` is true. Each call is
-bounded to about 15 seconds, but there is no arbitrary one-minute total limit:
+bounded to about 15 seconds on the Custom GPT Action and about 40 seconds on
+MCP, but there is no arbitrary one-minute total limit:
 the controller keeps spending additional minutes while expected information
 gain is positive.
 
