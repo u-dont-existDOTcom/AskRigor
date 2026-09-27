@@ -102,8 +102,7 @@
    ContextExtraction, extract when accessible each report's source role, language, exact firsthand intervention or
    exposure, own regimen facts versus own outcome claims, baseline diagnosis and severity, any surgery or treatment
    recommendation, and intervention-specific dechallenge or rechallenge; also extract, when accessible, video and channel identity, comment and reply IDs, author channel identity or an
-  ephemeral within-job person identifier, publication and update dates, and thread structure (on connector runs the
-  audit records carry these). Keep separate episodes when one narrative holds
+  ephemeral within-job person identifier, publication and update dates, and thread structure. Keep separate episodes when one narrative holds
    failed conservative care, another intervention, relapse, adverse effects, and eventual standard treatment. A creator's own reply can be firsthand evidence about the creator but is not independent replication. Likes, ranking, and reply
    volume are context, not votes for truth.
   </Rule>

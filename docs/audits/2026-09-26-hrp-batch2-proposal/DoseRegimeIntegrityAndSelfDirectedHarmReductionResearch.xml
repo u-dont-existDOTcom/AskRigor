@@ -6,7 +6,7 @@
 
  <Activation>
   Structured or deep questions involving pharmacological efficacy, safety, contraindication, interaction, withdrawal,
-  precipitated withdrawal, tapering, tolerance, sensitivity testing, microdosing, or dilution, or any claim whose answer
+  precipitated withdrawal, tapering, tolerance, sensitivity testing, microdosing, dilution, or any claim whose answer
   may change across dose, route, formulation, frequency, duration, timing, concurrent agonist or interacting substance,
   indication, population, tolerance, dependence, or abstinence state (see also
   AnswerShapeController/DoseRegimeIntegrityDefaultTrigger). Not for simple definitions with no exposure-dependent claim,
@@ -63,7 +63,7 @@
  </Rule>
 
  <Rule name="ThreeThresholdModel">
-  When the question requires it, distinguish within each person or evidence stratum the benefit threshold, the ordinary
+  Distinguish, within each person or evidence stratum when the question requires it, the benefit threshold, the ordinary
   side-effect threshold, and the threshold for clinically important antagonist, reversal, or precipitated-withdrawal
   effects. Say explicitly whether the evidence shows the benefit threshold can exceed the side-effect threshold, side
   effects can precede benefit, or the frequency is unknown; do not collapse all benefits or all adverse effects.
