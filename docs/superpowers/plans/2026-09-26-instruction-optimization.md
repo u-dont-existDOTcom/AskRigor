@@ -118,9 +118,23 @@ generalization.
   `survey_youtube_community` at up to 6 searches per call, so the cap allows
   about 2 to 4 research runs a day. d45ce15 reports the cap as the daily
   search quota instead of a retryable rate limit.
-- Open: re-bench the generic patient-probe variant
-  (`skill-variant-patient-probes-generic.md`, no hip title) with lookups
-  after the cap resets. Owner decision proposed: move directional YouTube
+- Round 5 (2026-09-27 07:12 UTC, after the cap reset, all with title
+  lookups):
+  - ID hunting fell to 9 of 60 searches (15%), and lookups recovered 3 to 4
+    videos per run.
+  - Collagen surfaced in all 3 hip runs of the generic patient-probe variant
+    (`skill-variant-patient-probes-generic.md`, no hip title) and in none of
+    3 production-skill runs.
+  - Gelatin, hydration and the key "GROWING MY HIP BACK" video surfaced in
+    none, so the comment-led rediscovery loop has to carry those.
+  - Tinnitus was comparable between the two skills.
+  - The variant's probes are now in the production scout skill (compacted;
+    size bound raised from 8,000 to 9,000 bytes).
+  - This is development evidence (n = 3 per arm) and needs held-out
+    confirmation.
+  - The v13 skill could not run through the API scout: at 36 KB it exceeds
+    the scout's 30 KB instruction bound. Its missing piece, targeted
+    rediscovery from comments, is now `rediscovery_leads`. Owner decision proposed: move directional YouTube
   discovery from survey keyword searches (up to 6 search.list calls each) to
   the Gemini scout, keeping YouTube searches for exact-title lookups.
 

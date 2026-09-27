@@ -15,9 +15,12 @@ describe("automated Gemini AskRigor candidate scout", () => {
     const longestLine = Math.max(...skill.split(/\r?\n/u).map((line) => line.length));
     const sha256 = createHash("sha256").update(skill).digest("hex");
 
-    expect(Buffer.byteLength(skill, "utf8")).toBeLessThanOrEqual(8_000);
+    // 9,000 bytes since 2026-09-27: the patient-phrasing probes found collagen in
+    // three of three hip bench runs where the shorter skill found it in none.
+    expect(Buffer.byteLength(skill, "utf8")).toBeLessThanOrEqual(9_000);
     expect(longestLine).toBeLessThanOrEqual(500);
-    expect(sha256).toBe("562505f1c39843940d983c1b208e273be30d97c43ecbd9d9d6ea4b9226a62645");
+    expect(sha256).toBe("61fda03a6ec3a952b5a55e8167a49b6c75efdf1eeebd534baf8895fe8f7b65ad");
+    expect(skill).toContain("Probe the way patients talk");
   });
 
   it("keeps Gemini in a candidate-only role", async () => {
