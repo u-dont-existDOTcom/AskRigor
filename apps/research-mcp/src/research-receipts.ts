@@ -1,10 +1,11 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 /**
  * Signed research receipts for the MCP route.
  *
- * A tool that finishes a unit of research work (a community survey, search or
- * scout that found videos, a terminal per-video comment audit, a PubMed record,
+ * A tool that finishes a unit of research work (a completed community survey,
+ * search or scout, even one that found nothing, a terminal per-video comment
+ * audit, a PubMed record,
  * a validated full-text method audit, or a failed full-text acquisition that
  * leaves only a lead) returns one short token. The
  * finalize_research gate verifies the tokens, so completion is checked by the
@@ -57,6 +58,18 @@ export interface ResearchReceiptOptions {
 
 export interface VerifyResearchReceiptOptions extends ResearchReceiptOptions {
   maxAgeMs?: number;
+}
+
+/**
+ * Short digest of a discovery round's search terms. finalize_research compares
+ * digests to tell whether two rounds searched from different angles; the terms
+ * themselves never enter the receipt.
+ */
+export function discoveryQueryDigest(queries: readonly string[]): string {
+  const normalized = [...new Set(queries.map((query) =>
+    query.trim().toLowerCase().replace(/\s+/gu, " ")
+  ))].sort();
+  return createHash("sha256").update(JSON.stringify(normalized)).digest("hex").slice(0, 12);
 }
 
 export const RESEARCH_RECEIPT_MAX_AGE_MS = 24 * 60 * 60 * 1000;

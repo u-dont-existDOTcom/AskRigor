@@ -271,6 +271,8 @@ export const treatmentLandscapeCoverageInputSchema = z.object({
   external_scout_candidates: z.array(externalScoutCandidateSchema).max(40).default([]),
   selected_videos: z.array(selectedVideoSchema).max(15),
   further_expansion_likely_to_improve_answer: z.enum(["yes", "no", "blocked"]),
+  // Omitted means first_pass: a broad sweep that stops at its cap and offers open leads.
+  research_depth: z.enum(["first_pass", "deep"]).optional(),
   directional_searches: z.object({
     benefit: directionalSearchSchema,
     no_effect_or_failure: directionalSearchSchema,
@@ -334,8 +336,7 @@ export const treatmentLandscapeCoverageOutputSchema = z.object({
   candidate_videos_screened: z.number().int().nonnegative(),
   external_scout_candidates_screened: z.number().int().nonnegative(),
   external_scout_candidates_pending: z.array(youtubeVideoId),
-  broad_structural_minimums_applied: z.boolean(),
-  broad_structural_minimums_met: z.boolean(),
+  discovery_saturated: z.boolean(),
   material_videos_selected: z.number().int().nonnegative(),
   material_videos_fully_audited: z.number().int().nonnegative(),
   materially_distinct_programs_fully_audited: z.number().int().nonnegative(),
@@ -358,8 +359,11 @@ export const treatmentLandscapeCoverageOutputSchema = z.object({
   per_video_depth_lock: z.enum(["pass", "block"]),
   synthesis_lock: z.enum(["pass", "block"]),
   answer_boundary: z.enum([
-    "ledger_consistent_for_synthesis", "bounded_nonranking_only", "continue_research"
+    "ledger_consistent_for_synthesis", "bounded_nonranking_only", "continue_research",
+    "first_pass_with_open_leads"
   ]),
+  research_depth: z.enum(["first_pass", "deep"]),
+  first_pass_complete: z.boolean(),
   selection_blockers: z.array(detailText),
   depth_blockers: z.array(detailText),
   boundary_blockers: z.array(detailText),
@@ -472,6 +476,14 @@ export function assessTreatmentLandscapeCoverage(
   const transcriptToolAvailable = options.transcriptToolAvailable ?? true;
   let creatorContentUnverifiedVideos = 0;
   const selectionBlockers: string[] = [];
+  // Breadth gaps (more to find, unselected programs, open hypotheses) become the
+  // open leads of a completed first pass; every other selection blocker stays one.
+  const breadthBlockers = new Set<string>();
+  const asBreadth = (record: () => void): void => {
+    const before = selectionBlockers.length;
+    record();
+    for (const message of selectionBlockers.slice(before)) breadthBlockers.add(message);
+  };
   const depthBlockers: string[] = [];
   const selectionBoundaryBlockers: string[] = [];
   const depthBoundaryBlockers: string[] = [];
@@ -995,10 +1007,10 @@ export function assessTreatmentLandscapeCoverage(
       const signature = signatureByFingerprintId.get(candidate.fingerprint_id);
       const nonrelevanceSupported = candidate.materiality === "not_material" ||
         (signature !== undefined && selectedSignatureCounts.has(signature));
-      handleOmission(
+      asBreadth(() => handleOmission(
         `Candidate video ${candidate.video_id} was screened but not selected`, candidate,
         nonrelevanceSupported, selectionBlockers, planningWarnings
-      );
+      ));
     }
     if (
       candidate.selection_status === "selected" && candidate.channel_id === "not_reported"
@@ -1063,10 +1075,10 @@ export function assessTreatmentLandscapeCoverage(
     if ((candidateCountByClass.get(treatmentClass.class_id) ?? 0) > 0 &&
       !selectedClasses.has(treatmentClass.class_id)) {
       uncovered.add(treatmentClass.class_id);
-      handleOmission(
+      asBreadth(() => handleOmission(
         `Treatment class ${treatmentClass.class_id} has candidates but no selected video`,
         treatmentClass, false, selectionBlockers, planningWarnings
-      );
+      ));
     }
     if (["incomplete", "inaccessible", "not_applicable"].includes(
       treatmentClass.formal_follow_up
@@ -1125,10 +1137,10 @@ export function assessTreatmentLandscapeCoverage(
       .some(({ selection_status }) => selection_status !== "inaccessible");
     if (hasAvailableCandidate && !sameProgramSelected) {
       availableUnselectedFingerprints.push(fingerprint.fingerprint_id);
-      handleOmission(
+      asBreadth(() => handleOmission(
         `Program fingerprint ${fingerprint.fingerprint_id} is available but not selected`,
         fingerprint, false, selectionBlockers, planningWarnings
-      );
+      ));
     }
   }
 
@@ -1255,12 +1267,12 @@ export function assessTreatmentLandscapeCoverage(
     }
   );
   if (unresolvedNewFingerprints.length > 0) {
-    selectionBlockers.push(
+    asBreadth(() => selectionBlockers.push(
       `${unresolvedNewFingerprints.length} new material program hypothesis or hypotheses remain unresolved across discovery batches.`
-    );
+    ));
   }
   if (input.further_expansion_likely_to_improve_answer === "yes") {
-    selectionBlockers.push("Further executable expansion is likely to improve the answer.");
+    asBreadth(() => selectionBlockers.push("Further executable expansion is likely to improve the answer."));
   } else if (input.further_expansion_likely_to_improve_answer === "blocked") {
     const boundary = [...boundaryById.values()].find(({ scope_type }) =>
       scope_type === "landscape_scope"
@@ -1301,19 +1313,27 @@ export function assessTreatmentLandscapeCoverage(
   const validatedGeminiSparkCandidates = unique(geminiSparkFrontiers.flatMap(
     ({ validated_candidate_video_ids }) => validated_candidate_video_ids
   ));
-  const availableMaterialCandidateCount = [...candidateById.values()].filter((candidate) => {
-    const treatmentClass = classById.get(candidate.treatment_class_id);
-    const fingerprint = fingerprintById.get(candidate.fingerprint_id);
-    return candidate.materiality !== "not_material" &&
-      treatmentClass !== undefined && treatmentClass.materiality !== "not_material" &&
-      fingerprint !== undefined && fingerprint.materiality !== "not_material" &&
-      fingerprint.availability_status === "available";
-  }).length;
-  const broadStructuralMinimumsApplied = effectiveBroadTreatmentChoice &&
-    effectiveSubstantialCorpus && availableMaterialCandidateCount >= 8 &&
-    validMaterialSignatures.size >= 6;
-  const broadStructuralMinimumsMet = !broadStructuralMinimumsApplied ||
-    (fullyAuditedVideos >= 8 && fullyAuditedSignatures.size >= 6);
+  // Discovery stops at saturation, not at a count: the last two valid batches,
+  // from different queries, found no new material program and no video selected
+  // for audit that earlier batches had not already found.
+  const discoverySaturated = discoverySaturation(validBatches, {
+    materialSignatureOf: (fingerprintId) => {
+      const fingerprint = fingerprintById.get(fingerprintId);
+      return fingerprint === undefined || fingerprint.materiality === "not_material"
+        ? undefined
+        : signatureByFingerprintId.get(fingerprintId);
+    },
+    fingerprintOfCandidate: (videoId) => candidateById.get(videoId)?.fingerprint_id,
+    selectedVideoIds: new Set(videosActuallyAudited.map(({ video_id }) => video_id))
+  });
+  if (effectiveBroadTreatmentChoice && discoverySaturated !== "saturated") {
+    asBreadth(() => selectionBlockers.push(discoverySaturated === "too_few_batches"
+      ? "Discovery has not saturated: run discovery batches from different angles until two in a row add nothing new."
+      : discoverySaturated === "same_query"
+        ? "The last two discovery batches repeat one query; saturation needs two different angles that add nothing new."
+        : "Discovery has not saturated: one of the last two batches still found a new material program or a video selected for audit; run another batch from a new angle."
+    ));
+  }
   if (
     effectiveBroadTreatmentChoice &&
     input.substantial_youtube_corpus === "no" &&
@@ -1321,14 +1341,6 @@ export function assessTreatmentLandscapeCoverage(
   ) {
     selectionBlockers.push(
       "The caller labels the YouTube corpus as not substantial, but the valid ledger contains at least 20 candidates; caller labels cannot waive structural coverage checks."
-    );
-  }
-  if (
-    effectiveBroadTreatmentChoice && effectiveSubstantialCorpus &&
-    videosActuallyAudited.length <= 3
-  ) {
-    selectionBlockers.push(
-      "Two or three videos cannot establish broad treatment-space coverage in a substantial corpus."
     );
   }
   if (effectiveBroadTreatmentChoice && effectiveSubstantialCorpus) {
@@ -1341,22 +1353,6 @@ export function assessTreatmentLandscapeCoverage(
         "The Gemini Spark frontier contains no identity-validated candidate, so broad treatment-space completion remains open."
       );
     }
-  }
-  if (
-    broadStructuralMinimumsApplied &&
-    videosActuallyAudited.length < 8
-  ) {
-    selectionBlockers.push(
-      "Broad completion requires selecting at least eight material videos for full audit when the valid ledger contains that many candidates across six distinct programs."
-    );
-  }
-  if (
-    broadStructuralMinimumsApplied &&
-    selectedSignatureCounts.size < 6
-  ) {
-    selectionBlockers.push(
-      "The valid ledger contains at least six available distinct programs; broad completion requires selecting at least six of them for full audit."
-    );
   }
   if (
     effectiveBroadTreatmentChoice &&
@@ -1384,17 +1380,6 @@ export function assessTreatmentLandscapeCoverage(
     );
   }
 
-  if (effectiveBroadTreatmentChoice && effectiveSubstantialCorpus) {
-    if (candidateById.size < 20) planningWarnings.push(
-      "Planning heuristic: broad questions ordinarily screen 20-40 candidate videos when material candidates exist."
-    );
-    if (validMaterialSignatures.size < 8) planningWarnings.push(
-      "Planning heuristic: seek about 8 materially distinct program hypotheses when the corpus supports them."
-    );
-    if (videosActuallyAudited.length > 15) planningWarnings.push(
-      "Planning heuristic: a broad deep audit ordinarily stays within about 8-15 material videos after minimum coverage is met."
-    );
-  }
 
   for (const boundary of boundaryById.values()) {
     if (!usedBoundaryIds.has(boundary.boundary_id)) {
@@ -1417,10 +1402,22 @@ export function assessTreatmentLandscapeCoverage(
     uniqueDepthBlockers.length === 0 && depthBoundaryBlockers.length === 0
       ? "pass" : "block";
   const synthesisLock = blockers.length === 0 ? "pass" : "block";
+  // A first pass stops at its cap: once the selected videos are fully audited,
+  // remaining selection work becomes open leads offered to the user, and the
+  // answer stays provisional instead of claiming a complete landscape.
+  const researchDepth = input.research_depth ?? "first_pass";
+  const firstPassComplete = researchDepth === "first_pass" && (
+    discoverySaturated === "saturated" ||
+    fullyAuditedVideos >= FIRST_PASS_AUDITED_VIDEOS ||
+    validBatches.length >= FIRST_PASS_DISCOVERY_BATCHES
+  );
   const answerBoundary = synthesisLock === "pass"
     ? "ledger_consistent_for_synthesis"
     : uniqueSelectionBlockers.length > 0 || uniqueDepthBlockers.length > 0
-      ? "continue_research"
+      ? firstPassComplete && uniqueDepthBlockers.length === 0 && selectionBoundaryBlockers.length === 0 &&
+          uniqueSelectionBlockers.every((message) => breadthBlockers.has(message))
+        ? "first_pass_with_open_leads"
+        : "continue_research"
       : "bounded_nonranking_only";
 
   return treatmentLandscapeCoverageOutputSchema.parse({
@@ -1432,8 +1429,9 @@ export function assessTreatmentLandscapeCoverage(
     candidate_videos_screened: candidateById.size,
     external_scout_candidates_screened: screenedExternalScoutCandidates,
     external_scout_candidates_pending: unique(pendingExternalScoutCandidates),
-    broad_structural_minimums_applied: broadStructuralMinimumsApplied,
-    broad_structural_minimums_met: broadStructuralMinimumsMet,
+    discovery_saturated: discoverySaturated === "saturated",
+    research_depth: researchDepth,
+    first_pass_complete: firstPassComplete,
     material_videos_selected: videosActuallyAudited.length,
     material_videos_fully_audited: fullyAuditedVideos,
     materially_distinct_programs_fully_audited: fullyAuditedSignatures.size,
@@ -1900,4 +1898,47 @@ function actionJsonSchema(schema: z.ZodType): Record<string, unknown> {
   const converted = z.toJSONSchema(schema) as Record<string, unknown>;
   const { $schema: _dialect, ...openApiSchema } = converted;
   return openApiSchema;
+}
+
+/** A first pass stops at saturation or at this many fully audited videos or discovery batches. */
+const FIRST_PASS_AUDITED_VIDEOS = 6;
+const FIRST_PASS_DISCOVERY_BATCHES = 4;
+
+type DiscoverySaturation = "saturated" | "too_few_batches" | "same_query" | "still_finding";
+
+/** Whether the last two batches, from different queries, added nothing new; batches run in ledger order. */
+function discoverySaturation(
+  batches: ReadonlyArray<{ query_or_scope: string; candidate_video_ids: string[]; new_program_fingerprint_ids: string[] }>,
+  context: {
+    materialSignatureOf: (fingerprintId: string) => string | undefined;
+    fingerprintOfCandidate: (videoId: string) => string | undefined;
+    selectedVideoIds: ReadonlySet<string>;
+  }
+): DiscoverySaturation {
+  if (batches.length < 2) return "too_few_batches";
+  const seenSignatures = new Set<string>();
+  const seenVideos = new Set<string>();
+  const found = batches.map((batch) => {
+    let foundNew = false;
+    const fingerprintIds = [
+      ...batch.new_program_fingerprint_ids,
+      ...batch.candidate_video_ids.flatMap((videoId) => context.fingerprintOfCandidate(videoId) ?? [])
+    ];
+    for (const fingerprintId of fingerprintIds) {
+      const signature = context.materialSignatureOf(fingerprintId);
+      if (signature !== undefined && !seenSignatures.has(signature)) {
+        seenSignatures.add(signature);
+        foundNew = true;
+      }
+    }
+    for (const videoId of batch.candidate_video_ids) {
+      if (!seenVideos.has(videoId) && context.selectedVideoIds.has(videoId)) foundNew = true;
+      seenVideos.add(videoId);
+    }
+    return foundNew;
+  });
+  const [previous, last] = batches.slice(-2);
+  if (found.at(-1) === true || found.at(-2) === true) return "still_finding";
+  const angle = (query: string) => query.trim().toLowerCase().replace(/\s+/gu, " ");
+  return angle(previous!.query_or_scope) === angle(last!.query_or_scope) ? "same_query" : "saturated";
 }

@@ -694,10 +694,14 @@ pending-proposal stores have their own strict contracts and authority boundaries
   domain-separated key derived from the finalization signing secret, or else the
   YouTube continuation secret. They carry only public identifiers (YouTube
   video IDs, DOIs, PMIDs, PMCIDs), completion states, counts, and the issue
-  time; never comments, source text, questions, or user data. They expire after
-  24 hours. `finalize_research` verifies the receipts the client passes back and
-  returns next steps or limits; it keeps no ledger, and its optional free-text
-  reasons are processed for that call only.
+  time; never comments, source text, questions, or user data. Discovery
+  receipts (surveys, searches, scouts, one-call community audits) also carry
+  `q`, the first 12 hex characters of a SHA-256 over the round's normalized
+  search terms, so the gate can tell rounds from different angles apart; the
+  terms themselves are not in the receipt. They expire after 24 hours.
+  `finalize_research` verifies the receipts the client passes back and returns
+  next steps or limits; it keeps no ledger, and its optional free-text reasons
+  and open-lead topics are processed and echoed for that call only.
 - Strict Zod input/output schemas reject undeclared input fields. Pagination cursors are opaque at the MCP boundary.
 - Internal external-evidence receipts use a server-held secret of at least 32
   UTF-8 bytes and domain-separated HMAC-SHA256; they bind session, study,

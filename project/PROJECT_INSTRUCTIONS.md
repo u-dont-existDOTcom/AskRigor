@@ -35,7 +35,7 @@ REQUIRED cannot become NOT REQUIRED. Finding an excellent RCT does not satisfy o
 
 ## 2. Execute required modules
 
-Read `FORUM_SIGNAL_MODULE.md`; use `survey_youtube_community`; select up to three materially different candidates per batch; widen while expected information gain is positive.
+Read `FORUM_SIGNAL_MODULE.md`; use `survey_youtube_community`; select up to three materially different candidates per batch; widen until `finalize_research` accepts.
 
 Before selection, inventory materially distinct treatment classes. Split umbrellas by stage/outcome/horizon/benefit/failure/progression. Fingerprint components/dose/frequency/duration/supervision/adherence/cointerventions/stage. Missing=`program not described`. Do not pool “exercise,” PT, diet, injections, or conservative care. Derive breadth from valid state, never caller labels; two or three videos cannot establish coverage.
 

@@ -11453,6 +11453,13 @@
               "blocked"
             ]
           },
+          "research_depth": {
+            "type": "string",
+            "enum": [
+              "first_pass",
+              "deep"
+            ]
+          },
           "directional_searches": {
             "type": "object",
             "properties": {
@@ -11767,10 +11774,7 @@
               "pattern": "^[A-Za-z0-9_-]+$"
             }
           },
-          "broad_structural_minimums_applied": {
-            "type": "boolean"
-          },
-          "broad_structural_minimums_met": {
+          "discovery_saturated": {
             "type": "boolean"
           },
           "material_videos_selected": {
@@ -12244,8 +12248,19 @@
             "enum": [
               "ledger_consistent_for_synthesis",
               "bounded_nonranking_only",
-              "continue_research"
+              "continue_research",
+              "first_pass_with_open_leads"
             ]
+          },
+          "research_depth": {
+            "type": "string",
+            "enum": [
+              "first_pass",
+              "deep"
+            ]
+          },
+          "first_pass_complete": {
+            "type": "boolean"
           },
           "selection_blockers": {
             "type": "array",
@@ -12305,8 +12320,7 @@
           "candidate_videos_screened",
           "external_scout_candidates_screened",
           "external_scout_candidates_pending",
-          "broad_structural_minimums_applied",
-          "broad_structural_minimums_met",
+          "discovery_saturated",
           "material_videos_selected",
           "material_videos_fully_audited",
           "materially_distinct_programs_fully_audited",
@@ -12326,6 +12340,8 @@
           "per_video_depth_lock",
           "synthesis_lock",
           "answer_boundary",
+          "research_depth",
+          "first_pass_complete",
           "selection_blockers",
           "depth_blockers",
           "boundary_blockers",
@@ -13168,12 +13184,52 @@
             "maxLength": 1000
           },
           "material_video_ids": {
-            "description": "Videos whose comments your answer draws on; defaults to every audited video.",
+            "description": "Videos worth auditing: each adds an approach or substantial firsthand experience. Defaults to every audited video.",
             "maxItems": 60,
             "type": "array",
             "items": {
               "type": "string",
               "pattern": "^[A-Za-z0-9_-]{11}$"
+            }
+          },
+          "no_material_video_reason": {
+            "description": "Why none of the videos found was worth auditing; needed only when discovery found videos but material_video_ids is empty.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "research_depth": {
+            "default": "first_pass",
+            "description": "first_pass unless the user or an automated research brief asked for deep research.",
+            "type": "string",
+            "enum": [
+              "first_pass",
+              "deep"
+            ]
+          },
+          "open_leads": {
+            "description": "When a first pass stops before discovery saturates: each topic or subtopic where more community signal is likely, and why.",
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "topic": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "why": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                }
+              },
+              "required": [
+                "topic",
+                "why"
+              ],
+              "additionalProperties": false
             }
           },
           "key_sources": {
@@ -13283,6 +13339,30 @@
                 "minimum": 0,
                 "maximum": 9007199254740991
               },
+              "discovery_rounds": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "saturated": {
+                "type": "boolean"
+              },
+              "depth": {
+                "type": "string",
+                "enum": [
+                  "first_pass",
+                  "deep"
+                ]
+              },
+              "first_pass_complete": {
+                "type": "boolean"
+              },
+              "open_leads": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
               "audited_videos": {
                 "type": "array",
                 "items": {
@@ -13299,6 +13379,11 @@
             "required": [
               "decision",
               "surveys",
+              "discovery_rounds",
+              "saturated",
+              "depth",
+              "first_pass_complete",
+              "open_leads",
               "audited_videos",
               "material_videos"
             ],

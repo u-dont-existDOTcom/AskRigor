@@ -267,14 +267,23 @@ describe("canonical Reasoning Selection application", () => {
       "d5a4b02bc53fda30bbb586d2ec34233f19bb981d38427f6311f453b84209ba5a",
     );
     expect(project).toContain(`\n${CURRENT_PROJECT_APPLICATION}## 1. Run before HRP/research`);
-    expect(Buffer.byteLength(project, "utf8")).toBe(8011);
-    expect(Array.from(project)).toHaveLength(7995);
-    expect(project.split(/\s+/u).filter(Boolean)).toHaveLength(917);
+    expect(Buffer.byteLength(project, "utf8")).toBe(8001);
+    expect(Array.from(project)).toHaveLength(7985);
+    expect(project.split(/\s+/u).filter(Boolean)).toHaveLength(914);
     expect(sha256(project)).toBe(
+      "7aa4e0b9602609f11ef7a9911f6c41c719e625a8b8fb844e28e623ba47b56e49",
+    );
+    // 2026-09-27: discovery widens until finalize_research accepts (a capped first pass or saturation).
+    const priorWidenRule = project.replace(
+      "widen until `finalize_research` accepts.",
+      "widen while expected information gain is positive.",
+    );
+    expect(priorWidenRule).not.toBe(project);
+    expect(sha256(priorWidenRule)).toBe(
       "33d85f488493e6ef75259b24bf92329286ee2b09a33089170fb7be65d5ba06fe",
     );
     // 2026-09-26: the synthesis gate points to finalize_research.
-    const priorFinalizeRule = project.replace(
+    const priorFinalizeRule = priorWidenRule.replace(
       "No final verdict while work is incomplete; first call `finalize_research` with every `research_receipt`: `not_ready`=do its steps; `ready_with_limits`=state them.",
       "Do not emit a final verdict while work is incomplete. Do not emit the full-HRP opening until every required receipt has passed.",
     );
@@ -302,10 +311,10 @@ describe("canonical Reasoning Selection application", () => {
     ]);
 
     expect(sha256(hrp)).toBe(
-      "bb8bb68d009dce0fa7c20449a65a51ae165f5f6f82e81526def34cfaaee69866",
+      "52255f2042c94c882985d0b78bd503d63bc78eb64c01de7021b9d3abc33a37aa",
     );
     expect(sha256(forum)).toBe(
-      "5fa8374564ebc37d46a4980c7090a1af6dd8d01cd9f224f52a4cf032e02f5701",
+      "b1e7b56de22c7418a29693b7ad5fa6813e3abe9270235905869eaf10df8bda84",
     );
   });
 });

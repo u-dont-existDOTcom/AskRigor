@@ -35,6 +35,42 @@ Claude Opus 5.5 (owner, 2026-09-26).
 9. Standing holds: the Mission Control A19–A20 alignment task stays on hold and
    is not resent; PR #234 is frozen unless the owner says otherwise.
 
+## Owner decisions of 2026-09-27
+
+1. Euphemism rule: replaced by precise clinical terms (Universal 20.5.29).
+2. Treatment discovery (HRP 20.6.1): the fixed 8-video / 6-program minimum
+   goes. A first pass is a broad sweep with a cap, not a minimum. It searches
+   in rounds from new angles, including patient phrasing and methods named in
+   comments, and stops at the earliest of:
+   - saturation: two consecutive rounds from different angles add nothing
+     new; a niche topic may end with one video or none;
+   - about six fully audited videos;
+   - about four rounds.
+
+   If discovery has not saturated, the answer is provisional. It ends with the
+   open leads (topic, why more signal is likely, rough cost of another pass)
+   and asks whether to continue. Deep research, asked for by the user or set by
+   an automated brief, runs to saturation. The owner rejected open-ended
+   saturation alone ("might search for DAYS").
+   - `finalize_research` enforces it from discovery receipts, which now carry a
+     query digest and are issued for empty rounds too. A first pass that stops
+     unsaturated must list `open_leads`.
+   - `assess_treatment_landscape_coverage` returns `first_pass_with_open_leads`
+     when only breadth gaps remain after the cap. Skipped directional searches,
+     invalid records and unfinished audits still block.
+3. Estimates of live state (quota, CI, relay health) are never reported as
+   facts. This goes into UDA as the observed-state check
+   (u-dont-existDOTcom/universal-dev-architecture#274).
+4. YouTube quota: the owner's extension request has been pending with Google
+   for over a month. Extra Cloud projects for the same app are not allowed
+   (YouTube developer policy III.D.1.c), and automated browsing of comments
+   would breach YouTube's Terms of Service. The plan is to cut per-research
+   quota (scout-first discovery, a short-lived cache within III.E.4.d, per-user
+   budgets).
+5. Find the recent version whose Gemini Spark discovery handled the hip case
+   well, then test search strategies on development questions with a
+   discovery-only bench.
+
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 
 - Iteration for each candidate: focused tests plus one or two development

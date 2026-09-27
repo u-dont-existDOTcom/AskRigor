@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.6.0" revisionDate="2026-09-26" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.6.1" revisionDate="2026-09-27" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -51,6 +51,16 @@
 </InstructionObligationLifecycle>
 
  <RevisionHistory>
+  <Revision version="20.6.1" priority="Critical">
+   Owner-directed method change: a first pass is a broad sweep with a cap, not a minimum. The fixed minimum of eight
+   fully audited videos across six programs, and the 20-40 screening and 8-15 audit ranges, are replaced by rounds from
+   new angles (usual names, patient phrasing, methods named in earlier videos and comments, alternative framings). The
+   first pass stops at saturation (two consecutive rounds from different angles add nothing new; a niche topic may end
+   with one video or none), about six fully audited videos, or about four rounds, and then offers the open leads to the
+   user as a provisional answer. Deep research, requested by the user or set by an automated brief, continues to
+   saturation. finalize_research and assess_treatment_landscape_coverage check this from discovery receipts and batches.
+   A fixed minimum padded niche topics, and open-ended saturation could run for days.
+  </Revision>
   <Revision version="20.6.0" priority="Critical">
    Consolidation, no change to clinical or scientific method. Strong models loaded nearly every section (about 570,000
    characters) and answers carried research-process clutter, so seven process, output and meta sections were rewritten
@@ -1148,18 +1158,23 @@
   </Rule>
 
   <Rule name="BroadDiscoveryBeforeDeepAudit" priority="Critical">
-   Separate broad discovery from full comment auditing. Use repeated nonredundant discovery batches of no more than six
-   searches per batch. Later batches must target uncovered treatment classes and hypotheses discovered in earlier
-   transcripts, comments, formal sources, or grey literature. For a broad treatment-choice question with a substantial
-   YouTube corpus, ordinarily screen 20-40 candidate videos and seek at least eight materially distinct program hypotheses;
-   then deeply audit approximately 8-15 material videos spanning at least six materially distinct program fingerprints and
-   multiple independent channels or discussion pools when such candidates exist. Establish channel or pool independence
-   from stable source identifiers linked to retrieval receipts, not free-text channel names. Unknown independence affects
-   the selection lock. Derive whether structural breadth rules apply from the valid candidate and selection ledger; a
-   caller-supplied claim that the corpus is small, narrow, or non-substantial cannot deactivate them. Screening ranges remain
-   planning heuristics. But when the valid ledger contains at least eight material candidate videos across at least six
-   materially distinct available programs, eight fully audited material videos spanning at least six such programs are an
-   availability-conditioned minimum for broad synthesis, not an optional target.
+   Separate broad discovery from full comment auditing. Unless the user or an automated research brief asks for deep
+   research, the first pass is a broad sweep with a cap, not a minimum. Search for treatment approaches in rounds of no
+   more than six searches, each from a new angle: the condition's usual names; patient phrasing (“avoided surgery”,
+   “what finally worked”); every named method, product, practitioner or program that earlier videos and comments
+   mention; alternative and heterodox framings. Later rounds also target uncovered treatment classes and hypotheses from
+   transcripts, formal sources, or grey literature. Audit the comments of the videos that add the most distinct
+   approaches or substantial firsthand experience. Stop the first pass at the earliest of: two consecutive rounds from
+   different angles that add no new approach and no new video worth auditing (a niche topic may end with one video or
+   none; say so); about six fully audited videos; or about four rounds. When discovery has not saturated, the answer is
+   provisional: end it with the open leads (each topic or subtopic where more community signal is likely, why, and
+   roughly what another pass would cost) and ask whether to continue on all or part. Deep research continues rounds
+   until saturation; an automated or long-range brief sets the depth up front, or a separate reviewer model answers the
+   continuation question. Audit across multiple independent channels or discussion pools when such videos exist, and
+   establish independence from stable source identifiers linked to retrieval receipts, not free-text channel names;
+   unknown independence affects the selection lock. A caller-supplied claim that the corpus is small, narrow, or
+   non-substantial cannot end discovery; only saturation or a completed first pass with its open leads can. On MCP,
+   finalize_research checks this from the discovery receipts.
   </Rule>
 
   <Rule name="DiversityBeforeConcentration" priority="Critical">
@@ -1181,7 +1196,8 @@
    eventual standard treatment. Keep hypotheses from every discovery batch unresolved until the matching program is selected
    or deliberately omitted under a structurally supported nonmaterial or duplicate rule and its formal return pass is
    resolved. Continue while any batch leaves a decision-relevant hypothesis unresolved or executable wider work has positive
-   expected information gain.
+   expected information gain; in a first pass, what remains when the first pass stops is offered to the user as open
+   leads.
   </Rule>
 
   <Rule name="SelectedVideoTreatmentRecord" priority="Critical">
@@ -1202,7 +1218,7 @@
 
   <Rule name="AggregateLandscapeSynthesisLock" priority="Critical">
    Before final synthesis record: treatment_classes_discovered; materially_distinct_program_fingerprints;
-   candidate_videos_screened; material_videos_selected; material_videos_fully_audited;
+   candidate_videos_screened; discovery_saturated; material_videos_selected; material_videos_fully_audited;
    independent_channels_or_pools; treatment_classes_with_no_selected_video;
    treatment_classes_with_no_formal_evidence_follow_up; program_fingerprints_with_no_formal_evidence_follow_up;
    unresolved_new_program_hypotheses_from_all_discovery_batches;
@@ -1224,9 +1240,12 @@
    omissions. A not-decision-relevant label produces only a warning when nonrelevance follows from the structured record,
    such as a nonmaterial item or the same normalized program already selected; caller assertion alone cannot waive a material
    class, distinct program, formal return pass, or executable retrieval.
-   When a broad substantial valid ledger contains at least eight material candidate videos across at least six available
-   distinct programs, selection_coverage_lock also blocks unless at least eight material videos across at least six such
-   programs have completed the selected-video depth requirements that apply on the serving surface. A caller's optimistic aggregate, corpus-size or scope label, renamed ID, or unsupported relevance label cannot turn
+   selection_coverage_lock also blocks while discovery has not saturated: the last two discovery batches did not come
+   from different angles, or either still found a new material program or a video selected for audit. After a completed
+   first pass, breadth gaps (unsaturated discovery, unselected programs or classes, unresolved hypotheses, likely further
+   expansion) become the open leads of a provisional answer rather than more searching; skipped directional searches,
+   invalid records, and unfinished audits of selected videos still block, and no final treatment ranking is emitted
+   while the lock blocks. A caller's optimistic aggregate, corpus-size or scope label, renamed ID, or unsupported relevance label cannot turn
    discoverable material into coverage or disable a structural check.
 
    per_video_depth_lock is block when, on a surface that offers a transcript tool, any selected transcript track is not
@@ -1245,8 +1264,8 @@
    boundary after attempted recovery can authorize bounded output. An asserted or mismatched boundary fails closed. Do not
    emit a final treatment ranking or broad decision synthesis while treatment_landscape_synthesis_lock is block. Keep the
    Action request and response under their declared transport limits using strict input bounds, compact selected-video output,
-   and causal worst-case transport tests. Screening heuristics alone create warnings; the availability-conditioned audit
-   minimum and the explicit decision-relevant omissions above create blockers.
+   and causal worst-case transport tests. Unsaturated discovery and the explicit decision-relevant omissions above create
+   blockers.
   </Rule>
  </TreatmentLandscapeAndVideoSelectionGate>
 

@@ -138,6 +138,7 @@ import {
   finalizeResearchOutputSchema
 } from "./research-finalization-gate.js";
 import {
+  discoveryQueryDigest,
   issueResearchReceipt,
   researchReceiptSecretFromEnv,
   type ResearchReceiptClaims,
@@ -956,7 +957,9 @@ function defineResearchOperations(
         return withResearchReceipt(youtubeToolResult(
           `YouTube search returned ${result.pagination.returned} video record(s); access status ${result.access_status}.`,
           result
-        ), videos.length === 0 ? undefined : researchReceipt("youtube_search", { videos }));
+        ), videos.length === 0 && result.access_status !== "complete"
+          ? undefined
+          : researchReceipt("youtube_search", { videos, q: discoveryQueryDigest([query]) }));
       } catch (_error) {
         return youtubeToolResult(
           "YouTube search returned 0 video record(s); access status error.",
@@ -1079,13 +1082,13 @@ function defineResearchOperations(
       return withResearchReceipt(youtubeToolResult(
         `YouTube community audit selected ${result.receipt.selected_video_ids.length} video(s); completion state ${result.receipt.completion_state}; synthesis lock ${result.receipt.synthesis_lock}.`,
         result
-      ), result.receipt.completion_state === "incomplete" ||
-          result.receipt.completion_state === "complete_no_candidates"
+      ), result.receipt.completion_state === "incomplete"
         ? undefined
         : researchReceipt("youtube_community_audit", {
             videos: result.receipt.selected_video_ids,
             state: result.receipt.completion_state,
-            lock: result.receipt.synthesis_lock
+            lock: result.receipt.synthesis_lock,
+            q: discoveryQueryDigest(input.searches.map(({ query }) => query))
           }));
     }
   );
@@ -1113,7 +1116,8 @@ function defineResearchOperations(
         ? researchReceipt("youtube_survey", {
             access: result.access_status,
             searches: result.searches.length,
-            videos: result.candidates.map(({ video_id }) => video_id)
+            videos: result.candidates.map(({ video_id }) => video_id),
+            q: discoveryQueryDigest(input.searches.map(({ query }) => query))
           })
         : undefined);
     }
@@ -1299,15 +1303,24 @@ function defineResearchOperations(
           isError: true
         };
       }
-      const validated = (result.body as {
-        validation?: { validated_candidates?: Array<{ video_id: string }> } | null;
-      }).validation?.validated_candidates ?? [];
+      const validation = (result.body as {
+        validation?: {
+          validated_candidates?: Array<{ video_id: string }>;
+          unresolved_candidates?: unknown[];
+        } | null;
+      }).validation;
+      // A scout that ran identity validation is a discovery round even when it
+      // found nothing; `open` counts candidates that could not be checked.
       return withResearchReceipt(successfulToolResult(
         "Gemini scout completed; candidate summaries are unverified discovery leads.",
         result.body as Record<string, unknown>
-      ), validated.length === 0
+      ), validation === undefined || validation === null
         ? undefined
-        : researchReceipt("youtube_scout", { videos: validated.map(({ video_id }) => video_id) }));
+        : researchReceipt("youtube_scout", {
+            videos: (validation.validated_candidates ?? []).map(({ video_id }) => video_id),
+            open: validation.unresolved_candidates?.length ?? 0,
+            q: discoveryQueryDigest([input.research_target])
+          }));
     }
   );
 

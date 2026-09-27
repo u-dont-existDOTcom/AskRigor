@@ -133,7 +133,7 @@ describe("AskRigor MCP tools", () => {
     expect(SERVER_INSTRUCTIONS).toContain("could plausibly matter");
     expect(SERVER_INSTRUCTIONS).toContain("excellent RCT does not remove this requirement");
     expect(SERVER_INSTRUCTIONS).toContain("continuation_recommended");
-    expect(SERVER_INSTRUCTIONS).toContain("expected information gain is positive");
+    expect(SERVER_INSTRUCTIONS).toContain("widen discovery until finalize_research accepts it");
     expect(SERVER_INSTRUCTIONS).toContain("unfiltered YouTube comments and replies");
     expect(SERVER_INSTRUCTIONS).toContain(
       "search_youtube_comments is query-bounded discovery only"
@@ -1157,6 +1157,46 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
+  it("issues a discovery receipt for every completed search, including one that finds nothing", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previous = {
+      apiKey: process.env.YOUTUBE_API_KEY,
+      continuationSecret: process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET,
+      finalizationSecret: process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET
+    };
+    const [found, empty] = await Promise.all([youtubeFixture("search-page-1.json"), youtubeFixture("search-empty.json")]);
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET = "mcp-continuation-secret-value-32-bytes";
+    delete process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET;
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) =>
+      new Response(new URL(String(input)).searchParams.get("q") === "nothing here" ? empty : found, { status: 200 })
+    ));
+
+    try {
+      const receiptOf = async (query: string) => {
+        const result = await client.callTool({ name: "search_youtube", arguments: { query, page_size: 1 } });
+        const receipt = (result.structuredContent as { research_receipt: string }).research_receipt;
+        return verifyResearchReceipt(receipt, { secret: "mcp-continuation-secret-value-32-bytes" });
+      };
+      const first = await receiptOf("recorded subject");
+      const second = await receiptOf("nothing here");
+      const repeat = await receiptOf("  Recorded   SUBJECT ");
+
+      expect(first).toMatchObject({ ok: true, kind: "youtube_search", claims: { videos: ["XpZHKGGCK-o"] } });
+      // An empty round is evidence that discovery has saturated, so it is signed too.
+      expect(second).toMatchObject({ ok: true, kind: "youtube_search", claims: { videos: [] } });
+      const angle = (verification: typeof first) => verification.ok ? verification.claims.q : undefined;
+      expect(angle(first)).toMatch(/^[a-f0-9]{12}$/u);
+      expect(angle(second)).not.toBe(angle(first));
+      expect(angle(repeat)).toBe(angle(first));
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previous.apiKey);
+      restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previous.continuationSecret);
+      restoreEnvironment("ASKRIGOR_FINALIZATION_SIGNING_SECRET", previous.finalizationSecret);
+      await server.close();
+    }
+  });
+
   it("publishes strict, source-aligned retrieval-only YouTube comment schemas", async () => {
     const { client, server } = await createInMemoryClient();
 
@@ -2060,15 +2100,15 @@ describe("AskRigor MCP tools", () => {
         protocol: "hrp",
         manifest: {
           name: "HRP",
-          version: "20.6.0",
-          revisionDate: "2026-09-26",
-          sha256: "bb8bb68d009dce0fa7c20449a65a51ae165f5f6f82e81526def34cfaaee69866"
+          version: "20.6.1",
+          revisionDate: "2026-09-27",
+          sha256: "52255f2042c94c882985d0b78bd503d63bc78eb64c01de7021b9d3abc33a37aa"
         },
         scope: "full",
         page: 1,
         next_page: 2,
         complete: false,
-        scope_sha256: "bb8bb68d009dce0fa7c20449a65a51ae165f5f6f82e81526def34cfaaee69866"
+        scope_sha256: "52255f2042c94c882985d0b78bd503d63bc78eb64c01de7021b9d3abc33a37aa"
       });
       const pageCount = (first.structuredContent as { page_count: number }).page_count;
       expect(first.content).toEqual([

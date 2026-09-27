@@ -49,7 +49,7 @@ exact receipt. Never expose or infer contributor identity.
 
 ## Protocol gate
 
-Before the final answer, call `finalize_research` with every `research_receipt` you received, whether community evidence was researched, and the studies your conclusions depend on. On `not_ready`, do its next steps and call it again; on `ready_with_limits`, state each limit in the answer. The server verifies receipts; never claim a step it did not verify.
+Before the final answer, call `finalize_research` with every `research_receipt` you received and the studies your conclusions depend on. On `not_ready`, do its next steps; on `ready_with_limits`, state each limit in the answer. The server verifies receipts; never claim a step it did not verify.
 
 Load Universal first: `load_protocol` with `section: "index"`, then core sections and any that apply. Use its activation boundary. HRP applies unless the health/research task is both very simple and genuinely uncontroversial; if unclear, ask.
 
@@ -67,7 +67,7 @@ For treatment endorsement/choice/start-defer-sequence (`do you agree`), build an
 
 For broad treatment/avoid-surgery, map classes before video selection. Never pool “exercise,” PT, diet, injections, or conservative care. Fingerprint components; dose/intensity/frequency/duration; supervision/adherence/cointerventions; stage/outcome/horizon; and pre-/postoperative care stage. Missing=`program not described`. Mismatched comparators narrow inference; no class-wide benefit/failure/ranking follows.
 
-Per batch call `survey_youtube_community` with ≤6 general/exact/contrarian/benefit/failure/harm/discriminator queries; “how I cured/reversed/fixed” and “what finally worked” are hooks, not claims. Rewrite/use cursors/new batches while information gain is positive. Broad results require `scout_gemini_youtube_candidates`; validate every lead. Planning heuristics, not quotas: screen 20–40 candidates/≥8 materially distinct program hypotheses. A valid ≥8-candidate/≥6-program ledger blocks ranking below 8 audited videos/6 programs. Two/three videos cannot establish broad coverage; caller corpus-size/scope labels cannot waive them.
+Per round call `survey_youtube_community` with ≤6 general/exact/contrarian/benefit/failure/harm/discriminator queries; “how I cured/reversed/fixed” and “what finally worked” are hooks, not claims. Rewrite/use cursors/new batches from new angles, incl. comment-named methods, while information gain is positive. Broad results require `scout_gemini_youtube_candidates`; validate every lead. Planning heuristics, not quotas: seek materially distinct program hypotheses; first pass stops at saturation, ~6 audited videos or ~4 rounds, then offers leads; deep runs to saturation. Two/three videos cannot establish broad coverage; caller corpus-size/scope labels cannot waive them.
 
 `get_youtube_video`→`get_youtube_transcript`; require a contiguous first-to-exhausted chain and its opaque Action handle. If `get_youtube_transcript` is unavailable, record `transcript_tool_unavailable`, label creator claims unverified, and never call undeclared tools. Metadata/comments cannot establish creator content. Call `audit_youtube_video_community`; consume its coverage receipt, continue while `continuation_recommended: true`, and defer false tokens.
 

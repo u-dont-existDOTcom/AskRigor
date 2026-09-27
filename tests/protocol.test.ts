@@ -19,7 +19,7 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "bb8bb68d009dce0fa7c20449a65a51ae165f5f6f82e81526def34cfaaee69866";
+  "52255f2042c94c882985d0b78bd503d63bc78eb64c01de7021b9d3abc33a37aa";
 const UNIVERSAL_SHA_256 =
   "5d9a9d76339ff1794b93bb1e932466f703c4a8c006a607b811f40b43ea703d36";
 
@@ -37,8 +37,8 @@ describe("canonical protocol loader", () => {
   it("derives the HRP manifest from its root attributes", async () => {
     await expect(getProtocolManifest("hrp")).resolves.toMatchObject({
       name: "HRP",
-      version: "20.6.0",
-      revisionDate: "2026-09-26"
+      version: "20.6.1",
+      revisionDate: "2026-09-27"
     });
   });
 
@@ -254,7 +254,7 @@ describe("canonical protocol loader", () => {
     };
 
     expect(text).toMatch(
-      /<Protocol name="HRP" version="20\.6\.0" revisionDate="2026-09-26"/
+      /<Protocol name="HRP" version="20\.6\.1" revisionDate="2026-09-27"/
     );
     for (const required of [
       '<Revision version="20.5.19" priority="Critical">',
@@ -289,7 +289,12 @@ describe("canonical protocol loader", () => {
       "stable source identifiers linked to retrieval receipts",
       "Hard-block decision-relevant or uncertain omissions",
       "only a terminal, nonretryable boundary after attempted recovery",
-      "caller-supplied claim that the corpus is small, narrow, or non-substantial cannot deactivate them",
+      "caller-supplied claim that the corpus is small, narrow, or non-substantial cannot end discovery",
+      "the first pass is a broad sweep with a cap, not a minimum",
+      "two consecutive rounds from different angles that add no new approach and no new video worth auditing",
+      "a niche topic may end with one video or none",
+      "only saturation or a completed first pass with its open leads can",
+      "Deep research continues rounds until saturation",
       "authenticated opaque continuation or server-held state proving one contiguous chain"
     ]) expect(normalizedText).toContain(required);
 

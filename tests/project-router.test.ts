@@ -147,7 +147,7 @@ Development-fitted evidence is not confirmation; missing access is neither negat
     expect(instructions).toContain(
       "false tokens are deferred recovery state"
     );
-    expect(instructions).toContain("expected information gain is positive");
+    expect(instructions).toContain("widen until `finalize_research` accepts");
     expect(instructions).toContain("needs no ceremonial user approval");
     expect(instructions).toContain(
       "Continue executable work if `further_expansion_likely_to_improve_answer` would be `yes`."
@@ -178,7 +178,7 @@ Development-fitted evidence is not confirmation; missing access is neither negat
     for (const required of [
       "treatment-space inventory",
       "per discovery batch",
-      "hard availability-conditioned minimum",
+      "Stop discovery at saturation, not at a count",
       "Two or three videos cannot establish broad coverage",
       "ten renamed or redundant videos cannot repair",
       "assess_treatment_landscape_coverage",

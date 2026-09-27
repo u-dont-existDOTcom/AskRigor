@@ -27,7 +27,16 @@ export const finalizeResearchInputSchema = z.object({
     .describe("researched when firsthand community evidence could plausibly matter; not_relevant needs a reason."),
   not_relevant_reason: z.string().trim().min(1).max(1_000).optional(),
   material_video_ids: z.array(youtubeVideoIdSchema).max(60).optional()
-    .describe("Videos whose comments your answer draws on; defaults to every audited video."),
+    .describe("Videos worth auditing: each adds an approach or substantial firsthand experience. Defaults to every audited video."),
+  no_material_video_reason: z.string().trim().min(1).max(1_000).optional()
+    .describe("Why none of the videos found was worth auditing; needed only when discovery found videos but material_video_ids is empty."),
+  research_depth: z.enum(["first_pass", "deep"]).default("first_pass")
+    .describe("first_pass unless the user or an automated research brief asked for deep research."),
+  open_leads: z.array(z.object({
+    topic: z.string().trim().min(1).max(200),
+    why: z.string().trim().min(1).max(500)
+  }).strict()).max(12).optional()
+    .describe("When a first pass stops before discovery saturates: each topic or subtopic where more community signal is likely, and why."),
   key_sources: z.array(z.object({
     id: z.string().trim().min(1).max(300).describe("DOI, PMID or PMCID."),
     status: z.enum(["validated", "lead_only"]),
@@ -57,6 +66,11 @@ export const finalizeResearchOutputSchema = z.object({
   community: z.object({
     decision: z.enum(["researched", "not_relevant"]),
     surveys: z.number().int().nonnegative(),
+    discovery_rounds: z.number().int().nonnegative(),
+    saturated: z.boolean(),
+    depth: z.enum(["first_pass", "deep"]),
+    first_pass_complete: z.boolean(),
+    open_leads: z.array(z.string()),
     audited_videos: z.array(z.string()),
     material_videos: z.array(z.string())
   }).strict(),
@@ -101,6 +115,11 @@ export function finalizeResearch(
       community: {
         decision: input.community_evidence,
         surveys: 0,
+        discovery_rounds: 0,
+        saturated: false,
+        depth: input.research_depth,
+        first_pass_complete: false,
+        open_leads: [],
         audited_videos: [],
         material_videos: []
       },
@@ -108,14 +127,14 @@ export function finalizeResearch(
     };
   }
 
-  const verified: Array<{ kind: ResearchReceiptKind; claims: Record<string, string | string[]> }> = [];
+  const verified: VerifiedReceipt[] = [];
   const rejected: FinalizeResearchOutput["receipts_rejected"] = [];
   input.receipts.forEach((token, index) => {
     const result = verifyResearchReceipt(token, {
       secret: options.secret!,
       ...(options.now === undefined ? {} : { now: options.now })
     });
-    if (result.ok) verified.push({ kind: result.kind, claims: result.claims });
+    if (result.ok) verified.push({ kind: result.kind, claims: result.claims, issuedAt: result.issued_at, index });
     else rejected.push({ index, reason: result.reason });
   });
 
@@ -135,13 +154,15 @@ export function finalizeResearch(
   let partialSurveys = 0;
   const discovered = new Set<string>();
   const audited = new Map<string, VideoAudit>();
-  for (const { kind, claims } of verified) {
+  const rounds: VerifiedReceipt[] = [];
+  for (const receipt of verified) {
+    const { kind, claims } = receipt;
     if (kind === "youtube_survey") {
       surveys += 1;
       if (text(claims.access) !== "complete") partialSurveys += 1;
     }
-    if (kind === "youtube_survey" || kind === "youtube_scout" || kind === "youtube_search" ||
-        kind === "youtube_community_audit") {
+    if (DISCOVERY_KINDS.has(kind)) {
+      rounds.push(receipt);
       for (const video of list(claims.videos)) discovered.add(video);
     }
     if (kind === "youtube_video_audit") {
@@ -156,6 +177,9 @@ export function finalizeResearch(
   }
   const auditedVideos = [...audited.keys()].sort();
   let materialVideos: string[] = [];
+  let saturated = false;
+  let firstPassComplete = false;
+  const openLeads = (input.open_leads ?? []).map(({ topic }) => topic);
   if (input.community_evidence === "not_relevant") {
     if (input.not_relevant_reason === undefined) {
       nextSteps.push(
@@ -175,10 +199,44 @@ export function finalizeResearch(
       );
     }
     materialVideos = [...new Set(input.material_video_ids ?? auditedVideos)].sort();
-    if (materialVideos.length === 0) {
-      nextSteps.push(
-        "Audit the material videos with audit_youtube_video_community, continuing with its continuation_token until each audit completes."
-      );
+    const saturation = discoverySaturation(rounds, new Set(materialVideos), input.research_depth);
+    saturated = saturation.saturated;
+    // A first pass is a broad sweep with a cap: it may stop before saturation
+    // once enough is audited or searched, and then hands back its open leads.
+    const auditedMaterial = materialVideos.filter((video) => audited.has(video)).length;
+    firstPassComplete = input.research_depth === "first_pass" &&
+      (saturated || auditedMaterial >= FIRST_PASS_AUDITED_VIDEOS || rounds.length >= FIRST_PASS_ROUNDS);
+    if (!saturated && firstPassComplete) {
+      if (openLeads.length === 0) {
+        nextSteps.push(
+          "The first pass is done but discovery has not saturated: list open_leads (each topic or subtopic where more " +
+            "community signal is likely, and why) so the answer can offer another pass."
+        );
+      } else {
+        limits.push(
+          `First pass only; discovery had not saturated. End the answer with the open leads (${openLeads.join("; ")}), ` +
+            "why each looks promising and roughly what another pass would cost, and ask whether to continue on all or part."
+        );
+      }
+    } else {
+      nextSteps.push(...saturation.nextSteps);
+    }
+    if (materialVideos.length === 0 && (saturated || firstPassComplete)) {
+      if (discovered.size === 0) {
+        limits.push(
+          `No video turned up in ${rounds.length} discovery rounds; say that community evidence on this is thin.`
+        );
+      } else if (input.no_material_video_reason === undefined) {
+        nextSteps.push(
+          `Discovery found ${discovered.size} video(s) but none is in material_video_ids: audit each one that adds an approach ` +
+            "or substantial firsthand experience, or give no_material_video_reason."
+        );
+      } else {
+        limits.push(
+          `None of the ${discovered.size} video(s) found in ${rounds.length} discovery rounds was worth auditing; ` +
+            "say that community evidence on this is thin."
+        );
+      }
     }
     for (const video of materialVideos) {
       if (!discovered.has(video)) {
@@ -294,6 +352,11 @@ export function finalizeResearch(
     community: {
       decision: input.community_evidence,
       surveys,
+      discovery_rounds: rounds.length,
+      saturated,
+      depth: input.research_depth,
+      first_pass_complete: firstPassComplete,
+      open_leads: openLeads,
       audited_videos: auditedVideos,
       material_videos: materialVideos
     },
@@ -305,6 +368,8 @@ export function finalizeResearch(
       community: input.community_evidence,
       receipts: verified.length,
       videos: materialVideos.length,
+      depth: input.research_depth,
+      open_leads: openLeads.length,
       validated: validatedSources.length,
       leads: leadSources.length,
       limits: limits.length
@@ -314,6 +379,81 @@ export function finalizeResearch(
     });
   }
   return finalizeResearchOutputSchema.parse(output);
+}
+
+interface VerifiedReceipt {
+  kind: ResearchReceiptKind;
+  claims: Record<string, string | string[]>;
+  issuedAt: string;
+  index: number;
+}
+
+const DISCOVERY_KINDS: ReadonlySet<ResearchReceiptKind> = new Set([
+  "youtube_survey",
+  "youtube_search",
+  "youtube_scout",
+  "youtube_community_audit"
+]);
+
+/** A first pass stops at saturation or at this many audited material videos or discovery rounds. */
+const FIRST_PASS_AUDITED_VIDEOS = 6;
+const FIRST_PASS_ROUNDS = 4;
+
+const NEW_ANGLE_HINT =
+  "patient phrasing such as \"what finally worked\", a method, product or practitioner named in comments, " +
+  "or an alternative framing; a scout or a single search_youtube counts as a round";
+
+/**
+ * Discovery stops at saturation, not at a count: the last two rounds, from
+ * different angles, found no video worth auditing that earlier rounds had not
+ * already found. Rounds are ordered by issue time, then by position in the call.
+ */
+function discoverySaturation(
+  unordered: readonly VerifiedReceipt[],
+  material: ReadonlySet<string>,
+  depth: "first_pass" | "deep"
+): { saturated: boolean; nextSteps: string[] } {
+  const stop = depth === "first_pass"
+    ? ` A first pass may also stop once ${FIRST_PASS_AUDITED_VIDEOS} material videos are audited or ${FIRST_PASS_ROUNDS} rounds are done, then lists open_leads.`
+    : "";
+  const rounds = [...unordered].sort((left, right) =>
+    left.issuedAt.localeCompare(right.issuedAt) || left.index - right.index
+  );
+  if (rounds.length < 2) {
+    return {
+      saturated: false,
+      nextSteps: [
+        `Run another discovery round from a new angle (${NEW_ANGLE_HINT}) and pass its research_receipt. ` +
+          "Discovery is done when two rounds in a row add no new video worth auditing; a niche topic may end with one video or none." + stop
+      ]
+    };
+  }
+  const firstRound = new Map<string, number>();
+  rounds.forEach((round, position) => {
+    for (const video of list(round.claims.videos)) {
+      if (!firstRound.has(video)) firstRound.set(video, position);
+    }
+  });
+  const lastTwo = [rounds.length - 2, rounds.length - 1];
+  const fresh = [...material].filter((video) => lastTwo.includes(firstRound.get(video) ?? -1)).sort();
+  const unchecked = lastTwo.some((position) => Number(text(rounds[position]!.claims.open) || "0") > 0);
+  const [previousAngle, lastAngle] = lastTwo.map((position) => text(rounds[position]!.claims.q));
+  const nextSteps: string[] = [];
+  if (fresh.length > 0) {
+    nextSteps.push(
+      `Discovery has not saturated: ${fresh.join(", ")} first turned up in the last two rounds. ` +
+        `Run another round from a new angle (${NEW_ANGLE_HINT}) and pass its research_receipt.` + stop
+    );
+  } else if (unchecked) {
+    nextSteps.push(
+      `A recent scout round left candidates it could not verify; run another round from a new angle (${NEW_ANGLE_HINT}).` + stop
+    );
+  } else if (previousAngle === "" || previousAngle === lastAngle) {
+    nextSteps.push(
+      `The last two discovery rounds repeated the same searches; run one from a different angle (${NEW_ANGLE_HINT}).` + stop
+    );
+  }
+  return { saturated: nextSteps.length === 0, nextSteps };
 }
 
 function recordVideoAudit(
