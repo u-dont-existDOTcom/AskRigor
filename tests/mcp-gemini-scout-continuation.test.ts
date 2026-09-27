@@ -86,8 +86,24 @@ describe("MCP Gemini scout continuation", () => {
     execute.mockResolvedValueOnce({
       controller_completion: {
         provider_response_id: "response-1",
-        packet: { discovery_queries: [{ purpose: "firsthand_outcome", query: "avoided hip replacement what worked" }], search_gaps: [] },
-        validation: validationReceipt(),
+        packet: {
+          discovery_queries: [{ purpose: "firsthand_outcome", query: "avoided hip replacement what worked" }],
+          search_gaps: [],
+          candidates: [
+            { video_id: "dQw4w9WgXcQ", title: "Real video", channel: "Real channel" },
+            { video_id: "Zz9Yy8Xx7Ww", title: "GROWING MY HIP BACK", channel: "SHAPEFIXER" }
+          ]
+        },
+        validation: {
+          ...validationReceipt(),
+          rejected_candidates: [{
+            video_id: "Zz9Yy8Xx7Ww",
+            metadata_access_status: "not_found",
+            retryable: false,
+            rejection_reasons: ["metadata_not_api_visible_complete"],
+            limitations: []
+          }]
+        },
         provider_storage_mode: "TEMPORARY_BACKGROUND_DELETE_REQUESTED",
         accounted_nano_usd: 900_000_000
       }
@@ -101,7 +117,15 @@ describe("MCP Gemini scout continuation", () => {
     expect(execute).toHaveBeenCalledWith(TARGET, { checkpoint: CHECKPOINT, accountedNanoUsd: 1_000_000_000 });
     expect(second.isError).not.toBe(true);
     const done = second.structuredContent as { scout_status: string; provider_storage_mode: string; research_receipt: string };
-    expect(done).toMatchObject({ scout_status: "complete", provider_storage_mode: "TEMPORARY_BACKGROUND_DELETE_REQUESTED" });
+    expect(done).toMatchObject({
+      scout_status: "complete",
+      provider_storage_mode: "TEMPORARY_BACKGROUND_DELETE_REQUESTED",
+      // The garbled ID's title comes back so the model can search it exactly.
+      invalid_id_candidates: [{ title: "GROWING MY HIP BACK", channel: "SHAPEFIXER" }]
+    });
+    expect((second.content as Array<{ text: string }>)[0]!.text).toContain(
+      "1 proposed video(s) had IDs that do not exist (invalid_id_candidates)"
+    );
     expect(verifyResearchReceipt(done.research_receipt, { secret: SECRET })).toMatchObject({
       ok: true,
       kind: "youtube_scout",

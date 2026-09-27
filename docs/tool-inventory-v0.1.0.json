@@ -12459,6 +12459,25 @@
             },
             "additionalProperties": {}
           },
+          "invalid_id_candidates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string"
+                },
+                "channel": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "title",
+                "channel"
+              ],
+              "additionalProperties": false
+            }
+          },
           "provider_storage_mode": {
             "type": "string",
             "enum": [

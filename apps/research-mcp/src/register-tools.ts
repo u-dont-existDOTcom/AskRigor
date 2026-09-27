@@ -1354,12 +1354,21 @@ function defineResearchOperations(
         );
       }
       const { packet, validation, provider_storage_mode: storageMode } = execution.controller_completion;
+      // Gemini often finds the right video but garbles its ID. Hand back those
+      // titles so the model can find a promising one with an exact-title search.
+      const notFound = new Set(validation.rejected_candidates
+        .filter(({ rejection_reasons: reasons }) => reasons.includes("metadata_not_api_visible_complete"))
+        .map(({ video_id }) => video_id));
+      const invalidIdCandidates = packet.candidates
+        .filter(({ video_id }) => notFound.has(video_id))
+        .map(({ title, channel }) => ({ title, channel }));
       const output = MCP_SCOUT_OUTPUT_SCHEMA.parse({
         scout_status: "complete",
         ...target,
         discovery_queries: packet.discovery_queries,
         search_gaps: packet.search_gaps,
         validation,
+        ...(invalidIdCandidates.length === 0 ? {} : { invalid_id_candidates: invalidIdCandidates }),
         ...(storageMode === undefined ? {} : { provider_storage_mode: storageMode })
       });
       if (Buffer.byteLength(JSON.stringify(output), "utf8") > MCP_SCOUT_MAX_BYTES) {
@@ -1368,7 +1377,11 @@ function defineResearchOperations(
       // A scout that ran identity validation is a discovery round even when it
       // found nothing; `open` counts candidates that could not be checked.
       return withResearchReceipt(successfulToolResult(
-        `Gemini scout validated ${validation.validated_candidates.length} video(s); summaries are unverified discovery leads.`,
+        `Gemini scout validated ${validation.validated_candidates.length} video(s); summaries are unverified discovery leads.` +
+          (invalidIdCandidates.length === 0
+            ? ""
+            : ` ${invalidIdCandidates.length} proposed video(s) had IDs that do not exist (invalid_id_candidates); ` +
+              "search a promising one by its exact title with search_youtube."),
         output
       ), researchReceipt("youtube_scout", {
         videos: validation.validated_candidates.map(({ video_id }) => video_id),
@@ -1454,6 +1467,7 @@ const MCP_SCOUT_OUTPUT_SCHEMA = z.object({
   search_gaps: z.array(z.string()).optional(),
   // Produced and schema-checked by validateGeminiYoutubeCandidateHandoff.
   validation: z.record(z.string(), z.unknown()).optional(),
+  invalid_id_candidates: z.array(z.object({ title: z.string(), channel: z.string() }).strict()).optional(),
   provider_storage_mode: z.enum(["DISABLED", "TEMPORARY_BACKGROUND_DELETE_REQUESTED"]).optional(),
   research_receipt: z.string().optional()
 }).strict();
