@@ -88,6 +88,30 @@ Claude Opus 5.5 (owner, 2026-09-26).
    Signal module, the server instructions and `finalize_research` now put the
    scout first. Any discovery round (scout, survey or search) counts as
    community discovery, and `survey_youtube_community` is the fallback.
+8. Owner answers of 15:0x UTC:
+   - Treatment-coverage check: option A. The server builds most of the
+     coverage ledger from the signed discovery and audit receipts; the model
+     supplies only treatment categories and program details. This replaces
+     the plan to measure the checker's cost first.
+   - The HRP 20.6.3 conformance (old minimum removed) was already approved;
+     do not ask again before applying an approved rule.
+   - Custom GPT: OpenAI is replacing Custom GPTs with plugins, so drop Custom
+     GPT work wherever it limits the design. `/mcp` (ChatGPT) and
+     `/mcp/claude` stay supported.
+   - Spending: Gemini is the owner's exception. The key has no billing, so the
+     scout fits the written zero-spend policy with `ASKRIGOR_GEMINI_BILLING=none`;
+     the connector's scout is switched on at deployment. A billed key would
+     need the exception and a cap recorded in the governance policy first.
+   - Names in scout targets: the recommendation stands (model instructions
+     plus the server screen, with the lowercase-name gap in the privacy map).
+     Google's Gemini API terms (effective 2026-03-23) forbid personal
+     information on unpaid services and allow human review of free-tier
+     prompts, which the screen is built for.
+   - Owner questions live on one private page that is kept current:
+     https://claude.ai/artifact/8MQ4AY8V7HTQXtC1LVEMwz (numbered, each fully
+     explained with a recommendation; replies say only what changed there).
+   - ChatGPT plugins: keep only the newest AskRigor connector. The owner
+     removes the others in ChatGPT settings; this session cannot reach them.
 
 ## Discovery bench findings (2026-09-27)
 
@@ -425,6 +449,27 @@ run went from 07:12 to 09:44 UTC.
   - PubMed's pacer spaced first attempts only; the shared HTTP retries went
     out unpaced during throttling. `beforeAttempt` may now wait, and PubMed
     takes an NCBI slot before every attempt.
+- **Codex review of f815f80** (two P1s, one P2, all fixed):
+  - Discovery receipts could be reused across questions: two saturated
+    rounds and audits from one question could finalize another. Discovery
+    receipts (survey, search, scout, one-call audit) now sign `target`, the
+    12-hex digest of the research target, and `finalize_research` requires
+    `research_target` and counts only matching rounds and videos. Others are
+    listed in `receipts_rejected` as `other_research_target` or
+    `no_research_target`. `search_youtube` gains an optional
+    `research_target` (left out of the compact Gemini catalog, which has no
+    `finalize_research`).
+  - The public scout Action and the shared executors used only the
+    de-identified screen, so a named person could reach Gemini through the
+    Action or a Custom GPT session. Every route now applies the
+    population-level screen: the Action returns its 422, and sessions and
+    orchestration get a non-retryable `research_target_not_population_level`
+    boundary and continue with the YouTube survey.
+  - Rounds issued in the same second were ordered by the caller's list. Every
+    MCP receipt now signs `t`, a millisecond issue time that strictly
+    increases within the process, and the gate orders rounds and coverage
+    checks by it. Rounds it cannot separate from the last two all count as
+    recent, so a tie can only delay saturation.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 

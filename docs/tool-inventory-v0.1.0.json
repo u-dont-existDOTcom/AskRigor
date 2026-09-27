@@ -4504,7 +4504,7 @@
     },
     {
       "name": "search_youtube",
-      "description": "Search YouTube videos and return API-visible metadata with explicit pagination and access state; no medical conclusions are generated.",
+      "description": "Search YouTube videos and return API-visible metadata with explicit pagination and access state; no medical conclusions are generated. For research, pass research_target so the search counts as a discovery round.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -4525,6 +4525,12 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 4096
+          },
+          "research_target": {
+            "description": "The research target, copied exactly as you give it to the scout and finalize_research. Without it this search does not count as discovery for that research.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000
           }
         },
         "required": [
@@ -5819,7 +5825,7 @@
     },
     {
       "name": "audit_youtube_community",
-      "description": "Use before synthesis whenever firsthand community evidence could plausibly matter. In one read-only call, search YouTube, deduplicate bounded provider-ranked videos, retrieve metadata, unfiltered comments and all accessible replies, and return a deterministic completion receipt; no medical conclusions are generated.",
+      "description": "Use before synthesis whenever firsthand community evidence could plausibly matter. In one read-only call, search YouTube, deduplicate bounded provider-ranked videos, retrieve metadata, unfiltered comments and all accessible replies, and return a deterministic completion receipt; no medical conclusions are generated. research_question must be the research_target given to the other tools.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -6590,7 +6596,7 @@
     },
     {
       "name": "survey_youtube_community",
-      "description": "Survey bounded YouTube video candidates for a community-evidence question and return deduplicated metadata, canonical watch links, provider comment counts, pagination, and access receipts; no medical conclusions are generated.",
+      "description": "Survey bounded YouTube video candidates for a community-evidence question and return deduplicated metadata, canonical watch links, provider comment counts, pagination, and access receipts; no medical conclusions are generated. For research, research_question must be the research_target given to the other tools.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -12388,7 +12394,7 @@
     },
     {
       "name": "scout_gemini_youtube_candidates",
-      "description": "Ask Gemini with Google Search for YouTube videos on a de-identified, population-level target, then validate each video's identity. Describe a group of people, their condition and their goal (for example, adults trying to avoid a hip replacement and what they tried), with no names, places or personal details, and not a list of treatments: the scout searches natural, supplement, self-directed and conventional angles itself. After auditing comments, call it again with the remedies, methods and products the comments name as rediscovery_leads (short lowercase public terms), and a video or creator as video:<id>; never commenter details. A grounded search takes about a minute, so the result may be pending with a continuation_token; call again with only that token. Summaries are unverified leads.",
+      "description": "Ask Gemini with Google Search for YouTube videos on a de-identified, population-level target, then validate each video's identity. Describe a group of people, their condition and their goal (for example, adults trying to avoid a hip replacement and what they tried), with no names, places or personal details, and not a list of treatments: the scout searches natural, supplement, self-directed and conventional angles itself. After auditing comments, call it again with the remedies, methods and products the comments name as rediscovery_leads (short lowercase public terms), and a video or creator as video:<id>; never commenter details. A grounded search takes about a minute, so the result may be pending with a continuation_token; call again with only that token. Summaries are unverified leads. Give this same research_target to every discovery tool and to finalize_research.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -12603,7 +12609,7 @@
     },
     {
       "name": "finalize_research",
-      "description": "Call before the final answer. Pass every research_receipt you received, whether community evidence was researched, whether the answer compares treatment options, and the studies your conclusions depend on. not_ready lists the remaining steps; ready_with_limits lists limits the answer must state; receipts_unavailable means this server cannot verify completion, so do the required work anyway and say that completion was not server-verified.",
+      "description": "Call before the final answer. Pass every research_receipt you received, the research_target (the same text given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits; discovery for any other target does not count), whether community evidence was researched, whether the answer compares treatment options, and the studies your conclusions depend on. not_ready lists the remaining steps; ready_with_limits lists limits the answer must state; receipts_unavailable means this server cannot verify completion, so do the required work anyway and say that completion was not server-verified.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -12653,10 +12659,10 @@
             "description": "compared when the answer compares, ranks or recommends treatment options; it then needs an assess_treatment_landscape_coverage result."
           },
           "research_target": {
-            "description": "The research_target given to assess_treatment_landscape_coverage, copied exactly; needed with its receipt.",
             "type": "string",
             "minLength": 1,
-            "maxLength": 1000
+            "maxLength": 5000,
+            "description": "The research target, copied exactly as given to the scout, search_youtube and assess_treatment_landscape_coverage, and as research_question to surveys and community audits. Discovery and coverage receipts made for any other target do not count."
           },
           "research_depth": {
             "default": "first_pass",
@@ -12730,6 +12736,7 @@
           "receipts",
           "community_evidence",
           "treatment_choice",
+          "research_target",
           "key_sources"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",

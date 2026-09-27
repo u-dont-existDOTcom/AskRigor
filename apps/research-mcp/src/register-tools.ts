@@ -153,6 +153,7 @@ import {
   discoveryQueryDigest,
   issueResearchReceipt,
   researchReceiptSecretFromEnv,
+  researchTargetDigest,
   type ResearchReceiptClaims,
   type ResearchReceiptKind
 } from "./research-receipts.js";
@@ -424,6 +425,10 @@ const youtubeSearchInputSchema = z.object({
   ),
   cursor: z.string().min(1).max(4_096).optional().describe(
     "Opaque YouTube page token returned by a previous search."
+  ),
+  research_target: z.string().trim().min(1).max(5_000).optional().describe(
+    "The research target, copied exactly as you give it to the scout and finalize_research. Without it this " +
+      "search does not count as discovery for that research."
   )
 }).strict();
 const youtubeVideoSchema = z.union([
@@ -953,12 +958,13 @@ function defineResearchOperations(
     "search_youtube",
     {
       description:
-        "Search YouTube videos and return API-visible metadata with explicit pagination and access state; no medical conclusions are generated.",
+        "Search YouTube videos and return API-visible metadata with explicit pagination and access state; no medical conclusions are generated. " +
+          "For research, pass research_target so the search counts as a discovery round.",
       inputSchema: youtubeSearchInputSchema,
       outputSchema: youtubeSearchEnvelopeSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async ({ query, page_size, cursor }) => {
+    async ({ query, page_size, cursor, research_target }) => {
       try {
         const result = await searchYoutube({
           query,
@@ -976,6 +982,7 @@ function defineResearchOperations(
           : researchReceipt("youtube_search", {
             videos,
             q: discoveryQueryDigest([query]),
+            target: research_target === undefined ? undefined : researchTargetDigest(research_target),
             // An unread results page is discovery still to do, not a settled round.
             open: result.pagination.next_cursor === undefined ? 0 : 1
           }));
@@ -1082,7 +1089,8 @@ function defineResearchOperations(
     "audit_youtube_community",
     {
       description:
-        "Use before synthesis whenever firsthand community evidence could plausibly matter. In one read-only call, search YouTube, deduplicate bounded provider-ranked videos, retrieve metadata, unfiltered comments and all accessible replies, and return a deterministic completion receipt; no medical conclusions are generated.",
+        "Use before synthesis whenever firsthand community evidence could plausibly matter. In one read-only call, search YouTube, deduplicate bounded provider-ranked videos, retrieve metadata, unfiltered comments and all accessible replies, and return a deterministic completion receipt; no medical conclusions are generated. " +
+          "research_question must be the research_target given to the other tools.",
       inputSchema: youtubeCommunityAuditInputSchema,
       outputSchema: youtubeCommunityAuditOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
@@ -1108,6 +1116,7 @@ function defineResearchOperations(
             state: result.receipt.completion_state,
             lock: result.receipt.synthesis_lock,
             q: discoveryQueryDigest(input.searches.map(({ query }) => query)),
+            target: researchTargetDigest(input.research_question),
             open: unreadResultPages(result.searches)
           }));
     }
@@ -1117,7 +1126,8 @@ function defineResearchOperations(
     "survey_youtube_community",
     {
       description:
-        "Survey bounded YouTube video candidates for a community-evidence question and return deduplicated metadata, canonical watch links, provider comment counts, pagination, and access receipts; no medical conclusions are generated.",
+        "Survey bounded YouTube video candidates for a community-evidence question and return deduplicated metadata, canonical watch links, provider comment counts, pagination, and access receipts; no medical conclusions are generated. " +
+          "For research, research_question must be the research_target given to the other tools.",
       inputSchema: youtubeCommunitySurveyInputSchema,
       outputSchema: youtubeCommunitySurveyOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
@@ -1138,6 +1148,7 @@ function defineResearchOperations(
             searches: result.searches.length,
             videos: result.candidates.map(({ video_id }) => video_id),
             q: discoveryQueryDigest(input.searches.map(({ query }) => query)),
+            target: researchTargetDigest(input.research_question),
             open: unreadResultPages(result.searches)
           })
         : undefined);
@@ -1304,7 +1315,7 @@ function defineResearchOperations(
         boundary: result.answer_boundary,
         lock: result.synthesis_lock,
         videos: result.videos_actually_audited.map(({ video_id }) => video_id),
-        target: discoveryQueryDigest([ledger.research_target]),
+        target: researchTargetDigest(ledger.research_target),
         // The checker widens a narrow label when the ledger shows a broad
         // space, so a true label is the stricter of the two.
         broad: ledger.broad_treatment_choice
@@ -1323,7 +1334,8 @@ function defineResearchOperations(
         "self-directed and conventional angles itself. After auditing comments, call it again with the remedies, " +
         "methods and products the comments name as rediscovery_leads (short lowercase public terms), and a video " +
         "or creator as video:<id>; never commenter details. A grounded search takes about a minute, so the result may be pending with a " +
-        "continuation_token; call again with only that token. Summaries are unverified leads.",
+        "continuation_token; call again with only that token. Summaries are unverified leads. Give this same " +
+        "research_target to every discovery tool and to finalize_research.",
       inputSchema: MCP_SCOUT_INPUT_SCHEMA,
       outputSchema: MCP_SCOUT_OUTPUT_SCHEMA,
       annotations: READ_ONLY_ANNOTATIONS
@@ -1477,7 +1489,8 @@ function defineResearchOperations(
         // Title conflicts were looked up by title, so the lookup settles them.
         open: validation.unresolved_candidates.length - titleConflicts.size +
           unresolvedTitles.filter(({ reason }) => reason !== "no_matching_video").length,
-        q: discoveryQueryDigest([target.research_target, ...leads])
+        q: discoveryQueryDigest([target.research_target, ...leads]),
+        target: researchTargetDigest(target.research_target)
       }));
     }
   );
@@ -1486,8 +1499,10 @@ function defineResearchOperations(
     "finalize_research",
     {
       description:
-        "Call before the final answer. Pass every research_receipt you received, whether community evidence was " +
-        "researched, whether the answer compares treatment options, and the studies your conclusions depend on. " +
+        "Call before the final answer. Pass every research_receipt you received, the research_target (the same text " +
+        "given to the scout, search_youtube and the coverage check, and as research_question to surveys and community " +
+        "audits; discovery for any other target does not count), whether community evidence was researched, whether " +
+        "the answer compares treatment options, and the studies your conclusions depend on. " +
         "not_ready lists the remaining steps; " +
         "ready_with_limits lists limits the answer must state; receipts_unavailable means this server cannot " +
         "verify completion, so do the required work anyway and say that completion was not server-verified.",
@@ -1641,7 +1656,18 @@ function researchReceipt(
   claims: ResearchReceiptClaims
 ): string | undefined {
   const secret = researchReceiptSecretFromEnv();
-  return secret === undefined ? undefined : issueResearchReceipt(kind, claims, { secret });
+  return secret === undefined
+    ? undefined
+    : issueResearchReceipt(kind, { ...claims, t: receiptSequence() }, { secret });
+}
+
+// A receipt's issue time has whole seconds, so each receipt also signs `t`, a
+// millisecond time that only increases within this process. finalize_research
+// orders research by it, never by the order the caller passes receipts in.
+let lastReceiptMs = 0;
+function receiptSequence(): number {
+  lastReceiptMs = Math.max(Date.now(), lastReceiptMs + 1);
+  return lastReceiptMs;
 }
 
 function withResearchReceipt(

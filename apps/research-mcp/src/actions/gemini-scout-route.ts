@@ -74,6 +74,7 @@ const automatedScoutBoundarySchema = z.object({
     "gemini_scout_budget_unavailable",
     "gemini_scout_budget_exhausted",
     "gemini_scout_request_over_budget",
+    "research_target_not_population_level",
     "gemini_youtube_scout_rate_limited",
     "gemini_youtube_scout_inaccessible",
     "gemini_youtube_scout_invalid_response",
@@ -192,7 +193,7 @@ export function createAutomatedGeminiScoutActionRoute(
     async handle({ body }: ActionRequestContext): Promise<ActionResult> {
       const parsed = automatedScoutInputSchema.safeParse(body);
       if (!parsed.success) return invalidInput("action_input_invalid", false);
-      if (!isDeidentifiedResearchTarget(parsed.data.research_target)) {
+      if (!isPopulationLevelResearchTarget(parsed.data.research_target)) {
         return invalidInput("research_target_not_deidentified", true);
       }
       return {
@@ -213,6 +214,11 @@ export async function executeAutomatedGeminiScout(
   options: CreateAutomatedGeminiScoutActionRouteOptions = {}
 ): Promise<AutomatedGeminiScoutExecution> {
   const parsed = automatedScoutInputSchema.parse(input);
+  // Every route reaches Gemini through here, so the population screen is
+  // applied here too: only a target that names a group of people goes out.
+  if (!isPopulationLevelResearchTarget(parsed.research_target)) {
+    return { receipt: successfulBoundaryReceipt(parsed, "research_target_not_population_level", false) };
+  }
   const scout = options.scout ?? scoutGeminiYoutubeCandidates;
   const validate = options.validate ?? validateGeminiYoutubeCandidateHandoff;
   const loadScoutInstructions = options.loadScoutInstructions ??
@@ -399,6 +405,9 @@ export async function executeResumableAutomatedGeminiScout(
   rediscoveryLeads: readonly string[] = []
 ): Promise<ResumableAutomatedGeminiScoutExecution> {
   const parsed = automatedScoutInputSchema.parse(input);
+  if (resume === undefined && !isPopulationLevelResearchTarget(parsed.research_target)) {
+    return controllerBoundary("research_target_not_population_level", false);
+  }
   const backgroundScout = options.backgroundScout ??
     advanceGeminiYoutubeScoutBackground;
   const validate = options.validate ?? validateGeminiYoutubeCandidateHandoff;

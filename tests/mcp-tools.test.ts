@@ -24,7 +24,7 @@ import {
 } from
   "../apps/research-mcp/src/youtube-audit-continuation.js";
 import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
-import { verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
+import { researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 
 const TOOL_NAMES = [
   "get_protocol_manifest",
@@ -217,7 +217,8 @@ describe("AskRigor MCP tools", () => {
       const audit = tools.find(({ name }) => name === "audit_youtube_video_community");
 
       expect(survey).toMatchObject({
-        description: "Survey bounded YouTube video candidates for a community-evidence question and return deduplicated metadata, canonical watch links, provider comment counts, pagination, and access receipts; no medical conclusions are generated.",
+        description: "Survey bounded YouTube video candidates for a community-evidence question and return deduplicated metadata, canonical watch links, provider comment counts, pagination, and access receipts; no medical conclusions are generated. " +
+          "For research, research_question must be the research_target given to the other tools.",
         annotations: READ_ONLY_ANNOTATIONS,
         inputSchema: {
           type: "object",
@@ -292,7 +293,8 @@ describe("AskRigor MCP tools", () => {
 
       expect(audit).toMatchObject({
         description:
-          "Use before synthesis whenever firsthand community evidence could plausibly matter. In one read-only call, search YouTube, deduplicate bounded provider-ranked videos, retrieve metadata, unfiltered comments and all accessible replies, and return a deterministic completion receipt; no medical conclusions are generated.",
+          "Use before synthesis whenever firsthand community evidence could plausibly matter. In one read-only call, search YouTube, deduplicate bounded provider-ranked videos, retrieve metadata, unfiltered comments and all accessible replies, and return a deterministic completion receipt; no medical conclusions are generated. " +
+          "research_question must be the research_target given to the other tools.",
         annotations: READ_ONLY_ANNOTATIONS,
         inputSchema: {
           type: "object",
@@ -467,7 +469,8 @@ describe("AskRigor MCP tools", () => {
         arguments: {
           receipts: ["rr1~study_audit~doi=10.1000%2Fforged~1790000000~AAAAAAAAAAAAAAAAAAAAAA"],
           community_evidence: "researched",
-      treatment_choice: "not_compared",
+          treatment_choice: "not_compared",
+          research_target: "Adults with hip osteoarthritis comparing treatment programs",
           key_sources: [{ id: "10.1000/forged", status: "validated" }]
         }
       });
@@ -486,7 +489,8 @@ describe("AskRigor MCP tools", () => {
         arguments: {
           receipts: [],
           community_evidence: "not_relevant",
-      treatment_choice: "not_compared",
+          treatment_choice: "not_compared",
+          research_target: "Adults asking about a dosing calculation",
           not_relevant_reason: "A dosing arithmetic question with no treatment choice.",
           key_sources: []
         }
@@ -982,7 +986,8 @@ describe("AskRigor MCP tools", () => {
       const video = tools.find(({ name }) => name === "get_youtube_video");
 
       expect(search).toMatchObject({
-        description: "Search YouTube videos and return API-visible metadata with explicit pagination and access state; no medical conclusions are generated.",
+        description: "Search YouTube videos and return API-visible metadata with explicit pagination and access state; no medical conclusions are generated. " +
+          "For research, pass research_target so the search counts as a discovery round.",
         annotations: READ_ONLY_ANNOTATIONS,
         inputSchema: {
           type: "object",
@@ -991,7 +996,8 @@ describe("AskRigor MCP tools", () => {
           properties: {
             query: { type: "string", minLength: 1, maxLength: 5000 },
             page_size: { type: "integer", minimum: 1, maximum: 50 },
-            cursor: { type: "string", minLength: 1, maxLength: 4096 }
+            cursor: { type: "string", minLength: 1, maxLength: 4096 },
+            research_target: { type: "string", minLength: 1, maxLength: 5000 }
           }
         },
         outputSchema: { type: "object" }
@@ -1175,14 +1181,18 @@ describe("AskRigor MCP tools", () => {
     ));
 
     try {
-      const receiptOf = async (query: string) => {
-        const result = await client.callTool({ name: "search_youtube", arguments: { query, page_size: 1 } });
+      const receiptOf = async (query: string, researchTarget?: string) => {
+        const result = await client.callTool({
+          name: "search_youtube",
+          arguments: { query, page_size: 1, ...(researchTarget === undefined ? {} : { research_target: researchTarget }) }
+        });
         const receipt = (result.structuredContent as { research_receipt: string }).research_receipt;
         return verifyResearchReceipt(receipt, { secret: "mcp-continuation-secret-value-32-bytes" });
       };
       const first = await receiptOf("recorded subject");
       const second = await receiptOf("nothing here");
       const repeat = await receiptOf("  Recorded   SUBJECT ");
+      const targeted = await receiptOf("recorded subject", "Adults with hip pain");
 
       // A page with more results after it leaves the round open.
       expect(first).toMatchObject({ ok: true, kind: "youtube_search", claims: { videos: ["XpZHKGGCK-o"], open: "1" } });
@@ -1192,6 +1202,12 @@ describe("AskRigor MCP tools", () => {
       expect(angle(first)).toMatch(/^[a-f0-9]{12}$/u);
       expect(angle(second)).not.toBe(angle(first));
       expect(angle(repeat)).toBe(angle(first));
+      // The research target binds the round to its research; the signed order
+      // increases with every receipt.
+      expect(first.ok && first.claims.target).toBeUndefined();
+      expect(targeted).toMatchObject({ ok: true, claims: { target: researchTargetDigest("adults with  HIP pain") } });
+      const order = [first, second, repeat, targeted].map((verification) => verification.ok ? Number(verification.claims.t) : NaN);
+      expect(order.every((value, index) => index === 0 || value > order[index - 1]!)).toBe(true);
     } finally {
       restoreEnvironment("YOUTUBE_API_KEY", previous.apiKey);
       restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previous.continuationSecret);

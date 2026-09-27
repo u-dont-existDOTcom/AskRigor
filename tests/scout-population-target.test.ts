@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { isPopulationLevelResearchTarget, isPublicLeadTerm } from "../apps/research-mcp/src/actions/gemini-scout-route.js";
+import { CUSTOM_GPT_ACCEPTANCE_RESEARCH_TARGET } from "../apps/research-mcp/src/custom-gpt-acceptance-receipt.js";
 
 describe("population-level scout targets", () => {
   it("accepts targets that describe a group of people and their goal", () => {
@@ -16,7 +17,9 @@ describe("population-level scout targets", () => {
       "Adults with Rheumatoid Arthritis trying diet changes",
       "People with Ehlers-Danlos Syndrome and joint pain",
       "Runners had knee pain after marathons: what helped them",
-      "Adults like runners and cyclists with knee pain"
+      "Adults like runners and cyclists with knee pain",
+      // The Custom GPT acceptance question runs the scout in every release check.
+      CUSTOM_GPT_ACCEPTANCE_RESEARCH_TARGET
     ]) expect(isPopulationLevelResearchTarget(target), target).toBe(true);
   });
 

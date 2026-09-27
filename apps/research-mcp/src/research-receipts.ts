@@ -73,6 +73,15 @@ export function discoveryQueryDigest(queries: readonly string[]): string {
   return createHash("sha256").update(JSON.stringify(normalized)).digest("hex").slice(0, 12);
 }
 
+/**
+ * Short digest of the research target. Discovery and treatment-coverage
+ * receipts sign it, so finalize_research counts only the research done for
+ * the question it finalizes. Case and spacing are ignored.
+ */
+export function researchTargetDigest(target: string): string {
+  return discoveryQueryDigest([target]);
+}
+
 export const RESEARCH_RECEIPT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 export const RESEARCH_RECEIPT_MAX_CHARACTERS = 2_048;
 

@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 import {
-  discoveryQueryDigest,
   issueResearchReceipt,
   RESEARCH_RECEIPT_MAX_CHARACTERS,
+  researchTargetDigest,
   verifyResearchReceipt,
   type ResearchReceiptKind
 } from "./research-receipts.js";
@@ -11,9 +11,11 @@ import {
 /**
  * Server-side completion gate for MCP research (finalize_research).
  *
- * The model passes the research receipts it received plus two declarations:
- * whether community evidence was researched, and which studies its answer
- * depends on. The gate verifies the receipts and answers with next steps
+ * The model passes the research receipts it received, the research target,
+ * and its declarations: whether community evidence was researched, whether
+ * the answer compares treatments, and which studies it depends on. Discovery
+ * and coverage receipts sign a digest of their research target, so only the
+ * research done for this target counts. The gate verifies the receipts and answers with next steps
  * (not_ready), the limits the answer must state (ready_with_limits), or ready.
  * Completion claims therefore rest on server-issued receipts rather than on
  * the model's own account, which is what the prose gates used to ask for.
@@ -33,8 +35,10 @@ export const finalizeResearchInputSchema = z.object({
     .describe("Why none of the videos found was worth auditing; needed only when discovery found videos but material_video_ids is empty."),
   treatment_choice: z.enum(["compared", "not_compared"])
     .describe("compared when the answer compares, ranks or recommends treatment options; it then needs an assess_treatment_landscape_coverage result."),
-  research_target: z.string().trim().min(1).max(1_000).optional()
-    .describe("The research_target given to assess_treatment_landscape_coverage, copied exactly; needed with its receipt."),
+  research_target: z.string().trim().min(1).max(5_000)
+    .describe("The research target, copied exactly as given to the scout, search_youtube and " +
+      "assess_treatment_landscape_coverage, and as research_question to surveys and community audits. Discovery " +
+      "and coverage receipts made for any other target do not count."),
   research_depth: z.enum(["first_pass", "deep"]).default("first_pass")
     .describe("first_pass unless the user or an automated research brief asked for deep research."),
   open_leads: z.array(z.object({
@@ -164,8 +168,21 @@ export function finalizeResearch(
   const discovered = new Set<string>();
   const audited = new Map<string, VideoAudit>();
   const rounds: VerifiedReceipt[] = [];
+  // Discovery for another target (an earlier question, say) is set aside, so
+  // its rounds and videos cannot stand in for this research.
+  const targetDigest = researchTargetDigest(input.research_target);
+  const offTarget: FinalizeResearchOutput["receipts_rejected"] = [];
+  const offTargetVideos = new Set<string>();
   for (const receipt of verified) {
     const { kind, claims } = receipt;
+    if (DISCOVERY_KINDS.has(kind) && text(claims.target) !== targetDigest) {
+      offTarget.push({
+        index: receipt.index,
+        reason: text(claims.target) === "" ? "no_research_target" : "other_research_target"
+      });
+      for (const video of list(claims.videos)) offTargetVideos.add(video);
+      continue;
+    }
     if (kind === "youtube_survey") {
       surveys += 1;
       if (text(claims.access) !== "complete") partialSurveys += 1;
@@ -204,7 +221,11 @@ export function finalizeResearch(
       nextSteps.push(
         "Find community videos with scout_gemini_youtube_candidates (survey_youtube_community only if the scout is " +
           "unavailable), audit each material video, and pass the remedies its comments name back to the scout as " +
-          "rediscovery_leads (a video or creator as video:<id>)."
+          "rediscovery_leads (a video or creator as video:<id>)." +
+          (offTarget.length === 0
+            ? ""
+            : ` ${offTarget.length} discovery receipt(s) passed here were made for another research target or none; ` +
+              "give every tool the same research_target (research_question for surveys and community audits).")
       );
     }
     if (partialSurveys > 0) {
@@ -258,10 +279,11 @@ export function finalizeResearch(
     }
     for (const video of materialVideos) {
       if (!discovered.has(video)) {
-        nextSteps.push(
-          `Video ${video} is not among the videos found by the surveys, scouts or searches whose receipts were passed; ` +
-            "pass the receipt of the discovery call that found it, or drop it from material_video_ids."
-        );
+        nextSteps.push(offTargetVideos.has(video)
+          ? `Video ${video} was found only by discovery for another research target; rerun discovery with this ` +
+            "research_target, or drop it from material_video_ids."
+          : `Video ${video} is not among the videos found by the surveys, scouts or searches whose receipts were passed; ` +
+            "pass the receipt of the discovery call that found it, or drop it from material_video_ids.");
       }
       const audit = audited.get(video);
       if (audit === undefined) {
@@ -286,22 +308,19 @@ export function finalizeResearch(
   // for this research target binds the answer, and a treatment comparison
   // needs one; a check made for another target does not count.
   const coverageChecks = verified.filter(({ kind }) => kind === "treatment_coverage");
-  const targetDigest = input.research_target === undefined
-    ? undefined
-    : discoveryQueryDigest([input.research_target]);
   const forTarget = coverageChecks.filter(({ claims }) => text(claims.target) === targetDigest);
-  const latestIssue = forTarget.map(({ issuedAt }) => issuedAt).sort().at(-1);
-  // Receipts carry whole seconds, so checks issued in the same second are all
-  // the latest; the most restrictive of them binds, whatever order they came in.
-  const coverage = forTarget.filter(({ issuedAt }) => issuedAt === latestIssue)
+  const latest = Math.max(...forTarget.map(receiptOrder));
+  // Checks the signed order cannot separate are all the latest; the most
+  // restrictive of them binds, whatever order they came in.
+  const coverage = forTarget.filter((receipt) => receiptOrder(receipt) === latest)
     .sort((left, right) =>
       coverageRestriction(right, input.research_depth) - coverageRestriction(left, input.research_depth))
     .at(0);
   if (coverageChecks.length > 0 && coverage === undefined) {
-    nextSteps.push(input.research_target === undefined
-      ? "Pass research_target exactly as you gave it to assess_treatment_landscape_coverage, so its result can be matched to this answer."
-      : "No assess_treatment_landscape_coverage receipt passed here was made for this research_target; pass the one " +
-        "for this question or run the check again.");
+    nextSteps.push(
+      "No assess_treatment_landscape_coverage receipt passed here was made for this research_target; pass the one " +
+        "for this question, give research_target exactly as the check received it, or run the check again."
+    );
   }
   const coverageBoundary = coverage === undefined ? undefined : text(coverage.claims.boundary);
   // Like a material video, each video the check judged must come from this
@@ -440,7 +459,7 @@ export function finalizeResearch(
     next_steps: nextSteps,
     limits,
     receipts_verified: verified.length,
-    receipts_rejected: rejected,
+    receipts_rejected: [...rejected, ...offTarget].sort((left, right) => left.index - right.index),
     community: {
       decision: input.community_evidence,
       surveys,
@@ -461,6 +480,7 @@ export function finalizeResearch(
       receipts: verified.length,
       videos: materialVideos.length,
       depth: input.research_depth,
+      target: targetDigest,
       coverage: coverageBoundary ?? "none",
       open_leads: openLeads.length,
       validated: validatedSources.length,
@@ -481,6 +501,16 @@ interface VerifiedReceipt {
   index: number;
 }
 
+/**
+ * Signed issue order in milliseconds: the receipt's `t` claim, which strictly
+ * increases within one server process, or its whole-second issue time when it
+ * has none. Equal values are ties that the caller's order never breaks.
+ */
+function receiptOrder(receipt: VerifiedReceipt): number {
+  const sequence = text(receipt.claims.t);
+  return /^\d{1,16}$/u.test(sequence) ? Number(sequence) : Date.parse(receipt.issuedAt);
+}
+
 const DISCOVERY_KINDS: ReadonlySet<ResearchReceiptKind> = new Set([
   "youtube_survey",
   "youtube_search",
@@ -499,7 +529,9 @@ const NEW_ANGLE_HINT =
 /**
  * Discovery stops at saturation, not at a count: the last two rounds, from
  * different angles, found no video worth auditing that earlier rounds had not
- * already found. Rounds are ordered by issue time, then by position in the call.
+ * already found. Rounds are ordered by their signed issue order, never by
+ * their position in the call. Rounds the order cannot separate from the last
+ * two count as recent too, so a tie can only delay saturation.
  */
 function discoverySaturation(
   unordered: readonly VerifiedReceipt[],
@@ -510,7 +542,7 @@ function discoverySaturation(
     ? ` A first pass may also stop once ${FIRST_PASS_AUDITED_VIDEOS} material videos are audited or ${FIRST_PASS_ROUNDS} rounds are done, then lists open_leads.`
     : "";
   const rounds = [...unordered].sort((left, right) =>
-    left.issuedAt.localeCompare(right.issuedAt) || left.index - right.index
+    receiptOrder(left) - receiptOrder(right) || left.index - right.index
   );
   if (rounds.length < 2) {
     return {
@@ -521,16 +553,21 @@ function discoverySaturation(
       ]
     };
   }
-  const firstRound = new Map<string, number>();
-  rounds.forEach((round, position) => {
+  const recentFrom = receiptOrder(rounds[rounds.length - 2]!);
+  const recent = rounds.filter((round) => receiptOrder(round) >= recentFrom);
+  // When each video first turned up; the earliest round that found it counts.
+  const firstFound = new Map<string, number>();
+  for (const round of rounds) {
+    const order = receiptOrder(round);
     for (const video of list(round.claims.videos)) {
-      if (!firstRound.has(video)) firstRound.set(video, position);
+      const known = firstFound.get(video);
+      if (known === undefined || order < known) firstFound.set(video, order);
     }
-  });
-  const lastTwo = [rounds.length - 2, rounds.length - 1];
-  const fresh = [...material].filter((video) => lastTwo.includes(firstRound.get(video) ?? -1)).sort();
-  const unchecked = lastTwo.some((position) => Number(text(rounds[position]!.claims.open) || "0") > 0);
-  const [previousAngle, lastAngle] = lastTwo.map((position) => text(rounds[position]!.claims.q));
+  }
+  const fresh = [...material].filter((video) => (firstFound.get(video) ?? -Infinity) >= recentFrom).sort();
+  const unchecked = recent.some((round) => Number(text(round.claims.open) || "0") > 0);
+  const angles = recent.map((round) => text(round.claims.q));
+  const repeated = angles.includes("") || new Set(angles).size < angles.length;
   const nextSteps: string[] = [];
   if (fresh.length > 0) {
     nextSteps.push(
@@ -543,7 +580,7 @@ function discoverySaturation(
         "Continue a search with its next cursor, search a promising candidate by its exact title with search_youtube, " +
         `or run another round from a new angle (${NEW_ANGLE_HINT}).` + stop
     );
-  } else if (previousAngle === "" || previousAngle === lastAngle) {
+  } else if (repeated) {
     nextSteps.push(
       `The last two discovery rounds repeated the same searches; run one from a different angle (${NEW_ANGLE_HINT}).` + stop
     );

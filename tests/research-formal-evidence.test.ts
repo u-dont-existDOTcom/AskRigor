@@ -149,7 +149,7 @@ describe("controller-owned formal evidence frontier", () => {
   it("rejects a changed hypothesis core or frontier digest", () => {
     const formal = initializeResearchFormalEvidence(
       screenedCandidates(),
-      "de-identified treatment comparison"
+      "adults comparing de-identified treatment programs"
     );
     const changedCore = structuredClone(formal);
     changedCore.hypotheses[0]!.claim_summary = "Caller-authored replacement claim.";
@@ -468,7 +468,7 @@ describe("controller-owned formal evidence frontier", () => {
     const candidateState = screenedCandidates();
     let formal = initializeResearchFormalEvidence(
       candidateState,
-      "de-identified treatment comparison"
+      "adults comparing de-identified treatment programs"
     );
     expect(formal.hypotheses).toHaveLength(3);
     expect(new Set(formal.hypotheses.map(({ program_signature }) => program_signature)).size)
@@ -519,7 +519,7 @@ describe("controller-owned formal evidence frontier", () => {
   it("discards stale provider cursors and retry boundaries when a later page completes", async () => {
     let formal = initializeResearchFormalEvidence(
       screenedCandidates(),
-      "de-identified treatment comparison"
+      "adults comparing de-identified treatment programs"
     );
     const hypothesis = formal.hypotheses[0]!;
     let pubmedCalls = 0;
@@ -1423,7 +1423,7 @@ function providerState(
 
 function formalSession(): ResearchSessionState {
   let state = createInitialResearchSessionState({
-    research_target: "de-identified treatment comparison",
+    research_target: "adults comparing de-identified treatment programs",
     diagnosis_status: "diagnosis_not_specified"
   }, protocolBindingsFromManifests(PROTOCOLS.universal, PROTOCOLS.hrp));
   state = recordAutomatedScoutCompletion(state, {
@@ -1441,7 +1441,7 @@ function formalSession(): ResearchSessionState {
 async function searchedFormal(): Promise<ResearchFormalEvidenceState> {
   let state = initializeResearchFormalEvidence(
     screenedCandidates(),
-    "de-identified treatment comparison"
+    "adults comparing de-identified treatment programs"
   );
   const executors = formalExecutors();
   for (const hypothesis of state.hypotheses) {
@@ -1470,7 +1470,7 @@ async function formalWithSourceCount(
 ): Promise<ResearchFormalEvidenceState> {
   let state = initializeResearchFormalEvidence(
     screenedCandidates(),
-    "de-identified treatment comparison"
+    "adults comparing de-identified treatment programs"
   );
   const hypothesisId = state.hypotheses[0]!.hypothesis_id;
   state = await executeResearchFormalSearch(

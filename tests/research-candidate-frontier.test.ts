@@ -156,7 +156,7 @@ describe("server-owned research candidate frontier", () => {
 
     const input = nativeSurveyInputFromCandidateDiscovery(
       terminal,
-      "de-identified treatment comparison"
+      "adults comparing de-identified treatment programs"
     );
     expect(input.searches).toHaveLength(6);
     expect(input.searches.flatMap(({ direction }) => direction)).toEqual([
@@ -202,7 +202,7 @@ describe("server-owned research candidate frontier", () => {
     );
     expect(() => nativeSurveyInputFromCandidateDiscovery(
       retryable,
-      "de-identified treatment comparison"
+      "adults comparing de-identified treatment programs"
     )).toThrow(/retryable external scout/u);
     expect(() => ingestNativeYoutubeSurvey(retryable, nativeSurvey())).toThrow(
       /retryable external scout/u

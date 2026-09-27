@@ -7,8 +7,10 @@ import {
   createAutomatedGeminiScoutActionRoute,
   isDeidentifiedResearchTarget
 } from "../apps/research-mcp/src/index.js";
-import { executeResumableAutomatedGeminiScout } from
-  "../apps/research-mcp/src/actions/gemini-scout-route.js";
+import {
+  executeAutomatedGeminiScout,
+  executeResumableAutomatedGeminiScout
+} from "../apps/research-mcp/src/actions/gemini-scout-route.js";
 import { RESEARCH_ACTION_RESPONSE_MAX_BYTES } from
   "../apps/research-mcp/src/config.js";
 import type { AiBudget, BudgetReservation } from
@@ -364,6 +366,46 @@ describe("automated Gemini YouTube scout Action", () => {
     }
     expect(aiBudget.reserve).not.toHaveBeenCalled();
     expect(scout).not.toHaveBeenCalled();
+  });
+
+  it("sends Gemini only a target that names a group of people, on every route", async () => {
+    // De-identified, but it names no group, so it is not population-level.
+    const notPopulation = {
+      research_target: "treatments for hip osteoarthritis",
+      diagnosis_status: "diagnosis_not_specified" as const
+    };
+    const aiBudget = budget({
+      commit: vi.fn(async () => undefined),
+      forfeit: vi.fn(async () => undefined)
+    });
+    const scout = vi.fn();
+    const backgroundScout = vi.fn();
+    const options = {
+      geminiApiKey: "gemini-secret",
+      youtubeApiKey: "youtube-secret",
+      budget: aiBudget,
+      scout,
+      backgroundScout
+    };
+
+    // The public Action refuses it as input the caller can rewrite.
+    expect(await createAutomatedGeminiScoutActionRoute(options).handle(context(notPopulation))).toEqual({
+      status: 422,
+      body: { error: { code: "research_target_not_deidentified", retryable: true } }
+    });
+    // Research sessions and orchestration reach Gemini through the shared
+    // executors, which return a boundary so discovery continues without it.
+    expect((await executeAutomatedGeminiScout(notPopulation, options)).receipt).toMatchObject({
+      status: "blocked",
+      boundary: { code: "research_target_not_population_level", retryable: false },
+      scout_receipt: { accounted_nano_usd: 0 }
+    });
+    expect(await executeResumableAutomatedGeminiScout(notPopulation, undefined, options)).toEqual({
+      controller_boundary: { code: "research_target_not_population_level", retryable: false }
+    });
+    expect(aiBudget.reserve).not.toHaveBeenCalled();
+    expect(scout).not.toHaveBeenCalled();
+    expect(backgroundScout).not.toHaveBeenCalled();
   });
 
   it("reports provider configuration as a provider boundary rather than a missing Action", async () => {

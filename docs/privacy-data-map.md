@@ -260,6 +260,11 @@ AskRigor has deliberately separate processing paths:
   `scout_gemini_youtube_candidates` MCP tool (behind the research-access guard)
   share one implementation and accept only a
   de-identified population-level research target and a diagnosis-status enum.
+  Every route that reaches Gemini (this Action, Custom GPT research sessions,
+  private orchestration and the MCP tool) applies the population-level screen
+  described under the MCP tool below. The Action refuses any other target as
+  invalid input. A research session records a scout boundary instead and
+  continues with the YouTube survey.
   Deterministic screening rejects personal narratives, identifiers,
   credentials, raw chat, URLs, and control/injection-like text before any
   provider request. The server sends the screened target and checked-in public
@@ -700,13 +705,18 @@ pending-proposal stores have their own strict contracts and authority boundaries
   `q`, the first 12 hex characters of a SHA-256 over the round's normalized
   search terms, so the gate can tell rounds from different angles apart, and
   `open`, a count of unread result pages or unchecked candidates; the terms
-  themselves are not in the receipt. A treatment-coverage receipt carries the
-  check's answer boundary, lock, broad-choice flag, judged video IDs, and the
-  same kind of 12-hex digest of its research target, never the target itself. They expire after 24
-  hours. `finalize_research` verifies the receipts the client passes back and
-  returns next steps or limits; it keeps no ledger, and its optional free-text
-  reasons, open-lead topics and research target are processed for that call
-  only (the target only to compare its digest).
+  themselves are not in the receipt. Discovery receipts and treatment-coverage
+  receipts also carry `target`, the same kind of 12-hex digest of the research
+  target, never the target itself; `search_youtube` uses its optional
+  `research_target` only for this digest and does not send it to YouTube. A
+  treatment-coverage receipt also carries the check's answer boundary, lock,
+  broad-choice flag and judged video IDs. Every MCP receipt carries `t`, its
+  issue time in milliseconds made strictly increasing within the server
+  process, so the gate orders rounds without trusting the caller. They expire
+  after 24 hours. `finalize_research` verifies the receipts the client passes
+  back and returns next steps or limits; it keeps no ledger, and its optional
+  free-text reasons, open-lead topics and its required research target are
+  processed for that call only (the target only to compare its digest).
 - The MCP `scout_gemini_youtube_candidates` tool runs the same de-identified,
   population-level scout as the controlled Action route, applying the same
   screen: a target with first-person words, contact details, links, keys or

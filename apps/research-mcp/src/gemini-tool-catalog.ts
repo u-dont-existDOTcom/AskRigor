@@ -6,6 +6,12 @@ import { RESEARCH_OPERATIONS } from "./register-tools.js";
 
 const GEMINI_DESCRIPTION_MAX_CHARACTERS = 170;
 
+// Inputs that only bind research receipts for finalize_research, which this
+// catalog does not offer; leaving them out keeps it inside its size budget.
+const FINALIZATION_ONLY_INPUTS: Readonly<Record<string, readonly string[]>> = {
+  search_youtube: ["research_target"]
+};
+
 const GEMINI_FUNCTION_SCHEMA_KEYS = new Set([
   "type",
   "nullable",
@@ -35,11 +41,27 @@ export function installGeminiCompatibleToolCatalog(server: McpServer): void {
     .map((operation) => ({
     name: operation.name,
     description: compactGeminiDescription(operation.description),
-    inputSchema: geminiCompatibleInputSchema(operation.inputSchema),
+    inputSchema: withoutInputs(
+      geminiCompatibleInputSchema(operation.inputSchema),
+      FINALIZATION_ONLY_INPUTS[operation.name] ?? []
+    ),
     annotations: operation.annotations
     }));
 
   server.server.setRequestHandler(ListToolsRequestSchema, () => ({ tools }));
+}
+
+function withoutInputs(
+  schema: Record<string, unknown>,
+  names: readonly string[]
+): Record<string, unknown> {
+  if (names.length === 0) return schema;
+  const properties = { ...(schema.properties as Record<string, unknown> | undefined) };
+  for (const name of names) delete properties[name];
+  const required = Array.isArray(schema.required)
+    ? schema.required.filter((name) => !names.includes(String(name)))
+    : undefined;
+  return { ...schema, properties, ...(required === undefined ? {} : { required }) };
 }
 
 function compactGeminiDescription(description: string): string {
