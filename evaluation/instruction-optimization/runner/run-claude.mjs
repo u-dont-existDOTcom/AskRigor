@@ -968,6 +968,11 @@ function analyze(run, context) {
       next_steps: (pick(call, ["next_steps"]) ?? []).length,
       limits: (pick(call, ["limits"]) ?? []).length,
       community_evidence: call.input.community_evidence ?? null,
+      research_depth: pick(call, ["community", "depth"]) ?? call.input.research_depth ?? null,
+      discovery_rounds: pick(call, ["community", "discovery_rounds"]) ?? null,
+      saturated: pick(call, ["community", "saturated"]) ?? null,
+      first_pass_complete: pick(call, ["community", "first_pass_complete"]) ?? null,
+      open_leads: pick(call, ["community", "open_leads"]) ?? [],
       key_sources: Array.isArray(call.input.key_sources) ? call.input.key_sources.length : null
     };
   });

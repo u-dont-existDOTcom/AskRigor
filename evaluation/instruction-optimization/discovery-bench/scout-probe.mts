@@ -5,13 +5,14 @@
  *   GEMINI_API_KEY=... YOUTUBE_API_KEY=... npx tsx \
  *     evaluation/instruction-optimization/discovery-bench/scout-probe.mts \
  *     --target "Adults trying to avoid a hip replacement: what they tried and what happened" \
- *     --terms gelatin,collagen,hydration,water,diet --out /tmp/probe.json
+ *     --terms gelatin,collagen,hydration,water,diet --out /tmp/probe.json \
+ *     [--skill path/to/scout-SKILL.md]   # default: the production scout skill
  *
  * Costs: one free-tier Gemini grounded interaction and about one YouTube Data
  * API unit per candidate for identity validation. Output keeps public video
  * IDs, titles, channels, queries and Gemini's provisional annotations only.
  */
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
 
@@ -23,6 +24,7 @@ const { values } = parseArgs({
     diagnosis: { type: "string", default: "diagnosis_not_specified" },
     terms: { type: "string", default: "" },
     out: { type: "string" },
+    skill: { type: "string" },
     "max-seconds": { type: "string", default: "300" }
   }
 });
@@ -36,13 +38,15 @@ const input = {
   diagnosis_status: values.diagnosis as "diagnosis_not_specified" | "user_supplied_diagnosis"
 };
 const started = Date.now();
-let execution = await executeResumableAutomatedGeminiScout(input, undefined);
+const skillPath = values.skill;
+const options = skillPath === undefined ? {} : { loadScoutInstructions: () => readFile(skillPath, "utf8") };
+let execution = await executeResumableAutomatedGeminiScout(input, undefined, options);
 let advances = 1;
 while ("controller_progress" in execution && Date.now() - started < Number(values["max-seconds"]) * 1_000) {
   execution = await executeResumableAutomatedGeminiScout(input, {
     checkpoint: execution.controller_progress.checkpoint,
     accountedNanoUsd: execution.controller_progress.accounted_nano_usd
-  });
+  }, options);
   advances += 1;
 }
 const seconds = Math.round((Date.now() - started) / 1_000);
