@@ -83,6 +83,7 @@ const pageRequirements = [
 
 const expectedFiles = new Set([
   ...pageRequirements.map(({ path }) => path),
+  "assets/askrigor-mark.svg",
   "assets/site.css"
 ]);
 
@@ -93,6 +94,8 @@ const commonFragments = [
   'href="/terms"',
   'href="/support"',
   'class="skip-link" href="#content"',
+  'rel="icon" href="/assets/askrigor-mark.svg" type="image/svg+xml"',
+  'class="brand-mark" src="/assets/askrigor-mark.svg"',
   'aria-label="Primary navigation"',
   'aria-label="Footer navigation"'
 ] as const;
@@ -188,6 +191,22 @@ function validateHtml(path: string, html: string, requirement: (typeof pageRequi
   return { errors, internalLinks };
 }
 
+function validateBrandMark(svg: string): string[] {
+  const errors: string[] = [];
+  const required = [
+    '<svg xmlns="http://www.w3.org/2000/svg"',
+    'viewBox="0 0 72 72"',
+    'id="askrigor-mark-gradient"',
+    'aria-label="AskRigor science and community mark"',
+    "</svg>"
+  ];
+  for (const fragment of required) {
+    if (!svg.includes(fragment)) errors.push(pathError("assets/askrigor-mark.svg", `is missing required SVG content: ${fragment}`));
+  }
+  if (/<script\b/i.test(svg)) errors.push(pathError("assets/askrigor-mark.svg", "must not contain scripts"));
+  return errors;
+}
+
 function validateCss(css: string): string[] {
   const errors: string[] = [];
   const required = [":focus-visible", "prefers-reduced-motion", "prefers-color-scheme: dark", "max-width"];
@@ -235,6 +254,12 @@ export async function validatePublicSite(root: URL): Promise<SiteValidationResul
     const result = validateHtml(requirement.path, html, requirement);
     internalLinks += result.internalLinks;
     errors.push(...result.errors);
+  }
+
+  try {
+    errors.push(...validateBrandMark(await readFile(resolve(rootPath, "assets/askrigor-mark.svg"), "utf8")));
+  } catch {
+    // The required-file error above is the stable diagnostic for a missing mark.
   }
 
   try {
