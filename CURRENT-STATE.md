@@ -7,13 +7,14 @@ rigorous with far less instruction text and more server-enforced rules, so it
 can run well on GPT consumer chats as well as Claude. Plan, owner decisions, and
 status: `docs/superpowers/plans/2026-09-26-instruction-optimization.md`.
 Phase 0 findings: `docs/audits/2026-09-26-instruction-optimization-phase0.md`.
-Checkpoint (2026-09-26, branch `claude/askrigour-instruction-optimization-cffyp2`,
-no PR yet, nothing merged or deployed): section-based protocol loading; signed
+Checkpoint (2026-09-27, branch `claude/askrigour-instruction-optimization-cffyp2`,
+draft PR #246, nothing merged or deployed): section-based protocol loading; signed
 research receipts and the `finalize_research` completion gate on MCP; MCP result
 size budgets for YouTube audits and full-text pages; compact pseudonymous comment
 records; HRP 20.6.0 (process, output and meta sections consolidated, no method
 change; review at `docs/audits/2026-09-26-hrp-20.6.0-consolidation.md`) and
-Universal 20.5.28. Claude test runner and blinded Opus judge under
+Universal 20.5.29 (owner-approved: precise clinical terms replace the euphemism
+rule). Claude test runner and blinded Opus judge under
 `evaluation/instruction-optimization/`. Open: method-section consolidation as an
 owner approval packet; the GPT route (owner decision, see the plan); smoke and
 held-out comparison runs (YouTube quota about 3 runs a day per key). The MAST

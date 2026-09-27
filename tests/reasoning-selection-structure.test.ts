@@ -92,6 +92,14 @@ function occurrences(text: string, needle: string): number {
   return text.split(needle).length - 1;
 }
 
+// Universal 20.5.29 replaced the euphemism rule with precise clinical terms;
+// each pair is [20.5.29 text, 20.5.28 text].
+const UNIVERSAL_20_5_29_CLINICAL_TERMS: ReadonlyArray<readonly [string, string]> = [
+  ["<Protocol name=\"AskRigor.com universal saved instructions\" version=\"20.5.29\" revisionDate=\"2026-09-27\"", "<Protocol name=\"AskRigor.com universal saved instructions\" version=\"20.5.28\" revisionDate=\"2026-09-26\""],
+  ["<revision_history>\n<revision version=\"20.5.29\" priority=\"Critical\">\nOwner-approved output change: the euphemism-substitution rule is replaced. Answers use precise clinical terms, including for overdose, self-harm and lethal doses, and never soften safety-relevant information; euphemisms made safety-critical statements less exact. Higher-priority platform rules still apply. No reasoning or source rule changed.\n</revision>\n<revision version=\"20.5.28\" priority=\"Critical\">", "<revision_history>\n<revision version=\"20.5.28\" priority=\"Critical\">"],
+  ["Use precise clinical terms, including for overdose, self-harm and lethal doses; never soften safety-relevant information.", "If you will be using words that might trip guardrails, DO NOT USE THEM. Substitute the closest safe euphemism and put it inside @ signs so I know, and for the first such substitution, put (euphemism) next to it."],
+];
+
 // Universal 20.5.28 added the finalize_research completion check and deferred
 // the opening to HRP's rules; each pair is [20.5.28 text, 20.5.27 text].
 const UNIVERSAL_20_5_28_FINALIZE: ReadonlyArray<readonly [string, string]> = [
@@ -124,7 +132,7 @@ describe("canonical Reasoning Selection application", () => {
 
     expect(XMLValidator.validate(universal)).toBe(true);
     expect(universal).toMatch(
-      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.28" revisionDate="2026-09-26"/u,
+      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.29" revisionDate="2026-09-27"/u,
     );
     expect(Buffer.byteLength(REASONING_SELECTION_TEXT, "utf8")).toBe(2884);
     expect(sha256(REASONING_SELECTION_TEXT)).toBe(
@@ -152,12 +160,22 @@ describe("canonical Reasoning Selection application", () => {
       expect(occurrences(CURRENT_REASONING_SELECTION_TEXT, `- ${method}:`), method).toBe(1);
     }
 
-    const universal20527 = UNIVERSAL_20_5_28_FINALIZE.reduce(
+    const universal20528 = UNIVERSAL_20_5_29_CLINICAL_TERMS.reduce(
       (text, [current, prior]) => {
         expect(occurrences(text, current), current.slice(0, 60)).toBe(1);
         return text.replace(current, prior);
       },
       universal,
+    );
+    expect(sha256(universal20528)).toBe(
+      "6d7584c3b25104e70e80caf126a0a1bcb662bde2eb95a9976f90673263060d0c",
+    );
+    const universal20527 = UNIVERSAL_20_5_28_FINALIZE.reduce(
+      (text, [current, prior]) => {
+        expect(occurrences(text, current), current.slice(0, 60)).toBe(1);
+        return text.replace(current, prior);
+      },
+      universal20528,
     );
     const priorSectionLoadingUniversal = UNIVERSAL_20_5_27_SECTION_LOADING.reduce(
       (text, [current, prior]) => {

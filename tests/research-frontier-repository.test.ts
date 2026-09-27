@@ -427,9 +427,9 @@ describe("research-frontier persistence contracts", () => {
     contribution.run.protocolManifests = [
       {
         name: "AskRigor.com universal saved instructions",
-        version: "20.5.28",
-        revisionDate: "2026-09-26",
-        sha256: "6d7584c3b25104e70e80caf126a0a1bcb662bde2eb95a9976f90673263060d0c",
+        version: "20.5.29",
+        revisionDate: "2026-09-27",
+        sha256: "5d9a9d76339ff1794b93bb1e932466f703c4a8c006a607b811f40b43ea703d36",
       },
       {
         name: "HRP",
