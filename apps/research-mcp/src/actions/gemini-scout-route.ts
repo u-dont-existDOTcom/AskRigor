@@ -4,6 +4,7 @@ import { isAbsolute, normalize } from "node:path";
 import { ACCESS_STATUSES } from "@askrigor/contracts";
 import {
   GEMINI_YOUTUBE_SCOUT_MODEL,
+  GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES,
   advanceGeminiYoutubeScoutBackground,
   geminiYoutubeCandidateValidationReceiptSchema,
   geminiYoutubeDiscoveryPurposeSchema,
@@ -42,7 +43,7 @@ const providerUsageSchema = z.object({
   total_input_tokens: z.number().int().nonnegative().optional(),
   total_output_tokens: z.number().int().nonnegative().optional(),
   total_thought_tokens: z.number().int().nonnegative().optional(),
-  google_search_queries: z.number().int().min(8).max(18)
+  google_search_queries: z.number().int().min(8).max(GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES)
 }).strict();
 
 const scoutProviderReceiptSchema = z.object({
@@ -53,7 +54,7 @@ const scoutProviderReceiptSchema = z.object({
   provider_storage_disabled: z.literal(true),
   correction_attempted: z.boolean().nullable(),
   provider_interaction_count: z.number().int().min(1).max(2).nullable(),
-  executed_search_queries: z.array(z.string().min(1).max(500)).max(18),
+  executed_search_queries: z.array(z.string().min(1).max(500)).max(GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES),
   usage: providerUsageSchema.nullable(),
   accounted_nano_usd: z.number().int().nonnegative()
     .max(GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD)
@@ -90,7 +91,7 @@ export const automatedGeminiScoutReceiptSchema = z.object({
   discovery_queries: z.array(z.object({
     purpose: geminiYoutubeDiscoveryPurposeSchema,
     query: z.string().min(1).max(500)
-  }).strict()).max(18),
+  }).strict()).max(GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES),
   search_gaps: z.array(z.string().min(1).max(500)).max(8),
   scout_receipt: scoutProviderReceiptSchema,
   validation: geminiYoutubeCandidateValidationReceiptSchema.nullable(),

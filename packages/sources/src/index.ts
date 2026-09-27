@@ -199,6 +199,7 @@ export {
 export {
   GEMINI_YOUTUBE_SCOUT_MAX_OUTPUT_TOKENS,
   GEMINI_YOUTUBE_SCOUT_MODEL,
+  GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES,
   advanceGeminiYoutubeScoutBackground,
   geminiYoutubeScoutBackgroundCheckpointSchema,
   scoutGeminiYoutubeCandidates,

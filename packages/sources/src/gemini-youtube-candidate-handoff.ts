@@ -136,7 +136,8 @@ const geminiYoutubeCandidateV1PacketSchema = z.object({
 export const geminiYoutubeCandidateV2PacketSchema = z.object({
   ...packetCommonShape,
   packet_version: z.literal(GEMINI_YOUTUBE_CANDIDATE_PACKET_VERSION),
-  discovery_queries: z.array(discoveryQuerySchema).min(8).max(18),
+  // Matches GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES in gemini-youtube-scout.ts.
+  discovery_queries: z.array(discoveryQuerySchema).min(8).max(30),
   candidates: z.array(geminiCandidateV2Schema).min(3).max(16),
   suggested_seed_video_ids: z.array(youtubeVideoIdSchema).min(1).max(8)
 }).strict().superRefine(addPacketRelationshipIssues);

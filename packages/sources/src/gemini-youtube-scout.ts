@@ -25,6 +25,11 @@ export const GEMINI_YOUTUBE_SCOUT_MAX_OUTPUT_TOKENS = 12_000 as const;
 const GEMINI_YOUTUBE_SCOUT_TIMEOUT_MS = 45_000;
 const GEMINI_YOUTUBE_BACKGROUND_REQUEST_TIMEOUT_MS = 20_000;
 const GEMINI_YOUTUBE_BACKGROUND_MAX_POLLS = 120;
+/**
+ * The scout is asked for 8 to 18 searches, but grounded Gemini sometimes runs a
+ * few more. Accept up to this many instead of failing the whole scout.
+ */
+export const GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES = 30;
 const diagnosisStatusSchema = z.enum([
   "diagnosis_not_specified",
   "user_supplied_diagnosis"
@@ -82,7 +87,7 @@ const compactProviderPacketSchema = z.object({
   packet_version: compactTextSchema,
   research_target: compactTextSchema,
   diagnosis_status: compactTextSchema,
-  discovery_query_rows: z.array(compactDiscoveryQueryRowSchema).max(18),
+  discovery_query_rows: z.array(compactDiscoveryQueryRowSchema).max(GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES),
   candidate_rows: z.array(compactCandidateRowSchema).max(16),
   suggested_seed_video_ids: z.array(compactTextSchema).max(8),
   search_gaps: z.array(compactTextSchema).max(8),
@@ -106,7 +111,7 @@ export const geminiYoutubeScoutBackgroundCheckpointSchema = z.object({
   phase: z.enum(["INITIAL", "REPAIR"]),
   provider_interaction_count: z.union([z.literal(1), z.literal(2)]),
   poll_attempts: z.number().int().min(0).max(GEMINI_YOUTUBE_BACKGROUND_MAX_POLLS),
-  executed_search_queries: z.array(z.string().min(1).max(500)).max(18),
+  executed_search_queries: z.array(z.string().min(1).max(500)).max(GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES),
   initial_usage: backgroundUsageSchema.optional()
 }).strict().superRefine((checkpoint, context) => {
   if (
@@ -757,7 +762,7 @@ function compactTransportInstructions(): string {
     "AUTOMATED COMPACT TRANSPORT — this changes encoding only; every substantive discovery and safety rule above still applies.",
     "Return exactly these top-level keys: packet_name, packet_version, research_target, diagnosis_status, discovery_query_rows, candidate_rows, suggested_seed_video_ids, search_gaps, disclosures.",
     "Set packet_name to gemini_youtube_candidate_handoff and packet_version to 2.0.",
-    "Each discovery_query_rows entry is exactly [purpose, query]. Return 8–18 unique rows, reproduce every executed query exactly, and cover all five required purposes.",
+    "Each discovery_query_rows entry is exactly [purpose, query]. Return one unique row per executed query (normally 8–18), reproduce every executed query exactly, and cover all five required purposes.",
     "Each candidate_rows entry is exactly 12 strings in this order: [video_id, canonical_url, title, channel, target_distance, provisional_intervention_family, creator_claim_summary, provisional_specific_program, provisional_population_or_stage, provisional_outcome_and_horizon, summary_basis, why_surfaced].",
     "For a broad treatment-choice or avoid-procedure target, return 8–16 unique candidate rows spanning materially different programs and trajectories when public candidates exist. For a narrower target, normally return 6–16. Return only 3–5 when the executed searches genuinely surface fewer useful candidates, and state that concrete gap in search_gaps. Use not described for an unavailable program, population/stage, outcome, or horizon.",
     `Set every summary_basis cell to ${GEMINI_YOUTUBE_SUMMARY_BASIS}.`,
@@ -978,7 +983,7 @@ function searchQueriesReconcile(
   packet: GeminiYoutubeCandidatePacket,
   executedSearchQueries: readonly string[]
 ): boolean {
-  if (executedSearchQueries.length < 8 || executedSearchQueries.length > 18) return false;
+  if (executedSearchQueries.length < 8 || executedSearchQueries.length > GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES) return false;
   const executed = new Set(executedSearchQueries.map(comparableSearchQuery));
   const declared = new Set(packet.discovery_queries.map(({ query }) =>
     comparableSearchQuery(query)
