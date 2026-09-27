@@ -118,9 +118,12 @@ function compactComment(
   };
 }
 
-/** Stable within one video, unlinkable across videos; a missing identity never merges people. */
+/**
+ * Stable within one video, unlinkable across videos. Without a channel ID the
+ * key is per comment: display names are not unique, so they never merge people.
+ */
 function authorKey(videoId: string, comment: YoutubeComment): string {
-  const identity = comment.author_channel_id ?? comment.author_display_name ?? `comment:${comment.comment_id}`;
+  const identity = comment.author_channel_id ?? `comment:${comment.comment_id}`;
   return createHash("sha256")
     .update(`askrigor-author-v1\n${videoId}\n${identity}`)
     .digest("hex")

@@ -109,6 +109,12 @@ function fail(message) {
   throw error;
 }
 
+/** The Gemini key, only when the operator declares it has no billing. */
+function geminiScoutKey() {
+  if (process.env.ASKRIGOR_GEMINI_BILLING?.trim() !== "none") return undefined;
+  return process.env.ASKRIGOR_GEMINI_API_KEY || process.env.GEMINI_API_KEY || undefined;
+}
+
 function redact(text) {
   let output = text;
   let count = 0;
@@ -1244,6 +1250,7 @@ async function main() {
       youtube_api_key_present: Boolean(process.env.YOUTUBE_API_KEY),
       ncbi_api_key_present: Boolean(process.env.NCBI_API_KEY),
       gemini_api_key_present: Boolean(process.env.ASKRIGOR_GEMINI_API_KEY || process.env.GEMINI_API_KEY),
+      gemini_scout_enabled: Boolean(geminiScoutKey()),
       ncbi_email_present: Boolean(process.env.NCBI_EMAIL),
       crossref_mailto_present: Boolean(process.env.CROSSREF_MAILTO),
       unpaywall_email_present: Boolean(process.env.ASKRIGOR_UNPAYWALL_EMAIL),
@@ -1279,11 +1286,12 @@ async function main() {
       if (process.env[name] !== undefined && process.env[name] !== "") serverEnv[name] = process.env[name];
     }
     // The server reads ASKRIGOR_GEMINI_API_KEY; the environment may name it GEMINI_API_KEY.
-    const geminiKey = process.env.ASKRIGOR_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    // Zero-spend policy: the key reaches the server only when the operator
+    // declares that it has no billing (ASKRIGOR_GEMINI_BILLING=none); a billed
+    // key never does, so no route can start a paid scout.
+    const geminiKey = geminiScoutKey();
     if (geminiKey) {
       serverEnv.ASKRIGOR_GEMINI_API_KEY = geminiKey;
-      // The owner confirmed on 2026-09-26 that this Gemini key has no billing,
-      // so scouting stays within the zero-spend policy.
       serverEnv.ASKRIGOR_GEMINI_BILLING = "none";
       // The scout refuses without the shared monthly budget ledger production uses.
       serverEnv.ASKRIGOR_AI_BUDGET_LEDGER = path.join(options.workDir, "ai-budget-ledger.json");

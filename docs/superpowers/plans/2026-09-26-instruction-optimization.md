@@ -352,6 +352,20 @@ run went from 07:12 to 09:44 UTC.
     that the session flow would get stuck was wrong: a non-retryable
     unresolved candidate leaves the session on its validated subset, and
     native discovery continues.
+- **Codex review of cba8dd8** (three findings, all fixed):
+  - The runner labeled any Gemini key as unbilled. It now passes the key to
+    the server only when the operator sets `ASKRIGOR_GEMINI_BILLING=none`;
+    otherwise the server gets no Gemini key at all, so no route can start a
+    paid scout. The owner has said the evaluation Gemini key has no automatic
+    billing, so evaluation runs set the flag.
+  - A title lookup accepted any result sharing 60% of the declared words,
+    and with no declared channel took the first one. On the discovery bench
+    that matched "Exercise for Instant Hip Pain Relief #Shorts" to another
+    Shorts video. A result now needs the declared channel to agree, or a
+    nearly identical title: the same words in the same order, or a declared
+    title of four or more words that YouTube's longer title contains.
+  - Comments without a channel ID were keyed by display name, which merged
+    different people with the same name. They now get a per-comment key.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 

@@ -49,7 +49,10 @@ Other options: `--prompt <text>` instead of `--question-id`, `--max-turns`
    `ASKRIGOR_UNPAYWALL_EMAIL` only when set (presence is recorded as booleans);
    `ASKRIGOR_GEMINI_API_KEY` (from itself or `GEMINI_API_KEY`) with a monthly
    budget ledger at `<work-dir>/ai-budget-ledger.json` capped at USD 50, as in
-   production, so the Gemini scout can run;
+   production, so the Gemini scout can run. Under the zero-spend policy the key
+   is passed only when the operator sets `ASKRIGOR_GEMINI_BILLING=none`,
+   declaring that the key has no billing; otherwise the server gets no Gemini
+   key and the model uses the YouTube survey;
    proxy and CA variables, plus `NODE_USE_ENV_PROXY=1` behind a proxy. It waits
    for `/healthz`, lists the MCP tools, and checks that `get_protocol_manifest`
    returns the SHA-256 of the ref's protocol files.

@@ -281,6 +281,20 @@ describe("adaptive per-video YouTube community audit", () => {
     expect(small.limitations).not.toContain("MCP bounded sample.");
   });
 
+  it("never merges commenters without a channel ID, even under one display name", async () => {
+    const comments = makeComments(4).map((comment) => ({ ...comment, author_display_name: "@samename" }));
+    const view = compactYoutubeAuditForMcp(
+      await auditYoutubeVideoCommunity(
+        { video_id_or_url: VIDEO_ID },
+        CONFIG,
+        { now: () => NOW, dependencies: completeDependencies(comments) }
+      ),
+      40_000,
+      "MCP bounded sample."
+    );
+    expect(new Set(view.sample!.comments.map(({ author }) => author)).size).toBe(4);
+  });
+
   it("fails closed when fixed non-comment fields cannot fit the Action response ceiling", async () => {
     const original = await auditYoutubeVideoCommunity(
       { video_id_or_url: VIDEO_ID },

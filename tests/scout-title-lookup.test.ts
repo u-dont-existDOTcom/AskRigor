@@ -37,6 +37,39 @@ describe("scout exact-title lookup", () => {
     });
   });
 
+  it("accepts a loosely matching title only when the declared channel agrees or the titles are nearly the same", async () => {
+    const byQuery: Record<string, Array<{ video_id: string; title: string; channel_title: string }>> = {
+      "Recovery Story": [{ video_id: "aaaaaaaaaaa", title: "Cancer Recovery Story", channel_title: "Oncology Stories" }],
+      // Seen on the discovery bench: another Shorts video with a similar title.
+      "Exercise for Instant Hip Pain Relief #Shorts": [
+        { video_id: "bbbbbbbbbbb", title: "Easy Way to Get Instant Hip Pain Relief #Shorts", channel_title: "Spine Center" }
+      ],
+      "Treating Arthritis Without Surgery": [
+        { video_id: "ccccccccccc", title: "Treating Knee Arthritis Without Surgery", channel_title: "Talking With Docs" }
+      ],
+      "She Fixed Her Severe Hip Pain Without Surgery": [
+        { video_id: "ddddddddddd", title: "She Fixed Her Severe Hip Pain Without Surgery | Upright Health", channel_title: "Upright Health" }
+      ]
+    };
+    const search = vi.fn(async ({ query }: { query: string }) => results(byQuery[query] ?? []));
+
+    const lookup = await lookUpScoutTitles([
+      { title: "Recovery Story", channel: "not described" },
+      { title: "Exercise for Instant Hip Pain Relief #Shorts", channel: "Hip Clinic" },
+      { title: "Treating Arthritis Without Surgery", channel: "Talking With Docs" },
+      { title: "She Fixed Her Severe Hip Pain Without Surgery", channel: "not described" }
+    ], { config: CONFIG, knownVideoIds: new Set(), search });
+
+    expect(lookup.found.map(({ video_id, declared_title }) => [declared_title, video_id])).toEqual([
+      ["Treating Arthritis Without Surgery", "ccccccccccc"],
+      ["She Fixed Her Severe Hip Pain Without Surgery", "ddddddddddd"]
+    ]);
+    expect(lookup.unresolved.map(({ title, reason }) => [title, reason])).toEqual([
+      ["Recovery Story", "no_matching_video"],
+      ["Exercise for Instant Hip Pain Relief #Shorts", "no_matching_video"]
+    ]);
+  });
+
   it("decodes the HTML entities YouTube search puts in titles and channels", async () => {
     const search = vi.fn(async () => results([
       { video_id: "ddddddddddd", title: "Tinnitus: He Tried Everything. Here&#39;s What WORKED", channel_title: "Treble &amp; Health" }
