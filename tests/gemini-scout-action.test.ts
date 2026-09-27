@@ -428,16 +428,56 @@ describe("automated Gemini YouTube scout Action", () => {
       "interaction-saved-before-screen"
     );
     // A failed delete hands the checkpoint back so the next call tries again.
-    deleteBackgroundInteraction.mockResolvedValueOnce(false);
-    expect(await executeResumableAutomatedGeminiScout(notPopulation, resumed, options)).toEqual({
+    const held = {
       controller_progress: {
         checkpoint: resumed.checkpoint,
-        accounted_nano_usd: GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
+        accounted_nano_usd: GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD,
+        held_by: "research_target_not_population_level"
       }
-    });
+    };
+    deleteBackgroundInteraction.mockResolvedValueOnce(false);
+    expect(await executeResumableAutomatedGeminiScout(notPopulation, resumed, options)).toEqual(held);
+    expect(deleteBackgroundInteraction).toHaveBeenCalledTimes(2);
+    // So does a missing Gemini key, which leaves nothing to delete with.
+    expect(await executeResumableAutomatedGeminiScout(
+      notPopulation, resumed, { ...options, geminiApiKey: "" }
+    )).toEqual(held);
     expect(deleteBackgroundInteraction).toHaveBeenCalledTimes(2);
     expect(aiBudget.reserve).not.toHaveBeenCalled();
     expect(scout).not.toHaveBeenCalled();
+    expect(backgroundScout).not.toHaveBeenCalled();
+  });
+
+  it("keeps a resumed scout's checkpoint while a provider key is missing", async () => {
+    const backgroundScout = vi.fn();
+    const input = { research_target: TARGET, diagnosis_status: "diagnosis_not_specified" as const };
+    const resumed = {
+      checkpoint: {
+        interaction_id: "interaction-before-key-rotation",
+        phase: "INITIAL" as const,
+        provider_interaction_count: 1 as const,
+        poll_attempts: 2,
+        executed_search_queries: []
+      },
+      accountedNanoUsd: GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
+    };
+    const held = (code: string) => ({
+      controller_progress: {
+        checkpoint: resumed.checkpoint,
+        accounted_nano_usd: GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD,
+        held_by: code
+      }
+    });
+    expect(await executeResumableAutomatedGeminiScout(input, resumed, {
+      geminiApiKey: "", youtubeApiKey: "youtube-secret", backgroundScout
+    })).toEqual(held("gemini_provider_not_configured"));
+    expect(await executeResumableAutomatedGeminiScout(input, resumed, {
+      geminiApiKey: "gemini-secret", youtubeApiKey: "", backgroundScout
+    })).toEqual(held("youtube_provider_not_configured"));
+    // A new scout has nothing stored, so it still reports the boundary.
+    expect(await executeResumableAutomatedGeminiScout(input, undefined, {
+      geminiApiKey: "", youtubeApiKey: "youtube-secret", backgroundScout
+    })).toEqual({ controller_boundary: { code: "gemini_provider_not_configured", retryable: false } });
     expect(backgroundScout).not.toHaveBeenCalled();
   });
 

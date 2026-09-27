@@ -158,6 +158,10 @@ export type ResumableAutomatedGeminiScoutExecution =
       controller_progress: {
         checkpoint: GeminiYoutubeScoutBackgroundCheckpoint;
         accounted_nano_usd: number;
+        // Why a resumed scout is held without advancing: it was stopped and
+        // its stored interaction is not deleted yet, or a provider it needs is
+        // not configured here. A later call deletes or resumes it.
+        held_by?: z.output<typeof automatedScoutBoundarySchema>["code"];
       };
     }
   | {
@@ -407,29 +411,14 @@ export async function executeResumableAutomatedGeminiScout(
   rediscoveryLeads: readonly string[] = []
 ): Promise<ResumableAutomatedGeminiScoutExecution> {
   const parsed = automatedScoutInputSchema.parse(input);
-  const geminiApiKey = options.geminiApiKey ??
-    process.env.ASKRIGOR_GEMINI_API_KEY ?? "";
   // Resumed scouts too: a session saved before this screen existed could
   // otherwise send its target again in a repair request. A resumed scout's
-  // stored provider copy is deleted without another poll; if the delete
-  // fails, the checkpoint is handed back so the next call tries again, as
+  // stored provider copy is deleted without another poll; until that
+  // succeeds, the checkpoint is handed back so a later call tries again, as
   // the source layer does for its other terminal outcomes.
   if (!isPopulationLevelResearchTarget(parsed.research_target)) {
-    if (resume !== undefined && geminiApiKey.trim().length > 0) {
-      const deleteInteraction = options.deleteBackgroundInteraction ??
-        deleteGeminiYoutubeScoutInteraction;
-      const deleted = await deleteInteraction(
-        { apiKey: geminiApiKey, model: GEMINI_YOUTUBE_SCOUT_MODEL },
-        resume.checkpoint.interaction_id
-      ).catch(() => false);
-      if (!deleted) {
-        return {
-          controller_progress: {
-            checkpoint: resume.checkpoint,
-            accounted_nano_usd: resume.accountedNanoUsd
-          }
-        };
-      }
+    if (resume !== undefined && !await deleteResumedGeminiScoutInteraction(resume.checkpoint, options)) {
+      return heldResume(resume, "research_target_not_population_level");
     }
     return controllerBoundary("research_target_not_population_level", false);
   }
@@ -438,12 +427,20 @@ export async function executeResumableAutomatedGeminiScout(
   const validate = options.validate ?? validateGeminiYoutubeCandidateHandoff;
   const loadScoutInstructions = options.loadScoutInstructions ??
     defaultScoutInstructions;
+  // A resumed scout keeps its checkpoint while a provider it needs is not
+  // configured, so its stored interaction can still be finished or deleted.
+  const geminiApiKey = options.geminiApiKey ??
+    process.env.ASKRIGOR_GEMINI_API_KEY ?? "";
   if (geminiApiKey.trim().length === 0) {
-    return controllerBoundary("gemini_provider_not_configured", false);
+    return resume === undefined
+      ? controllerBoundary("gemini_provider_not_configured", false)
+      : heldResume(resume, "gemini_provider_not_configured");
   }
   const youtubeApiKey = options.youtubeApiKey ?? process.env.YOUTUBE_API_KEY ?? "";
   if (youtubeApiKey.trim().length === 0) {
-    return controllerBoundary("youtube_provider_not_configured", false);
+    return resume === undefined
+      ? controllerBoundary("youtube_provider_not_configured", false)
+      : heldResume(resume, "youtube_provider_not_configured");
   }
   if (
     resume !== undefined &&
@@ -587,6 +584,42 @@ function controllerBoundary(
   retryable: boolean
 ): ResumableAutomatedGeminiScoutExecution {
   return { controller_boundary: { code, retryable } };
+}
+
+function heldResume(
+  resume: { checkpoint: GeminiYoutubeScoutBackgroundCheckpoint; accountedNanoUsd: number },
+  code: z.output<typeof automatedScoutBoundarySchema>["code"]
+): ResumableAutomatedGeminiScoutExecution {
+  return {
+    controller_progress: {
+      checkpoint: resume.checkpoint,
+      accounted_nano_usd: resume.accountedNanoUsd,
+      held_by: code
+    }
+  };
+}
+
+/**
+ * Deletes a resumed scout's stored interaction without polling or repairing
+ * it. False when no Gemini key is configured or the delete failed, so the
+ * caller keeps the checkpoint and tries again later.
+ */
+export async function deleteResumedGeminiScoutInteraction(
+  checkpoint: GeminiYoutubeScoutBackgroundCheckpoint,
+  options: CreateAutomatedGeminiScoutActionRouteOptions = {}
+): Promise<boolean> {
+  const apiKey = options.geminiApiKey ?? process.env.ASKRIGOR_GEMINI_API_KEY ?? "";
+  if (apiKey.trim().length === 0) return false;
+  const deleteInteraction = options.deleteBackgroundInteraction ??
+    deleteGeminiYoutubeScoutInteraction;
+  try {
+    return await deleteInteraction(
+      { apiKey, model: GEMINI_YOUTUBE_SCOUT_MODEL },
+      checkpoint.interaction_id
+    );
+  } catch {
+    return false;
+  }
 }
 
 function boundedBackgroundPollDelay(value: number): number {

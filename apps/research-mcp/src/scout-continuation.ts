@@ -46,7 +46,12 @@ export interface ScoutContinuationState {
 }
 
 export class ScoutContinuationError extends Error {
-  constructor(readonly code: "gemini_scout_continuation_invalid" | "gemini_scout_continuation_expired") {
+  constructor(
+    readonly code: "gemini_scout_continuation_invalid" | "gemini_scout_continuation_expired",
+    // Only for an expired token whose signature verified: its checkpoint still
+    // names the stored provider interaction to delete.
+    readonly expiredState?: ScoutContinuationState
+  ) {
     super(code);
   }
 }
@@ -80,7 +85,7 @@ export function decodeScoutContinuation(token: string, secret: string, nowMs: nu
   } catch {
     throw new ScoutContinuationError("gemini_scout_continuation_invalid");
   }
-  if (nowMs >= state.expires_at_ms) throw new ScoutContinuationError("gemini_scout_continuation_expired");
+  if (nowMs >= state.expires_at_ms) throw new ScoutContinuationError("gemini_scout_continuation_expired", state);
   return state;
 }
 

@@ -703,8 +703,9 @@ async function deleteGeminiBackgroundInteraction(
       }
     );
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    // Already gone: an earlier delete succeeded, perhaps with its reply lost.
+    return error instanceof UpstreamHttpError && error.status === 404;
   }
 }
 

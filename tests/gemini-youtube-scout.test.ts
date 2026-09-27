@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   advanceGeminiYoutubeScoutBackground,
+  deleteGeminiYoutubeScoutInteraction,
   scoutGeminiYoutubeCandidates,
   type GeminiYoutubeCandidatePacket
 } from "../packages/sources/src/index.js";
@@ -529,6 +530,20 @@ describe("Gemini YouTube scout adapter", () => {
     );
     expect(fetchMock.mock.calls[0]?.[1]?.method).toBe("GET");
     expect(fetchMock.mock.calls[1]?.[1]?.method).toBe("DELETE");
+  });
+
+  it("counts a stored interaction that is already gone as deleted", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 404 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 503 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await deleteGeminiYoutubeScoutInteraction(CONFIG, "interaction-already-deleted")).toBe(true);
+    expect(await deleteGeminiYoutubeScoutInteraction(CONFIG, "interaction-provider-unavailable")).toBe(false);
+    expect(fetchMock.mock.calls.map(([url, init]) => [String(url).split("/").pop(), init?.method])).toEqual([
+      ["interaction-already-deleted", "DELETE"],
+      ["interaction-provider-unavailable", "DELETE"]
+    ]);
   });
 
   it("deletes an invalid initial interaction before starting a bound background repair", async () => {

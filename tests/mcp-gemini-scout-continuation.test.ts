@@ -10,11 +10,13 @@ import {
 import { discoveryQueryDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 
 const execute = vi.hoisted(() => vi.fn());
+const deleteResumed = vi.hoisted(() => vi.fn());
 const search = vi.hoisted(() => vi.fn());
 const getVideo = vi.hoisted(() => vi.fn());
 vi.mock("../apps/research-mcp/src/actions/gemini-scout-route.js", async (importOriginal) => ({
   ...await importOriginal<typeof import("../apps/research-mcp/src/actions/gemini-scout-route.js")>(),
-  executeResumableAutomatedGeminiScout: execute
+  executeResumableAutomatedGeminiScout: execute,
+  deleteResumedGeminiScoutInteraction: deleteResumed
 }));
 vi.mock("@askrigor/sources", async (importOriginal) => ({
   ...await importOriginal<typeof import("@askrigor/sources")>(),
@@ -48,6 +50,7 @@ describe("MCP Gemini scout continuation", () => {
     process.env.ASKRIGOR_GEMINI_BILLING = "none";
     delete process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET;
     execute.mockReset();
+    deleteResumed.mockReset();
     search.mockReset();
     getVideo.mockReset();
   });
@@ -71,8 +74,11 @@ describe("MCP Gemini scout continuation", () => {
       .toThrow(new ScoutContinuationError("gemini_scout_continuation_invalid"));
     expect(() => decodeScoutContinuation(token, "another-secret-of-sufficient-length-00", 1_000))
       .toThrow(new ScoutContinuationError("gemini_scout_continuation_invalid"));
-    expect(() => decodeScoutContinuation(token, SECRET, 2_000))
-      .toThrow(new ScoutContinuationError("gemini_scout_continuation_expired"));
+    // An expired token that verifies still carries its state, so its stored
+    // search can be deleted.
+    expect(() => decodeScoutContinuation(token, SECRET, 2_000)).toThrow(new ScoutContinuationError(
+      "gemini_scout_continuation_expired", decodeScoutContinuation(token, SECRET, 1_000)
+    ));
   });
 
   it("returns a continuation while the scout searches, then validated and title-found videos with a discovery receipt", async () => {
@@ -393,6 +399,74 @@ describe("MCP Gemini scout continuation", () => {
     });
     expect(discoveryQueryDigest([TARGET.research_target, ...leads]))
       .not.toBe(discoveryQueryDigest([TARGET.research_target]));
+  });
+
+  it("deletes the stored search behind an expired continuation before reporting the expiry", async () => {
+    const expired = encodeScoutContinuation({
+      ...TARGET, checkpoint: CHECKPOINT, accounted_nano_usd: 1_000, expires_at_ms: 2_000
+    }, SECRET);
+    const client = await connect();
+    deleteResumed.mockResolvedValueOnce(true);
+    const cleaned = await client.callTool({
+      name: "scout_gemini_youtube_candidates", arguments: { continuation_token: expired }
+    });
+    expect(cleaned.content).toEqual([{
+      type: "text",
+      text: "scout gemini youtube candidates could not complete: gemini_scout_continuation_expired."
+    }]);
+    // A failed delete asks for the same token again, which tries again.
+    deleteResumed.mockResolvedValueOnce(false);
+    const pendingDelete = await client.callTool({
+      name: "scout_gemini_youtube_candidates", arguments: { continuation_token: expired }
+    });
+    expect(pendingDelete.content).toEqual([{
+      type: "text",
+      text: "scout gemini youtube candidates could not complete: gemini_scout_continuation_expired (retryable). " +
+        "Its stored search could not be deleted yet; call again later with the same continuation_token to delete it."
+    }]);
+    expect(deleteResumed.mock.calls).toEqual([[CHECKPOINT], [CHECKPOINT]]);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("applies the zero-spend gate to a resumed scout and deletes its stored search", async () => {
+    const token = encodeScoutContinuation({
+      ...TARGET, checkpoint: CHECKPOINT, accounted_nano_usd: 1_000, expires_at_ms: Date.now() + 60_000
+    }, SECRET);
+    delete process.env.ASKRIGOR_GEMINI_BILLING;
+    deleteResumed.mockResolvedValueOnce(true);
+    const client = await connect();
+    const refused = await client.callTool({
+      name: "scout_gemini_youtube_candidates", arguments: { continuation_token: token }
+    });
+    expect(execute).not.toHaveBeenCalled();
+    expect(deleteResumed).toHaveBeenCalledWith(CHECKPOINT);
+    expect(refused.content).toEqual([{
+      type: "text",
+      text: "scout gemini youtube candidates could not complete: gemini_scout_spend_not_authorized. " +
+        "The zero-spend policy allows the Gemini scout only with a key that has no billing " +
+        "(ASKRIGOR_GEMINI_BILLING=none). Use survey_youtube_community instead."
+    }]);
+  });
+
+  it("hands back a held scout's checkpoint without saying it is still searching", async () => {
+    execute.mockResolvedValueOnce({
+      controller_progress: { checkpoint: CHECKPOINT, accounted_nano_usd: 1_000, held_by: "gemini_provider_not_configured" }
+    });
+    const token = encodeScoutContinuation({
+      ...TARGET, checkpoint: CHECKPOINT, accounted_nano_usd: 1_000, expires_at_ms: Date.now() + 60_000
+    }, SECRET);
+    const client = await connect();
+    const held = await client.callTool({
+      name: "scout_gemini_youtube_candidates", arguments: { continuation_token: token }
+    });
+    expect(held.isError).not.toBe(true);
+    const output = held.structuredContent as { scout_status: string; continuation_token: string };
+    expect(output.scout_status).toBe("pending");
+    expect(decodeScoutContinuation(output.continuation_token, SECRET, Date.now()).checkpoint).toEqual(CHECKPOINT);
+    const text = (held.content as Array<{ text: string }>)[0]!.text;
+    expect(text).toContain("Gemini scout is on hold (gemini_provider_not_configured)");
+    expect(text).toContain("Continue discovery with survey_youtube_community");
+    expect(text).not.toContain("still searching");
   });
 
   it("reports provider boundaries as errors with their code", async () => {

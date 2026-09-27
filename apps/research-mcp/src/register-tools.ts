@@ -54,6 +54,7 @@ import {
 } from "./tool-result.js";
 import {
   automatedScoutInputSchema,
+  deleteResumedGeminiScoutInteraction,
   executeResumableAutomatedGeminiScout,
   isPopulationLevelResearchTarget,
   isPublicLeadTerm
@@ -1386,10 +1387,24 @@ function defineResearchOperations(
           leads = state.rediscovery_leads ?? [];
           resume = { checkpoint: state.checkpoint, accountedNanoUsd: state.accounted_nano_usd };
         } catch (error) {
+          // An expired token still names the stored provider interaction:
+          // delete it before reporting the expiry.
+          if (error instanceof ScoutContinuationError && error.expiredState !== undefined) {
+            const deleted = await deleteResumedGeminiScoutInteraction(error.expiredState.checkpoint);
+            return scoutError(error.code, !deleted, deleted ? undefined : SCOUT_DELETION_RETRY);
+          }
           return scoutError(
             error instanceof ScoutContinuationError ? error.code : "gemini_scout_continuation_invalid",
             false
           );
+        }
+        // The zero-spend gate holds for resumed scouts too: a poll is free, but
+        // a resumed first interaction can start a repair request. A refused
+        // scout's stored interaction is deleted.
+        if (!geminiKeyDeclaredUnbilled()) {
+          const deleted = await deleteResumedGeminiScoutInteraction(resume.checkpoint);
+          return scoutError("gemini_scout_spend_not_authorized", !deleted,
+            SCOUT_SPEND_GUIDANCE + (deleted ? "" : ` ${SCOUT_DELETION_RETRY}`));
         }
       } else {
         target = automatedScoutInputSchema.parse({
@@ -1399,11 +1414,8 @@ function defineResearchOperations(
         leads = input.rediscovery_leads ?? [];
         // The owner's zero-spend policy: a new scout starts a Gemini interaction,
         // so it runs only with a key the deployment declares has no billing.
-        // Polling an interaction already started costs nothing more.
-        if (process.env.ASKRIGOR_GEMINI_BILLING?.trim() !== "none") {
-          return scoutError("gemini_scout_spend_not_authorized", false,
-            "The zero-spend policy allows the Gemini scout only with a key that has no billing " +
-              "(ASKRIGOR_GEMINI_BILLING=none). Use survey_youtube_community instead.");
+        if (!geminiKeyDeclaredUnbilled()) {
+          return scoutError("gemini_scout_spend_not_authorized", false, SCOUT_SPEND_GUIDANCE);
         }
         // Only screened, population-level text reaches Gemini.
         if (!isPopulationLevelResearchTarget(target.research_target)) {
@@ -1444,9 +1456,15 @@ function defineResearchOperations(
           accounted_nano_usd: execution.controller_progress.accounted_nano_usd,
           expires_at_ms: Date.now() + SCOUT_CONTINUATION_TTL_MS
         }, secret);
+        const heldBy = execution.controller_progress.held_by;
         return successfulToolResult(
-          "Gemini scout is still searching. Call scout_gemini_youtube_candidates again with only this continuation_token " +
-            `in about ${MCP_SCOUT_RETRY_AFTER_SECONDS} seconds.`,
+          heldBy === undefined
+            ? "Gemini scout is still searching. Call scout_gemini_youtube_candidates again with only this " +
+              `continuation_token in about ${MCP_SCOUT_RETRY_AFTER_SECONDS} seconds.`
+            : `Gemini scout is on hold (${heldBy}); its stored search is kept until a later call can ` +
+              (heldBy === "research_target_not_population_level" ? "delete it" : "resume or delete it") +
+              ". Continue discovery with survey_youtube_community, and call scout_gemini_youtube_candidates again " +
+              "later with only this continuation_token.",
           MCP_SCOUT_OUTPUT_SCHEMA.parse({
             scout_status: "pending",
             ...target,
@@ -1644,6 +1662,17 @@ const MCP_SCOUT_OUTPUT_SCHEMA = z.object({
   provider_storage_mode: z.enum(["DISABLED", "TEMPORARY_BACKGROUND_DELETE_REQUESTED"]).optional(),
   research_receipt: z.string().optional()
 }).strict();
+
+const SCOUT_SPEND_GUIDANCE =
+  "The zero-spend policy allows the Gemini scout only with a key that has no billing " +
+  "(ASKRIGOR_GEMINI_BILLING=none). Use survey_youtube_community instead.";
+const SCOUT_DELETION_RETRY =
+  "Its stored search could not be deleted yet; call again later with the same continuation_token to delete it.";
+
+/** The owner's zero-spend policy: the deployment declares its Gemini key has no billing. */
+function geminiKeyDeclaredUnbilled(): boolean {
+  return process.env.ASKRIGOR_GEMINI_BILLING?.trim() === "none";
+}
 
 function scoutError(code: string, retryable: boolean, guidance?: string): CallToolResult {
   return {

@@ -500,6 +500,21 @@ run went from 07:12 to 09:44 UTC.
     and discovery round only; each material video needs an
     `audit_youtube_video_community` receipt, as the ledger builder already
     required.
+- **Codex review of 99a2c2a** (two P1s, one P2, all fixed): each was a way a
+  stopped scout could leave its stored Gemini interaction behind, or spend.
+  - The MCP zero-spend gate (`ASKRIGOR_GEMINI_BILLING=none`) applied only to
+    new scouts, yet a resumed first interaction can start a repair request.
+    Resumed scouts now pass the gate too; a refused one has its stored
+    interaction deleted.
+  - Without a Gemini key the refused scout's delete was skipped and its
+    checkpoint dropped. A resumed scout now keeps its checkpoint
+    (`held_by` in the executor's progress) while the delete has not
+    succeeded or a provider key is missing; the MCP tool says the scout is
+    on hold and to continue with the survey.
+  - An expired continuation token was rejected before its stored interaction
+    could be deleted. A token whose signature verifies still carries its
+    state, so the tool deletes the interaction before reporting the expiry,
+    and asks for the same token again if the delete failed.
 
 ## Option A: coverage ledger built from signed receipts (owner-chosen 2026-09-27)
 

@@ -91,7 +91,7 @@ The runtime requires these exact names and constraints:
 | `ASKRIGOR_ACTIONS_API_KEY` | Dedicated Action Bearer secret; installed only on the server and in the GPT editor authentication control. |
 | `OPENAI_API_KEY` | Dedicated server-only OpenAI API project key for the privacy check. |
 | `ASKRIGOR_GEMINI_API_KEY` | Dedicated restricted paid Gemini API project key for automated public-candidate scouting. The controlled path uses a temporary background Interaction and requests deletion after use. Without the key the server returns `gemini_provider_not_configured`; never paste it into chat or the GPT editor. |
-| `ASKRIGOR_GEMINI_BILLING` | Set to `none` only when the configured Gemini key has no billing. The MCP `scout_gemini_youtube_candidates` tool starts a new scout only then, under the owner's zero-spend policy (`governance/chat-work-authority-policy.json`); otherwise it refuses with `gemini_scout_spend_not_authorized` and the model uses `survey_youtube_community`. The Custom GPT Action route is unchanged. |
+| `ASKRIGOR_GEMINI_BILLING` | Set to `none` only when the configured Gemini key has no billing. The MCP `scout_gemini_youtube_candidates` tool starts or resumes a scout only then, under the owner's zero-spend policy (`governance/chat-work-authority-policy.json`); otherwise it refuses with `gemini_scout_spend_not_authorized`, deletes a resumed scout's stored search, and the model uses `survey_youtube_community`. The Custom GPT Action route is unchanged. |
 | `ASKRIGOR_AI_BUDGET_LEDGER` | Exact absolute path `/var/lib/askrigor-actions/ai-budget.json`. |
 | `ASKRIGOR_AI_MONTHLY_BUDGET_USD` | Canonical production literal `50.00`; the runtime accepts only exact `50` or `50.00`. |
 | `ASKRIGOR_GITHUB_APP_ID` | Positive decimal App ID. |
