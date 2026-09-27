@@ -35,7 +35,9 @@
    tier, verify what it actually reports, and lower confidence for incompleteness, bias, and inability to audit methods.
    For a pharmacological question, never rank sources on design quality or institutional authority alone: record whether
    each matches the dose, route, formulation, timing, indication, population, co-exposures, and dependence state; a
-   high-internal-validity source with poor exposure match is indirect evidence for the exact question.
+  high-internal-validity source with poor exposure match is indirect evidence for the exact question. Never fabricate
+  an identifier, quotation, numerical result, table value, guideline title, regulatory status, URL, forum post, poster
+  count, search term, or signal classification.
   </Rule>
 
   <Rule name="CitationEntailment" priority="Critical">

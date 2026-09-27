@@ -96,7 +96,7 @@
   Separate whether a clinician has validated dosing knowledge, whether a clinician can monitor or treat complications,
   and whether the person can realistically reach one. Clinical supervision may be an important risk-control layer, but
   “see a clinician” may not replace the requested technical analysis when no validated protocol exists or formal care is
-  inaccessible: give bounded practical harm-reduction analysis for the actual circumstances, not an individualized
+  inaccessible. Give bounded practical harm-reduction analysis for the actual circumstances, not an individualized
   prescription.
  </Rule>
 
@@ -130,11 +130,12 @@
  </Rule>
 
  <OutputMinimum>
-  Report, beside the claims they support and when each applies: the exposure map and unknown fields; internal-validity
-  and applicability grades of decision-relevant sources; direct versus indirect or exposure-mismatched evidence; the
-  ThresholdOutputMinimum distinctions; intended-use strata and reconstructed chronology of material anecdotes;
-  functional outcomes and incapacitation burden; the microdosing audit; research-contract accounting; practical
-  harm-reduction analysis and the distinct role of clinical monitoring; and correction-propagation status when prior
-  guidance changed.
+  Report, beside the claims they support: the exact exposure map and unknown fields; internal-validity and
+  applicability grades of decision-relevant sources; direct versus indirect or exposure-mismatched evidence; lowest
+  adverse and beneficial doses located, denominator status, and threshold limits (ThresholdOutputMinimum);
+  intended-use strata and reconstructed chronology of material anecdotes; functional outcomes and incapacitation
+  burden when relevant; the microdosing arithmetic and measurement audit when applicable; research-contract
+  completion accounting; practical harm-reduction analysis and the distinct role of clinical monitoring; and
+  correction-propagation status when prior guidance changed.
  </OutputMinimum>
 </DoseRegimeIntegrityAndSelfDirectedHarmReductionResearch>

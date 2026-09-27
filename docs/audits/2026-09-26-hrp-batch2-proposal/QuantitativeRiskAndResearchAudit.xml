@@ -53,8 +53,7 @@
    </Step>
    <Step id="QA6" name="SeparateEstimates">
     Separate the proportion of selected events within a post-exposure window from the incidence or rate of events in
-    that window and from the comparative excess versus a counterfactual risk period or population, stating every
-    conditioning event (DescriptiveTemporalClusteringVersusExcessRisk). Never infer the probability of an event after
+    that window and from the comparative excess versus a counterfactual risk period or population, stating every conditioning event. Never infer the probability of an event after
     exposure from the share of selected reports with a short lag, or the distribution of all events from a database
     selected for reporting after exposure. Label direct observations, regression predictions, extrapolations,
     simulations, ecological estimates, and expert assumptions separately, and never present modeled point estimates as
@@ -88,6 +87,7 @@
     qualitative threshold or broad range.
    </Step>
    <Step id="QA9" name="ConfoundingSelectionThresholdsTransport">
+    Assess confounding, selection, threshold purpose, and transportability.
     A practical risk marker such as first treatment, geography, or age is not automatically an independent cause: test
     whether it proxies biological burden, cumulative exposure, prior treatment, access, surveillance, or another
     variable. When a dominant continuous predictor exists, yes/no adjustment may be inadequate: check whether its actual

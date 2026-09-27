@@ -7,8 +7,7 @@
   <Activation>
    AnswerShapeController/BidirectionalEvidenceIterationDefaultTrigger; also any real-world treatment question where
    community reports could reveal intervention identity, formulation, dose, route, timing, subgroup, functional outcome,
-   dechallenge or rechallenge, adherence, long-term trajectory, or failure mode that changes formal searching, or where
-   formal findings could materially redirect community sampling. Not for emergency triage before stabilization, simple
+   dechallenge or rechallenge, adherence, long-term trajectory, or failure mode that changes formal searching; or any case where formal findings could materially redirect community sampling. Not for emergency triage before stabilization, simple
    definitions, no meaningful community corpus, a purely mechanistic question with no real-world outcome claim, or a
    user-supplied current corpus shown to contain completed bidirectional iteration; record the reason in structured or
    deep mode.
@@ -35,7 +34,7 @@
 
   <Rule name="FormalToCommunityDiscriminatorTransfer">
    Turn decision-relevant formal findings into targeted community queries for the tested and excluded populations, exact
-   exposure, duration, adherence burden, endpoint, nonresponders, failures, adverse effects, withdrawals, long-term
+   exposure, duration, adherence burden and pattern, endpoint, nonresponders, failures, adverse effects, withdrawals, long-term
    follow-up, formulation differences, responder subgroups, real-world functional outcomes, and circumstances in which
    the formal result appears not to hold. Seek disconfirmation as actively as confirmation.
   </Rule>
@@ -80,9 +79,10 @@
    or code exist. Acquisition depth follows CommunityCorpusCompletionGate: on connector runs
    audit_youtube_video_community retrieves and reconciles each material video's accessible comments and replies, and
    finalize_research checks those audits; when full acquisition is unavailable, apply
-   CommunityCorpusAccessBoundaryCompletion. Minimize identity retention: ephemeral within-job person identifiers in
-   model-facing data, raw public author identity only while lawful, policy-compliant deduplication or follow-up needs
-   it, and no persistent identity-linked health profiles built because comments are public.
+   CommunityCorpusAccessBoundaryCompletion. For public or reusable health-corpus workflows, minimize identity retention: prefer
+  ephemeral within-job person identifiers in downstream model-facing data, retain raw public author identity only as
+  long as materially needed for lawful, policy-compliant deduplication or follow-up, and build no persistent
+  identity-linked health profiles merely because comments are public.
   </Rule>
 
   <Rule name="YouTubeDualLaneDiscoveryAndSignal">
@@ -101,10 +101,10 @@
    from commenter reports. Beyond CrowdSourcedAndClinicalSignalAudit/YouTubeCreatorCommentCorpusHandling and
    ContextExtraction, extract when accessible each report's source role, language, exact firsthand intervention or
    exposure, own regimen facts versus own outcome claims, baseline diagnosis and severity, any surgery or treatment
-   recommendation, and intervention-specific dechallenge or rechallenge; the audit records carry the video, channel,
-   comment, reply, and author identifiers, dates, and thread structure. Keep separate episodes when one narrative holds
-   failed conservative care, another intervention, relapse, adverse effects, and eventual standard treatment. A
-   creator's own reply is firsthand evidence about the creator, not independent replication. Likes, ranking, and reply
+   recommendation, and intervention-specific dechallenge or rechallenge; also extract, when accessible, video and channel identity, comment and reply IDs, author channel identity or an
+  ephemeral within-job person identifier, publication and update dates, and thread structure (on connector runs the
+  audit records carry these). Keep separate episodes when one narrative holds
+   failed conservative care, another intervention, relapse, adverse effects, and eventual standard treatment. A creator's own reply can be firsthand evidence about the creator but is not independent replication. Likes, ranking, and reply
    volume are context, not votes for truth.
   </Rule>
 
@@ -123,7 +123,7 @@
   </Rule>
 
   <Rule name="IntegratedSynthesisByClaim">
-   Unless the user asks for source-layer sections, organize the answer around the interventions, hypotheses, outcomes,
+   Unless the user explicitly asks for source-layer sections, organize the answer around the interventions, hypotheses, outcomes,
    or decisions, and within each major claim integrate controlled and extended human evidence, clinical and community
    signal, mechanism, discordance, and practical implication. Community evidence is never a detached appendix after
    studies have fixed the conclusion, and a compelling community narrative never bypasses contrary controlled evidence.

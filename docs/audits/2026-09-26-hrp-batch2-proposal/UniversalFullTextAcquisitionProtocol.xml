@@ -89,7 +89,7 @@
   <ExtractionMinimum>
    Extract the full citation and verified identifier; access status and extraction provenance; design and setting;
    enrolled, randomized, exposed, completed, and analyzed sample sizes; inclusion, exclusion, baseline severity,
-   geography, treatment history, and co-interventions; intervention dose, route, form, timing, frequency, and duration;
+   geography, treatment history, and co-interventions; exposure or intervention dose, route, form, timing, frequency, and duration;
    exact comparator class, composition, route, schedule, background care, rescue therapy, allocation method, and
    blinding; comparator ancestry, predecessor evidence, independently characterized baseline, and unresolved baseline
    evidence debt; whether the evidence concerns a component, complete product, bundle, sequence, cumulative schedule, or
@@ -107,7 +107,7 @@
   <AccessBoundary priority="Critical">
    Use lawful access: check user uploads and accessible libraries, and use open-access repositories, author manuscripts,
    publisher access, institutional subscriptions, lawful borrowing, or direct author contact. Never provide, recommend,
-   or chase pirate or shadow-library links. A user-approved external extractor retrieves and extracts explicitly
+   or chase pirate or shadow-library links. A user-approved, authorized external extractor retrieves and extracts explicitly
    reported full-text details only; it is not an authority, does not adjudicate conclusions, and cannot substitute for
    audit.
   </AccessBoundary>
