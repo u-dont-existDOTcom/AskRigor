@@ -706,13 +706,16 @@ pending-proposal stores have their own strict contracts and authority boundaries
   population-level scout as the controlled Action route, applying the same
   screen: a target with first-person words, contact details, links, keys or
   record fields is refused before any provider call. Its target also passes a
-  stricter population-level screen. A target is refused if it has any of:
+  stricter population-level screen that fails closed. The target must name a
+  group of people, and is refused if it has any of:
   - third-person singular pronouns;
   - a single person's age;
   - a title before a name;
-  - a common given name followed by a surname or a narrative verb.
+  - two capitalized words in a row that are not a medical or method term;
+  - a capitalized word followed by a narrative verb, unless it names a group.
 
-  So a narrative about one named person does not reach Gemini. Under the
+  So a narrative about one named person, even with a name no list knows, does
+  not reach Gemini. Under the
   owner's zero-spend policy it starts a new scout only when the deployment
   sets `ASKRIGOR_GEMINI_BILLING=none` for a key without billing. A later round may add up
   to eight rediscovery leads: public remedies, methods, products, video titles

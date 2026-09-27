@@ -12,7 +12,10 @@ describe("population-level scout targets", () => {
       "People in their 40s with HER2-positive breast cancer",
       "Women with Hashimoto's thyroiditis trying diet changes",
       "50-year-olds with plantar fasciitis",
-      "MS patients using cold exposure"
+      "MS patients using cold exposure",
+      "Adults with Rheumatoid Arthritis trying diet changes",
+      "People with Ehlers-Danlos Syndrome and joint pain",
+      "Runners had knee pain after marathons: what helped them"
     ]) expect(isPopulationLevelResearchTarget(target), target).toBe(true);
   });
 
@@ -25,7 +28,13 @@ describe("population-level scout targets", () => {
       "A 47-year-old woman with knee pain",
       "A woman, 47 years old, with knee pain",
       "Dr. Smith's patient with a torn meniscus",
-      "My knee hurts and I want to avoid surgery"
+      "My knee hurts and I want to avoid surgery",
+      // Names no dictionary knows are refused too.
+      "Xiomara Garcia in Boston has a rare cancer and wants experimental treatment options",
+      "Adults like Xiomara Garcia with a rare cancer",
+      "Xiomara has a rare cancer, like many adults",
+      // A condition with no group of people is refused; the error asks for one.
+      "Hip osteoarthritis: avoiding a hip replacement"
     ]) expect(isPopulationLevelResearchTarget(target), target).toBe(false);
   });
 });

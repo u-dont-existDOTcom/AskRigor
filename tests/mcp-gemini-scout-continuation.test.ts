@@ -183,6 +183,45 @@ describe("MCP Gemini scout continuation", () => {
     }]);
   });
 
+  it("looks up a validated ID by its declared title when YouTube's title differs, instead of trusting it", async () => {
+    const receipt = {
+      ...validationReceipt(),
+      validated_candidates: [{ video_id: "dQw4w9WgXcQ", provider_metadata: { title: "Real video", channel_title: "Real channel" } }]
+    };
+    const [validated] = receipt.validated_candidates;
+    execute.mockResolvedValueOnce({
+      controller_completion: {
+        provider_response_id: "response-4",
+        packet: {
+          discovery_queries: [],
+          search_gaps: [],
+          candidates: [
+            // Same channel, but the ID points at another of its videos.
+            { video_id: validated!.video_id, title: "How I avoided a hip replacement", channel: "Real channel", why_surfaced: "Outcome" }
+          ]
+        },
+        validation: receipt,
+        provider_storage_mode: "TEMPORARY_BACKGROUND_DELETE_REQUESTED",
+        accounted_nano_usd: 900_000_000
+      }
+    });
+    search.mockImplementation(async () => ({
+      access_status: "complete",
+      data: [{ video_id: "abcdefghijk", title: "How I avoided a hip replacement", channel_title: "Real channel" }]
+    }));
+    const client = await connect();
+    const done = await client.callTool({ name: "scout_gemini_youtube_candidates", arguments: TARGET });
+
+    expect(search.mock.calls.map(([request]) => request.query)).toEqual(["How I avoided a hip replacement"]);
+    const output = done.structuredContent as { research_receipt: string };
+    expect(verifyResearchReceipt(output.research_receipt, { secret: SECRET })).toMatchObject({
+      ok: true,
+      claims: { videos: ["abcdefghijk"], open: "0" }
+    });
+    expect((done.content as Array<{ text: string }>)[0]!.text)
+      .toContain("1 more had a different YouTube title than declared and were looked up by title instead");
+  });
+
   it("leaves named titles unsearched when the call is running long, and counts them as open", async () => {
     const now = vi.spyOn(Date, "now");
     let clock = 1_790_000_000_000;

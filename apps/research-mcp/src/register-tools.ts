@@ -37,6 +37,7 @@ import {
   youtubeSearchRecordListSchema,
   youtubeVideoDataSchema,
   youtubeVideoFailureDataSchema,
+  youtubeLabelsMatch,
   GEMINI_YOUTUBE_SCOUT_MAX_LEAD_CHARACTERS,
   GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS,
   type GeminiYoutubeScoutBackgroundCheckpoint
@@ -1302,8 +1303,9 @@ function defineResearchOperations(
     {
       description:
         "Ask Gemini with Google Search for YouTube videos on a de-identified, population-level target, then validate " +
-        "each video's identity. Describe the condition and the goal (for example, people trying to avoid a hip " +
-        "replacement and what they tried), not a list of treatments: the scout searches natural, supplement, " +
+        "each video's identity. Describe a group of people, their condition and their goal (for example, adults trying " +
+        "to avoid a hip replacement and what they tried), with no names, places or personal details, and not a list of " +
+        "treatments: the scout searches natural, supplement, " +
         "self-directed and conventional angles itself. After auditing comments, call it again with the remedies, " +
         "methods, products, videos or creators the comments name as rediscovery_leads (public terms only, no " +
         "commenter details). A grounded search takes about a minute, so the result may be pending with a " +
@@ -1347,8 +1349,9 @@ function defineResearchOperations(
         // Only screened, population-level text reaches Gemini.
         if (!isPopulationLevelResearchTarget(target.research_target)) {
           return scoutError("research_target_not_deidentified", false,
-            "Describe a group of people and their goal, without first-person words, he or she, names, a " +
-              "person's age, contact details or links.");
+            "Describe a group of people and their goal in sentence case (for example: adults with hip osteoarthritis " +
+              "trying to avoid a replacement), without first-person words, he or she, names, places, a person's age, " +
+              "contact details or links.");
         }
         if (!leads.every(isDeidentifiedResearchTarget)) {
           return scoutError("rediscovery_lead_not_deidentified", false,
@@ -1392,10 +1395,22 @@ function defineResearchOperations(
       const notFound = new Set(validation.rejected_candidates
         .filter(({ rejection_reasons: reasons }) => reasons.includes("metadata_not_api_visible_complete"))
         .map(({ video_id }) => video_id));
+      // A validated ID whose YouTube title differs from the declared one may be
+      // another video from the same channel: confirm it by the declared title
+      // instead of trusting the ID (a paraphrased title still matches).
+      const declared = new Map(packet.candidates.map((candidate) => [candidate.video_id, candidate]));
+      const titleConflicts = new Set(validation.validated_candidates
+        .filter(({ video_id, provider_metadata: metadata }) => {
+          const candidate = declared.get(video_id);
+          const title = (metadata as { title?: string } | undefined)?.title;
+          return candidate !== undefined && title !== undefined && !youtubeLabelsMatch(title, candidate.title);
+        })
+        .map(({ video_id }) => video_id));
+      const confirmed = validation.validated_candidates.filter(({ video_id }) => !titleConflicts.has(video_id));
       const titleLeads = [
         ...("title_only_candidates" in packet ? packet.title_only_candidates ?? [] : []),
         ...packet.candidates
-          .filter(({ video_id }) => notFound.has(video_id))
+          .filter(({ video_id }) => notFound.has(video_id) || titleConflicts.has(video_id))
           .map(({ title, channel, why_surfaced }) => ({ title, channel, why_surfaced }))
       ];
       // Title searches run in parallel; skip them when they might not finish
@@ -1403,7 +1418,7 @@ function defineResearchOperations(
       const lookupFits = Date.now() + MCP_SCOUT_TITLE_LOOKUP_MS <= started + MCP_SCOUT_CALL_LIMIT_MS;
       const titleLookup = titleLeads.length === 0 ? undefined : await lookUpScoutTitles(titleLeads, {
         config: youtubeConfig(),
-        knownVideoIds: new Set(validation.validated_candidates.map(({ video_id }) => video_id)),
+        knownVideoIds: new Set(confirmed.map(({ video_id }) => video_id)),
         ...(lookupFits ? {} : { limit: 0 })
       });
       const output = MCP_SCOUT_OUTPUT_SCHEMA.parse({
@@ -1426,7 +1441,10 @@ function defineResearchOperations(
       const found = titleLookup?.found ?? [];
       const unresolvedTitles = titleLookup?.unresolved ?? [];
       return withResearchReceipt(successfulToolResult(
-        `Gemini scout validated ${validation.validated_candidates.length} video(s)` +
+        `Gemini scout validated ${confirmed.length} video(s)` +
+          (titleConflicts.size === 0
+            ? ""
+            : ` (${titleConflicts.size} more had a different YouTube title than declared and were looked up by title instead)`) +
           (found.length === 0 ? "" : ` and found ${found.length} more by exact title (title_lookup.found)`) +
           "; summaries are unverified discovery leads." +
           (unresolvedTitles.length === 0
@@ -1436,7 +1454,7 @@ function defineResearchOperations(
         output
       ), researchReceipt("youtube_scout", {
         videos: [
-          ...validation.validated_candidates.map(({ video_id }) => video_id),
+          ...confirmed.map(({ video_id }) => video_id),
           ...found.map(({ video_id }) => video_id)
         ],
         open: validation.unresolved_candidates.length +

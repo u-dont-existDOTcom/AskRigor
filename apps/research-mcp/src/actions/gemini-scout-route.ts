@@ -550,19 +550,26 @@ async function waitForBackgroundPoll(milliseconds: number): Promise<void> {
 }
 
 /**
- * Stricter screen for a scout target, which goes to an external provider: it
- * must describe a group of people, not one person. Third-person singular
- * pronouns, a single person's age, a title before a name, or a common given
- * name followed by a surname or a narrative verb mark an individual narrative.
- * It is a heuristic layer on top of the tool contract, which asks for the
- * condition and goal of a population. Rediscovery leads may name public
- * creators, so they keep the base screen.
+ * Stricter screen for a scout target, which goes to an external provider. It
+ * fails closed: the target must describe a group of people ("adults with hip
+ * osteoarthritis trying to avoid a replacement"). It is refused if it
+ * contains any of:
+ * - third-person singular pronouns;
+ * - a single person's age;
+ * - a title before a name;
+ * - two capitalized words in a row that are not a medical or method term;
+ * - a capitalized word followed by a narrative verb such as "has" or "wants",
+ *   unless it names a group.
+ * A name no dictionary knows ("Xiomara Garcia") is still refused.
+ * Rediscovery leads may name public creators, so they keep the base screen.
  */
 export function isPopulationLevelResearchTarget(value: string): boolean {
   if (!isDeidentifiedResearchTarget(value)) return false;
   // Collapse whitespace first, so every pattern below matches single spaces
   // and none can backtrack over a long run of them.
   const text = value.replace(/\s+/gu, " ");
+  const words = text.toLowerCase().split(/[^\p{L}\p{N}]+/u);
+  if (!words.some((word) => POPULATION_WORDS.has(word))) return false;
   if (/\b(?:he|she|him|his|her|hers|himself|herself)\b/iu.test(text)) return false;
   if (/\b(?:[Mm]rs?|[Mm]s|[Mm]iss|[Mm]x|[Dd]r|[Pp]rof)\.? [A-Z]/u.test(text)) return false;
   if (
@@ -571,32 +578,45 @@ export function isPopulationLevelResearchTarget(value: string): boolean {
   ) return false;
   if (/\b\d{1,3} ?-? ?(?:years?|yrs?) ?-? ?old\b(?!s)/iu.test(text)) return false;
   if (/\b\d{1,3} ?(?:y\/o|yo)\b/iu.test(text)) return false;
-  for (const match of text.matchAll(
-    /\b([A-Z][a-z]+) (?:[A-Z][a-z'’-]+|has|had|is|was|got|tried|takes|took|wants|needs)\b/gu
-  )) {
-    if (COMMON_GIVEN_NAMES.has(match[1]!.toLowerCase())) return false;
+  for (const [, first, second] of text.matchAll(/(?=\b([A-Z][a-z'’-]+) ([A-Z][a-z'’-]+)\b)/gu)) {
+    const [head, tail] = [first!.toLowerCase(), second!.toLowerCase()];
+    const eponym = /['’]s$/u.test(head) || CAPITALIZED_TERM_WORDS.has(tail);
+    const styling = TITLE_CASE_FUNCTION_WORDS.has(head) || TITLE_CASE_FUNCTION_WORDS.has(tail) ||
+      POPULATION_WORDS.has(head);
+    if (!eponym && !styling) return false;
+  }
+  for (const [, subject] of text.matchAll(/\b([A-Z][a-z'’-]+) (?:has|is|was|wants|needs|takes|tries|gets|got|had|tried|took)\b/gu)) {
+    if (!POPULATION_WORDS.has(subject!.toLowerCase())) return false;
   }
   return true;
 }
 
-const COMMON_GIVEN_NAMES: ReadonlySet<string> = new Set([
-  "aaron", "abigail", "adam", "adrian", "aiden", "alex", "alexander", "alice", "alicia", "allison",
-  "amanda", "amy", "andrea", "andrew", "angela", "anna", "anne", "anthony", "ashley", "barbara",
-  "benjamin", "betty", "brandon", "brenda", "brian", "brittany", "carl", "carlos", "carol", "caroline",
-  "catherine", "charles", "charlotte", "cheryl", "chris", "christina", "christine", "christopher", "cindy", "claire",
-  "cynthia", "daniel", "david", "deborah", "debra", "denise", "dennis", "diana", "diane", "donald",
-  "donna", "dorothy", "douglas", "dylan", "edward", "elizabeth", "emily", "emma", "eric", "ethan",
-  "evelyn", "gary", "george", "gregory", "hannah", "heather", "helen", "henry", "isabella", "jacob",
-  "james", "jane", "janet", "janice", "jason", "jean", "jeffrey", "jennifer", "jeremy", "jerry",
-  "jessica", "joan", "john", "jonathan", "joseph", "joshua", "joyce", "juan", "julia", "julie",
-  "justin", "karen", "katherine", "kathleen", "kathy", "kelly", "kenneth", "kevin", "kimberly", "kyle",
-  "larry", "laura", "lauren", "linda", "lisa", "logan", "louis", "madison", "margaret", "maria",
-  "marie", "marilyn", "martha", "mary", "matthew", "megan", "melissa", "michael", "michelle", "nancy",
-  "natalie", "nathan", "nicholas", "nicole", "noah", "olivia", "pamela", "patricia", "patrick", "paul",
-  "peter", "rachel", "raymond", "rebecca", "richard", "robert", "ronald", "ruth", "ryan", "samantha",
-  "samuel", "sandra", "sara", "sarah", "scott", "sean", "sharon", "shirley", "sophia", "stephanie",
-  "stephen", "steven", "susan", "teresa", "thomas", "timothy", "tyler", "victoria", "vincent", "virginia",
-  "walter", "william", "zachary"
+// Words that describe a group of people rather than one person.
+const POPULATION_WORDS: ReadonlySet<string> = new Set([
+  "people", "persons", "adults", "patients", "women", "men", "children", "kids", "teens", "teenagers",
+  "adolescents", "seniors", "elders", "elderly", "athletes", "runners", "users", "individuals", "those",
+  "anyone", "anybody", "everyone", "someone", "somebody", "parents", "mothers", "fathers", "caregivers",
+  "carers", "veterans", "workers", "students", "infants", "babies", "toddlers", "survivors", "sufferers",
+  "population", "populations", "folks", "cases", "lifters", "cyclists", "swimmers", "players", "dancers",
+  "members", "participants", "families", "couples", "smokers", "drinkers", "vegans", "vegetarians",
+  "olds", "many", "most", "some", "several", "others", "few", "groups", "clients", "consumers", "owners"
+]);
+
+// Second words that make a capitalized pair a condition, test or method name.
+const CAPITALIZED_TERM_WORDS: ReadonlySet<string> = new Set([
+  "disease", "diseases", "syndrome", "disorder", "palsy", "arthritis", "sclerosis", "dystrophy", "fever",
+  "virus", "infection", "cancer", "carcinoma", "lymphoma", "leukemia", "leukaemia", "tumor", "tumour",
+  "surgery", "procedure", "protocol", "method", "technique", "therapy", "treatment", "program",
+  "programme", "diet", "exercise", "exercises", "test", "scale", "score", "criteria", "deficiency",
+  "anemia", "anaemia", "thyroiditis", "neuropathy", "neuralgia", "dermatitis", "colitis", "hepatitis",
+  "pain", "injury", "reflex", "maneuver", "manoeuvre", "block", "release", "repair", "reconstruction",
+  "replacement", "resurfacing", "fusion", "implant", "stimulation", "system", "index", "type"
+]);
+
+// Function words that show a capitalized pair is title-case styling, not a name.
+const TITLE_CASE_FUNCTION_WORDS: ReadonlySet<string> = new Set([
+  "a", "an", "the", "and", "or", "of", "in", "on", "for", "to", "with", "without", "who", "what", "how",
+  "why", "when", "after", "before", "from", "by", "at", "into", "over", "under", "vs", "versus", "not"
 ]);
 
 export function isDeidentifiedResearchTarget(value: string): boolean {

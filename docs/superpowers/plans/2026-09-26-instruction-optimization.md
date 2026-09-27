@@ -302,6 +302,27 @@ run went from 07:12 to 09:44 UTC.
     Custom GPT Action and controlled routes on main use only the base screen;
     hardening them changes the Custom GPT's behavior, so it needs its own
     acceptance.
+- **Codex review of d1c9c99** (two findings, both fixed; CodeQL also flagged a
+  polynomial regular expression in the new screen, fixed in 062e38a):
+  - The name check relied on a list of common given names, so "Xiomara Garcia
+    in Boston has a rare cancer" passed. The screen now fails closed:
+    - the target must name a group of people;
+    - two capitalized words in a row are refused unless they form a medical
+      or method term (or are title-case styling);
+    - a capitalized word before a narrative verb is refused unless it names
+      a group.
+
+    A bare condition ("hip osteoarthritis: avoiding a replacement") is now
+    refused. The error and the tool description ask for a group of people.
+  - A validated ID whose YouTube title differed from the declared title,
+    while the channel matched, was trusted, and could be another video from
+    the same channel. The MCP tool now confirms such IDs by looking up the
+    declared title; they count as found only if that lookup finds them.
+    - The shared validator is unchanged: HRP allows a terminal rejection only
+      when title and channel both differ.
+    - In the Custom GPT session flow, an unresolved candidate could stay
+      stuck.
+    - In the 4d4fae8 smoke run, 1 of 20 validated candidates took this path.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 
