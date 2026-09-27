@@ -138,6 +138,42 @@ generalization.
   discovery from survey keyword searches (up to 6 search.list calls each) to
   the Gemini scout, keeping YouTube searches for exact-title lookups.
 
+## Smoke run on 4d4fae8 (2026-09-27, HRP 20.6.2, scout-first)
+
+Question `dev-hip-avoid-replacement`, Claude Opus 5.5 at max effort. The
+run went from 07:12 to 09:44 UTC.
+
+| Run | Minutes | Tool calls | Output tokens | Scout / survey / audit / coverage-check calls |
+|---|---:|---:|---:|---|
+| main | 19 | 89 | 115K | 0 / 4 / 17 / 0 |
+| e1176f8 | 27 | 145 | 153K | 2 / 4 / 20 / 0 |
+| 6e2763d | 111 | 212 | 584K | 5 / 7 / 61 / 5 |
+| 4d4fae8 | 152 | 313 | 827K | 8 / 5 / 82 / 4 |
+
+- **The comment-led loop worked.** One initial scout round, then two
+  rediscovery rounds, each with 8 leads the model took from audited
+  comments. The leads included collagen, turmeric and glucosamine, a
+  low-carb diet, red light therapy, an unloader brace, radiofrequency
+  ablation and low-dose radiation.
+- **Audit failures.** 16 of 82 comment-audit calls failed. Every audit that
+  resumed after a full top-level page failed, a defect on main since
+  2026-09-01, fixed in cd5e325. Four material videos stayed unaudited,
+  `finalize_research` stayed `not_ready`, and the model answered anyway.
+- **Where the time went** (time before each tool call):
+  - about 48 minutes on comment audits;
+  - about 39 minutes composing four `assess_treatment_landscape_coverage`
+    ledgers, plus much of about 23 minutes of reasoning after them. The
+    first check returned about 140 blockers, nearly all ledger bookkeeping
+    (reciprocal records, batch links, boundary wording), and the model
+    rebuilt the ledger with four more surveys;
+  - about 15 minutes on study audits.
+- **Answer content.**
+  - Named physical-therapy and exercise methods: 17 mentions, against 2
+    to 14 in the earlier arms.
+  - Also covered: radiofrequency ablation, an unloader brace, PRP and stem
+    cells.
+  - Still missing: gelatin, collagen and hydration.
+
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 
 - Iteration for each candidate: focused tests plus one or two development
