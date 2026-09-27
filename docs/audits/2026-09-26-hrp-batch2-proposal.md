@@ -1,4 +1,11 @@
-# HRP batch 2 proposal: method sections (not applied; needs owner approval)
+# HRP batch 2 proposal: method sections
+
+**Status (2026-09-27):** the owner approved it, and ten of the twelve sections
+were adopted as HRP 20.6.2 after two independent meaning reviews
+(`docs/audits/2026-09-26-hrp-batch2-proposal/MEANING-REVIEW.md`).
+TreatmentLandscapeAndVideoSelectionGate (its draft predates HRP 20.6.1) and
+PatientHistoryAndRecurrenceEvidenceGate (its draft made HRP depend on Universal
+wording) were not adopted. The figures below are the original proposal's.
 
 Date: 2026-09-26. Applies on top of HRP 20.6.0. Drafts and per-section coverage
 tables: `docs/audits/2026-09-26-hrp-batch2-proposal/`.

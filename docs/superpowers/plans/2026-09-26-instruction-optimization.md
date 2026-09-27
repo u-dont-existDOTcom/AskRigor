@@ -70,6 +70,19 @@ Claude Opus 5.5 (owner, 2026-09-26).
 5. Find the recent version whose Gemini Spark discovery handled the hip case
    well, then test search strategies on development questions with a
    discovery-only bench.
+6. Batch 2 method-section wording (approved): adopted as HRP 20.6.2 after two
+   independent meaning reviews found and fixed 13 meaning changes.
+7. Scout-first discovery (approved): the Gemini scout becomes the primary way
+   to find videos, and YouTube search goes mainly to exact-title lookups. The
+   owner asked why the Spark workflow stopped. In the repository history,
+   Spark skill v13 (20 August) ran a two-stage loop: broad discovery with a
+   remedy scan, then targeted rediscovery of remedies and videos named in
+   audited comments. Later that day the skill was cut from 36 KB to 8 KB to
+   pass Gemini's upload security scan and to make evidence traceable. That
+   dropped the remedy scan and the rediscovery mode. On 23 August the manual
+   Spark handoff was replaced by the API scout, which has Google Search but
+   not the Gemini app's YouTube tool. The rediscovery loop is to be rebuilt in
+   the automated scout.
 
 ## Discovery bench findings (2026-09-27)
 

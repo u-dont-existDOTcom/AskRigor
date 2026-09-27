@@ -15,8 +15,9 @@ records; HRP 20.6.0 (process, output and meta sections consolidated, no method
 change; review at `docs/audits/2026-09-26-hrp-20.6.0-consolidation.md`); HRP
 20.6.1 (owner-directed: a capped first pass with open leads replaces the fixed
 8-video / 6-program minimum, enforced by `finalize_research` and the landscape
-checker); Universal 20.5.29 (owner-approved: precise clinical terms replace the
-euphemism rule). Claude test runner and blinded Opus judge under
+checker); HRP 20.6.2 (owner-approved: ten method sections shortened with the
+same meaning, after two independent meaning reviews); Universal 20.5.29
+(owner-approved: precise clinical terms replace the euphemism rule). Claude test runner and blinded Opus judge under
 `evaluation/instruction-optimization/`. Open: method-section consolidation as an
 owner approval packet; the GPT route (owner decision, see the plan); smoke and
 held-out comparison runs (YouTube quota about 3 runs a day per key). The MAST

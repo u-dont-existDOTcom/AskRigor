@@ -1,9 +1,12 @@
 # HRP batch 2: meaning reviews and adoption status
 
 These drafts shorten ten HRP 20.6.1 sections, with the goal of keeping every
-rule's meaning. They are proposals only. `protocols/HRP_Full.xml` does not
-change until the owner approves adoption, because the sections carry
-clinical and scientific method content.
+rule's meaning. The sections carry clinical and scientific method content, so
+adoption needed the owner's approval.
+
+**Status:** the owner approved on 2026-09-27, and the ten drafts were adopted
+unchanged as HRP 20.6.2. The spliced HRP is 505,065 characters, down from
+516,263, including the new revision note.
 
 ## Scope
 
@@ -69,7 +72,7 @@ clinical and scientific method content.
     sections shrink by about 11%;
   - no literal test pin on HRP text is lost.
 
-## What adoption needs
+## Adoption checklist (done for 20.6.2)
 
 - Owner approval.
 - Splice the ten drafts into `protocols/HRP_Full.xml`, bumping the version to
