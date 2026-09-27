@@ -19,7 +19,10 @@ const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/;
 const SHA256_BASE64URL_PATTERN = /^[A-Za-z0-9_-]{43}$/;
-const MAX_TOP_LEVEL_PAGE_IDENTIFIERS = 20;
+// One top-level page holds up to 100 threads (COMMENT_PAGE_SIZE), and the
+// comment segment fingerprints every one; a smaller bound failed every resume
+// after a full page.
+const MAX_TOP_LEVEL_PAGE_IDENTIFIERS = 100;
 const MAX_REPLY_PAGE_IDENTIFIERS = 100;
 const LEGACY_IDENTIFIER_MEMBERSHIP_BYTES = 2_048;
 const IDENTIFIER_MEMBERSHIP_BYTES = 4_096;
