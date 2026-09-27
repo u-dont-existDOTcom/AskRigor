@@ -868,7 +868,8 @@ function analyze(run, context) {
   }));
   const videoAudits = named("audit_youtube_video_community").map((call) => ({
     ...where(call),
-    video_id: call.input.video_id ?? null,
+    // Continuations name no video, so read the audited ID from the result.
+    video_id: pick(call, ["video_id"]) ?? call.input.video_id_or_url ?? null,
     continuation: call.input.continuation_token !== undefined,
     is_error: call.is_error,
     completion_state: outcome(call, ["receipt", "completion_state"]),

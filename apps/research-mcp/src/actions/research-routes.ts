@@ -171,7 +171,10 @@ function createResearchActionRoute(
   youtubeContinuationHandles: YoutubeActionContinuationHandleStore
 ): ActionRoute {
   const inputSchema = objectSchema(operation.inputSchema, operation.name, "input");
-  const outputSchema = objectSchema(operation.outputSchema, operation.name, "output");
+  // The MCP audit tool declares its compact view; Action calls get the full audit.
+  const outputSchema = operation.name === "audit_youtube_video_community"
+    ? youtubeVideoCommunityAuditOutputSchema
+    : objectSchema(operation.outputSchema, operation.name, "output");
   const actionOutputSchema = operation.name === "audit_youtube_video_community"
     ? youtubeVideoCommunityAuditOutputSchema.extend({
         coverage_receipt: discussionReceiptSchema
@@ -240,8 +243,11 @@ function createResearchActionRoute(
         }
       }
       try {
-        const result = await operation.execute(operationInput);
-        const parsedOutput = outputSchema.safeParse(result.structuredContent);
+        const result = await operation.execute(operationInput, { surface: "action" });
+        // Research receipts serve MCP's finalize_research. The Custom GPT's
+        // session controller keeps its own ledger, so Actions return none.
+        const { research_receipt: _receipt, ...structuredContent } = result.structuredContent ?? {};
+        const parsedOutput = outputSchema.safeParse(structuredContent);
         if (!parsedOutput.success) {
           throw new Error("Research operation returned invalid structured output");
         }

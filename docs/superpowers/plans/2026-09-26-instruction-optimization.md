@@ -366,6 +366,18 @@ run went from 07:12 to 09:44 UTC.
     title of four or more words that YouTube's longer title contains.
   - Comments without a channel ID were keyed by display name, which merged
     different people with the same name. They now get a per-comment key.
+- **Codex review of 45fac2e** (two findings, both fixed):
+  - The Custom GPT Action runs the same audit handler as MCP. Since 9c13287
+    that handler returned the compact MCP sample, and since the receipt work
+    a `research_receipt`; the Action adapter's strict parse rejected both, so
+    a completed audit failed on the Action, including inside the Custom GPT's
+    session controller. The adapter now marks its calls, the audit handler
+    returns the full audit to them, and Action responses carry no research
+    receipts (MCP's `finalize_research` is their only consumer). A new test
+    runs the real handler through the Action route with receipts enabled.
+  - The runner recorded each audit's video from an input field audits don't
+    use, so every audit was filed under "null". It now reads the audited
+    video from the result.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 

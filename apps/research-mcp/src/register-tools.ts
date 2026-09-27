@@ -98,6 +98,7 @@ import {
 } from "./youtube-audit-continuation.js";
 import type {
   ResearchOperation,
+  ResearchOperationExtra,
   ResearchOperationHandler
 } from "./research-operation.js";
 import {
@@ -1145,7 +1146,7 @@ function defineResearchOperations(
       outputSchema: mcpYoutubeVideoCommunityAuditOutputSchema,
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async (rawInput) => {
+    async (rawInput, extra) => {
       // A continuation token carries the chain's video and analysis limit, so
       // anything else sent with it is ignored rather than failing the audit.
       const input = rawInput.continuation_token === undefined
@@ -1165,15 +1166,15 @@ function defineResearchOperations(
       } catch (error) {
         result = youtubeVideoCommunityAuditFailure(input, error);
       }
+      const summary = `YouTube video audit retrieved ${result.records_retrieved_cumulative} record(s) cumulatively; synthesis lock ${result.receipt.synthesis_lock}.`;
+      // The Custom GPT Action bounds the full audit itself.
+      if (isActionCall(extra)) return youtubeToolResult(summary, result);
       const view = compactYoutubeAuditForMcp(
         result,
         MCP_YOUTUBE_AUDIT_MAX_BYTES,
         MCP_BOUNDED_SAMPLE_LIMITATION
       );
-      return withResearchReceipt(youtubeToolResult(
-        `YouTube video audit retrieved ${result.records_retrieved_cumulative} record(s) cumulatively; synthesis lock ${result.receipt.synthesis_lock}.`,
-        view
-      ), result.receipt.completion_state === "incomplete"
+      return withResearchReceipt(youtubeToolResult(summary, view), result.receipt.completion_state === "incomplete"
         ? undefined
         : researchReceipt("youtube_video_audit", {
             video: result.video_id,
@@ -1577,6 +1578,11 @@ function scoutError(code: string, retryable: boolean, guidance?: string): CallTo
     }],
     isError: true
   };
+}
+
+/** True when the Custom GPT Action adapter, not an MCP client, made the call. */
+function isActionCall(extra: unknown): boolean {
+  return (extra as ResearchOperationExtra | undefined)?.surface === "action";
 }
 
 /** Signs a receipt when a signing secret is configured; see research-receipts.ts. */
