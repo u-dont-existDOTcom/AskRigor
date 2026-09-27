@@ -146,6 +146,7 @@ describe("treatment coverage from signed receipts", () => {
       unscreened_videos: [],
       audited_videos: ["AAAAAAAAAAA", "BBBBBBBBBBB", "FFFFFFFFFFF"],
       scout_frontier_videos: 4,
+      open_scout_titles: 0,
       input_problems: []
     });
     expect(result.blockers).toEqual([]);
@@ -222,6 +223,64 @@ describe("treatment coverage from signed receipts", () => {
     }), { secret: SECRET, now });
     expect(old.depth_blockers.join(" ")).toContain("Video FFFFFFFFFFF discussion audit still has executable work.");
     expect(old.answer_boundary).toBe("continue_research");
+  });
+
+  it("refuses reserved IDs and asks for a per-video audit of a selected video", () => {
+    const reserved = assessTreatmentCoverageFromReceipts(input({
+      program_fingerprints: [
+        program("fp_strength", "exercise", "progressive resistance training"),
+        program("fp_collagen", "nutrition", "collagen peptides with vitamin C", { dose_or_intensity: "10 g daily" }),
+        program("fp_aquatic", "exercise", "aquatic walking program", { supervision: "group class" }),
+        program("server:unscreened", "exercise", "a program named like a server record")
+      ]
+    }), { secret: SECRET, now });
+    expect(reserved.receipt_derivation.input_problems).toEqual([
+      "ID server:unscreened is reserved for server-made records; rename it."
+    ]);
+    expect(reserved.answer_boundary).toBe("continue_research");
+
+    const communityOnly = discovery("youtube_community_audit", {
+      videos: ["FFFFFFFFFFF"], state: "api_visible_complete", lock: "pass", q: discoveryQueryDigest(["pool walking hip"]), open: 0
+    }, 9_500);
+    const result = assessTreatmentCoverageFromReceipts(input({
+      receipts: [...receipts.slice(0, 5), communityOnly]
+    }), { secret: SECRET, now });
+    expect(result.receipt_derivation.input_problems).toEqual([
+      expect.stringContaining("Selected video FFFFFFFFFFF has only a one-call community audit")
+    ]);
+  });
+
+  it("keeps a scout's unsearched titles open and links a round's access boundary", () => {
+    // The scout named two titles it could not look up: its open count exceeds its unresolved IDs.
+    const scoutWithTitles = discovery("youtube_scout", {
+      videos: ["AAAAAAAAAAA", "BBBBBBBBBBB", "CCCCCCCCCCC", "FFFFFFFFFFF"], open: 2,
+      q: discoveryQueryDigest([TARGET]), unres: [], rej: ["XXXXXXXXXXX"]
+    }, 1_000);
+    const open = assessTreatmentCoverageFromReceipts(input({
+      receipts: [scoutWithTitles, ...receipts.slice(1)]
+    }), { secret: SECRET, now });
+    expect(open.receipt_derivation.open_scout_titles).toBe(2);
+    expect(open.answer_boundary).not.toBe("ledger_consistent_for_synthesis");
+    expect(open.breadth_gaps).toContain("Discovery batch r0 still has an executable continuation cursor.");
+
+    // A partial survey round with a terminal boundary is a stated limit, not a record problem.
+    const partialSurvey = discovery("youtube_survey", {
+      access: "partial", searches: 2, videos: ["EEEEEEEEEEE"], open: 0,
+      q: discoveryQueryDigest(["progressive resistance training hip", "hip pain what worked"])
+    }, 3_000);
+    const bounded = assessTreatmentCoverageFromReceipts(input({
+      receipts: [...receipts.slice(0, 2), partialSurvey, ...receipts.slice(3)],
+      specific_searches: [
+        { round: 1, treatment_class_id: "nutrition", implementation_terms: ["collagen peptides"], discriminator_terms: ["hip pain"] }
+      ],
+      access_boundaries: [{
+        boundary_id: "survey_limit", scope_type: "discovery_batch", scope_id: "r2", access_status: "partial",
+        materiality: "uncertain", impact: "confidence_changing", terminal: true, retryable: false,
+        recovery_attempted: true, description: "Two survey searches hit the daily search cap and were not rerun."
+      }]
+    }), { secret: SECRET, now });
+    expect(bounded.blockers.join(" ")).not.toMatch(/lacks a structured access boundary|not linked to its claimed scope/u);
+    expect(bounded.access_boundary_ids_used).toContain("survey_limit");
   });
 
   it("reports tampered receipts and never lets a tie hide a late find", () => {

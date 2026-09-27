@@ -115,6 +115,8 @@ export const receiptDerivationSchema = z.object({
   unscreened_videos: z.array(z.string()),
   audited_videos: z.array(z.string()),
   scout_frontier_videos: z.number().int().nonnegative(),
+  open_scout_titles: z.number().int().nonnegative()
+    .describe("Titles scouts named but could not look up; search them by exact title with search_youtube."),
   input_problems: z.array(z.string())
 }).strict();
 
@@ -203,7 +205,15 @@ export function assessTreatmentCoverageFromReceipts(
     if (previous === undefined || receipt.order >= previous.order) auditByVideo.set(video, receipt);
   }
 
-  // The model's judgment.
+  // The model's judgment. IDs starting "server:" are the server's own records.
+  for (const id of [
+    ...input.treatment_classes.map(({ class_id }) => class_id),
+    ...input.program_fingerprints.map(({ fingerprint_id }) => fingerprint_id)
+  ]) {
+    if (id.startsWith("server:")) {
+      problems.push(`ID ${id} is reserved for server-made records; rename it.`);
+    }
+  }
   const classById = new Map(input.treatment_classes.map((entry) => [entry.class_id, entry]));
   const fingerprintById = new Map(input.program_fingerprints.map((entry) => [entry.fingerprint_id, entry]));
   const roundMapping = new Map<number, TreatmentCoverageFromReceiptsInput["rounds"][number]>();
@@ -345,6 +355,11 @@ export function assessTreatmentCoverageFromReceipts(
   }
   const candidateById = new Map(candidates.map((candidate) => [candidate.video_id, candidate]));
 
+  const boundaryIdFor = (scopeType: string, scopeId: string): string | undefined =>
+    input.access_boundaries.find((boundary) =>
+      boundary.scope_type === scopeType && boundary.scope_id === scopeId
+    )?.boundary_id;
+
   // Discovery batches, oldest first. Among rounds the signed order cannot
   // separate, one that found a selected or material video goes last, so a tie
   // can only delay saturation.
@@ -375,19 +390,25 @@ export function assessTreatmentCoverageFromReceipts(
       ...videos.map((videoId) => candidateById.get(videoId)!.treatment_class_id)
     ]);
     if (classIds.length === 0) needsUnassignedClass = true;
-    const open = Number(text(round.claims.open) || "0") > 0;
-    const paged = round.kind !== "youtube_scout";
+    // A scout's `open` counts unresolved IDs, which the frontier carries, and
+    // named titles it could not look up, which only this count records: those
+    // keep the round open, like an unread results page.
+    const open = round.kind === "youtube_scout"
+      ? openScoutTitles(round) > 0
+      : Number(text(round.claims.open) || "0") > 0;
+    const boundaryId = boundaryIdFor("discovery_batch", batchId(round.index));
     return {
       batch_id: batchId(round.index),
       query_or_scope: queryText.get(round.index) ??
         `${round.kind.replace("youtube_", "")} round, query digest ${text(round.claims.q) || "not signed"}`,
       treatment_class_ids: classIds.length === 0 ? [UNASSIGNED_CLASS] : classIds,
       access_status: roundAccess(round),
-      pagination: { exhausted: !(paged && open), next_cursor_present: paged && open },
+      pagination: { exhausted: !open, next_cursor_present: open },
       candidate_video_ids: videos,
       new_program_fingerprint_ids: [...firstRoundOfFingerprint.entries()]
         .filter(([, index]) => index === round.index)
-        .map(([fingerprintId]) => fingerprintId)
+        .map(([fingerprintId]) => fingerprintId),
+      ...(boundaryId === undefined ? {} : { access_boundary_id: boundaryId })
     };
   });
   const batchByRound = new Map(orderedRounds.map((round, position) => [round.index, batches[position]!]));
@@ -430,13 +451,18 @@ export function assessTreatmentCoverageFromReceipts(
   });
 
   // Selected videos carry the discussion audit their signed receipt records.
-  const boundaryIdFor = (scopeType: string, scopeId: string): string | undefined =>
-    input.access_boundaries.find((boundary) =>
-      boundary.scope_type === scopeType && boundary.scope_id === scopeId
-    )?.boundary_id;
+  const communityAudited = new Set(verified
+    .filter(({ kind }) => kind === "youtube_community_audit")
+    .flatMap(({ claims }) => list(claims.videos)));
   const selected: Ledger["selected_videos"] = [];
   for (const video of input.selected_videos) {
     const audit = auditByVideo.get(video.video_id);
+    if (audit === undefined && communityAudited.has(video.video_id)) {
+      problems.push(
+        `Selected video ${video.video_id} has only a one-call community audit; audit it with ` +
+          "audit_youtube_video_community so its depth can be checked."
+      );
+    }
     if (audit === undefined || !candidateById.has(video.video_id)) continue;
     const discussion = discussionReceipt(video.video_id, audit, boundaryIdFor("video_discussion", video.video_id));
     selected.push({
@@ -572,6 +598,7 @@ export function assessTreatmentCoverageFromReceipts(
     unscreened_videos: unscreened.sort(),
     audited_videos: [...auditByVideo.keys()].sort(),
     scout_frontier_videos: validated.length,
+    open_scout_titles: scoutRounds.reduce((total, round) => total + openScoutTitles(round), 0),
     input_problems: problems
   });
   if (problems.length === 0) {
@@ -664,6 +691,12 @@ function roundAccess(round: Receipt): AccessStatus {
   // A scout round is complete once its receipt exists; any other round that
   // did not sign its access is treated as partial.
   return round.kind === "youtube_scout" ? "complete" : "partial";
+}
+
+/** Named titles a scout round could not look up: its open count beyond its unresolved IDs. */
+function openScoutTitles(round: Receipt): number {
+  const open = Number(text(round.claims.open) || "0");
+  return Math.max(0, open - list(round.claims.unres).length);
 }
 
 function channelOf(audit: Receipt | undefined): string {

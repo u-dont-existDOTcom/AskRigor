@@ -405,7 +405,9 @@ export async function executeResumableAutomatedGeminiScout(
   rediscoveryLeads: readonly string[] = []
 ): Promise<ResumableAutomatedGeminiScoutExecution> {
   const parsed = automatedScoutInputSchema.parse(input);
-  if (resume === undefined && !isPopulationLevelResearchTarget(parsed.research_target)) {
+  // Resumed scouts too: a session saved before this screen existed could
+  // otherwise send its target again in a repair request.
+  if (!isPopulationLevelResearchTarget(parsed.research_target)) {
     return controllerBoundary("research_target_not_population_level", false);
   }
   const backgroundScout = options.backgroundScout ??

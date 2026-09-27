@@ -403,6 +403,20 @@ describe("automated Gemini YouTube scout Action", () => {
     expect(await executeResumableAutomatedGeminiScout(notPopulation, undefined, options)).toEqual({
       controller_boundary: { code: "research_target_not_population_level", retryable: false }
     });
+    // A scout resumed from a session saved before the screen existed is
+    // refused too, before any poll could lead to a repair request.
+    expect(await executeResumableAutomatedGeminiScout(notPopulation, {
+      checkpoint: {
+        interaction_id: "interaction-saved-before-screen",
+        phase: "INITIAL",
+        provider_interaction_count: 1,
+        poll_attempts: 1,
+        executed_search_queries: []
+      },
+      accountedNanoUsd: GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
+    }, options)).toEqual({
+      controller_boundary: { code: "research_target_not_population_level", retryable: false }
+    });
     expect(aiBudget.reserve).not.toHaveBeenCalled();
     expect(scout).not.toHaveBeenCalled();
     expect(backgroundScout).not.toHaveBeenCalled();

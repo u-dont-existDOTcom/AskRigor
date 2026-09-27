@@ -11730,6 +11730,12 @@
                 "minimum": 0,
                 "maximum": 9007199254740991
               },
+              "open_scout_titles": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Titles scouts named but could not look up; search them by exact title with search_youtube."
+              },
               "input_problems": {
                 "type": "array",
                 "items": {
@@ -11746,6 +11752,7 @@
               "unscreened_videos",
               "audited_videos",
               "scout_frontier_videos",
+              "open_scout_titles",
               "input_problems"
             ],
             "additionalProperties": false
