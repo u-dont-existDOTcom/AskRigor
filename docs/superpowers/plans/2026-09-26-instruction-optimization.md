@@ -323,6 +323,19 @@ run went from 07:12 to 09:44 UTC.
     - In the Custom GPT session flow, an unresolved candidate could stay
       stuck.
     - In the 4d4fae8 smoke run, 1 of 20 validated candidates took this path.
+- **Codex review of 2dbe52d** (two findings):
+  - The discovery-bench probe called the Gemini executor directly and
+    skipped the unbilled-key gate. It now refuses unless
+    `ASKRIGOR_GEMINI_BILLING=none` is set.
+  - A lowercase name after an example marker passed the screen ("adults like
+    xiomara garcia with a rare cancer"). Identity and example markers are now
+    refused in any capitalization: "named", "called", "like" before a word
+    that is not a group, "such as", "e.g.", "including". No pattern check can
+    catch every name: a lowercase name with no marker still passes. The
+    privacy map records that limit, and the tool contract still asks the
+    calling model for a population-level target. MCP scouting stays off unless
+    the owner sets the unbilled-key flag, so the owner accepts this residual
+    risk or keeps it off at deployment.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 

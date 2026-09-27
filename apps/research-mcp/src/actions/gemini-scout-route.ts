@@ -559,8 +559,11 @@ async function waitForBackgroundPoll(milliseconds: number): Promise<void> {
  * - a title before a name;
  * - two capitalized words in a row that are not a medical or method term;
  * - a capitalized word followed by a narrative verb such as "has" or "wants",
- *   unless it names a group.
- * A name no dictionary knows ("Xiomara Garcia") is still refused.
+ *   unless it names a group;
+ * - an identity or example marker ("named", "like …", "such as", "e.g.").
+ * A name no dictionary knows ("Xiomara Garcia") is still refused. No pattern
+ * check can catch every name (a lowercase name with no marker passes), so the
+ * tool contract still asks the calling model for a population-level target.
  * Rediscovery leads may name public creators, so they keep the base screen.
  */
 export function isPopulationLevelResearchTarget(value: string): boolean {
@@ -578,6 +581,12 @@ export function isPopulationLevelResearchTarget(value: string): boolean {
   ) return false;
   if (/\b\d{1,3} ?-? ?(?:years?|yrs?) ?-? ?old\b(?!s)/iu.test(text)) return false;
   if (/\b\d{1,3} ?(?:y\/o|yo)\b/iu.test(text)) return false;
+  // Identity and example markers work in any capitalization: a target names a
+  // group, not an example person ("adults like xiomara garcia") or a list.
+  if (/\b(?:named|called|nicknamed|aka|including)\b|\bsuch as\b|\be\.g\.|\bi\.e\./iu.test(text)) return false;
+  for (const [, next] of text.matchAll(/\blike (\p{L}+)/giu)) {
+    if (!POPULATION_WORDS.has(next!.toLowerCase())) return false;
+  }
   for (const [, first, second] of text.matchAll(/(?=\b([A-Z][a-z'’-]+) ([A-Z][a-z'’-]+)\b)/gu)) {
     const [head, tail] = [first!.toLowerCase(), second!.toLowerCase()];
     const eponym = /['’]s$/u.test(head) || CAPITALIZED_TERM_WORDS.has(tail);

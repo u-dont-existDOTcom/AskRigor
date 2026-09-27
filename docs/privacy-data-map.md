@@ -712,10 +712,13 @@ pending-proposal stores have their own strict contracts and authority boundaries
   - a single person's age;
   - a title before a name;
   - two capitalized words in a row that are not a medical or method term;
-  - a capitalized word followed by a narrative verb, unless it names a group.
+  - a capitalized word followed by a narrative verb, unless it names a group;
+  - an identity or example marker ("named", "like …", "such as", "e.g.").
 
   So a narrative about one named person, even with a name no list knows, does
-  not reach Gemini. Under the
+  not reach Gemini. The screen is heuristic. No pattern check can catch every
+  name; a lowercase name with no marker passes. So the tool contract also asks
+  the calling model for a population-level target. Under the
   owner's zero-spend policy it starts a new scout only when the deployment
   sets `ASKRIGOR_GEMINI_BILLING=none` for a key without billing. A later round may add up
   to eight rediscovery leads: public remedies, methods, products, video titles

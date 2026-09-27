@@ -2,12 +2,15 @@
  * Discovery bench: run the automated Gemini scout once, end to end, and report
  * what it surfaced. Usage (keys come from the environment, never arguments):
  *
- *   GEMINI_API_KEY=... YOUTUBE_API_KEY=... npx tsx \
+ *   ASKRIGOR_GEMINI_BILLING=none GEMINI_API_KEY=... YOUTUBE_API_KEY=... npx tsx \
  *     evaluation/instruction-optimization/discovery-bench/scout-probe.mts \
  *     --target "Adults trying to avoid a hip replacement: what they tried and what happened" \
  *     --terms gelatin,collagen,hydration,water,diet --out /tmp/probe.json \
  *     [--skill path/to/scout-SKILL.md]   # default: the production scout skill
  *     [--leads "gelatin,dead hangs"]     # a rediscovery round from comment-named leads
+ *
+ * ASKRIGOR_GEMINI_BILLING=none declares that the Gemini key has no billing; the
+ * zero-spend policy forbids paid inference, so the probe refuses without it.
  *
  * Costs: one free-tier Gemini grounded interaction, about one YouTube Data API
  * unit per candidate for identity validation, and 100 units per exact-title
@@ -35,6 +38,13 @@ const { values } = parseArgs({
   }
 });
 if (values.target === undefined) throw new Error("--target is required");
+// The owner's zero-spend policy: probe only with a Gemini key declared to have no
+// billing, the same gate the MCP scout applies.
+if (process.env.ASKRIGOR_GEMINI_BILLING?.trim() !== "none") {
+  throw new Error(
+    "Set ASKRIGOR_GEMINI_BILLING=none only for a Gemini key without billing; the zero-spend policy forbids paid inference."
+  );
+}
 process.env.ASKRIGOR_GEMINI_API_KEY ??= process.env.GEMINI_API_KEY;
 process.env.ASKRIGOR_AI_BUDGET_LEDGER ??= path.join(process.cwd(), ".discovery-bench-ai-budget.json");
 process.env.ASKRIGOR_AI_MONTHLY_BUDGET_USD ??= "50";

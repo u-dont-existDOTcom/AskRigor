@@ -15,7 +15,8 @@ describe("population-level scout targets", () => {
       "MS patients using cold exposure",
       "Adults with Rheumatoid Arthritis trying diet changes",
       "People with Ehlers-Danlos Syndrome and joint pain",
-      "Runners had knee pain after marathons: what helped them"
+      "Runners had knee pain after marathons: what helped them",
+      "Adults like runners and cyclists with knee pain"
     ]) expect(isPopulationLevelResearchTarget(target), target).toBe(true);
   });
 
@@ -33,6 +34,11 @@ describe("population-level scout targets", () => {
       "Xiomara Garcia in Boston has a rare cancer and wants experimental treatment options",
       "Adults like Xiomara Garcia with a rare cancer",
       "Xiomara has a rare cancer, like many adults",
+      // Identity and example markers are refused in any capitalization.
+      "adults like xiomara garcia with a rare cancer",
+      "adults with a rare cancer, e.g. xiomara garcia",
+      "adults with a rare cancer such as xiomara garcia",
+      "a support group member named xiomara with a rare cancer",
       // A condition with no group of people is refused; the error asks for one.
       "Hip osteoarthritis: avoiding a hip replacement"
     ]) expect(isPopulationLevelResearchTarget(target), target).toBe(false);
