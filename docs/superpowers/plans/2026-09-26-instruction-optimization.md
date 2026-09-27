@@ -414,6 +414,17 @@ run went from 07:12 to 09:44 UTC.
     checker's deep mode. First passes are unaffected: they end at the cap
     and hand back open leads. Scout rounds have no pages, so deep research
     can still saturate through the primary route.
+- **Codex review of 6e9e6de** (one P1, two P2s, all fixed):
+  - A coverage check labeled narrow (`broad_treatment_choice: false`) skips
+    the directional-search and saturation checks, and a small incomplete
+    ledger does not trip the checker's own widening. Coverage receipts now
+    sign the flag, and a treatment comparison needs a broad check.
+  - Receipts carry whole seconds, so two checks in the same second were
+    ordered by the caller's list. All checks from the latest second now
+    count, and the strictest binds.
+  - PubMed's pacer spaced first attempts only; the shared HTTP retries went
+    out unpaced during throttling. `beforeAttempt` may now wait, and PubMed
+    takes an NCBI slot before every attempt.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 

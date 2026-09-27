@@ -64,6 +64,26 @@ describe("bounded upstream HTTP", () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
+  it("waits for beforeAttempt before every attempt, retries included", async () => {
+    const events: string[] = [];
+    const fetch = vi.fn(async () => {
+      events.push("fetch");
+      return events.filter((event) => event === "fetch").length === 1
+        ? new Response("rate limited", { status: 429 })
+        : new Response('{"ok":true}', { status: 200 });
+    });
+    globalThis.fetch = fetch as unknown as typeof globalThis.fetch;
+
+    await expect(fetchJson("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi", {
+      beforeAttempt: async () => {
+        events.push("slot requested");
+        await Promise.resolve();
+        events.push("slot granted");
+      }
+    })).resolves.toEqual({ ok: true });
+    expect(events).toEqual(["slot requested", "slot granted", "fetch", "slot requested", "slot granted", "fetch"]);
+  });
+
   it("stops after four retries for a retryable response", async () => {
     const fetch = mockFetch(
       new Response("unavailable", { status: 503 }),

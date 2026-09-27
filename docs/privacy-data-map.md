@@ -701,8 +701,8 @@ pending-proposal stores have their own strict contracts and authority boundaries
   search terms, so the gate can tell rounds from different angles apart, and
   `open`, a count of unread result pages or unchecked candidates; the terms
   themselves are not in the receipt. A treatment-coverage receipt carries the
-  check's answer boundary, lock, judged video IDs, and the same kind of 12-hex
-  digest of its research target, never the target itself. They expire after 24
+  check's answer boundary, lock, broad-choice flag, judged video IDs, and the
+  same kind of 12-hex digest of its research target, never the target itself. They expire after 24
   hours. `finalize_research` verifies the receipts the client passes back and
   returns next steps or limits; it keeps no ledger, and its optional free-text
   reasons, open-lead topics and research target are processed for that call

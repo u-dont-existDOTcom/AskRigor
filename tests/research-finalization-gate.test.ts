@@ -42,11 +42,12 @@ describe("finalize_research gate", () => {
       key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
     };
     const ready = [survey, emptySearch, repeatScout, videoA, study];
-    const coverage = (boundary: string, at: string, forTarget = target) => issueResearchReceipt(
+    const coverage = (boundary: string, at: string, forTarget = target, broad = true) => issueResearchReceipt(
       "treatment_coverage", {
         boundary,
         lock: boundary === "ledger_consistent_for_synthesis" ? "pass" : "block",
-        target: discoveryQueryDigest([forTarget])
+        target: discoveryQueryDigest([forTarget]),
+        broad
       },
       { secret: SECRET, now: () => new Date(at) }
     );
@@ -90,6 +91,28 @@ describe("finalize_research gate", () => {
       ok: true, claims: { coverage: "ledger_consistent_for_synthesis" }
     });
 
+    // Checks issued in the same second are all the latest: the stricter one binds, whatever the order.
+    const sameSecond = finalizeResearch({
+      ...base,
+      receipts: [
+        ...ready,
+        coverage("continue_research", "2026-09-26T11:30:00.000Z"),
+        coverage("ledger_consistent_for_synthesis", "2026-09-26T11:30:00.000Z")
+      ],
+      treatment_choice: "compared"
+    }, options);
+    expect(sameSecond.status).toBe("not_ready");
+    expect(sameSecond.next_steps.join(" ")).toContain("was continue_research");
+
+    // A comparison needs the check run as a broad treatment choice.
+    const narrow = finalizeResearch({
+      ...base,
+      receipts: [...ready, coverage("ledger_consistent_for_synthesis", "2026-09-26T11:30:00.000Z", target, false)],
+      treatment_choice: "compared"
+    }, options);
+    expect(narrow.status).toBe("not_ready");
+    expect(narrow.next_steps.join(" ")).toContain("broad_treatment_choice true");
+
     // A check made for another target does not count, and the target must be passed to match one.
     const otherTarget = finalizeResearch({
       ...base,
@@ -108,7 +131,7 @@ describe("finalize_research gate", () => {
     // A check made for another question judged videos this research never found.
     const judged = (videos: string[]) => issueResearchReceipt(
       "treatment_coverage",
-      { boundary: "ledger_consistent_for_synthesis", lock: "pass", videos, target: discoveryQueryDigest([target]) },
+      { boundary: "ledger_consistent_for_synthesis", lock: "pass", videos, target: discoveryQueryDigest([target]), broad: true },
       options
     );
     expect(finalizeResearch({

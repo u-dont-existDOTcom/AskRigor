@@ -289,9 +289,14 @@ export function finalizeResearch(
   const targetDigest = input.research_target === undefined
     ? undefined
     : discoveryQueryDigest([input.research_target]);
-  const coverage = coverageChecks.filter(({ claims }) => text(claims.target) === targetDigest)
-    .sort((left, right) => left.issuedAt.localeCompare(right.issuedAt) || left.index - right.index)
-    .at(-1);
+  const forTarget = coverageChecks.filter(({ claims }) => text(claims.target) === targetDigest);
+  const latestIssue = forTarget.map(({ issuedAt }) => issuedAt).sort().at(-1);
+  // Receipts carry whole seconds, so checks issued in the same second are all
+  // the latest; the most restrictive of them binds, whatever order they came in.
+  const coverage = forTarget.filter(({ issuedAt }) => issuedAt === latestIssue)
+    .sort((left, right) =>
+      coverageRestriction(right, input.research_depth) - coverageRestriction(left, input.research_depth))
+    .at(0);
   if (coverageChecks.length > 0 && coverage === undefined) {
     nextSteps.push(input.research_target === undefined
       ? "Pass research_target exactly as you gave it to assess_treatment_landscape_coverage, so its result can be matched to this answer."
@@ -306,6 +311,12 @@ export function finalizeResearch(
     nextSteps.push(
       `The treatment-coverage check judged video(s) ${foreignCoverageVideos.join(", ")} that no discovery receipt ` +
         "passed here found; pass the receipts of the discovery calls that found them, or rerun the check."
+    );
+  }
+  if (coverage !== undefined && input.treatment_choice === "compared" && text(coverage.claims.broad) !== "true") {
+    nextSteps.push(
+      "A treatment comparison needs the coverage check run as a broad treatment choice: call " +
+        "assess_treatment_landscape_coverage again with broad_treatment_choice true."
     );
   }
   if (coverageBoundary === undefined) {
@@ -580,6 +591,16 @@ function isPmcid(normalized: string): boolean {
 
 function text(value: string | string[] | undefined): string {
   return typeof value === "string" ? value : "";
+}
+
+/** Higher is stricter: a block, then no ranking, then a provisional first pass. */
+function coverageRestriction(receipt: VerifiedReceipt, depth: "first_pass" | "deep"): number {
+  const boundary = text(receipt.claims.boundary);
+  const narrow = text(receipt.claims.broad) !== "true" ? 0.5 : 0;
+  if (boundary === "ledger_consistent_for_synthesis") return 1 + narrow;
+  if (boundary === "first_pass_with_open_leads" && depth === "first_pass") return 2 + narrow;
+  if (boundary === "bounded_nonranking_only") return 3 + narrow;
+  return 4 + narrow;
 }
 
 function list(value: string | string[] | undefined): string[] {

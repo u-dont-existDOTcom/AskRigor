@@ -36,7 +36,8 @@ export interface UpstreamFetchOptions
   extends Omit<RequestInit, "redirect" | "signal"> {
   timeoutMs?: number;
   maxRetries?: 0;
-  beforeAttempt?: () => void;
+  /** Runs before every attempt, retries included; a rate limiter can wait here. */
+  beforeAttempt?: () => void | Promise<void>;
 }
 
 const validateUpstreamUrl = (value: string): URL => {
@@ -171,7 +172,7 @@ export const fetchText = async (
   const retryLimit = maxRetries === 0 ? 0 : MAX_RETRIES;
 
   for (let retry = 0; retry <= retryLimit; retry += 1) {
-    beforeAttempt?.();
+    await beforeAttempt?.();
     const response = await fetch(upstreamUrl, {
       ...init,
       redirect: "error",

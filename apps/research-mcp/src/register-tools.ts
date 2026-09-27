@@ -1304,7 +1304,10 @@ function defineResearchOperations(
         boundary: result.answer_boundary,
         lock: result.synthesis_lock,
         videos: result.videos_actually_audited.map(({ video_id }) => video_id),
-        target: discoveryQueryDigest([ledger.research_target])
+        target: discoveryQueryDigest([ledger.research_target]),
+        // The checker widens a narrow label when the ledger shows a broad
+        // space, so a true label is the stricter of the two.
+        broad: ledger.broad_treatment_choice
       }));
     }
   );

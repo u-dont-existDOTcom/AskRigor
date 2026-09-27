@@ -135,8 +135,10 @@ export const searchPubmed = async (
 
     let response: unknown;
     try {
-      await waitForNcbiRequestSlot(parsedConfig.apiKey !== undefined && parsedConfig.apiKey.length > 0);
-      response = await fetchJson(url.toString());
+      // Every attempt, retries included, takes an NCBI request slot.
+      response = await fetchJson(url.toString(), {
+        beforeAttempt: () => waitForNcbiRequestSlot(parsedConfig.apiKey !== undefined && parsedConfig.apiKey.length > 0)
+      });
     } catch (error) {
       if (error instanceof Error && error.message === "Invalid upstream JSON response") {
         throw new PubmedResponseError();
@@ -216,8 +218,9 @@ export const fetchPubmedRecord = async (
     url.searchParams.set("id", pmid);
     url.searchParams.set("retmode", "xml");
 
-    await waitForNcbiRequestSlot(parsedConfig.apiKey !== undefined && parsedConfig.apiKey.length > 0);
-    const parsedRecord = parsePubmedRecord(await fetchText(url.toString()));
+    const parsedRecord = parsePubmedRecord(await fetchText(url.toString(), {
+      beforeAttempt: () => waitForNcbiRequestSlot(parsedConfig.apiKey !== undefined && parsedConfig.apiKey.length > 0)
+    }));
     if (parsedRecord.kind === "not_found") {
       return errorEnvelope({
         provider: "pubmed",
