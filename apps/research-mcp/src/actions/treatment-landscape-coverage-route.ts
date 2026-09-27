@@ -365,6 +365,8 @@ export const treatmentLandscapeCoverageOutputSchema = z.object({
   research_depth: z.enum(["first_pass", "deep"]),
   first_pass_complete: z.boolean(),
   selection_blockers: z.array(detailText),
+  // Breadth gaps among the selection blockers: open leads once a first pass is complete.
+  breadth_gaps: z.array(detailText),
   depth_blockers: z.array(detailText),
   boundary_blockers: z.array(detailText),
   blockers: z.array(detailText),
@@ -673,9 +675,10 @@ export function assessTreatmentLandscapeCoverage(
           `Discovery batch ${batch.batch_id} cites an access boundary despite exhausted retrieval.`);
       }
     } else if (batch.pagination.next_cursor_present) {
-      selectionBlockers.push(
+      // An unread results page is more discovery: an open lead once a first pass stops.
+      asBreadth(() => selectionBlockers.push(
         `Discovery batch ${batch.batch_id} still has an executable continuation cursor.`
-      );
+      ));
       reconcileBoundaryReference({
         boundaryId: batch.access_boundary_id,
         expectedScopeType: "discovery_batch", expectedScopeId: batch.batch_id,
@@ -811,14 +814,17 @@ export function assessTreatmentLandscapeCoverage(
     const batchComplete = isCompleteAccess(batch.access_status) &&
       batch.pagination.exhausted && !batch.pagination.next_cursor_present;
     if (search.result_status === "specific_candidates_found") {
+      // Found candidates prove a positive result without reading every page; an
+      // unread page stays a breadth gap on the batch, and zero-result claims
+      // still need exhausted retrieval.
       if (
-        !batchComplete || search.candidate_video_ids.length === 0 ||
+        search.candidate_video_ids.length === 0 ||
         linkedCandidates.some(({ implementationMatch }) => !implementationMatch) ||
         search.access_boundary_id !== undefined
       ) {
         invalidate(
           invalid.specific_implementation_searches, search.search_id, selectionBlockers,
-          `Specific-implementation search ${search.search_id} claims candidates without an exhausted, reciprocal result whose described program matches the named implementation.`
+          `Specific-implementation search ${search.search_id} claims candidates without a reciprocal result whose described program matches the named implementation.`
         );
       }
     } else if (search.result_status === "exhausted_zero_results") {
@@ -1051,10 +1057,10 @@ export function assessTreatmentLandscapeCoverage(
     }
     if (treatmentClass.search_status === "unsearched") {
       uncovered.add(treatmentClass.class_id);
-      handleOmission(
+      asBreadth(() => handleOmission(
         `Treatment class ${treatmentClass.class_id} remains unsearched`, treatmentClass,
         false, selectionBlockers, planningWarnings
-      );
+      ));
     } else if (treatmentClass.search_status === "inaccessible") {
       uncovered.add(treatmentClass.class_id);
       requireClassBoundary(
@@ -1066,9 +1072,9 @@ export function assessTreatmentLandscapeCoverage(
       "incomplete";
     if (specificSearchStatus === "incomplete") {
       uncovered.add(treatmentClass.class_id);
-      selectionBlockers.push(
+      asBreadth(() => selectionBlockers.push(
         `Treatment class ${treatmentClass.class_id} has not completed specific-program discovery.`
-      );
+      ));
     } else if (specificSearchStatus === "inaccessible") {
       uncovered.add(treatmentClass.class_id);
     }
@@ -1085,10 +1091,11 @@ export function assessTreatmentLandscapeCoverage(
     )) classesWithoutFormalFollowUp.push(treatmentClass.class_id);
     if (treatmentClass.formal_follow_up === "incomplete" ||
       treatmentClass.formal_follow_up === "not_applicable") {
-      handleOmission(
+      // An unresolved formal return pass is an open hypothesis: an open lead once a first pass stops.
+      asBreadth(() => handleOmission(
         `Treatment class ${treatmentClass.class_id} lacks formal-evidence follow-up`,
         treatmentClass, false, selectionBlockers, planningWarnings
-      );
+      ));
     } else if (treatmentClass.formal_follow_up === "inaccessible") {
       requireClassBoundary(
         treatmentClass, "formal_follow_up", boundaryById, usedBoundaryIds,
@@ -1106,10 +1113,10 @@ export function assessTreatmentLandscapeCoverage(
       fingerprint.formal_follow_up === "incomplete" ||
       fingerprint.formal_follow_up === "not_applicable"
     ) {
-      handleOmission(
+      asBreadth(() => handleOmission(
         `Program fingerprint ${fingerprint.fingerprint_id} lacks formal-evidence follow-up`,
         fingerprint, false, selectionBlockers, planningWarnings
-      );
+      ));
     } else if (fingerprint.formal_follow_up === "inaccessible") {
       requireBoundary({
         boundaryId: fingerprint.formal_follow_up_boundary_id,
@@ -1387,13 +1394,20 @@ export function assessTreatmentLandscapeCoverage(
     }
   }
 
-  const uniqueSelectionBlockers = unique(selectionBlockers);
+  // Record problems the caller must fix come before breadth gaps, which a
+  // completed first pass turns into open leads.
+  const uniqueSelectionBlockers = [
+    ...unique(selectionBlockers).filter((message) => !breadthBlockers.has(message)),
+    ...unique(selectionBlockers).filter((message) => breadthBlockers.has(message))
+  ];
   const uniqueDepthBlockers = unique(depthBlockers);
   const uniqueBoundaryBlockers = unique([
     ...selectionBoundaryBlockers, ...depthBoundaryBlockers
   ]);
   const blockers = unique([
-    ...uniqueSelectionBlockers, ...uniqueDepthBlockers, ...uniqueBoundaryBlockers
+    ...uniqueSelectionBlockers.filter((message) => !breadthBlockers.has(message)),
+    ...uniqueDepthBlockers, ...uniqueBoundaryBlockers,
+    ...uniqueSelectionBlockers.filter((message) => breadthBlockers.has(message))
   ]);
   const selectionCoverageLock =
     uniqueSelectionBlockers.length === 0 && selectionBoundaryBlockers.length === 0
@@ -1404,7 +1418,8 @@ export function assessTreatmentLandscapeCoverage(
   const synthesisLock = blockers.length === 0 ? "pass" : "block";
   // A first pass stops at its cap: once the selected videos are fully audited,
   // remaining selection work becomes open leads offered to the user, and the
-  // answer stays provisional instead of claiming a complete landscape.
+  // answer stays provisional instead of claiming a complete landscape. Terminal
+  // access boundaries are not executable work; they stay stated limits.
   const researchDepth = input.research_depth ?? "first_pass";
   const firstPassComplete = researchDepth === "first_pass" && (
     discoverySaturated === "saturated" ||
@@ -1414,7 +1429,7 @@ export function assessTreatmentLandscapeCoverage(
   const answerBoundary = synthesisLock === "pass"
     ? "ledger_consistent_for_synthesis"
     : uniqueSelectionBlockers.length > 0 || uniqueDepthBlockers.length > 0
-      ? firstPassComplete && uniqueDepthBlockers.length === 0 && selectionBoundaryBlockers.length === 0 &&
+      ? firstPassComplete && uniqueDepthBlockers.length === 0 &&
           uniqueSelectionBlockers.every((message) => breadthBlockers.has(message))
         ? "first_pass_with_open_leads"
         : "continue_research"
@@ -1469,6 +1484,7 @@ export function assessTreatmentLandscapeCoverage(
     synthesis_lock: synthesisLock,
     answer_boundary: answerBoundary,
     selection_blockers: compactMessages(uniqueSelectionBlockers),
+    breadth_gaps: compactMessages(uniqueSelectionBlockers.filter((message) => breadthBlockers.has(message))),
     depth_blockers: compactMessages(uniqueDepthBlockers),
     boundary_blockers: compactMessages(uniqueBoundaryBlockers),
     blockers: compactMessages(blockers),
@@ -1879,14 +1895,53 @@ function unique(values: readonly string[]): string[] {
   return [...new Set(values)];
 }
 
+// Messages that name one record and share the server-written rest of their
+// text (before any caller-written rationale after ": ") are merged into one
+// line listing the records, so a ledger with many instances of one problem
+// shows every kind of problem in one call instead of eleven at a time.
+const RECORD_MESSAGE = /^(Candidate video|Discovery batch|Treatment class|Program fingerprint|Access boundary|Specific-implementation search|Selected video|Screened external scout candidate|External scout candidate|Video) (\S+) (.+)$/u;
+const MAX_MESSAGE_LINES = 24;
+// Keeps a grouped line within the 800-character message schema.
+const MAX_GROUPED_ID_CHARACTERS = 480;
+
 function compactMessages(values: readonly string[]): string[] {
-  const compact = unique(values).map((value) =>
-    value.length <= 160 ? value : `${value.slice(0, 157)}...`
-  );
-  if (compact.length <= 12) return compact;
+  const groups = new Map<string, { kind: string; rest: string; ids: string[]; first: string }>();
+  const lines: Array<string | { key: string }> = [];
+  for (const value of unique(values)) {
+    const match = RECORD_MESSAGE.exec(value);
+    if (match === null) {
+      lines.push(compactText(value));
+      continue;
+    }
+    const [, kind, id, fullRest] = match as unknown as [string, string, string, string];
+    const rest = fullRest.split(": ")[0]!;
+    const key = `${kind}\u0000${rest}`;
+    const group = groups.get(key);
+    if (group !== undefined) {
+      group.ids.push(id);
+      continue;
+    }
+    groups.set(key, { kind, rest, ids: [id], first: value });
+    lines.push({ key });
+  }
+  const compact = lines.map((line) => {
+    if (typeof line === "string") return line;
+    const group = groups.get(line.key)!;
+    if (group.ids.length === 1) return compactText(group.first);
+    const shown: string[] = [];
+    let length = 0;
+    for (const id of group.ids) {
+      if (length + id.length + 2 > MAX_GROUPED_ID_CHARACTERS) break;
+      shown.push(id);
+      length += id.length + 2;
+    }
+    const more = group.ids.length > shown.length ? ` and ${group.ids.length - shown.length} more` : "";
+    return `${group.kind} ${shown.join(", ")}${more} (${group.ids.length} records): ${compactText(group.rest)}`;
+  });
+  if (compact.length <= MAX_MESSAGE_LINES) return compact;
   return [
-    ...compact.slice(0, 11),
-    `${compact.length - 11} additional record-specific message(s) remain in the supplied ledger.`
+    ...compact.slice(0, MAX_MESSAGE_LINES - 1),
+    `${compact.length - MAX_MESSAGE_LINES + 1} additional record-specific message(s) remain in the supplied ledger.`
   ];
 }
 

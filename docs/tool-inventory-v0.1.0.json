@@ -12270,6 +12270,14 @@
               "maxLength": 800
             }
           },
+          "breadth_gaps": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 800
+            }
+          },
           "depth_blockers": {
             "type": "array",
             "items": {
@@ -12343,6 +12351,7 @@
           "research_depth",
           "first_pass_complete",
           "selection_blockers",
+          "breadth_gaps",
           "depth_blockers",
           "boundary_blockers",
           "blockers",

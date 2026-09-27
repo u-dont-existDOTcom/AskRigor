@@ -1236,7 +1236,9 @@ describe("research session controller core", () => {
       limitations_digest: "e".repeat(64)
     }, {
       ...permit,
-      signature: `${permit.signature.slice(0, -1)}A`
+      // The first character carries six signature bits; the last one carries
+      // only four, and replacing it with "A" is a no-op one time in sixteen.
+      signature: `${permit.signature.startsWith("A") ? "B" : "A"}${permit.signature.slice(1)}`
     }] as FinalizationPermit[]) {
       expect(() => verify(candidate)).toThrow(ResearchFinalizationPermitError);
     }

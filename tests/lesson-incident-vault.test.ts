@@ -174,7 +174,8 @@ describe("encrypted lesson incident vault", () => {
 
     const path = join(directory, `${receipt.incident_id}.json`);
     const envelope = JSON.parse(await readFile(path, "utf8"));
-    envelope.ciphertext = `${envelope.ciphertext.slice(0, -1)}A`;
+    // Change the first character: the last one may carry padding bits or already be "A".
+    envelope.ciphertext = `${envelope.ciphertext.startsWith("A") ? "B" : "A"}${envelope.ciphertext.slice(1)}`;
     await writeFile(path, `${JSON.stringify(envelope)}\n`);
     await expect(readFile(path, "utf8")).resolves.not.toContain("DMSO");
     expect(() => vault.read(receipt.incident_id)).toThrow(LessonIncidentVaultIntegrityError);

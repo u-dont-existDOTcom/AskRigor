@@ -202,6 +202,48 @@ run went from 07:12 to 09:44 UTC.
   All now state the first-pass stop and its open leads. HRP's completion-gate
   text now names discovery receipts rather than survey receipts. Whether
   these lines affected the 4d4fae8 run is not measured.
+- **Coverage checker replay.** The 4d4fae8 run's four
+  `assess_treatment_landscape_coverage` ledgers (95 to 151 KB each), replayed
+  through the checker offline, showed why it never passed:
+  - The checker showed only 11 of up to 138 messages per call, so each
+    rewrite uncovered a few more problems.
+  - By the last ledger, the first pass was complete and discovery had
+    saturated, but 100 selection blockers remained. 24 were unread result
+    pages of discovery searches and 8 were specific-program searches not
+    yet run. Both are breadth gaps under HRP 20.6.1, yet the checker
+    treated them as hard blockers.
+  - A terminal access boundary (a trial with no open full text) also forced
+    `continue_research` in a first pass, although nothing was executable.
+
+  Fixes: in a first pass these become open leads (`breadth_gaps`, a new
+  output list):
+  - unread discovery pages;
+  - unsearched classes;
+  - unfinished specific-program searches;
+  - open formal return passes, which HRP's bidirectional rule already offers
+    as leads when a first pass stops.
+
+  Also:
+  - A found specific-program result no longer needs every page read;
+    zero-result claims still do.
+  - A terminal boundary stays a stated limit of the first-pass answer.
+  - Repeated messages are grouped by record, with record problems listed
+    first.
+
+  Deep research is unchanged. On replay, the second ledger would have
+  needed three record fixes, plus two audits cut short by the resume
+  defect (fixed in cd5e325), before ending the first pass with open leads.
+  The full test gate also found a defect from 37384c4:
+  - The Custom GPT research-session controller crashed on a first-pass
+    result, because its diagnostics list no first-pass ending.
+  - It now asks the checker for deep coverage explicitly. Its statuses
+    (complete, terminal, in progress) have no first-pass ending yet, so the
+    first-pass stop is currently enforced on MCP only.
+
+  Two tests tampered with signed data by setting its last character to
+  "A". That is a no-op whenever the value already ends in "A" (1 in 16 for
+  a permit signature), which explains an earlier one-off failure. They now
+  change the first character instead.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 

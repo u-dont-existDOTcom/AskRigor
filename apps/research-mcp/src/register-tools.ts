@@ -1284,7 +1284,11 @@ function defineResearchOperations(
       return successfulToolResult(
         `Treatment-landscape coverage: synthesis lock ${result.synthesis_lock}; ` +
           `${result.material_videos_fully_audited} videos fully audited across ` +
-          `${result.materially_distinct_programs_fully_audited} distinct programs; answer boundary ${result.answer_boundary}.`,
+          `${result.materially_distinct_programs_fully_audited} distinct programs; answer boundary ${result.answer_boundary}.` +
+          (result.synthesis_lock === "pass"
+            ? ""
+            : " Fix the record problems first: selection_blockers not in breadth_gaps, and depth_blockers. " +
+              "In a first pass, breadth_gaps become the answer's open leads once first_pass_complete is true."),
         result as unknown as Record<string, unknown>
       );
     }

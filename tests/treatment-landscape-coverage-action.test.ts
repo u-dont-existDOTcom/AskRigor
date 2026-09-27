@@ -390,6 +390,89 @@ describe("treatment-landscape coverage Action", () => {
     expect(assessTreatmentLandscapeCoverage(skipped).answer_boundary).toBe("continue_research");
   });
 
+  it("offers unread pages, unfinished specific searches and open formal return passes as first-pass leads", () => {
+    const input = completeInput();
+    input.discovery_batches = input.discovery_batches.slice(0, -2);
+    input.discovery_batches[0]!.pagination = { exhausted: false, next_cursor_present: true };
+    input.specific_implementation_searches = input.specific_implementation_searches
+      .filter(({ treatment_class_id }) => treatment_class_id !== "aquatic");
+    input.program_fingerprints[2]!.formal_follow_up = "incomplete";
+
+    const firstPass = assessTreatmentLandscapeCoverage(input);
+    expect(firstPass).toMatchObject({
+      first_pass_complete: true,
+      selection_coverage_lock: "block",
+      answer_boundary: "first_pass_with_open_leads"
+    });
+    expect(firstPass.breadth_gaps).toEqual(expect.arrayContaining([
+      "Discovery batch batch-strength still has an executable continuation cursor.",
+      "Treatment class aquatic has not completed specific-program discovery.",
+      "Program fingerprint fp-nutrition lacks formal-evidence follow-up: A distinct program could change the comparison."
+    ]));
+
+    const deep = assessTreatmentLandscapeCoverage({ ...input, research_depth: "deep" });
+    expect(deep.answer_boundary).toBe("continue_research");
+  });
+
+  it("keeps a terminal access boundary as a stated limit of a first-pass answer", () => {
+    const input = completeInput();
+    input.discovery_batches = input.discovery_batches.slice(0, -2);
+    input.program_fingerprints[3]!.formal_follow_up = "inaccessible";
+    input.program_fingerprints[3]!.formal_follow_up_boundary_id = "ab-full-text";
+    input.access_boundaries = [{
+      boundary_id: "ab-full-text",
+      scope_type: "formal_follow_up",
+      scope_id: "fp-injection",
+      access_status: "inaccessible",
+      materiality: "material",
+      impact: "confidence_changing",
+      terminal: true,
+      retryable: false,
+      recovery_attempted: true,
+      description: "The decisive trial has no open full text."
+    }];
+
+    const result = assessTreatmentLandscapeCoverage(input);
+    expect(result.boundary_blockers).toContain(
+      "Access boundary ab-full-text prevents complete coverage: The decisive trial has no open full text."
+    );
+    expect(result.answer_boundary).toBe("first_pass_with_open_leads");
+
+    // A boundary with recovery work left is still work, not a limit.
+    input.access_boundaries[0]!.recovery_attempted = false;
+    expect(assessTreatmentLandscapeCoverage(input).answer_boundary).toBe("continue_research");
+  });
+
+  it("lists every kind of ledger problem at once, record problems before breadth gaps", () => {
+    const input = completeInput();
+    input.discovery_batches = input.discovery_batches.slice(0, -2);
+    for (const batch of input.discovery_batches) {
+      batch.pagination = { exhausted: false, next_cursor_present: true };
+    }
+    input.program_fingerprints[0]!.formal_follow_up_boundary_id = "ab-unused";
+    input.program_fingerprints[1]!.formal_follow_up_boundary_id = "ab-unused";
+
+    const result = assessTreatmentLandscapeCoverage(input);
+    expect(result.selection_blockers[0]).toBe(
+      "Program fingerprint fp-strength, fp-aquatic (2 records): cites a formal-follow-up boundary without an inaccessible state."
+    );
+    expect(result.breadth_gaps).toContain(
+      "Discovery batch batch-strength, batch-aquatic, batch-nutrition, batch-injection, batch-multimodal, batch-surgery (6 records): still has an executable continuation cursor."
+    );
+    expect(result.breadth_gaps).not.toContain(result.selection_blockers[0]);
+    expect(result.answer_boundary).toBe("continue_research");
+
+    // Caller-written rationales after the colon do not split a group.
+    const omitted = completeInput();
+    omitted.discovery_batches = omitted.discovery_batches.slice(0, -2);
+    omitted.program_fingerprints[0]!.formal_follow_up = "incomplete";
+    omitted.program_fingerprints[1]!.formal_follow_up = "incomplete";
+    omitted.program_fingerprints[1]!.omission_rationale = "A different reason.";
+    expect(assessTreatmentLandscapeCoverage(omitted).breadth_gaps).toContain(
+      "Program fingerprint fp-strength, fp-aquatic (2 records): lacks formal-evidence follow-up"
+    );
+  });
+
   it("blocks every condition when an umbrella class has not completed specific-program discovery", () => {
     const input = completeInput();
     input.research_target = "Compare care for any condition";

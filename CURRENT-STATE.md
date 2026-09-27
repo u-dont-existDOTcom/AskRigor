@@ -19,7 +19,9 @@ checker); HRP 20.6.2 (owner-approved: ten method sections shortened with the
 same meaning, after two independent meaning reviews); HRP 20.6.3 (conformance
 with 20.6.1: a final self-check, a regression case, the Project router and the
 Forum Signal module still stated the old minimum or told the model to keep
-widening during a first pass); Universal 20.5.29
+widening during a first pass); a coverage-checker fix from the smoke-run replay
+(first-pass breadth gaps become open leads, and complete grouped blocker lists
+replace eleven messages per call); Universal 20.5.29
 (owner-approved: precise clinical terms replace the euphemism rule); scout-first
 discovery (owner-approved: the Gemini scout finds videos, comment-named remedies
 go back to it as `rediscovery_leads`, and the YouTube survey is the fallback,
