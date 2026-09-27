@@ -9,9 +9,9 @@ import {
   type TreatmentCoverageFromReceiptsInput
 } from "../apps/research-mcp/src/treatment-coverage-from-receipts.js";
 import {
-  cursorDigest,
   discoveryQueryDigest,
   issueResearchReceipt,
+  pageKey,
   researchTargetDigest,
   verifyResearchReceipt
 } from "../apps/research-mcp/src/research-receipts.js";
@@ -287,7 +287,7 @@ describe("treatment coverage from signed receipts", () => {
 
   it("lets a later page settle the page it continued, but not a page it failed to read", () => {
     // Page one of the collagen search left a next page.
-    const next = cursorDigest("collagen peptides hip pain", "CAoQAA");
+    const next = pageKey("collagen peptides hip pain", "CAoQAA");
     const pageOne = discovery("youtube_search", {
       videos: ["CCCCCCCCCCC", "DDDDDDDDDDD"], access: "complete", open: 1, nx: next,
       q: discoveryQueryDigest(["collagen peptides hip pain"])

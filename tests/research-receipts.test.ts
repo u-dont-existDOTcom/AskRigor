@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  continuedCursors,
-  cursorDigest,
   issueResearchReceipt,
+  pageKey,
+  readPages,
   researchReceiptSecretFromEnv,
   roundUnreadPages,
   verifyResearchReceipt
@@ -67,24 +67,42 @@ describe("research receipts", () => {
     }
   });
 
-  it("binds page cursors to their query and settles a page a later round continued", () => {
-    const next = cursorDigest("Hip pain  what worked", "CAoQAA");
-    expect(next).toMatch(/^[a-f0-9]{12}$/u);
+  it("keys result pages to their query and settles a page a later round read", () => {
+    // The query's 12-hex digest, then YouTube's page token; the query itself
+    // never enters the receipt.
+    const next = pageKey("Hip pain  what worked", "CAoQAA");
+    expect(next).toMatch(/^[a-f0-9]{12}\.CAoQAA$/u);
     // Case and spacing in the query do not matter; the query does, because
     // YouTube page tokens encode only an offset.
-    expect(cursorDigest(" hip pain what worked", "CAoQAA")).toBe(next);
-    expect(cursorDigest("hip gelatin", "CAoQAA")).not.toBe(next);
-    expect(cursorDigest("hip pain what worked", "CBQQAA")).not.toBe(next);
+    expect(pageKey(" hip pain what worked", "CAoQAA")).toBe(next);
+    expect(pageKey("hip gelatin", "CAoQAA")).not.toBe(next);
+    expect(pageKey("hip pain what worked", "CBQQAA")).not.toBe(next);
 
     const pageOne = { claims: { open: "1", nx: next } };
     const pageTwo = { claims: { open: "0", pg: next } };
-    expect(roundUnreadPages(pageOne.claims, continuedCursors([pageOne]))).toBe(1);
-    expect(roundUnreadPages(pageOne.claims, continuedCursors([pageOne, pageTwo]))).toBe(0);
+    expect(roundUnreadPages(pageOne.claims, readPages([pageOne]))).toBe(1);
+    expect(roundUnreadPages(pageOne.claims, readPages([pageOne, pageTwo]))).toBe(0);
     // A survey signs lists: one of its two next pages is still unread.
-    expect(roundUnreadPages({ open: "2", nx: [next, "aaaaaaaaaaaa"] }, continuedCursors([pageTwo]))).toBe(1);
+    expect(roundUnreadPages({ open: "2", nx: [next, pageKey("hip gelatin", "CAoQAA")] }, readPages([pageTwo]))).toBe(1);
+    // A token too long to sign is never settled, even by a page read with it.
+    const unsigned = pageKey("hip pain what worked", "x".repeat(65));
+    expect(unsigned).toMatch(/\.!$/u);
+    expect(roundUnreadPages({ open: "1", nx: unsigned }, readPages([{ claims: { pg: unsigned } }]))).toBe(1);
     // Receipts without nx (scouts, and receipts from before it) report their open count.
-    expect(roundUnreadPages({ open: "3" }, continuedCursors([pageTwo]))).toBe(3);
+    expect(roundUnreadPages({ open: "3" }, readPages([pageTwo]))).toBe(3);
     expect(roundUnreadPages({}, new Set())).toBe(0);
+
+    // The largest survey receipt, 60 videos and twelve pages at the longest
+    // signed token, still fits.
+    const longest = "+/".repeat(10) + "x".repeat(4);
+    expect(pageKey("hip", longest)).not.toMatch(/\.!$/u);
+    expect(pageKey("hip", `${longest}x`)).toMatch(/\.!$/u);
+    const pages = Array.from({ length: 6 }, (_, index) => pageKey(`hip query ${index}`, longest));
+    expect(() => issueResearchReceipt("youtube_survey", {
+      access: "partial", rl: 6, inc: 6, searches: 6, open: 6, t: 1_790_000_000_000,
+      videos: Array.from({ length: 60 }, (_, index) => `video${String(index).padStart(6, "0")}`),
+      q: "0123456789ab", target: "0123456789ab", pg: pages, nx: pages
+    }, { secret: SECRET, now })).not.toThrow();
   });
 
   it("uses the finalization secret when set, else the continuation secret, and needs 32 bytes", () => {

@@ -74,16 +74,23 @@ export function discoveryQueryDigest(queries: readonly string[]): string {
 }
 
 /**
- * Short digest of a result-page cursor and the query it pages. A search receipt
- * signs the page it read (`pg`) and any next page it left (`nx`), never the
- * cursors themselves, so a later page settles the page before it. YouTube page
- * tokens encode only an offset, so the query is part of the digest.
+ * Page tokens that encode to more characters are not signed, and a page left
+ * with one stays unread; a survey's twelve pages then still fit its receipt.
  */
-export function cursorDigest(query: string, cursor: string): string {
-  return createHash("sha256")
-    .update(JSON.stringify(["askrigor-cursor-v1", query.trim().toLowerCase().replace(/\s+/gu, " "), cursor]))
-    .digest("hex")
-    .slice(0, 12);
+const PAGE_TOKEN_MAX_CHARACTERS = 64;
+const UNSIGNED_PAGE = "!";
+
+/**
+ * A results page as discovery receipts sign it: the 12-hex digest of its query
+ * (the caller's own terms), then YouTube's opaque page token, which encodes
+ * only an offset and so needs the query. A search signs the page it read
+ * (`pg`) and any next page it left (`nx`), so a later page settles the one
+ * before it. The query never enters the receipt, and a token too long to sign
+ * becomes `!`, which no read page settles.
+ */
+export function pageKey(query: string, token: string): string {
+  const signed = encodeText(token).length <= PAGE_TOKEN_MAX_CHARACTERS;
+  return `${discoveryQueryDigest([query])}.${signed ? token : UNSIGNED_PAGE}`;
 }
 
 /**
@@ -101,12 +108,12 @@ export function roundUnreadPages(
 }
 
 /** The pages the given rounds read (`pg`), for roundUnreadPages. */
-export function continuedCursors(
+export function readPages(
   rounds: ReadonlyArray<{ claims: Readonly<Record<string, string | string[] | undefined>> }>
 ): Set<string> {
   return new Set(rounds.flatMap(({ claims }) =>
     claims.pg === undefined ? [] : Array.isArray(claims.pg) ? claims.pg : [claims.pg]
-  ).filter((digest) => digest !== ""));
+  ).filter((page) => page !== "" && !page.endsWith(`.${UNSIGNED_PAGE}`)));
 }
 
 /**

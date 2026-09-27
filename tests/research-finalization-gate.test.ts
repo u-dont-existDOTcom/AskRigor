@@ -8,9 +8,9 @@ import {
   protocolNamesFrom
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import {
-  cursorDigest,
   discoveryQueryDigest,
   issueResearchReceipt,
+  pageKey,
   researchTargetDigest,
   verifyResearchReceipt
 } from "../apps/research-mcp/src/research-receipts.js";
@@ -729,7 +729,7 @@ describe("finalize_research gate", () => {
       community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
       key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }], research_depth: "deep" as const
     };
-    const next = cursorDigest("hip pain what worked", "CAoQAA");
+    const next = pageKey("hip pain what worked", "CAoQAA");
     const pageOne = sign("youtube_search", { videos: [], open: 1, nx: next, q: "j0j0j0j0j0j0" }, options);
     expect(finalizeResearch({ ...base, receipts: [survey, emptySearch, pageOne, videoA, study] }, options).next_steps)
       .toEqual([expect.stringContaining("Continue a search with its next cursor")]);

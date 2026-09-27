@@ -21,9 +21,9 @@ import {
   type TreatmentLandscapeCoverageInput
 } from "./actions/treatment-landscape-coverage-route.js";
 import {
-  continuedCursors,
   discoveryQueryDigest,
   RESEARCH_RECEIPT_MAX_CHARACTERS,
+  readPages,
   receiptIssueOrder,
   researchTargetDigest,
   roundUnreadPages,
@@ -395,7 +395,7 @@ export function assessTreatmentCoverageFromReceipts(
   // not write it; a supplied one for the same round is set aside.
   const derivedBoundaries: Ledger["access_boundaries"] = [];
   // A later page's receipt signs the page it read, which settles the page before it.
-  const continued = continuedCursors(rounds);
+  const read = readPages(rounds);
   const batches: Ledger["discovery_batches"] = orderedRounds.map((round) => {
     const videos = unique(list(round.claims.videos));
     const classIds = unique([
@@ -408,7 +408,7 @@ export function assessTreatmentCoverageFromReceipts(
     // keep the round open, like an unread results page.
     const open = round.kind === "youtube_scout"
       ? openScoutTitles(round) > 0
-      : roundUnreadPages(round.claims, continued) > 0;
+      : roundUnreadPages(round.claims, read) > 0;
     const access = roundAccess(round);
     const derived = derivedRoundBoundary(batchId(round.index), access);
     if (derived !== undefined) derivedBoundaries.push(derived);

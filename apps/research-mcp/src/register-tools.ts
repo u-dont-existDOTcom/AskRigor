@@ -154,9 +154,9 @@ import {
   treatmentCoverageFromReceiptsOutputSchema
 } from "./treatment-coverage-from-receipts.js";
 import {
-  cursorDigest,
   discoveryQueryDigest,
   issueResearchReceipt,
+  pageKey,
   researchReceiptSecretFromEnv,
   researchTargetDigest,
   type ResearchReceiptClaims,
@@ -1011,10 +1011,8 @@ function defineResearchOperations(
           // An unread results page is discovery still to do, not a settled round;
           // the receipt of a search that reads the next page signs it, which settles it.
           open: result.pagination.next_cursor === undefined ? 0 : 1,
-          pg: cursor === undefined || !pageRead(result.access_status) ? undefined : cursorDigest(query, cursor),
-          nx: result.pagination.next_cursor === undefined
-            ? undefined
-            : cursorDigest(query, result.pagination.next_cursor)
+          pg: cursor === undefined || !pageRead(result.access_status) ? undefined : pageKey(query, cursor),
+          nx: result.pagination.next_cursor === undefined ? undefined : pageKey(query, result.pagination.next_cursor)
         }), true);
       } catch (_error) {
         return youtubeToolResult(
@@ -1157,7 +1155,7 @@ function defineResearchOperations(
             q: discoveryQueryDigest(input.searches.map(({ query }) => query)),
             target: researchTargetDigest(input.research_question),
             open: unreadResultPages(result.searches),
-            ...cursorClaims(result.searches)
+            ...pageClaims(input.searches.map(({ query }) => query), result.searches)
           })
         : undefined;
       let view: McpYoutubeCommunityAuditOutput;
@@ -1229,7 +1227,7 @@ function defineResearchOperations(
             q: discoveryQueryDigest(input.searches.map(({ query }) => query)),
             target: researchTargetDigest(input.research_question),
             open: unreadResultPages(result.searches),
-            ...cursorClaims(result.searches)
+            ...pageClaims(input.searches.map(({ query }) => query), result.searches)
           })
         : undefined, true);
     }
@@ -1867,8 +1865,13 @@ function pageRead(accessStatus: string): boolean {
   return accessStatus === "complete" || accessStatus === "api_visible_complete";
 }
 
-/** The page cursors a round's searches read (`pg`) and left (`nx`), as digests. */
-function cursorClaims(
+/**
+ * The pages a round's searches read (`pg`) and left (`nx`), keyed to the
+ * caller's own query terms, which the result echoes. A search the caller's
+ * terms do not match leaves the round to its `open` count.
+ */
+function pageClaims(
+  queries: readonly string[],
   searches: ReadonlyArray<{
     query: string;
     cursor?: string;
@@ -1876,10 +1879,14 @@ function cursorClaims(
     pagination: { next_cursor?: string };
   }>
 ): { pg?: string[]; nx?: string[] } {
-  const pg = searches.flatMap(({ query, cursor, access_status }) =>
-    cursor === undefined || !pageRead(access_status) ? [] : [cursorDigest(query, cursor)]);
-  const nx = searches.flatMap(({ query, pagination }) =>
-    pagination.next_cursor === undefined ? [] : [cursorDigest(query, pagination.next_cursor)]);
+  const pg: string[] = [];
+  const nx: string[] = [];
+  for (const search of searches) {
+    const query = queries.find((candidate) => candidate === search.query);
+    if (query === undefined) return {};
+    if (search.cursor !== undefined && pageRead(search.access_status)) pg.push(pageKey(query, search.cursor));
+    if (search.pagination.next_cursor !== undefined) nx.push(pageKey(query, search.pagination.next_cursor));
+  }
   return { ...(pg.length === 0 ? {} : { pg }), ...(nx.length === 0 ? {} : { nx }) };
 }
 

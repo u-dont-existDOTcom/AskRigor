@@ -751,9 +751,19 @@ and whether the final answer is the last checked draft. Cost: one more
     returned (`shown`), so findings were demanded for comments the model never
     saw.
   - Page one of a search stayed open after page two was read. Search, survey
-    and one-call receipts now sign digests of the page they read (`pg`) and
-    the page they left (`nx`), bound to the query, and a later page settles
-    the one before it; a page that failed to load settles nothing.
+    and one-call receipts now sign the page they read (`pg`) and the page they
+    left (`nx`), each as the query's 12-hex digest plus YouTube's page token,
+    and a later page settles the one before it; a page that failed to load
+    settles nothing.
+  - CodeQL on b5078c9 (`js/insufficient-password-hash`, high): the first
+    version signed a SHA-256 digest of the page token. CodeQL's name heuristic
+    treats a call with an argument matching `api.?key` as returning a
+    password, so `searchError("youtube_api_key_missing", …)` made every
+    YouTube search result a "password", and hashing its page token an
+    insecure password hash. No credential was involved. The receipts now sign
+    the token itself, after the digest of the caller's own query (never a
+    hash of result data), as they already sign result video IDs and access
+    states.
   - Rounds a rate limit or the daily quota stopped were unsigned or counted as
     settled. They are now signed with their limits (`inc`, `rl`), including a
     wholly stopped survey or search and a one-call audit left incomplete. An

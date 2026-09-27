@@ -730,10 +730,11 @@ pending-proposal stores have their own strict contracts and authority boundaries
   view returned. Survey, search and one-call community audit receipts also
   count their searches that ended incomplete and those stopped by a rate limit
   or the daily quota, so the checks can state that limit themselves; a round a
-  limit stopped is signed too. They also carry `pg` and `nx`: 12-hex digests
-  of each results-page cursor a search read and left, each bound to its
-  normalized query, never the cursor or the query, so a later page's receipt
-  settles the page before it.
+  limit stopped is signed too. They also carry `pg` and `nx`, the results
+  pages a search read and left: the 12-hex digest of the caller's query, then
+  YouTube's opaque page token (an offset, not user data; a token that encodes
+  to more than 64 characters is not signed). The query itself is never in the
+  receipt. A later page's receipt settles the page before it.
   Every MCP receipt carries `t`, its
   issue time in milliseconds made strictly increasing within the server
   process, so the gate orders rounds without trusting the caller. They expire

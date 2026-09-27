@@ -25,7 +25,7 @@ import {
 } from
   "../apps/research-mcp/src/youtube-audit-continuation.js";
 import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
-import { cursorDigest, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
+import { pageKey, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 
 const TOOL_NAMES = [
   "get_protocol_manifest",
@@ -1598,9 +1598,9 @@ describe("AskRigor MCP tools", () => {
     const claimsOf = (verification: Awaited<ReturnType<typeof receiptOf>>) => verification.ok ? verification.claims : {};
 
     try {
-      // Page one signs the page it left; page two, the page it read. Both
-      // digests bind the query, whatever its case and spacing.
-      const next = cursorDigest("hip pain what worked", "opaque+/next-token");
+      // Page one signs the page it left; page two, the page it read. Both are
+      // keyed to the query, whatever its case and spacing.
+      const next = pageKey("hip pain what worked", "opaque+/next-token");
       const pageOne = await receiptOf("search_youtube", { query: "hip pain what worked", page_size: 1, research_target: target });
       const pageTwo = await receiptOf("search_youtube", {
         query: "Hip pain  what worked", page_size: 1, cursor: "opaque+/next-token", research_target: target
@@ -1608,6 +1608,13 @@ describe("AskRigor MCP tools", () => {
       expect(pageOne).toMatchObject({ ok: true, claims: { open: "1", nx: next, rl: "0", inc: "0" } });
       expect(pageTwo).toMatchObject({ ok: true, claims: { open: "0", pg: next } });
       expect(claimsOf(pageTwo).nx).toBeUndefined();
+      // A survey signs its searches' pages as lists, keyed to the caller's terms.
+      const survey = await receiptOf("survey_youtube_community", {
+        research_question: target,
+        searches: [{ direction: "general", query: "hip pain what worked" }]
+      });
+      expect(survey).toMatchObject({ ok: true, kind: "youtube_survey", claims: { open: "1", nx: [next] } });
+      expect(claimsOf(survey).pg).toBeUndefined();
 
       // With the daily quota spent, each discovery tool still signs its round
       // and what stopped it; a page it could not read is not signed as read.

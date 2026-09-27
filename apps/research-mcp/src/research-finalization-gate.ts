@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 import {
-  continuedCursors,
   issueResearchReceipt,
   RESEARCH_RECEIPT_MAX_CHARACTERS,
+  readPages,
   receiptIssueOrder,
   researchTargetDigest,
   roundUnreadPages,
@@ -812,8 +812,8 @@ function discoverySaturation(
   }
   const fresh = [...material].filter((video) => (firstFound.get(video) ?? -Infinity) >= recentFrom).sort();
   // A later page's receipt signs the page it read, which settles the page before it.
-  const continued = continuedCursors(rounds);
-  const unchecked = recent.some((round) => roundUnreadPages(round.claims, continued) > 0);
+  const read = readPages(rounds);
+  const unchecked = recent.some((round) => roundUnreadPages(round.claims, read) > 0);
   const angles = recent.map((round) => text(round.claims.q));
   const repeated = angles.includes("") || new Set(angles).size < angles.length;
   const nextSteps: string[] = [];
