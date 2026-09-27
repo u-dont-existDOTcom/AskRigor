@@ -924,6 +924,13 @@ and whether the final answer is the last checked draft. Cost: one more
     choices above and backslash-escaped backticks.
   - All 25 earlier placement cases keep their results; 17 mutations, one per
     rule, each fail a test.
+- Codex on ffb8760 (one P1, fixed): the YouTube-comments lane check read the
+  raw draft, so the required words inside an HTML comment satisfied it. The
+  checks that require text, the comments lane and the caveats, now read only
+  the prose a reader sees. The checks that forbid text (internal labels, bare
+  video IDs, the pasted forum template) still read the whole draft, which only
+  makes them stricter. The lane leaves out quotations too, as the caveats do:
+  it must be the answer's own report. Two mutations each fail a test.
 
 ## Comment-audit call budget (2026-09-27)
 

@@ -343,6 +343,26 @@ describe("finalize_research gate", () => {
     // Said in the answer's own words, or echoing the effect the findings give.
     expect(lane(`${withoutEffect} That is consistent with the trials.`)).toEqual([]);
     expect(lane(`${withoutEffect} It makes trying the program before surgery look reasonable.`)).toEqual([]);
+    // Only what the reader sees reports the lane: not an HTML comment (Codex's case), an image
+    // description, a tag's attribute or code.
+    const hidden = `${withoutEffect} That is consistent with the trials.`;
+    expect(lane(`Exercise helps most people with hip osteoarthritis. <!-- ${hidden} -->`)).toEqual([
+      "The answer does not report the YouTube comments that were read. Add that lane from must_report, even if its " +
+        "signal is weak."
+    ]);
+    for (const hiding of [
+      `<!-- ${withoutEffect} That is consistent with the trials. -->`,
+      `![${withoutEffect} That is consistent with the trials.](https://example.com/chart.png)`,
+      `<span title="${withoutEffect} That is consistent with the trials.">Details</span>`,
+      `\n\n\`\`\`\n${withoutEffect} That is consistent with the trials.\n\`\`\`\n`
+    ]) {
+      expect(lane(`Exercise helps most people with hip osteoarthritis.\n\n## YouTube comments\n\n${hiding}`)).toEqual([
+        "The answer's YouTube comments section does not report benefit reports, no-effect reports, adverse reports, " +
+          "how creators differ from commenters, what the comments mean for the answer. Add each from must_report, and " +
+          "say none were reported where there were none."
+      ]);
+    }
+    expect(lane(`Exercise helps most people with hip osteoarthritis.\n\n## YouTube comments\n\n- ${hidden}`)).toEqual([]);
 
     // Links keep their IDs and underscores; a short command is fine.
     const clean = finalizeResearchRaw({

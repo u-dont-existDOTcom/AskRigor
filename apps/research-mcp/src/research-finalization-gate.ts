@@ -744,6 +744,9 @@ function answerDraftProblems(
   const problems: string[] = [];
   // Links may carry IDs and underscores legitimately; the words around them may not.
   const prose = draft.replace(URL, " ");
+  // What the answer must say is read from the prose a reader sees; what it must not show, from the whole draft.
+  const shownBlocks = displayedProse(draft);
+  const shown = shownBlocks.join("\n\n").replace(URL, " ");
   const labels = [...new Set([
     ...[...prose.matchAll(SNAKE_CASE_LABEL)].map(([label]) => label).filter((label) => !looksLikeVideoId(label)),
     ...[...prose.matchAll(CAPITALIZED_TOKEN)].map(([name]) => name).filter((name) => context.protocolNames.has(name)),
@@ -773,7 +776,7 @@ function answerDraftProblems(
         "start it, and offer the full prompt instead (\"Show me the full deeper-research prompt and help me fine-tune it\")."
     );
   }
-  if (context.commentsRead && !/youtube/iu.test(prose)) {
+  if (context.commentsRead && !/youtube/iu.test(shown)) {
     problems.push(
       "The answer does not report the YouTube comments that were read. Add that lane from must_report, even if its " +
         "signal is weak."
@@ -781,8 +784,8 @@ function answerDraftProblems(
   } else if (context.commentsRead) {
     // The lane is the text after each mention of YouTube or comments; it must
     // carry what must_report lists, not just the word.
-    const lane = [...prose.matchAll(/youtube|comment/giu)]
-      .map(({ index }) => prose.slice(index, index + LANE_WINDOW_CHARACTERS)).join("\n");
+    const lane = [...shown.matchAll(/youtube|comment/giu)]
+      .map(({ index }) => shown.slice(index, index + LANE_WINDOW_CHARACTERS)).join("\n");
     const missing: string[] = LANE_FINDINGS.filter(({ pattern }) => !pattern.test(lane)).map(({ label }) => label);
     if (!reportsEffectOnAnswer(lane, context.effectOnAnswer)) missing.push("what the comments mean for the answer");
     if (missing.length > 0) {
@@ -794,7 +797,7 @@ function answerDraftProblems(
   }
   // Each caveat the server wrote must reach the answer as a sentence of its own.
   // Only prose a reader sees counts: not code, comments, quotations or image descriptions.
-  const blocks = displayedProse(draft).map(caveatForm);
+  const blocks = shownBlocks.map(caveatForm);
   const missingCaveats = context.caveats.filter((caveat) => !statesCaveat(blocks, caveat));
   if (missingCaveats.length > 0) {
     problems.push(
