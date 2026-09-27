@@ -702,6 +702,14 @@ pending-proposal stores have their own strict contracts and authority boundaries
   `finalize_research` verifies the receipts the client passes back and returns
   next steps or limits; it keeps no ledger, and its optional free-text reasons
   and open-lead topics are processed and echoed for that call only.
+- The MCP `scout_gemini_youtube_candidates` tool runs the same de-identified,
+  population-level scout as the controlled Action route, in Gemini's background
+  mode: Google stores the interaction until AskRigor consumes it and requests
+  deletion, and the result reports `provider_storage_mode`. While the scout is
+  still searching, the tool returns a signed, expiring continuation token that
+  carries only that target, the diagnosis status, the provider checkpoint
+  (opaque interaction identity, executed public search queries, counters) and
+  the budget already charged; AskRigor stores none of it.
 - Strict Zod input/output schemas reject undeclared input fields. Pagination cursors are opaque at the MCP boundary.
 - Internal external-evidence receipts use a server-held secret of at least 32
   UTF-8 bytes and domain-separated HMAC-SHA256; they bind session, study,

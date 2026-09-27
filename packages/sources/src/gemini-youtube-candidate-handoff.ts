@@ -598,18 +598,18 @@ function validateCandidateIdentity(
   if (metadata.source_identity.canonical_url !== candidate.canonical_url) {
     reasons.push("provider_canonical_url_mismatch");
   }
-  if (
-    providerVideo.title !== undefined &&
-    comparableLabel(providerVideo.title) !== comparableLabel(candidate.title)
-  ) {
-    reasons.push("declared_title_mismatch");
+  // Scouts often paraphrase a title or misremember a channel while the video ID
+  // is right, and YouTube's metadata stays authoritative for what the video is.
+  // Only a video whose title and channel both differ is a wrong identity.
+  const titleMatches = providerVideo.title === undefined || labelsMatch(providerVideo.title, candidate.title);
+  const channelMatches = providerVideo.channel_title === undefined ||
+    labelsMatch(providerVideo.channel_title, candidate.channel);
+  if (!titleMatches && !channelMatches) {
+    reasons.push("declared_title_mismatch", "declared_channel_mismatch");
   }
-  if (
-    providerVideo.channel_title !== undefined &&
-    comparableLabel(providerVideo.channel_title) !== comparableLabel(candidate.channel)
-  ) {
-    reasons.push("declared_channel_mismatch");
-  }
+  const declarationLimitations = titleMatches && channelMatches
+    ? []
+    : [`The scout's declared ${titleMatches ? "channel" : "title"} differed from YouTube's; YouTube's metadata is used.`];
 
   if (reasons.length > 0) {
     return {
@@ -682,7 +682,7 @@ function validateCandidateIdentity(
           : "legacy_spark_annotation_not_transcript_verified_by_askrigor",
         why_surfaced: candidate.why_surfaced
       },
-      limitations: metadata.limitations
+      limitations: [...metadata.limitations, ...declarationLimitations]
     }
   };
 }
@@ -722,6 +722,24 @@ export function deriveGeminiYoutubeCandidateFrontier(
 
 function comparableLabel(value: string): string {
   return value.normalize("NFC").replace(/\s+/gu, " ").trim();
+}
+
+/**
+ * A declared label matches YouTube's when they are equal ignoring case,
+ * spacing and punctuation, or when at least 60% of the declared words of three
+ * or more characters appear in YouTube's label.
+ */
+function labelsMatch(provider: string, declared: string): boolean {
+  const compact = (value: string) => value.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  if (compact(provider) === compact(declared)) return true;
+  const words = (value: string) => new Set(
+    value.normalize("NFKC").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((word) => word.length >= 3)
+  );
+  const declaredWords = words(declared);
+  if (declaredWords.size === 0) return false;
+  const providerWords = words(provider);
+  const shared = [...declaredWords].filter((word) => providerWords.has(word)).length;
+  return shared / declaredWords.size >= 0.6;
 }
 
 function comparableQuery(value: string): string {

@@ -59,7 +59,9 @@
    with one video or none), about six fully audited videos, or about four rounds, and then offers the open leads to the
    user as a provisional answer. Deep research, requested by the user or set by an automated brief, continues to
    saturation. finalize_research and assess_treatment_landscape_coverage check this from discovery receipts and batches.
-   A fixed minimum padded niche topics, and open-ended saturation could run for days.
+   A fixed minimum padded niche topics, and open-ended saturation could run for days. Scout identity validation now
+   rejects a lead only when both its declared title and channel differ from the provider's: in test runs exact matching
+   discarded seven of eight real, relevant videos over paraphrased titles.
   </Revision>
   <Revision version="20.6.0" priority="Critical">
    Consolidation, no change to clinical or scientific method. Strong models loaded nearly every section (about 570,000
@@ -1140,7 +1142,9 @@
    identifier, canonical link, exact title, and channel before it enters the candidate ledger; never accept an ungrounded or
    invented identifier. Preserve a complete frontier receipt whose digest and exact source, validated, terminally rejected,
    and unresolved ID partition reconcile every supplied candidate. Only a literal provider not-found/not-visible result or
-   a mismatch between present values after complete provider identity retrieval may terminally reject a lead. Missing title
+   a substantive identity mismatch after complete provider identity retrieval (both the declared title and channel
+   differ) may terminally reject a lead; a paraphrased title or misremembered channel keeps it, with the provider's
+   metadata authoritative. Missing title
    or channel fields, configuration, credential, access, malformed-response, runtime, rate-limit, and other non-identity
    failures remain unresolved; whether an immediate retry is possible does not turn them into negative evidence. Screen every
    validated candidate before substituting a generic native result or declaring coverage; caller materiality or redundancy

@@ -36,7 +36,8 @@ import {
   youtubeCommentFailureDataSchema,
   youtubeSearchRecordListSchema,
   youtubeVideoDataSchema,
-  youtubeVideoFailureDataSchema
+  youtubeVideoFailureDataSchema,
+  type GeminiYoutubeScoutBackgroundCheckpoint
 } from "@askrigor/sources";
 import { z } from "zod";
 
@@ -50,10 +51,15 @@ import {
   successfulToolResult
 } from "./tool-result.js";
 import {
-  automatedGeminiScoutReceiptSchema,
   automatedScoutInputSchema,
-  createAutomatedGeminiScoutActionRoute
+  executeResumableAutomatedGeminiScout
 } from "./actions/gemini-scout-route.js";
+import {
+  decodeScoutContinuation,
+  encodeScoutContinuation,
+  SCOUT_CONTINUATION_TTL_MS,
+  ScoutContinuationError
+} from "./scout-continuation.js";
 import {
   assessTreatmentLandscapeCoverage,
   treatmentLandscapeCoverageInputSchema,
@@ -1284,43 +1290,91 @@ function defineResearchOperations(
     "scout_gemini_youtube_candidates",
     {
       description:
-        "Ask Gemini with Google Search for YouTube videos on a de-identified, population-level treatment target, " +
-        "then validate each video's identity. Gemini's summaries are unverified leads, not evidence of what a video says.",
-      inputSchema: automatedScoutInputSchema,
-      outputSchema: automatedGeminiScoutReceiptSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
+        "Ask Gemini with Google Search for YouTube videos on a de-identified, population-level target, then validate " +
+        "each video's identity. Describe the condition and the goal (for example, people trying to avoid a hip " +
+        "replacement and what they tried), not a list of treatments: the scout searches natural, supplement, " +
+        "self-directed and conventional angles itself. A grounded search takes about a minute, so the result may be " +
+        "pending with a continuation_token; call again with only that token. Summaries are unverified leads.",
+      inputSchema: MCP_SCOUT_INPUT_SCHEMA,
+      outputSchema: MCP_SCOUT_OUTPUT_SCHEMA,
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (input) => {
-      const result = await GEMINI_SCOUT_ROUTE.handle({
-        request: {} as never,
-        clientIp: "mcp",
-        body: input
-      });
-      if (result.status !== 200) {
-        const code = (result.body as { error?: { code?: string } }).error?.code ?? "scout_failed";
-        return {
-          content: [{ type: "text", text: `scout gemini youtube candidates could not complete: ${code}.` }],
-          isError: true
-        };
+      const secret = researchReceiptSecretFromEnv();
+      if (secret === undefined) return scoutError("gemini_scout_continuation_unavailable", false);
+      let target: z.output<typeof automatedScoutInputSchema>;
+      let resume: { checkpoint: GeminiYoutubeScoutBackgroundCheckpoint; accountedNanoUsd: number } | undefined;
+      if (input.continuation_token !== undefined) {
+        try {
+          const state = decodeScoutContinuation(input.continuation_token, secret, Date.now());
+          target = { research_target: state.research_target, diagnosis_status: state.diagnosis_status };
+          resume = { checkpoint: state.checkpoint, accountedNanoUsd: state.accounted_nano_usd };
+        } catch (error) {
+          return scoutError(
+            error instanceof ScoutContinuationError ? error.code : "gemini_scout_continuation_invalid",
+            false
+          );
+        }
+      } else {
+        target = automatedScoutInputSchema.parse({
+          research_target: input.research_target,
+          diagnosis_status: input.diagnosis_status
+        });
       }
-      const validation = (result.body as {
-        validation?: {
-          validated_candidates?: Array<{ video_id: string }>;
-          unresolved_candidates?: unknown[];
-        } | null;
-      }).validation;
+
+      // Poll within one call only while a further bounded advance still fits
+      // under the client's tool timeout; otherwise hand back a continuation.
+      const started = Date.now();
+      let execution = await executeResumableAutomatedGeminiScout(target, resume);
+      while ("controller_progress" in execution && Date.now() - started < MCP_SCOUT_POLL_WINDOW_MS) {
+        execution = await executeResumableAutomatedGeminiScout(target, {
+          checkpoint: execution.controller_progress.checkpoint,
+          accountedNanoUsd: execution.controller_progress.accounted_nano_usd
+        });
+      }
+      if ("controller_boundary" in execution) {
+        return scoutError(execution.controller_boundary.code, execution.controller_boundary.retryable);
+      }
+      if ("controller_progress" in execution) {
+        const continuation = encodeScoutContinuation({
+          ...target,
+          checkpoint: execution.controller_progress.checkpoint,
+          accounted_nano_usd: execution.controller_progress.accounted_nano_usd,
+          expires_at_ms: Date.now() + SCOUT_CONTINUATION_TTL_MS
+        }, secret);
+        return successfulToolResult(
+          "Gemini scout is still searching. Call scout_gemini_youtube_candidates again with only this continuation_token " +
+            `in about ${MCP_SCOUT_RETRY_AFTER_SECONDS} seconds.`,
+          MCP_SCOUT_OUTPUT_SCHEMA.parse({
+            scout_status: "pending",
+            ...target,
+            continuation_token: continuation,
+            retry_after_seconds: MCP_SCOUT_RETRY_AFTER_SECONDS
+          })
+        );
+      }
+      const { packet, validation, provider_storage_mode: storageMode } = execution.controller_completion;
+      const output = MCP_SCOUT_OUTPUT_SCHEMA.parse({
+        scout_status: "complete",
+        ...target,
+        discovery_queries: packet.discovery_queries,
+        search_gaps: packet.search_gaps,
+        validation,
+        ...(storageMode === undefined ? {} : { provider_storage_mode: storageMode })
+      });
+      if (Buffer.byteLength(JSON.stringify(output), "utf8") > MCP_SCOUT_MAX_BYTES) {
+        return scoutError("gemini_youtube_candidate_validation_response_too_large", false);
+      }
       // A scout that ran identity validation is a discovery round even when it
       // found nothing; `open` counts candidates that could not be checked.
       return withResearchReceipt(successfulToolResult(
-        "Gemini scout completed; candidate summaries are unverified discovery leads.",
-        result.body as Record<string, unknown>
-      ), validation === undefined || validation === null
-        ? undefined
-        : researchReceipt("youtube_scout", {
-            videos: (validation.validated_candidates ?? []).map(({ video_id }) => video_id),
-            open: validation.unresolved_candidates?.length ?? 0,
-            q: discoveryQueryDigest([input.research_target])
-          }));
+        `Gemini scout validated ${validation.validated_candidates.length} video(s); summaries are unverified discovery leads.`,
+        output
+      ), researchReceipt("youtube_scout", {
+        videos: validation.validated_candidates.map(({ video_id }) => video_id),
+        open: validation.unresolved_candidates.length,
+        q: discoveryQueryDigest([target.research_target])
+      }));
     }
   );
 
@@ -1370,6 +1424,50 @@ const RESEARCH_RECEIPT_OUTPUT_SHAPE = {
   research_receipt: z.string().optional()
 };
 
+/** Stay under MCP client tool timeouts (Claude clients stop at 60 seconds). */
+const MCP_SCOUT_POLL_WINDOW_MS = 20_000;
+const MCP_SCOUT_RETRY_AFTER_SECONDS = 10;
+const MCP_SCOUT_MAX_BYTES = 45_000;
+
+const MCP_SCOUT_INPUT_SCHEMA = z.object({
+  research_target: automatedScoutInputSchema.shape.research_target.optional(),
+  diagnosis_status: automatedScoutInputSchema.shape.diagnosis_status.optional(),
+  continuation_token: z.string().min(1).max(12_000).optional()
+    .describe("Returned while the scout is still searching; call again with only this token.")
+}).strict().superRefine((value, context) => {
+  if (value.continuation_token === undefined &&
+      (value.research_target === undefined || value.diagnosis_status === undefined)) {
+    context.addIssue({
+      code: "custom",
+      message: "Provide research_target and diagnosis_status, or a continuation_token."
+    });
+  }
+});
+
+const MCP_SCOUT_OUTPUT_SCHEMA = z.object({
+  scout_status: z.enum(["pending", "complete"]),
+  research_target: z.string(),
+  diagnosis_status: z.enum(["diagnosis_not_specified", "user_supplied_diagnosis"]),
+  continuation_token: z.string().optional(),
+  retry_after_seconds: z.number().int().positive().optional(),
+  discovery_queries: z.array(z.object({ purpose: z.string(), query: z.string() }).passthrough()).optional(),
+  search_gaps: z.array(z.string()).optional(),
+  // Produced and schema-checked by validateGeminiYoutubeCandidateHandoff.
+  validation: z.record(z.string(), z.unknown()).optional(),
+  provider_storage_mode: z.enum(["DISABLED", "TEMPORARY_BACKGROUND_DELETE_REQUESTED"]).optional(),
+  research_receipt: z.string().optional()
+}).strict();
+
+function scoutError(code: string, retryable: boolean): CallToolResult {
+  return {
+    content: [{
+      type: "text",
+      text: `scout gemini youtube candidates could not complete: ${code}${retryable ? " (retryable)" : ""}.`
+    }],
+    isError: true
+  };
+}
+
 /** Signs a receipt when a signing secret is configured; see research-receipts.ts. */
 function researchReceipt(
   kind: ResearchReceiptKind,
@@ -1391,7 +1489,6 @@ function withResearchReceipt(
   };
 }
 
-const GEMINI_SCOUT_ROUTE = createAutomatedGeminiScoutActionRoute();
 
 function registerOpenFullTextMcpTools(
   registrar: Pick<McpServer, "registerTool">

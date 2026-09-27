@@ -291,10 +291,26 @@ describe("Gemini YouTube candidate handoff", () => {
     });
   });
 
-  it("rejects mismatched declarations without discarding valid candidates", async () => {
+  it("keeps a paraphrased title and rejects a video whose title and channel both differ", async () => {
+    const paraphrased = await validateGeminiYoutubeCandidateHandoff(
+      response(),
+      YOUTUBE,
+      { get_video: vi.fn(async (videoId: string) => videoEnvelope(
+        videoId,
+        videoId === VIDEO_IDS[0] ? { title: "Different provider title" } : {}
+      )) }
+    );
+    expect(paraphrased.rejected_candidates).toEqual([]);
+    expect(paraphrased.validated_candidates.find(({ video_id }) => video_id === VIDEO_IDS[0])).toMatchObject({
+      provider_metadata: { title: "Different provider title" },
+      limitations: expect.arrayContaining([
+        "The scout's declared title differed from YouTube's; YouTube's metadata is used."
+      ])
+    });
+
     const getVideo = vi.fn(async (videoId: string) => videoEnvelope(
       videoId,
-      videoId === VIDEO_IDS[0] ? { title: "Different provider title" } : {}
+      videoId === VIDEO_IDS[0] ? { title: "Different provider title", channel: "Unrelated channel" } : {}
     ));
 
     const receipt = await validateGeminiYoutubeCandidateHandoff(
@@ -308,7 +324,7 @@ describe("Gemini YouTube candidate handoff", () => {
     expect(receipt.rejected_candidates).toEqual([
       expect.objectContaining({
         video_id: VIDEO_IDS[0],
-        rejection_reasons: ["declared_title_mismatch"],
+        rejection_reasons: ["declared_title_mismatch", "declared_channel_mismatch"],
         provider_title: "Different provider title"
       })
     ]);
