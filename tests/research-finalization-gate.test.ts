@@ -914,6 +914,14 @@ describe("finalize_research gate", () => {
       `\n\n\`\`\`\n\n${rateCaveat}\n\n\`\`\`\n\n`,
       // A fence line with text after its marker does not close the block.
       `\n\n\`\`\`\nsearch log\n\`\`\` not a closing fence\n\n${rateCaveat}\n\n\`\`\`\n\n`,
+      // Nor does one indented four spaces at the top level, which CommonMark reads as code.
+      `\n\n\`\`\`\nsearch log\n    \`\`\`\n${rateCaveat}\n\n`,
+      // A fence indented three spaces still opens one.
+      `\n\n   \`\`\`\n${rateCaveat}\n\`\`\`\n\n`,
+      // Inside a list, a fence opens at any depth and closes no deeper than it opened,
+      `\n\n- Search log:\n\n    \`\`\`\n\n    ${rateCaveat}\n\n    \`\`\`\n\n`,
+      // and a paragraph indented six spaces or more is taken as code.
+      `\n\n- Search log:\n\n        ${rateCaveat}\n\n`,
       `\n\n<!--\n\n${rateCaveat}\n\n-->\n\n`
     ]) {
       expect(answered(fullDraft.replace(rateCaveat, denial))).toEqual(leftOutRate);
@@ -926,7 +934,13 @@ describe("finalize_research gate", () => {
       `\n\n- Limits of this pass:\n\n    ${rateCaveat}\n\n`,
       `\n\n\`\`\`\nsearch log\n\`\`\`\n\n${rateCaveat}`,
       // A line that opens with inline code is not a fence, so what follows still counts.
-      `\n\n\`\`\`search log\`\`\` shown above.\n\n${rateCaveat}`
+      `\n\n\`\`\`search log\`\`\` shown above.\n\n${rateCaveat}`,
+      // A list nested four spaces in is still a list, and its items still count.
+      `\n\n- Limits of this pass:\n    - ${rateCaveat}\n    - Nothing else was stopped.\n\n`,
+      // A closed list fence ends the code; the caveat after it counts.
+      `\n\n- Search log:\n\n    \`\`\`\n    queries\n    \`\`\`\n\n${rateCaveat}`,
+      // Four spaces in at the top level, three backticks are indented code, not a fence left open.
+      `\n\n    \`\`\`\n\n${rateCaveat}`
     ]) {
       expect(answered(fullDraft.replace(rateCaveat, stated))).toEqual([]);
     }

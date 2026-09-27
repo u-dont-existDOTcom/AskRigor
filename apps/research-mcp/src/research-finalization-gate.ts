@@ -872,7 +872,17 @@ function fenceMarker(line: string): string | undefined {
     ? undefined
     : marker;
 }
-const INDENTED = /^(?: {4}|\t)/u;
+
+/** A line's indentation in columns, a tab reaching the next multiple of four. */
+function indentOf(line: string): number {
+  let width = 0;
+  for (const character of line) {
+    if (character === " ") width += 1;
+    else if (character === "\t") width += 4 - (width % 4);
+    else break;
+  }
+  return width;
+}
 
 /** The draft without HTML comments, which are not displayed; their line breaks stay. */
 function withoutHtmlComments(draft: string): string {
@@ -893,14 +903,17 @@ function withoutHtmlComments(draft: string): string {
  * their list or heading markers; a wrapped line joins its paragraph. Text an
  * answer shows without stating is left out: code (fenced, indented or
  * inline) and HTML comments. A quotation keeps its marker, so a quoted caveat
- * is not stated either.
+ * is not stated either. Fences and indented code follow CommonMark at the top
+ * level; inside a list, whose item offsets are not tracked, doubtful lines
+ * count as code, so a caveat always counts once it is a plain paragraph.
  */
 function draftBlocks(draft: string): string[] {
   const blocks: string[] = [];
   let current: string[] = [];
-  let fence: string | undefined;
-  let indentedCode = false;
-  // An indented paragraph after a list item continues it; elsewhere it is code.
+  let fence: { marker: string; indent: number; inList: boolean } | undefined;
+  // The indentation that keeps an indented code block going, while one is open.
+  let codeIndent: number | undefined;
+  // An indented paragraph after a list item continues it.
   let inList = false;
   const flush = (): void => {
     if (current.length > 0) {
@@ -910,35 +923,44 @@ function draftBlocks(draft: string): string[] {
   };
   for (const line of withoutHtmlComments(draft).split(/\r?\n/u)) {
     const trimmed = line.trim();
+    const indent = indentOf(line);
     const marker = fenceMarker(trimmed);
     if (fence !== undefined) {
-      // A closing fence repeats the opening character, at least as many times, and nothing else.
-      if (marker !== undefined && marker[0] === fence[0] && marker.length >= fence.length &&
-        trimmed.slice(marker.length).trim() === "") fence = undefined;
+      // A closing fence repeats the opening character, at least as many times, and nothing else. It
+      // is indented at most three spaces at the top level, and no deeper than its opening in a list.
+      if (marker !== undefined && marker[0] === fence.marker[0] && marker.length >= fence.marker.length &&
+        trimmed.slice(marker.length).trim() === "" && indent <= (fence.inList ? fence.indent : 3)) {
+        fence = undefined;
+      }
       continue;
     }
-    if (marker !== undefined) {
+    // A fence opens indented at most three spaces, or at any depth inside a list.
+    if (marker !== undefined && (indent <= 3 || inList)) {
       flush();
-      fence = marker;
+      fence = { marker, indent, inList };
       continue;
     }
-    if (indentedCode) {
-      if (trimmed === "" || INDENTED.test(line)) continue;
-      indentedCode = false;
+    if (codeIndent !== undefined) {
+      if (trimmed === "" || indent >= codeIndent) continue;
+      codeIndent = undefined;
     }
     if (trimmed === "") {
       flush();
       continue;
     }
-    if (BLOCK_START.test(trimmed)) {
+    // A list item, heading or quotation starts a block, nested at any depth inside a list.
+    if (BLOCK_START.test(trimmed) && (indent <= 3 || inList)) {
       flush();
-      inList = LIST_ITEM.test(trimmed);
+      inList = LIST_ITEM.test(trimmed) || (inList && indent >= 2);
     } else if (current.length === 0) {
-      if (INDENTED.test(line) && !inList) {
-        indentedCode = true;
+      // Indented code starts four spaces in at the top level; inside a list, six spaces in is past
+      // any item's content, so it is taken as code.
+      const threshold = inList ? 6 : 4;
+      if (indent >= threshold) {
+        codeIndent = threshold;
         continue;
       }
-      inList = inList && INDENTED.test(line);
+      inList = inList && indent >= 2;
     }
     current.push(trimmed);
   }

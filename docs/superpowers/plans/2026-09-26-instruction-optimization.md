@@ -880,6 +880,18 @@ and whether the final answer is the last checked draft. Cost: one more
   A line that opens with inline code (three backticks, with more backticks
   later on the line) is no longer taken for a code fence, and a fence closes
   only on a line with nothing after its marker.
+- Codex on dfa1f19 (one P1, fixed): lines were trimmed before fences were
+  recognized, so a closing fence indented four spaces ended a code block that
+  CommonMark keeps open. Indentation now decides, measured in columns (a tab
+  reaches the next multiple of four). At the top level a fence opens or closes
+  only within three spaces, and four spaces start indented code, as CommonMark
+  says. Inside a list the parser does not track each item's content offset, so
+  it fails closed: a fence opens at any depth and closes no deeper than it
+  opened, a paragraph six or more spaces in is code, and list markers start
+  nested items at any depth. Where it cannot tell, text counts as code; a
+  caveat always counts as a plain paragraph. Five mutations each fail a test.
+  A Markdown library was considered and not added: the usual choice has had
+  regular-expression slowdown advisories, and this parser is linear.
 
 ## Comment-audit call budget (2026-09-27)
 
