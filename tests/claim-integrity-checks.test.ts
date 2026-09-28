@@ -51,6 +51,12 @@ const OWN_WORK_REVIEW_ANCHOR =
 const EXISTING_CITATION_CHAIN_ANCHOR =
   "Check whether their references support the exact claims, whether citation chains have drifted";
 
+const HRP_DUPLICATE_DATA_LINEAGE_ANCHOR =
+  "Count the underlying people or datasets rather than the number of documents";
+
+const HRP_DUPLICATE_DATA_LINEAGE_RULE_OPEN =
+  '<Rule name="DuplicateAndDataLineageAudit" priority="Critical">';
+
 const UNIVERSAL_PRE_DELIVERY_ANCHOR =
   "If the runtime can start a separate checker, such as a subagent or a fresh context";
 
@@ -61,7 +67,7 @@ const HRP_PRE_DELIVERY_RULE_OPEN =
   '<Rule name="PreDeliveryResearchClaimCheck" priority="Critical">';
 
 const VERDICT_CHECK_ANCHOR =
-  "without the analysis around it, and name which outcome measure, population, comparison, and source it is about.";
+  "When the pre-delivery claim check runs a separate checker, give it only the verdict sentences, without the analysis around them, and have it name the outcome measure, population, comparison, scope, and source each one is about";
 
 const VERDICT_RULE_OPEN = '<Rule name="ExperimentalVerdictKeyConditionCheck" priority="Medium">';
 
@@ -114,9 +120,11 @@ describe("claim-integrity checks in the canonical protocols", () => {
     }
   });
 
-  it("keeps the existing sources rule that covers CI-05", () => {
+  it("keeps the existing Universal and HRP rules that cover CI-05", () => {
     const sources = section(universal, "<sources>", "</sources>");
+    const lineageRule = normalize(section(hrp, HRP_DUPLICATE_DATA_LINEAGE_RULE_OPEN, "</Rule>"));
     expect(sources).toContain(EXISTING_CITATION_CHAIN_ANCHOR);
+    expect(lineageRule).toContain(HRP_DUPLICATE_DATA_LINEAGE_ANCHOR);
   });
 
   it("adds the CI-11 conditional separate-checker path and fallback to both runtime surfaces", () => {
@@ -169,10 +177,14 @@ describe("claim-integrity checks in the canonical protocols", () => {
     for (const required of [
       "Experimental.",
       VERDICT_CHECK_ANCHOR,
+      "otherwise read each verdict sentence alone yourself, name them, and do not call the result independent.",
+      "Judge the named conditions by meaning, not wording.",
+      "different measure, population, or scope than the evidence addressed",
       "rewrite it so that it names them",
       "this check never blocks delivery",
       "It does not apply to conversational replies.",
       "Do not show the check in the answer",
+      "log a different but compatible naming separately from a mismatch.",
     ]) {
       expect(rule).toContain(required);
     }
