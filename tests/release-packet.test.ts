@@ -396,7 +396,7 @@ describe("AskRigor public-review packet", () => {
     expect(release).toContain("unofficial public YouTube interface");
     expect(readme).toContain("Universal Instructions `20.5.27`");
     expect(readme).toContain(
-      "e8a8271b9a402ac80d4368fdaa9d1bfaf0c47e15eeb66411e779109a9a5633cb",
+      "1e246a69db5d01f9a37147b5dfa65d2951dd76b11932097430d07d3f9f5b7db8",
     );
     expect(release).toContain("Deployed production protocols");
     expect(release).toContain(

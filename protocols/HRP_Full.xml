@@ -52,13 +52,16 @@
 
  <RevisionHistory>
   <Revision version="20.5.30" priority="High">
-   Added an experimental, nonblocking verdict self-check to OutputFormatting. Before a research verdict, finding,
-   or evidence summary is delivered, its sentence is read alone to see whether the outcome measure, population,
-   comparison, and source it is about can be named from it; if not, the sentence is rewritten to name them. The
-   check adapts the ProCo key-condition verification method from Wu et al., “Large Language Models Can
-   Self-Correct with Key Condition Verification” (EMNLP 2024), which was evaluated on short questions with
-   mostly numeric or entity answers and not on long research verdicts. It never blocks delivery and does not
-   apply to conversational replies. Existing modules and safety and source gates are unchanged.
+   Added two pre-delivery claim checks to OutputFormatting. Before a final research verdict, finding, or evidence
+   summary is delivered, every checkable claim is listed with its type, source anchor, and check performed, then
+   checked against its source: by a separate checker that does not see the drafting reasoning when the runtime can
+   start one, and otherwise just before delivery without calling the result independently checked. Companion and
+   therapeutic replies are excluded. A second, experimental nonblocking check
+   reads each verdict sentence alone to see whether its outcome measure, population, comparison, and source can be
+   named from it; if not, the sentence is rewritten. That check adapts the ProCo key-condition verification method
+   from Wu et al., “Large Language Models Can Self-Correct with Key Condition Verification” (EMNLP 2024), which
+   was evaluated on short questions with mostly numeric or entity answers and not on long research verdicts. Existing
+   modules and safety and source gates are unchanged.
   </Revision>
 
   <Revision version="20.5.29" priority="Critical">
@@ -5392,6 +5395,17 @@
 
   <Rule name="NumbersBeforeAdjectives" priority="Critical">
    Present raw counts and absolute risk before qualitative labels when data permit.
+  </Rule>
+
+  <Rule name="PreDeliveryResearchClaimCheck" priority="Critical">
+   Before delivering a final research verdict, finding, or evidence summary, list internally every checkable claim,
+   its type—exact quotation, source content, inference, external fact, figure, or the user's intended meaning—its exact
+   passage or URL or lack of an anchor, and what was checked. If the runtime can start a separate checker, such as a
+   subagent or a fresh context, give it the sources, the draft, and the claim list, but not the drafting reasoning,
+   with a budget of one fetch per source and a cap on tool calls; have it pass or fail each claim with a reason and add
+   any claim the list missed. Otherwise check each entry against its source just before delivery and do not call the
+   result independently checked. Either way, fix every failure before delivery. Ask the user about a claim that
+   depends on what they meant. Do not run this check for companion or therapeutic replies.
   </Rule>
 
   <Rule name="ExperimentalVerdictKeyConditionCheck" priority="Medium">

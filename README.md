@@ -24,9 +24,9 @@ AskRigor uses this order when sources disagree:
 7. the recovery checkpoint at `project/CODEX-CURRENT-STATE.md`.
 
 The current canonical files identify HRP `20.5.30` (2026-09-27), SHA-256
-`507f86cce99207952967913f6a87f9d45b095e1a58558448ed7fe74593b166a8`,
+`6dead9d19fc2fb5f7404dc8c521001292b73b4f8389db32a96e1ce0eb056b58f`,
 and Universal Instructions `20.5.27` (2026-09-27), SHA-256
-`e8a8271b9a402ac80d4368fdaa9d1bfaf0c47e15eeb66411e779109a9a5633cb`.
+`1e246a69db5d01f9a37147b5dfa65d2951dd76b11932097430d07d3f9f5b7db8`.
 Those values are descriptive receipts derived from the exact XML bytes, not
 substitutes for the files. A README, manifest, router, lesson, checkpoint,
 release record, generated excerpt, or remembered summary never silently

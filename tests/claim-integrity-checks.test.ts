@@ -23,7 +23,7 @@ function section(text: string, open: string, close: string): string {
   return text.slice(start, end + close.length);
 }
 
-// Anchor phrases for the claim-integrity checks (pack IDs CI-01 to CI-10, CI-X1).
+// Anchor phrases for the claim-integrity checks (pack IDs CI-01 to CI-11, CI-X1).
 // Each added anchor must appear exactly once, inside the section that owns it.
 const POINT_OF_GENERATION_ANCHORS: Record<string, string> = {
   "CI-01 source reports rest on a passage checked at the point of use":
@@ -50,6 +50,15 @@ const OWN_WORK_REVIEW_ANCHOR =
 // CI-05 was already covered by the existing sources rule; pin it so coverage cannot silently disappear.
 const EXISTING_CITATION_CHAIN_ANCHOR =
   "Check whether their references support the exact claims, whether citation chains have drifted";
+
+const UNIVERSAL_PRE_DELIVERY_ANCHOR =
+  "If the runtime can start a separate checker, such as a subagent or a fresh context";
+
+const HRP_PRE_DELIVERY_ANCHOR =
+  "If the runtime can start a separate checker, such as a subagent or a fresh context";
+
+const HRP_PRE_DELIVERY_RULE_OPEN =
+  '<Rule name="PreDeliveryResearchClaimCheck" priority="Critical">';
 
 const VERDICT_CHECK_ANCHOR =
   "without the analysis around it, and name which outcome measure, population, comparison, and source it is about.";
@@ -110,6 +119,48 @@ describe("claim-integrity checks in the canonical protocols", () => {
     expect(sources).toContain(EXISTING_CITATION_CHAIN_ANCHOR);
   });
 
+  it("adds the CI-11 conditional separate-checker path and fallback to both runtime surfaces", () => {
+    const checks = normalize(
+      section(universal, "<point_of_generation_checks>", "</point_of_generation_checks>"),
+    );
+    expect(occurrences(universal, UNIVERSAL_PRE_DELIVERY_ANCHOR)).toBe(1);
+    for (const required of [
+      UNIVERSAL_PRE_DELIVERY_ANCHOR,
+      "final critique of a text",
+      "review of the user's own work that they will act on",
+      "verification report",
+      "text the user will publish",
+      "but not the drafting reasoning",
+      "a budget of one fetch per source and a cap on tool calls",
+      "pass or fail each claim with a reason and add any claim the list missed",
+      "Otherwise check each entry against its source just before delivery and do not describe the result as independently checked.",
+      "Either way, fix every failure before delivery.",
+      "Ask the user about a claim that depends on what they meant.",
+      "Do not run this check for companion or therapeutic replies.",
+    ]) {
+      expect(checks).toContain(required);
+    }
+
+    const hrpRule = normalize(section(hrp, HRP_PRE_DELIVERY_RULE_OPEN, "</Rule>"));
+    const output = normalize(section(hrp, '<OutputFormatting priority="High">', "</OutputFormatting>"));
+    expect(occurrences(hrp, HRP_PRE_DELIVERY_RULE_OPEN)).toBe(1);
+    expect(occurrences(normalize(hrp), HRP_PRE_DELIVERY_ANCHOR)).toBe(1);
+    expect(output).toContain(hrpRule);
+    for (const required of [
+      HRP_PRE_DELIVERY_ANCHOR,
+      "final research verdict, finding, or evidence summary",
+      "but not the drafting reasoning",
+      "a budget of one fetch per source and a cap on tool calls",
+      "pass or fail each claim with a reason and add any claim the list missed",
+      "Otherwise check each entry against its source just before delivery and do not call the result independently checked.",
+      "Either way, fix every failure before delivery.",
+      "Ask the user about a claim that depends on what they meant.",
+      "Do not run this check for companion or therapeutic replies.",
+    ]) {
+      expect(hrpRule).toContain(required);
+    }
+  });
+
   it("adds the CI-X1 verdict self-check to HRP output formatting as experimental and nonblocking", () => {
     expect(occurrences(hrp, VERDICT_RULE_OPEN)).toBe(1);
     const output = normalize(section(hrp, '<OutputFormatting priority="High">', "</OutputFormatting>"));
@@ -135,8 +186,10 @@ describe("claim-integrity checks in the canonical protocols", () => {
       universal.match(/Added-fact check:[^\n]*/u)?.[0],
       universal.match(/ When the user disputes something already said,[^\n]*/u)?.[0],
       universal.match(/Consistency check:[^\n]*/u)?.[0],
+      universal.match(/Pre-delivery claim check:[^\n]*/u)?.[0],
       universal.match(/14\. When reviewing the user's own work,[^\n]*/u)?.[0],
       hrp.match(/<Revision version="20\.5\.30" priority="High">[\s\S]*?<\/Revision>/u)?.[0],
+      section(hrp, HRP_PRE_DELIVERY_RULE_OPEN, "</Rule>"),
       section(hrp, VERDICT_RULE_OPEN, "</Rule>"),
     ];
     for (const text of added) {
@@ -158,6 +211,7 @@ describe("claim-integrity checks in the canonical protocols", () => {
     const prior = hrp
       .replace('version="20.5.30" revisionDate="2026-09-27"', 'version="20.5.29" revisionDate="2026-09-12"')
       .replace(/ {2}<Revision version="20\.5\.30" priority="High">[\s\S]*?<\/Revision>\n\n/u, "")
+      .replace(/\n {2}<Rule name="PreDeliveryResearchClaimCheck" priority="Critical">[\s\S]*?<\/Rule>\n/u, "")
       .replace(/\n {2}<Rule name="ExperimentalVerdictKeyConditionCheck" priority="Medium">[\s\S]*?<\/Rule>\n/u, "");
     expect(sha256(prior)).toBe("254759df38934c28b06709dace9fcb266fc9967913be1296de99a461be596816");
   });

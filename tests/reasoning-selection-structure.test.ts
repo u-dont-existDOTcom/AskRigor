@@ -133,6 +133,7 @@ describe("canonical Reasoning Selection application", () => {
       .replace(/Added-fact check:[^\n]*\n/u, "")
       .replace(/ When the user disputes something already said,[^\n]*/u, "")
       .replace(/Consistency check:[^\n]*\n/u, "")
+      .replace(/Pre-delivery claim check:[^\n]*\n/u, "")
       .replace(/14\. When reviewing the user's own work,[^\n]*\n/u, "");
     expect(sha256(priorClaimIntegrityUniversal)).toBe(
       "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2",
@@ -240,7 +241,7 @@ describe("canonical Reasoning Selection application", () => {
     ]);
 
     expect(sha256(hrp)).toBe(
-      "507f86cce99207952967913f6a87f9d45b095e1a58558448ed7fe74593b166a8",
+      "6dead9d19fc2fb5f7404dc8c521001292b73b4f8389db32a96e1ce0eb056b58f",
     );
     expect(sha256(forum)).toBe(
       "75c088ba0edeb821d3d664d2f0b48b33f7dd3e627c01dfe830053d6dac2aed13",
