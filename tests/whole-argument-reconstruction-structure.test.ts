@@ -14,7 +14,7 @@ describe("Universal whole-argument reconstruction integration", () => {
     const text = await readFile(UNIVERSAL_URL, "utf8");
 
     expect(text).toMatch(
-      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.26" revisionDate="2026-09-17"/
+      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.27" revisionDate="2026-09-27"/
     );
 
     for (const required of [
@@ -48,7 +48,7 @@ describe("Universal whole-argument reconstruction integration", () => {
     );
     expect(universal).toContain("Accuracy outranks agreement");
     expect(sha256(hrp)).toBe(
-      "254759df38934c28b06709dace9fcb266fc9967913be1296de99a461be596816"
+      "507f86cce99207952967913f6a87f9d45b095e1a58558448ed7fe74593b166a8"
     );
   });
 });

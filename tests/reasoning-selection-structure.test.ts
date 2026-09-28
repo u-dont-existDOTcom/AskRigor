@@ -98,7 +98,7 @@ describe("canonical Reasoning Selection application", () => {
 
     expect(XMLValidator.validate(universal)).toBe(true);
     expect(universal).toMatch(
-      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.26" revisionDate="2026-09-17"/u,
+      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.27" revisionDate="2026-09-27"/u,
     );
     expect(Buffer.byteLength(REASONING_SELECTION_TEXT, "utf8")).toBe(2884);
     expect(sha256(REASONING_SELECTION_TEXT)).toBe(
@@ -126,7 +126,19 @@ describe("canonical Reasoning Selection application", () => {
       expect(occurrences(CURRENT_REASONING_SELECTION_TEXT, `- ${method}:`), method).toBe(1);
     }
 
-    const priorRecommendationUniversal = universal
+    const priorClaimIntegrityUniversal = universal
+      .replace('version="20.5.27" revisionDate="2026-09-27"', 'version="20.5.26" revisionDate="2026-09-17"')
+      .replace(/<revision version="20\.5\.27" priority="Critical">[\s\S]*?<\/revision>\n/u, "")
+      .replace(/Source-report check:[^\n]*\nQuotation check:[^\n]*\nAbsence-claim check:[^\n]*\nField-claim check:[^\n]*\nVerification-report check:[^\n]*\n/u, "")
+      .replace(/Added-fact check:[^\n]*\n/u, "")
+      .replace(/ When the user disputes something already said,[^\n]*/u, "")
+      .replace(/Consistency check:[^\n]*\n/u, "")
+      .replace(/14\. When reviewing the user's own work,[^\n]*\n/u, "");
+    expect(sha256(priorClaimIntegrityUniversal)).toBe(
+      "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2",
+    );
+
+    const priorRecommendationUniversal = priorClaimIntegrityUniversal
       .replace('version="20.5.26" revisionDate="2026-09-17"', 'version="20.5.25" revisionDate="2026-09-14"')
       .replace("Important-Task Optimization, Recommendation-Preflight Integrity, Approval", "Important-Task Optimization, Approval")
       .replace(/<revision version="20\.5\.26" priority="Critical">[\s\S]*?<\/revision>\n/u, "")
@@ -228,7 +240,7 @@ describe("canonical Reasoning Selection application", () => {
     ]);
 
     expect(sha256(hrp)).toBe(
-      "254759df38934c28b06709dace9fcb266fc9967913be1296de99a461be596816",
+      "507f86cce99207952967913f6a87f9d45b095e1a58558448ed7fe74593b166a8",
     );
     expect(sha256(forum)).toBe(
       "75c088ba0edeb821d3d664d2f0b48b33f7dd3e627c01dfe830053d6dac2aed13",

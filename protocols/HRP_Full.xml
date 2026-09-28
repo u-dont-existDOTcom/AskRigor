@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.5.29" revisionDate="2026-09-12" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.5.30" revisionDate="2026-09-27" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -51,6 +51,16 @@
 </InstructionObligationLifecycle>
 
  <RevisionHistory>
+  <Revision version="20.5.30" priority="High">
+   Added an experimental, nonblocking verdict self-check to OutputFormatting. Before a research verdict, finding,
+   or evidence summary is delivered, its sentence is read alone to see whether the outcome measure, population,
+   comparison, and source it is about can be named from it; if not, the sentence is rewritten to name them. The
+   check adapts the ProCo key-condition verification method from Wu et al., “Large Language Models Can
+   Self-Correct with Key Condition Verification” (EMNLP 2024), which was evaluated on short questions with
+   mostly numeric or entity answers and not on long research verdicts. It never blocks delivery and does not
+   apply to conversational replies. Existing modules and safety and source gates are unchanged.
+  </Revision>
+
   <Revision version="20.5.29" priority="Critical">
    Added explicit obligation boundaries to the existing protocol ledger so required research, qualifications, citations, and completion labels are verified at their actual action or delivery surface. Existing modules and safety/source gates remain unchanged.
   </Revision>
@@ -5382,6 +5392,16 @@
 
   <Rule name="NumbersBeforeAdjectives" priority="Critical">
    Present raw counts and absolute risk before qualitative labels when data permit.
+  </Rule>
+
+  <Rule name="ExperimentalVerdictKeyConditionCheck" priority="Medium">
+   Experimental. Before delivering a research verdict, finding, or evidence summary, read the verdict sentence alone,
+   without the analysis around it, and name which outcome measure, population, comparison, and source it is about.
+   If the sentence alone does not identify them, or would fit a different measure or population than the evidence
+   addressed, rewrite it so that it names them. The key-condition self-check this adapts was evaluated on short
+   questions, averaging 52.3 words, whose answers were mostly numbers or entities, not on long research verdicts, so
+   this check never blocks delivery. It does not apply to conversational replies. Do not show the check in the
+   answer; when a ledger is kept, note whether the check changed the wording.
   </Rule>
 
   <Rule name="EvidenceTable" priority="Medium">

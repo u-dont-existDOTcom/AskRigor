@@ -2,7 +2,7 @@
 
 ## Current source-only instruction candidate
 
-The 2026-09-14 Universal 20.5.25 claim-scope / predicate-alignment update is a source candidate, not installed-state or live-acceptance evidence. It preserves the 2026-09-12 instruction-obligation lifecycle as the 20.5.24 historical revision. Current generated identities are in `docs/custom-gpt-sync.json`; the corresponding instruction body is `docs/custom-gpt-instructions.md`. Earlier dated records below retain their original identities and observations. No installation, deployment, publication acceptance, or new live verification is claimed by this source update.
+The 2026-09-27 claim-integrity update (Universal 20.5.27 and HRP 20.5.30) is a source candidate, not installed-state or live-acceptance evidence. It adds point-of-generation claim checks to Universal and an experimental, nonblocking verdict self-check to HRP output formatting; the Universal 20.5.26 recommendation-preflight gate and the HRP 20.5.29 obligation boundaries remain as historical revisions. It awaits owner judgment through the ChatGPT reasoning surface before merge. Current generated identities are in `docs/custom-gpt-sync.json`; the corresponding instruction body is `docs/custom-gpt-instructions.md`. Earlier dated records below retain their original identities and observations. No installation, deployment, publication acceptance, or new live verification is claimed by this source update.
 
 
 ## 2026-09-01 Phase 2.2 zero-spend NOHARM pilot/freeze candidate

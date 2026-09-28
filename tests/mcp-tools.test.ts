@@ -1953,9 +1953,9 @@ describe("AskRigor MCP tools", () => {
         protocol: "hrp",
         manifest: {
           name: "HRP",
-          version: "20.5.29",
-          revisionDate: "2026-09-12",
-          sha256: "254759df38934c28b06709dace9fcb266fc9967913be1296de99a461be596816"
+          version: "20.5.30",
+          revisionDate: "2026-09-27",
+          sha256: "507f86cce99207952967913f6a87f9d45b095e1a58558448ed7fe74593b166a8"
         },
         text: canonicalText
       });
@@ -1989,9 +1989,9 @@ describe("AskRigor MCP tools", () => {
         protocol: "universal",
         manifest: {
           name: "AskRigor.com universal saved instructions",
-          version: "20.5.26",
-          revisionDate: "2026-09-17",
-          sha256: "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2"
+          version: "20.5.27",
+          revisionDate: "2026-09-27",
+          sha256: "e8a8271b9a402ac80d4368fdaa9d1bfaf0c47e15eeb66411e779109a9a5633cb"
         },
         text: canonicalText
       });
@@ -2072,9 +2072,9 @@ describe("AskRigor Streamable HTTP server", () => {
           protocol: "universal",
           manifest: {
             name: "AskRigor.com universal saved instructions",
-            version: "20.5.26",
-            revisionDate: "2026-09-17",
-            sha256: "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2"
+            version: "20.5.27",
+            revisionDate: "2026-09-27",
+            sha256: "e8a8271b9a402ac80d4368fdaa9d1bfaf0c47e15eeb66411e779109a9a5633cb"
           }
         });
       } finally {
@@ -2116,8 +2116,8 @@ describe("AskRigor Streamable HTTP server", () => {
           ok: true,
           protocol: "universal",
           manifest: {
-            version: "20.5.26",
-            sha256: "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2"
+            version: "20.5.27",
+            sha256: "e8a8271b9a402ac80d4368fdaa9d1bfaf0c47e15eeb66411e779109a9a5633cb"
           }
         });
       } finally {
