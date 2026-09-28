@@ -931,6 +931,21 @@ and whether the final answer is the last checked draft. Cost: one more
   video IDs, the pasted forum template) still read the whole draft, which only
   makes them stricter. The lane leaves out quotations too, as the caveats do:
   it must be the answer's own report. Two mutations each fail a test.
+- Codex on 76a455f (one P1, fixed): displayed prose kept Markdown link syntax,
+  so the lane matched words in a link's hidden destination
+  (`[details](/helped/no-effect/…)` shows only "details"); a link's title
+  could likewise carry a caveat. Inline text is now read in one left-to-right
+  pass in CommonMark's order: code, raw HTML, images and brackets, whichever
+  starts first, with a link's destination and title read from the source when
+  its closing bracket is reached (the first version handled code and HTML
+  before links, which read an angle-bracket destination as a tag; a unit test
+  caught it). Links are marked: the lane reads only their text, and the caveat
+  check binds each link by its destination, with whitespace encoded so a
+  destination can never supply caveat words. Titles and reference labels are
+  dropped; nested and undefined-reference cases fail closed; a work budget
+  keeps hostile brackets linear. A differential run with link constructs
+  (about 355,000 drafts) found no text counted that commonmark.js hides; 8
+  mutations each fail a test.
 
 ## Comment-audit call budget (2026-09-27)
 

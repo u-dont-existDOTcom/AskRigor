@@ -363,6 +363,18 @@ describe("finalize_research gate", () => {
       ]);
     }
     expect(lane(`Exercise helps most people with hip osteoarthritis.\n\n## YouTube comments\n\n- ${hidden}`)).toEqual([]);
+    // Nor do a link's destination (Codex's case), title or reference label: only its text is shown.
+    for (const linked of [
+      "[details](/helped/no-effect/adverse/creators/supports-answer)",
+      `[details](https://example.com "${hidden}")`,
+      `[details][${withoutEffect.replace(/[;.,']/gu, "")} consistent with the trials]`
+    ]) {
+      expect(lane(`Exercise helps most people with hip osteoarthritis.\n\n## YouTube comments\n\n${linked}`)).toEqual([
+        "The answer's YouTube comments section does not report benefit reports, no-effect reports, adverse reports, " +
+          "how creators differ from commenters, what the comments mean for the answer. Add each from must_report, and " +
+          "say none were reported where there were none."
+      ]);
+    }
 
     // Links keep their IDs and underscores; a short command is fine.
     const clean = finalizeResearchRaw({
@@ -957,7 +969,10 @@ describe("finalize_research gate", () => {
       `\n\n[1]: https://example.com "Search log. ${rateCaveat}"\n\n`,
       `\n\nSee <span title="Search log. ${rateCaveat}">the log</span>.\n\n`,
       // A comment that opens inside a paragraph cannot hide the fence on the next line.
-      `\n\nSearch log <!--\n\`\`\`\n--> ${rateCaveat}\n\n`
+      `\n\nSearch log <!--\n\`\`\`\n--> ${rateCaveat}\n\n`,
+      // Nor is a link's title or angle-bracket destination shown.
+      `\n\nSee [the log](https://example.com "Search log. ${rateCaveat}").\n\n`,
+      `\n\nSee [the log](<Search log. ${rateCaveat}>).\n\n`
     ]) {
       expect(answered(fullDraft.replace(rateCaveat, denial))).toEqual(leftOutRate);
     }

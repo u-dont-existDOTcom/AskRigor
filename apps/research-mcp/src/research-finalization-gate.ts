@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { displayedProse } from "./displayed-prose.js";
+import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
 import {
   issueResearchReceipt,
   RESEARCH_RECEIPT_MAX_CHARACTERS,
@@ -746,7 +746,7 @@ function answerDraftProblems(
   const prose = draft.replace(URL, " ");
   // What the answer must say is read from the prose a reader sees; what it must not show, from the whole draft.
   const shownBlocks = displayedProse(draft);
-  const shown = shownBlocks.join("\n\n").replace(URL, " ");
+  const shown = shownBlocks.map(visibleText).join("\n\n").replace(URL, " ");
   const labels = [...new Set([
     ...[...prose.matchAll(SNAKE_CASE_LABEL)].map(([label]) => label).filter((label) => !looksLikeVideoId(label)),
     ...[...prose.matchAll(CAPITALIZED_TOKEN)].map(([name]) => name).filter((name) => context.protocolNames.has(name)),
@@ -797,7 +797,7 @@ function answerDraftProblems(
   }
   // Each caveat the server wrote must reach the answer as a sentence of its own.
   // Only prose a reader sees counts: not code, comments, quotations or image descriptions.
-  const blocks = shownBlocks.map(caveatForm);
+  const blocks = shownBlocks.map((block) => caveatText(linkTargets(block)));
   const missingCaveats = context.caveats.filter((caveat) => !statesCaveat(blocks, caveat));
   if (missingCaveats.length > 0) {
     problems.push(
@@ -811,13 +811,12 @@ function answerDraftProblems(
 // Bounded and closed to brackets and parentheses, so a long draft is read in linear time.
 const MARKDOWN_LINK = /\[[^[\]\n]{0,500}\]\(([^\s()[\]]{1,2048})\)/gu;
 
-/**
- * Text as the caveat check compares it: a link by its target (so its text may
- * change), with quotes, dashes, emphasis, spacing and case ignored.
- */
-function caveatForm(text: string): string {
+/** A caveat as the check compares it: a link by its target, so its text may change. */
+const caveatForm = (caveat: string): string => caveatText(caveat.replace(MARKDOWN_LINK, "$1"));
+
+/** Text as the caveat check compares it: quotes, dashes, emphasis, spacing and case ignored. */
+function caveatText(text: string): string {
   return text
-    .replace(MARKDOWN_LINK, "$1")
     .replace(/[\u2018\u2019\u02BC]/gu, "'")
     .replace(/[\u201C\u201D]/gu, "\"")
     .replace(/[\u2013\u2014]/gu, "-")

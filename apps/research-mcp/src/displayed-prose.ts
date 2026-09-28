@@ -13,14 +13,21 @@
  * Only paragraphs and headings outside block quotes are returned. Inside
  * them, inline code becomes NOT_PROSE, raw HTML such as comments and tags is
  * dropped, and an image and the rest of its paragraph become NOT_PROSE, since
- * an image's description is not shown. What the parser does not model fails
- * closed: a paragraph that may be a link reference definition is left out,
- * and so is everything after nesting deeper than MAX_NESTING, which also
- * keeps a hostile draft to linear time.
+ * an image's description is not shown. A link keeps its text between
+ * LINK_OPEN and LINK_TARGET, then its destination before LINK_CLOSE; its
+ * title and a reference link's label are dropped. visibleText and
+ * linkTargets read these marks. What the parser does not model fails closed:
+ * a paragraph that may be a link reference definition is left out, and so is
+ * everything after nesting deeper than MAX_NESTING, which also keeps a
+ * hostile draft to linear time.
  */
 
 /** Stands for inline code or an image: shown, but not prose. */
 export const NOT_PROSE = "\u0000";
+/** Mark a link: LINK_OPEN, its shown text, LINK_TARGET, its destination (not shown), LINK_CLOSE. */
+export const LINK_OPEN = "\u0002";
+export const LINK_TARGET = "\u0003";
+export const LINK_CLOSE = "\u0004";
 
 const MAX_NESTING = 64;
 
@@ -56,7 +63,8 @@ export function displayedProse(markdown: string): string[] {
     open.push(block);
   };
 
-  for (const rawLine of markdown.split(/\r\n?|\n/u)) {
+  // The marks above never come from the draft itself (CommonMark shows U+0000 as U+FFFD too).
+  for (const rawLine of markdown.replace(/[\u0000\u0002-\u0004]/gu, "\uFFFD").split(/\r\n?|\n/u)) {
     const line = expandTabs(rawLine);
     let at = 0;
     // 1. Continue the open blocks, outermost first, until one does not continue.
@@ -428,12 +436,22 @@ function mayDefineLink(text: string): boolean {
 const BACKTICK = 96;
 
 /**
- * Paragraph or heading text as shown: inline code becomes NOT_PROSE, raw HTML
- * (comments, processing instructions, declarations, CDATA and tags, with
- * their attributes) is dropped, and an image, whose description is not shown,
- * ends the text with NOT_PROSE. As in CommonMark, whichever starts first wins,
- * a run of backticks opens a span that the next run of the same length
- * closes, and a run with no match is literal. Read in one pass, in linear time.
+ * Paragraph or heading text as shown, read left to right as CommonMark's
+ * inline parser does, whichever construct starts first winning:
+ * - inline code becomes NOT_PROSE: a run of backticks opens a span that the
+ *   next run of the same length closes, and a run with no match is literal;
+ * - raw HTML (comments, processing instructions, declarations, CDATA, and
+ *   tags with their attributes) is dropped;
+ * - an image, whose description is not shown, ends the text with NOT_PROSE;
+ * - at a closing bracket, an inline link's destination and title are read
+ *   from the source: the link's text stays between LINK_OPEN and LINK_TARGET,
+ *   its destination (whitespace encoded, so it can never read as prose)
+ *   follows before LINK_CLOSE, and its title is dropped. A reference link's
+ *   label is dropped too. Where CommonMark would show brackets literally (a
+ *   link inside a link, or a label with no definition), hiding them fails
+ *   closed.
+ * Reading link parts is bounded by a work budget; past it, the rest of the
+ * text is left out. The whole text is read in linear time.
  */
 function shownInline(text: string): string {
   const runs: Array<{ start: number; end: number }> = [];
@@ -450,41 +468,71 @@ function shownInline(text: string): string {
     closer[index] = laterByLength.get(length) ?? -1;
     laterByLength.set(length, index);
   }
-  let result = "";
-  let from = 0;
-  let run = 0;
-  let html = text.indexOf("<");
-  let image = text.indexOf("![");
-  for (;;) {
-    while (run < runs.length && runs[run]!.start < from) run += 1;
-    if (html >= 0 && html < from) html = text.indexOf("<", from);
-    if (image >= 0 && image < from) image = text.indexOf("![", from);
-    const tick = run < runs.length ? runs[run]!.start : -1;
-    const starts = [tick, html, image].filter((position) => position >= 0);
-    if (starts.length === 0) return result + text.slice(from);
-    const next = Math.min(...starts);
-    result += text.slice(from, next);
-    if (next === tick) {
-      const close = closer[run]!;
-      if (close < 0) {
-        result += text.slice(runs[run]!.start, runs[run]!.end);
-        from = runs[run]!.end;
-      } else {
-        result += NOT_PROSE;
-        from = runs[close]!.end;
-      }
-    } else if (next === html) {
-      const end = rawHtmlEnd(text, html);
-      if (end === undefined) {
-        result += "<";
-        from = html + 1;
-      } else {
-        from = end;
-      }
-    } else {
-      return result + NOT_PROSE;
+  const runAt = new Map(runs.map((run, index) => [run.start, index]));
+  const parts: string[] = [];
+  // Where each open bracket sits in `parts`.
+  const openers: number[] = [];
+  let budget = 4 * text.length + 4_096;
+  let at = 0;
+  while (at < text.length) {
+    const character = text[at]!;
+    if (character === "\\") {
+      parts.push(text.slice(at, at + 2));
+      at += 2;
+      continue;
     }
+    const run = character === "`" ? runAt.get(at) : undefined;
+    if (run !== undefined) {
+      const close = closer[run]!;
+      parts.push(close < 0 ? text.slice(runs[run]!.start, runs[run]!.end) : NOT_PROSE);
+      at = close < 0 ? runs[run]!.end : runs[close]!.end;
+      continue;
+    }
+    if (character === "<") {
+      const end = rawHtmlEnd(text, at);
+      if (end !== undefined) {
+        at = end;
+        continue;
+      }
+    } else if (character === "!" && text[at + 1] === "[") {
+      parts.push(NOT_PROSE);
+      return parts.join("");
+    } else if (character === "[") {
+      openers.push(parts.length);
+    } else if (character === "]" && openers.length > 0) {
+      const open = openers.pop()!;
+      const tail = inlineLinkTail(text, at + 1, budget);
+      budget = tail.budget;
+      if (tail.kind === "link") {
+        parts[open] = LINK_OPEN;
+        parts.push(LINK_TARGET + tail.destination.replace(/\s/gu, "%20") + LINK_CLOSE);
+        at = tail.end;
+        continue;
+      }
+      if (tail.kind === "none" && text[at + 1] === "[") {
+        // A reference link's label ends at the next unescaped "]"; an unescaped "[" means none.
+        let labelEnd = at + 2;
+        for (; labelEnd < text.length && text[labelEnd] !== "]" && text[labelEnd] !== "["; labelEnd += 1) {
+          if ((budget -= 1) < 0) break;
+          if (text[labelEnd] === "\\") labelEnd += 1;
+        }
+        if (budget >= 0 && text[labelEnd] === "]") {
+          parts[open] = "";
+          at = labelEnd + 1;
+          continue;
+        }
+      }
+      if (budget < 0) {
+        // Past the budget, the text from this link on is left out.
+        parts.length = open;
+        parts.push(NOT_PROSE);
+        return parts.join("");
+      }
+    }
+    parts.push(character);
+    at += 1;
   }
+  return parts.join("");
 }
 
 /**
@@ -511,4 +559,102 @@ function commentEnd(text: string, open: number): number {
   const close = text.indexOf("-->", open + 4);
   // An unclosed comment hides the rest, which fails closed.
   return close < 0 ? text.length : close + 3;
+}
+
+type LinkTail =
+  | { kind: "link"; end: number; destination: string; budget: number }
+  | { kind: "none"; budget: number }
+  | { kind: "over_budget"; budget: number };
+
+/**
+ * An inline link's "(destination "title")" starting at `at`, as CommonMark
+ * defines it: a destination in angle brackets, or without spaces and with
+ * balanced parentheses; then, after a space, an optional title in double or
+ * single quotes or parentheses; then the closing parenthesis.
+ */
+function inlineLinkTail(text: string, at: number, startBudget: number): LinkTail {
+  let budget = startBudget;
+  if (text[at] !== "(") return { kind: "none", budget };
+  let index = nonSpace(text, at + 1);
+  let destination: string;
+  if (text[index] === "<") {
+    let end = index + 1;
+    for (; end < text.length && text[end] !== ">"; end += 1) {
+      if ((budget -= 1) < 0) return { kind: "over_budget", budget };
+      if (text[end] === "<") return { kind: "none", budget };
+      if (text[end] === "\\") end += 1;
+    }
+    if (end >= text.length) return { kind: "none", budget };
+    destination = text.slice(index + 1, end);
+    index = end + 1;
+  } else {
+    let depth = 0;
+    let end = index;
+    for (; end < text.length; end += 1) {
+      if ((budget -= 1) < 0) return { kind: "over_budget", budget };
+      const character = text[end]!;
+      if (character === "\\") {
+        end += 1;
+      } else if (character === " " || character.charCodeAt(0) < 32) {
+        break;
+      } else if (character === "(") {
+        depth += 1;
+      } else if (character === ")") {
+        if (depth === 0) break;
+        depth -= 1;
+      }
+    }
+    if (depth !== 0) return { kind: "none", budget };
+    destination = text.slice(index, end);
+    index = end;
+  }
+  const spaced = nonSpace(text, index);
+  const quote = text[spaced];
+  if (spaced > index && (quote === "\"" || quote === "'" || quote === "(")) {
+    const closer = quote === "(" ? ")" : quote;
+    let end = spaced + 1;
+    for (; end < text.length && text[end] !== closer; end += 1) {
+      if ((budget -= 1) < 0) return { kind: "over_budget", budget };
+      if (text[end] === "\\") end += 1;
+      else if (quote === "(" && text[end] === "(") return { kind: "none", budget };
+    }
+    if (end >= text.length) return { kind: "none", budget };
+    index = nonSpace(text, end + 1);
+  } else {
+    index = spaced;
+  }
+  return text[index] === ")" ? { kind: "link", end: index + 1, destination, budget } : { kind: "none", budget };
+}
+
+/** Marked text as the reader sees it: link text without destinations. */
+export function visibleText(text: string): string {
+  let result = "";
+  let from = 0;
+  for (let target = text.indexOf(LINK_TARGET); target >= 0; target = text.indexOf(LINK_TARGET, from)) {
+    result += text.slice(from, target);
+    const close = text.indexOf(LINK_CLOSE, target);
+    from = close < 0 ? text.length : close + 1;
+  }
+  return (result + text.slice(from)).replaceAll(LINK_OPEN, "");
+}
+
+/** Marked text with each link replaced by its destination, so a link's text may vary. */
+export function linkTargets(text: string): string {
+  const parts: string[] = [];
+  const starts: number[] = [];
+  for (let at = 0; at < text.length; at += 1) {
+    const character = text[at]!;
+    if (character === LINK_OPEN) {
+      starts.push(parts.length);
+    } else if (character === LINK_TARGET) {
+      parts.length = starts.pop() ?? parts.length;
+      const close = text.indexOf(LINK_CLOSE, at);
+      const end = close < 0 ? text.length : close;
+      parts.push(text.slice(at + 1, end));
+      at = end;
+    } else {
+      parts.push(character);
+    }
+  }
+  return parts.join("");
 }
