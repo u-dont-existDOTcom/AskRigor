@@ -26,6 +26,10 @@ import {
  */
 
 const youtubeVideoIdSchema = z.string().regex(/^[A-Za-z0-9_-]{11}$/u);
+const communityPlatformSchema = z.enum([
+  "youtube", "reddit", "forum", "facebook", "telegram", "discord", "patient_organization", "review_site", "other"
+]);
+const communityFindingText = z.string().trim().min(1).max(800);
 
 export const finalizeResearchInputSchema = z.object({
   receipts: z.array(z.string().max(RESEARCH_RECEIPT_MAX_CHARACTERS)).max(300)
@@ -65,6 +69,33 @@ export const finalizeResearchInputSchema = z.object({
       "how creators differ from independent commenters, and what this changes in the answer. Summarize; do not quote " +
       "or name commenters. Needed whenever a comment audit ran, even if the signal was weak or neutral; the answer " +
       "must report it (must_report)."),
+  principal_communities: z.array(z.object({
+    name: z.string().trim().min(1).max(120).describe("As its users know it, such as r/trt, MESO-Rx or YouTube."),
+    platform: communityPlatformSchema
+  }).strict()).min(1).max(8).optional()
+    .describe("Where people discussing this actually talk, the dominant first: subreddits, specialist forums, " +
+      "Facebook groups, patient organizations, YouTube. Needed when community evidence is researched; search the " +
+      "dominant one and at least one independent one."),
+  single_community_reason: z.string().trim().min(1).max(500).optional()
+    .describe("Why only one community discusses this, when principal_communities lists one."),
+  community_searches: z.array(z.object({
+    community: z.string().trim().min(1).max(120).describe("The community searched, named as in principal_communities."),
+    platform: communityPlatformSchema.exclude(["youtube"]),
+    queries: z.array(z.string().trim().min(1).max(300)).min(1).max(10),
+    threads_read: z.array(z.object({
+      url: z.string().trim().url().max(2_048),
+      title: z.string().trim().min(1).max(300).optional()
+    }).strict()).max(30).default([]),
+    access_boundary: z.enum(["no_web_search", "login_required", "blocked", "no_relevant_results"]).optional(),
+    benefit_reports: communityFindingText.optional(),
+    no_effect_reports: communityFindingText.optional(),
+    adverse_reports: communityFindingText.optional(),
+    effect_on_answer: communityFindingText.optional()
+  }).strict()).max(12).optional()
+    .describe("Each community outside YouTube that you searched with your own web search: the queries, the threads " +
+      "you read and what they showed (benefit, no-effect and adverse reports with rough counts, and the effect on " +
+      "the answer), or the access boundary that stopped the search. Summarize; do not quote or name posters. " +
+      "YouTube goes through its own tools."),
   key_sources: z.array(z.object({
     id: z.string().trim().min(1).max(300).describe("DOI, PMID or PMCID."),
     status: z.enum(["validated", "lead_only"]),
@@ -108,7 +139,9 @@ export const finalizeResearchOutputSchema = z.object({
     first_pass_complete: z.boolean(),
     open_leads: z.array(z.string()),
     audited_videos: z.array(z.string()),
-    material_videos: z.array(z.string())
+    material_videos: z.array(z.string()),
+    principal_communities: z.array(z.string()),
+    communities_searched: z.array(z.string())
   }).strict(),
   sources: z.object({
     validated: z.array(z.string()),
@@ -168,7 +201,9 @@ export function finalizeResearch(
         first_pass_complete: false,
         open_leads: [],
         audited_videos: [],
-        material_videos: []
+        material_videos: [],
+        principal_communities: (input.principal_communities ?? []).map(({ name }) => name),
+        communities_searched: []
       },
       sources: { validated: [], lead_only: [] },
       answer_checked: false
@@ -199,6 +234,9 @@ export function finalizeResearch(
     limits.push(text);
     caveats.push(...sentences);
   };
+  // What the communities outside YouTube showed, reported after the YouTube lane.
+  const communityLanes: string[] = [];
+  let communitiesSearched: string[] = [];
   if (rejected.length > 0) {
     nextSteps.push(
       `${rejected.length} receipt(s) failed verification; pass each research_receipt exactly as the tool returned it.`
@@ -264,153 +302,162 @@ export function finalizeResearch(
   if (input.community_evidence === "not_relevant") {
     if (input.not_relevant_reason === undefined) {
       nextSteps.push(
-        "Give not_relevant_reason, or research community evidence: scout_gemini_youtube_candidates " +
-          "(survey_youtube_community only if the scout is unavailable), then audit_youtube_video_community for each " +
-          "material video."
+        "Give not_relevant_reason, or research community evidence: name where people discussing this talk in " +
+          "principal_communities and search the dominant one and an independent one (YouTube with " +
+          "scout_gemini_youtube_candidates and audit_youtube_video_community, the others with your web search)."
       );
     }
   } else {
-    // Any discovery round counts: the Gemini scout is the primary route, and
-    // YouTube's own search is capped at 100 calls a day per project.
-    if (rounds.length === 0) {
-      nextSteps.push(
-        "Find community videos with scout_gemini_youtube_candidates (survey_youtube_community only if the scout is " +
-          "unavailable), audit each material video, and pass the remedies its comments name back to the scout as " +
-          "rediscovery_leads (a video or creator as video:<id>)." +
-          (offTarget.length === 0
-            ? ""
-            : ` ${offTarget.length} discovery receipt(s) passed here were made for another research target or none; ` +
-              "give every tool the same research_target (research_question for surveys and community audits).")
-      );
-    }
-    if (partialSurveys > 0) {
-      requireLimit(
-        `${partialSurveys} community survey(s) were only partly completed (some searches failed or hit limits); ` +
-          "say the community picture may be incomplete.",
-        "Some YouTube searches failed or hit limits, so the community picture may be incomplete."
-      );
-    }
-    materialVideos = [...new Set(input.material_video_ids ?? auditedVideos)].sort();
-    const saturation = discoverySaturation(rounds, new Set(materialVideos), input.research_depth);
-    saturated = saturation.saturated;
-    // A first pass is a broad sweep with a cap: it may stop before saturation
-    // once enough is audited or searched, and then hands back its open leads.
-    // Its rounds come from new angles, so a repeated query does not count.
-    const auditedMaterial = materialVideos.filter((video) => audited.has(video)).length;
-    const angles = new Set(rounds.map((round) => text(round.claims.q) || `${round.kind}#${round.index}`)).size;
-    // A search YouTube's rate limit or daily quota stopped cannot rerun until
-    // it resets, so it ends a first pass as an open lead; deep research waits.
-    firstPassComplete = input.research_depth === "first_pass" &&
-      (saturated || auditedMaterial >= FIRST_PASS_AUDITED_VIDEOS || angles >= FIRST_PASS_ROUNDS ||
-        saturation.rateLimited > 0);
-    if (!saturated && firstPassComplete) {
-      if (openLeads.length === 0) {
+    const communities = input.principal_communities;
+    const youtubeResearched = rounds.length > 0 || audited.size > 0 || communityAudited.size > 0;
+    // YouTube is one of the places people talk, not the whole community lane:
+    // its checks run when it is the dominant community, when it was researched
+    // anyway, or when there is no map yet. Otherwise it is optional, like any
+    // other community beyond the dominant one and an independent one.
+    if (communities === undefined || youtubeResearched || communities[0]!.platform === "youtube") {
+      // Any discovery round counts: the Gemini scout is the primary route, and
+      // YouTube's own search is capped at 100 calls a day per project.
+      if (rounds.length === 0) {
         nextSteps.push(
-          "The first pass is done but discovery has not saturated: list open_leads (each topic or subtopic where more " +
-            "community signal is likely, and why) so the answer can offer another pass." +
-            (saturation.rateLimited > 0 ? " Include the searches YouTube's rate limit or daily quota stopped." : "")
+          "Find community videos with scout_gemini_youtube_candidates (survey_youtube_community only if the scout is " +
+            "unavailable), audit each material video, and pass the remedies its comments name back to the scout as " +
+            "rediscovery_leads (a video or creator as video:<id>)." +
+            (offTarget.length === 0
+              ? ""
+              : ` ${offTarget.length} discovery receipt(s) passed here were made for another research target or none; ` +
+                "give every tool the same research_target (research_question for surveys and community audits).")
         );
-      } else {
-        const estimate = input.another_pass_estimate === undefined ? undefined : withoutEndPunctuation(input.another_pass_estimate);
-        if (estimate === undefined || !PASS_COST_AMOUNT.test(estimate)) {
+      }
+      if (partialSurveys > 0) {
+        requireLimit(
+          `${partialSurveys} community survey(s) were only partly completed (some searches failed or hit limits); ` +
+            "say the community picture may be incomplete.",
+          "Some YouTube searches failed or hit limits, so the community picture may be incomplete."
+        );
+      }
+      materialVideos = [...new Set(input.material_video_ids ?? auditedVideos)].sort();
+      const saturation = discoverySaturation(rounds, new Set(materialVideos), input.research_depth);
+      saturated = saturation.saturated;
+      // A first pass is a broad sweep with a cap: it may stop before saturation
+      // once enough is audited or searched, and then hands back its open leads.
+      // Its rounds come from new angles, so a repeated query does not count.
+      const auditedMaterial = materialVideos.filter((video) => audited.has(video)).length;
+      const angles = new Set(rounds.map((round) => text(round.claims.q) || `${round.kind}#${round.index}`)).size;
+      // A search YouTube's rate limit or daily quota stopped cannot rerun until
+      // it resets, so it ends a first pass as an open lead; deep research waits.
+      firstPassComplete = input.research_depth === "first_pass" &&
+        (saturated || auditedMaterial >= FIRST_PASS_AUDITED_VIDEOS || angles >= FIRST_PASS_ROUNDS ||
+          saturation.rateLimited > 0);
+      if (!saturated && firstPassComplete) {
+        if (openLeads.length === 0) {
           nextSteps.push(
-            "Give another_pass_estimate: roughly what another pass over the open leads would take, with a number and " +
-              "unit (for example, \"about 20 minutes and 15 YouTube searches\")."
+            "The first pass is done but discovery has not saturated: list open_leads (each topic or subtopic where more " +
+              "community signal is likely, and why) so the answer can offer another pass." +
+              (saturation.rateLimited > 0 ? " Include the searches YouTube's rate limit or daily quota stopped." : "")
           );
         } else {
-          requireLimit(
-            `First pass only; discovery had not saturated. End the answer with the open leads (${openLeads.join("; ")}), ` +
-              "in plain language for the user (no video IDs or internal codes), why each looks promising and roughly what " +
-              "another pass would cost, and ask whether to continue on all or part.",
-            ...(input.open_leads ?? []).map(({ topic, why }) => `Open lead: ${topic.trim()}. ${asSentence(why)}`),
-            `Another pass would take ${estimate}; want me to continue with all or some of these leads?`
-          );
+          const estimate = input.another_pass_estimate === undefined ? undefined : withoutEndPunctuation(input.another_pass_estimate);
+          if (estimate === undefined || !PASS_COST_AMOUNT.test(estimate)) {
+            nextSteps.push(
+              "Give another_pass_estimate: roughly what another pass over the open leads would take, with a number and " +
+                "unit (for example, \"about 20 minutes and 15 YouTube searches\")."
+            );
+          } else {
+            requireLimit(
+              `First pass only; discovery had not saturated. End the answer with the open leads (${openLeads.join("; ")}), ` +
+                "in plain language for the user (no video IDs or internal codes), why each looks promising and roughly what " +
+                "another pass would cost, and ask whether to continue on all or part.",
+              ...(input.open_leads ?? []).map(({ topic, why }) => `Open lead: ${topic.trim()}. ${asSentence(why)}`),
+              `Another pass would take ${estimate}; want me to continue with all or some of these leads?`
+            );
+          }
+          if (saturation.rateLimited > 0) {
+            const stopped = saturation.rateLimited;
+            requireLimit(
+              `YouTube's rate limit or daily quota stopped ${stopped} search(es) in the latest discovery ` +
+                "rounds; say so, and that another pass can rerun them once the limit resets.",
+              `YouTube's daily search limit stopped ${stopped === 1 ? "1 search" : `${stopped} searches`} in this first ` +
+                `pass; another pass can rerun ${stopped === 1 ? "it" : "them"} after the limit resets.`
+            );
+          }
         }
-        if (saturation.rateLimited > 0) {
-          const stopped = saturation.rateLimited;
-          requireLimit(
-            `YouTube's rate limit or daily quota stopped ${stopped} search(es) in the latest discovery ` +
-              "rounds; say so, and that another pass can rerun them once the limit resets.",
-            `YouTube's daily search limit stopped ${stopped === 1 ? "1 search" : `${stopped} searches`} in this first ` +
-              `pass; another pass can rerun ${stopped === 1 ? "it" : "them"} after the limit resets.`
-          );
-        }
-      }
-    } else {
-      nextSteps.push(...saturation.nextSteps);
-    }
-    if (materialVideos.length === 0 && (saturated || firstPassComplete)) {
-      if (discovered.size === 0) {
-        if (saturation.rateLimited > 0) {
-          requireLimit(
-            "No video turned up before YouTube's rate limit or daily quota stopped discovery; say that community " +
-              "evidence could not be checked yet, not that it is thin.",
-            "YouTube's search limit stopped discovery before any video turned up, so community evidence could not be " +
-              "checked yet."
-          );
-        } else {
-          requireLimit(
-            `No video turned up in ${rounds.length} discovery rounds; say that community evidence on this is thin.`,
-            `No relevant video turned up in ${rounds.length === 1 ? "1 round" : `${rounds.length} rounds`} of ` +
-              "searching, so community evidence on this is thin."
-          );
-        }
-      } else if (input.no_material_video_reason === undefined) {
-        nextSteps.push(
-          `Discovery found ${discovered.size} video(s) but none is in material_video_ids: audit each one that adds an approach ` +
-            "or substantial firsthand experience, or give no_material_video_reason."
-        );
       } else {
-        requireLimit(
-          `None of the ${discovered.size} video(s) found in ${rounds.length} discovery rounds was worth auditing; ` +
-            "say that community evidence on this is thin.",
-          discovered.size === 1
-            ? "The only video found was not worth a close look, so community evidence on this is thin."
-            : `None of the ${discovered.size} videos found was worth a close look, so community evidence on this is thin.`
-        );
+        nextSteps.push(...saturation.nextSteps);
+      }
+      if (materialVideos.length === 0 && (saturated || firstPassComplete)) {
+        if (discovered.size === 0) {
+          if (saturation.rateLimited > 0) {
+            requireLimit(
+              "No video turned up before YouTube's rate limit or daily quota stopped discovery; say that community " +
+                "evidence could not be checked yet, not that it is thin.",
+              "YouTube's search limit stopped discovery before any video turned up, so community evidence could not be " +
+                "checked yet."
+            );
+          } else {
+            requireLimit(
+              `No video turned up in ${rounds.length} discovery rounds; say that community evidence on this is thin.`,
+              `No relevant video turned up in ${rounds.length === 1 ? "1 round" : `${rounds.length} rounds`} of ` +
+                "searching, so community evidence on this is thin."
+            );
+          }
+        } else if (input.no_material_video_reason === undefined) {
+          nextSteps.push(
+            `Discovery found ${discovered.size} video(s) but none is in material_video_ids: audit each one that adds an approach ` +
+              "or substantial firsthand experience, or give no_material_video_reason."
+          );
+        } else {
+          requireLimit(
+            `None of the ${discovered.size} video(s) found in ${rounds.length} discovery rounds was worth auditing; ` +
+              "say that community evidence on this is thin.",
+            discovered.size === 1
+              ? "The only video found was not worth a close look, so community evidence on this is thin."
+              : `None of the ${discovered.size} videos found was worth a close look, so community evidence on this is thin.`
+          );
+        }
+      }
+      const partlyRead: string[] = [];
+      const unfinished: string[] = [];
+      for (const video of materialVideos) {
+        if (!discovered.has(video)) {
+          nextSteps.push(offTargetVideos.has(video)
+            ? `Video ${video} was found only by discovery for another research target; rerun discovery with this ` +
+              "research_target, or drop it from material_video_ids."
+            : `Video ${video} is not among the videos found by the surveys, scouts or searches whose receipts were passed; ` +
+              "pass the receipt of the discovery call that found it, or drop it from material_video_ids.");
+        }
+        const audit = audited.get(video);
+        if (audit === undefined) {
+          nextSteps.push(
+            (communityAudited.has(video) ? `Video ${video} has only a one-call community audit. ` : "") +
+              `Audit video ${video} with audit_youtube_video_community and continue until the audit completes.`
+          );
+          continue;
+        }
+        if (audit.state === "completed_with_access_boundary") {
+          requireLimit(`Comments on video ${video} were only partly accessible; treat its community signal as bounded.`);
+          partlyRead.push(video);
+        } else if (audit.lock === "block") {
+          requireLimit(
+            `The comment audit of video ${video} ended with blockers; its community signal cannot carry a conclusion on its own.`
+          );
+          unfinished.push(video);
+        }
+      }
+      if (partlyRead.length > 0) {
+        caveats.push(partlyRead.length === 1
+          ? `Some comments on ${videoLink(partlyRead[0]!, "this video")} could not be read, so its comment evidence is incomplete.`
+          : "Some comments could not be read on these videos, so their comment evidence is incomplete: " +
+            `${partlyRead.map((video, index) => videoLink(video, `video ${index + 1}`)).join(", ")}.`);
+      }
+      if (unfinished.length > 0) {
+        caveats.push(unfinished.length === 1
+          ? `The comment review of ${videoLink(unfinished[0]!, "this video")} ended with problems, so its comments cannot ` +
+            "support a conclusion on their own."
+          : "The comment reviews of these videos ended with problems, so their comments cannot support a conclusion on " +
+            `their own: ${unfinished.map((video, index) => videoLink(video, `video ${index + 1}`)).join(", ")}.`);
       }
     }
-    const partlyRead: string[] = [];
-    const unfinished: string[] = [];
-    for (const video of materialVideos) {
-      if (!discovered.has(video)) {
-        nextSteps.push(offTargetVideos.has(video)
-          ? `Video ${video} was found only by discovery for another research target; rerun discovery with this ` +
-            "research_target, or drop it from material_video_ids."
-          : `Video ${video} is not among the videos found by the surveys, scouts or searches whose receipts were passed; ` +
-            "pass the receipt of the discovery call that found it, or drop it from material_video_ids.");
-      }
-      const audit = audited.get(video);
-      if (audit === undefined) {
-        nextSteps.push(
-          (communityAudited.has(video) ? `Video ${video} has only a one-call community audit. ` : "") +
-            `Audit video ${video} with audit_youtube_video_community and continue until the audit completes.`
-        );
-        continue;
-      }
-      if (audit.state === "completed_with_access_boundary") {
-        requireLimit(`Comments on video ${video} were only partly accessible; treat its community signal as bounded.`);
-        partlyRead.push(video);
-      } else if (audit.lock === "block") {
-        requireLimit(
-          `The comment audit of video ${video} ended with blockers; its community signal cannot carry a conclusion on its own.`
-        );
-        unfinished.push(video);
-      }
-    }
-    if (partlyRead.length > 0) {
-      caveats.push(partlyRead.length === 1
-        ? `Some comments on ${videoLink(partlyRead[0]!, "this video")} could not be read, so its comment evidence is incomplete.`
-        : "Some comments could not be read on these videos, so their comment evidence is incomplete: " +
-          `${partlyRead.map((video, index) => videoLink(video, `video ${index + 1}`)).join(", ")}.`);
-    }
-    if (unfinished.length > 0) {
-      caveats.push(unfinished.length === 1
-        ? `The comment review of ${videoLink(unfinished[0]!, "this video")} ended with problems, so its comments cannot ` +
-          "support a conclusion on their own."
-        : "The comment reviews of these videos ended with problems, so their comments cannot support a conclusion on " +
-          `their own: ${unfinished.map((video, index) => videoLink(video, `video ${index + 1}`)).join(", ")}.`);
-    }
+    communitiesSearched = communityCoverage(input, youtubeResearched, { nextSteps, requireLimit, lanes: communityLanes });
   }
 
   // Comments that were read must reach the answer, even when their signal is
@@ -449,6 +496,8 @@ export function finalizeResearch(
       mustReport.push(communityLane(findings, findings.videos_reviewed.filter((video) => commentVideos.has(video)).length));
     }
   }
+
+  mustReport.push(...communityLanes);
 
   // Treatment coverage. The latest assess_treatment_landscape_coverage result
   // for this research target binds the answer, and a treatment comparison
@@ -645,6 +694,9 @@ export function finalizeResearch(
       videoIds: [...new Set([...discovered, ...auditedAtAll])],
       protocolNames: options.protocolNames ?? new Set(),
       caveats,
+      communitiesRead: (input.community_searches ?? [])
+        .filter((search) => search.threads_read.length > 0 && communitiesSearched.includes(search.community))
+        .map(({ community, platform }) => ({ name: community, platform })),
       ...(input.community_findings === undefined ? {} : { effectOnAnswer: input.community_findings.effect_on_answer })
     }));
   }
@@ -671,7 +723,9 @@ export function finalizeResearch(
       first_pass_complete: firstPassComplete,
       open_leads: openLeads,
       audited_videos: auditedVideos,
-      material_videos: materialVideos
+      material_videos: materialVideos,
+      principal_communities: (input.principal_communities ?? []).map(({ name }) => name),
+      communities_searched: communitiesSearched
     },
     sources: { validated: validatedSources, lead_only: leadSources },
     answer_checked: draft !== undefined
@@ -738,6 +792,7 @@ function answerDraftProblems(
     videoIds: string[];
     protocolNames: ReadonlySet<string>;
     caveats: readonly string[];
+    communitiesRead: readonly { name: string; platform: string }[];
     effectOnAnswer?: string;
   }
 ): string[] {
@@ -794,6 +849,15 @@ function answerDraftProblems(
           "and say none were reported where there were none."
       );
     }
+  }
+  // Each community searched beyond YouTube is named where the answer reports it.
+  const unreported = context.communitiesRead.filter(({ name, platform }) =>
+    !shown.toLowerCase().includes(name.toLowerCase()) && !(platform === "reddit" && /reddit/iu.test(shown)));
+  if (unreported.length > 0) {
+    problems.push(
+      `The answer does not report what ${unreported.map(({ name }) => name).join(", ")} showed. Add each lane from ` +
+        "must_report, naming the community, even if its signal is weak."
+    );
   }
   // Each caveat the server wrote must reach the answer as a sentence of its own.
   // Only prose a reader sees counts: not code, comments, quotations or image descriptions.
@@ -930,6 +994,147 @@ function communityLane(
     `No effect: ${findings.no_effect_reports} Adverse: ${findings.adverse_reports} Creators versus commenters: ` +
     `${findings.creators_versus_commenters} Effect on the answer: ${findings.effect_on_answer} Report this lane in ` +
     "the answer even if later sources dominate; if its signal is weak, say so.";
+}
+
+const COMMUNITY_FINDINGS = ["benefit_reports", "no_effect_reports", "adverse_reports", "effect_on_answer"] as const;
+const YOUTUBE_HOST = /(?:^|\.)(?:youtube\.com|youtu\.be)$/u;
+const REDDIT_HOST = /(?:^|\.)(?:reddit\.com|redd\.it)$/u;
+
+type CommunitySearch = NonNullable<FinalizeResearchInput["community_searches"]>[number];
+
+/**
+ * How one community matches across fields: its name's letters and digits,
+ * lowercased. YouTube is one community however many entries name it, so two
+ * YouTube entries cannot stand for independent communities.
+ */
+function communityKey(name: string, platform?: string): string {
+  return platform === "youtube" ? "youtube" : name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+function hostOf(url: string): string {
+  try {
+    // URL in this module is the link pattern, so the constructor comes from globalThis.
+    return new globalThis.URL(url).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function boundaryCaveat(name: string, boundary: NonNullable<CommunitySearch["access_boundary"]>): string {
+  switch (boundary) {
+    case "no_web_search": return `I could not search ${name} from this app, so reports there are not included.`;
+    case "login_required": return `${name} needs a login to read, so reports there are not included.`;
+    case "blocked": return `${name} blocked access, so reports there are not included.`;
+    case "no_relevant_results": return `A search of ${name} turned up no relevant reports.`;
+  }
+}
+
+function forumLane(search: CommunitySearch): string {
+  return `${search.community} (${search.threads_read.length} thread(s) read): Benefits: ${search.benefit_reports} ` +
+    `No effect: ${search.no_effect_reports} Adverse: ${search.adverse_reports} Effect on the answer: ` +
+    `${search.effect_on_answer} Report this lane in the answer, naming ${search.community}, even if its signal is weak.`;
+}
+
+/**
+ * The community lane beyond YouTube (HRP PrincipalPlatformMapping,
+ * MultipleIndependentCommunities, ActualSearchRequired). A YouTube receipt
+ * covers YouTube only: research that audited YouTube but never searched where
+ * people mostly talk, such as Reddit or a specialist forum, is not done (owner
+ * report, 2026-09-29). Those searches run on the client's own web search, so
+ * the model records them here. Returns the communities counted as searched.
+ */
+function communityCoverage(
+  input: FinalizeResearchInput,
+  youtubeResearched: boolean,
+  out: { nextSteps: string[]; requireLimit: (text: string, ...sentences: string[]) => void; lanes: string[] }
+): string[] {
+  const communities = input.principal_communities;
+  if (communities === undefined) {
+    out.nextSteps.push(
+      "Name where people discussing this actually talk in principal_communities, the dominant first (subreddits, " +
+        "specialist forums, Facebook groups, patient organizations, YouTube). Then search the dominant one and at " +
+        "least one independent one: YouTube with its tools, the others with your own web search, recorded in " +
+        "community_searches."
+    );
+    return [];
+  }
+  // Key -> name as given.
+  const searched = new Map<string, string>();
+  if (youtubeResearched) {
+    searched.set("youtube", communities.find(({ platform }) => platform === "youtube")?.name ?? "YouTube");
+  }
+  for (const search of input.community_searches ?? []) {
+    const name = search.community;
+    const hosts = search.threads_read.map(({ url }) => hostOf(url));
+    if (hosts.some((host) => YOUTUBE_HOST.test(host))) {
+      out.nextSteps.push(`community_searches for ${name} lists YouTube links; research YouTube with its own tools.`);
+      continue;
+    }
+    if (search.platform === "reddit" && hosts.some((host) => !REDDIT_HOST.test(host))) {
+      out.nextSteps.push(
+        `community_searches for ${name} is on Reddit but lists links elsewhere; list the Reddit threads you read.`
+      );
+      continue;
+    }
+    if (search.threads_read.length === 0 && search.access_boundary === undefined) {
+      out.nextSteps.push(
+        `community_searches for ${name} lists no thread read: add the threads you read, or the access_boundary ` +
+          "that stopped the search."
+      );
+      continue;
+    }
+    searched.set(communityKey(name), name);
+    if (search.access_boundary !== undefined) {
+      out.requireLimit(
+        search.access_boundary === "no_relevant_results"
+          ? `The search of ${name} found no relevant reports; say so.`
+          : `The search of ${name} ended at an access boundary (${search.access_boundary}); say so.`,
+        boundaryCaveat(name, search.access_boundary)
+      );
+    }
+    if (search.threads_read.length === 0) continue;
+    const missing = COMMUNITY_FINDINGS.filter((field) => search[field] === undefined);
+    if (missing.length > 0) {
+      out.nextSteps.push(
+        `Say what ${name} showed: give ${missing.join(", ")} in its community_searches entry, even if the signal is ` +
+          "weak or neutral."
+      );
+    } else {
+      out.lanes.push(forumLane(search));
+    }
+  }
+  const dominant = communities[0]!;
+  if (dominant.platform !== "youtube" && !searched.has(communityKey(dominant.name, dominant.platform))) {
+    out.nextSteps.push(
+      `Search ${dominant.name}, the community listed first, with your web search and record it in ` +
+        "community_searches, or the access boundary that stops you."
+    );
+  }
+  const listed = new Set(communities.map(({ name, platform }) => communityKey(name, platform)));
+  if (listed.size === 1 && searched.size <= 1) {
+    if (input.single_community_reason === undefined) {
+      out.nextSteps.push(
+        "principal_communities lists one community: name an independent one (another platform, forum or discussion " +
+          "pool) and search it, or give single_community_reason."
+      );
+    } else {
+      out.requireLimit(
+        "Only one community discusses this; say that the community evidence rests on it alone.",
+        "Only one community seems to discuss this, so the community evidence rests on a single group."
+      );
+    }
+  } else if (searched.size < 2) {
+    const others = [...new Map(communities
+      .filter(({ name, platform }) => !searched.has(communityKey(name, platform)))
+      .map(({ name, platform }) => [communityKey(name, platform), name])).values()];
+    out.nextSteps.push(
+      "Search at least one more community, independent of " +
+        `${searched.size === 0 ? "the first" : [...searched.values()].join(", ")}` +
+        `${others.length === 0 ? "" : ` (${others.join(", ")})`}: YouTube with its tools, the others with your web ` +
+        "search recorded in community_searches, or record the access boundary that stops you."
+    );
+  }
+  return [...searched.values()];
 }
 
 interface VerifiedReceipt {

@@ -1118,7 +1118,8 @@ function defineResearchOperations(
     "audit_youtube_community",
     {
       description:
-        "Use before synthesis whenever firsthand community evidence could plausibly matter. In one read-only call, search YouTube, deduplicate bounded provider-ranked videos, retrieve metadata, unfiltered comments and all accessible replies, and return a deterministic completion receipt; no medical conclusions are generated. " +
+        "YouTube community evidence in one read-only call: search YouTube, deduplicate bounded provider-ranked videos, retrieve metadata, unfiltered comments and all accessible replies, and return a deterministic receipt for these videos; no medical conclusions are generated. " +
+          "It covers YouTube only: use it when YouTube is one of the places people discussing the question talk, and search the others, such as Reddit or a specialist forum, with your own web search. " +
           "research_question must be the research_target given to the other tools.",
       inputSchema: youtubeCommunityAuditInputSchema,
       outputSchema: mcpYoutubeCommunityAuditOutputSchema,
@@ -1137,7 +1138,7 @@ function defineResearchOperations(
         result = youtubeCommunityAuditFailure(input);
         failed = true;
       }
-      const summary = `YouTube community audit selected ${result.receipt.selected_video_ids.length} video(s); completion state ${result.receipt.completion_state}; synthesis lock ${result.receipt.synthesis_lock}.`;
+      const summary = `YouTube community audit selected ${result.receipt.selected_video_ids.length} video(s); comment retrieval ${result.receipt.completion_state}; YouTube comments lock ${result.receipt.synthesis_lock} (these videos only).`;
       // The Custom GPT Action bounds the full audit itself.
       if (isActionCall(extra)) return youtubeToolResult(summary, result);
       // An incomplete audit still signs what it found and the searches a limit
@@ -1199,7 +1200,7 @@ function defineResearchOperations(
     "survey_youtube_community",
     {
       description:
-        "Survey bounded YouTube video candidates for a community-evidence question and return deduplicated metadata, canonical watch links, provider comment counts, pagination, and access receipts; no medical conclusions are generated. " +
+        "Survey bounded YouTube video candidates for a community-evidence question and return deduplicated metadata, canonical watch links, provider comment counts, pagination, and access receipts; no medical conclusions are generated. It covers YouTube only. " +
           "For research, research_question must be the research_target given to the other tools.",
       inputSchema: youtubeCommunitySurveyInputSchema,
       outputSchema: youtubeCommunitySurveyOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
@@ -1238,7 +1239,7 @@ function defineResearchOperations(
     "audit_youtube_video_community",
     {
       description:
-        "Retrieve one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation. Returns exact retrieved-versus-analyzed counts, usable partial-corpus records for bounded review, and a separate completion receipt; no medical conclusions are generated. Sample records are compact: id, reply_to, a per-video pseudonymous author key for counting distinct people, date, likes, text.",
+        "Retrieve one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation. Returns exact retrieved-versus-analyzed counts and a separate receipt covering this video only; the comment sample comes with the last page (or when the chain stops), for bounded review; no medical conclusions are generated. Sample records are compact: id, reply_to, a per-video pseudonymous author key for counting distinct people, date, likes, text.",
       inputSchema: MCP_YOUTUBE_VIDEO_AUDIT_INPUT_SCHEMA,
       outputSchema: mcpYoutubeVideoCommunityAuditOutputSchema,
       annotations: READ_ONLY_ANNOTATIONS
@@ -1274,7 +1275,7 @@ function defineResearchOperations(
       } finally {
         releaseLongSlot?.();
       }
-      const summary = `YouTube video audit retrieved ${result.records_retrieved_cumulative} record(s) cumulatively; synthesis lock ${result.receipt.synthesis_lock}.`;
+      const summary = `YouTube video audit retrieved ${result.records_retrieved_cumulative} record(s) cumulatively; this video's comments lock ${result.receipt.synthesis_lock} (this video only).`;
       // The Custom GPT Action bounds the full audit itself.
       if (actionCall) return youtubeToolResult(summary, result);
       const complete = result.receipt.completion_state !== "incomplete";
@@ -1677,7 +1678,9 @@ function defineResearchOperations(
         "Call before the final answer. Pass every research_receipt you received, the research_target (the same text " +
         "given to the scout, search_youtube and the coverage check, and as research_question to surveys and community " +
         "audits; discovery for any other target does not count), whether community evidence was researched, whether " +
-        "the answer compares treatment options, what the comments you read showed (community_findings), the " +
+        "the answer compares treatment options, where people discussing it talk and what each community you searched " +
+        "outside YouTube showed (principal_communities, community_searches), what the YouTube comments you read showed " +
+        "(community_findings), the " +
         "studies your conclusions depend on, and the answer you are about to give (answer_draft), which is checked " +
         "for internal labels, bare video IDs, a pasted long prompt, the comment lane and the caveats, and is not " +
         "stored. not_ready lists the remaining steps; ready_with_limits lists limits, and caveats gives the " +
@@ -1734,8 +1737,9 @@ function reservedResultBytes(text: string, receipt: string | undefined): number 
 }
 // A pass lock says the comments were retrieved, not that they reached the answer.
 const MCP_COMMENT_FINDINGS_HANDOFF =
-  "The synthesis lock covers comment retrieval only. Note now what these comments show (benefit, no-effect and " +
-  "adverse reports), and give it to finalize_research as community_findings, even if the signal is weak or neutral.";
+  "This lock covers retrieving these YouTube comments only; other communities and the final check are separate. " +
+  "Note now what these comments show (benefit, no-effect and adverse reports), and give it to finalize_research as " +
+  "community_findings, even if the signal is weak or neutral.";
 const MCP_COMMENTS_NOT_SHOWN =
   "No comment fitted in this view; read each video's comments with audit_youtube_video_community.";
 const MCP_VIDEO_COMMENTS_NOT_SHOWN =

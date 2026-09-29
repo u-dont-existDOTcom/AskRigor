@@ -12,6 +12,7 @@ import {
 } from "../apps/research-mcp/src/youtube-video-community-audit.js";
 import {
   compactYoutubeAuditForMcp,
+  YOUTUBE_VIDEO_AUDIT_SCOPE,
   YoutubeMcpResponseTooLargeError
 } from "../apps/research-mcp/src/youtube-mcp-sample.js";
 
@@ -247,7 +248,14 @@ describe("adaptive per-video YouTube community audit", () => {
     expect(Buffer.byteLength(serialized, "utf8")).toBeLessThanOrEqual(40_000);
     expect(serialized).not.toContain("@person");
     expect(serialized).not.toContain("UC0000");
-    expect(view.receipt).toEqual(original.receipt);
+    // The view names the lock for what it covers: this one video only.
+    const { completion_state: originalState, synthesis_lock: originalLock, ...originalChecks } = original.receipt;
+    expect(view.receipt).toEqual({
+      scope: YOUTUBE_VIDEO_AUDIT_SCOPE,
+      comment_retrieval_state: originalState,
+      video_comments_lock: originalLock,
+      ...originalChecks
+    });
     expect(view.records_retrieved_cumulative).toBe(200);
     const sample = view.sample!;
     expect(sample.comments.length).toBe(view.records_returned_for_analysis);

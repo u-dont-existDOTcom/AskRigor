@@ -281,7 +281,7 @@ describe("AskRigor MCP tools", () => {
       const audit = tools.find(({ name }) => name === "audit_youtube_video_community");
 
       expect(survey).toMatchObject({
-        description: "Survey bounded YouTube video candidates for a community-evidence question and return deduplicated metadata, canonical watch links, provider comment counts, pagination, and access receipts; no medical conclusions are generated. " +
+        description: "Survey bounded YouTube video candidates for a community-evidence question and return deduplicated metadata, canonical watch links, provider comment counts, pagination, and access receipts; no medical conclusions are generated. It covers YouTube only. " +
           "For research, research_question must be the research_target given to the other tools.",
         annotations: READ_ONLY_ANNOTATIONS,
         inputSchema: {
@@ -310,7 +310,7 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(audit).toMatchObject({
-        description: "Retrieve one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation. Returns exact retrieved-versus-analyzed counts, usable partial-corpus records for bounded review, and a separate completion receipt; no medical conclusions are generated. Sample records are compact: id, reply_to, a per-video pseudonymous author key for counting distinct people, date, likes, text.",
+        description: "Retrieve one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation. Returns exact retrieved-versus-analyzed counts and a separate receipt covering this video only; the comment sample comes with the last page (or when the chain stops), for bounded review; no medical conclusions are generated. Sample records are compact: id, reply_to, a per-video pseudonymous author key for counting distinct people, date, likes, text.",
         annotations: READ_ONLY_ANNOTATIONS,
         inputSchema: {
           type: "object",
@@ -337,7 +337,7 @@ describe("AskRigor MCP tools", () => {
       expect(audit!.outputSchema.properties.receipt).toMatchObject({
         type: "object",
         required: [
-          "completion_state", "synthesis_lock", "chain_started_at_first_page",
+          "scope", "comment_retrieval_state", "video_comments_lock", "chain_started_at_first_page",
           "top_level_pagination_exhausted", "replies_reconciled",
           "query_bounded_comments_used_as_corpus", "blockers"
         ],
@@ -357,7 +357,8 @@ describe("AskRigor MCP tools", () => {
 
       expect(audit).toMatchObject({
         description:
-          "Use before synthesis whenever firsthand community evidence could plausibly matter. In one read-only call, search YouTube, deduplicate bounded provider-ranked videos, retrieve metadata, unfiltered comments and all accessible replies, and return a deterministic completion receipt; no medical conclusions are generated. " +
+          "YouTube community evidence in one read-only call: search YouTube, deduplicate bounded provider-ranked videos, retrieve metadata, unfiltered comments and all accessible replies, and return a deterministic receipt for these videos; no medical conclusions are generated. " +
+          "It covers YouTube only: use it when YouTube is one of the places people discussing the question talk, and search the others, such as Reddit or a specialist forum, with your own web search. " +
           "research_question must be the research_target given to the other tools.",
         annotations: READ_ONLY_ANNOTATIONS,
         inputSchema: {
@@ -403,7 +404,7 @@ describe("AskRigor MCP tools", () => {
       expect(audit!.outputSchema.properties.receipt).toMatchObject({
         type: "object",
         required: [
-          "completion_state", "synthesis_lock", "searches_requested",
+          "scope", "comment_retrieval_state", "youtube_comments_lock", "searches_requested",
           "searches_completed", "selected_video_ids",
           "unfiltered_retrieval_attempted_for_all", "replies_requested_for_all",
           "pagination_exhausted_for_complete_videos",
@@ -451,9 +452,10 @@ describe("AskRigor MCP tools", () => {
       expect(result.isError).not.toBe(true);
       expect((result.content as unknown[])[0]).toEqual({
         type: "text",
-        text: "YouTube community audit selected 1 video(s); completion state api_visible_complete; synthesis lock pass. " +
-          "The synthesis lock covers comment retrieval only. Note now what these comments show (benefit, no-effect and " +
-          "adverse reports), and give it to finalize_research as community_findings, even if the signal is weak or neutral."
+        text: "YouTube community audit selected 1 video(s); comment retrieval api_visible_complete; YouTube comments lock " +
+          "pass (these videos only). This lock covers retrieving these YouTube comments only; other communities and the " +
+          "final check are separate. Note now what these comments show (benefit, no-effect and adverse reports), and " +
+          "give it to finalize_research as community_findings, even if the signal is weak or neutral."
       });
       // MCP gets compact records: a per-video pseudonymous author key, never
       // the commenter's display name or channel ID.
@@ -479,8 +481,8 @@ describe("AskRigor MCP tools", () => {
         record_type: "youtube_community_audit",
         access_status: "api_visible_complete",
         receipt: {
-          completion_state: "api_visible_complete",
-          synthesis_lock: "pass",
+          comment_retrieval_state: "api_visible_complete",
+          youtube_comments_lock: "pass",
           selected_video_ids: ["XpZHKGGCK-o"],
           query_bounded_comments_used_as_corpus: false
         },
@@ -553,7 +555,7 @@ describe("AskRigor MCP tools", () => {
       expect(result.isError).not.toBe(true);
       expect(result.structuredContent).toMatchObject({
         records_retrieved_cumulative: 250,
-        receipt: { completion_state: "api_visible_complete", synthesis_lock: "pass" }
+        receipt: { comment_retrieval_state: "api_visible_complete", video_comments_lock: "pass" }
       });
       expect((result.structuredContent as { research_receipt?: string }).research_receipt).toEqual(expect.any(String));
       // Cut to fit, and filled close to the budget.
@@ -627,7 +629,7 @@ describe("AskRigor MCP tools", () => {
       expect(view.sample.comments).toEqual([]);
       expect((result.content as unknown[])[0]).toEqual({
         type: "text",
-        text: "YouTube video audit retrieved 1 record(s) cumulatively; synthesis lock pass. No comment fitted in this " +
+        text: "YouTube video audit retrieved 1 record(s) cumulatively; this video's comments lock pass (this video only). No comment fitted in this " +
           "view, so none was returned; say in the answer that this video's comments could not be shown."
       });
       expect(verifyResearchReceipt(view.research_receipt, { secret: "mcp-continuation-secret-value-32-bytes" }))
@@ -720,7 +722,7 @@ describe("AskRigor MCP tools", () => {
       // receipt asks finalize_research for no findings on them.
       expect((result.content as unknown[])[0]).toEqual({
         type: "text",
-        text: "YouTube community audit selected 3 video(s); completion state api_visible_complete; synthesis lock pass. " +
+        text: "YouTube community audit selected 3 video(s); comment retrieval api_visible_complete; YouTube comments lock pass (these videos only). " +
           "No comment fitted in this view; read each video's comments with audit_youtube_video_community."
       });
       expect(verifyResearchReceipt(view.research_receipt, { secret: "mcp-continuation-secret-value-32-bytes" }))
@@ -932,10 +934,14 @@ describe("AskRigor MCP tools", () => {
         provider_reported_comments: "7",
         records_retrieved_this_call: 1,
         records_retrieved_cumulative: 1,
-        records_returned_for_analysis: 1,
+        records_returned_for_analysis: 0,
         continuation_recommended: true,
-        receipt: { completion_state: "incomplete", synthesis_lock: "block" }
+        receipt: { comment_retrieval_state: "incomplete", video_comments_lock: "block" }
       });
+      // Mid-chain, the comment sample waits for the audit's last page.
+      expect((first.structuredContent as { sample?: unknown }).sample).toBeUndefined();
+      expect((first.structuredContent as { limitations: string[] }).limitations)
+        .toContain("The comment sample comes with this audit's last page; continue with continuation_token to read it.");
       const token = (first.structuredContent as { continuation_token: string }).continuation_token;
       expect(token).toEqual(expect.any(String));
 
@@ -950,9 +956,10 @@ describe("AskRigor MCP tools", () => {
       const researchReceipt = (second.structuredContent as { research_receipt: string }).research_receipt;
       expect(second.content).toEqual([{
         type: "text",
-        text: "YouTube video audit retrieved 6 record(s) cumulatively; synthesis lock pass. The synthesis lock covers " +
-          "comment retrieval only. Note now what these comments show (benefit, no-effect and adverse reports), and " +
-          "give it to finalize_research as community_findings, even if the signal is weak or neutral."
+        text: "YouTube video audit retrieved 6 record(s) cumulatively; this video's comments lock pass (this video only). " +
+          "This lock covers retrieving these YouTube comments only; other communities and the final check are separate. " +
+          "Note now what these comments show (benefit, no-effect and adverse reports), and give it to finalize_research " +
+          "as community_findings, even if the signal is weak or neutral."
       }, {
         type: "text",
         text: `research_receipt: ${researchReceipt}`
@@ -980,8 +987,8 @@ describe("AskRigor MCP tools", () => {
           sampled_count: 6
         },
         receipt: {
-          completion_state: "api_visible_complete",
-          synthesis_lock: "pass",
+          comment_retrieval_state: "api_visible_complete",
+          video_comments_lock: "pass",
           top_level_pagination_exhausted: true,
           replies_reconciled: true
         }
@@ -1015,7 +1022,7 @@ describe("AskRigor MCP tools", () => {
       expect(result.isError).toBe(true);
       expect(result.content).toEqual([{
         type: "text",
-        text: "YouTube video audit retrieved 0 record(s) cumulatively; synthesis lock block. Error: youtube_video_community_audit_failed. YouTube video community audit failed before reaching a valid completion state."
+        text: "YouTube video audit retrieved 0 record(s) cumulatively; this video's comments lock block (this video only). Error: youtube_video_community_audit_failed. YouTube video community audit failed before reaching a valid completion state."
       }]);
       expect(result.structuredContent).toMatchObject({
         provider: "youtube",
@@ -1023,8 +1030,8 @@ describe("AskRigor MCP tools", () => {
         access_status: "error",
         error: { code: "youtube_video_community_audit_failed" },
         receipt: {
-          completion_state: "incomplete",
-          synthesis_lock: "block"
+          comment_retrieval_state: "incomplete",
+          video_comments_lock: "block"
         }
       });
       expect(JSON.stringify(result)).not.toContain("mcp-youtube-secret");
@@ -1080,12 +1087,12 @@ describe("AskRigor MCP tools", () => {
       expect(invalid.structuredContent).toMatchObject({
         error: { code: "youtube_video_audit_continuation_invalid" },
         limitations: [expect.stringMatching(/restart.*video/i)],
-        receipt: { completion_state: "incomplete", synthesis_lock: "block" }
+        receipt: { comment_retrieval_state: "incomplete", video_comments_lock: "block" }
       });
       expect(expired.structuredContent).toMatchObject({
         error: { code: "youtube_video_audit_continuation_expired" },
         limitations: [expect.stringMatching(/restart.*video/i)],
-        receipt: { completion_state: "incomplete", synthesis_lock: "block" }
+        receipt: { comment_retrieval_state: "incomplete", video_comments_lock: "block" }
       });
     } finally {
       restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
@@ -1180,8 +1187,8 @@ describe("AskRigor MCP tools", () => {
         limitations: [expect.stringMatching(/cannot prove.*already accepted/i)],
         continuation_recommended: false,
         receipt: {
-          completion_state: "completed_with_access_boundary",
-          synthesis_lock: "pass",
+          comment_retrieval_state: "completed_with_access_boundary",
+          video_comments_lock: "pass",
           blockers: []
         }
       });
@@ -1277,8 +1284,8 @@ describe("AskRigor MCP tools", () => {
         corpus_rolling_sha256: "c".repeat(64),
         limitations: [expect.stringMatching(/moving provider pagination/i)],
         receipt: {
-          completion_state: "completed_with_access_boundary",
-          synthesis_lock: "pass"
+          comment_retrieval_state: "completed_with_access_boundary",
+          video_comments_lock: "pass"
         }
       });
       expect(result.structuredContent).not.toHaveProperty("error");

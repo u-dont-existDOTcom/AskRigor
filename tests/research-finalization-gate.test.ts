@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 import {
-  finalizeResearch as finalizeResearchRaw,
+  finalizeResearch as finalizeResearchBare,
   normalizeIdentifier,
   protocolNamesFrom
 } from "../apps/research-mcp/src/research-finalization-gate.js";
@@ -47,16 +47,38 @@ const commentVideos = (receipts: readonly string[]) => [...new Set(receipts.flat
 const CLEAN_DRAFT = "Exercise therapy has the strongest evidence for hip osteoarthritis. People commenting on " +
   "YouTube videos about it reported less pain after several months; a few noticed no change, and none reported side " +
   "effects. The channels' creators sell programs; the commenters have no stake. This weak firsthand signal supports " +
-  "trying exercise before surgery.";
+  "trying exercise before surgery. On Reddit, members of r/HipOA described similar slow gains.";
 // It also carries every caveat the gate writes, as the answer would, so tests
 // of other checks pass the caveat check; its own tests pass drafts.
 const PASS_ESTIMATE = "about 20 minutes and 15 YouTube searches";
 const caveatedDraft = (input: Record<string, unknown>, gateOptions: typeof options): string => [
   CLEAN_DRAFT,
-  ...finalizeResearchRaw({ another_pass_estimate: PASS_ESTIMATE, ...input, answer_draft: CLEAN_DRAFT }, gateOptions).caveats
+  ...finalizeResearchRaw({
+    another_pass_estimate: PASS_ESTIMATE, ...communityDefaults(input), ...input, answer_draft: CLEAN_DRAFT
+  }, gateOptions).caveats
 ].join(" ");
+// Community research also searches beyond YouTube; tests of other checks get a
+// map with YouTube and a subreddit, and a read of the subreddit.
+const REDDIT_SEARCH = {
+  community: "r/HipOA",
+  platform: "reddit",
+  queries: ["hip osteoarthritis avoided replacement"],
+  threads_read: [{ url: "https://www.reddit.com/r/HipOA/comments/abc123/avoided_surgery/" }],
+  benefit_reports: "About half of about 20 posters reported slow gains from exercise.",
+  no_effect_reports: "A few reported no change.",
+  adverse_reports: "None reported.",
+  effect_on_answer: "Consistent with the YouTube comments."
+};
+const communityDefaults = (input: Record<string, unknown>) =>
+  input.community_evidence !== "researched" || "principal_communities" in input ? {} : {
+    principal_communities: [{ name: "YouTube", platform: "youtube" }, { name: "r/HipOA", platform: "reddit" }],
+    community_searches: [REDDIT_SEARCH]
+  };
+// Every call gets the community defaults unless it passes its own map.
+const finalizeResearchRaw = (input: Record<string, unknown>, gateOptions: Parameters<typeof finalizeResearchBare>[1]) =>
+  finalizeResearchBare({ ...communityDefaults(input), ...input }, gateOptions);
 const finalizeResearchGate = (input: Record<string, unknown>, gateOptions: typeof options) => {
-  const request = { another_pass_estimate: PASS_ESTIMATE, ...input };
+  const request = { another_pass_estimate: PASS_ESTIMATE, ...communityDefaults(input), ...input };
   return finalizeResearchRaw(
     "answer_draft" in input ? request : { ...request, answer_draft: caveatedDraft(input, gateOptions) },
     gateOptions
@@ -245,12 +267,158 @@ describe("finalize_research gate", () => {
       first_pass_complete: true,
       open_leads: [],
       audited_videos: ["aaaaaaaaaaa"],
-      material_videos: ["aaaaaaaaaaa"]
+      material_videos: ["aaaaaaaaaaa"],
+      principal_communities: ["YouTube", "r/HipOA"],
+      communities_searched: ["YouTube", "r/HipOA"]
     });
     const permit = verifyResearchReceipt(result.finalization_receipt!, options);
     expect(permit.ok && permit.kind).toBe("finalization");
     expect(permit.ok && permit.claims.status).toBe("ready");
     expect(result.answer_checked).toBe(true);
+  });
+
+  it("does not take YouTube research for the whole community lane (the HGH versus testosterone report)", () => {
+    // Owner report, 29 Sep: "How much healthier is injecting HGH vs testosterone?" was answered after a YouTube
+    // audit alone, though long-term users mostly report on Reddit and specialist forums. The receipts here are the
+    // complete YouTube research of the ready case; only the community lane is under test.
+    const youtubeOnly = {
+      receipts: [survey, emptySearch, repeatScout, videoA, study],
+      community_evidence: "researched",
+      treatment_choice: "not_compared",
+      research_target: TARGET,
+      key_sources: [{ id: "https://doi.org/10.1002/ART.41142", status: "validated" }]
+    };
+    const communities = [
+      { name: "r/trt", platform: "reddit" },
+      { name: "MESO-Rx", platform: "forum" },
+      { name: "YouTube", platform: "youtube" }
+    ];
+    const trt = {
+      community: "r/trt",
+      platform: "reddit",
+      queries: ["hgh vs trt long term side effects"],
+      threads_read: [{ url: "https://old.reddit.com/r/trt/comments/xyz789/hgh_and_trt_five_years/" }],
+      benefit_reports: "Most of about 30 long-term users reported better recovery on either.",
+      no_effect_reports: "Several said growth hormone added little over testosterone.",
+      adverse_reports: "Joint pain, carpal tunnel and raised blood sugar on growth hormone; acne and high hematocrit on testosterone.",
+      effect_on_answer: "Supports naming the growth hormone side effects first."
+    };
+    const reported = `${CLEAN_DRAFT} On r/trt, long-term users reported joint pain and raised blood sugar on growth hormone.`;
+    const gate = (input: Record<string, unknown>) => finalizeResearch({ ...youtubeOnly, ...input }, options);
+
+    // No map: YouTube alone does not finish the community lane.
+    expect(finalizeResearchBare({ ...youtubeOnly, community_findings: findingsFor(["aaaaaaaaaaa"]) }, options).next_steps)
+      .toContain(
+        "Name where people discussing this actually talk in principal_communities, the dominant first (subreddits, " +
+          "specialist forums, Facebook groups, patient organizations, YouTube). Then search the dominant one and at " +
+          "least one independent one: YouTube with its tools, the others with your own web search, recorded in " +
+          "community_searches."
+      );
+    // A map whose communities outside YouTube went unsearched.
+    const unsearched = gate({ principal_communities: communities, community_searches: [] });
+    expect(unsearched.status).toBe("not_ready");
+    expect(unsearched.next_steps).toEqual([
+      "Search r/trt, the community listed first, with your web search and record it in community_searches, or the " +
+        "access boundary that stops you.",
+      "Search at least one more community, independent of YouTube (r/trt, MESO-Rx): YouTube with its tools, the " +
+        "others with your web search recorded in community_searches, or record the access boundary that stops you."
+    ]);
+    expect(unsearched.finalization_receipt).toBeUndefined();
+
+    // The dominant subreddit, read and reported, completes it.
+    const searched = gate({ principal_communities: communities, community_searches: [trt], answer_draft: reported });
+    expect(searched.status).toBe("ready");
+    expect(searched.community).toMatchObject({
+      principal_communities: ["r/trt", "MESO-Rx", "YouTube"],
+      communities_searched: ["YouTube", "r/trt"]
+    });
+    expect(searched.must_report).toEqual([
+      expect.stringMatching(/^YouTube comments \(1 video\(s\) read\): /u),
+      expect.stringMatching(/^r\/trt \(1 thread\(s\) read\): Benefits: Most of about 30 long-term users/u)
+    ]);
+    // The answer must report it, naming the community (or, for a subreddit, Reddit).
+    const withoutForums = CLEAN_DRAFT.replace(/ On Reddit, .*$/u, "");
+    expect(gate({ principal_communities: communities, community_searches: [trt], answer_draft: withoutForums }).next_steps)
+      .toEqual([
+        "The answer does not report what r/trt showed. Add each lane from must_report, naming the community, even " +
+          "if its signal is weak."
+      ]);
+    // Findings are needed for a community that was read.
+    const { benefit_reports: _benefit, effect_on_answer: _effect, ...unreported } = trt;
+    expect(gate({ principal_communities: communities, community_searches: [unreported] }).next_steps).toContain(
+      "Say what r/trt showed: give benefit_reports, effect_on_answer in its community_searches entry, even if the " +
+        "signal is weak or neutral."
+    );
+
+    // An access boundary counts as searched, and the answer says so.
+    const facebook = [{ name: "TRT Facebook group", platform: "facebook" }, { name: "YouTube", platform: "youtube" }];
+    const gated = { community: "TRT Facebook group", platform: "facebook", queries: ["hgh trt"], access_boundary: "login_required" };
+    const bounded = gate({ principal_communities: facebook, community_searches: [gated] });
+    expect(bounded.status).toBe("ready_with_limits");
+    expect(bounded.caveats).toContain("TRT Facebook group needs a login to read, so reports there are not included.");
+
+    // Two YouTube entries are one community: YouTube alone needs a stated reason.
+    const twoYoutube = [{ name: "YouTube", platform: "youtube" }, { name: "YouTube TRT channels", platform: "youtube" }];
+    expect(gate({ principal_communities: twoYoutube }).next_steps).toEqual([
+      "principal_communities lists one community: name an independent one (another platform, forum or discussion " +
+        "pool) and search it, or give single_community_reason."
+    ]);
+    const alone = gate({
+      principal_communities: [{ name: "YouTube", platform: "youtube" }],
+      single_community_reason: "Only YouTube channels discuss this program."
+    });
+    expect(alone.status).toBe("ready_with_limits");
+    expect(alone.caveats).toContain("Only one community seems to discuss this, so the community evidence rests on a single group.");
+
+    // Links are checked against the platform: YouTube goes through its own tools, and Reddit threads are on Reddit.
+    const misfiled = gate({
+      principal_communities: communities,
+      community_searches: [
+        { ...trt, threads_read: [{ url: "https://www.youtube.com/watch?v=aaaaaaaaaaa" }] },
+        { ...trt, community: "MESO-Rx", platform: "reddit", threads_read: [{ url: "https://thinksteroids.com/community/threads/1/" }] },
+        { community: "ExcelMale", platform: "forum", queries: ["hgh"] }
+      ]
+    });
+    expect(misfiled.next_steps.slice(0, 3)).toEqual([
+      "community_searches for r/trt lists YouTube links; research YouTube with its own tools.",
+      "community_searches for MESO-Rx is on Reddit but lists links elsewhere; list the Reddit threads you read.",
+      "community_searches for ExcelMale lists no thread read: add the threads you read, or the access_boundary that " +
+        "stopped the search."
+    ]);
+  });
+
+  it("needs no YouTube research when YouTube is not the dominant community", () => {
+    const forums = [
+      { name: "r/trt", platform: "reddit" },
+      { name: "MESO-Rx", platform: "forum" },
+      { name: "YouTube", platform: "youtube" }
+    ];
+    const read = (community: string, platform: string, url: string) => ({
+      community,
+      platform,
+      queries: ["growth hormone versus testosterone long term"],
+      threads_read: [{ url }],
+      benefit_reports: "Better recovery for most.",
+      no_effect_reports: "Some saw no difference.",
+      adverse_reports: "Joint pain on growth hormone.",
+      effect_on_answer: "Consistent with the trials."
+    });
+    const result = finalizeResearchBare({
+      receipts: [study],
+      community_evidence: "researched",
+      treatment_choice: "not_compared",
+      research_target: TARGET,
+      key_sources: [{ id: "https://doi.org/10.1002/ART.41142", status: "validated" }],
+      principal_communities: forums,
+      community_searches: [
+        read("r/trt", "reddit", "https://www.reddit.com/r/trt/comments/abc/x/"),
+        read("MESO-Rx", "forum", "https://thinksteroids.com/community/threads/2/")
+      ],
+      answer_draft: "Trials favour testosterone. On r/trt and MESO-Rx, users reported joint pain on growth hormone."
+    }, options);
+    expect(result.next_steps).toEqual([]);
+    expect(result.status).toBe("ready");
+    expect(result.community.communities_searched).toEqual(["r/trt", "MESO-Rx"]);
   });
 
   it("finds the protocols' own names in the answer, acronym runs included", async () => {
@@ -317,12 +485,17 @@ describe("finalize_research gate", () => {
       "The answer pastes the full deep forum-audit prompt. Say what the deeper research would focus on and how to " +
         "start it, and offer the full prompt instead (\"Show me the full deeper-research prompt and help me fine-tune it\").",
       "The answer does not report the YouTube comments that were read. Add that lane from must_report, even if its " +
-        "signal is weak."
+        "signal is weak.",
+      "The answer does not report what r/HipOA showed. Add each lane from must_report, naming the community, even " +
+        "if its signal is weak."
     ]);
 
-    // Naming YouTube is not reporting what its commenters said.
+    // Naming YouTube is not reporting what its commenters said. Each draft also
+    // reports the subreddit the defaults searched.
     const lane = (answerDraft: string) =>
-      finalizeResearchRaw({ ...request, answer_draft: answerDraft }, options).next_steps;
+      finalizeResearchRaw({
+        ...request, answer_draft: `On Reddit, r/HipOA posters described similar gains.\n\n${answerDraft}`
+      }, options).next_steps;
     expect(lane("Exercise helps most people with hip osteoarthritis. I also searched YouTube.")).toEqual([
       "The answer's YouTube comments section does not report benefit reports, no-effect reports, adverse reports, " +
         "how creators differ from commenters, what the comments mean for the answer. Add each from must_report, and " +
@@ -479,7 +652,8 @@ describe("finalize_research gate", () => {
       "Say what the comments you read showed: give community_findings (benefit, no-effect and adverse reports, " +
         "creators versus independent commenters, and the effect on the answer), even if the signal is weak or neutral."
     ]);
-    expect(silent.must_report).toEqual([]);
+    // Only the subreddit's lane: the YouTube findings are still missing.
+    expect(silent.must_report).toEqual([expect.stringMatching(/^r\/HipOA \(1 thread\(s\) read\): /u)]);
 
     const partial = finalizeResearchGate({
       ...request,
@@ -503,7 +677,7 @@ describe("finalize_research gate", () => {
     expect(weak.status).not.toBe("not_ready");
     expect(weak.must_report).toEqual([expect.stringMatching(
       /^YouTube comments \(3 video\(s\) read\): Benefits: Two commenters reported deeper sleep\. .*Effect on the answer: Adds no strong independent signal; the answer rests on the studies\. Report this lane in the answer even if later sources dominate; if its signal is weak, say so\.$/u
-    )]);
+    ), expect.stringMatching(/^r\/HipOA \(1 thread\(s\) read\): /u)]);
   });
 
   it("needs findings only for videos whose comments were read", () => {
@@ -523,13 +697,19 @@ describe("finalize_research gate", () => {
       ...request, receipts, community_findings: findingsFor(["aaaaaaaaaaa"])
     }, options);
     expect(onlyRead.next_steps).toEqual([]);
-    expect(onlyRead.must_report).toEqual([expect.stringMatching(/^YouTube comments \(1 video\(s\) read\): /u)]);
+    expect(onlyRead.must_report).toEqual([
+      expect.stringMatching(/^YouTube comments \(1 video\(s\) read\): /u),
+      expect.stringMatching(/^r\/HipOA \(1 thread\(s\) read\): /u)
+    ]);
     // Listing the disabled video is allowed, and it is not counted as read.
     const both = finalizeResearchGate({
       ...request, receipts, community_findings: findingsFor(["aaaaaaaaaaa", "bbbbbbbbbbb"])
     }, options);
     expect(both.next_steps).toEqual([]);
-    expect(both.must_report).toEqual([expect.stringMatching(/^YouTube comments \(1 video\(s\) read\): /u)]);
+    expect(both.must_report).toEqual([
+      expect.stringMatching(/^YouTube comments \(1 video\(s\) read\): /u),
+      expect.stringMatching(/^r\/HipOA \(1 thread\(s\) read\): /u)
+    ]);
 
     // A one-call audit signs which of its videos it read.
     const oneCall = sign("youtube_community_audit", {
@@ -548,7 +728,7 @@ describe("finalize_research gate", () => {
     ]);
     const covered = finalizeResearchGate({ ...oneCallRequest, community_findings: findingsFor(["ddddddddddd"]) }, options);
     expect(covered.next_steps).toEqual([]);
-    expect(covered.must_report).toHaveLength(1);
+    expect(covered.must_report).toHaveLength(2);
 
     // Findings cover the comments the audit's final view returned: a comment
     // too large for any view was retrieved but never shown.

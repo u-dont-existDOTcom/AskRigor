@@ -11,6 +11,7 @@ import {
 } from "../apps/research-mcp/src/youtube-community-audit.js";
 import {
   compactYoutubeCommunityAuditForMcp,
+  YOUTUBE_COMMUNITY_AUDIT_SCOPE,
   YoutubeMcpResponseTooLargeError
 } from "../apps/research-mcp/src/youtube-mcp-sample.js";
 
@@ -200,7 +201,14 @@ describe("YouTube community audit", () => {
     expect(Buffer.byteLength(serialized, "utf8")).toBeLessThanOrEqual(40_000);
     expect(serialized).not.toContain("@person");
     expect(serialized).not.toMatch(/"UC0{5}/u);
-    expect(view.receipt).toEqual(large.receipt);
+    // The view names the lock for what it covers: these YouTube videos only.
+    const { completion_state: largeState, synthesis_lock: largeLock, ...largeChecks } = large.receipt;
+    expect(view.receipt).toEqual({
+      scope: YOUTUBE_COMMUNITY_AUDIT_SCOPE,
+      comment_retrieval_state: largeState,
+      youtube_comments_lock: largeLock,
+      ...largeChecks
+    });
     expect(view.limitations).toContain("MCP bounded sample.");
     // Every video keeps the same number of records, so none drops out.
     const counts = view.videos.map((video) => video.sample!.comments.length);

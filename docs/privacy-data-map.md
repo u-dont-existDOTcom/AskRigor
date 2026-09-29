@@ -746,7 +746,13 @@ pending-proposal stores have their own strict contracts and authority boundaries
   showed (benefit, no-effect and adverse reports, creators versus commenters,
   effect on the answer, and the public video IDs), are checked against the
   audit receipts and returned in `must_report` for the same call only; the
-  summary should not quote commenters or name them. Its `answer_draft`, the
+  summary should not quote commenters or name them. Its `principal_communities`
+  and `community_searches` (the names of the communities where people discuss
+  the question, the model's own web-search queries, the public thread URLs it
+  read, and a short summary of what they showed or the access boundary that
+  stopped it) are checked and returned in `must_report` for the same call only;
+  AskRigor fetches none of those URLs, and the summary should not quote or name
+  posters. Its `answer_draft`, the
   answer the model is about to give, can contain whatever the user shared; it
   is read in memory for that call only, to find internal labels, bare video
   IDs, a pasted long prompt and a missing comment lane, and is not stored,

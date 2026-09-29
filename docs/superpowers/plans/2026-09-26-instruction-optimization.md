@@ -968,6 +968,62 @@ and whether the final answer is the last checked draft. Cost: one more
 - Reply requests are still sequential; running them in parallel is a later
   option.
 
+## Speed and community scope (2026-09-29)
+
+Owner direction, 29 Sep: answers take too long; if YouTube scouting cannot be
+made much faster, keep most of it optional, give a short first pass, and end
+by offering deeper study or community research with focus questions. The
+owner also filed a bug report: a comparative-safety question ("How much
+healthier is injecting HGH vs testosterone?") was answered after a YouTube
+audit alone, because the YouTube receipt said `synthesis_lock: pass` and no
+check looked beyond YouTube (HRP PrincipalPlatformMapping,
+MultipleIndependentCommunities, ActualSearchRequired).
+
+Where the time went (runner metrics, hip question, Opus at max effort, one
+run each; model time is the gap before each call):
+
+| Version | Wall | Tool calls | Waiting on tools | Before comment audits | Before coverage checks |
+|---|---|---|---|---|---|
+| main | 19 min | 89 | 2 min | 2 min (17 calls) | none |
+| e1176f8 | 27 min | 145 | 4 min | 5 min (20 calls) | none |
+| 6e2763d | 111 min | 212 | 13 min | 30 min (61 calls) | 25 min (5 calls) |
+| 4d4fae8 | 152 min | 313 | 10 min | 43 min (82 calls) | 39 min (4 calls) |
+| 4fe4858 | 154 min | 266 | 9 min | 57 min (40 calls) | 31 min (5 calls) |
+
+- Tools were rarely the wait; the model's steps were. Continuation pages of a
+  long video's comment audit each returned the growing sample again (about
+  38 KB a page), and the audits alone returned 1.9 MB to the model in 4d4fae8.
+  Protocol pages added 0.4 MB there (48 calls).
+- The last two runs also audited 30 videos where main audited 16, and the
+  coverage checker took about 6 to 10 minutes of model time per call.
+
+Built now (no method change):
+
+- The per-video audit's MCP view sends the comment sample once, with the last
+  page or when the chain stops, instead of on every page.
+- YouTube results on MCP name their lock for what it covers:
+  `video_comments_lock` and `youtube_comments_lock` with a `scope` sentence
+  (YouTube only; not other communities, not research completion). The Custom
+  GPT Action keeps its full result. Tool descriptions and server instructions
+  say YouTube covers YouTube only and ask for the dominant community and an
+  independent one, searched on the client's own web search.
+- `finalize_research` takes `principal_communities` (the map, dominant first)
+  and `community_searches` (queries, public threads read, findings or an access
+  boundary). Community research is not done until the dominant community and
+  at least one independent one are searched (YouTube counts once, however many
+  entries name it), or a single-community reason is stated as a limit. YouTube
+  checks apply only when YouTube is the dominant community or was researched. Each
+  community read reaches `must_report`, and the answer must name it.
+- Regression: the HGH versus testosterone case in the gate tests.
+
+Waiting on the owner (question 2 on the owner page): a shorter first pass in
+HRP (about three fully audited videos or two rounds instead of six and four;
+the treatment-landscape ledger check moves to deeper research; the answer ends
+with two deeper directions and focus questions). Exact wording is on the page.
+
+Then: rerun `dev-hip-avoid-replacement` on the new head and judge it against
+4d4fae8 and e1176f8, measuring the time split above.
+
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 
 - Iteration for each candidate: focused tests plus one or two development

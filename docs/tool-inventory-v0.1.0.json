@@ -5830,7 +5830,7 @@
     },
     {
       "name": "audit_youtube_community",
-      "description": "Use before synthesis whenever firsthand community evidence could plausibly matter. In one read-only call, search YouTube, deduplicate bounded provider-ranked videos, retrieve metadata, unfiltered comments and all accessible replies, and return a deterministic completion receipt; no medical conclusions are generated. research_question must be the research_target given to the other tools.",
+      "description": "YouTube community evidence in one read-only call: search YouTube, deduplicate bounded provider-ranked videos, retrieve metadata, unfiltered comments and all accessible replies, and return a deterministic receipt for these videos; no medical conclusions are generated. It covers YouTube only: use it when YouTube is one of the places people discussing the question talk, and search the others, such as Reddit or a specialist forum, with your own web search. research_question must be the research_target given to the other tools.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -6459,7 +6459,11 @@
           "receipt": {
             "type": "object",
             "properties": {
-              "completion_state": {
+              "scope": {
+                "type": "string",
+                "const": "Covers these YouTube videos' comments only: not Reddit, forums or other communities, and not whether the research is complete, which finalize_research decides."
+              },
+              "comment_retrieval_state": {
                 "type": "string",
                 "enum": [
                   "api_visible_complete",
@@ -6468,7 +6472,7 @@
                   "incomplete"
                 ]
               },
-              "synthesis_lock": {
+              "youtube_comments_lock": {
                 "type": "string",
                 "enum": [
                   "pass",
@@ -6516,8 +6520,9 @@
               }
             },
             "required": [
-              "completion_state",
-              "synthesis_lock",
+              "scope",
+              "comment_retrieval_state",
+              "youtube_comments_lock",
               "searches_requested",
               "searches_completed",
               "selected_video_ids",
@@ -6570,7 +6575,7 @@
     },
     {
       "name": "survey_youtube_community",
-      "description": "Survey bounded YouTube video candidates for a community-evidence question and return deduplicated metadata, canonical watch links, provider comment counts, pagination, and access receipts; no medical conclusions are generated. For research, research_question must be the research_target given to the other tools.",
+      "description": "Survey bounded YouTube video candidates for a community-evidence question and return deduplicated metadata, canonical watch links, provider comment counts, pagination, and access receipts; no medical conclusions are generated. It covers YouTube only. For research, research_question must be the research_target given to the other tools.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -7012,7 +7017,7 @@
     },
     {
       "name": "audit_youtube_video_community",
-      "description": "Retrieve one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation. Returns exact retrieved-versus-analyzed counts, usable partial-corpus records for bounded review, and a separate completion receipt; no medical conclusions are generated. Sample records are compact: id, reply_to, a per-video pseudonymous author key for counting distinct people, date, likes, text.",
+      "description": "Retrieve one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation. Returns exact retrieved-versus-analyzed counts and a separate receipt covering this video only; the comment sample comes with the last page (or when the chain stops), for bounded review; no medical conclusions are generated. Sample records are compact: id, reply_to, a per-video pseudonymous author key for counting distinct people, date, likes, text.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -7385,7 +7390,11 @@
           "receipt": {
             "type": "object",
             "properties": {
-              "completion_state": {
+              "scope": {
+                "type": "string",
+                "const": "Covers this one YouTube video's comments only: not other videos, Reddit, forums or other communities, and not whether the research is complete, which finalize_research decides."
+              },
+              "comment_retrieval_state": {
                 "type": "string",
                 "enum": [
                   "api_visible_complete",
@@ -7393,7 +7402,7 @@
                   "incomplete"
                 ]
               },
-              "synthesis_lock": {
+              "video_comments_lock": {
                 "type": "string",
                 "enum": [
                   "pass",
@@ -7421,8 +7430,9 @@
               }
             },
             "required": [
-              "completion_state",
-              "synthesis_lock",
+              "scope",
+              "comment_retrieval_state",
+              "video_comments_lock",
               "chain_started_at_first_page",
               "top_level_pagination_exhausted",
               "replies_reconciled",
@@ -12021,7 +12031,7 @@
     },
     {
       "name": "finalize_research",
-      "description": "Call before the final answer. Pass every research_receipt you received, the research_target (the same text given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits; discovery for any other target does not count), whether community evidence was researched, whether the answer compares treatment options, what the comments you read showed (community_findings), the studies your conclusions depend on, and the answer you are about to give (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, the comment lane and the caveats, and is not stored. not_ready lists the remaining steps; ready_with_limits lists limits, and caveats gives the sentences the answer must contain, each as its own sentence and as written; must_report lists what the answer must report from each lane researched; receipts_unavailable means this server cannot verify completion, so do the required work anyway and say that completion was not server-verified.",
+      "description": "Call before the final answer. Pass every research_receipt you received, the research_target (the same text given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits; discovery for any other target does not count), whether community evidence was researched, whether the answer compares treatment options, where people discussing it talk and what each community you searched outside YouTube showed (principal_communities, community_searches), what the YouTube comments you read showed (community_findings), the studies your conclusions depend on, and the answer you are about to give (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, the comment lane and the caveats, and is not stored. not_ready lists the remaining steps; ready_with_limits lists limits, and caveats gives the sentences the answer must contain, each as its own sentence and as written; must_report lists what the answer must report from each lane researched; receipts_unavailable means this server cannot verify completion, so do the required work anyway and say that completion was not server-verified.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -12165,6 +12175,146 @@
               "effect_on_answer"
             ],
             "additionalProperties": false
+          },
+          "principal_communities": {
+            "description": "Where people discussing this actually talk, the dominant first: subreddits, specialist forums, Facebook groups, patient organizations, YouTube. Needed when community evidence is researched; search the dominant one and at least one independent one.",
+            "minItems": 1,
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120,
+                  "description": "As its users know it, such as r/trt, MESO-Rx or YouTube."
+                },
+                "platform": {
+                  "type": "string",
+                  "enum": [
+                    "youtube",
+                    "reddit",
+                    "forum",
+                    "facebook",
+                    "telegram",
+                    "discord",
+                    "patient_organization",
+                    "review_site",
+                    "other"
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "platform"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "single_community_reason": {
+            "description": "Why only one community discusses this, when principal_communities lists one.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "community_searches": {
+            "description": "Each community outside YouTube that you searched with your own web search: the queries, the threads you read and what they showed (benefit, no-effect and adverse reports with rough counts, and the effect on the answer), or the access boundary that stopped the search. Summarize; do not quote or name posters. YouTube goes through its own tools.",
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "community": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120,
+                  "description": "The community searched, named as in principal_communities."
+                },
+                "platform": {
+                  "type": "string",
+                  "enum": [
+                    "reddit",
+                    "forum",
+                    "facebook",
+                    "telegram",
+                    "discord",
+                    "patient_organization",
+                    "review_site",
+                    "other"
+                  ]
+                },
+                "queries": {
+                  "minItems": 1,
+                  "maxItems": 10,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  }
+                },
+                "threads_read": {
+                  "default": [],
+                  "maxItems": 30,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "url": {
+                        "type": "string",
+                        "maxLength": 2048,
+                        "format": "uri"
+                      },
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      }
+                    },
+                    "required": [
+                      "url"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "access_boundary": {
+                  "type": "string",
+                  "enum": [
+                    "no_web_search",
+                    "login_required",
+                    "blocked",
+                    "no_relevant_results"
+                  ]
+                },
+                "benefit_reports": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 800
+                },
+                "no_effect_reports": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 800
+                },
+                "adverse_reports": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 800
+                },
+                "effect_on_answer": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 800
+                }
+              },
+              "required": [
+                "community",
+                "platform",
+                "queries"
+              ],
+              "additionalProperties": false
+            }
           },
           "key_sources": {
             "maxItems": 60,
@@ -12330,6 +12480,18 @@
                 "items": {
                   "type": "string"
                 }
+              },
+              "principal_communities": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "communities_searched": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
               }
             },
             "required": [
@@ -12341,7 +12503,9 @@
               "first_pass_complete",
               "open_leads",
               "audited_videos",
-              "material_videos"
+              "material_videos",
+              "principal_communities",
+              "communities_searched"
             ],
             "additionalProperties": false
           },

@@ -322,8 +322,8 @@ describe("AskRigor cross-adapter regressions", () => {
           records_retrieved_cumulative: 6,
           records_returned_for_analysis: 6,
           receipt: {
-            completion_state: "api_visible_complete",
-            synthesis_lock: "pass",
+            comment_retrieval_state: "api_visible_complete",
+            video_comments_lock: "pass",
             query_bounded_comments_used_as_corpus: false
           }
         }

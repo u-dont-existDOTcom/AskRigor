@@ -44,7 +44,29 @@ export const compactYoutubeAuditSampleSchema = z.object({
   comments: z.array(compactYoutubeCommentSchema).max(500)
 }).strict();
 
+/**
+ * What a YouTube audit's receipt covers, said where the model reads it. A
+ * receipt that said only "synthesis_lock: pass" was read as leave to write the
+ * answer, and Reddit and specialist forums went unsearched (owner report,
+ * 2026-09-29), so the MCP views name the lock for what it covers.
+ */
+export const YOUTUBE_VIDEO_AUDIT_SCOPE =
+  "Covers this one YouTube video's comments only: not other videos, Reddit, forums or other communities, and not " +
+  "whether the research is complete, which finalize_research decides.";
+export const YOUTUBE_COMMUNITY_AUDIT_SCOPE =
+  "Covers these YouTube videos' comments only: not Reddit, forums or other communities, and not whether the " +
+  "research is complete, which finalize_research decides.";
+
+const videoAuditReceiptSchema = youtubeVideoCommunityAuditOutputSchema.shape.receipt;
+const mcpVideoAuditReceiptSchema = z.object({
+  scope: z.literal(YOUTUBE_VIDEO_AUDIT_SCOPE),
+  comment_retrieval_state: videoAuditReceiptSchema.shape.completion_state,
+  video_comments_lock: videoAuditReceiptSchema.shape.synthesis_lock,
+  ...videoAuditReceiptSchema.omit({ completion_state: true, synthesis_lock: true }).shape
+}).strict();
+
 export const mcpYoutubeVideoCommunityAuditOutputSchema = youtubeVideoCommunityAuditOutputSchema.extend({
+  receipt: mcpVideoAuditReceiptSchema,
   sample: compactYoutubeAuditSampleSchema.optional(),
   research_receipt: z.string().optional()
 });
@@ -54,13 +76,20 @@ export type McpYoutubeVideoCommunityAuditOutput = z.output<typeof mcpYoutubeVide
 // A large video can report hundreds of reply-count mismatches; the view lists
 // the first few, and the counts and the receipt cover them all.
 const MCP_REPLY_MISMATCHES_SHOWN = 20;
+const MID_CHAIN_SAMPLE_LIMITATION =
+  "The comment sample comes with this audit's last page; continue with continuation_token to read it.";
 
 export function compactYoutubeAuditForMcp(
   output: YoutubeVideoCommunityAuditOutput,
   maximumBytes: number,
   boundedSampleLimitation: string
 ): McpYoutubeVideoCommunityAuditOutput {
-  const { sample, ...all } = output;
+  const { sample, receipt, ...fields } = output;
+  const { completion_state: state, synthesis_lock: lock, ...checks } = receipt;
+  const all = {
+    ...fields,
+    receipt: { scope: YOUTUBE_VIDEO_AUDIT_SCOPE, comment_retrieval_state: state, video_comments_lock: lock, ...checks }
+  };
   const mismatches = all.reply_count_mismatches.length;
   const rest = mismatches <= MCP_REPLY_MISMATCHES_SHOWN ? all : {
     ...all,
@@ -76,6 +105,20 @@ export function compactYoutubeAuditForMcp(
   // continuation token or the receipt.
   if (sample === undefined) {
     const view = mcpYoutubeVideoCommunityAuditOutputSchema.parse(rest);
+    if (!fits(view)) throw new YoutubeMcpResponseTooLargeError();
+    return view;
+  }
+  // While the chain continues, the sample waits for its last page: sent with
+  // every page, a long video's comments were read again on each call (about
+  // 38 KB a page in the 27 Sep test runs).
+  if (output.continuation_recommended) {
+    const view = mcpYoutubeVideoCommunityAuditOutputSchema.parse({
+      ...rest,
+      records_returned_for_analysis: 0,
+      top_level_records_returned_for_analysis: 0,
+      reply_records_returned_for_analysis: 0,
+      limitations: [...new Set([...rest.limitations, MID_CHAIN_SAMPLE_LIMITATION])]
+    });
     if (!fits(view)) throw new YoutubeMcpResponseTooLargeError();
     return view;
   }
@@ -135,8 +178,17 @@ const mcpCommunityAuditVideoSchema = youtubeCommunityAuditOutputSchema.shape.vid
   }).strict().optional()
 });
 
+const communityAuditReceiptSchema = youtubeCommunityAuditOutputSchema.shape.receipt;
+const mcpCommunityAuditReceiptSchema = z.object({
+  scope: z.literal(YOUTUBE_COMMUNITY_AUDIT_SCOPE),
+  comment_retrieval_state: communityAuditReceiptSchema.shape.completion_state,
+  youtube_comments_lock: communityAuditReceiptSchema.shape.synthesis_lock,
+  ...communityAuditReceiptSchema.omit({ completion_state: true, synthesis_lock: true }).shape
+}).strict();
+
 export const mcpYoutubeCommunityAuditOutputSchema = youtubeCommunityAuditOutputSchema.extend({
   videos: z.array(mcpCommunityAuditVideoSchema).max(3),
+  receipt: mcpCommunityAuditReceiptSchema,
   research_receipt: z.string().optional()
 });
 
@@ -183,8 +235,10 @@ export function compactYoutubeCommunityAuditForMcp(
     shortenedAny = true;
     return tags.slice(0, 20);
   };
+  const { completion_state: state, synthesis_lock: lock, ...checks } = output.receipt;
   const fixed = {
     ...output,
+    receipt: { scope: YOUTUBE_COMMUNITY_AUDIT_SCOPE, comment_retrieval_state: state, youtube_comments_lock: lock, ...checks },
     research_question: shorten(output.research_question, 1_000),
     searches: output.searches.map((search) => ({ ...search, query: shorten(search.query, 300) })),
     videos: output.videos.map((video) => ({

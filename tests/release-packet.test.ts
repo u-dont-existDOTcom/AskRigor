@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
 
+import { YOUTUBE_COMMUNITY_AUDIT_SCOPE } from "../apps/research-mcp/src/youtube-mcp-sample.js";
 import { createToolInventory } from "../scripts/generate-tool-inventory.mts";
 
 const rootFile = (path: string) => new URL(`../${path}`, import.meta.url);
@@ -657,13 +658,14 @@ describe("AskRigor public-review packet", () => {
         properties: {
           receipt: {
             properties: {
-              completion_state: { enum: [
+              scope: { const: YOUTUBE_COMMUNITY_AUDIT_SCOPE },
+              comment_retrieval_state: { enum: [
                 "api_visible_complete",
                 "complete_no_candidates",
                 "completed_with_access_boundary",
                 "incomplete"
               ] },
-              synthesis_lock: { enum: ["pass", "block"] },
+              youtube_comments_lock: { enum: ["pass", "block"] },
               query_bounded_comments_used_as_corpus: { const: false }
             }
           }
@@ -702,7 +704,7 @@ describe("AskRigor public-review packet", () => {
           continuation_recommended: { type: "boolean" },
           continuation_token: { type: "string", maxLength: 65536 },
           receipt: {
-            properties: { synthesis_lock: { enum: ["pass", "block"] } }
+            properties: { video_comments_lock: { enum: ["pass", "block"] } }
           }
         }
       }
