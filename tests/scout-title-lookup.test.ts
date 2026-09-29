@@ -57,18 +57,28 @@ describe("scout exact-title lookup", () => {
     ]);
   });
 
-  it("accepts a loosely matching title only when the declared channel agrees or the titles are nearly the same", async () => {
+  it("finds a video only by its exact title, and returns YouTube's closest results for the model otherwise", async () => {
     const byQuery: Record<string, Array<{ video_id: string; title: string; channel_title: string }>> = {
       "Recovery Story": [{ video_id: "aaaaaaaaaaa", title: "Cancer Recovery Story", channel_title: "Oncology Stories" }],
       // Seen on the discovery bench: another Shorts video with a similar title.
       "Exercise for Instant Hip Pain Relief #Shorts": [
         { video_id: "bbbbbbbbbbb", title: "Easy Way to Get Instant Hip Pain Relief #Shorts", channel_title: "Spine Center" }
       ],
+      // A dropped word may be the same video or another: the model judges from YouTube's title.
       "Treating Arthritis Without Surgery": [
         { video_id: "ccccccccccc", title: "Treating Knee Arthritis Without Surgery", channel_title: "Talking With Docs" }
       ],
+      // YouTube's own additions do not change a title, in any language.
       "She Fixed Her Severe Hip Pain Without Surgery": [
         { video_id: "ddddddddddd", title: "She Fixed Her Severe Hip Pain Without Surgery | Upright Health", channel_title: "Upright Health" }
+      ],
+      "膝の痛みを治した方法": [
+        { video_id: "eeeeeeeeeee", title: "膝の痛みを治した方法 #shorts", channel_title: "整体チャンネル" }
+      ],
+      // The same title twice on other channels: which is meant is not settled.
+      "Hip pain relief": [
+        { video_id: "fffffffffff", title: "Hip pain relief", channel_title: "Clinic A" },
+        { video_id: "ggggggggggg", title: "Hip Pain Relief!", channel_title: "Clinic B" }
       ]
     };
     const search = vi.fn(async ({ query }: { query: string }) => results(byQuery[query] ?? []));
@@ -77,38 +87,24 @@ describe("scout exact-title lookup", () => {
       { title: "Recovery Story", channel: "not described" },
       { title: "Exercise for Instant Hip Pain Relief #Shorts", channel: "Hip Clinic" },
       { title: "Treating Arthritis Without Surgery", channel: "Talking With Docs" },
-      { title: "She Fixed Her Severe Hip Pain Without Surgery", channel: "not described" }
-    ], { config: CONFIG, knownVideoIds: new Set(), search });
+      { title: "She Fixed Her Severe Hip Pain Without Surgery", channel: "not described" },
+      { title: "膝の痛みを治した方法", channel: "not described" },
+      { title: "Hip pain relief", channel: "Physio Channel" }
+    ], { config: CONFIG, knownVideoIds: new Set(), search, limit: 6 });
 
     expect(lookup.found.map(({ video_id, declared_title }) => [declared_title, video_id])).toEqual([
-      ["Treating Arthritis Without Surgery", "ccccccccccc"],
-      ["She Fixed Her Severe Hip Pain Without Surgery", "ddddddddddd"]
+      ["She Fixed Her Severe Hip Pain Without Surgery", "ddddddddddd"],
+      ["膝の痛みを治した方法", "eeeeeeeeeee"]
     ]);
-    expect(lookup.unresolved.map(({ title, reason }) => [title, reason])).toEqual([
-      ["Recovery Story", "no_matching_video"],
-      ["Exercise for Instant Hip Pain Relief #Shorts", "no_matching_video"]
-    ]);
-  });
-
-  it("does not take another video from the declared channel whose title swaps or reverses a declared word", async () => {
-    const search = vi.fn(async () => results([
-      { video_id: "aaaaaaaaaaa", title: "How I healed back pain", channel_title: "Hip Journey" },
-      { video_id: "bbbbbbbbbbb", title: "Why surgery never fixed my hip", channel_title: "Hip Journey" },
-      { video_id: "ccccccccccc", title: "Why surgery didn't fix my hip | Hip Journey", channel_title: "Hip Journey" }
-    ]));
-
-    const lookup = await lookUpScoutTitles([
-      { title: "How I healed hip pain", channel: "Hip Journey" },
-      { title: "Why surgery fixed my hip", channel: "Hip Journey" },
-      { title: "Why surgery did not fix my hip", channel: "Hip Journey" }
-    ], { config: CONFIG, knownVideoIds: new Set(), search });
-
-    expect(lookup.found.map(({ video_id, declared_title }) => [declared_title, video_id])).toEqual([
-      ["Why surgery did not fix my hip", "ccccccccccc"]
-    ]);
-    expect(lookup.unresolved.map(({ title, reason }) => [title, reason])).toEqual([
-      ["How I healed hip pain", "no_matching_video"],
-      ["Why surgery fixed my hip", "no_matching_video"]
+    expect(lookup.unresolved.map(({ title, reason, closest }) => [title, reason, closest?.map(({ video_id }) => video_id)]))
+      .toEqual([
+        ["Recovery Story", "no_matching_video", ["aaaaaaaaaaa"]],
+        ["Exercise for Instant Hip Pain Relief #Shorts", "no_matching_video", ["bbbbbbbbbbb"]],
+        ["Treating Arthritis Without Surgery", "no_matching_video", ["ccccccccccc"]],
+        ["Hip pain relief", "no_matching_video", ["fffffffffff", "ggggggggggg"]]
+      ]);
+    expect(lookup.unresolved[2]!.closest).toEqual([
+      { video_id: "ccccccccccc", title: "Treating Knee Arthritis Without Surgery", channel: "Talking With Docs" }
     ]);
   });
 

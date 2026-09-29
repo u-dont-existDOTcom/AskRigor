@@ -174,7 +174,7 @@ describe("MCP Gemini scout continuation", () => {
     });
     const text = (second.content as Array<{ text: string }>)[0]!.text;
     expect(text).toContain("validated 1 video(s) and found 1 more by exact title (title_lookup.found)");
-    expect(text).toContain("1 named video(s) could not be identified (title_lookup.unresolved)");
+    expect(text).toContain("1 named video(s) could not be identified by exact title (title_lookup.unresolved, with YouTube's closest results)");
     expect(verifyResearchReceipt(done.research_receipt, { secret: SECRET })).toMatchObject({
       ok: true,
       kind: "youtube_scout",
@@ -192,18 +192,20 @@ describe("MCP Gemini scout continuation", () => {
     }]);
   });
 
-  it("looks up an ID whose YouTube title conflicts with the declared title, instead of trusting it", async () => {
-    // Validation leaves an ID unresolved when YouTube's title for it differs
-    // from the declared one on the same channel.
+  it("hands an ID whose YouTube title is not the scout's back with both titles, without spending a search", async () => {
+    // Whether "How I avoided a hip replacement" and YouTube's title name one video takes reading them, in whatever
+    // language they are in: validation rejects the unconfirmed ID with both titles, and the model judges.
     const receipt = {
       ...validationReceipt(),
       status: "blocked",
       validated_candidates: [],
-      unresolved_candidates: [{
+      rejected_candidates: [{
         video_id: "dQw4w9WgXcQ",
         metadata_access_status: "api_visible_complete",
         retryable: false,
-        provider_error_code: "youtube_candidate_title_conflict",
+        rejection_reasons: ["declared_title_mismatch"],
+        provider_title: "My hip replacement story",
+        declared_title: "How I avoided a hip replacement",
         limitations: []
       }]
     };
@@ -222,21 +224,19 @@ describe("MCP Gemini scout continuation", () => {
         accounted_nano_usd: 900_000_000
       }
     });
-    search.mockImplementation(async () => ({
-      access_status: "complete",
-      data: [{ video_id: "abcdefghijk", title: "How I avoided a hip replacement", channel_title: "Real channel" }]
-    }));
     const client = await connect();
     const done = await client.callTool({ name: "scout_gemini_youtube_candidates", arguments: TARGET });
 
-    expect(search.mock.calls.map(([request]) => request.query)).toEqual(["How I avoided a hip replacement"]);
+    expect(search).not.toHaveBeenCalled();
     const output = done.structuredContent as { research_receipt: string };
     expect(verifyResearchReceipt(output.research_receipt, { secret: SECRET })).toMatchObject({
       ok: true,
-      claims: { videos: ["abcdefghijk"], open: "0" }
+      claims: { videos: [], open: "0", rej: ["dQw4w9WgXcQ"] }
     });
-    expect((done.content as Array<{ text: string }>)[0]!.text)
-      .toContain("1 more had a different YouTube title than declared and were looked up by title instead");
+    expect((done.content as Array<{ text: string }>)[0]!.text).toContain(
+      "1 more had a YouTube title other than the scout's (validation.rejected_candidates gives both): audit one if " +
+        "YouTube's title shows it is the video meant or relevant anyway."
+    );
   });
 
   it("leaves named titles unsearched when the call is running long, and counts them as open", async () => {

@@ -278,6 +278,8 @@ const rejectedCandidateSchema = z.object({
   retryable: z.literal(false),
   rejection_reasons: z.array(identityRejectionReasonSchema).min(1),
   provider_title: z.string().optional(),
+  // The scout's title, when it is not YouTube's.
+  declared_title: z.string().optional(),
   provider_channel: z.string().optional(),
   provider_error_code: z.string().optional(),
   limitations: z.array(z.string())
@@ -634,44 +636,17 @@ function validateCandidateIdentity(
   if (metadata.source_identity.canonical_url !== candidate.canonical_url) {
     reasons.push("provider_canonical_url_mismatch");
   }
-  // Scouts often paraphrase a title or misremember a channel while the video ID
-  // is right, and YouTube's metadata stays authoritative for what the video is.
-  // Only a video whose title and channel both differ is a wrong identity.
-  const titleMatches = providerVideo.title === undefined || youtubeTitlesMatch(providerVideo.title, candidate.title);
-  // Titles that share most words without matching ("Second outcome video"
-  // against "First outcome video") leave the ID in doubt rather than wrong.
-  const titleOverlaps = providerVideo.title === undefined || titleMatches ||
-    youtubeLabelsMatch(providerVideo.title, candidate.title);
+  // YouTube's metadata says what the video is. A declared title equal to
+  // YouTube's (youtubeTitlesEqual) confirms that the scout named this ID.
+  // Anything else, a paraphrase of this video or the title of another, is not
+  // confirmed: telling those apart takes reading both titles, in whatever
+  // language they are in, which the research model does from the rejection.
+  const titleMatches = providerVideo.title === undefined || youtubeTitlesEqual(providerVideo.title, candidate.title);
   const channelMatches = providerVideo.channel_title === undefined ||
-    youtubeLabelsMatch(providerVideo.channel_title, candidate.channel);
-  if (!titleOverlaps && !channelMatches) {
-    reasons.push("declared_title_mismatch", "declared_channel_mismatch");
-  }
-  // Without the declared channel, a paraphrase is not enough: "How I healed
-  // hip pain" shares most words with "How I healed back pain". Only a nearly
-  // identical title vouches for the ID then.
-  const titleVouches = providerVideo.title === undefined ||
-    youtubeTitlesNearlySame(providerVideo.title, candidate.title);
-  // A different title on the declared channel may be another video by the
-  // same creator, and a partly matching title on another channel may be
-  // another video altogether, so the ID is not trusted; it is not a wrong
-  // identity either, and the declared title can be looked up.
-  if (reasons.length === 0 && (!titleMatches || (!channelMatches && !titleVouches))) {
-    return {
-      kind: "unresolved",
-      candidate: {
-        video_id: candidate.video_id,
-        metadata_access_status: metadata.access_status,
-        retryable: false,
-        provider_error_code: "youtube_candidate_title_conflict",
-        limitations: [
-          ...metadata.limitations,
-          channelMatches
-            ? "YouTube's title for this ID differs from the scout's declared title beyond a paraphrase, so the ID may point to another video from the same channel. Look the declared title up before using it."
-            : "YouTube's title for this ID only partly matches the scout's declared title and its channel differs, so the ID may point to another video. Look the declared title up before using it."
-        ]
-      }
-    };
+    youtubeChannelsEqual(providerVideo.channel_title, candidate.channel);
+  if (!titleMatches) {
+    reasons.push("declared_title_mismatch");
+    if (!channelMatches) reasons.push("declared_channel_mismatch");
   }
   const declarationLimitations = channelMatches
     ? []
@@ -686,9 +661,10 @@ function validateCandidateIdentity(
         retryable: false,
         rejection_reasons: reasons,
         ...(providerVideo.title === undefined ? {} : { provider_title: providerVideo.title }),
+        ...(titleMatches ? {} : { declared_title: candidate.title }),
         ...(providerVideo.channel_title === undefined ? {} : { provider_channel: providerVideo.channel_title }),
         ...(metadata.error?.code === undefined ? {} : { provider_error_code: metadata.error.code }),
-        limitations: metadata.limitations
+        limitations: [...metadata.limitations, ...(titleMatches ? [] : [TITLE_MISMATCH_NOTE])]
       }
     };
   }
@@ -791,142 +767,39 @@ function comparableLabel(value: string): string {
 }
 
 // Fewer words than this are too generic to identify a video inside a longer title.
-const MINIMUM_CONTAINED_TITLE_WORDS = 4;
+const TITLE_MISMATCH_NOTE =
+  "YouTube's title for this ID (provider_title) differs from the scout's (declared_title): the same video worded " +
+  "differently, or another one. Audit it if YouTube's title shows it is the video meant or relevant anyway; " +
+  "otherwise search the scout's title.";
 
 function compactTitle(value: string): string {
   return value.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
 }
 
+// What YouTube titles often add after the title itself: a " | Channel" or
+// " - subtitle" part, and trailing hashtags.
+const TITLE_ADDITION_BREAK = /\s[|\u2013\u2014-]\s/u;
+const TRAILING_HASHTAGS = /(?:\s+#[\p{L}\p{N}_]+)+\s*$/u;
+
 /**
- * The same words in the same order, or a specific declared title that
- * YouTube's longer title contains (YouTube titles often add " | Channel").
- * Stricter than youtubeLabelsMatch, for identity without channel agreement.
+ * Whether YouTube's title is the declared title: equal ignoring case, spacing
+ * and punctuation, whole or before YouTube's usual additions (a " | Channel"
+ * or " - subtitle" part, trailing hashtags). It compares characters, so it
+ * works alike in every language and script, and it does not judge
+ * paraphrases: whether differently worded titles name one video is left to
+ * the research model, which reads them.
  */
-export function youtubeTitlesNearlySame(provider: string, declared: string): boolean {
-  const declaredTitle = compactTitle(declared);
-  if (declaredTitle.length === 0) return false;
-  if (compactTitle(provider) === declaredTitle) return true;
-  const declaredWords = declared.normalize("NFKC").toLowerCase().split(/[^\p{L}\p{N}]+/u)
-    .filter((word) => word.length >= 3).length;
-  return declaredWords >= MINIMUM_CONTAINED_TITLE_WORDS && compactTitle(provider).includes(declaredTitle);
+export function youtubeTitlesEqual(provider: string, declared: string): boolean {
+  const target = compactTitle(declared.replace(TRAILING_HASHTAGS, ""));
+  if (target.length === 0) return false;
+  const untagged = provider.replace(TRAILING_HASHTAGS, "");
+  return [provider, untagged, untagged.split(TITLE_ADDITION_BREAK)[0]!].some((title) => compactTitle(title) === target);
 }
 
-// Title words that say little about which video it is.
-const TITLE_FILLER_WORDS = new Set([
-  "the", "and", "for", "with", "how", "what", "why", "when", "you", "your", "this", "that", "from", "into", "about",
-  "are", "was", "can", "will", "get", "got", "has", "have", "but", "all", "out", "our", "its"
-]);
-
-/**
- * Negation words, one token in a title so "no", "not", "never" and "without"
- * stand for each other. Titles often spell "didn't" and "can't" as "didnt"
- * and "cant", so those count too.
- */
-export const TITLE_NEGATION_WORDS: ReadonlySet<string> = new Set([
-  "not", "no", "never", "without", "nothing", "none", "nor", "nobody", "nowhere", "neither", "cannot", "cant",
-  "dont", "doesnt", "didnt", "wont", "isnt", "arent", "wasnt", "werent", "havent", "hasnt", "hadnt", "shouldnt",
-  "wouldnt", "couldnt", "mustnt", "neednt", "aint"
-]);
-const TITLE_NEGATION = "~";
-// Where a title's clause ends: punctuation, a spaced dash, "and", "or" or "but".
-const TITLE_CLAUSE_BREAK = /[.,;:!?|()\[\]{}\u2013\u2014]+|\s-\s|\b(?:and|or|but)\b/u;
-
-/** A word without a plural, "-ing", "-ed" or final "e" ending, so "healed" and "healing" meet. */
-function titleStem(word: string): string {
-  const bare = word.replace(/['\u2019]s$/u, "");
-  for (const suffix of ["ing", "ed", "es", "s", "e"]) {
-    if (bare.length - suffix.length >= 3 && bare.endsWith(suffix)) return bare.slice(0, -suffix.length);
-  }
-  return bare;
-}
-
-/**
- * A title's clauses, each as its tokens in order: identifying words (a word
- * with a digit, or three or more letters and not filler), stemmed, and
- * negations. Clauses without tokens are left out.
- */
-function titleClauses(value: string): string[][] {
-  const text = value.normalize("NFKC").toLowerCase().replace(/n['\u2019]t\b/gu, " not").replace(/&/gu, " and ");
-  return text.split(TITLE_CLAUSE_BREAK)
-    .map((clause) => clause.split(/[^\p{L}\p{N}]+/u).flatMap((word) =>
-      TITLE_NEGATION_WORDS.has(word)
-        ? [TITLE_NEGATION]
-        : /\p{N}/u.test(word) || (word.length >= 3 && !TITLE_FILLER_WORDS.has(word)) ? [titleStem(word)] : []))
-    .filter((tokens) => tokens.length > 0);
-}
-
-/**
- * Where `tokens` end as an ordered subsequence of `clause` from `from` on,
- * skipping words but never a negation, so each negation up to the match's end
- * is one both titles have. Undefined when they do not fit.
- */
-function titleRunEnd(clause: readonly string[], tokens: readonly string[], from: number): number | undefined {
-  let next = from;
-  for (const token of tokens) {
-    while (next < clause.length && clause[next] !== token) {
-      if (clause[next] === TITLE_NEGATION) return undefined;
-      next += 1;
-    }
-    if (next === clause.length) return undefined;
-    next += 1;
-  }
-  return next;
-}
-
-/**
- * A declared title matches YouTube's when they are equal ignoring case,
- * spacing and punctuation, or when each clause of the declared title fits, in
- * order, inside one clause of YouTube's title (a clause ends at punctuation, a
- * spaced dash, "and", "or" or "but"): its identifying words in order, with
- * words skipped but never a negation, so the two titles' negations line up. A
- * scout's paraphrase drops or adds words; a swapped word ("How I healed hip
- * pain" against "How I healed back pain"), another number, a reversed order
- * ("Exercise beats surgery" against "Surgery beats exercise"), a moved or
- * added negation ("No evidence TRT causes harm" against "Evidence TRT causes
- * no harm") or words spread over other claims ("Exercise beats injections, but
- * surgery wins") is another video, even on the same channel. This checks
- * identity, not meaning: a title that frames the declared words differently
- * ("... is a myth") is still the video the scout named, and its audit, not its
- * title, says what it reports.
- */
-export function youtubeTitlesMatch(provider: string, declared: string): boolean {
-  const declaredTitle = compactTitle(declared);
-  if (declaredTitle.length === 0) return false;
-  if (compactTitle(provider) === declaredTitle) return true;
-  const declaredClauses = titleClauses(declared);
-  const providerClauses = titleClauses(provider);
-  // Each declared clause is matched inside one of YouTube's clauses, after the
-  // previous one's match; the earliest match leaves the most room for the rest.
-  let clause = 0;
-  let from = 0;
-  for (const tokens of declaredClauses) {
-    let end = clause < providerClauses.length ? titleRunEnd(providerClauses[clause]!, tokens, from) : undefined;
-    while (end === undefined && clause + 1 < providerClauses.length) {
-      clause += 1;
-      end = titleRunEnd(providerClauses[clause]!, tokens, 0);
-    }
-    if (end === undefined) return false;
-    from = end;
-  }
-  return declaredClauses.length > 0;
-}
-
-/**
- * A declared channel matches YouTube's when they are equal ignoring case,
- * spacing and punctuation, or when at least 60% of the declared words of three
- * or more characters appear in YouTube's channel name.
- */
-export function youtubeLabelsMatch(provider: string, declared: string): boolean {
-  const compact = (value: string) => value.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
-  if (compact(provider) === compact(declared)) return true;
-  const words = (value: string) => new Set(
-    value.normalize("NFKC").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((word) => word.length >= 3)
-  );
-  const declaredWords = words(declared);
-  if (declaredWords.size === 0) return false;
-  const providerWords = words(provider);
-  const shared = [...declaredWords].filter((word) => providerWords.has(word)).length;
-  return shared / declaredWords.size >= 0.6;
+/** Whether YouTube's channel name is the declared one, ignoring case, spacing and punctuation. */
+export function youtubeChannelsEqual(provider: string, declared: string): boolean {
+  const target = compactTitle(declared);
+  return target.length > 0 && compactTitle(provider) === target;
 }
 
 function comparableQuery(value: string): string {

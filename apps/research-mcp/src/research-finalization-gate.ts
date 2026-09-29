@@ -1,4 +1,3 @@
-import { TITLE_NEGATION_WORDS } from "@askrigor/sources";
 import { z } from "zod";
 
 import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
@@ -1369,47 +1368,17 @@ function redditPostOf(url: string): string | undefined {
   }
 }
 
-const ELLIPSIS_END = /(?:\.\.\.|\u2026)[\s"'\u201d\u2019)\]]*$/u;
-// Words that say little about which thread a title names.
-const TITLE_FILLER = new Set([
-  "the", "and", "for", "with", "from", "about", "after", "any", "anyone", "anybody", "someone", "you", "your",
-  "are", "was", "were", "has", "have", "had", "does", "did", "this", "that", "what", "how", "why", "who", "when",
-  "which", "just", "can", "could", "should", "would", "will", "its", "our", "their", "they", "them", "been",
-  "into", "out", "but", "all", "get", "got"
-]);
-
 /**
- * A title as the model gave it matches Reddit's when their words, in order,
- * are the same once case, punctuation, "&" and a subreddit or "Reddit" tag are
- * set aside; when it ends in an ellipsis and every word before the cut is
- * Reddit's, in order, with only the last cut short; or when one is a
- * whole-word run inside the other with at least three identifying words and
- * the same negations. Word order keeps "No evidence TRT
- * causes harm" from matching "Evidence TRT causes no harm", and one shared
- * topical word ("TRT advice" against "TRT disaster") never matches.
+ * Whether a thread title as the model gave it is Reddit's: equal once case,
+ * spacing, punctuation and a subreddit or "Reddit" tag are set aside. It
+ * compares characters, so it works alike in every language; a title worded
+ * differently, cut short or translated gets Reddit's own title back to use.
  */
 function sameTitle(given: string, actual: string): boolean {
-  const words = (value: string) => (value.toLowerCase().replace(/n['\u2019]t\b/gu, " not").replace(/&/gu, " and ")
-    .replace(/\br\/[\w-]+/gu, " ").match(/[\p{L}\p{N}]+/gu) ?? []).filter((word) => word !== "reddit");
-  const left = words(given);
-  const right = words(actual);
-  if (left.length === 0 || right.length === 0) return true;
-  const identifying = (list: readonly string[]) =>
-    new Set(list.filter((word) => /\p{N}/u.test(word) || (word.length >= 3 && !TITLE_FILLER.has(word)))).size;
-  // An ellipsis cuts Reddit's title: every word before the cut must be Reddit's,
-  // in order, and the last may be cut short, so no word (a "no" among them) is
-  // skipped.
-  if (ELLIPSIS_END.test(given)) {
-    const whole = left.slice(0, -1);
-    return left.length <= right.length && whole.every((word, index) => right[index] === word) &&
-      right[left.length - 1]!.startsWith(left.at(-1)!) && identifying(whole) >= 3;
-  }
-  const phrase = (list: readonly string[]) => ` ${list.join(" ")} `;
-  if (phrase(left) === phrase(right)) return true;
-  const [shorter, longer] = left.length <= right.length ? [left, right] : [right, left];
-  const negations = (list: readonly string[]) => list.filter((word) => TITLE_NEGATION_WORDS.has(word)).length;
-  return phrase(longer).includes(phrase(shorter)) && identifying(shorter) >= 3 &&
-    negations(shorter) === negations(longer);
+  const compact = (value: string) => value.normalize("NFKC").toLowerCase().replace(/\br\/[\w-]+/gu, " ")
+    .replace(/\breddit\b/gu, " ").replace(/[^\p{L}\p{N}]+/gu, "");
+  const left = compact(given);
+  return left.length === 0 || left === compact(actual);
 }
 
 /** The subreddit a reddit.com link is in, its front page or any page under it; undefined elsewhere. */
@@ -1596,8 +1565,10 @@ function communityCoverage(
         const absent = checks.filter(({ check }) => check?.state === "not_found").map(({ url }) => url);
         const elsewhere = checks.filter(({ check }) => check?.state === "found" && check.subreddit !== subreddit)
           .map(({ url }) => url);
-        const retitled = checks.filter(({ title, check }) =>
-          check?.state === "found" && title !== undefined && !sameTitle(title, check.title)).map(({ url }) => url);
+        const retitled = checks.flatMap(({ url, title, check }) =>
+          check?.state === "found" && title !== undefined && !sameTitle(title, check.title)
+            ? [`${url} is "${check.title}" on Reddit`]
+            : []);
         if (absent.length > 0 || elsewhere.length > 0 || retitled.length > 0) {
           if (absent.length > 0) {
             out.nextSteps.push(
@@ -1613,8 +1584,8 @@ function communityCoverage(
           }
           if (retitled.length > 0) {
             out.nextSteps.push(
-              `community_searches for ${name} gives thread title(s) that do not match the threads on Reddit ` +
-                `(${retitled.join(", ")}): check that each link is the thread you read, and give its title as shown.`
+              `community_searches for ${name} gives thread title(s) that differ from Reddit's (${retitled.join("; ")}): ` +
+                "check that each link is the thread you read, and give its title exactly as Reddit shows it."
             );
           }
           continue;

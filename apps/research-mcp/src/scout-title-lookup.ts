@@ -1,9 +1,8 @@
 import {
   searchYoutube,
   YOUTUBE_SEARCH_QUOTA_EXHAUSTED_CODE,
-  youtubeLabelsMatch,
-  youtubeTitlesMatch,
-  youtubeTitlesNearlySame,
+  youtubeChannelsEqual,
+  youtubeTitlesEqual,
   type YoutubeConfig
 } from "@askrigor/sources";
 
@@ -13,17 +12,18 @@ import {
  * Gemini's Google Search results often name a video without showing its watch
  * URL, so the scout reports such finds by title, and sometimes garbles an ID
  * it did propose. One YouTube search per title (100 quota units) recovers the
- * video when a result's title matches the declared one. A matching title alone
- * can name another video (a generic "Recovery Story" also matches "Cancer
- * Recovery Story"), so a result is accepted only when the declared channel
- * agrees or the titles are nearly the same (youtubeTitlesNearlySame). YouTube's
- * metadata stays authoritative for what the video is. Titles beyond the
- * per-call limit are returned unsearched so the model can decide whether they
- * are worth a search.
+ * video when exactly one result has the declared title (youtubeTitlesEqual),
+ * or one of several on the declared channel does (a reupload shares a title).
+ * Otherwise YouTube's closest results come back with the title for the
+ * research model to judge: whether a differently worded title is the same
+ * video takes reading it, in whatever language it is in. YouTube's metadata
+ * stays authoritative for what the video is. Titles beyond the per-call limit
+ * are returned unsearched so the model can decide whether they are worth a
+ * search.
  */
 export const SCOUT_TITLE_LOOKUP_LIMIT = 4;
 const LOOKUP_PAGE_SIZE = 10;
-const UNKNOWN_CHANNEL = "not described";
+const CLOSEST_RESULTS = 3;
 // YouTube search snippets HTML-escape titles and channel names.
 const HTML_ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'" };
 
@@ -53,6 +53,8 @@ export interface ScoutTitleLookupResult {
   }>;
   unresolved: Array<ScoutTitleLead & {
     reason: "no_matching_video" | "search_quota_exhausted" | "search_failed" | "not_searched";
+    // YouTube's top results for a title none of them has exactly.
+    closest?: Array<{ video_id: string; title: string; channel?: string }>;
   }>;
 }
 
@@ -110,14 +112,17 @@ export async function lookUpScoutTitles(
       unresolved.push({ ...lead, reason: response });
       continue;
     }
-    const titled = response.filter((record) => youtubeTitlesMatch(record.title, lead.title));
-    const match = titled.find((record) =>
-      lead.channel.trim().toLowerCase() !== UNKNOWN_CHANNEL &&
-      record.channel_title !== undefined &&
-      youtubeLabelsMatch(record.channel_title, lead.channel)
-    ) ?? titled.find((record) => youtubeTitlesNearlySame(record.title, lead.title));
+    const titled = response.filter((record) => youtubeTitlesEqual(record.title, lead.title));
+    const onChannel = titled.filter((record) =>
+      record.channel_title !== undefined && youtubeChannelsEqual(record.channel_title, lead.channel));
+    const match = onChannel.length === 1 ? onChannel[0] : titled.length === 1 ? titled[0] : undefined;
     if (match === undefined) {
-      unresolved.push({ ...lead, reason: "no_matching_video" });
+      const closest = response.slice(0, CLOSEST_RESULTS).map(({ video_id, title, channel_title }) => ({
+        video_id,
+        title,
+        ...(channel_title === undefined ? {} : { channel: channel_title })
+      }));
+      unresolved.push({ ...lead, reason: "no_matching_video", ...(closest.length === 0 ? {} : { closest }) });
       continue;
     }
     if (seen.has(match.video_id)) continue;

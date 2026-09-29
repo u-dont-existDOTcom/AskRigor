@@ -343,107 +343,58 @@ describe("Gemini YouTube candidate handoff", () => {
     });
   });
 
-  it("keeps a paraphrased title, leaves a same-channel title conflict unresolved, and rejects a video whose title and channel both differ", async () => {
-    const paraphrased = await validateGeminiYoutubeCandidateHandoff(
+  it("confirms an ID only by YouTube's own title, and hands any other title back with both for the model", async () => {
+    const withVideo = (options: { title?: string; channel?: string }) => validateGeminiYoutubeCandidateHandoff(
       response(),
       YOUTUBE,
-      { get_video: vi.fn(async (videoId: string) => videoEnvelope(
-        videoId,
-        videoId === VIDEO_IDS[0]
-          ? { title: "My first outcome video, one year on", channel: "An independent runner" }
-          : {}
-      )) }
+      { get_video: vi.fn(async (videoId: string) => videoEnvelope(videoId, videoId === VIDEO_IDS[0] ? options : {})) }
     );
-    expect(paraphrased.status).toBe("accepted");
-    expect(paraphrased.validated_candidates.find(({ video_id }) => video_id === VIDEO_IDS[0])).toMatchObject({
-      provider_metadata: { title: "My first outcome video, one year on" }
-    });
-
-    // The ID may point at another video from the declared channel: not trusted,
-    // not rejected either.
-    const conflicting = await validateGeminiYoutubeCandidateHandoff(
-      response(),
-      YOUTUBE,
-      { get_video: vi.fn(async (videoId: string) => videoEnvelope(
-        videoId,
-        videoId === VIDEO_IDS[0] ? { title: "Different provider title" } : {}
-      )) }
-    );
-    expect(conflicting.status).toBe("partial");
-    expect(conflicting.rejected_candidates).toEqual([]);
-    expect(conflicting.validated_candidates.map(({ video_id }) => video_id)).toEqual(VIDEO_IDS.slice(1));
-    expect(conflicting.unresolved_candidates).toEqual([
-      expect.objectContaining({
+    // YouTube's usual additions to a title do not change it.
+    for (const title of [
+      "FIRST OUTCOME VIDEO!",
+      "First outcome video | Independent runner",
+      "First outcome video - one year on",
+      "First outcome video #shorts #hip"
+    ]) {
+      const receipt = await withVideo({ title });
+      expect(receipt.status).toBe("accepted");
+      expect(receipt.validated_candidates.map(({ video_id }) => video_id)).toEqual([...VIDEO_IDS]);
+    }
+    // Any other title may be the same video worded differently or another one. The ID is not confirmed, and the
+    // rejection carries both titles for the research model to judge.
+    for (const [title, channel, reasons] of [
+      ["My first outcome video, one year on", "An independent runner", ["declared_title_mismatch", "declared_channel_mismatch"]],
+      ["Different provider title", undefined, ["declared_title_mismatch"]],
+      ["Second outcome video", "Unrelated channel", ["declared_title_mismatch", "declared_channel_mismatch"]]
+    ] as const) {
+      const receipt = await withVideo({ title, ...(channel === undefined ? {} : { channel }) });
+      expect(receipt.status).toBe("partial");
+      expect(receipt.validated_candidates.map(({ video_id }) => video_id)).toEqual(VIDEO_IDS.slice(1));
+      expect(receipt.unresolved_candidates).toEqual([]);
+      expect(receipt.rejected_candidates).toEqual([expect.objectContaining({
         video_id: VIDEO_IDS[0],
-        retryable: false,
-        provider_error_code: "youtube_candidate_title_conflict"
-      })
-    ]);
-    expect(conflicting.candidate_frontier.unresolved_candidate_video_ids).toEqual([VIDEO_IDS[0]]);
-
-    // On another channel a paraphrase is not enough: "Second outcome video"
-    // shares most of "First outcome video" but may be another video entirely.
-    const lookalike = await validateGeminiYoutubeCandidateHandoff(
-      response(),
-      YOUTUBE,
-      { get_video: vi.fn(async (videoId: string) => videoEnvelope(
-        videoId,
-        videoId === VIDEO_IDS[0] ? { title: "Second outcome video", channel: "Unrelated channel" } : {}
-      )) }
-    );
-    expect(lookalike.validated_candidates.map(({ video_id }) => video_id)).toEqual(VIDEO_IDS.slice(1));
-    expect(lookalike.rejected_candidates).toEqual([]);
-    expect(lookalike.unresolved_candidates).toEqual([
-      expect.objectContaining({
+        rejection_reasons: reasons,
+        provider_title: title,
+        declared_title: TITLES[0],
+        limitations: expect.arrayContaining([expect.stringMatching(/differs from the scout's \(declared_title\)/u)])
+      })]);
+      expect(receipt.suggested_seed_receipts[0]).toEqual({
         video_id: VIDEO_IDS[0],
-        provider_error_code: "youtube_candidate_title_conflict",
-        limitations: expect.arrayContaining([expect.stringMatching(/only partly matches the scout's declared title and its channel differs/u)])
-      })
-    ]);
-
-    const renamedChannel = await validateGeminiYoutubeCandidateHandoff(
-      response(),
-      YOUTUBE,
-      { get_video: vi.fn(async (videoId: string) => videoEnvelope(
-        videoId,
-        videoId === VIDEO_IDS[0] ? { channel: "Unrelated channel" } : {}
-      )) }
-    );
+        disposition: "rejected",
+        reasons: ["candidate_rejected"]
+      });
+    }
+    // YouTube's title under another channel name: YouTube's metadata is used.
+    const renamedChannel = await withVideo({ channel: "Unrelated channel" });
     expect(renamedChannel.validated_candidates.find(({ video_id }) => video_id === VIDEO_IDS[0])).toMatchObject({
       provider_metadata: { channel_title: "Unrelated channel" },
       limitations: expect.arrayContaining([
         "The scout's declared channel differed from YouTube's; YouTube's metadata is used."
       ])
     });
-
-    const getVideo = vi.fn(async (videoId: string) => videoEnvelope(
-      videoId,
-      videoId === VIDEO_IDS[0] ? { title: "Different provider title", channel: "Unrelated channel" } : {}
-    ));
-
-    const receipt = await validateGeminiYoutubeCandidateHandoff(
-      response(),
-      YOUTUBE,
-      { get_video: getVideo }
-    );
-
-    expect(receipt.status).toBe("partial");
-    expect(receipt.validated_candidates).toHaveLength(2);
-    expect(receipt.rejected_candidates).toEqual([
-      expect.objectContaining({
-        video_id: VIDEO_IDS[0],
-        rejection_reasons: ["declared_title_mismatch", "declared_channel_mismatch"],
-        provider_title: "Different provider title"
-      })
-    ]);
-    expect(receipt.suggested_seed_receipts[0]).toEqual({
-      video_id: VIDEO_IDS[0],
-      disposition: "rejected",
-      reasons: ["candidate_rejected"]
-    });
   });
 
-  it("leaves a same-channel video whose title swaps or reverses a declared word unresolved", async () => {
+  it("compares titles character by character, alike in every language, and leaves every rewording to the model", async () => {
     const declaring = (title: string): GeminiYoutubeCandidatePacket => {
       const value = packet();
       return {
@@ -459,39 +410,35 @@ describe("Gemini YouTube candidate handoff", () => {
         videoId === VIDEO_IDS[0] ? { title: providerTitle } : {}
       )) }
     );
-    // The declared channel agrees each time, so only the title tells the videos apart.
+    // Rewordings, opposite claims and translations are alike unconfirmed: telling them apart takes reading them.
     for (const [declaredTitle, providerTitle] of [
       ["How I healed hip pain", "How I healed back pain"],
-      ["Why surgery fixed my hip", "Why surgery never fixed my hip"],
-      ["Why surgery did not fix my hip", "Why surgery fixed my hip"],
-      // The same words, one negation each, opposite claims.
+      ["Why surgery did not fix my hip", "Why surgery didn't fix my hip"],
       ["No evidence TRT causes harm", "Evidence TRT causes no harm"],
-      ["Exercise beats surgery for hip pain", "Surgery beats exercise for hip pain"],
-      // The declared words, in order, but spread over two claims.
-      ["Exercise beats surgery for hip pain", "Exercise beats injections, but surgery wins for hip pain"],
-      // An added negation, and one left out.
-      ["No pain and improved mobility", "No pain and no improved mobility"],
-      ["No pain and no improved mobility", "No pain and improved mobility"],
-      // Negations spelled without an apostrophe, or as one word.
       ["TRT can help pain", "TRT cannot help pain"],
-      ["TRT can help pain", "TRT cant help pain"],
-      ["Surgery helped my hip", "Surgery didnt help my hip"]
+      ["La chirurgie a aidé", "La chirurgie n'a pas aidé"],
+      ["Die Operation hat geholfen", "Die Operation hat nicht geholfen"],
+      ["膝の痛み", "膝の痛みを治した方法"],
+      ["How I healed my hip", "Cómo curé mi cadera"]
     ] as const) {
       const receipt = await check(declaredTitle, providerTitle);
-      expect(receipt.rejected_candidates).toEqual([]);
       expect(receipt.validated_candidates.map(({ video_id }) => video_id)).toEqual(VIDEO_IDS.slice(1));
-      expect(receipt.unresolved_candidates).toEqual([
-        expect.objectContaining({ video_id: VIDEO_IDS[0], provider_error_code: "youtube_candidate_title_conflict" })
-      ]);
+      expect(receipt.rejected_candidates).toEqual([expect.objectContaining({
+        video_id: VIDEO_IDS[0],
+        rejection_reasons: ["declared_title_mismatch"],
+        declared_title: declaredTitle,
+        provider_title: providerTitle
+      })]);
     }
-    // A paraphrase that keeps every declared word, a contraction included, still vouches for the ID.
+    // The same title in any script, give or take case, punctuation and YouTube's additions, confirms the ID.
     for (const [declaredTitle, providerTitle] of [
-      ["Why surgery did not fix my hip", "Why surgery didn't fix my hip | Independent runner"],
-      ["Diet & exercise for hip pain", "Diet and Exercise for Hip Pain (2 years later)"],
-      ["Hip pain relief with no surgery", "Hip pain relief without surgery"]
+      ["Cómo curé mi cadera", "CÓMO CURÉ MI CADERA #shorts"],
+      ["La chirurgie n'a pas aidé", "La chirurgie n’a pas aidé | Dr Martin"],
+      ["膝の痛みを治した方法", "膝の痛みを治した方法 | 整体チャンネル"],
+      ["Как я вылечил колено", "Как я вылечил колено - история"]
     ] as const) {
-      const paraphrased = await check(declaredTitle, providerTitle);
-      expect(paraphrased.validated_candidates.map(({ video_id }) => video_id)).toEqual([...VIDEO_IDS]);
+      const receipt = await check(declaredTitle, providerTitle);
+      expect(receipt.validated_candidates.map(({ video_id }) => video_id)).toEqual([...VIDEO_IDS]);
     }
   });
 

@@ -912,7 +912,7 @@ describe("finalize_research gate", () => {
     }, { ...options, redditThreads: reddit(trt) });
 
     // Both confirmed: the answer says Reddit confirmed the threads, not their content.
-    const confirmed = gate(found("trt", "HGH and TRT: five years in"), "HGH and TRT five years");
+    const confirmed = gate(found("trt", "HGH and TRT: five years in"), "hgh and trt - five years in : r/trt");
     const confirmedCaveat = "Reddit confirms that the r/trt and r/Testosterone threads linked here exist, but what they " +
       "report is my own reading, which AskRigor could not verify.";
     expect(confirmed.caveats).toContain(confirmedCaveat);
@@ -921,7 +921,7 @@ describe("finalize_research gate", () => {
       "recovery; some saw no difference and a few reported side effects, consistent with the trials.\n\nOn " +
       `[r/Testosterone](${testosteroneThread}), most reported better recovery too; some saw no difference and a few ` +
       `reported side effects, consistent with the trials.\n\n${confirmedCaveat}`;
-    expect(gate(found("trt", "HGH and TRT: five years in"), "HGH and TRT five years", draft).next_steps).toEqual([]);
+    expect(gate(found("trt", "HGH and TRT: five years in"), "HGH and TRT: five years in", draft).next_steps).toEqual([]);
 
     // A thread Reddit does not have, one it files elsewhere, or one under another title goes back.
     expect(gate({ state: "not_found" }).next_steps).toContain(
@@ -932,22 +932,23 @@ describe("finalize_research gate", () => {
       `community_searches for r/trt lists thread(s) that Reddit files under another subreddit (${trtThread}): list ` +
         "each thread under its own subreddit's entry."
     );
-    const retitled = `community_searches for r/trt gives thread title(s) that do not match the threads on Reddit ` +
-      `(${trtThread}): check that each link is the thread you read, and give its title as shown.`;
-    expect(gate(found("trt", "HGH and TRT five years"), "Collagen for sore knees").next_steps).toContain(retitled);
-    // One shared topical word is not a match; a title cut short, tagged or with "&" for "and" is.
-    expect(gate(found("trt", "TRT disaster"), "TRT advice").next_steps).toContain(retitled);
-    expect(gate(found("trt", "TRT disaster"), "TRT").next_steps).toContain(retitled);
-    // A title that gains or loses a negation names another thread.
-    expect(gate(found("trt", "TRT is not safe for older men"), "TRT is safe for older men").next_steps).toContain(retitled);
-    expect(gate(found("trt", "TRT is not safe for older men"), "Safe for older men").next_steps).toContain(retitled);
-    // A cut title keeps every word before the cut: dropping a "no" is not a cut.
-    expect(gate(found("trt", "Evidence TRT treatment causes no harm"), "Evidence TRT treatment causes harm...").next_steps)
-      .toContain(retitled);
-    // Word order counts: the same words and negations in another order name another thread.
-    expect(gate(found("trt", "Evidence TRT causes no harm"), "No evidence TRT causes harm").next_steps).toContain(retitled);
-    for (const given of ["HGH and TRT: five ye\u2026", "HGH and TRT: five years in : r/trt", "hgh & trt - five years in"]) {
-      expect(gate(found("trt", "HGH and TRT: five years in"), given).next_steps).not.toContain(retitled);
+    // A title other than Reddit's gets Reddit's own back, in any language: only case, spacing, punctuation and a
+    // subreddit or "Reddit" tag are set aside, and no rewording is judged.
+    const retitled = (reddit: string) => `community_searches for r/trt gives thread title(s) that differ from ` +
+      `Reddit's (${trtThread} is "${reddit}" on Reddit): check that each link is the thread you read, and give its ` +
+      "title exactly as Reddit shows it.";
+    for (const [reddit, given] of [
+      ["HGH and TRT five years", "Collagen for sore knees"],
+      ["HGH and TRT: five years in", "HGH and TRT: five ye\u2026"],
+      ["HGH and TRT: five years in", "hgh & trt - five years in"],
+      ["TRT is not safe for older men", "TRT is safe for older men"],
+      ["Evidence TRT causes no harm", "No evidence TRT causes harm"],
+      ["La cirugía no me ayudó", "La cirugía me ayudó"]
+    ] as const) {
+      expect(gate(found("trt", reddit), given).next_steps).toContain(retitled(reddit));
+    }
+    for (const given of ["HGH and TRT: five years in : r/trt", "hgh and trt - five years in", "HGH AND TRT, FIVE YEARS IN (Reddit)"]) {
+      expect(gate(found("trt", "HGH and TRT: five years in"), given).next_steps.join(" ")).not.toContain("differ from Reddit's");
     }
 
     // A lookup that failed proves nothing: that subreddit stays unverified.

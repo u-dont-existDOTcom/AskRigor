@@ -11974,6 +11974,28 @@
                         "search_failed",
                         "not_searched"
                       ]
+                    },
+                    "closest": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "video_id": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "channel": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "video_id",
+                          "title"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [

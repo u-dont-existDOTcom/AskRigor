@@ -1602,17 +1602,16 @@ function defineResearchOperations(
       const notFound = new Set(validation.rejected_candidates
         .filter(({ rejection_reasons: reasons }) => reasons.includes("metadata_not_api_visible_complete"))
         .map(({ video_id }) => video_id));
-      // An ID whose YouTube title differs from the declared one (beyond a
-      // paraphrase) may be another video from the same channel. Validation
-      // leaves it unresolved; confirm it by the declared title instead.
-      const titleConflicts = new Set(validation.unresolved_candidates
-        .filter(({ provider_error_code: code }) => code === "youtube_candidate_title_conflict")
-        .map(({ video_id }) => video_id));
+      // An ID whose YouTube title is not the scout's is rejected with both
+      // titles, for the model to judge: it is not searched again, since the ID
+      // may well be the video, worded differently.
+      const retitled = validation.rejected_candidates
+        .filter(({ rejection_reasons: reasons }) => reasons.includes("declared_title_mismatch")).length;
       const confirmed = validation.validated_candidates;
       const titleLeads = [
         ...("title_only_candidates" in packet ? packet.title_only_candidates ?? [] : []),
         ...packet.candidates
-          .filter(({ video_id }) => notFound.has(video_id) || titleConflicts.has(video_id))
+          .filter(({ video_id }) => notFound.has(video_id))
           .map(({ title, channel, why_surfaced }) => ({ title, channel, why_surfaced }))
       ];
       // Title searches run in parallel; skip them when they might not finish
@@ -1644,31 +1643,30 @@ function defineResearchOperations(
       const unresolvedTitles = titleLookup?.unresolved ?? [];
       return withResearchReceipt(successfulToolResult(
         `Gemini scout validated ${confirmed.length} video(s)` +
-          (titleConflicts.size === 0
-            ? ""
-            : ` (${titleConflicts.size} more had a different YouTube title than declared and were looked up by title instead)`) +
           (found.length === 0 ? "" : ` and found ${found.length} more by exact title (title_lookup.found)`) +
           "; summaries are unverified discovery leads." +
+          (retitled === 0
+            ? ""
+            : ` ${retitled} more had a YouTube title other than the scout's (validation.rejected_candidates gives ` +
+              "both): audit one if YouTube's title shows it is the video meant or relevant anyway.") +
           (unresolvedTitles.length === 0
             ? ""
-            : ` ${unresolvedTitles.length} named video(s) could not be identified (title_lookup.unresolved); ` +
-              "search a promising one by its exact title with search_youtube (100 quota units each)."),
+            : ` ${unresolvedTitles.length} named video(s) could not be identified by exact title ` +
+              "(title_lookup.unresolved, with YouTube's closest results): audit one of those if it is the video, or " +
+              "search a promising title with search_youtube (100 quota units each)."),
         output
       ), researchReceipt("youtube_scout", {
         videos: [
           ...confirmed.map(({ video_id }) => video_id),
           ...found.map(({ video_id }) => video_id)
         ],
-        // Title conflicts were looked up by title, so the lookup settles them.
-        open: validation.unresolved_candidates.length - titleConflicts.size +
+        open: validation.unresolved_candidates.length +
           unresolvedTitles.filter(({ reason }) => reason !== "no_matching_video").length,
         q: discoveryQueryDigest([target.research_target, ...leads]),
         target: researchTargetDigest(target.research_target),
-        // The rest of the scout frontier, for the coverage check. A title
-        // conflict names another video, so it counts as rejected.
-        unres: validation.unresolved_candidates.map(({ video_id }) => video_id)
-          .filter((videoId) => !titleConflicts.has(videoId)),
-        rej: [...new Set([...validation.rejected_candidates.map(({ video_id }) => video_id), ...titleConflicts])]
+        // The rest of the scout frontier, for the coverage check.
+        unres: validation.unresolved_candidates.map(({ video_id }) => video_id),
+        rej: validation.rejected_candidates.map(({ video_id }) => video_id)
       }));
     }
   );
@@ -1827,7 +1825,9 @@ const MCP_SCOUT_OUTPUT_SCHEMA = z.object({
       title: z.string(),
       channel: z.string(),
       why_surfaced: z.string().optional(),
-      reason: z.enum(["no_matching_video", "search_quota_exhausted", "search_failed", "not_searched"])
+      reason: z.enum(["no_matching_video", "search_quota_exhausted", "search_failed", "not_searched"]),
+      closest: z.array(z.object({ video_id: z.string(), title: z.string(), channel: z.string().optional() }).strict())
+        .optional()
     }).strict())
   }).strict().optional(),
   provider_storage_mode: z.enum(["DISABLED", "TEMPORARY_BACKGROUND_DELETE_REQUESTED"]).optional(),
