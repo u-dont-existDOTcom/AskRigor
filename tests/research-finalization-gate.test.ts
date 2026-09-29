@@ -427,6 +427,98 @@ describe("finalize_research gate", () => {
     ]);
   });
 
+  it("binds each community's lane, link and threads to that community", () => {
+    const base = {
+      receipts: [survey, emptySearch, repeatScout, videoA, study],
+      community_evidence: "researched",
+      treatment_choice: "not_compared",
+      research_target: TARGET,
+      key_sources: [{ id: "https://doi.org/10.1002/ART.41142", status: "validated" }]
+    };
+    const findings = {
+      benefit_reports: "Most reported better recovery.",
+      no_effect_reports: "Some saw no difference.",
+      adverse_reports: "A few reported joint pain.",
+      effect_on_answer: "Consistent with the trials."
+    };
+    const trtThread = "https://old.reddit.com/r/trt/comments/xyz789/hgh_and_trt_five_years/";
+    const testosteroneThread = "https://www.reddit.com/r/Testosterone/comments/def456/ten_years_on_trt/";
+    const subreddits = [
+      { name: "r/trt", platform: "reddit" },
+      { name: "r/Testosterone", platform: "reddit" },
+      { name: "YouTube", platform: "youtube" }
+    ];
+    const read = (community: string, url: string, platform = "reddit") =>
+      ({ community, platform, queries: ["hgh vs trt"], threads_read: [{ url }], ...findings });
+    const both = [read("r/trt", trtThread), read("r/Testosterone", testosteroneThread)];
+    const caveat = "The reports from r/trt and r/Testosterone come from my own web search, which AskRigor could not verify.";
+    const gate = (input: Record<string, unknown>) =>
+      finalizeResearch({ ...base, principal_communities: subreddits, ...input }, options);
+
+    // With two subreddits read, a paragraph about "Reddit" reports for neither, whatever it links.
+    const generic = `${CLEAN_DRAFT}\n\nOn Reddit, users reported better recovery; some saw no difference and a few ` +
+      `reported side effects, consistent with the trials. See [one thread](${trtThread}) and [another](${testosteroneThread}).` +
+      `\n\n${caveat}`;
+    expect(gate({ community_searches: both, answer_draft: generic }).next_steps).toEqual([
+      "The answer's r/trt section does not report benefit reports, no-effect reports, adverse reports, what those " +
+        "reports mean for the answer. Add each from must_report, and say none were reported where there were none.",
+      "Link a thread you read from r/trt where the answer reports it, so a reader can check it.",
+      "The answer's r/Testosterone section does not report benefit reports, no-effect reports, adverse reports, what " +
+        "those reports mean for the answer. Add each from must_report, and say none were reported where there were none.",
+      "Link a thread you read from r/Testosterone where the answer reports it, so a reader can check it."
+    ]);
+    // A section per subreddit, each with its findings and its own thread, passes.
+    const sections = `${CLEAN_DRAFT}\n\nOn [r/trt](${trtThread}), most reported better recovery; some saw no difference ` +
+      "and a few reported side effects, consistent with the trials.\n\nOn " +
+      `[r/Testosterone](${testosteroneThread}), most reported better recovery too; some saw no difference and a few ` +
+      `reported side effects, consistent with the trials.\n\n${caveat}`;
+    const passed = gate({ community_searches: both, answer_draft: sections });
+    expect(passed.next_steps).toEqual([]);
+    expect(passed.status).toBe("ready_with_limits");
+    // A link to one subreddit's thread in another's section is not its link.
+    const swapped = sections.replace(`[r/trt](${trtThread})`, `[r/trt](${testosteroneThread})`);
+    expect(gate({ community_searches: both, answer_draft: swapped }).next_steps).toEqual([
+      "Link a thread you read from r/trt where the answer reports it, so a reader can check it."
+    ]);
+
+    // A subreddit's entry names it, and its threads are in it; Reddit threads are Reddit's.
+    expect(gate({
+      community_searches: [read("r/trt", testosteroneThread), read("MESO-Rx", trtThread, "forum"), read("TRT forum", trtThread, "reddit")]
+    }).next_steps.slice(0, 3)).toEqual([
+      "community_searches for r/trt lists threads outside r/trt or short links: list each thread by its full " +
+        "reddit.com link, under its own subreddit's entry.",
+      "community_searches for MESO-Rx lists Reddit threads; record them under platform reddit, as the subreddit " +
+        "they are in.",
+      "Name the Reddit community TRT forum by its subreddit, as r/<name>."
+    ]);
+    // One thread counts for one community only.
+    const forumThread = "https://thinksteroids.com/community/threads/2/";
+    const twice = gate({
+      principal_communities: [{ name: "MESO-Rx", platform: "forum" }, { name: "ExcelMale", platform: "forum" }],
+      community_searches: [read("MESO-Rx", forumThread, "forum"), read("ExcelMale", forumThread, "forum")]
+    });
+    expect(twice.next_steps).toContain(
+      "community_searches for ExcelMale lists a thread already listed for another community; list each thread under " +
+        "the one community it belongs to."
+    );
+
+    // The permit counts every community searched outside YouTube once, a boundary included.
+    const facebook = { name: "TRT Facebook group", platform: "facebook" };
+    const counted = gate({
+      principal_communities: [...subreddits, facebook],
+      community_searches: [
+        read("r/trt", trtThread), read("r/trt", trtThread.replace("xyz789", "uvw456")),
+        { community: "TRT Facebook group", platform: "facebook", queries: ["hgh trt"], access_boundary: "login_required" }
+      ],
+      answer_draft: `${sections.replace(/\n\nOn \[r\/Testosterone\][\s\S]*$/u, "")}\n\nThe reports from r/trt come ` +
+        "from my own web search, which AskRigor could not verify. TRT Facebook group needs a login to read, so reports " +
+        "there are not included."
+    });
+    expect(counted.next_steps).toEqual([]);
+    expect(verifyResearchReceipt(counted.finalization_receipt!, options))
+      .toMatchObject({ ok: true, claims: { unverified: "2" } });
+  });
+
   it("needs no YouTube research when YouTube is not the dominant community", () => {
     const forums = [
       { name: "r/trt", platform: "reddit" },

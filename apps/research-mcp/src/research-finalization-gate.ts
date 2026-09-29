@@ -239,6 +239,7 @@ export function finalizeResearch(
   const communityLanes: string[] = [];
   let communitiesSearched: string[] = [];
   let communitiesRead: CommunityRead[] = [];
+  let communitiesUnverified = 0;
   if (rejected.length > 0) {
     nextSteps.push(
       `${rejected.length} receipt(s) failed verification; pass each research_receipt exactly as the tool returned it.`
@@ -459,7 +460,7 @@ export function finalizeResearch(
             `their own: ${unfinished.map((video, index) => videoLink(video, `video ${index + 1}`)).join(", ")}.`);
       }
     }
-    ({ searched: communitiesSearched, read: communitiesRead } =
+    ({ searched: communitiesSearched, read: communitiesRead, unverified: communitiesUnverified } =
       communityCoverage(input, youtubeResearched, { nextSteps, requireLimit, lanes: communityLanes }));
   }
 
@@ -744,7 +745,7 @@ export function finalizeResearch(
       validated: validatedSources.length,
       leads: leadSources.length,
       limits: limits.length,
-      unverified: communitiesRead.length
+      unverified: communitiesUnverified
     }, {
       secret: options.secret,
       ...(options.now === undefined ? {} : { now: options.now })
@@ -854,20 +855,43 @@ function answerDraftProblems(
   }
   // Each community read beyond YouTube reaches the answer as a lane of its own,
   // as the YouTube comments do: named, with what its posters reported and what
-  // that means for the answer, and linked to a thread that was read.
-  const linked = new Set([...shownBlocks.map(linkTargets).join("\n").matchAll(LINKED_URL)]
-    .map(([url]) => comparableUrl(url)));
-  const lowerShown = shown.toLowerCase();
+  // that means for the answer, and linked to a thread that was read. A lane is
+  // the paragraphs from each one naming the community, up to the next one
+  // naming another community read, so one paragraph cannot report for a
+  // community it does not name. "Reddit" names a subreddit only when one was read.
+  const visibleBlocks = shownBlocks.map((block) => visibleText(block).replace(URL, " "));
+  const lowerBlocks = visibleBlocks.map((block) => block.toLowerCase());
+  const subreddits = context.communitiesRead.filter(({ platform }) => platform === "reddit").length;
+  const names = (community: CommunityRead): string[] =>
+    [community.name.toLowerCase(), ...(community.platform === "reddit" && subreddits === 1 ? ["reddit"] : [])];
+  const namedIn = (index: number, community: CommunityRead): boolean =>
+    names(community).some((name) => lowerBlocks[index]!.includes(name));
   for (const community of context.communitiesRead) {
-    const starts = [community.name.toLowerCase(), ...(community.platform === "reddit" ? ["reddit"] : [])]
-      .flatMap((name) => occurrences(lowerShown, name));
-    if (starts.length === 0) {
+    const others = context.communitiesRead.filter((other) => other !== community);
+    const laneBlocks = new Set<number>();
+    // The lane's text starts where the community is first named in its paragraph.
+    const segments: string[] = [];
+    lowerBlocks.forEach((lower, start) => {
+      const named = names(community).map((name) => lower.indexOf(name)).filter((index) => index !== -1);
+      if (named.length === 0) return;
+      let length = 0;
+      for (let index = start; index < lowerBlocks.length && length < LANE_WINDOW_CHARACTERS; index += 1) {
+        if (index > start && !namedIn(index, community) && others.some((other) => namedIn(index, other))) break;
+        laneBlocks.add(index);
+        const text = index === start ? lower.slice(Math.min(...named)) : lowerBlocks[index]!;
+        segments.push(text);
+        length += text.length;
+      }
+    });
+    const laneLinks = new Set([...laneBlocks].flatMap((index) =>
+      [...linkTargets(shownBlocks[index]!).matchAll(LINKED_URL)].map(([url]) => comparableUrl(url))));
+    if (laneBlocks.size === 0) {
       problems.push(
         `The answer does not report what ${community.name} showed. Add its lane from must_report, naming the ` +
           "community, even if its signal is weak."
       );
     } else {
-      const lane = starts.map((index) => shown.slice(index, index + LANE_WINDOW_CHARACTERS)).join("\n");
+      const lane = segments.join("\n");
       const missing: string[] = LANE_FINDINGS.filter(({ label, pattern }) =>
         label !== CREATORS_FINDING && !pattern.test(lane)).map(({ label }) => label);
       if (!reportsEffectOnAnswer(lane, community.effectOnAnswer)) missing.push("what those reports mean for the answer");
@@ -878,7 +902,7 @@ function answerDraftProblems(
         );
       }
     }
-    if (!community.urls.some((url) => linked.has(comparableUrl(url)))) {
+    if (!community.urls.some((url) => laneLinks.has(comparableUrl(url)))) {
       problems.push(`Link a thread you read from ${community.name} where the answer reports it, so a reader can check it.`);
     }
   }
@@ -990,15 +1014,6 @@ function comparableUrl(url: string): string {
   return url.toLowerCase().replace(/^https?:\/\//u, "").replace(/^(?:www|old|new|m)\./u, "").replace(/[/.,;:!?]+$/u, "");
 }
 
-/** Every index at which needle starts in haystack. */
-function occurrences(haystack: string, needle: string): number[] {
-  const found: number[] = [];
-  for (let index = haystack.indexOf(needle); needle !== "" && index !== -1; index = haystack.indexOf(needle, index + 1)) {
-    found.push(index);
-  }
-  return found;
-}
-
 // What the comments mean for the answer, in the words answers use for it.
 const EFFECT_ON_ANSWER = new RegExp([
   "\\b(?:support(?:s|ed|ing)?|backs? up|backed up|consistent with|in line with|agrees? with|at odds with",
@@ -1041,6 +1056,18 @@ function communityLane(
 const COMMUNITY_FINDINGS = ["benefit_reports", "no_effect_reports", "adverse_reports", "effect_on_answer"] as const;
 const YOUTUBE_HOST = /(?:^|\.)(?:youtube\.com|youtu\.be)$/u;
 const REDDIT_HOST = /(?:^|\.)(?:reddit\.com|redd\.it)$/u;
+const SUBREDDIT_NAME = /^\/?r\/([A-Za-z0-9_]{2,21})$/u;
+
+/** The subreddit a full reddit.com thread link is in; undefined for short links and other pages. */
+function subredditOf(url: string): string | undefined {
+  try {
+    const link = new globalThis.URL(url);
+    if (!/(?:^|\.)reddit\.com$/u.test(link.hostname.toLowerCase())) return undefined;
+    return /^\/r\/([A-Za-z0-9_]{2,21})\//u.exec(link.pathname)?.[1]?.toLowerCase();
+  } catch {
+    return undefined;
+  }
+}
 
 type CommunitySearch = NonNullable<FinalizeResearchInput["community_searches"]>[number];
 
@@ -1098,9 +1125,12 @@ function communityCoverage(
   input: FinalizeResearchInput,
   youtubeResearched: boolean,
   out: { nextSteps: string[]; requireLimit: (text: string, ...sentences: string[]) => void; lanes: string[] }
-): { searched: string[]; read: CommunityRead[] } {
+): { searched: string[]; read: CommunityRead[]; unverified: number } {
   const communities = input.principal_communities;
-  const read: CommunityRead[] = [];
+  // Communities read, one entry per community however many searches it had.
+  const readByKey = new Map<string, CommunityRead>();
+  // Each thread counts for one community only, so one search cannot pass as two.
+  const threadOwners = new Map<string, string>();
   if (communities === undefined) {
     out.nextSteps.push(
       "Name where people discussing this actually talk in principal_communities, the dominant first (subreddits, " +
@@ -1108,7 +1138,7 @@ function communityCoverage(
         "least one independent one: YouTube with its tools, the others with your own web search, recorded in " +
         "community_searches."
     );
-    return { searched: [], read };
+    return { searched: [], read: [], unverified: 0 };
   }
   // Key -> name as given.
   const searched = new Map<string, string>();
@@ -1128,6 +1158,39 @@ function communityCoverage(
       );
       continue;
     }
+    if (search.platform !== "reddit" && hosts.some((host) => REDDIT_HOST.test(host))) {
+      out.nextSteps.push(
+        `community_searches for ${name} lists Reddit threads; record them under platform reddit, as the subreddit ` +
+          "they are in."
+      );
+      continue;
+    }
+    // A subreddit is one community: its entry names it, and its threads are in it.
+    if (search.platform === "reddit") {
+      const subreddit = SUBREDDIT_NAME.exec(name)?.[1]?.toLowerCase();
+      if (subreddit === undefined) {
+        out.nextSteps.push(`Name the Reddit community ${name} by its subreddit, as r/<name>.`);
+        continue;
+      }
+      if (search.threads_read.some(({ url }) => subredditOf(url) !== subreddit)) {
+        out.nextSteps.push(
+          `community_searches for ${name} lists threads outside r/${subreddit} or short links: list each thread by ` +
+            "its full reddit.com link, under its own subreddit's entry."
+        );
+        continue;
+      }
+    }
+    const key = communityKey(name, search.platform);
+    const shared = search.threads_read.map(({ url }) => comparableUrl(url))
+      .filter((thread) => (threadOwners.get(thread) ?? key) !== key);
+    if (shared.length > 0) {
+      out.nextSteps.push(
+        `community_searches for ${name} lists a thread already listed for another community; list each thread under ` +
+          "the one community it belongs to."
+      );
+      continue;
+    }
+    for (const { url } of search.threads_read) threadOwners.set(comparableUrl(url), key);
     if (search.threads_read.length === 0 && search.access_boundary === undefined) {
       out.nextSteps.push(
         `community_searches for ${name} lists no thread read: add the threads you read, or the access_boundary ` +
@@ -1135,7 +1198,7 @@ function communityCoverage(
       );
       continue;
     }
-    searched.set(communityKey(name, search.platform), name);
+    searched.set(key, name);
     if (search.access_boundary !== undefined) {
       out.requireLimit(
         search.access_boundary === "no_relevant_results"
@@ -1153,18 +1216,20 @@ function communityCoverage(
       );
     } else {
       out.lanes.push(forumLane(search));
-      read.push({
-        name,
-        platform: search.platform,
-        urls: search.threads_read.map(({ url }) => url),
-        effectOnAnswer: search.effect_on_answer!
-      });
+      const urls = search.threads_read.map(({ url }) => url);
+      const known = readByKey.get(key);
+      if (known === undefined) {
+        readByKey.set(key, { name, platform: search.platform, urls, effectOnAnswer: search.effect_on_answer! });
+      } else {
+        known.urls.push(...urls);
+      }
     }
   }
+  const read = [...readByKey.values()];
   // AskRigor cannot see the client's web search, so these reports carry no
   // receipt: the answer says so and links the threads, which readers can check.
   if (read.length > 0) {
-    const names = joinNames([...new Set(read.map(({ name }) => name))]);
+    const names = joinNames(read.map(({ name }) => name));
     out.requireLimit(
       `The reports from ${names} come from your own web search, which AskRigor could not verify; say so, and link ` +
         "the threads you read.",
@@ -1202,7 +1267,8 @@ function communityCoverage(
         "search recorded in community_searches, or record the access boundary that stops you."
     );
   }
-  return { searched: [...searched.values()], read };
+  // Every community searched outside YouTube rests on the client's word.
+  return { searched: [...searched.values()], read, unverified: [...searched.keys()].filter((key) => key !== "youtube").length };
 }
 
 /** "a", "a and b", "a, b and c". */
