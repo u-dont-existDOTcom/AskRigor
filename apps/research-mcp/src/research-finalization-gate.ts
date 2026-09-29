@@ -1,3 +1,4 @@
+import { TITLE_NEGATION_WORDS } from "@askrigor/sources";
 import { z } from "zod";
 
 import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
@@ -1312,6 +1313,13 @@ const COMMUNITY_LINK_STEPS: Readonly<Record<string, string>> = {
   discord: "gives Discord links other than a server invite: Discord servers can be read only by joining, so record " +
     "the server's invite (discord.gg/…) as url, with the access boundary you hit."
 };
+// Facebook's own pages under /groups/, which name no group.
+const FACEBOOK_GROUP_ROUTES = new Set([
+  "feed", "discover", "create", "joins", "join", "joined", "search", "category", "categories", "notifications",
+  "requests", "invites", "invite", "membership", "memberships", "your_groups", "yourgroups", "saved", "manage",
+  "browse", "learn", "explore", "for_sale", "buy_and_sell", "buy_sell", "sell", "games", "pending", "admin", "admins",
+  "tab", "home", "suggestions", "suggested", "settings", "about", "help", "groups", "you", "all"
+]);
 const TELEGRAM_RESERVED_PATHS = new Set([
   "addstickers", "addemoji", "addtheme", "addlist", "share", "proxy", "socks", "setlanguage", "login", "confirmphone",
   "invoice", "boost", "giftcode", "contact", "joinchat"
@@ -1329,8 +1337,8 @@ function communityOf(platform: string, url: string, thread: boolean): string | u
     const link = new globalThis.URL(url);
     const host = link.hostname.toLowerCase();
     if (platform === "facebook") {
-      const group = /^\/groups\/([^/]+)/u.exec(link.pathname)?.[1]?.toLowerCase();
-      return group === undefined ? undefined : `facebook.com/groups/${group}`;
+      const group = /^\/groups\/([A-Za-z0-9._-]+)(?:\/|$)/u.exec(link.pathname)?.[1]?.toLowerCase();
+      return group === undefined || FACEBOOK_GROUP_ROUTES.has(group) ? undefined : `facebook.com/groups/${group}`;
     }
     if (platform === "telegram" && /(?:^|\.)(?:t\.me|telegram\.me|telegram\.dog)$/u.test(host)) {
       const invite = /^\/(?:\+|joinchat\/)([A-Za-z0-9_-]+)\/?$/u.exec(link.pathname)?.[1];
@@ -1361,7 +1369,6 @@ function redditPostOf(url: string): string | undefined {
   }
 }
 
-const NEGATION_WORDS = new Set(["no", "not", "never", "none", "nothing", "nor", "without", "cannot"]);
 const ELLIPSIS_END = /(?:\.\.\.|\u2026)[\s"'\u201d\u2019)\]]*$/u;
 // Words that say little about which thread a title names.
 const TITLE_FILLER = new Set([
@@ -1400,7 +1407,7 @@ function sameTitle(given: string, actual: string): boolean {
   const phrase = (list: readonly string[]) => ` ${list.join(" ")} `;
   if (phrase(left) === phrase(right)) return true;
   const [shorter, longer] = left.length <= right.length ? [left, right] : [right, left];
-  const negations = (list: readonly string[]) => list.filter((word) => NEGATION_WORDS.has(word)).length;
+  const negations = (list: readonly string[]) => list.filter((word) => TITLE_NEGATION_WORDS.has(word)).length;
   return phrase(longer).includes(phrase(shorter)) && identifying(shorter) >= 3 &&
     negations(shorter) === negations(longer);
 }

@@ -197,6 +197,7 @@ export {
   parseGeminiYoutubeCandidateHandoff,
   deriveGeminiYoutubeCandidateFrontier,
   validateGeminiYoutubeCandidateHandoff,
+  TITLE_NEGATION_WORDS,
   youtubeLabelsMatch,
   youtubeTitlesMatch,
   youtubeTitlesNearlySame,

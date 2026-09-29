@@ -471,7 +471,11 @@ describe("Gemini YouTube candidate handoff", () => {
       ["Exercise beats surgery for hip pain", "Exercise beats injections, but surgery wins for hip pain"],
       // An added negation, and one left out.
       ["No pain and improved mobility", "No pain and no improved mobility"],
-      ["No pain and no improved mobility", "No pain and improved mobility"]
+      ["No pain and no improved mobility", "No pain and improved mobility"],
+      // Negations spelled without an apostrophe, or as one word.
+      ["TRT can help pain", "TRT cannot help pain"],
+      ["TRT can help pain", "TRT cant help pain"],
+      ["Surgery helped my hip", "Surgery didnt help my hip"]
     ] as const) {
       const receipt = await check(declaredTitle, providerTitle);
       expect(receipt.rejected_candidates).toEqual([]);

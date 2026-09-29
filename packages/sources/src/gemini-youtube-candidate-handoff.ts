@@ -817,9 +817,16 @@ const TITLE_FILLER_WORDS = new Set([
   "are", "was", "can", "will", "get", "got", "has", "have", "but", "all", "out", "our", "its"
 ]);
 
-// Negation words, one token in a title so "no", "not", "never" and "without"
-// stand for each other.
-const TITLE_NEGATION_WORDS = new Set(["not", "no", "never", "without", "nothing", "none", "nor"]);
+/**
+ * Negation words, one token in a title so "no", "not", "never" and "without"
+ * stand for each other. Titles often spell "didn't" and "can't" as "didnt"
+ * and "cant", so those count too.
+ */
+export const TITLE_NEGATION_WORDS: ReadonlySet<string> = new Set([
+  "not", "no", "never", "without", "nothing", "none", "nor", "nobody", "nowhere", "neither", "cannot", "cant",
+  "dont", "doesnt", "didnt", "wont", "isnt", "arent", "wasnt", "werent", "havent", "hasnt", "hadnt", "shouldnt",
+  "wouldnt", "couldnt", "mustnt", "neednt", "aint"
+]);
 const TITLE_NEGATION = "~";
 // Where a title's clause ends: punctuation, a spaced dash, "and", "or" or "but".
 const TITLE_CLAUSE_BREAK = /[.,;:!?|()\[\]{}\u2013\u2014]+|\s-\s|\b(?:and|or|but)\b/u;

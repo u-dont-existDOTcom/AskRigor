@@ -617,6 +617,8 @@ describe("finalize_research gate", () => {
     // Facebook, Telegram and Discord live on their own hosts too: an entry there links only there, and their links
     // belong to them.
     const chat = { community: "TRT men chat", queries: ["hgh"], access_boundary: "login_required" };
+    const facebookStep = "community_searches for TRT men chat gives Facebook links outside a group: give the group's " +
+      "link (facebook.com/groups/…) and the posts in it you read.";
     const telegramStep = "community_searches for TRT men chat gives Telegram links that name no channel or group: " +
       "give a public channel's t.me link and the posts in it you read, or a private group's invite (t.me/+…) as url, " +
       "with the access boundary you hit.";
@@ -632,6 +634,9 @@ describe("finalize_research gate", () => {
       [{ ...chat, platform: "other", url: "https://discord.com/invite/trtmen" },
         "community_searches for TRT men chat lists Discord links; record them under platform discord."],
       // And a community there is a group, a public channel or a server, not any page of the platform.
+      [{ ...chat, platform: "facebook", url: "https://www.facebook.com/groups/feed/" }, facebookStep],
+      [{ ...chat, platform: "facebook", url: "https://www.facebook.com/groups/discover" }, facebookStep],
+      [{ ...chat, platform: "facebook", url: "https://m.facebook.com/groups/create/" }, facebookStep],
       [{ ...chat, platform: "facebook", url: "https://www.facebook.com/help" },
         "community_searches for TRT men chat gives Facebook links outside a group: give the group's link " +
           "(facebook.com/groups/…) and the posts in it you read."],
