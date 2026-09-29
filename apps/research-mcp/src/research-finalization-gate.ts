@@ -920,6 +920,16 @@ const QUESTION = new RegExp(
     "[\\s\\S]*\\?[\\s\"'\\u201d\\u2019)\\]*_]*$",
   "iu"
 );
+// A ranking reported as someone else's claim is evidence, not the answer's
+// verdict: "Five commenters said surgery beats exercise", "The study concludes
+// that ...", "According to the trial, ...". A first-person report ("we found")
+// is the answer's own.
+const REPORTED_BEFORE = new RegExp(
+  "(?:(?<!\\b(?:I|we)\\s+(?:have\\s+|had\\s+)?)\\b(?:said|says|reported|reports|wrote|writes|claimed|claims|concluded|" +
+    "concludes|argued|argues|noted|notes|found|described|describes)(?:\\s+that)?|\\baccording\\s+to\\s+[^,;:.]{1,80},)" +
+    `\\s+(?:${SUBJECT}\\s+)?$`,
+  "iu"
+);
 // How far back a subject and its asking word can reach, which also keeps each
 // test linear in the draft's length.
 const ASK_WINDOW = 400;
@@ -931,7 +941,7 @@ function assertedRankings(sentence: string): string[] {
   return [...sentence.matchAll(RANKING)]
     .filter(({ index }) => {
       const before = sentence.slice(Math.max(0, index - ASK_WINDOW), index);
-      return !DENIED_BEFORE.test(before) && !ASKED_BEFORE.test(before) &&
+      return !DENIED_BEFORE.test(before) && !ASKED_BEFORE.test(before) && !REPORTED_BEFORE.test(before) &&
         !(index <= ASK_WINDOW && ASKED_OPENING.test(before));
     })
     .map(([phrase]) => phrase.replace(/\s+/gu, " ").trim());
@@ -1296,10 +1306,11 @@ const TITLE_FILLER = new Set([
 
 /**
  * A title as the model gave it matches Reddit's when their words, in order,
- * are the same once case, punctuation, "&", a subreddit or "Reddit" tag and an
- * end cut off with an ellipsis are set aside (a cut title must begin Reddit's),
- * or when one is a whole-word run inside the other with at least three
- * identifying words and the same negations. Word order keeps "No evidence TRT
+ * are the same once case, punctuation, "&" and a subreddit or "Reddit" tag are
+ * set aside; when it ends in an ellipsis and every word before the cut is
+ * Reddit's, in order, with only the last cut short; or when one is a
+ * whole-word run inside the other with at least three identifying words and
+ * the same negations. Word order keeps "No evidence TRT
  * causes harm" from matching "Evidence TRT causes no harm", and one shared
  * topical word ("TRT advice" against "TRT disaster") never matches.
  */
@@ -1308,17 +1319,23 @@ function sameTitle(given: string, actual: string): boolean {
     .replace(/\br\/[\w-]+/gu, " ").match(/[\p{L}\p{N}]+/gu) ?? []).filter((word) => word !== "reddit");
   const left = words(given);
   const right = words(actual);
-  // An ellipsis may cut the last word short.
-  const cut = ELLIPSIS_END.test(given);
-  if (cut) left.pop();
   if (left.length === 0 || right.length === 0) return true;
+  const identifying = (list: readonly string[]) =>
+    new Set(list.filter((word) => /\p{N}/u.test(word) || (word.length >= 3 && !TITLE_FILLER.has(word)))).size;
+  // An ellipsis cuts Reddit's title: every word before the cut must be Reddit's,
+  // in order, and the last may be cut short, so no word (a "no" among them) is
+  // skipped.
+  if (ELLIPSIS_END.test(given)) {
+    const whole = left.slice(0, -1);
+    return left.length <= right.length && whole.every((word, index) => right[index] === word) &&
+      right[left.length - 1]!.startsWith(left.at(-1)!) && identifying(whole) >= 3;
+  }
   const phrase = (list: readonly string[]) => ` ${list.join(" ")} `;
-  if (!cut && phrase(left) === phrase(right)) return true;
-  const [shorter, longer] = cut || left.length <= right.length ? [left, right] : [right, left];
-  const inside = cut ? phrase(longer).startsWith(phrase(shorter)) : phrase(longer).includes(phrase(shorter));
-  const identifying = new Set(shorter.filter((word) => /\p{N}/u.test(word) || (word.length >= 3 && !TITLE_FILLER.has(word))));
+  if (phrase(left) === phrase(right)) return true;
+  const [shorter, longer] = left.length <= right.length ? [left, right] : [right, left];
   const negations = (list: readonly string[]) => list.filter((word) => NEGATION_WORDS.has(word)).length;
-  return inside && identifying.size >= 3 && (cut || negations(shorter) === negations(longer));
+  return phrase(longer).includes(phrase(shorter)) && identifying(shorter) >= 3 &&
+    negations(shorter) === negations(longer);
 }
 
 /** The subreddit a full reddit.com thread link is in; undefined for short links and other pages. */
@@ -1408,6 +1425,10 @@ function communityCoverage(
   }
   // Key -> name as given.
   const searched = new Map<string, string>();
+  // One site is one discussion pool, whatever its entries are called: outside
+  // Reddit, a community's identity is the site its threads are on (HRP
+  // MultipleIndependentCommunities: stable source identifiers, not names).
+  const siteOwners = new Map<string, string>();
   if (youtubeResearched) {
     searched.set("youtube", communities.find(({ platform }) => platform === "youtube")?.name ?? "YouTube");
   }
@@ -1503,6 +1524,24 @@ function communityCoverage(
       );
       continue;
     }
+    const sites = new Set(search.platform === "reddit" ? [] : hosts.map((host) => host.replace(/^www\./u, "")));
+    if (sites.size > 1) {
+      out.nextSteps.push(
+        `community_searches for ${name} lists threads on more than one site (${[...sites].join(", ")}); give each site ` +
+          "its own entry."
+      );
+      continue;
+    }
+    const site = [...sites][0];
+    const owner = site === undefined ? undefined : siteOwners.get(site);
+    if (owner !== undefined && owner !== key) {
+      out.nextSteps.push(
+        `community_searches for ${name} lists threads on ${site}, as ${searched.get(owner) ?? "another entry"} does: ` +
+          "one site is one discussion pool, so list its threads under one entry and search an independent community."
+      );
+      continue;
+    }
+    if (site !== undefined) siteOwners.set(site, key);
     searched.set(key, name);
     if (search.access_boundary !== undefined) {
       out.requireLimit(
