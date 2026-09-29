@@ -509,7 +509,8 @@ export function finalizeResearch(
     if (input.treatment_choice === "compared") {
       requireLimit(
         "The treatment comparison rests on a first pass: present it as provisional, with no final ranking.",
-        "This comparison rests on a first pass through the evidence, so treat it as provisional."
+        "This comparison rests on a first pass through the evidence, so treat it as provisional; it does not rank the " +
+          "options."
       );
     }
   } else {
@@ -693,8 +694,14 @@ export function finalizeResearch(
       direction === "studies" || input.community_evidence === "researched");
     const focuses = directions.map(({ direction }) =>
       (input.open_leads ?? []).filter((lead) => lead.direction === direction));
+    const twoOrThree = (leads: readonly unknown[]) => leads.length >= 2 && leads.length <= 3;
     directions.forEach(({ direction, what }, index) => {
-      if (focuses[index]!.length >= 2) return;
+      const count = focuses[index]!.length;
+      if (count > 3) {
+        nextSteps.push(`open_leads lists ${count} focuses with direction ${direction}; keep the two or three most promising.`);
+        return;
+      }
+      if (count >= 2) return;
       nextSteps.push(
         `List two or three open_leads with direction ${direction}: ${what}, each with why it looks promising.` +
           (direction === "community" && unsaturatedFirstPass
@@ -709,7 +716,7 @@ export function finalizeResearch(
         "Give another_pass_estimate: roughly what another pass over the open leads would take, with a number and " +
           "unit (for example, \"about 20 minutes and 15 YouTube searches\")."
       );
-    } else if (focuses.every((leads) => leads.length >= 2)) {
+    } else if (focuses.every(twoOrThree)) {
       requireLimit(
         `First pass only${unsaturatedFirstPass ? "; discovery had not saturated" : ""}. End the answer with the ` +
           `${directions.length === 2 ? "two ways" : "way"} to go deeper, a sentence or two each, in plain language for ` +
@@ -849,21 +856,27 @@ const looksLikeVideoId = (token: string) =>
   /^[A-Za-z0-9_-]{11}$/u.test(token) && /[A-Z]/u.test(token) && /[a-z]/u.test(token) && /[0-9_]/u.test(token);
 // A sentence only the full deep forum-audit template contains.
 const PASTED_FORUM_TEMPLATE = /strict-core cohort and separately labeled adjacent cohorts/iu;
-// Words by which the answer itself ranks the options: one named best, top or
-// number one, or a winner. Copulas keep "the best option depends on ..." out,
-// and a guideline's first-line or preferred treatment, or a study's own
-// ranking, can still be reported. An adverb does not soften a ranking
-// ("surgery is probably the best option"), but one that denies it does ("is
-// rarely the best option").
+// Words by which the answer itself ranks the options: one named best, top,
+// first choice or number one, a winner, or one superior or preferable to the
+// rest. Copulas keep "the best option depends on ..." and past findings ("was
+// superior to training in the trial") out, and a guideline's first-line or
+// preferred treatment, or a study's own ranking, can still be reported. An
+// adverb does not soften a ranking ("surgery is probably the best option"),
+// but one that denies it does ("is rarely the best option"). No word list
+// catches every paraphrase: the caveat the gate writes tells the reader that a
+// first pass does not rank the options, and this catches the plain verdicts.
+const RANKING_ADVERB = "(?:(?!(?:hardly|rarely|scarcely|barely|unlikely)\\b)\\p{L}+ly\\s+|still\\s+|often\\s+|far\\s+|much\\s+)?";
 const RANKING = new RegExp([
-  "\\b(?:is|are|would be|will be|remains?|comes? out as)\\s+" +
-    "(?:(?!(?:hardly|rarely|scarcely|barely|unlikely)\\b)\\p{L}+ly\\s+|still\\s+|often\\s+)?(?:the|your|our|my)\\s+" +
+  `\\b(?:is|are|would be|will be|remains?|comes? out as)\\s+${RANKING_ADVERB}(?:the|your|our|my)\\s+` +
     "(?:single\\s+|clear\\s+|overall\\s+|very\\s+)?(?:best|top|number[- ]one)\\s+" +
     "(?:treatment|option|choice|approach|program|therapy|pick|bet)s?\\b",
   "\\b(?:the|your|our|my)\\s+(?:top|number[- ]one)\\s+(?:choice|pick|recommendation)\\b",
   "\\b(?:clear|overall|outright)\\s+winner\\b",
   "\\bcomes?\\s+out\\s+(?:on\\s+top|ahead)\\b",
-  "\\bbest\\s+overall\\b"
+  "\\bbest\\s+overall\\b",
+  `\\b(?:is|are|would be|will be)\\s+${RANKING_ADVERB}(?:superior|preferable)\\s+to\\b`,
+  `\\b(?:is|are|would be|will be)\\s+${RANKING_ADVERB}better\\s+than\\s+(?:all|any|every)(?:\\s+(?:of\\s+)?the)?\\s+others?\\b`,
+  "\\bshould\\s+be\\s+(?:the|your|our|my)\\s+(?:first|top|preferred|main)\\s+(?:choice|pick|option|treatment)s?\\b"
 ].join("|"), "giu");
 // A ranking phrase the answer does not assert: one denied right before it
 // ("no clear winner", "none of these is the best option"); the predicate of
@@ -964,8 +977,8 @@ function answerDraftProblems(
     if (rankings.length > 0) {
       problems.push(
         `The answer ranks the options (${rankings.slice(0, 3).map((phrase) => `"${phrase}"`).join(", ")}), but ` +
-          `${context.noRanking}: compare them without naming a best, top or winning option, and say what evidence ` +
-          "would settle it."
+          `${context.noRanking}: compare them without naming a best, first-choice, superior or winning option, and ` +
+          "say what evidence would settle it."
       );
     }
   }
@@ -1257,11 +1270,12 @@ function redditPostOf(url: string): string | undefined {
   }
 }
 
+const NEGATION = /\b(?:no|not|never|none|nothing|nor|without|cannot)\b|n['\u2019]t\b/gu;
 // Words that say little about which thread a title names.
 const TITLE_FILLER = new Set([
   "the", "and", "for", "with", "from", "about", "after", "any", "anyone", "anybody", "someone", "you", "your",
   "are", "was", "were", "has", "have", "had", "does", "did", "this", "that", "what", "how", "why", "who", "when",
-  "which", "just", "not", "can", "could", "should", "would", "will", "its", "our", "their", "they", "them", "been",
+  "which", "just", "can", "could", "should", "would", "will", "its", "our", "their", "they", "them", "been",
   "into", "out", "but", "all", "get", "got"
 ]);
 
@@ -1271,7 +1285,8 @@ const TITLE_FILLER = new Set([
  * with at least three identifying words, or one ending in an ellipsis); when
  * both have the same identifying words; or when three or more identifying
  * words are shared and at most one in three differs. One shared topical word
- * ("TRT advice" against "TRT disaster") is not a match.
+ * ("TRT advice" against "TRT disaster") is not a match, nor is a title that
+ * gains or loses a negation ("TRT is safe" against "TRT is not safe").
  */
 function sameTitle(given: string, actual: string): boolean {
   const words = (value: string) => (value.toLowerCase().replace(/\br\/[\w-]+/gu, " ").match(/[\p{L}\p{N}]+/gu) ?? [])
@@ -1279,8 +1294,10 @@ function sameTitle(given: string, actual: string): boolean {
   const left = words(given);
   const right = words(actual);
   // An ellipsis may cut the last word short.
-  if (/(?:\.\.\.|…)[\s"'”’)\]]*$/u.test(given)) left.pop();
+  if (/(?:\.\.\.|\u2026)[\s"'\u201d\u2019)\]]*$/u.test(given)) left.pop();
   if (left.length === 0 || right.length === 0) return true;
+  const negations = (value: string) => value.toLowerCase().match(NEGATION)?.length ?? 0;
+  if (negations(given) !== negations(actual)) return false;
   const identifying = (list: readonly string[]) =>
     new Set(list.filter((word) => /\p{N}/u.test(word) || (word.length >= 3 && !TITLE_FILLER.has(word))));
   const [a, b] = [identifying(left), identifying(right)];

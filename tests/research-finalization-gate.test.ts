@@ -318,8 +318,8 @@ describe("finalize_research gate", () => {
         another_pass_estimate: PASS_ESTIMATE, ...input, answer_draft: `${caveatedDraft(input, options)}\n\n${sentence}`
       }, options).next_steps;
     const ranks = (phrase: string, reason: string) =>
-      `The answer ranks the options ("${phrase}"), but ${reason}: compare them without naming a best, top or winning ` +
-        "option, and say what evidence would settle it.";
+      `The answer ranks the options ("${phrase}"), but ${reason}: compare them without naming a best, first-choice, ` +
+        "superior or winning option, and say what evidence would settle it.";
     // A first pass names no best option, whatever the caveats say.
     const firstPass = { ...base, community_findings: findingsFor(["aaaaaaaaaaa"]) };
     expect(draftWith(firstPass, "Of these, exercise is the best option for most people.")).toEqual([
@@ -341,6 +341,8 @@ describe("finalize_research gate", () => {
       "None of these is the best option for everyone.",
       "Is there a clear winner?",
       "Surgery is rarely the best option before a trial of exercise.",
+      "In the trial closest to you, surgery was superior to training at 6 months.",
+      "Replacement gave larger gains than training, but it is unclear whether surgery is superior to exercise for you.",
       "Guidelines call joint replacement the preferred treatment at the end stage.",
       "In a network meta-analysis, exercise ranked highest for pain."
     ]) {
@@ -357,7 +359,10 @@ describe("finalize_research gate", () => {
       ["Exercise remains unclear but surgery is the best option.", "is the best option"],
       ["Surgery, which is the best option for severe damage, restores walking.", "is the best option"],
       ["Surgery is probably the best option.", "is probably the best option"],
-      ["Surgery is the best option, right?", "is the best option"]
+      ["Surgery is the best option, right?", "is the best option"],
+      ["Surgery is superior to exercise.", "is superior to"],
+      ["Exercise should be the first choice.", "should be the first choice"],
+      ["Surgery is better than any other option.", "is better than any other"]
     ] as const) {
       expect(draftWith(firstPass, sentence)).toEqual([ranks(phrase, "this first pass allows no final ranking")]);
     }
@@ -769,7 +774,10 @@ describe("finalize_research gate", () => {
     // One shared topical word is not a match; a title cut short, tagged or with "&" for "and" is.
     expect(gate(found("trt", "TRT disaster"), "TRT advice").next_steps).toContain(retitled);
     expect(gate(found("trt", "TRT disaster"), "TRT").next_steps).toContain(retitled);
-    for (const given of ["HGH and TRT: five ye…", "HGH and TRT: five years in : r/trt", "hgh & trt - five years in"]) {
+    // A title that gains or loses a negation names another thread.
+    expect(gate(found("trt", "TRT is not safe for older men"), "TRT is safe for older men").next_steps).toContain(retitled);
+    expect(gate(found("trt", "TRT is not safe for older men"), "Safe for older men").next_steps).toContain(retitled);
+    for (const given of ["HGH and TRT: five ye\u2026", "HGH and TRT: five years in : r/trt", "hgh & trt - five years in"]) {
       expect(gate(found("trt", "HGH and TRT: five years in"), given).next_steps).not.toContain(retitled);
     }
 
@@ -1504,6 +1512,17 @@ describe("finalize_research gate", () => {
       "List two or three open_leads with direction community: communities, options or subgroups not yet reached, each " +
         "with why it looks promising. Discovery has not saturated, so include the topics where more community signal " +
         "is likely and the searches YouTube's rate limit or daily quota stopped."
+    ]);
+    // Two or three focuses each, not more.
+    expect(finalizeResearch({
+      ...firstPass,
+      open_leads: [
+        ...STUDY_FOCUSES,
+        ...STUDY_FOCUSES.map((lead) => ({ ...lead, topic: `${lead.topic}, in more depth` })),
+        ...COMMUNITY_FOCUSES
+      ]
+    }, options).next_steps).toEqual([
+      "open_leads lists 4 focuses with direction studies; keep the two or three most promising."
     ]);
     const withLeads = finalizeResearch({
       ...firstPass,
