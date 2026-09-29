@@ -1109,6 +1109,7 @@ at max effort, one run:
 | 4d4fae8 | 152 min | 313 | 10 min | about 142 min |
 | 4fe4858 | 154 min | 266 | 9 min | about 145 min |
 | 733bf68 | 28 min | 111 | 7 min | about 21 min |
+| 380243e | 30 min | 120 | 5 min | about 25 min |
 
 - Most model time went to writing the answer before its two
   `finalize_research` calls (7.3 min), study method audits (6.5 min) and
@@ -1165,6 +1166,39 @@ them to "go deeper". The skill and the `open_leads` description now say focuses
 deepen what the answer covers and a first pass still covers every plausible
 option class and the red flags briefly. A rerun on 380243e checks whether the
 gap closes.
+
+Rerun on 380243e (the coverage reminder, web search on), 29 Sep 18:27–18:57
+UTC, Opus 5.5 at max effort, one run (row above; tool time is the sum of call
+durations, as in the other rows):
+
+- Model time went to writing the answer before its two `finalize_research`
+  calls (8.6 min), study method audits (4.0 min), protocol pages (2.7 min) and
+  comment audits (2.7 min). The Gemini scout ran five times; six comment
+  audits all completed (the segment fix held). Two discovery rounds, first pass
+  complete; the first check sent back four steps (the YouTube comments lane,
+  two forum lanes' missing report types, left-out caveats), the second passed
+  (`ready_with_limits`). Claude's web search refused reddit.com twice, as
+  expected; PubMed failed from this container (four searches, one record) and
+  the model used Europe PMC.
+- The answer now opens with when to get seen today, checks the diagnosis,
+  and covers a cane or walker, weight loss, pain medicines and a steroid
+  injection as a bridge before the weaker options and surgery, then a dated
+  plan, questions for the surgeon, three study and three community focuses,
+  and the question. No ranking phrase.
+- Blind judges (Opus 5.5, max effort, web spot-checks; medium confidence):
+  it beat e1176f8 overall (appraisal and heterodox judgment; safety and
+  usefulness tied; e1176f8 won options with a concrete exercise protocol and
+  pain rule). 4d4fae8 (the 152-minute run) still beat it overall (all but
+  appraisal): broader options (nerve ablation, resurfacing, duloxetine,
+  gels, structured cycling and pool programs), blood-clot signs in the red
+  flags, and the randomized injection trial. Every checked citation was
+  supported; one figure (75% vs 38% reaching an 8-point gain in PROHIP) could
+  not be checked against the abstract. The judge also counted the three
+  identical "full text was not openly available" caveats as boilerplate.
+- Reading: the reminder closed the gap to the best fast version at about the
+  same time (30 vs 27 minutes); the 152-minute run's breadth is what a deeper
+  pass is for. Candidate next step: one caveat naming all lead-only studies
+  instead of one sentence each.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 
