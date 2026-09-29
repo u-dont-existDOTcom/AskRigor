@@ -81,6 +81,8 @@ Other options: `--prompt <text>` instead of `--question-id`, `--max-turns`
 - `answer.md`: the final assistant text.
 - `metrics.json`: see below.
 - `server.log`, `claude-stderr.log`, `setup.log`, `mcp-config.json`.
+- `youtube-usage.json`: the server's YouTube Data API requests by method, as
+  counted during the run (see `youtube_api` below).
 
 Known secret values (continuation secret, provider keys) are replaced with
 `[REDACTED]` in every saved file; `metrics.transcript.redactions` counts them.
@@ -116,6 +118,15 @@ Known secret values (continuation secret, provider keys) are replaced with
   issued in this run, rejected receipts, next steps, limits and declarations,
   plus `final_status` and `answered_after_gate_passed` (the last call returned
   `ready` or `ready_with_limits`).
+- `youtube_api`: the YouTube Data API requests the server sent, counted as they
+  were sent by a `fetch` wrapper in the runner's server bootstrap: `requests`
+  and `failed` (refused or not completed) by API method, `requests_total`, and
+  `quota_units_at_published_costs` (100 units per `search`, 1 per other list
+  call, failed requests included). It is the run's own count, not Google's
+  quota ledger or the day's remaining quota: YouTube's 10,000-unit daily quota
+  resets at midnight Pacific time and is shared by every run and user of the
+  key that day. Only method names and counts are recorded, never queries,
+  video IDs or keys. `counted: false` means the count file was missing.
 - `server.unhandled_socket_errors`: socket `error` events that no listener
   handled. Pilot run 1 lost its server to one (`read ECONNRESET`, no
   application frame in the stack); the runner's server bootstrap now logs each

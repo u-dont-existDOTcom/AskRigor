@@ -420,6 +420,10 @@ function startServer({ worktree, port, env, logStream }) {
   // Diagnostic: pilot run 1 lost its server to an unhandled socket ECONNRESET
   // with no application frame in the stack. Log which socket it was (server
   // side or outbound) and keep serving, so one reset does not end the run.
+  // Measurement: count the YouTube Data API requests the server sends, by
+  // method, in youtube-usage.json, so a run's quota use is counted rather than
+  // guessed. Only method names and counts are written: no queries, video IDs
+  // or keys.
   const bootstrap = [
     "const { Socket } = await import('node:net');",
     "const emit = Socket.prototype.emit;",
@@ -431,6 +435,29 @@ function startServer({ worktree, port, env, logStream }) {
     "  }",
     "  return emit.call(this, event, ...args);",
     "};",
+    "const usagePath = process.env.ASKRIGOR_RUNNER_YOUTUBE_USAGE;",
+    "if (usagePath) {",
+    "  const { writeFileSync } = await import('node:fs');",
+    "  const usage = { requests: {}, failed: {} };",
+    "  const save = () => { try { writeFileSync(usagePath, JSON.stringify(usage)); } catch {} };",
+    "  const count = (table, method) => { table[method] = (table[method] ?? 0) + 1; save(); };",
+    "  save();",
+    "  const send = globalThis.fetch;",
+    "  globalThis.fetch = async (input, init) => {",
+    "    const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input?.url;",
+    "    const method = /^https:\\/\\/www\\.googleapis\\.com\\/youtube\\/v3\\/(\\w+)/u.exec(href ?? '')?.[1];",
+    "    if (method === undefined) return send(input, init);",
+    "    count(usage.requests, method);",
+    "    try {",
+    "      const response = await send(input, init);",
+    "      if (!response.ok) count(usage.failed, method);",
+    "      return response;",
+    "    } catch (error) {",
+    "      count(usage.failed, method);",
+    "      throw error;",
+    "    }",
+    "  };",
+    "}",
     "const { createAskRigorHttpServer } = await import(process.env.ASKRIGOR_RUNNER_SERVER_ENTRY);",
     "const port = Number(process.env.PORT);",
     "createAskRigorHttpServer().listen(port, '127.0.0.1', () => {",
@@ -448,6 +475,33 @@ function startServer({ worktree, port, env, logStream }) {
   child.stdout.on("data", write);
   child.stderr.on("data", write);
   return child;
+}
+
+// Google's published quota cost of a YouTube Data API request: 100 units for
+// search.list and 1 for the other list calls the server makes
+// (https://developers.google.com/youtube/v3/determine_quota_cost).
+const YOUTUBE_QUOTA_UNITS = { search: 100 };
+
+// The YouTube Data API requests the server sent in this run, counted as they
+// were sent, and their cost at Google's published prices, failed requests
+// included. Google's own quota ledger is not read: this is the run's count,
+// not the day's remaining quota.
+function youtubeUsage(file) {
+  let usage;
+  try {
+    usage = JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return { counted: false };
+  }
+  const requests = usage.requests ?? {};
+  return {
+    counted: true,
+    requests,
+    requests_total: Object.values(requests).reduce((sum, count) => sum + count, 0),
+    failed: usage.failed ?? {},
+    quota_units_at_published_costs: Object.entries(requests)
+      .reduce((sum, [method, count]) => sum + count * (YOUTUBE_QUOTA_UNITS[method] ?? 1), 0)
+  };
 }
 
 async function waitForHealth(port, child, milliseconds) {
@@ -1331,7 +1385,8 @@ async function main() {
       NODE_ENV: "production",
       PORT: String(port),
       ASKRIGOR_PUBLIC_SERVER_ENABLED: "true",
-      ASKRIGOR_YOUTUBE_CONTINUATION_SECRET: continuationSecret
+      ASKRIGOR_YOUTUBE_CONTINUATION_SECRET: continuationSecret,
+      ASKRIGOR_RUNNER_YOUTUBE_USAGE: path.join(outDir, "youtube-usage.json")
     });
     serverLog = fs.createWriteStream(path.join(outDir, "server.log"));
     log(`starting AskRigor server on 127.0.0.1:${port}`);
@@ -1447,6 +1502,7 @@ async function main() {
         ...(metrics.server ?? {}),
         unhandled_socket_errors: (logText.match(/\[runner-diagnostic\] unhandled socket error/gu) ?? []).length
       };
+      metrics.youtube_api = youtubeUsage(path.join(outDir, "youtube-usage.json"));
     }
     metrics.total_runner_seconds = Number(((Date.now() - runnerStartMs) / 1000).toFixed(3));
     writeMetrics();
@@ -1459,7 +1515,8 @@ async function main() {
     num_turns: metrics.num_turns,
     tool_calls_total: metrics.tool_calls_total,
     answer_chars: metrics.answer?.chars,
-    server_stopped: metrics.server?.stopped
+    server_stopped: metrics.server?.stopped,
+    youtube_quota_units: metrics.youtube_api?.quota_units_at_published_costs
   };
   process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
   return exitCode;

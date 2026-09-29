@@ -1211,7 +1211,10 @@ questions"), fixed before any held-out answer exists:
   live version (`main`), both Opus 5.5 at max effort with web search, the same
   runner, one run each. The two arms of a question run on the same YouTube quota
   day, so neither is starved by the daily limit; a run that hits the limit is
-  discarded and rerun after the reset (07:00 UTC).
+  discarded and rerun after the reset (07:00 UTC). Each run records the
+  YouTube Data API requests its server sent and their quota units
+  (`metrics.youtube_api`, counted in the runner since 29 Sep), so a pair's quota
+  use is counted rather than guessed.
 - Grading: the same blind judge as the development runs (`judge-claude.mjs`,
   Opus 5.5 at max effort, web spot-checks, seed 1): answer order randomized from
   the seed and the answers, protocol names redacted; a winner or tie overall and
