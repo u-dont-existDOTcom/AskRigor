@@ -12219,7 +12219,7 @@
             "maxLength": 500
           },
           "community_searches": {
-            "description": "Each community outside YouTube that you searched with your own web search: the queries, the threads you read and what they showed (benefit, no-effect and adverse reports with rough counts, and the effect on the answer), or the access boundary that stopped the search. Summarize; do not quote or name posters. YouTube goes through its own tools.",
+            "description": "Each community outside YouTube that you searched with your own web search: the queries, the threads you read and what they showed (benefit, no-effect and adverse reports with rough counts, and the effect on the answer), or the access boundary that stopped the search. Summarize; do not quote or name posters. AskRigor cannot see these searches, so the answer links the threads you read and says they were not verified. YouTube goes through its own tools.",
             "maxItems": 12,
             "type": "array",
             "items": {

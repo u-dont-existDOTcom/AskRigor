@@ -1016,6 +1016,20 @@ Built now (no method change):
   community read reaches `must_report`, and the answer must name it.
 - Regression: the HGH versus testosterone case in the gate tests.
 
+Codex on 79394c9 (three P1s, fixed in the next commit):
+
+- A bare mention of a community passed the answer check. Each community read
+  now needs its own lane, as the YouTube comments do: benefit, no-effect and
+  adverse reports and what they mean for the answer, near its name.
+- A search counted for a mapped community by name alone, so a "forum" named
+  r/trt stood for the subreddit. The platform must match too.
+- Searches on the client's own web search carry no receipt, so the server
+  cannot prove they ran. They now make the result explicitly partial: the
+  answer links a thread it read from each community and says AskRigor could
+  not verify those searches, and the finalization receipt signs how many
+  communities were unverified. A server-side search (a Gemini forum scout,
+  like the YouTube scout) would make them verifiable; that is owner question 3.
+
 Waiting on the owner (question 2 on the owner page): a shorter first pass in
 HRP (about three fully audited videos or two rounds instead of six and four;
 the treatment-landscape ledger check moves to deeper research; the answer ends

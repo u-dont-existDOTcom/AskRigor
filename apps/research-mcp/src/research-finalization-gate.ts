@@ -95,6 +95,7 @@ export const finalizeResearchInputSchema = z.object({
     .describe("Each community outside YouTube that you searched with your own web search: the queries, the threads " +
       "you read and what they showed (benefit, no-effect and adverse reports with rough counts, and the effect on " +
       "the answer), or the access boundary that stopped the search. Summarize; do not quote or name posters. " +
+      "AskRigor cannot see these searches, so the answer links the threads you read and says they were not verified. " +
       "YouTube goes through its own tools."),
   key_sources: z.array(z.object({
     id: z.string().trim().min(1).max(300).describe("DOI, PMID or PMCID."),
@@ -237,6 +238,7 @@ export function finalizeResearch(
   // What the communities outside YouTube showed, reported after the YouTube lane.
   const communityLanes: string[] = [];
   let communitiesSearched: string[] = [];
+  let communitiesRead: CommunityRead[] = [];
   if (rejected.length > 0) {
     nextSteps.push(
       `${rejected.length} receipt(s) failed verification; pass each research_receipt exactly as the tool returned it.`
@@ -457,7 +459,8 @@ export function finalizeResearch(
             `their own: ${unfinished.map((video, index) => videoLink(video, `video ${index + 1}`)).join(", ")}.`);
       }
     }
-    communitiesSearched = communityCoverage(input, youtubeResearched, { nextSteps, requireLimit, lanes: communityLanes });
+    ({ searched: communitiesSearched, read: communitiesRead } =
+      communityCoverage(input, youtubeResearched, { nextSteps, requireLimit, lanes: communityLanes }));
   }
 
   // Comments that were read must reach the answer, even when their signal is
@@ -694,9 +697,7 @@ export function finalizeResearch(
       videoIds: [...new Set([...discovered, ...auditedAtAll])],
       protocolNames: options.protocolNames ?? new Set(),
       caveats,
-      communitiesRead: (input.community_searches ?? [])
-        .filter((search) => search.threads_read.length > 0 && communitiesSearched.includes(search.community))
-        .map(({ community, platform }) => ({ name: community, platform })),
+      communitiesRead,
       ...(input.community_findings === undefined ? {} : { effectOnAnswer: input.community_findings.effect_on_answer })
     }));
   }
@@ -742,7 +743,8 @@ export function finalizeResearch(
       open_leads: openLeads.length,
       validated: validatedSources.length,
       leads: leadSources.length,
-      limits: limits.length
+      limits: limits.length,
+      unverified: communitiesRead.length
     }, {
       secret: options.secret,
       ...(options.now === undefined ? {} : { now: options.now })
@@ -792,7 +794,7 @@ function answerDraftProblems(
     videoIds: string[];
     protocolNames: ReadonlySet<string>;
     caveats: readonly string[];
-    communitiesRead: readonly { name: string; platform: string }[];
+    communitiesRead: readonly CommunityRead[];
     effectOnAnswer?: string;
   }
 ): string[] {
@@ -850,14 +852,35 @@ function answerDraftProblems(
       );
     }
   }
-  // Each community searched beyond YouTube is named where the answer reports it.
-  const unreported = context.communitiesRead.filter(({ name, platform }) =>
-    !shown.toLowerCase().includes(name.toLowerCase()) && !(platform === "reddit" && /reddit/iu.test(shown)));
-  if (unreported.length > 0) {
-    problems.push(
-      `The answer does not report what ${unreported.map(({ name }) => name).join(", ")} showed. Add each lane from ` +
-        "must_report, naming the community, even if its signal is weak."
-    );
+  // Each community read beyond YouTube reaches the answer as a lane of its own,
+  // as the YouTube comments do: named, with what its posters reported and what
+  // that means for the answer, and linked to a thread that was read.
+  const linked = new Set([...shownBlocks.map(linkTargets).join("\n").matchAll(LINKED_URL)]
+    .map(([url]) => comparableUrl(url)));
+  const lowerShown = shown.toLowerCase();
+  for (const community of context.communitiesRead) {
+    const starts = [community.name.toLowerCase(), ...(community.platform === "reddit" ? ["reddit"] : [])]
+      .flatMap((name) => occurrences(lowerShown, name));
+    if (starts.length === 0) {
+      problems.push(
+        `The answer does not report what ${community.name} showed. Add its lane from must_report, naming the ` +
+          "community, even if its signal is weak."
+      );
+    } else {
+      const lane = starts.map((index) => shown.slice(index, index + LANE_WINDOW_CHARACTERS)).join("\n");
+      const missing: string[] = LANE_FINDINGS.filter(({ label, pattern }) =>
+        label !== CREATORS_FINDING && !pattern.test(lane)).map(({ label }) => label);
+      if (!reportsEffectOnAnswer(lane, community.effectOnAnswer)) missing.push("what those reports mean for the answer");
+      if (missing.length > 0) {
+        problems.push(
+          `The answer's ${community.name} section does not report ${missing.join(", ")}. Add each from must_report, ` +
+            "and say none were reported where there were none."
+        );
+      }
+    }
+    if (!community.urls.some((url) => linked.has(comparableUrl(url)))) {
+      problems.push(`Link a thread you read from ${community.name} where the answer reports it, so a reader can check it.`);
+    }
   }
   // Each caveat the server wrote must reach the answer as a sentence of its own.
   // Only prose a reader sees counts: not code, comments, quotations or image descriptions.
@@ -957,6 +980,25 @@ const LANE_FINDINGS = [
   }
 ] as const;
 
+// Only YouTube lanes compare creators with commenters.
+const CREATORS_FINDING = "how creators differ from commenters";
+// Links as the answer shows them: a link's destination or a bare URL.
+const LINKED_URL = /https?:\/\/[^\s<>()]+/giu;
+
+/** A URL as two links to one thread compare: no scheme, subdomain prefix, case or trailing punctuation. */
+function comparableUrl(url: string): string {
+  return url.toLowerCase().replace(/^https?:\/\//u, "").replace(/^(?:www|old|new|m)\./u, "").replace(/[/.,;:!?]+$/u, "");
+}
+
+/** Every index at which needle starts in haystack. */
+function occurrences(haystack: string, needle: string): number[] {
+  const found: number[] = [];
+  for (let index = haystack.indexOf(needle); needle !== "" && index !== -1; index = haystack.indexOf(needle, index + 1)) {
+    found.push(index);
+  }
+  return found;
+}
+
 // What the comments mean for the answer, in the words answers use for it.
 const EFFECT_ON_ANSWER = new RegExp([
   "\\b(?:support(?:s|ed|ing)?|backs? up|backed up|consistent with|in line with|agrees? with|at odds with",
@@ -1003,12 +1045,21 @@ const REDDIT_HOST = /(?:^|\.)(?:reddit\.com|redd\.it)$/u;
 type CommunitySearch = NonNullable<FinalizeResearchInput["community_searches"]>[number];
 
 /**
- * How one community matches across fields: its name's letters and digits,
- * lowercased. YouTube is one community however many entries name it, so two
+ * How one community matches across fields: its platform and its name's letters
+ * and digits, lowercased, so a forum search cannot stand for the subreddit of
+ * the same name. YouTube is one community however many entries name it, so two
  * YouTube entries cannot stand for independent communities.
  */
-function communityKey(name: string, platform?: string): string {
-  return platform === "youtube" ? "youtube" : name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+function communityKey(name: string, platform: string): string {
+  return platform === "youtube" ? "youtube" : `${platform}:${name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "")}`;
+}
+
+/** A community read beyond YouTube, as the answer check needs it. */
+interface CommunityRead {
+  name: string;
+  platform: string;
+  urls: string[];
+  effectOnAnswer: string;
 }
 
 function hostOf(url: string): string {
@@ -1047,8 +1098,9 @@ function communityCoverage(
   input: FinalizeResearchInput,
   youtubeResearched: boolean,
   out: { nextSteps: string[]; requireLimit: (text: string, ...sentences: string[]) => void; lanes: string[] }
-): string[] {
+): { searched: string[]; read: CommunityRead[] } {
   const communities = input.principal_communities;
+  const read: CommunityRead[] = [];
   if (communities === undefined) {
     out.nextSteps.push(
       "Name where people discussing this actually talk in principal_communities, the dominant first (subreddits, " +
@@ -1056,7 +1108,7 @@ function communityCoverage(
         "least one independent one: YouTube with its tools, the others with your own web search, recorded in " +
         "community_searches."
     );
-    return [];
+    return { searched: [], read };
   }
   // Key -> name as given.
   const searched = new Map<string, string>();
@@ -1083,7 +1135,7 @@ function communityCoverage(
       );
       continue;
     }
-    searched.set(communityKey(name), name);
+    searched.set(communityKey(name, search.platform), name);
     if (search.access_boundary !== undefined) {
       out.requireLimit(
         search.access_boundary === "no_relevant_results"
@@ -1101,7 +1153,23 @@ function communityCoverage(
       );
     } else {
       out.lanes.push(forumLane(search));
+      read.push({
+        name,
+        platform: search.platform,
+        urls: search.threads_read.map(({ url }) => url),
+        effectOnAnswer: search.effect_on_answer!
+      });
     }
+  }
+  // AskRigor cannot see the client's web search, so these reports carry no
+  // receipt: the answer says so and links the threads, which readers can check.
+  if (read.length > 0) {
+    const names = joinNames([...new Set(read.map(({ name }) => name))]);
+    out.requireLimit(
+      `The reports from ${names} come from your own web search, which AskRigor could not verify; say so, and link ` +
+        "the threads you read.",
+      `The reports from ${names} come from my own web search, which AskRigor could not verify.`
+    );
   }
   const dominant = communities[0]!;
   if (dominant.platform !== "youtube" && !searched.has(communityKey(dominant.name, dominant.platform))) {
@@ -1134,7 +1202,12 @@ function communityCoverage(
         "search recorded in community_searches, or record the access boundary that stops you."
     );
   }
-  return [...searched.values()];
+  return { searched: [...searched.values()], read };
+}
+
+/** "a", "a and b", "a, b and c". */
+function joinNames(items: readonly string[]): string {
+  return items.length <= 1 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
 }
 
 interface VerifiedReceipt {
