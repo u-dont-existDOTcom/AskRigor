@@ -833,14 +833,16 @@ function titleStem(word: string): string {
 }
 
 /**
- * A title's identifying words in order (a word with a digit, or three or more
- * letters and not filler), stemmed, each marked when a negation earlier in its
- * clause governs it.
+ * A title's clauses, split where a negation's reach ends, each as its
+ * identifying words in order (a word with a digit, or three or more letters
+ * and not filler), stemmed and marked when a negation earlier in the clause
+ * governs them. Clauses without identifying words are left out.
  */
-function identifyingTitleWords(value: string): Array<{ stem: string; negated: boolean }> {
-  const words: Array<{ stem: string; negated: boolean }> = [];
-  const clauses = value.normalize("NFKC").toLowerCase().replace(/n['\u2019]t\b/gu, " not").split(TITLE_CLAUSE_BREAK);
-  for (const clause of clauses) {
+function identifyingTitleClauses(value: string): TitleWord[][] {
+  const clauses: TitleWord[][] = [];
+  const text = value.normalize("NFKC").toLowerCase().replace(/n['\u2019]t\b/gu, " not");
+  for (const clause of text.split(TITLE_CLAUSE_BREAK)) {
+    const words: TitleWord[] = [];
     let negated = false;
     for (const word of clause.split(/[^\p{L}\p{N}]+/u)) {
       if (TITLE_NEGATION_WORDS.has(word)) negated = true;
@@ -848,36 +850,62 @@ function identifyingTitleWords(value: string): Array<{ stem: string; negated: bo
         words.push({ stem: titleStem(word), negated });
       }
     }
+    if (words.length > 0) clauses.push(words);
   }
-  return words;
+  return clauses;
+}
+
+interface TitleWord {
+  stem: string;
+  negated: boolean;
+}
+
+/** Where `words` end as an ordered subsequence of `clause` from `from` on; undefined when they do not fit. */
+function titleRunEnd(clause: readonly TitleWord[], words: readonly TitleWord[], from: number): number | undefined {
+  let next = from;
+  for (const { stem, negated } of words) {
+    while (next < clause.length && (clause[next]!.stem !== stem || clause[next]!.negated !== negated)) next += 1;
+    if (next === clause.length) return undefined;
+    next += 1;
+  }
+  return next;
 }
 
 /**
  * A declared title matches YouTube's when they are equal ignoring case,
- * spacing and punctuation, or when YouTube's title has every identifying
- * declared word in the declared order, each governed by a negation in both
- * titles or in neither. A scout's paraphrase drops or adds words; a swapped
- * word ("How I healed hip pain" against "How I healed back pain"), another
- * number, a reversed order ("Exercise beats surgery" against "Surgery beats
- * exercise") or a moved negation ("No evidence TRT causes harm" against
- * "Evidence TRT causes no harm") is another video, even on the same channel.
+ * spacing and punctuation, or when each clause of the declared title has its
+ * identifying words, in order, inside one clause of YouTube's title (a clause
+ * ends at punctuation, a spaced dash or "but"), each word governed by a
+ * negation in both titles or in neither. A scout's paraphrase drops or adds
+ * words; a swapped word ("How I healed hip pain" against "How I healed back
+ * pain"), another number, a reversed order ("Exercise beats surgery" against
+ * "Surgery beats exercise"), a moved negation ("No evidence TRT causes harm"
+ * against "Evidence TRT causes no harm") or words spread over other claims
+ * ("Exercise beats injections, but surgery wins") is another video, even on
+ * the same channel. This checks identity, not meaning: a title that frames the
+ * declared words differently ("... is a myth") is still the video the scout
+ * named, and its audit, not its title, says what it reports.
  */
 export function youtubeTitlesMatch(provider: string, declared: string): boolean {
   const declaredTitle = compactTitle(declared);
   if (declaredTitle.length === 0) return false;
   if (compactTitle(provider) === declaredTitle) return true;
-  const declaredWords = identifyingTitleWords(declared);
-  const providerWords = identifyingTitleWords(provider);
-  // Each declared word takes its first match after the previous one's, which
-  // finds an ordered match whenever there is one.
-  let next = 0;
-  for (const { stem, negated } of declaredWords) {
-    while (next < providerWords.length &&
-      (providerWords[next]!.stem !== stem || providerWords[next]!.negated !== negated)) next += 1;
-    if (next === providerWords.length) return false;
-    next += 1;
+  const declaredClauses = identifyingTitleClauses(declared);
+  const providerClauses = identifyingTitleClauses(provider);
+  // Each declared clause is matched inside one of YouTube's clauses, after the
+  // previous one's match; the earliest match leaves the most room for the rest.
+  let clause = 0;
+  let from = 0;
+  for (const words of declaredClauses) {
+    let end = clause < providerClauses.length ? titleRunEnd(providerClauses[clause]!, words, from) : undefined;
+    while (end === undefined && clause + 1 < providerClauses.length) {
+      clause += 1;
+      end = titleRunEnd(providerClauses[clause]!, words, 0);
+    }
+    if (end === undefined) return false;
+    from = end;
   }
-  return declaredWords.length > 0;
+  return declaredClauses.length > 0;
 }
 
 /**

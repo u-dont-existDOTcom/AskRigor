@@ -1302,6 +1302,49 @@ const PLATFORM_HOSTS: Readonly<Record<string, { host: RegExp; label: string }>> 
   telegram: { host: /(?:^|\.)(?:t\.me|telegram\.me|telegram\.org|telegram\.dog)$/u, label: "Telegram" },
   discord: { host: /(?:^|\.)(?:discord\.com|discord\.gg|discordapp\.com)$/u, label: "Discord" }
 };
+// On Facebook, Telegram and Discord a community is a group, a public channel or
+// a server, and this is the step when a link names none.
+const COMMUNITY_LINK_STEPS: Readonly<Record<string, string>> = {
+  facebook: "gives Facebook links outside a group: give the group's link (facebook.com/groups/…) and the posts " +
+    "in it you read.",
+  telegram: "gives Telegram links that name no public channel or group: give its t.me link and the posts in it you " +
+    "read.",
+  discord: "gives Discord links other than a server invite: Discord servers can be read only by joining, so record " +
+    "the server's invite (discord.gg/…) as url, with the access boundary you hit."
+};
+const TELEGRAM_RESERVED_PATHS = new Set([
+  "addstickers", "addemoji", "addtheme", "addlist", "share", "proxy", "socks", "setlanguage", "login", "confirmphone",
+  "invoice", "boost", "giftcode", "contact", "joinchat"
+]);
+
+/**
+ * The community a Facebook, Telegram or Discord link belongs to: a Facebook
+ * group, a public Telegram channel or group, or a Discord server by its
+ * invite. Undefined for the platform's other pages (help, login, a profile, a
+ * Discord message only members can open) and for other platforms.
+ */
+function communityOf(platform: string, url: string): string | undefined {
+  try {
+    const link = new globalThis.URL(url);
+    const host = link.hostname.toLowerCase();
+    if (platform === "facebook") {
+      const group = /^\/groups\/([^/]+)/u.exec(link.pathname)?.[1]?.toLowerCase();
+      return group === undefined ? undefined : `facebook.com/groups/${group}`;
+    }
+    if (platform === "telegram" && /(?:^|\.)(?:t\.me|telegram\.me|telegram\.dog)$/u.test(host)) {
+      const channel = /^\/(?:s\/)?([A-Za-z][A-Za-z0-9_]{4,31})(?:\/\d+)?\/?$/u.exec(link.pathname)?.[1]?.toLowerCase();
+      return channel === undefined || TELEGRAM_RESERVED_PATHS.has(channel) ? undefined : `t.me/${channel}`;
+    }
+    if (platform === "discord") {
+      const invite = (/(?:^|\.)discord\.gg$/u.test(host) ? /^\/([A-Za-z0-9-]+)\/?$/u : /^\/invite\/([A-Za-z0-9-]+)\/?$/u)
+        .exec(link.pathname)?.[1];
+      return invite === undefined ? undefined : `discord.gg/${invite}`;
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
 const SUBREDDIT_NAME = /^\/?r\/([A-Za-z0-9_]{2,21})$/u;
 
 /** The post id of a full reddit.com thread link; undefined for short links and other pages. */
@@ -1484,8 +1527,8 @@ function communityCoverage(
   for (const search of input.community_searches ?? []) {
     const name = search.community;
     // Thread links and the community's own address are checked alike.
-    const hosts = [...search.threads_read.map(({ url }) => url), ...(search.url === undefined ? [] : [search.url])]
-      .map(hostOf);
+    const links = [...search.threads_read.map(({ url }) => url), ...(search.url === undefined ? [] : [search.url])];
+    const hosts = links.map(hostOf);
     if (hosts.some((host) => YOUTUBE_HOST.test(host))) {
       out.nextSteps.push(`community_searches for ${name} lists YouTube links; research YouTube with its own tools.`);
       continue;
@@ -1507,6 +1550,13 @@ function communityCoverage(
         ? `community_searches for ${name} lists Reddit links; record them under platform reddit, as the subreddit ` +
           "they are in."
         : `community_searches for ${name} lists ${label} links; record them under platform ${platform}.`);
+      continue;
+    }
+    // There, a community is a group, a public channel or a server, not any page of the platform.
+    const communityStep = COMMUNITY_LINK_STEPS[search.platform];
+    if (communityStep !== undefined && (links.some((url) => communityOf(search.platform, url) === undefined) ||
+      (search.platform === "discord" && search.threads_read.length > 0))) {
+      out.nextSteps.push(`community_searches for ${name} ${communityStep}`);
       continue;
     }
     // A subreddit is one community: its entry names it, and its threads are in it.
@@ -1596,7 +1646,7 @@ function communityCoverage(
     }
     const sites = new Set(search.platform === "reddit"
       ? []
-      : [...search.threads_read.map(({ url }) => url), ...(search.url === undefined ? [] : [search.url])].map(siteOf));
+      : links.map((url) => communityOf(search.platform, url) ?? siteOf(url)));
     if (sites.size > 1) {
       out.nextSteps.push(
         `community_searches for ${name} points to more than one site (${[...sites].join(", ")}); give each site its ` +

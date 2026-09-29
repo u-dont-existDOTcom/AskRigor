@@ -627,9 +627,30 @@ describe("finalize_research gate", () => {
       [{ ...chat, platform: "forum", url: "https://m.facebook.com/groups/trtmen" },
         "community_searches for TRT men chat lists Facebook links; record them under platform facebook."],
       [{ ...chat, platform: "other", url: "https://discord.com/invite/trtmen" },
-        "community_searches for TRT men chat lists Discord links; record them under platform discord."]
+        "community_searches for TRT men chat lists Discord links; record them under platform discord."],
+      // And a community there is a group, a public channel or a server, not any page of the platform.
+      [{ ...chat, platform: "facebook", url: "https://www.facebook.com/help" },
+        "community_searches for TRT men chat gives Facebook links outside a group: give the group's link " +
+          "(facebook.com/groups/…) and the posts in it you read."],
+      [{ ...chat, platform: "telegram", url: "https://telegram.org/faq" },
+        "community_searches for TRT men chat gives Telegram links that name no public channel or group: give its " +
+          "t.me link and the posts in it you read."],
+      [{ ...chat, platform: "discord", url: "https://discord.com/safety" },
+        "community_searches for TRT men chat gives Discord links other than a server invite: Discord servers can be " +
+          "read only by joining, so record the server's invite (discord.gg/…) as url, with the access boundary you hit."],
+      [{ ...chat, platform: "discord", url: "https://discord.gg/trtmen",
+        threads_read: [{ url: "https://discord.com/channels/123456789/987654321/111" }] },
+        "community_searches for TRT men chat gives Discord links other than a server invite: Discord servers can be " +
+          "read only by joining, so record the server's invite (discord.gg/…) as url, with the access boundary you hit."]
     ] as const) {
       expect(gate({ principal_communities: communities, community_searches: [search] }).next_steps).toContain(step);
+    }
+    for (const search of [
+      { ...chat, platform: "telegram", url: "https://t.me/trtmen" },
+      { ...chat, platform: "discord", url: "https://discord.gg/trtmen" }
+    ]) {
+      expect(gate({ principal_communities: communities, community_searches: [search] }).next_steps
+        .filter((step) => step.startsWith("community_searches for TRT men chat"))).toEqual([]);
     }
     // A search cannot both find nothing relevant and report the threads it read.
     expect(gate({
