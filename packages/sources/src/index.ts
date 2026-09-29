@@ -170,6 +170,12 @@ export {
   type YoutubeCommentSegmentRuntime
 } from "./youtube-comment-segment.js";
 export {
+  lookupRedditThread,
+  lookupRedditThreads,
+  redditPostId,
+  type RedditThreadLookup
+} from "./reddit-thread.js";
+export {
   GEMINI_YOUTUBE_CANDIDATE_CONTRACT,
   GEMINI_YOUTUBE_CANDIDATE_LEGACY_CONTRACT,
   GEMINI_YOUTUBE_CANDIDATE_LEGACY_PACKET_VERSION,

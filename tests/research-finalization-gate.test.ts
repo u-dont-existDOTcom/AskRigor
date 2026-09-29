@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   finalizeResearch as finalizeResearchBare,
+  type RedditThreadCheck,
   normalizeIdentifier,
   protocolNamesFrom
 } from "../apps/research-mcp/src/research-finalization-gate.js";
@@ -682,6 +683,74 @@ describe("finalize_research gate", () => {
     expect(counted.next_steps).toEqual([]);
     expect(verifyResearchReceipt(counted.finalization_receipt!, options))
       .toMatchObject({ ok: true, claims: { unverified: "2" } });
+  });
+
+  it("checks each cited Reddit thread with Reddit itself", () => {
+    const base = {
+      research_depth: "deep",
+      receipts: [survey, emptySearch, repeatScout, videoA, study],
+      community_evidence: "researched",
+      treatment_choice: "not_compared",
+      research_target: TARGET,
+      key_sources: [{ id: "https://doi.org/10.1002/ART.41142", status: "validated" }],
+      principal_communities: [{ name: "r/trt", platform: "reddit" }, { name: "r/Testosterone", platform: "reddit" }]
+    };
+    const findings = {
+      benefit_reports: "Most reported better recovery.",
+      no_effect_reports: "Some saw no difference.",
+      adverse_reports: "A few reported joint pain.",
+      effect_on_answer: "Consistent with the trials."
+    };
+    const trtThread = "https://old.reddit.com/r/trt/comments/xyz789/hgh_and_trt_five_years/";
+    const testosteroneThread = "https://www.reddit.com/r/Testosterone/comments/def456/ten_years_on_trt/";
+    const searches = (trtTitle?: string) => [
+      { community: "r/trt", platform: "reddit", queries: ["hgh vs trt"], ...findings,
+        threads_read: [{ url: trtThread, ...(trtTitle === undefined ? {} : { title: trtTitle }) }] },
+      { community: "r/Testosterone", platform: "reddit", queries: ["hgh vs trt"], ...findings, threads_read: [{ url: testosteroneThread }] }
+    ];
+    const found = (subreddit: string, title: string) => ({ state: "found" as const, subreddit, title });
+    const reddit = (trt: RedditThreadCheck) => new Map<string, RedditThreadCheck>([
+      ["xyz789", trt], ["def456", found("testosterone", "Ten years on TRT")]
+    ]);
+    const gate = (trt: RedditThreadCheck, trtTitle?: string, draft?: string) => finalizeResearchBare({
+      ...base, community_findings: findingsFor(["aaaaaaaaaaa"]), community_searches: searches(trtTitle),
+      ...(draft === undefined ? {} : { answer_draft: draft })
+    }, { ...options, redditThreads: reddit(trt) });
+
+    // Both confirmed: the answer says Reddit confirmed the threads, not their content.
+    const confirmed = gate(found("trt", "HGH and TRT: five years in"), "HGH and TRT five years");
+    const confirmedCaveat = "Reddit confirms that the r/trt and r/Testosterone threads linked here exist, but what they " +
+      "report is my own reading, which AskRigor could not verify.";
+    expect(confirmed.caveats).toContain(confirmedCaveat);
+    expect(confirmed.caveats.join(" ")).not.toContain("come from my own web search");
+    const draft = `${CLEAN_DRAFT.replace(/\n\nOn Reddit, [\s\S]*$/u, "")}\n\nOn [r/trt](${trtThread}), most reported better ` +
+      "recovery; some saw no difference and a few reported side effects, consistent with the trials.\n\nOn " +
+      `[r/Testosterone](${testosteroneThread}), most reported better recovery too; some saw no difference and a few ` +
+      `reported side effects, consistent with the trials.\n\n${confirmedCaveat}`;
+    expect(gate(found("trt", "HGH and TRT: five years in"), "HGH and TRT five years", draft).next_steps).toEqual([]);
+
+    // A thread Reddit does not have, one it files elsewhere, or one under another title goes back.
+    expect(gate({ state: "not_found" }).next_steps).toContain(
+      `community_searches for r/trt lists thread(s) Reddit does not have (${trtThread}): list only threads you read, ` +
+        "by the links you read them at."
+    );
+    expect(gate(found("evolutionreddit", "Facebook backs away")).next_steps).toContain(
+      `community_searches for r/trt lists thread(s) that Reddit files under another subreddit (${trtThread}): list ` +
+        "each thread under its own subreddit's entry."
+    );
+    expect(gate(found("trt", "HGH and TRT five years"), "Collagen for sore knees").next_steps).toContain(
+      `community_searches for r/trt gives thread title(s) that do not match the threads on Reddit (${trtThread}): ` +
+        "check that each link is the thread you read, and give its title as shown."
+    );
+
+    // A lookup that failed proves nothing: that subreddit stays unverified.
+    const unavailable = gate({ state: "unavailable" });
+    expect(unavailable.next_steps.join(" ")).not.toContain("Reddit does not have");
+    expect(unavailable.caveats).toEqual(expect.arrayContaining([
+      "The reports from r/trt come from my own web search, which AskRigor could not verify.",
+      "Reddit confirms that the r/Testosterone threads linked here exist, but what they report is my own reading, " +
+        "which AskRigor could not verify."
+    ]));
   });
 
   it("needs no YouTube research when YouTube is not the dominant community", () => {

@@ -167,7 +167,15 @@ export interface FinalizeResearchOptions {
   // Rule, module and case names from the canonical protocols, which the answer
   // must not show (the rerun's answer headed its prompt with one).
   protocolNames?: ReadonlySet<string>;
+  // What Reddit's public embed endpoint said about each cited Reddit thread, by
+  // post id; the MCP tool looks them up before the gate runs.
+  redditThreads?: ReadonlyMap<string, RedditThreadCheck>;
 }
+
+export type RedditThreadCheck =
+  | { state: "found"; subreddit: string; title: string }
+  | { state: "not_found" }
+  | { state: "unavailable" };
 
 const TERMINAL_VIDEO_STATES = new Set([
   "api_visible_complete",
@@ -449,7 +457,7 @@ export function finalizeResearch(
       }
     }
     ({ searched: communitiesSearched, read: communitiesRead, unverified: communitiesUnverified } =
-      communityCoverage(input, youtubeResearched, { nextSteps, requireLimit, lanes: communityLanes }));
+      communityCoverage(input, youtubeResearched, { nextSteps, requireLimit, lanes: communityLanes }, options.redditThreads));
   }
 
   // Comments that were read must reach the answer, even when their signal is
@@ -1192,6 +1200,32 @@ const COMMUNITY_FINDINGS = ["benefit_reports", "no_effect_reports", "adverse_rep
 const YOUTUBE_HOST = /(?:^|\.)(?:youtube\.com|youtu\.be)$/u;
 const SUBREDDIT_NAME = /^\/?r\/([A-Za-z0-9_]{2,21})$/u;
 
+/** The post id of a full reddit.com thread link; undefined for short links and other pages. */
+function redditPostOf(url: string): string | undefined {
+  try {
+    const link = new globalThis.URL(url);
+    if (!/(?:^|\.)reddit\.com$/u.test(link.hostname.toLowerCase())) return undefined;
+    return REDDIT_THREAD_PATH.exec(link.pathname)?.[2]?.toLowerCase();
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * A title as the model gave it matches Reddit's when either contains the other
+ * or they share at least half the words of the shorter, so a shortened or
+ * lightly reworded title from a search result still matches.
+ */
+function sameTitle(given: string, actual: string): boolean {
+  const normal = (value: string) => (value.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).join(" ");
+  const [left, right] = [normal(given), normal(actual)];
+  if (left === "" || right === "" || left.includes(right) || right.includes(left)) return true;
+  const words = (value: string) => new Set(value.split(" ").filter((word) => word.length >= 3));
+  const [a, b] = [words(left), words(right)];
+  const shared = [...a].filter((word) => b.has(word)).length;
+  return shared >= Math.min(a.size, b.size) / 2;
+}
+
 /** The subreddit a full reddit.com thread link is in; undefined for short links and other pages. */
 function subredditOf(url: string): string | undefined {
   try {
@@ -1221,6 +1255,8 @@ interface CommunityRead {
   platform: string;
   urls: string[];
   effectOnAnswer: string;
+  // Reddit confirmed every thread listed for it: in its subreddit, under its title.
+  confirmed: boolean;
 }
 
 function hostOf(url: string): string {
@@ -1258,7 +1294,8 @@ function forumLane(search: CommunitySearch): string {
 function communityCoverage(
   input: FinalizeResearchInput,
   youtubeResearched: boolean,
-  out: { nextSteps: string[]; requireLimit: (text: string, ...sentences: string[]) => void; lanes: string[] }
+  out: { nextSteps: string[]; requireLimit: (text: string, ...sentences: string[]) => void; lanes: string[] },
+  redditThreads?: ReadonlyMap<string, RedditThreadCheck>
 ): { searched: string[]; read: CommunityRead[]; unverified: number } {
   const communities = input.principal_communities;
   // Communities read, one entry per community however many searches it had.
@@ -1313,6 +1350,38 @@ function communityCoverage(
         );
         continue;
       }
+      // Reddit's embed endpoint says whether each thread exists, in which
+      // subreddit and under which title; a lookup that failed proves nothing.
+      if (redditThreads !== undefined) {
+        const checks = search.threads_read.map(({ url, title }) =>
+          ({ url, title, check: redditThreads.get(redditPostOf(url) ?? "") }));
+        const absent = checks.filter(({ check }) => check?.state === "not_found").map(({ url }) => url);
+        const elsewhere = checks.filter(({ check }) => check?.state === "found" && check.subreddit !== subreddit)
+          .map(({ url }) => url);
+        const retitled = checks.filter(({ title, check }) =>
+          check?.state === "found" && title !== undefined && !sameTitle(title, check.title)).map(({ url }) => url);
+        if (absent.length > 0 || elsewhere.length > 0 || retitled.length > 0) {
+          if (absent.length > 0) {
+            out.nextSteps.push(
+              `community_searches for ${name} lists thread(s) Reddit does not have (${absent.join(", ")}): list only ` +
+                "threads you read, by the links you read them at."
+            );
+          }
+          if (elsewhere.length > 0) {
+            out.nextSteps.push(
+              `community_searches for ${name} lists thread(s) that Reddit files under another subreddit ` +
+                `(${elsewhere.join(", ")}): list each thread under its own subreddit's entry.`
+            );
+          }
+          if (retitled.length > 0) {
+            out.nextSteps.push(
+              `community_searches for ${name} gives thread title(s) that do not match the threads on Reddit ` +
+                `(${retitled.join(", ")}): check that each link is the thread you read, and give its title as shown.`
+            );
+          }
+          continue;
+        }
+      }
     }
     const key = communityKey(name, search.platform);
     const shared = search.threads_read.map(({ url }) => comparableUrl(url))
@@ -1351,23 +1420,38 @@ function communityCoverage(
     } else {
       out.lanes.push(forumLane(search));
       const urls = search.threads_read.map(({ url }) => url);
+      const confirmed = search.platform === "reddit" &&
+        urls.every((url) => redditThreads?.get(redditPostOf(url) ?? "")?.state === "found");
       const known = readByKey.get(key);
       if (known === undefined) {
-        readByKey.set(key, { name, platform: search.platform, urls, effectOnAnswer: search.effect_on_answer! });
+        readByKey.set(key, { name, platform: search.platform, urls, effectOnAnswer: search.effect_on_answer!, confirmed });
       } else {
         known.urls.push(...urls);
+        known.confirmed &&= confirmed;
       }
     }
   }
   const read = [...readByKey.values()];
   // AskRigor cannot see the client's web search, so these reports carry no
   // receipt: the answer says so and links the threads, which readers can check.
-  if (read.length > 0) {
-    const names = joinNames(read.map(({ name }) => name));
+  // Reddit can confirm its threads exist as cited, but not what they report.
+  const unconfirmed = read.filter(({ confirmed }) => !confirmed);
+  if (unconfirmed.length > 0) {
+    const names = joinNames(unconfirmed.map(({ name }) => name));
     out.requireLimit(
       `The reports from ${names} come from your own web search, which AskRigor could not verify; say so, and link ` +
         "the threads you read.",
       `The reports from ${names} come from my own web search, which AskRigor could not verify.`
+    );
+  }
+  const confirmedRead = read.filter(({ confirmed }) => confirmed);
+  if (confirmedRead.length > 0) {
+    const names = joinNames(confirmedRead.map(({ name }) => name));
+    out.requireLimit(
+      `Reddit confirmed that the ${names} threads you cite exist there as cited, but AskRigor could not check what ` +
+        "they report; say so, and link the threads you read.",
+      `Reddit confirms that the ${names} threads linked here exist, but what they report is my own reading, which ` +
+        "AskRigor could not verify."
     );
   }
   const dominant = communities[0]!;

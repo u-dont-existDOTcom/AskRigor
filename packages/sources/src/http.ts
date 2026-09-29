@@ -13,6 +13,8 @@ export const ALLOWED_UPSTREAM_HOSTS = new Set([
   "www.googleapis.com",
   "generativelanguage.googleapis.com",
   "api.unpaywall.org",
+  // Only Reddit's public embed endpoint, to check a cited thread's subreddit and title.
+  "www.reddit.com",
 ]);
 
 const DEFAULT_TIMEOUT_MS = 20_000;

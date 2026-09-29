@@ -750,9 +750,12 @@ pending-proposal stores have their own strict contracts and authority boundaries
   and `community_searches` (the names of the communities where people discuss
   the question, the model's own web-search queries, the public thread URLs it
   read, and a short summary of what they showed or the access boundary that
-  stopped it) are checked and returned in `must_report` for the same call only;
-  AskRigor fetches none of those URLs, and the summary should not quote or name
-  posters. Its `answer_draft`, the
+  stopped it) are checked and returned in `must_report` for the same call only,
+  and the summary should not quote or name posters. AskRigor fetches none of
+  those pages. For each Reddit thread link it asks Reddit's public embed
+  endpoint (`https://www.reddit.com/oembed`) whether the thread exists and
+  under which subreddit and title, sending only the link; it compares the
+  answer, keeps nothing, and discards the poster name the endpoint returns. Its `answer_draft`, the
   answer the model is about to give, can contain whatever the user shared; it
   is read in memory for that call only, to find internal labels, bare video
   IDs, a pasted long prompt and a missing comment lane, and is not stored,

@@ -30,6 +30,7 @@ import {
   searchPubmed,
   getYoutubeComments,
   getYoutubeVideo,
+  lookupRedditThreads,
   parseYoutubeVideoId,
   searchYoutube,
   searchYoutubeComments,
@@ -1694,9 +1695,14 @@ function defineResearchOperations(
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (input) => {
+      // Reddit's public embed endpoint confirms each cited Reddit thread's
+      // subreddit and title; only the links are sent.
+      const redditLinks = (input.community_searches ?? []).filter(({ platform }) => platform === "reddit")
+        .flatMap(({ threads_read }) => (threads_read ?? []).map(({ url }) => url));
       const result = finalizeResearch(input, {
         secret: researchReceiptSecretFromEnv(),
-        protocolNames: await protocolNames()
+        protocolNames: await protocolNames(),
+        ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) })
       });
       return successfulToolResult(
         `Research finalization: ${result.status}; ${result.next_steps.length} next step(s), ` +
