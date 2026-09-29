@@ -94,6 +94,9 @@ export const finalizeResearchInputSchema = z.object({
       title: z.string().trim().min(1).max(300).optional()
     }).strict()).max(30).default([]),
     access_boundary: z.enum(["no_web_search", "login_required", "blocked", "no_relevant_results"]).optional(),
+    url: z.string().trim().url().max(2_048).optional()
+      .describe("The community's own address (its forum, group or site link). Needed when no thread was read outside " +
+        "Reddit, so the community is known by its site rather than its name."),
     benefit_reports: communityFindingText.optional(),
     no_effect_reports: communityFindingText.optional(),
     adverse_reports: communityFindingText.optional(),
@@ -922,15 +925,19 @@ const QUESTION = new RegExp(
 );
 // A ranking reported as someone else's claim is evidence, not the answer's
 // verdict: "Five commenters said surgery beats exercise", "The study concludes
-// that ...", "According to the trial, ...". A first-person report ("we found",
-// "we also found", "our review found") is the answer's own.
+// that ...", "According to the trial, ...": a reporting verb, then only a
+// plain subject of up to four words (no "and", "but" or other clause joiner).
+// Any first-person word earlier in the sentence ("we found", "our careful
+// review found") makes the report the answer's own.
+const REPORTED_SUBJECT = "(?!(?:and|or|nor|but|yet|so|while|whereas|although|though|because|since)\\b)" +
+  "[\\p{L}\\p{N}'\\u2019-]+";
 const REPORTED_BEFORE = new RegExp(
-  "(?:(?<!\\b(?:I|we|our|my)(?:\\s+[\\p{L}'\\u2019-]+){0,3}\\s+)\\b(?:said|says|reported|reports|wrote|writes|claimed|" +
-    "claims|concluded|concludes|argued|argues|noted|notes|found|described|describes)(?:\\s+that)?|" +
-    "\\baccording\\s+to\\s+[^,;:.]{1,80},)" +
-    `\\s+(?:${SUBJECT}\\s+)?$`,
+  "(?:\\b(?:said|says|reported|reports|wrote|writes|claimed|claims|concluded|concludes|argued|argues|noted|notes|found|" +
+    "described|describes)(?:\\s+that)?|\\baccording\\s+to\\s+[^,;:.]{1,80},)" +
+    `\\s+(?:${REPORTED_SUBJECT}(?:\\s+${REPORTED_SUBJECT}){0,3}\\s+)?$`,
   "iu"
 );
+const FIRST_PERSON = /\b(?:I|me|my|mine|we|us|our|ours)\b/iu;
 // How far back a subject and its asking word can reach, which also keeps each
 // test linear in the draft's length.
 const ASK_WINDOW = 400;
@@ -942,7 +949,9 @@ function assertedRankings(sentence: string): string[] {
   return [...sentence.matchAll(RANKING)]
     .filter(({ index }) => {
       const before = sentence.slice(Math.max(0, index - ASK_WINDOW), index);
-      return !DENIED_BEFORE.test(before) && !ASKED_BEFORE.test(before) && !REPORTED_BEFORE.test(before) &&
+      const reported = REPORTED_BEFORE.exec(before);
+      const othersClaim = reported !== null && !FIRST_PERSON.test(before.slice(0, reported.index));
+      return !DENIED_BEFORE.test(before) && !ASKED_BEFORE.test(before) && !othersClaim &&
         !(index <= ASK_WINDOW && ASKED_OPENING.test(before));
     })
     .map(([phrase]) => phrase.replace(/\s+/gu, " ").trim());
@@ -1542,11 +1551,22 @@ function communityCoverage(
       );
       continue;
     }
-    const sites = new Set(search.platform === "reddit" ? [] : search.threads_read.map(({ url }) => siteOf(url)));
+    // Outside Reddit, whose subreddit names it, a community read nowhere is
+    // known by its address, never by its name alone.
+    if (search.platform !== "reddit" && search.threads_read.length === 0 && search.url === undefined) {
+      out.nextSteps.push(
+        `community_searches for ${name} records an access boundary but no url: give the community's address (its ` +
+          "forum, group or site link), so it is known by its site rather than its name."
+      );
+      continue;
+    }
+    const sites = new Set(search.platform === "reddit"
+      ? []
+      : [...search.threads_read.map(({ url }) => url), ...(search.url === undefined ? [] : [search.url])].map(siteOf));
     if (sites.size > 1) {
       out.nextSteps.push(
-        `community_searches for ${name} lists threads on more than one site (${[...sites].join(", ")}); give each site ` +
-          "its own entry."
+        `community_searches for ${name} points to more than one site (${[...sites].join(", ")}); give each site its ` +
+          "own entry."
       );
       continue;
     }
@@ -1554,7 +1574,7 @@ function communityCoverage(
     const owner = site === undefined ? undefined : siteOwners.get(site);
     if (owner !== undefined && owner !== key) {
       out.nextSteps.push(
-        `community_searches for ${name} lists threads on ${site}, as ${searched.get(owner) ?? "another entry"} does: ` +
+        `community_searches for ${name} is on ${site}, as ${searched.get(owner) ?? "another entry"} is: ` +
           "one site is one discussion pool, so list its threads under one entry and search an independent community."
       );
       continue;

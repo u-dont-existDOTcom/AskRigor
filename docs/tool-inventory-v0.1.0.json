@@ -12297,6 +12297,12 @@
                     "no_relevant_results"
                   ]
                 },
+                "url": {
+                  "description": "The community's own address (its forum, group or site link). Needed when no thread was read outside Reddit, so the community is known by its site rather than its name.",
+                  "type": "string",
+                  "maxLength": 2048,
+                  "format": "uri"
+                },
                 "benefit_reports": {
                   "type": "string",
                   "minLength": 1,

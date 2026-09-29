@@ -374,7 +374,9 @@ describe("finalize_research gate", () => {
       ["We found surgery beats exercise.", "beats"],
       ["We also found surgery beats exercise.", "beats"],
       ["I independently concluded surgery outperforms exercise.", "outperforms"],
-      ["Our review found surgery beats exercise.", "beats"]
+      ["Our review found surgery beats exercise.", "beats"],
+      ["Our careful independent evidence review found surgery beats exercise.", "beats"],
+      ["Commenters said exercise helps and surgery beats exercise.", "beats"]
     ] as const) {
       expect(draftWith(firstPass, sentence)).toEqual([ranks(phrase, "this first pass allows no final ranking")]);
     }
@@ -532,7 +534,10 @@ describe("finalize_research gate", () => {
 
     // An access boundary counts as searched, and the answer says so.
     const facebook = [{ name: "TRT Facebook group", platform: "facebook" }, { name: "YouTube", platform: "youtube" }];
-    const gated = { community: "TRT Facebook group", platform: "facebook", queries: ["hgh trt"], access_boundary: "login_required" };
+    const gated = {
+      community: "TRT Facebook group", platform: "facebook", queries: ["hgh trt"], access_boundary: "login_required",
+      url: "https://www.facebook.com/groups/trtmen"
+    };
     const bounded = gate({ principal_communities: facebook, community_searches: [gated] });
     expect(bounded.status).toBe("ready_with_limits");
     expect(bounded.caveats).toContain("TRT Facebook group needs a login to read, so reports there are not included.");
@@ -552,8 +557,8 @@ describe("finalize_research gate", () => {
     });
     expect(onePool.status).toBe("not_ready");
     expect(onePool.next_steps).toContain(
-      "community_searches for MESO-Rx Men's Health lists threads on thinksteroids.com, as MESO-Rx does: one site is " +
-        "one discussion pool, so list its threads under one entry and search an independent community."
+      "community_searches for MESO-Rx Men's Health is on thinksteroids.com, as MESO-Rx is: one site is one " +
+        "discussion pool, so list its threads under one entry and search an independent community."
     );
     // A mobile or alternate front end is the same site, and a Facebook group is one pool however it is reached.
     const groupPost = {
@@ -568,8 +573,25 @@ describe("finalize_research gate", () => {
       principal_communities: [{ name: "HGH users group", platform: "facebook" }, { name: "HGH users (mobile)", platform: "facebook" }],
       community_searches: [groupPost, sameGroup]
     }).next_steps).toContain(
-      "community_searches for HGH users (mobile) lists threads on facebook.com/groups/hghusers, as HGH users group " +
-        "does: one site is one discussion pool, so list its threads under one entry and search an independent community."
+      "community_searches for HGH users (mobile) is on facebook.com/groups/hghusers, as HGH users group is: one site " +
+        "is one discussion pool, so list its threads under one entry and search an independent community."
+    );
+    // A community read nowhere is known by its address, never by its name alone.
+    const blockedGroup = { community: "HGH users group", platform: "facebook", queries: ["hgh"], access_boundary: "login_required" };
+    const blockedMap = [{ name: "HGH users group", platform: "facebook" }, { name: "HGH users mobile", platform: "facebook" }];
+    expect(gate({ principal_communities: blockedMap, community_searches: [blockedGroup] }).next_steps).toContain(
+      "community_searches for HGH users group records an access boundary but no url: give the community's address " +
+        "(its forum, group or site link), so it is known by its site rather than its name."
+    );
+    expect(gate({
+      principal_communities: blockedMap,
+      community_searches: [
+        { ...blockedGroup, url: "https://www.facebook.com/groups/hghusers" },
+        { ...blockedGroup, community: "HGH users mobile", url: "https://m.facebook.com/groups/hghusers/" }
+      ]
+    }).next_steps).toContain(
+      "community_searches for HGH users mobile is on facebook.com/groups/hghusers, as HGH users group is: one site is " +
+        "one discussion pool, so list its threads under one entry and search an independent community."
     );
     // A search cannot both find nothing relevant and report the threads it read.
     expect(gate({
@@ -758,7 +780,10 @@ describe("finalize_research gate", () => {
       principal_communities: [...subreddits, facebook],
       community_searches: [
         read("r/trt", trtThread), read("r/trt", trtThread.replace("xyz789", "uvw456")),
-        { community: "TRT Facebook group", platform: "facebook", queries: ["hgh trt"], access_boundary: "login_required" }
+        {
+          community: "TRT Facebook group", platform: "facebook", queries: ["hgh trt"], access_boundary: "login_required",
+          url: "https://www.facebook.com/groups/trtmen"
+        }
       ],
       answer_draft: `${sections.replace(/\n\nOn \[r\/Testosterone\][\s\S]*$/u, "")}\n\nThe reports from r/trt come ` +
         "from my own web search, which AskRigor could not verify. TRT Facebook group needs a login to read, so reports " +

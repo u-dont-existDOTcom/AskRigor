@@ -749,8 +749,9 @@ pending-proposal stores have their own strict contracts and authority boundaries
   summary should not quote commenters or name them. Its `principal_communities`
   and `community_searches` (the names of the communities where people discuss
   the question, the model's own web-search queries, the public thread URLs it
-  read, and a short summary of what they showed or the access boundary that
-  stopped it) are checked and returned in `must_report` for the same call only,
+  read, the community's public address when no thread was read, and a short
+  summary of what they showed or the access boundary that stopped it) are
+  checked and returned in `must_report` for the same call only,
   and the summary should not quote or name posters. AskRigor fetches none of
   those pages. For each Reddit thread link it asks Reddit's public embed
   endpoint (`https://www.reddit.com/oembed`) whether the thread exists and
