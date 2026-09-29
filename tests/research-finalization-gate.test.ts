@@ -304,6 +304,49 @@ describe("finalize_research gate", () => {
     expect(foreign.next_steps.join(" ")).toContain("judged video(s) zzzzzzzzzzz that no discovery receipt");
   });
 
+  it("keeps a final ranking out of a first pass and a bounded answer", () => {
+    const base = {
+      receipts: [survey, emptySearch, repeatScout, videoA, study],
+      community_evidence: "researched" as const,
+      treatment_choice: "compared" as const,
+      research_target: TARGET,
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
+    };
+    const draftWith = (input: Record<string, unknown>, sentence: string) =>
+      finalizeResearchRaw({
+        another_pass_estimate: PASS_ESTIMATE, ...input, answer_draft: `${caveatedDraft(input, options)}\n\n${sentence}`
+      }, options).next_steps;
+    const ranks = (phrase: string, reason: string) =>
+      `The answer ranks the options ("${phrase}"), but ${reason}: compare them without naming a best, top or winning ` +
+        "option, and say what evidence would settle it.";
+    // A first pass names no best option, whatever the caveats say.
+    const firstPass = { ...base, community_findings: findingsFor(["aaaaaaaaaaa"]) };
+    expect(draftWith(firstPass, "Of these, exercise is the best option for most people.")).toEqual([
+      ranks("is the best option", "this first pass allows no final ranking")
+    ]);
+    expect(draftWith({ ...firstPass, treatment_choice: "not_compared" }, "Overall, walking programs are the clear winner."))
+      .toEqual([ranks("clear winner", "this first pass allows no final ranking")]);
+    // Doubt about which is best, a guideline's preference or a study's ranking is not the answer's own ranking.
+    for (const sentence of [
+      "Which is the best option depends on your goals.",
+      "It is too early to say which is the best option, and there is no clear winner yet.",
+      "Guidelines call joint replacement the preferred treatment at the end stage.",
+      "In a network meta-analysis, exercise ranked highest for pain."
+    ]) {
+      expect(draftWith(firstPass, sentence)).toEqual([]);
+    }
+    // Deep research may rank once the coverage check allows it, but not on a bounded result.
+    const coverage = (boundary: string) => issueResearchReceipt("treatment_coverage", {
+      boundary, lock: boundary === "ledger_consistent_for_synthesis" ? "pass" : "block",
+      target: discoveryQueryDigest([TARGET]), broad: true
+    }, { secret: SECRET, now: () => new Date("2026-09-26T11:00:00.000Z") });
+    const deep = (boundary: string) => ({ ...firstPass, research_depth: "deep", receipts: [...base.receipts, coverage(boundary)] });
+    expect(draftWith(deep("bounded_nonranking_only"), "Physiotherapy is your best bet.")).toEqual([
+      ranks("is your best bet", "the treatment-coverage check allows no ranking here")
+    ]);
+    expect(draftWith(deep("ledger_consistent_for_synthesis"), "Physiotherapy is your best bet.")).toEqual([]);
+  });
+
   it("is ready when community and key studies are backed by receipts", () => {
     const result = finalizeResearch({
       receipts: [survey, emptySearch, repeatScout, videoA, study],
@@ -597,7 +640,22 @@ describe("finalize_research gate", () => {
         community_searches: [read("MESO-Rx", first!, "forum"), read("ExcelMale", alias!, "forum")]
       }).next_steps).toContain(alreadyListed("ExcelMale"));
     }
-    // A query parameter or topic number that names the thread keeps two threads apart.
+    // Nor does a post or forum id beside the thread id.
+    for (const [first, alias] of [
+      ["https://forum.example.org/showthread.php?t=9", "https://forum.example.org/showthread.php?t=9&p=42"],
+      ["https://forum.example.org/viewtopic.php?t=2", "https://forum.example.org/viewtopic.php?f=3&t=2&p=77#p77"]
+    ]) {
+      expect(gate({
+        principal_communities: [{ name: "MESO-Rx", platform: "forum" }, { name: "ExcelMale", platform: "forum" }],
+        community_searches: [read("MESO-Rx", first!, "forum"), read("ExcelMale", alias!, "forum")]
+      }).next_steps).toContain(alreadyListed("ExcelMale"));
+    }
+    // A query parameter or topic number that names the thread keeps two threads apart; so does a post id without one.
+    expect(gate({
+      principal_communities: [{ name: "MESO-Rx", platform: "forum" }, { name: "ExcelMale", platform: "forum" }],
+      community_searches: [read("MESO-Rx", "https://forum.example.org/viewtopic.php?p=77", "forum"),
+        read("ExcelMale", "https://forum.example.org/viewtopic.php?p=78", "forum")]
+    }).next_steps).not.toContain(alreadyListed("ExcelMale"));
     expect(gate({
       principal_communities: [{ name: "MESO-Rx", platform: "forum" }, { name: "ExcelMale", platform: "forum" }],
       community_searches: [read("MESO-Rx", "https://forum.example.org/t/hgh-results/123", "forum"),

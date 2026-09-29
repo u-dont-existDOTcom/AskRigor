@@ -746,6 +746,13 @@ export function finalizeResearch(
       protocolNames: options.protocolNames ?? new Set(),
       caveats,
       communitiesRead,
+      // A first pass emits no final treatment ranking (HRP 20.6.6), and a
+      // bounded coverage result allows none in deep research either.
+      ...(input.research_depth === "first_pass"
+        ? { noRanking: "this first pass allows no final ranking" }
+        : coverageBoundary === "bounded_nonranking_only"
+          ? { noRanking: "the treatment-coverage check allows no ranking here" }
+          : {}),
       ...(input.community_findings === undefined ? {} : { effectOnAnswer: input.community_findings.effect_on_answer })
     }));
   }
@@ -833,6 +840,25 @@ const looksLikeVideoId = (token: string) =>
   /^[A-Za-z0-9_-]{11}$/u.test(token) && /[A-Z]/u.test(token) && /[a-z]/u.test(token) && /[0-9_]/u.test(token);
 // A sentence only the full deep forum-audit template contains.
 const PASTED_FORUM_TEMPLATE = /strict-core cohort and separately labeled adjacent cohorts/iu;
+// Words by which the answer itself ranks the options: one named best, top or
+// number one, or a winner. Copulas keep "the best option depends on ..." out,
+// and a guideline's first-line or preferred treatment, or a study's own
+// ranking, can still be reported.
+const RANKING = new RegExp([
+  "\\b(?:is|are|would be|remains?|comes? out as)\\s+(?:the|your|our|my)\\s+(?:single\\s+|clear\\s+|overall\\s+|very\\s+)?" +
+    "(?:best|top|number[- ]one)\\s+(?:treatment|option|choice|approach|program|therapy|pick|bet)s?\\b",
+  "\\b(?:the|your|our|my)\\s+(?:top|number[- ]one)\\s+(?:choice|pick|recommendation)\\b",
+  "\\b(?:clear|overall|outright)\\s+winner\\b",
+  "\\bcomes?\\s+out\\s+(?:on\\s+top|ahead)\\b",
+  "\\bbest\\s+overall\\b"
+].join("|"), "giu");
+// A sentence that asks or doubts which option is best does not rank them.
+const RANKING_HEDGE = new RegExp(
+  "\\b(?:whether|unclear|uncertain|too early|hard to say|can(?:no|['\\u2019])t (?:yet )?say|yet to|remains to be seen|" +
+    "no single|no clear|depends on)\\b|\\bwhich\\s+(?:\\w+\\s+){0,3}?(?:is|are|would be|will be)\\s+(?:the\\s+)?(?:best|top)\\b",
+  "iu"
+);
+const SENTENCE_END = /(?<=[.!?])\s+|\n+/u;
 const URL = /https?:\/\/\S+/gu;
 
 function answerDraftProblems(
@@ -844,6 +870,7 @@ function answerDraftProblems(
     caveats: readonly string[];
     communitiesRead: readonly CommunityRead[];
     effectOnAnswer?: string;
+    noRanking?: string;
   }
 ): string[] {
   const problems: string[] = [];
@@ -874,6 +901,18 @@ function answerDraftProblems(
       `The answer names video(s) by bare ID (${bareIds.slice(0, 10).join(", ")}` +
         `${bareIds.length > 10 ? `, and ${bareIds.length - 10} more` : ""}): give each its linked title instead.`
     );
+  }
+  if (context.noRanking !== undefined) {
+    const rankings = [...new Set(shown.split(SENTENCE_END)
+      .filter((sentence) => !RANKING_HEDGE.test(sentence))
+      .flatMap((sentence) => [...sentence.matchAll(RANKING)].map(([phrase]) => phrase.replace(/\s+/gu, " ").trim())))];
+    if (rankings.length > 0) {
+      problems.push(
+        `The answer ranks the options (${rankings.slice(0, 3).map((phrase) => `"${phrase}"`).join(", ")}), but ` +
+          `${context.noRanking}: compare them without naming a best, top or winning option, and say what evidence ` +
+          "would settle it."
+      );
+    }
   }
   if (PASTED_FORUM_TEMPLATE.test(draft)) {
     problems.push(
@@ -1068,6 +1107,10 @@ const REDD_IT_POST_PATH = /^\/([a-z0-9]+)\/?$/iu;
 // page and s), rather than name the discussion itself.
 const NON_THREAD_PARAMETER = new RegExp("^(?:utm_\\w+|fbclid|gclid|dclid|msclkid|igshid|mc_cid|mc_eid|ref|ref_src|" +
   "share_id|si|_ga|start|page|pg|offset|sid|s|phpsessid|sessionid|jsessionid|sort|order|sk|sd|st|highlight|hilit)$", "iu");
+// With a thread id (phpBB's and vBulletin's t, a topic or Discuz tid), a post
+// id or the forum id only locates a post in the thread or repeats where it is.
+const THREAD_ID_PARAMETER = /^(?:t|topic|topicid|threadid|tid)$/iu;
+const WITHIN_THREAD_PARAMETER = /^(?:p|pid|post|postid|f|fid|forum|forumid)$/iu;
 // A page or post within a thread, at the end of its path: XenForo's /page-2
 // and /post-123, vBulletin's /page2, a blog's /page/2.
 const THREAD_PAGE_SUFFIX = /\/(?:page[-/]?\d+|post-\d+)\/?$/iu;
@@ -1091,8 +1134,9 @@ function comparableUrl(url: string): string {
       ? REDD_IT_POST_PATH.exec(link.pathname)?.[1]
       : /(?:^|\.)reddit\.com$/u.test(host) ? REDDIT_POST_PATH.exec(link.pathname)?.[1] : undefined;
     if (post !== undefined) return `reddit.com/comments/${post.toLowerCase()}`;
+    const threadId = [...link.searchParams.keys()].some((key) => THREAD_ID_PARAMETER.test(key));
     const query = [...link.searchParams]
-      .filter(([key]) => !NON_THREAD_PARAMETER.test(key))
+      .filter(([key]) => !NON_THREAD_PARAMETER.test(key) && !(threadId && WITHIN_THREAD_PARAMETER.test(key)))
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([key, value]) => `${key}=${value}`)
       .join("&");
