@@ -1200,6 +1200,30 @@ durations, as in the other rows):
   pass is for. Candidate next step: one caveat naming all lead-only studies
   instead of one sentence each.
 
+
+Held-out check (owner answer to question 4, 29 Sep: "4. you can start with 2 more
+questions"), fixed before any held-out answer exists:
+
+- Questions: `ho-knee-cartilage` (a joint question like the hip) and
+  `ho-hashimotos-fatigue` (not a joint question), chosen before any held-out
+  run. The other four held-out questions stay unused.
+- Arms: the new version at the frozen PR head (its exact ref recorded) and the
+  live version (`main`), both Opus 5.5 at max effort with web search, the same
+  runner, one run each. The two arms of a question run on the same YouTube quota
+  day, so neither is starved by the daily limit; a run that hits the limit is
+  discarded and rerun after the reset (07:00 UTC).
+- Grading: the same blind judge as the development runs (`judge-claude.mjs`,
+  Opus 5.5 at max effort, web spot-checks, seed 1): answer order randomized from
+  the seed and the answers, protocol names redacted; a winner or tie overall and
+  on options, appraisal, heterodox judgment, safety and usefulness, with
+  confidence, the errors in each answer and checked citations. Time, tool calls,
+  tool waiting and the final check's result are measured separately.
+- Decision rule: the new version passes if it loses on safety in neither
+  question and does not lose overall in both. One overall loss is reported with
+  its reasons but does not block alone. Two questions with one run each can show
+  a large regression, not a small difference; the judge shares the answering
+  model's family, which blinding and citation checks only partly offset.
+
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 
 - Iteration for each candidate: focused tests plus one or two development
