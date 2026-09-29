@@ -852,52 +852,68 @@ const PASTED_FORUM_TEMPLATE = /strict-core cohort and separately labeled adjacen
 // Words by which the answer itself ranks the options: one named best, top or
 // number one, or a winner. Copulas keep "the best option depends on ..." out,
 // and a guideline's first-line or preferred treatment, or a study's own
-// ranking, can still be reported.
+// ranking, can still be reported. An adverb does not soften a ranking
+// ("surgery is probably the best option"), but one that denies it does ("is
+// rarely the best option").
 const RANKING = new RegExp([
-  "\\b(?:is|are|would be|remains?|comes? out as)\\s+(?:the|your|our|my)\\s+(?:single\\s+|clear\\s+|overall\\s+|very\\s+)?" +
-    "(?:best|top|number[- ]one)\\s+(?:treatment|option|choice|approach|program|therapy|pick|bet)s?\\b",
+  "\\b(?:is|are|would be|will be|remains?|comes? out as)\\s+" +
+    "(?:(?!(?:hardly|rarely|scarcely|barely|unlikely)\\b)\\p{L}+ly\\s+|still\\s+|often\\s+)?(?:the|your|our|my)\\s+" +
+    "(?:single\\s+|clear\\s+|overall\\s+|very\\s+)?(?:best|top|number[- ]one)\\s+" +
+    "(?:treatment|option|choice|approach|program|therapy|pick|bet)s?\\b",
   "\\b(?:the|your|our|my)\\s+(?:top|number[- ]one)\\s+(?:choice|pick|recommendation)\\b",
   "\\b(?:clear|overall|outright)\\s+winner\\b",
   "\\bcomes?\\s+out\\s+(?:on\\s+top|ahead)\\b",
   "\\bbest\\s+overall\\b"
 ].join("|"), "giu");
-// Words that ask or doubt which option is best, or deny that one is. Each
-// excuses only a ranking after it in its own clause: "whether surgery is the
-// best option", not "Although it is too early to say whether exercise lasts,
-// surgery is the best option".
-const RANKING_HEDGE = new RegExp(
-  "\\b(?:whether|unclear|uncertain|too early|hard to say|can(?:no|['\\u2019])t (?:yet )?say|yet to|remains to be seen|" +
-    "no single|no clear|depends on)\\b|\\b(?:which|what)\\s+(?:\\w+\\s+){0,3}?(?:is|are|would be|will be)\\s+" +
-    "(?:the\\s+)?(?:best|top)\\b|(?:\\bno|\\bnot\\s+(?:a|an|the|one)|n['\\u2019]t\\s+(?:a|an|the|one))\\s+" +
-    "(?=(?:single|clear|overall|outright)\\s)",
-  "giu"
-);
-// A clause ends at a semicolon, colon, dash or parenthesis, and at a comma that
-// joins another clause ("..., but", "..., surgery is") or closes a leading
-// subordinate clause. A comma inside a list ("exercise, injections, or
-// surgery") does not end one.
-const CLAUSE_BREAK = new RegExp(
-  "[;:()\\u2013\\u2014]|\\s-\\s|,(?=\\s*(?:and|but|yet|so|while|whereas|although|though|however|still|nonetheless|" +
-    "meanwhile)\\b)|,(?=\\s+(?!(?:or|nor|and)\\b)(?:[\\p{L}'\\u2019-]+\\s+){1,3}(?:is|are|would be|remains?|comes?)\\b)",
-  "giu"
-);
-const LEADING_SUBORDINATE = new RegExp(
-  "^[^\\p{L}]*(?:although|though|even though|even if|while|whereas|since|because|given(?: that)?|if|unless|until|when|" +
-    "once|as)\\b[^,;:]*,",
+// A ranking phrase the answer does not assert: one denied right before it
+// ("no clear winner", "none of these is the best option"); the predicate of
+// "whether", or of "which" or "what" opening the sentence or following a word
+// of asking or doubt, with only its subject between ("whether exercise,
+// injections, or surgery is the best option"); or one in a question. Doubt
+// anywhere else excuses nothing: "Exercise remains unclear but surgery is the
+// best option" ranks.
+const DENIED_BEFORE = new RegExp(
+  "(?:\\bno|\\bnot\\s+(?:a|an|the|one)|n['\\u2019]t\\s+(?:a|an|the|one))\\s+$|" +
+    "(?:\\bno\\s+(?:single|one)(?:\\s+[\\p{L}-]+){0,2}|\\bnone(?:\\s+of\\s+(?:these|them|those|the\\s+[\\p{L}-]+))?|" +
+    "\\bneither(?:\\s+[\\p{L}-]+){0,2})\\s+$",
   "iu"
 );
+// A subject: items of up to four words, joined by commas and a final "or" or
+// "and"; a word that opens another clause ("but", "so", "although") ends it.
+const SUBJECT_WORD = "(?!(?:but|yet|so|while|whereas|although|though|because|since|however|therefore|thus|still|" +
+  "nonetheless|meanwhile)\\b)[\\p{L}\\p{N}'\\u2019-]+";
+const SUBJECT_ITEM = `${SUBJECT_WORD}(?:\\s+${SUBJECT_WORD}){0,3}`;
+const SUBJECT = `${SUBJECT_ITEM}(?:(?:\\s*,\\s*${SUBJECT_ITEM})*,?\\s+(?:or|and)\\s+${SUBJECT_ITEM})?`;
+const DOUBT = "unclear|uncertain|unsure|unknown|undecided|debat(?:e|ed|able)|question|wonder(?:ing)?|ask(?:ing)?|" +
+  "decid(?:e|ing)|choos(?:e|ing)|depends\\s+on|(?:too\\s+early|hard|difficult|impossible)\\s+to\\s+(?:say|tell|know|judge)|" +
+  "(?:not|n['\\u2019]t|never)\\s+(?:yet\\s+)?(?:be\\s+)?(?:clear|sure|certain|known|settled|say|tell|know|decide)|" +
+  "can(?:no|['\\u2019])t\\s+(?:yet\\s+)?(?:say|tell|know|judge)|to\\s+be\\s+(?:seen|shown|settled|determined)";
+const ASKED_BEFORE = new RegExp(
+  `(?:\\bwhether|\\b(?:${DOUBT})\\b(?:\\s+[\\p{L}'\\u2019-]+){0,3}\\s+(?:which|what))\\s+(?:${SUBJECT}\\s+)?$`,
+  "iu"
+);
+const ASKED_OPENING = new RegExp(`^[^\\p{L}]*(?:which|what)\\s+(?:${SUBJECT}\\s+)?$`, "iu");
+// A question opens with a question word or an auxiliary: "Is there a clear
+// winner?", not "Surgery is the best option, right?".
+const QUESTION = new RegExp(
+  "^[^\\p{L}]*(?:is|are|was|were|do|does|did|can|could|would|should|will|has|have|which|what|who|how|why|when|where)\\b" +
+    "[\\s\\S]*\\?[\\s\"'\\u201d\\u2019)\\]*_]*$",
+  "iu"
+);
+// How far back a subject and its asking word can reach, which also keeps each
+// test linear in the draft's length.
+const ASK_WINDOW = 400;
 const SENTENCE_END = /(?<=[.!?])\s+|\n+/u;
 
-/** The ranking phrases in a sentence that no earlier hedge in the same clause excuses. */
-function unhedgedRankings(sentence: string): string[] {
-  const breaks = [...sentence.matchAll(CLAUSE_BREAK)].map(({ index }) => index);
-  const leading = LEADING_SUBORDINATE.exec(sentence);
-  if (leading !== null) breaks.push(leading[0].length - 1);
-  const scopes = [...sentence.matchAll(RANKING_HEDGE)].map(({ index }) =>
-    ({ start: index, end: Math.min(sentence.length, ...breaks.filter((at) => at >= index)) }));
+/** The ranking phrases a sentence asserts. */
+function assertedRankings(sentence: string): string[] {
+  if (QUESTION.test(sentence)) return [];
   return [...sentence.matchAll(RANKING)]
-    .filter(({ index, 0: phrase }) =>
-      !scopes.some(({ start, end }) => start < index + phrase.length && index + phrase.length <= end))
+    .filter(({ index }) => {
+      const before = sentence.slice(Math.max(0, index - ASK_WINDOW), index);
+      return !DENIED_BEFORE.test(before) && !ASKED_BEFORE.test(before) &&
+        !(index <= ASK_WINDOW && ASKED_OPENING.test(before));
+    })
     .map(([phrase]) => phrase.replace(/\s+/gu, " ").trim());
 }
 const URL = /https?:\/\/\S+/gu;
@@ -944,7 +960,7 @@ function answerDraftProblems(
     );
   }
   if (context.noRanking !== undefined) {
-    const rankings = [...new Set(shown.split(SENTENCE_END).flatMap(unhedgedRankings))];
+    const rankings = [...new Set(shown.split(SENTENCE_END).flatMap(assertedRankings))];
     if (rankings.length > 0) {
       problems.push(
         `The answer ranks the options (${rankings.slice(0, 3).map((phrase) => `"${phrase}"`).join(", ")}), but ` +
@@ -1241,19 +1257,41 @@ function redditPostOf(url: string): string | undefined {
   }
 }
 
+// Words that say little about which thread a title names.
+const TITLE_FILLER = new Set([
+  "the", "and", "for", "with", "from", "about", "after", "any", "anyone", "anybody", "someone", "you", "your",
+  "are", "was", "were", "has", "have", "had", "does", "did", "this", "that", "what", "how", "why", "who", "when",
+  "which", "just", "not", "can", "could", "should", "would", "will", "its", "our", "their", "they", "them", "been",
+  "into", "out", "but", "all", "get", "got"
+]);
+
 /**
- * A title as the model gave it matches Reddit's when either contains the other
- * or they share at least half the words of the shorter, so a shortened or
- * lightly reworded title from a search result still matches.
+ * A title as the model gave it matches Reddit's when it differs only in case,
+ * punctuation, a subreddit or "Reddit" tag, or a cut-off end (a whole-word part
+ * with at least three identifying words, or one ending in an ellipsis); when
+ * both have the same identifying words; or when three or more identifying
+ * words are shared and at most one in three differs. One shared topical word
+ * ("TRT advice" against "TRT disaster") is not a match.
  */
 function sameTitle(given: string, actual: string): boolean {
-  const normal = (value: string) => (value.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).join(" ");
-  const [left, right] = [normal(given), normal(actual)];
-  if (left === "" || right === "" || left.includes(right) || right.includes(left)) return true;
-  const words = (value: string) => new Set(value.split(" ").filter((word) => word.length >= 3));
-  const [a, b] = [words(left), words(right)];
+  const words = (value: string) => (value.toLowerCase().replace(/\br\/[\w-]+/gu, " ").match(/[\p{L}\p{N}]+/gu) ?? [])
+    .filter((word) => word !== "reddit");
+  const left = words(given);
+  const right = words(actual);
+  // An ellipsis may cut the last word short.
+  if (/(?:\.\.\.|…)[\s"'”’)\]]*$/u.test(given)) left.pop();
+  if (left.length === 0 || right.length === 0) return true;
+  const identifying = (list: readonly string[]) =>
+    new Set(list.filter((word) => /\p{N}/u.test(word) || (word.length >= 3 && !TITLE_FILLER.has(word))));
+  const [a, b] = [identifying(left), identifying(right)];
+  const [shorter, longer] = left.length <= right.length ? [left, right] : [right, left];
+  if (` ${longer.join(" ")} `.includes(` ${shorter.join(" ")} `) &&
+    (shorter.length === longer.length || identifying(shorter).size >= 3)) {
+    return true;
+  }
   const shared = [...a].filter((word) => b.has(word)).length;
-  return shared >= Math.min(a.size, b.size) / 2;
+  const differing = a.size + b.size - 2 * shared;
+  return (differing === 0 && shared > 0) || (shared >= 3 && differing <= Math.max(1, Math.floor(shared / 3)));
 }
 
 /** The subreddit a full reddit.com thread link is in; undefined for short links and other pages. */

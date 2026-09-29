@@ -335,21 +335,31 @@ describe("finalize_research gate", () => {
       "It's too early to say whether exercise, injections, or surgery is the best option for you.",
       "It is unclear, though, whether surgery is the best option.",
       "If it is unclear whether surgery is the best option, ask the surgeon what the X-ray shows.",
+      "It is not clear whether exercise or surgery is the best option.",
+      "Ask your surgeon which is the best option for you.",
       "There isn't a clear winner yet.",
+      "None of these is the best option for everyone.",
+      "Is there a clear winner?",
+      "Surgery is rarely the best option before a trial of exercise.",
       "Guidelines call joint replacement the preferred treatment at the end stage.",
       "In a network meta-analysis, exercise ranked highest for pain."
     ]) {
       expect(draftWith(firstPass, sentence)).toEqual([]);
     }
-    // Doubt excuses only a ranking after it in its own clause, not one it does not govern.
-    for (const sentence of [
-      "Although it is too early to say whether exercise lasts, surgery is the best option.",
-      "It is unclear whether exercise lasts, but surgery is the best option.",
-      "It is too early to say whether exercise lasts, surgery is the best option.",
-      "Whether exercise lasts is unclear; surgery is the best option.",
-      "Surgery is the best option whether or not you exercise."
-    ]) {
-      expect(draftWith(firstPass, sentence)).toEqual([ranks("is the best option", "this first pass allows no final ranking")]);
+    // Only a denial right before it, "whether" or a question word asking it, or a question excuses a ranking;
+    // doubt elsewhere in the sentence does not.
+    for (const [sentence, phrase] of [
+      ["Although it is too early to say whether exercise lasts, surgery is the best option.", "is the best option"],
+      ["It is unclear whether exercise lasts, but surgery is the best option.", "is the best option"],
+      ["It is too early to say whether exercise lasts, surgery is the best option.", "is the best option"],
+      ["Whether exercise lasts is unclear; surgery is the best option.", "is the best option"],
+      ["Surgery is the best option whether or not you exercise.", "is the best option"],
+      ["Exercise remains unclear but surgery is the best option.", "is the best option"],
+      ["Surgery, which is the best option for severe damage, restores walking.", "is the best option"],
+      ["Surgery is probably the best option.", "is probably the best option"],
+      ["Surgery is the best option, right?", "is the best option"]
+    ] as const) {
+      expect(draftWith(firstPass, sentence)).toEqual([ranks(phrase, "this first pass allows no final ranking")]);
     }
     // Deep research may rank once the coverage check allows it, but not on a bounded result.
     const coverage = (boundary: string) => issueResearchReceipt("treatment_coverage", {
@@ -753,10 +763,15 @@ describe("finalize_research gate", () => {
       `community_searches for r/trt lists thread(s) that Reddit files under another subreddit (${trtThread}): list ` +
         "each thread under its own subreddit's entry."
     );
-    expect(gate(found("trt", "HGH and TRT five years"), "Collagen for sore knees").next_steps).toContain(
-      `community_searches for r/trt gives thread title(s) that do not match the threads on Reddit (${trtThread}): ` +
-        "check that each link is the thread you read, and give its title as shown."
-    );
+    const retitled = `community_searches for r/trt gives thread title(s) that do not match the threads on Reddit ` +
+      `(${trtThread}): check that each link is the thread you read, and give its title as shown.`;
+    expect(gate(found("trt", "HGH and TRT five years"), "Collagen for sore knees").next_steps).toContain(retitled);
+    // One shared topical word is not a match; a title cut short, tagged or with "&" for "and" is.
+    expect(gate(found("trt", "TRT disaster"), "TRT advice").next_steps).toContain(retitled);
+    expect(gate(found("trt", "TRT disaster"), "TRT").next_steps).toContain(retitled);
+    for (const given of ["HGH and TRT: five ye…", "HGH and TRT: five years in : r/trt", "hgh & trt - five years in"]) {
+      expect(gate(found("trt", "HGH and TRT: five years in"), given).next_steps).not.toContain(retitled);
+    }
 
     // A lookup that failed proves nothing: that subreddit stays unverified.
     const unavailable = gate({ state: "unavailable" });
