@@ -637,10 +637,14 @@ function validateCandidateIdentity(
   // Scouts often paraphrase a title or misremember a channel while the video ID
   // is right, and YouTube's metadata stays authoritative for what the video is.
   // Only a video whose title and channel both differ is a wrong identity.
-  const titleMatches = providerVideo.title === undefined || youtubeLabelsMatch(providerVideo.title, candidate.title);
+  const titleMatches = providerVideo.title === undefined || youtubeTitlesMatch(providerVideo.title, candidate.title);
+  // Titles that share most words without matching ("Second outcome video"
+  // against "First outcome video") leave the ID in doubt rather than wrong.
+  const titleOverlaps = providerVideo.title === undefined || titleMatches ||
+    youtubeLabelsMatch(providerVideo.title, candidate.title);
   const channelMatches = providerVideo.channel_title === undefined ||
     youtubeLabelsMatch(providerVideo.channel_title, candidate.channel);
-  if (!titleMatches && !channelMatches) {
+  if (!titleOverlaps && !channelMatches) {
     reasons.push("declared_title_mismatch", "declared_channel_mismatch");
   }
   // Without the declared channel, a paraphrase is not enough: "How I healed
@@ -662,9 +666,9 @@ function validateCandidateIdentity(
         provider_error_code: "youtube_candidate_title_conflict",
         limitations: [
           ...metadata.limitations,
-          titleMatches
-            ? "YouTube's title for this ID only partly matches the scout's declared title and its channel differs, so the ID may point to another video. Look the declared title up before using it."
-            : "YouTube's title for this ID differs from the scout's declared title beyond a paraphrase, so the ID may point to another video from the same channel. Look the declared title up before using it."
+          channelMatches
+            ? "YouTube's title for this ID differs from the scout's declared title beyond a paraphrase, so the ID may point to another video from the same channel. Look the declared title up before using it."
+            : "YouTube's title for this ID only partly matches the scout's declared title and its channel differs, so the ID may point to another video. Look the declared title up before using it."
         ]
       }
     };
@@ -807,10 +811,67 @@ export function youtubeTitlesNearlySame(provider: string, declared: string): boo
   return declaredWords >= MINIMUM_CONTAINED_TITLE_WORDS && compactTitle(provider).includes(declaredTitle);
 }
 
+// Title words that say little about which video it is.
+const TITLE_FILLER_WORDS = new Set([
+  "the", "and", "for", "with", "how", "what", "why", "when", "you", "your", "this", "that", "from", "into", "about",
+  "are", "was", "can", "will", "get", "got", "has", "have", "but", "all", "out", "our", "its"
+]);
+
+// Words that reverse a title's claim: "Surgery did not fix my hip" is another
+// video than "Surgery did fix my hip".
+const TITLE_NEGATION_WORDS = new Set(["not", "no", "never", "without", "nothing", "none", "nor"]);
+
+function titleWords(value: string): string[] {
+  return value.normalize("NFKC").toLowerCase().replace(/n['\u2019]t\b/gu, " not").split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word.length > 0);
+}
+
+/** A word without a plural, "-ing", "-ed" or final "e" ending, so "healed" and "healing" meet. */
+function titleStem(word: string): string {
+  const bare = word.replace(/['\u2019]s$/u, "");
+  for (const suffix of ["ing", "ed", "es", "s", "e"]) {
+    if (bare.length - suffix.length >= 3 && bare.endsWith(suffix)) return bare.slice(0, -suffix.length);
+  }
+  return bare;
+}
+
 /**
- * A declared label matches YouTube's when they are equal ignoring case,
+ * A declared title matches YouTube's when they are equal ignoring case,
+ * spacing and punctuation, or when every identifying declared word (a
+ * negation, a word with a digit, or three or more letters and not filler)
+ * appears in YouTube's title, however it is ordered or extended, and YouTube's
+ * title negates no declared word the declared title leaves unnegated. A
+ * scout's paraphrase drops or reorders words; a word swapped for another ("How
+ * I healed hip pain" against "How I healed back pain"), another number or a
+ * reversed claim is another video, even on the same channel.
+ */
+export function youtubeTitlesMatch(provider: string, declared: string): boolean {
+  const declaredTitle = compactTitle(declared);
+  if (declaredTitle.length === 0) return false;
+  if (compactTitle(provider) === declaredTitle) return true;
+  const identifying = (words: string[]) => words
+    .filter((word) => TITLE_NEGATION_WORDS.has(word) || /\p{N}/u.test(word) ||
+      (word.length >= 3 && !TITLE_FILLER_WORDS.has(word)))
+    .map(titleStem);
+  const declaredAll = titleWords(declared);
+  const providerAll = titleWords(provider);
+  const declaredWords = identifying(declaredAll);
+  const providerWords = new Set(identifying(providerAll));
+  if (declaredWords.length === 0 || !declaredWords.every((word) => providerWords.has(word))) return false;
+  // A negation in YouTube's title that governs a declared word within the next
+  // three words ("Surgery never fixed my hip") reverses a title that lacks it;
+  // one in an added tail ("| No Nonsense Physio") does not.
+  const declaredStems = new Set(declaredWords);
+  const governing = providerAll.filter((word, index) => TITLE_NEGATION_WORDS.has(word) &&
+    providerAll.slice(index + 1, index + 4).some((next) => declaredStems.has(titleStem(next)) &&
+      !TITLE_NEGATION_WORDS.has(next))).length;
+  return governing <= declaredAll.filter((word) => TITLE_NEGATION_WORDS.has(word)).length;
+}
+
+/**
+ * A declared channel matches YouTube's when they are equal ignoring case,
  * spacing and punctuation, or when at least 60% of the declared words of three
- * or more characters appear in YouTube's label.
+ * or more characters appear in YouTube's channel name.
  */
 export function youtubeLabelsMatch(provider: string, declared: string): boolean {
   const compact = (value: string) => value.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");

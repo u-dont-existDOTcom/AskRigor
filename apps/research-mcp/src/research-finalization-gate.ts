@@ -937,7 +937,8 @@ const REPORTED_BEFORE = new RegExp(
     `\\s+(?:${REPORTED_SUBJECT}(?:\\s+${REPORTED_SUBJECT}){0,3}\\s+)?$`,
   "iu"
 );
-const FIRST_PERSON = /\b(?:I|me|my|mine|we|us|our|ours)\b/iu;
+// Case-sensitive but for a capital first letter, so "US" and "ME/CFS" are not "us" and "me".
+const FIRST_PERSON = /\b(?:I|[Mm]e|[Mm]y|[Mm]ine|[Ww]e|[Uu]s|[Oo]urs?)\b/u;
 // How far back a subject and its asking word can reach, which also keeps each
 // test linear in the draft's length.
 const ASK_WINDOW = 400;
@@ -946,11 +947,14 @@ const SENTENCE_END = /(?<=[.!?])\s+|\n+/u;
 /** The ranking phrases a sentence asserts. */
 function assertedRankings(sentence: string): string[] {
   if (QUESTION.test(sentence)) return [];
+  // The first first-person word anywhere in the sentence, however far back.
+  const firstPersonAt = sentence.search(FIRST_PERSON);
   return [...sentence.matchAll(RANKING)]
     .filter(({ index }) => {
-      const before = sentence.slice(Math.max(0, index - ASK_WINDOW), index);
+      const start = Math.max(0, index - ASK_WINDOW);
+      const before = sentence.slice(start, index);
       const reported = REPORTED_BEFORE.exec(before);
-      const othersClaim = reported !== null && !FIRST_PERSON.test(before.slice(0, reported.index));
+      const othersClaim = reported !== null && (firstPersonAt < 0 || firstPersonAt >= start + reported.index);
       return !DENIED_BEFORE.test(before) && !ASKED_BEFORE.test(before) && !othersClaim &&
         !(index <= ASK_WINDOW && ASKED_OPENING.test(before));
     })
@@ -1348,6 +1352,17 @@ function sameTitle(given: string, actual: string): boolean {
     negations(shorter) === negations(longer);
 }
 
+/** The subreddit a reddit.com link is in, its front page or any page under it; undefined elsewhere. */
+function subredditHomeOf(url: string): string | undefined {
+  try {
+    const link = new globalThis.URL(url);
+    if (!/(?:^|\.)reddit\.com$/u.test(link.hostname.toLowerCase())) return undefined;
+    return /^\/r\/([A-Za-z0-9_]{2,21})(?:\/|$)/u.exec(link.pathname)?.[1]?.toLowerCase();
+  } catch {
+    return undefined;
+  }
+}
+
 /** The subreddit a full reddit.com thread link is in; undefined for short links and other pages. */
 function subredditOf(url: string): string | undefined {
   try {
@@ -1461,7 +1476,9 @@ function communityCoverage(
   }
   for (const search of input.community_searches ?? []) {
     const name = search.community;
-    const hosts = search.threads_read.map(({ url }) => hostOf(url));
+    // Thread links and the community's own address are checked alike.
+    const hosts = [...search.threads_read.map(({ url }) => url), ...(search.url === undefined ? [] : [search.url])]
+      .map(hostOf);
     if (hosts.some((host) => YOUTUBE_HOST.test(host))) {
       out.nextSteps.push(`community_searches for ${name} lists YouTube links; research YouTube with its own tools.`);
       continue;
@@ -1474,7 +1491,7 @@ function communityCoverage(
     }
     if (search.platform !== "reddit" && hosts.some((host) => REDDIT_HOST.test(host))) {
       out.nextSteps.push(
-        `community_searches for ${name} lists Reddit threads; record them under platform reddit, as the subreddit ` +
+        `community_searches for ${name} lists Reddit links; record them under platform reddit, as the subreddit ` +
           "they are in."
       );
       continue;
@@ -1484,6 +1501,10 @@ function communityCoverage(
       const subreddit = SUBREDDIT_NAME.exec(name)?.[1]?.toLowerCase();
       if (subreddit === undefined) {
         out.nextSteps.push(`Name the Reddit community ${name} by its subreddit, as r/<name>.`);
+        continue;
+      }
+      if (search.url !== undefined && subredditHomeOf(search.url) !== subreddit) {
+        out.nextSteps.push(`community_searches for ${name} gives a url outside r/${subreddit}; give the subreddit's own link.`);
         continue;
       }
       if (search.threads_read.some(({ url }) => subredditOf(url) !== subreddit)) {

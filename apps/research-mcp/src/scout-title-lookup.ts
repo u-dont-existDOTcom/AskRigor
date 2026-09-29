@@ -2,6 +2,7 @@ import {
   searchYoutube,
   YOUTUBE_SEARCH_QUOTA_EXHAUSTED_CODE,
   youtubeLabelsMatch,
+  youtubeTitlesMatch,
   youtubeTitlesNearlySame,
   type YoutubeConfig
 } from "@askrigor/sources";
@@ -109,7 +110,7 @@ export async function lookUpScoutTitles(
       unresolved.push({ ...lead, reason: response });
       continue;
     }
-    const titled = response.filter((record) => youtubeLabelsMatch(record.title, lead.title));
+    const titled = response.filter((record) => youtubeTitlesMatch(record.title, lead.title));
     const match = titled.find((record) =>
       lead.channel.trim().toLowerCase() !== UNKNOWN_CHANNEL &&
       record.channel_title !== undefined &&

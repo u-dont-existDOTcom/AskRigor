@@ -90,6 +90,28 @@ describe("scout exact-title lookup", () => {
     ]);
   });
 
+  it("does not take another video from the declared channel whose title swaps or reverses a declared word", async () => {
+    const search = vi.fn(async () => results([
+      { video_id: "aaaaaaaaaaa", title: "How I healed back pain", channel_title: "Hip Journey" },
+      { video_id: "bbbbbbbbbbb", title: "Why surgery never fixed my hip", channel_title: "Hip Journey" },
+      { video_id: "ccccccccccc", title: "Why surgery didn't fix my hip | Hip Journey", channel_title: "Hip Journey" }
+    ]));
+
+    const lookup = await lookUpScoutTitles([
+      { title: "How I healed hip pain", channel: "Hip Journey" },
+      { title: "Why surgery fixed my hip", channel: "Hip Journey" },
+      { title: "Why surgery did not fix my hip", channel: "Hip Journey" }
+    ], { config: CONFIG, knownVideoIds: new Set(), search });
+
+    expect(lookup.found.map(({ video_id, declared_title }) => [declared_title, video_id])).toEqual([
+      ["Why surgery did not fix my hip", "ccccccccccc"]
+    ]);
+    expect(lookup.unresolved.map(({ title, reason }) => [title, reason])).toEqual([
+      ["How I healed hip pain", "no_matching_video"],
+      ["Why surgery fixed my hip", "no_matching_video"]
+    ]);
+  });
+
   it("decodes the HTML entities YouTube search puts in titles and channels", async () => {
     const search = vi.fn(async () => results([
       { video_id: "ddddddddddd", title: "Tinnitus: He Tried Everything. Here&#39;s What WORKED", channel_title: "Treble &amp; Health" }

@@ -443,6 +443,40 @@ describe("Gemini YouTube candidate handoff", () => {
     });
   });
 
+  it("leaves a same-channel video whose title swaps or reverses a declared word unresolved", async () => {
+    const declaring = (title: string): GeminiYoutubeCandidatePacket => {
+      const value = packet();
+      return {
+        ...value,
+        candidates: value.candidates.map((candidate, index) => index === 0 ? { ...candidate, title } : candidate)
+      };
+    };
+    const check = (declaredTitle: string, providerTitle: string) => validateGeminiYoutubeCandidateHandoff(
+      response(declaring(declaredTitle)),
+      YOUTUBE,
+      { get_video: vi.fn(async (videoId: string) => videoEnvelope(
+        videoId,
+        videoId === VIDEO_IDS[0] ? { title: providerTitle } : {}
+      )) }
+    );
+    // The declared channel agrees each time, so only the title tells the videos apart.
+    for (const [declaredTitle, providerTitle] of [
+      ["How I healed hip pain", "How I healed back pain"],
+      ["Why surgery fixed my hip", "Why surgery never fixed my hip"],
+      ["Why surgery did not fix my hip", "Why surgery fixed my hip"]
+    ] as const) {
+      const receipt = await check(declaredTitle, providerTitle);
+      expect(receipt.rejected_candidates).toEqual([]);
+      expect(receipt.validated_candidates.map(({ video_id }) => video_id)).toEqual(VIDEO_IDS.slice(1));
+      expect(receipt.unresolved_candidates).toEqual([
+        expect.objectContaining({ video_id: VIDEO_IDS[0], provider_error_code: "youtube_candidate_title_conflict" })
+      ]);
+    }
+    // A paraphrase that keeps every declared word, a contraction included, still vouches for the ID.
+    const contracted = await check("Why surgery did not fix my hip", "Why surgery didn't fix my hip | Independent runner");
+    expect(contracted.validated_candidates.map(({ video_id }) => video_id)).toEqual([...VIDEO_IDS]);
+  });
+
   it("keeps an API-visible candidate unresolved when required identity fields are missing", async () => {
     const getVideo = vi.fn(async (videoId: string) => {
       const envelope = videoEnvelope(videoId);

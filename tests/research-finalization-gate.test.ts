@@ -345,6 +345,8 @@ describe("finalize_research gate", () => {
       "In that trial, surgery outperformed training at six months.",
       "Guidelines recommend exercise over injections for most people.",
       "Five commenters said surgery beats exercise.",
+      "A US trial found surgery beats exercise.",
+      "ME/CFS patients said pacing beats graded exercise.",
       "The study concludes that surgery outperforms exercise.",
       "According to the trial, surgery outperforms training at six months.",
       "Replacement gave larger gains than training, but it is unclear whether surgery is superior to exercise for you.",
@@ -376,7 +378,9 @@ describe("finalize_research gate", () => {
       ["I independently concluded surgery outperforms exercise.", "outperforms"],
       ["Our review found surgery beats exercise.", "beats"],
       ["Our careful independent evidence review found surgery beats exercise.", "beats"],
-      ["Commenters said exercise helps and surgery beats exercise.", "beats"]
+      ["Commenters said exercise helps and surgery beats exercise.", "beats"],
+      [`We ${"read the trials, the guidelines and the long-term registry follow-ups, ".repeat(6)}and the study found ` +
+        "surgery beats exercise.", "beats"]
     ] as const) {
       expect(draftWith(firstPass, sentence)).toEqual([ranks(phrase, "this first pass allows no final ranking")]);
     }
@@ -593,6 +597,23 @@ describe("finalize_research gate", () => {
       "community_searches for HGH users mobile is on facebook.com/groups/hghusers, as HGH users group is: one site is " +
         "one discussion pool, so list its threads under one entry and search an independent community."
     );
+    // An address is checked against the platform like a thread link: a subreddit filed as a forum is still the
+    // subreddit, and a subreddit's address is its own.
+    const trtBoundary = { community: "r/trt", platform: "reddit", queries: ["hgh"], access_boundary: "no_relevant_results" };
+    expect(gate({
+      principal_communities: [{ name: "r/trt", platform: "reddit" }, { name: "TRT forum", platform: "forum" }],
+      community_searches: [
+        { ...trtBoundary, url: "https://www.reddit.com/r/trt/" },
+        { ...trtBoundary, community: "TRT forum", platform: "forum", url: "https://reddit.com/r/trt" }
+      ]
+    }).next_steps).toContain(
+      "community_searches for TRT forum lists Reddit links; record them under platform reddit, as the subreddit they " +
+        "are in."
+    );
+    expect(gate({
+      principal_communities: communities,
+      community_searches: [{ ...trtBoundary, url: "https://www.reddit.com/r/Testosterone/" }]
+    }).next_steps).toContain("community_searches for r/trt gives a url outside r/trt; give the subreddit's own link.");
     // A search cannot both find nothing relevant and report the threads it read.
     expect(gate({
       principal_communities: communities, community_searches: [{ ...trt, access_boundary: "no_relevant_results" }]
@@ -699,7 +720,7 @@ describe("finalize_research gate", () => {
     }).next_steps.slice(0, 3)).toEqual([
       "community_searches for r/trt lists links that are not threads in r/trt: list each thread you read by its " +
         "full link (reddit.com/r/trt/comments/…), under its own subreddit's entry.",
-      "community_searches for MESO-Rx lists Reddit threads; record them under platform reddit, as the subreddit " +
+      "community_searches for MESO-Rx lists Reddit links; record them under platform reddit, as the subreddit " +
         "they are in.",
       "Name the Reddit community TRT forum by its subreddit, as r/<name>."
     ]);

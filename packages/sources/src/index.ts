@@ -198,6 +198,7 @@ export {
   deriveGeminiYoutubeCandidateFrontier,
   validateGeminiYoutubeCandidateHandoff,
   youtubeLabelsMatch,
+  youtubeTitlesMatch,
   youtubeTitlesNearlySame,
   type GeminiYoutubeCandidateHandoffErrorCode,
   type GeminiYoutubeCandidateHandoffIssue,
