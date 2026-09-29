@@ -33,7 +33,10 @@ ranking, and ends by offering a deeper study review and deeper community researc
 with two or three focuses each; `finalize_research` enforces all of it); YouTube
 receipts on MCP name their lock for YouTube only, and `finalize_research` needs the
 community map and searches of the dominant community and an independent one
-(the owner's HGH versus testosterone bug report); on MCP the
+(the owner's HGH versus testosterone bug report), and checks each cited Reddit
+thread's existence, subreddit and title with Reddit's public embed endpoint
+(owner question 3, 2026-09-29: Reddit stays a ChatGPT feature, with no
+registered Reddit app); on MCP the
 treatment-coverage check builds its ledger from signed receipts (option A,
 owner-chosen); a coverage-checker fix from the smoke-run replay
 (first-pass breadth gaps become open leads, and complete grouped blocker lists

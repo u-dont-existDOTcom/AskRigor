@@ -1080,7 +1080,24 @@ without an account: it returns a thread's real subreddit and title, or 404. A
 made-up r/trt link came back as a post in another subreddit. Offered: (A) the
 server checks each cited Reddit thread's existence, subreddit and title there
 (free, no account); (B) later, a registered Reddit API app so the server can
-read whole threads. The Gemini forum scout is dropped. Waiting on the owner.
+read whole threads. The Gemini forum scout is dropped.
+
+The owner answered on 29 Sep: "3. yes, chatgpt uses reddit fine, so we can
+keep reddit as a chatgpt feature". Built as (A), with no registered Reddit app
+(3b58ff8): `finalize_research` on MCP looks up each Reddit thread in
+`community_searches` at `https://www.reddit.com/oembed?url=<canonical thread>`
+(each post once, at most 40, 5-second timeout, eight at a time). The reply's
+embedded link gives the thread's real subreddit, and its title is compared
+leniently; the poster's name is discarded and nothing is kept. A thread Reddit
+does not have (404), files under another subreddit, or titles differently goes
+back as a next step; any other failure proves nothing and leaves the community
+unverified. A subreddit whose threads all check out gets its own caveat: Reddit
+confirmed the threads exist, but what they report is the assistant's own
+reading. `www.reddit.com` joins the upstream allowlist for this endpoint only,
+and the privacy map says what is sent. From this container Node's request to
+reddit.com was refused by the egress policy ("Blocked by egress policy"), while
+curl through the configured proxy got a 200, so the parser is tested on the
+reply captured at 17:12 UTC; the lookup runs live from production at deployment.
 
 Rerun on 733bf68 (HRP 20.6.6, web search on), 29 Sep 17:41–18:09 UTC, Opus 5.5
 at max effort, one run:
@@ -1125,6 +1142,29 @@ at max effort, one run:
   require those classes; the shorter pass made the model defer them instead of
   covering them briefly. The "garbled AskRigor line" both judges noted is the
   judge's own redaction of the protocol names in the attribution line.
+
+Codex on 4640a2e (one P1, two P2s): a first-pass draft could still name a best
+treatment, so `finalize_research` now sends back a draft that ranks the options
+("is the best option", "your best bet", "top pick", "clear winner", "comes out on
+top", "best overall") in every first pass and in deep research the coverage
+check left `bounded_nonranking_only`; post-locator parameters (`p`, `pid`, `f`,
+...) no longer split one forum thread when a thread id is present (e0ab19f). The
+P2 asking for both directions when community evidence is not relevant was
+answered as not changing: the pass left only the study direction open.
+
+Codex on ec8dbd9 (one P1, fixed in e4d091f): a hedge anywhere in the sentence
+excused every ranking in it ("Although it is too early to say whether exercise
+lasts, surgery is the best option."). A hedge now excuses only a ranking that
+ends after it in its own clause; a clause ends at a semicolon, colon, dash or
+parenthesis, at a comma joining another clause (", but", ", surgery is"), and at
+the comma closing a leading subordinate clause, but not at a list comma.
+
+Coverage reminder (380243e, no method change): HRP's option-space rules already
+require the standard option classes and red flags, but the 733bf68 answer left
+them to "go deeper". The skill and the `open_leads` description now say focuses
+deepen what the answer covers and a first pass still covers every plausible
+option class and the red flags briefly. A rerun on 380243e checks whether the
+gap closes.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 
