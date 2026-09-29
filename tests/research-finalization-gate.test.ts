@@ -330,11 +330,26 @@ describe("finalize_research gate", () => {
     // Doubt about which is best, a guideline's preference or a study's ranking is not the answer's own ranking.
     for (const sentence of [
       "Which is the best option depends on your goals.",
+      "What is the best option depends on your goals.",
       "It is too early to say which is the best option, and there is no clear winner yet.",
+      "It's too early to say whether exercise, injections, or surgery is the best option for you.",
+      "It is unclear, though, whether surgery is the best option.",
+      "If it is unclear whether surgery is the best option, ask the surgeon what the X-ray shows.",
+      "There isn't a clear winner yet.",
       "Guidelines call joint replacement the preferred treatment at the end stage.",
       "In a network meta-analysis, exercise ranked highest for pain."
     ]) {
       expect(draftWith(firstPass, sentence)).toEqual([]);
+    }
+    // Doubt excuses only a ranking after it in its own clause, not one it does not govern.
+    for (const sentence of [
+      "Although it is too early to say whether exercise lasts, surgery is the best option.",
+      "It is unclear whether exercise lasts, but surgery is the best option.",
+      "It is too early to say whether exercise lasts, surgery is the best option.",
+      "Whether exercise lasts is unclear; surgery is the best option.",
+      "Surgery is the best option whether or not you exercise."
+    ]) {
+      expect(draftWith(firstPass, sentence)).toEqual([ranks("is the best option", "this first pass allows no final ranking")]);
     }
     // Deep research may rank once the coverage check allows it, but not on a bounded result.
     const coverage = (boundary: string) => issueResearchReceipt("treatment_coverage", {

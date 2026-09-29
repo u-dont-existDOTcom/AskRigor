@@ -861,13 +861,45 @@ const RANKING = new RegExp([
   "\\bcomes?\\s+out\\s+(?:on\\s+top|ahead)\\b",
   "\\bbest\\s+overall\\b"
 ].join("|"), "giu");
-// A sentence that asks or doubts which option is best does not rank them.
+// Words that ask or doubt which option is best, or deny that one is. Each
+// excuses only a ranking after it in its own clause: "whether surgery is the
+// best option", not "Although it is too early to say whether exercise lasts,
+// surgery is the best option".
 const RANKING_HEDGE = new RegExp(
   "\\b(?:whether|unclear|uncertain|too early|hard to say|can(?:no|['\\u2019])t (?:yet )?say|yet to|remains to be seen|" +
-    "no single|no clear|depends on)\\b|\\bwhich\\s+(?:\\w+\\s+){0,3}?(?:is|are|would be|will be)\\s+(?:the\\s+)?(?:best|top)\\b",
+    "no single|no clear|depends on)\\b|\\b(?:which|what)\\s+(?:\\w+\\s+){0,3}?(?:is|are|would be|will be)\\s+" +
+    "(?:the\\s+)?(?:best|top)\\b|(?:\\bno|\\bnot\\s+(?:a|an|the|one)|n['\\u2019]t\\s+(?:a|an|the|one))\\s+" +
+    "(?=(?:single|clear|overall|outright)\\s)",
+  "giu"
+);
+// A clause ends at a semicolon, colon, dash or parenthesis, and at a comma that
+// joins another clause ("..., but", "..., surgery is") or closes a leading
+// subordinate clause. A comma inside a list ("exercise, injections, or
+// surgery") does not end one.
+const CLAUSE_BREAK = new RegExp(
+  "[;:()\\u2013\\u2014]|\\s-\\s|,(?=\\s*(?:and|but|yet|so|while|whereas|although|though|however|still|nonetheless|" +
+    "meanwhile)\\b)|,(?=\\s+(?!(?:or|nor|and)\\b)(?:[\\p{L}'\\u2019-]+\\s+){1,3}(?:is|are|would be|remains?|comes?)\\b)",
+  "giu"
+);
+const LEADING_SUBORDINATE = new RegExp(
+  "^[^\\p{L}]*(?:although|though|even though|even if|while|whereas|since|because|given(?: that)?|if|unless|until|when|" +
+    "once|as)\\b[^,;:]*,",
   "iu"
 );
 const SENTENCE_END = /(?<=[.!?])\s+|\n+/u;
+
+/** The ranking phrases in a sentence that no earlier hedge in the same clause excuses. */
+function unhedgedRankings(sentence: string): string[] {
+  const breaks = [...sentence.matchAll(CLAUSE_BREAK)].map(({ index }) => index);
+  const leading = LEADING_SUBORDINATE.exec(sentence);
+  if (leading !== null) breaks.push(leading[0].length - 1);
+  const scopes = [...sentence.matchAll(RANKING_HEDGE)].map(({ index }) =>
+    ({ start: index, end: Math.min(sentence.length, ...breaks.filter((at) => at >= index)) }));
+  return [...sentence.matchAll(RANKING)]
+    .filter(({ index, 0: phrase }) =>
+      !scopes.some(({ start, end }) => start < index + phrase.length && index + phrase.length <= end))
+    .map(([phrase]) => phrase.replace(/\s+/gu, " ").trim());
+}
 const URL = /https?:\/\/\S+/gu;
 
 function answerDraftProblems(
@@ -912,9 +944,7 @@ function answerDraftProblems(
     );
   }
   if (context.noRanking !== undefined) {
-    const rankings = [...new Set(shown.split(SENTENCE_END)
-      .filter((sentence) => !RANKING_HEDGE.test(sentence))
-      .flatMap((sentence) => [...sentence.matchAll(RANKING)].map(([phrase]) => phrase.replace(/\s+/gu, " ").trim())))];
+    const rankings = [...new Set(shown.split(SENTENCE_END).flatMap(unhedgedRankings))];
     if (rankings.length > 0) {
       problems.push(
         `The answer ranks the options (${rankings.slice(0, 3).map((phrase) => `"${phrase}"`).join(", ")}), but ` +
