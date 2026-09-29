@@ -24,6 +24,11 @@ node $R --ref main --setup-only
 node $R --reanalyze /tmp/eval/hip-new
 ```
 
+`--web-search` lets the model use Claude Code's WebSearch, as a Claude app user
+with web search on can; HRP 20.6.6 asks a first pass to search Reddit and forums
+beyond YouTube, which the model can do only with it. Runs before 29 Sep 2026
+had it off.
+
 Other options: `--prompt <text>` instead of `--question-id`, `--max-turns`
 (default 200), `--port`, `--work-dir` (default `$ASKRIGOR_RUNNER_WORK_DIR` or
 `<tmp>/askrigor-runner`; must be outside the repository), `--timeout-minutes`

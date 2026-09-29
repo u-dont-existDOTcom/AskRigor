@@ -23,6 +23,10 @@ const PROTOCOL_FILES = { hrp: "HRP_Full.xml", universal: "Universal_Instructions
 const QUESTIONS_PATH = "evaluation/instruction-optimization/questions.json";
 // Only the AskRigor tools and skill are pre-approved; these are removed outright.
 const DISALLOWED_TOOLS = ["Bash", "Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch"];
+// With --web-search the model may search the web, as a Claude app user with web
+// search on can, to search Reddit and forums itself (HRP 20.6.6).
+const disallowedTools = (webSearch) =>
+  webSearch ? DISALLOWED_TOOLS.filter((name) => name !== "WebSearch") : DISALLOWED_TOOLS;
 
 // Built-in tools per surface. "claude-app" mirrors a Claude app user with the
 // AskRigor connector and skill: no file, shell, or sub-agent tools, so the model
@@ -87,6 +91,7 @@ Options:
                           (default $ASKRIGOR_RUNNER_WORK_DIR or <tmp>/askrigor-runner)
   --timeout-minutes <n>   Stop claude after this long (default 240)
   --allow-held-out        Required to run a HELD_OUT question (final comparison only)
+  --web-search            Let the model use WebSearch (off by default, as in earlier runs)
   --setup-only            Build, start, probe and stop the server; do not run claude
   --reanalyze <dir>       Recompute metrics.json and answer.md from <dir>/transcript.jsonl
   -h, --help
@@ -157,6 +162,7 @@ function parseOptions() {
       "work-dir": { type: "string" },
       "timeout-minutes": { type: "string", default: "240" },
       "allow-held-out": { type: "boolean", default: false },
+      "web-search": { type: "boolean", default: false },
       "setup-only": { type: "boolean", default: false },
       "no-harness-note": { type: "boolean", default: false },
       surface: { type: "string", default: "claude-app" },
@@ -195,6 +201,7 @@ function parseOptions() {
     workDir: path.resolve(values["work-dir"] ?? process.env.ASKRIGOR_RUNNER_WORK_DIR ?? path.join(os.tmpdir(), "askrigor-runner")),
     timeoutMinutes: positiveInt("timeout-minutes", values["timeout-minutes"], 10_000),
     allowHeldOut: values["allow-held-out"],
+    webSearch: values["web-search"],
     setupOnly: values["setup-only"],
     harnessNote: !values["no-harness-note"],
     surface: Object.hasOwn(SURFACE_BUILTIN_TOOLS, values.surface)
@@ -1116,7 +1123,7 @@ function analyze(run, context) {
         askrigor_tool_count: initTools.filter((name) => String(name).startsWith(MCP_TOOL_PREFIX)).length,
         other_mcp_tools: initTools.filter((name) => String(name).startsWith("mcp__") && !String(name).startsWith(MCP_TOOL_PREFIX)),
         builtin_tools: initTools.filter((name) => !String(name).startsWith("mcp__")),
-        disallowed_tools_absent: DISALLOWED_TOOLS.every((name) => !initTools.includes(name)),
+        disallowed_tools_absent: disallowedTools(context.webSearch === true).every((name) => !initTools.includes(name)),
         askrigor_skill_available: Array.isArray(initSkills) ? initSkills.includes(MCP_SERVER_NAME) : null,
         namespaced_skills: Array.isArray(initSkills) ? initSkills.filter((name) => String(name).includes(":")) : null,
         skills: initSkills,
@@ -1164,7 +1171,10 @@ function reanalyze(directory) {
   }
   const analysis = analyze(
     { events, unparsedLines, redactions: previous.transcript?.redactions ?? 0 },
-    { protocolFiles: previous.protocol_files ?? {}, claudeVersion: previous.environment?.claude_code_version ?? null }
+    {
+      protocolFiles: previous.protocol_files ?? {}, claudeVersion: previous.environment?.claude_code_version ?? null,
+      webSearch: previous.web_search === true
+    }
   );
   const metrics = { ...previous };
   applyAnalysis(metrics, analysis, directory);
@@ -1372,8 +1382,8 @@ async function main() {
       "--strict-mcp-config",
       "--output-format", "stream-json",
       "--verbose",
-      "--allowedTools", `mcp__${MCP_SERVER_NAME}`, `Skill(${MCP_SERVER_NAME})`,
-      "--disallowedTools", ...DISALLOWED_TOOLS,
+      "--allowedTools", `mcp__${MCP_SERVER_NAME}`, `Skill(${MCP_SERVER_NAME})`, ...(options.webSearch ? ["WebSearch"] : []),
+      "--disallowedTools", ...disallowedTools(options.webSearch),
       "--max-turns", String(options.maxTurns)
     ];
     if (claudeInfo.noSessionPersistence) args.push("--no-session-persistence");
@@ -1382,9 +1392,11 @@ async function main() {
     if (options.effort !== undefined) args.push("--effort", options.effort);
     if (options.harnessNote) args.push("--append-system-prompt", HARNESS_NOTE);
     metrics.harness_note = options.harnessNote ? HARNESS_NOTE : null;
-    const builtinTools = SURFACE_BUILTIN_TOOLS[options.surface];
+    const surfaceTools = SURFACE_BUILTIN_TOOLS[options.surface];
+    const builtinTools = surfaceTools !== null && options.webSearch ? `${surfaceTools},WebSearch` : surfaceTools;
     if (builtinTools !== null) args.push("--tools", builtinTools);
     metrics.surface = { name: options.surface, builtin_tools: builtinTools ?? "default" };
+    metrics.web_search = options.webSearch;
     metrics.claude_command = { bin: claudeBin, args, cwd: workspace, env_removed: childEnvRemoved };
     metrics.setup_seconds = Number(((Date.now() - runnerStartMs) / 1000).toFixed(3));
     if (options.setupOnly) {
@@ -1415,7 +1427,9 @@ async function main() {
     metrics.server = { ...metrics.server, ...stop };
     log(`server stopped (port closed: ${stop.port_closed_after_stop})`);
 
-    const analysis = analyze(run, { protocolFiles: metrics.protocol_files, claudeVersion: claudeInfo.version });
+    const analysis = analyze(run, {
+      protocolFiles: metrics.protocol_files, claudeVersion: claudeInfo.version, webSearch: options.webSearch
+    });
     applyAnalysis(metrics, analysis, outDir);
     exitCode = run.code === 0 && analysis.metrics.result_subtype === "success" && !run.timedOut && !interrupted ? 0 : 1;
   } catch (error) {
