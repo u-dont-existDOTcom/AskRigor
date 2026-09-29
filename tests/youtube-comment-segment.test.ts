@@ -1028,6 +1028,44 @@ describe("resumable YouTube comment segments", () => {
     });
   });
 
+  it("keeps committed records and the resume cursor when a request times out or loses its connection", async () => {
+    // In the 29 Sep rerun a stalled reply request timed out behind a proxy and the
+    // segment returned nothing, dropping hundreds of comments already read.
+    const threadPage = await fixture("comment-threads-page-1.json");
+    for (const interruption of [
+      new DOMException("The operation was aborted due to timeout", "TimeoutError"),
+      new TypeError("fetch failed")
+    ]) {
+      vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+        if (new URL(String(input)).pathname.endsWith("/commentThreads")) return new Response(threadPage, { status: 200 });
+        throw interruption;
+      }));
+      const result = await getYoutubeCommentSegment(
+        { video: "XpZHKGGCK-o" },
+        YOUTUBE,
+        { max_provider_requests: 10, max_elapsed_ms: 40_000, now: () => 1 }
+      );
+      expect(result).toMatchObject({
+        access_status: "partial",
+        exhausted: false,
+        comments: [{ comment_id: "UgxTop00000000000000001" }],
+        top_level_comments_retrieved: 1,
+        next_cursor: {
+          thread_offset: 0,
+          top_level_emitted: true,
+          current_parent_id: "UgxTop00000000000000001",
+          current_replies_retrieved: 0
+        },
+        limitations: ["A YouTube request timed out or lost its connection; continue with next_cursor to retry it."]
+      });
+      expect(result.error).toBeUndefined();
+    }
+    // A response that is not what YouTube sends still fails closed.
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("unexpected"); }));
+    expect(await getYoutubeCommentSegment({ video: "XpZHKGGCK-o" }, YOUTUBE, { now: () => 1 }))
+      .toMatchObject({ access_status: "error", error: { code: "youtube_comment_segment_failed", retryable: false } });
+  });
+
   it("rejects a comment-ID refetch response from a different video", async () => {
     vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
       const url = new URL(String(input));

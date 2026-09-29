@@ -1082,8 +1082,49 @@ server checks each cited Reddit thread's existence, subreddit and title there
 (free, no account); (B) later, a registered Reddit API app so the server can
 read whole threads. The Gemini forum scout is dropped. Waiting on the owner.
 
-Then: rerun `dev-hip-avoid-replacement` on the new head and judge it against
-4d4fae8 and e1176f8, measuring the time split above.
+Rerun on 733bf68 (HRP 20.6.6, web search on), 29 Sep 17:41–18:09 UTC, Opus 5.5
+at max effort, one run:
+
+| Version | Wall | Tool calls | Waiting on tools | Model time |
+|---|---|---|---|---|
+| main | 19 min | 89 | 2 min | about 17 min |
+| e1176f8 | 27 min | 145 | 4 min | about 23 min |
+| 4d4fae8 | 152 min | 313 | 10 min | about 142 min |
+| 4fe4858 | 154 min | 266 | 9 min | about 145 min |
+| 733bf68 | 28 min | 111 | 7 min | about 21 min |
+
+- Most model time went to writing the answer before its two
+  `finalize_research` calls (7.3 min), study method audits (6.5 min) and
+  comment audits (2.2 min); 35 protocol pages cost 0.7 min. No coverage check
+  ran.
+- The flow worked: the map named YouTube, r/hipreplacement, BoneSmart and Mayo
+  Clinic Connect; Reddit was recorded as blocked (Claude's search cannot reach
+  it); the forum lanes came from search-result summaries, which the model said.
+  The first check sent back four steps (adverse reports missing from three
+  lanes, caveats left out); the second passed (`ready_with_limits`). The answer
+  ends with three study focuses, three community focuses, an estimate ("about
+  30-40 minutes, about 12 YouTube searches, and 4-6 full-text audits") and the
+  question.
+- Defect found: the two largest discussions (about 1,200 and 700 comments)
+  failed their audits with no records. Behind this container's proxy a reply
+  request stalled until the call's 40-second deadline, and the segment code
+  treated the timeout as an unknown error, dropping everything it had read.
+  Fixed after the run: a timed-out or dropped request returns what was read
+  with a cursor to retry it, and one request waits at most 10 seconds (the
+  same videos then returned 323 and 186 comments per call through the proxy).
+  Production does not use this proxy, but a stalled request anywhere had the
+  same effect.
+- Blind judges (Opus 5.5, max effort, web spot-checks; medium confidence):
+  e1176f8 beat it overall (options, safety, usefulness; it won appraisal and
+  heterodox judgment), and 4d4fae8 beat it overall (all but appraisal). Every
+  citation spot-checked in all three answers was supported. Both judges faulted
+  the same gap: the first pass left walking aids, weight loss and pain
+  medicines unresearched ("I also didn't research ...") and listed them as a
+  study focus, so a person who can barely walk got little for pain now; its red
+  flags also missed spinal and clot signs. HRP's option-space rules already
+  require those classes; the shorter pass made the model defer them instead of
+  covering them briefly. The "garbled AskRigor line" both judges noted is the
+  judge's own redaction of the protocol names in the attribution line.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 

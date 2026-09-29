@@ -13,6 +13,9 @@ const DEFAULT_PAGE_SIZE = 100;
 const MAX_PAGE_SIZE = 100;
 const DEFAULT_MAX_PROVIDER_REQUESTS = 50;
 const DEFAULT_MAX_ELAPSED_MS = 15_000;
+// One YouTube request takes well under a second; a stalled one gives up after
+// this, so the call returns what it read instead of waiting out its budget.
+const MAX_REQUEST_MS = 10_000;
 const MAX_TOP_LEVEL_PAGE_IDENTIFIERS = 100;
 const MAX_REPLY_PAGE_IDENTIFIERS = 100;
 const COMMENT_ID_FILTER_BATCH_SIZE = 50;
@@ -380,7 +383,9 @@ export async function getYoutubeCommentSegment(
       };
     }
   } catch (error) {
-    if (error instanceof SegmentBudgetReached) {
+    // The cursor advances only after a page is read, so a request that ran
+    // out of budget, timed out or lost its connection resumes where it stopped.
+    if (error instanceof SegmentBudgetReached || requestInterrupted(error)) {
       return partialResult({
         videoId,
         comments,
@@ -391,7 +396,9 @@ export async function getYoutubeCommentSegment(
         paginationOverlapsReconciled,
         mismatches,
         cursor,
-        limitation: "YouTube comment segment reached its per-call budget; continue with next_cursor."
+        limitation: error instanceof SegmentBudgetReached
+          ? "YouTube comment segment reached its per-call budget; continue with next_cursor."
+          : "A YouTube request timed out or lost its connection; continue with next_cursor to retry it."
       });
     }
     if (error instanceof UpstreamHttpError) {
@@ -529,7 +536,7 @@ async function fetchParsed<T>(
 ): Promise<T> {
   const payload = await fetchJson(url.toString(), {
     maxRetries: 0,
-    timeoutMs: Math.max(1, accounting.maxElapsedMs - elapsed(accounting)),
+    timeoutMs: Math.max(1, Math.min(MAX_REQUEST_MS, accounting.maxElapsedMs - elapsed(accounting))),
     beforeAttempt: () => {
       if (accounting.attempts >= accounting.maxAttempts ||
         elapsed(accounting) >= accounting.maxElapsedMs) {
@@ -543,6 +550,15 @@ async function fetchParsed<T>(
     throw new SegmentFatalError("youtube_comment_segment_response_invalid");
   }
   return parsed.data;
+}
+
+/**
+ * A request that timed out, was cut off or lost its connection. Unlike a bad
+ * response, it may succeed when retried.
+ */
+function requestInterrupted(error: unknown): boolean {
+  return error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError" ||
+    (error instanceof TypeError && /fetch failed|terminated|socket/iu.test(error.message)));
 }
 
 function elapsed(accounting: SegmentAccounting): number {
