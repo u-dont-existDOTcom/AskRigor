@@ -12264,7 +12264,8 @@
                       "url": {
                         "type": "string",
                         "maxLength": 2048,
-                        "format": "uri"
+                        "format": "uri",
+                        "description": "The thread's full link; on Reddit, reddit.com/r/<name>/comments/<id>/…"
                       },
                       "title": {
                         "type": "string",

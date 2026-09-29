@@ -475,6 +475,12 @@ describe("finalize_research gate", () => {
     const passed = gate({ community_searches: both, answer_draft: sections });
     expect(passed.next_steps).toEqual([]);
     expect(passed.status).toBe("ready_with_limits");
+    // A share link, another slug or a comment permalink in the same thread is its link.
+    for (const alias of ["https://www.reddit.com/r/trt/comments/xyz789/?utm_source=share&utm_medium=web2x#top",
+      "https://redd.it/xyz789", "https://www.reddit.com/r/trt/comments/xyz789/other_slug/c0mm3nt/?context=3"]) {
+      expect(gate({ community_searches: both, answer_draft: sections.replace(`[r/trt](${trtThread})`, `[r/trt](${alias})`) })
+        .next_steps).toEqual([]);
+    }
     // A link to one subreddit's thread in another's section is not its link.
     const swapped = sections.replace(`[r/trt](${trtThread})`, `[r/trt](${testosteroneThread})`);
     expect(gate({ community_searches: both, answer_draft: swapped }).next_steps).toEqual([
@@ -485,22 +491,46 @@ describe("finalize_research gate", () => {
     expect(gate({
       community_searches: [read("r/trt", testosteroneThread), read("MESO-Rx", trtThread, "forum"), read("TRT forum", trtThread, "reddit")]
     }).next_steps.slice(0, 3)).toEqual([
-      "community_searches for r/trt lists threads outside r/trt or short links: list each thread by its full " +
-        "reddit.com link, under its own subreddit's entry.",
+      "community_searches for r/trt lists links that are not threads in r/trt: list each thread you read by its " +
+        "full link (reddit.com/r/trt/comments/…), under its own subreddit's entry.",
       "community_searches for MESO-Rx lists Reddit threads; record them under platform reddit, as the subreddit " +
         "they are in.",
       "Name the Reddit community TRT forum by its subreddit, as r/<name>."
     ]);
+    // A subreddit's front page, wiki, search or share link is not a thread read.
+    for (const page of ["https://www.reddit.com/r/trt/", "https://www.reddit.com/r/trt/wiki/index/",
+      "https://www.reddit.com/r/trt/search/?q=hgh", "https://www.reddit.com/r/trt/s/AbCdEf123", "https://redd.it/xyz789"]) {
+      expect(gate({ community_searches: [read("r/trt", page), read("r/Testosterone", testosteroneThread)] }).next_steps)
+        .toContain("community_searches for r/trt lists links that are not threads in r/trt: list each thread you read " +
+          "by its full link (reddit.com/r/trt/comments/…), under its own subreddit's entry.");
+    }
     // One thread counts for one community only.
     const forumThread = "https://thinksteroids.com/community/threads/2/";
     const twice = gate({
       principal_communities: [{ name: "MESO-Rx", platform: "forum" }, { name: "ExcelMale", platform: "forum" }],
       community_searches: [read("MESO-Rx", forumThread, "forum"), read("ExcelMale", forumThread, "forum")]
     });
-    expect(twice.next_steps).toContain(
-      "community_searches for ExcelMale lists a thread already listed for another community; list each thread under " +
-        "the one community it belongs to."
-    );
+    const alreadyListed = (community: string) => `community_searches for ${community} lists a thread already listed ` +
+      "for another community; list each thread under the one community it belongs to.";
+    expect(twice.next_steps).toContain(alreadyListed("ExcelMale"));
+    // A fragment, tracking parameter or trailing slash does not make it another thread...
+    for (const alias of [`${forumThread}#post-12`, `${forumThread}?utm_source=share&fbclid=abc`, forumThread.slice(0, -1),
+      forumThread.replace("https://", "http://www.")]) {
+      expect(gate({
+        principal_communities: [{ name: "MESO-Rx", platform: "forum" }, { name: "ExcelMale", platform: "forum" }],
+        community_searches: [read("MESO-Rx", forumThread, "forum"), read("ExcelMale", alias, "forum")]
+      }).next_steps).toContain(alreadyListed("ExcelMale"));
+    }
+    // ...nor does another subreddit's path: a Reddit post's id is the thread.
+    expect(gate({
+      community_searches: [read("r/trt", trtThread), read("r/Testosterone", trtThread.replace("/r/trt/", "/r/Testosterone/"))]
+    }).next_steps).toContain(alreadyListed("r/Testosterone"));
+    // A query parameter that names the thread keeps two threads apart.
+    const topic = (id: number) => `https://forum.example.org/viewtopic.php?t=${id}`;
+    expect(gate({
+      principal_communities: [{ name: "MESO-Rx", platform: "forum" }, { name: "ExcelMale", platform: "forum" }],
+      community_searches: [read("MESO-Rx", topic(1), "forum"), read("ExcelMale", topic(2), "forum")]
+    }).next_steps).not.toContain(alreadyListed("ExcelMale"));
 
     // The permit counts every community searched outside YouTube once, a boundary included.
     const facebook = { name: "TRT Facebook group", platform: "facebook" };
@@ -1460,6 +1490,37 @@ describe("finalize_research gate", () => {
     const repeated = finalizeResearch({ ...base, receipts: [survey, ...sameQuery, videoA, study] }, options);
     expect(repeated.community).toMatchObject({ discovery_rounds: 4, first_pass_complete: false });
     expect(repeated.status).toBe("not_ready");
+  });
+
+  it("does not count a round whose searches failed toward the first-pass cap", () => {
+    const base = {
+      community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }],
+      open_leads: [{ topic: "Anything else", why: "Stopping early." }]
+    };
+    const failed = (q: string) => sign("youtube_search", { videos: [], access: "error", rl: 0, inc: 1, open: 0, q }, options);
+    const round = (q: string, videos: string[]) => sign("youtube_search", { videos, q }, options);
+    const lateVideo = sign("youtube_video_audit", { video: "eeeeeeeeeee", state: "api_visible_complete", lock: "pass", records: 50 }, options);
+    // Five angles, but two rounds errored and read nothing: three covered theirs.
+    const earlier = finalizeResearch({
+      ...base,
+      receipts: [survey, failed("p5p5p5p5p5p5"), failed("q6q6q6q6q6q6"), round("r7r7r7r7r7r7", ["eeeeeeeeeee"]),
+        round("s8s8s8s8s8s8", []), videoA, lateVideo, study]
+    }, options);
+    expect(earlier.community).toMatchObject({ discovery_rounds: 5, first_pass_complete: false });
+    expect(earlier.status).toBe("not_ready");
+    expect(earlier.next_steps).toEqual([expect.stringMatching(/^Discovery has not saturated: eeeeeeeeeee first turned up/u)]);
+
+    // Failed searches in the latest rounds are rerun, not counted.
+    const latest = finalizeResearch({
+      ...base,
+      receipts: [survey, round("r7r7r7r7r7r7", ["eeeeeeeeeee"]), round("s8s8s8s8s8s8", []), failed("p5p5p5p5p5p5"),
+        failed("q6q6q6q6q6q6"), videoA, lateVideo, study]
+    }, options);
+    expect(latest.community).toMatchObject({ discovery_rounds: 5, first_pass_complete: false });
+    expect(latest.next_steps).toEqual([
+      expect.stringMatching(/^2 search\(es\) in the latest discovery rounds did not complete\. Rerun them/u)
+    ]);
   });
 
   it("does not let a first pass stop before it has audited or searched enough", () => {

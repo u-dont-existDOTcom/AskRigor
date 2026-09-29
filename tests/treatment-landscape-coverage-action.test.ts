@@ -440,6 +440,18 @@ describe("treatment-landscape coverage Action", () => {
       discovery_batches: rounds(["what finally worked for my joint pain", "methods named in the audited comments"])
     });
     expect(distinct.first_pass_complete).toBe(true);
+
+    // A round whose searches failed or only partly ran did not cover its angle;
+    // one a rate limit stopped still counts, as an open lead. The last two
+    // rounds repeat one query, so only the cap can complete the first pass.
+    for (const [access_status, complete] of [
+      ["api_visible_complete", true], ["error", false], ["partial", false], ["rate_limited", true]
+    ] as const) {
+      const batches = rounds(["methods named in the audited comments", "what finally worked for my joint pain",
+        "what finally worked for my joint pain"]);
+      batches[2] = { ...batches[2]!, access_status };
+      expect(assessTreatmentLandscapeCoverage({ ...input, discovery_batches: batches }).first_pass_complete).toBe(complete);
+    }
   });
 
   it("keeps a terminal access boundary as a stated limit of a first-pass answer", () => {

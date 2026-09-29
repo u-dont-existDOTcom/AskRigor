@@ -1030,6 +1030,25 @@ Codex on 79394c9 (three P1s, fixed in the next commit):
   communities were unverified. A server-side search (a Gemini forum scout,
   like the YouTube scout) would make them verifiable; that is owner question 3.
 
+Codex on 77f1bf4 (fixed in b77880d): each community's lane, thread link and
+threads are bound to that community. A lane runs from the paragraph first
+naming it to the next one naming another community read; its link must sit in
+it; Reddit threads go under their own subreddit, named r/<name>; one thread
+counts for one community.
+
+Codex on b77880d (three P1s, fixed in the next commit):
+
+- Rounds whose searches failed counted toward the first-pass cap of four
+  rounds. Only completed rounds count now; a rate limit still ends a first
+  pass as an open lead. The coverage checker had the same gap and now counts
+  only complete or rate-limited batches.
+- A subreddit's front page, wiki, search or share link passed as a thread
+  read. A Reddit entry now lists threads only (`/r/<name>/comments/<id>`).
+- Two links to one thread (a fragment, tracking parameters, another slug, a
+  comment permalink, a short link) counted as two threads. Links now compare
+  without those, and a Reddit post compares by its id; other query parameters
+  stay, since they may be what names a forum thread.
+
 Waiting on the owner (question 2 on the owner page): a shorter first pass in
 HRP (about three fully audited videos or two rounds instead of six and four;
 the treatment-landscape ledger check moves to deeper research; the answer ends

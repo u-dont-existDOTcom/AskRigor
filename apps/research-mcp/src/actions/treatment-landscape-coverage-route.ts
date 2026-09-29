@@ -1425,10 +1425,12 @@ export function assessTreatmentLandscapeCoverage(
   // answer stays provisional instead of claiming a complete landscape. Terminal
   // access boundaries are not executable work; they stay stated limits.
   const researchDepth = input.research_depth ?? "first_pass";
-  // First-pass rounds come from new angles, so a repeated query counts once.
-  const discoveryAngles = new Set(validBatches.map(({ query_or_scope }) =>
-    normalizeSearchPhrase(query_or_scope)
-  )).size;
+  // First-pass rounds come from new angles, so a repeated query counts once. A
+  // round that failed or read only part of its searches did not cover its
+  // angle; one a rate limit or daily quota stopped still counts, as an open lead.
+  const discoveryAngles = new Set(validBatches
+    .filter(({ access_status }) => isCompleteAccess(access_status) || access_status === "rate_limited")
+    .map(({ query_or_scope }) => normalizeSearchPhrase(query_or_scope))).size;
   const firstPassComplete = researchDepth === "first_pass" && (
     discoverySaturated === "saturated" ||
     fullyAuditedVideos >= FIRST_PASS_AUDITED_VIDEOS ||

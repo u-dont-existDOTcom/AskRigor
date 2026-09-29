@@ -83,7 +83,7 @@ export const finalizeResearchInputSchema = z.object({
     platform: communityPlatformSchema.exclude(["youtube"]),
     queries: z.array(z.string().trim().min(1).max(300)).min(1).max(10),
     threads_read: z.array(z.object({
-      url: z.string().trim().url().max(2_048),
+      url: z.string().trim().url().max(2_048).describe("The thread's full link; on Reddit, reddit.com/r/<name>/comments/<id>/…"),
       title: z.string().trim().min(1).max(300).optional()
     }).strict()).max(30).default([]),
     access_boundary: z.enum(["no_web_search", "login_required", "blocked", "no_relevant_results"]).optional(),
@@ -345,7 +345,10 @@ export function finalizeResearch(
       // once enough is audited or searched, and then hands back its open leads.
       // Its rounds come from new angles, so a repeated query does not count.
       const auditedMaterial = materialVideos.filter((video) => audited.has(video)).length;
-      const angles = new Set(rounds.map((round) => text(round.claims.q) || `${round.kind}#${round.index}`)).size;
+      // A round whose searches failed has read nothing, so it does not count toward
+      // the round cap; a rate limit ends a first pass on its own below.
+      const angles = new Set(rounds.filter((round) => signedCount([round], "inc") === 0)
+        .map((round) => text(round.claims.q) || `${round.kind}#${round.index}`)).size;
       // A search YouTube's rate limit or daily quota stopped cannot rerun until
       // it resets, so it ends a first pass as an open lead; deep research waits.
       firstPassComplete = input.research_depth === "first_pass" &&
@@ -1009,9 +1012,41 @@ const CREATORS_FINDING = "how creators differ from commenters";
 // Links as the answer shows them: a link's destination or a bare URL.
 const LINKED_URL = /https?:\/\/[^\s<>()]+/giu;
 
-/** A URL as two links to one thread compare: no scheme, subdomain prefix, case or trailing punctuation. */
+const REDDIT_HOST = /(?:^|\.)(?:reddit\.com|redd\.it)$/u;
+// A thread, not a subreddit's front page, wiki, search or share link:
+// /r/<name>/comments/<post id>, a comment permalink within it included.
+const REDDIT_THREAD_PATH = /^\/r\/([A-Za-z0-9_]{2,21})\/comments\/([a-z0-9]+)(?:\/|$)/iu;
+// A Reddit post by its id alone, as reddit.com/comments/<id> or redd.it/<id> link it.
+const REDDIT_POST_PATH = /^\/(?:r\/[A-Za-z0-9_]{2,21}\/)?comments\/([a-z0-9]+)(?:\/|$)/iu;
+const REDD_IT_POST_PATH = /^\/([a-z0-9]+)\/?$/iu;
+// Query parameters that track a click or share rather than identify a page.
+const TRACKING_PARAMETER = /^(?:utm_\w+|fbclid|gclid|dclid|msclkid|igshid|mc_cid|mc_eid|ref|ref_src|share_id|si|_ga)$/iu;
+
+/**
+ * A URL as two links to one thread compare: no scheme, subdomain prefix,
+ * fragment, tracking parameter, trailing slash or trailing punctuation. A
+ * Reddit post is its id, which Reddit never reuses, whatever its subreddit,
+ * title slug or comment permalink. Other query parameters stay: they may be
+ * what names a forum's thread.
+ */
 function comparableUrl(url: string): string {
-  return url.toLowerCase().replace(/^https?:\/\//u, "").replace(/^(?:www|old|new|m)\./u, "").replace(/[/.,;:!?]+$/u, "");
+  const trimmed = url.trim().replace(/[.,;:!?"'*`\]]+$/u, "");
+  try {
+    const link = new globalThis.URL(trimmed);
+    const host = link.hostname.toLowerCase().replace(/^(?:www|old|new|m|np|amp)\./u, "");
+    const post = host === "redd.it"
+      ? REDD_IT_POST_PATH.exec(link.pathname)?.[1]
+      : /(?:^|\.)reddit\.com$/u.test(host) ? REDDIT_POST_PATH.exec(link.pathname)?.[1] : undefined;
+    if (post !== undefined) return `reddit.com/comments/${post.toLowerCase()}`;
+    const query = [...link.searchParams]
+      .filter(([key]) => !TRACKING_PARAMETER.test(key))
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, value]) => `${key}=${value}`)
+      .join("&");
+    return `${host}${link.pathname.replace(/\/+$/u, "").toLowerCase()}${query === "" ? "" : `?${query}`}`;
+  } catch {
+    return trimmed.toLowerCase().replace(/^https?:\/\//u, "").replace(/#.*$/u, "").replace(/\/+$/u, "");
+  }
 }
 
 // What the comments mean for the answer, in the words answers use for it.
@@ -1055,7 +1090,6 @@ function communityLane(
 
 const COMMUNITY_FINDINGS = ["benefit_reports", "no_effect_reports", "adverse_reports", "effect_on_answer"] as const;
 const YOUTUBE_HOST = /(?:^|\.)(?:youtube\.com|youtu\.be)$/u;
-const REDDIT_HOST = /(?:^|\.)(?:reddit\.com|redd\.it)$/u;
 const SUBREDDIT_NAME = /^\/?r\/([A-Za-z0-9_]{2,21})$/u;
 
 /** The subreddit a full reddit.com thread link is in; undefined for short links and other pages. */
@@ -1063,7 +1097,7 @@ function subredditOf(url: string): string | undefined {
   try {
     const link = new globalThis.URL(url);
     if (!/(?:^|\.)reddit\.com$/u.test(link.hostname.toLowerCase())) return undefined;
-    return /^\/r\/([A-Za-z0-9_]{2,21})\//u.exec(link.pathname)?.[1]?.toLowerCase();
+    return REDDIT_THREAD_PATH.exec(link.pathname)?.[1]?.toLowerCase();
   } catch {
     return undefined;
   }
@@ -1174,8 +1208,8 @@ function communityCoverage(
       }
       if (search.threads_read.some(({ url }) => subredditOf(url) !== subreddit)) {
         out.nextSteps.push(
-          `community_searches for ${name} lists threads outside r/${subreddit} or short links: list each thread by ` +
-            "its full reddit.com link, under its own subreddit's entry."
+          `community_searches for ${name} lists links that are not threads in r/${subreddit}: list each thread you ` +
+            `read by its full link (reddit.com/r/${subreddit}/comments/…), under its own subreddit's entry.`
         );
         continue;
       }
