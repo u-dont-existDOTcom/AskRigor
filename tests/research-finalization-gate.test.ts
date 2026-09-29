@@ -1241,15 +1241,14 @@ describe("finalize_research gate", () => {
     ]);
     expect(result.finalization_receipt).toBeDefined();
 
-    // Each lead-only study carries its own caveat, and the bounded video its own.
+    // Lead-only studies share one caveat that links each, and the bounded video has its own.
     expect(result.caveats).toEqual([
       "Some comments on [this video](https://www.youtube.com/watch?v=bbbbbbbbbbb) could not be read, so its comment " +
         "evidence is incomplete.",
       FORUM_CAVEAT,
-      "The full text of [this study](https://doi.org/10.1016/j.joca.2020.01.001) was not openly available, so its " +
-        "methods were not checked.",
-      "The full text of [this study](https://pubmed.ncbi.nlm.nih.gov/31234567/) was not openly available, so its " +
-        "methods were not checked.",
+      "The full texts of [this study](https://doi.org/10.1016/j.joca.2020.01.001) and " +
+        "[this study](https://pubmed.ncbi.nlm.nih.gov/31234567/) were not openly available, so their methods were not " +
+        "checked.",
       ...OFFER_CAVEATS
     ]);
     // The subreddit's caveat is in CLEAN_DRAFT, and the drafts below are deep
@@ -1270,15 +1269,18 @@ describe("finalize_research gate", () => {
     };
     const answerWith = (...sentences: string[]) =>
       finalizeResearchRaw({ ...request, answer_draft: [CLEAN_DRAFT, ...sentences].join(" ") }, options);
-    // Qualifying one study does not cover the other, and other words are not the caveat.
-    expect(answerWith(caveats[0]!, caveats[1]!, "The PubMed study was only an abstract.").next_steps).toEqual([
-      `The answer leaves out this caveat; include each as its own sentence, as written (a link's text may change): "${caveats[2]}"`
+    // Qualifying one study does not stand for the caveat both share, and other words are not the caveat.
+    const studiesCaveat = caveats[1]!;
+    const oneStudy = "The full text of [this study](https://doi.org/10.1016/j.joca.2020.01.001) was not openly " +
+      "available, so its methods were not checked.";
+    expect(answerWith(caveats[0]!, oneStudy, "The PubMed study was only an abstract.").next_steps).toEqual([
+      `The answer leaves out this caveat; include each as its own sentence, as written (a link's text may change): "${studiesCaveat}"`
     ]);
     // A link's text may change, and formatting and line breaks do not matter.
     expect(answerWith(
       caveats[0]!.replace("[this video]", "[Hip exercises that helped me]"),
-      caveats[1]!.replace("[this study]", "[Smith and colleagues, 2019]").replace("was not", "**was not**"),
-      caveats[2]!.replace("so its methods", "so\nits methods").replace("was not", "was\u00a0not")
+      studiesCaveat.replace("[this study]", "[Smith and colleagues, 2019]").replace("were not", "**were not**")
+        .replace("so their methods", "so\ntheir methods").replace("were not checked", "were\u00a0not checked")
     )).toMatchObject({ status: "ready_with_limits", next_steps: [] });
 
     // A DOI with parentheses keeps a working link, whose text may change too.

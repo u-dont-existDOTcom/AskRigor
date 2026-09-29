@@ -608,6 +608,8 @@ export function finalizeResearch(
   };
   const validatedSources: string[] = [];
   const leadSources: string[] = [];
+  // Studies read only as leads: one limit each, one caveat for all of them.
+  const unreadStudies = new Set<string>();
   for (const source of input.key_sources) {
     const id = normalizeIdentifier(source.id);
     // A PMID's DOI (from its PubMed record receipt) also identifies the study.
@@ -630,10 +632,8 @@ export function finalizeResearch(
         continue;
       }
       leadSources.push(source.id);
-      requireLimit(
-        `Cite ${source.id} as a lead: no open full text was available, so its methods were not audited.`,
-        unreadStudyCaveat(id)
-      );
+      requireLimit(`Cite ${source.id} as a lead: no open full text was available, so its methods were not audited.`);
+      unreadStudies.add(id);
       continue;
     }
     if (!isDoi(id) && !isPmid(id) && !isPmcid(id)) {
@@ -663,9 +663,9 @@ export function finalizeResearch(
       // PubMed lists no DOI and no PMC copy, so the open full-text chain cannot run; the lead is proven.
       leadSources.push(source.id);
       requireLimit(
-        `Cite ${source.id} as a lead: PubMed lists no DOI, so no open full text could be acquired and its methods were not audited.`,
-        unreadStudyCaveat(id)
+        `Cite ${source.id} as a lead: PubMed lists no DOI, so no open full text could be acquired and its methods were not audited.`
       );
+      unreadStudies.add(id);
       continue;
     }
     const target = pubmedDoi ?? source.id;
@@ -676,6 +676,7 @@ export function finalizeResearch(
       : `Try acquire_open_full_text for ${source.id}${target === source.id ? "" : ` (DOI ${target})`}${isPmcid(id) ? " with its DOI and this pmcid" : ""} ` +
           "before treating it as lead_only; pass the research_receipt it returns.");
   }
+  if (unreadStudies.size > 0) caveats.push(unreadStudiesCaveat([...unreadStudies]));
   if (input.key_sources.length === 0) {
     requireLimit(
       "No study was declared decision-critical; say that no study's methods were checked in full text.",
@@ -1116,13 +1117,20 @@ function statesCaveat(blocks: readonly string[], caveat: string): boolean {
 
 const videoLink = (video: string, text: string): string => `[${text}](https://www.youtube.com/watch?v=${video})`;
 
-/** The caveat for a key study read only as a lead, linked by its identifier. */
-function unreadStudyCaveat(id: string): string {
+/**
+ * The one caveat for the key studies read only as leads, each linked by its
+ * identifier, so several leads read as one sentence rather than a run of
+ * identical ones.
+ */
+function unreadStudiesCaveat(ids: readonly string[]): string {
   // A DOI may contain parentheses, which would end a Markdown link.
-  const url = isDoi(id)
+  const links = ids.map((id) => `[this study](${isDoi(id)
     ? `https://doi.org/${id.replace(/\(/gu, "%28").replace(/\)/gu, "%29")}`
-    : isPmid(id) ? `https://pubmed.ncbi.nlm.nih.gov/${id}/` : `https://www.ncbi.nlm.nih.gov/pmc/articles/${id}/`;
-  return `The full text of [this study](${url}) was not openly available, so its methods were not checked.`;
+    : isPmid(id) ? `https://pubmed.ncbi.nlm.nih.gov/${id}/` : `https://www.ncbi.nlm.nih.gov/pmc/articles/${id}/`})`);
+  return links.length === 1
+    ? `The full text of ${links[0]} was not openly available, so its methods were not checked.`
+    : `The full texts of ${links.slice(0, -1).join(", ")} and ${links.at(-1)} were not openly available, so their ` +
+      "methods were not checked.";
 }
 
 /** Text without surrounding spaces or a closing period or semicolon, spaces made single. */
