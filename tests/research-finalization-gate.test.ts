@@ -617,6 +617,9 @@ describe("finalize_research gate", () => {
     // Facebook, Telegram and Discord live on their own hosts too: an entry there links only there, and their links
     // belong to them.
     const chat = { community: "TRT men chat", queries: ["hgh"], access_boundary: "login_required" };
+    const telegramStep = "community_searches for TRT men chat gives Telegram links that name no channel or group: " +
+      "give a public channel's t.me link and the posts in it you read, or a private group's invite (t.me/+…) as url, " +
+      "with the access boundary you hit.";
     for (const [search, step] of [
       [{ ...chat, platform: "facebook", url: "https://example.org/forum" },
         "community_searches for TRT men chat is on Facebook but lists links elsewhere; give the Facebook links of the " +
@@ -632,9 +635,10 @@ describe("finalize_research gate", () => {
       [{ ...chat, platform: "facebook", url: "https://www.facebook.com/help" },
         "community_searches for TRT men chat gives Facebook links outside a group: give the group's link " +
           "(facebook.com/groups/…) and the posts in it you read."],
-      [{ ...chat, platform: "telegram", url: "https://telegram.org/faq" },
-        "community_searches for TRT men chat gives Telegram links that name no public channel or group: give its " +
-          "t.me link and the posts in it you read."],
+      [{ ...chat, platform: "telegram", url: "https://telegram.org/faq" }, telegramStep],
+      // An invite opens a group only members can read, so it is the entry's address, never a thread read.
+      [{ ...chat, platform: "telegram", url: "https://t.me/trtmen", threads_read: [{ url: "https://t.me/+AbCdEf123" }] },
+        telegramStep],
       [{ ...chat, platform: "discord", url: "https://discord.com/safety" },
         "community_searches for TRT men chat gives Discord links other than a server invite: Discord servers can be " +
           "read only by joining, so record the server's invite (discord.gg/…) as url, with the access boundary you hit."],
@@ -647,11 +651,28 @@ describe("finalize_research gate", () => {
     }
     for (const search of [
       { ...chat, platform: "telegram", url: "https://t.me/trtmen" },
+      { ...chat, platform: "telegram", url: "https://t.me/+AbCdEf123" },
+      { ...chat, platform: "telegram", url: "https://t.me/joinchat/AbCdEf123" },
       { ...chat, platform: "discord", url: "https://discord.gg/trtmen" }
     ]) {
       expect(gate({ principal_communities: communities, community_searches: [search] }).next_steps
         .filter((step) => step.startsWith("community_searches for TRT men chat"))).toEqual([]);
     }
+    // Two invites may open one Discord server, so Facebook, Telegram and Discord count once each toward
+    // independence however many of their communities are listed.
+    const servers = [{ name: "TRT Discord", platform: "discord" }, { name: "HGH Discord", platform: "discord" }];
+    const invites = [
+      { community: "TRT Discord", platform: "discord", queries: ["hgh"], access_boundary: "login_required", url: "https://discord.gg/trtmen" },
+      { community: "HGH Discord", platform: "discord", queries: ["hgh"], access_boundary: "login_required", url: "https://discord.gg/Hgh2x" }
+    ];
+    expect(finalizeResearch({
+      ...youtubeOnly, receipts: [study], principal_communities: servers, community_searches: invites
+    }, options).next_steps).toContain(
+      "Search at least one more community, independent of TRT Discord, HGH Discord: YouTube with its tools, the others " +
+        "with your web search recorded in community_searches, or record the access boundary that stops you. " +
+        "Communities on one of Facebook, Telegram or Discord count once together: their links cannot show that they " +
+        "are separate discussion pools."
+    );
     // A search cannot both find nothing relevant and report the threads it read.
     expect(gate({
       principal_communities: communities, community_searches: [{ ...trt, access_boundary: "no_relevant_results" }]

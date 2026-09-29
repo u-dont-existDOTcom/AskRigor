@@ -1307,8 +1307,8 @@ const PLATFORM_HOSTS: Readonly<Record<string, { host: RegExp; label: string }>> 
 const COMMUNITY_LINK_STEPS: Readonly<Record<string, string>> = {
   facebook: "gives Facebook links outside a group: give the group's link (facebook.com/groups/…) and the posts " +
     "in it you read.",
-  telegram: "gives Telegram links that name no public channel or group: give its t.me link and the posts in it you " +
-    "read.",
+  telegram: "gives Telegram links that name no channel or group: give a public channel's t.me link and the posts in " +
+    "it you read, or a private group's invite (t.me/+…) as url, with the access boundary you hit.",
   discord: "gives Discord links other than a server invite: Discord servers can be read only by joining, so record " +
     "the server's invite (discord.gg/…) as url, with the access boundary you hit."
 };
@@ -1319,11 +1319,12 @@ const TELEGRAM_RESERVED_PATHS = new Set([
 
 /**
  * The community a Facebook, Telegram or Discord link belongs to: a Facebook
- * group, a public Telegram channel or group, or a Discord server by its
- * invite. Undefined for the platform's other pages (help, login, a profile, a
- * Discord message only members can open) and for other platforms.
+ * group, a public Telegram channel, or, as the entry's own url only, a private
+ * Telegram group's or a Discord server's invite, which members alone can open.
+ * Undefined for the platform's other pages (help, login, a profile, a message
+ * only members can open) and for other platforms.
  */
-function communityOf(platform: string, url: string): string | undefined {
+function communityOf(platform: string, url: string, thread: boolean): string | undefined {
   try {
     const link = new globalThis.URL(url);
     const host = link.hostname.toLowerCase();
@@ -1332,10 +1333,12 @@ function communityOf(platform: string, url: string): string | undefined {
       return group === undefined ? undefined : `facebook.com/groups/${group}`;
     }
     if (platform === "telegram" && /(?:^|\.)(?:t\.me|telegram\.me|telegram\.dog)$/u.test(host)) {
+      const invite = /^\/(?:\+|joinchat\/)([A-Za-z0-9_-]+)\/?$/u.exec(link.pathname)?.[1];
+      if (invite !== undefined) return thread ? undefined : `t.me/+${invite}`;
       const channel = /^\/(?:s\/)?([A-Za-z][A-Za-z0-9_]{4,31})(?:\/\d+)?\/?$/u.exec(link.pathname)?.[1]?.toLowerCase();
       return channel === undefined || TELEGRAM_RESERVED_PATHS.has(channel) ? undefined : `t.me/${channel}`;
     }
-    if (platform === "discord") {
+    if (platform === "discord" && !thread) {
       const invite = (/(?:^|\.)discord\.gg$/u.test(host) ? /^\/([A-Za-z0-9-]+)\/?$/u : /^\/invite\/([A-Za-z0-9-]+)\/?$/u)
         .exec(link.pathname)?.[1];
       return invite === undefined ? undefined : `discord.gg/${invite}`;
@@ -1552,10 +1555,11 @@ function communityCoverage(
         : `community_searches for ${name} lists ${label} links; record them under platform ${platform}.`);
       continue;
     }
-    // There, a community is a group, a public channel or a server, not any page of the platform.
+    // There, a community is a group, a channel or a server, not any page of the platform.
+    const community = (url: string, thread: boolean) => communityOf(search.platform, url, thread);
     const communityStep = COMMUNITY_LINK_STEPS[search.platform];
-    if (communityStep !== undefined && (links.some((url) => communityOf(search.platform, url) === undefined) ||
-      (search.platform === "discord" && search.threads_read.length > 0))) {
+    if (communityStep !== undefined && (search.threads_read.some(({ url }) => community(url, true) === undefined) ||
+      (search.url !== undefined && community(search.url, false) === undefined))) {
       out.nextSteps.push(`community_searches for ${name} ${communityStep}`);
       continue;
     }
@@ -1646,7 +1650,10 @@ function communityCoverage(
     }
     const sites = new Set(search.platform === "reddit"
       ? []
-      : links.map((url) => communityOf(search.platform, url) ?? siteOf(url)));
+      : [
+          ...search.threads_read.map(({ url }) => community(url, true) ?? siteOf(url)),
+          ...(search.url === undefined ? [] : [community(search.url, false) ?? siteOf(search.url)])
+        ]);
     if (sites.size > 1) {
       out.nextSteps.push(
         `community_searches for ${name} points to more than one site (${[...sites].join(", ")}); give each site its ` +
@@ -1725,7 +1732,14 @@ function communityCoverage(
     );
   }
   const listed = new Set(communities.map(({ name, platform }) => communityKey(name, platform)));
-  if (listed.size === 1 && searched.size <= 1) {
+  // A Facebook group, Telegram channel or Discord server is known by links the
+  // server cannot tie to one identity (a group's name or number, a server's
+  // many invites), so each of those platforms counts once toward independence.
+  const pools = new Set([...searched.keys()].map((key) => {
+    const platform = key.split(":")[0]!;
+    return COMMUNITY_LINK_STEPS[platform] === undefined ? key : platform;
+  }));
+  if (listed.size === 1 && pools.size <= 1) {
     if (input.single_community_reason === undefined) {
       out.nextSteps.push(
         "principal_communities lists one community: name an independent one (another platform, forum or discussion " +
@@ -1737,7 +1751,7 @@ function communityCoverage(
         "Only one community seems to discuss this, so the community evidence rests on a single group."
       );
     }
-  } else if (searched.size < 2) {
+  } else if (pools.size < 2) {
     const others = [...new Map(communities
       .filter(({ name, platform }) => !searched.has(communityKey(name, platform)))
       .map(({ name, platform }) => [communityKey(name, platform), name])).values()];
@@ -1745,7 +1759,11 @@ function communityCoverage(
       "Search at least one more community, independent of " +
         `${searched.size === 0 ? "the first" : [...searched.values()].join(", ")}` +
         `${others.length === 0 ? "" : ` (${others.join(", ")})`}: YouTube with its tools, the others with your web ` +
-        "search recorded in community_searches, or record the access boundary that stops you."
+        "search recorded in community_searches, or record the access boundary that stops you." +
+        (pools.size < searched.size
+          ? " Communities on one of Facebook, Telegram or Discord count once together: their links cannot show that " +
+            "they are separate discussion pools."
+          : "")
     );
   }
   // Every community searched outside YouTube rests on the client's word.

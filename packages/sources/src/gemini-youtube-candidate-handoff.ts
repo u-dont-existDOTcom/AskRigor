@@ -817,11 +817,12 @@ const TITLE_FILLER_WORDS = new Set([
   "are", "was", "can", "will", "get", "got", "has", "have", "but", "all", "out", "our", "its"
 ]);
 
-// Words that reverse the words after them in their clause: "Surgery did not
-// fix my hip" is another video than "Surgery did fix my hip".
+// Negation words, one token in a title so "no", "not", "never" and "without"
+// stand for each other.
 const TITLE_NEGATION_WORDS = new Set(["not", "no", "never", "without", "nothing", "none", "nor"]);
-// Where a negation's reach ends: punctuation, a spaced dash, or "but".
-const TITLE_CLAUSE_BREAK = /[.,;:!?|()\[\]{}\u2013\u2014]+|\s-\s|\bbut\b/u;
+const TITLE_NEGATION = "~";
+// Where a title's clause ends: punctuation, a spaced dash, "and", "or" or "but".
+const TITLE_CLAUSE_BREAK = /[.,;:!?|()\[\]{}\u2013\u2014]+|\s-\s|\b(?:and|or|but)\b/u;
 
 /** A word without a plural, "-ing", "-ed" or final "e" ending, so "healed" and "healing" meet. */
 function titleStem(word: string): string {
@@ -833,38 +834,32 @@ function titleStem(word: string): string {
 }
 
 /**
- * A title's clauses, split where a negation's reach ends, each as its
- * identifying words in order (a word with a digit, or three or more letters
- * and not filler), stemmed and marked when a negation earlier in the clause
- * governs them. Clauses without identifying words are left out.
+ * A title's clauses, each as its tokens in order: identifying words (a word
+ * with a digit, or three or more letters and not filler), stemmed, and
+ * negations. Clauses without tokens are left out.
  */
-function identifyingTitleClauses(value: string): TitleWord[][] {
-  const clauses: TitleWord[][] = [];
-  const text = value.normalize("NFKC").toLowerCase().replace(/n['\u2019]t\b/gu, " not");
-  for (const clause of text.split(TITLE_CLAUSE_BREAK)) {
-    const words: TitleWord[] = [];
-    let negated = false;
-    for (const word of clause.split(/[^\p{L}\p{N}]+/u)) {
-      if (TITLE_NEGATION_WORDS.has(word)) negated = true;
-      else if (/\p{N}/u.test(word) || (word.length >= 3 && !TITLE_FILLER_WORDS.has(word))) {
-        words.push({ stem: titleStem(word), negated });
-      }
-    }
-    if (words.length > 0) clauses.push(words);
-  }
-  return clauses;
+function titleClauses(value: string): string[][] {
+  const text = value.normalize("NFKC").toLowerCase().replace(/n['\u2019]t\b/gu, " not").replace(/&/gu, " and ");
+  return text.split(TITLE_CLAUSE_BREAK)
+    .map((clause) => clause.split(/[^\p{L}\p{N}]+/u).flatMap((word) =>
+      TITLE_NEGATION_WORDS.has(word)
+        ? [TITLE_NEGATION]
+        : /\p{N}/u.test(word) || (word.length >= 3 && !TITLE_FILLER_WORDS.has(word)) ? [titleStem(word)] : []))
+    .filter((tokens) => tokens.length > 0);
 }
 
-interface TitleWord {
-  stem: string;
-  negated: boolean;
-}
-
-/** Where `words` end as an ordered subsequence of `clause` from `from` on; undefined when they do not fit. */
-function titleRunEnd(clause: readonly TitleWord[], words: readonly TitleWord[], from: number): number | undefined {
+/**
+ * Where `tokens` end as an ordered subsequence of `clause` from `from` on,
+ * skipping words but never a negation, so each negation up to the match's end
+ * is one both titles have. Undefined when they do not fit.
+ */
+function titleRunEnd(clause: readonly string[], tokens: readonly string[], from: number): number | undefined {
   let next = from;
-  for (const { stem, negated } of words) {
-    while (next < clause.length && (clause[next]!.stem !== stem || clause[next]!.negated !== negated)) next += 1;
+  for (const token of tokens) {
+    while (next < clause.length && clause[next] !== token) {
+      if (clause[next] === TITLE_NEGATION) return undefined;
+      next += 1;
+    }
     if (next === clause.length) return undefined;
     next += 1;
   }
@@ -873,34 +868,35 @@ function titleRunEnd(clause: readonly TitleWord[], words: readonly TitleWord[], 
 
 /**
  * A declared title matches YouTube's when they are equal ignoring case,
- * spacing and punctuation, or when each clause of the declared title has its
- * identifying words, in order, inside one clause of YouTube's title (a clause
- * ends at punctuation, a spaced dash or "but"), each word governed by a
- * negation in both titles or in neither. A scout's paraphrase drops or adds
- * words; a swapped word ("How I healed hip pain" against "How I healed back
- * pain"), another number, a reversed order ("Exercise beats surgery" against
- * "Surgery beats exercise"), a moved negation ("No evidence TRT causes harm"
- * against "Evidence TRT causes no harm") or words spread over other claims
- * ("Exercise beats injections, but surgery wins") is another video, even on
- * the same channel. This checks identity, not meaning: a title that frames the
- * declared words differently ("... is a myth") is still the video the scout
- * named, and its audit, not its title, says what it reports.
+ * spacing and punctuation, or when each clause of the declared title fits, in
+ * order, inside one clause of YouTube's title (a clause ends at punctuation, a
+ * spaced dash, "and", "or" or "but"): its identifying words in order, with
+ * words skipped but never a negation, so the two titles' negations line up. A
+ * scout's paraphrase drops or adds words; a swapped word ("How I healed hip
+ * pain" against "How I healed back pain"), another number, a reversed order
+ * ("Exercise beats surgery" against "Surgery beats exercise"), a moved or
+ * added negation ("No evidence TRT causes harm" against "Evidence TRT causes
+ * no harm") or words spread over other claims ("Exercise beats injections, but
+ * surgery wins") is another video, even on the same channel. This checks
+ * identity, not meaning: a title that frames the declared words differently
+ * ("... is a myth") is still the video the scout named, and its audit, not its
+ * title, says what it reports.
  */
 export function youtubeTitlesMatch(provider: string, declared: string): boolean {
   const declaredTitle = compactTitle(declared);
   if (declaredTitle.length === 0) return false;
   if (compactTitle(provider) === declaredTitle) return true;
-  const declaredClauses = identifyingTitleClauses(declared);
-  const providerClauses = identifyingTitleClauses(provider);
+  const declaredClauses = titleClauses(declared);
+  const providerClauses = titleClauses(provider);
   // Each declared clause is matched inside one of YouTube's clauses, after the
   // previous one's match; the earliest match leaves the most room for the rest.
   let clause = 0;
   let from = 0;
-  for (const words of declaredClauses) {
-    let end = clause < providerClauses.length ? titleRunEnd(providerClauses[clause]!, words, from) : undefined;
+  for (const tokens of declaredClauses) {
+    let end = clause < providerClauses.length ? titleRunEnd(providerClauses[clause]!, tokens, from) : undefined;
     while (end === undefined && clause + 1 < providerClauses.length) {
       clause += 1;
-      end = titleRunEnd(providerClauses[clause]!, words, 0);
+      end = titleRunEnd(providerClauses[clause]!, tokens, 0);
     }
     if (end === undefined) return false;
     from = end;

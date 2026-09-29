@@ -468,7 +468,10 @@ describe("Gemini YouTube candidate handoff", () => {
       ["No evidence TRT causes harm", "Evidence TRT causes no harm"],
       ["Exercise beats surgery for hip pain", "Surgery beats exercise for hip pain"],
       // The declared words, in order, but spread over two claims.
-      ["Exercise beats surgery for hip pain", "Exercise beats injections, but surgery wins for hip pain"]
+      ["Exercise beats surgery for hip pain", "Exercise beats injections, but surgery wins for hip pain"],
+      // An added negation, and one left out.
+      ["No pain and improved mobility", "No pain and no improved mobility"],
+      ["No pain and no improved mobility", "No pain and improved mobility"]
     ] as const) {
       const receipt = await check(declaredTitle, providerTitle);
       expect(receipt.rejected_candidates).toEqual([]);
@@ -478,8 +481,14 @@ describe("Gemini YouTube candidate handoff", () => {
       ]);
     }
     // A paraphrase that keeps every declared word, a contraction included, still vouches for the ID.
-    const contracted = await check("Why surgery did not fix my hip", "Why surgery didn't fix my hip | Independent runner");
-    expect(contracted.validated_candidates.map(({ video_id }) => video_id)).toEqual([...VIDEO_IDS]);
+    for (const [declaredTitle, providerTitle] of [
+      ["Why surgery did not fix my hip", "Why surgery didn't fix my hip | Independent runner"],
+      ["Diet & exercise for hip pain", "Diet and Exercise for Hip Pain (2 years later)"],
+      ["Hip pain relief with no surgery", "Hip pain relief without surgery"]
+    ] as const) {
+      const paraphrased = await check(declaredTitle, providerTitle);
+      expect(paraphrased.validated_candidates.map(({ video_id }) => video_id)).toEqual([...VIDEO_IDS]);
+    }
   });
 
   it("keeps an API-visible candidate unresolved when required identity fields are missing", async () => {
