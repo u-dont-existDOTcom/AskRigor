@@ -14,7 +14,7 @@ describe("Universal whole-argument reconstruction integration", () => {
     const text = await readFile(UNIVERSAL_URL, "utf8");
 
     expect(text).toMatch(
-      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.29" revisionDate="2026-09-27"/
+      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.30" revisionDate="2026-09-29"/
     );
 
     for (const required of [

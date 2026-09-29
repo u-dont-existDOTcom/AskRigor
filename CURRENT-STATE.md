@@ -41,7 +41,11 @@ treatment-coverage check builds its ledger from signed receipts (option A,
 owner-chosen); a coverage-checker fix from the smoke-run replay
 (first-pass breadth gaps become open leads, and complete grouped blocker lists
 replace eleven messages per call); Universal 20.5.29
-(owner-approved: precise clinical terms replace the euphemism rule); scout-first
+(owner-approved: precise clinical terms replace the euphemism rule) and 20.5.30
+(owner correction, 2026-09-29: a failure class found again after a fix, by
+anyone, stops local fixes); title identity checked by exact comparison, with
+rewordings left to the research model (owner correction, 2026-09-29: word
+lists were brittle and English-only); scout-first
 discovery (owner-approved: the Gemini scout finds videos, comment-named remedies
 go back to it as `rediscovery_leads`, and the YouTube survey is the fallback,
 because YouTube search is capped at 100 calls a day per project). Claude test runner and blinded Opus judge under

@@ -92,6 +92,15 @@ function occurrences(text: string, needle: string): number {
   return text.split(needle).length - 1;
 }
 
+// Universal 20.5.30 widened the heuristic-attractor recurrence trigger to
+// findings from any source; each pair is [20.5.30 text, 20.5.29 text].
+const UNIVERSAL_20_5_30_RECURRENCE: ReadonlyArray<readonly [string, string]> = [
+  ["<Protocol name=\"AskRigor.com universal saved instructions\" version=\"20.5.30\" revisionDate=\"2026-09-29\"", "<Protocol name=\"AskRigor.com universal saved instructions\" version=\"20.5.29\" revisionDate=\"2026-09-27\""],
+  ["<revision_history>\n<revision version=\"20.5.30\" priority=\"Critical\">\nModel-behavior change after an owner correction: recurrence no longer waits for the user to correct the same failure again. When the same class of failure recurs after a fix, found again by the user, a review, a test or a run, local fixes stop until the class is named and the mechanism's ability to decide it is checked. No clinical, source or output rule changed.\n</revision>\n<revision version=\"20.5.29\" priority=\"Critical\">", "<revision_history>\n<revision version=\"20.5.29\" priority=\"Critical\">"],
+  ["6. When the same class of failure recurs after a fix, whether the user corrects it again or a review, test or run finds it again, treat recurrence as evidence that a higher-level heuristic is hijacking task interpretation or that the mechanism cannot decide that class. Stop local fixes: name the class, check whether the mechanism can decide it at all, and repair the attractor or redesign the mechanism rather than adding another local exception, apology, or reminder.", "6. When the user has already corrected a recurring reasoning failure, treat recurrence as evidence that a higher-level heuristic is hijacking task interpretation. Diagnose and repair the attractor itself rather than adding another local exception, apology, or reminder."],
+  ["If a failure class recurred after a fix, found again by the user, a review, a test or a run, diagnose the higher-level attractor or the mechanism's fit rather than adding another local exception.", "If a user-corrected failure recurred, diagnose the higher-level attractor rather than adding another local exception."],
+];
+
 // Universal 20.5.29 replaced the euphemism rule with precise clinical terms;
 // each pair is [20.5.29 text, 20.5.28 text].
 const UNIVERSAL_20_5_29_CLINICAL_TERMS: ReadonlyArray<readonly [string, string]> = [
@@ -132,7 +141,7 @@ describe("canonical Reasoning Selection application", () => {
 
     expect(XMLValidator.validate(universal)).toBe(true);
     expect(universal).toMatch(
-      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.29" revisionDate="2026-09-27"/u,
+      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.30" revisionDate="2026-09-29"/u,
     );
     expect(Buffer.byteLength(REASONING_SELECTION_TEXT, "utf8")).toBe(2884);
     expect(sha256(REASONING_SELECTION_TEXT)).toBe(
@@ -160,12 +169,22 @@ describe("canonical Reasoning Selection application", () => {
       expect(occurrences(CURRENT_REASONING_SELECTION_TEXT, `- ${method}:`), method).toBe(1);
     }
 
-    const universal20528 = UNIVERSAL_20_5_29_CLINICAL_TERMS.reduce(
+    const universal20529 = UNIVERSAL_20_5_30_RECURRENCE.reduce(
       (text, [current, prior]) => {
         expect(occurrences(text, current), current.slice(0, 60)).toBe(1);
         return text.replace(current, prior);
       },
       universal,
+    );
+    expect(sha256(universal20529)).toBe(
+      "5d9a9d76339ff1794b93bb1e932466f703c4a8c006a607b811f40b43ea703d36",
+    );
+    const universal20528 = UNIVERSAL_20_5_29_CLINICAL_TERMS.reduce(
+      (text, [current, prior]) => {
+        expect(occurrences(text, current), current.slice(0, 60)).toBe(1);
+        return text.replace(current, prior);
+      },
+      universal20529,
     );
     expect(sha256(universal20528)).toBe(
       "6d7584c3b25104e70e80caf126a0a1bcb662bde2eb95a9976f90673263060d0c",
