@@ -581,7 +581,28 @@ describe("finalize_research gate", () => {
     expect(gate({
       community_searches: [read("r/trt", trtThread), read("r/Testosterone", trtThread.replace("/r/trt/", "/r/Testosterone/"))]
     }).next_steps).toContain(alreadyListed("r/Testosterone"));
-    // A query parameter that names the thread keeps two threads apart.
+    // Nor does a page, post, session or sort order of the same forum thread.
+    const phpbb = "https://forum.example.org/viewtopic.php?t=2";
+    const xenforo = "https://thinksteroids.com/community/threads/hgh-and-trt.12345/";
+    for (const [first, alias] of [
+      [`${phpbb}&start=0`, `${phpbb}&start=20`],
+      [phpbb, `${phpbb}&start=20&sid=0123abcd&sk=t&sd=d&st=0`],
+      [xenforo, `${xenforo}page-2`],
+      [xenforo, `${xenforo}post-678`],
+      ["https://forum.example.org/t/hgh-results/123", "https://forum.example.org/t/hgh-results/123/45"],
+      ["https://forum.example.org/showthread.php?t=9", "https://forum.example.org/showthread.php?t=9&page=3&s=5f3a"]
+    ]) {
+      expect(gate({
+        principal_communities: [{ name: "MESO-Rx", platform: "forum" }, { name: "ExcelMale", platform: "forum" }],
+        community_searches: [read("MESO-Rx", first!, "forum"), read("ExcelMale", alias!, "forum")]
+      }).next_steps).toContain(alreadyListed("ExcelMale"));
+    }
+    // A query parameter or topic number that names the thread keeps two threads apart.
+    expect(gate({
+      principal_communities: [{ name: "MESO-Rx", platform: "forum" }, { name: "ExcelMale", platform: "forum" }],
+      community_searches: [read("MESO-Rx", "https://forum.example.org/t/hgh-results/123", "forum"),
+        read("ExcelMale", "https://forum.example.org/t/hgh-results/124", "forum")]
+    }).next_steps).not.toContain(alreadyListed("ExcelMale"));
     const topic = (id: number) => `https://forum.example.org/viewtopic.php?t=${id}`;
     expect(gate({
       principal_communities: [{ name: "MESO-Rx", platform: "forum" }, { name: "ExcelMale", platform: "forum" }],

@@ -1063,13 +1063,22 @@ const REDDIT_THREAD_PATH = /^\/r\/([A-Za-z0-9_]{2,21})\/comments\/([a-z0-9]+)(?:
 // A Reddit post by its id alone, as reddit.com/comments/<id> or redd.it/<id> link it.
 const REDDIT_POST_PATH = /^\/(?:r\/[A-Za-z0-9_]{2,21}\/)?comments\/([a-z0-9]+)(?:\/|$)/iu;
 const REDD_IT_POST_PATH = /^\/([a-z0-9]+)\/?$/iu;
-// Query parameters that track a click or share rather than identify a page.
-const TRACKING_PARAMETER = /^(?:utm_\w+|fbclid|gclid|dclid|msclkid|igshid|mc_cid|mc_eid|ref|ref_src|share_id|si|_ga)$/iu;
+// Query parameters that track a click or share, or pick a page, a sort order
+// or a session of a discussion (phpBB's start, sid and sort keys; vBulletin's
+// page and s), rather than name the discussion itself.
+const NON_THREAD_PARAMETER = new RegExp("^(?:utm_\\w+|fbclid|gclid|dclid|msclkid|igshid|mc_cid|mc_eid|ref|ref_src|" +
+  "share_id|si|_ga|start|page|pg|offset|sid|s|phpsessid|sessionid|jsessionid|sort|order|sk|sd|st|highlight|hilit)$", "iu");
+// A page or post within a thread, at the end of its path: XenForo's /page-2
+// and /post-123, vBulletin's /page2, a blog's /page/2.
+const THREAD_PAGE_SUFFIX = /\/(?:page[-/]?\d+|post-\d+)\/?$/iu;
+// A post number after a Discourse topic: /t/<slug>/<topic id>/<post number>.
+const DISCOURSE_POST = /^(\/t\/[^/]+\/\d+)\/\d+\/?$/iu;
 
 /**
  * A URL as two links to one thread compare: no scheme, subdomain prefix,
- * fragment, tracking parameter, trailing slash or trailing punctuation. A
- * Reddit post is its id, which Reddit never reuses, whatever its subreddit,
+ * fragment, session, trailing slash or trailing punctuation, and no parameter
+ * or path suffix that only tracks a click or picks a page, post or sort order.
+ * A Reddit post is its id, which Reddit never reuses, whatever its subreddit,
  * title slug or comment permalink. Other query parameters stay: they may be
  * what names a forum's thread.
  */
@@ -1083,11 +1092,13 @@ function comparableUrl(url: string): string {
       : /(?:^|\.)reddit\.com$/u.test(host) ? REDDIT_POST_PATH.exec(link.pathname)?.[1] : undefined;
     if (post !== undefined) return `reddit.com/comments/${post.toLowerCase()}`;
     const query = [...link.searchParams]
-      .filter(([key]) => !TRACKING_PARAMETER.test(key))
+      .filter(([key]) => !NON_THREAD_PARAMETER.test(key))
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([key, value]) => `${key}=${value}`)
       .join("&");
-    return `${host}${link.pathname.replace(/\/+$/u, "").toLowerCase()}${query === "" ? "" : `?${query}`}`;
+    const path = link.pathname.replace(/;jsessionid=[^/]*/iu, "").replace(THREAD_PAGE_SUFFIX, "")
+      .replace(DISCOURSE_POST, "$1").replace(/\/+$/u, "").toLowerCase();
+    return `${host}${path}${query === "" ? "" : `?${query}`}`;
   } catch {
     return trimmed.toLowerCase().replace(/^https?:\/\//u, "").replace(/#.*$/u, "").replace(/\/+$/u, "");
   }
