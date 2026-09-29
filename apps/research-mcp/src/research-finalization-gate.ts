@@ -922,11 +922,12 @@ const QUESTION = new RegExp(
 );
 // A ranking reported as someone else's claim is evidence, not the answer's
 // verdict: "Five commenters said surgery beats exercise", "The study concludes
-// that ...", "According to the trial, ...". A first-person report ("we found")
-// is the answer's own.
+// that ...", "According to the trial, ...". A first-person report ("we found",
+// "we also found", "our review found") is the answer's own.
 const REPORTED_BEFORE = new RegExp(
-  "(?:(?<!\\b(?:I|we)\\s+(?:have\\s+|had\\s+)?)\\b(?:said|says|reported|reports|wrote|writes|claimed|claims|concluded|" +
-    "concludes|argued|argues|noted|notes|found|described|describes)(?:\\s+that)?|\\baccording\\s+to\\s+[^,;:.]{1,80},)" +
+  "(?:(?<!\\b(?:I|we|our|my)(?:\\s+[\\p{L}'\\u2019-]+){0,3}\\s+)\\b(?:said|says|reported|reports|wrote|writes|claimed|" +
+    "claims|concluded|concludes|argued|argues|noted|notes|found|described|describes)(?:\\s+that)?|" +
+    "\\baccording\\s+to\\s+[^,;:.]{1,80},)" +
     `\\s+(?:${SUBJECT}\\s+)?$`,
   "iu"
 );
@@ -1371,6 +1372,23 @@ interface CommunityRead {
   confirmed: boolean;
 }
 
+/**
+ * The discussion pool a thread link is in: its host without "www." or a mobile
+ * or alternate front end ("m.facebook.com" is facebook.com), and on Facebook
+ * the group, by the id in its link.
+ */
+function siteOf(url: string): string {
+  try {
+    const link = new globalThis.URL(url);
+    let host = link.hostname.toLowerCase().replace(/^(?:(?:www|m|mobile|mbasic|touch|web|amp)\.)+/u, "");
+    if (host === "fb.com") host = "facebook.com";
+    const group = /^\/groups\/([^/]+)/u.exec(link.pathname)?.[1];
+    return host === "facebook.com" && group !== undefined ? `${host}/groups/${group.toLowerCase()}` : host;
+  } catch {
+    return "";
+  }
+}
+
 function hostOf(url: string): string {
   try {
     // URL in this module is the link pattern, so the constructor comes from globalThis.
@@ -1524,7 +1542,7 @@ function communityCoverage(
       );
       continue;
     }
-    const sites = new Set(search.platform === "reddit" ? [] : hosts.map((host) => host.replace(/^www\./u, "")));
+    const sites = new Set(search.platform === "reddit" ? [] : search.threads_read.map(({ url }) => siteOf(url)));
     if (sites.size > 1) {
       out.nextSteps.push(
         `community_searches for ${name} lists threads on more than one site (${[...sites].join(", ")}); give each site ` +

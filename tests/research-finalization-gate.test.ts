@@ -371,7 +371,10 @@ describe("finalize_research gate", () => {
       ["I recommend surgery over exercise.", "I recommend surgery over"],
       ["Choose exercise over injections for now.", "Choose exercise over"],
       ["Surgery beats exercise.", "beats"],
-      ["We found surgery beats exercise.", "beats"]
+      ["We found surgery beats exercise.", "beats"],
+      ["We also found surgery beats exercise.", "beats"],
+      ["I independently concluded surgery outperforms exercise.", "outperforms"],
+      ["Our review found surgery beats exercise.", "beats"]
     ] as const) {
       expect(draftWith(firstPass, sentence)).toEqual([ranks(phrase, "this first pass allows no final ranking")]);
     }
@@ -551,6 +554,22 @@ describe("finalize_research gate", () => {
     expect(onePool.next_steps).toContain(
       "community_searches for MESO-Rx Men's Health lists threads on thinksteroids.com, as MESO-Rx does: one site is " +
         "one discussion pool, so list its threads under one entry and search an independent community."
+    );
+    // A mobile or alternate front end is the same site, and a Facebook group is one pool however it is reached.
+    const groupPost = {
+      ...trtFindings, community: "HGH users group", platform: "facebook",
+      threads_read: [{ url: "https://www.facebook.com/groups/hghusers/posts/101/" }]
+    };
+    const sameGroup = {
+      ...groupPost, community: "HGH users (mobile)",
+      threads_read: [{ url: "https://m.facebook.com/groups/hghusers/permalink/202/" }]
+    };
+    expect(gate({
+      principal_communities: [{ name: "HGH users group", platform: "facebook" }, { name: "HGH users (mobile)", platform: "facebook" }],
+      community_searches: [groupPost, sameGroup]
+    }).next_steps).toContain(
+      "community_searches for HGH users (mobile) lists threads on facebook.com/groups/hghusers, as HGH users group " +
+        "does: one site is one discussion pool, so list its threads under one entry and search an independent community."
     );
     // A search cannot both find nothing relevant and report the threads it read.
     expect(gate({
