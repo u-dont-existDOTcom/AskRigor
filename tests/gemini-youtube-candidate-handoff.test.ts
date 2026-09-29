@@ -463,7 +463,10 @@ describe("Gemini YouTube candidate handoff", () => {
     for (const [declaredTitle, providerTitle] of [
       ["How I healed hip pain", "How I healed back pain"],
       ["Why surgery fixed my hip", "Why surgery never fixed my hip"],
-      ["Why surgery did not fix my hip", "Why surgery fixed my hip"]
+      ["Why surgery did not fix my hip", "Why surgery fixed my hip"],
+      // The same words, one negation each, opposite claims.
+      ["No evidence TRT causes harm", "Evidence TRT causes no harm"],
+      ["Exercise beats surgery for hip pain", "Surgery beats exercise for hip pain"]
     ] as const) {
       const receipt = await check(declaredTitle, providerTitle);
       expect(receipt.rejected_candidates).toEqual([]);

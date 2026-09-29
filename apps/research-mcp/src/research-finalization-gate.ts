@@ -1295,6 +1295,13 @@ function communityLane(
 
 const COMMUNITY_FINDINGS = ["benefit_reports", "no_effect_reports", "adverse_reports", "effect_on_answer"] as const;
 const YOUTUBE_HOST = /(?:^|\.)(?:youtube\.com|youtu\.be)$/u;
+// Community platforms whose pages live on known hosts.
+const PLATFORM_HOSTS: Readonly<Record<string, { host: RegExp; label: string }>> = {
+  reddit: { host: REDDIT_HOST, label: "Reddit" },
+  facebook: { host: /(?:^|\.)(?:facebook\.com|fb\.com)$/u, label: "Facebook" },
+  telegram: { host: /(?:^|\.)(?:t\.me|telegram\.me|telegram\.org|telegram\.dog)$/u, label: "Telegram" },
+  discord: { host: /(?:^|\.)(?:discord\.com|discord\.gg|discordapp\.com)$/u, label: "Discord" }
+};
 const SUBREDDIT_NAME = /^\/?r\/([A-Za-z0-9_]{2,21})$/u;
 
 /** The post id of a full reddit.com thread link; undefined for short links and other pages. */
@@ -1483,17 +1490,23 @@ function communityCoverage(
       out.nextSteps.push(`community_searches for ${name} lists YouTube links; research YouTube with its own tools.`);
       continue;
     }
-    if (search.platform === "reddit" && hosts.some((host) => !REDDIT_HOST.test(host))) {
-      out.nextSteps.push(
-        `community_searches for ${name} is on Reddit but lists links elsewhere; list the Reddit threads you read.`
-      );
+    // A platform with its own hosts links only there, and its hosts' links belong to it.
+    const own = PLATFORM_HOSTS[search.platform];
+    if (own !== undefined && hosts.some((host) => !own.host.test(host))) {
+      out.nextSteps.push(search.platform === "reddit"
+        ? `community_searches for ${name} is on Reddit but lists links elsewhere; list the Reddit threads you read.`
+        : `community_searches for ${name} is on ${own.label} but lists links elsewhere; give the ${own.label} links ` +
+          "of the community and the posts you read.");
       continue;
     }
-    if (search.platform !== "reddit" && hosts.some((host) => REDDIT_HOST.test(host))) {
-      out.nextSteps.push(
-        `community_searches for ${name} lists Reddit links; record them under platform reddit, as the subreddit ` +
+    const foreign = Object.entries(PLATFORM_HOSTS)
+      .find(([platform, { host }]) => platform !== search.platform && hosts.some((link) => host.test(link)));
+    if (foreign !== undefined) {
+      const [platform, { label }] = foreign;
+      out.nextSteps.push(platform === "reddit"
+        ? `community_searches for ${name} lists Reddit links; record them under platform reddit, as the subreddit ` +
           "they are in."
-      );
+        : `community_searches for ${name} lists ${label} links; record them under platform ${platform}.`);
       continue;
     }
     // A subreddit is one community: its entry names it, and its threads are in it.

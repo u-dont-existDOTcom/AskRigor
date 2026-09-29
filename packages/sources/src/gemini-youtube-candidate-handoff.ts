@@ -817,14 +817,11 @@ const TITLE_FILLER_WORDS = new Set([
   "are", "was", "can", "will", "get", "got", "has", "have", "but", "all", "out", "our", "its"
 ]);
 
-// Words that reverse a title's claim: "Surgery did not fix my hip" is another
-// video than "Surgery did fix my hip".
+// Words that reverse the words after them in their clause: "Surgery did not
+// fix my hip" is another video than "Surgery did fix my hip".
 const TITLE_NEGATION_WORDS = new Set(["not", "no", "never", "without", "nothing", "none", "nor"]);
-
-function titleWords(value: string): string[] {
-  return value.normalize("NFKC").toLowerCase().replace(/n['\u2019]t\b/gu, " not").split(/[^\p{L}\p{N}]+/u)
-    .filter((word) => word.length > 0);
-}
+// Where a negation's reach ends: punctuation, a spaced dash, or "but".
+const TITLE_CLAUSE_BREAK = /[.,;:!?|()\[\]{}\u2013\u2014]+|\s-\s|\bbut\b/u;
 
 /** A word without a plural, "-ing", "-ed" or final "e" ending, so "healed" and "healing" meet. */
 function titleStem(word: string): string {
@@ -836,36 +833,51 @@ function titleStem(word: string): string {
 }
 
 /**
+ * A title's identifying words in order (a word with a digit, or three or more
+ * letters and not filler), stemmed, each marked when a negation earlier in its
+ * clause governs it.
+ */
+function identifyingTitleWords(value: string): Array<{ stem: string; negated: boolean }> {
+  const words: Array<{ stem: string; negated: boolean }> = [];
+  const clauses = value.normalize("NFKC").toLowerCase().replace(/n['\u2019]t\b/gu, " not").split(TITLE_CLAUSE_BREAK);
+  for (const clause of clauses) {
+    let negated = false;
+    for (const word of clause.split(/[^\p{L}\p{N}]+/u)) {
+      if (TITLE_NEGATION_WORDS.has(word)) negated = true;
+      else if (/\p{N}/u.test(word) || (word.length >= 3 && !TITLE_FILLER_WORDS.has(word))) {
+        words.push({ stem: titleStem(word), negated });
+      }
+    }
+  }
+  return words;
+}
+
+/**
  * A declared title matches YouTube's when they are equal ignoring case,
- * spacing and punctuation, or when every identifying declared word (a
- * negation, a word with a digit, or three or more letters and not filler)
- * appears in YouTube's title, however it is ordered or extended, and YouTube's
- * title negates no declared word the declared title leaves unnegated. A
- * scout's paraphrase drops or reorders words; a word swapped for another ("How
- * I healed hip pain" against "How I healed back pain"), another number or a
- * reversed claim is another video, even on the same channel.
+ * spacing and punctuation, or when YouTube's title has every identifying
+ * declared word in the declared order, each governed by a negation in both
+ * titles or in neither. A scout's paraphrase drops or adds words; a swapped
+ * word ("How I healed hip pain" against "How I healed back pain"), another
+ * number, a reversed order ("Exercise beats surgery" against "Surgery beats
+ * exercise") or a moved negation ("No evidence TRT causes harm" against
+ * "Evidence TRT causes no harm") is another video, even on the same channel.
  */
 export function youtubeTitlesMatch(provider: string, declared: string): boolean {
   const declaredTitle = compactTitle(declared);
   if (declaredTitle.length === 0) return false;
   if (compactTitle(provider) === declaredTitle) return true;
-  const identifying = (words: string[]) => words
-    .filter((word) => TITLE_NEGATION_WORDS.has(word) || /\p{N}/u.test(word) ||
-      (word.length >= 3 && !TITLE_FILLER_WORDS.has(word)))
-    .map(titleStem);
-  const declaredAll = titleWords(declared);
-  const providerAll = titleWords(provider);
-  const declaredWords = identifying(declaredAll);
-  const providerWords = new Set(identifying(providerAll));
-  if (declaredWords.length === 0 || !declaredWords.every((word) => providerWords.has(word))) return false;
-  // A negation in YouTube's title that governs a declared word within the next
-  // three words ("Surgery never fixed my hip") reverses a title that lacks it;
-  // one in an added tail ("| No Nonsense Physio") does not.
-  const declaredStems = new Set(declaredWords);
-  const governing = providerAll.filter((word, index) => TITLE_NEGATION_WORDS.has(word) &&
-    providerAll.slice(index + 1, index + 4).some((next) => declaredStems.has(titleStem(next)) &&
-      !TITLE_NEGATION_WORDS.has(next))).length;
-  return governing <= declaredAll.filter((word) => TITLE_NEGATION_WORDS.has(word)).length;
+  const declaredWords = identifyingTitleWords(declared);
+  const providerWords = identifyingTitleWords(provider);
+  // Each declared word takes its first match after the previous one's, which
+  // finds an ordered match whenever there is one.
+  let next = 0;
+  for (const { stem, negated } of declaredWords) {
+    while (next < providerWords.length &&
+      (providerWords[next]!.stem !== stem || providerWords[next]!.negated !== negated)) next += 1;
+    if (next === providerWords.length) return false;
+    next += 1;
+  }
+  return declaredWords.length > 0;
 }
 
 /**

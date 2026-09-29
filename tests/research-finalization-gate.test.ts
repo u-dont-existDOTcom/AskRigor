@@ -614,6 +614,23 @@ describe("finalize_research gate", () => {
       principal_communities: communities,
       community_searches: [{ ...trtBoundary, url: "https://www.reddit.com/r/Testosterone/" }]
     }).next_steps).toContain("community_searches for r/trt gives a url outside r/trt; give the subreddit's own link.");
+    // Facebook, Telegram and Discord live on their own hosts too: an entry there links only there, and their links
+    // belong to them.
+    const chat = { community: "TRT men chat", queries: ["hgh"], access_boundary: "login_required" };
+    for (const [search, step] of [
+      [{ ...chat, platform: "facebook", url: "https://example.org/forum" },
+        "community_searches for TRT men chat is on Facebook but lists links elsewhere; give the Facebook links of the " +
+          "community and the posts you read."],
+      [{ ...chat, platform: "telegram", url: "https://discord.gg/trtmen" },
+        "community_searches for TRT men chat is on Telegram but lists links elsewhere; give the Telegram links of the " +
+          "community and the posts you read."],
+      [{ ...chat, platform: "forum", url: "https://m.facebook.com/groups/trtmen" },
+        "community_searches for TRT men chat lists Facebook links; record them under platform facebook."],
+      [{ ...chat, platform: "other", url: "https://discord.com/invite/trtmen" },
+        "community_searches for TRT men chat lists Discord links; record them under platform discord."]
+    ] as const) {
+      expect(gate({ principal_communities: communities, community_searches: [search] }).next_steps).toContain(step);
+    }
     // A search cannot both find nothing relevant and report the threads it read.
     expect(gate({
       principal_communities: communities, community_searches: [{ ...trt, access_boundary: "no_relevant_results" }]
