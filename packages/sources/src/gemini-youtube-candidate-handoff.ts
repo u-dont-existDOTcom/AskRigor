@@ -766,20 +766,25 @@ function comparableLabel(value: string): string {
   return value.normalize("NFC").replace(/\s+/gu, " ").trim();
 }
 
-// Fewer words than this are too generic to identify a video inside a longer title.
 const TITLE_MISMATCH_NOTE =
   "YouTube's title for this ID (provider_title) differs from the scout's (declared_title): the same video worded " +
   "differently, or another one. Audit it if YouTube's title shows it is the video meant or relevant anyway; " +
   "otherwise search the scout's title.";
 
+/**
+ * A title as the identity check compares it: without case, spacing or
+ * punctuation. Letters, digits and combining marks stay: in Thai, Hindi or
+ * Tamil a vowel sign or tone mark tells one word from another.
+ */
 function compactTitle(value: string): string {
-  return value.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  return value.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, "");
 }
 
 // What YouTube titles often add after the title itself: a " | Channel" or
-// " - subtitle" part, and trailing hashtags.
+// " - subtitle" part, and trailing hashtags. A hashtag has a letter in it, so
+// an episode number such as "#12" is part of the title.
 const TITLE_ADDITION_BREAK = /\s[|\u2013\u2014-]\s/u;
-const TRAILING_HASHTAGS = /(?:\s+#[\p{L}\p{N}_]+)+\s*$/u;
+const TRAILING_HASHTAGS = /(?:\s+#[\p{N}_]*\p{L}[\p{L}\p{M}\p{N}_]*)+\s*$/u;
 
 /**
  * Whether YouTube's title is the declared title: equal ignoring case, spacing

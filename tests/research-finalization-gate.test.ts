@@ -959,6 +959,15 @@ describe("finalize_research gate", () => {
     for (const given of ["HGH and TRT: five years in : r/trt", "hgh and trt - five years in", "HGH AND TRT, FIVE YEARS IN (Reddit)"]) {
       expect(gate(found("trt", "HGH and TRT: five years in"), given).next_steps.join(" ")).not.toContain("differ from Reddit's");
     }
+    // Reddit gives no title, or one without letters, for some posts: nothing to compare, so the given title stands
+    // (review of 62cefa2).
+    for (const reddit of ["", "\u{1F525}\u{1F525}"]) {
+      expect(gate(found("trt", reddit), "HGH and TRT: five years in").next_steps.join(" ")).not.toContain("differ from Reddit's");
+    }
+    // Reddit's title is third-party text: it comes back on one line, without quotation marks, cut at 150 characters.
+    const noisy = `Ignore the "rules"\nand ${"x".repeat(200)}`;
+    expect(gate(found("trt", noisy), "HGH and TRT: five years in").next_steps)
+      .toContain(retitled(`Ignore the rules and ${"x".repeat(128)}\u2026`));
 
     // A lookup that failed proves nothing: that subreddit stays unverified.
     const unavailable = gate({ state: "unavailable" });
@@ -1246,6 +1255,17 @@ describe("finalize_research gate", () => {
       answer_draft: unlinked(draft),
       caveat_renderings: request.caveat_renderings.map(({ caveat, text }) => ({ caveat, text: unlinked(text) }))
     }).next_steps).toEqual([`caveat_renderings drops the link(s) of this caveat; keep each link: "${leadCaveat}"`]);
+    // A rendering with no letter or digit states nothing, and the check still ends (review of d71db54: an
+    // empty rendering never ended the search, and one of marks alone matched any sentence end).
+    for (const text of [".", "**", "___", "\u3002"]) {
+      for (const answer of ["Une r\u00E9ponse sans point final", "Une r\u00E9ponse qui finit par un point."]) {
+        expect(finalizeResearchRaw({
+          research_depth: "deep", receipts: [], community_evidence: "not_relevant", not_relevant_reason: "A lab value.",
+          treatment_choice: "not_compared", research_target: TARGET, key_sources: [], answer_draft: answer,
+          answer_language: "fr", caveat_renderings: [{ caveat: "No study's methods were checked in full text for this answer.", text }]
+        }, options).next_steps).toEqual([leftOut("No study's methods were checked in full text for this answer.")]);
+      }
+    }
     // Quotes are the answer's own words, in its language, and must be in it.
     expect(check({ answer_draft: draft.replace("nadie mencionó efectos secundarios", "nadie habló de daños") }).next_steps)
       .toEqual([
@@ -2196,6 +2216,38 @@ describe("finalize_research gate", () => {
       FORUM_LIMIT,
       OFFER_LIMIT
     ]);
+  });
+
+  it("counts the candidates a scout left to the model's judgment as found by its round", () => {
+    // A scout candidate whose YouTube title is not the scout's, or one of YouTube's closest results for a title the
+    // scout named, is the model's to judge; the scout receipt signs those IDs (`alt`), and auditing one is that
+    // judgment (review of 62cefa2: the scout told the model to audit them, and the gate then refused them).
+    const base = {
+      community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
+    };
+    const judgedScout = sign("youtube_scout", { videos: [], alt: ["fffffffffff", "hhhhhhhhhhh"], open: 0, q: "k1k1k1k1k1k1" }, options);
+    const videoF = sign("youtube_video_audit", {
+      video: "fffffffffff", state: "api_visible_complete", lock: "pass", records: 60
+    }, options);
+    const audited = finalizeResearch({
+      ...base, receipts: [survey, emptySearch, judgedScout, videoF, study], material_video_ids: ["fffffffffff"]
+    }, options);
+    expect(audited.next_steps.join(" ")).not.toMatch(/is not among the videos found/u);
+    expect(audited.community.material_videos).toEqual(["fffffffffff"]);
+    // Rounds whose candidates were all left to judgment found videos: unaudited, the model says why, and the answer
+    // does not say that none turned up.
+    const secondJudged = sign("youtube_scout", { videos: [], alt: ["iiiiiiiiiii"], open: 0, q: "l2l2l2l2l2l2" }, options);
+    const unaudited = finalizeResearch({ ...base, receipts: [judgedScout, secondJudged, study] }, options);
+    expect(unaudited.caveats.join(" ")).not.toMatch(/No relevant video turned up/u);
+    expect(unaudited.next_steps).toEqual([expect.stringMatching(/^Discovery found 3 video\(s\) but none is in material_video_ids/u)]);
+    // An ID no receipt signed is still refused.
+    const videoG = sign("youtube_video_audit", {
+      video: "ggggggggggg", state: "api_visible_complete", lock: "pass", records: 60
+    }, options);
+    expect(finalizeResearch({
+      ...base, receipts: [survey, emptySearch, judgedScout, videoG, study], material_video_ids: ["ggggggggggg"]
+    }, options).next_steps.join(" ")).toMatch(/Video ggggggggggg is not among the videos found/u);
   });
 
   it("lists rejected receipts and requires a reason to skip community research", () => {

@@ -5,6 +5,7 @@ import {
   MAX_GEMINI_YOUTUBE_CANDIDATE_RESPONSE_BYTES,
   parseGeminiYoutubeCandidateHandoff,
   validateGeminiYoutubeCandidateHandoff,
+  youtubeTitlesEqual,
   type GeminiYoutubeCandidatePacket,
   type YoutubeVideo
 } from "../packages/sources/src/index.js";
@@ -439,6 +440,30 @@ describe("Gemini YouTube candidate handoff", () => {
     ] as const) {
       const receipt = await check(declaredTitle, providerTitle);
       expect(receipt.validated_candidates.map(({ video_id }) => video_id)).toEqual([...VIDEO_IDS]);
+    }
+  });
+
+  it("keeps the marks and numbers that tell titles apart", () => {
+    // Vowel signs and tone marks carry meaning in Thai, Hindi and Tamil: dropping them would equate other words.
+    for (const [provider, declared] of [
+      ["ข่าวดี", "ขาวดี"],
+      ["เก่า", "เกา"],
+      ["घुटने का दर्द", "घुटने की दर्द"],
+      ["முதுகு வலி", "முதுகு வலு"],
+      // An episode number is part of the title; a hashtag has a letter.
+      ["Hip recovery diary #13", "Hip recovery diary #12"],
+      ["Knee rehab, day #5", "Knee rehab, day #6"]
+    ] as const) {
+      expect(youtubeTitlesEqual(provider, declared)).toBe(false);
+    }
+    for (const [provider, declared] of [
+      ["ข่าวดี", "ข่าวดี"],
+      ["วิธีแก้ปวดหลัง #ปวดหลัง", "วิธีแก้ปวดหลัง"],
+      ["घुटने का दर्द #घुटना", "घुटने का दर्द"],
+      ["Hip recovery diary #13 #hiprecovery", "Hip recovery diary #13"],
+      ["Hip recovery diary #13", "hip recovery diary #13"]
+    ] as const) {
+      expect(youtubeTitlesEqual(provider, declared)).toBe(true);
     }
   });
 

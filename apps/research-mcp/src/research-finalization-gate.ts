@@ -316,7 +316,7 @@ export function finalizeResearch(
         index: receipt.index,
         reason: text(claims.target) === "" ? "no_research_target" : "other_research_target"
       });
-      for (const video of list(claims.videos)) offTargetVideos.add(video);
+      for (const video of [...list(claims.videos), ...list(claims.alt)]) offTargetVideos.add(video);
       continue;
     }
     if (kind === "youtube_survey") {
@@ -325,7 +325,11 @@ export function finalizeResearch(
     }
     if (DISCOVERY_KINDS.has(kind)) {
       rounds.push(receipt);
-      for (const video of list(claims.videos)) discovered.add(video);
+      // A scout round also signs the IDs it left to the model's judgment (`alt`):
+      // candidates whose YouTube title differs from the scout's, and YouTube's
+      // closest results for a title it could not find. Auditing one is that
+      // judgment, so they count as found by the round.
+      for (const video of [...list(claims.videos), ...list(claims.alt)]) discovered.add(video);
     }
     if (kind === "youtube_video_audit") {
       // Comments the audit's final view returned; receipts from before `shown`
@@ -1114,6 +1118,8 @@ function caveatText(text: string): string {
  */
 function statesCaveat(blocks: readonly string[], caveat: string): boolean {
   const core = caveatForm(caveat).replace(/\p{STerm}$/u, "");
+  // A rendering of marks alone states nothing, and an empty one would match everywhere.
+  if (!/[\p{L}\p{N}]/u.test(core)) return false;
   return blocks.some((block) => {
     for (let at = block.indexOf(core); at >= 0; at = block.indexOf(core, at + 1)) {
       const before = block.slice(Math.max(0, at - 2), at);
@@ -1312,9 +1318,21 @@ function redditPostOf(url: string): string | undefined {
  */
 function sameTitle(given: string, actual: string): boolean {
   const compact = (value: string) => value.normalize("NFKC").toLowerCase().replace(/\br\/[\w-]+/gu, " ")
-    .replace(/\breddit\b/gu, " ").replace(/[^\p{L}\p{N}]+/gu, "");
+    .replace(/\breddit\b/gu, " ").replace(/[^\p{L}\p{M}\p{N}]+/gu, "");
   const left = compact(given);
-  return left.length === 0 || left === compact(actual);
+  const right = compact(actual);
+  // Reddit gives no title, or one without letters, for some posts: nothing to compare.
+  return left.length === 0 || right.length === 0 || left === right;
+}
+
+/**
+ * A title from Reddit as next steps quote it: third-party text, so one line
+ * without control characters or quotation marks, and at most 150 characters.
+ */
+function quotedTitle(title: string): string {
+  const line = title.replace(/[\p{Cc}\p{Cf}"\u201C\u201D]+/gu, " ").replace(/\s+/gu, " ").trim();
+  const characters = [...line];
+  return characters.length > 150 ? `${characters.slice(0, 149).join("")}\u2026` : line;
 }
 
 /** The subreddit a reddit.com link is in, its front page or any page under it; undefined elsewhere. */
@@ -1348,7 +1366,9 @@ type CommunitySearch = NonNullable<FinalizeResearchInput["community_searches"]>[
  * YouTube entries cannot stand for independent communities.
  */
 function communityKey(name: string, platform: string): string {
-  return platform === "youtube" ? "youtube" : `${platform}:${name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "")}`;
+  return platform === "youtube"
+    ? "youtube"
+    : `${platform}:${name.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, "")}`;
 }
 
 /** A community read beyond YouTube, as the answer check needs it. */
@@ -1505,7 +1525,7 @@ function communityCoverage(
           .map(({ url }) => url);
         const retitled = checks.flatMap(({ url, title, check }) =>
           check?.state === "found" && title !== undefined && !sameTitle(title, check.title)
-            ? [`${url} is "${check.title}" on Reddit`]
+            ? [`${url} is "${quotedTitle(check.title)}" on Reddit`]
             : []);
         if (absent.length > 0 || elsewhere.length > 0 || retitled.length > 0) {
           if (absent.length > 0) {
@@ -1785,7 +1805,7 @@ function discoverySaturation(
   const firstFound = new Map<string, number>();
   for (const round of rounds) {
     const order = receiptOrder(round);
-    for (const video of list(round.claims.videos)) {
+    for (const video of [...list(round.claims.videos), ...list(round.claims.alt)]) {
       const known = firstFound.get(video);
       if (known === undefined || order < known) firstFound.set(video, order);
     }

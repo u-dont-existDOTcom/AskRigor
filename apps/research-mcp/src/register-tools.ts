@@ -1617,8 +1617,10 @@ function defineResearchOperations(
       // An ID whose YouTube title is not the scout's is rejected with both
       // titles, for the model to judge: it is not searched again, since the ID
       // may well be the video, worded differently.
-      const retitled = validation.rejected_candidates
-        .filter(({ rejection_reasons: reasons }) => reasons.includes("declared_title_mismatch")).length;
+      const retitledIds = validation.rejected_candidates
+        .filter(({ rejection_reasons: reasons }) => reasons.includes("declared_title_mismatch"))
+        .map(({ video_id }) => video_id);
+      const retitled = retitledIds.length;
       const confirmed = validation.validated_candidates;
       const titleLeads = [
         ...("title_only_candidates" in packet ? packet.title_only_candidates ?? [] : []),
@@ -1653,6 +1655,14 @@ function defineResearchOperations(
       // match is settled).
       const found = titleLookup?.found ?? [];
       const unresolvedTitles = titleLookup?.unresolved ?? [];
+      const videos = [...confirmed.map(({ video_id }) => video_id), ...found.map(({ video_id }) => video_id)];
+      // IDs left to the model's judgment: retitled candidates and YouTube's
+      // closest results for titles it could not find. The receipt signs them,
+      // so a video the model audits from them counts as found by this round.
+      const judged = [...new Set([
+        ...retitledIds,
+        ...unresolvedTitles.flatMap(({ closest }) => (closest ?? []).map(({ video_id }) => video_id))
+      ])].filter((video) => !videos.includes(video));
       return withResearchReceipt(successfulToolResult(
         `Gemini scout validated ${confirmed.length} video(s)` +
           (found.length === 0 ? "" : ` and found ${found.length} more by exact title (title_lookup.found)`) +
@@ -1668,10 +1678,8 @@ function defineResearchOperations(
               "search a promising title with search_youtube (100 quota units each)."),
         output
       ), researchReceipt("youtube_scout", {
-        videos: [
-          ...confirmed.map(({ video_id }) => video_id),
-          ...found.map(({ video_id }) => video_id)
-        ],
+        videos,
+        ...(judged.length === 0 ? {} : { alt: judged }),
         open: validation.unresolved_candidates.length +
           unresolvedTitles.filter(({ reason }) => reason !== "no_matching_video").length,
         q: discoveryQueryDigest([target.research_target, ...leads]),

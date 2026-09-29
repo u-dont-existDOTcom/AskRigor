@@ -80,6 +80,28 @@ describe("server-owned research candidate frontier", () => {
     );
   });
 
+  it("ends the scout step when every candidate is a real video under a title other than the scout's", () => {
+    // Rerunning the scout words its titles its own way again, and this route has no step where a model judges a
+    // reworded title, so native discovery goes on (the MCP tool hands such candidates to the model instead).
+    const rejected = rejectedResearchReceipt();
+    const reworded = externalDiscovery({
+      ...rejected,
+      rejected_candidates: rejected.rejected_candidates.map((candidate) => ({
+        ...candidate,
+        metadata_access_status: "api_visible_complete",
+        rejection_reasons: ["declared_title_mismatch", "declared_channel_mismatch"],
+        provider_title: "Another title",
+        declared_title: "The scout's title"
+      }))
+    });
+    expect(reworded.external_scout).toMatchObject({
+      status: "BLOCKED_TERMINAL",
+      validated_candidate_video_ids: [],
+      terminally_rejected_video_ids: RESEARCH_FIXTURE_VIDEO_IDS
+    });
+    expect(() => ingestNativeYoutubeSurvey(reworded, nativeSurvey())).not.toThrow();
+  });
+
   it("admits only independently validated external identities with exact provenance", () => {
     expect(initialResearchCandidateDiscoveryState().candidates).toEqual([]);
 

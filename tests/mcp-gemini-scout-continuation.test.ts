@@ -231,7 +231,8 @@ describe("MCP Gemini scout continuation", () => {
     const output = done.structuredContent as { research_receipt: string };
     expect(verifyResearchReceipt(output.research_receipt, { secret: SECRET })).toMatchObject({
       ok: true,
-      claims: { videos: [], open: "0", rej: ["dQw4w9WgXcQ"] }
+      // The receipt also signs it as left to the model's judgment, so auditing it counts as found by this round.
+      claims: { videos: [], open: "0", rej: ["dQw4w9WgXcQ"], alt: ["dQw4w9WgXcQ"] }
     });
     expect((done.content as Array<{ text: string }>)[0]!.text).toContain(
       "1 more had a YouTube title other than the scout's (validation.rejected_candidates gives both): audit one if " +

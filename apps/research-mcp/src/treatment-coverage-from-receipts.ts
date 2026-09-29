@@ -319,10 +319,18 @@ export function assessTreatmentCoverageFromReceipts(
     }
   }
 
-  // Candidates: every video this target's discovery found.
+  // Candidates: every video this target's discovery found. A scout round also
+  // signs the IDs it left to the model's judgment (`alt`: candidates whose
+  // YouTube title is not the scout's, and YouTube's closest results for a
+  // title it could not find); one this check classifies is that judgment made,
+  // so it counts as found by the round.
+  const roundVideos = (round: Receipt): string[] => unique([
+    ...list(round.claims.videos),
+    ...list(round.claims.alt).filter((videoId) => classification.has(videoId))
+  ]);
   const roundsByVideo = new Map<string, Receipt[]>();
   for (const round of rounds) {
-    for (const videoId of unique(list(round.claims.videos))) {
+    for (const videoId of roundVideos(round)) {
       const found = roundsByVideo.get(videoId) ?? [];
       found.push(round);
       roundsByVideo.set(videoId, found);
@@ -371,7 +379,7 @@ export function assessTreatmentCoverageFromReceipts(
   // Discovery batches, oldest first. Among rounds the signed order cannot
   // separate, one that found a selected or material video goes last, so a tie
   // can only delay saturation.
-  const foundMaterial = (round: Receipt): boolean => list(round.claims.videos).some((videoId) => {
+  const foundMaterial = (round: Receipt): boolean => roundVideos(round).some((videoId) => {
     const candidate = candidateById.get(videoId);
     return candidate !== undefined &&
       (candidate.selection_status === "selected" || candidate.materiality !== "not_material");
@@ -383,7 +391,7 @@ export function assessTreatmentCoverageFromReceipts(
   );
   const firstRoundOfFingerprint = new Map<string, number>();
   for (const round of orderedRounds) {
-    for (const videoId of list(round.claims.videos)) {
+    for (const videoId of roundVideos(round)) {
       const fingerprintId = candidateById.get(videoId)?.fingerprint_id;
       if (fingerprintId !== undefined && fingerprintById.has(fingerprintId) &&
         !firstRoundOfFingerprint.has(fingerprintId)) {
@@ -397,7 +405,7 @@ export function assessTreatmentCoverageFromReceipts(
   // A later page's receipt signs the page it read, which settles the page before it.
   const read = readPages(rounds);
   const batches: Ledger["discovery_batches"] = orderedRounds.map((round) => {
-    const videos = unique(list(round.claims.videos));
+    const videos = roundVideos(round);
     const classIds = unique([
       ...(roundMapping.get(round.index)?.treatment_class_ids ?? []),
       ...videos.map((videoId) => candidateById.get(videoId)!.treatment_class_id)
@@ -495,7 +503,7 @@ export function assessTreatmentCoverageFromReceipts(
 
   // One scout frontier across this target's scout rounds.
   const scoutRounds = rounds.filter(({ kind }) => kind === "youtube_scout");
-  const validated = unique(scoutRounds.flatMap(({ claims }) => list(claims.videos)));
+  const validated = unique(scoutRounds.flatMap(roundVideos));
   const rejectedIds = unique(scoutRounds.flatMap(({ claims }) => list(claims.rej)))
     .filter((videoId) => !validated.includes(videoId));
   const unresolvedIds = unique(scoutRounds.flatMap(({ claims }) => list(claims.unres)))

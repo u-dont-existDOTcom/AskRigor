@@ -194,6 +194,22 @@ describe("treatment coverage from signed receipts", () => {
     expect(result.blockers.join(" ")).toContain("Candidate video HHHHHHHHHHH was screened but not selected: Discovered but not screened");
   });
 
+  it("counts a candidate the scout left to the model's judgment once the check screens it", () => {
+    // The scout signs candidates whose YouTube title is not its own, and YouTube's closest results for titles it could
+    // not find (`alt`). One the check selects or screens is found by that round; the rest are not candidates.
+    const judgedScout = discovery("youtube_scout", {
+      videos: ["AAAAAAAAAAA", "BBBBBBBBBBB", "CCCCCCCCCCC", "FFFFFFFFFFF"], alt: ["XXXXXXXXXXX", "YYYYYYYYYYY"], open: 0,
+      q: discoveryQueryDigest([TARGET]), unres: [], rej: ["XXXXXXXXXXX"]
+    }, 1_000);
+    const screenedX = { not_material_videos: [{ treatment_class_id: "exercise", video_ids: ["DDDDDDDDDDD", "EEEEEEEEEEE", "XXXXXXXXXXX"] }] };
+    const result = assessTreatmentCoverageFromReceipts(input({ receipts: [judgedScout, ...receipts.slice(1)], ...screenedX }), { secret: SECRET, now });
+    expect(result.receipt_derivation).toMatchObject({ candidate_videos: 7, unscreened_videos: [], input_problems: [] });
+    expect(result.blockers).toEqual([]);
+    // Without the scout's signature, the same screening names a video no discovery found.
+    expect(assessTreatmentCoverageFromReceipts(input(screenedX), { secret: SECRET, now }).receipt_derivation.input_problems)
+      .toEqual([expect.stringContaining("Video XXXXXXXXXXX is not among the videos this research target's discovery receipts found")]);
+  });
+
   it("checks specific-program queries against the signed digest", () => {
     const result = assessTreatmentCoverageFromReceipts(input({
       rounds: [

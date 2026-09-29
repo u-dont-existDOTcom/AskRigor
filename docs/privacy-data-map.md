@@ -731,7 +731,9 @@ pending-proposal stores have their own strict contracts and authority boundaries
   `assess_treatment_landscape_coverage` can build its ledger from receipts, a
   per-video audit receipt also carries the audited video's public channel ID
   and the audit's counts and completion flags, a scout receipt the unresolved
-  and rejected candidate video IDs, a search receipt its access status, and a
+  and rejected candidate video IDs and the public IDs it left to the model's
+  judgment (reworded titles and YouTube's closest results for a title it could
+  not find), a search receipt its access status, and a
   one-call community audit receipt the IDs of the videos whose comments its
   response returned, and a per-video audit receipt how many comments its final
   view returned. Survey, search and one-call community audit receipts also
@@ -763,15 +765,18 @@ pending-proposal stores have their own strict contracts and authority boundaries
   those pages. For each Reddit thread link it asks Reddit's public embed
   endpoint (`https://www.reddit.com/oembed`) whether the thread exists and
   under which subreddit and title, sending only the link; it compares the
-  answer, keeps nothing, and discards the poster name the endpoint returns. Its `answer_draft`, the
+  answer, keeps nothing, and discards the poster name the endpoint returns.
+  When a thread's public title there differs from the one the model gave, the
+  next step quotes Reddit's title (one line, at most 150 characters) so the
+  model can check the link. Its `answer_draft`, the
   answer the model is about to give, can contain whatever the user shared; it
   is read in memory for that call only, to find internal labels, bare video
   IDs, a pasted long prompt, the sentences the model copies from it for each
   community lane (`answer_quotes`, inside `community_findings` and each
   `community_searches` entry) and the caveats, which an answer not in English
   gives in its own language (`caveat_renderings`, with the `answer_language`
-  tag). None of these is stored, logged or returned: the result names only the
-  labels and public video IDs it found, and quotes only the gate's own caveats.
+  tag). None of these is stored, logged or returned: of the answer, the result
+  names only the labels and public video IDs it found.
 - The MCP `scout_gemini_youtube_candidates` tool runs the same de-identified,
   population-level scout as the controlled Action route, applying the same
   screen: a target with first-person words, contact details, links, keys or

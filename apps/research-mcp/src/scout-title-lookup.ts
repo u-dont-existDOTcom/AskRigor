@@ -73,7 +73,7 @@ export async function lookUpScoutTitles(
   // an exact repeat of a title, ignoring case, spacing and punctuation, shares
   // a search. Each lead is still matched with its own channel, and a lead
   // whose title is past the search limit comes back unresolved.
-  const compact = (value: string) => value.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  const compact = (value: string) => value.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, "");
   const identity = (lead: ScoutTitleLead) => `${compact(lead.title)}\n${compact(lead.channel)}`;
   const unique = leads.filter((lead, index) =>
     leads.findIndex((other) => identity(other) === identity(lead)) === index
