@@ -862,9 +862,12 @@ const PASTED_FORUM_TEMPLATE = /strict-core cohort and separately labeled adjacen
 // superior to training in the trial") out, and a guideline's first-line or
 // preferred treatment, or a study's own ranking, can still be reported. An
 // adverb does not soften a ranking ("surgery is probably the best option"),
-// but one that denies it does ("is rarely the best option"). No word list
-// catches every paraphrase: the caveat the gate writes tells the reader that a
-// first pass does not rank the options, and this catches the plain verdicts.
+// but one that denies it does ("is rarely the best option"). This is a
+// backstop for plain verdicts, including a recommendation of one option over
+// another ("I recommend surgery over exercise", "Surgery beats exercise"). No
+// word list catches every paraphrase, and judging meaning would take a model
+// call, which the zero-spend policy rules out; the caveat the gate writes tells
+// the reader that a first pass does not rank the options.
 const RANKING_ADVERB = "(?:(?!(?:hardly|rarely|scarcely|barely|unlikely)\\b)\\p{L}+ly\\s+|still\\s+|often\\s+|far\\s+|much\\s+)?";
 const RANKING = new RegExp([
   `\\b(?:is|are|would be|will be|remains?|comes? out as)\\s+${RANKING_ADVERB}(?:the|your|our|my)\\s+` +
@@ -876,7 +879,10 @@ const RANKING = new RegExp([
   "\\bbest\\s+overall\\b",
   `\\b(?:is|are|would be|will be)\\s+${RANKING_ADVERB}(?:superior|preferable)\\s+to\\b`,
   `\\b(?:is|are|would be|will be)\\s+${RANKING_ADVERB}better\\s+than\\s+(?:all|any|every)(?:\\s+(?:of\\s+)?the)?\\s+others?\\b`,
-  "\\bshould\\s+be\\s+(?:the|your|our|my)\\s+(?:first|top|preferred|main)\\s+(?:choice|pick|option|treatment)s?\\b"
+  "\\bshould\\s+be\\s+(?:the|your|our|my)\\s+(?:first|top|preferred|main)\\s+(?:choice|pick|option|treatment)s?\\b",
+  "(?:\\b(?:I|we)(?:\\s+would|['\\u2019]d)?\\s+(?:strongly\\s+)?|^[^\\p{L}]*)(?:recommend|suggest|prefer|favou?r|choose|pick|" +
+    "go\\s+with|opt\\s+for)\\s+(?:[\\p{L}\\p{N}'\\u2019-]+\\s+){1,4}?over\\b",
+  "\\b(?:beats|outperforms|trumps)\\b"
 ].join("|"), "giu");
 // A ranking phrase the answer does not assert: one denied right before it
 // ("no clear winner", "none of these is the best option"); the predicate of
@@ -1270,7 +1276,8 @@ function redditPostOf(url: string): string | undefined {
   }
 }
 
-const NEGATION = /\b(?:no|not|never|none|nothing|nor|without|cannot)\b|n['\u2019]t\b/gu;
+const NEGATION_WORDS = new Set(["no", "not", "never", "none", "nothing", "nor", "without", "cannot"]);
+const ELLIPSIS_END = /(?:\.\.\.|\u2026)[\s"'\u201d\u2019)\]]*$/u;
 // Words that say little about which thread a title names.
 const TITLE_FILLER = new Set([
   "the", "and", "for", "with", "from", "about", "after", "any", "anyone", "anybody", "someone", "you", "your",
@@ -1280,35 +1287,30 @@ const TITLE_FILLER = new Set([
 ]);
 
 /**
- * A title as the model gave it matches Reddit's when it differs only in case,
- * punctuation, a subreddit or "Reddit" tag, or a cut-off end (a whole-word part
- * with at least three identifying words, or one ending in an ellipsis); when
- * both have the same identifying words; or when three or more identifying
- * words are shared and at most one in three differs. One shared topical word
- * ("TRT advice" against "TRT disaster") is not a match, nor is a title that
- * gains or loses a negation ("TRT is safe" against "TRT is not safe").
+ * A title as the model gave it matches Reddit's when their words, in order,
+ * are the same once case, punctuation, "&", a subreddit or "Reddit" tag and an
+ * end cut off with an ellipsis are set aside (a cut title must begin Reddit's),
+ * or when one is a whole-word run inside the other with at least three
+ * identifying words and the same negations. Word order keeps "No evidence TRT
+ * causes harm" from matching "Evidence TRT causes no harm", and one shared
+ * topical word ("TRT advice" against "TRT disaster") never matches.
  */
 function sameTitle(given: string, actual: string): boolean {
-  const words = (value: string) => (value.toLowerCase().replace(/\br\/[\w-]+/gu, " ").match(/[\p{L}\p{N}]+/gu) ?? [])
-    .filter((word) => word !== "reddit");
+  const words = (value: string) => (value.toLowerCase().replace(/n['\u2019]t\b/gu, " not").replace(/&/gu, " and ")
+    .replace(/\br\/[\w-]+/gu, " ").match(/[\p{L}\p{N}]+/gu) ?? []).filter((word) => word !== "reddit");
   const left = words(given);
   const right = words(actual);
   // An ellipsis may cut the last word short.
-  if (/(?:\.\.\.|\u2026)[\s"'\u201d\u2019)\]]*$/u.test(given)) left.pop();
+  const cut = ELLIPSIS_END.test(given);
+  if (cut) left.pop();
   if (left.length === 0 || right.length === 0) return true;
-  const negations = (value: string) => value.toLowerCase().match(NEGATION)?.length ?? 0;
-  if (negations(given) !== negations(actual)) return false;
-  const identifying = (list: readonly string[]) =>
-    new Set(list.filter((word) => /\p{N}/u.test(word) || (word.length >= 3 && !TITLE_FILLER.has(word))));
-  const [a, b] = [identifying(left), identifying(right)];
-  const [shorter, longer] = left.length <= right.length ? [left, right] : [right, left];
-  if (` ${longer.join(" ")} `.includes(` ${shorter.join(" ")} `) &&
-    (shorter.length === longer.length || identifying(shorter).size >= 3)) {
-    return true;
-  }
-  const shared = [...a].filter((word) => b.has(word)).length;
-  const differing = a.size + b.size - 2 * shared;
-  return (differing === 0 && shared > 0) || (shared >= 3 && differing <= Math.max(1, Math.floor(shared / 3)));
+  const phrase = (list: readonly string[]) => ` ${list.join(" ")} `;
+  if (!cut && phrase(left) === phrase(right)) return true;
+  const [shorter, longer] = cut || left.length <= right.length ? [left, right] : [right, left];
+  const inside = cut ? phrase(longer).startsWith(phrase(shorter)) : phrase(longer).includes(phrase(shorter));
+  const identifying = new Set(shorter.filter((word) => /\p{N}/u.test(word) || (word.length >= 3 && !TITLE_FILLER.has(word))));
+  const negations = (list: readonly string[]) => list.filter((word) => NEGATION_WORDS.has(word)).length;
+  return inside && identifying.size >= 3 && (cut || negations(shorter) === negations(longer));
 }
 
 /** The subreddit a full reddit.com thread link is in; undefined for short links and other pages. */
@@ -1483,6 +1485,13 @@ function communityCoverage(
       out.nextSteps.push(
         `community_searches for ${name} lists no thread read: add the threads you read, or the access_boundary ` +
           "that stopped the search."
+      );
+      continue;
+    }
+    if (search.access_boundary === "no_relevant_results" && search.threads_read.length > 0) {
+      out.nextSteps.push(
+        `community_searches for ${name} gives both threads read and access_boundary no_relevant_results; keep one: ` +
+          "the threads and what they showed, or the boundary if nothing relevant turned up."
       );
       continue;
     }

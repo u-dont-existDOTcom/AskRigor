@@ -342,6 +342,8 @@ describe("finalize_research gate", () => {
       "Is there a clear winner?",
       "Surgery is rarely the best option before a trial of exercise.",
       "In the trial closest to you, surgery was superior to training at 6 months.",
+      "In that trial, surgery outperformed training at six months.",
+      "Guidelines recommend exercise over injections for most people.",
       "Replacement gave larger gains than training, but it is unclear whether surgery is superior to exercise for you.",
       "Guidelines call joint replacement the preferred treatment at the end stage.",
       "In a network meta-analysis, exercise ranked highest for pain."
@@ -362,7 +364,10 @@ describe("finalize_research gate", () => {
       ["Surgery is the best option, right?", "is the best option"],
       ["Surgery is superior to exercise.", "is superior to"],
       ["Exercise should be the first choice.", "should be the first choice"],
-      ["Surgery is better than any other option.", "is better than any other"]
+      ["Surgery is better than any other option.", "is better than any other"],
+      ["I recommend surgery over exercise.", "I recommend surgery over"],
+      ["Choose exercise over injections for now.", "Choose exercise over"],
+      ["Surgery beats exercise.", "beats"]
     ] as const) {
       expect(draftWith(firstPass, sentence)).toEqual([ranks(phrase, "this first pass allows no final ranking")]);
     }
@@ -524,6 +529,13 @@ describe("finalize_research gate", () => {
     const bounded = gate({ principal_communities: facebook, community_searches: [gated] });
     expect(bounded.status).toBe("ready_with_limits");
     expect(bounded.caveats).toContain("TRT Facebook group needs a login to read, so reports there are not included.");
+    // A search cannot both find nothing relevant and report the threads it read.
+    expect(gate({
+      principal_communities: communities, community_searches: [{ ...trt, access_boundary: "no_relevant_results" }]
+    }).next_steps).toContain(
+      "community_searches for r/trt gives both threads read and access_boundary no_relevant_results; keep one: the " +
+        "threads and what they showed, or the boundary if nothing relevant turned up."
+    );
 
     // Two YouTube entries are one community: YouTube alone needs a stated reason.
     const twoYoutube = [{ name: "YouTube", platform: "youtube" }, { name: "YouTube TRT channels", platform: "youtube" }];
@@ -777,6 +789,8 @@ describe("finalize_research gate", () => {
     // A title that gains or loses a negation names another thread.
     expect(gate(found("trt", "TRT is not safe for older men"), "TRT is safe for older men").next_steps).toContain(retitled);
     expect(gate(found("trt", "TRT is not safe for older men"), "Safe for older men").next_steps).toContain(retitled);
+    // Word order counts: the same words and negations in another order name another thread.
+    expect(gate(found("trt", "Evidence TRT causes no harm"), "No evidence TRT causes harm").next_steps).toContain(retitled);
     for (const given of ["HGH and TRT: five ye\u2026", "HGH and TRT: five years in : r/trt", "hgh & trt - five years in"]) {
       expect(gate(found("trt", "HGH and TRT: five years in"), given).next_steps).not.toContain(retitled);
     }
