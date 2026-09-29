@@ -1280,16 +1280,17 @@ function defineResearchOperations(
       // The Custom GPT Action bounds the full audit itself.
       if (actionCall) return youtubeToolResult(summary, result);
       const complete = result.receipt.completion_state !== "incomplete";
-      // `shown` is how many comments the final view returns: findings are
-      // needed only for comments the model received.
-      const receiptFor = (shown: number) => !complete
+      // What the final view returns: findings are needed only for comments the
+      // model received, and the coverage check reads the audit's depth from
+      // these counts, so they are the view's, not the untrimmed audit's.
+      const receiptFor = (returned: { shown: number; ret: number; rtop: number; rrep: number }) => !complete
         ? undefined
         : researchReceipt("youtube_video_audit", {
             video: result.video_id,
             state: result.receipt.completion_state,
             lock: result.receipt.synthesis_lock,
             records: result.records_retrieved_cumulative,
-            shown,
+            shown: returned.shown,
             // The audit's depth, so the coverage check needs no copy of it.
             ch: result.channel_id ?? undefined,
             ms: result.metadata_access_status,
@@ -1298,9 +1299,9 @@ function defineResearchOperations(
             prc: result.provider_reported_comments,
             top: result.top_level_comments_retrieved_cumulative,
             rep: result.replies_retrieved_cumulative,
-            ret: result.records_returned_for_analysis,
-            rtop: result.top_level_records_returned_for_analysis,
-            rrep: result.reply_records_returned_for_analysis,
+            ret: returned.ret,
+            rtop: returned.rtop,
+            rrep: returned.rrep,
             mm: result.reply_count_mismatches.length,
             cr: result.continuation_recommended ? 1 : 0,
             f: result.receipt.chain_started_at_first_page ? 1 : 0,
@@ -1315,7 +1316,13 @@ function defineResearchOperations(
           // Room for the longest text and receipt this result can carry.
           MCP_YOUTUBE_AUDIT_MAX_BYTES - reservedResultBytes(
             complete ? `${summary} ${MCP_COMMENT_FINDINGS_HANDOFF} ${MCP_VIDEO_COMMENTS_NOT_SHOWN}` : summary,
-            receiptFor(result.records_returned_for_analysis)
+            // The untrimmed counts are never smaller, so they reserve enough room.
+            receiptFor({
+              shown: result.records_returned_for_analysis,
+              ret: result.records_returned_for_analysis,
+              rtop: result.top_level_records_returned_for_analysis,
+              rrep: result.reply_records_returned_for_analysis
+            })
           ),
           MCP_BOUNDED_SAMPLE_LIMITATION
         );
@@ -1339,7 +1346,12 @@ function defineResearchOperations(
         : shown > 0
           ? `${summary} ${MCP_COMMENT_FINDINGS_HANDOFF}`
           : result.records_retrieved_cumulative > 0 ? `${summary} ${MCP_VIDEO_COMMENTS_NOT_SHOWN}` : summary;
-      return withResearchReceipt(youtubeToolResult(text, view), receiptFor(shown));
+      return withResearchReceipt(youtubeToolResult(text, view), receiptFor({
+        shown,
+        ret: view.records_returned_for_analysis,
+        rtop: view.top_level_records_returned_for_analysis,
+        rrep: view.reply_records_returned_for_analysis
+      }));
     }
   );
 

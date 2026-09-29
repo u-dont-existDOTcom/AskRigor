@@ -633,7 +633,10 @@ describe("AskRigor MCP tools", () => {
           "view, so none was returned; say in the answer that this video's comments could not be shown."
       });
       expect(verifyResearchReceipt(view.research_receipt, { secret: "mcp-continuation-secret-value-32-bytes" }))
-        .toMatchObject({ ok: true, kind: "youtube_video_audit", claims: { records: "1", shown: "0" } });
+        // The receipt signs what the view returned, not the untrimmed audit.
+        .toMatchObject({
+          ok: true, kind: "youtube_video_audit", claims: { records: "1", shown: "0", ret: "0", rtop: "0", rrep: "0" }
+        });
     } finally {
       restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
       restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
