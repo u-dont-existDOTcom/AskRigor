@@ -271,6 +271,13 @@ describe("canonical Reasoning Selection application", () => {
     expect(Array.from(project)).toHaveLength(7996);
     expect(project.split(/\s+/u).filter(Boolean)).toHaveLength(922);
     expect(sha256(project)).toBe(
+      "826c58e4b88c46b91e561287251114f24627fc0e71f35619bb45c47b4764b7d9",
+    );
+    // 2026-09-29: HRP 20.6.6 shortens the first pass from ~6 videos or ~4 rounds; nothing else changed.
+    expect(sha256(project.replace(
+      "~3 fully audited videos or ~2 rounds",
+      "~6 fully audited videos or ~4 rounds",
+    ))).toBe(
       "bfef8409e5ac27191988a2396e20331cd2a147a4ac2da7a22d443bff9f9e53aa",
     );
     // 2026-09-27: HRP 20.6.3 aligns the router with the first-pass rule of HRP 20.6.1.
@@ -278,7 +285,7 @@ describe("canonical Reasoning Selection application", () => {
       "Only terminal nonretryable boundaries permit bounded non-ranking output.",
       "A valid ≥8-candidate/≥6-program ledger blocks below 8 fully audited videos/6 programs. Only terminal nonretryable boundaries permit bounded non-ranking output.",
     ).replace(
-      "A first pass stops at saturation, ~6 fully audited videos or ~4 rounds, and ends with open leads. Deep research continues while `further_expansion_likely_to_improve_answer` would be `yes`; a complete answer reports only `no` or `blocked` with a reason.",
+      "A first pass stops at saturation, ~3 fully audited videos or ~2 rounds, and ends with open leads. Deep research continues while `further_expansion_likely_to_improve_answer` would be `yes`; a complete answer reports only `no` or `blocked` with a reason.",
       "Continue executable work if `further_expansion_likely_to_improve_answer` would be `yes`. A final answer may report only `no` or `blocked` with a reason.",
     );
     expect(sha256(priorFirstPassRule)).toBe(
@@ -333,10 +340,10 @@ describe("canonical Reasoning Selection application", () => {
     ]);
 
     expect(sha256(hrp)).toBe(
-      "ed9d6f91aa8ed720fb318b6cd03cc125881aad17e4a653119b6305432cc25cfe",
+      "0f406dad647ee9b489b9a59da360ea571d7f08ac185401673664357105e2b852",
     );
     expect(sha256(forum)).toBe(
-      "20bc49737b7844d95ea1ec373e5c9bdf7c62eb14d7c3c7bb8088b1f1c1489415",
+      "36640d420bc59d885c314b542cb9f3bae8525ee34844a5890e5b406866c71d20",
     );
   });
 });

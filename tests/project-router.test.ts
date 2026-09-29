@@ -150,7 +150,7 @@ Development-fitted evidence is not confirmation; missing access is neither negat
     expect(instructions).toContain("widen until `finalize_research` accepts");
     expect(instructions).toContain("needs no ceremonial user approval");
     expect(instructions).toContain(
-      "A first pass stops at saturation, ~6 fully audited videos or ~4 rounds, and ends with open leads."
+      "A first pass stops at saturation, ~3 fully audited videos or ~2 rounds, and ends with open leads."
     );
     expect(instructions).toContain(
       "Deep research continues while `further_expansion_likely_to_improve_answer` would be `yes`"

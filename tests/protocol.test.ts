@@ -19,7 +19,7 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "ed9d6f91aa8ed720fb318b6cd03cc125881aad17e4a653119b6305432cc25cfe";
+  "0f406dad647ee9b489b9a59da360ea571d7f08ac185401673664357105e2b852";
 const UNIVERSAL_SHA_256 =
   "5d9a9d76339ff1794b93bb1e932466f703c4a8c006a607b811f40b43ea703d36";
 
@@ -37,8 +37,8 @@ describe("canonical protocol loader", () => {
   it("derives the HRP manifest from its root attributes", async () => {
     await expect(getProtocolManifest("hrp")).resolves.toMatchObject({
       name: "HRP",
-      version: "20.6.5",
-      revisionDate: "2026-09-27"
+      version: "20.6.6",
+      revisionDate: "2026-09-29"
     });
   });
 
@@ -254,7 +254,7 @@ describe("canonical protocol loader", () => {
     };
 
     expect(text).toMatch(
-      /<Protocol name="HRP" version="20\.6\.5" revisionDate="2026-09-27"/
+      /<Protocol name="HRP" version="20\.6\.6" revisionDate="2026-09-29"/
     );
     for (const required of [
       '<Revision version="20.5.19" priority="Critical">',
@@ -298,16 +298,37 @@ describe("canonical protocol loader", () => {
       "authenticated opaque continuation or server-held state proving one contiguous chain"
     ]) expect(normalizedText).toContain(required);
 
-    // HRP 20.6.3: the final self-check and regression case follow the first-pass rule.
+    // HRP 20.6.3 and 20.6.6 (owner approval of 2026-09-29): the final self-check and regression case follow the
+    // shorter first pass.
     const selfCheck = normalizedText.match(/<Check id="FS188">[^<]*<\/Check>/u)?.[0] ?? "";
-    expect(selfCheck).toContain("Stop a first pass at the earliest of saturation, about six fully audited videos");
+    expect(selfCheck).toContain(
+      "Stop a first pass at the earliest of saturation, about three fully audited videos, or about two discovery rounds"
+    );
     expect(selfCheck).not.toContain("at least eight");
     const fourDistinct = normalizedText.match(
       /<Case id="FourDistinctVideosPresentedAsBroadCoverage">.*?<\/Case>/u
     )?.[0] ?? "";
-    expect(fourDistinct).toContain("the first pass has reached neither about six fully audited videos nor about four rounds");
-    expect(fourDistinct).toContain("open leads of a provisional answer, never a final comparison or ranking");
+    expect(fourDistinct).toContain("Two rounds and four fully audited videos complete a first pass");
+    expect(fourDistinct).toContain("the remaining programs become its open leads, never a final comparison or ranking");
+    expect(fourDistinct).toContain("In deep research, fail the treatment-landscape synthesis lock");
     expect(fourDistinct).not.toContain("completion minimum");
+
+    // HRP 20.6.6: a shorter first pass that also searches beyond YouTube, no coverage lock in it, and an answer
+    // that ends with a deeper study review and deeper community research.
+    const broad = normalizedText.match(/<Rule name="BroadDiscoveryBeforeDeepAudit"[^>]*>.*?<\/Rule>/u)?.[0] ?? "";
+    expect(broad).toContain("about three fully audited videos; or about two rounds.");
+    expect(broad).toContain(
+      "briefly searches the dominant community and one independent one, not only YouTube (PrincipalPlatformMapping, " +
+        "MultipleIndependentCommunities)"
+    );
+    expect(broad).not.toContain("about six fully audited videos");
+    for (const required of [
+      "A first pass does not run this lock. It still searches every direction (DirectionalSearchSymmetry)",
+      "and it emits no final treatment ranking. In deeper research, skipped directional searches",
+      "After a first pass, offer the two directions it left open, a sentence or two each: a deeper study review",
+      "suggest two or three specific focuses within each to help them narrow the next investigation"
+    ]) expect(normalizedText).toContain(required);
+    expect(normalizedText).not.toContain("After a completed first pass, breadth gaps");
 
     // HRP 20.6.4 (owner lesson of 2026-09-26): a source's advice is read in its own use context before a safety label.
     const relevance = normalizedText.match(/<Rule name="RelevanceBeforeWarning"[^>]*>.*?<\/Rule>/u)?.[0] ?? "";

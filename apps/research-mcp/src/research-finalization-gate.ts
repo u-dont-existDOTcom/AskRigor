@@ -42,7 +42,8 @@ export const finalizeResearchInputSchema = z.object({
   no_material_video_reason: z.string().trim().min(1).max(1_000).optional()
     .describe("Why none of the videos found was worth auditing; needed only when discovery found videos but material_video_ids is empty."),
   treatment_choice: z.enum(["compared", "not_compared"])
-    .describe("compared when the answer compares, ranks or recommends treatment options; it then needs an assess_treatment_landscape_coverage result."),
+    .describe("compared when the answer compares, ranks or recommends treatment options. Deep research then needs an " +
+      "assess_treatment_landscape_coverage result; a first pass presents the comparison as provisional, with no final ranking."),
   research_target: z.string().trim().min(1).max(5_000)
     .describe("The research target, copied exactly as given to the scout, search_youtube and " +
       "assess_treatment_landscape_coverage, and as research_question to surveys and community audits. Discovery " +
@@ -50,12 +51,17 @@ export const finalizeResearchInputSchema = z.object({
   research_depth: z.enum(["first_pass", "deep"]).default("first_pass")
     .describe("first_pass unless the user or an automated research brief asked for deep research."),
   open_leads: z.array(z.object({
+    direction: z.enum(["studies", "community"]).default("community")
+      .describe("studies: a deeper study review (studies whose methods were not audited in full text, or questions not " +
+        "yet searched); community: deeper community research (communities, options or subgroups not yet reached)."),
     topic: z.string().trim().min(1).max(200),
     why: z.string().trim().min(1).max(500)
   }).strict()).max(12).optional()
-    .describe("When a first pass stops before discovery saturates: each topic or subtopic where more community signal is likely, and why."),
+    .describe("After a first pass: two or three focuses for each way to go deeper, studies and (when community evidence " +
+      "was researched) community, each with why it looks promising. When discovery has not saturated, the community " +
+      "focuses include the topics where more community signal is likely."),
   another_pass_estimate: z.string().trim().min(1).max(200).optional()
-    .describe("With open_leads: roughly what another pass would take, with a number and unit, such as \"about 20 minutes and 15 YouTube searches\"."),
+    .describe("After a first pass: roughly what another pass would take, with a number and unit, such as \"about 20 minutes and 15 YouTube searches\"."),
   community_findings: z.object({
     videos_reviewed: z.array(youtubeVideoIdSchema).min(1).max(60)
       .describe("Every video whose comments you read."),
@@ -301,6 +307,11 @@ export function finalizeResearch(
   let materialVideos: string[] = [];
   let saturated = false;
   let firstPassComplete = false;
+  // A first pass that stopped at its cap before discovery saturated, and the
+  // searches a rate limit stopped in it; or discovery that must go on first.
+  let unsaturatedFirstPass = false;
+  let firstPassRateLimited = 0;
+  let discoveryContinues = false;
   const openLeads = (input.open_leads ?? []).map(({ topic }) => topic);
   if (input.community_evidence === "not_relevant") {
     if (input.not_relevant_reason === undefined) {
@@ -355,39 +366,12 @@ export function finalizeResearch(
         (saturated || auditedMaterial >= FIRST_PASS_AUDITED_VIDEOS || angles >= FIRST_PASS_ROUNDS ||
           saturation.rateLimited > 0);
       if (!saturated && firstPassComplete) {
-        if (openLeads.length === 0) {
-          nextSteps.push(
-            "The first pass is done but discovery has not saturated: list open_leads (each topic or subtopic where more " +
-              "community signal is likely, and why) so the answer can offer another pass." +
-              (saturation.rateLimited > 0 ? " Include the searches YouTube's rate limit or daily quota stopped." : "")
-          );
-        } else {
-          const estimate = input.another_pass_estimate === undefined ? undefined : withoutEndPunctuation(input.another_pass_estimate);
-          if (estimate === undefined || !PASS_COST_AMOUNT.test(estimate)) {
-            nextSteps.push(
-              "Give another_pass_estimate: roughly what another pass over the open leads would take, with a number and " +
-                "unit (for example, \"about 20 minutes and 15 YouTube searches\")."
-            );
-          } else {
-            requireLimit(
-              `First pass only; discovery had not saturated. End the answer with the open leads (${openLeads.join("; ")}), ` +
-                "in plain language for the user (no video IDs or internal codes), why each looks promising and roughly what " +
-                "another pass would cost, and ask whether to continue on all or part.",
-              ...(input.open_leads ?? []).map(({ topic, why }) => `Open lead: ${topic.trim()}. ${asSentence(why)}`),
-              `Another pass would take ${estimate}; want me to continue with all or some of these leads?`
-            );
-          }
-          if (saturation.rateLimited > 0) {
-            const stopped = saturation.rateLimited;
-            requireLimit(
-              `YouTube's rate limit or daily quota stopped ${stopped} search(es) in the latest discovery ` +
-                "rounds; say so, and that another pass can rerun them once the limit resets.",
-              `YouTube's daily search limit stopped ${stopped === 1 ? "1 search" : `${stopped} searches`} in this first ` +
-                `pass; another pass can rerun ${stopped === 1 ? "it" : "them"} after the limit resets.`
-            );
-          }
-        }
-      } else {
+        // Its unsaturated topics become community focuses of the offer that
+        // ends every first pass (below), with any searches a limit stopped.
+        unsaturatedFirstPass = true;
+        firstPassRateLimited = saturation.rateLimited;
+      } else if (!saturated) {
+        discoveryContinues = true;
         nextSteps.push(...saturation.nextSteps);
       }
       if (materialVideos.length === 0 && (saturated || firstPassComplete)) {
@@ -506,64 +490,69 @@ export function finalizeResearch(
 
   mustReport.push(...communityLanes);
 
-  // Treatment coverage. The latest assess_treatment_landscape_coverage result
-  // for this research target binds the answer, and a treatment comparison
-  // needs one; a check made for another target does not count.
-  const coverageChecks = verified.filter(({ kind }) => kind === "treatment_coverage");
-  const forTarget = coverageChecks.filter(({ claims }) => text(claims.target) === targetDigest);
-  const latest = Math.max(...forTarget.map(receiptOrder));
-  // Checks the signed order cannot separate are all the latest; the most
-  // restrictive of them binds, whatever order they came in.
-  const coverage = forTarget.filter((receipt) => receiptOrder(receipt) === latest)
-    .sort((left, right) =>
-      coverageRestriction(right, input.research_depth) - coverageRestriction(left, input.research_depth))
-    .at(0);
-  if (coverageChecks.length > 0 && coverage === undefined) {
-    nextSteps.push(
-      "No assess_treatment_landscape_coverage receipt passed here was made for this research_target; pass the one " +
-        "for this question, give research_target exactly as the check received it, or run the check again."
-    );
-  }
-  const coverageBoundary = coverage === undefined ? undefined : text(coverage.claims.boundary);
-  // Like a material video, each video the check judged must come from this
-  // research's discovery, so a check made for another question cannot pass.
-  const foreignCoverageVideos = list(coverage?.claims.videos).filter((video) => !discovered.has(video));
-  if (foreignCoverageVideos.length > 0) {
-    nextSteps.push(
-      `The treatment-coverage check judged video(s) ${foreignCoverageVideos.join(", ")} that no discovery receipt ` +
-        "passed here found; pass the receipts of the discovery calls that found them, or rerun the check."
-    );
-  }
-  if (coverage !== undefined && input.treatment_choice === "compared" && text(coverage.claims.broad) !== "true") {
-    nextSteps.push(
-      "A treatment comparison needs the coverage check run as a broad treatment choice: call " +
-        "assess_treatment_landscape_coverage again with broad_treatment_choice true."
-    );
-  }
-  if (coverageBoundary === undefined) {
-    if (input.treatment_choice === "compared" && coverageChecks.length === 0) {
-      nextSteps.push(
-        "The answer compares treatment options: call assess_treatment_landscape_coverage with the treatment ledger " +
-          "and pass its research_receipt."
+  // Treatment coverage. A first pass does not run the coverage lock, so its
+  // comparison is provisional, with no final ranking (HRP 20.6.6). In deep
+  // research the latest assess_treatment_landscape_coverage result for this
+  // research target binds the answer, and a treatment comparison needs one; a
+  // check made for another target does not count.
+  let coverageBoundary: string | undefined;
+  if (input.research_depth === "first_pass") {
+    if (input.treatment_choice === "compared") {
+      requireLimit(
+        "The treatment comparison rests on a first pass: present it as provisional, with no final ranking.",
+        "This comparison rests on a first pass through the evidence, so treat it as provisional."
       );
     }
-  } else if (coverageBoundary === "bounded_nonranking_only") {
-    requireLimit(
-      "The treatment-coverage check allows only a bounded answer: do not rank or recommend among the treatment options.",
-      "The evidence check allows only a limited comparison here, so this answer does not rank or recommend among the " +
-        "options."
-    );
-  } else if (coverageBoundary === "first_pass_with_open_leads" && input.research_depth === "first_pass") {
-    requireLimit(
-      "The treatment comparison rests on a first pass: present it as provisional.",
-      "This comparison rests on a first pass through the evidence, so treat it as provisional."
-    );
-  } else if (coverageBoundary !== "ledger_consistent_for_synthesis") {
-    nextSteps.push(
-      `The latest assess_treatment_landscape_coverage result was ${coverageBoundary}: fix its selection and depth ` +
-        "blockers and call it again until it allows the answer" +
-        (input.research_depth === "deep" ? " (deep research needs ledger_consistent_for_synthesis)." : ".")
-    );
+  } else {
+    const coverageChecks = verified.filter(({ kind }) => kind === "treatment_coverage");
+    const forTarget = coverageChecks.filter(({ claims }) => text(claims.target) === targetDigest);
+    const latest = Math.max(...forTarget.map(receiptOrder));
+    // Checks the signed order cannot separate are all the latest; the most
+    // restrictive of them binds, whatever order they came in.
+    const coverage = forTarget.filter((receipt) => receiptOrder(receipt) === latest)
+      .sort((left, right) => coverageRestriction(right) - coverageRestriction(left))
+      .at(0);
+    if (coverageChecks.length > 0 && coverage === undefined) {
+      nextSteps.push(
+        "No assess_treatment_landscape_coverage receipt passed here was made for this research_target; pass the one " +
+          "for this question, give research_target exactly as the check received it, or run the check again."
+      );
+    }
+    coverageBoundary = coverage === undefined ? undefined : text(coverage.claims.boundary);
+    // Like a material video, each video the check judged must come from this
+    // research's discovery, so a check made for another question cannot pass.
+    const foreignCoverageVideos = list(coverage?.claims.videos).filter((video) => !discovered.has(video));
+    if (foreignCoverageVideos.length > 0) {
+      nextSteps.push(
+        `The treatment-coverage check judged video(s) ${foreignCoverageVideos.join(", ")} that no discovery receipt ` +
+          "passed here found; pass the receipts of the discovery calls that found them, or rerun the check."
+      );
+    }
+    if (coverage !== undefined && input.treatment_choice === "compared" && text(coverage.claims.broad) !== "true") {
+      nextSteps.push(
+        "A treatment comparison needs the coverage check run as a broad treatment choice: call " +
+          "assess_treatment_landscape_coverage again with broad_treatment_choice true."
+      );
+    }
+    if (coverageBoundary === undefined) {
+      if (input.treatment_choice === "compared" && coverageChecks.length === 0) {
+        nextSteps.push(
+          "The answer compares treatment options: call assess_treatment_landscape_coverage with the treatment ledger " +
+            "and pass its research_receipt."
+        );
+      }
+    } else if (coverageBoundary === "bounded_nonranking_only") {
+      requireLimit(
+        "The treatment-coverage check allows only a bounded answer: do not rank or recommend among the treatment options.",
+        "The evidence check allows only a limited comparison here, so this answer does not rank or recommend among the " +
+          "options."
+      );
+    } else if (coverageBoundary !== "ledger_consistent_for_synthesis") {
+      nextSteps.push(
+        `The latest assess_treatment_landscape_coverage result was ${coverageBoundary}: fix its selection and depth ` +
+          "blockers and call it again until it allows the answer (deep research needs ledger_consistent_for_synthesis)."
+      );
+    }
   }
 
   // Key studies.
@@ -682,6 +671,61 @@ export function finalizeResearch(
       "No study was declared decision-critical; say that no study's methods were checked in full text.",
       "No study's methods were checked in full text for this answer."
     );
+  }
+
+  // After a first pass of research the answer offers the two ways to go
+  // deeper, a deeper study review and deeper community research, with two or
+  // three focuses each, and asks which the user wants (HRP LimitsNote); an
+  // answer that researched neither studies nor communities has none to offer.
+  // Discovery that must go on comes first.
+  const researched = input.community_evidence === "researched" || input.key_sources.length > 0;
+  if (input.research_depth === "first_pass" && researched && !discoveryContinues) {
+    const directions = FOCUS_DIRECTIONS.filter(({ direction }) =>
+      direction === "studies" || input.community_evidence === "researched");
+    const focuses = directions.map(({ direction }) =>
+      (input.open_leads ?? []).filter((lead) => lead.direction === direction));
+    directions.forEach(({ direction, what }, index) => {
+      if (focuses[index]!.length >= 2) return;
+      nextSteps.push(
+        `List two or three open_leads with direction ${direction}: ${what}, each with why it looks promising.` +
+          (direction === "community" && unsaturatedFirstPass
+            ? " Discovery has not saturated, so include the topics where more community signal is likely" +
+              (firstPassRateLimited > 0 ? " and the searches YouTube's rate limit or daily quota stopped." : ".")
+            : "")
+      );
+    });
+    const estimate = input.another_pass_estimate === undefined ? undefined : withoutEndPunctuation(input.another_pass_estimate);
+    if (estimate === undefined || !PASS_COST_AMOUNT.test(estimate)) {
+      nextSteps.push(
+        "Give another_pass_estimate: roughly what another pass over the open leads would take, with a number and " +
+          "unit (for example, \"about 20 minutes and 15 YouTube searches\")."
+      );
+    } else if (focuses.every((leads) => leads.length >= 2)) {
+      requireLimit(
+        `First pass only${unsaturatedFirstPass ? "; discovery had not saturated" : ""}. End the answer with the ` +
+          `${directions.length === 2 ? "two ways" : "way"} to go deeper, a sentence or two each, in plain language for ` +
+          "the user (no video IDs or internal codes): " +
+          directions.map(({ label }, index) => `${label} (${focuses[index]!.map(({ topic }) => topic.trim()).join("; ")})`)
+            .join(" and ") +
+          ". Say why each focus looks promising and roughly what another pass would take, and ask which the user " +
+          "wants and which focus.",
+        ...directions.flatMap(({ caption }, index) =>
+          focuses[index]!.map(({ topic, why }) => `${caption}: ${topic.trim()}. ${asSentence(why)}`)),
+        directions.length === 2
+          ? `Another pass would take ${estimate}; would you like to go deeper into the studies or the communities, ` +
+            "and which focus matters most to you?"
+          : `Another pass would take ${estimate}; would you like to go deeper into the studies, and which focus ` +
+            "matters most to you?"
+      );
+    }
+    if (firstPassRateLimited > 0) {
+      requireLimit(
+        `YouTube's rate limit or daily quota stopped ${firstPassRateLimited} search(es) in the latest discovery ` +
+          "rounds; say so, and that another pass can rerun them once the limit resets.",
+        `YouTube's daily search limit stopped ${firstPassRateLimited === 1 ? "1 search" : `${firstPassRateLimited} searches`} ` +
+          `in this first pass; another pass can rerun ${firstPassRateLimited === 1 ? "it" : "them"} after the limit resets.`
+      );
+    }
   }
 
   // The answer itself, read for this call only. HRP keeps internal states out
@@ -1329,8 +1373,23 @@ const DISCOVERY_KINDS: ReadonlySet<ResearchReceiptKind> = new Set([
 ]);
 
 /** A first pass stops at saturation or at this many audited material videos or discovery rounds. */
-const FIRST_PASS_AUDITED_VIDEOS = 6;
-const FIRST_PASS_ROUNDS = 4;
+const FIRST_PASS_AUDITED_VIDEOS = 3;
+// The two ways a first pass offers to go deeper, and how the answer names each focus.
+const FOCUS_DIRECTIONS = [
+  {
+    direction: "studies",
+    label: "a deeper study review",
+    caption: "Study focus",
+    what: "studies whose methods were not audited in full text, or questions not yet searched"
+  },
+  {
+    direction: "community",
+    label: "deeper community research",
+    caption: "Community focus",
+    what: "communities, options or subgroups not yet reached"
+  }
+] as const;
+const FIRST_PASS_ROUNDS = 2;
 
 const NEW_ANGLE_HINT =
   "patient phrasing such as \"what finally worked\", a method, product or practitioner named in comments, " +
@@ -1473,14 +1532,13 @@ function text(value: string | string[] | undefined): string {
   return typeof value === "string" ? value : "";
 }
 
-/** Higher is stricter: a block, then no ranking, then a provisional first pass. */
-function coverageRestriction(receipt: VerifiedReceipt, depth: "first_pass" | "deep"): number {
+/** Higher is stricter in deep research: a block, then no ranking. */
+function coverageRestriction(receipt: VerifiedReceipt): number {
   const boundary = text(receipt.claims.boundary);
   const narrow = text(receipt.claims.broad) !== "true" ? 0.5 : 0;
   if (boundary === "ledger_consistent_for_synthesis") return 1 + narrow;
-  if (boundary === "first_pass_with_open_leads" && depth === "first_pass") return 2 + narrow;
-  if (boundary === "bounded_nonranking_only") return 3 + narrow;
-  return 4 + narrow;
+  if (boundary === "bounded_nonranking_only") return 2 + narrow;
+  return 3 + narrow;
 }
 
 function list(value: string | string[] | undefined): string[] {

@@ -1430,8 +1430,9 @@ function defineResearchOperations(
     "assess_treatment_landscape_coverage",
     {
       description:
-        "Check treatment-landscape coverage before a broad treatment answer: program diversity, selection coverage " +
-        "and per-video depth. Pass your research receipts and only your judgment: treatment classes, program " +
+        "In deep research, check treatment-landscape coverage before a broad treatment answer: program diversity, " +
+        "selection coverage and per-video depth (a first pass skips this check and presents any comparison as " +
+        "provisional). Pass your research receipts and only your judgment: treatment classes, program " +
         "fingerprints, each discovered video as selected (with its four short notes), screened (fingerprint, " +
         "materiality, why not selected) or not material (IDs by class), the classes each round searched, and " +
         "specific-program searches with that round's exact queries. The server builds the discovery rounds " +
@@ -1681,7 +1682,8 @@ function defineResearchOperations(
         "the answer compares treatment options, where people discussing it talk and what each community you searched " +
         "outside YouTube showed (principal_communities, community_searches), what the YouTube comments you read showed " +
         "(community_findings), the " +
-        "studies your conclusions depend on, and the answer you are about to give (answer_draft), which is checked " +
+        "studies your conclusions depend on, after a first pass the focuses for going deeper (open_leads, " +
+        "another_pass_estimate), and the answer you are about to give (answer_draft), which is checked " +
         "for internal labels, bare video IDs, a pasted long prompt, the comment lane and the caveats, and is not " +
         "stored. not_ready lists the remaining steps; ready_with_limits lists limits, and caveats gives the " +
         "sentences the answer must contain, each as its own sentence and as written; must_report lists what the " +

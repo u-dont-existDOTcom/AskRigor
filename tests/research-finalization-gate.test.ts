@@ -81,9 +81,47 @@ const communityDefaults = (input: Record<string, unknown>) =>
     principal_communities: [{ name: "YouTube", platform: "youtube" }, { name: "r/HipOA", platform: "reddit" }],
     community_searches: [REDDIT_SEARCH]
   };
-// Every call gets the community defaults unless it passes its own map.
+// Every first pass ends by offering a deeper study review and deeper community
+// research, with two or three focuses each; tests of other checks get two of each.
+const STUDY_FOCUSES = [
+  { direction: "studies", topic: "Longer trials", why: "The trials read lasted twelve weeks." },
+  { direction: "studies", topic: "Results in people over 70", why: "Few trial participants were that old." }
+];
+const COMMUNITY_FOCUSES = [
+  { direction: "community", topic: "Named walking programs", why: "Several were named but none was looked at closely." },
+  { direction: "community", topic: "People who stopped", why: "Few described why they stopped." }
+];
+const offerDefaults = (input: Record<string, unknown>) =>
+  input.research_depth === "deep" || "open_leads" in input ? {} : {
+    open_leads: input.community_evidence === "researched" ? [...STUDY_FOCUSES, ...COMMUNITY_FOCUSES] : STUDY_FOCUSES
+  };
+const offerLimit = (community = true, unsaturated = false) =>
+  `First pass only${unsaturated ? "; discovery had not saturated" : ""}. End the answer with the ` +
+  `${community ? "two ways" : "way"} to go deeper, a sentence or two each, in plain language for the user (no video ` +
+  "IDs or internal codes): a deeper study review (Longer trials; Results in people over 70)" +
+  (community ? " and deeper community research (Named walking programs; People who stopped)" : "") +
+  ". Say why each focus looks promising and roughly what another pass would take, and ask which the user wants and " +
+  "which focus.";
+const OFFER_LIMIT = offerLimit();
+const STUDY_FOCUS_CAVEATS = [
+  "Study focus: Longer trials. The trials read lasted twelve weeks.",
+  "Study focus: Results in people over 70. Few trial participants were that old."
+];
+const OFFER_CAVEATS = [
+  ...STUDY_FOCUS_CAVEATS,
+  "Community focus: Named walking programs. Several were named but none was looked at closely.",
+  "Community focus: People who stopped. Few described why they stopped.",
+  `Another pass would take ${PASS_ESTIMATE}; would you like to go deeper into the studies or the communities, and ` +
+    "which focus matters most to you?"
+];
+const STUDIES_OFFER_CAVEATS = [
+  ...STUDY_FOCUS_CAVEATS,
+  `Another pass would take ${PASS_ESTIMATE}; would you like to go deeper into the studies, and which focus matters ` +
+    "most to you?"
+];
+// Every call gets the community and offer defaults unless it passes its own.
 const finalizeResearchRaw = (input: Record<string, unknown>, gateOptions: Parameters<typeof finalizeResearchBare>[1]) =>
-  finalizeResearchBare({ ...communityDefaults(input), ...input }, gateOptions);
+  finalizeResearchBare({ ...communityDefaults(input), ...offerDefaults(input), ...input }, gateOptions);
 const finalizeResearchGate = (input: Record<string, unknown>, gateOptions: typeof options) => {
   const request = { another_pass_estimate: PASS_ESTIMATE, ...communityDefaults(input), ...input };
   return finalizeResearchRaw(
@@ -127,9 +165,11 @@ const lead = sign("full_text_lead", { doi: "10.1016/j.joca.2020.01.001" }, optio
 describe("finalize_research gate", () => {
   it("binds a treatment comparison to the latest treatment-coverage check", () => {
     const target = TARGET;
+    // Deep research runs the coverage lock; a first pass does not (below).
     const base = {
       community_evidence: "researched" as const,
       research_target: target,
+      research_depth: "deep" as const,
       key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
     };
     const ready = [survey, emptySearch, repeatScout, videoA, study];
@@ -161,11 +201,21 @@ describe("finalize_research gate", () => {
     expect(bounded.limits.join(" ")).toContain("do not rank or recommend");
 
     const firstPass = [...ready, coverage("first_pass_with_open_leads", "2026-09-26T11:00:00.000Z")];
-    expect(finalizeResearch({ ...base, receipts: firstPass, treatment_choice: "compared" }, options).limits.join(" "))
-      .toContain("present it as provisional");
-    expect(finalizeResearch({
-      ...base, receipts: firstPass, treatment_choice: "compared", research_depth: "deep"
-    }, options).next_steps.join(" ")).toContain("deep research needs ledger_consistent_for_synthesis");
+    expect(finalizeResearch({ ...base, receipts: firstPass, treatment_choice: "compared" }, options).next_steps.join(" "))
+      .toContain("deep research needs ledger_consistent_for_synthesis");
+
+    // A first pass does not run the lock: its comparison needs no check, is
+    // provisional with no final ranking, and a check made anyway does not bind it.
+    const provisional = "The treatment comparison rests on a first pass: present it as provisional, with no final ranking.";
+    for (const receipts of [ready, [...ready, coverage("continue_research", "2026-09-26T11:00:00.000Z")]]) {
+      const firstPassComparison = finalizeResearch({
+        ...base, research_depth: "first_pass", receipts, treatment_choice: "compared"
+      }, options);
+      expect(firstPassComparison.status).toBe("ready_with_limits");
+      expect(firstPassComparison.limits).toEqual([FORUM_LIMIT, provisional, OFFER_LIMIT]);
+      expect(verifyResearchReceipt(firstPassComparison.finalization_receipt!, options))
+        .toMatchObject({ ok: true, claims: { coverage: "none" } });
+    }
 
     // The latest check wins, whatever order the receipts are passed in.
     const later = finalizeResearch({
@@ -264,7 +314,7 @@ describe("finalize_research gate", () => {
     }, options);
     expect(result.status).toBe("ready_with_limits");
     expect(result.next_steps).toEqual([]);
-    expect(result.limits).toEqual([FORUM_LIMIT]);
+    expect(result.limits).toEqual([FORUM_LIMIT, OFFER_LIMIT]);
     expect(result.community).toEqual({
       decision: "researched",
       surveys: 1,
@@ -272,7 +322,7 @@ describe("finalize_research gate", () => {
       saturated: true,
       depth: "first_pass",
       first_pass_complete: true,
-      open_leads: [],
+      open_leads: ["Longer trials", "Results in people over 70", "Named walking programs", "People who stopped"],
       audited_videos: ["aaaaaaaaaaa"],
       material_videos: ["aaaaaaaaaaa"],
       principal_communities: ["YouTube", "r/HipOA"],
@@ -313,7 +363,7 @@ describe("finalize_research gate", () => {
     const reported = `${CLEAN_DRAFT} On [r/trt](https://www.reddit.com/r/trt/comments/xyz789/hgh_and_trt_five_years/), ` +
       "most long-term users reported better recovery, several saw no difference from growth hormone, and some " +
       "reported joint pain and raised blood sugar, which supports naming its side effects first. The reports from " +
-      "r/trt come from my own web search, which AskRigor could not verify.";
+      `r/trt come from my own web search, which AskRigor could not verify. ${OFFER_CAVEATS.join(" ")}`;
     const gate = (input: Record<string, unknown>) => finalizeResearch({ ...youtubeOnly, ...input }, options);
 
     // No map: YouTube alone does not finish the community lane.
@@ -338,7 +388,9 @@ describe("finalize_research gate", () => {
     // The dominant subreddit, read and reported, completes it.
     const searched = gate({ principal_communities: communities, community_searches: [trt], answer_draft: reported });
     expect(searched.status).toBe("ready_with_limits");
-    expect(searched.caveats).toEqual(["The reports from r/trt come from my own web search, which AskRigor could not verify."]);
+    expect(searched.caveats).toEqual([
+      "The reports from r/trt come from my own web search, which AskRigor could not verify.", ...OFFER_CAVEATS
+    ]);
     // AskRigor cannot see the client's web search: the permit records the subreddit as unverified.
     expect(verifyResearchReceipt(searched.finalization_receipt!, options))
       .toMatchObject({ ok: true, claims: { status: "ready_with_limits", unverified: "1" } });
@@ -365,10 +417,12 @@ describe("finalize_research gate", () => {
       expect.stringMatching(/^r\/trt \(1 thread\(s\) read\): Benefits: Most of about 30 long-term users/u)
     ]);
     // The answer must report it, naming the community (or, for a subreddit, Reddit), with its findings and a link.
+    const offer = OFFER_CAVEATS.join(" ");
     const withoutForums = `${CLEAN_DRAFT.replace(/ On Reddit, .*$/u, "")} The reports from r/trt come from my own web ` +
-      "search, which AskRigor could not verify.";
+      `search, which AskRigor could not verify. ${offer}`;
     expect(gate({
-      principal_communities: communities, community_searches: [trt], answer_draft: CLEAN_DRAFT.replace(/ On Reddit, .*$/u, "")
+      principal_communities: communities, community_searches: [trt],
+      answer_draft: `${CLEAN_DRAFT.replace(/ On Reddit, .*$/u, "")} ${offer}`
     }).next_steps).toEqual([
       "The answer does not report what r/trt showed. Add its lane from must_report, naming the community, even " +
         "if its signal is weak.",
@@ -428,7 +482,9 @@ describe("finalize_research gate", () => {
   });
 
   it("binds each community's lane, link and threads to that community", () => {
+    // Deep research, so the answers below need no first-pass offer.
     const base = {
+      research_depth: "deep",
       receipts: [survey, emptySearch, repeatScout, videoA, study],
       community_evidence: "researched",
       treatment_choice: "not_compared",
@@ -566,6 +622,7 @@ describe("finalize_research gate", () => {
       effect_on_answer: "Consistent with the trials."
     });
     const result = finalizeResearchBare({
+      research_depth: "deep",
       receipts: [study],
       community_evidence: "researched",
       treatment_choice: "not_compared",
@@ -600,6 +657,7 @@ describe("finalize_research gate", () => {
     }
 
     const result = finalizeResearchRaw({
+      research_depth: "deep",
       receipts: [survey, emptySearch, repeatScout, videoA, study],
       community_evidence: "researched",
       treatment_choice: "not_compared",
@@ -616,7 +674,9 @@ describe("finalize_research gate", () => {
   });
 
   it("reads the answer before it reports ready", () => {
+    // Deep research, so the drafts below need no first-pass offer.
     const request = {
+      research_depth: "deep" as const,
       receipts: [survey, emptySearch, repeatScout, videoA, study],
       community_evidence: "researched" as const,
       treatment_choice: "not_compared" as const,
@@ -976,7 +1036,8 @@ describe("finalize_research gate", () => {
       "Comments on video bbbbbbbbbbb were only partly accessible; treat its community signal as bounded.",
       FORUM_LIMIT,
       "Cite 10.1016/j.joca.2020.01.001 as a lead: no open full text was available, so its methods were not audited.",
-      "Cite PMID: 31234567 as a lead: PubMed lists no DOI, so no open full text could be acquired and its methods were not audited."
+      "Cite PMID: 31234567 as a lead: PubMed lists no DOI, so no open full text could be acquired and its methods were not audited.",
+      OFFER_LIMIT
     ]);
     expect(result.finalization_receipt).toBeDefined();
 
@@ -988,11 +1049,14 @@ describe("finalize_research gate", () => {
       "The full text of [this study](https://doi.org/10.1016/j.joca.2020.01.001) was not openly available, so its " +
         "methods were not checked.",
       "The full text of [this study](https://pubmed.ncbi.nlm.nih.gov/31234567/) was not openly available, so its " +
-        "methods were not checked."
+        "methods were not checked.",
+      ...OFFER_CAVEATS
     ]);
-    // The subreddit's caveat is in CLEAN_DRAFT; the checks below concern the others.
+    // The subreddit's caveat is in CLEAN_DRAFT, and the drafts below are deep
+    // research's, with no first-pass offer; the checks concern the others.
     const caveats = result.caveats.filter((caveat) => caveat !== FORUM_CAVEAT);
     const request = {
+      research_depth: "deep" as const,
       receipts: [survey, emptySearch, repeatScout, videoA, videoB, study, lead, noDoiRecord],
       community_evidence: "researched" as const,
       treatment_choice: "not_compared" as const,
@@ -1128,7 +1192,8 @@ describe("finalize_research gate", () => {
     expect(result.status).toBe("ready_with_limits");
     expect(result.limits).toEqual([
       "1 community survey(s) were only partly completed (some searches failed or hit limits); say the community picture may be incomplete.",
-      FORUM_LIMIT
+      FORUM_LIMIT,
+      OFFER_LIMIT
     ]);
   });
 
@@ -1166,7 +1231,11 @@ describe("finalize_research gate", () => {
   });
 
   it("keeps discovering until two rounds from new angles add no video worth auditing", () => {
-    const base = { community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET, key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }] };
+    // Deep research runs to saturation; a first pass would stop at its cap.
+    const base = {
+      community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }], research_depth: "deep" as const
+    };
 
     const oneRound = finalizeResearch({ ...base, receipts: [survey, videoA, study] }, options);
     expect(oneRound.status).toBe("not_ready");
@@ -1193,7 +1262,10 @@ describe("finalize_research gate", () => {
   });
 
   it("does not count repeated searches or unverified scout candidates as saturation", () => {
-    const base = { community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET, key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }] };
+    const base = {
+      community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }], research_depth: "deep" as const
+    };
     // A later call repeating the same query (a byte-identical receipt would count once).
     const sameAngle = sign("youtube_search", { videos: ["zzzzzzzzzzz"], q: "b2b2b2b2b2b2" }, options);
     expect(finalizeResearch({ ...base, receipts: [survey, emptySearch, sameAngle, videoA, study] }, options).next_steps)
@@ -1205,9 +1277,7 @@ describe("finalize_research gate", () => {
 
     // A search whose results continue on an unread page is not a settled round.
     const unreadPage = sign("youtube_search", { videos: [], open: 1, q: "j0j0j0j0j0j0" }, options);
-    expect(finalizeResearch({
-      ...base, receipts: [survey, emptySearch, unreadPage, videoA, study], research_depth: "deep"
-    }, options)).toMatchObject({
+    expect(finalizeResearch({ ...base, receipts: [survey, emptySearch, unreadPage, videoA, study] }, options)).toMatchObject({
       status: "not_ready",
       community: { saturated: false },
       next_steps: [expect.stringContaining("Continue a search with its next cursor")]
@@ -1250,12 +1320,20 @@ describe("finalize_research gate", () => {
 
     // A first pass cannot rerun them until the limit resets, so it ends with them as open leads.
     const firstPass = { ...base, receipts, research_depth: "first_pass" as const };
-    expect(finalizeResearch(firstPass, options).next_steps).toEqual([expect.stringMatching(
-      /^The first pass is done but discovery has not saturated: list open_leads .* Include the searches YouTube's rate limit or daily quota stopped\.$/u
-    )]);
+    expect(finalizeResearch({ ...firstPass, open_leads: [] }, options).next_steps).toEqual([
+      "List two or three open_leads with direction studies: studies whose methods were not audited in full text, or " +
+        "questions not yet searched, each with why it looks promising.",
+      "List two or three open_leads with direction community: communities, options or subgroups not yet reached, each " +
+        "with why it looks promising. Discovery has not saturated, so include the topics where more community signal " +
+        "is likely and the searches YouTube's rate limit or daily quota stopped."
+    ]);
     const withLeads = finalizeResearch({
       ...firstPass,
-      open_leads: [{ topic: "What commenters say helped", why: "The daily quota stopped one search before it ran." }]
+      open_leads: [
+        ...STUDY_FOCUSES,
+        { direction: "community", topic: "What commenters say helped", why: "The daily quota stopped one search before it ran." },
+        COMMUNITY_FOCUSES[1]
+      ]
     }, options);
     expect(withLeads.status).toBe("ready_with_limits");
     expect(withLeads.limits).toContain(
@@ -1266,7 +1344,11 @@ describe("finalize_research gate", () => {
     const rateLimited = {
       ...firstPass,
       community_findings: findingsFor(["aaaaaaaaaaa"]),
-      open_leads: [{ topic: "What commenters say helped", why: "Commenters named remedies no search covered." }]
+      open_leads: [
+        ...STUDY_FOCUSES,
+        { direction: "community", topic: "What commenters say helped", why: "Commenters named remedies no search covered." },
+        COMMUNITY_FOCUSES[1]
+      ]
     };
     const rateCaveat = "YouTube's daily search limit stopped 1 search in this first pass; another pass can rerun it " +
       "after the limit resets.";
@@ -1352,10 +1434,14 @@ describe("finalize_research gate", () => {
       expect(answered(fullDraft.replace(rateCaveat, stated))).toEqual([]);
     }
 
-    // A search that failed for another reason is rerun, in either depth.
+    // A search that failed for another reason is rerun: in deep research, and in
+    // a first pass that has not yet completed its two rounds.
     const failedSearch = sign("youtube_search", { videos: [], access: "error", rl: 0, inc: 1, open: 0, q: "n4n4n4n4n4n4" }, options);
-    expect(finalizeResearch({ ...firstPass, receipts: [survey, emptySearch, failedSearch, videoA, study] }, options).next_steps)
-      .toEqual([expect.stringMatching(/^1 search\(es\) in the latest discovery rounds did not complete\. Rerun them and pass the new research_receipt\./u)]);
+    const rerun = /^1 search\(es\) in the latest discovery rounds did not complete\. Rerun them and pass the new research_receipt\./u;
+    expect(finalizeResearch({ ...base, research_depth: "deep", receipts: [survey, emptySearch, failedSearch, videoA, study] }, options)
+      .next_steps).toEqual([expect.stringMatching(rerun)]);
+    expect(finalizeResearch({ ...firstPass, receipts: [survey, failedSearch, videoA, study] }, options).next_steps)
+      .toEqual([expect.stringMatching(rerun)]);
 
     // The quota stopped the only round before any video turned up: community
     // evidence is unchecked, not thin.
@@ -1365,7 +1451,11 @@ describe("finalize_research gate", () => {
     const nothingYet = finalizeResearch({
       ...firstPass,
       receipts: [stoppedSurvey, study],
-      open_leads: [{ topic: "Firsthand experience with hip programs", why: "The daily quota stopped discovery." }]
+      open_leads: [
+        ...STUDY_FOCUSES,
+        { direction: "community", topic: "Firsthand experience with hip programs", why: "The daily quota stopped discovery." },
+        COMMUNITY_FOCUSES[1]
+      ]
     }, options);
     expect(nothingYet.status).toBe("ready_with_limits");
     expect(nothingYet.limits).toContain(
@@ -1389,8 +1479,9 @@ describe("finalize_research gate", () => {
         videoA, lateVideo, study],
       community_findings: findingsFor(["aaaaaaaaaaa", "eeeeeeeeeee"]),
       open_leads: [
-        { topic: "Gelatin and collagen for hip pain", why: "Several commenters report it." },
-        { topic: "Named physiotherapy programs", why: "comments name two programs no search covered" }
+        ...STUDY_FOCUSES,
+        { direction: "community", topic: "Gelatin and collagen for hip pain", why: "Several commenters report it." },
+        { direction: "community", topic: "Named physiotherapy programs", why: "comments name two programs no search covered" }
       ],
       another_pass_estimate: "about 20 minutes and 15 YouTube searches."
     };
@@ -1399,26 +1490,33 @@ describe("finalize_research gate", () => {
       `The answer leaves out ${caveats.length === 1 ? "this caveat" : "these caveats"}; include each as its ` +
       `own sentence, as written (a link's text may change): ${caveats.map((caveat) => `"${caveat}"`).join(" ")}`;
 
-    const expected = [
-      "Some YouTube searches failed or hit limits, so the community picture may be incomplete.",
-      "Open lead: Gelatin and collagen for hip pain. Several commenters report it.",
-      "Open lead: Named physiotherapy programs. Comments name two programs no search covered.",
-      "Another pass would take about 20 minutes and 15 YouTube searches; want me to continue with all or some of " +
-        "these leads?"
+    const partialCaveat = "Some YouTube searches failed or hit limits, so the community picture may be incomplete.";
+    const leadCaveats = [
+      "Community focus: Gelatin and collagen for hip pain. Several commenters report it.",
+      "Community focus: Named physiotherapy programs. Comments name two programs no search covered."
     ];
+    const passCaveat = "Another pass would take about 20 minutes and 15 YouTube searches; would you like to go deeper " +
+      "into the studies or the communities, and which focus matters most to you?";
+    const expected = [partialCaveat, ...STUDY_FOCUS_CAVEATS, ...leadCaveats, passCaveat];
     expect(check(CLEAN_DRAFT)).toMatchObject({
-      status: "not_ready", caveats: [...expected, FORUM_CAVEAT], next_steps: [leftOut(...expected)]
+      status: "not_ready", caveats: [partialCaveat, FORUM_CAVEAT, ...expected.slice(1)], next_steps: [leftOut(...expected)]
     });
     expect(check([CLEAN_DRAFT, ...expected].join(" "))).toMatchObject({ status: "ready_with_limits", next_steps: [] });
     // Naming the leads in other words is not the caveat.
-    expect(check(`${CLEAN_DRAFT} ${expected[0]} Collagen and physiotherapy are mentioned above. ${expected[3]}`).next_steps)
-      .toEqual([leftOut(expected[1]!, expected[2]!)]);
+    const studies = STUDY_FOCUS_CAVEATS.join(" ");
+    expect(check(`${CLEAN_DRAFT} ${partialCaveat} ${studies} Collagen and physiotherapy are mentioned above. ${passCaveat}`)
+      .next_steps).toEqual([leftOut(...leadCaveats)]);
     // A lead of short words must appear itself, not just words around it.
     expect(finalizeResearchRaw({
       ...request,
-      open_leads: [{ topic: "PRP for hip pain", why: "Two commenters credit injections with relief." }],
-      answer_draft: `${CLEAN_DRAFT} ${expected[0]} Comments suggest hip pain needs more study. ${expected[3]}`
-    }, options).next_steps).toEqual([leftOut("Open lead: PRP for hip pain. Two commenters credit injections with relief.")]);
+      open_leads: [
+        ...STUDY_FOCUSES,
+        { direction: "community", topic: "PRP for hip pain", why: "Two commenters credit injections with relief." },
+        COMMUNITY_FOCUSES[1]
+      ],
+      answer_draft: `${CLEAN_DRAFT} ${partialCaveat} ${studies} Comments suggest hip pain needs more study. ` +
+        `${OFFER_CAVEATS[3]} ${passCaveat}`
+    }, options).next_steps).toEqual([leftOut("Community focus: PRP for hip pain. Two commenters credit injections with relief.")]);
     // A long draft is read in linear time, however many brackets or backticks it has.
     const started = Date.now();
     expect(check(`${CLEAN_DRAFT} ${"[a](".repeat(14_000)}`).status).toBe("not_ready");
@@ -1437,87 +1535,115 @@ describe("finalize_research gate", () => {
 
   it("lets a first pass stop at its cap and hand back open leads instead of searching on", () => {
     const base = { community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET, key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }] };
-    // Four rounds, the last still finding a video worth auditing: not saturated, but the first pass is done.
+    // Two rounds, the last still finding a video worth auditing: not saturated, but the first pass is done.
     const round = (q: string, videos: string[]) => sign("youtube_search", { videos, q }, options);
     const lateVideo = sign("youtube_video_audit", { video: "eeeeeeeeeee", state: "api_visible_complete", lock: "pass", records: 50 }, options);
-    const receipts = [survey, round("k1k1k1k1k1k1", []), round("l2l2l2l2l2l2", []), round("m3m3m3m3m3m3", ["eeeeeeeeeee"]), videoA, lateVideo, study];
+    const receipts = [survey, round("m3m3m3m3m3m3", ["eeeeeeeeeee"]), videoA, lateVideo, study];
 
-    const noLeads = finalizeResearch({ ...base, receipts }, options);
+    const noLeads = finalizeResearch({ ...base, receipts, open_leads: [] }, options);
     expect(noLeads.status).toBe("not_ready");
     expect(noLeads.community).toMatchObject({ saturated: false, first_pass_complete: true });
-    expect(noLeads.next_steps).toEqual([expect.stringMatching(/^The first pass is done but discovery has not saturated: list open_leads/u)]);
+    expect(noLeads.next_steps).toEqual([
+      "List two or three open_leads with direction studies: studies whose methods were not audited in full text, or " +
+        "questions not yet searched, each with why it looks promising.",
+      "List two or three open_leads with direction community: communities, options or subgroups not yet reached, each " +
+        "with why it looks promising. Discovery has not saturated, so include the topics where more community signal " +
+        "is likely."
+    ]);
 
     const withLeads = finalizeResearch({
       ...base,
       receipts,
       open_leads: [
-        { topic: "Gelatin and collagen for hip pain", why: "Several commenters report it; no video on it was audited yet." },
-        { topic: "Named physiotherapy programs", why: "Comments name two programs that no search has covered." }
+        ...STUDY_FOCUSES,
+        { direction: "community", topic: "Gelatin and collagen for hip pain", why: "Several commenters report it; no video on it was audited yet." },
+        { direction: "community", topic: "Named physiotherapy programs", why: "Comments name two programs that no search has covered." }
       ]
     }, options);
     expect(withLeads.status).toBe("ready_with_limits");
-    expect(withLeads.community.open_leads).toEqual(["Gelatin and collagen for hip pain", "Named physiotherapy programs"]);
-    expect(withLeads.limits).toEqual([
-      "First pass only; discovery had not saturated. End the answer with the open leads (Gelatin and collagen for hip pain; " +
-        "Named physiotherapy programs), in plain language for the user (no video IDs or internal codes), why each looks " +
-        "promising and roughly what another pass would cost, and ask whether to continue on all or part.",
-      FORUM_LIMIT
+    expect(withLeads.community.open_leads).toEqual([
+      "Longer trials", "Results in people over 70", "Gelatin and collagen for hip pain", "Named physiotherapy programs"
     ]);
+    expect(withLeads.limits).toEqual([
+      FORUM_LIMIT,
+      "First pass only; discovery had not saturated. End the answer with the two ways to go deeper, a sentence or two " +
+        "each, in plain language for the user (no video IDs or internal codes): a deeper study review (Longer trials; " +
+        "Results in people over 70) and deeper community research (Gelatin and collagen for hip pain; Named " +
+        "physiotherapy programs). Say why each focus looks promising and roughly what another pass would take, and ask " +
+        "which the user wants and which focus."
+    ]);
+    // Without community research, the answer offers the study review alone.
+    const studiesOnly = finalizeResearch({
+      receipts: [study], community_evidence: "not_relevant", not_relevant_reason: "A question about one lab value.",
+      treatment_choice: "not_compared", research_target: TARGET,
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
+    }, options);
+    expect(studiesOnly).toMatchObject({ status: "ready_with_limits", limits: [offerLimit(false)] });
+    expect(studiesOnly.caveats).toEqual(STUDIES_OFFER_CAVEATS);
+    // An answer that researched neither studies nor communities has nothing to offer.
+    expect(finalizeResearch({
+      receipts: [], community_evidence: "not_relevant", not_relevant_reason: "A dose arithmetic question.",
+      treatment_choice: "not_compared", research_target: TARGET, key_sources: []
+    }, options).limits).toEqual(["No study was declared decision-critical; say that no study's methods were checked in full text."]);
+
+    // Three fully audited videos complete it too, after a single round.
+    const videoC = sign("youtube_video_audit", { video: "ccccccccccc", state: "api_visible_complete", lock: "pass", records: 70 }, options);
+    const audited = finalizeResearch({ ...base, receipts: [survey, videoA, videoB, videoC, study] }, options);
+    expect(audited.community).toMatchObject({ discovery_rounds: 1, saturated: false, first_pass_complete: true });
 
     // Deep research keeps going until discovery saturates.
     const deep = finalizeResearch({ ...base, receipts, research_depth: "deep" }, options);
     expect(deep.status).toBe("not_ready");
     expect(deep.community).toMatchObject({ depth: "deep", first_pass_complete: false });
-    expect(deep.next_steps).toEqual([expect.stringMatching(/^Discovery has not saturated: eeeeeeeeeee first turned up/u)]);
+    expect(deep.next_steps).toEqual([
+      expect.stringMatching(/^Discovery has not saturated: aaaaaaaaaaa, eeeeeeeeeee first turned up/u)
+    ]);
   });
 
   it("does not count a repeated receipt or a repeated query toward the first-pass cap", () => {
     const base = {
       community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }],
-      open_leads: [{ topic: "Anything else", why: "Stopping early." }]
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
     };
-    const round = sign("youtube_search", { videos: [], q: "k1k1k1k1k1k1" }, options);
-    const duplicated = finalizeResearch({ ...base, receipts: [survey, round, round, round, round, videoA, study] }, options);
-    expect(duplicated.receipts_verified).toBe(4);
-    expect(duplicated.community).toMatchObject({ discovery_rounds: 2, first_pass_complete: false });
+    const round = sign("youtube_search", { videos: ["aaaaaaaaaaa"], q: "k1k1k1k1k1k1" }, options);
+    const duplicated = finalizeResearch({ ...base, receipts: [round, round, round, round, videoA, study] }, options);
+    expect(duplicated.receipts_verified).toBe(3);
+    expect(duplicated.community).toMatchObject({ discovery_rounds: 1, first_pass_complete: false });
     expect(duplicated.status).toBe("not_ready");
 
     // Distinct receipts that repeat one query are still one angle.
-    const sameQuery = ["fffffffffff", "ggggggggggg", "hhhhhhhhhhh"].map((video) =>
+    const sameQuery = ["aaaaaaaaaaa", "ggggggggggg", "hhhhhhhhhhh"].map((video) =>
       sign("youtube_search", { videos: [video], q: "k1k1k1k1k1k1" }, options)
     );
-    const repeated = finalizeResearch({ ...base, receipts: [survey, ...sameQuery, videoA, study] }, options);
-    expect(repeated.community).toMatchObject({ discovery_rounds: 4, first_pass_complete: false });
+    const repeated = finalizeResearch({ ...base, receipts: [...sameQuery, videoA, study] }, options);
+    expect(repeated.community).toMatchObject({ discovery_rounds: 3, first_pass_complete: false });
     expect(repeated.status).toBe("not_ready");
   });
 
   it("does not count a round whose searches failed toward the first-pass cap", () => {
     const base = {
       community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }],
-      open_leads: [{ topic: "Anything else", why: "Stopping early." }]
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
     };
     const failed = (q: string) => sign("youtube_search", { videos: [], access: "error", rl: 0, inc: 1, open: 0, q }, options);
     const round = (q: string, videos: string[]) => sign("youtube_search", { videos, q }, options);
     const lateVideo = sign("youtube_video_audit", { video: "eeeeeeeeeee", state: "api_visible_complete", lock: "pass", records: 50 }, options);
-    // Five angles, but two rounds errored and read nothing: three covered theirs.
+    // Three angles, but two rounds errored and read nothing: one covered its angle.
     const earlier = finalizeResearch({
       ...base,
-      receipts: [survey, failed("p5p5p5p5p5p5"), failed("q6q6q6q6q6q6"), round("r7r7r7r7r7r7", ["eeeeeeeeeee"]),
-        round("s8s8s8s8s8s8", []), videoA, lateVideo, study]
+      receipts: [failed("p5p5p5p5p5p5"), failed("q6q6q6q6q6q6"), round("r7r7r7r7r7r7", ["eeeeeeeeeee"]),
+        round("r7r7r7r7r7r7", []), lateVideo, study]
     }, options);
-    expect(earlier.community).toMatchObject({ discovery_rounds: 5, first_pass_complete: false });
+    expect(earlier.community).toMatchObject({ discovery_rounds: 4, first_pass_complete: false });
     expect(earlier.status).toBe("not_ready");
     expect(earlier.next_steps).toEqual([expect.stringMatching(/^Discovery has not saturated: eeeeeeeeeee first turned up/u)]);
 
     // Failed searches in the latest rounds are rerun, not counted.
     const latest = finalizeResearch({
       ...base,
-      receipts: [survey, round("r7r7r7r7r7r7", ["eeeeeeeeeee"]), round("s8s8s8s8s8s8", []), failed("p5p5p5p5p5p5"),
-        failed("q6q6q6q6q6q6"), videoA, lateVideo, study]
+      receipts: [round("r7r7r7r7r7r7", ["eeeeeeeeeee"]), failed("p5p5p5p5p5p5"), failed("q6q6q6q6q6q6"), lateVideo, study]
     }, options);
-    expect(latest.community).toMatchObject({ discovery_rounds: 5, first_pass_complete: false });
+    expect(latest.community).toMatchObject({ discovery_rounds: 3, first_pass_complete: false });
     expect(latest.next_steps).toEqual([
       expect.stringMatching(/^2 search\(es\) in the latest discovery rounds did not complete\. Rerun them/u)
     ]);
@@ -1527,14 +1653,10 @@ describe("finalize_research gate", () => {
     const base = { community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET, key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }] };
     const lateFind = sign("youtube_scout", { videos: ["ddddddddddd"], open: 0, q: "g7g7g7g7g7g7" }, options);
     const videoD = sign("youtube_video_audit", { video: "ddddddddddd", state: "api_visible_complete", lock: "pass", records: 90 }, options);
-    const early = finalizeResearch({
-      ...base,
-      receipts: [survey, emptySearch, lateFind, videoA, videoD, study],
-      open_leads: [{ topic: "Anything else", why: "Stopping early." }]
-    }, options);
+    const early = finalizeResearch({ ...base, receipts: [lateFind, videoD, study] }, options);
     expect(early.status).toBe("not_ready");
     expect(early.community.first_pass_complete).toBe(false);
-    expect(early.next_steps[0]).toMatch(/A first pass may also stop once 6 material videos are audited or 4 rounds are done/u);
+    expect(early.next_steps[0]).toMatch(/A first pass may also stop once 3 material videos are audited or 2 rounds are done/u);
   });
 
   it("lets a niche topic finish with no video once discovery has saturated", () => {
@@ -1542,11 +1664,14 @@ describe("finalize_research gate", () => {
     const emptySurvey = sign("youtube_survey", { access: "complete", searches: 6, videos: [], q: "j0j0j0j0j0j0" }, options);
     const nothing = finalizeResearch({ ...base, receipts: [emptySurvey, emptySearch, study] }, options);
     expect(nothing.status).toBe("ready_with_limits");
-    expect(nothing.limits).toEqual(["No video turned up in 2 discovery rounds; say that community evidence on this is thin.", FORUM_LIMIT]);
+    expect(nothing.limits).toEqual([
+      "No video turned up in 2 discovery rounds; say that community evidence on this is thin.", FORUM_LIMIT, OFFER_LIMIT
+    ]);
     const thinCaveat = "No relevant video turned up in 2 rounds of searching, so community evidence on this is thin.";
-    expect(nothing.caveats).toEqual([thinCaveat, FORUM_CAVEAT]);
+    expect(nothing.caveats).toEqual([thinCaveat, FORUM_CAVEAT, ...OFFER_CAVEATS]);
     const thinDraft = (text: string) => finalizeResearchRaw({
-      ...base, receipts: [emptySurvey, emptySearch, study], answer_draft: `${CLEAN_DRAFT} ${text}`
+      ...base, receipts: [emptySurvey, emptySearch, study], another_pass_estimate: PASS_ESTIMATE,
+      answer_draft: `${CLEAN_DRAFT} ${text} ${OFFER_CAVEATS.join(" ")}`
     }, options).next_steps;
     expect(thinDraft("A few commenters on YouTube reported relief.")).toEqual([
       `The answer leaves out this caveat; include each as its own sentence, as written (a link's text may change): "${thinCaveat}"`
@@ -1565,7 +1690,8 @@ describe("finalize_research gate", () => {
     expect(explained.status).toBe("ready_with_limits");
     expect(explained.limits).toEqual([
       "None of the 3 video(s) found in 3 discovery rounds was worth auditing; say that community evidence on this is thin.",
-      FORUM_LIMIT
+      FORUM_LIMIT,
+      OFFER_LIMIT
     ]);
   });
 
@@ -1592,7 +1718,13 @@ describe("finalize_research gate", () => {
       not_relevant_reason: "Dose conversion question with no treatment choice.",
       key_sources: [{ id: "PMC10518852", status: "validated" }]
     }, options);
-    expect(reasoned.status).toBe("ready");
+    // Its only limit is the first pass's offer of a deeper study review.
+    expect(reasoned).toMatchObject({ status: "ready_with_limits", limits: [offerLimit(false)] });
+    expect(finalizeResearch({
+      receipts: [study], community_evidence: "not_relevant", treatment_choice: "not_compared", research_target: TARGET,
+      not_relevant_reason: "Dose conversion question with no treatment choice.", research_depth: "deep",
+      key_sources: [{ id: "PMC10518852", status: "validated" }]
+    }, options).status).toBe("ready");
   });
 
   it("reports when receipts cannot be verified on this server", () => {

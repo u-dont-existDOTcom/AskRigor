@@ -416,28 +416,29 @@ describe("treatment-landscape coverage Action", () => {
 
   it("counts a repeated discovery query once toward the first-pass cap", () => {
     const input = completeInput();
-    // Two audited videos: only saturation or four distinct rounds can complete the first pass.
+    // Two audited videos: only saturation or two distinct rounds can complete the first pass.
     const kept = new Set(input.selected_videos.slice(0, 2).map(({ video_id }) => video_id));
     input.selected_videos = input.selected_videos.filter(({ video_id }) => kept.has(video_id));
     input.candidate_videos = input.candidate_videos.map((candidate) => kept.has(candidate.video_id)
       ? candidate
       : { ...candidate, selection_status: "screened_not_selected" as const });
     const rounds = (queries: string[]) => [
-      ...input.discovery_batches.slice(0, 2),
+      input.discovery_batches[0]!,
       ...queries.map((query, index) => closingBatch(`batch-late-${index}`, query, "strength"))
     ];
 
-    // The same query twice (case and spacing aside) is one angle: two angles in all.
+    // The first round's query again (case and spacing aside) is one angle.
+    const firstQuery = input.discovery_batches[0]!.query_or_scope;
     const repeated = assessTreatmentLandscapeCoverage({
       ...input,
-      discovery_batches: rounds(["what finally worked for my joint pain", "  WHAT finally worked for my joint pain "])
+      discovery_batches: rounds([`  ${firstQuery.toUpperCase()} `])
     });
     expect(repeated).toMatchObject({ first_pass_complete: false, answer_boundary: "continue_research" });
 
-    // Four distinct angles complete the first pass.
+    // Two distinct angles complete the first pass.
     const distinct = assessTreatmentLandscapeCoverage({
       ...input,
-      discovery_batches: rounds(["what finally worked for my joint pain", "methods named in the audited comments"])
+      discovery_batches: rounds(["what finally worked for my joint pain"])
     });
     expect(distinct.first_pass_complete).toBe(true);
 
@@ -447,9 +448,8 @@ describe("treatment-landscape coverage Action", () => {
     for (const [access_status, complete] of [
       ["api_visible_complete", true], ["error", false], ["partial", false], ["rate_limited", true]
     ] as const) {
-      const batches = rounds(["methods named in the audited comments", "what finally worked for my joint pain",
-        "what finally worked for my joint pain"]);
-      batches[2] = { ...batches[2]!, access_status };
+      const batches = rounds(["what finally worked for my joint pain", "what finally worked for my joint pain"]);
+      batches[0] = { ...batches[0]!, access_status };
       expect(assessTreatmentLandscapeCoverage({ ...input, discovery_batches: batches }).first_pass_complete).toBe(complete);
     }
   });

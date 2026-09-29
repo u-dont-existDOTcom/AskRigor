@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.6.5" revisionDate="2026-09-27" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.6.6" revisionDate="2026-09-29" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -51,6 +51,17 @@
 </InstructionObligationLifecycle>
 
  <RevisionHistory>
+  <Revision version="20.6.6" priority="Critical">
+   Owner-approved method change (2026-09-29), from the owner's direction that answers take too long. A first pass now
+   stops at about three fully audited videos or about two rounds instead of six and four, and also maps where people
+   discussing the treatment talk and briefly searches the dominant community and one independent one, not only YouTube
+   (BroadDiscoveryBeforeDeepAudit, FS188). A first pass no longer runs selection_coverage_lock: it still searches every
+   direction, its breadth gaps become open leads, and it emits no final treatment ranking; deeper research keeps every
+   block. After a first pass, the answer offers a deeper study review and deeper community research, with two or three
+   focuses each, and asks which the user wants (LimitsNote). The FourDistinctVideosPresentedAsBroadCoverage case
+   follows. Test runs spent most of the model's time reading comments and on the comparison check; the shorter pass is
+   labeled provisional and lists what is left.
+  </Revision>
   <Revision version="20.6.5" priority="Critical">
    Owner-directed output change (2026-09-27), no change to clinical or scientific method. Answers pasted the whole
    deep-forum-audit prompt, and two blind judges counted it as clutter that did not tell the user what deeper research
@@ -1207,7 +1218,9 @@
    transcripts, formal sources, or grey literature. Audit the comments of the videos that add the most distinct
    approaches or substantial firsthand experience. Stop the first pass at the earliest of: two consecutive rounds from
    different angles that add no new approach and no new video worth auditing (a niche topic may end with one video or
-   none; say so); about six fully audited videos; or about four rounds. When discovery has not saturated, the answer is
+   none; say so); about three fully audited videos; or about two rounds. A first pass also maps where people discussing
+   the treatment talk and briefly searches the dominant community and one independent one, not only YouTube
+   (PrincipalPlatformMapping, MultipleIndependentCommunities). When discovery has not saturated, the answer is
    provisional: end it with the open leads (each topic or subtopic where more community signal is likely, why, and
    roughly what another pass would cost) and ask whether to continue on all or part. Deep research continues rounds
    until saturation; an automated or long-range brief sets the depth up front, or a separate reviewer model answers the
@@ -1282,12 +1295,13 @@
    such as a nonmaterial item or the same normalized program already selected; caller assertion alone cannot waive a material
    class, distinct program, formal return pass, or executable retrieval.
    selection_coverage_lock also blocks while discovery has not saturated: the last two discovery batches did not come
-   from different angles, or either still found a new material program or a video selected for audit. After a completed
-   first pass, breadth gaps (unsaturated discovery, unselected programs or classes, unresolved hypotheses, likely further
-   expansion) become the open leads of a provisional answer rather than more searching; skipped directional searches,
-   invalid records, and unfinished audits of selected videos still block, and no final treatment ranking is emitted
-   while the lock blocks. A caller's optimistic aggregate, corpus-size or scope label, renamed ID, or unsupported relevance label cannot turn
-   discoverable material into coverage or disable a structural check.
+   from different angles, or either still found a new material program or a video selected for audit. A first pass does
+   not run this lock. It still searches every direction (DirectionalSearchSymmetry); its breadth gaps (unsaturated
+   discovery, unselected programs or classes, unresolved hypotheses, likely further expansion) become the open leads of
+   a provisional answer rather than more searching, and it emits no final treatment ranking. In deeper research, skipped
+   directional searches, invalid records, and unfinished audits of selected videos block, and no final treatment ranking
+   is emitted while the lock blocks. A caller's optimistic aggregate, corpus-size or scope label, renamed ID, or
+   unsupported relevance label cannot turn discoverable material into coverage or disable a structural check.
 
    per_video_depth_lock is block when, on a surface that offers a transcript tool, any selected transcript track is not
    exhausted and content-verified, or when any selected discussion audit has not passed its own receipt synthesis lock. A live cursor, recommended continuation, retryable error,
@@ -4554,9 +4568,13 @@
    conclusion if the material cannot be obtained. Put any deeper-research offer here (DeepForumAuditActivationPrompt, or a
    Deep Research prompt under ModeSpecificPromptAndHandoff): say in plain words what the deeper research would focus on
    (the options or open leads, the population, and the sources or communities) and what it could change in this answer,
-   then how to start it. Show its prompt only when it is about 60 words or shorter; otherwise offer “Show me the full
-   deeper-research prompt and help me fine-tune it,” and when the user asks, give the complete prompt and help adjust its
-   scope before it runs. Never call the answer a complete HRP analysis unless every applicable Critical module is complete.
+   then how to start it. After a first pass, offer the two directions it left open, a sentence or two each: a deeper
+   study review (studies whose methods were not audited in full text, or questions not yet searched) and deeper
+   community research (communities, options or subgroups not yet reached). Ask which the user wants, and suggest two or
+   three specific focuses within each to help them narrow the next investigation. Show its prompt only when it is about
+   60 words or shorter; otherwise offer “Show me the full deeper-research prompt and help me fine-tune it,” and when the
+   user asks, give the complete prompt and help adjust its scope before it runs. Never call the answer a complete HRP
+   analysis unless every applicable Critical module is complete.
   </Rule>
 
   <Rule name="ClinicianReviewPlan" priority="High">
@@ -6542,10 +6560,11 @@ Final integrated synthesis rule:
     final comparison.
    </Prompt>
    <ExpectedBehavior>
-    Fail the treatment-landscape synthesis lock. Discovery has not saturated, and the first pass has reached neither about
-    six fully audited videos nor about four rounds, so continue discovery from new angles and select for nonredundant
-    decision value. When the first pass stops, the remaining programs become open leads of a provisional answer, never a
-    final comparison or ranking. Do not repair the failure with redundant videos or generic umbrella labels.
+    Do not publish a final comparison. Two rounds and four fully audited videos complete a first pass, but discovery has
+    not saturated, so the answer is provisional: the remaining programs become its open leads, never a final comparison
+    or ranking. In deep research, fail the treatment-landscape synthesis lock and continue discovery from new angles,
+    selecting for nonredundant decision value. Do not repair the failure with redundant videos or generic umbrella
+    labels.
    </ExpectedBehavior>
   </Case>
 
@@ -6984,7 +7003,7 @@ Final integrated synthesis rule:
   <Check id="FS184">Treat a transcript as complete only when its receipt proves one authenticated or server-held contiguous chain from first page to exhaustion, with no skipped pages or mixed restart counts.</Check>
   <Check id="FS186">Decompose each material umbrella class into specific implementation searches with reciprocal receipts.</Check>
   <Check id="FS187">Reconcile each external-scout frontier by digest and partition, leave non-identity gaps unresolved even when retryable, screen every validated lead, and use scout summaries for discovery only, never as evidence.</Check>
-  <Check id="FS188">Stop a first pass at the earliest of saturation, about six fully audited videos, or about four discovery rounds, and end its provisional answer with the open leads; run deep research until discovery saturates.</Check>
+  <Check id="FS188">Stop a first pass at the earliest of saturation, about three fully audited videos, or about two discovery rounds, and end its provisional answer with the open leads; run deep research until discovery saturates.</Check>
   <Check id="FS189">When an external high-recall scout is configured, obtain and reconcile its frontier, or withhold broad completion under an explicit boundary.</Check>
   <Rule name="FinalizeResearch">Before the final answer, call finalize_research when available. Pass every research_receipt the tools returned; declare community evidence researched, or not_relevant with a reason when ForumSignalDefaultTrigger does not apply; and list each study the conclusions depend on as validated or lead_only. It verifies the discovery, video-audit, full-text-audit, and acquisition receipts. On not_ready, do its next steps and call it again; on ready_with_limits, state each limit; on receipts_unavailable, say completion was not server-verified.</Rule>
   <Check name="Modules">Load required sections rather than recall them, run the research-orchestration preflight when triggered, and complete each mandatory-triggered module or disclose it with its claim-local limit and continuation handoff (ProtocolExecutionAndComplianceGate, ResearchOrchestrationAndModeSelectionGate).</Check>

@@ -10273,7 +10273,7 @@
     },
     {
       "name": "assess_treatment_landscape_coverage",
-      "description": "Check treatment-landscape coverage before a broad treatment answer: program diversity, selection coverage and per-video depth. Pass your research receipts and only your judgment: treatment classes, program fingerprints, each discovered video as selected (with its four short notes), screened (fingerprint, materiality, why not selected) or not material (IDs by class), the classes each round searched, and specific-program searches with that round's exact queries. The server builds the discovery rounds (batch IDs r<receipt index>), candidates, audit depth and scout frontier from the receipts. Creator claims stay unverified because this connector has no transcript tool.",
+      "description": "In deep research, check treatment-landscape coverage before a broad treatment answer: program diversity, selection coverage and per-video depth (a first pass skips this check and presents any comparison as provisional). Pass your research receipts and only your judgment: treatment classes, program fingerprints, each discovered video as selected (with its four short notes), screened (fingerprint, materiality, why not selected) or not material (IDs by class), the classes each round searched, and specific-program searches with that round's exact queries. The server builds the discovery rounds (batch IDs r<receipt index>), candidates, audit depth and scout frontier from the receipts. Creator claims stay unverified because this connector has no transcript tool.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -12031,7 +12031,7 @@
     },
     {
       "name": "finalize_research",
-      "description": "Call before the final answer. Pass every research_receipt you received, the research_target (the same text given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits; discovery for any other target does not count), whether community evidence was researched, whether the answer compares treatment options, where people discussing it talk and what each community you searched outside YouTube showed (principal_communities, community_searches), what the YouTube comments you read showed (community_findings), the studies your conclusions depend on, and the answer you are about to give (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, the comment lane and the caveats, and is not stored. not_ready lists the remaining steps; ready_with_limits lists limits, and caveats gives the sentences the answer must contain, each as its own sentence and as written; must_report lists what the answer must report from each lane researched; receipts_unavailable means this server cannot verify completion, so do the required work anyway and say that completion was not server-verified.",
+      "description": "Call before the final answer. Pass every research_receipt you received, the research_target (the same text given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits; discovery for any other target does not count), whether community evidence was researched, whether the answer compares treatment options, where people discussing it talk and what each community you searched outside YouTube showed (principal_communities, community_searches), what the YouTube comments you read showed (community_findings), the studies your conclusions depend on, after a first pass the focuses for going deeper (open_leads, another_pass_estimate), and the answer you are about to give (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, the comment lane and the caveats, and is not stored. not_ready lists the remaining steps; ready_with_limits lists limits, and caveats gives the sentences the answer must contain, each as its own sentence and as written; must_report lists what the answer must report from each lane researched; receipts_unavailable means this server cannot verify completion, so do the required work anyway and say that completion was not server-verified.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -12078,7 +12078,7 @@
               "compared",
               "not_compared"
             ],
-            "description": "compared when the answer compares, ranks or recommends treatment options; it then needs an assess_treatment_landscape_coverage result."
+            "description": "compared when the answer compares, ranks or recommends treatment options. Deep research then needs an assess_treatment_landscape_coverage result; a first pass presents the comparison as provisional, with no final ranking."
           },
           "research_target": {
             "type": "string",
@@ -12096,12 +12096,21 @@
             ]
           },
           "open_leads": {
-            "description": "When a first pass stops before discovery saturates: each topic or subtopic where more community signal is likely, and why.",
+            "description": "After a first pass: two or three focuses for each way to go deeper, studies and (when community evidence was researched) community, each with why it looks promising. When discovery has not saturated, the community focuses include the topics where more community signal is likely.",
             "maxItems": 12,
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
+                "direction": {
+                  "default": "community",
+                  "description": "studies: a deeper study review (studies whose methods were not audited in full text, or questions not yet searched); community: deeper community research (communities, options or subgroups not yet reached).",
+                  "type": "string",
+                  "enum": [
+                    "studies",
+                    "community"
+                  ]
+                },
                 "topic": {
                   "type": "string",
                   "minLength": 1,
@@ -12121,7 +12130,7 @@
             }
           },
           "another_pass_estimate": {
-            "description": "With open_leads: roughly what another pass would take, with a number and unit, such as \"about 20 minutes and 15 YouTube searches\".",
+            "description": "After a first pass: roughly what another pass would take, with a number and unit, such as \"about 20 minutes and 15 YouTube searches\".",
             "type": "string",
             "minLength": 1,
             "maxLength": 200

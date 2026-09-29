@@ -1049,10 +1049,38 @@ Codex on b77880d (three P1s, fixed in the next commit):
   without those, and a Reddit post compares by its id; other query parameters
   stay, since they may be what names a forum thread.
 
-Waiting on the owner (question 2 on the owner page): a shorter first pass in
-HRP (about three fully audited videos or two rounds instead of six and four;
-the treatment-landscape ledger check moves to deeper research; the answer ends
-with two deeper directions and focus questions). Exact wording is on the page.
+Owner question 2, approved 2026-09-29 ("2. approve shorter first pass"),
+built as HRP 20.6.6 with the five changes exactly as worded on the owner page:
+
+- A first pass stops at about three fully audited videos or two rounds (was
+  six and four) and also briefly searches the dominant community and an
+  independent one, not only YouTube (BroadDiscoveryBeforeDeepAudit, FS188,
+  the FourDistinctVideosPresentedAsBroadCoverage case). The gate, the coverage
+  checker, the skill, the Project router and the Forum Signal module follow.
+- A first pass does not run the treatment-coverage lock: a comparison needs no
+  `assess_treatment_landscape_coverage` call, and `finalize_research` requires
+  it to be presented as provisional, with no final ranking. Deep research keeps
+  every block. The coverage tool's description says it is for deep research.
+- After a first pass of research (community evidence researched, or a key study
+  checked), `open_leads` carry a `direction` (studies or community), at least
+  two per direction, and the answer must carry each focus as a sentence ("Study
+  focus: ...", "Community focus: ...") and close with "Another pass would take
+  ...; would you like to go deeper into the studies or the communities, and
+  which focus matters most to you?" (HRP LimitsNote). This is what should make
+  the deeper-research proposals the owner stopped seeing appear on every first
+  pass.
+
+Owner question 3 (a server-side forum check), 29 Sep: the owner doubts a Gemini
+forum scout (quick passes, confabulation) and asked for a cheaper test. Tested
+from this cloud container at no cost: Reddit's JSON pages answer "You've been
+blocked by network security" (old.reddit asks for a login), MESO-Rx serves an
+Incapsula bot challenge and ExcelMale returns 403; this session's web search
+tool cannot reach reddit.com at all. Reddit's public embed endpoint does work
+without an account: it returns a thread's real subreddit and title, or 404. A
+made-up r/trt link came back as a post in another subreddit. Offered: (A) the
+server checks each cited Reddit thread's existence, subreddit and title there
+(free, no account); (B) later, a registered Reddit API app so the server can
+read whole threads. The Gemini forum scout is dropped. Waiting on the owner.
 
 Then: rerun `dev-hip-avoid-replacement` on the new head and judge it against
 4d4fae8 and e1176f8, measuring the time split above.

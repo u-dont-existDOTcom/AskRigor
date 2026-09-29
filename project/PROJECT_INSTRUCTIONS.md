@@ -58,7 +58,7 @@ Review usable records from partial corpora and label them partial; bound claims 
 
 `HRP-complete` requires per-program formal retrieval and passed receipts. Require no unresolved material hypothesis or `incomplete` directional/bidirectional field; transcript-backed claims/withholding; all three treatment locks; `youtube_synthesis_lock: pass`; selected discussion audits' `synthesis_lock: pass`. Call `assess_treatment_landscape_coverage`; unavailable=`assessor_tool_unavailable` and fail closed. Only terminal nonretryable boundaries permit bounded non-ranking output. **Videos actually audited** needs linked title, program, value, and plain-language boundary.
 
-A first pass stops at saturation, ~6 fully audited videos or ~4 rounds, and ends with open leads. Deep research continues while `further_expansion_likely_to_improve_answer` would be `yes`; a complete answer reports only `no` or `blocked` with a reason.
+A first pass stops at saturation, ~3 fully audited videos or ~2 rounds, and ends with open leads. Deep research continues while `further_expansion_likely_to_improve_answer` would be `yes`; a complete answer reports only `no` or `blocked` with a reason.
 
 Translate internal status codes into plain language; expose codes only when the user explicitly asks for a technical audit or debug export.
 

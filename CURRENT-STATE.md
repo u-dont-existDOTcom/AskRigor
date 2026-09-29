@@ -25,7 +25,15 @@ its own use context, maintenance or rescue, before any safety label); HRP 20.6.5
 (owner-directed: a deeper-research offer says what it would focus on and what it
 could change, and a prompt longer than about 60 words comes on request, "Show me
 the full deeper-research prompt and help me fine-tune it", instead of being
-pasted); on MCP the
+pasted); HRP 20.6.6 (owner-approved 2026-09-29, for speed: a first pass
+stops at about three fully audited videos or two rounds instead of six and four,
+also briefly searches the dominant community outside YouTube and an independent
+one, skips the treatment-coverage lock with a provisional comparison and no final
+ranking, and ends by offering a deeper study review and deeper community research
+with two or three focuses each; `finalize_research` enforces all of it); YouTube
+receipts on MCP name their lock for YouTube only, and `finalize_research` needs the
+community map and searches of the dominant community and an independent one
+(the owner's HGH versus testosterone bug report); on MCP the
 treatment-coverage check builds its ledger from signed receipts (option A,
 owner-chosen); a coverage-checker fix from the smoke-run replay
 (first-pass breadth gaps become open leads, and complete grouped blocker lists

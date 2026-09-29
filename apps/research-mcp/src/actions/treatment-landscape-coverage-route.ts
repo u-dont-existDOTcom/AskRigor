@@ -1966,8 +1966,8 @@ function actionJsonSchema(schema: z.ZodType): Record<string, unknown> {
 }
 
 /** A first pass stops at saturation or at this many fully audited videos or discovery batches. */
-const FIRST_PASS_AUDITED_VIDEOS = 6;
-const FIRST_PASS_DISCOVERY_BATCHES = 4;
+const FIRST_PASS_AUDITED_VIDEOS = 3;
+const FIRST_PASS_DISCOVERY_BATCHES = 2;
 
 type DiscoverySaturation = "saturated" | "too_few_batches" | "same_query" | "still_finding";
 
