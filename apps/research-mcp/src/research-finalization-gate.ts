@@ -59,7 +59,8 @@ export const finalizeResearchInputSchema = z.object({
   }).strict()).max(12).optional()
     .describe("After a first pass: two or three focuses for each way to go deeper, studies and (when community evidence " +
       "was researched) community, each with why it looks promising. When discovery has not saturated, the community " +
-      "focuses include the topics where more community signal is likely."),
+      "focuses include the topics where more community signal is likely. Focuses deepen what the answer covers: a " +
+      "first pass still covers every plausible option class and the red flags briefly, never leaving them for later."),
   another_pass_estimate: z.string().trim().min(1).max(200).optional()
     .describe("After a first pass: roughly what another pass would take, with a number and unit, such as \"about 20 minutes and 15 YouTube searches\"."),
   community_findings: z.object({
