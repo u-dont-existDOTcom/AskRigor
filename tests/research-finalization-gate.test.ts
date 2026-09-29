@@ -75,7 +75,15 @@ const REDDIT_SEARCH = {
   benefit_reports: "About half of about 20 posters reported slow gains from exercise.",
   no_effect_reports: "A few reported no change.",
   adverse_reports: "None reported.",
-  effect_on_answer: "Consistent with the YouTube comments."
+  effect_on_answer: "Consistent with the YouTube comments.",
+  // The answer's own sentences for each finding, as the model copies them from CLEAN_DRAFT.
+  answer_quotes: {
+    benefit_reports: "members of [r/HipOA](https://www.reddit.com/r/HipOA/comments/abc123/avoided_surgery/) " +
+      "reported slow improvement from exercise",
+    no_effect_reports: "a few saw no change",
+    adverse_reports: "none reported side effects, which is consistent with the YouTube comments.",
+    effect_on_answer: "which is consistent with the YouTube comments"
+  }
 };
 const communityDefaults = (input: Record<string, unknown>) =>
   input.community_evidence !== "researched" || "principal_communities" in input ? {} : {
@@ -120,6 +128,11 @@ const STUDIES_OFFER_CAVEATS = [
   `Another pass would take ${PASS_ESTIMATE}; would you like to go deeper into the studies, and which focus matters ` +
     "most to you?"
 ];
+// How the gate asks for the caveats an answer left out.
+const leftOut = (...caveats: string[]) =>
+  `The answer leaves out ${caveats.length === 1 ? "this caveat" : "these caveats"}; include each as its own ` +
+  "sentence, as written (a link's text may change), or, in an answer not in English, in the answer's language with " +
+  `the same links, given in caveat_renderings: ${caveats.map((caveat) => `"${caveat}"`).join(" ")}`;
 // Every call gets the community and offer defaults unless it passes its own.
 const finalizeResearchRaw = (input: Record<string, unknown>, gateOptions: Parameters<typeof finalizeResearchBare>[1]) =>
   finalizeResearchBare({ ...communityDefaults(input), ...offerDefaults(input), ...input }, gateOptions);
@@ -130,13 +143,25 @@ const finalizeResearchGate = (input: Record<string, unknown>, gateOptions: typeo
     gateOptions
   );
 };
+// The sentences of CLEAN_DRAFT that report each YouTube finding; one serves three.
+const YOUTUBE_QUOTES = {
+  benefit_reports: "People commenting on YouTube videos about it reported less pain after several months; a few " +
+    "noticed no change, and none reported side effects.",
+  no_effect_reports: "People commenting on YouTube videos about it reported less pain after several months; a few " +
+    "noticed no change, and none reported side effects.",
+  adverse_reports: "People commenting on YouTube videos about it reported less pain after several months; a few " +
+    "noticed no change, and none reported side effects.",
+  creators_versus_commenters: "\u201CThe channels\u2019 creators sell programs; the commenters have no stake.\u201D",
+  effect_on_answer: "This weak firsthand signal supports trying exercise before surgery."
+};
 const findingsFor = (videos: string[]) => ({
   videos_reviewed: videos,
   benefit_reports: "About a third of commenters reported less pain after several months.",
   no_effect_reports: "Several reported no change.",
   adverse_reports: "None reported.",
   creators_versus_commenters: "The creators sell programs; commenters have no stake.",
-  effect_on_answer: "Supports trying it before surgery, as weak firsthand evidence."
+  effect_on_answer: "Supports trying it before surgery, as weak firsthand evidence.",
+  answer_quotes: YOUTUBE_QUOTES
 });
 const finalizeResearch = (input: Record<string, unknown> & { receipts: string[] }, gateOptions: typeof options) => {
   const videos = commentVideos(input.receipts);
@@ -305,95 +330,47 @@ describe("finalize_research gate", () => {
     expect(foreign.next_steps.join(" ")).toContain("judged video(s) zzzzzzzzzzz that no discovery receipt");
   });
 
-  it("keeps a final ranking out of a first pass and a bounded answer", () => {
+  it("has a first pass or a bounded answer say that it does not rank, and leaves the wording to the model", () => {
     const base = {
       receipts: [survey, emptySearch, repeatScout, videoA, study],
       community_evidence: "researched" as const,
       treatment_choice: "compared" as const,
       research_target: TARGET,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }],
+      community_findings: findingsFor(["aaaaaaaaaaa"])
     };
     const draftWith = (input: Record<string, unknown>, sentence: string) =>
       finalizeResearchRaw({
         another_pass_estimate: PASS_ESTIMATE, ...input, answer_draft: `${caveatedDraft(input, options)}\n\n${sentence}`
-      }, options).next_steps;
-    const ranks = (phrase: string, reason: string) =>
-      `The answer ranks the options ("${phrase}"), but ${reason}: compare them without naming a best, first-choice, ` +
-        "superior or winning option, and say what evidence would settle it.";
-    // A first pass names no best option, whatever the caveats say.
-    const firstPass = { ...base, community_findings: findingsFor(["aaaaaaaaaaa"]) };
-    expect(draftWith(firstPass, "Of these, exercise is the best option for most people.")).toEqual([
-      ranks("is the best option", "this first pass allows no final ranking")
-    ]);
-    expect(draftWith({ ...firstPass, treatment_choice: "not_compared" }, "Overall, walking programs are the clear winner."))
-      .toEqual([ranks("clear winner", "this first pass allows no final ranking")]);
-    // Doubt about which is best, a guideline's preference or a study's ranking is not the answer's own ranking.
-    for (const sentence of [
-      "Which is the best option depends on your goals.",
-      "What is the best option depends on your goals.",
-      "It is too early to say which is the best option, and there is no clear winner yet.",
-      "It's too early to say whether exercise, injections, or surgery is the best option for you.",
-      "It is unclear, though, whether surgery is the best option.",
-      "If it is unclear whether surgery is the best option, ask the surgeon what the X-ray shows.",
-      "It is not clear whether exercise or surgery is the best option.",
-      "Ask your surgeon which is the best option for you.",
-      "There isn't a clear winner yet.",
-      "None of these is the best option for everyone.",
-      "Is there a clear winner?",
-      "Surgery is rarely the best option before a trial of exercise.",
-      "In the trial closest to you, surgery was superior to training at 6 months.",
-      "In that trial, surgery outperformed training at six months.",
-      "Guidelines recommend exercise over injections for most people.",
-      "Five commenters said surgery beats exercise.",
-      "A US trial found surgery beats exercise.",
-      "ME/CFS patients said pacing beats graded exercise.",
-      "The study concludes that surgery outperforms exercise.",
-      "According to the trial, surgery outperforms training at six months.",
-      "Replacement gave larger gains than training, but it is unclear whether surgery is superior to exercise for you.",
-      "Guidelines call joint replacement the preferred treatment at the end stage.",
-      "In a network meta-analysis, exercise ranked highest for pain."
-    ]) {
-      expect(draftWith(firstPass, sentence)).toEqual([]);
-    }
-    // Only a denial right before it, "whether" or a question word asking it, or a question excuses a ranking;
-    // doubt elsewhere in the sentence does not.
-    for (const [sentence, phrase] of [
-      ["Although it is too early to say whether exercise lasts, surgery is the best option.", "is the best option"],
-      ["It is unclear whether exercise lasts, but surgery is the best option.", "is the best option"],
-      ["It is too early to say whether exercise lasts, surgery is the best option.", "is the best option"],
-      ["Whether exercise lasts is unclear; surgery is the best option.", "is the best option"],
-      ["Surgery is the best option whether or not you exercise.", "is the best option"],
-      ["Exercise remains unclear but surgery is the best option.", "is the best option"],
-      ["Surgery, which is the best option for severe damage, restores walking.", "is the best option"],
-      ["Surgery is probably the best option.", "is probably the best option"],
-      ["Surgery is the best option, right?", "is the best option"],
-      ["Surgery is superior to exercise.", "is superior to"],
-      ["Exercise should be the first choice.", "should be the first choice"],
-      ["Surgery is better than any other option.", "is better than any other"],
-      ["I recommend surgery over exercise.", "I recommend surgery over"],
-      ["Choose exercise over injections for now.", "Choose exercise over"],
-      ["Surgery beats exercise.", "beats"],
-      ["We found surgery beats exercise.", "beats"],
-      ["We also found surgery beats exercise.", "beats"],
-      ["I independently concluded surgery outperforms exercise.", "outperforms"],
-      ["Our review found surgery beats exercise.", "beats"],
-      ["Our careful independent evidence review found surgery beats exercise.", "beats"],
-      ["Commenters said exercise helps and surgery beats exercise.", "beats"],
-      [`We ${"read the trials, the guidelines and the long-term registry follow-ups, ".repeat(6)}and the study found ` +
-        "surgery beats exercise.", "beats"]
-    ] as const) {
-      expect(draftWith(firstPass, sentence)).toEqual([ranks(phrase, "this first pass allows no final ranking")]);
-    }
-    // Deep research may rank once the coverage check allows it, but not on a bounded result.
+      }, options);
+    // A first pass names no best option (HRP 20.6.6): the answer says so in the gate's words.
+    const firstPass = draftWith(base, "Exercise and weight loss both help; which suits you depends on your goals.");
+    expect(firstPass.next_steps).toEqual([]);
+    expect(firstPass.limits).toContain(
+      "The treatment comparison rests on a first pass: present it as provisional, with no final ranking."
+    );
+    expect(firstPass.caveats).toContain(
+      "This comparison rests on a first pass through the evidence, so treat it as provisional; it does not rank the " +
+        "options."
+    );
+    // Whether a sentence names a best option is a judgment about meaning, in whatever language the answer is in;
+    // no word list makes it, so the gate reads none (AGENTS.md code review rules). An answer that states the
+    // caveat and still ranks gets past the gate: its reader sees both.
+    expect(draftWith(base, "Of these, exercise is the best option for most people.").next_steps).toEqual([]);
+    // Deep research may rank once the coverage check allows it; a bounded result says it does not.
     const coverage = (boundary: string) => issueResearchReceipt("treatment_coverage", {
       boundary, lock: boundary === "ledger_consistent_for_synthesis" ? "pass" : "block",
       target: discoveryQueryDigest([TARGET]), broad: true
     }, { secret: SECRET, now: () => new Date("2026-09-26T11:00:00.000Z") });
-    const deep = (boundary: string) => ({ ...firstPass, research_depth: "deep", receipts: [...base.receipts, coverage(boundary)] });
-    expect(draftWith(deep("bounded_nonranking_only"), "Physiotherapy is your best bet.")).toEqual([
-      ranks("is your best bet", "the treatment-coverage check allows no ranking here")
-    ]);
-    expect(draftWith(deep("ledger_consistent_for_synthesis"), "Physiotherapy is your best bet.")).toEqual([]);
+    const deep = (boundary: string) => ({ ...base, research_depth: "deep", receipts: [...base.receipts, coverage(boundary)] });
+    const bounded = draftWith(deep("bounded_nonranking_only"), "Physiotherapy suits most people.");
+    expect(bounded.next_steps).toEqual([]);
+    expect(bounded.caveats).toContain(
+      "The evidence check allows only a limited comparison here, so this answer does not rank or recommend among " +
+        "the options."
+    );
+    expect(draftWith(deep("ledger_consistent_for_synthesis"), "Physiotherapy is your best bet.").caveats)
+      .not.toContain(expect.stringMatching(/does not rank/u));
   });
 
   it("is ready when community and key studies are backed by receipts", () => {
@@ -450,7 +427,13 @@ describe("finalize_research gate", () => {
       benefit_reports: "Most of about 30 long-term users reported better recovery on either.",
       no_effect_reports: "Several said growth hormone added little over testosterone.",
       adverse_reports: "Joint pain, carpal tunnel and raised blood sugar on growth hormone; acne and high hematocrit on testosterone.",
-      effect_on_answer: "Supports naming the growth hormone side effects first."
+      effect_on_answer: "Supports naming the growth hormone side effects first.",
+      answer_quotes: {
+        benefit_reports: "most long-term users reported better recovery",
+        no_effect_reports: "several saw no difference from growth hormone",
+        adverse_reports: "some reported joint pain and raised blood sugar",
+        effect_on_answer: "which supports naming its side effects first"
+      }
     };
     const reported = `${CLEAN_DRAFT} On [r/trt](https://www.reddit.com/r/trt/comments/xyz789/hgh_and_trt_five_years/), ` +
       "most long-term users reported better recovery, several saw no difference from growth hormone, and some " +
@@ -508,27 +491,35 @@ describe("finalize_research gate", () => {
       expect.stringMatching(/^YouTube comments \(1 video\(s\) read\): /u),
       expect.stringMatching(/^r\/trt \(1 thread\(s\) read\): Benefits: Most of about 30 long-term users/u)
     ]);
-    // The answer must report it, naming the community (or, for a subreddit, Reddit), with its findings and a link.
+    // The answer must report it: the model copies the sentences that report each finding, the answer must show
+    // them, and a paragraph that reports it links a thread read there.
     const offer = OFFER_CAVEATS.join(" ");
     const withoutForums = `${CLEAN_DRAFT.replace(/ On Reddit, .*$/u, "")} The reports from r/trt come from my own web ` +
       `search, which AskRigor could not verify. ${offer}`;
+    const unshown = "For r/trt, answer_quotes gives text the answer does not show (benefit_reports, no_effect_reports, " +
+      "adverse_reports, effect_on_answer): report each finding in the answer, and copy the sentence(s) that report " +
+      "it exactly, from one paragraph or list item.";
     expect(gate({
       principal_communities: communities, community_searches: [trt],
       answer_draft: `${CLEAN_DRAFT.replace(/ On Reddit, .*$/u, "")} ${offer}`
     }).next_steps).toEqual([
-      "The answer does not report what r/trt showed. Add its lane from must_report, naming the community, even " +
-        "if its signal is weak.",
-      "Link a thread you read from r/trt where the answer reports it, so a reader can check it.",
-      "The answer leaves out this caveat; include each as its own sentence, as written (a link's text may change): " +
-        "\"The reports from r/trt come from my own web search, which AskRigor could not verify.\""
+      unshown,
+      leftOut("The reports from r/trt come from my own web search, which AskRigor could not verify.")
     ]);
     // Naming the community, as the caveat does, is not reporting what its posters said.
     expect(gate({ principal_communities: communities, community_searches: [trt], answer_draft: withoutForums }).next_steps)
+      .toEqual([unshown]);
+    const { answer_quotes: _quotes, ...unquoted } = trt;
+    expect(gate({ principal_communities: communities, community_searches: [unquoted], answer_draft: reported }).next_steps)
       .toEqual([
-        "The answer's r/trt section does not report benefit reports, no-effect reports, adverse reports, what those " +
-          "reports mean for the answer. Add each from must_report, and say none were reported where there were none.",
-        "Link a thread you read from r/trt where the answer reports it, so a reader can check it."
+        "Give answer_quotes for r/trt in its community_searches entry: for each finding, the sentence(s) of the answer " +
+          "that report it, copied from answer_draft. The answer must report what r/trt showed, even if the signal is weak."
       ]);
+    // Reported without a link to a thread read there, it cannot be checked.
+    const unlinked = reported.replace(
+      "On [r/trt](https://www.reddit.com/r/trt/comments/xyz789/hgh_and_trt_five_years/), ", "\n\nOn r/trt, ");
+    expect(gate({ principal_communities: communities, community_searches: [trt], answer_draft: unlinked }).next_steps)
+      .toEqual(["Link a thread you read from r/trt in a paragraph that reports it, so a reader can check it."]);
     // Findings are needed for a community that was read.
     const { benefit_reports: _benefit, effect_on_answer: _effect, ...unreported } = trt;
     expect(gate({ principal_communities: communities, community_searches: [unreported] }).next_steps).toContain(
@@ -739,25 +730,37 @@ describe("finalize_research gate", () => {
       { name: "r/Testosterone", platform: "reddit" },
       { name: "YouTube", platform: "youtube" }
     ];
-    const read = (community: string, url: string, platform = "reddit") =>
-      ({ community, platform, queries: ["hgh vs trt"], threads_read: [{ url }], ...findings });
+    // The answer's sentences for each community's findings, as the model quotes them: one sentence reports all four.
+    const quotesOf = (sentence: string) => ({
+      benefit_reports: sentence, no_effect_reports: sentence, adverse_reports: sentence, effect_on_answer: sentence
+    });
+    const trtReport = "most reported better recovery; some saw no difference and a few reported side effects, " +
+      "consistent with the trials.";
+    const testosteroneReport = "most reported better recovery too; some saw no difference and a few reported side " +
+      "effects, consistent with the trials.";
+    const read = (community: string, url: string, platform = "reddit") => ({
+      community, platform, queries: ["hgh vs trt"], threads_read: [{ url }], ...findings,
+      answer_quotes: quotesOf(community === "r/Testosterone" ? testosteroneReport : trtReport)
+    });
     const both = [read("r/trt", trtThread), read("r/Testosterone", testosteroneThread)];
     const caveat = "The reports from r/trt and r/Testosterone come from my own web search, which AskRigor could not verify.";
     const gate = (input: Record<string, unknown>) =>
       finalizeResearch({ ...base, principal_communities: subreddits, ...input }, options);
+    const unshown = (community: string) => `For ${community}, answer_quotes gives text the answer does not show ` +
+      "(benefit_reports, no_effect_reports, adverse_reports, effect_on_answer): report each finding in the answer, " +
+      "and copy the sentence(s) that report it exactly, from one paragraph or list item.";
 
-    // With two subreddits read, a paragraph about "Reddit" reports for neither, whatever it links.
+    // A paragraph about "Reddit" that does not hold the sentences quoted for each subreddit reports for neither.
     const generic = `${CLEAN_DRAFT}\n\nOn Reddit, users reported better recovery; some saw no difference and a few ` +
       `reported side effects, consistent with the trials. See [one thread](${trtThread}) and [another](${testosteroneThread}).` +
       `\n\n${caveat}`;
-    expect(gate({ community_searches: both, answer_draft: generic }).next_steps).toEqual([
-      "The answer's r/trt section does not report benefit reports, no-effect reports, adverse reports, what those " +
-        "reports mean for the answer. Add each from must_report, and say none were reported where there were none.",
-      "Link a thread you read from r/trt where the answer reports it, so a reader can check it.",
-      "The answer's r/Testosterone section does not report benefit reports, no-effect reports, adverse reports, what " +
-        "those reports mean for the answer. Add each from must_report, and say none were reported where there were none.",
-      "Link a thread you read from r/Testosterone where the answer reports it, so a reader can check it."
-    ]);
+    expect(gate({ community_searches: both, answer_draft: generic }).next_steps)
+      .toEqual([unshown("r/trt"), unshown("r/Testosterone")]);
+    // Quoted for both, it reports both: a thread from each is linked where it does.
+    const genericQuotes = quotesOf("On Reddit, users reported better recovery; some saw no difference");
+    expect(gate({
+      community_searches: both.map((search) => ({ ...search, answer_quotes: genericQuotes })), answer_draft: generic
+    }).next_steps).toEqual([]);
     // A section per subreddit, each with its findings and its own thread, passes.
     const sections = `${CLEAN_DRAFT}\n\nOn [r/trt](${trtThread}), most reported better recovery; some saw no difference ` +
       "and a few reported side effects, consistent with the trials.\n\nOn " +
@@ -775,7 +778,7 @@ describe("finalize_research gate", () => {
     // A link to one subreddit's thread in another's section is not its link.
     const swapped = sections.replace(`[r/trt](${trtThread})`, `[r/trt](${testosteroneThread})`);
     expect(gate({ community_searches: both, answer_draft: swapped }).next_steps).toEqual([
-      "Link a thread you read from r/trt where the answer reports it, so a reader can check it."
+      "Link a thread you read from r/trt in a paragraph that reports it, so a reader can check it."
     ]);
 
     // A subreddit's entry names it, and its threads are in it; Reddit threads are Reddit's.
@@ -897,10 +900,16 @@ describe("finalize_research gate", () => {
     };
     const trtThread = "https://old.reddit.com/r/trt/comments/xyz789/hgh_and_trt_five_years/";
     const testosteroneThread = "https://www.reddit.com/r/Testosterone/comments/def456/ten_years_on_trt/";
+    // The sentence of the draft below that reports each subreddit, quoted for all four findings.
+    const quotesOf = (sentence: string) => ({
+      benefit_reports: sentence, no_effect_reports: sentence, adverse_reports: sentence, effect_on_answer: sentence
+    });
     const searches = (trtTitle?: string) => [
       { community: "r/trt", platform: "reddit", queries: ["hgh vs trt"], ...findings,
+        answer_quotes: quotesOf("most reported better recovery; some saw no difference"),
         threads_read: [{ url: trtThread, ...(trtTitle === undefined ? {} : { title: trtTitle }) }] },
-      { community: "r/Testosterone", platform: "reddit", queries: ["hgh vs trt"], ...findings, threads_read: [{ url: testosteroneThread }] }
+      { community: "r/Testosterone", platform: "reddit", queries: ["hgh vs trt"], ...findings,
+        answer_quotes: quotesOf("most reported better recovery too"), threads_read: [{ url: testosteroneThread }] }
     ];
     const found = (subreddit: string, title: string) => ({ state: "found" as const, subreddit, title });
     const reddit = (trt: RedditThreadCheck) => new Map<string, RedditThreadCheck>([
@@ -975,7 +984,13 @@ describe("finalize_research gate", () => {
       benefit_reports: "Better recovery for most.",
       no_effect_reports: "Some saw no difference.",
       adverse_reports: "Joint pain on growth hormone.",
-      effect_on_answer: "Consistent with the trials."
+      effect_on_answer: "Consistent with the trials.",
+      answer_quotes: {
+        benefit_reports: "most users reported better recovery",
+        no_effect_reports: "some saw no difference",
+        adverse_reports: "several reported joint pain as a side effect of growth hormone",
+        effect_on_answer: "consistent with the trials"
+      }
     });
     const result = finalizeResearchBare({
       research_depth: "deep",
@@ -1058,6 +1073,11 @@ describe("finalize_research gate", () => {
         "Use a strict-core cohort and separately labeled adjacent cohorts. Self-Report scales from " +
         "GlaxoSmithKline trials. [Hip exercises](https://www.youtube.com/watch?v=bbbbbbbbbbb&list=my_list_1)"
     }, { ...options, protocolNames: new Set(["DeepForumAuditActivationPrompt", "LimitsNote"]) });
+    const allFindings = ["benefit_reports", "no_effect_reports", "adverse_reports", "creators_versus_commenters",
+      "effect_on_answer"];
+    const unshown = (lane: string, findings: readonly string[]) => `For ${lane}, answer_quotes gives text the answer ` +
+      `does not show (${findings.join(", ")}): report each finding in the answer, and copy the sentence(s) that ` +
+      "report it exactly, from one paragraph or list item.";
     expect(leaky).toMatchObject({ status: "not_ready", answer_checked: true });
     expect(leaky.next_steps).toEqual([
       "The answer shows internal labels (REQUIRED_NOW, CONTINGENT_LATER, api_visible_complete, finalize_research, " +
@@ -1065,73 +1085,64 @@ describe("finalize_research gate", () => {
       "The answer names video(s) by bare ID (Z8jn_6WMquo, aaaaaaaaaaa): give each its linked title instead.",
       "The answer pastes the full deep forum-audit prompt. Say what the deeper research would focus on and how to " +
         "start it, and offer the full prompt instead (\"Show me the full deeper-research prompt and help me fine-tune it\").",
-      "The answer does not report the YouTube comments that were read. Add that lane from must_report, even if its " +
-        "signal is weak.",
-      "The answer does not report what r/HipOA showed. Add its lane from must_report, naming the community, even " +
-        "if its signal is weak.",
-      "Link a thread you read from r/HipOA where the answer reports it, so a reader can check it.",
-      `The answer leaves out this caveat; include each as its own sentence, as written (a link's text may change): "${FORUM_CAVEAT}"`
+      unshown("the YouTube comments", allFindings),
+      unshown("r/HipOA", ["benefit_reports", "no_effect_reports", "adverse_reports", "effect_on_answer"]),
+      leftOut(FORUM_CAVEAT)
     ]);
 
-    // Naming YouTube is not reporting what its commenters said. Each draft also
-    // reports the subreddit the defaults searched, in words that name neither YouTube nor comments.
+    // For each finding the model copies the answer's sentences that report it, and the answer must show them;
+    // whether they report it is the model's judgment, in whatever language it wrote them. Each draft also
+    // reports the subreddit the defaults searched.
     const subreddit = "On Reddit, members of [r/HipOA](https://www.reddit.com/r/HipOA/comments/abc123/avoided_surgery/) " +
-      "reported slow improvement from exercise; a few saw no change and none reported side effects, which supports " +
-      `the trials. ${FORUM_CAVEAT}`;
-    const lane = (answerDraft: string) =>
-      finalizeResearchRaw({ ...request, answer_draft: `${subreddit}\n\n${answerDraft}` }, options).next_steps;
-    expect(lane("Exercise helps most people with hip osteoarthritis. I also searched YouTube.")).toEqual([
-      "The answer's YouTube comments section does not report benefit reports, no-effect reports, adverse reports, " +
-        "how creators differ from commenters, what the comments mean for the answer. Add each from must_report, and " +
-        "say none were reported where there were none."
+      "reported slow improvement from exercise; a few saw no change and none reported side effects, which is " +
+      `consistent with the YouTube comments. ${FORUM_CAVEAT}`;
+    const youtubeLane = "People commenting on YouTube videos about it reported less pain after several months; a few " +
+      "noticed no change, and none reported side effects. The channels' creators sell programs; the commenters have " +
+      "no stake. This weak firsthand signal supports trying exercise before surgery.";
+    const lane = (answerDraft: string, findings: Record<string, unknown> = request.community_findings) =>
+      finalizeResearchRaw({ ...request, community_findings: findings, answer_draft: `${subreddit}\n\n${answerDraft}` }, options)
+        .next_steps;
+    expect(lane(youtubeLane)).toEqual([]);
+    // Naming YouTube is not reporting what its commenters said.
+    expect(lane("Exercise helps most people with hip osteoarthritis. I also searched YouTube."))
+      .toEqual([unshown("the YouTube comments", allFindings)]);
+    // Only the findings the answer does not show go back.
+    expect(lane(youtubeLane.replace(" This weak firsthand signal supports trying exercise before surgery.", "")))
+      .toEqual([unshown("the YouTube comments", ["effect_on_answer"])]);
+    // Without quotes the gate asks for them.
+    const { answer_quotes: _quotes, ...unquoted } = request.community_findings;
+    expect(lane(youtubeLane, unquoted)).toEqual([
+      "Give answer_quotes for the YouTube comments in community_findings: for each finding, the sentence(s) of the " +
+        "answer that report it, copied from answer_draft. The answer must report what the YouTube comments showed, " +
+        "even if the signal is weak."
     ]);
-    expect(lane("Exercise helps. I will not discuss the YouTube comments.")).toHaveLength(1);
-    expect(lane("YouTube commenters reported less pain after a month; the channel creators sell courses.")).toEqual([
-      "The answer's YouTube comments section does not report no-effect reports, adverse reports, what the comments " +
-        "mean for the answer. Add each from must_report, and say none were reported where there were none."
-    ]);
-    // Every finding but what the comments mean for the answer.
-    const withoutEffect = "YouTube commenters reported less pain after a month, a few noticed no change, and none " +
-      "reported side effects; the channel creators sell courses.";
-    expect(lane(withoutEffect)).toEqual([
-      "The answer's YouTube comments section does not report what the comments mean for the answer. Add each from " +
-        "must_report, and say none were reported where there were none."
-    ]);
-    // Said in the answer's own words, or echoing the effect the findings give.
-    expect(lane(`${withoutEffect} That is consistent with the trials.`)).toEqual([]);
-    expect(lane(`${withoutEffect} It makes trying the program before surgery look reasonable.`)).toEqual([]);
-    // Only what the reader sees reports the lane: not an HTML comment (Codex's case), an image
-    // description, a tag's attribute or code.
-    const hidden = `${withoutEffect} That is consistent with the trials.`;
-    expect(lane(`Exercise helps most people with hip osteoarthritis. <!-- ${hidden} -->`)).toEqual([
-      "The answer does not report the YouTube comments that were read. Add that lane from must_report, even if its " +
-        "signal is weak."
-    ]);
+    // A quote is compared as a reader sees it: case, spacing, emphasis, quotation marks around it and its end mark
+    // aside, with a link by its text or its target.
+    expect(lane(youtubeLane.replace("The channels' creators sell", "The **channels\u2019 creators**\n  sell"))).toEqual([]);
+    const linkedLane = youtubeLane.replace("YouTube videos about it", "[YouTube videos about it](https://www.youtube.com/watch?v=aaaaaaaaaaa)");
+    for (const benefit of [
+      "People commenting on [YouTube videos about it](https://www.youtube.com/watch?v=aaaaaaaaaaa) reported less pain",
+      "People commenting on [videos](https://www.youtube.com/watch?v=aaaaaaaaaaa) reported less pain",
+      "People commenting on YouTube videos about it reported less pain"
+    ]) {
+      expect(lane(linkedLane, { ...request.community_findings, answer_quotes: { ...YOUTUBE_QUOTES, benefit_reports: benefit } }))
+        .toEqual([]);
+    }
+    // Only what the reader sees shows a quote: not an HTML comment (Codex's case), an image description, a tag's
+    // attribute, code, or a link's destination, title or reference label.
     for (const hiding of [
-      `<!-- ${withoutEffect} That is consistent with the trials. -->`,
-      `![${withoutEffect} That is consistent with the trials.](https://example.com/chart.png)`,
-      `<span title="${withoutEffect} That is consistent with the trials.">Details</span>`,
-      `\n\n\`\`\`\n${withoutEffect} That is consistent with the trials.\n\`\`\`\n`
+      `<!-- ${youtubeLane} -->`,
+      `![${youtubeLane}](https://example.com/chart.png)`,
+      `<span title="${youtubeLane}">Details</span>`,
+      `\n\n\`\`\`\n${youtubeLane}\n\`\`\`\n`,
+      `[details](https://example.com "${youtubeLane}")`,
+      "[details](/helped/This-weak-firsthand-signal-supports-trying-exercise-before-surgery)",
+      "[details][This weak firsthand signal supports trying exercise before surgery]"
     ]) {
-      expect(lane(`Exercise helps most people with hip osteoarthritis.\n\n## YouTube comments\n\n${hiding}`)).toEqual([
-        "The answer's YouTube comments section does not report benefit reports, no-effect reports, adverse reports, " +
-          "how creators differ from commenters, what the comments mean for the answer. Add each from must_report, and " +
-          "say none were reported where there were none."
-      ]);
+      expect(lane(`Exercise helps most people with hip osteoarthritis.\n\n## YouTube comments\n\n${hiding}`))
+        .toEqual([unshown("the YouTube comments", allFindings)]);
     }
-    expect(lane(`Exercise helps most people with hip osteoarthritis.\n\n## YouTube comments\n\n- ${hidden}`)).toEqual([]);
-    // Nor do a link's destination (Codex's case), title or reference label: only its text is shown.
-    for (const linked of [
-      "[details](/helped/no-effect/adverse/creators/supports-answer)",
-      `[details](https://example.com "${hidden}")`,
-      `[details][${withoutEffect.replace(/[;.,']/gu, "")} consistent with the trials]`
-    ]) {
-      expect(lane(`Exercise helps most people with hip osteoarthritis.\n\n## YouTube comments\n\n${linked}`)).toEqual([
-        "The answer's YouTube comments section does not report benefit reports, no-effect reports, adverse reports, " +
-          "how creators differ from commenters, what the comments mean for the answer. Add each from must_report, and " +
-          "say none were reported where there were none."
-      ]);
-    }
+    expect(lane(`Exercise helps most people with hip osteoarthritis.\n\n## YouTube comments\n\n- ${youtubeLane}`)).toEqual([]);
 
     // Links keep their IDs and underscores; a short command is fine.
     const clean = finalizeResearchRaw({
@@ -1140,6 +1151,129 @@ describe("finalize_research gate", () => {
         "To go deeper, reply: Check forums for collagen in adults with hip osteoarthritis, focusing on dose and pain."
     }, options);
     expect(clean).toMatchObject({ status: "ready_with_limits", next_steps: [], answer_checked: true });
+  });
+
+  it("reads an answer in any language: the model's own sentences for each lane, and each caveat in its language", () => {
+    // A Spanish answer: the model quotes its own sentences for each finding and gives each caveat as the answer
+    // states it. The gate checks that the answer shows them, as sentences of their own with the caveats' links;
+    // whether they say what the findings and caveats say is the model's to answer for.
+    const leadCaveat = "The full text of [this study](https://doi.org/10.1016/j.joca.2020.01.001) was not openly " +
+      "available, so its methods were not checked.";
+    const spanish = new Map([
+      [FORUM_CAVEAT, "Los relatos de r/HipOA vienen de mi propia búsqueda web, que AskRigor no pudo verificar."],
+      [leadCaveat, "El texto completo de [este estudio](https://doi.org/10.1016/j.joca.2020.01.001) no estaba " +
+        "disponible en abierto, así que no se revisaron sus métodos."],
+      [OFFER_CAVEATS[0]!, "Enfoque de estudios: ensayos más largos. Los ensayos leídos duraron doce semanas."],
+      [OFFER_CAVEATS[1]!, "Enfoque de estudios: resultados en mayores de 70 años. Pocos participantes tenían esa edad."],
+      [OFFER_CAVEATS[2]!, "Enfoque comunitario: programas de caminata con nombre. Se nombraron varios, pero ninguno " +
+        "se examinó a fondo."],
+      [OFFER_CAVEATS[3]!, "Enfoque comunitario: quienes lo dejaron. Pocos explicaron por qué."],
+      [OFFER_CAVEATS[4]!, "Otra pasada llevaría unos 20 minutos y 15 búsquedas en YouTube. ¿Quieres profundizar en " +
+        "los estudios o en las comunidades, y qué enfoque te importa más?"]
+    ]);
+    const lanes = "El ejercicio tiene la mejor evidencia para la artrosis de cadera. Quienes comentaron videos de " +
+      "YouTube sobre el tema dijeron tener menos dolor tras varios meses; unos pocos no notaron cambios y nadie " +
+      "mencionó efectos secundarios. Los creadores de los canales venden programas; quienes comentan no ganan nada " +
+      "con ello. Esta señal débil apoya probar el ejercicio antes de la cirugía.\n\nEn " +
+      "[r/HipOA](https://www.reddit.com/r/HipOA/comments/abc123/avoided_surgery/), varios miembros contaron una " +
+      "mejora lenta con el ejercicio; unos pocos no vieron cambios y nadie reportó efectos secundarios, lo que " +
+      "concuerda con los comentarios de YouTube.";
+    const draft = `${lanes}\n\n${[...spanish.values()].join(" ")}`;
+    const request = {
+      receipts: [survey, emptySearch, repeatScout, videoA, study, lead],
+      community_evidence: "researched",
+      treatment_choice: "not_compared",
+      research_target: TARGET,
+      key_sources: [
+        { id: "10.1002/art.41142", status: "validated" },
+        { id: "10.1016/j.joca.2020.01.001", status: "lead_only" }
+      ],
+      another_pass_estimate: PASS_ESTIMATE,
+      community_findings: {
+        ...findingsFor(["aaaaaaaaaaa"]),
+        answer_quotes: {
+          benefit_reports: "Quienes comentaron videos de YouTube sobre el tema dijeron tener menos dolor tras varios meses",
+          no_effect_reports: "unos pocos no notaron cambios",
+          adverse_reports: "nadie mencionó efectos secundarios",
+          creators_versus_commenters: "«Los creadores de los canales venden programas; quienes comentan no ganan nada " +
+            "con ello.»",
+          effect_on_answer: "Esta señal débil apoya probar el ejercicio antes de la cirugía."
+        }
+      },
+      community_searches: [{
+        ...REDDIT_SEARCH,
+        answer_quotes: {
+          benefit_reports: "varios miembros contaron una mejora lenta con el ejercicio",
+          no_effect_reports: "unos pocos no vieron cambios",
+          adverse_reports: "nadie reportó efectos secundarios",
+          effect_on_answer: "lo que concuerda con los comentarios de YouTube"
+        }
+      }],
+      answer_draft: draft,
+      answer_language: "es",
+      caveat_renderings: [...spanish].map(([caveat, text]) => ({ caveat, text }))
+    };
+    const check = (input: Record<string, unknown>) => finalizeResearchRaw({ ...request, ...input }, options);
+    const result = check({});
+    expect(result.caveats).toEqual([FORUM_CAVEAT, leadCaveat, ...OFFER_CAVEATS]);
+    expect(result.next_steps).toEqual([]);
+    expect(result.status).toBe("ready_with_limits");
+    // A link's text may change in a rendering too.
+    expect(check({ answer_draft: draft.replace("[este estudio](", "[el estudio de 2020](") }).next_steps).toEqual([]);
+
+    // Accents written as one character or as a letter and a combining mark compare alike.
+    const decomposed = "Esta sen\u0303al de\u0301bil apoya probar el ejercicio antes de la cirugi\u0301a.";
+    expect(check({
+      community_findings: {
+        ...request.community_findings,
+        answer_quotes: { ...request.community_findings.answer_quotes, effect_on_answer: decomposed }
+      }
+    }).next_steps).toEqual([]);
+
+    // Renderings count only for an answer declared in another language: an English one states each caveat as written.
+    const englishOnly = "caveat_renderings counts only for an answer not in English: give answer_language (such as fr " +
+      "or es), or state each caveat as written.";
+    const allLeftOut = leftOut(FORUM_CAVEAT, leadCaveat, ...OFFER_CAVEATS);
+    expect(check({ answer_language: undefined }).next_steps).toEqual([englishOnly, allLeftOut]);
+    expect(check({ answer_language: "en-GB" }).next_steps).toEqual([englishOnly, allLeftOut]);
+    // A rendering stands as a sentence of its own, as a caveat does: embedded, it is not stated.
+    const forum = spanish.get(FORUM_CAVEAT)!;
+    expect(check({ answer_draft: draft.replace(forum, `No es cierto que l${forum.slice(1)}`) }).next_steps)
+      .toEqual([leftOut(FORUM_CAVEAT)]);
+    // It keeps the caveat's links.
+    const unlinked = (text: string) => text.replace("[este estudio](https://doi.org/10.1016/j.joca.2020.01.001)", "este estudio");
+    expect(check({
+      answer_draft: unlinked(draft),
+      caveat_renderings: request.caveat_renderings.map(({ caveat, text }) => ({ caveat, text: unlinked(text) }))
+    }).next_steps).toEqual([`caveat_renderings drops the link(s) of this caveat; keep each link: "${leadCaveat}"`]);
+    // Quotes are the answer's own words, in its language, and must be in it.
+    expect(check({ answer_draft: draft.replace("nadie mencionó efectos secundarios", "nadie habló de daños") }).next_steps)
+      .toEqual([
+        "For the YouTube comments, answer_quotes gives text the answer does not show (adverse_reports): report each " +
+          "finding in the answer, and copy the sentence(s) that report it exactly, from one paragraph or list item."
+      ]);
+
+    // Scripts that end sentences with 。 or ؟ need no space after them.
+    const deep = {
+      research_depth: "deep",
+      receipts: [study, lead],
+      community_evidence: "not_relevant",
+      not_relevant_reason: "A question about a lab value, which firsthand reports cannot answer.",
+      treatment_choice: "not_compared",
+      research_target: TARGET,
+      key_sources: request.key_sources
+    };
+    const japanese = "[この研究](https://doi.org/10.1016/j.joca.2020.01.001)の全文は公開されていなかったため、その方法は確認できませんでした。";
+    const inJapanese = (answer: string) => finalizeResearchRaw({
+      ...deep, answer_draft: answer, answer_language: "ja", caveat_renderings: [{ caveat: leadCaveat, text: japanese }]
+    }, options).next_steps;
+    expect(inJapanese(`運動療法の効果は複数の試験で確認されています。${japanese}詳しくは主治医に相談してください。`)).toEqual([]);
+    expect(inJapanese(`専門家によれば、${japanese}`)).toEqual([leftOut(leadCaveat)]);
+    const arabic = "لم يكن النص الكامل لـ[هذه الدراسة](https://doi.org/10.1016/j.joca.2020.01.001) متاحًا، لذلك لم تُفحص طرقها.";
+    expect(finalizeResearchRaw({
+      ...deep, answer_language: "ar", caveat_renderings: [{ caveat: leadCaveat, text: arabic }],
+      answer_draft: `هل التمارين مفيدة؟${arabic}`
+    }, options).next_steps).toEqual([]);
   });
 
   it("accepts a Gemini scout round as community discovery without a YouTube survey", () => {
@@ -1260,7 +1394,7 @@ describe("finalize_research gate", () => {
     }, options);
     expect(weak.status).not.toBe("not_ready");
     expect(weak.must_report).toEqual([expect.stringMatching(
-      /^YouTube comments \(3 video\(s\) read\): Benefits: Two commenters reported deeper sleep\. .*Effect on the answer: Adds no strong independent signal; the answer rests on the studies\. Report this lane in the answer even if later sources dominate; if its signal is weak, say so\.$/u
+      /^YouTube comments \(3 video\(s\) read\): Benefits: Two commenters reported deeper sleep\. .*Effect on the answer: Adds no strong independent signal; the answer rests on the studies\. Report this lane in the answer even if later sources dominate; if its signal is weak, say so\. Then copy the sentences that report it into community_findings\.answer_quotes\.$/u
     ), expect.stringMatching(/^r\/HipOA \(1 thread\(s\) read\): /u)]);
   });
 
@@ -1430,7 +1564,7 @@ describe("finalize_research gate", () => {
     const oneStudy = "The full text of [this study](https://doi.org/10.1016/j.joca.2020.01.001) was not openly " +
       "available, so its methods were not checked.";
     expect(answerWith(caveats[0]!, oneStudy, "The PubMed study was only an abstract.").next_steps).toEqual([
-      `The answer leaves out this caveat; include each as its own sentence, as written (a link's text may change): "${studiesCaveat}"`
+      leftOut(studiesCaveat)
     ]);
     // A link's text may change, and formatting and line breaks do not matter.
     expect(answerWith(
@@ -1728,7 +1862,7 @@ describe("finalize_research gate", () => {
     }, options).next_steps;
     expect(answered(fullDraft)).toEqual([]);
     const leftOutRate = [
-      `The answer leaves out this caveat; include each as its own sentence, as written (a link's text may change): "${rateCaveat}"`
+      leftOut(rateCaveat)
     ];
     expect(answered(fullDraft.replace(rateCaveat,
       "YouTube's quota did not stop any searches, but another pass can rerun them once it resets."))).toEqual(leftOutRate);
@@ -1855,9 +1989,6 @@ describe("finalize_research gate", () => {
       another_pass_estimate: "about 20 minutes and 15 YouTube searches."
     };
     const check = (answerDraft: string) => finalizeResearchRaw({ ...request, answer_draft: answerDraft }, options);
-    const leftOut = (...caveats: string[]) =>
-      `The answer leaves out ${caveats.length === 1 ? "this caveat" : "these caveats"}; include each as its ` +
-      `own sentence, as written (a link's text may change): ${caveats.map((caveat) => `"${caveat}"`).join(" ")}`;
 
     const partialCaveat = "Some YouTube searches failed or hit limits, so the community picture may be incomplete.";
     const leadCaveats = [
@@ -1894,11 +2025,14 @@ describe("finalize_research gate", () => {
     expect(check(`${CLEAN_DRAFT} ${Array.from({ length: 11_000 }, (_, index) => `${"`".repeat(index % 7 + 1)}a`).join("")}`).status)
       .toBe("not_ready");
     expect(Date.now() - started).toBeLessThan(1_000);
-    // Another pass needs an estimate with a number and a unit.
-    for (const estimate of [undefined, "a while"]) {
-      expect(finalizeResearchRaw({ ...request, another_pass_estimate: estimate, answer_draft: CLEAN_DRAFT }, options).next_steps)
-        .toContain("Give another_pass_estimate: roughly what another pass over the open leads would take, with a number " +
-          "and unit (for example, \"about 20 minutes and 15 YouTube searches\").");
+    // Another pass needs an estimate with a number, in digits of any script, and a unit in any language.
+    const estimateStep = "Give another_pass_estimate: roughly what another pass over the open leads would take, with " +
+      "a number in digits and a unit (for example, \"about 20 minutes and 15 YouTube searches\").";
+    const estimated = (estimate: string | undefined) =>
+      finalizeResearchRaw({ ...request, another_pass_estimate: estimate, answer_draft: CLEAN_DRAFT }, options).next_steps;
+    for (const estimate of [undefined, "a while", "half an hour"]) expect(estimated(estimate)).toContain(estimateStep);
+    for (const estimate of ["unas 2 horas y 10 b\u00FAsquedas", "\u7D04\uFF12\uFF10\u5206", "\u062D\u0648\u0627\u0644\u064A \u0662\u0660 \u062F\u0642\u064A\u0642\u0629"]) {
+      expect(estimated(estimate)).not.toContain(estimateStep);
     }
   });
 
@@ -2043,7 +2177,7 @@ describe("finalize_research gate", () => {
       answer_draft: `${CLEAN_DRAFT} ${text} ${OFFER_CAVEATS.join(" ")}`
     }, options).next_steps;
     expect(thinDraft("A few commenters on YouTube reported relief.")).toEqual([
-      `The answer leaves out this caveat; include each as its own sentence, as written (a link's text may change): "${thinCaveat}"`
+      leftOut(thinCaveat)
     ]);
     expect(thinDraft(thinCaveat)).toEqual([]);
 

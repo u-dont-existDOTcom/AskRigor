@@ -1227,6 +1227,48 @@ questions"), fixed before any held-out answer exists:
   a large regression, not a small difference; the judge shares the answering
   model's family, which blinding and citation checks only partly offset.
 
+## Checks that work in any language (owner correction, 2026-09-29)
+
+The owner asked why the checks were hardwired to English ("not everyone speaks
+english"). Besides the title matching replaced earlier the same day, the answer
+check read English words in four places. Each now works in any language, or is
+gone with its limit stated:
+
+- Community lanes. Word lists looked for benefit, no-effect and adverse reports,
+  creators and "what this means for the answer" near a mention of YouTube or a
+  community's name. Now the model copies, for each finding, the sentence(s) of
+  its answer that report it (`answer_quotes` in `community_findings` and in each
+  `community_searches` entry), and the gate checks that the displayed answer
+  shows them. Case, spacing, emphasis and a link's text or target don't matter.
+  A community beyond YouTube also needs a link to a thread read there, in a
+  paragraph holding its quotes. Whether a sentence reports its finding is the
+  model's call. That is the tradeoff: a false quote is a deliberate false
+  statement, not an oversight, and forgetting (the failure behind the owner's
+  sermorelin report) is still caught.
+- Caveats. The gate still writes each caveat in English. An answer not in
+  English states each one in its own language and gives that sentence in
+  `caveat_renderings`, with `answer_language`. The gate checks that the sentence
+  stands on its own (Unicode sentence-ending marks, so 。, ؟ and । count, with or
+  without a space after them) and keeps the caveat's links. It cannot check the
+  translation, and renderings count only when a language other than English is
+  declared, so an English answer still carries each caveat as written.
+- Ranking. The English word list that caught a first pass naming a "best
+  option" is removed: it took six review rounds of fixes and still could not
+  cover a paraphrase in English, let alone other languages. The required caveat
+  (the comparison is provisional and does not rank the options) stays. An answer
+  that states the caveat and still ranks is now past the gate; its reader sees
+  both.
+- `another_pass_estimate` needs a number in digits of any script (not English
+  number words).
+
+What stays pattern-matched is structural: internal labels, bare video IDs, link
+targets, the pasted template (our own strings), and Reddit's title (compared
+exactly). Cost: the `finalize_research` definition grew by 1,942 characters
+(compact JSON, about 1% of the tool catalog), and the model copies a few
+sentences per lane when it passes its draft. The gate source is 60 lines shorter.
+Tests cover Spanish, Japanese and Arabic answers, and a French answer through
+the MCP tool.
+
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 
 - Iteration for each candidate: focused tests plus one or two development

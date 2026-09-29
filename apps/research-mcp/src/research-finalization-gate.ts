@@ -30,6 +30,12 @@ const communityPlatformSchema = z.enum([
   "youtube", "reddit", "forum", "facebook", "telegram", "discord", "patient_organization", "review_site", "other"
 ]);
 const communityFindingText = z.string().trim().min(1).max(800);
+// The answer's own words for a finding, copied from answer_draft: the gate
+// checks that the answer shows them, which works in any language, and leaves
+// whether they report the finding to the model that wrote both.
+const answerQuote = z.string().trim().max(1_000);
+const ANSWER_QUOTES_DESCRIPTION = "With answer_draft: the answer's sentence(s) that report each finding, copied from " +
+  "it; one may serve several.";
 
 export const finalizeResearchInputSchema = z.object({
   receipts: z.array(z.string().max(RESEARCH_RECEIPT_MAX_CHARACTERS)).max(300)
@@ -62,7 +68,8 @@ export const finalizeResearchInputSchema = z.object({
       "focuses include the topics where more community signal is likely. Focuses deepen what the answer covers: a " +
       "first pass still covers every plausible option class and the red flags briefly, never leaving them for later."),
   another_pass_estimate: z.string().trim().min(1).max(200).optional()
-    .describe("After a first pass: roughly what another pass would take, with a number and unit, such as \"about 20 minutes and 15 YouTube searches\"."),
+    .describe("After a first pass: roughly what another pass would take, with a number in digits and a unit, such " +
+      "as \"about 20 minutes and 15 YouTube searches\"."),
   community_findings: z.object({
     videos_reviewed: z.array(youtubeVideoIdSchema).min(1).max(60)
       .describe("Every video whose comments you read."),
@@ -70,7 +77,14 @@ export const finalizeResearchInputSchema = z.object({
     no_effect_reports: z.string().trim().min(1).max(800),
     adverse_reports: z.string().trim().min(1).max(800),
     creators_versus_commenters: z.string().trim().min(1).max(500),
-    effect_on_answer: z.string().trim().min(1).max(800)
+    effect_on_answer: z.string().trim().min(1).max(800),
+    answer_quotes: z.object({
+      benefit_reports: answerQuote,
+      no_effect_reports: answerQuote,
+      adverse_reports: answerQuote,
+      creators_versus_commenters: answerQuote,
+      effect_on_answer: answerQuote
+    }).strict().optional().describe(ANSWER_QUOTES_DESCRIPTION)
   }).strict().optional()
     .describe("What the YouTube comments you read showed: benefit, no-effect and adverse reports with rough counts, " +
       "how creators differ from independent commenters, and what this changes in the answer. Summarize; do not quote " +
@@ -100,7 +114,13 @@ export const finalizeResearchInputSchema = z.object({
     benefit_reports: communityFindingText.optional(),
     no_effect_reports: communityFindingText.optional(),
     adverse_reports: communityFindingText.optional(),
-    effect_on_answer: communityFindingText.optional()
+    effect_on_answer: communityFindingText.optional(),
+    answer_quotes: z.object({
+      benefit_reports: answerQuote,
+      no_effect_reports: answerQuote,
+      adverse_reports: answerQuote,
+      effect_on_answer: answerQuote
+    }).strict().optional().describe(ANSWER_QUOTES_DESCRIPTION)
   }).strict()).max(12).optional()
     .describe("Each community outside YouTube that you searched with your own web search: the queries, the threads " +
       "you read and what they showed (benefit, no-effect and adverse reports with rough counts, and the effect on " +
@@ -115,8 +135,15 @@ export const finalizeResearchInputSchema = z.object({
     .describe("Each study your conclusions depend on: validated after a full-text method audit, or lead_only when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text."),
   answer_draft: z.string().trim().min(1).max(60_000).optional()
     .describe("The answer you are about to give, exactly as the user will see it. Needed before the gate reports ready; " +
-      "it is checked for internal labels, bare video IDs, a pasted long prompt, the comment lane and the caveats " +
-      "(each as its own sentence, as written), and is not stored.")
+      "it is checked for internal labels, bare video IDs, a pasted long prompt, the sentences answer_quotes copies " +
+      "and the caveats (each as its own sentence, as written or as caveat_renderings gives it), and is not stored."),
+  answer_language: z.string().trim().regex(/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{1,8}){0,3}$/u).optional()
+    .describe("The answer's language tag, such as fr or pt-BR; needed for caveat_renderings."),
+  caveat_renderings: z.array(z.object({
+    caveat: z.string().trim().min(1).max(4_000).describe("As the gate returned it."),
+    text: z.string().trim().min(1).max(4_000).describe("As the answer states it, with the caveat's links.")
+  }).strict()).max(40).optional()
+    .describe("In an answer not in English: each caveat in the answer's language.")
 }).strict();
 
 export type FinalizeResearchInput = z.output<typeof finalizeResearchInputSchema>;
@@ -715,10 +742,10 @@ export function finalizeResearch(
       );
     });
     const estimate = input.another_pass_estimate === undefined ? undefined : withoutEndPunctuation(input.another_pass_estimate);
-    if (estimate === undefined || !PASS_COST_AMOUNT.test(estimate)) {
+    if (estimate === undefined || !PASS_COST_NUMBER.test(estimate)) {
       nextSteps.push(
-        "Give another_pass_estimate: roughly what another pass over the open leads would take, with a number and " +
-          "unit (for example, \"about 20 minutes and 15 YouTube searches\")."
+        "Give another_pass_estimate: roughly what another pass over the open leads would take, with a number in " +
+          "digits and a unit (for example, \"about 20 minutes and 15 YouTube searches\")."
       );
     } else if (focuses.every(twoOrThree)) {
       requireLimit(
@@ -752,6 +779,10 @@ export function finalizeResearch(
   // of the answer and links audited videos by title (ReaderFacingAnswer,
   // FS190), offers a long deeper-research prompt rather than pasting it
   // (LimitsNote), and the comments that were read must reach it (must_report).
+  // Whether the answer ranks the options, which a first pass and a bounded
+  // coverage result forbid, is not read from its words: no word list decides
+  // that in every language, so the caveat saying it does not rank them is
+  // what the gate enforces.
   const draft = input.answer_draft;
   if (draft === undefined) {
     if (nextSteps.length === 0) {
@@ -760,20 +791,28 @@ export function finalizeResearch(
       );
     }
   } else {
+    const lanes: AnswerLane[] = [
+      ...(findings === undefined || commentVideos.size === 0 ? [] : [{
+        name: "the YouTube comments",
+        field: "community_findings",
+        findings: YOUTUBE_LANE_FINDINGS,
+        quotes: findings.answer_quotes === undefined ? [] : [findings.answer_quotes]
+      }]),
+      ...communitiesRead.map((community): AnswerLane => ({
+        name: community.name,
+        field: "its community_searches entry",
+        findings: COMMUNITY_FINDINGS,
+        quotes: community.quotes,
+        urls: community.urls
+      }))
+    ];
     nextSteps.push(...answerDraftProblems(draft, {
-      commentsRead: commentVideos.size > 0,
       videoIds: [...new Set([...discovered, ...auditedAtAll])],
       protocolNames: options.protocolNames ?? new Set(),
       caveats,
-      communitiesRead,
-      // A first pass emits no final treatment ranking (HRP 20.6.6), and a
-      // bounded coverage result allows none in deep research either.
-      ...(input.research_depth === "first_pass"
-        ? { noRanking: "this first pass allows no final ranking" }
-        : coverageBoundary === "bounded_nonranking_only"
-          ? { noRanking: "the treatment-coverage check allows no ranking here" }
-          : {}),
-      ...(input.community_findings === undefined ? {} : { effectOnAnswer: input.community_findings.effect_on_answer })
+      lanes,
+      ...(input.answer_language === undefined ? {} : { answerLanguage: input.answer_language }),
+      renderings: input.caveat_renderings ?? []
     }));
   }
 
@@ -860,118 +899,35 @@ const looksLikeVideoId = (token: string) =>
   /^[A-Za-z0-9_-]{11}$/u.test(token) && /[A-Z]/u.test(token) && /[a-z]/u.test(token) && /[0-9_]/u.test(token);
 // A sentence only the full deep forum-audit template contains.
 const PASTED_FORUM_TEMPLATE = /strict-core cohort and separately labeled adjacent cohorts/iu;
-// Words by which the answer itself ranks the options: one named best, top,
-// first choice or number one, a winner, or one superior or preferable to the
-// rest. Copulas keep "the best option depends on ..." and past findings ("was
-// superior to training in the trial") out, and a guideline's first-line or
-// preferred treatment, or a study's own ranking, can still be reported. An
-// adverb does not soften a ranking ("surgery is probably the best option"),
-// but one that denies it does ("is rarely the best option"). This is a
-// backstop for plain verdicts, including a recommendation of one option over
-// another ("I recommend surgery over exercise", "Surgery beats exercise"). No
-// word list catches every paraphrase, and judging meaning would take a model
-// call, which the zero-spend policy rules out; the caveat the gate writes tells
-// the reader that a first pass does not rank the options.
-const RANKING_ADVERB = "(?:(?!(?:hardly|rarely|scarcely|barely|unlikely)\\b)\\p{L}+ly\\s+|still\\s+|often\\s+|far\\s+|much\\s+)?";
-const RANKING = new RegExp([
-  `\\b(?:is|are|would be|will be|remains?|comes? out as)\\s+${RANKING_ADVERB}(?:the|your|our|my)\\s+` +
-    "(?:single\\s+|clear\\s+|overall\\s+|very\\s+)?(?:best|top|number[- ]one)\\s+" +
-    "(?:treatment|option|choice|approach|program|therapy|pick|bet)s?\\b",
-  "\\b(?:the|your|our|my)\\s+(?:top|number[- ]one)\\s+(?:choice|pick|recommendation)\\b",
-  "\\b(?:clear|overall|outright)\\s+winner\\b",
-  "\\bcomes?\\s+out\\s+(?:on\\s+top|ahead)\\b",
-  "\\bbest\\s+overall\\b",
-  `\\b(?:is|are|would be|will be)\\s+${RANKING_ADVERB}(?:superior|preferable)\\s+to\\b`,
-  `\\b(?:is|are|would be|will be)\\s+${RANKING_ADVERB}better\\s+than\\s+(?:all|any|every)(?:\\s+(?:of\\s+)?the)?\\s+others?\\b`,
-  "\\bshould\\s+be\\s+(?:the|your|our|my)\\s+(?:first|top|preferred|main)\\s+(?:choice|pick|option|treatment)s?\\b",
-  "(?:\\b(?:I|we)(?:\\s+would|['\\u2019]d)?\\s+(?:strongly\\s+)?|^[^\\p{L}]*)(?:recommend|suggest|prefer|favou?r|choose|pick|" +
-    "go\\s+with|opt\\s+for)\\s+(?:[\\p{L}\\p{N}'\\u2019-]+\\s+){1,4}?over\\b",
-  "\\b(?:beats|outperforms|trumps)\\b"
-].join("|"), "giu");
-// A ranking phrase the answer does not assert: one denied right before it
-// ("no clear winner", "none of these is the best option"); the predicate of
-// "whether", or of "which" or "what" opening the sentence or following a word
-// of asking or doubt, with only its subject between ("whether exercise,
-// injections, or surgery is the best option"); or one in a question. Doubt
-// anywhere else excuses nothing: "Exercise remains unclear but surgery is the
-// best option" ranks.
-const DENIED_BEFORE = new RegExp(
-  "(?:\\bno|\\bnot\\s+(?:a|an|the|one)|n['\\u2019]t\\s+(?:a|an|the|one))\\s+$|" +
-    "(?:\\bno\\s+(?:single|one)(?:\\s+[\\p{L}-]+){0,2}|\\bnone(?:\\s+of\\s+(?:these|them|those|the\\s+[\\p{L}-]+))?|" +
-    "\\bneither(?:\\s+[\\p{L}-]+){0,2})\\s+$",
-  "iu"
-);
-// A subject: items of up to four words, joined by commas and a final "or" or
-// "and"; a word that opens another clause ("but", "so", "although") ends it.
-const SUBJECT_WORD = "(?!(?:but|yet|so|while|whereas|although|though|because|since|however|therefore|thus|still|" +
-  "nonetheless|meanwhile)\\b)[\\p{L}\\p{N}'\\u2019-]+";
-const SUBJECT_ITEM = `${SUBJECT_WORD}(?:\\s+${SUBJECT_WORD}){0,3}`;
-const SUBJECT = `${SUBJECT_ITEM}(?:(?:\\s*,\\s*${SUBJECT_ITEM})*,?\\s+(?:or|and)\\s+${SUBJECT_ITEM})?`;
-const DOUBT = "unclear|uncertain|unsure|unknown|undecided|debat(?:e|ed|able)|question|wonder(?:ing)?|ask(?:ing)?|" +
-  "decid(?:e|ing)|choos(?:e|ing)|depends\\s+on|(?:too\\s+early|hard|difficult|impossible)\\s+to\\s+(?:say|tell|know|judge)|" +
-  "(?:not|n['\\u2019]t|never)\\s+(?:yet\\s+)?(?:be\\s+)?(?:clear|sure|certain|known|settled|say|tell|know|decide)|" +
-  "can(?:no|['\\u2019])t\\s+(?:yet\\s+)?(?:say|tell|know|judge)|to\\s+be\\s+(?:seen|shown|settled|determined)";
-const ASKED_BEFORE = new RegExp(
-  `(?:\\bwhether|\\b(?:${DOUBT})\\b(?:\\s+[\\p{L}'\\u2019-]+){0,3}\\s+(?:which|what))\\s+(?:${SUBJECT}\\s+)?$`,
-  "iu"
-);
-const ASKED_OPENING = new RegExp(`^[^\\p{L}]*(?:which|what)\\s+(?:${SUBJECT}\\s+)?$`, "iu");
-// A question opens with a question word or an auxiliary: "Is there a clear
-// winner?", not "Surgery is the best option, right?".
-const QUESTION = new RegExp(
-  "^[^\\p{L}]*(?:is|are|was|were|do|does|did|can|could|would|should|will|has|have|which|what|who|how|why|when|where)\\b" +
-    "[\\s\\S]*\\?[\\s\"'\\u201d\\u2019)\\]*_]*$",
-  "iu"
-);
-// A ranking reported as someone else's claim is evidence, not the answer's
-// verdict: "Five commenters said surgery beats exercise", "The study concludes
-// that ...", "According to the trial, ...": a reporting verb, then only a
-// plain subject of up to four words (no "and", "but" or other clause joiner).
-// Any first-person word earlier in the sentence ("we found", "our careful
-// review found") makes the report the answer's own.
-const REPORTED_SUBJECT = "(?!(?:and|or|nor|but|yet|so|while|whereas|although|though|because|since)\\b)" +
-  "[\\p{L}\\p{N}'\\u2019-]+";
-const REPORTED_BEFORE = new RegExp(
-  "(?:\\b(?:said|says|reported|reports|wrote|writes|claimed|claims|concluded|concludes|argued|argues|noted|notes|found|" +
-    "described|describes)(?:\\s+that)?|\\baccording\\s+to\\s+[^,;:.]{1,80},)" +
-    `\\s+(?:${REPORTED_SUBJECT}(?:\\s+${REPORTED_SUBJECT}){0,3}\\s+)?$`,
-  "iu"
-);
-// Case-sensitive but for a capital first letter, so "US" and "ME/CFS" are not "us" and "me".
-const FIRST_PERSON = /\b(?:I|[Mm]e|[Mm]y|[Mm]ine|[Ww]e|[Uu]s|[Oo]urs?)\b/u;
-// How far back a subject and its asking word can reach, which also keeps each
-// test linear in the draft's length.
-const ASK_WINDOW = 400;
-const SENTENCE_END = /(?<=[.!?])\s+|\n+/u;
-
-/** The ranking phrases a sentence asserts. */
-function assertedRankings(sentence: string): string[] {
-  if (QUESTION.test(sentence)) return [];
-  // The first first-person word anywhere in the sentence, however far back.
-  const firstPersonAt = sentence.search(FIRST_PERSON);
-  return [...sentence.matchAll(RANKING)]
-    .filter(({ index }) => {
-      const start = Math.max(0, index - ASK_WINDOW);
-      const before = sentence.slice(start, index);
-      const reported = REPORTED_BEFORE.exec(before);
-      const othersClaim = reported !== null && (firstPersonAt < 0 || firstPersonAt >= start + reported.index);
-      return !DENIED_BEFORE.test(before) && !ASKED_BEFORE.test(before) && !othersClaim &&
-        !(index <= ASK_WINDOW && ASKED_OPENING.test(before));
-    })
-    .map(([phrase]) => phrase.replace(/\s+/gu, " ").trim());
-}
 const URL = /https?:\/\/\S+/gu;
+
+/** A lane the answer must report, with the answer's sentences the model says report each finding. */
+interface AnswerLane {
+  // As next steps name it: "the YouTube comments", or the community.
+  name: string;
+  // Where its quotes go.
+  field: string;
+  findings: readonly string[];
+  // One set per entry that gave them: a community searched twice may quote in either.
+  quotes: ReadonlyArray<Readonly<Record<string, string>>>;
+  // Threads read there, one of which the answer links where it reports them.
+  urls?: readonly string[];
+}
+
+// Every finding the YouTube comments lane reports, as community_findings names them.
+const YOUTUBE_LANE_FINDINGS = [
+  "benefit_reports", "no_effect_reports", "adverse_reports", "creators_versus_commenters", "effect_on_answer"
+] as const;
 
 function answerDraftProblems(
   draft: string,
   context: {
-    commentsRead: boolean;
     videoIds: string[];
     protocolNames: ReadonlySet<string>;
     caveats: readonly string[];
-    communitiesRead: readonly CommunityRead[];
-    effectOnAnswer?: string;
-    noRanking?: string;
+    lanes: readonly AnswerLane[];
+    answerLanguage?: string;
+    renderings: ReadonlyArray<{ caveat: string; text: string }>;
   }
 ): string[] {
   const problems: string[] = [];
@@ -979,7 +935,6 @@ function answerDraftProblems(
   const prose = draft.replace(URL, " ");
   // What the answer must say is read from the prose a reader sees; what it must not show, from the whole draft.
   const shownBlocks = displayedProse(draft);
-  const shown = shownBlocks.map(visibleText).join("\n\n").replace(URL, " ");
   const labels = [...new Set([
     ...[...prose.matchAll(SNAKE_CASE_LABEL)].map(([label]) => label).filter((label) => !looksLikeVideoId(label)),
     ...[...prose.matchAll(CAPITALIZED_TOKEN)].map(([name]) => name).filter((name) => context.protocolNames.has(name)),
@@ -1003,102 +958,103 @@ function answerDraftProblems(
         `${bareIds.length > 10 ? `, and ${bareIds.length - 10} more` : ""}): give each its linked title instead.`
     );
   }
-  if (context.noRanking !== undefined) {
-    const rankings = [...new Set(shown.split(SENTENCE_END).flatMap(assertedRankings))];
-    if (rankings.length > 0) {
-      problems.push(
-        `The answer ranks the options (${rankings.slice(0, 3).map((phrase) => `"${phrase}"`).join(", ")}), but ` +
-          `${context.noRanking}: compare them without naming a best, first-choice, superior or winning option, and ` +
-          "say what evidence would settle it."
-      );
-    }
-  }
   if (PASTED_FORUM_TEMPLATE.test(draft)) {
     problems.push(
       "The answer pastes the full deep forum-audit prompt. Say what the deeper research would focus on and how to " +
         "start it, and offer the full prompt instead (\"Show me the full deeper-research prompt and help me fine-tune it\")."
     );
   }
-  if (context.commentsRead && !/youtube/iu.test(shown)) {
-    problems.push(
-      "The answer does not report the YouTube comments that were read. Add that lane from must_report, even if its " +
-        "signal is weak."
-    );
-  } else if (context.commentsRead) {
-    // The lane is the text after each mention of YouTube or comments; it must
-    // carry what must_report lists, not just the word.
-    const lane = [...shown.matchAll(/youtube|comment/giu)]
-      .map(({ index }) => shown.slice(index, index + LANE_WINDOW_CHARACTERS)).join("\n");
-    const missing: string[] = LANE_FINDINGS.filter(({ pattern }) => !pattern.test(lane)).map(({ label }) => label);
-    if (!reportsEffectOnAnswer(lane, context.effectOnAnswer)) missing.push("what the comments mean for the answer");
-    if (missing.length > 0) {
+  // Each lane researched reaches the answer, even when later sources dominate:
+  // for each finding the model copies the answer's sentence(s) that report
+  // it, and the gate checks that the answer shows them. Whether a sentence
+  // reports its finding is left to the model that wrote both, in whatever
+  // language it wrote them; no word list can judge that. A community beyond
+  // YouTube is also linked, to a thread that was read, in a paragraph that
+  // reports it, so a reader can check it.
+  const quoteBlocks = shownBlocks.map((block) => ({
+    targets: caveatText(linkTargets(block)),
+    text: caveatText(visibleText(block))
+  }));
+  const showing = (quote: string): number[] => {
+    const byTarget = quoteForm(quote.replace(MARKDOWN_LINK, "$1"));
+    const byText = quoteForm(quote.replace(MARKDOWN_LINK_TEXT, "$1"));
+    if (!/[\p{L}\p{N}]/u.test(byTarget)) return [];
+    return quoteBlocks.flatMap(({ targets, text }, index) =>
+      targets.includes(byTarget) || text.includes(byText) ? [index] : []);
+  };
+  for (const lane of context.lanes) {
+    if (lane.quotes.length === 0) {
       problems.push(
-        `The answer's YouTube comments section does not report ${missing.join(", ")}. Add each from must_report, ` +
-          "and say none were reported where there were none."
+        `Give answer_quotes for ${lane.name} in ${lane.field}: for each finding, the sentence(s) of the answer that ` +
+          `report it, copied from answer_draft. The answer must report what ${lane.name} showed, even if the signal ` +
+          "is weak."
       );
+      continue;
     }
-  }
-  // Each community read beyond YouTube reaches the answer as a lane of its own,
-  // as the YouTube comments do: named, with what its posters reported and what
-  // that means for the answer, and linked to a thread that was read. A lane is
-  // the paragraphs from each one naming the community, up to the next one
-  // naming another community read, so one paragraph cannot report for a
-  // community it does not name. "Reddit" names a subreddit only when one was read.
-  const visibleBlocks = shownBlocks.map((block) => visibleText(block).replace(URL, " "));
-  const lowerBlocks = visibleBlocks.map((block) => block.toLowerCase());
-  const subreddits = context.communitiesRead.filter(({ platform }) => platform === "reddit").length;
-  const names = (community: CommunityRead): string[] =>
-    [community.name.toLowerCase(), ...(community.platform === "reddit" && subreddits === 1 ? ["reddit"] : [])];
-  const namedIn = (index: number, community: CommunityRead): boolean =>
-    names(community).some((name) => lowerBlocks[index]!.includes(name));
-  for (const community of context.communitiesRead) {
-    const others = context.communitiesRead.filter((other) => other !== community);
     const laneBlocks = new Set<number>();
-    // The lane's text starts where the community is first named in its paragraph.
-    const segments: string[] = [];
-    lowerBlocks.forEach((lower, start) => {
-      const named = names(community).map((name) => lower.indexOf(name)).filter((index) => index !== -1);
-      if (named.length === 0) return;
-      let length = 0;
-      for (let index = start; index < lowerBlocks.length && length < LANE_WINDOW_CHARACTERS; index += 1) {
-        if (index > start && !namedIn(index, community) && others.some((other) => namedIn(index, other))) break;
-        laneBlocks.add(index);
-        const text = index === start ? lower.slice(Math.min(...named)) : lowerBlocks[index]!;
-        segments.push(text);
-        length += text.length;
-      }
-    });
-    const laneLinks = new Set([...laneBlocks].flatMap((index) =>
-      [...linkTargets(shownBlocks[index]!).matchAll(LINKED_URL)].map(([url]) => comparableUrl(url))));
-    if (laneBlocks.size === 0) {
-      problems.push(
-        `The answer does not report what ${community.name} showed. Add its lane from must_report, naming the ` +
-          "community, even if its signal is weak."
-      );
-    } else {
-      const lane = segments.join("\n");
-      const missing: string[] = LANE_FINDINGS.filter(({ label, pattern }) =>
-        label !== CREATORS_FINDING && !pattern.test(lane)).map(({ label }) => label);
-      if (!reportsEffectOnAnswer(lane, community.effectOnAnswer)) missing.push("what those reports mean for the answer");
-      if (missing.length > 0) {
-        problems.push(
-          `The answer's ${community.name} section does not report ${missing.join(", ")}. Add each from must_report, ` +
-            "and say none were reported where there were none."
-        );
+    const unshown = new Set<string>();
+    for (const quotes of lane.quotes) {
+      for (const finding of lane.findings) {
+        const blocks = showing(quotes[finding] ?? "");
+        if (blocks.length === 0) unshown.add(finding);
+        for (const index of blocks) laneBlocks.add(index);
       }
     }
-    if (!community.urls.some((url) => laneLinks.has(comparableUrl(url)))) {
-      problems.push(`Link a thread you read from ${community.name} where the answer reports it, so a reader can check it.`);
+    if (unshown.size > 0) {
+      problems.push(
+        `For ${lane.name}, answer_quotes gives text the answer does not show (${[...unshown].join(", ")}): report ` +
+          "each finding in the answer, and copy the sentence(s) that report it exactly, from one paragraph or list item."
+      );
+    }
+    if (lane.urls !== undefined && laneBlocks.size > 0) {
+      const laneLinks = new Set([...laneBlocks].flatMap((index) =>
+        [...linkTargets(shownBlocks[index]!).matchAll(LINKED_URL)].map(([url]) => comparableUrl(url))));
+      if (!lane.urls.some((url) => laneLinks.has(comparableUrl(url)))) {
+        problems.push(`Link a thread you read from ${lane.name} in a paragraph that reports it, so a reader can check it.`);
+      }
     }
   }
-  // Each caveat the server wrote must reach the answer as a sentence of its own.
-  // Only prose a reader sees counts: not code, comments, quotations or image descriptions.
+  // Each caveat the server wrote must reach the answer as a sentence of its
+  // own. Only prose a reader sees counts: not code, comments, quotations or
+  // image descriptions. An answer in another language states each in that
+  // language, with the caveat's links, and gives the sentence in
+  // caveat_renderings: the gate cannot judge a translation, so it checks that
+  // sentence's place and links, and the wording is the model's declaration.
   const blocks = shownBlocks.map((block) => caveatText(linkTargets(block)));
-  const missingCaveats = context.caveats.filter((caveat) => !statesCaveat(blocks, caveat));
+  const translated = context.answerLanguage !== undefined && !/^eng?(?:-|$)/iu.test(context.answerLanguage);
+  if (context.renderings.length > 0 && !translated) {
+    problems.push(
+      "caveat_renderings counts only for an answer not in English: give answer_language (such as fr or es), or " +
+        "state each caveat as written."
+    );
+  }
+  const renderingOf = new Map(translated
+    ? context.renderings.map(({ caveat, text }) => [caveatForm(caveat), text] as const)
+    : []);
+  const unlinked: string[] = [];
+  const missingCaveats = context.caveats.filter((caveat) => {
+    if (statesCaveat(blocks, caveat)) return false;
+    const rendering = renderingOf.get(caveatForm(caveat));
+    if (rendering === undefined) return true;
+    const links = linksIn(rendering);
+    if ([...linksIn(caveat)].some((link) => !links.has(link))) {
+      unlinked.push(caveat);
+      return false;
+    }
+    return !statesCaveat(blocks, rendering);
+  });
+  if (unlinked.length > 0) {
+    problems.push(
+      `caveat_renderings drops the link(s) of ${unlinked.length === 1 ? "this caveat" : "these caveats"}; keep each ` +
+        `link: ${unlinked.map((caveat) => `"${caveat}"`).join(" ")}`
+    );
+  }
   if (missingCaveats.length > 0) {
     problems.push(
       `The answer leaves out ${missingCaveats.length === 1 ? "this caveat" : "these caveats"}; include each as its ` +
-        `own sentence, as written (a link's text may change): ${missingCaveats.map((caveat) => `"${caveat}"`).join(" ")}`
+        "own sentence, as written (a link's text may change), or, in an answer not in English, in the answer's " +
+        "language with the same links, given in caveat_renderings: " +
+        missingCaveats.map((caveat) => `"${caveat}"`).join(" ")
     );
   }
   return problems;
@@ -1106,13 +1062,39 @@ function answerDraftProblems(
 
 // Bounded and closed to brackets and parentheses, so a long draft is read in linear time.
 const MARKDOWN_LINK = /\[[^[\]\n]{0,500}\]\(([^\s()[\]]{1,2048})\)/gu;
+// The same link, by its text.
+const MARKDOWN_LINK_TEXT = /\[([^[\]\n]{0,500})\]\([^\s()[\]]{1,2048}\)/gu;
 
 /** A caveat as the check compares it: a link by its target, so its text may change. */
 const caveatForm = (caveat: string): string => caveatText(caveat.replace(MARKDOWN_LINK, "$1"));
 
-/** Text as the caveat check compares it: quotes, dashes, emphasis, spacing and case ignored. */
+// Quotation marks a quote may come wrapped in, in any script's style.
+const QUOTE_MARK = /["'\p{Pi}\p{Pf}]/u;
+const SENTENCE_MARK = /\p{STerm}/u;
+
+/**
+ * A quote as the answer check compares it: as a caveat is, without the
+ * quotation marks around it or its closing sentence mark. It is read from
+ * each end, so its length bounds the work.
+ */
+function quoteForm(quote: string): string {
+  const text = caveatText(quote);
+  let start = 0;
+  let end = text.length;
+  while (start < end && QUOTE_MARK.test(text.charAt(start))) start += 1;
+  while (end > start && (QUOTE_MARK.test(text.charAt(end - 1)) || SENTENCE_MARK.test(text.charAt(end - 1)) ||
+    text.charAt(end - 1) === " ")) end -= 1;
+  return text.slice(start, end).trim();
+}
+
+/** The pages a text links to, compared as two links to one page are. */
+const linksIn = (text: string): Set<string> =>
+  new Set([...text.replace(MARKDOWN_LINK, " $1 ").matchAll(LINKED_URL)].map(([url]) => comparableUrl(url)));
+
+/** Text as the caveat check compares it: Unicode composition, quotes, dashes, emphasis, spacing and case ignored. */
 function caveatText(text: string): string {
   return text
+    .normalize("NFC")
     .replace(/[\u2018\u2019\u02BC]/gu, "'")
     .replace(/[\u201C\u201D]/gu, "\"")
     .replace(/[\u2013\u2014]/gu, "-")
@@ -1125,15 +1107,18 @@ function caveatText(text: string): string {
 /**
  * Whether a caveat stands as a sentence of its own: it begins a block or
  * follows a sentence's end, and ends its sentence. Embedded ("It is false
- * that …"), quoted or continued, it is not stated.
+ * that …"), quoted or continued, it is not stated. A sentence ends with
+ * Unicode's sentence-ending punctuation, so "。", "؟" and "।" end one too, with
+ * or without a space after it; in a script that ends sentences without
+ * punctuation, a caveat stands alone only as its own paragraph or list item.
  */
 function statesCaveat(blocks: readonly string[], caveat: string): boolean {
-  const core = caveatForm(caveat).replace(/[.!?]$/u, "");
+  const core = caveatForm(caveat).replace(/\p{STerm}$/u, "");
   return blocks.some((block) => {
     for (let at = block.indexOf(core); at >= 0; at = block.indexOf(core, at + 1)) {
       const before = block.slice(Math.max(0, at - 2), at);
       const after = block.charAt(at + core.length);
-      if ((at === 0 || /^[.!?] $/u.test(before)) && (after === "" || ".!?".includes(after))) return true;
+      if ((at === 0 || /\p{STerm} ?$/u.test(before)) && (after === "" || /\p{STerm}/u.test(after))) return true;
     }
     return false;
   });
@@ -1157,47 +1142,26 @@ function unreadStudiesCaveat(ids: readonly string[]): string {
       "methods were not checked.";
 }
 
-/** Text without surrounding spaces or a closing period or semicolon, spaces made single. */
+/** Text without surrounding spaces or a closing sentence mark or semicolon, spaces made single. */
 function withoutEndPunctuation(text: string): string {
   let result = text.replace(/\s+/gu, " ").trim();
-  while (result.endsWith(".") || result.endsWith(";")) result = result.slice(0, -1).trimEnd();
+  for (let shorter = result.replace(/[\p{STerm};]$/u, "").trimEnd(); shorter !== result;
+    shorter = result.replace(/[\p{STerm};]$/u, "").trimEnd()) {
+    result = shorter;
+  }
   return result;
 }
 
 const asSentence = (text: string): string => {
   const trimmed = text.trim();
   const capitalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-  return /[.!?]$/u.test(capitalized) ? capitalized : `${capitalized}.`;
+  return /\p{STerm}$/u.test(capitalized) ? capitalized : `${capitalized}.`;
 };
 
-// What another pass would take: a number or amount with a unit of time or work.
-const PASS_COST_AMOUNT =
-  /\b(?:(?:\d+|a few|a couple of|several|one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty|thirty|forty|fifty|sixty)(?: ?(?:to|-|\u2013|or) ?(?:\d+|two|three|four|five|ten|fifteen|twenty|thirty|sixty))? (?:more )?(?:minutes?|mins?|hours?|searches|search calls|tool calls|calls|rounds|passes|youtube searches)|(?:half )?an hour)\b/iu;
+// What another pass would take carries a number in digits, of any script; its
+// unit, in the answer's language, is the model's to give.
+const PASS_COST_NUMBER = /\p{Nd}/u;
 
-// How far after a mention of YouTube or comments the lane's findings are read.
-const LANE_WINDOW_CHARACTERS = 1_200;
-// What commenters reported, in the words an answer uses for each finding.
-const LANE_FINDINGS = [
-  {
-    label: "benefit reports",
-    pattern: /\b(?:help(?:s|ed)?|better|improv\w*|relie[fv]\w*|benefit\w*|work(?:s|ed)|eased|less pain|reduc\w*)\b/iu
-  },
-  {
-    label: "no-effect reports",
-    pattern: /\bno[ -](?:effect|change|difference|benefit|improvement|relief)\b|\b(?:did ?n[o']t|didn't|does ?n[o']t|doesn't) (?:help|work|change)\b|\bnothing changed\b|\bunchanged\b/iu
-  },
-  {
-    label: "adverse reports",
-    pattern: /\bside[ -]effects?\b|\badverse\b|\bharm\w*|\bworse\b|\breactions?\b|\binjur\w*|\bflare\w*/iu
-  },
-  {
-    label: "how creators differ from commenters",
-    pattern: /\b(?:creators?|channels?|hosts?|sellers?|sponsor\w*|affiliate\w*|presenters?|youtubers?|video makers?)\b/iu
-  }
-] as const;
-
-// Only YouTube lanes compare creators with commenters.
-const CREATORS_FINDING = "how creators differ from commenters";
 // Links as the answer shows them: a link's destination or a bare URL.
 const LINKED_URL = /https?:\/\/[^\s<>()]+/giu;
 
@@ -1254,35 +1218,6 @@ function comparableUrl(url: string): string {
   }
 }
 
-// What the comments mean for the answer, in the words answers use for it.
-const EFFECT_ON_ANSWER = new RegExp([
-  "\\b(?:support(?:s|ed|ing)?|backs? up|backed up|consistent with|in line with|agrees? with|at odds with",
-  "contradict\\w*|confirm\\w*|corroborat\\w*|strengthen\\w*|weaken\\w*|reinforc\\w*|undercut\\w*",
-  "(?:does|do|did)(?: not|n['\u2019]t) (?:change|alter|affect|shift)",
-  "(?:changes?|changed|alters?|shifts?) (?:the|this|our|my) (?:answer|conclusion|recommendation|advice|picture)",
-  "adds? (?:little|nothing|weight|confidence)|no bearing on)\\b"
-].join("|"), "iu");
-// Common words that say nothing about what the comments mean.
-const EFFECT_STOP_WORDS: ReadonlySet<string> = new Set([
-  "about", "above", "after", "again", "against", "before", "because", "being", "below", "could", "every", "other",
-  "their", "there", "these", "those", "through", "under", "until", "where", "which", "while", "would", "should",
-  "answer", "comment", "comments", "commenters", "effect", "evidence", "people", "report", "reported", "reports",
-  "signal", "video", "videos", "youtube"
-]);
-
-/**
- * The lane says what the comments mean for the answer: in words answers use
- * for it, or in at least two of the distinctive words of the model's own
- * effect_on_answer, so a paraphrase passes.
- */
-function reportsEffectOnAnswer(lane: string, effect: string | undefined): boolean {
-  if (EFFECT_ON_ANSWER.test(lane)) return true;
-  const words = [...new Set(effect?.toLowerCase().match(/\p{L}{5,}/gu) ?? [])]
-    .filter((word) => !EFFECT_STOP_WORDS.has(word));
-  const laneWords = new Set(lane.toLowerCase().match(/\p{L}{5,}/gu) ?? []);
-  return words.length > 0 && words.filter((word) => laneWords.has(word)).length >= Math.min(2, words.length);
-}
-
 function communityLane(
   findings: NonNullable<FinalizeResearchInput["community_findings"]>,
   videosRead: number
@@ -1290,7 +1225,8 @@ function communityLane(
   return `YouTube comments (${videosRead} video(s) read): Benefits: ${findings.benefit_reports} ` +
     `No effect: ${findings.no_effect_reports} Adverse: ${findings.adverse_reports} Creators versus commenters: ` +
     `${findings.creators_versus_commenters} Effect on the answer: ${findings.effect_on_answer} Report this lane in ` +
-    "the answer even if later sources dominate; if its signal is weak, say so.";
+    "the answer even if later sources dominate; if its signal is weak, say so. Then copy the sentences that report " +
+    "it into community_findings.answer_quotes.";
 }
 
 const COMMUNITY_FINDINGS = ["benefit_reports", "no_effect_reports", "adverse_reports", "effect_on_answer"] as const;
@@ -1420,7 +1356,8 @@ interface CommunityRead {
   name: string;
   platform: string;
   urls: string[];
-  effectOnAnswer: string;
+  // The answer's sentences that report each finding, one set per entry that gave them.
+  quotes: Array<Readonly<Record<string, string>>>;
   // Reddit confirmed every thread listed for it: in its subreddit, under its title.
   confirmed: boolean;
 }
@@ -1463,7 +1400,8 @@ function boundaryCaveat(name: string, boundary: NonNullable<CommunitySearch["acc
 function forumLane(search: CommunitySearch): string {
   return `${search.community} (${search.threads_read.length} thread(s) read): Benefits: ${search.benefit_reports} ` +
     `No effect: ${search.no_effect_reports} Adverse: ${search.adverse_reports} Effect on the answer: ` +
-    `${search.effect_on_answer} Report this lane in the answer, naming ${search.community}, even if its signal is weak.`;
+    `${search.effect_on_answer} Report this lane in the answer, naming ${search.community} and linking a thread you ` +
+    "read, even if its signal is weak. Then copy the sentences that report it into the entry's answer_quotes.";
 }
 
 /**
@@ -1668,13 +1606,15 @@ function communityCoverage(
     } else {
       out.lanes.push(forumLane(search));
       const urls = search.threads_read.map(({ url }) => url);
+      const quotes = search.answer_quotes === undefined ? [] : [search.answer_quotes];
       const confirmed = search.platform === "reddit" &&
         urls.every((url) => redditThreads?.get(redditPostOf(url) ?? "")?.state === "found");
       const known = readByKey.get(key);
       if (known === undefined) {
-        readByKey.set(key, { name, platform: search.platform, urls, effectOnAnswer: search.effect_on_answer!, confirmed });
+        readByKey.set(key, { name, platform: search.platform, urls, quotes: [...quotes], confirmed });
       } else {
         known.urls.push(...urls);
+        known.quotes.push(...quotes);
         known.confirmed &&= confirmed;
       }
     }

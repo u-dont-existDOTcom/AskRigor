@@ -45,7 +45,11 @@ replace eleven messages per call); Universal 20.5.29
 (owner correction, 2026-09-29: a failure class found again after a fix, by
 anyone, stops local fixes); title identity checked by exact comparison, with
 rewordings left to the research model (owner correction, 2026-09-29: word
-lists were brittle and English-only); scout-first
+lists were brittle and English-only); answer checks that work in any language
+(same correction: the model quotes the answer's sentences for each community
+finding and the gate checks the answer shows them, an answer not in English
+gives each caveat in its language with the caveat's links, and the English
+"best option" word list is gone, leaving the no-ranking caveat); scout-first
 discovery (owner-approved: the Gemini scout finds videos, comment-named remedies
 go back to it as `rediscovery_leads`, and the YouTube survey is the fallback,
 because YouTube search is capped at 100 calls a day per project). Claude test runner and blinded Opus judge under

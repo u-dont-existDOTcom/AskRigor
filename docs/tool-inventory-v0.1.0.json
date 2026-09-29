@@ -12053,7 +12053,7 @@
     },
     {
       "name": "finalize_research",
-      "description": "Call before the final answer. Pass every research_receipt you received, the research_target (the same text given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits; discovery for any other target does not count), whether community evidence was researched, whether the answer compares treatment options, where people discussing it talk and what each community you searched outside YouTube showed (principal_communities, community_searches), what the YouTube comments you read showed (community_findings), the studies your conclusions depend on, after a first pass the focuses for going deeper (open_leads, another_pass_estimate), and the answer you are about to give (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, the comment lane and the caveats, and is not stored. not_ready lists the remaining steps; ready_with_limits lists limits, and caveats gives the sentences the answer must contain, each as its own sentence and as written; must_report lists what the answer must report from each lane researched; receipts_unavailable means this server cannot verify completion, so do the required work anyway and say that completion was not server-verified.",
+      "description": "Call before the final answer. Pass every research_receipt you received, the research_target (the same text given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits; discovery for any other target does not count), whether community evidence was researched, whether the answer compares treatment options, where people discussing it talk and what each community you searched outside YouTube showed (principal_communities, community_searches), what the YouTube comments you read showed (community_findings), the studies your conclusions depend on, after a first pass the focuses for going deeper (open_leads, another_pass_estimate), and the answer you are about to give (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, the sentences you quote from it for each lane (answer_quotes) and the caveats, and is not stored. not_ready lists the remaining steps; ready_with_limits lists limits, and caveats gives the sentences the answer must contain, each as its own sentence and as written (in an answer not in English, in its language: give answer_language and caveat_renderings); must_report lists what the answer must report from each lane researched; receipts_unavailable means this server cannot verify completion, so do the required work anyway and say that completion was not server-verified.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -12152,7 +12152,7 @@
             }
           },
           "another_pass_estimate": {
-            "description": "After a first pass: roughly what another pass would take, with a number and unit, such as \"about 20 minutes and 15 YouTube searches\".",
+            "description": "After a first pass: roughly what another pass would take, with a number in digits and a unit, such as \"about 20 minutes and 15 YouTube searches\".",
             "type": "string",
             "minLength": 1,
             "maxLength": 200
@@ -12195,6 +12195,40 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 800
+              },
+              "answer_quotes": {
+                "description": "With answer_draft: the answer's sentence(s) that report each finding, copied from it; one may serve several.",
+                "type": "object",
+                "properties": {
+                  "benefit_reports": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "no_effect_reports": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "adverse_reports": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "creators_versus_commenters": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "effect_on_answer": {
+                    "type": "string",
+                    "maxLength": 1000
+                  }
+                },
+                "required": [
+                  "benefit_reports",
+                  "no_effect_reports",
+                  "adverse_reports",
+                  "creators_versus_commenters",
+                  "effect_on_answer"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
@@ -12344,6 +12378,35 @@
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 800
+                },
+                "answer_quotes": {
+                  "description": "With answer_draft: the answer's sentence(s) that report each finding, copied from it; one may serve several.",
+                  "type": "object",
+                  "properties": {
+                    "benefit_reports": {
+                      "type": "string",
+                      "maxLength": 1000
+                    },
+                    "no_effect_reports": {
+                      "type": "string",
+                      "maxLength": 1000
+                    },
+                    "adverse_reports": {
+                      "type": "string",
+                      "maxLength": 1000
+                    },
+                    "effect_on_answer": {
+                      "type": "string",
+                      "maxLength": 1000
+                    }
+                  },
+                  "required": [
+                    "benefit_reports",
+                    "no_effect_reports",
+                    "adverse_reports",
+                    "effect_on_answer"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "required": [
@@ -12388,10 +12451,42 @@
             "description": "Each study your conclusions depend on: validated after a full-text method audit, or lead_only when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text."
           },
           "answer_draft": {
-            "description": "The answer you are about to give, exactly as the user will see it. Needed before the gate reports ready; it is checked for internal labels, bare video IDs, a pasted long prompt, the comment lane and the caveats (each as its own sentence, as written), and is not stored.",
+            "description": "The answer you are about to give, exactly as the user will see it. Needed before the gate reports ready; it is checked for internal labels, bare video IDs, a pasted long prompt, the sentences answer_quotes copies and the caveats (each as its own sentence, as written or as caveat_renderings gives it), and is not stored.",
             "type": "string",
             "minLength": 1,
             "maxLength": 60000
+          },
+          "answer_language": {
+            "description": "The answer's language tag, such as fr or pt-BR; needed for caveat_renderings.",
+            "type": "string",
+            "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{1,8}){0,3}$"
+          },
+          "caveat_renderings": {
+            "description": "In an answer not in English: each caveat in the answer's language.",
+            "maxItems": 40,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "caveat": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4000,
+                  "description": "As the gate returned it."
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4000,
+                  "description": "As the answer states it, with the caveat's links."
+                }
+              },
+              "required": [
+                "caveat",
+                "text"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [

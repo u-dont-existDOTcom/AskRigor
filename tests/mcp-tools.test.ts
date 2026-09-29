@@ -829,7 +829,8 @@ describe("AskRigor MCP tools", () => {
         caveats: ["No study's methods were checked in full text for this answer."],
         next_steps: [
           "The answer leaves out this caveat; include each as its own sentence, as written (a link's text may " +
-            "change): \"No study's methods were checked in full text for this answer.\""
+            "change), or, in an answer not in English, in the answer's language with the same links, given in " +
+            "caveat_renderings: \"No study's methods were checked in full text for this answer.\""
         ]
       });
       expect((uncaveated.structuredContent as { finalization_receipt?: string }).finalization_receipt).toBeUndefined();
@@ -846,6 +847,18 @@ describe("AskRigor MCP tools", () => {
         answer_checked: true,
         limits: ["No study was declared decision-critical; say that no study's methods were checked in full text."]
       });
+      // An answer in another language states the caveat in that language and says which sentence it is.
+      const french = "Aucune étude n'a été vérifiée en texte intégral pour cette réponse.";
+      const inFrench = await client.callTool({
+        name: "finalize_research",
+        arguments: {
+          ...dosing,
+          answer_draft: `Multipliez la dose par kilogramme par le poids : 5 mg/kg pour 20 kg font 100 mg. ${french}`,
+          answer_language: "fr",
+          caveat_renderings: [{ caveat: "No study's methods were checked in full text for this answer.", text: french }]
+        }
+      });
+      expect(inFrench.structuredContent).toMatchObject({ status: "ready_with_limits", next_steps: [], answer_checked: true });
       const permit = (declined.structuredContent as { finalization_receipt: string }).finalization_receipt;
       expect(verifyResearchReceipt(permit, {
         secret: "mcp-continuation-secret-value-32-bytes"

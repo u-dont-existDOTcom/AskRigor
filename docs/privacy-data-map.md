@@ -766,9 +766,12 @@ pending-proposal stores have their own strict contracts and authority boundaries
   answer, keeps nothing, and discards the poster name the endpoint returns. Its `answer_draft`, the
   answer the model is about to give, can contain whatever the user shared; it
   is read in memory for that call only, to find internal labels, bare video
-  IDs, a pasted long prompt and a missing comment lane, and is not stored,
-  logged or returned: the result names only the labels and public video IDs
-  it found.
+  IDs, a pasted long prompt, the sentences the model copies from it for each
+  community lane (`answer_quotes`, inside `community_findings` and each
+  `community_searches` entry) and the caveats, which an answer not in English
+  gives in its own language (`caveat_renderings`, with the `answer_language`
+  tag). None of these is stored, logged or returned: the result names only the
+  labels and public video IDs it found, and quotes only the gate's own caveats.
 - The MCP `scout_gemini_youtube_candidates` tool runs the same de-identified,
   population-level scout as the controlled Action route, applying the same
   screen: a target with first-person words, contact details, links, keys or

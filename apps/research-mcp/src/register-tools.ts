@@ -1695,11 +1695,13 @@ function defineResearchOperations(
         "(community_findings), the " +
         "studies your conclusions depend on, after a first pass the focuses for going deeper (open_leads, " +
         "another_pass_estimate), and the answer you are about to give (answer_draft), which is checked " +
-        "for internal labels, bare video IDs, a pasted long prompt, the comment lane and the caveats, and is not " +
-        "stored. not_ready lists the remaining steps; ready_with_limits lists limits, and caveats gives the " +
-        "sentences the answer must contain, each as its own sentence and as written; must_report lists what the " +
-        "answer must report from each lane researched; receipts_unavailable means this server cannot " +
-        "verify completion, so do the required work anyway and say that completion was not server-verified.",
+        "for internal labels, bare video IDs, a pasted long prompt, the sentences you quote from it for each lane " +
+        "(answer_quotes) and the caveats, and is not stored. not_ready lists the remaining steps; ready_with_limits " +
+        "lists limits, and caveats gives the sentences the answer must contain, each as its own sentence and as " +
+        "written (in an answer not in English, in its language: give answer_language and caveat_renderings); " +
+        "must_report lists what the answer must report from each lane researched; receipts_unavailable means this " +
+        "server cannot verify completion, so do the required work anyway and say that completion was not " +
+        "server-verified.",
       inputSchema: finalizeResearchInputSchema,
       outputSchema: finalizeResearchOutputSchema,
       annotations: READ_ONLY_ANNOTATIONS
