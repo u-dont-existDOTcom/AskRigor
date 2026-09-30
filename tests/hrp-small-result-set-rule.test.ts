@@ -15,7 +15,17 @@ function sha256(value: string): string {
 // HRP 20.6.6's recorded bytes, so nothing else changed.
 describe("HRP 20.6.7 small-result-set and exposure-decomposition rule", () => {
   it("adds only the approved rule, its routing and its revision", async () => {
-    const hrp = await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
+    // HRP 20.6.8 (owner's research-thread lessons) comes first: undoing its recorded
+    // edits gives HRP 20.6.7 exactly.
+    const onDisk = await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
+    const lessons = JSON.parse(
+      await readFile(new URL("tests/fixtures/protocol-edits/2026-09-30-owner-lessons.json", ROOT), "utf8"),
+    ).hrp as { from: { sha256: string }; edits: Array<[string, string]> };
+    const hrp = [...lessons.edits].reverse().reduce((text, [prior, later]) => {
+      expect(text.split(later), later.slice(0, 60)).toHaveLength(2);
+      return text.replace(later, prior);
+    }, onDisk);
+    expect(sha256(hrp)).toBe(lessons.from.sha256);
 
     const rule = hrp.match(
       /\n  <Rule name="SmallResultSetAndExposureDecomposition" priority="Critical">[\s\S]*?<\/Rule>\n/u,

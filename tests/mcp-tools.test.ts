@@ -2772,15 +2772,15 @@ describe("AskRigor MCP tools", () => {
         protocol: "hrp",
         manifest: {
           name: "HRP",
-          version: "20.6.7",
+          version: "20.6.8",
           revisionDate: "2026-09-30",
-          sha256: "9ff09e4982ce7dedb2b17010ebd61fd4797948a1ff3713a1287efefdd4d266b0"
+          sha256: "641473288653e5e2249527c3626d20c298c9b2f302ffc79feaad7c12191606b8"
         },
         scope: "full",
         page: 1,
         next_page: 2,
         complete: false,
-        scope_sha256: "9ff09e4982ce7dedb2b17010ebd61fd4797948a1ff3713a1287efefdd4d266b0"
+        scope_sha256: "641473288653e5e2249527c3626d20c298c9b2f302ffc79feaad7c12191606b8"
       });
       const pageCount = (first.structuredContent as { page_count: number }).page_count;
       expect(first.content).toEqual([
@@ -2823,8 +2823,8 @@ describe("AskRigor MCP tools", () => {
         core_sections: string[];
       };
       expect(indexContent.manifest).toMatchObject({
-        version: "20.5.32",
-        sha256: "b9aff85a1b05518e4511a49e3581923c4f125b878f9fb881f2f550ae2f6b8d0d"
+        version: "20.5.33",
+        sha256: "981429bd73d163f860ab3939aae5ac7057a3557285faa59fa3c8779f12c9722a"
       });
       expect(indexContent.index).toHaveLength(39);
       expect(indexContent.core_sections).toContain("epistemics");
@@ -2946,9 +2946,9 @@ describe("AskRigor Streamable HTTP server", () => {
           protocol: "universal",
           manifest: {
             name: "AskRigor.com universal saved instructions",
-            version: "20.5.32",
+            version: "20.5.33",
             revisionDate: "2026-09-30",
-            sha256: "b9aff85a1b05518e4511a49e3581923c4f125b878f9fb881f2f550ae2f6b8d0d"
+            sha256: "981429bd73d163f860ab3939aae5ac7057a3557285faa59fa3c8779f12c9722a"
           }
         });
       } finally {
@@ -2990,8 +2990,8 @@ describe("AskRigor Streamable HTTP server", () => {
           ok: true,
           protocol: "universal",
           manifest: {
-            version: "20.5.32",
-            sha256: "b9aff85a1b05518e4511a49e3581923c4f125b878f9fb881f2f550ae2f6b8d0d"
+            version: "20.5.33",
+            sha256: "981429bd73d163f860ab3939aae5ac7057a3557285faa59fa3c8779f12c9722a"
           }
         });
       } finally {

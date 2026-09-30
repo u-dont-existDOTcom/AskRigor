@@ -1,0 +1,87 @@
+{
+ "purpose": "Exact edits of HRP 20.6.8 and Universal 20.5.33 (owner's research-thread lessons, 2026-09-30). Each pair is [prior text, new text]; undoing them in reverse order must give the recorded prior bytes.",
+ "hrp": {
+  "from": {
+   "version": "20.6.7",
+   "sha256": "9ff09e4982ce7dedb2b17010ebd61fd4797948a1ff3713a1287efefdd4d266b0"
+  },
+  "edits": [
+   [
+    "<Protocol name=\"HRP\" version=\"20.6.7\" revisionDate=\"2026-09-30\"",
+    "<Protocol name=\"HRP\" version=\"20.6.8\" revisionDate=\"2026-09-30\""
+   ],
+   [
+    " <RevisionHistory>\n  <Revision version=\"20.6.7\" priority=\"Critical\">",
+    " <RevisionHistory>\n  <Revision version=\"20.6.8\" priority=\"Critical\">\n   Owner-approved method change (2026-09-30), from the owner's lessons on a research thread about smelling geosmin and\n   humic acid. Forum vocabulary starts with the words people use for natural exposures and labels natural sources as\n   proxy evidence; purity is separated from exposure realism, and delivery analogies must match; onset timing prunes\n   mechanisms without choosing one; familiar deflationary explanations need discriminating evidence\n   (NoFavoredExplanationPrivilege); route and physiological or pharmacological state are probed and tabulated; rescue,\n   enhancement, state transition and cognitive domains are separate endpoints; state dependence and cross-brand\n   reproduction are their own mechanistic evidence; new history reruns the whole constraint map; and a decisive user-only\n   question is asked before a mechanism is elaborated.\n  </Revision>\n  <Revision version=\"20.6.7\" priority=\"Critical\">"
+   ],
+   [
+    "   during analysis even when broader vocabulary is used for discovery.\n  </Rule>",
+    "   during analysis even when broader vocabulary is used for discovery. For an exposure met mainly in natural or everyday\n   forms, search first the words people use for it (for geosmin: petrichor, smell after rain, wet earth, being in\n   nature), then laboratory names; when direct-compound reports are sparse, keep natural-source reports as a separately\n   labeled mixture or proxy cohort.\n  </Rule>"
+   ],
+   [
+    "  support and which dose-specific conclusion it cannot establish.\n </Rule>",
+    "  support and which dose-specific conclusion it cannot establish. Purity establishes identity, not exposure realism: a\n  pure compound at a non-ecological concentration does not model trace natural exposure, and for odorants concentration\n  can change the receptors recruited, perceived quality, adaptation, trigeminal stimulation, and valence. A finding that\n  one substance enhances another's delivery transfers only when complexation state, the drug's limiting physicochemical\n  barrier, route, timing, and drug chemistry match; otherwise label it an unmatched analogy.\n </Rule>"
+   ],
+   [
+    "   anti-inflammatory action, contamination, or regression to the mean. It does not automatically prove source control.\n  </Rule>",
+    "   anti-inflammatory action, contamination, or regression to the mean. It does not automatically prove source control.\n   Onset timing prunes mechanisms whose kinetics cannot produce the observed latency; it does not choose among those\n   left, which need other discriminating evidence.\n  </Rule>"
+   ],
+   [
+    "   scrutiny to favored heterodox interventions as to conventional ones.\n  </Rule>\n",
+    "   scrutiny to favored heterodox interventions as to conventional ones.\n  </Rule>\n\n  <Rule name=\"NoFavoredExplanationPrivilege\" priority=\"Critical\">\n   Give familiar deflationary explanations the same scrutiny. Sensory, expectancy, placebo, anti-inflammatory, and\n   pharmacokinetic accounts are competing hypotheses, not defaults: each must fit every constraint and pass\n   discriminating tests, such as unrelated tastes and smells, other routes, touch, skin sensitivity, odorless materials,\n   other brands or batches, and pharmacological state. Skepticism discriminates hypotheses; it does not replace\n   investigation.\n  </Rule>\n"
+   ],
+   [
+    "whether dose, form, co-exposure, timing, setting, or relevant period changes the pattern",
+    "whether dose, form, route, co-exposure, physiological or pharmacological state, timing, setting, or relevant period changes the pattern"
+   ],
+   [
+    "rather than silently rescuing the universal wording.</Rule>",
+    "rather than silently rescuing the universal wording. When reactions span several routes or materials, tabulate route by material by state, including the combinations that do not react, before proposing a shared mechanism; do not pool smell, swallowing, oral contact, ordinary or sensitive skin, and environmental water.</Rule>"
+   ],
+   [
+    "<Field id=\"endpoint\">What exact outcome is counted?</Field>",
+    "<Field id=\"endpoint\">What exact outcome is counted? Is it rescue of an impairment, enhancement above a healthy baseline, or a state transition? Evidence for one does not transfer to another. For cognition, which domain: divergent creativity, convergent reasoning, sustained attention, working memory, error rate, processing speed, confidence, or real-world output?</Field>"
+   ],
+   [
+    "as separate hypotheses.</Rule>",
+    "as separate hypotheses. An agent inert alone but active during another drug's or physiological state may act by state dependence: treat that as its own mechanism category, not independent pharmacology, and do not count solo null results against it. Reproduction across independently sourced brands or batches weakens a one-product contaminant explanation and points to fractions the products share, without showing which fraction, including the headline ingredient, is active.</Rule>"
+   ],
+   [
+    "rather than only against the current appearance.</Rule>",
+    "rather than only against the current appearance. When new history could change the ranking, rebuild the map from the complete updated record and rescore every hypothesis, including down-ranked ones, instead of appending the fact to the prior ranking.</Rule>"
+   ],
+   [
+    "remain mandatory when applicable.</Rule>",
+    "remain mandatory when applicable. When one answer only the user can give could eliminate or reorder the leading hypotheses, ask it early, with a bounded provisional answer, before elaborating a mechanism.</Rule>"
+   ]
+  ]
+ },
+ "universal": {
+  "from": {
+   "version": "20.5.32",
+   "sha256": "b9aff85a1b05518e4511a49e3581923c4f125b878f9fb881f2f550ae2f6b8d0d"
+  },
+  "edits": [
+   [
+    "version=\"20.5.32\" revisionDate=\"2026-09-30\"",
+    "version=\"20.5.33\" revisionDate=\"2026-09-30\""
+   ],
+   [
+    "<revision_history>\n<revision version=\"20.5.32\" priority=\"Critical\">",
+    "<revision_history>\n<revision version=\"20.5.33\" priority=\"Critical\">\nModel-behavior change from the owner's lessons on a research thread (2026-09-30): ask a decisive question that only the user can answer before elaborating a mechanism; rerun the whole constraint set when new history could change the ranking; and treat familiar explanations (sensory, placebo, expectancy, anti-inflammatory, pharmacokinetic) as competing hypotheses, not defaults.\n</revision>\n<revision version=\"20.5.32\" priority=\"Critical\">"
+   ],
+   [
+    "valid predetermined study fields remain required.</rule>",
+    "valid predetermined study fields remain required. When one answer only the user can give could eliminate or reorder the leading hypotheses, ask it early, with a bounded provisional answer, before elaborating a mechanism.</rule>"
+   ],
+   [
+    "7. Current specific instructions and the task's first-principles objective control over a generic heuristic when no higher-priority platform, legal, safety, or factual-accuracy rule conflicts.\n</rules>",
+    "7. Current specific instructions and the task's first-principles objective control over a generic heuristic when no higher-priority platform, legal, safety, or factual-accuracy rule conflicts.\n8. Familiar explanations can become attractors too (sensory, placebo, expectancy, anti-inflammatory, pharmacokinetic). Treat each as a competing hypothesis that must fit every constraint and pass the same discriminators, never as the default.\n</rules>"
+   ],
+   [
+    "unless an explicit evidence-supported reason resolves the mismatch.",
+    "unless an explicit evidence-supported reason resolves the mismatch. When new history could change the ranking, rebuild the constraint set from the complete updated record and rescore every hypothesis, including down-ranked ones, instead of appending the fact to the prior ranking."
+   ]
+  ]
+ }
+}

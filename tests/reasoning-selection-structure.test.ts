@@ -166,13 +166,19 @@ const UNIVERSAL_20_5_27_SECTION_LOADING: ReadonlyArray<readonly [string, string]
 describe("canonical Reasoning Selection application", () => {
   it("adds the exact Critical selector and revision without reserializing Universal", async () => {
     const onDisk = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
-    expect(onDisk).toContain('version="20.5.32" revisionDate="2026-09-30"');
+    expect(onDisk).toContain('version="20.5.33" revisionDate="2026-09-30"');
     const undo = (text: string, steps: ReadonlyArray<readonly [RegExp | string, string]>) =>
       steps.reduce((current, [later, prior]) => {
         expect(matchCount(current, later), String(later).slice(0, 60)).toBe(1);
         return current.replace(later, prior);
       }, text);
-    const universal20531 = undo(onDisk, UNIVERSAL_20_5_32_LESSON_OFFER);
+    // Universal 20.5.33 (owner's research-thread lessons): undoing its recorded edits gives 20.5.32 exactly.
+    const lessons = JSON.parse(
+      await readFile(new URL("tests/fixtures/protocol-edits/2026-09-30-owner-lessons.json", ROOT), "utf8"),
+    ).universal as { from: { sha256: string }; edits: Array<[string, string]> };
+    const universal20532 = undo(onDisk, lessons.edits.map(([prior, later]) => [later, prior] as const).reverse());
+    expect(sha256(universal20532)).toBe(lessons.from.sha256);
+    const universal20531 = undo(universal20532, UNIVERSAL_20_5_32_LESSON_OFFER);
     expect(sha256(universal20531)).toBe("111cdecb46352e8cca98cfdb214edcfaf1c09a1cf991abf1c35dc2203d113e98");
     // Undoing the merge of main's task-mode integration gives this branch's
     // 20.5.30 bytes exactly; the chains below step back from there to 20.5.26.
@@ -399,7 +405,7 @@ describe("canonical Reasoning Selection application", () => {
     ]);
 
     expect(sha256(hrp)).toBe(
-      "9ff09e4982ce7dedb2b17010ebd61fd4797948a1ff3713a1287efefdd4d266b0",
+      "641473288653e5e2249527c3626d20c298c9b2f302ffc79feaad7c12191606b8",
     );
     expect(sha256(forum)).toBe(
       "36640d420bc59d885c314b542cb9f3bae8525ee34844a5890e5b406866c71d20",

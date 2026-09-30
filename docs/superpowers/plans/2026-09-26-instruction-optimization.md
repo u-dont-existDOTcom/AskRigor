@@ -1429,6 +1429,48 @@ checks them against the files' own manifests instead of copied values.
     the corrections section with its new paragraph).
   - The Universal file grows by 1,188 bytes and HRP by 1,314. HRP's core is
     unchanged.
+- **Research-thread lessons (owner, 2026-09-30: "review and merge what makes
+  sense to merge").** The owner sent 24 lessons from a thread about geosmin and
+  humic acid. They also listed research hypotheses and discriminators, which
+  they said are not rules, so those were not added. A read-only coverage map
+  found:
+  - 9 lessons already covered: 1, 4, 13, 15, 17, 20, 21, 23 and 24. HRP 20.6.7
+    came from the same case and covers 1 and 4; Universal 20.5.32 covers 21.
+  - 15 lessons partly covered. All 15 are merged as HRP 20.6.8 and Universal
+    20.5.33, extending existing rules:
+    - `ForumVocabularyExpansion`: search people's words for natural exposures
+      first, and keep natural-source reports as a labeled proxy cohort (2, 19).
+    - `NoCrossDoseEvidenceLaundering`: purity is not exposure realism. A
+      delivery analogy transfers only when complexation, the limiting step and
+      the drug's chemistry match (3, 14).
+    - `FastEffectInterpretation`: onset timing prunes mechanisms but does not
+      choose among the rest (5).
+    - New `NoFavoredExplanationPrivilege` in core `HeterodoxEpistemology`, plus
+      item 8 of Universal's `heuristic_attractor_check`: familiar deflationary
+      explanations (sensory, placebo, expectancy and others) are competing
+      hypotheses, not defaults (6, 22).
+    - `PatientExceptionFirstProbe`: probe route and physiological or
+      pharmacological state, and tabulate route × material × state before
+      proposing a shared mechanism (8, 18).
+    - `EstimandFields` endpoint: rescue, enhancement or state transition, and
+      the cognitive domain (10, 11).
+    - `CompositeInterventionAttribution`: state dependence is its own mechanism
+      category; reproduction across brands weakens a one-product contaminant
+      explanation (12, 16).
+    - `LongitudinalCausalConstraintMap` and Universal's
+      `high_information_qualifier_check`: rebuild and rescore the whole map
+      when new history could change the ranking (9).
+    - HRP's `HealthFollowUpInformationGain` and Universal's
+      `FollowUpExpectedInformationGain`: ask the decisive question early (7).
+  - Each edit is recorded as an exact before/after pair in
+    `tests/fixtures/protocol-edits/2026-09-30-owner-lessons.json`. The chain
+    tests undo exactly those pairs and get HRP 20.6.7 and Universal 20.5.32
+    byte for byte.
+  - Instruction load, measured:
+    - HRP grows by 3,924 bytes (+520 words, 114 of them in the revision entry)
+      and its core by 551 bytes (27,338 to 27,889, the new rule).
+    - Universal grows by 1,068 bytes (+146 words, 55 of them in the revision
+      entry). Its core is unchanged.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 
