@@ -58,7 +58,8 @@ const TOOL_NAMES = [
   "assess_treatment_landscape_coverage",
   "scout_gemini_youtube_candidates",
   "finalize_research",
-  "submit_lesson_candidate"
+  "submit_lesson_candidate",
+  "save_research_findings"
 ];
 const GEMINI_TOOL_NAMES = TOOL_NAMES.filter((name) =>
   ![
@@ -71,6 +72,7 @@ const GEMINI_TOOL_NAMES = TOOL_NAMES.filter((name) =>
     "scout_gemini_youtube_candidates",
     "finalize_research",
     "submit_lesson_candidate",
+    "save_research_findings",
   ].includes(name)
 );
 
@@ -104,7 +106,7 @@ const SPARSE_SEARCH_NOTE = " Few records: before saying anything was not found, 
   "the components of a mixed exposure, and citation chains.";
 
 describe("AskRigor MCP tools", () => {
-  it("registers the exact thirty-one-tool catalog with five declared writes", async () => {
+  it("registers the exact thirty-two-tool catalog with six declared writes", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {
@@ -118,6 +120,7 @@ describe("AskRigor MCP tools", () => {
           "review_research_contribution",
           "submit_lesson_candidate",
           "finalize_research",
+          "save_research_findings",
         ].includes(name) ? MUTATING_ANNOTATIONS : READ_ONLY_ANNOTATIONS)
       );
       expect(tools.every(({ inputSchema, outputSchema }) =>
@@ -153,9 +156,11 @@ describe("AskRigor MCP tools", () => {
       "call finalize_research with every research_receipt"
     );
     // Owner decisions Q9 to Q11 (2026-09-30): the final check carries a findings card, which free contributor
-    // mode saves; nothing asks the user.
+    // mode saves; a paid-private answer offers the save, which waits for the user's yes.
     expect(SERVER_INSTRUCTIONS).toContain("a findings_card of its best findings");
-    expect(SERVER_INSTRUCTIONS).not.toContain("save_research_findings");
+    expect(SERVER_INSTRUCTIONS).toContain(
+      "else copy its caveats. If they offer a save, call save_research_findings only after the user's yes."
+    );
   });
 
   it("publishes one-chain full-text handle and source-hash guidance", () => {

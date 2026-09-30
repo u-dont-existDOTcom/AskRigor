@@ -49,7 +49,8 @@ const TOOL_NAMES = [
   "assess_treatment_landscape_coverage",
   "scout_gemini_youtube_candidates",
   "finalize_research",
-  "submit_lesson_candidate"
+  "submit_lesson_candidate",
+  "save_research_findings"
 ];
 
 describe("AskRigor public-review packet", () => {
@@ -624,14 +625,15 @@ describe("AskRigor public-review packet", () => {
       endpoint: "https://mcp.askrigor.com/mcp"
     });
     expect(inventory.tools.map(({ name }: { name: string }) => name)).toEqual(TOOL_NAMES);
-    expect(inventory.tools).toHaveLength(31);
+    expect(inventory.tools).toHaveLength(32);
 
     for (const tool of inventory.tools) {
       const isWrite = tool.name === "manage_research_access" ||
         tool.name === "submit_research_contribution" ||
         tool.name === "review_research_contribution" ||
         tool.name === "submit_lesson_candidate" ||
-        tool.name === "finalize_research";
+        tool.name === "finalize_research" ||
+        tool.name === "save_research_findings";
       expect(tool).toMatchObject({
         description: expect.any(String),
         inputSchema: { type: "object", $schema: "http://json-schema.org/draft-07/schema#" },

@@ -14,8 +14,9 @@ import {
  * checks a card against the answer and the research it verified in the same
  * call, and signs the card's digest into its finalization receipt. For a free
  * contributor account the server then saves the card whose digest that
- * receipt signed; paid-private research saves nothing. The owner reviews
- * every saved card.
+ * receipt signed; for a paid-private account the answer offers the save, and
+ * save_research_findings saves it only after the user says yes. The owner
+ * reviews every saved card.
  */
 
 export const FINDING_CERTAINTIES = ["high", "moderate", "low", "very_low"] as const;
@@ -51,6 +52,10 @@ export const findingsCardSchema = z.object({
 }).strict();
 
 export type FindingsCard = z.output<typeof findingsCardSchema>;
+
+/** The sentence a paid-private answer ends with when its card checked: the save waits for a yes. */
+export const FINDINGS_SAVE_OFFER =
+  "If you want these findings saved to AskRigor's findings library for review, say yes; nothing is saved otherwise.";
 
 /**
  * JSON with each object's keys sorted and no spacing, so one card has one text

@@ -77,21 +77,22 @@ describe("AskRigor plugin package", () => {
     expect(skill.startsWith(`${EXPECTED_SKILL_FRONTMATTER}\n`)).toBe(true);
     expect(skill).not.toMatch(/\bv?20\.5\.(?:\d+|x)\b/i);
     expect(skill).not.toMatch(/<\/?(?:Protocol|Purpose|Research)/);
-    // 1,100 until the findings card (owner decisions Q9 to Q11, 2026-09-30).
-    expect(skill.split(/\s+/).filter(Boolean).length).toBeLessThan(1_110);
+    // 1,100 until the findings card and its paid-private save (owner decisions Q9 to Q11, 2026-09-30).
+    expect(skill.split(/\s+/).filter(Boolean).length).toBeLessThan(1_125);
   });
 
-  it("gives the final gate a findings card and never asks the user to save it", async () => {
+  it("gives the final gate a findings card and saves an offered card only after the user says yes", async () => {
     const skill = await readFile(rootFile("skills/askrigor/SKILL.md"), "utf8");
     const gate = sectionBetween(skill, "## Protocol gate", "## Forum Signal routing");
 
-    // Owner decisions Q9 to Q11 (2026-09-30): free contributor research is saved by the server; nothing is offered.
+    // Owner decisions Q9 to Q11 (2026-09-30): the server saves free contributor findings; a paid-private answer
+    // offers the save, which waits for the user's yes.
     expectFragmentsInOrder(gate, [
       "call `finalize_research`",
       "a `findings_card` of the answer's best findings",
       "copy its `caveats`",
+      "If they offer a save, call `save_research_findings` only after the user says yes.",
     ]);
-    expect(skill).not.toContain("save_research_findings");
   });
 
   it("requires an explicit reciprocal mode before research and bounds shared learning", async () => {

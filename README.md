@@ -421,10 +421,11 @@ new lessons while MCP remains available and unchanged.
 
 Owner decisions Q9 to Q11 (2026-09-30; not yet deployed): free AskRigor use is
 reciprocal, so the best findings of every finished free research answer are
-saved for the owner's review, with the AskRigor that made them; paid-private
-research saves nothing, and nothing asks the user. In the last
-`finalize_research` call the model adds a `findings_card`, which a free
-contributor's answer needs; the gate checks each finding's sentence against the
+saved for the owner's review, with the AskRigor that made them, and nothing asks
+the user; a paid-private answer offers the save, and `save_research_findings`
+(the connector's 32nd tool) saves it only after the user says yes. In the last
+`finalize_research` call the model adds a `findings_card`, which any research
+account's answer needs; the gate checks each finding's sentence against the
 answer and each source against the receipts of that call, never holds back the
 answer for a rejected card, and signs a checked card's digest into the
 finalization receipt. For a free contributor account the tool then saves that

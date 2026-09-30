@@ -1530,11 +1530,14 @@ The owner's words:
   if the free and paid tier both have the same privacy, my idea was the free
   tier would make the users the product, so we auto save everything we learn
   from their research rather than letting them waste my gemini spending for
-  nothing". So: free contributor research is saved automatically, paid-private
-  research never is, and nothing asks the user. The first build (a
-  `save_research_findings` tool after a yes, in either mode) blurred the tiers
-  and is gone. Going live waits for the owner's wording of the public privacy
-  notice, the terms and the in-app free contributor notice (question 11).
+  nothing". So free contributor findings are saved automatically, and nothing
+  asks the user. The first build (a save after a yes, in either mode) blurred
+  the tiers.
+- Q11 wording (20:38 UTC): "good but paid users findings and lessons are not
+  "never saved" they are saved when saving is accepted per turn". So a
+  paid-private answer offers the save and `save_research_findings` saves it
+  only after the user's yes, as lessons already work for everyone; the wording
+  below is approved with that correction.
 
 The design, as built:
 
@@ -1548,21 +1551,33 @@ The design, as built:
   `ASKRIGOR_FINDINGS_LIBRARY=enabled`), the answer needs a card: without one,
   the gate returns `not_ready` with one next step. A rejected card is reported
   and not saved but never holds back the answer, whose research may have
-  nothing a card can cite. For anyone else the card is `private`: not needed,
+  nothing a card can cite. A paid-private account's answer needs a card too,
+  and a checked card adds one caveat offering its save ("If you want these
+  findings saved to AskRigor's findings library for review, say yes; nothing is
+  saved otherwise."), which the answer must carry, in its own language if not
+  English. A caller with no research account gets `private`: no card needed,
   checked or saved.
 - When the status is not `not_ready`, the finalization receipt signs a
-  `findings` claim: the SHA-256 of the card's canonical JSON. The tool then
-  saves that exact card and reports `saved` with an `ARF-####` id, or
-  `already_saved`, or `not_saved` with a reason, in `findings_card.saved`.
-  Nothing is added to the answer: no offer, no process note.
-- `finalize_research` is declared a write (`readOnlyHint: false`); the separate
-  save tool is gone, so the catalog is back to 31 tools.
-- The server instructions and the skill each say only: give the last
-  `finalize_research` call a findings card of the answer's best findings.
-- The free contributor notice is `free-contributor-v2-2026-09-30` (text drafted
-  for the owner's approval). It says each finished answer's findings card is
+  `findings` claim: the SHA-256 of the card's canonical JSON. For a free
+  contributor the tool then saves that exact card and reports `saved` with an
+  `ARF-####` id, or `already_saved`, or `not_saved` with a reason, or
+  `unconfirmed`, in `findings_card.saved`; nothing is added to the answer.
+- `save_research_findings` (the connector's 32nd tool, no research Action path,
+  left out of the Gemini catalog) takes that card, the receipt, the literal
+  consent `yes_to_this_save` and optionally `reported_model`, for a paid-private
+  user's yes. It saves through the same service with the caller's account key.
+- Both `finalize_research` and `save_research_findings` are declared writes
+  (`readOnlyHint: false`): 32 tools, 26 read-only.
+- The server instructions and the skill each say: give the last
+  `finalize_research` call a findings card of the answer's best findings, and
+  if the caveats offer a save, call `save_research_findings` only after the
+  user's yes.
+- The free contributor notice is `free-contributor-v2-2026-09-30` (text
+  approved by the owner). It says each finished answer's findings card is
   saved, summarizing what public communities reported without posts, names,
-  links or video IDs, and that paid private access saves nothing. Accounts that
+  links or video IDs, and that paid private access saves research findings or
+  lesson feedback only when the user accepts saving them for that answer.
+  Accounts that
   accepted v1 accept v2 before free research continues. Migration
   `0011_research_use_notice_v2` admits both versions in the account table;
   it was run against PostgreSQL 16 from the deployed schema (0001 to 0010 with
@@ -1625,6 +1640,10 @@ Known limits, told to the owner:
 
 - Free users no longer see a card before it is saved; the notice, the privacy
   screen and the owner's review protect them.
+- A paid-private research answer ends with the one-sentence save offer.
+- Lessons still ask everyone first (the approved wording keeps lesson feedback
+  separately consented); free contributors' lessons are not saved
+  automatically.
 - A correction that changes the research target, or one given without a new
   finalized answer, leaves the earlier card for the owner to catch.
 - A client may ask the user to confirm `finalize_research` now that it writes
@@ -1636,11 +1655,63 @@ Known limits, told to the owner:
 - Stored cards carry no account identity, so revoking access does not withdraw
   them; deletion is requested by `ARF-####` id.
 
+Approved public wording (question 11, 2026-09-30, with the owner's paid-private
+correction), for `site/privacy` and `site/terms` on the day the library goes
+live, each with that day's effective date:
+
+- Privacy, "Research access and shared learning": after "AskRigor-authored study
+  or review analysis to the extent performed" add ", and for each finished
+  research answer a findings card: the question in general terms, the main
+  findings and their certainty, the public sources behind them, what public
+  online communities reported (summarized, without posts, commenter names,
+  links or video IDs), and the versions of AskRigor, its protocols and the AI
+  model that produced it". Replace "and YouTube or community content" with "and
+  YouTube or community posts, comments, commenter identities, links and video
+  IDs". After "accepted shared knowledge." add "Findings cards are saved
+  automatically, pass the same screening as lesson feedback, and go to a
+  private GitHub repository for the owner's review. A later card on the same
+  question from the same account replaces the earlier one. Cards are not linked
+  to the account, so revoking access does not withdraw them; AskRigor can give a
+  card's ARF-#### id so its deletion can be requested." Change "Paid private
+  mode does not submit research progress to the shared repository" to "Paid
+  private mode submits no research progress, and saves an answer's findings
+  card or lesson feedback only when the person accepts saving it for that
+  answer".
+- Privacy, "Data sharing and connected clients": after "shared-repository path
+  described above" add ", and its findings cards reach the private GitHub review
+  repository described above".
+- Privacy, "Choices and deletion": after the ARL-#### sentence add "To request
+  deletion of a findings card, send its ARF-#### id to the same address."
+- Privacy, "Optional lesson feedback": replace "This optional, consequential
+  Action" with "This optional step, available in the Custom GPT and through the
+  AskRigor connector,". "Screening and recipients": replace the first two
+  sentences with "AskRigor screens the generalized candidate on its own server
+  before GitHub; no other AI provider receives it." and change "ChatGPT handles
+  the surrounding conversation" to "The AI app used (ChatGPT or Claude) handles
+  the surrounding conversation". "Why and where data is processed": after "the
+  screened population-level target and AskRigor's public scout instructions"
+  add "and, when the person writes in another language, a short language code
+  (such as es or pt-BR) so it can look for videos in that language".
+- Terms, "Free contributor and paid private modes": after "AskRigor-authored
+  study or review analysis" add ", and for each finished research answer a
+  findings card (the question in general terms, the main findings and their
+  certainty, the public sources behind them, and what public online
+  communities reported, summarized without posts, names, links or video IDs)".
+  Replace "and YouTube or community content" with "and YouTube or community
+  posts, comments, commenter identities, links and video IDs". Change "Paid
+  private mode contributes nothing to the shared repository" to "Paid private
+  mode contributes nothing to the shared repository automatically, and saves an
+  answer's findings card or lesson feedback only when you accept saving it for
+  that answer".
+- Terms, "Shared research contributions": after "an eligible deidentified
+  structured proposal submitted under free contributor mode" add "or a findings
+  card saved under it".
+
 What waits:
 
-- The owner's wording (question 11) for `site/privacy`, `site/terms` and the
-  in-app notice text; the sites are not changed here. The engineering data map
-  is updated.
+- Applying that wording to `site/privacy` and `site/terms`, with the go-live
+  day's effective date, in the release that opens the library (the in-app
+  notice text is already in the code). The engineering data map is updated.
 - Creating the private `AskRigor-findings` repository and adding it to the
   GitHub App's installation, then setting `ASKRIGOR_FINDINGS_LIBRARY=enabled`.
 - Deploy approval. The deployment runs the one-shot admin `migrate` (for

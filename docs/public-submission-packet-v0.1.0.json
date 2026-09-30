@@ -32,7 +32,7 @@
   "mcp": {
     "submissionMode": "with_mcp",
     "serverURL": "https://mcp.askrigor.com/mcp",
-    "expectedToolCount": 31
+    "expectedToolCount": 32
   },
   "portalReadback": {
     "observedAt": "2026-08-30",
@@ -61,7 +61,7 @@
   },
   "releaseNotes": [
     "Retrieves canonical AskRigor protocol files with byte-derived version and SHA-256 integrity receipts.",
-    "Provides 31 OAuth-scoped tools: 26 read-only operations plus five explicit non-destructive writes (access mode, pending proposal, owner review, a lesson submitted only after the user agrees, and the final research check, which in free contributor mode saves the answer's findings card for owner review); ordinary research requires research:use, while cross-user stored case and proposal review additionally require owner-bound cases:review.",
+    "Provides 32 OAuth-scoped tools: 26 read-only operations plus six explicit non-destructive writes (access mode, pending proposal, owner review, a lesson submitted only after the user agrees, the final research check, which in free contributor mode saves the answer's findings card for owner review, and a paid-private findings card saved only after the user says yes); ordinary research requires research:use, while cross-user stored case and proposal review additionally require owner-bound cases:review.",
     "Preserves pagination, reply reconciliation, rate limits, inaccessible sources, and partial evidence without making clinical conclusions or changing provider data.",
     "Reuses an exact governed study-method audit only after complete current-source read-through and compatibility, freshness, and impact validation; otherwise the existing validator performs a fresh audit."
   ],
@@ -93,7 +93,7 @@
       "status": "pending",
       "evidence": null,
       "completedAt": null,
-      "note": "Run Scan Tools against the production MCP endpoint and compare the discovered 31-tool inventory and per-tool security metadata with the committed inventory."
+      "note": "Run Scan Tools against the production MCP endpoint and compare the discovered 32-tool inventory and per-tool security metadata with the committed inventory."
     },
     "demoRecording": {
       "status": "pending",

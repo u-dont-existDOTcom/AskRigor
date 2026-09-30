@@ -60,7 +60,15 @@ import {
 } from "./lessons/connector-tool.js";
 import type { LessonSubmissionResult } from "./lessons/contracts.js";
 import { submitConnectorLessonCandidate } from "./lessons/runtime.js";
-import type { FindingsSaveResult } from "./findings/contracts.js";
+import {
+  findingsSaveToolResult,
+  SAVE_RESEARCH_FINDINGS_DESCRIPTION,
+} from "./findings/connector-tool.js";
+import {
+  findingsSaveResultSchema,
+  saveResearchFindingsInputSchema,
+  type FindingsSaveResult,
+} from "./findings/contracts.js";
 import { saveResearchFindings } from "./findings/runtime.js";
 import type { FindingsSaveContext } from "./findings/service.js";
 import {
@@ -124,7 +132,7 @@ import {
   createManageResearchAccessHandler,
   createResearchAccessGuard,
   createSubmitResearchContributionHandler,
-  freeContributorAccount,
+  researchUseAccount,
   manageResearchAccessInputSchema,
   manageResearchAccessOutputSchema,
   researchUseSecurityMetadata,
@@ -586,9 +594,10 @@ const RESEARCH_ACCESS_CONTROL_OPERATION_NAMES = new Set([
   "submit_research_contribution",
 ]);
 // The GPT keeps its own lesson Action, so the connector's lesson tool has no
-// research Action path.
+// research Action path; paid-private findings are saved from the connector only.
 const CONNECTOR_ONLY_OPERATION_NAMES = new Set([
   "submit_lesson_candidate",
+  "save_research_findings",
 ]);
 
 /** The MCP endpoint a server is created for, recorded on saved findings cards. */
@@ -1771,7 +1780,7 @@ function defineResearchOperations(
         "must_report lists what the answer must report from each lane researched; receipts_unavailable means this " +
         "server cannot verify completion, so do the required work anyway and say that completion was not " +
         "server-verified. In free contributor mode a checked findings_card is saved to AskRigor's private " +
-        "findings library for the owner's review.",
+        "findings library for the owner's review; in paid private mode the caveats offer its save.",
       inputSchema: finalizeResearchInputSchema,
       outputSchema: finalizeResearchOutputSchema,
       // It writes: a free contributor's checked findings card is saved.
@@ -1782,26 +1791,29 @@ function defineResearchOperations(
       // subreddit and title; only the links are sent.
       const redditLinks = (input.community_searches ?? []).filter(({ platform }) => platform === "reddit")
         .flatMap(({ threads_read }) => (threads_read ?? []).map(({ url }) => url));
-      // Owner decision Q11 (2026-09-30): the free tier's research is saved by
-      // the agreement its user accepted; paid-private research never is.
+      // Owner decision Q11 (2026-09-30): the free tier's findings are saved by
+      // the agreement its user accepted; a paid-private answer offers the save,
+      // which waits for the user's yes (save_research_findings).
       const library = options.findingsLibrary ?? findingsLibraryEnabledFromEnv();
-      const contributor = library
-        ? await freeContributorAccount(extra, options.researchContributorAccessService)
+      const account = library
+        ? await researchUseAccount(extra, options.researchContributorAccessService)
         : undefined;
       const result = finalizeResearch(input, {
         secret: researchReceiptSecretFromEnv(),
         protocolNames: await protocolNames(),
-        findings: !library ? "closed" : contributor === undefined ? "private" : "save",
+        findings: !library
+          ? "closed"
+          : account === undefined ? "private" : account.mode === "FREE_CONTRIBUTOR" ? "save" : "offer",
         ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) })
       });
       if (
-        contributor !== undefined && input.findings_card !== undefined &&
+        account?.mode === "FREE_CONTRIBUTOR" && input.findings_card !== undefined &&
         result.findings_card.status === "checked" && result.finalization_receipt !== undefined
       ) {
         const save = (options.findingsSave ?? saveResearchFindings)({
           findings_card: input.findings_card,
           finalization_receipt: result.finalization_receipt,
-          contributor,
+          contributor: account.accountKey,
           ...(input.reported_model === undefined ? {} : { reported_model: input.reported_model })
         }, {
           surface: options.mcpSurface ?? "unknown",
@@ -1850,6 +1862,45 @@ function defineResearchOperations(
     async (input) => connectorLessonToolResult(
       await (options.lessonSubmission ?? submitConnectorLessonCandidate)(input),
     ),
+  );
+
+  registerFindingsSave(registrar, options);
+}
+
+// Owner decision Q11 (2026-09-30): a paid-private user's findings are saved
+// when the user accepts saving them for that answer. Behind the research-access
+// guard like other tools; no research Action path.
+function registerFindingsSave(
+  registrar: Pick<McpServer, "registerTool">,
+  options: RegisterToolsOptions,
+): void {
+  registrar.registerTool(
+    "save_research_findings",
+    {
+      description: SAVE_RESEARCH_FINDINGS_DESCRIPTION,
+      inputSchema: saveResearchFindingsInputSchema,
+      outputSchema: findingsSaveResultSchema,
+      annotations: MUTATING_ANNOTATIONS,
+    },
+    async (input, extra) => {
+      const reply = (result: FindingsSaveResult) => findingsSaveToolResult(result);
+      if (!(options.findingsLibrary ?? findingsLibraryEnabledFromEnv())) {
+        return reply({ status: "queue_unavailable", retryable: false, reason_code: "library_closed" });
+      }
+      const account = await researchUseAccount(extra, options.researchContributorAccessService);
+      if (account === undefined) {
+        return reply({ status: "queue_unavailable", retryable: false, reason_code: "research_account_required" });
+      }
+      return reply(await (options.findingsSave ?? saveResearchFindings)({
+        findings_card: input.findings_card,
+        finalization_receipt: input.finalization_receipt,
+        contributor: account.accountKey,
+        ...(input.reported_model === undefined ? {} : { reported_model: input.reported_model }),
+      }, {
+        surface: options.mcpSurface ?? "unknown",
+        toolCatalogSha256: toolCatalogSha256(),
+      }));
+    },
   );
 }
 
@@ -2459,8 +2510,8 @@ function collectResearchOperations(
   } as unknown as Pick<McpServer, "registerTool">;
 
   defineResearchOperations(registrar, options);
-  if (operations.length !== 31) {
-    throw new Error(`Expected 31 research operations; received ${operations.length}`);
+  if (operations.length !== 32) {
+    throw new Error(`Expected 32 research operations; received ${operations.length}`);
   }
   if (new Set(operations.map(({ name }) => name)).size !== operations.length) {
     throw new Error("Research operation names must be unique");

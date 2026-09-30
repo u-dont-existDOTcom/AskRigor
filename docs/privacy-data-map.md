@@ -29,12 +29,13 @@ automatic evidence-authority path.
 The September 30 source candidate (not deployed) adds a findings library for
 free contributor mode (owner decisions Q9 to Q11): when `finalize_research`
 checks a free contributor's answer, the server saves that answer's checked
-findings card to a private GitHub review queue; paid-private research saves
-nothing. It moves the free contributor notice to a second version that says so.
-It is described under "Findings library (free contributor mode)" below. The
-public notices at `https://askrigor.com/privacy` and `/terms` do not describe it
-yet; the owner is wording that update, and the library stays closed until it is
-published.
+findings card to a private GitHub review queue; a paid-private answer offers the
+save, and its card is saved only after the user says yes to that save. It moves
+the free contributor notice to a second version that says so. It is described
+under "Findings library" below. The owner approved the public wording on
+2026-09-30; `https://askrigor.com/privacy` and `/terms` take it, with that day's
+effective date, when the library goes live, and the library stays closed until
+then.
 
 ## Purpose and boundary
 
@@ -276,8 +277,10 @@ AskRigor has deliberately separate processing paths:
   `finalize_research` (behind the research-access guard; not deployed) needs a
   findings card with the answer, checks it, and saves the checked card and a
   server-written version stamp in a private GitHub review queue; the answer is
-  never stored. Paid-private research saves nothing, and nothing asks the user.
-  See "Findings library (free contributor mode)" below.
+  never stored, and nothing asks the user. For a paid-private account the
+  answer offers the save, and the connector's `save_research_findings` saves
+  the checked card only after the user says yes to that save. See "Findings
+  library" below.
 - **Automated Gemini-candidate path:** a public read-only Action and the
   `scout_gemini_youtube_candidates` MCP tool (behind the research-access guard)
   share one implementation and accept only a
@@ -686,17 +689,19 @@ request earlier deletion by sending the private-safe `ARL-####` receipt to
 `joel@askrigor.com`. AskRigor can act only on data it controls; provider
 retention and provider-side deletion remain governed by the provider.
 
-## Findings library (free contributor mode)
+## Findings library
 
 Owner decisions Q9 to Q11 (2026-09-30): free AskRigor use is reciprocal, so what
 AskRigor learns from free research is saved. When `finalize_research` checks a
 free contributor account's answer, the server saves that answer's checked
-findings card to a private review queue, and the owner reviews every card before
-it is accepted. Paid-private research saves nothing, and nothing asks the user
-to save. The code is built but not deployed. The public notices at
-`https://askrigor.com/privacy` and `/terms`, and the in-app free contributor
-notice, need the owner's wording for this flow; those pages are not changed
-here, and the in-app notice text is a draft for the owner's approval.
+findings card to a private review queue, with nothing asked of the user. A
+paid-private answer ends by offering the save, and its card is saved only when
+the user accepts saving it for that answer, through the connector's
+`save_research_findings`. The owner reviews every card before it is accepted.
+The code is built but not deployed. The owner approved the wording of the
+in-app free contributor notice (in the code), `https://askrigor.com/privacy`
+and `/terms` on 2026-09-30; the two pages take it, with that day's effective
+date, when the library goes live (the text is in the plan).
 
 The free contributor notice is now version `free-contributor-v2-2026-09-30`,
 which says each finished research answer's findings card is saved. A free
@@ -724,11 +729,18 @@ What the model sends, and when:
   (`reported_model`, at most 80 characters). The gate checks the card against
   the answer and that call's verified sources. A rejected card is reported and
   not saved; it never holds back the answer. A checked card's SHA-256 digest is
-  signed into the finalization receipt. For any other caller the card is
-  neither checked nor saved (`private`).
+  signed into the finalization receipt; for a paid-private account a checked
+  card also adds the sentence offering its save to the caveats the answer must
+  carry. For a caller with no research account the card is neither checked nor
+  saved (`private`).
+- In `save_research_findings`, only after a paid-private user says yes to that
+  offer: the same card, that finalization receipt, the literal consent
+  `yes_to_this_save`, and optionally the model name as the app reports it.
 
 What the server checks before it saves: that the caller's OAuth token belongs
-to an active free contributor account under the current notice; the receipt's
+to an active research account (a free contributor under the current notice, at
+the final check, or a paid-private account, through `save_research_findings`
+after the user's yes); the receipt's
 signature, kind and 24-hour age, and that it signed this exact card; the lesson
 queue's deterministic privacy screen over every text field (with study and
 video identifiers, links to their pages, statistics-shaped numbers and in-word
@@ -815,10 +827,11 @@ pending-proposal stores have their own strict contracts and authority boundaries
 
 ## Response minimization and security controls
 
-- Of 31 MCP operations, 26 are annotated `readOnlyHint: true`. The five
+- Of 32 MCP operations, 26 are annotated `readOnlyHint: true`. The six
   explicit writes (research-access mode, pending proposal, owner review, lesson
-  candidate, and `finalize_research`, which saves a free contributor's checked
-  findings card) are declared with `destructiveHint: false` and
+  candidate, `finalize_research`, which saves a free contributor's checked
+  findings card, and `save_research_findings`, a paid-private card saved after
+  the user's yes) are declared with `destructiveHint: false` and
   `openWorldHint: false`. Owner review requires `cases:review`; the others
   require authenticated `research:use`; all ordinary research operations also
   require that scope and an active free-contributor or paid-private mode. The Action-only transcript,

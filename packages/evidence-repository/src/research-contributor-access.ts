@@ -36,14 +36,15 @@ const researchUseNoticeVersionSchema = z.enum([
 
 export type ResearchUseNoticeVersion = z.infer<typeof researchUseNoticeVersionSchema>;
 
-// Drafted for the owner's approval (question 11); the owner words the public
-// privacy notice and this text before the findings library opens.
+// Approved by the owner (question 11, 2026-09-30, with the correction that
+// paid private findings and lessons are saved when the user accepts saving
+// them for that answer).
 export const RESEARCH_USE_NOTICE = [
   "Free AskRigor use is reciprocal: what AskRigor learns from your research is saved for its research library.",
   "That includes deidentified structured research progress and, for each finished research answer, a findings card: the question in general terms, the main findings and how certain they are, the public studies behind them, and what public online communities reported, summarized without their posts, names, links or video IDs.",
   "AskRigor never saves raw chat, prompts, identity or contact details, private health narratives, uploads, or raw source or provider bodies.",
   "Saved research is reviewed and does not become evidence, conclusions, or scientific authority merely because it was saved or repeated.",
-  "Paid private access saves nothing and requires an active verified entitlement.",
+  "Paid private access saves research findings or lesson feedback only when you accept saving them for that answer, and requires an active verified entitlement.",
 ].join(" ");
 
 export const researchUseModeSchema = z.enum([

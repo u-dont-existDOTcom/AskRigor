@@ -11,8 +11,16 @@ import {
 } from "../packages/evidence-repository/src/index.js";
 
 import { askrigorBuildCommitFromEnv } from "../apps/research-mcp/src/config.js";
-import { findingsCardDigest, findingsCardSchema, withoutYouTubeData } from "../apps/research-mcp/src/findings/card.js";
-import type { FindingsSaveResult } from "../apps/research-mcp/src/findings/contracts.js";
+import {
+  FINDINGS_SAVE_OFFER,
+  findingsCardDigest,
+  findingsCardSchema,
+  withoutYouTubeData,
+} from "../apps/research-mcp/src/findings/card.js";
+import {
+  saveResearchFindingsInputSchema,
+  type FindingsSaveResult,
+} from "../apps/research-mcp/src/findings/contracts.js";
 import { GitHubFindingsQueue } from "../apps/research-mcp/src/findings/github-findings.js";
 import {
   DEFAULT_FINDINGS_REPOSITORY,
@@ -444,8 +452,9 @@ describe("findings library save", () => {
 });
 
 // Owner decision Q11 (2026-09-30): free research is saved by the agreement its user accepted, when
-// finalize_research checks the answer; paid-private research is never saved, and nothing asks the user.
-describe("finalize_research and the findings library", () => {
+// finalize_research checks the answer, and nothing asks the user; a paid-private answer offers the save,
+// and save_research_findings saves it only after the user's yes.
+describe("finalize_research, save_research_findings and the findings library", () => {
   const IDENTITY_SECRET = new TextEncoder().encode("synthetic-research-identity-secret-with-at-least-thirty-two-bytes");
   const TARGET = "How the body clears a drug in adults";
   const QUOTE = "The liver clears this drug within a few hours.";
@@ -478,17 +487,18 @@ describe("finalize_research and the findings library", () => {
     return service;
   }
 
-  /** finalize_research as the connector registers it, called with the caller's OAuth identity. */
-  function finalizeTool(options: RegisterToolsOptions) {
+  /** A tool as the connector registers it, called with the caller's OAuth identity. */
+  function connectorTool(name: "finalize_research" | "save_research_findings", options: RegisterToolsOptions) {
     let handler: ((input: unknown, extra?: unknown) => Promise<CallToolResult>) | undefined;
     registerTools({
-      registerTool: (name: string, _config: unknown, execute: typeof handler) => {
-        if (name === "finalize_research") handler = execute;
+      registerTool: (registered: string, _config: unknown, execute: typeof handler) => {
+        if (registered === name) handler = execute;
       },
     } as unknown as McpServer, { researchAccessRequired: true, mcpSurface: "/mcp/claude", ...options });
     return async (input: Record<string, unknown>, subject?: string) => {
       const { finalizeResearchInputSchema } = await import("../apps/research-mcp/src/research-finalization-gate.js");
-      return await handler!(finalizeResearchInputSchema.parse(input), subject === undefined ? {} : {
+      const schema = name === "finalize_research" ? finalizeResearchInputSchema : saveResearchFindingsInputSchema;
+      return await handler!(schema.parse(input), subject === undefined ? {} : {
         authInfo: {
           token: "synthetic-token",
           clientId: "synthetic-client",
@@ -535,7 +545,7 @@ describe("finalize_research and the findings library", () => {
     process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
     const service = await accessService();
     const { calls, findingsSave } = recorder();
-    const finalize = finalizeTool({ researchContributorAccessService: service, findingsLibrary: true, findingsSave });
+    const finalize = connectorTool("finalize_research", { researchContributorAccessService: service, findingsLibrary: true, findingsSave });
     const result = await finalize(request(), "auth0|free");
     expect(result.isError).not.toBe(true);
     expect(result.structuredContent).toMatchObject({
@@ -562,7 +572,7 @@ describe("finalize_research and the findings library", () => {
   it("needs a card from a free contributor's answer, and saves nothing until it has one", async () => {
     process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
     const { calls, findingsSave } = recorder();
-    const finalize = finalizeTool({ researchContributorAccessService: await accessService(), findingsLibrary: true, findingsSave });
+    const finalize = connectorTool("finalize_research", { researchContributorAccessService: await accessService(), findingsLibrary: true, findingsSave });
     const { findings_card: _card, ...withoutCard } = request();
     const result = await finalize(withoutCard, "auth0|free");
     expect(result.structuredContent).toMatchObject({
@@ -576,7 +586,7 @@ describe("finalize_research and the findings library", () => {
   it("reports a save that did not happen without holding back the answer", async () => {
     process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
     const { findingsSave } = recorder({ status: "rate_limited", retryable: true, retry_after_seconds: 60, reason_code: "hourly_limit" });
-    const finalize = finalizeTool({ researchContributorAccessService: await accessService(), findingsLibrary: true, findingsSave });
+    const finalize = connectorTool("finalize_research", { researchContributorAccessService: await accessService(), findingsLibrary: true, findingsSave });
     const result = await finalize(request(), "auth0|free");
     expect(result.structuredContent).toMatchObject({
       status: "ready",
@@ -587,7 +597,7 @@ describe("finalize_research and the findings library", () => {
 
   it("lets the answer go ahead when a save takes too long", async () => {
     process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
-    const finalize = finalizeTool({
+    const finalize = connectorTool("finalize_research", {
       researchContributorAccessService: await accessService(),
       findingsLibrary: true,
       findingsSave: () => new Promise<FindingsSaveResult>(() => undefined),
@@ -601,18 +611,70 @@ describe("finalize_research and the findings library", () => {
     expect(JSON.stringify(result.content)).toContain("the save had not finished; it may still complete");
   });
 
-  it("keeps paid-private research, and research while the library is closed, out of the library", async () => {
+  it("offers a paid-private answer's save and saves only after the user's yes", async () => {
     process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
     const service = await accessService();
     const { calls, findingsSave } = recorder();
-    const open = finalizeTool({ researchContributorAccessService: service, findingsLibrary: true, findingsSave });
-    const paid = await open(request(), "auth0|paid");
-    expect(paid.structuredContent).toMatchObject({ status: "ready", findings_card: { status: "private", problems: [] } });
-    expect(JSON.stringify(paid.content)).not.toContain("Findings card");
-    const { findings_card: _card, ...withoutCard } = request();
-    expect((await open(withoutCard, "auth0|paid")).structuredContent).toMatchObject({ status: "ready" });
+    const options = { researchContributorAccessService: service, findingsLibrary: true, findingsSave };
+    const finalize = connectorTool("finalize_research", options);
+    // The answer must carry the offer before the card is signed; nothing is saved at the final check.
+    expect((await finalize(request(), "auth0|paid")).structuredContent).toMatchObject({
+      status: "not_ready", caveats: [FINDINGS_SAVE_OFFER], findings_card: { status: "checked" },
+    });
+    const offered = await finalize(request({ answer_draft: `${QUOTE} ${FINDINGS_SAVE_OFFER}` }), "auth0|paid");
+    expect(offered.structuredContent).toMatchObject({
+      status: "ready", caveats: [FINDINGS_SAVE_OFFER], findings_card: { status: "checked", problems: [] },
+    });
+    expect((offered.structuredContent as { findings_card: object }).findings_card).not.toHaveProperty("saved");
+    expect(calls).toEqual([]);
 
-    const closed = finalizeTool({ researchContributorAccessService: service, findingsLibrary: false, findingsSave });
+    // The user said yes.
+    const receipt = (offered.structuredContent as { finalization_receipt: string }).finalization_receipt;
+    const save = connectorTool("save_research_findings", options);
+    const saved = await save({
+      findings_card: CHECKED_CARD, finalization_receipt: receipt, user_consent: "yes_to_this_save",
+    }, "auth0|paid");
+    expect(saved.isError).not.toBe(true);
+    expect(saved.content).toEqual([{ type: "text", text: "Saved for review as ARF-0042." }]);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]![0]).toEqual({
+      findings_card: findingsCardSchema.parse(CHECKED_CARD),
+      finalization_receipt: receipt,
+      contributor: service.accountKeyForSubject("auth0|paid"),
+    });
+    // Without the user's yes the request does not reach the tool; without an account or an open library, nothing is saved.
+    expect(saveResearchFindingsInputSchema.safeParse({
+      findings_card: CHECKED_CARD, finalization_receipt: receipt, user_consent: "no",
+    }).success).toBe(false);
+    const yes = { findings_card: CHECKED_CARD, finalization_receipt: receipt, user_consent: "yes_to_this_save" };
+    const signedOut = await save(yes);
+    expect(signedOut.isError).toBe(true);
+    expect(JSON.stringify(signedOut.content)).toContain("Connect an AskRigor account");
+    // A surface without research accounts saves nothing either.
+    const withoutAccount = await connectorTool("save_research_findings", { ...options, researchAccessRequired: false })(yes);
+    expect(withoutAccount.isError).toBe(true);
+    expect(JSON.stringify(withoutAccount.content)).toContain("findings are saved only from a connected AskRigor research account");
+    const closedSave = await connectorTool("save_research_findings", { ...options, findingsLibrary: false })({
+      findings_card: CHECKED_CARD, finalization_receipt: receipt, user_consent: "yes_to_this_save",
+    }, "auth0|paid");
+    expect(JSON.stringify(closedSave.content)).toContain("Not saved: AskRigor's findings library is not open yet.");
+    expect(calls).toHaveLength(1);
+  });
+
+  it("keeps research without a research account, and research while the library is closed, out of the library", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    const { calls, findingsSave } = recorder();
+    const open = connectorTool("finalize_research", {
+      researchContributorAccessService: service, researchAccessRequired: false, findingsLibrary: true, findingsSave,
+    });
+    const anonymous = await open(request());
+    expect(anonymous.structuredContent).toMatchObject({ status: "ready", findings_card: { status: "private", problems: [] } });
+    expect(JSON.stringify(anonymous.content)).not.toContain("Findings card");
+    const { findings_card: _card, ...withoutCard } = request();
+    expect((await open(withoutCard)).structuredContent).toMatchObject({ status: "ready" });
+
+    const closed = connectorTool("finalize_research", { researchContributorAccessService: service, findingsLibrary: false, findingsSave });
     expect((await closed(request(), "auth0|free")).structuredContent).toMatchObject({
       status: "ready", findings_card: { status: "closed" },
     });
@@ -620,12 +682,20 @@ describe("finalize_research and the findings library", () => {
     expect(calls).toEqual([]);
   });
 
-  it("is declared a write, and no tool asks the user to save", () => {
+  it("declares both tools writes, and gives the save tool no research Action path", () => {
     const finalize = RESEARCH_OPERATIONS.find(({ name }) => name === "finalize_research");
-    expect(finalize?.annotations).toEqual({
-      readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false,
-    });
-    expect(finalize?.description).toContain("In free contributor mode a checked findings_card is saved");
-    expect(RESEARCH_OPERATIONS.map(({ name }) => name)).not.toContain("save_research_findings");
+    const save = RESEARCH_OPERATIONS.find(({ name }) => name === "save_research_findings");
+    for (const tool of [finalize, save]) {
+      expect(tool?.annotations).toEqual({
+        readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false,
+      });
+    }
+    expect(finalize?.description).toContain(
+      "In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the " +
+        "owner's review; in paid private mode the caveats offer its save."
+    );
+    expect(save?.description).toContain("when the answer offered the save and the user said yes to it");
+    expect(save?.description).toContain("never include claims the user corrected");
+    expect(save?.actionEnabled).toBe(false);
   });
 });

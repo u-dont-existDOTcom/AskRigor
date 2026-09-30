@@ -58,16 +58,17 @@ makes sense": 15 of the 24 lessons from the geosmin and humic-acid thread were
 only partly covered and are now exact recorded edits, listed in the plan; the
 other 9 were already covered); the Gemini scout's research target written in
 English, with the person's language passed separately (owner decision 6: A); a
-findings library (owner decisions Q9 to Q11, 2026-09-30: free research is saved
-and paid-private research is not, so for a free contributor account
-`finalize_research` needs a findings card with the answer and saves the checked
-card with a version stamp to a private review queue, where a later card from the
-same account on the same research target replaces the earlier one; nothing asks
-the user, `finalize_research` is declared a write, and the catalog stays at 31
-tools; the free contributor notice moves to version 2, with migration 0011;
-closed until `ASKRIGOR_FINDINGS_LIBRARY=enabled`, which waits for the owner's
-wording of the privacy notice, terms and in-app notice (question 11), the
-private `AskRigor-findings` repository and deploy approval); title identity checked by exact comparison, with
+findings library (owner decisions Q9 to Q11, 2026-09-30: for a free contributor
+account `finalize_research` needs a findings card with the answer and saves the
+checked card with a version stamp to a private review queue, with nothing asked
+of the user, and a later card from the same account on the same research target
+replaces the earlier one; a paid-private answer offers the save, and
+`save_research_findings`, the 32nd tool, saves it only after the user's yes;
+both tools are declared writes; the free contributor notice moves to version 2,
+with migration 0011; the owner approved the wording, which the privacy and terms
+pages take on the go-live day; closed until `ASKRIGOR_FINDINGS_LIBRARY=enabled`,
+which waits for the private `AskRigor-findings` repository and deploy
+approval); title identity checked by exact comparison, with
 rewordings left to the research model (owner correction, 2026-09-29: word
 lists were brittle and English-only); answer checks that work in any language
 (same correction: the model quotes the answer's sentences for each community

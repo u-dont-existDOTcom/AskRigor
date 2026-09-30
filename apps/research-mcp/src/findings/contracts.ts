@@ -4,8 +4,24 @@ import { RESEARCH_RECEIPT_MAX_CHARACTERS } from "../research-receipts.js";
 import { findingsCardSchema } from "./card.js";
 
 /**
- * What finalize_research hands the findings library for a free contributor
- * account (owner decision Q11, 2026-09-30); no model calls it directly.
+ * The save a paid-private user accepts for one answer (owner decision Q11,
+ * 2026-09-30: paid-private findings are saved when the user accepts saving
+ * them for that answer; free contributor findings are saved by
+ * finalize_research itself).
+ */
+export const saveResearchFindingsInputSchema = z.object({
+  findings_card: findingsCardSchema.describe("The card exactly as the last finalize_research call checked it."),
+  finalization_receipt: z.string().trim().min(1).max(RESEARCH_RECEIPT_MAX_CHARACTERS)
+    .describe("The finalization_receipt that call returned."),
+  user_consent: z.literal("yes_to_this_save").describe("Only after the user said yes to saving these findings."),
+  reported_model: z.string().trim().min(1).max(80).optional()
+    .describe("Your model's name as your app reports it; stored as reported, not verified.")
+}).strict();
+
+/**
+ * What the findings library saves from: finalize_research for a free
+ * contributor account, or save_research_findings after a paid-private user's
+ * yes, with the caller's account key from its OAuth token.
  */
 export const findingsSaveInputSchema = z.object({
   findings_card: findingsCardSchema,
@@ -37,6 +53,7 @@ export const FINDINGS_SAVE_REASONS = [
   "hourly_limit",
   "daily_limit",
   "library_closed",
+  "research_account_required",
   "queue_not_configured",
   "queue_auth_unavailable",
   "queue_service_unavailable"

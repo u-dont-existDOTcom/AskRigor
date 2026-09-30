@@ -12,9 +12,11 @@ AskRigor has two research-use modes:
   finished research answer's findings card is saved to AskRigor's private
   findings library for review (owner decision Q11, 2026-09-30; see
   `docs/privacy-data-map.md`). This is the free product.
-- **Paid private.** Nothing is submitted or saved. This mode activates only when
-  the account already has a verified entitlement. The current slice offers no
-  price, payment provider, or checkout.
+- **Paid private.** No research progress is submitted. Research findings and
+  lesson feedback are saved only when the user accepts saving them for that
+  answer. This mode activates only when the account already has a verified
+  entitlement. The current slice offers no price, payment provider, or
+  checkout.
 
 This is an ordinary product access choice. It is not an institutional research
 program, a study-enrollment system, a public forum, or a claim that product

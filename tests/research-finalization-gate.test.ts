@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 import {
+  FINDINGS_SAVE_OFFER,
   findingsCardDigest,
   findingsCardSchema
 } from "../apps/research-mcp/src/findings/card.js";
@@ -2600,7 +2601,64 @@ describe("findings card at the final gate", () => {
     expect(finalizeResearch(READY, closedOptions)).toMatchObject({ status: "ready_with_limits", findings_card: { status: "absent" } });
   });
 
-  it("keeps research that is not a free contributor's private: no card is needed, checked or signed", () => {
+  // A paid private account: the answer offers the save, which waits for the user's yes.
+  it("offers a paid private answer's checked card and signs it only once the answer carries the offer", () => {
+    const offerOptions = { secret: SECRET, now, findings: "offer" as const };
+    const plain = finalizeResearch(READY, closedOptions);
+    const carded = finalizeResearch({ ...READY, findings_card: CARD }, offerOptions);
+    expect(carded.findings_card).toEqual({ status: "checked", problems: [] });
+    expect(carded.caveats).toEqual([...plain.caveats, FINDINGS_SAVE_OFFER]);
+    expect(findingsClaim(carded.finalization_receipt)).toBe(findingsCardDigest(findingsCardSchema.parse(CARD)));
+
+    const draft = [CLEAN_DRAFT, ...plain.caveats].join(" ");
+    const missing = finalizeResearch({ ...READY, findings_card: CARD, answer_draft: draft }, offerOptions);
+    expect(missing).toMatchObject({ status: "not_ready", next_steps: [leftOut(FINDINGS_SAVE_OFFER)] });
+    expect(missing.finalization_receipt).toBeUndefined();
+    const stated = finalizeResearch(
+      { ...READY, findings_card: CARD, answer_draft: `${draft} ${FINDINGS_SAVE_OFFER}` }, offerOptions
+    );
+    expect(stated).toMatchObject({ status: "ready_with_limits", next_steps: [] });
+    expect(findingsClaim(stated.finalization_receipt)).toBe(findingsCardDigest(findingsCardSchema.parse(CARD)));
+
+    // The answer needs a card; a rejected one is neither offered nor signed, and holds nothing back.
+    expect(finalizeResearch(READY, offerOptions)).toMatchObject({
+      status: "not_ready",
+      next_steps: [expect.stringMatching(/^Give findings_card with answer_draft: the answer offers to save its findings/u)]
+    });
+    const rejected = finalizeResearch({ ...READY, findings_card: withFinding({ answer_quote: "Not in the answer." }) }, offerOptions);
+    expect(rejected).toMatchObject({ status: "ready_with_limits", findings_card: { status: "rejected" } });
+    expect(rejected.caveats).toEqual(plain.caveats);
+    expect(findingsClaim(rejected.finalization_receipt)).toBeUndefined();
+  });
+
+  it("lets a paid private answer in another language give the offer in that language", () => {
+    const base = {
+      receipts: [study],
+      community_evidence: "not_relevant",
+      not_relevant_basis: "no_real_world_outcome",
+      not_relevant_reason: "How the body clears a drug, with no real-world outcome.",
+      treatment_choice: "not_compared",
+      research_target: TARGET,
+      research_depth: "deep",
+      key_sources: [{ id: "PMC10518852", status: "validated" }]
+    };
+    const offerOptions = { secret: SECRET, now, findings: "offer" as const };
+    const quote = "Le foie élimine ce médicament en quelques heures.";
+    const offer = "Si vous voulez enregistrer ces résultats dans la bibliothèque d'AskRigor pour examen, dites oui ; " +
+      "rien n'est enregistré sinon.";
+    const card = withFinding({ answer_quote: quote, sources: ["PMC10518852"], tags: ["full_text_read"] });
+    const translated = finalizeResearch({
+      ...base, findings_card: card, answer_draft: `${quote} ${offer}`, answer_language: "fr",
+      caveat_renderings: [{ caveat: FINDINGS_SAVE_OFFER, text: offer }]
+    }, offerOptions);
+    expect(translated).toMatchObject({
+      status: "ready", next_steps: [], limits: [], caveats: [FINDINGS_SAVE_OFFER], findings_card: { status: "checked" }
+    });
+    expect(finalizeResearch({ ...base, findings_card: card, answer_draft: quote, answer_language: "fr" }, offerOptions).next_steps)
+      .toEqual([leftOut(FINDINGS_SAVE_OFFER)]);
+  });
+
+  it("keeps research without a research account private: no card is needed, checked or signed", () => {
     const privateOptions = { secret: SECRET, now, findings: "private" as const };
     for (const input of [READY, { ...READY, findings_card: CARD }]) {
       const result = finalizeResearch(input, privateOptions);

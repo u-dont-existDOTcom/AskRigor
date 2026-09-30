@@ -216,21 +216,21 @@ export function createResearchAccessGuard(
 }
 
 /**
- * The pseudonymous account key of the caller when it is an active free
- * contributor account (whose research the findings library saves), else
- * undefined: a paid-private or inactive account, a call without a valid
- * research:use token, or no access service. Never throws.
+ * The caller's active research-use mode and pseudonymous account key, which
+ * decide what the findings library does with its research: saved (free
+ * contributor) or offered for a yes (paid private). Undefined for an inactive
+ * account, a call without a valid research:use token, or no access service.
+ * Never throws.
  */
-export async function freeContributorAccount(
+export async function researchUseAccount(
   extra: ResearchOperationExtra | undefined,
   service: ResearchContributorAccessService | undefined,
-): Promise<string | undefined> {
+): Promise<{ mode: "FREE_CONTRIBUTOR" | "PAID_PRIVATE"; accountKey: string } | undefined> {
   const auth = authorizedSubject(extra, undefined);
   if ("error" in auth || service === undefined) return undefined;
   try {
-    return await service.requireActive(auth.subject) === "FREE_CONTRIBUTOR"
-      ? service.accountKeyForSubject(auth.subject)
-      : undefined;
+    const mode = await service.requireActive(auth.subject);
+    return { mode, accountKey: service.accountKeyForSubject(auth.subject) };
   } catch {
     return undefined;
   }
