@@ -41,7 +41,10 @@ export const finalizeResearchInputSchema = z.object({
   receipts: z.array(z.string().max(RESEARCH_RECEIPT_MAX_CHARACTERS)).max(300)
     .describe("Every research_receipt AskRigor tools returned during this research, copied exactly."),
   community_evidence: z.enum(["researched", "not_relevant"])
-    .describe("researched when firsthand community evidence could plausibly matter; not_relevant needs a reason."),
+    .describe("researched when firsthand community evidence could plausibly matter; not_relevant needs a basis and a reason."),
+  not_relevant_basis: z.enum(["no_real_world_outcome", "emergency_before_triage"]).optional()
+    .describe("Why firsthand reports cannot matter: no real-world outcome (a definition, calculation, or chemical or " +
+      "mechanistic question), or an emergency before triage."),
   not_relevant_reason: z.string().trim().min(1).max(1_000).optional(),
   material_video_ids: z.array(youtubeVideoIdSchema).max(60).optional()
     .describe("Videos worth auditing: each adds an approach or substantial firsthand experience. Defaults to every audited video."),
@@ -137,6 +140,18 @@ export const finalizeResearchInputSchema = z.object({
     .describe("The answer you are about to give, exactly as the user will see it. Needed before the gate reports ready; " +
       "it is checked for internal labels, bare video IDs, a pasted long prompt, the sentences answer_quotes copies " +
       "and the caveats (each as its own sentence, as written or as caveat_renderings gives it), and is not stored."),
+  absence_claims: z.array(z.object({
+    quote: answerQuote.describe("The sentence(s), copied from answer_draft."),
+    state: z.enum(["support_not_located", "direct_null_evidence", "bounded_exclusion"])
+      .describe("support_not_located: the searches did not find it; direct_null_evidence: studies found no effect; " +
+        "bounded_exclusion: precise studies rule out an effect above a stated size."),
+    studies: z.array(z.string().trim().min(1).max(300)).max(20).optional()
+      .describe("For direct_null_evidence and bounded_exclusion: the key sources (DOI, PMID or PMCID) it rests on.")
+  }).strict()).max(20).optional()
+    .describe("With answer_draft: each place the answer says something was not found, not studied, has no evidence or " +
+      "has no effect (an empty list if none)."),
+  search_coverage: z.array(z.enum(["historical_terms", "citation_chains", "grey_literature"])).max(3).optional()
+    .describe("What the searches covered beyond the indexed databases."),
   answer_language: z.string().trim().regex(/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{1,8}){0,3}$/u).optional()
     .describe("The answer's language tag, such as fr or pt-BR; needed for caveat_renderings."),
   caveat_renderings: z.array(z.object({
@@ -357,11 +372,17 @@ export function finalizeResearch(
   let discoveryContinues = false;
   const openLeads = (input.open_leads ?? []).map(({ topic }) => topic);
   if (input.community_evidence === "not_relevant") {
-    if (input.not_relevant_reason === undefined) {
+    // HRP ForumSignalNonTrigger: nonactivation is an affirmative decision, for
+    // one of its listed reasons; a topic with no user-experience corpus is
+    // known only by searching, so it is researched with its boundary.
+    if (input.not_relevant_basis === undefined || input.not_relevant_reason === undefined) {
       nextSteps.push(
-        "Give not_relevant_reason, or research community evidence: name where people discussing this talk in " +
-          "principal_communities and search the dominant one and an independent one (YouTube with " +
-          "scout_gemini_youtube_candidates and audit_youtube_video_community, the others with your web search)."
+        "Community evidence is not_relevant only for a definition, calculation, or chemical or mechanistic question " +
+          "with no real-world outcome (not_relevant_basis no_real_world_outcome) or an emergency before triage " +
+          "(emergency_before_triage), with not_relevant_reason. Otherwise research it: name where people discussing " +
+          "this talk in principal_communities and search the dominant one and an independent one (YouTube with " +
+          "scout_gemini_youtube_candidates and audit_youtube_video_community, the others with your web search); a " +
+          "topic nobody discusses is searched and its access boundary recorded."
       );
     }
   } else {
@@ -779,6 +800,74 @@ export function finalizeResearch(
     }
   }
 
+  // Absence claims. Where the answer says something was not found, not
+  // studied, or has no evidence or no effect, it says which it means: not
+  // located by the searches made here, a direct null result, or a bounded
+  // exclusion (HRP NonexistenceVersusNotFound, NoWeaselSafetySubstitution,
+  // HistoricalVocabularyAndCitationBackchain). The model names each such
+  // sentence, in whatever language it wrote it; the gate checks that the
+  // answer shows it, that a null result or an exclusion rests on studies whose
+  // methods were audited and gives its numbers, and that what the searches did
+  // not find is bounded to the searches made (owner report, 2026-09-30: "I
+  // found no evidence that smelling humic acid treats neuroinflammation").
+  const absenceClaims = input.absence_claims ?? [];
+  if (input.answer_draft !== undefined && input.absence_claims === undefined) {
+    nextSteps.push(
+      "Say whether the answer states that something was not found, not studied, has no evidence or has no effect: " +
+        "give absence_claims, each such sentence with its state (an empty list if the answer states none)."
+    );
+  }
+  // A study is audited when a study or review audit receipt names it, or the DOI its PubMed record gives.
+  const auditedStudy = (id: string): boolean => {
+    const normalized = normalizeIdentifier(id);
+    const doi = isPmid(normalized) ? pubmedDois.get(normalized) : undefined;
+    return validatedIds.has(normalized) || (doi !== undefined && doi !== "" && validatedIds.has(doi));
+  };
+  for (const [index, claim] of absenceClaims.entries()) {
+    if (claim.state === "support_not_located") continue;
+    const stated = `absence_claims[${index}] states ` +
+      (claim.state === "direct_null_evidence" ? "a direct null result" : "a bounded exclusion");
+    const studies = claim.studies ?? [];
+    const unaudited = studies.filter((id) => !auditedStudy(id));
+    if (studies.length === 0) {
+      nextSteps.push(
+        `${stated} without the studies it rests on: name them in studies, each read with a full-text method audit, ` +
+          "or state it as support_not_located."
+      );
+    } else if (unaudited.length > 0) {
+      nextSteps.push(
+        `${stated} on ${unaudited.join(", ")}, which no full-text method audit here covers: an abstract or a lead ` +
+          "cannot show a null result. Audit each, or state it as support_not_located."
+      );
+    }
+    if (!/\p{Nd}/u.test(claim.quote)) {
+      nextSteps.push(
+        `${stated}: give the estimate and its interval in that sentence, so a reader sees how large an effect the ` +
+          "studies could have missed."
+      );
+    }
+  }
+  if (absenceClaims.some(({ state }) => state === "support_not_located")) {
+    const searched = new Set(verified.filter(({ kind }) => kind === "literature_search")
+      .map(({ claims }) => text(claims.src)));
+    const names = LITERATURE_SOURCES.filter(({ id }) => searched.has(id)).map(({ name }) => name);
+    if (names.length === 0) {
+      nextSteps.push(
+        "The answer says something was not found, but no literature search receipt was passed: search with " +
+          "search_pubmed or search_europe_pmc (and search_clinical_trials for trials) and pass their research receipts."
+      );
+    } else {
+      const covered = new Set(input.search_coverage ?? []);
+      const uncovered = SEARCH_COVERAGE.filter(({ id }) => !covered.has(id)).map(({ phrase }) => phrase);
+      requireLimit(
+        "The answer says something was not found: bound that to the searches made here, as the caveat does.",
+        `Where this answer says something was not found, it means the searches made here (${joinNames(names)}) did ` +
+          `not find it${uncovered.length === 0 ? "" : `, and they did not cover ${joinNames(uncovered)}`}; that is ` +
+          "not evidence that it does not exist."
+      );
+    }
+  }
+
   // The answer itself, read for this call only. HRP keeps internal states out
   // of the answer and links audited videos by title (ReaderFacingAnswer,
   // FS190), offers a long deeper-research prompt rather than pasting it
@@ -815,6 +904,7 @@ export function finalizeResearch(
       protocolNames: options.protocolNames ?? new Set(),
       caveats,
       lanes,
+      absenceQuotes: absenceClaims.map(({ quote }) => quote),
       ...(input.answer_language === undefined ? {} : { answerLanguage: input.answer_language }),
       renderings: input.caveat_renderings ?? []
     }));
@@ -930,6 +1020,7 @@ function answerDraftProblems(
     protocolNames: ReadonlySet<string>;
     caveats: readonly string[];
     lanes: readonly AnswerLane[];
+    absenceQuotes: readonly string[];
     answerLanguage?: string;
     renderings: ReadonlyArray<{ caveat: string; text: string }>;
   }
@@ -1017,6 +1108,13 @@ function answerDraftProblems(
         problems.push(`Link a thread you read from ${lane.name} in a paragraph that reports it, so a reader can check it.`);
       }
     }
+  }
+  const unshownAbsence = context.absenceQuotes.flatMap((quote, index) => showing(quote).length === 0 ? [index] : []);
+  if (unshownAbsence.length > 0) {
+    problems.push(
+      `${unshownAbsence.map((index) => `absence_claims[${index}]`).join(", ")} ${unshownAbsence.length === 1 ? "gives" : "give"} ` +
+        "text the answer does not show: copy each sentence exactly from answer_draft."
+    );
   }
   // Each caveat the server wrote must reach the answer as a sentence of its
   // own. Only prose a reader sees counts: not code, comments, quotations or
@@ -1707,6 +1805,19 @@ function communityCoverage(
   // Every community searched outside YouTube rests on the client's word.
   return { searched: [...searched.values()], read, unverified: [...searched.keys()].filter((key) => key !== "youtube").length };
 }
+
+// The literature search tools that sign receipts, by the source each claims.
+const LITERATURE_SOURCES = [
+  { id: "pubmed", name: "PubMed" },
+  { id: "europepmc", name: "Europe PMC" },
+  { id: "ctgov", name: "ClinicalTrials.gov" }
+] as const;
+// What a search can cover beyond the indexed databases, as the caveat names it.
+const SEARCH_COVERAGE = [
+  { id: "historical_terms", phrase: "older or variant terms" },
+  { id: "citation_chains", phrase: "citation chains" },
+  { id: "grey_literature", phrase: "grey literature" }
+] as const;
 
 /** "a", "a and b", "a, b and c". */
 function joinNames(items: readonly string[]): string {

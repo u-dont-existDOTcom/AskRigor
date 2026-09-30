@@ -49,7 +49,11 @@ lists were brittle and English-only); answer checks that work in any language
 (same correction: the model quotes the answer's sentences for each community
 finding and the gate checks the answer shows them, an answer not in English
 gives each caveat in its language with the caveat's links, and the English
-"best option" word list is gone, leaving the no-ranking caveat); scout-first
+"best option" word list is gone, leaving the no-ranking caveat); absence
+claims bounded by what was searched (owner's geosmin report, 2026-09-30: an
+answer that says something was not found names the databases searched and
+what the search did not cover, a null result rests on audited studies, and the
+community audit is skipped only for HRP's non-trigger cases); scout-first
 discovery (owner-approved: the Gemini scout finds videos, comment-named remedies
 go back to it as `rediscovery_leads`, and the YouTube survey is the fallback,
 because YouTube search is capped at 100 calls a day per project). Claude test runner and blinded Opus judge under

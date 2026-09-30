@@ -10,6 +10,7 @@
     {"id": "dev-ppi-reflux", "split": "DEVELOPMENT", "origin": "generated in owner's style", "text": "how do i get off PPIs for acid reflux without the reflux coming back"},
     {"id": "dev-tinnitus", "split": "DEVELOPMENT", "origin": "generated in owner's style", "text": "i've had ringing in my ears for 2 years, is there anything that actually helps tinnitus?"},
     {"id": "dev-sermorelin-sleep-digestion", "split": "DEVELOPMENT", "origin": "owner error report 2026-09-27: the YouTube comment audit ran but the answer dropped it", "text": "does sermorelin work well for sleep and digestion? what are the side effects like for most people?"},
+    {"id": "dev-geosmin-smell", "split": "DEVELOPMENT", "origin": "owner regression report 2026-09-30: sparse studies read as 'no evidence', and the community audit skipped", "text": "how sensitive are humans to geosmin compared to other animals? has smelling geosmin or humic acid been studied for neuroinflammation or any other benefit?"},
     {"id": "ho-knee-cartilage", "split": "HELD_OUT", "origin": "generated in owner's style", "text": "my knee cartilage is worn down, is there anything that actually helps it grow back or at least stops the pain?"},
     {"id": "ho-frozen-shoulder", "split": "HELD_OUT", "origin": "generated in owner's style", "text": "frozen shoulder for 8 months and PT isn't helping much. what else can i try?"},
     {"id": "ho-psoriasis", "split": "HELD_OUT", "origin": "generated in owner's style", "text": "my psoriasis keeps coming back even with steroid creams, what else actually works?"},

@@ -733,7 +733,9 @@ pending-proposal stores have their own strict contracts and authority boundaries
   and the audit's counts and completion flags, a scout receipt the unresolved
   and rejected candidate video IDs and the public IDs it left to the model's
   judgment (reworded titles and YouTube's closest results for a title it could
-  not find), a search receipt its access status, and a
+  not find), a literature search receipt (PubMed, Europe PMC or
+  ClinicalTrials.gov) the database, the 12-hex digest of its query and its
+  record counts, a search receipt its access status, and a
   one-call community audit receipt the IDs of the videos whose comments its
   response returned, and a per-video audit receipt how many comments its final
   view returned. Survey, search and one-call community audit receipts also
@@ -775,8 +777,13 @@ pending-proposal stores have their own strict contracts and authority boundaries
   community lane (`answer_quotes`, inside `community_findings` and each
   `community_searches` entry) and the caveats, which an answer not in English
   gives in its own language (`caveat_renderings`, with the `answer_language`
-  tag). None of these is stored, logged or returned: of the answer, the result
-  names only the labels and public video IDs it found.
+  tag), and the sentences where it says something was not found, not studied
+  or has no effect (`absence_claims`, each with its state and the study IDs it
+  rests on, and `search_coverage`, the search classes covered beyond indexed
+  databases). None of these is stored, logged or returned: of the answer, the
+  result names only the labels and public video IDs it found, and points to an
+  absence claim by its position in the list. `not_relevant_basis` is one of two
+  fixed values.
 - The MCP `scout_gemini_youtube_candidates` tool runs the same de-identified,
   population-level scout as the controlled Action route, applying the same
   screen: a target with first-person words, contact details, links, keys or

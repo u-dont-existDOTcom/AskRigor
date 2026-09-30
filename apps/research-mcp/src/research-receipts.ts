@@ -26,6 +26,7 @@ export const RESEARCH_RECEIPT_KINDS = [
   "youtube_video_audit",
   "youtube_community_audit",
   "pubmed_record",
+  "literature_search",
   "full_text_lead",
   "study_audit",
   "review_audit",

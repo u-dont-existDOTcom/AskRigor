@@ -1269,6 +1269,71 @@ sentences per lane when it passes its draft. The gate source is 60 lines shorter
 Tests cover Spanish, Japanese and Arabic answers, and a French answer through
 the MCP tool.
 
+## Owner regression report: geosmin (2026-09-30)
+
+The live version (HRP 20.5.29, Universal 20.5.26, without this PR's final check)
+answered a question about smelling geosmin or humic acid with "I found no
+evidence that 'smelling humic acid' treats neuroinflammation". The owner's
+report found six failures:
+1. the wording hid which state applied: not located by the searches, a direct
+   null result, or a bounded exclusion;
+2. the mandatory community audit was skipped without a reason;
+3. no module ledger ran before research;
+4. only modern terms were searched;
+5. the exposure was not decomposed (humic acid is barely volatile);
+6. the user's strong effect did not redirect the search.
+
+HRP already had the rules (NonexistenceVersusNotFound, NoWeaselSafetySubstitution,
+ForumSignalDefaultTrigger, HistoricalVocabularyAndCitationBackchain); they were
+not applied. The server now enforces what it can check in any language:
+
+- **Absence claims.** Once the answer is passed, `finalize_research` asks for
+  `absence_claims`: each sentence saying something was not found, not studied,
+  or has no evidence or no effect, copied from the answer, with its state.
+  - `support_not_located`: the answer must carry a server-written caveat. It
+    bounds the claim to the databases searched, named from the signed
+    literature-search receipts, and to the search classes not covered (older or
+    variant terms, citation chains, grey literature, from `search_coverage`).
+    With no literature search receipt, the gate asks for a search first.
+  - `direct_null_evidence` or `bounded_exclusion`: the claim must rest on key
+    studies audited in full text, and its sentence must give numbers (the
+    estimate and its interval).
+- **Community audit.** `not_relevant` now needs one of HRP's non-trigger bases:
+  no real-world outcome (a definition, calculation, or chemical or mechanistic
+  question), or an emergency before triage. Any other question is researched. A
+  topic nobody discusses is searched and its access boundary recorded. The
+  geosmin question asks about benefits, so it no longer qualifies.
+- **Searches.** `search_pubmed`, `search_europe_pmc` and `search_clinical_trials`
+  sign receipts (the database, the query's digest and the counts). A search
+  with 10 or fewer records says what to try before calling anything not found:
+  synonyms, older terms, the parts of a mixed exposure, citation chains.
+  `search_pubmed` returns each PMID's title, journal and year, so a small result
+  set can be triaged in full instead of sampled.
+
+Report tests:
+- A (search-negative wording) and C (a sparse, cheap intervention triggers the
+  community audit) are enforced.
+- B (a null trial) is enforced only in part: audited studies and numbers are
+  required, but the gate cannot check that the numbers are an estimate and its
+  interval.
+- D (an inaccessible platform) was already covered: access boundaries become
+  caveats.
+- E (fragmented terminology) gets the nudge and the disclosure. Whether the
+  vocabulary was broad enough is not checkable.
+- F (feeding community reports back into the formal search) and failures 3, 5
+  and 6 stay model behavior. HRP's BidirectionalEvidenceIterationDefaultTrigger
+  already requires them, and the gate checks outcomes, not the order of work.
+
+Limits:
+- An absence sentence the model does not declare is not caught: judging
+  meaning would need a word list, which fails in other languages.
+- `search_coverage` is the model's own declaration.
+
+Cost: tool definitions grow by 1,687 characters (0.9%); `finalize_research`
+accounts for 1,489 of them. The Gemini-compatible catalog stays under its
+25,000-byte bound. The question was added to the development set
+(`dev-geosmin-smell`).
+
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 
 - Iteration for each candidate: focused tests plus one or two development

@@ -13,6 +13,8 @@ import { waitForNcbiRequestSlot } from "./ncbi-pacing.js";
 
 const ESEARCH_URL =
   "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi";
+const ESUMMARY_URL =
+  "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi";
 const EFETCH_URL =
   "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi";
 const DEFAULT_PAGE_SIZE = 20;
@@ -20,6 +22,8 @@ const MAX_PAGE_SIZE = 100;
 const PUBMED_ESEARCH_LIMIT = 10_000;
 const ESEARCH_LIMITATION =
   "PubMed ESearch exposes only the first 10,000 results for a query; refine the query to retrieve additional records.";
+const ESUMMARY_LIMITATION =
+  "PubMed returned the IDs but not their titles; fetch_pubmed_record gives each record.";
 const EFETCH_LIMITATION =
   "PubMed EFetch returns indexed citation metadata and abstracts when present; full-text availability was not evaluated.";
 
@@ -56,6 +60,19 @@ const esearchResponseSchema = z.object({
     idlist: z.array(z.string().regex(/^[1-9]\d*$/))
   }).passthrough()
 }).passthrough();
+// A search page reads only a record's title, journal and publication date from
+// its summary; every other field the summary carries passes through unread.
+const esummaryResponseSchema = z.object({
+  result: z.object({
+    uids: z.array(z.string())
+  }).passthrough()
+}).passthrough();
+const esummaryRecordSchema = z.object({
+  title: z.string().optional(),
+  fulljournalname: z.string().optional(),
+  source: z.string().optional(),
+  pubdate: z.string().optional()
+}).passthrough();
 
 export interface PubmedConfig {
   tool: string;
@@ -77,6 +94,10 @@ export interface SearchPubmedInput {
 
 export interface PubmedSearchRecord {
   pmid: string;
+  // From the record's ESummary; each is left out when PubMed does not give it.
+  title?: string;
+  journal?: string;
+  year?: string;
 }
 
 export interface PubmedRecordDate {
@@ -137,7 +158,7 @@ export const searchPubmed = async (
     try {
       // Every attempt, retries included, takes an NCBI request slot.
       response = await fetchJson(url.toString(), {
-        beforeAttempt: () => waitForNcbiRequestSlot(parsedConfig.apiKey !== undefined && parsedConfig.apiKey.length > 0)
+        beforeAttempt: () => takeRequestSlot(parsedConfig)
       });
     } catch (error) {
       if (error instanceof Error && error.message === "Invalid upstream JSON response") {
@@ -173,17 +194,22 @@ export const searchPubmed = async (
       throw new PubmedResponseError();
     }
 
-    const data = result.idlist.map((pmid) => ({ pmid }));
+    const data = await withSummaries(result.idlist, parsedConfig);
     const nextOffset = retstart + data.length;
     const exhausted = nextOffset >= retrievableCount;
     const exceedsBoundary = totalCount > PUBMED_ESEARCH_LIMIT;
+    // A PMID the summary did not title stays opaque, so the gap is reported.
+    const untitled = data.some(({ title }) => title === undefined);
 
     return okEnvelope({
       provider: "pubmed",
       recordType: "pubmed_search_result",
       query: queryEnvelope,
       accessStatus: exceedsBoundary ? "partial" : "complete",
-      limitations: exceedsBoundary ? [ESEARCH_LIMITATION] : [],
+      limitations: [
+        ...(exceedsBoundary ? [ESEARCH_LIMITATION] : []),
+        ...(untitled ? [ESUMMARY_LIMITATION] : [])
+      ],
       rawMetadata: { total_count: totalCount },
       pagination: {
         ...pagination,
@@ -219,7 +245,7 @@ export const fetchPubmedRecord = async (
     url.searchParams.set("retmode", "xml");
 
     const parsedRecord = parsePubmedRecord(await fetchText(url.toString(), {
-      beforeAttempt: () => waitForNcbiRequestSlot(parsedConfig.apiKey !== undefined && parsedConfig.apiKey.length > 0)
+      beforeAttempt: () => takeRequestSlot(parsedConfig)
     }));
     if (parsedRecord.kind === "not_found") {
       return errorEnvelope({
@@ -315,6 +341,68 @@ const setCommonParams = (url: URL, config: PubmedConfig): void => {
   if (config.apiKey !== undefined && config.apiKey.length > 0) {
     url.searchParams.set("api_key", config.apiKey);
   }
+};
+
+// Every NCBI request the adapter sends waits for a slot through this one path.
+const takeRequestSlot = (config: PubmedConfig): Promise<void> =>
+  waitForNcbiRequestSlot(config.apiKey !== undefined && config.apiKey.length > 0);
+
+// ESearch returns bare PMIDs, so one ESummary request names the page's records.
+// It is best effort: a request that fails, times out or comes back in an
+// unexpected shape leaves the PMIDs without titles and never fails the search.
+const withSummaries = async (
+  pmids: string[],
+  config: PubmedConfig
+): Promise<PubmedSearchRecord[]> => {
+  if (pmids.length === 0) {
+    return [];
+  }
+
+  let summaries: Record<string, unknown> = {};
+  try {
+    const url = new URL(ESUMMARY_URL);
+    setCommonParams(url, config);
+    url.searchParams.set("db", "pubmed");
+    url.searchParams.set("id", pmids.join(","));
+    url.searchParams.set("retmode", "json");
+
+    const parsedResponse = esummaryResponseSchema.safeParse(
+      await fetchJson(url.toString(), {
+        beforeAttempt: () => takeRequestSlot(config)
+      })
+    );
+    if (parsedResponse.success) {
+      summaries = parsedResponse.data.result;
+    }
+  } catch {
+    // The PMIDs stand without titles; the caller reports the gap.
+  }
+  // The page keeps ESearch's order, whatever order the summary lists them in.
+  return pmids.map((pmid) => searchRecord(pmid, summaries[pmid]));
+};
+
+const searchRecord = (pmid: string, summary: unknown): PubmedSearchRecord => {
+  const parsedSummary = esummaryRecordSchema.safeParse(summary);
+  if (!parsedSummary.success) {
+    return { pmid };
+  }
+  const { fulljournalname, source, pubdate } = parsedSummary.data;
+  const title = trimmed(parsedSummary.data.title);
+  const journal = trimmed(fulljournalname) ?? trimmed(source);
+  // The publication date leads with its four-digit year, as in "2025 Jan 30".
+  const year = /^\d{4}(?!\d)/u.exec(pubdate?.trim() ?? "")?.[0];
+
+  return {
+    pmid,
+    ...(title === undefined ? {} : { title }),
+    ...(journal === undefined ? {} : { journal }),
+    ...(year === undefined ? {} : { year })
+  };
+};
+
+const trimmed = (value: string | undefined): string | undefined => {
+  const text = value?.trim();
+  return text === undefined || text.length === 0 ? undefined : text;
 };
 
 interface PubmedErrorContext<T> {

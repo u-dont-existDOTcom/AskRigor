@@ -234,7 +234,12 @@ const searchPubmedInputSchema = z.object({
     "Opaque cursor returned by a previous PubMed search."
   )
 }).strict();
-const pubmedSearchRecordSchema = z.object({ pmid: z.string() }).strict();
+const pubmedSearchRecordSchema = z.object({
+  pmid: z.string(),
+  title: z.string().optional(),
+  journal: z.string().optional(),
+  year: z.string().optional()
+}).strict();
 const pubmedSearchEnvelopeSchema = z.object({
   provider: z.literal("pubmed"),
   record_type: z.literal("pubmed_search_result"),
@@ -770,9 +775,9 @@ function defineResearchOperations(
     "search_pubmed",
     {
       description:
-        "Search PubMed citations and return stable PMIDs with explicit pagination and access state; no medical conclusions are generated.",
+        "Search PubMed citations and return stable PMIDs with titles, explicit pagination and access state; no medical conclusions are generated.",
       inputSchema: searchPubmedInputSchema,
-      outputSchema: pubmedSearchEnvelopeSchema,
+      outputSchema: pubmedSearchEnvelopeSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
     async ({ query, date_range, page_size, cursor }) => {
@@ -786,10 +791,12 @@ function defineResearchOperations(
           },
           ncbiConfig()
         );
-        return pubmedToolResult(
-          `PubMed search returned ${result.pagination.returned} PMID record(s); access status ${result.access_status}.`,
+        const total = (result.raw_metadata as { total_count?: number } | undefined)?.total_count;
+        return withResearchReceipt(pubmedToolResult(
+          `PubMed search returned ${result.pagination.returned} PMID record(s); access status ${result.access_status}.` +
+            sparseSearchNote(total),
           result
-        );
+        ), literatureSearchReceipt("pubmed", query, result, total));
       } catch (error) {
         return pubmedToolResult(
           "PubMed search retrieval failed; access status error.",
@@ -839,7 +846,7 @@ function defineResearchOperations(
       description:
         "Search Europe PMC records while preserving provider source identifiers and cursors with explicit pagination and access state; no medical conclusions are generated.",
       inputSchema: searchEuropePmcInputSchema,
-      outputSchema: europePmcSearchEnvelopeSchema,
+      outputSchema: europePmcSearchEnvelopeSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
     async ({ query, date_range, page_size, cursor }) => {
@@ -850,10 +857,12 @@ function defineResearchOperations(
           ...(page_size === undefined ? {} : { pageSize: page_size }),
           ...(cursor === undefined ? {} : { cursor })
         });
-        return europePmcToolResult(
-          `Europe PMC search returned ${result.pagination.returned} record(s); access status ${result.access_status}.`,
+        const total = (result.raw_metadata as { hit_count?: number } | undefined)?.hit_count;
+        return withResearchReceipt(europePmcToolResult(
+          `Europe PMC search returned ${result.pagination.returned} record(s); access status ${result.access_status}.` +
+            sparseSearchNote(total),
           result
-        );
+        ), literatureSearchReceipt("europepmc", query, result, total));
       } catch (error) {
         return europePmcToolResult(
           "Europe PMC search retrieval failed; access status error.",
@@ -871,7 +880,7 @@ function defineResearchOperations(
       description:
         "Search ClinicalTrials.gov studies with provider pagination and explicit access state; no medical conclusions are generated.",
       inputSchema: searchClinicalTrialsInputSchema,
-      outputSchema: clinicalTrialsSearchEnvelopeSchema,
+      outputSchema: clinicalTrialsSearchEnvelopeSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
     async ({ query, page_size, page_token }) => {
@@ -881,10 +890,13 @@ function defineResearchOperations(
           ...(page_size === undefined ? {} : { pageSize: page_size }),
           ...(page_token === undefined ? {} : { pageToken: page_token })
         });
-        return clinicalTrialsToolResult(
-          `ClinicalTrials.gov search returned ${result.pagination.returned} study record(s); access status ${result.access_status}.`,
+        // ClinicalTrials.gov gives no total: a first page that ends the results is all of them.
+        const total = page_token === undefined && result.pagination.exhausted ? result.pagination.returned : undefined;
+        return withResearchReceipt(clinicalTrialsToolResult(
+          `ClinicalTrials.gov search returned ${result.pagination.returned} study record(s); access status ` +
+            `${result.access_status}.${sparseSearchNote(total)}`,
           result
-        );
+        ), literatureSearchReceipt("ctgov", query, result, total));
       } catch (error) {
         return clinicalTrialsToolResult(
           "ClinicalTrials.gov search retrieval failed; access status error.",
@@ -1704,7 +1716,8 @@ function defineResearchOperations(
         "studies your conclusions depend on, after a first pass the focuses for going deeper (open_leads, " +
         "another_pass_estimate), and the answer you are about to give (answer_draft), which is checked " +
         "for internal labels, bare video IDs, a pasted long prompt, the sentences you quote from it for each lane " +
-        "(answer_quotes) and the caveats, and is not stored. not_ready lists the remaining steps; ready_with_limits " +
+        "(answer_quotes) and where it says something was not found, not studied or has no effect (absence_claims), " +
+        "and the caveats, and is not stored. not_ready lists the remaining steps; ready_with_limits " +
         "lists limits, and caveats gives the sentences the answer must contain, each as its own sentence and as " +
         "written (in an answer not in English, in its language: give answer_language and caveat_renderings); " +
         "must_report lists what the answer must report from each lane researched; receipts_unavailable means this " +
@@ -1791,6 +1804,38 @@ const MCP_YOUTUBE_VIDEO_AUDIT_INPUT_SCHEMA = z.object(
 const RESEARCH_RECEIPT_OUTPUT_SHAPE = {
   research_receipt: z.string().optional()
 };
+
+/**
+ * A literature search's receipt: the database it searched, the query's digest
+ * (never its text) and the records it matched. finalize_research names the
+ * searched databases where the answer says something was not found. A search
+ * that failed signs nothing.
+ */
+function literatureSearchReceipt(
+  source: "pubmed" | "europepmc" | "ctgov",
+  query: string,
+  result: { error?: unknown; pagination: { returned: number } },
+  total: number | undefined
+): string | undefined {
+  if (result.error !== undefined) return undefined;
+  return researchReceipt("literature_search", {
+    src: source,
+    q: discoveryQueryDigest([query]),
+    ret: result.pagination.returned,
+    ...(total === undefined ? {} : { n: total })
+  });
+}
+
+// A search that finds little is where a narrow vocabulary misses most (owner
+// report, 2026-09-30: geosmin and humic acid searched under modern terms only),
+// so its result says what to try before calling anything not found.
+const SPARSE_SEARCH_RECORDS = 10;
+function sparseSearchNote(total: number | undefined): string {
+  return total === undefined || total > SPARSE_SEARCH_RECORDS
+    ? ""
+    : " Few records: before saying anything was not found, try synonyms, older or variant terms, the components of " +
+      "a mixed exposure, and citation chains.";
+}
 
 // Claude clients abandon a tool call after 60 seconds. Provider polling ends
 // by 40 seconds; title searches start only if their timeout ends by 55.

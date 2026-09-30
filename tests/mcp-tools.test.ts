@@ -97,6 +97,10 @@ afterEach(async () => {
   await Promise.all(clients.splice(0).map((client) => client.close()));
 });
 
+// What a literature search with few records adds to its result.
+const SPARSE_SEARCH_NOTE = " Few records: before saying anything was not found, try synonyms, older or variant terms, " +
+  "the components of a mixed exposure, and citation chains.";
+
 describe("AskRigor MCP tools", () => {
   it("registers the exact thirty-tool catalog with three declared writes", async () => {
     const { client, server } = await createInMemoryClient();
@@ -814,10 +818,12 @@ describe("AskRigor MCP tools", () => {
       const dosing = {
         receipts: [],
         community_evidence: "not_relevant",
+        not_relevant_basis: "no_real_world_outcome",
         treatment_choice: "not_compared",
         research_target: "Adults asking about a dosing calculation",
         not_relevant_reason: "A dosing arithmetic question with no treatment choice.",
-        key_sources: []
+        key_sources: [],
+        absence_claims: []
       };
       // The answer must carry the limit before it is signed.
       const uncaveated = await client.callTool({
@@ -869,12 +875,7 @@ describe("AskRigor MCP tools", () => {
       const leaky = await client.callTool({
         name: "finalize_research",
         arguments: {
-          receipts: [],
-          community_evidence: "not_relevant",
-          treatment_choice: "not_compared",
-          research_target: "Adults asking about a dosing calculation",
-          not_relevant_reason: "A dosing arithmetic question with no treatment choice.",
-          key_sources: [],
+          ...dosing,
           answer_draft: "5 mg/kg for 20 kg is 100 mg. No study's methods were checked in full text for this answer. " +
             "DeepForumAuditActivationPrompt: none needed (LimitsNote)."
         }
@@ -2077,7 +2078,7 @@ describe("AskRigor MCP tools", () => {
       const fetchRecord = tools.find(({ name }) => name === "fetch_pubmed_record")!;
 
       expect(search.description).toBe(
-        "Search PubMed citations and return stable PMIDs with explicit pagination and access state; no medical conclusions are generated."
+        "Search PubMed citations and return stable PMIDs with titles, explicit pagination and access state; no medical conclusions are generated."
       );
       expect(search.inputSchema).toMatchObject({
         type: "object",
@@ -2212,9 +2213,10 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(result.isError).not.toBe(true);
+      // Few records: the result says what to try before calling anything not found (owner report, 2026-09-30).
       expect(result.content).toEqual([{
         type: "text",
-        text: "PubMed search returned 2 PMID record(s); access status complete."
+        text: `PubMed search returned 2 PMID record(s); access status complete.${SPARSE_SEARCH_NOTE}`
       }]);
       expect(result.structuredContent).toMatchObject({
         provider: "pubmed",
@@ -2283,7 +2285,7 @@ describe("AskRigor MCP tools", () => {
       expect(result.isError).not.toBe(true);
       expect(result.content).toEqual([{
         type: "text",
-        text: "Europe PMC search returned 2 record(s); access status complete."
+        text: `Europe PMC search returned 2 record(s); access status complete.${SPARSE_SEARCH_NOTE}`
       }]);
       expect(result.structuredContent).toMatchObject({
         provider: "europe_pmc",
@@ -2298,6 +2300,24 @@ describe("AskRigor MCP tools", () => {
         ]
       });
       expect(JSON.stringify(result)).not.toContain("https://www.ebi.ac.uk");
+
+      // With a signing secret, the search signs its database, its query's digest and its counts, so
+      // finalize_research can name what was searched where the answer says something was not found.
+      const previousSecret = process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET;
+      process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = "literature-search-secret-value-32-bytes";
+      try {
+        const signed = await client.callTool({
+          name: "search_europe_pmc",
+          arguments: { query: "example intervention", page_size: 2 }
+        });
+        const receipt = (signed.structuredContent as { research_receipt: string }).research_receipt;
+        expect(verifyResearchReceipt(receipt, { secret: "literature-search-secret-value-32-bytes" })).toMatchObject({
+          ok: true, kind: "literature_search", claims: { src: "europepmc", ret: "2", n: "3" }
+        });
+        expect(receipt).not.toContain("example");
+      } finally {
+        restoreEnvironment("ASKRIGOR_FINALIZATION_SIGNING_SECRET", previousSecret);
+      }
     } finally {
       await server.close();
     }

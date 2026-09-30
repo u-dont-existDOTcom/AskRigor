@@ -133,9 +133,12 @@ const leftOut = (...caveats: string[]) =>
   `The answer leaves out ${caveats.length === 1 ? "this caveat" : "these caveats"}; include each as its own ` +
   "sentence, as written (a link's text may change), or, in an answer not in English, in the answer's language with " +
   `the same links, given in caveat_renderings: ${caveats.map((caveat) => `"${caveat}"`).join(" ")}`;
-// Every call gets the community and offer defaults unless it passes its own.
+// An answer states whether it says anything was not found; tests of other checks say it does not.
+const absenceDefaults = (input: Record<string, unknown>) =>
+  "absence_claims" in input || !("answer_draft" in input) ? {} : { absence_claims: [] };
+// Every call gets the community, offer and absence defaults unless it passes its own.
 const finalizeResearchRaw = (input: Record<string, unknown>, gateOptions: Parameters<typeof finalizeResearchBare>[1]) =>
-  finalizeResearchBare({ ...communityDefaults(input), ...offerDefaults(input), ...input }, gateOptions);
+  finalizeResearchBare({ ...communityDefaults(input), ...offerDefaults(input), ...absenceDefaults(input), ...input }, gateOptions);
 const finalizeResearchGate = (input: Record<string, unknown>, gateOptions: typeof options) => {
   const request = { another_pass_estimate: PASS_ESTIMATE, ...communityDefaults(input), ...input };
   return finalizeResearchRaw(
@@ -917,7 +920,7 @@ describe("finalize_research gate", () => {
     ]);
     const gate = (trt: RedditThreadCheck, trtTitle?: string, draft?: string) => finalizeResearchBare({
       ...base, community_findings: findingsFor(["aaaaaaaaaaa"]), community_searches: searches(trtTitle),
-      ...(draft === undefined ? {} : { answer_draft: draft })
+      ...(draft === undefined ? {} : { answer_draft: draft, absence_claims: [] })
     }, { ...options, redditThreads: reddit(trt) });
 
     // Both confirmed: the answer says Reddit confirmed the threads, not their content.
@@ -1016,7 +1019,8 @@ describe("finalize_research gate", () => {
       answer_draft: "Trials favour testosterone. On [r/trt](https://www.reddit.com/r/trt/comments/abc/x/) and " +
         "[MESO-Rx](https://thinksteroids.com/community/threads/2/), most users reported better recovery, some saw no " +
         "difference, and several reported joint pain as a side effect of growth hormone, consistent with the trials. " +
-        "The reports from r/trt and MESO-Rx come from my own web search, which AskRigor could not verify."
+        "The reports from r/trt and MESO-Rx come from my own web search, which AskRigor could not verify.",
+      absence_claims: []
     }, options);
     expect(result.next_steps).toEqual([]);
     expect(result.status).toBe("ready_with_limits");
@@ -1260,7 +1264,8 @@ describe("finalize_research gate", () => {
     for (const text of [".", "**", "___", "\u3002"]) {
       for (const answer of ["Une r\u00E9ponse sans point final", "Une r\u00E9ponse qui finit par un point."]) {
         expect(finalizeResearchRaw({
-          research_depth: "deep", receipts: [], community_evidence: "not_relevant", not_relevant_reason: "A lab value.",
+          research_depth: "deep", receipts: [], community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome",
+          not_relevant_reason: "A lab value.",
           treatment_choice: "not_compared", research_target: TARGET, key_sources: [], answer_draft: answer,
           answer_language: "fr", caveat_renderings: [{ caveat: "No study's methods were checked in full text for this answer.", text }]
         }, options).next_steps).toEqual([leftOut("No study's methods were checked in full text for this answer.")]);
@@ -1278,6 +1283,7 @@ describe("finalize_research gate", () => {
       research_depth: "deep",
       receipts: [study, lead],
       community_evidence: "not_relevant",
+      not_relevant_basis: "no_real_world_outcome",
       not_relevant_reason: "A question about a lab value, which firsthand reports cannot answer.",
       treatment_choice: "not_compared",
       research_target: TARGET,
@@ -1294,6 +1300,68 @@ describe("finalize_research gate", () => {
       ...deep, answer_language: "ar", caveat_renderings: [{ caveat: leadCaveat, text: arabic }],
       answer_draft: `هل التمارين مفيدة؟${arabic}`
     }, options).next_steps).toEqual([]);
+  });
+
+  it("bounds what the searches did not find and grounds a null result in audited studies (the geosmin report)", () => {
+    // Owner report, 2026-09-30: "I found no evidence that 'smelling humic acid' treats neuroinflammation" left open
+    // whether nothing was searched well, nothing was found, or studies found no effect. The model names each such
+    // sentence with its state; the gate checks the rest.
+    const pubmedSearch = sign("literature_search", { src: "pubmed", q: "p1p1p1p1p1p1", ret: 3, n: 3 }, options);
+    const europePmcSearch = sign("literature_search", { src: "europepmc", q: "e1e1e1e1e1e1", ret: 2, n: 2 }, options);
+    const base = {
+      research_depth: "deep", community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome",
+      not_relevant_reason: "Isolates the absence checks.", treatment_choice: "not_compared", research_target: TARGET,
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
+    };
+    const notFound = "I did not locate a study of inhaled humic acid for neuroinflammation.";
+    const answer = `Purified geosmin changed EEG readings in one small study. ${notFound}`;
+    const check = (input: Record<string, unknown>) => finalizeResearchRaw({
+      ...base, receipts: [pubmedSearch, europePmcSearch, study], answer_draft: answer,
+      absence_claims: [{ quote: notFound, state: "support_not_located" }], ...input
+    }, options);
+    // Not located: the answer bounds it to the searches made, naming what they did not cover.
+    const bounded = "Where this answer says something was not found, it means the searches made here (PubMed and Europe " +
+      "PMC) did not find it, and they did not cover older or variant terms, citation chains and grey literature; that " +
+      "is not evidence that it does not exist.";
+    expect(check({}).caveats).toEqual([bounded]);
+    expect(check({}).next_steps).toEqual([leftOut(bounded)]);
+    expect(check({ answer_draft: `${answer} ${bounded}` })).toMatchObject({ status: "ready_with_limits", next_steps: [] });
+    const covered = "Where this answer says something was not found, it means the searches made here (PubMed and Europe " +
+      "PMC) did not find it; that is not evidence that it does not exist.";
+    expect(check({ search_coverage: ["historical_terms", "citation_chains", "grey_literature"] }).caveats).toEqual([covered]);
+    expect(check({ receipts: [study] }).next_steps).toContain(
+      "The answer says something was not found, but no literature search receipt was passed: search with " +
+        "search_pubmed or search_europe_pmc (and search_clinical_trials for trials) and pass their research receipts."
+    );
+    // The answer must say which it is: an absence it does not declare cannot be checked.
+    expect(check({ absence_claims: undefined }).next_steps).toContain(
+      "Say whether the answer states that something was not found, not studied, has no evidence or has no effect: " +
+        "give absence_claims, each such sentence with its state (an empty list if the answer states none)."
+    );
+    expect(check({ absence_claims: [{ quote: "There is no evidence at all.", state: "support_not_located" }] }).next_steps)
+      .toContain("absence_claims[0] gives text the answer does not show: copy each sentence exactly from answer_draft.");
+    // A null result or an exclusion rests on studies whose methods were audited, and gives its numbers.
+    const nullResult = "The trial found no difference in pain (mean difference 0.1 points, 95% CI -0.4 to 0.6).";
+    const withNull = (claim: Record<string, unknown>, text = nullResult) =>
+      check({ answer_draft: `${answer} ${bounded} ${text}`, absence_claims: [
+        { quote: notFound, state: "support_not_located" }, { quote: text, state: "direct_null_evidence", ...claim }
+      ] }).next_steps;
+    expect(withNull({ studies: ["10.1002/art.41142"] })).toEqual([]);
+    expect(withNull({ studies: ["PMC10518852"] })).toEqual([]);
+    expect(withNull({})).toEqual([
+      "absence_claims[1] states a direct null result without the studies it rests on: " +
+        "name them in studies, each read with a full-text method audit, or state it as support_not_located."
+    ]);
+    expect(withNull({ studies: ["10.1016/j.joca.2020.01.001"] })).toEqual([
+      "absence_claims[1] states a direct null result on 10.1016/j.joca.2020.01.001, " +
+        "which no full-text method audit here covers: an abstract or a lead cannot show a null result. Audit each, or " +
+        "state it as support_not_located."
+    ]);
+    const vague = "The trial found no effect on pain.";
+    expect(withNull({ studies: ["10.1002/art.41142"] }, vague)).toEqual([
+      "absence_claims[1] states a direct null result: give the estimate and its interval in that sentence, " +
+        "so a reader sees how large an effect the studies could have missed."
+    ]);
   });
 
   it("accepts a Gemini scout round as community discovery without a YouTube survey", () => {
@@ -2097,7 +2165,8 @@ describe("finalize_research gate", () => {
     ]);
     // Without community research, the answer offers the study review alone.
     const studiesOnly = finalizeResearch({
-      receipts: [study], community_evidence: "not_relevant", not_relevant_reason: "A question about one lab value.",
+      receipts: [study], community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome",
+      not_relevant_reason: "A question about one lab value.",
       treatment_choice: "not_compared", research_target: TARGET,
       key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
     }, options);
@@ -2250,7 +2319,7 @@ describe("finalize_research gate", () => {
     }, options).next_steps.join(" ")).toMatch(/Video ggggggggggg is not among the videos found/u);
   });
 
-  it("lists rejected receipts and requires a reason to skip community research", () => {
+  it("lists rejected receipts and skips community research only on one of HRP's bases, with a reason", () => {
     const result = finalizeResearch({
       receipts: [`${study.slice(0, -2)}xx`, "not-a-receipt"],
       community_evidence: "not_relevant",
@@ -2265,9 +2334,23 @@ describe("finalize_research gate", () => {
     ]);
     expect(result.next_steps).toHaveLength(2);
 
+    // HRP ForumSignalNonTrigger: nonactivation is affirmative, for a question with no real-world outcome or an
+    // emergency before triage. A question whether smelling geosmin helps is neither (owner report, 2026-09-30).
+    const skipStep = "Community evidence is not_relevant only for a definition, calculation, or chemical or mechanistic " +
+      "question with no real-world outcome (not_relevant_basis no_real_world_outcome) or an emergency before triage " +
+      "(emergency_before_triage), with not_relevant_reason. Otherwise research it: name where people discussing this " +
+      "talk in principal_communities and search the dominant one and an independent one (YouTube with " +
+      "scout_gemini_youtube_candidates and audit_youtube_video_community, the others with your web search); a topic " +
+      "nobody discusses is searched and its access boundary recorded.";
+    expect(finalizeResearch({
+      receipts: [study], community_evidence: "not_relevant", treatment_choice: "not_compared", research_target: TARGET,
+      not_relevant_reason: "The user asked about studies of smelling geosmin, not about experiences.",
+      key_sources: [{ id: "PMC10518852", status: "validated" }]
+    }, options).next_steps).toContain(skipStep);
     const reasoned = finalizeResearch({
       receipts: [study],
       community_evidence: "not_relevant",
+      not_relevant_basis: "no_real_world_outcome",
       treatment_choice: "not_compared",
       research_target: TARGET,
       not_relevant_reason: "Dose conversion question with no treatment choice.",
@@ -2277,6 +2360,7 @@ describe("finalize_research gate", () => {
     expect(reasoned).toMatchObject({ status: "ready_with_limits", limits: [offerLimit(false)] });
     expect(finalizeResearch({
       receipts: [study], community_evidence: "not_relevant", treatment_choice: "not_compared", research_target: TARGET,
+      not_relevant_basis: "no_real_world_outcome",
       not_relevant_reason: "Dose conversion question with no treatment choice.", research_depth: "deep",
       key_sources: [{ id: "PMC10518852", status: "validated" }]
     }, options).status).toBe("ready");
