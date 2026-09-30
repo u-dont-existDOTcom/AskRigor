@@ -52,8 +52,9 @@ gives each caveat in its language with the caveat's links, and the English
 "best option" word list is gone, leaving the no-ranking caveat); absence
 claims bounded by what was searched (owner's geosmin report, 2026-09-30: an
 answer that says something was not found names the databases searched and
-what the search did not cover, a null result rests on audited studies, and the
-community audit is skipped only for HRP's non-trigger cases); scout-first
+what the search did not cover, a null result rests on audited studies, a
+PubMed or Europe PMC search that finds 50 or fewer records returns all of them,
+and the community audit is skipped only for HRP's non-trigger cases); scout-first
 discovery (owner-approved: the Gemini scout finds videos, comment-named remedies
 go back to it as `rediscovery_leads`, and the YouTube survey is the fallback,
 because YouTube search is capped at 100 calls a day per project). Claude test runner and blinded Opus judge under

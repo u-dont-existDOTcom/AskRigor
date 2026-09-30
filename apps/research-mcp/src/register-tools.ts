@@ -782,16 +782,19 @@ function defineResearchOperations(
     },
     async ({ query, date_range, page_size, cursor }) => {
       try {
-        const result = await searchPubmed(
+        const search = (pageSize: number | undefined) => searchPubmed(
           {
             query,
             ...(date_range === undefined ? {} : { dateRange: date_range }),
-            ...(page_size === undefined ? {} : { pageSize: page_size }),
+            ...(pageSize === undefined ? {} : { pageSize }),
             ...(cursor === undefined ? {} : { cursor })
           },
           ncbiConfig()
         );
-        const total = (result.raw_metadata as { total_count?: number } | undefined)?.total_count;
+        const pubmedTotal = (page: { raw_metadata?: unknown }) =>
+          (page.raw_metadata as { total_count?: number } | undefined)?.total_count;
+        const result = await readSmallSearchWhole(await search(page_size), cursor === undefined, pubmedTotal, search);
+        const total = pubmedTotal(result);
         return withResearchReceipt(pubmedToolResult(
           `PubMed search returned ${result.pagination.returned} PMID record(s); access status ${result.access_status}.` +
             sparseSearchNote(total),
@@ -851,13 +854,16 @@ function defineResearchOperations(
     },
     async ({ query, date_range, page_size, cursor }) => {
       try {
-        const result = await searchEuropePmc({
+        const search = (pageSize: number | undefined) => searchEuropePmc({
           query,
           ...(date_range === undefined ? {} : { dateRange: date_range }),
-          ...(page_size === undefined ? {} : { pageSize: page_size }),
+          ...(pageSize === undefined ? {} : { pageSize }),
           ...(cursor === undefined ? {} : { cursor })
         });
-        const total = (result.raw_metadata as { hit_count?: number } | undefined)?.hit_count;
+        const europePmcTotal = (page: { raw_metadata?: unknown }) =>
+          (page.raw_metadata as { hit_count?: number } | undefined)?.hit_count;
+        const result = await readSmallSearchWhole(await search(page_size), cursor === undefined, europePmcTotal, search);
+        const total = europePmcTotal(result);
         return withResearchReceipt(europePmcToolResult(
           `Europe PMC search returned ${result.pagination.returned} record(s); access status ${result.access_status}.` +
             sparseSearchNote(total),
@@ -1824,6 +1830,38 @@ function literatureSearchReceipt(
     ret: result.pagination.returned,
     ...(total === undefined ? {} : { n: total })
   });
+}
+
+// Owner rule (geosmin report, 2026-09-30): before anything is called not
+// found, every record of a small search is seen. A first page that stops short
+// of a total of 50 or fewer is fetched again whole; if that fails or is slow,
+// the first page stands, so the call stays within the client's 60 seconds.
+// ClinicalTrials.gov reports no total, so its pages stay as asked.
+const WHOLE_SEARCH_RECORDS = 50;
+const WHOLE_SEARCH_WAIT_MS = 10_000;
+async function readSmallSearchWhole<Page extends { error?: unknown; pagination: { returned: number } }>(
+  first: Page,
+  firstPage: boolean,
+  totalOf: (page: Page) => number | undefined,
+  searchAgain: (pageSize: number) => Promise<Page>
+): Promise<Page> {
+  const total = totalOf(first);
+  if (
+    !firstPage || first.error !== undefined || total === undefined ||
+    total > WHOLE_SEARCH_RECORDS || first.pagination.returned >= total
+  ) {
+    return first;
+  }
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const whole = await Promise.race([
+    searchAgain(WHOLE_SEARCH_RECORDS).catch(() => undefined),
+    new Promise<undefined>((resolve) => {
+      timer = setTimeout(resolve, WHOLE_SEARCH_WAIT_MS, undefined);
+    })
+  ]).finally(() => clearTimeout(timer));
+  return whole !== undefined && whole.error === undefined && whole.pagination.returned > first.pagination.returned
+    ? whole
+    : first;
 }
 
 // A search that finds little is where a narrow vocabulary misses most (owner

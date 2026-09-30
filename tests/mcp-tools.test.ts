@@ -2323,6 +2323,157 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
+  // Owner rule (geosmin report, 2026-09-30): before anything is called not found, every record of a
+  // small search is seen, so a first page that stops short of 50 or fewer records is fetched whole.
+  describe("a search that finds 50 or fewer records", () => {
+    const SECRET = "literature-search-secret-value-32-bytes";
+    const ids = (start: number, end: number) =>
+      Array.from({ length: Math.max(0, end - start) }, (_, index) => String(40_000_001 + start + index));
+    // Answers ESearch with the PMIDs from retstart up to retmax of `count` (a retmax of 50 gets a 403
+    // or no answer when `whole` says so) and ESummary with an unreadable body; returns each ESearch
+    // retmax in order.
+    const stubPubmed = (count: number, whole: "answer" | "refuse" | "hang" = "answer"): number[] => {
+      const retmaxes: number[] = [];
+      vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+        const url = new URL(String(input));
+        if (!url.pathname.endsWith("/esearch.fcgi")) return new Response("{}", { status: 200 });
+        const retmax = Number(url.searchParams.get("retmax"));
+        const retstart = Number(url.searchParams.get("retstart"));
+        retmaxes.push(retmax);
+        if (whole === "refuse" && retmax === 50) return new Response("unavailable", { status: 403 });
+        if (whole === "hang" && retmax === 50) return new Promise<Response>(() => undefined);
+        const idlist = ids(retstart, Math.min(count, retstart + retmax));
+        return new Response(JSON.stringify({
+          header: { type: "esearch", version: "0.3" },
+          esearchresult: { count: String(count), retmax: String(idlist.length), retstart: String(retstart), idlist }
+        }), { status: 200 });
+      }));
+      return retmaxes;
+    };
+    const call = async (name: string, args: Record<string, unknown>) => {
+      const { client, server } = await createInMemoryClient();
+      const previous = {
+        tool: process.env.NCBI_TOOL,
+        email: process.env.NCBI_EMAIL,
+        apiKey: process.env.NCBI_API_KEY,
+        secret: process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET
+      };
+      process.env.NCBI_TOOL = "askrigor-mcp-tests";
+      process.env.NCBI_EMAIL = "maintainer@example.test";
+      process.env.NCBI_API_KEY = "mcp-secret-value";
+      process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+      try {
+        const result = await client.callTool({ name, arguments: args });
+        const content = result.structuredContent as {
+          data: unknown[];
+          pagination: { returned: number; exhausted: boolean; next_cursor?: string };
+          research_receipt?: string;
+        };
+        return {
+          result,
+          content,
+          receipt: content.research_receipt === undefined
+            ? undefined
+            : verifyResearchReceipt(content.research_receipt, { secret: SECRET })
+        };
+      } finally {
+        restoreEnvironment("NCBI_TOOL", previous.tool);
+        restoreEnvironment("NCBI_EMAIL", previous.email);
+        restoreEnvironment("NCBI_API_KEY", previous.apiKey);
+        restoreEnvironment("ASKRIGOR_FINALIZATION_SIGNING_SECRET", previous.secret);
+        await server.close();
+      }
+    };
+
+    it("returns every PubMed record in one call and signs the whole count", async () => {
+      const retmaxes = stubPubmed(35);
+
+      const { result, content, receipt } = await call("search_pubmed", { query: "small search", page_size: 20 });
+
+      expect(result.isError).not.toBe(true);
+      expect(retmaxes).toEqual([20, 50]);
+      expect(content.data).toHaveLength(35);
+      expect(content.pagination).toMatchObject({ returned: 35, exhausted: true });
+      expect(receipt).toMatchObject({ ok: true, kind: "literature_search", claims: { src: "pubmed", ret: "35", n: "35" } });
+    });
+
+    it("pages PubMed as asked past 50 records and after the first page", async () => {
+      const larger = stubPubmed(51);
+      const first = await call("search_pubmed", { query: "larger search", page_size: 20 });
+      expect(larger).toEqual([20]);
+      expect(first.content.pagination).toMatchObject({ returned: 20, exhausted: false });
+
+      const later = stubPubmed(35);
+      const second = await call("search_pubmed", {
+        query: "small search",
+        page_size: 10,
+        cursor: Buffer.from(JSON.stringify({ retstart: 10 })).toString("base64url")
+      });
+      expect(later).toEqual([10]);
+      expect(second.content.pagination).toMatchObject({ returned: 10, exhausted: false });
+    });
+
+    it("keeps the first PubMed page when the whole search fails", async () => {
+      const retmaxes = stubPubmed(35, "refuse");
+
+      const { result, content, receipt } = await call("search_pubmed", { query: "small search", page_size: 20 });
+
+      expect(result.isError).not.toBe(true);
+      expect(retmaxes).toEqual([20, 50]);
+      expect(result.structuredContent).toMatchObject({ access_status: "complete" });
+      expect(content.pagination).toMatchObject({ returned: 20, exhausted: false });
+      expect(content.pagination.next_cursor).toBeDefined();
+      expect(receipt).toMatchObject({ ok: true, claims: { src: "pubmed", ret: "20", n: "35" } });
+    });
+
+    it("keeps the first PubMed page when the whole search takes more than 10 seconds", async () => {
+      const retmaxes = stubPubmed(35, "hang");
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+
+      const pending = call("search_pubmed", { query: "small search", page_size: 20 });
+      for (let step = 0; step < 400 && retmaxes.length < 2; step += 1) {
+        await vi.advanceTimersByTimeAsync(50);
+      }
+      expect(retmaxes).toEqual([20, 50]);
+      await vi.advanceTimersByTimeAsync(9_000);
+      let settled = false;
+      void pending.then(() => { settled = true; });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(settled).toBe(false);
+      await vi.advanceTimersByTimeAsync(1_000);
+      const { result, content } = await pending;
+
+      expect(result.isError).not.toBe(true);
+      expect(content.pagination).toMatchObject({ returned: 20, exhausted: false });
+    });
+
+    it("returns every Europe PMC record in one call", async () => {
+      const pageSizes: number[] = [];
+      vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+        const url = new URL(String(input));
+        const pageSize = Number(url.searchParams.get("pageSize"));
+        const cursorMark = url.searchParams.get("cursorMark")!;
+        pageSizes.push(pageSize);
+        const start = cursorMark === "*" ? 0 : Number(cursorMark.slice("after-".length));
+        const end = Math.min(35, start + pageSize);
+        return new Response(JSON.stringify({
+          hitCount: 35,
+          ...(end < 35 ? { nextCursorMark: `after-${end}` } : {}),
+          request: { queryString: url.searchParams.get("query"), cursorMark, pageSize },
+          resultList: { result: ids(start, end).map((id) => ({ source: "MED", id })) }
+        }), { status: 200 });
+      }));
+
+      const { result, content, receipt } = await call("search_europe_pmc", { query: "small search", page_size: 20 });
+
+      expect(result.isError).not.toBe(true);
+      expect(pageSizes).toEqual([20, 50]);
+      expect(content.data).toHaveLength(35);
+      expect(content.pagination).toMatchObject({ returned: 35, exhausted: true });
+      expect(receipt).toMatchObject({ ok: true, claims: { src: "europepmc", ret: "35", n: "35" } });
+    });
+  });
+
   it("marks Europe PMC provider failures as MCP tool errors", async () => {
     const { client, server } = await createInMemoryClient();
     vi.stubGlobal("fetch", vi.fn(async () => new Response("provider detail", {

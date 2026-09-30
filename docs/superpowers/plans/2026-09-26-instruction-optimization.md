@@ -1309,6 +1309,15 @@ not applied. The server now enforces what it can check in any language:
   synonyms, older terms, the parts of a mixed exposure, citation chains.
   `search_pubmed` returns each PMID's title, journal and year, so a small result
   set can be triaged in full instead of sampled.
+- **Small result sets come back whole** (the owner's small-result-set rule). A
+  first page of `search_pubmed` or `search_europe_pmc` that stops short of a
+  total of 50 or fewer records is fetched again whole, so every record is
+  visible before anything is called not found. This costs one more provider
+  call, and only when the first page asked for fewer than the total. If that
+  call fails or takes more than 10 seconds, the first page stands with its
+  cursor, so the call stays within the client's 60-second wait. ClinicalTrials.gov
+  reports no total, so its pages stay as asked. Whether the model reads each
+  title is not checkable.
 
 Report tests:
 - A (search-negative wording) and C (a sparse, cheap intervention triggers the
