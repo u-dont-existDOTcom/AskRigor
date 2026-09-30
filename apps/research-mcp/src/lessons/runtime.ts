@@ -12,6 +12,7 @@ import {
 } from "./file-incident-vault.js";
 import {
   GitHubInstallationTokenProvider,
+  LESSON_REPOSITORY,
   LESSON_REPOSITORY_FULL_NAME,
 } from "./github-app.js";
 import { GitHubLessonQueue } from "./github-lessons.js";
@@ -86,9 +87,7 @@ function createLessonServiceFromEnv(): LessonSubmissionService {
   try {
     validateLegacyAiConfigurationIfPresent();
 
-    const appId = positiveDecimalEnvironment("ASKRIGOR_GITHUB_APP_ID");
-    const installationId = positiveDecimalEnvironment("ASKRIGOR_GITHUB_INSTALLATION_ID");
-    const privateKeyBase64 = requiredSecret("ASKRIGOR_GITHUB_PRIVATE_KEY_BASE64");
+    const { appId, installationId, privateKeyBase64 } = githubAppCredentialsFromEnv();
     if (requiredEnvironment("ASKRIGOR_LESSONS_REPOSITORY") !== LESSON_REPOSITORY_FULL_NAME) {
       throw new Error(CONFIGURATION_ERROR);
     }
@@ -102,6 +101,7 @@ function createLessonServiceFromEnv(): LessonSubmissionService {
       appId,
       installationId,
       privateKeyBase64,
+      repository: LESSON_REPOSITORY,
       fetch,
       now,
     });
@@ -111,6 +111,22 @@ function createLessonServiceFromEnv(): LessonSubmissionService {
   } catch {
     throw new Error(CONFIGURATION_ERROR);
   }
+}
+
+/**
+ * The GitHub App credentials the lesson queue and the findings library share;
+ * each scopes its own installation token to its one private repository.
+ */
+export function githubAppCredentialsFromEnv(): {
+  appId: string;
+  installationId: string;
+  privateKeyBase64: string;
+} {
+  return {
+    appId: positiveDecimalEnvironment("ASKRIGOR_GITHUB_APP_ID"),
+    installationId: positiveDecimalEnvironment("ASKRIGOR_GITHUB_INSTALLATION_ID"),
+    privateKeyBase64: requiredSecret("ASKRIGOR_GITHUB_PRIVATE_KEY_BASE64"),
+  };
 }
 
 /** Returns the shared registry without constructing or validating its runtime. */

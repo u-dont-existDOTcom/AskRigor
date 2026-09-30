@@ -3,6 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   GitHubApiError,
   GitHubInstallationTokenProvider,
+  LESSON_REPOSITORY,
+  parseGitHubRepository,
+  type GitHubRepository,
 } from "../apps/research-mcp/src/lessons/github-app.js";
 
 const API_HEADERS = {
@@ -42,15 +45,23 @@ function repositoryResponse(repositories: unknown[] = [{
   });
 }
 
-function createProvider(fetchImpl: typeof fetch, privateKeyBase64: string, now: () => Date) {
+function createProvider(
+  fetchImpl: typeof fetch,
+  privateKeyBase64: string,
+  now: () => Date,
+  repository: GitHubRepository = LESSON_REPOSITORY,
+) {
   return new GitHubInstallationTokenProvider({
     appId: "123456",
     installationId: "987654",
     privateKeyBase64,
+    repository,
     fetch: fetchImpl,
     now,
   });
 }
+
+const FINDINGS_REPOSITORY = { owner: "u-dont-existDOTcom", name: "AskRigor-findings" };
 
 afterEach(() => {
   vi.useRealTimers();
@@ -286,6 +297,66 @@ describe("least-privilege GitHub App installation token", () => {
     const error = await outcome;
     expect(error).toMatchObject({ code: "github_service_unavailable", retryable: true });
     expect(String(error)).not.toContain("private hung token exchange");
+  });
+
+  // The findings library uses the same App with its own repository.
+  it("scopes the token to the repository it is given and accepts only that one", async () => {
+    const { privateKeyBase64 } = keyFixture();
+    const findingsRepository = repositoryResponse([{
+      id: 44,
+      name: "AskRigor-findings",
+      full_name: "u-dont-existDOTcom/AskRigor-findings",
+      private: true,
+    }]);
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(tokenResponse())
+      .mockResolvedValueOnce(findingsRepository);
+    const provider = createProvider(
+      fetchMock, privateKeyBase64, () => new Date("2026-08-13T12:00:00.000Z"), FINDINGS_REPOSITORY,
+    );
+
+    await expect(provider.getToken()).resolves.toBe("installation-token-fixture");
+    expect(JSON.parse(String(fetchMock.mock.calls[0]![1]?.body))).toEqual({
+      repositories: ["AskRigor-findings"],
+      permissions: { issues: "write", metadata: "read" },
+    });
+
+    // A findings token that reaches the lesson queue instead is refused, and the reverse.
+    for (const [repository, listed] of [
+      [FINDINGS_REPOSITORY, repositoryResponse()],
+      [LESSON_REPOSITORY, repositoryResponse([{
+        id: 44, name: "AskRigor-findings", full_name: "u-dont-existDOTcom/AskRigor-findings", private: true,
+      }])],
+    ] as const) {
+      const wrongScope = vi.fn<typeof fetch>()
+        .mockResolvedValueOnce(tokenResponse())
+        .mockResolvedValueOnce(listed);
+      await expect(createProvider(
+        wrongScope, privateKeyBase64, () => new Date("2026-08-13T12:00:00.000Z"), repository,
+      ).getToken()).rejects.toMatchObject({ code: "github_scope_invalid", retryable: false });
+    }
+  });
+
+  it("refuses a malformed repository before any request", () => {
+    const { privateKeyBase64 } = keyFixture();
+    for (const repository of [
+      { owner: "", name: "AskRigor-findings" },
+      { owner: "u-dont-existDOTcom", name: "" },
+      { owner: "u-dont-existDOTcom", name: ".." },
+      { owner: "u-dont-existDOTcom/other", name: "AskRigor-findings" },
+    ]) {
+      const fetchMock = vi.fn<typeof fetch>();
+      expect(() => createProvider(fetchMock, privateKeyBase64, () => new Date(), repository))
+        .toThrow(GitHubApiError);
+      expect(fetchMock).not.toHaveBeenCalled();
+    }
+  });
+
+  it("parses only an exact owner/name pair", () => {
+    expect(parseGitHubRepository("u-dont-existDOTcom/AskRigor-findings")).toEqual(FINDINGS_REPOSITORY);
+    for (const value of ["AskRigor-findings", "a/b/c", "/AskRigor-findings", "u-dont-existDOTcom/", "owner/na me"]) {
+      expect(parseGitHubRepository(value)).toBeUndefined();
+    }
   });
 });
 
