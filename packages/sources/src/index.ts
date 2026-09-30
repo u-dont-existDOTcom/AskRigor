@@ -216,6 +216,7 @@ export {
   advanceGeminiYoutubeScoutBackground,
   deleteGeminiYoutubeScoutInteraction,
   geminiYoutubeScoutBackgroundCheckpointSchema,
+  geminiYoutubeScoutLanguageSchema,
   scoutGeminiYoutubeCandidates,
   type GeminiYoutubeScoutBackgroundAdvance,
   type GeminiYoutubeScoutBackgroundCheckpoint,

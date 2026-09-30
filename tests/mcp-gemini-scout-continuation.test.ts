@@ -7,7 +7,11 @@ import {
   encodeScoutContinuation,
   ScoutContinuationError
 } from "../apps/research-mcp/src/scout-continuation.js";
-import { discoveryQueryDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
+import {
+  discoveryQueryDigest,
+  researchTargetDigest,
+  verifyResearchReceipt
+} from "../apps/research-mcp/src/research-receipts.js";
 
 const execute = vi.hoisted(() => vi.fn());
 const deleteResumed = vi.hoisted(() => vi.fn());
@@ -79,6 +83,114 @@ describe("MCP Gemini scout continuation", () => {
     expect(() => decodeScoutContinuation(token, SECRET, 2_000)).toThrow(new ScoutContinuationError(
       "gemini_scout_continuation_expired", decodeScoutContinuation(token, SECRET, 1_000)
     ));
+    // The signed state carries the language too, and only as a tag.
+    const french = encodeScoutContinuation({
+      ...TARGET, language: "fr", checkpoint: CHECKPOINT, accounted_nano_usd: 1_000, expires_at_ms: 2_000
+    }, SECRET);
+    expect(decodeScoutContinuation(french, SECRET, 1_000)).toMatchObject({ ...TARGET, language: "fr" });
+    expect(() => encodeScoutContinuation({
+      ...TARGET, language: "French", checkpoint: CHECKPOINT, accounted_nano_usd: 1_000, expires_at_ms: 2_000
+    }, SECRET)).toThrow();
+  });
+
+  it("keeps the person's language through the continuation, and a later call cannot switch it", async () => {
+    execute.mockResolvedValue({ controller_progress: { checkpoint: CHECKPOINT, accounted_nano_usd: 1_000_000_000 } });
+    const client = await connect();
+    const french = { ...TARGET, language: "fr" };
+
+    const first = await client.callTool({ name: "scout_gemini_youtube_candidates", arguments: french });
+    expect(first.isError).not.toBe(true);
+    const pending = first.structuredContent as { continuation_token: string; language: string };
+    expect(pending.language).toBe("fr");
+    expect(decodeScoutContinuation(pending.continuation_token, SECRET, Date.now()).language).toBe("fr");
+    expect(execute).toHaveBeenNthCalledWith(1, french, undefined, { deadlineMs: expect.any(Number) }, []);
+
+    // The signed token's language wins over one sent with it.
+    const resumed = { checkpoint: CHECKPOINT, accountedNanoUsd: 1_000_000_000 };
+    const switched = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { continuation_token: pending.continuation_token, language: "de" }
+    });
+    expect(execute).toHaveBeenNthCalledWith(2, french, resumed, { deadlineMs: expect.any(Number) }, []);
+    expect((switched.structuredContent as { language: string }).language).toBe("fr");
+
+    execute.mockReset();
+    execute.mockResolvedValueOnce({
+      controller_completion: {
+        provider_response_id: "response-language",
+        packet: { discovery_queries: [], search_gaps: [], candidates: [] },
+        validation: validationReceipt(),
+        provider_storage_mode: "TEMPORARY_BACKGROUND_DELETE_REQUESTED",
+        accounted_nano_usd: 900_000_000
+      }
+    });
+    const done = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { continuation_token: pending.continuation_token }
+    });
+    expect(execute).toHaveBeenCalledWith(french, resumed, { deadlineMs: expect.any(Number) }, []);
+    const output = done.structuredContent as { language: string; research_receipt: string };
+    expect(output.language).toBe("fr");
+    // The discovery receipt's target and query digests stay the English
+    // target's, which finalize_research and the coverage check recompute.
+    expect(verifyResearchReceipt(output.research_receipt, { secret: SECRET })).toMatchObject({
+      ok: true,
+      claims: {
+        target: researchTargetDigest(TARGET.research_target),
+        q: discoveryQueryDigest([TARGET.research_target])
+      }
+    });
+  });
+
+  it("refuses a language that is not a BCP 47 tag before any provider call", async () => {
+    const client = await connect();
+    for (const language of ["French", "fr_FR", "fr-FR-x-jane", "adults in Lyon"]) {
+      const refused = await client.callTool({
+        name: "scout_gemini_youtube_candidates",
+        arguments: { ...TARGET, language }
+      });
+      expect(refused.isError, language).toBe(true);
+    }
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("refuses a target the unchanged screen cannot read, and says to write it in English with the language apart", async () => {
+    const client = await connect();
+    for (const [research_target, language] of [
+      ["Adultes souffrant d'arthrose de la hanche qui veulent éviter une prothèse", "fr"],
+      ["Adultos con artrosis de cadera que quieren evitar una prótesis", "es"],
+      ["人工股関節置換術を避けたい変形性股関節症の成人", "ja"]
+    ] as const) {
+      const refused = await client.callTool({
+        name: "scout_gemini_youtube_candidates",
+        arguments: { ...TARGET, research_target, language }
+      });
+      expect(refused.isError, research_target).toBe(true);
+      const text = (refused.content as Array<{ text: string }>)[0]!.text;
+      expect(text).toContain("research_target_not_deidentified");
+      expect(text).toContain("Write research_target in English, whatever the person's language, as a group of people");
+      expect(text).toContain("give the person's language in language (for example: fr).");
+    }
+    expect(execute).not.toHaveBeenCalled();
+
+    // A resumed scout whose target the screen refuses says the same, for a new scout.
+    execute.mockResolvedValueOnce({
+      controller_boundary: { code: "research_target_not_population_level", retryable: false }
+    });
+    const token = encodeScoutContinuation({
+      ...TARGET, checkpoint: CHECKPOINT, accounted_nano_usd: 1_000, expires_at_ms: Date.now() + 60_000
+    }, SECRET);
+    const resumed = await client.callTool({
+      name: "scout_gemini_youtube_candidates", arguments: { continuation_token: token }
+    });
+    expect(resumed.isError).toBe(true);
+    expect((resumed.content as Array<{ text: string }>)[0]!.text).toBe(
+      "scout gemini youtube candidates could not complete: research_target_not_population_level. " +
+        "Start a new scout without the continuation_token. Write research_target in English, whatever the " +
+        "person's language, as a group of people and their goal in sentence case (for example: adults with hip " +
+        "osteoarthritis trying to avoid a replacement), without first-person words, he or she, names, places, a " +
+        "person's age, contact details or links, and give the person's language in language (for example: fr)."
+    );
   });
 
   it("returns a continuation while the scout searches, then validated and title-found videos with a discovery receipt", async () => {

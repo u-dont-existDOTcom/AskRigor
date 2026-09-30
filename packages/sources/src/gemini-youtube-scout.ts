@@ -34,6 +34,15 @@ export const GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES = 30;
 export const GEMINI_YOUTUBE_SCOUT_MAX_TITLE_ONLY_CANDIDATES = 6;
 export const GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS = 8;
 export const GEMINI_YOUTUBE_SCOUT_MAX_LEAD_CHARACTERS = 120;
+/**
+ * The language to look for videos in, as a BCP 47 tag: a language, then
+ * optionally a script and a region ("fr", "pt-BR", "zh-Hant-TW", "es-419").
+ * Tags ignore case. Variants, extensions and private-use parts are refused,
+ * so only a tag passes, never free text.
+ */
+export const geminiYoutubeScoutLanguageSchema = z.string()
+  .max(12)
+  .regex(/^[A-Za-z]{2,3}(?:-[A-Za-z]{4})?(?:-(?:[A-Za-z]{2}|[0-9]{3}))?$/u);
 const diagnosisStatusSchema = z.enum([
   "diagnosis_not_specified",
   "user_supplied_diagnosis"
@@ -43,7 +52,8 @@ const scoutInputSchema = z.object({
   diagnosisStatus: diagnosisStatusSchema,
   scoutInstructions: z.string().trim().min(1).max(30_000),
   rediscoveryLeads: z.array(z.string().trim().min(2).max(GEMINI_YOUTUBE_SCOUT_MAX_LEAD_CHARACTERS))
-    .min(1).max(GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS).optional()
+    .min(1).max(GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS).optional(),
+  language: geminiYoutubeScoutLanguageSchema.optional()
 }).strict();
 const scoutConfigSchema = z.object({
   apiKey: z.string().trim().min(1).max(4_096),
@@ -178,6 +188,8 @@ export interface GeminiYoutubeScoutInput {
   scoutInstructions: string;
   /** Public remedies, methods, products, videos or creators named in audited comments. */
   rediscoveryLeads?: string[];
+  /** The person's language as a BCP 47 tag; the scout looks for videos in it. */
+  language?: string;
 }
 
 export interface GeminiYoutubeScoutConfig {
@@ -324,10 +336,7 @@ export async function scoutGeminiYoutubeCandidates(
       provider: "gemini_api",
       recordType: "gemini_youtube_candidate_frontier",
       primaryIdentifier: responseIdentifier,
-      query: {
-        research_target: parsedInput.data.researchTarget,
-        diagnosis_status: parsedInput.data.diagnosisStatus
-      },
+      query: scoutQuery(parsedInput.data),
       pagination: { exhausted: true },
       returned: packet.candidates.length,
       accessStatus: "complete",
@@ -598,10 +607,7 @@ async function processGeminiBackgroundInteraction(
       provider: "gemini_api",
       recordType: "gemini_youtube_candidate_frontier",
       primaryIdentifier: interactionId,
-      query: {
-        research_target: input.researchTarget,
-        diagnosis_status: input.diagnosisStatus
-      },
+      query: scoutQuery(input),
       pagination: { exhausted: true },
       returned: attempt.packet.candidates.length,
       accessStatus: "complete",
@@ -792,12 +798,37 @@ function buildScoutPrompt(input: z.output<typeof scoutInputSchema>): string {
     "",
     `Diagnosis status: ${input.diagnosisStatus}`,
     "",
+    ...languageInstructions(input.language),
     ...rediscoveryInstructions(input.rediscoveryLeads),
     "Perform between 8 and 18 Google Search queries and no more than 18. Copy every executed query string exactly into discovery_query_rows and do not list an unexecuted query.",
     "Use public web and YouTube discovery context for candidate selection. Treat every creator summary as provisional and not transcript-verified by AskRigor.",
     `Search results here often show no YouTube watch URL, so spend searches on discovery, not on finding video IDs. When a result names a promising video but shows no 11-character ID, never guess or reconstruct one: add [title, channel, why_surfaced] to title_only_rows (at most ${GEMINI_YOUTUBE_SCOUT_MAX_TITLE_ONLY_CANDIDATES}, most promising first) and AskRigor will look it up on YouTube by exact title. Use not described for an unknown channel.`,
     compactTransportInstructions()
   ].join("\n");
+}
+
+/**
+ * The target is written in English whatever the person's language; the tag
+ * says which language's videos to find. Gemini gets the language's English
+ * name, or the tag itself when no name is known for it.
+ */
+function languageInstructions(tag: string | undefined): string[] {
+  if (tag === undefined) return [];
+  const name = englishLanguageName(tag);
+  return [
+    `VIDEO LANGUAGE: ${name === tag ? tag : `${name} (${tag})`}. The research target above is written in English, ` +
+      `but look for videos in ${name}: write every search in ${name}, including the first-person probes, the way ` +
+      `its speakers search, and return videos in ${name}.`,
+    ""
+  ];
+}
+
+function englishLanguageName(tag: string): string {
+  try {
+    return new Intl.DisplayNames(["en"], { type: "language", fallback: "none" }).of(tag) ?? tag;
+  } catch {
+    return tag;
+  }
 }
 
 function rediscoveryInstructions(leads: readonly string[] | undefined): string[] {
@@ -1169,6 +1200,14 @@ function scoutFailureEnvelope(
   });
 }
 
+function scoutQuery(input: z.output<typeof scoutInputSchema>): Record<string, string> {
+  return {
+    research_target: input.researchTarget,
+    diagnosis_status: input.diagnosisStatus,
+    ...(input.language === undefined ? {} : { language: input.language })
+  };
+}
+
 function scoutErrorEnvelope(
   input: z.output<typeof scoutInputSchema>,
   details: ScoutErrorDetails
@@ -1176,10 +1215,7 @@ function scoutErrorEnvelope(
   return errorEnvelope({
     provider: "gemini_api",
     recordType: "gemini_youtube_candidate_frontier",
-    query: {
-      research_target: input.researchTarget,
-      diagnosis_status: input.diagnosisStatus
-    },
+    query: scoutQuery(input),
     pagination: { exhausted: false },
     returned: 0,
     accessStatus: details.accessStatus,

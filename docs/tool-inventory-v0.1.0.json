@@ -11839,6 +11839,7 @@
         "type": "object",
         "properties": {
           "research_target": {
+            "description": "Write it in English, whatever the person's language, and give their language in language.",
             "type": "string",
             "minLength": 1,
             "maxLength": 1000
@@ -11849,6 +11850,12 @@
               "diagnosis_not_specified",
               "user_supplied_diagnosis"
             ]
+          },
+          "language": {
+            "description": "The person's language as a BCP 47 tag (fr, pt-BR); the scout looks for videos in it.",
+            "type": "string",
+            "maxLength": 12,
+            "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z]{4})?(?:-(?:[A-Za-z]{2}|[0-9]{3}))?$"
           },
           "rediscovery_leads": {
             "description": "Remedies, methods, products, videos or creators named in audited comments, to search next.",
@@ -11890,6 +11897,9 @@
               "diagnosis_not_specified",
               "user_supplied_diagnosis"
             ]
+          },
+          "language": {
+            "type": "string"
           },
           "rediscovery_leads": {
             "type": "array",

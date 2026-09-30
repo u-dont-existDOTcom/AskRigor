@@ -152,7 +152,8 @@ Acceptance requires:
 
 The low-level technical request is stateless. The controlled path uses a
 temporarily stored Gemini Interaction so work can finish asynchronously. Only
-the already screened de-identified population target, public scout instructions,
+the already screened de-identified population target, any BCP 47 language tag
+with its English language name, public scout instructions,
 and—if needed—public candidate output, public search receipts, and safe
 validation issues are sent. AskRigor requests deletion after consuming each
 interaction. A successful delete request is not a claim that Google immediately

@@ -274,6 +274,50 @@ describe("Gemini YouTube scout adapter", () => {
     expect(without).not.toContain("TARGETED REDISCOVERY");
   });
 
+  it("asks Gemini for videos in the person's language, named in English, with the target left in English", async () => {
+    const fetchMock = vi.fn(async () => interactionResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    await scoutGeminiYoutubeCandidates({ ...INPUT, language: "fr" }, CONFIG);
+    await scoutGeminiYoutubeCandidates({ ...INPUT, language: "pt-BR" }, CONFIG);
+    // A well-formed tag with no known English name is sent as the tag.
+    await scoutGeminiYoutubeCandidates({ ...INPUT, language: "qaa" }, CONFIG);
+    await scoutGeminiYoutubeCandidates(INPUT, CONFIG);
+
+    const [french, portuguese, unnamed, without] = fetchMock.mock.calls.map(([, init]) =>
+      String((JSON.parse(String(init?.body)) as { input: string }).input)
+    );
+    expect(french).toContain(`AskRigor research target:\n${INPUT.researchTarget}\n`);
+    expect(french).toContain("VIDEO LANGUAGE: French (fr).");
+    expect(french).toContain("write every search in French, including the first-person probes");
+    expect(portuguese).toContain("VIDEO LANGUAGE: Brazilian Portuguese (pt-BR).");
+    expect(unnamed).toContain("VIDEO LANGUAGE: qaa.");
+    expect(without).not.toContain("VIDEO LANGUAGE");
+
+    // The background route that the MCP tool uses builds the same request.
+    const backgroundFetch = vi.fn(async () => new Response(JSON.stringify({
+      id: "interaction-language-1",
+      status: "in_progress"
+    }), { status: 200 }));
+    vi.stubGlobal("fetch", backgroundFetch);
+    await advanceGeminiYoutubeScoutBackground({ ...INPUT, language: "fr" }, CONFIG);
+    expect(String((JSON.parse(String(backgroundFetch.mock.calls[0]![1]?.body)) as { input: string }).input))
+      .toContain("VIDEO LANGUAGE: French (fr).");
+  });
+
+  it("sends no request for a language that is not a BCP 47 tag", async () => {
+    const fetchMock = vi.fn(async () => interactionResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    for (const language of ["French", "fr_FR", "fr-FR-x-jane", "speaks french"]) {
+      await expect(scoutGeminiYoutubeCandidates({ ...INPUT, language }, CONFIG))
+        .rejects.toThrow("Invalid Gemini YouTube scout input");
+      await expect(advanceGeminiYoutubeScoutBackground({ ...INPUT, language }, CONFIG))
+        .rejects.toThrow("Invalid Gemini YouTube scout input");
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("accepts the stateless live response shape without an interaction id", async () => {
     const fetchMock = vi.fn(async () => interactionResponse(
       compactPacket(),

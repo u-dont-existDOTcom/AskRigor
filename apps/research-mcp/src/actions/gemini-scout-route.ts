@@ -10,6 +10,7 @@ import {
   deleteGeminiYoutubeScoutInteraction,
   geminiYoutubeCandidateValidationReceiptSchema,
   geminiYoutubeDiscoveryPurposeSchema,
+  geminiYoutubeScoutLanguageSchema,
   scoutGeminiYoutubeCandidates,
   validateGeminiYoutubeCandidateHandoff,
   type GeminiYoutubeCandidatePacket,
@@ -37,12 +38,16 @@ const GEMINI_SCOUT_MAXIMUM_BILLABLE_SEARCH_QUERIES = Math.floor(
   GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD / GEMINI_SEARCH_QUERY_NANO_USD
 );
 
+// The target is written in English whatever the person's language, so the
+// population screen can read it; `language` is the person's language as a
+// BCP 47 tag, which tells the scout which language's videos to find.
 export const automatedScoutInputSchema = z.object({
   research_target: z.string().trim().min(1).max(1_000),
   diagnosis_status: z.enum([
     "diagnosis_not_specified",
     "user_supplied_diagnosis"
-  ])
+  ]),
+  language: geminiYoutubeScoutLanguageSchema.optional()
 }).strict();
 
 const providerUsageSchema = z.object({
@@ -98,6 +103,7 @@ export const automatedGeminiScoutReceiptSchema = z.object({
   status: z.enum(["accepted", "partial", "rejected", "blocked"]),
   research_target: z.string().min(1).max(1_000),
   diagnosis_status: automatedScoutInputSchema.shape.diagnosis_status,
+  language: automatedScoutInputSchema.shape.language,
   discovery_queries: z.array(z.object({
     purpose: geminiYoutubeDiscoveryPurposeSchema,
     query: z.string().min(1).max(500)
@@ -108,7 +114,7 @@ export const automatedGeminiScoutReceiptSchema = z.object({
   boundary: automatedScoutBoundarySchema.nullable(),
   access_boundaries: z.tuple([
     z.literal("Gemini candidate summaries are provisional discovery annotations and were not transcript-verified by AskRigor."),
-    z.literal("Gemini interaction storage was disabled; the grounded request received only the screened population-level target and public scout instructions, and one no-search correction, when needed, received only the public candidate output, exact executed searches, and safe validation issues."),
+    z.literal("Gemini interaction storage was disabled; the grounded request received only the screened population-level target, any language tag, and public scout instructions, and one no-search correction, when needed, received only the public candidate output, exact executed searches, and safe validation issues."),
     z.literal("Independent YouTube identity validation does not establish creator content, efficacy, safety, causality, scientific validity, or treatment suitability."),
     z.literal("No YouTube transcript or discussion was retrieved by this operation; required downstream research remains required.")
   ])
@@ -296,7 +302,8 @@ export async function executeAutomatedGeminiScout(
     frontier = await scout({
       researchTarget: parsed.research_target,
       diagnosisStatus: parsed.diagnosis_status,
-      scoutInstructions: await loadScoutInstructions()
+      scoutInstructions: await loadScoutInstructions(),
+      ...scoutLanguage(parsed)
     }, {
       apiKey: geminiApiKey,
       model: GEMINI_YOUTUBE_SCOUT_MODEL
@@ -368,6 +375,7 @@ export async function executeAutomatedGeminiScout(
     status: validation.status,
     research_target: parsed.research_target,
     diagnosis_status: parsed.diagnosis_status,
+    ...scoutLanguage(parsed),
     discovery_queries: scoutData.packet.discovery_queries,
     search_gaps: scoutData.packet.search_gaps,
     scout_receipt: {
@@ -498,7 +506,8 @@ export async function executeResumableAutomatedGeminiScout(
       researchTarget: parsed.research_target,
       diagnosisStatus: parsed.diagnosis_status,
       scoutInstructions: await loadScoutInstructions(),
-      ...(rediscoveryLeads.length === 0 ? {} : { rediscoveryLeads: [...rediscoveryLeads] })
+      ...(rediscoveryLeads.length === 0 ? {} : { rediscoveryLeads: [...rediscoveryLeads] }),
+      ...scoutLanguage(parsed)
     };
     const scoutConfig = {
       apiKey: geminiApiKey,
@@ -842,6 +851,13 @@ function productionAiBudget(): AiBudget {
   });
 }
 
+/** The input's language tag as a field to spread, or nothing when it has none. */
+function scoutLanguage(
+  input: z.output<typeof automatedScoutInputSchema>
+): { language?: string } {
+  return input.language === undefined ? {} : { language: input.language };
+}
+
 function successfulBoundaryReceipt(
   input: z.output<typeof automatedScoutInputSchema>,
   code: z.output<typeof automatedScoutBoundarySchema>["code"],
@@ -855,6 +871,7 @@ function successfulBoundaryReceipt(
     status: "blocked",
     research_target: input.research_target,
     diagnosis_status: input.diagnosis_status,
+    ...scoutLanguage(input),
     discovery_queries: [],
     search_gaps: [],
     scout_receipt: {
@@ -897,7 +914,7 @@ function accessBoundaries(): z.output<
 >["access_boundaries"] {
   return [
     "Gemini candidate summaries are provisional discovery annotations and were not transcript-verified by AskRigor.",
-    "Gemini interaction storage was disabled; the grounded request received only the screened population-level target and public scout instructions, and one no-search correction, when needed, received only the public candidate output, exact executed searches, and safe validation issues.",
+    "Gemini interaction storage was disabled; the grounded request received only the screened population-level target, any language tag, and public scout instructions, and one no-search correction, when needed, received only the public candidate output, exact executed searches, and safe validation issues.",
     "Independent YouTube identity validation does not establish creator content, efficacy, safety, causality, scientific validity, or treatment suitability.",
     "No YouTube transcript or discussion was retrieved by this operation; required downstream research remains required."
   ];

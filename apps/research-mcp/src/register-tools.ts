@@ -1549,7 +1549,12 @@ function defineResearchOperations(
       if (input.continuation_token !== undefined) {
         try {
           const state = decodeScoutContinuation(input.continuation_token, secret, Date.now());
-          target = { research_target: state.research_target, diagnosis_status: state.diagnosis_status };
+          // The signed token's target and language win over any sent with it.
+          target = {
+            research_target: state.research_target,
+            diagnosis_status: state.diagnosis_status,
+            ...(state.language === undefined ? {} : { language: state.language })
+          };
           leads = state.rediscovery_leads ?? [];
           resume = { checkpoint: state.checkpoint, accountedNanoUsd: state.accounted_nano_usd };
         } catch (error) {
@@ -1575,7 +1580,8 @@ function defineResearchOperations(
       } else {
         target = automatedScoutInputSchema.parse({
           research_target: input.research_target,
-          diagnosis_status: input.diagnosis_status
+          diagnosis_status: input.diagnosis_status,
+          ...(input.language === undefined ? {} : { language: input.language })
         });
         leads = input.rediscovery_leads ?? [];
         // The owner's zero-spend policy: a new scout starts a Gemini interaction,
@@ -1585,10 +1591,7 @@ function defineResearchOperations(
         }
         // Only screened, population-level text reaches Gemini.
         if (!isPopulationLevelResearchTarget(target.research_target)) {
-          return scoutError("research_target_not_deidentified", false,
-            "Describe a group of people and their goal in sentence case (for example: adults with hip osteoarthritis " +
-              "trying to avoid a replacement), without first-person words, he or she, names, places, a person's age, " +
-              "contact details or links.");
+          return scoutError("research_target_not_deidentified", false, SCOUT_TARGET_GUIDANCE);
         }
         if (!leads.every((lead) => VIDEO_LEAD.test(lead) || isPublicLeadTerm(lead))) {
           return scoutError("rediscovery_lead_not_public_term", false,
@@ -1612,7 +1615,10 @@ function defineResearchOperations(
         target, resume, { deadlineMs: started + MCP_SCOUT_POLL_WINDOW_MS }, leads
       );
       if ("controller_boundary" in execution) {
-        return scoutError(execution.controller_boundary.code, execution.controller_boundary.retryable);
+        const { code, retryable } = execution.controller_boundary;
+        return scoutError(code, retryable, code === "research_target_not_population_level"
+          ? `Start a new scout without the continuation_token. ${SCOUT_TARGET_GUIDANCE}`
+          : undefined);
       }
       if ("controller_progress" in execution) {
         const continuation = encodeScoutContinuation({
@@ -1914,8 +1920,11 @@ const MCP_SCOUT_RETRY_AFTER_SECONDS = 10;
 const MCP_SCOUT_MAX_BYTES = 45_000;
 
 const MCP_SCOUT_INPUT_SCHEMA = z.object({
-  research_target: automatedScoutInputSchema.shape.research_target.optional(),
+  research_target: automatedScoutInputSchema.shape.research_target.optional()
+    .describe("Write it in English, whatever the person's language, and give their language in language."),
   diagnosis_status: automatedScoutInputSchema.shape.diagnosis_status.optional(),
+  language: automatedScoutInputSchema.shape.language
+    .describe("The person's language as a BCP 47 tag (fr, pt-BR); the scout looks for videos in it."),
   rediscovery_leads: z.array(z.string().trim().min(2).max(GEMINI_YOUTUBE_SCOUT_MAX_LEAD_CHARACTERS))
     .min(1).max(GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS).optional()
     .describe("Remedies, methods, products, videos or creators named in audited comments, to search next."),
@@ -1941,6 +1950,7 @@ const MCP_SCOUT_OUTPUT_SCHEMA = z.object({
   scout_status: z.enum(["pending", "complete"]),
   research_target: z.string(),
   diagnosis_status: z.enum(["diagnosis_not_specified", "user_supplied_diagnosis"]),
+  language: z.string().optional(),
   rediscovery_leads: z.array(z.string()).optional(),
   continuation_token: z.string().optional(),
   retry_after_seconds: z.number().int().positive().optional(),
@@ -1977,6 +1987,13 @@ const SCOUT_SPEND_GUIDANCE =
   "(ASKRIGOR_GEMINI_BILLING=none). Use survey_youtube_community instead.";
 const SCOUT_DELETION_RETRY =
   "Its stored search could not be deleted yet; call again later with the same continuation_token to delete it.";
+// How to fix a target the population screen refused. The screen reads
+// English, so the target is written in English and the language goes apart.
+const SCOUT_TARGET_GUIDANCE =
+  "Write research_target in English, whatever the person's language, as a group of people and their goal in " +
+  "sentence case (for example: adults with hip osteoarthritis trying to avoid a replacement), without first-person " +
+  "words, he or she, names, places, a person's age, contact details or links, and give the person's language in " +
+  "language (for example: fr).";
 
 function scoutError(code: string, retryable: boolean, guidance?: string): CallToolResult {
   return {
