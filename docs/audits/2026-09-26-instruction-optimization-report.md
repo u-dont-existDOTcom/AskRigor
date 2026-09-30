@@ -21,7 +21,8 @@ HRP 20.6.0 are still to run.
 3. Results fit client limits: YouTube audits, full-text pages and server
    instructions stay under the sizes Claude accepts; comment records are compact
    and pseudonymous (no author names or channel ids reach the model).
-4. HRP 20.6.0 (and Universal 20.5.28): seven process, output and meta sections
+4. HRP 20.6.0 (and Universal 20.5.29, numbered 20.5.28 before the merge with
+   main's 20.5.27): seven process, output and meta sections
    rewritten around what they actually add; no method change. Output: answer
    first, one short limits note at the end, no protocol banner.
 5. Fixes found by the runs: PubMed pacing, error reasons visible to the model,

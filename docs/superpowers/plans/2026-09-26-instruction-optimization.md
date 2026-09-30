@@ -37,7 +37,8 @@ Claude Opus 5.5 (owner, 2026-09-26).
 
 ## Owner decisions of 2026-09-27
 
-1. Euphemism rule: replaced by precise clinical terms (Universal 20.5.29).
+1. Euphemism rule: replaced by precise clinical terms (Universal 20.5.30;
+   20.5.29 before the merge with main's task-mode integration, below).
 2. Treatment discovery (HRP 20.6.1): the fixed 8-video / 6-program minimum
    goes. A first pass is a broad sweep with a cap, not a minimum. It searches
    in rounds from new angles, including patient phrasing and methods named in
@@ -1342,6 +1343,26 @@ Cost: tool definitions grow by 1,687 characters (0.9%); `finalize_research`
 accounts for 1,489 of them. The Gemini-compatible catalog stays under its
 25,000-byte bound. The question was added to the development set
 (`dev-geosmin-smell`).
+
+## Merge with main's task-mode integration (2026-09-30)
+
+At 01:02 UTC on 30 Sep, main took Universal 20.5.27: the owner's task-mode
+integration (#252). This branch had used 20.5.27 to 20.5.30 for its own
+Universal changes, which were not yet released. The merge keeps main's
+20.5.27 unchanged and moves this branch's four versions up by one, with their
+text unchanged: section loading 20.5.28, the finalize_research completion
+check 20.5.29, precise clinical terms 20.5.30, the recurrence trigger 20.5.31.
+The merged file is Universal 20.5.31 (2026-09-30). Records written before the
+merge use the old numbers.
+
+The version-chain test (`tests/reasoning-selection-structure.test.ts`) first
+undoes the merge: it removes main's task-mode text and restores the old
+numbers, and checks that the result is byte-identical to this branch's recorded
+20.5.30. The existing chain then steps back to 20.5.26. So the merged file is
+exactly the branch's changes plus main's task-mode text. The README's protocol
+receipts had also gone stale on this branch (HRP 20.5.29, Universal 20.5.26).
+They now name HRP 20.6.6 and Universal 20.5.31, and the release-packet test
+checks them against the files' own manifests instead of copied values.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 

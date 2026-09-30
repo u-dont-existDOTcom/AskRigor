@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
+import { loadProtocolSnapshot } from "@askrigor/protocol";
 
 import { YOUTUBE_COMMUNITY_AUDIT_SCOPE } from "../apps/research-mcp/src/youtube-mcp-sample.js";
 import { createToolInventory } from "../scripts/generate-tool-inventory.mts";
@@ -399,10 +400,14 @@ describe("AskRigor public-review packet", () => {
     expect(release).toContain("creator-content verification");
     expect(release).toContain("get_youtube_transcript");
     expect(release).toContain("unofficial public YouTube interface");
-    expect(readme).toContain("Universal Instructions `20.5.26`");
-    expect(readme).toContain(
-      "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2",
-    );
+    // The README's receipts name the canonical files as they are, so they are
+    // checked against the files' own manifests rather than copied values.
+    for (const [label, protocol] of [["HRP", "hrp"], ["Universal Instructions", "universal"]] as const) {
+      const { manifest } = await loadProtocolSnapshot(protocol);
+      expect(readme.replace(/\s+/gu, " ")).toContain(
+        `${label} \`${manifest.version}\` (${manifest.revisionDate}), SHA-256 \`${manifest.sha256}\``,
+      );
+    }
     expect(release).toContain("Deployed production protocols");
     expect(release).toContain(
       "Current direct production integrity checks matched both hashes and returned verified true.",

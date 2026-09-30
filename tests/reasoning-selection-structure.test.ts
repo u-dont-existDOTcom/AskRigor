@@ -92,6 +92,26 @@ function occurrences(text: string, needle: string): number {
   return text.split(needle).length - 1;
 }
 
+// Merging main's task-mode integration (Universal 20.5.27, #252) renumbered
+// this branch's 20.5.27 to 20.5.30 as 20.5.28 to 20.5.31. Each pair is
+// [merged text, pre-merge text]; the renumbering runs lowest first.
+const UNIVERSAL_20_5_31_TASK_MODE_MERGE: ReadonlyArray<readonly [RegExp | string, string]> = [
+  ['version="20.5.31" revisionDate="2026-09-30"', 'version="20.5.30" revisionDate="2026-09-29"'],
+  [/<revision version="20\.5\.27" priority="Critical">\nExtended Reasoning Selection with task-mode integration[^<]*<\/revision>\n/u, ""],
+  ['<revision version="20.5.28" ', '<revision version="20.5.27" '],
+  ['<revision version="20.5.29" ', '<revision version="20.5.28" '],
+  ['<revision version="20.5.30" ', '<revision version="20.5.29" '],
+  ['<revision version="20.5.31" ', '<revision version="20.5.30" '],
+  [/\n<task_mode_integration [\s\S]*?<\/task_mode_integration>\n/u, ""],
+  [/Task-mode integration check:[^\n]*\n\n/u, ""],
+];
+
+function matchCount(text: string, pattern: RegExp | string): number {
+  return typeof pattern === "string"
+    ? occurrences(text, pattern)
+    : [...text.matchAll(new RegExp(pattern.source, `${pattern.flags}g`))].length;
+}
+
 // Universal 20.5.30 widened the heuristic-attractor recurrence trigger to
 // findings from any source; each pair is [20.5.30 text, 20.5.29 text].
 const UNIVERSAL_20_5_30_RECURRENCE: ReadonlyArray<readonly [string, string]> = [
@@ -137,7 +157,18 @@ const UNIVERSAL_20_5_27_SECTION_LOADING: ReadonlyArray<readonly [string, string]
 
 describe("canonical Reasoning Selection application", () => {
   it("adds the exact Critical selector and revision without reserializing Universal", async () => {
-    const universal = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
+    const onDisk = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
+    expect(onDisk).toContain('version="20.5.31" revisionDate="2026-09-30"');
+    // Undoing the merge of main's task-mode integration gives this branch's
+    // 20.5.30 bytes exactly; the chains below step back from there to 20.5.26.
+    const universal = UNIVERSAL_20_5_31_TASK_MODE_MERGE.reduce(
+      (text, [merged, prior]) => {
+        expect(matchCount(text, merged), String(merged).slice(0, 60)).toBe(1);
+        return text.replace(merged, prior);
+      },
+      onDisk,
+    );
+    expect(sha256(universal)).toBe("9aca5620910aea329c3219a0e4be70c5a56cf0d6c3e39a73652e2a3ebfe3cee2");
 
     expect(XMLValidator.validate(universal)).toBe(true);
     expect(universal).toMatch(

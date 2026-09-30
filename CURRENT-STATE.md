@@ -40,10 +40,12 @@ registered Reddit app); on MCP the
 treatment-coverage check builds its ledger from signed receipts (option A,
 owner-chosen); a coverage-checker fix from the smoke-run replay
 (first-pass breadth gaps become open leads, and complete grouped blocker lists
-replace eleven messages per call); Universal 20.5.29
-(owner-approved: precise clinical terms replace the euphemism rule) and 20.5.30
+replace eleven messages per call); Universal 20.5.30
+(owner-approved: precise clinical terms replace the euphemism rule) and 20.5.31
 (owner correction, 2026-09-29: a failure class found again after a fix, by
-anyone, stops local fixes); title identity checked by exact comparison, with
+anyone, stops local fixes), on top of main's task-mode integration (Universal
+20.5.27, merged in on 2026-09-30, which moved this branch's Universal numbers up
+by one; records written before then call them 20.5.27 to 20.5.30); title identity checked by exact comparison, with
 rewordings left to the research model (owner correction, 2026-09-29: word
 lists were brittle and English-only); answer checks that work in any language
 (same correction: the model quotes the answer's sentences for each community
