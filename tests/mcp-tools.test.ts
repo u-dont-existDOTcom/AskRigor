@@ -2769,15 +2769,15 @@ describe("AskRigor MCP tools", () => {
         protocol: "hrp",
         manifest: {
           name: "HRP",
-          version: "20.6.6",
-          revisionDate: "2026-09-29",
-          sha256: "0f406dad647ee9b489b9a59da360ea571d7f08ac185401673664357105e2b852"
+          version: "20.6.7",
+          revisionDate: "2026-09-30",
+          sha256: "9ff09e4982ce7dedb2b17010ebd61fd4797948a1ff3713a1287efefdd4d266b0"
         },
         scope: "full",
         page: 1,
         next_page: 2,
         complete: false,
-        scope_sha256: "0f406dad647ee9b489b9a59da360ea571d7f08ac185401673664357105e2b852"
+        scope_sha256: "9ff09e4982ce7dedb2b17010ebd61fd4797948a1ff3713a1287efefdd4d266b0"
       });
       const pageCount = (first.structuredContent as { page_count: number }).page_count;
       expect(first.content).toEqual([
@@ -2820,8 +2820,8 @@ describe("AskRigor MCP tools", () => {
         core_sections: string[];
       };
       expect(indexContent.manifest).toMatchObject({
-        version: "20.5.31",
-        sha256: "111cdecb46352e8cca98cfdb214edcfaf1c09a1cf991abf1c35dc2203d113e98"
+        version: "20.5.32",
+        sha256: "b9aff85a1b05518e4511a49e3581923c4f125b878f9fb881f2f550ae2f6b8d0d"
       });
       expect(indexContent.index).toHaveLength(39);
       expect(indexContent.core_sections).toContain("epistemics");
@@ -2943,9 +2943,9 @@ describe("AskRigor Streamable HTTP server", () => {
           protocol: "universal",
           manifest: {
             name: "AskRigor.com universal saved instructions",
-            version: "20.5.31",
+            version: "20.5.32",
             revisionDate: "2026-09-30",
-            sha256: "111cdecb46352e8cca98cfdb214edcfaf1c09a1cf991abf1c35dc2203d113e98"
+            sha256: "b9aff85a1b05518e4511a49e3581923c4f125b878f9fb881f2f550ae2f6b8d0d"
           }
         });
       } finally {
@@ -2987,8 +2987,8 @@ describe("AskRigor Streamable HTTP server", () => {
           ok: true,
           protocol: "universal",
           manifest: {
-            version: "20.5.31",
-            sha256: "111cdecb46352e8cca98cfdb214edcfaf1c09a1cf991abf1c35dc2203d113e98"
+            version: "20.5.32",
+            sha256: "b9aff85a1b05518e4511a49e3581923c4f125b878f9fb881f2f550ae2f6b8d0d"
           }
         });
       } finally {

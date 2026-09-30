@@ -45,7 +45,12 @@ replace eleven messages per call); Universal 20.5.30
 (owner correction, 2026-09-29: a failure class found again after a fix, by
 anyone, stops local fixes), on top of main's task-mode integration (Universal
 20.5.27, merged in on 2026-09-30, which moved this branch's Universal numbers up
-by one; records written before then call them 20.5.27 to 20.5.30); title identity checked by exact comparison, with
+by one; records written before then call them 20.5.27 to 20.5.30); HRP 20.6.7
+(owner-approved: a small result set is read record by record before anything is
+called not located, outcomes are searched by components and mechanisms, and a
+mixed exposure is searched by its parts); Universal 20.5.32 (owner report: a
+validated correction of a recurring AskRigor failure brings a separate proposed
+lesson and a consented save, and the corrections section is always loaded); title identity checked by exact comparison, with
 rewordings left to the research model (owner correction, 2026-09-29: word
 lists were brittle and English-only); answer checks that work in any language
 (same correction: the model quotes the answer's sentences for each community

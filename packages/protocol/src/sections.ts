@@ -46,6 +46,7 @@ const CORE_SECTIONS: Record<ProtocolName, readonly string[]> = {
     "sources",
     "untrusted_content",
     "reasoning_style",
+    "corrections_and_calibration",
     "health_labs_supplements_environmental_health",
     "null_evidence_and_safety_language",
     "output_style"

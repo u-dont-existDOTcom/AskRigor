@@ -1364,6 +1364,51 @@ receipts had also gone stale on this branch (HRP 20.5.29, Universal 20.5.26).
 They now name HRP 20.6.6 and Universal 20.5.31, and the release-packet test
 checks them against the files' own manifests instead of copied values.
 
+## Owner decisions of 2026-09-30 (04:33 UTC) and the lesson report
+
+- **5: merge.** UDA #285 (pattern-matching fit, recurring-finding check) was
+  merged as `4bb55bb` after its checks passed and it was clean against UDA main.
+- **7: A, HRP 20.6.7.** `SmallResultSetAndExposureDecomposition` (87 words)
+  sits beside `HistoricalVocabularyAndCitationBackchain`. It says:
+  - read every record's title in a set of up to about 50, and its abstract when
+    the title does not settle relevance, before concluding that relevant
+    evidence was not located;
+  - search the outcome under its components and mechanisms;
+  - split a mixed or ambiguous exposure into its parts.
+  `HistoricalTerminologyAndEndpointExpansionTrigger` now routes to it. A test
+  undoes exactly these edits and gets HRP 20.6.6's recorded bytes. The server
+  side (whole small result sets, the sparse-search note, bounded absence
+  claims) was already in place.
+- **6: A.** The scout's search description is written in English and the
+  person's language is passed separately. The privacy screen is unchanged.
+- **Lesson report (owner, 2026-09-30).** A ChatGPT connector chat found a
+  recurring AskRigor failure and went straight to an engineering report. It
+  never said the lesson was worth saving and never showed the lesson. Causes:
+  - Universal's corrections section said to turn a correction into a future
+    rule, but not to offer the lesson;
+  - the lesson flow (`project/LESSON_CAPTURE_MODULE.md`, the GPT's
+    `submit_lesson_candidate` Action) exists only for the Custom GPT and
+    ChatGPT Projects;
+  - the connector has no lesson tool;
+  - with section loading, the corrections section loaded only when the model
+    judged it applied.
+
+  Universal 20.5.32 (a model-behavior change) adds to
+  `corrections_and_calibration`:
+  - a correction rechecked and found valid, showing an AskRigor failure that
+    could recur for others, brings a separate proposed lesson;
+  - it is submitted only on the user's yes, through a lesson tool or Action
+    the surface offers, or else the user is pointed to the lesson Action.
+
+  The section is now a Universal core section, because corrections arrive at
+  unpredictable points. A connector lesson tool would reverse the module's
+  "not an MCP operation" design, so it is owner question 8.
+- **Instruction load.**
+  - Universal's always-loaded core grows from 16,883 to 19,466 bytes (+2,583,
+    the corrections section with its new paragraph).
+  - The Universal file grows by 1,188 bytes and HRP by 1,314. HRP's core is
+    unchanged.
+
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 
 - Iteration for each candidate: focused tests plus one or two development

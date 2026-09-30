@@ -20,7 +20,7 @@ function section(startMarker: string, endMarker: string): string {
 describe("Universal recommendation-preflight integrity gate", () => {
   it("preserves the 20.5.26 recommendation gate under Universal 20.5.27", () => {
     expect(XMLValidator.validate(protocol)).toBe(true);
-    expect(protocol).toContain('version="20.5.31" revisionDate="2026-09-30"');
+    expect(protocol).toContain('version="20.5.32" revisionDate="2026-09-30"');
     expect(protocol).toContain('<revision version="20.5.26" priority="Critical">');
     expect(protocol).toContain('<revision version="20.5.25" priority="Critical">');
     expect(protocol.match(/<recommendation_preflight_integrity_gate\b/gu)).toHaveLength(1);
