@@ -506,7 +506,7 @@ describe("PubMed search summaries", () => {
     }
   );
 
-  it("keeps a search complete when the summary request stays rate limited", async () => {
+  it("tries the summary once and keeps the search complete when it is rate limited", async () => {
     vi.useFakeTimers();
     const limited = await fixture("rate-limit.txt");
     const requests = stubNcbi(
@@ -518,7 +518,7 @@ describe("PubMed search summaries", () => {
     await vi.runAllTimersAsync();
     const result = await pending;
 
-    expect(requests.at(-1)!.pathname).toBe(ESUMMARY_PATH);
+    expect(requests.map(({ pathname }) => pathname)).toEqual([ESEARCH_PATH, ESUMMARY_PATH]);
     expect(result.data).toStrictEqual([{ pmid: "40123456" }, { pmid: "39876543" }]);
     expect(result.access_status).toBe("complete");
     expect(result.error).toBeUndefined();

@@ -22,6 +22,7 @@ const MAX_PAGE_SIZE = 100;
 const PUBMED_ESEARCH_LIMIT = 10_000;
 const ESEARCH_LIMITATION =
   "PubMed ESearch exposes only the first 10,000 results for a query; refine the query to retrieve additional records.";
+const ESUMMARY_TIMEOUT_MS = 5_000;
 const ESUMMARY_LIMITATION =
   "PubMed returned the IDs but not their titles; fetch_pubmed_record gives each record.";
 const EFETCH_LIMITATION =
@@ -367,7 +368,11 @@ const withSummaries = async (
     url.searchParams.set("retmode", "json");
 
     const parsedResponse = esummaryResponseSchema.safeParse(
+      // Titles are an aid, not the search: one short attempt, so a slow
+      // summary cannot hold the search past the client's wait.
       await fetchJson(url.toString(), {
+        timeoutMs: ESUMMARY_TIMEOUT_MS,
+        maxRetries: 0,
         beforeAttempt: () => takeRequestSlot(config)
       })
     );
