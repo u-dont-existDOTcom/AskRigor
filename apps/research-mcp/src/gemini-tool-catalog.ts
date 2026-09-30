@@ -34,6 +34,7 @@ export function installGeminiCompatibleToolCatalog(server: McpServer): void {
       "search_research_frontiers",
       "manage_research_access",
       "submit_research_contribution",
+      "submit_lesson_candidate",
       "assess_treatment_landscape_coverage",
       "scout_gemini_youtube_candidates",
       "finalize_research",

@@ -102,6 +102,8 @@ import {
   type AskRigorOAuthResourceServer,
 } from "./oauth-resource-server.js";
 
+import type { LessonSubmissionResult } from "./lessons/contracts.js";
+
 export type McpToolCatalogProfile = "standard" | "gemini";
 
 export interface AskRigorMcpServerOptions {
@@ -111,6 +113,8 @@ export interface AskRigorMcpServerOptions {
   researchContributorAccessService?: ResearchContributorAccessService;
   researchContributionReviewService?: ResearchContributionReviewService;
   researchAccessRequired?: boolean;
+  /** Replaces the production lesson queue, for tests. */
+  lessonSubmission?: (raw: unknown) => Promise<LessonSubmissionResult>;
 }
 
 export function createAskRigorServer(

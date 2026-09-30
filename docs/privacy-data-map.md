@@ -251,11 +251,17 @@ AskRigor has deliberately separate processing paths:
   content is untrusted input; it is parsed as data and never executed as
   instructions.
 - **Optional lesson path:** after AskRigor validates a concrete criticism and
-  obtains separate consent, the consequential Custom GPT Action accepts a
-  derived candidate, screens it, sends the derived fields to a fixed OpenAI
-  privacy check, and writes a private GitHub review candidate plus anonymous
-  occurrence metadata. It is not an MCP operation and cannot change code,
-  protocols, instructions, providers, or releases.
+  obtains separate consent, the consequential Custom GPT Action or the
+  connector's `submit_lesson_candidate` tool (owner decision, 2026-09-30; behind
+  the research-access guard) accepts a derived candidate. Both use one service:
+  a deterministic screen and local schema check (production makes no model or
+  API call on this path; see `apps/research-mcp/src/lessons/runtime.ts`), shared
+  rate limits, and a private GitHub review candidate plus anonymous occurrence
+  metadata. The connector tool takes no incident provenance; raw incident
+  capture stays with the private incident Action. Neither can change code,
+  protocols, instructions, providers, or releases. The fixed OpenAI privacy check
+  described below is legacy configuration that the production lesson path does
+  not call.
 - **Automated Gemini-candidate path:** a public read-only Action and the
   `scout_gemini_youtube_candidates` MCP tool (behind the research-access guard)
   share one implementation and accept only a

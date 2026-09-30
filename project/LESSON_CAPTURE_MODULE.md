@@ -1,8 +1,10 @@
 # AskRigor Lesson Capture Module
 
 Use this module only after the Project router activates it. It governs the
-conversation around the consequential lesson-capture Actions; it is not part of
-HRP research routing and it is not an MCP operation.
+conversation around the consequential lesson-capture Actions and the connector's
+`submit_lesson_candidate` tool; it is not part of HRP research routing. The
+connector tool takes only the generalized lesson: incident capture remains a
+private Action.
 
 ## Mandatory instruction
 

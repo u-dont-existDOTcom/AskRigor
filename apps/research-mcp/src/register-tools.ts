@@ -51,6 +51,13 @@ import {
 } from "./config.js";
 import { createConcurrencyLimiter } from "./rate-limit.js";
 import {
+  connectorLessonInputSchema,
+  connectorLessonOutputSchema,
+  connectorLessonToolResult,
+} from "./lessons/connector-tool.js";
+import type { LessonSubmissionResult } from "./lessons/contracts.js";
+import { submitConnectorLessonCandidate } from "./lessons/runtime.js";
+import {
   protocolErrorResult,
   protocolRequestError,
   successfulToolResult
@@ -570,6 +577,11 @@ const RESEARCH_ACCESS_CONTROL_OPERATION_NAMES = new Set([
   "manage_research_access",
   "submit_research_contribution",
 ]);
+// The GPT keeps its own lesson Action, so the connector's lesson tool has no
+// research Action path.
+const CONNECTOR_ONLY_OPERATION_NAMES = new Set([
+  "submit_lesson_candidate",
+]);
 
 export interface RegisterToolsOptions {
   publicEvidenceGapReviewService?: PublicEvidenceGapIntakeService;
@@ -578,6 +590,8 @@ export interface RegisterToolsOptions {
   researchContributorAccessService?: ResearchContributorAccessService;
   researchContributionReviewService?: ResearchContributionReviewService;
   researchAccessRequired?: boolean;
+  /** Replaces the production lesson queue, for tests. */
+  lessonSubmission?: (raw: unknown) => Promise<LessonSubmissionResult>;
 }
 
 function defineResearchOperations(
@@ -1752,6 +1766,22 @@ function defineResearchOperations(
       );
     }
   );
+
+  // Owner decision (2026-09-30): lessons are saved from the connector too, not
+  // only from the GPT. Same candidate, privacy screen, limits and private queue
+  // as the lesson Action; behind the research-access guard like other tools.
+  registrar.registerTool(
+    "submit_lesson_candidate",
+    {
+      description: "Save one validated AskRigor lesson to the owner's private review queue, only after the user says yes to the lesson as shown to them. Send only the generalized lesson: no identity, personal health story, quotation, chat text or unnecessary link. Returns a receipt, never the stored lesson.",
+      inputSchema: connectorLessonInputSchema,
+      outputSchema: connectorLessonOutputSchema,
+      annotations: MUTATING_ANNOTATIONS,
+    },
+    async (input) => connectorLessonToolResult(
+      await (options.lessonSubmission ?? submitConnectorLessonCandidate)(input),
+    ),
+  );
 }
 
 // Compound rule, module and case names in the canonical protocols, such as
@@ -2303,7 +2333,8 @@ function collectResearchOperations(
           !OPEN_FULL_TEXT_MCP_OPERATION_NAMES.has(name) &&
           !ACTION_BACKED_MCP_OPERATION_NAMES.has(name) &&
           !PRIVATE_MCP_OPERATION_NAMES.has(name) &&
-          !RESEARCH_ACCESS_CONTROL_OPERATION_NAMES.has(name),
+          !RESEARCH_ACCESS_CONTROL_OPERATION_NAMES.has(name) &&
+          !CONNECTOR_ONLY_OPERATION_NAMES.has(name),
         execute: guardedExecute,
         mcpConfig
       }));
@@ -2312,8 +2343,8 @@ function collectResearchOperations(
   } as unknown as Pick<McpServer, "registerTool">;
 
   defineResearchOperations(registrar, options);
-  if (operations.length !== 30) {
-    throw new Error(`Expected 30 research operations; received ${operations.length}`);
+  if (operations.length !== 31) {
+    throw new Error(`Expected 31 research operations; received ${operations.length}`);
   }
   if (new Set(operations.map(({ name }) => name)).size !== operations.length) {
     throw new Error("Research operation names must be unique");

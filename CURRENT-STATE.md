@@ -50,7 +50,9 @@ by one; records written before then call them 20.5.27 to 20.5.30); HRP 20.6.7
 called not located, outcomes are searched by components and mechanisms, and a
 mixed exposure is searched by its parts); Universal 20.5.32 (owner report: a
 validated correction of a recurring AskRigor failure brings a separate proposed
-lesson and a consented save, and the corrections section is always loaded); title identity checked by exact comparison, with
+lesson and a consented save, and the corrections section is always loaded); the
+connector's `submit_lesson_candidate` tool (owner decision: lessons are not
+GPT-only; same service, screen, limits and private queue as the lesson Action); title identity checked by exact comparison, with
 rewordings left to the research model (owner correction, 2026-09-29: word
 lists were brittle and English-only); answer checks that work in any language
 (same correction: the model quotes the answer's sentences for each community

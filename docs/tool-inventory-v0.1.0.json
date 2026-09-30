@@ -12783,6 +12783,173 @@
           }
         ]
       }
+    },
+    {
+      "name": "submit_lesson_candidate",
+      "description": "Save one validated AskRigor lesson to the owner's private review queue, only after the user says yes to the lesson as shown to them. Send only the generalized lesson: no identity, personal health story, quotation, chat text or unnecessary link. Returns a receipt, never the stored lesson.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "missing_sources",
+              "conflicting_claims",
+              "incomplete_research",
+              "evidence_weighting",
+              "community_corpus",
+              "tool_semantics",
+              "protocol_execution",
+              "privacy_or_safety",
+              "usability",
+              "other"
+            ]
+          },
+          "general_lesson": {
+            "type": "string",
+            "minLength": 40,
+            "maxLength": 600,
+            "description": "\"When [general situation], AskRigor should [correct behavior] because [reason].\""
+          },
+          "expected_behavior": {
+            "type": "string",
+            "minLength": 40,
+            "maxLength": 1200
+          },
+          "failure_reason": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 800
+          },
+          "synthetic_regression_example": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 1200,
+            "description": "A made-up case, with no real person's details."
+          },
+          "evidence_basis": {
+            "type": "string",
+            "enum": [
+              "assistant_self_check",
+              "tool_receipt_conflict",
+              "source_recheck",
+              "instruction_mismatch"
+            ]
+          },
+          "askrigor_version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "protocol_identities": {
+            "maxItems": 4,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "version": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              },
+              "required": [
+                "name",
+                "version"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "consent_scope": {
+            "type": "string",
+            "enum": [
+              "once",
+              "conversation"
+            ],
+            "description": "\"conversation\" only after the user said yes for the whole chat."
+          }
+        },
+        "required": [
+          "category",
+          "general_lesson",
+          "expected_behavior",
+          "failure_reason",
+          "synthetic_regression_example",
+          "evidence_basis",
+          "consent_scope"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "submitted",
+              "existing_candidate",
+              "privacy_rejected",
+              "rate_limited",
+              "anonymizer_unavailable",
+              "github_unavailable"
+            ]
+          },
+          "retryable": {
+            "type": "boolean"
+          },
+          "candidate_id": {
+            "type": "string"
+          },
+          "occurrence_count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "retry_after_seconds": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "reason_code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "retryable"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "_meta": {
+        "securitySchemes": [
+          {
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
+          }
+        ]
+      }
     }
   ]
 }

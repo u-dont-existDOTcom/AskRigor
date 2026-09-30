@@ -18,7 +18,9 @@ import {
 import {
   createDefaultActionRoutes,
   createLessonRuntimeFromEnv,
+  submitConnectorLessonCandidate,
 } from "../apps/research-mcp/src/lessons/runtime.js";
+import { RESEARCH_OPERATIONS } from "../apps/research-mcp/src/register-tools.js";
 import {
   createAskRigorHttpServer,
   createAskRigorServer,
@@ -468,18 +470,84 @@ describe("consequential lesson Action", () => {
     }
   });
 
-  it("does not add a lesson operation to the thirty-tool MCP inventory", async () => {
-    const server = createAskRigorServer();
+  // Owner decision (2026-09-30): lessons are saved from the connector too, not only
+  // from the GPT. The connector tool has no research Action path (the GPT keeps its
+  // own lesson Action) and stays out of the Gemini catalog.
+  it("adds the lesson operation to the MCP inventory, without a research Action path", async () => {
+    for (const profile of ["standard", "gemini"] as const) {
+      const server = createAskRigorServer(profile);
+      const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+      const client = new Client({ name: "lesson-action-test", version: "1.0.0" });
+      await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+      try {
+        const names = (await client.listTools()).tools.map(({ name }) => name);
+        if (profile === "standard") {
+          expect(names).toHaveLength(31);
+          expect(names).toContain("submit_lesson_candidate");
+        } else {
+          expect(names).not.toContain("submit_lesson_candidate");
+        }
+      } finally {
+        await Promise.all([client.close(), server.close()]);
+      }
+    }
+    const operation = RESEARCH_OPERATIONS.find(({ name }) => name === "submit_lesson_candidate");
+    expect(operation?.actionEnabled).toBe(false);
+  });
+
+  it("submits a connector lesson through the lesson service and returns only its public receipt", async () => {
+    const received: unknown[] = [];
+    const replies: LessonSubmissionResult[] = [
+      submitted(),
+      { status: "privacy_rejected", retryable: false, reason_code: "unsafe_candidate" },
+      { status: "rate_limited", retryable: true, retry_after_seconds: 120, reason_code: "hourly_limit" },
+    ];
+    const server = createAskRigorServer("standard", {
+      lessonSubmission: async (raw) => {
+        received.push(raw);
+        return replies.shift()!;
+      },
+    });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const client = new Client({ name: "lesson-action-test", version: "1.0.0" });
     await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
     try {
-      const tools = await client.listTools();
-      expect(tools.tools).toHaveLength(30);
-      expect(tools.tools.map(({ name }) => name)).not.toContain("submit_lesson_candidate");
+      const saved = await client.callTool({ name: "submit_lesson_candidate", arguments: validCandidate });
+      expect(saved.isError).not.toBe(true);
+      expect(saved.content).toEqual([{ type: "text", text: "Lesson saved for review as ARL-0042." }]);
+      expect(saved.structuredContent).toEqual(submitted());
+      expect(received).toEqual([validCandidate]);
+
+      const rejected = await client.callTool({ name: "submit_lesson_candidate", arguments: validCandidate });
+      expect(rejected.isError).toBe(true);
+      expect(JSON.stringify(rejected.content)).toContain("Not saved: the privacy check");
+
+      const limited = await client.callTool({ name: "submit_lesson_candidate", arguments: validCandidate });
+      expect(limited.isError).toBe(true);
+      expect(JSON.stringify(limited.content)).toContain("try again in about 120 seconds");
+
+      // No incident provenance on the connector: raw incident capture stays with the private Action.
+      const withIncident = await client.callTool({
+        name: "submit_lesson_candidate",
+        arguments: {
+          ...validCandidate,
+          incident_provenance: { incident_id: "ALI-0001", incident_sha256: "b".repeat(64), preservation_status: "EXACT_TRANSCRIPT_PRESERVED" },
+        },
+      });
+      expect(withIncident.isError).toBe(true);
+      expect(received).toHaveLength(3);
     } finally {
       await Promise.all([client.close(), server.close()]);
     }
+  });
+
+  it("returns the unavailable receipt when the connector's lesson queue is not configured", async () => {
+    clearRuntimeEnvironment();
+    await expect(submitConnectorLessonCandidate(validCandidate)).resolves.toEqual({
+      status: "github_unavailable",
+      retryable: false,
+      reason_code: "github_auth_unavailable",
+    });
   });
 });
 

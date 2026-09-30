@@ -1403,6 +1403,27 @@ checks them against the files' own manifests instead of copied values.
   The section is now a Universal core section, because corrections arrive at
   unpredictable points. A connector lesson tool would reverse the module's
   "not an MCP operation" design, so it is owner question 8.
+- **8: A, a connector lesson tool** (owner: "there should not be a gpt only
+  design ... focus on the plugin and the upcoming API-calling web app").
+  `submit_lesson_candidate` is now the 31st connector tool, on `/mcp` and
+  `/mcp/claude`:
+  - it uses the lesson Action's service: the same candidate schema without
+    incident provenance, the same deterministic screen, shared rate limits and
+    the same private GitHub queue, with no model call;
+  - it sits behind the research-access guard;
+  - it has no research Action path and is left out of the Gemini catalog;
+  - the service no longer depends on the GPT Action switch, so turning GPT
+    Actions off will not break it.
+  The public submission packet, AGENTS.md's plugin check and the tool inventory
+  now say 31 tools. The privacy map now states that production's lesson path
+  makes no OpenAI call (that check is legacy configuration).
+- **Atlas (owner question).** The public discovery atlas (spec 2026-08-30) is
+  an atlas of findings, not of people. Its phases 1 to 8 were never started;
+  they wait for the owner to select the milestone. Only contracts and a
+  synthetic forum lab exist, and there is no site page. The evidence repository
+  deliberately stores no author or person identity, so researchers named in
+  past answers have nowhere to go. A researcher directory would need a new
+  owner decision.
 - **Instruction load.**
   - Universal's always-loaded core grows from 16,883 to 19,466 bytes (+2,583,
     the corrections section with its new paragraph).

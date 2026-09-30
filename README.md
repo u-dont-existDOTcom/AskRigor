@@ -400,7 +400,10 @@ rollback, and acceptance steps are in `docs/custom-gpt-actions-setup.md` and
 The lesson Action accepts only a separately consented, generalized candidate,
 runs deterministic and fixed-model privacy checks, and writes only to a private
 human-review queue. It never receives raw chat, does not modify AskRigor, and
-does not change the 17-tool read-only MCP inventory. Setup, secret handling,
+does not change the 17-tool read-only MCP inventory. The connector now offers the
+same lesson write as `submit_lesson_candidate` (owner decision, 2026-09-30; in
+AskRigor#246, not yet deployed), using the same service, screen, limits and private
+queue, without incident provenance. Setup, secret handling,
 synthetic acceptance, queue status, rollback, and key rotation are documented
 in `docs/custom-gpt-actions-setup.md`.
 
