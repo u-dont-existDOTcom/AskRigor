@@ -784,7 +784,19 @@ function compactTitle(value: string): string {
 // " - subtitle" part, and trailing hashtags. A hashtag has a letter in it, so
 // an episode number such as "#12" is part of the title.
 const TITLE_ADDITION_BREAK = /\s[|\u2013\u2014-]\s/u;
-const TRAILING_HASHTAGS = /(?:\s+#[\p{N}_]*\p{L}[\p{L}\p{M}\p{N}_]*)+\s*$/u;
+const HASHTAG = /^#[\p{N}_]*\p{L}[\p{L}\p{M}\p{N}_]*$/u;
+
+/**
+ * The title without its trailing hashtags, each of which follows whitespace.
+ * It works token by token, in time linear in the title's length; a single
+ * regular expression for the whole run backtracks on long runs of spaces.
+ */
+function withoutTrailingHashtags(title: string): string {
+  const parts = title.trimEnd().split(/(\s+)/u);
+  let end = parts.length;
+  while (end >= 3 && HASHTAG.test(parts[end - 1]!)) end -= 2;
+  return end === parts.length ? title : parts.slice(0, end).join("");
+}
 
 /**
  * Whether YouTube's title is the declared title: equal ignoring case, spacing
@@ -795,9 +807,9 @@ const TRAILING_HASHTAGS = /(?:\s+#[\p{N}_]*\p{L}[\p{L}\p{M}\p{N}_]*)+\s*$/u;
  * the research model, which reads them.
  */
 export function youtubeTitlesEqual(provider: string, declared: string): boolean {
-  const target = compactTitle(declared.replace(TRAILING_HASHTAGS, ""));
+  const target = compactTitle(withoutTrailingHashtags(declared));
   if (target.length === 0) return false;
-  const untagged = provider.replace(TRAILING_HASHTAGS, "");
+  const untagged = withoutTrailingHashtags(provider);
   return [provider, untagged, untagged.split(TITLE_ADDITION_BREAK)[0]!].some((title) => compactTitle(title) === target);
 }
 

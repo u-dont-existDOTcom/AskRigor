@@ -467,6 +467,21 @@ describe("Gemini YouTube candidate handoff", () => {
     }
   });
 
+  it("strips trailing hashtags in time linear in the title's length", () => {
+    // A single regular expression for the whole hashtag run backtracks on long runs of spaces
+    // (CodeQL: polynomial regular expression on provider titles).
+    const spaces = " ".repeat(100_000);
+    const started = performance.now();
+    expect(youtubeTitlesEqual(`Hip${spaces}diary`, "Hip diary")).toBe(true);
+    expect(youtubeTitlesEqual(`Hip diary #hiprecovery${spaces}`, "Hip diary")).toBe(true);
+    expect(youtubeTitlesEqual(`Hip diary${spaces}#12`, "Hip diary")).toBe(false);
+    expect(youtubeTitlesEqual("Hip diary", `Hip diary${spaces}#hip${spaces}`)).toBe(true);
+    expect(performance.now() - started).toBeLessThan(1_000);
+    // A title that is only a hashtag keeps it: a trailing hashtag follows whitespace.
+    expect(youtubeTitlesEqual("#hiprecovery", "#hiprecovery")).toBe(true);
+    expect(youtubeTitlesEqual("Hip diary #hip!", "Hip diary")).toBe(false);
+  });
+
   it("keeps an API-visible candidate unresolved when required identity fields are missing", async () => {
     const getVideo = vi.fn(async (videoId: string) => {
       const envelope = videoEnvelope(videoId);
