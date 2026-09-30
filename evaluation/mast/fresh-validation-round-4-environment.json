@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 1,
+  "studyId": "askrigor-mast-fresh-validation-round-4-20260919",
+  "askRigor": {
+    "repository": "u-dont-existDOTcom/AskRigor",
+    "baselineCommit": "b67441959d73a667d87c08369aa9b5613c700738",
+    "baselineTree": "2f370321615347df1a1aa7d3f6ffc470e04803d1",
+    "universal": {
+      "version": "20.5.26",
+      "revisionDate": "2026-09-17",
+      "sha256": "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2",
+      "canonicalRepository": "u-dont-existDOTcom/universal-dev-architecture",
+      "canonicalCommit": "1df60d86a08acceb34076488d7cbb33363a1c4d9",
+      "canonicalTree": "52e8a73f2d872af41c46ed7864882a93db73704e"
+    },
+    "hrp": {
+      "version": "20.5.29",
+      "revisionDate": "2026-09-12",
+      "sha256": "254759df38934c28b06709dace9fcb266fc9967913be1296de99a461be596816"
+    }
+  },
+  "mast": {
+    "repository": "ARISENetwork/mast",
+    "commit": "57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee",
+    "tree": "f73e1cb717d3e76353b190abc13739d7f3476798"
+  },
+  "historicalRounds": {
+    "round1": "DEVELOPMENT_PROCESS_EVIDENCE_ONLY",
+    "round2": {
+      "status": "INDETERMINATE",
+      "validationEligible": false,
+      "sealedResponses": 1,
+      "plannedResponses": 144,
+      "furtherPromptsAuthorized": false,
+      "dispositionSha256": "594bb0d255ac3dcd1fd555a6397f50470451d80ad1a47e8dac090f5b7c3211bc"
+    },
+    "round3": {
+      "status": "STOPPED_PRE_RESPONSE_1",
+      "validationEligible": false,
+      "sealedResponses": 0,
+      "plannedResponses": 120,
+      "exposedFamilies": [],
+      "furtherPromptsAuthorized": false
+    }
+  },
+  "runtime": {
+    "node": "24.18.0",
+    "npm": "11.16.0",
+    "os": "linux"
+  },
+  "implementationRuntime": {
+    "model": "GPT-5.6 Sol",
+    "reasoningEffort": "Medium",
+    "escalationUsed": false
+  },
+  "generation": {
+    "surface": "CHATGPT_CONSUMER",
+    "modelVisibleLabel": "GPT-5.6 Sol",
+    "reasoningVisibleLabel": "Extra High",
+    "reasoningOrdinal": "4 of 5",
+    "backendModelSlug": null,
+    "temperature": null,
+    "topP": null,
+    "samplingSeed": null,
+    "maxOutputTokens": null,
+    "freshTemporaryChatPerSubmission": true,
+    "personalization": "UNPERSONALIZED",
+    "toolsAllowed": false,
+    "providerApiCredentials": false,
+    "transport": {
+      "primary": "VPS_LOCAL_PLAYWRIGHT_OVER_DURABLE_LOOPBACK_CDP",
+      "fallback": null,
+      "device": "srv1894948",
+      "user": "cloudbrowser",
+      "browser": "Brave",
+      "browserProfile": "/home/cloudbrowser/.config/brave-mast-round3",
+      "displayService": "askrigor-mast-round3-xvfb.service",
+      "browserService": "askrigor-mast-round3-brave.service",
+      "watchdogService": "askrigor-mast-round3-watchdog.service",
+      "cdpEndpoint": "http://127.0.0.1:9224",
+      "nodeVersion": "22.23.2",
+      "playwrightCoreVersion": "1.63.0",
+      "privateRoot": "/home/cloudbrowser/.local/share/askrigor-mast-round4",
+      "authenticatedMachineToMachinePacketTransfer": true,
+      "sourceDestinationSha256EqualityRequired": true,
+      "fileAttachmentAllowed": false,
+      "wrapperTextAllowed": false,
+      "clipboardAllowed": false,
+      "externalRelayAllowed": false,
+      "maximumNormalTabCount": 2,
+      "lineEndingNormalization": "CRLF_OR_CR_TO_LF_ONLY",
+      "completeComposerReadbackRequired": true,
+      "sourceDestinationComposerSha256EqualityRequiredBeforeSend": true,
+      "sendIntentPersistedBeforeClick": true,
+      "sentReceiptPersistedImmediatelyAfterClick": true,
+      "postSendAutomaticResendAllowed": false,
+      "exactOneFullMessageHashRecoveryRequired": true,
+      "unresolvedRecoveryStopsWholeStudy": true,
+      "postSendRecoveryOptional": true,
+      "normalPathAcceptanceRequired": true,
+      "deliberatePostSendRestartAcceptanceRequired": false
+    }
+  },
+  "evaluation": {
+    "J1": {
+      "surface": "CHATGPT_CONSUMER",
+      "modelVisibleLabel": "GPT-5.6 Sol",
+      "reasoningVisibleLabel": "Extra High"
+    },
+    "J2": {
+      "surface": "CHATGPT_CONSUMER",
+      "modelVisibleLabel": "GPT-5.6 Sol",
+      "reasoningVisibleLabel": "Extra High"
+    },
+    "J3": {
+      "surface": "CHATGPT_CONSUMER",
+      "modelVisibleLabel": "Latest",
+      "reasoningVisibleLabel": "Pro",
+      "reasoningOrdinal": "5 of 5"
+    },
+    "primaryPassCount": 2,
+    "adjudicationTrigger": "ANY_SCORE_VECTOR_DISAGREEMENT",
+    "blinding": "OPAQUE_RESPONSE_IDS_WITH_SEALED_CONDITION_MAP"
+  },
+  "runtimeFileHashes": {
+    "browserUnitSha256": "bff4d9206034adb0b593cceb44f9cdce775b80978cc36300705b5768df853be0",
+    "displayUnitSha256": "48507c3730a93786a704d76783afd1a06bed6d1e013a94677d26ba6ad1c5f1c5",
+    "watchdogUnitSha256": "e8a3aed3878d28d3e21130e66e86009be574b3516622fef0be91365cbdb68881",
+    "browserWrapperSha256": "94b46d2083f7a0dffc5071a4ac6e164bbd2eff4092d2bd094ecd90b11ba1421f",
+    "watchdogScriptSha256": "44cadf1cb597ba0d68b227aea762be0e921d80e1e5147cbfcaa49cec00ba392e",
+    "transportScriptSha256": "d15d62de09f98d837a678d97b89fb213229079f7b1e690bf84f91138a2b58d8f"
+  },
+  "executableHashManifest": {
+    "evaluation/mast/src/fresh-validation.ts": "08f2170214f24f2120b0e7977bae41345708498e6c5ce3cd882c6e988f9c697a",
+    "evaluation/mast/src/fresh-validation-round-4-base.ts": "71b4b73e45007dbf0a540c5b4527237f0c7d9329b9066af4271e6cdf8887272e",
+    "evaluation/mast/src/fresh-validation-round-4.ts": "211d0a7a6439d2b0baa240f2d3074781ab45f161781f77b98e908b97136678d4",
+    "evaluation/mast/src/chatgpt-browser-transport-round-4.ts": "40dfa9eae1ba4786a0a7d5ca5ba81791290729c0252952a540403ecf83b57526",
+    "evaluation/mast/src/durable-vps-round-4.ts": "563ea04a5f3fcfda3b27255db62712e3da2071f39cc3dfb3ac61ac1d78633894",
+    "evaluation/mast/src/vps-cdp-transport-round-4.ts": "ff5c83c82686217ab1dbaf4e60bb4f706a2447cf5861521d52ec8136b430f25e",
+    "evaluation/mast/vps-runtime-round-3/package.json": "71cb85dc2273c6730e4bf5e40595db0ca0ef67728503da34d4faf2ccece1f730",
+    "evaluation/mast/vps-runtime-round-3/package-lock.json": "2bb3c7768a284636fbe968ce71980b515e1e7f33e9ba60e897812b3a28c79ab8",
+    "scripts/mast-fresh-validation-round-4.mts": "f1735ef1dddc068e379c3669a1de3617c80a6f272eb53cdc24af62832b4fa10c",
+    "scripts/mast-vps-cdp-generation-round-4.mjs": "d15d62de09f98d837a678d97b89fb213229079f7b1e690bf84f91138a2b58d8f",
+    "scripts/mast-vps-round4-orchestrator.mts": "95b5e615bfa682b619a712a28bf5511ce6ea744decd5feaf275fd2e8b854ffb9",
+    "deploy/systemd/askrigor-mast-round3-xvfb.service": "48507c3730a93786a704d76783afd1a06bed6d1e013a94677d26ba6ad1c5f1c5",
+    "deploy/systemd/askrigor-mast-round3-brave.service": "bff4d9206034adb0b593cceb44f9cdce775b80978cc36300705b5768df853be0",
+    "deploy/systemd/askrigor-mast-round3-watchdog.service": "e8a3aed3878d28d3e21130e66e86009be574b3516622fef0be91365cbdb68881",
+    "deploy/vps/brave-mast-round3.sh": "94b46d2083f7a0dffc5071a4ac6e164bbd2eff4092d2bd094ecd90b11ba1421f",
+    "deploy/vps/cdp-watchdog.sh": "44cadf1cb597ba0d68b227aea762be0e921d80e1e5147cbfcaa49cec00ba392e",
+    "docs/directives/2026-09-20-mast-fresh-validation-round-4.md": "8add457e8ff07131e8c8141889ae30ae8af01392567a8fe98da76854f0a89c6a",
+    "docs/directives/2026-09-20-mast-fresh-validation-round-4.json": "a38cfd3f24b90d7b793db850ea383f7c906b92c117f93c44305bfb18d99e9601",
+    "evaluation/mast/prompts/fresh-round-4-primary-judge.md": "74320d015531a15ab38b1cb53778a829b9c9f86c8e9893817246b8ef37b7df08",
+    "evaluation/mast/prompts/fresh-round-4-adjudicator.md": "c2f8c3040c9821f156027eb46dbf6155cb72377720dcb127d49f877ebfd19558",
+    "evaluation/mast/prompts/fresh-round-4-benchmark-integrity.md": "c0315649bd0428792c831f25147cd8dc4a85ec8d1db01ef09c8fb8ca719c299e",
+    "tests/mast-fresh-validation-round-4.test.ts": "92cceb66e9ab376cedc5974b62439b07c368190914fe0b057c6359e14871bb7f",
+    "tests/mast-round-4-durable-vps.test.ts": "6f800967d2e5023a0fb5900ac6686a153b0ac2d614b6848f5471f646a4e2845d",
+    "tests/external-evaluation-task.test.ts": "a7435255f6b60af1834984dcadb1272705f48c6beda9709b1591b571a534c779",
+    "package.json": "1fc137fe465cc8eaf2df93e51c26539539beb2582cbfb555cc48edf59f4f90ca",
+    "package-lock.json": "3f54a7c2001c62a7fefbbceab0ba0ed15bfcedbc6868d1eaf4915ef176478a17"
+  },
+  "componentBindings": {
+    "cohortSelectorAndExposureLedger": "evaluation/mast/src/fresh-validation-round-4.ts + evaluation/mast/fresh-validation-round-4-family-manifest.json",
+    "generationPacketBuilder": "scripts/mast-fresh-validation-round-4.mts",
+    "generationBrowserTransport": "scripts/mast-vps-cdp-generation-round-4.mjs",
+    "generationVpsOrchestrator": "scripts/mast-vps-round4-orchestrator.mts",
+    "durableBrowserRuntime": "unchanged Round-3 systemd units/profile/wrappers, hash-bound into Round 4",
+    "postSendRecovery": "evaluation/mast/src/durable-vps-round-4.ts + scripts/mast-vps-cdp-generation-round-4.mjs",
+    "responseCaptureAndSealing": "scripts/mast-fresh-validation-round-4.mts + scripts/mast-vps-round4-orchestrator.mts",
+    "blindPacketBuilderAndOpaqueMapping": "scripts/mast-fresh-validation-round-4.mts",
+    "J1J2AndJ3Orchestration": "scripts/mast-fresh-validation-round-4.mts + scripts/mast-vps-cdp-generation-round-4.mjs + scripts/mast-vps-round4-orchestrator.mts",
+    "disagreementDetectionAndAdjudication": "evaluation/mast/src/fresh-validation-round-4.ts",
+    "explicitUnblindAndAliasSafeJoin": "evaluation/mast/src/fresh-validation.ts",
+    "round4ScoringAndDecisionRule": "evaluation/mast/src/fresh-validation-round-4-base.ts + evaluation/mast/src/fresh-validation-round-4.ts",
+    "benchmarkTargetIntegrityAndFinalReport": "scripts/mast-fresh-validation-round-4.mts",
+    "structuredFailureAndInvalidationReceipts": "evaluation/mast/src/fresh-validation-round-4.ts + scripts/mast-vps-round4-orchestrator.mts"
+  },
+  "unavailableProviderParametersRecordedAsNull": true
+}

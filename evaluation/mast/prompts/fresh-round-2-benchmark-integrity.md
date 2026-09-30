@@ -1,0 +1,3 @@
+Review one already-flagged benchmark action without changing its raw benchmark score. Compare the exact raw rubric requirement with current high-authority clinical evidence for the same population, timing, and decision context.
+
+Return exactly one JSON object containing: `familyId`, `actionId`, `rawRubricRequirement`, `rawBenchmarkConformity`, `evidence`, `disposition`, `uncertainty`, and `materiallyAffectsInterpretation`. Evidence entries must preserve a source identifier, direct URL, authority description, exact population/timing/context comparison, and source SHA-256. Use `BENCHMARK_TARGET_CONFLICT` only when warranted. Otherwise use `NO_CONFLICT` or `UNRESOLVED`. Do not alter the raw benchmark judgment.

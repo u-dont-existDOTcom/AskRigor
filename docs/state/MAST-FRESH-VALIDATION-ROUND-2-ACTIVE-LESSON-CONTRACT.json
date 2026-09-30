@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-mast-fresh-validation-round-2-20260918",
+  "activatedAt": "2026-09-18T17:00:25Z",
+  "source": {"repository": "u-dont-existDOTcom/universal-dev-architecture", "commit": "1df60d86a08acceb34076488d7cbb33363a1c4d9"},
+  "rules": [
+    {"pattern": "exclusive-active-task-locks", "trigger": "competing historical evaluation tasks", "requiredBehavior": "bind Round 2 to one branch, checkpoint, preflight, and artifact-based completion command", "failureCondition": "old main or Round 1 state selects work", "enforcement": "machine task lock"},
+    {"pattern": "test-efficiency-and-verification-budget", "trigger": "large deterministic suite", "requiredBehavior": "measure test cost, use focused tests in the inner loop, and never rerun unchanged green checks", "failureCondition": "unmeasured or redundant full-suite execution", "enforcement": "canonical test-efficiency observer"},
+    {"pattern": "structured-output-failure-boundary", "trigger": "malformed generation or judge artifact", "requiredBehavior": "preserve raw bytes and failure receipt, enforce attempt ceilings, and block dependent stages", "failureCondition": "silent repair or downstream admission", "enforcement": "strict runtime schemas and append-only receipts"},
+    {"pattern": "independent-evaluation-separation", "trigger": "J1/J2/J3 evaluation", "requiredBehavior": "blind arm/protocol/outcome information and preserve independent raw judgments before reconciliation", "failureCondition": "anchored evaluator packet or overwritten raw judgment", "enforcement": "opaque packets and separate capture namespaces"},
+    {"pattern": "owner-outcome-invariant-and-contract-laundering-prevention", "trigger": "freeze PR or green tests", "requiredBehavior": "treat freeze and CI as prerequisites, not completion of the requested executed study", "failureCondition": "proxy completion before final valid report", "enforcement": "owner gap in task lock and task-specific finalizer"}
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "studyId": "askrigor-mast-fresh-validation-round-2-20260918",
+  "authority": "CURRENT_OWNER_REQUIREMENT",
+  "receivedAt": "2026-09-18T19:36:00Z",
+  "preResponse1": true,
+  "generationCompletedAtReceipt": 0,
+  "requirements": {
+    "humanPacketRelayAllowed": false,
+    "fileAttachmentAllowed": false,
+    "primaryTransport": "DIRECT_BROWSER_CONTENTEDITABLE_FILL",
+    "fallbackTransport": "OS_CLIPBOARD_NORMAL_KEYBOARD_PASTE",
+    "slowPerCharacterTypingAllowed": false,
+    "completeComposerReadbackRequired": true,
+    "lineEndingCanonicalizationOnly": true,
+    "sourceComposerEqualityRequiredBeforeSend": true,
+    "model": "GPT-5.6 Sol",
+    "reasoningEffort": "Extra High",
+    "chatMode": "TEMPORARY",
+    "personalization": "UNPERSONALIZED",
+    "freshChatPerRun": true,
+    "sealedSuccessRerunAllowed": false,
+    "ambiguousPostSendRetryAllowed": false,
+    "run001AcceptanceRequiredBeforeScaling": true
+  },
+  "engineeringModel": "GPT-5.6 Sol",
+  "engineeringReasoningEffort": "Medium"
+}

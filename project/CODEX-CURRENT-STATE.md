@@ -1,5 +1,9 @@
 # AskRigor Codex Current State
 
+## 2026-09-18 MAST Fresh Validation Round 2 active pre-generation freeze
+
+The current owner-authorized task is `askrigor-mast-fresh-validation-round-2-20260918` on branch `task/mast-fresh-validation-round-2-20260918`. It supersedes the older evaluation lock only for current task selection; historical work remains preserved. Round 2 has generated zero benchmark responses. Its exact recovery checkpoint is `docs/state/MAST-FRESH-VALIDATION-ROUND-2-CURRENT-STATE.md`, and its artifact-based completion command is recorded in `tasks/ACTIVE-TASK.json`. Ordinary green tests or a freeze pull request are prerequisites, not completion.
+
 ## Current source-only instruction candidate
 
 The 2026-09-14 Universal 20.5.25 claim-scope / predicate-alignment update is a source candidate, not installed-state or live-acceptance evidence. It preserves the 2026-09-12 instruction-obligation lifecycle as the 20.5.24 historical revision. Current generated identities are in `docs/custom-gpt-sync.json`; the corresponding instruction body is `docs/custom-gpt-instructions.md`. Earlier dated records below retain their original identities and observations. No installation, deployment, publication acceptance, or new live verification is claimed by this source update.

@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "directiveId": "askrigor-mast-round-2-vps-cdp-transport-20260918",
+  "studyId": "askrigor-mast-fresh-validation-round-2-20260918",
+  "authority": "OWNER_CURRENT_CHAT",
+  "supersedes": "2026-09-18-mast-round-2-authenticated-text-relay",
+  "generationProgressAtDirective": "0/144",
+  "target": {
+    "device": "srv1894948",
+    "user": "cloudbrowser",
+    "browser": "Brave",
+    "cdpEndpoint": "http://127.0.0.1:9222",
+    "profile": "/home/cloudbrowser/.config/brave-cloud-browser"
+  },
+  "requiredArchitecture": [
+    "frozen generation packets",
+    "private VPS filesystem",
+    "local Node and Playwright process",
+    "connectOverCDP to loopback port 9222",
+    "existing authenticated VPS Brave",
+    "consumer ChatGPT"
+  ],
+  "forbiddenTransports": [
+    "owner laptop browser",
+    "isolated remote-browser backend",
+    "TryCloudflare",
+    "external packet relay",
+    "system clipboard",
+    "human copy/paste",
+    "file attachment"
+  ],
+  "packetTransfer": {
+    "authenticatedMachineToMachine": true,
+    "privateDestination": "/home/cloudbrowser/.local/share/askrigor-mast-round2/packets",
+    "sourceSha256RequiredBeforeTransfer": true,
+    "destinationSha256RequiredAfterTransfer": true,
+    "exactEqualityRequiredForEligibility": true
+  },
+  "perRunAdmission": {
+    "sourceDestinationComposerSha256EqualityRequired": true,
+    "modelVisibleLabel": "GPT-5.6 Sol",
+    "reasoningVisibleLabel": "Extra High",
+    "reasoningOrdinal": "4 of 5",
+    "chatMode": "TEMPORARY",
+    "personalization": "UNPERSONALIZED",
+    "freshConversation": true,
+    "toolsAllowed": false,
+    "maximumNormalTabs": 2,
+    "failClosedBeforeSend": true
+  },
+  "recovery": {
+    "skipSealedSuccess": true,
+    "maximumPreSendAttempts": 2,
+    "postSendAmbiguityRetryAllowed": false,
+    "preserveAmbiguityReceipt": true
+  },
+  "freeze": {
+    "newCommitAfter": "60a1e32e6585c2f70b2136c7ed734101d310fc05",
+    "deterministicVerificationRequired": true,
+    "greenPullRequest228Required": true,
+    "response1BeforeVerifiedFreezeAllowed": false
+  },
+  "models": {
+    "implementation": { "model": "GPT-5.6 Sol", "reasoningEffort": "Medium" },
+    "generation": { "model": "GPT-5.6 Sol", "reasoningEffort": "Extra High" },
+    "evaluationConfigurationChanged": false
+  }
+}

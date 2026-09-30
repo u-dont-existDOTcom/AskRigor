@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "studyId": "askrigor-mast-fresh-validation-round-2-20260918",
+  "recordedAt": "2026-09-18T21:37:26+00:00",
+  "sourceAttachmentSha256": "1acc30fe9d0d22f3da52a0aebea4da77579460fb318b58e93a04454a64ceebc7",
+  "generationCompletedAtAuthorization": 0,
+  "transport": {
+    "primary": "ONE_TIME_LOCAL_TEXT_RELAY_THROUGH_TEMPORARY_HTTPS_TUNNEL",
+    "fallback": "LOCAL_AUTHENTICATED_BROWSER_CDP_PLAYWRIGHT",
+    "largePayloadAllowedInBrowserControlChannel": false,
+    "relayAuthentication": "CRYPTOGRAPHICALLY_RANDOM_SINGLE_RUN_TOKEN_PATH",
+    "sourceToRelayPageEqualityRequired": true,
+    "relayPageToComposerEqualityRequired": true,
+    "lineEndingNormalization": "CRLF_OR_CR_TO_LF_ONLY",
+    "fileAttachmentAllowed": false,
+    "humanRelayAllowed": false,
+    "productionDeploymentAllowed": false,
+    "permanentTokenRecordingAllowed": false
+  },
+  "freeze": {
+    "supersedesExecutableFreezeCommit": "7a8adaac88d64191b67870245be3a7aa1a9c352e",
+    "newCommitAndGreenCiRequiredBeforeResponse1": true,
+    "successfulResponseRerunAllowed": false
+  }
+}

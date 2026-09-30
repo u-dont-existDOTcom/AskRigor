@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-mast-fresh-validation-round-3-20260919",
+  "activatedAt": "2026-09-19T17:28:06Z",
+  "source": {"repository": "u-dont-existDOTcom/universal-dev-architecture", "commit": "1df60d86a08acceb34076488d7cbb33363a1c4d9"},
+  "rules": [
+    {"pattern": "historical-experiment-immutability", "trigger": "a successor validation round after terminal ambiguity", "requiredBehavior": "preserve Round 2 and forbid all new Round-2 prompts", "failureCondition": "resuming, rewriting, or interpreting Round 2 as validation", "enforcement": "source-bound historical disposition and separate Round-3 namespace"},
+    {"pattern": "post-send-idempotency", "trigger": "browser or CDP loss after Send may have occurred", "requiredBehavior": "recover only an exact full-text-hash-matching existing submission and never resend automatically", "failureCondition": "blind resend or identity by timing/title/order", "enforcement": "send-intent, SENT receipt, exact-one recovery candidate, whole-study stop"},
+    {"pattern": "durable-external-runtime", "trigger": "consumer-browser generation", "requiredBehavior": "use a dedicated supervised profile/display/browser/watchdog independent of XRDP", "failureCondition": "ad-hoc interactive browser dependency or unverified runtime drift", "enforcement": "hash-bound systemd units, wrappers, process command line, and live crash acceptance"},
+    {"pattern": "test-efficiency-and-verification-budget", "trigger": "large deterministic suite", "requiredBehavior": "use focused tests in the inner loop and run unchanged full gates once at freeze", "failureCondition": "redundant unchanged inference or deterministic reruns", "enforcement": "freeze checkpoint receipts"},
+    {"pattern": "owner-outcome-invariant", "trigger": "green freeze PR", "requiredBehavior": "continue through generation, judging, scoring, and final disposition", "failureCondition": "claiming implementation or CI completes the study", "enforcement": "active task owner gap and finalizer"}
+  ]
+}

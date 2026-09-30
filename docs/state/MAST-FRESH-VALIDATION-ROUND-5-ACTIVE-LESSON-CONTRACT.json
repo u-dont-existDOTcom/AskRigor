@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-mast-fresh-validation-round-5-20260920",
+  "activatedAt": "2026-09-20T22:20:00Z",
+  "source": {
+    "repository": "u-dont-existDOTcom/universal-dev-architecture",
+    "commit": "7542e392455ec2ebf601254c429930fa638b5063"
+  },
+  "rules": [
+    {
+      "pattern": "historical-experiment-immutability",
+      "trigger": "successor after terminal Round 4",
+      "requiredBehavior": "preserve Rounds 2\u20134 and forbid new prompts under those identities",
+      "failureCondition": "editing/resuming historical rounds",
+      "enforcement": "separate Round-5 namespace and exposure exclusions"
+    },
+    {
+      "pattern": "structured-output-failure-boundary",
+      "trigger": "Round-4 provider receipt serialization/interface failure",
+      "requiredBehavior": "repair the source-fixed schema before new validation; do not silently repair Round-4 artifact",
+      "failureCondition": "reclassifying Round 4 or reusing Card002 as fresh",
+      "enforcement": "shared generation provider schema plus Round-4 terminal provenance"
+    },
+    {
+      "pattern": "consumer-seam-regression",
+      "trigger": "inner schema passed while outer capture path failed",
+      "requiredBehavior": "test the actual generation capture admission seam or mechanically prove one shared parser",
+      "failureCondition": "only testing generationCaptureSchema in isolation",
+      "enforcement": "shared generationProviderReceiptSchema used by captureGeneration and generationCaptureSchema plus regression"
+    },
+    {
+      "pattern": "post-send-idempotency",
+      "trigger": "browser/CDP loss after Send",
+      "requiredBehavior": "never automatically resend and stop whole study on unresolved ambiguity",
+      "failureCondition": "duplicate provider submission",
+      "enforcement": "send-intent, SENT receipt, exact-one recovery"
+    },
+    {
+      "pattern": "test-efficiency-and-verification-budget",
+      "trigger": "large deterministic suite",
+      "requiredBehavior": "focused inner loop and full gates only at freeze",
+      "failureCondition": "redundant unchanged full reruns",
+      "enforcement": "test-efficiency telemetry"
+    },
+    {
+      "pattern": "owner-outcome-invariant",
+      "trigger": "green freeze PR",
+      "requiredBehavior": "continue through generation, judging, scoring, and final disposition",
+      "failureCondition": "treating implementation/CI as study completion",
+      "enforcement": "active task owner gap"
+    }
+  ]
+}

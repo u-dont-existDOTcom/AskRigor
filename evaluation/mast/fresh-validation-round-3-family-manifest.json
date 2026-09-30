@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "studyId": "askrigor-mast-fresh-validation-round-3-20260919",
+  "source": {
+    "repository": "ARISENetwork/mast",
+    "commit": "57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee",
+    "derivation": "OWNER_EXPLICIT_COHORT_VALIDATED_AGAINST_PINNED_GIT_TREE_RUBRIC_FILENAMES"
+  },
+  "allFamilies": [
+    "All001", "All006", "All008", "Card001", "Card002", "Card005",
+    "Derm001", "Derm006", "Derm009", "Endo002", "Endo007", "Endo009",
+    "GI002", "GI004", "GI007", "Heme002", "Heme004", "Heme010",
+    "ID003", "ID006", "ID008", "Nephro003", "Nephro005", "Nephro009",
+    "Neuro003", "Neuro004", "Neuro007", "Pulm001", "Pulm005", "Pulm009"
+  ],
+  "historicalMechanicalPayloadReadFamilies": [
+    "All001", "All006", "All008", "Card001", "Card002", "Card005",
+    "Derm001", "Derm006", "Derm009", "Endo002", "Endo007", "Endo009",
+    "GI002", "GI004", "GI007", "Heme002", "Heme004", "Heme010",
+    "ID003", "ID006", "ID008", "Nephro003", "Nephro005", "Nephro009",
+    "Neuro003", "Neuro004", "Neuro007", "Pulm001", "Pulm005", "Pulm009"
+  ],
+  "excludedDevelopmentFamilies": [
+    "All001", "Card001", "Derm001", "Endo002", "GI004", "Heme010",
+    "ID008", "Nephro005", "Neuro007", "Pulm005"
+  ],
+  "excludedRound1GeneratedFamilies": [
+    "Card005", "Derm009", "Endo009", "Heme004", "ID006", "Neuro004", "Pulm009"
+  ],
+  "excludedRound2ExposedFamilies": ["ID003", "GI007"],
+  "eligibleFamilies": [
+    "All006", "All008", "Card002", "Derm006", "Endo007", "GI002",
+    "Heme002", "Nephro003", "Nephro009", "Neuro003", "Pulm001"
+  ],
+  "selection": {
+    "methodId": "OWNER_EXPLICIT_TEN_FAMILY_ROUND_3_V1",
+    "sourceDirectiveSha256": "16c302bc3b0646f6b86597ba53191dd1d5c37a3c98a6ff996a03d1c1f67c41d6",
+    "rule": "Exclude original development/calibration, Round 1 generated, and Round 2 exposed families; use the ten owner-enumerated still-fresh validation families and preserve All008 as the limited non-confirmatory reserve.",
+    "payloadUsed": false,
+    "rubricContentUsed": false,
+    "outcomesUsed": false
+  },
+  "validationFamilies": [
+    "All006", "Card002", "Derm006", "Endo007", "GI002", "Heme002",
+    "Nephro003", "Nephro009", "Neuro003", "Pulm001"
+  ],
+  "reserveFamilies": ["All008"],
+  "reserveStatus": {
+    "status": "LIMITED_RESERVE_NOT_CONFIRMATORY",
+    "identifierOnlyInRound3Selection": true,
+    "historicallyMechanicallyReadInRound1": true,
+    "semanticModelExposure": false,
+    "generatedResponseExposure": false,
+    "rubricJudgeExposure": false,
+    "limitation": "Only one MAST DoNoHarm family remains eligible after required exclusions; it is not a broad independent confirmation cohort."
+  }
+}

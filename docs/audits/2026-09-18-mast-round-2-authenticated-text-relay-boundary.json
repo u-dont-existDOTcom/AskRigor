@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "studyId": "askrigor-mast-fresh-validation-round-2-20260918",
+  "recordedAt": "2026-09-18T21:45:11+00:00",
+  "phase": "PRE_RESPONSE_1_DEVELOPMENT",
+  "generationCompleted": 0,
+  "syntheticAcceptance": {
+    "sourceUtf8Bytes": 180000,
+    "sourceSha256": "e8353e2584ecce1af375b6e9956543dff2f44d808a66579c559970c4004d74db",
+    "localRelay": "PASS",
+    "temporaryHttpsTunnel": "PASS",
+    "remoteBrowserFetch": "BLOCKED_BY_CLIENT",
+    "benchmarkPacketUsed": false,
+    "modelInferencePerformed": false
+  },
+  "tunnel": {
+    "provider": "TRY_CLOUDFLARE_QUICK_TUNNEL",
+    "cloudflaredVersion": "2026.9.1",
+    "cloudflaredSha256": "03f1f25d1cc93b9ad6c60569d44060bc4f17ed97075760ed8cfca4b12dcd68cc",
+    "publishedChecksumVerified": true,
+    "started": true,
+    "stopped": true,
+    "secretUrlOrTokenRecorded": false
+  },
+  "fallback": {
+    "architecture": "LOCAL_AUTHENTICATED_BROWSER_CDP_PLAYWRIGHT",
+    "localBraveOrChromeProcessVisible": false,
+    "devToolsActivePortVisible": false,
+    "cdpListeningPortVisible": false,
+    "availableOnCurrentExecutionHost": false
+  },
+  "disposition": {
+    "code": "REMOTE_TUNNEL_BLOCKED_AND_LOCAL_AUTHENTICATED_BROWSER_UNAVAILABLE",
+    "stoppedBeforeSend": true,
+    "messageMayHaveBeenSent": false,
+    "response1Allowed": false
+  }
+}
