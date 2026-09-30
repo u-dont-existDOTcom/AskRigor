@@ -3,6 +3,11 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 import {
+  FINDINGS_SAVE_OFFER,
+  findingsCardDigest,
+  findingsCardSchema
+} from "../apps/research-mcp/src/findings/card.js";
+import {
   finalizeResearch as finalizeResearchBare,
   type RedditThreadCheck,
   normalizeIdentifier,
@@ -2447,5 +2452,144 @@ describe("finalize_research gate", () => {
     expect(normalizeIdentifier("PMID: 42")).toBe("42");
     expect(normalizeIdentifier("PMID 42")).toBe("42");
     expect(normalizeIdentifier("PMCID PMC7")).toBe("PMC7");
+  });
+});
+
+// Owner decisions Q9 and Q10 (2026-09-30): the final gate checks a findings card, which never changes the
+// answer's own status; a checked card adds one caveat offering the save and is signed into the receipt.
+describe("findings card at the final gate", () => {
+  const READY = {
+    receipts: [survey, emptySearch, repeatScout, videoA, study],
+    community_evidence: "researched",
+    treatment_choice: "not_compared",
+    research_target: TARGET,
+    key_sources: [{ id: "https://doi.org/10.1002/ART.41142", status: "validated" }]
+  };
+  const CARD = {
+    question: "Does exercise therapy help adults with hip osteoarthritis avoid a joint replacement?",
+    usual_answer: "Exercise may help a little, but most people end up needing a replacement.",
+    findings: [{
+      claim: "Exercise therapy has the strongest evidence among the options for hip osteoarthritis.",
+      certainty: "moderate",
+      applies_to: "Adults with hip osteoarthritis considering surgery",
+      answer_quote: "Exercise therapy has the strongest evidence for hip osteoarthritis.",
+      sources: ["10.1002/art.41142", "aaaaaaaaaaa"],
+      why_not_usual: "Quick answers treat exercise as a stopgap.",
+      tags: ["full_text_read", "community_checked"],
+      what_would_change_it: "A large trial finding no benefit over usual care."
+    }]
+  };
+  const withFinding = (overrides: Record<string, unknown>) => ({ ...CARD, findings: [{ ...CARD.findings[0], ...overrides }] });
+  const findingsClaim = (receipt: string | undefined) => {
+    const verified = verifyResearchReceipt(receipt!, options);
+    return verified.ok ? verified.claims.findings : "unverified";
+  };
+
+  it("checks a card the answer shows and this call's receipts back, then offers the save", () => {
+    const plain = finalizeResearch(READY, options);
+    const carded = finalizeResearch({ ...READY, findings_card: CARD }, options);
+    expect(plain.findings_card).toEqual({ status: "absent", problems: [] });
+    expect(carded.findings_card).toEqual({ status: "checked", problems: [] });
+    // The answer's own result stays as it was; the card adds one caveat, the offer.
+    expect(carded.status).toBe("ready_with_limits");
+    expect(carded.status).toBe(plain.status);
+    expect(carded.limits).toEqual(plain.limits);
+    expect(carded.caveats).toEqual([...plain.caveats, FINDINGS_SAVE_OFFER]);
+    expect(findingsClaim(carded.finalization_receipt)).toBe(findingsCardDigest(findingsCardSchema.parse(CARD)));
+    expect(findingsClaim(plain.finalization_receipt)).toBeUndefined();
+  });
+
+  it("leaves the answer's status alone when the card has problems, and neither offers nor signs it", () => {
+    const plain = finalizeResearch(READY, options);
+    const cases: Array<[Record<string, unknown>, string]> = [
+      [withFinding({ answer_quote: "Exercise cures hip osteoarthritis." }),
+        "findings_card.findings[0].answer_quote gives text the answer does not show"],
+      // Video IDs are case-sensitive; a trial registration has no receipt of its own here.
+      [withFinding({ sources: ["10.1000/never-read", "NCT01234567", "AAAAAAAAAAA"], tags: [] }),
+        "findings_card.findings[0].sources lists 10.1000/never-read, NCT01234567, AAAAAAAAAAA, which this call did not verify"],
+      [withFinding({ sources: ["aaaaaaaaaaa"], tags: ["full_text_read"] }),
+        "findings_card.findings[0] is tagged full_text_read, but none of its sources was read with a full-text method audit here."],
+      [withFinding({ sources: ["10.1002/art.41142"], tags: ["community_checked"] }),
+        "findings_card.findings[0] is tagged community_checked, but none of its sources is a video whose comments were audited here."],
+      [withFinding({ tags: ["overlooked_study", "overlooked_study"] }), "findings_card.findings[0].tags lists a tag more than once."],
+      [{ ...CARD, open_leads: ["Call the clinic on 555-123-4567 first."] },
+        "findings_card.open_leads[0] looks like it holds contact details, an address or a number shaped like a phone number"]
+    ];
+    for (const [card, problem] of cases) {
+      const result = finalizeResearch({ ...READY, findings_card: card }, options);
+      expect(result.findings_card).toEqual({ status: "rejected", problems: [expect.stringContaining(problem)] });
+      expect(result.status).toBe(plain.status);
+      expect(result.next_steps).toEqual(plain.next_steps);
+      expect(result.limits).toEqual(plain.limits);
+      expect(result.caveats).toEqual(plain.caveats);
+      expect(findingsClaim(result.finalization_receipt)).toBeUndefined();
+    }
+  });
+
+  it("counts a lead as verified but not as read in full text, and a PMID by its PubMed DOI", () => {
+    const pubmed = sign("pubmed_record", { pmid: "31999999", doi: "10.1002/art.41142" }, options);
+    const withLead = {
+      ...READY,
+      receipts: [...READY.receipts, lead, pubmed],
+      key_sources: [...READY.key_sources, { id: "10.1016/j.joca.2020.01.001", status: "lead_only" }]
+    };
+    expect(finalizeResearch({
+      ...withLead, findings_card: withFinding({ sources: ["10.1016/J.JOCA.2020.01.001", "PMID: 31999999"], tags: ["full_text_read"] })
+    }, options).findings_card).toEqual({ status: "checked", problems: [] });
+    expect(finalizeResearch({
+      ...withLead, findings_card: withFinding({ sources: ["10.1016/j.joca.2020.01.001"], tags: ["full_text_read"] })
+    }, options).findings_card.problems).toEqual([expect.stringContaining("is tagged full_text_read")]);
+  });
+
+  it("signs the card only once the answer carries the offer", () => {
+    const plain = finalizeResearch(READY, options);
+    const draft = [CLEAN_DRAFT, ...plain.caveats].join(" ");
+    const missing = finalizeResearch({ ...READY, findings_card: CARD, answer_draft: draft }, options);
+    expect(missing).toMatchObject({ status: "not_ready", next_steps: [leftOut(FINDINGS_SAVE_OFFER)] });
+    expect(missing.findings_card.status).toBe("checked");
+    expect(missing.finalization_receipt).toBeUndefined();
+    const stated = finalizeResearch({ ...READY, findings_card: CARD, answer_draft: `${draft} ${FINDINGS_SAVE_OFFER}` }, options);
+    expect(stated).toMatchObject({ status: "ready_with_limits", next_steps: [] });
+    expect(findingsClaim(stated.finalization_receipt)).toBe(findingsCardDigest(findingsCardSchema.parse(CARD)));
+  });
+
+  it("lets an answer in another language give the offer in that language", () => {
+    const base = {
+      receipts: [study],
+      community_evidence: "not_relevant",
+      not_relevant_basis: "no_real_world_outcome",
+      not_relevant_reason: "How the body clears a drug, with no real-world outcome.",
+      treatment_choice: "not_compared",
+      research_target: TARGET,
+      research_depth: "deep",
+      key_sources: [{ id: "PMC10518852", status: "validated" }]
+    };
+    const quote = "Le foie élimine ce médicament en quelques heures.";
+    const offer = "Si vous voulez enregistrer ces résultats dans la bibliothèque d'AskRigor pour examen, dites oui ; " +
+      "rien n'est enregistré sinon.";
+    const card = withFinding({ answer_quote: quote, sources: ["PMC10518852"], tags: ["full_text_read"] });
+    const translated = finalizeResearch({
+      ...base, findings_card: card, answer_draft: `${quote} ${offer}`, answer_language: "fr",
+      caveat_renderings: [{ caveat: FINDINGS_SAVE_OFFER, text: offer }]
+    }, options);
+    expect(translated).toMatchObject({
+      status: "ready", next_steps: [], limits: [], caveats: [FINDINGS_SAVE_OFFER], findings_card: { status: "checked" }
+    });
+    expect(finalizeResearch({ ...base, findings_card: card, answer_draft: quote, answer_language: "fr" }, options).next_steps)
+      .toEqual([leftOut(FINDINGS_SAVE_OFFER)]);
+  });
+
+  it("checks a card only with the answer, on a server that can verify receipts", () => {
+    expect(finalizeResearchRaw({ ...READY, findings_card: CARD }, options).findings_card).toEqual({
+      status: "rejected",
+      problems: ["A findings card is checked against the answer: pass answer_draft with it."]
+    });
+    const unverifiable = finalizeResearchBare({ ...READY, findings_card: CARD }, { secret: undefined });
+    expect(unverifiable.status).toBe("receipts_unavailable");
+    expect(unverifiable.findings_card).toEqual({
+      status: "rejected",
+      problems: ["This AskRigor server cannot verify research receipts, so it cannot check or save a findings card."]
+    });
+    expect(finalizeResearchBare({ ...READY }, { secret: undefined }).findings_card).toEqual({ status: "absent", problems: [] });
   });
 });

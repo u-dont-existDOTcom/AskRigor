@@ -2,6 +2,14 @@ import { z } from "zod";
 
 import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
 import {
+  FINDINGS_SAVE_OFFER,
+  findingsCardDigest,
+  findingsCardSchema,
+  screenFindingsCard,
+  type FindingsCard,
+  type FindingsPrivacyReason
+} from "./findings/card.js";
+import {
   issueResearchReceipt,
   RESEARCH_RECEIPT_MAX_CHARACTERS,
   readPages,
@@ -158,7 +166,12 @@ export const finalizeResearchInputSchema = z.object({
     caveat: z.string().trim().min(1).max(4_000).describe("As the gate returned it."),
     text: z.string().trim().min(1).max(4_000).describe("As the answer states it, with the caveat's links.")
   }).strict()).max(40).optional()
-    .describe("In an answer not in English: each caveat in the answer's language.")
+    .describe("In an answer not in English: each caveat in the answer's language."),
+  findings_card: findingsCardSchema.optional()
+    .describe("With answer_draft: the answer's best findings for AskRigor's findings library, never claims the user " +
+      "corrected and no personal details. It is checked against the answer and this call's verified sources and " +
+      "does not change the status; a checked card adds a caveat offering the save, and save_research_findings runs " +
+      "only after the user says yes.")
 }).strict();
 
 export type FinalizeResearchInput = z.output<typeof finalizeResearchInputSchema>;
@@ -201,6 +214,11 @@ export const finalizeResearchOutputSchema = z.object({
     lead_only: z.array(z.string())
   }).strict(),
   answer_checked: z.boolean().describe("Whether answer_draft was read in this call."),
+  findings_card: z.object({
+    status: z.enum(["checked", "rejected", "absent"]),
+    problems: z.array(z.string())
+  }).strict().describe("Whether findings_card checked. Only a checked card can be saved: the finalization receipt " +
+    "then signs it and the caveats offer the save."),
   finalization_receipt: z.string().optional()
 }).strict();
 
@@ -267,7 +285,13 @@ export function finalizeResearch(
         communities_searched: []
       },
       sources: { validated: [], lead_only: [] },
-      answer_checked: false
+      answer_checked: false,
+      findings_card: input.findings_card === undefined
+        ? noFindingsCard()
+        : {
+            status: "rejected",
+            problems: ["This AskRigor server cannot verify research receipts, so it cannot check or save a findings card."]
+          }
     };
   }
 
@@ -877,6 +901,15 @@ export function finalizeResearch(
   // that in every language, so the caveat saying it does not rank them is
   // what the gate enforces.
   const draft = input.answer_draft;
+  // A findings card (owner decisions Q9 and Q10, 2026-09-30) is checked with
+  // the answer and never changes the answer's status. A checked card adds one
+  // caveat offering the save, which the answer then carries like any other.
+  let findingsCard: FindingsCardCheck = input.findings_card === undefined
+    ? noFindingsCard()
+    : {
+        status: "rejected",
+        problems: ["A findings card is checked against the answer: pass answer_draft with it."]
+      };
   if (draft === undefined) {
     if (nextSteps.length === 0) {
       nextSteps.push(
@@ -884,6 +917,28 @@ export function finalizeResearch(
       );
     }
   } else {
+    if (input.findings_card !== undefined) {
+      const showing = quoteLocator(displayedProse(draft));
+      // What a card may cite: studies validated or read as leads here (by
+      // either of a PMID's identifiers), and videos audited or material here.
+      const cardStudies = new Set<string>();
+      for (const id of [...validatedSources, ...leadSources]) {
+        const normalized = normalizeIdentifier(id);
+        cardStudies.add(normalized);
+        const doi = isPmid(normalized) ? pubmedDois.get(normalized) : undefined;
+        if (doi !== undefined && doi !== "") cardStudies.add(doi);
+      }
+      // Video IDs are case-sensitive, so they are compared as given.
+      const videoAudited = (id: string) => auditedAtAll.has(id);
+      findingsCard = findingsCardCheck(input.findings_card, {
+        shown: (quote) => showing(quote).length > 0,
+        studyAudited: auditedStudy,
+        verified: (id) => auditedStudy(id) || cardStudies.has(normalizeIdentifier(id)) || videoAudited(id) ||
+          materialVideos.includes(id),
+        videoAudited
+      });
+      if (findingsCard.status === "checked") caveats.push(FINDINGS_SAVE_OFFER);
+    }
     const lanes: AnswerLane[] = [
       ...(findings === undefined || commentVideos.size === 0 ? [] : [{
         name: "the YouTube comments",
@@ -937,7 +992,8 @@ export function finalizeResearch(
       communities_searched: communitiesSearched
     },
     sources: { validated: validatedSources, lead_only: leadSources },
-    answer_checked: draft !== undefined
+    answer_checked: draft !== undefined,
+    findings_card: findingsCard
   };
   if (status !== "not_ready") {
     output.finalization_receipt = issueResearchReceipt("finalization", {
@@ -952,7 +1008,11 @@ export function finalizeResearch(
       validated: validatedSources.length,
       leads: leadSources.length,
       limits: limits.length,
-      unverified: communitiesUnverified
+      unverified: communitiesUnverified,
+      // save_research_findings saves only the card whose digest this signs.
+      ...(findingsCard.status === "checked" && input.findings_card !== undefined
+        ? { findings: findingsCardDigest(input.findings_card) }
+        : {})
     }, {
       secret: options.secret,
       ...(options.now === undefined ? {} : { now: options.now })
@@ -1066,17 +1126,7 @@ function answerDraftProblems(
   // language it wrote them; no word list can judge that. A community beyond
   // YouTube is also linked, to a thread that was read, in a paragraph that
   // reports it, so a reader can check it.
-  const quoteBlocks = shownBlocks.map((block) => ({
-    targets: caveatText(linkTargets(block)),
-    text: caveatText(visibleText(block))
-  }));
-  const showing = (quote: string): number[] => {
-    const byTarget = quoteForm(quote.replace(MARKDOWN_LINK, "$1"));
-    const byText = quoteForm(quote.replace(MARKDOWN_LINK_TEXT, "$1"));
-    if (!/[\p{L}\p{N}]/u.test(byTarget)) return [];
-    return quoteBlocks.flatMap(({ targets, text }, index) =>
-      targets.includes(byTarget) || text.includes(byText) ? [index] : []);
-  };
+  const showing = quoteLocator(shownBlocks);
   for (const lane of context.lanes) {
     if (lane.quotes.length === 0) {
       problems.push(
@@ -1160,6 +1210,96 @@ function answerDraftProblems(
     );
   }
   return problems;
+}
+
+/**
+ * Where the answer shows a quote: the displayed blocks (paragraphs, list
+ * items, headings) that contain it, compared as caveats are, with a link
+ * matched by its target or by its text. Exact and the same in any language.
+ */
+function quoteLocator(shownBlocks: readonly string[]): (quote: string) => number[] {
+  const quoteBlocks = shownBlocks.map((block) => ({
+    targets: caveatText(linkTargets(block)),
+    text: caveatText(visibleText(block))
+  }));
+  return (quote: string): number[] => {
+    const byTarget = quoteForm(quote.replace(MARKDOWN_LINK, "$1"));
+    const byText = quoteForm(quote.replace(MARKDOWN_LINK_TEXT, "$1"));
+    if (!/[\p{L}\p{N}]/u.test(byTarget)) return [];
+    return quoteBlocks.flatMap(({ targets, text }, index) =>
+      targets.includes(byTarget) || text.includes(byText) ? [index] : []);
+  };
+}
+
+type FindingsCardCheck = FinalizeResearchOutput["findings_card"];
+
+const noFindingsCard = (): FindingsCardCheck => ({ status: "absent", problems: [] });
+
+// What a privacy problem is, as the card's problem names it.
+const FINDINGS_PRIVACY_PROBLEMS: Readonly<Record<FindingsPrivacyReason, string>> = {
+  secret_like_data: "something shaped like a key or token",
+  direct_identifier: "contact details, an address or a number shaped like a phone number",
+  personal_narrative: "a first-person health story, or a personal age or date",
+  raw_conversation: "lines of a chat transcript",
+  unsafe_url: "a link to a page other than a study's or a video's",
+  quoted_material: "a long quotation",
+  control_or_markup: "markup, a link to a page other than a study's or a video's, or a line break",
+  prompt_injection_like_text: "wording that reads like instructions to a tool",
+  not_a_source_identifier: "something other than a DOI, PMID, PMCID, NCT id or YouTube video id"
+};
+
+/**
+ * Checks a findings card against this call. Each finding's sentence must be
+ * shown in the answer (the answer_quotes check, exact and the same in any
+ * language); each source must be one this call verified; a full_text_read or
+ * community_checked tag must rest on a source of that kind; and the card must
+ * pass the privacy screen its save runs. Whether a sentence states its
+ * finding, and the other tags, are the model's declarations, which the owner
+ * reviews before accepting a card.
+ */
+function findingsCardCheck(
+  card: FindingsCard,
+  context: {
+    shown: (quote: string) => boolean;
+    verified: (source: string) => boolean;
+    studyAudited: (source: string) => boolean;
+    videoAudited: (source: string) => boolean;
+  }
+): FindingsCardCheck {
+  const problems: string[] = [];
+  card.findings.forEach((finding, index) => {
+    const at = `findings_card.findings[${index}]`;
+    if (!context.shown(finding.answer_quote)) {
+      problems.push(
+        `${at}.answer_quote gives text the answer does not show: copy the sentence that states this finding exactly ` +
+          "from answer_draft, from one paragraph or list item."
+      );
+    }
+    const unverified = finding.sources.filter((source) => !context.verified(source));
+    if (unverified.length > 0) {
+      problems.push(
+        `${at}.sources lists ${unverified.join(", ")}, which this call did not verify: cite key sources validated or ` +
+          "read as leads here, by DOI, PMID or PMCID, and videos audited here, by video ID."
+      );
+    }
+    if (finding.tags.includes("full_text_read") && !finding.sources.some(context.studyAudited)) {
+      problems.push(`${at} is tagged full_text_read, but none of its sources was read with a full-text method audit here.`);
+    }
+    if (finding.tags.includes("community_checked") && !finding.sources.some(context.videoAudited)) {
+      problems.push(`${at} is tagged community_checked, but none of its sources is a video whose comments were audited here.`);
+    }
+    if (new Set(finding.tags).size < finding.tags.length) problems.push(`${at}.tags lists a tag more than once.`);
+  });
+  // A source that is not an identifier is already unverified above.
+  for (const { field, reasonCode } of screenFindingsCard(card)) {
+    if (reasonCode === "not_a_source_identifier") continue;
+    problems.push(
+      `findings_card.${field} looks like it holds ${FINDINGS_PRIVACY_PROBLEMS[reasonCode]}: rewrite it in general ` +
+        "terms. The check is automatic and reads English, so if a numeral or an abbreviation tripped it, word that " +
+        "differently (for answer_quote, in the answer too)."
+    );
+  }
+  return problems.length === 0 ? { status: "checked", problems: [] } : { status: "rejected", problems };
 }
 
 // Bounded and closed to brackets and parentheses, so a long draft is read in linear time.

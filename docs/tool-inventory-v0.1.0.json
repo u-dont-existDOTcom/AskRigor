@@ -12575,6 +12575,124 @@
               ],
               "additionalProperties": false
             }
+          },
+          "findings_card": {
+            "description": "With answer_draft: the answer's best findings for AskRigor's findings library, never claims the user corrected and no personal details. It is checked against the answer and this call's verified sources and does not change the status; a checked card adds a caveat offering the save, and save_research_findings runs only after the user says yes.",
+            "type": "object",
+            "properties": {
+              "question": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300,
+                "description": "The question in general terms, with no personal details."
+              },
+              "usual_answer": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 400,
+                "description": "What a quick, ordinary AI answer would say."
+              },
+              "findings": {
+                "minItems": 1,
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "claim": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500
+                    },
+                    "certainty": {
+                      "type": "string",
+                      "enum": [
+                        "high",
+                        "moderate",
+                        "low",
+                        "very_low"
+                      ]
+                    },
+                    "applies_to": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300,
+                      "description": "Who or what the finding holds for."
+                    },
+                    "answer_quote": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000,
+                      "description": "The answer's sentence that states this finding, copied exactly from answer_draft."
+                    },
+                    "sources": {
+                      "minItems": 1,
+                      "maxItems": 10,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      },
+                      "description": "DOI, PMID, PMCID, NCT id or YouTube video id, each verified in this call: a key source, or a video audited here."
+                    },
+                    "why_not_usual": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300,
+                      "description": "Why the usual answer misses this."
+                    },
+                    "tags": {
+                      "default": [],
+                      "description": "full_text_read needs a source read with a full-text method audit here; community_checked, a video whose comments were audited here.",
+                      "maxItems": 5,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "full_text_read",
+                          "community_checked",
+                          "contradicts_common_answer",
+                          "overlooked_study",
+                          "documented_absence"
+                        ]
+                      }
+                    },
+                    "what_would_change_it": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    }
+                  },
+                  "required": [
+                    "claim",
+                    "certainty",
+                    "applies_to",
+                    "answer_quote",
+                    "sources",
+                    "why_not_usual",
+                    "what_would_change_it"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "open_leads": {
+                "default": [],
+                "maxItems": 6,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              }
+            },
+            "required": [
+              "question",
+              "usual_answer",
+              "findings"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -12756,6 +12874,31 @@
             "type": "boolean",
             "description": "Whether answer_draft was read in this call."
           },
+          "findings_card": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "checked",
+                  "rejected",
+                  "absent"
+                ]
+              },
+              "problems": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "status",
+              "problems"
+            ],
+            "additionalProperties": false,
+            "description": "Whether findings_card checked. Only a checked card can be saved: the finalization receipt then signs it and the caveats offer the save."
+          },
           "finalization_receipt": {
             "type": "string"
           }
@@ -12770,7 +12913,8 @@
           "receipts_rejected",
           "community",
           "sources",
-          "answer_checked"
+          "answer_checked",
+          "findings_card"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false
