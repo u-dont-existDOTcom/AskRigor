@@ -1514,6 +1514,98 @@ checks them against the files' own manifests instead of copied values.
     - Universal grows by 1,068 bytes (+146 words, 55 of them in the revision
       entry). Its core is unchanged.
 
+## Findings library (owner Q9 and Q10, 2026-09-30)
+
+The owner's words:
+
+- Q9: "the option to save the best of the research at the end of each prompt
+  ... it doesn't save all the wrong stuff, it just saves the overall best
+  findings, along with version numbering so we know which askrigor made these
+  findings and we can re-evaluate old findings later". Findings first, not
+  researchers. Stored in a repository; no website yet.
+- Q10, option B: any user can save a findings card after saying yes to that
+  save. Cards go to a private review queue. The owner reviews every card before
+  it is accepted. Going live for other users waits for a privacy-notice update
+  the owner is wording; the code can be built now.
+
+The design, as built:
+
+- `finalize_research` takes an optional `findings_card`: the question in
+  general terms, the usual quick answer, one to five findings (claim,
+  certainty, whom it applies to, the answer's sentence that states it, one to
+  ten sources, why the usual answer misses it, tags, what would change it) and
+  up to six open leads.
+- The card is checked only with `answer_draft`. Its problems never change the
+  answer's status. The output gains `findings_card` (checked, rejected or
+  absent, with problems).
+- A checked card adds one caveat, "If you want these findings saved to
+  AskRigor's findings library for review, say yes; nothing is saved
+  otherwise." It goes through the caveat check like any other, so an answer
+  in another language gives it in `caveat_renderings`.
+- When the status is not `not_ready`, the finalization receipt signs a
+  `findings` claim: the SHA-256 of the card's canonical JSON.
+- The connector's 32nd tool, `save_research_findings`, takes the card, that
+  receipt, the consent `yes_to_this_save` and, optionally, the model name the
+  app reports. It saves to a GitHub issue in the private `AskRigor-findings`
+  repository, labeled `findings-card` and `pending-review`, with a readable
+  card and a JSON record. It answers `saved`, `existing_card`,
+  `privacy_rejected`, `rate_limited`, `card_not_checked` or
+  `queue_unavailable`, with an `ARF-####` id.
+- The server instructions and the skill each say, in a sentence or two: add a
+  findings card in the last `finalize_research` call, show the offer the gate
+  returns, and save only after the user says yes. The tool description says
+  the same and adds: never include claims the user corrected, and no personal
+  details.
+
+What the server enforces:
+
+- Each finding's sentence is shown in the answer, by the exact check the
+  community `answer_quotes` use (any language, no word list).
+- Each source is one the same call verified: a key source validated or read as
+  a lead, or a video audited or material there. Video ids are compared
+  case-sensitively.
+- `full_text_read` rests on a source with a full-text method audit;
+  `community_checked` on a video whose comments were audited.
+- The card passes the lesson queue's privacy screen, at the gate and again at
+  the save, with no model call. Study and video identifiers and links,
+  statistics-shaped numbers and in-word apostrophes are set aside first, so a
+  study summary is not taken for a phone number or a quotation.
+- Only the exact card a valid, unexpired finalization receipt signed is saved.
+- The server writes the version stamp: save time, AskRigor version and build
+  (`ASKRIGOR_BUILD_COMMIT`, else `unknown`), the HRP and Universal manifests,
+  the tool catalog digest, the endpoint, the reported model marked unverified,
+  and the research depth, status and counts from the receipt.
+- An open card with the same question and claims gets an occurrence comment
+  instead of a new issue. A save retried with the same receipt writes nothing.
+- A rate limit of its own (the lesson queue's limiter, separate bucket).
+- An unconfigured library answers `queue_unavailable`; nothing throws.
+
+What stays the model's declaration, for the owner's review:
+
+- whether the quoted sentence states its finding;
+- the other three tags;
+- that the card leaves out claims the user corrected and personal details
+  beyond what the screen catches. The screen reads English first-person and
+  address words, so a Roman numeral I or ME near a medical word trips it, and
+  the gate names the field to reword.
+
+What waits:
+
+- The owner's wording for the public privacy notice (`site/privacy` is not
+  changed here). The engineering data map is updated.
+- Creating the private `AskRigor-findings` repository and adding it to the
+  GitHub App's installation. This turns saving on for every user of a deployed
+  server, so it follows the notice.
+- Deploy approval. Once deployed, the gate offers the save to every connector
+  user even before the repository exists; saving then answers that the library
+  is unavailable. The deployment should also set `ASKRIGOR_BUILD_COMMIT`.
+- Two questions for the owner:
+  - cards may name public YouTube video ids as sources, while the
+    living-evidence and frontier stores keep no YouTube identifiers until the
+    YouTube compliance review closes;
+  - an NCT id can never check yet, because no receipt verifies a trial
+    registration.
+
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 
 - Iteration for each candidate: focused tests plus one or two development

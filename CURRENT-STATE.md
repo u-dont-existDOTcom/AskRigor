@@ -57,7 +57,13 @@ HRP 20.6.8 and Universal 20.5.33 (owner, 2026-09-30, "review and merge what
 makes sense": 15 of the 24 lessons from the geosmin and humic-acid thread were
 only partly covered and are now exact recorded edits, listed in the plan; the
 other 9 were already covered); the Gemini scout's research target written in
-English, with the person's language passed separately (owner decision 6: A); title identity checked by exact comparison, with
+English, with the person's language passed separately (owner decision 6: A); a
+findings library (owner decisions Q9 and Q10, 2026-09-30: `finalize_research`
+checks an optional findings card and offers its save; the connector's 32nd
+tool, `save_research_findings`, saves a checked card with a version stamp to a
+private review queue only after the user says yes; going live waits for the
+owner's privacy-notice wording, the private `AskRigor-findings` repository and
+deploy approval); title identity checked by exact comparison, with
 rewordings left to the research model (owner correction, 2026-09-29: word
 lists were brittle and English-only); answer checks that work in any language
 (same correction: the model quotes the answer's sentences for each community

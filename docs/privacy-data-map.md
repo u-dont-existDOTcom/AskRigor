@@ -26,6 +26,14 @@ identity and contact data, private health narratives, uploads, raw source and
 provider bodies, credentials, and all community/YouTube content. It is not an
 automatic evidence-authority path.
 
+The September 30 source candidate (not deployed) adds an optional findings
+library: after the user says yes to that save, the connector saves one checked
+findings card to a private GitHub review queue (owner decisions Q9 and Q10). It
+is described under "Optional findings library" below. The public notice at
+`https://askrigor.com/privacy` does not describe it yet; the owner is wording
+that update, and other users must not be able to save cards until it is
+published.
+
 ## Purpose and boundary
 
 ### Approved isolated living-evidence pilot
@@ -262,6 +270,12 @@ AskRigor has deliberately separate processing paths:
   protocols, instructions, providers, or releases. The fixed OpenAI privacy check
   described below is legacy configuration that the production lesson path does
   not call.
+- **Optional findings library path:** `finalize_research` checks an optional
+  findings card with the answer and stores neither; only after the user says yes
+  to that save does the connector's `save_research_findings` tool (behind the
+  research-access guard; not deployed) store the checked card and a
+  server-written version stamp in a private GitHub review queue. See "Optional
+  findings library" below.
 - **Automated Gemini-candidate path:** a public read-only Action and the
   `scout_gemini_youtube_candidates` MCP tool (behind the research-access guard)
   share one implementation and accept only a
@@ -670,6 +684,70 @@ request earlier deletion by sending the private-safe `ARL-####` receipt to
 `joel@askrigor.com`. AskRigor can act only on data it controls; provider
 retention and provider-side deletion remain governed by the provider.
 
+## Optional findings library
+
+Owner decisions Q9 and Q10 (2026-09-30): any user may save a findings card
+after saying yes to that save; cards go to a private review queue, and the owner
+reviews every card before it is accepted. The code is built but not deployed.
+The public notice at `https://askrigor.com/privacy` needs the owner's wording
+for this flow before other users can save; that page is not changed here.
+
+What the model sends, and when:
+
+- In `finalize_research`, with `answer_draft`, an optional `findings_card`: the
+  question in general terms (at most 300 characters), what a quick ordinary
+  answer would say (400), one to five findings, each with a claim (500),
+  certainty, whom it applies to (300), one sentence copied from the answer
+  (`answer_quote`), one to ten source identifiers (DOI, PMID, PMCID, NCT id or
+  YouTube video id), why the usual answer misses it (300), allowlisted tags and
+  what would change it (300), and up to six open leads (200 each). The gate
+  checks the card and stores nothing; like the answer draft, it is used for that
+  call only. A checked card's SHA-256 digest is signed into the finalization
+  receipt.
+- In `save_research_findings`, only after the user says yes: the same card, that
+  finalization receipt, the literal consent `yes_to_this_save`, and optionally
+  the model name as the app reports it (at most 80 characters).
+
+What the server checks: the receipt's signature, kind and 24-hour age, and that
+it signed this exact card; the lesson queue's deterministic privacy screen over
+every text field (with study and video identifiers, links to their pages,
+statistics-shaped numbers and in-word apostrophes set aside first); sources and
+the reported model name by their form; and a rate limit of its own. There is no
+model or API call on this path. Anything that fails is not stored.
+
+What is stored, and where: one issue in the private GitHub repository
+`u-dont-existDOTcom/AskRigor-findings` (or the repository named by
+`ASKRIGOR_FINDINGS_REPOSITORY`, under the same owner), reached through the
+lesson queue's GitHub App with a token scoped to that one private repository.
+The issue holds the question as its title, the labels `findings-card` and
+`pending-review`, a readable copy of the card, and a JSON record: the card, its
+SHA-256, and the server's version stamp (save time; AskRigor version and build
+commit, or `unknown`; HRP and Universal names, versions and SHA-256; a SHA-256 of
+the tool catalog; the endpoint, `/mcp` or `/mcp/claude`; the model name as
+reported and marked unverified; and the research depth, status, finalization
+time and receipt counts the receipt signed). A hidden marker holds the
+duplicate fingerprint (a SHA-256 of the normalized question and claims), a
+SHA-256 of the finalization receipt, used only to make a retried save write
+nothing new, and the save time. A later save of the same question and claims
+while the card is open adds a comment with its own record and stamp instead of a
+new issue.
+
+What is never stored: the chat, the answer beyond each finding's one quoted
+sentence, the research target or its digest, the receipts themselves, comment or
+caption text, commenter identities, the user's account, OAuth subject, email or
+network identity, and any upload. The tool returns only a status and an
+`ARF-####` id, never the issue number, link, card text or fingerprint.
+
+Cards may name public YouTube video ids as sources, the one YouTube identifier
+this library can hold; the living-evidence and frontier stores hold none while
+the YouTube compliance review is open, so the owner's notice wording should
+decide this too.
+
+Cards have no automatic expiry: they stay in the private repository until the
+owner deletes them. GitHub processes the stored issues under its own policies.
+Until the private repository exists and is added to the App's installation, the
+tool answers that the library is unavailable and stores nothing.
+
 ## Research data not persistently stored
 
 - Raw OAuth subjects, account email/contact fields, access tokens, passwords,
@@ -690,17 +768,20 @@ retention and provider-side deletion remain governed by the provider.
 
 The optional lesson path is one narrow durable-storage exception. It stores
 only the screened private candidate and anonymous recurrence metadata listed
-above; it does not create a transcript store or user profile. The independently
+above; it does not create a transcript store or user profile. The optional
+findings library, when deployed, is another: it stores only the checked,
+screened cards and stamps listed above, with no user profile. The independently
 disclosed living-evidence, frontier, participant-intake, research-access, and
 pending-proposal stores have their own strict contracts and authority boundaries.
 
 ## Response minimization and security controls
 
-- Of 26 MCP operations, 24 are annotated `readOnlyHint: true`. The two explicit
-  research-access/proposal operations are declared writes with
-  `destructiveHint: false` and `openWorldHint: false`. They require authenticated
-  `research:use`; all ordinary research operations also require that scope and
-  an active free-contributor or paid-private mode. The Action-only transcript,
+- Of 32 MCP operations, 27 are annotated `readOnlyHint: true`. The five
+  explicit writes (research-access mode, pending proposal, owner review, lesson
+  candidate and findings card) are declared with `destructiveHint: false` and
+  `openWorldHint: false`. Owner review requires `cases:review`; the others
+  require authenticated `research:use`; all ordinary research operations also
+  require that scope and an active free-contributor or paid-private mode. The Action-only transcript,
   treatment-landscape, automated Gemini-candidate, and legacy validation routes
   remain read-only; legacy research Actions are omitted whenever OAuth research
   access is active so they cannot bypass the mode choice. The treatment-landscape

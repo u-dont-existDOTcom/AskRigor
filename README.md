@@ -417,6 +417,26 @@ retrofit existing chats with standing consent; start a new Custom GPT chat after
 installation. Disabling the Action or revoking its repository-scoped App stops
 new lessons while MCP remains available and unchanged.
 
+## Findings library
+
+Owner decisions Q9 and Q10 (2026-09-30; not yet deployed): the connector can
+save the best findings of a checked answer for the owner's review, with the
+AskRigor that made them. In the last `finalize_research` call the model adds a
+`findings_card`; the gate checks each finding's sentence against the answer and
+each source against the receipts of that call, never changes the answer's status
+for the card, and, when the card checks, adds one caveat offering the save and
+signs the card's digest into the finalization receipt. Only after the user says
+yes does `save_research_findings` (the connector's 32nd tool) take that exact
+card: it verifies the receipt, runs the lesson queue's deterministic privacy
+screen with no model call, stamps the version (build, protocol manifests, tool
+catalog, surface), and files a GitHub issue labeled `findings-card` and
+`pending-review` in the private `AskRigor-findings` repository, or adds an
+occurrence to an open card with the same question and claims. It returns only an
+`ARF-####` id. Nothing is accepted until the owner reviews it. Going live for
+other users waits for the owner's privacy-notice wording, the private repository
+and its GitHub App installation, and deploy approval; the data flow is in
+`docs/privacy-data-map.md`.
+
 ## Public-review status
 
 The Phase K2 source candidate is not a public-release claim. It requires a
