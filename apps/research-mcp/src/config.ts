@@ -341,6 +341,20 @@ export function retractionWatchSnapshotRootFromEnv(
   return normalized;
 }
 
+/**
+ * The deployed build's commit, which a deployment may set as
+ * ASKRIGOR_BUILD_COMMIT; saved findings cards record it. "unknown" when it is
+ * unset or not a plain commit or tag name.
+ */
+export function askrigorBuildCommitFromEnv(
+  value = process.env.ASKRIGOR_BUILD_COMMIT
+): string {
+  const normalized = value?.trim();
+  return normalized !== undefined && /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/u.test(normalized)
+    ? normalized
+    : "unknown";
+}
+
 export function parseTrustedClientIpHeader(
   value = process.env.ASKRIGOR_TRUSTED_CLIENT_IP_HEADER
 ): "cf-connecting-ip" | undefined {

@@ -103,6 +103,9 @@ import {
 } from "./oauth-resource-server.js";
 
 import type { LessonSubmissionResult } from "./lessons/contracts.js";
+import type { FindingsSaveResult } from "./findings/contracts.js";
+import type { FindingsSaveContext } from "./findings/service.js";
+import type { McpSurface } from "./register-tools.js";
 
 export type McpToolCatalogProfile = "standard" | "gemini";
 
@@ -115,6 +118,10 @@ export interface AskRigorMcpServerOptions {
   researchAccessRequired?: boolean;
   /** Replaces the production lesson queue, for tests. */
   lessonSubmission?: (raw: unknown) => Promise<LessonSubmissionResult>;
+  /** Replaces the production findings library, for tests. */
+  findingsSave?: (raw: unknown, context: FindingsSaveContext) => Promise<FindingsSaveResult>;
+  /** The endpoint this server answers on; saved findings cards record it. */
+  mcpSurface?: McpSurface;
 }
 
 export function createAskRigorServer(
@@ -406,6 +413,7 @@ export function createAskRigorHttpServer(
       researchContributorAccessService,
       researchContributionReviewService,
       researchAccessRequired,
+      mcpSurface: profile === "gemini" ? GEMINI_COMPATIBLE_MCP_PATH : "/mcp",
     }));
   const createClaudeMcpServer = options.createMcpServer ??
     (() => createAskRigorServer("standard", {
@@ -417,6 +425,7 @@ export function createAskRigorHttpServer(
       researchContributorAccessService,
       researchContributionReviewService,
       researchAccessRequired,
+      mcpSurface: CLAUDE_MCP_PATH,
     }));
 
   return createServer(async (request, response) => {

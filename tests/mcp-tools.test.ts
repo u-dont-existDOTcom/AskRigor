@@ -58,7 +58,8 @@ const TOOL_NAMES = [
   "assess_treatment_landscape_coverage",
   "scout_gemini_youtube_candidates",
   "finalize_research",
-  "submit_lesson_candidate"
+  "submit_lesson_candidate",
+  "save_research_findings"
 ];
 const GEMINI_TOOL_NAMES = TOOL_NAMES.filter((name) =>
   ![
@@ -71,6 +72,7 @@ const GEMINI_TOOL_NAMES = TOOL_NAMES.filter((name) =>
     "scout_gemini_youtube_candidates",
     "finalize_research",
     "submit_lesson_candidate",
+    "save_research_findings",
   ].includes(name)
 );
 
@@ -104,7 +106,7 @@ const SPARSE_SEARCH_NOTE = " Few records: before saying anything was not found, 
   "the components of a mixed exposure, and citation chains.";
 
 describe("AskRigor MCP tools", () => {
-  it("registers the exact thirty-one-tool catalog with four declared writes", async () => {
+  it("registers the exact thirty-two-tool catalog with five declared writes", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {
@@ -117,6 +119,7 @@ describe("AskRigor MCP tools", () => {
           "submit_research_contribution",
           "review_research_contribution",
           "submit_lesson_candidate",
+          "save_research_findings",
         ].includes(name) ? MUTATING_ANNOTATIONS : READ_ONLY_ANNOTATIONS)
       );
       expect(tools.every(({ inputSchema, outputSchema }) =>

@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type {
   CallToolResult,
@@ -57,6 +59,17 @@ import {
 } from "./lessons/connector-tool.js";
 import type { LessonSubmissionResult } from "./lessons/contracts.js";
 import { submitConnectorLessonCandidate } from "./lessons/runtime.js";
+import {
+  findingsSaveToolResult,
+  SAVE_RESEARCH_FINDINGS_DESCRIPTION,
+} from "./findings/connector-tool.js";
+import {
+  saveResearchFindingsInputSchema,
+  saveResearchFindingsOutputSchema,
+  type FindingsSaveResult,
+} from "./findings/contracts.js";
+import { saveResearchFindings } from "./findings/runtime.js";
+import type { FindingsSaveContext } from "./findings/service.js";
 import {
   protocolErrorResult,
   protocolRequestError,
@@ -578,10 +591,14 @@ const RESEARCH_ACCESS_CONTROL_OPERATION_NAMES = new Set([
   "submit_research_contribution",
 ]);
 // The GPT keeps its own lesson Action, so the connector's lesson tool has no
-// research Action path.
+// research Action path; the findings library is saved from the connector only.
 const CONNECTOR_ONLY_OPERATION_NAMES = new Set([
   "submit_lesson_candidate",
+  "save_research_findings",
 ]);
+
+/** The MCP endpoint a server is created for, recorded on saved findings cards. */
+export type McpSurface = "/mcp" | "/mcp/gemini" | "/mcp/claude";
 
 export interface RegisterToolsOptions {
   publicEvidenceGapReviewService?: PublicEvidenceGapIntakeService;
@@ -592,6 +609,9 @@ export interface RegisterToolsOptions {
   researchAccessRequired?: boolean;
   /** Replaces the production lesson queue, for tests. */
   lessonSubmission?: (raw: unknown) => Promise<LessonSubmissionResult>;
+  /** Replaces the production findings library, for tests. */
+  findingsSave?: (raw: unknown, context: FindingsSaveContext) => Promise<FindingsSaveResult>;
+  mcpSurface?: McpSurface;
 }
 
 function defineResearchOperations(
@@ -1767,7 +1787,13 @@ function defineResearchOperations(
         `Research finalization: ${result.status}; ${result.next_steps.length} next step(s), ` +
           `${result.limits.length} limit(s) to state; ${result.receipts_verified} receipt(s) verified.` +
           result.caveats.map((caveat) => `\nThe answer must contain, as written: ${caveat}`).join("") +
-          result.must_report.map((lane) => `\nThe answer must report: ${lane}`).join(""),
+          result.must_report.map((lane) => `\nThe answer must report: ${lane}`).join("") +
+          (result.findings_card.status === "absent"
+            ? ""
+            : `\nFindings card: ${result.findings_card.status}` +
+              (result.findings_card.status === "checked"
+                ? "; the caveats offer the save, and save_research_findings runs only after the user says yes."
+                : `: ${result.findings_card.problems.join(" ")}`)),
         result as unknown as Record<string, unknown>
       );
     }
@@ -1788,6 +1814,36 @@ function defineResearchOperations(
       await (options.lessonSubmission ?? submitConnectorLessonCandidate)(input),
     ),
   );
+
+  // Owner decisions Q9 and Q10 (2026-09-30): after the user says yes, a
+  // checked findings card goes to a private review queue, stamped with the
+  // AskRigor that made it; the owner reviews every card. Behind the
+  // research-access guard like other tools; no research Action path.
+  registrar.registerTool(
+    "save_research_findings",
+    {
+      description: SAVE_RESEARCH_FINDINGS_DESCRIPTION,
+      inputSchema: saveResearchFindingsInputSchema,
+      outputSchema: saveResearchFindingsOutputSchema,
+      annotations: MUTATING_ANNOTATIONS,
+    },
+    async (input) => findingsSaveToolResult(
+      await (options.findingsSave ?? saveResearchFindings)(input, {
+        surface: options.mcpSurface ?? "unknown",
+        toolCatalogSha256: toolCatalogSha256(),
+      }),
+    ),
+  );
+}
+
+// The tool catalog a findings card was saved with: sha256 of the operation
+// names, sorted, one per line. Read when a save arrives, once the catalog exists.
+let catalogDigest: string | undefined;
+function toolCatalogSha256(): string {
+  catalogDigest ??= createHash("sha256")
+    .update(RESEARCH_OPERATIONS.map(({ name }) => name).sort().join("\n"), "utf8")
+    .digest("hex");
+  return catalogDigest;
 }
 
 // Compound rule, module and case names in the canonical protocols, such as
@@ -2360,8 +2416,8 @@ function collectResearchOperations(
   } as unknown as Pick<McpServer, "registerTool">;
 
   defineResearchOperations(registrar, options);
-  if (operations.length !== 31) {
-    throw new Error(`Expected 31 research operations; received ${operations.length}`);
+  if (operations.length !== 32) {
+    throw new Error(`Expected 32 research operations; received ${operations.length}`);
   }
   if (new Set(operations.map(({ name }) => name)).size !== operations.length) {
     throw new Error("Research operation names must be unique");
