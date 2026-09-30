@@ -94,7 +94,14 @@ function occurrences(text: string, needle: string): number {
 
 describe("canonical Reasoning Selection application", () => {
   it("adds the exact Critical selector and revision without reserializing Universal", async () => {
-    const universal = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
+    const current = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
+    expect(current).toContain('version="20.5.27" revisionDate="2026-09-30"');
+    const universal = current
+      .replace('version="20.5.27" revisionDate="2026-09-30"', 'version="20.5.26" revisionDate="2026-09-17"')
+      .replace(/<revision version="20\.5\.27" priority="Critical">[\s\S]*?<\/revision>\n/u, "")
+      .replace(/\n<task_mode_integration [\s\S]*?<\/task_mode_integration>\n/u, "")
+      .replace(/Task-mode integration check:[^\n]*\n\n/u, "");
+    expect(sha256(universal)).toBe("c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2");
 
     expect(XMLValidator.validate(universal)).toBe(true);
     expect(universal).toMatch(

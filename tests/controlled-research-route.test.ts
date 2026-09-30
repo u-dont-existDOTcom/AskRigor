@@ -55,7 +55,7 @@ function expectReasoningSelectionDelivery(policyContext: any): void {
     universal.indexOf(selectorEnd)
   );
   expect(routeHash(selector)).toBe(
-    "2661aa8269fc9254825181433ff420e08f35acf6de1678d88a7be0af4fc92f57"
+    "79472d0c5ecc6326d1fa6bbb7d79d49515c26b0a2d44e78ca953f3ddb3855c54"
   );
 
   const project = policyContext.documents.find(
