@@ -21,7 +21,7 @@ import {
 const HRP_SHA_256 =
   "254759df38934c28b06709dace9fcb266fc9967913be1296de99a461be596816";
 const UNIVERSAL_SHA_256 =
-  "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2";
+  "6dd95d86e3b49a54a9f597d13e8a9855b478d876d1a84842a8f88f144c999625";
 
 describe("canonical protocol loader", () => {
   let actualReadFile: typeof import("node:fs/promises").readFile;
@@ -419,8 +419,8 @@ describe("canonical protocol loader", () => {
   it("derives the Universal manifest from its root attributes", async () => {
     await expect(getProtocolManifest("universal")).resolves.toMatchObject({
       name: "AskRigor.com universal saved instructions",
-      version: "20.5.26",
-      revisionDate: "2026-09-17"
+      version: "20.5.27",
+      revisionDate: "2026-09-30"
     });
   });
 

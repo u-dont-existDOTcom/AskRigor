@@ -451,3 +451,7 @@ complete XML protocol.
   authority
 
 Current owner requirements and verified code/evidence outrank stale plans or summaries.
+
+## Task-mode integration
+
+- `superpowers/plans/2026-09-30-task-mode-integration.md`: portable task/capability routing, exact source preservation, and separate memory, source, and deployment boundaries.

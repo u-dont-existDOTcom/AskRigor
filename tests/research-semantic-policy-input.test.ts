@@ -127,7 +127,7 @@ describe("research semantic canonical policy input", () => {
       expect(inputs.policy_context.documents).toHaveLength(4);
       expect(inputs.policy_context.documents[0]?.text).toBe(universal.text);
       expect(inputs.policy_context.documents[0]?.text).toContain(
-        `<reasoning_selection priority="Critical">\n${REASONING_SELECTION_TEXT}\n</reasoning_selection>`
+        `<reasoning_selection priority="Critical">\n${REASONING_SELECTION_TEXT}\n\n<task_mode_integration priority="Critical" ruleId="portable.task-mode-integration.v1">`
       );
       expect(inputs.policy_context.documents[1]?.text).toBe(hrp.text);
       expect(inputs.policy_context.documents[2]?.text).toBe(projectRouter.toString("utf8"));
