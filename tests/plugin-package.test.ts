@@ -77,7 +77,20 @@ describe("AskRigor plugin package", () => {
     expect(skill.startsWith(`${EXPECTED_SKILL_FRONTMATTER}\n`)).toBe(true);
     expect(skill).not.toMatch(/\bv?20\.5\.(?:\d+|x)\b/i);
     expect(skill).not.toMatch(/<\/?(?:Protocol|Purpose|Research)/);
-    expect(skill.split(/\s+/).filter(Boolean).length).toBeLessThan(1_100);
+    // 1,100 until the findings library's two sentences (owner decisions Q9 and Q10, 2026-09-30).
+    expect(skill.split(/\s+/).filter(Boolean).length).toBeLessThan(1_125);
+  });
+
+  it("offers a findings save from the final gate and saves only after the user says yes", async () => {
+    const skill = await readFile(rootFile("skills/askrigor/SKILL.md"), "utf8");
+    const gate = sectionBetween(skill, "## Protocol gate", "## Forum Signal routing");
+
+    expectFragmentsInOrder(gate, [
+      "call `finalize_research`",
+      "a `findings_card` of the answer's best findings",
+      "copy its `caveats`, including the save offer",
+      "Call `save_research_findings` only after the user says yes.",
+    ]);
   });
 
   it("requires an explicit reciprocal mode before research and bounds shared learning", async () => {

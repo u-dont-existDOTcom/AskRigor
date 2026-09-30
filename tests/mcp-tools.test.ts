@@ -154,6 +154,9 @@ describe("AskRigor MCP tools", () => {
     expect(SERVER_INSTRUCTIONS.slice(0, 1_024)).toContain(
       "call finalize_research with every research_receipt"
     );
+    // Owner decisions Q9 and Q10 (2026-09-30): the final check carries a findings card; its save waits for a yes.
+    expect(SERVER_INSTRUCTIONS).toContain("a findings_card of its best findings");
+    expect(SERVER_INSTRUCTIONS).toContain("else copy its caveats. Call save_research_findings only after the user says yes.");
   });
 
   it("publishes one-chain full-text handle and source-hash guidance", () => {
