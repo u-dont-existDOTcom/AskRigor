@@ -1228,6 +1228,48 @@ questions"), fixed before any held-out answer exists:
   a large regression, not a small difference; the judge shares the answering
   model's family, which blinding and citation checks only partly offset.
 
+Held-out results:
+
+- **`ho-knee-cartilage`, 30 Sep.** Both arms ran at once, 07:06:50 to
+  07:51:30 UTC, on the same fresh YouTube quota, with no quota errors.
+
+  | | New (`0a0d27a`, PR head) | Live (`main`, `745b780`) |
+  |---|---|---|
+  | Wall time | 44.6 min (92% model time) | 22.9 min |
+  | Tool calls | 144 | 106 |
+  | YouTube quota units | 2,474 (14 searches) | 2,365 (15 searches) |
+  | Protocol text the model read | about 274 KB in 35 section loads | about 3 KB: both whole-protocol loads failed on size |
+  | Final check | `ready_with_limits` after two send-backs (11, then 1 next step); 38 receipts, all verified | none on `main` |
+  | API-equivalent estimate (actual spend $0) | $16.81 | $9.68 |
+
+  - Blind judge: seed 1, web spot-checks, 7 citations checked, 6.6 minutes.
+    The new version won overall (medium confidence), and on appraisal,
+    heterodox judgment, safety and usefulness. `main` won on options.
+  - The judge's errors in the new answer:
+    - it called exercise evidence low-certainty where the source rates it
+      very-low;
+    - it read a probability about the average effect as a person's chance of
+      relief;
+    - presentation clutter: six items under "Two ways to go deeper", a
+      "Protocols applied" line (garbled by the judge's own redaction of version
+      names), and a note that AskRigor "could not verify" forum reports.
+  - The judge's errors in `main`'s answer: two guideline claims cited to a
+    press release that contains neither, and a pilot's sample size reported
+    missing although its source states it.
+  - Decision rule: this question passes (no safety loss, an overall win).
+  - Cost and latency: the new version took twice the time and twice the
+    plan usage.
+  - Process notes in the answer recur in the development runs ("internal
+    codes", "process clutter"), so they are a recurring finding to diagnose
+    as a class, not with another word check.
+- **`ho-hashimotos-fatigue`: waits for the next reset** (1 Oct, 07:05 UTC).
+  - The knee pair used 4,839 of the day's 10,000 units, and a similar pair
+    would leave about 300.
+  - A run that hits the limit is discarded, and both arms of a question must
+    share a quota day.
+  - The new arm runs on `0a0d27a`: later commits on the branch change only
+    this record.
+
 ## Checks that work in any language (owner correction, 2026-09-29)
 
 The owner asked why the checks were hardwired to English ("not everyone speaks
