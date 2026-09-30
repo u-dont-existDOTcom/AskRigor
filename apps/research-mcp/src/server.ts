@@ -120,6 +120,8 @@ export interface AskRigorMcpServerOptions {
   lessonSubmission?: (raw: unknown) => Promise<LessonSubmissionResult>;
   /** Replaces the production findings library, for tests. */
   findingsSave?: (raw: unknown, context: FindingsSaveContext) => Promise<FindingsSaveResult>;
+  /** Whether the findings library is open; defaults to ASKRIGOR_FINDINGS_LIBRARY. */
+  findingsLibrary?: boolean;
   /** The endpoint this server answers on; saved findings cards record it. */
   mcpSurface?: McpSurface;
 }

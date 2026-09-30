@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 
 import { GitHubApiError } from "../lessons/github-app.js";
 import type { LessonAttemptLimiter } from "../lessons/rate-limit.js";
@@ -12,8 +12,8 @@ import {
   type StoredFindingsCard
 } from "./card.js";
 import {
-  saveResearchFindingsInputSchema,
-  saveResearchFindingsOutputSchema,
+  findingsSaveInputSchema,
+  findingsSaveResultSchema,
   type FindingsSaveReason,
   type FindingsSaveResult
 } from "./contracts.js";
@@ -21,7 +21,7 @@ import { publicFindingsCardId, type GitHubFindingsQueue } from "./github-finding
 
 /** Where and with what the save was made, known to the server at registration. */
 export interface FindingsSaveContext {
-  /** The MCP endpoint the tool was listed on (/mcp or /mcp/claude), or "unknown". */
+  /** The MCP endpoint finalize_research was called on (/mcp or /mcp/claude), or "unknown". */
   surface: string;
   /** sha256 of the server's operation names, sorted, one per line. */
   toolCatalogSha256: string;
@@ -79,9 +79,12 @@ export interface FindingsSaveServiceOptions {
 }
 
 /**
- * Saves one findings card after the user said yes: only the card whose digest
- * a valid, unexpired finalization receipt signed, only past the privacy
- * screen, within the rate limit, stamped by the server. No model call.
+ * Saves the findings card of a free contributor's finalized answer (owner
+ * decision Q11, 2026-09-30): only the card whose digest a valid, unexpired
+ * finalization receipt signed, only past the privacy screen, within the rate
+ * limit, stamped by the server. No model call. The card replaces the open
+ * cards of its research thread: the same account and research target, which
+ * the queue knows only as a keyed hash.
  */
 export class FindingsSaveService {
   private readonly now: () => Date;
@@ -92,7 +95,7 @@ export class FindingsSaveService {
 
   async save(raw: unknown, context: FindingsSaveContext): Promise<FindingsSaveResult> {
     try {
-      const parsed = saveResearchFindingsInputSchema.safeParse(raw);
+      const parsed = findingsSaveInputSchema.safeParse(raw);
       if (!parsed.success) return notChecked("invalid_request");
       const input = parsed.data;
 
@@ -106,11 +109,16 @@ export class FindingsSaveService {
       if (typeof signed !== "string" || signed === "") return notChecked("card_not_in_receipt");
       const cardSha256 = findingsCardDigest(input.findings_card);
       if (signed !== cardSha256) return notChecked("card_changed");
+      const target = receipt.claims.target;
+      if (typeof target !== "string" || target === "") return notChecked("receipt_invalid");
 
-      if (screenFindingsCard(input.findings_card).length > 0 ||
-        (input.reported_model !== undefined && !isSafeReportedModel(input.reported_model))) {
+      if (screenFindingsCard(input.findings_card).length > 0) {
         return result({ status: "privacy_rejected", retryable: false, reason_code: "unsafe_card" });
       }
+      // A model name that does not read as one is left out; the card is still saved.
+      const reportedModel = input.reported_model !== undefined && isSafeReportedModel(input.reported_model)
+        ? input.reported_model
+        : undefined;
 
       const limit = this.options.limiter.consume();
       if (!limit.allowed) {
@@ -135,7 +143,7 @@ export class FindingsSaveService {
           protocols: (await this.options.protocols()).map(({ name, version, sha256 }) => ({ name, version, sha256 })),
           tool_catalog_sha256: context.toolCatalogSha256,
           surface: context.surface,
-          ...(input.reported_model === undefined ? {} : { reported_model_unverified: input.reported_model }),
+          ...(reportedModel === undefined ? {} : { reported_model_unverified: reportedModel }),
           research: researchStamp(receipt.issued_at, receipt.claims),
         },
       };
@@ -143,17 +151,33 @@ export class FindingsSaveService {
         record,
         fingerprint: findingsCardFingerprint(input.findings_card),
         receiptSha256: createHash("sha256").update(input.finalization_receipt, "utf8").digest("hex"),
+        thread: findingsThreadKey(secret, input.contributor, target),
       });
       return result({
         status: queued.kind === "created" ? "saved" : "existing_card",
         retryable: false,
         card_id: publicFindingsCardId(queued.issueNumber),
         occurrence_count: queued.occurrenceCount,
+        ...(queued.replaced === 0 ? {} : { replaced_count: queued.replaced }),
       });
     } catch (error) {
       return queueUnavailable(error);
     }
   }
+}
+
+/**
+ * One research thread: one account's research on one research target. The
+ * key is an HMAC under the receipt secret, so the library cannot tell whose
+ * thread it is, and one account's threads on different targets do not match.
+ */
+export function findingsThreadKey(secret: string, contributor: string, targetDigest: string): string {
+  return createHmac("sha256", secret)
+    .update("askrigor:findings-thread:v1\0", "utf8")
+    .update(contributor, "utf8")
+    .update("\0", "utf8")
+    .update(targetDigest, "utf8")
+    .digest("hex");
 }
 
 /** The research behind the card, from the receipt's signed claims; the research target's digest stays out. */
@@ -195,7 +219,7 @@ function queueUnavailable(error: unknown): FindingsSaveResult {
 }
 
 function result(value: FindingsSaveResult): FindingsSaveResult {
-  const parsed = saveResearchFindingsOutputSchema.safeParse(value);
+  const parsed = findingsSaveResultSchema.safeParse(value);
   return parsed.success
     ? parsed.data
     : { status: "queue_unavailable", retryable: false, reason_code: "queue_service_unavailable" };

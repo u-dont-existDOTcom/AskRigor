@@ -17,13 +17,33 @@ import {
 } from "./prepare.js";
 
 export const RESEARCH_USE_NOTICE_VERSION =
-  "free-contributor-v1-2026-09-01" as const;
+  "free-contributor-v2-2026-09-30" as const;
 
+/**
+ * Notices free accounts accepted before the current one. Such an account
+ * accepts the current notice before free research continues (owner decision
+ * Q11, 2026-09-30: each finished answer's findings card joined what free use
+ * saves).
+ */
+export const EARLIER_RESEARCH_USE_NOTICE_VERSIONS = [
+  "free-contributor-v1-2026-09-01",
+] as const;
+
+const researchUseNoticeVersionSchema = z.enum([
+  RESEARCH_USE_NOTICE_VERSION,
+  ...EARLIER_RESEARCH_USE_NOTICE_VERSIONS,
+]);
+
+export type ResearchUseNoticeVersion = z.infer<typeof researchUseNoticeVersionSchema>;
+
+// Drafted for the owner's approval (question 11); the owner words the public
+// privacy notice and this text before the findings library opens.
 export const RESEARCH_USE_NOTICE = [
-  "Free AskRigor use is reciprocal: eligible deidentified structured research progress from this use may be submitted to AskRigor's shared research repository.",
-  "AskRigor excludes raw chat, prompts, identity or contact details, private health narratives, uploads, raw source or provider bodies, and YouTube or community content from this shared proposal path.",
-  "Submitted proposals are reviewed and do not become evidence, conclusions, or scientific authority merely because they were submitted or repeated.",
-  "Paid private access does not contribute to the shared repository and requires an active verified entitlement.",
+  "Free AskRigor use is reciprocal: what AskRigor learns from your research is saved for its research library.",
+  "That includes deidentified structured research progress and, for each finished research answer, a findings card: the question in general terms, the main findings and how certain they are, the public studies behind them, and what public online communities reported, summarized without their posts, names, links or video IDs.",
+  "AskRigor never saves raw chat, prompts, identity or contact details, private health narratives, uploads, or raw source or provider bodies.",
+  "Saved research is reviewed and does not become evidence, conclusions, or scientific authority merely because it was saved or repeated.",
+  "Paid private access saves nothing and requires an active verified entitlement.",
 ].join(" ");
 
 export const researchUseModeSchema = z.enum([
@@ -37,6 +57,11 @@ export const freeContributorAgreementSchema = z.object({
   prohibitedPrivateAndRawContentExcluded: z.literal(true),
   proposalReviewAndNoAuthorityAcknowledged: z.literal(true),
   paidPrivateAlternativeAcknowledged: z.literal(true),
+}).strict();
+
+/** An agreement as stored: accepted under the current notice or an earlier one. */
+const storedFreeContributorAgreementSchema = freeContributorAgreementSchema.extend({
+  noticeVersion: researchUseNoticeVersionSchema,
 }).strict();
 
 export const contributionPrivacyBoundarySchema = z.object({
@@ -60,6 +85,9 @@ export type ResearchUseMode = z.infer<typeof researchUseModeSchema>;
 export type FreeContributorAgreement = z.infer<
   typeof freeContributorAgreementSchema
 >;
+export type StoredFreeContributorAgreement = z.infer<
+  typeof storedFreeContributorAgreementSchema
+>;
 export type ContributionPrivacyBoundary = z.infer<
   typeof contributionPrivacyBoundarySchema
 >;
@@ -71,8 +99,8 @@ export interface ResearchUseAccountRecord {
   accountKey: string;
   status: "ACTIVE" | "REVOKED";
   mode: ResearchUseMode | null;
-  noticeVersion: typeof RESEARCH_USE_NOTICE_VERSION | null;
-  agreement: FreeContributorAgreement | null;
+  noticeVersion: ResearchUseNoticeVersion | null;
+  agreement: StoredFreeContributorAgreement | null;
   activatedAt: string | null;
   revokedAt: string | null;
   createdAt: string;
@@ -184,6 +212,10 @@ export class ResearchContributorAccessService {
     if (account === null) {
       return accessView("UNENROLLED", null, null, null);
     }
+    // A free account that accepted an earlier notice is shown the current one to accept.
+    if (outdatedFreeNotice(account)) {
+      return accessView("UNENROLLED", null, null, account.updatedAt);
+    }
     return accessView(
       account.status,
       account.mode,
@@ -270,6 +302,12 @@ export class ResearchContributorAccessService {
       throw new ResearchAccessError(
         "RESEARCH_ACCESS_REVOKED",
         "Research access is revoked. Choose an allowed mode again before using AskRigor research tools.",
+      );
+    }
+    if (outdatedFreeNotice(account)) {
+      throw new ResearchAccessError(
+        "RESEARCH_ACCESS_REQUIRED",
+        "AskRigor's free contributor notice has changed. Show the current notice and let the user accept it, or use an entitled paid-private account, before using AskRigor research tools.",
       );
     }
     if (
@@ -618,10 +656,10 @@ interface ResearchContributionProposalRow {
 function accountFromRow(row: ResearchUseAccountRow): ResearchUseAccountRecord {
   const noticeVersion = row.notice_version === null
     ? null
-    : z.literal(RESEARCH_USE_NOTICE_VERSION).parse(row.notice_version);
+    : researchUseNoticeVersionSchema.parse(row.notice_version);
   const agreement = Object.keys(row.agreement_json).length === 0
     ? null
-    : freeContributorAgreementSchema.parse(row.agreement_json);
+    : storedFreeContributorAgreementSchema.parse(row.agreement_json);
   return {
     accountKey: row.account_key,
     status: row.status,
@@ -759,6 +797,12 @@ function normalizeOAuthSubject(subject: string): string {
     throw new Error("OAUTH_SUBJECT_INVALID");
   }
   return subject;
+}
+
+function outdatedFreeNotice(account: ResearchUseAccountRecord): boolean {
+  return account.status === "ACTIVE" &&
+    account.mode === "FREE_CONTRIBUTOR" &&
+    account.noticeVersion !== RESEARCH_USE_NOTICE_VERSION;
 }
 
 function accessView(

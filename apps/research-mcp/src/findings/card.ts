@@ -10,11 +10,12 @@ import {
 
 /**
  * A findings card: the best findings of one checked answer, for AskRigor's
- * findings library (owner decisions Q9 and Q10, 2026-09-30). finalize_research
+ * findings library (owner decisions Q9 to Q11, 2026-09-30). finalize_research
  * checks a card against the answer and the research it verified in the same
- * call, and signs the card's digest into its finalization receipt;
- * save_research_findings saves only a card whose digest that receipt signed,
- * and only after the user says yes. The owner reviews every saved card.
+ * call, and signs the card's digest into its finalization receipt. For a free
+ * contributor account the server then saves the card whose digest that
+ * receipt signed; paid-private research saves nothing. The owner reviews
+ * every saved card.
  */
 
 export const FINDING_CERTAINTIES = ["high", "moderate", "low", "very_low"] as const;
@@ -50,10 +51,6 @@ export const findingsCardSchema = z.object({
 }).strict();
 
 export type FindingsCard = z.output<typeof findingsCardSchema>;
-
-/** The one sentence a checked card adds to the answer's caveats. */
-export const FINDINGS_SAVE_OFFER =
-  "If you want these findings saved to AskRigor's findings library for review, say yes; nothing is saved otherwise.";
 
 /**
  * JSON with each object's keys sorted and no spacing, so one card has one text

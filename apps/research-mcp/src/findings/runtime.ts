@@ -30,9 +30,10 @@ export const DEFAULT_FINDINGS_REPOSITORY: Readonly<GitHubRepository> = Object.fr
 let cachedService: FindingsSaveService | undefined;
 
 /**
- * Saves one findings card from the connector. The GitHub App and the
- * receipt secret are the ones the lesson queue and finalize_research use; an
- * unconfigured library answers "unavailable" and never throws.
+ * Saves the findings card finalize_research checked for a free contributor
+ * account. The GitHub App and the receipt secret are the ones the lesson queue
+ * and finalize_research use; an unconfigured library answers "unavailable" and
+ * never throws.
  */
 export async function saveResearchFindings(raw: unknown, context: FindingsSaveContext): Promise<FindingsSaveResult> {
   // Closed until the owner opens it (ASKRIGOR_FINDINGS_LIBRARY=enabled).

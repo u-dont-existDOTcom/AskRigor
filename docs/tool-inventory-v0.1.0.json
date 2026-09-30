@@ -9252,7 +9252,7 @@
     },
     {
       "name": "manage_research_access",
-      "description": "Inspect or choose AskRigor's research-use mode. Free use requires explicit agreement to version free-contributor-v1-2026-09-01; only eligible deidentified structured research progress may enter a non-authoritative review inbox. Paid private mode contributes nothing and activates only for an existing verified entitlement; this release offers no price or checkout.",
+      "description": "Inspect or choose AskRigor's research-use mode. Free use requires explicit agreement to version free-contributor-v2-2026-09-30: what AskRigor learns from the research (deidentified structured research progress and each finished answer's findings card) is saved for non-authoritative review. Paid private mode saves nothing and activates only for an existing verified entitlement; this release offers no price or checkout.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -9270,7 +9270,7 @@
             "properties": {
               "noticeVersion": {
                 "type": "string",
-                "const": "free-contributor-v1-2026-09-01"
+                "const": "free-contributor-v2-2026-09-30"
               },
               "eligibleDeidentifiedResearchContributionRequired": {
                 "type": "boolean",
@@ -9338,11 +9338,11 @@
               },
               "noticeVersion": {
                 "type": "string",
-                "const": "free-contributor-v1-2026-09-01"
+                "const": "free-contributor-v2-2026-09-30"
               },
               "notice": {
                 "type": "string",
-                "const": "Free AskRigor use is reciprocal: eligible deidentified structured research progress from this use may be submitted to AskRigor's shared research repository. AskRigor excludes raw chat, prompts, identity or contact details, private health narratives, uploads, raw source or provider bodies, and YouTube or community content from this shared proposal path. Submitted proposals are reviewed and do not become evidence, conclusions, or scientific authority merely because they were submitted or repeated. Paid private access does not contribute to the shared repository and requires an active verified entitlement."
+                "const": "Free AskRigor use is reciprocal: what AskRigor learns from your research is saved for its research library. That includes deidentified structured research progress and, for each finished research answer, a findings card: the question in general terms, the main findings and how certain they are, the public studies behind them, and what public online communities reported, summarized without their posts, names, links or video IDs. AskRigor never saves raw chat, prompts, identity or contact details, private health narratives, uploads, or raw source or provider bodies. Saved research is reviewed and does not become evidence, conclusions, or scientific authority merely because it was saved or repeated. Paid private access saves nothing and requires an active verified entitlement."
               },
               "contributionRequired": {
                 "type": "boolean"
@@ -12081,7 +12081,7 @@
     },
     {
       "name": "finalize_research",
-      "description": "Call before the final answer. Pass every research_receipt you received, the research_target (the same text given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits; discovery for any other target does not count), whether community evidence was researched, whether the answer compares treatment options, where people discussing it talk and what each community you searched outside YouTube showed (principal_communities, community_searches), what the YouTube comments you read showed (community_findings), the studies your conclusions depend on, after a first pass the focuses for going deeper (open_leads, another_pass_estimate), and the answer you are about to give (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, the sentences you quote from it for each lane (answer_quotes) and where it says something was not found, not studied or has no effect (absence_claims), and the caveats, and is not stored. not_ready lists the remaining steps; ready_with_limits lists limits, and caveats gives the sentences the answer must contain, each as its own sentence and as written (in an answer not in English, in its language: give answer_language and caveat_renderings); must_report lists what the answer must report from each lane researched; receipts_unavailable means this server cannot verify completion, so do the required work anyway and say that completion was not server-verified.",
+      "description": "Call before the final answer. Pass every research_receipt you received, the research_target (the same text given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits; discovery for any other target does not count), whether community evidence was researched, whether the answer compares treatment options, where people discussing it talk and what each community you searched outside YouTube showed (principal_communities, community_searches), what the YouTube comments you read showed (community_findings), the studies your conclusions depend on, after a first pass the focuses for going deeper (open_leads, another_pass_estimate), and the answer you are about to give (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, the sentences you quote from it for each lane (answer_quotes) and where it says something was not found, not studied or has no effect (absence_claims), and the caveats, and is not stored. not_ready lists the remaining steps; ready_with_limits lists limits, and caveats gives the sentences the answer must contain, each as its own sentence and as written (in an answer not in English, in its language: give answer_language and caveat_renderings); must_report lists what the answer must report from each lane researched; receipts_unavailable means this server cannot verify completion, so do the required work anyway and say that completion was not server-verified. In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the owner's review.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -12577,7 +12577,7 @@
             }
           },
           "findings_card": {
-            "description": "With answer_draft: the answer's best findings for AskRigor's findings library, never claims the user corrected and no personal details. It is checked against the answer and this call's verified sources and does not change the status; a checked card adds a caveat offering the save, and save_research_findings runs only after the user says yes.",
+            "description": "With answer_draft: the answer's best findings for AskRigor's findings library, never claims the user corrected and no personal details, checked against the answer and this call's verified sources. In free contributor mode a checked card is saved for the owner's review; a rejected one is not saved and does not hold back the answer.",
             "type": "object",
             "properties": {
               "question": {
@@ -12693,6 +12693,12 @@
               "findings"
             ],
             "additionalProperties": false
+          },
+          "reported_model": {
+            "description": "Your model's name as your app reports it; kept, unverified, with a saved findings card.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
           }
         },
         "required": [
@@ -12883,7 +12889,8 @@
                   "checked",
                   "rejected",
                   "absent",
-                  "closed"
+                  "closed",
+                  "private"
                 ]
               },
               "problems": {
@@ -12891,6 +12898,31 @@
                 "items": {
                   "type": "string"
                 }
+              },
+              "saved": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "saved",
+                      "already_saved",
+                      "not_saved",
+                      "unconfirmed"
+                    ]
+                  },
+                  "card_id": {
+                    "type": "string",
+                    "pattern": "^ARF-[0-9]{4,}$"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
@@ -12898,7 +12930,7 @@
               "problems"
             ],
             "additionalProperties": false,
-            "description": "Whether findings_card checked. Only a checked card can be saved: the finalization receipt then signs it and the caveats offer the save."
+            "description": "Whether findings_card checked, and for a free contributor account whether it was saved. closed: the findings library is not open; private: this account's research is not saved."
           },
           "finalization_receipt": {
             "type": "string"
@@ -12921,8 +12953,9 @@
         "additionalProperties": false
       },
       "annotations": {
-        "readOnlyHint": true,
+        "readOnlyHint": false,
         "destructiveHint": false,
+        "idempotentHint": true,
         "openWorldHint": false
       },
       "execution": {
@@ -13077,233 +13110,6 @@
           },
           "reason_code": {
             "type": "string"
-          }
-        },
-        "required": [
-          "status",
-          "retryable"
-        ],
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "additionalProperties": false
-      },
-      "annotations": {
-        "readOnlyHint": false,
-        "destructiveHint": false,
-        "idempotentHint": true,
-        "openWorldHint": false
-      },
-      "execution": {
-        "taskSupport": "forbidden"
-      },
-      "_meta": {
-        "securitySchemes": [
-          {
-            "type": "oauth2",
-            "scopes": [
-              "research:use"
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "name": "save_research_findings",
-      "description": "Save the findings card of the final checked answer to AskRigor's private findings library, for the owner's review. Use only after the user says yes to this save. Send the card exactly as the last finalize_research call checked it, with its finalization_receipt; never include claims the user corrected, and no personal details. Returns a receipt, never the stored card.",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "findings_card": {
-            "type": "object",
-            "properties": {
-              "question": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 300,
-                "description": "The question in general terms, with no personal details."
-              },
-              "usual_answer": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 400,
-                "description": "What a quick, ordinary AI answer would say."
-              },
-              "findings": {
-                "minItems": 1,
-                "maxItems": 5,
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "claim": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 500
-                    },
-                    "certainty": {
-                      "type": "string",
-                      "enum": [
-                        "high",
-                        "moderate",
-                        "low",
-                        "very_low"
-                      ]
-                    },
-                    "applies_to": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 300,
-                      "description": "Who or what the finding holds for."
-                    },
-                    "answer_quote": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 1000,
-                      "description": "The answer's sentence that states this finding, copied exactly from answer_draft."
-                    },
-                    "sources": {
-                      "minItems": 1,
-                      "maxItems": 10,
-                      "type": "array",
-                      "items": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 300
-                      },
-                      "description": "DOI, PMID or PMCID of a key source verified in this call, or the ID of a video audited here. No tool verifies a trial registration yet, so cite a trial through its published paper."
-                    },
-                    "why_not_usual": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 300,
-                      "description": "Why the usual answer misses this."
-                    },
-                    "tags": {
-                      "default": [],
-                      "description": "full_text_read needs a source read with a full-text method audit here; community_checked, a video whose comments were audited here.",
-                      "maxItems": 5,
-                      "type": "array",
-                      "items": {
-                        "type": "string",
-                        "enum": [
-                          "full_text_read",
-                          "community_checked",
-                          "contradicts_common_answer",
-                          "overlooked_study",
-                          "documented_absence"
-                        ]
-                      }
-                    },
-                    "what_would_change_it": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 300
-                    }
-                  },
-                  "required": [
-                    "claim",
-                    "certainty",
-                    "applies_to",
-                    "answer_quote",
-                    "sources",
-                    "why_not_usual",
-                    "what_would_change_it"
-                  ],
-                  "additionalProperties": false
-                }
-              },
-              "open_leads": {
-                "default": [],
-                "maxItems": 6,
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 200
-                }
-              }
-            },
-            "required": [
-              "question",
-              "usual_answer",
-              "findings"
-            ],
-            "additionalProperties": false,
-            "description": "The card exactly as the last finalize_research call checked it."
-          },
-          "finalization_receipt": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 2048,
-            "description": "The finalization_receipt that call returned."
-          },
-          "user_consent": {
-            "type": "string",
-            "const": "yes_to_this_save",
-            "description": "Only after the user said yes to saving these findings."
-          },
-          "reported_model": {
-            "description": "Your model's name as your app reports it; stored as reported, not verified.",
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 80
-          }
-        },
-        "required": [
-          "findings_card",
-          "finalization_receipt",
-          "user_consent"
-        ],
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "additionalProperties": false
-      },
-      "outputSchema": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string",
-            "enum": [
-              "saved",
-              "existing_card",
-              "privacy_rejected",
-              "rate_limited",
-              "card_not_checked",
-              "queue_unavailable"
-            ]
-          },
-          "retryable": {
-            "type": "boolean"
-          },
-          "card_id": {
-            "type": "string",
-            "pattern": "^ARF-[0-9]{4,}$"
-          },
-          "occurrence_count": {
-            "type": "integer",
-            "exclusiveMinimum": 0,
-            "maximum": 9007199254740991
-          },
-          "retry_after_seconds": {
-            "type": "integer",
-            "exclusiveMinimum": 0,
-            "maximum": 9007199254740991
-          },
-          "reason_code": {
-            "type": "string",
-            "enum": [
-              "invalid_request",
-              "receipts_unavailable",
-              "receipt_invalid",
-              "receipt_expired",
-              "card_not_in_receipt",
-              "card_changed",
-              "unsafe_card",
-              "hourly_limit",
-              "daily_limit",
-              "library_closed",
-              "queue_not_configured",
-              "queue_auth_unavailable",
-              "queue_service_unavailable"
-            ]
           }
         },
         "required": [

@@ -26,12 +26,14 @@ identity and contact data, private health narratives, uploads, raw source and
 provider bodies, credentials, and all community/YouTube content. It is not an
 automatic evidence-authority path.
 
-The September 30 source candidate (not deployed) adds an optional findings
-library: after the user says yes to that save, the connector saves one checked
-findings card to a private GitHub review queue (owner decisions Q9 and Q10). It
-is described under "Optional findings library" below. The public notice at
-`https://askrigor.com/privacy` does not describe it yet; the owner is wording
-that update, and other users must not be able to save cards until it is
+The September 30 source candidate (not deployed) adds a findings library for
+free contributor mode (owner decisions Q9 to Q11): when `finalize_research`
+checks a free contributor's answer, the server saves that answer's checked
+findings card to a private GitHub review queue; paid-private research saves
+nothing. It moves the free contributor notice to a second version that says so.
+It is described under "Findings library (free contributor mode)" below. The
+public notices at `https://askrigor.com/privacy` and `/terms` do not describe it
+yet; the owner is wording that update, and the library stays closed until it is
 published.
 
 ## Purpose and boundary
@@ -270,12 +272,12 @@ AskRigor has deliberately separate processing paths:
   protocols, instructions, providers, or releases. The fixed OpenAI privacy check
   described below is legacy configuration that the production lesson path does
   not call.
-- **Optional findings library path:** `finalize_research` checks an optional
-  findings card with the answer and stores neither; only after the user says yes
-  to that save does the connector's `save_research_findings` tool (behind the
-  research-access guard; not deployed) store the checked card and a
-  server-written version stamp in a private GitHub review queue. See "Optional
-  findings library" below.
+- **Findings library path:** for a free contributor account,
+  `finalize_research` (behind the research-access guard; not deployed) needs a
+  findings card with the answer, checks it, and saves the checked card and a
+  server-written version stamp in a private GitHub review queue; the answer is
+  never stored. Paid-private research saves nothing, and nothing asks the user.
+  See "Findings library (free contributor mode)" below.
 - **Automated Gemini-candidate path:** a public read-only Action and the
   `scout_gemini_youtube_candidates` MCP tool (behind the research-access guard)
   share one implementation and accept only a
@@ -684,42 +686,58 @@ request earlier deletion by sending the private-safe `ARL-####` receipt to
 `joel@askrigor.com`. AskRigor can act only on data it controls; provider
 retention and provider-side deletion remain governed by the provider.
 
-## Optional findings library
+## Findings library (free contributor mode)
 
-Owner decisions Q9 and Q10 (2026-09-30): any user may save a findings card
-after saying yes to that save; cards go to a private review queue, and the owner
-reviews every card before it is accepted. The code is built but not deployed.
-The public notice at `https://askrigor.com/privacy` needs the owner's wording
-for this flow before other users can save; that page is not changed here.
+Owner decisions Q9 to Q11 (2026-09-30): free AskRigor use is reciprocal, so what
+AskRigor learns from free research is saved. When `finalize_research` checks a
+free contributor account's answer, the server saves that answer's checked
+findings card to a private review queue, and the owner reviews every card before
+it is accepted. Paid-private research saves nothing, and nothing asks the user
+to save. The code is built but not deployed. The public notices at
+`https://askrigor.com/privacy` and `/terms`, and the in-app free contributor
+notice, need the owner's wording for this flow; those pages are not changed
+here, and the in-app notice text is a draft for the owner's approval.
+
+The free contributor notice is now version `free-contributor-v2-2026-09-30`,
+which says each finished research answer's findings card is saved. A free
+account that accepted `free-contributor-v1-2026-09-01` is shown as not yet
+enrolled, and research tools refuse it (`RESEARCH_ACCESS_REQUIRED`), until it
+accepts the new version. Migration `0011_research_use_notice_v2` lets the
+account table hold either version; the service admits only the current one.
 
 The library is closed unless `ASKRIGOR_FINDINGS_LIBRARY` is set to `enabled`,
-which the owner does once the notice is live and the private repository exists.
-While it is closed, `finalize_research` checks no card, signs none and adds no
-save offer, and `save_research_findings` saves nothing (`library_closed`).
+which the owner does once the wording is live and the private repository
+exists. While it is closed, `finalize_research` needs no card, checks none and
+saves none.
 
 What the model sends, and when:
 
-- In `finalize_research`, with `answer_draft`, an optional `findings_card`: the
-  question in general terms (at most 300 characters), what a quick ordinary
-  answer would say (400), one to five findings, each with a claim (500),
-  certainty, whom it applies to (300), one sentence copied from the answer
-  (`answer_quote`), one to ten source identifiers (DOI, PMID, PMCID or YouTube
-  video id; no tool verifies an NCT id yet, so a trial is cited through its
-  paper), why the usual answer misses it (300), allowlisted tags and
-  what would change it (300), and up to six open leads (200 each). The gate
-  checks the card and stores nothing; like the answer draft, it is used for that
-  call only. A checked card's SHA-256 digest is signed into the finalization
-  receipt.
-- In `save_research_findings`, only after the user says yes: the same card, that
-  finalization receipt, the literal consent `yes_to_this_save`, and optionally
-  the model name as the app reports it (at most 80 characters).
+- In `finalize_research`, with `answer_draft`, a `findings_card`, which a free
+  contributor's answer needs: the question in general terms (at most 300
+  characters), what a quick ordinary answer would say (400), one to five
+  findings, each with a claim (500), certainty, whom it applies to (300), one
+  sentence copied from the answer (`answer_quote`), one to ten source
+  identifiers (DOI, PMID, PMCID or YouTube video id; no tool verifies an NCT id
+  yet, so a trial is cited through its paper), why the usual answer misses it
+  (300), allowlisted tags and what would change it (300), and up to six open
+  leads (200 each). Optionally, the model name as the app reports it
+  (`reported_model`, at most 80 characters). The gate checks the card against
+  the answer and that call's verified sources. A rejected card is reported and
+  not saved; it never holds back the answer. A checked card's SHA-256 digest is
+  signed into the finalization receipt. For any other caller the card is
+  neither checked nor saved (`private`).
 
-What the server checks: the receipt's signature, kind and 24-hour age, and that
-it signed this exact card; the lesson queue's deterministic privacy screen over
-every text field (with study and video identifiers, links to their pages,
-statistics-shaped numbers and in-word apostrophes set aside first); sources and
-the reported model name by their form; and a rate limit of its own. There is no
-model or API call on this path. Anything that fails is not stored.
+What the server checks before it saves: that the caller's OAuth token belongs
+to an active free contributor account under the current notice; the receipt's
+signature, kind and 24-hour age, and that it signed this exact card; the lesson
+queue's deterministic privacy screen over every text field (with study and
+video identifiers, links to their pages, statistics-shaped numbers and in-word
+apostrophes set aside first); sources by their form; and a rate limit of its
+own (20 cards an hour and 100 a day per server process; later cards are not
+saved). A model name that does not read as one is left out. There is no model
+or API call on this path. Anything that fails is not stored, and the answer
+goes ahead; a save that has not finished within ten seconds is reported as
+unconfirmed, and the answer goes ahead while it completes.
 
 What is stored, and where: one issue in the private GitHub repository
 `u-dont-existDOTcom/AskRigor-findings` (or the repository named by
@@ -731,32 +749,42 @@ SHA-256, and the server's version stamp. The stored card holds no YouTube video
 ID or link while AskRigor's YouTube API compliance review is open: each finding
 keeps only the number of videos whose audited comments backed it, and a link
 keeps its text (`stored_without` records this; the SHA-256 is still the checked
-card's). The version stamp holds the save time; the AskRigor version and build
-commit, or `unknown`; the HRP and Universal names, versions and SHA-256; a
-SHA-256 of the tool catalog; the endpoint, `/mcp` or `/mcp/claude`; the model
-name as reported, marked unverified; and the research depth, status,
-finalization time and receipt counts the receipt signed. A hidden marker holds the
-duplicate fingerprint (a SHA-256 of the normalized question and claims), a
-SHA-256 of the finalization receipt, used only to make a retried save write
-nothing new, and the save time. A later save of the same question and claims
-while the card is open adds a comment with its own record and stamp instead of a
-new issue.
+card's). A finding may still summarize what public communities reported,
+without posts, commenter names, links or video IDs. The version stamp holds the
+save time; the AskRigor version and build commit, or `unknown`; the HRP and
+Universal names, versions and SHA-256; a SHA-256 of the tool catalog; the
+endpoint, `/mcp` or `/mcp/claude`; the model name as reported, marked
+unverified; and the research depth, status, finalization time and receipt
+counts the receipt signed. A hidden marker holds the duplicate fingerprint (a
+SHA-256 of the normalized question and claims), a SHA-256 of the finalization
+receipt, used only to make a retried save write nothing new, the save time, and
+the research thread: an HMAC, under the server's receipt secret, of the
+pseudonymous account key and the research target's 12-character digest. A later
+save of the same question and claims from another thread, while the card is
+open, adds a comment with its own record and stamp instead of a new issue; the
+same thread reaching the same findings again adds nothing. A thread's new card
+replaces its earlier open cards: each gets a comment naming the new card and is
+closed as not planned, unless it also holds another thread's save or a comment,
+when it stays open for the owner. The thread key cannot be reversed without the
+server's secret, and one account's threads on different research targets do
+not match.
 
 What is never stored: the chat, the answer beyond each finding's one quoted
-sentence, the research target or its digest, the receipts themselves, comment or
-caption text, commenter identities, the user's account, OAuth subject, email or
-network identity, and any upload. The tool returns only a status and an
-`ARF-####` id, never the issue number, link, card text or fingerprint.
+sentence, the research target or its digest, the account key, the receipts
+themselves, comment or caption text, commenter identities, the user's OAuth
+subject, email or network identity, and any upload. `finalize_research` reports
+only whether the card was saved and its `ARF-####` id, never the issue number,
+link, card text or fingerprint. Because a stored card carries no account
+identity, revoking research access does not withdraw it; its deletion is
+requested with its `ARF-####` id.
 
-Cards may name public YouTube video ids as sources, the one YouTube identifier
-this library can hold; the living-evidence and frontier stores hold none while
-the YouTube compliance review is open, so the owner's notice wording should
-decide this too.
+The living-evidence and frontier stores hold no YouTube identifiers while the
+YouTube compliance review is open, and neither does this library.
 
 Cards have no automatic expiry: they stay in the private repository until the
 owner deletes them. GitHub processes the stored issues under its own policies.
-Until the private repository exists and is added to the App's installation, the
-tool answers that the library is unavailable and stores nothing.
+Until the private repository exists and is added to the App's installation, a
+save answers that the library is unavailable and stores nothing.
 
 ## Research data not persistently stored
 
@@ -778,17 +806,19 @@ tool answers that the library is unavailable and stores nothing.
 
 The optional lesson path is one narrow durable-storage exception. It stores
 only the screened private candidate and anonymous recurrence metadata listed
-above; it does not create a transcript store or user profile. The optional
-findings library, when deployed, is another: it stores only the checked,
-screened cards and stamps listed above, with no user profile. The independently
+above; it does not create a transcript store or user profile. The free
+contributor findings library, when deployed, is another: it stores only the
+checked, screened cards, stamps and thread keys listed above, with no user
+profile. The independently
 disclosed living-evidence, frontier, participant-intake, research-access, and
 pending-proposal stores have their own strict contracts and authority boundaries.
 
 ## Response minimization and security controls
 
-- Of 32 MCP operations, 27 are annotated `readOnlyHint: true`. The five
+- Of 31 MCP operations, 26 are annotated `readOnlyHint: true`. The five
   explicit writes (research-access mode, pending proposal, owner review, lesson
-  candidate and findings card) are declared with `destructiveHint: false` and
+  candidate, and `finalize_research`, which saves a free contributor's checked
+  findings card) are declared with `destructiveHint: false` and
   `openWorldHint: false`. Owner review requires `cases:review`; the others
   require authenticated `research:use`; all ordinary research operations also
   require that scope and an active free-contributor or paid-private mode. The Action-only transcript,

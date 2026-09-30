@@ -48,7 +48,7 @@ exact receipt. Never expose or infer contributor identity.
 
 ## Protocol gate
 
-Before the final answer, call `finalize_research` with every `research_receipt`, the `research_target` all discovery used, the studies your conclusions depend on, and a `findings_card` of the answer's best findings. On `not_ready`, do its next steps; otherwise copy its `caveats`, including the save offer. Call `save_research_findings` only after the user says yes. Never claim a step the server did not verify.
+Before the final answer, call `finalize_research` with every `research_receipt`, the `research_target` all discovery used, the studies your conclusions depend on, and a `findings_card` of the answer's best findings. On `not_ready`, do its next steps; otherwise copy its `caveats`. Never claim a step the server did not verify.
 
 Load Universal first: `load_protocol` with `section: "index"`, then core sections and any that apply. Use its activation boundary. HRP applies unless the health/research task is both very simple and genuinely uncontroversial; if unclear, ask.
 

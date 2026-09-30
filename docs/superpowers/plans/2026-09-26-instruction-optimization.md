@@ -1514,7 +1514,7 @@ checks them against the files' own manifests instead of copied values.
     - Universal grows by 1,068 bytes (+146 words, 55 of them in the revision
       entry). Its core is unchanged.
 
-## Findings library (owner Q9 and Q10, 2026-09-30)
+## Findings library (owner Q9 to Q11, 2026-09-30)
 
 The owner's words:
 
@@ -1523,39 +1523,52 @@ The owner's words:
   findings, along with version numbering so we know which askrigor made these
   findings and we can re-evaluate old findings later". Findings first, not
   researchers. Stored in a repository; no website yet.
-- Q10, option B: any user can save a findings card after saying yes to that
-  save. Cards go to a private review queue. The owner reviews every card before
-  it is accepted. Going live for other users waits for a privacy-notice update
-  the owner is wording; the code can be built now.
+- Q10, option B: cards go to a private review queue, and the owner reviews every
+  card before it is accepted. (B also said any user saves after a yes; Q11
+  replaced that.)
+- Q11 (19:07 UTC): "i don't understand what is the point of the paid tier then
+  if the free and paid tier both have the same privacy, my idea was the free
+  tier would make the users the product, so we auto save everything we learn
+  from their research rather than letting them waste my gemini spending for
+  nothing". So: free contributor research is saved automatically, paid-private
+  research never is, and nothing asks the user. The first build (a
+  `save_research_findings` tool after a yes, in either mode) blurred the tiers
+  and is gone. Going live waits for the owner's wording of the public privacy
+  notice, the terms and the in-app free contributor notice (question 11).
 
 The design, as built:
 
-- `finalize_research` takes an optional `findings_card`: the question in
-  general terms, the usual quick answer, one to five findings (claim,
-  certainty, whom it applies to, the answer's sentence that states it, one to
-  ten sources, why the usual answer misses it, tags, what would change it) and
-  up to six open leads.
-- The card is checked only with `answer_draft`. Its problems never change the
-  answer's status. The output gains `findings_card` (checked, rejected, closed or
-  absent, with problems).
-- A checked card adds one caveat, "If you want these findings saved to
-  AskRigor's findings library for review, say yes; nothing is saved
-  otherwise." It goes through the caveat check like any other, so an answer
-  in another language gives it in `caveat_renderings`.
+- `finalize_research` takes a `findings_card`: the question in general terms,
+  the usual quick answer, one to five findings (claim, certainty, whom it
+  applies to, the answer's sentence that states it, one to ten sources, why the
+  usual answer misses it, tags, what would change it) and up to six open leads;
+  and optionally `reported_model`, the model name the app reports.
+- The tool looks up the caller's research-use mode. For an active free
+  contributor account under the current notice (and only while
+  `ASKRIGOR_FINDINGS_LIBRARY=enabled`), the answer needs a card: without one,
+  the gate returns `not_ready` with one next step. A rejected card is reported
+  and not saved but never holds back the answer, whose research may have
+  nothing a card can cite. For anyone else the card is `private`: not needed,
+  checked or saved.
 - When the status is not `not_ready`, the finalization receipt signs a
-  `findings` claim: the SHA-256 of the card's canonical JSON.
-- The connector's 32nd tool, `save_research_findings`, takes the card, that
-  receipt, the consent `yes_to_this_save` and, optionally, the model name the
-  app reports. It saves to a GitHub issue in the private `AskRigor-findings`
-  repository, labeled `findings-card` and `pending-review`, with a readable
-  card and a JSON record. It answers `saved`, `existing_card`,
-  `privacy_rejected`, `rate_limited`, `card_not_checked` or
-  `queue_unavailable`, with an `ARF-####` id.
-- The server instructions and the skill each say, in a sentence or two: add a
-  findings card in the last `finalize_research` call, show the offer the gate
-  returns, and save only after the user says yes. The tool description says
-  the same and adds: never include claims the user corrected, and no personal
-  details.
+  `findings` claim: the SHA-256 of the card's canonical JSON. The tool then
+  saves that exact card and reports `saved` with an `ARF-####` id, or
+  `already_saved`, or `not_saved` with a reason, in `findings_card.saved`.
+  Nothing is added to the answer: no offer, no process note.
+- `finalize_research` is declared a write (`readOnlyHint: false`); the separate
+  save tool is gone, so the catalog is back to 31 tools.
+- The server instructions and the skill each say only: give the last
+  `finalize_research` call a findings card of the answer's best findings.
+- The free contributor notice is `free-contributor-v2-2026-09-30` (text drafted
+  for the owner's approval). It says each finished answer's findings card is
+  saved, summarizing what public communities reported without posts, names,
+  links or video IDs, and that paid private access saves nothing. Accounts that
+  accepted v1 accept v2 before free research continues. Migration
+  `0011_research_use_notice_v2` admits both versions in the account table;
+  it was run against PostgreSQL 16 from the deployed schema (0001 to 0010 with
+  a v1 account): before it, a v2 row was refused; after it, v2 was accepted,
+  the v1 row kept, an unknown version refused, and a second run changed
+  nothing; a fresh database through the runner twice also passed.
 
 What the server enforces:
 
@@ -1570,25 +1583,32 @@ What the server enforces:
   the save, with no model call. Study and video identifiers and links,
   statistics-shaped numbers and in-word apostrophes are set aside first, so a
   study summary is not taken for a phone number or a quotation.
-- Only the exact card a valid, unexpired finalization receipt signed is saved.
+- Only the exact card a valid, unexpired finalization receipt signed is saved,
+  and only for a free contributor account.
 - The server writes the version stamp: save time, AskRigor version and build
   (`ASKRIGOR_BUILD_COMMIT`, else `unknown`), the HRP and Universal manifests,
-  the tool catalog digest, the endpoint, the reported model marked unverified,
-  and the research depth, status and counts from the receipt.
-- An open card with the same question and claims gets an occurrence comment
-  instead of a new issue. A save retried with the same receipt writes nothing.
-- A rate limit of its own (the lesson queue's limiter, separate bucket).
-- An unconfigured library answers `queue_unavailable`; nothing throws.
+  the tool catalog digest, the endpoint, the reported model marked unverified
+  (left out when it does not read as a model name), and the research depth,
+  status and counts from the receipt.
+- Corrections (Q9's "doesn't save all the wrong stuff"): each card carries a
+  research thread, an HMAC of the account key and the research target's digest
+  under the receipt secret. A thread's new card replaces its earlier open cards,
+  which get a comment naming the new card and are closed as not planned, unless
+  they also hold another thread's save or a comment. The same thread reaching
+  the same findings again adds nothing. The key links nothing across research
+  targets and cannot be reversed without the secret.
+- An open card with the same question and claims from another thread gets an
+  occurrence comment instead of a new issue. A save retried with the same
+  receipt writes nothing.
+- A rate limit of its own (the lesson queue's limiter, separate bucket: 20 an
+  hour and 100 a day per process; later cards are not saved).
+- An unconfigured library answers unavailable; nothing throws.
 - The library is closed unless `ASKRIGOR_FINDINGS_LIBRARY=enabled`. While it is
-  closed, the gate answers `closed` for a card, signs none and offers no save,
-  and the tool answers `library_closed`. The owner opens it once the notice is
-  live and the repository exists. (Added in review, so no user is offered a
-  save that cannot work.)
+  closed, the gate answers `closed` for a card, needs none and signs none.
 - The stored card holds no YouTube video ID or link while the YouTube API
   compliance review is open: each finding keeps the number of videos behind it,
   and a link keeps its text (`stored_without`). The gate still checks the
-  videos; the record keeps the digest of the card as checked. (Added in review,
-  to match the living-evidence and frontier stores.)
+  videos; the record keeps the digest of the card as checked.
 - NCT ids are not accepted as card sources: no tool verifies a trial
   registration yet, so a trial is cited through its published paper.
 
@@ -1601,13 +1621,33 @@ What stays the model's declaration, for the owner's review:
   address words, so a Roman numeral I or ME near a medical word trips it, and
   the gate names the field to reword.
 
+Known limits, told to the owner:
+
+- Free users no longer see a card before it is saved; the notice, the privacy
+  screen and the owner's review protect them.
+- A correction that changes the research target, or one given without a new
+  finalized answer, leaves the earlier card for the owner to catch.
+- A client may ask the user to confirm `finalize_research` now that it writes
+  (not checked on ChatGPT).
+- Every free research answer becomes a card to review, up to the rate limit,
+  which is per server rather than per account, so one heavy user can use it up.
+- A save waits at most ten seconds; after that the answer goes ahead and the
+  save is reported unconfirmed while it completes.
+- Stored cards carry no account identity, so revoking access does not withdraw
+  them; deletion is requested by `ARF-####` id.
+
 What waits:
 
-- The owner's wording for the public privacy notice (`site/privacy` is not
-  changed here). The engineering data map is updated.
+- The owner's wording (question 11) for `site/privacy`, `site/terms` and the
+  in-app notice text; the sites are not changed here. The engineering data map
+  is updated.
 - Creating the private `AskRigor-findings` repository and adding it to the
   GitHub App's installation, then setting `ASKRIGOR_FINDINGS_LIBRARY=enabled`.
-- Deploy approval. The deployment should also set `ASKRIGOR_BUILD_COMMIT`.
+- Deploy approval. The deployment runs the one-shot admin `migrate` (for
+  migration 0011) before the new image serves, and sets `ASKRIGOR_BUILD_COMMIT`.
+- Next, same direction: the server submits free contributors' study analyses
+  and search maps itself when their checks pass, instead of relying on the
+  model to call `submit_research_contribution`.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 

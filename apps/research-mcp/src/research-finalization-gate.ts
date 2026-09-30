@@ -2,7 +2,6 @@ import { z } from "zod";
 
 import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
 import {
-  FINDINGS_SAVE_OFFER,
   findingsCardDigest,
   findingsCardSchema,
   screenFindingsCard,
@@ -169,9 +168,11 @@ export const finalizeResearchInputSchema = z.object({
     .describe("In an answer not in English: each caveat in the answer's language."),
   findings_card: findingsCardSchema.optional()
     .describe("With answer_draft: the answer's best findings for AskRigor's findings library, never claims the user " +
-      "corrected and no personal details. It is checked against the answer and this call's verified sources and " +
-      "does not change the status; a checked card adds a caveat offering the save, and save_research_findings runs " +
-      "only after the user says yes.")
+      "corrected and no personal details, checked against the answer and this call's verified sources. In free " +
+      "contributor mode a checked card is saved for the owner's review; a rejected one is not saved and does not " +
+      "hold back the answer."),
+  reported_model: z.string().trim().min(1).max(80).optional()
+    .describe("Your model's name as your app reports it; kept, unverified, with a saved findings card.")
 }).strict();
 
 export type FinalizeResearchInput = z.output<typeof finalizeResearchInputSchema>;
@@ -215,10 +216,15 @@ export const finalizeResearchOutputSchema = z.object({
   }).strict(),
   answer_checked: z.boolean().describe("Whether answer_draft was read in this call."),
   findings_card: z.object({
-    status: z.enum(["checked", "rejected", "absent", "closed"]),
-    problems: z.array(z.string())
-  }).strict().describe("Whether findings_card checked. Only a checked card can be saved: the finalization receipt " +
-    "then signs it and the caveats offer the save."),
+    status: z.enum(["checked", "rejected", "absent", "closed", "private"]),
+    problems: z.array(z.string()),
+    saved: z.object({
+      status: z.enum(["saved", "already_saved", "not_saved", "unconfirmed"]),
+      card_id: z.string().regex(/^ARF-[0-9]{4,}$/u).optional(),
+      reason: z.string().optional()
+    }).strict().optional()
+  }).strict().describe("Whether findings_card checked, and for a free contributor account whether it was saved. " +
+    "closed: the findings library is not open; private: this account's research is not saved."),
   finalization_receipt: z.string().optional()
 }).strict();
 
@@ -233,9 +239,12 @@ export interface FinalizeResearchOptions {
   // What Reddit's public embed endpoint said about each cited Reddit thread, by
   // post id; the MCP tool looks them up before the gate runs.
   redditThreads?: ReadonlyMap<string, RedditThreadCheck>;
-  // Whether AskRigor's findings library is open (ASKRIGOR_FINDINGS_LIBRARY).
-  // While it is closed a card is not checked and no save is offered.
-  findingsLibrary?: boolean;
+  // AskRigor's findings library (owner decisions Q9 to Q11, 2026-09-30):
+  // "closed" (the default) while ASKRIGOR_FINDINGS_LIBRARY is not enabled;
+  // "save" for a free contributor account, whose answer then needs a card and
+  // whose checked card the tool saves; "private" for any other caller, whose
+  // card is neither checked nor saved.
+  findings?: "closed" | "save" | "private";
 }
 
 export type RedditThreadCheck =
@@ -289,14 +298,16 @@ export function finalizeResearch(
       },
       sources: { validated: [], lead_only: [] },
       answer_checked: false,
-      findings_card: input.findings_card === undefined
-        ? noFindingsCard()
-        : options.findingsLibrary !== true
-          ? closedFindingsLibrary()
-          : {
-              status: "rejected",
-              problems: ["This AskRigor server cannot verify research receipts, so it cannot check or save a findings card."]
-            }
+      findings_card: options.findings === "private"
+        ? privateFindings()
+        : input.findings_card === undefined
+          ? noFindingsCard()
+          : options.findings !== "save"
+            ? closedFindingsLibrary()
+            : {
+                status: "rejected",
+                problems: ["This AskRigor server cannot verify research receipts, so it cannot check or save a findings card."]
+              }
     };
   }
 
@@ -906,17 +917,22 @@ export function finalizeResearch(
   // that in every language, so the caveat saying it does not rank them is
   // what the gate enforces.
   const draft = input.answer_draft;
-  // A findings card (owner decisions Q9 and Q10, 2026-09-30) is checked with
-  // the answer and never changes the answer's status. A checked card adds one
-  // caveat offering the save, which the answer then carries like any other.
-  let findingsCard: FindingsCardCheck = input.findings_card === undefined
-    ? noFindingsCard()
-    : options.findingsLibrary !== true
-      ? closedFindingsLibrary()
-      : {
-          status: "rejected",
-          problems: ["A findings card is checked against the answer: pass answer_draft with it."]
-        };
+  // A findings card (owner decisions Q9 to Q11, 2026-09-30) is checked with
+  // the answer. For a free contributor account the answer needs one, and a
+  // checked card is saved; a rejected card is reported and not saved, but it
+  // never holds back the answer, whose research may have nothing a card can
+  // cite. Nothing is offered to the user: free research is saved by the
+  // agreement the user accepted, and paid-private research never is.
+  let findingsCard: FindingsCardCheck = options.findings === "private"
+    ? privateFindings()
+    : input.findings_card === undefined
+      ? noFindingsCard()
+      : options.findings !== "save"
+        ? closedFindingsLibrary()
+        : {
+            status: "rejected",
+            problems: ["A findings card is checked against the answer: pass answer_draft with it."]
+          };
   if (draft === undefined) {
     if (nextSteps.length === 0) {
       nextSteps.push(
@@ -924,7 +940,13 @@ export function finalizeResearch(
       );
     }
   } else {
-    if (input.findings_card !== undefined && options.findingsLibrary === true) {
+    if (options.findings === "save" && input.findings_card === undefined) {
+      nextSteps.push(
+        "Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library for " +
+          "the owner's review. Put in the answer's best findings, none the user corrected, and no personal details."
+      );
+    }
+    if (input.findings_card !== undefined && options.findings === "save") {
       const showing = quoteLocator(displayedProse(draft));
       // What a card may cite: studies validated or read as leads here (by
       // either of a PMID's identifiers), and videos audited or material here.
@@ -944,7 +966,6 @@ export function finalizeResearch(
           materialVideos.includes(id),
         videoAudited
       });
-      if (findingsCard.status === "checked") caveats.push(FINDINGS_SAVE_OFFER);
     }
     const lanes: AnswerLane[] = [
       ...(findings === undefined || commentVideos.size === 0 ? [] : [{
@@ -1016,7 +1037,7 @@ export function finalizeResearch(
       leads: leadSources.length,
       limits: limits.length,
       unverified: communitiesUnverified,
-      // save_research_findings saves only the card whose digest this signs.
+      // The findings library saves only the card whose digest this signs.
       ...(findingsCard.status === "checked" && input.findings_card !== undefined
         ? { findings: findingsCardDigest(input.findings_card) }
         : {})
@@ -1244,8 +1265,10 @@ const noFindingsCard = (): FindingsCardCheck => ({ status: "absent", problems: [
 
 const closedFindingsLibrary = (): FindingsCardCheck => ({
   status: "closed",
-  problems: ["AskRigor's findings library is not open yet: the card was not checked, so do not offer to save it."]
+  problems: ["AskRigor's findings library is not open yet, so the card was not checked or saved."]
 });
+
+const privateFindings = (): FindingsCardCheck => ({ status: "private", problems: [] });
 
 // What a privacy problem is, as the card's problem names it.
 const FINDINGS_PRIVACY_PROBLEMS: Readonly<Record<FindingsPrivacyReason, string>> = {

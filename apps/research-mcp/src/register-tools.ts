@@ -60,15 +60,7 @@ import {
 } from "./lessons/connector-tool.js";
 import type { LessonSubmissionResult } from "./lessons/contracts.js";
 import { submitConnectorLessonCandidate } from "./lessons/runtime.js";
-import {
-  findingsSaveToolResult,
-  SAVE_RESEARCH_FINDINGS_DESCRIPTION,
-} from "./findings/connector-tool.js";
-import {
-  saveResearchFindingsInputSchema,
-  saveResearchFindingsOutputSchema,
-  type FindingsSaveResult,
-} from "./findings/contracts.js";
+import type { FindingsSaveResult } from "./findings/contracts.js";
 import { saveResearchFindings } from "./findings/runtime.js";
 import type { FindingsSaveContext } from "./findings/service.js";
 import {
@@ -132,6 +124,7 @@ import {
   createManageResearchAccessHandler,
   createResearchAccessGuard,
   createSubmitResearchContributionHandler,
+  freeContributorAccount,
   manageResearchAccessInputSchema,
   manageResearchAccessOutputSchema,
   researchUseSecurityMetadata,
@@ -169,7 +162,8 @@ import {
   finalizeResearch,
   protocolNamesFrom,
   finalizeResearchInputSchema,
-  finalizeResearchOutputSchema
+  finalizeResearchOutputSchema,
+  type FinalizeResearchOutput
 } from "./research-finalization-gate.js";
 import {
   assessTreatmentCoverageFromReceipts,
@@ -592,10 +586,9 @@ const RESEARCH_ACCESS_CONTROL_OPERATION_NAMES = new Set([
   "submit_research_contribution",
 ]);
 // The GPT keeps its own lesson Action, so the connector's lesson tool has no
-// research Action path; the findings library is saved from the connector only.
+// research Action path.
 const CONNECTOR_ONLY_OPERATION_NAMES = new Set([
   "submit_lesson_candidate",
-  "save_research_findings",
 ]);
 
 /** The MCP endpoint a server is created for, recorded on saved findings cards. */
@@ -614,8 +607,14 @@ export interface RegisterToolsOptions {
   findingsSave?: (raw: unknown, context: FindingsSaveContext) => Promise<FindingsSaveResult>;
   /** Whether the findings library is open; defaults to ASKRIGOR_FINDINGS_LIBRARY. */
   findingsLibrary?: boolean;
+  /** How long finalize_research waits for a findings save; replaced for tests. */
+  findingsSaveDeadlineMilliseconds?: number;
   mcpSurface?: McpSurface;
 }
+
+// A findings save never holds back the answer for long: past this, the answer
+// goes ahead and the save, which carries on, is reported unconfirmed.
+const FINDINGS_SAVE_DEADLINE_MILLISECONDS = 10_000;
 
 function defineResearchOperations(
   registrar: Pick<McpServer, "registerTool">,
@@ -1439,7 +1438,7 @@ function defineResearchOperations(
   registrar.registerTool(
     "manage_research_access",
     {
-      description: `Inspect or choose AskRigor's research-use mode. Free use requires explicit agreement to version ${RESEARCH_USE_NOTICE_VERSION}; only eligible deidentified structured research progress may enter a non-authoritative review inbox. Paid private mode contributes nothing and activates only for an existing verified entitlement; this release offers no price or checkout.`,
+      description: `Inspect or choose AskRigor's research-use mode. Free use requires explicit agreement to version ${RESEARCH_USE_NOTICE_VERSION}: what AskRigor learns from the research (deidentified structured research progress and each finished answer's findings card) is saved for non-authoritative review. Paid private mode saves nothing and activates only for an existing verified entitlement; this release offers no price or checkout.`,
       inputSchema: manageResearchAccessInputSchema,
       outputSchema: manageResearchAccessOutputSchema,
       annotations: MUTATING_ANNOTATIONS,
@@ -1771,33 +1770,67 @@ function defineResearchOperations(
         "written (in an answer not in English, in its language: give answer_language and caveat_renderings); " +
         "must_report lists what the answer must report from each lane researched; receipts_unavailable means this " +
         "server cannot verify completion, so do the required work anyway and say that completion was not " +
-        "server-verified.",
+        "server-verified. In free contributor mode a checked findings_card is saved to AskRigor's private " +
+        "findings library for the owner's review.",
       inputSchema: finalizeResearchInputSchema,
       outputSchema: finalizeResearchOutputSchema,
-      annotations: READ_ONLY_ANNOTATIONS
+      // It writes: a free contributor's checked findings card is saved.
+      annotations: MUTATING_ANNOTATIONS
     },
-    async (input) => {
+    async (input, extra) => {
       // Reddit's public embed endpoint confirms each cited Reddit thread's
       // subreddit and title; only the links are sent.
       const redditLinks = (input.community_searches ?? []).filter(({ platform }) => platform === "reddit")
         .flatMap(({ threads_read }) => (threads_read ?? []).map(({ url }) => url));
+      // Owner decision Q11 (2026-09-30): the free tier's research is saved by
+      // the agreement its user accepted; paid-private research never is.
+      const library = options.findingsLibrary ?? findingsLibraryEnabledFromEnv();
+      const contributor = library
+        ? await freeContributorAccount(extra, options.researchContributorAccessService)
+        : undefined;
       const result = finalizeResearch(input, {
         secret: researchReceiptSecretFromEnv(),
         protocolNames: await protocolNames(),
-        findingsLibrary: options.findingsLibrary ?? findingsLibraryEnabledFromEnv(),
+        findings: !library ? "closed" : contributor === undefined ? "private" : "save",
         ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) })
       });
+      if (
+        contributor !== undefined && input.findings_card !== undefined &&
+        result.findings_card.status === "checked" && result.finalization_receipt !== undefined
+      ) {
+        const save = (options.findingsSave ?? saveResearchFindings)({
+          findings_card: input.findings_card,
+          finalization_receipt: result.finalization_receipt,
+          contributor,
+          ...(input.reported_model === undefined ? {} : { reported_model: input.reported_model })
+        }, {
+          surface: options.mcpSurface ?? "unknown",
+          toolCatalogSha256: toolCatalogSha256(),
+        }).then(savedFindings, () => ({ status: "not_saved" as const, reason: "queue_service_unavailable" }));
+        result.findings_card.saved = await withinDeadline(
+          save,
+          options.findingsSaveDeadlineMilliseconds ?? FINDINGS_SAVE_DEADLINE_MILLISECONDS,
+          { status: "unconfirmed" }
+        );
+      }
+      const card = result.findings_card;
       return successfulToolResult(
         `Research finalization: ${result.status}; ${result.next_steps.length} next step(s), ` +
           `${result.limits.length} limit(s) to state; ${result.receipts_verified} receipt(s) verified.` +
           result.caveats.map((caveat) => `\nThe answer must contain, as written: ${caveat}`).join("") +
           result.must_report.map((lane) => `\nThe answer must report: ${lane}`).join("") +
-          (result.findings_card.status === "absent"
+          (card.status === "absent" || card.status === "private"
             ? ""
-            : `\nFindings card: ${result.findings_card.status}` +
-              (result.findings_card.status === "checked"
-                ? "; the caveats offer the save, and save_research_findings runs only after the user says yes."
-                : `: ${result.findings_card.problems.join(" ")}`)),
+            : `\nFindings card: ${card.status}` +
+              (card.saved !== undefined
+                ? `; ${
+                  card.saved.status === "not_saved"
+                    ? "not saved"
+                    : card.saved.status === "unconfirmed"
+                      ? "the save had not finished; it may still complete"
+                      : `saved for review as ${card.saved.card_id}`
+                }.`
+                : card.problems.length === 0 ? "." : `: ${card.problems.join(" ")}`)),
         result as unknown as Record<string, unknown>
       );
     }
@@ -1818,26 +1851,32 @@ function defineResearchOperations(
       await (options.lessonSubmission ?? submitConnectorLessonCandidate)(input),
     ),
   );
+}
 
-  // Owner decisions Q9 and Q10 (2026-09-30): after the user says yes, a
-  // checked findings card goes to a private review queue, stamped with the
-  // AskRigor that made it; the owner reviews every card. Behind the
-  // research-access guard like other tools; no research Action path.
-  registrar.registerTool(
-    "save_research_findings",
-    {
-      description: SAVE_RESEARCH_FINDINGS_DESCRIPTION,
-      inputSchema: saveResearchFindingsInputSchema,
-      outputSchema: saveResearchFindingsOutputSchema,
-      annotations: MUTATING_ANNOTATIONS,
-    },
-    async (input) => findingsSaveToolResult(
-      await (options.findingsSave ?? saveResearchFindings)(input, {
-        surface: options.mcpSurface ?? "unknown",
-        toolCatalogSha256: toolCatalogSha256(),
-      }),
-    ),
-  );
+/** The work's result, or `late` once the deadline passes; the work itself carries on. */
+async function withinDeadline<T>(work: Promise<T>, milliseconds: number, late: T): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<T>((resolve) => {
+        timer = setTimeout(() => resolve(late), milliseconds);
+        timer.unref();
+      })
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** What finalize_research reports of a findings save: its public id, or that it was not saved. */
+function savedFindings(result: FindingsSaveResult): NonNullable<FinalizeResearchOutput["findings_card"]["saved"]> {
+  if (result.status === "saved" || result.status === "existing_card") {
+    return result.card_id === undefined
+      ? { status: "not_saved", reason: "queue_service_unavailable" }
+      : { status: result.status === "saved" ? "saved" : "already_saved", card_id: result.card_id };
+  }
+  return { status: "not_saved", reason: result.reason_code ?? result.status };
 }
 
 // The tool catalog a findings card was saved with: sha256 of the operation
@@ -2420,8 +2459,8 @@ function collectResearchOperations(
   } as unknown as Pick<McpServer, "registerTool">;
 
   defineResearchOperations(registrar, options);
-  if (operations.length !== 32) {
-    throw new Error(`Expected 32 research operations; received ${operations.length}`);
+  if (operations.length !== 31) {
+    throw new Error(`Expected 31 research operations; received ${operations.length}`);
   }
   if (new Set(operations.map(({ name }) => name)).size !== operations.length) {
     throw new Error("Research operation names must be unique");

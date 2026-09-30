@@ -419,26 +419,32 @@ new lessons while MCP remains available and unchanged.
 
 ## Findings library
 
-Owner decisions Q9 and Q10 (2026-09-30; not yet deployed): the connector can
-save the best findings of a checked answer for the owner's review, with the
-AskRigor that made them. In the last `finalize_research` call the model adds a
-`findings_card`; the gate checks each finding's sentence against the answer and
-each source against the receipts of that call, never changes the answer's status
-for the card, and, when the card checks, adds one caveat offering the save and
-signs the card's digest into the finalization receipt. Only after the user says
-yes does `save_research_findings` (the connector's 32nd tool) take that exact
-card: it verifies the receipt, runs the lesson queue's deterministic privacy
-screen with no model call, stamps the version (build, protocol manifests, tool
-catalog, surface), and files a GitHub issue labeled `findings-card` and
-`pending-review` in the private `AskRigor-findings` repository, or adds an
-occurrence to an open card with the same question and claims. It returns only an
-`ARF-####` id. Nothing is accepted until the owner reviews it. Stored cards hold
-no YouTube video IDs or links while the YouTube compliance review is open, only
-how many videos backed each finding. The library stays closed (no card checked,
-no save offered or made) until `ASKRIGOR_FINDINGS_LIBRARY=enabled`, which follows
-the owner's privacy-notice wording, the private repository and its GitHub App
-installation, and deploy approval; the data flow is in
-`docs/privacy-data-map.md`.
+Owner decisions Q9 to Q11 (2026-09-30; not yet deployed): free AskRigor use is
+reciprocal, so the best findings of every finished free research answer are
+saved for the owner's review, with the AskRigor that made them; paid-private
+research saves nothing, and nothing asks the user. In the last
+`finalize_research` call the model adds a `findings_card`, which a free
+contributor's answer needs; the gate checks each finding's sentence against the
+answer and each source against the receipts of that call, never holds back the
+answer for a rejected card, and signs a checked card's digest into the
+finalization receipt. For a free contributor account the tool then saves that
+exact card: it verifies the receipt, runs the lesson queue's deterministic
+privacy screen with no model call, stamps the version (build, protocol
+manifests, tool catalog, surface, reported model), and files a GitHub issue
+labeled `findings-card` and `pending-review` in the private `AskRigor-findings`
+repository, or adds an occurrence to an open card with the same question and
+claims. A later card from the same account on the same research target replaces
+the earlier one, so a corrected answer's findings are what gets reviewed.
+`finalize_research` is therefore declared a write. Nothing is accepted until
+the owner reviews it. Stored cards hold no YouTube video IDs or links while the
+YouTube compliance review is open, only how many videos backed each finding.
+The free contributor notice moves to `free-contributor-v2-2026-09-30`, which
+says findings cards are saved; accounts that accepted the first version accept
+the second before free research continues (migration
+`0011_research_use_notice_v2`). The library stays closed (no card needed,
+checked or saved) until `ASKRIGOR_FINDINGS_LIBRARY=enabled`, which follows the
+owner's notice wording, the private repository and its GitHub App installation,
+and deploy approval; the data flow is in `docs/privacy-data-map.md`.
 
 ## Public-review status
 

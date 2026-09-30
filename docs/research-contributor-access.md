@@ -6,12 +6,15 @@ Status: implementation contract for the 2026-09-01 vertical slice
 
 AskRigor has two research-use modes:
 
-- **Free contributor.** The person explicitly agrees that eligible
-  deidentified structured research progress from their use may be submitted to
-  AskRigor's shared living-evidence repository. This is the free product.
-- **Paid private.** Research progress is not submitted to the shared
-  repository. This mode activates only when the account already has a verified
-  entitlement. The current slice offers no price, payment provider, or checkout.
+- **Free contributor.** The person explicitly agrees that what AskRigor learns
+  from their use is saved: eligible deidentified structured research progress
+  may be submitted to AskRigor's shared living-evidence repository, and each
+  finished research answer's findings card is saved to AskRigor's private
+  findings library for review (owner decision Q11, 2026-09-30; see
+  `docs/privacy-data-map.md`). This is the free product.
+- **Paid private.** Nothing is submitted or saved. This mode activates only when
+  the account already has a verified entitlement. The current slice offers no
+  price, payment provider, or checkout.
 
 This is an ordinary product access choice. It is not an institutional research
 program, a study-enrollment system, a public forum, or a claim that product
@@ -19,10 +22,16 @@ usage itself is scientific evidence.
 
 ## Exact notice
 
-The version is `free-contributor-v1-2026-09-01`. The server returns the complete
+The version is `free-contributor-v2-2026-09-30`. The server returns the complete
 notice from `RESEARCH_USE_NOTICE`. Free mode activates only when all four
 versioned agreement fields are literal `true`. Silence, inferred consent, a
 different notice version, or a partially checked agreement is rejected.
+
+The first version, `free-contributor-v1-2026-09-01`, did not mention findings
+cards. A free account that accepted it inspects as `UNENROLLED`, and research
+tools refuse it with `RESEARCH_ACCESS_REQUIRED`, until it accepts the current
+version. Migration `0011_research_use_notice_v2` lets `research_use_accounts`
+hold either version; the one-shot admin `migrate` applies it at release.
 
 `manage_research_access` is the OAuth-scoped operation for `inspect`,
 `accept_free_contributor`, `activate_paid_private`, and `revoke`. It is declared

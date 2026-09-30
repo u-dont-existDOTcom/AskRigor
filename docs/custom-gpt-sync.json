@@ -50,7 +50,6 @@
     "resolve_doi",
     "review_evidence_gap_submissions",
     "review_research_contribution",
-    "save_research_findings",
     "scout_gemini_youtube_candidates",
     "search_clinical_trials",
     "search_europe_pmc",

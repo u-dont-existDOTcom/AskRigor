@@ -3,7 +3,6 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 import {
-  FINDINGS_SAVE_OFFER,
   findingsCardDigest,
   findingsCardSchema
 } from "../apps/research-mcp/src/findings/card.js";
@@ -2455,11 +2454,13 @@ describe("finalize_research gate", () => {
   });
 });
 
-// Owner decisions Q9 and Q10 (2026-09-30): the final gate checks a findings card, which never changes the
-// answer's own status; a checked card adds one caveat offering the save and is signed into the receipt.
+// Owner decisions Q9 to Q11 (2026-09-30): the final gate checks a findings card. A free contributor's answer
+// needs one, and a checked card is signed into the receipt for the library to save; a rejected card is never
+// saved and never holds the answer back. Nothing is offered to the user, and other research is private.
 describe("findings card at the final gate", () => {
-  // The library is open here; a closed library is tested last.
-  const options = { secret: SECRET, now, findingsLibrary: true };
+  // A free contributor's answer; a closed library and private research are tested last.
+  const options = { secret: SECRET, now, findings: "save" as const };
+  const closedOptions = { secret: SECRET, now };
   const READY = {
     receipts: [survey, emptySearch, repeatScout, videoA, study],
     community_evidence: "researched",
@@ -2487,22 +2488,33 @@ describe("findings card at the final gate", () => {
     return verified.ok ? verified.claims.findings : "unverified";
   };
 
-  it("checks a card the answer shows and this call's receipts back, then offers the save", () => {
-    const plain = finalizeResearch(READY, options);
+  it("checks a card the answer shows and this call's receipts back, and signs it without offering anything", () => {
+    const plain = finalizeResearch(READY, closedOptions);
     const carded = finalizeResearch({ ...READY, findings_card: CARD }, options);
-    expect(plain.findings_card).toEqual({ status: "absent", problems: [] });
     expect(carded.findings_card).toEqual({ status: "checked", problems: [] });
-    // The answer's own result stays as it was; the card adds one caveat, the offer.
+    // The answer's own result is what it would be without the library: no caveat offers a save.
     expect(carded.status).toBe("ready_with_limits");
     expect(carded.status).toBe(plain.status);
     expect(carded.limits).toEqual(plain.limits);
-    expect(carded.caveats).toEqual([...plain.caveats, FINDINGS_SAVE_OFFER]);
+    expect(carded.caveats).toEqual(plain.caveats);
     expect(findingsClaim(carded.finalization_receipt)).toBe(findingsCardDigest(findingsCardSchema.parse(CARD)));
     expect(findingsClaim(plain.finalization_receipt)).toBeUndefined();
   });
 
-  it("leaves the answer's status alone when the card has problems, and neither offers nor signs it", () => {
-    const plain = finalizeResearch(READY, options);
+  it("needs a card with a free contributor's answer", () => {
+    const missing = finalizeResearch(READY, options);
+    expect(missing).toMatchObject({
+      status: "not_ready",
+      next_steps: [expect.stringMatching(/^Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library/u)],
+      findings_card: { status: "absent", problems: [] }
+    });
+    expect(missing.finalization_receipt).toBeUndefined();
+    // The card is asked for with the answer, not before it.
+    expect(finalizeResearchRaw(READY, options).next_steps.some((step) => step.startsWith("Give findings_card"))).toBe(false);
+  });
+
+  it("leaves the answer's status alone when the card has problems, and does not sign it", () => {
+    const plain = finalizeResearch(READY, closedOptions);
     const cases: Array<[Record<string, unknown>, string]> = [
       [withFinding({ answer_quote: "Exercise cures hip osteoarthritis." }),
         "findings_card.findings[0].answer_quote gives text the answer does not show"],
@@ -2543,19 +2555,7 @@ describe("findings card at the final gate", () => {
     }, options).findings_card.problems).toEqual([expect.stringContaining("is tagged full_text_read")]);
   });
 
-  it("signs the card only once the answer carries the offer", () => {
-    const plain = finalizeResearch(READY, options);
-    const draft = [CLEAN_DRAFT, ...plain.caveats].join(" ");
-    const missing = finalizeResearch({ ...READY, findings_card: CARD, answer_draft: draft }, options);
-    expect(missing).toMatchObject({ status: "not_ready", next_steps: [leftOut(FINDINGS_SAVE_OFFER)] });
-    expect(missing.findings_card.status).toBe("checked");
-    expect(missing.finalization_receipt).toBeUndefined();
-    const stated = finalizeResearch({ ...READY, findings_card: CARD, answer_draft: `${draft} ${FINDINGS_SAVE_OFFER}` }, options);
-    expect(stated).toMatchObject({ status: "ready_with_limits", next_steps: [] });
-    expect(findingsClaim(stated.finalization_receipt)).toBe(findingsCardDigest(findingsCardSchema.parse(CARD)));
-  });
-
-  it("lets an answer in another language give the offer in that language", () => {
+  it("checks a card in the answer's own language, with no rendering asked of it", () => {
     const base = {
       receipts: [study],
       community_evidence: "not_relevant",
@@ -2567,18 +2567,12 @@ describe("findings card at the final gate", () => {
       key_sources: [{ id: "PMC10518852", status: "validated" }]
     };
     const quote = "Le foie élimine ce médicament en quelques heures.";
-    const offer = "Si vous voulez enregistrer ces résultats dans la bibliothèque d'AskRigor pour examen, dites oui ; " +
-      "rien n'est enregistré sinon.";
     const card = withFinding({ answer_quote: quote, sources: ["PMC10518852"], tags: ["full_text_read"] });
-    const translated = finalizeResearch({
-      ...base, findings_card: card, answer_draft: `${quote} ${offer}`, answer_language: "fr",
-      caveat_renderings: [{ caveat: FINDINGS_SAVE_OFFER, text: offer }]
-    }, options);
-    expect(translated).toMatchObject({
-      status: "ready", next_steps: [], limits: [], caveats: [FINDINGS_SAVE_OFFER], findings_card: { status: "checked" }
+    const french = finalizeResearch({ ...base, findings_card: card, answer_draft: quote, answer_language: "fr" }, options);
+    expect(french).toMatchObject({
+      status: "ready", next_steps: [], limits: [], caveats: [], findings_card: { status: "checked" }
     });
-    expect(finalizeResearch({ ...base, findings_card: card, answer_draft: quote, answer_language: "fr" }, options).next_steps)
-      .toEqual([leftOut(FINDINGS_SAVE_OFFER)]);
+    expect(findingsClaim(french.finalization_receipt)).toBe(findingsCardDigest(findingsCardSchema.parse(card)));
   });
 
   it("checks a card only with the answer, on a server that can verify receipts", () => {
@@ -2586,7 +2580,7 @@ describe("findings card at the final gate", () => {
       status: "rejected",
       problems: ["A findings card is checked against the answer: pass answer_draft with it."]
     });
-    const unverifiable = finalizeResearchBare({ ...READY, findings_card: CARD }, { secret: undefined, findingsLibrary: true });
+    const unverifiable = finalizeResearchBare({ ...READY, findings_card: CARD }, { secret: undefined, findings: "save" });
     expect(unverifiable.status).toBe("receipts_unavailable");
     expect(unverifiable.findings_card).toEqual({
       status: "rejected",
@@ -2595,13 +2589,25 @@ describe("findings card at the final gate", () => {
     expect(finalizeResearchBare({ ...READY }, { secret: undefined }).findings_card).toEqual({ status: "absent", problems: [] });
   });
 
-  it("while the library is closed, checks no card and offers no save", () => {
-    const closed = finalizeResearch({ ...READY, findings_card: CARD }, { secret: SECRET, now });
+  it("while the library is closed, needs no card and checks none", () => {
+    const closed = finalizeResearch({ ...READY, findings_card: CARD }, closedOptions);
     expect(closed.findings_card).toEqual({
       status: "closed",
-      problems: ["AskRigor's findings library is not open yet: the card was not checked, so do not offer to save it."]
+      problems: ["AskRigor's findings library is not open yet, so the card was not checked or saved."]
     });
     expect(closed.caveats.some((caveat) => caveat.includes("findings library"))).toBe(false);
     expect(findingsClaim(closed.finalization_receipt)).toBeUndefined();
+    expect(finalizeResearch(READY, closedOptions)).toMatchObject({ status: "ready_with_limits", findings_card: { status: "absent" } });
+  });
+
+  it("keeps research that is not a free contributor's private: no card is needed, checked or signed", () => {
+    const privateOptions = { secret: SECRET, now, findings: "private" as const };
+    for (const input of [READY, { ...READY, findings_card: CARD }]) {
+      const result = finalizeResearch(input, privateOptions);
+      expect(result).toMatchObject({ status: "ready_with_limits", next_steps: [], findings_card: { status: "private", problems: [] } });
+      expect(findingsClaim(result.finalization_receipt)).toBeUndefined();
+    }
+    expect(finalizeResearchBare({ ...READY, findings_card: CARD }, { secret: undefined, findings: "private" }).findings_card)
+      .toEqual({ status: "private", problems: [] });
   });
 });

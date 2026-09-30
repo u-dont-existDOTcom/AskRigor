@@ -143,6 +143,13 @@ describe("production living-evidence deployment", () => {
     expect(migration).toContain(
       "REVOKE ALL ON FUNCTION enforce_research_contribution_proposal_account()",
     );
+    // Owner decision Q11 (2026-09-30): the second free contributor notice, next to the first.
+    const notice = await read("packages/evidence-repository/migrations/0011_research_use_notice_v2.sql");
+    expect(notice).toContain(
+      "notice_version IN ('free-contributor-v1-2026-09-01', 'free-contributor-v2-2026-09-30')",
+    );
+    expect(notice).toContain("IF NOT EXISTS");
+    expect(await read("packages/evidence-repository/src/postgres.ts")).toContain('"0011_research_use_notice_v2"');
     expect(provision).not.toMatch(
       /GRANT\s+(?:DELETE|TRUNCATE|CREATE)\b/iu,
     );
@@ -202,7 +209,7 @@ describe("production living-evidence deployment", () => {
     expect(admin).toContain('command === "import-frontier"');
     expect(admin).toContain("prepareResearchFrontierImport");
     expect(runbook).toContain("Requested and confirmed");
-    expect(registry).toContain("Expected 32 research operations");
+    expect(registry).toContain("Expected 31 research operations");
     expect(registry).toContain('registerTool(\n    "get_research_frontier"');
   });
 });

@@ -14,7 +14,10 @@ import type { FindingsRecord } from "./service.js";
  * labeled findings-card and pending-review, for the owner to review. A card
  * whose question and claims match an open card's is added to that card as an
  * occurrence comment instead. A save repeated with the same finalization
- * receipt writes nothing new, so a retry cannot count twice.
+ * receipt writes nothing new, so a retry cannot count twice, and the same
+ * research thread reaching the same findings again is not another occurrence.
+ * A thread's new card replaces its earlier open cards (owner decision Q9: a
+ * corrected answer's findings, not the wrong ones, are what gets reviewed).
  */
 
 export const FINDINGS_CARD_LABEL = "findings-card";
@@ -25,12 +28,16 @@ export interface GitHubFindingsSubmission {
   fingerprint: string;
   /** sha256 of the finalization receipt the save came with. */
   receiptSha256: string;
+  /** The research thread's keyed hash (findingsThreadKey). */
+  thread: string;
 }
 
 export interface GitHubFindingsQueueResult {
   kind: "created" | "existing";
   issueNumber: number;
   occurrenceCount: number;
+  /** How many of the thread's earlier open cards this save replaced. */
+  replaced: number;
 }
 
 export interface GitHubFindingsQueueOptions {
@@ -43,10 +50,18 @@ interface CardMetadata {
   fingerprint: string;
   receipt_sha256: string;
   saved_at: string;
+  thread?: string;
 }
 
 interface OccurrenceMetadata extends CardMetadata {
   occurrence_count: number;
+}
+
+interface OpenCard {
+  number: number;
+  /** The issue's comment count; unknown counts as one, so the card is kept. */
+  comments: number;
+  metadata: CardMetadata;
 }
 
 const HEX_64 = /^[a-f0-9]{64}$/u;
@@ -80,17 +95,31 @@ export class GitHubFindingsQueue {
   }
 
   private async submitSerialized(input: GitHubFindingsSubmission): Promise<GitHubFindingsQueueResult> {
-    if (!HEX_64.test(input.fingerprint) || !HEX_64.test(input.receiptSha256)) {
+    if (!HEX_64.test(input.fingerprint) || !HEX_64.test(input.receiptSha256) || !HEX_64.test(input.thread)) {
       throw new GitHubApiError("github_service_unavailable", false);
     }
-    const open = await this.findOpenCard(input.fingerprint);
-    return open === undefined
+    const open = await this.openCards();
+    // The oldest open card with this fingerprint collects its occurrences.
+    const same = open.filter(({ metadata }) => metadata.fingerprint === input.fingerprint)
+      .sort((left, right) => left.number - right.number)[0];
+    const saved = same === undefined
       ? await this.createCard(input)
-      : await this.addOccurrence(open.number, open.metadata, input);
+      : await this.addOccurrence(same.number, same.metadata, input);
+    let replaced = 0;
+    for (const earlier of open) {
+      if (earlier.metadata.thread !== input.thread || earlier.number === saved.issueNumber) continue;
+      try {
+        await this.replace(earlier, saved.issueNumber);
+        replaced += 1;
+      } catch {
+        // The new card is saved; an earlier one left open is the owner's to close.
+      }
+    }
+    return { ...saved, replaced };
   }
 
-  private async findOpenCard(fingerprint: string): Promise<{ number: number; metadata: CardMetadata } | undefined> {
-    let found: { number: number; metadata: CardMetadata } | undefined;
+  private async openCards(): Promise<OpenCard[]> {
+    const cards: OpenCard[] = [];
     for (let page = 1; ; page += 1) {
       const response = await this.request(
         `${this.issuesPath}?state=open&labels=${FINDINGS_CARD_LABEL}&per_page=100&page=${page}`,
@@ -103,14 +132,39 @@ export class GitHubFindingsQueue {
           continue;
         }
         const metadata = parseMarker(issue.body, CARD_MARKER, parseCardMetadata);
-        // The oldest open card with this fingerprint collects its occurrences.
-        if (metadata?.fingerprint === fingerprint && (found === undefined || issue.number < found.number)) {
-          found = { number: issue.number, metadata };
-        }
+        if (metadata === undefined) continue;
+        const comments = typeof issue.comments === "number" && Number.isSafeInteger(issue.comments) &&
+            issue.comments >= 0
+          ? issue.comments
+          : 1;
+        cards.push({ number: issue.number, comments, metadata });
       }
       if (response.length < 100) break;
     }
-    return found;
+    return cards;
+  }
+
+  /**
+   * Points an earlier card of the thread to its replacement, and closes it
+   * unless it holds another thread's save or the owner's comment.
+   */
+  private async replace(earlier: OpenCard, replacement: number): Promise<void> {
+    const keep = earlier.comments > 0;
+    const posted = await this.request(`${this.issuesPath}/${earlier.number}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ body: replacedComment(replacement, keep) }),
+    });
+    if (!isRecord(posted) || !isPositiveInteger(posted.id)) {
+      throw new GitHubApiError("github_service_unavailable", true);
+    }
+    if (keep) return;
+    const closed = await this.request(`${this.issuesPath}/${earlier.number}`, {
+      method: "PATCH",
+      body: JSON.stringify({ state: "closed", state_reason: "not_planned" }),
+    });
+    if (!isRecord(closed) || closed.state !== "closed") {
+      throw new GitHubApiError("github_service_unavailable", true);
+    }
   }
 
   private async addOccurrence(
@@ -119,9 +173,10 @@ export class GitHubFindingsQueue {
     input: GitHubFindingsSubmission,
   ): Promise<GitHubFindingsQueueResult> {
     if (card.receipt_sha256 === input.receiptSha256) {
-      return { kind: "created", issueNumber, occurrenceCount: 1 };
+      return { kind: "created", issueNumber, occurrenceCount: 1, replaced: 0 };
     }
     let highestCount = 1;
+    let sameThread = card.thread === input.thread;
     for (let page = 1; ; page += 1) {
       const response = await this.request(
         `${this.issuesPath}/${issueNumber}/comments?per_page=100&page=${page}`,
@@ -133,16 +188,20 @@ export class GitHubFindingsQueue {
         const occurrence = parseMarker(comment.body, OCCURRENCE_MARKER, parseOccurrenceMetadata);
         if (occurrence?.fingerprint !== input.fingerprint) continue;
         if (occurrence.receipt_sha256 === input.receiptSha256) {
-          return { kind: "existing", issueNumber, occurrenceCount: occurrence.occurrence_count };
+          return { kind: "existing", issueNumber, occurrenceCount: occurrence.occurrence_count, replaced: 0 };
         }
+        if (occurrence.thread === input.thread) sameThread = true;
         highestCount = Math.max(highestCount, occurrence.occurrence_count);
       }
       if (response.length < 100) break;
     }
+    // The same person reaching the same findings again is not another occurrence.
+    if (sameThread) return { kind: "existing", issueNumber, occurrenceCount: highestCount, replaced: 0 };
     const occurrence: OccurrenceMetadata = {
       fingerprint: input.fingerprint,
       receipt_sha256: input.receiptSha256,
       saved_at: input.record.stamp.saved_at,
+      thread: input.thread,
       occurrence_count: highestCount + 1,
     };
     const created = await this.request(`${this.issuesPath}/${issueNumber}/comments`, {
@@ -152,7 +211,7 @@ export class GitHubFindingsQueue {
     if (!isRecord(created) || !isPositiveInteger(created.id)) {
       throw new GitHubApiError("github_service_unavailable", true);
     }
-    return { kind: "existing", issueNumber, occurrenceCount: occurrence.occurrence_count };
+    return { kind: "existing", issueNumber, occurrenceCount: occurrence.occurrence_count, replaced: 0 };
   }
 
   private async createCard(input: GitHubFindingsSubmission): Promise<GitHubFindingsQueueResult> {
@@ -160,6 +219,7 @@ export class GitHubFindingsQueue {
       fingerprint: input.fingerprint,
       receipt_sha256: input.receiptSha256,
       saved_at: input.record.stamp.saved_at,
+      thread: input.thread,
     };
     const response = await this.request(this.issuesPath, {
       method: "POST",
@@ -172,7 +232,7 @@ export class GitHubFindingsQueue {
     if (!isRecord(response) || !isPositiveInteger(response.number)) {
       throw new GitHubApiError("github_service_unavailable", true);
     }
-    return { kind: "created", issueNumber: response.number, occurrenceCount: 1 };
+    return { kind: "created", issueNumber: response.number, occurrenceCount: 1, replaced: 0 };
   }
 
   private async request(path: string, init: RequestInit): Promise<unknown> {
@@ -201,6 +261,12 @@ function occurrenceComment(record: FindingsRecord, metadata: OccurrenceMetadata)
   const full = `## Saved again\n\nOccurrence ${metadata.occurrence_count}: the same question and claims, saved ` +
     `again after another checked answer.\n\n${readableStamp(record)}\n\n${tail}`;
   return boundedBody(full, tail);
+}
+
+function replacedComment(replacement: number, kept: boolean): string {
+  return `## Replaced\n\nA later checked answer in the same research thread was saved as ` +
+    `${publicFindingsCardId(replacement)}; review that card for this thread.` +
+    (kept ? " This card stays open because it also holds another save or a comment." : "");
 }
 
 /** The readable body if it fits; otherwise the full record alone; otherwise nothing is written. */
@@ -312,7 +378,12 @@ function parseCardMetadata(value: Record<string, unknown>): CardMetadata | undef
   return typeof value.fingerprint === "string" && HEX_64.test(value.fingerprint) &&
     typeof value.receipt_sha256 === "string" && HEX_64.test(value.receipt_sha256) &&
     typeof value.saved_at === "string"
-    ? { fingerprint: value.fingerprint, receipt_sha256: value.receipt_sha256, saved_at: value.saved_at }
+    ? {
+        fingerprint: value.fingerprint,
+        receipt_sha256: value.receipt_sha256,
+        saved_at: value.saved_at,
+        ...(typeof value.thread === "string" && HEX_64.test(value.thread) ? { thread: value.thread } : {}),
+      }
     : undefined;
 }
 

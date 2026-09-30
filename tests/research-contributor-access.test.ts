@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   deterministicUuid,
+  EARLIER_RESEARCH_USE_NOTICE_VERSIONS,
   InMemoryResearchContributorAccessStore,
   RESEARCH_USE_NOTICE,
   RESEARCH_USE_NOTICE_VERSION,
@@ -205,6 +206,42 @@ describe("research contributor access", () => {
       payload: partialFrontier(),
     })).rejects.toMatchObject({ code: "PAID_PRIVATE_DOES_NOT_CONTRIBUTE" });
     expect(store.allProposals()).toHaveLength(0);
+  });
+
+  // Owner decision Q11 (2026-09-30): free use saves each finished answer's findings card, so the notice changed.
+  it("says that free use saves findings cards and that paid private access saves nothing", () => {
+    expect(RESEARCH_USE_NOTICE_VERSION).toBe("free-contributor-v2-2026-09-30");
+    expect(RESEARCH_USE_NOTICE).toContain("what AskRigor learns from your research is saved");
+    expect(RESEARCH_USE_NOTICE).toContain("for each finished research answer, a findings card");
+    expect(RESEARCH_USE_NOTICE).toContain("summarized without their posts, names, links or video IDs");
+    expect(RESEARCH_USE_NOTICE).toContain("Paid private access saves nothing");
+  });
+
+  it("asks a free account that accepted an earlier notice to accept the current one", async () => {
+    const { store, service } = fixture();
+    await service.acceptFreeContributor(SUBJECT, agreement());
+    const [account] = store.allAccounts();
+    const [earlier] = EARLIER_RESEARCH_USE_NOTICE_VERSIONS;
+    await store.saveAccount({ ...account!, noticeVersion: earlier, agreement: { ...agreement(), noticeVersion: earlier } });
+
+    await expect(service.inspect(SUBJECT)).resolves.toMatchObject({
+      status: "UNENROLLED",
+      mode: null,
+      noticeVersion: RESEARCH_USE_NOTICE_VERSION,
+      notice: RESEARCH_USE_NOTICE,
+    });
+    await expect(service.requireActive(SUBJECT)).rejects.toMatchObject({ code: "RESEARCH_ACCESS_REQUIRED" });
+    await expect(service.submitProposal(SUBJECT, {
+      proposalKind: "RESEARCH_FRONTIER",
+      privacyBoundary: PRIVACY_BOUNDARY,
+      payload: partialFrontier(),
+    })).rejects.toMatchObject({ code: "RESEARCH_ACCESS_REQUIRED" });
+    // Only the current notice can be accepted.
+    await expect(service.acceptFreeContributor(SUBJECT, { ...agreement(), noticeVersion: earlier })).rejects.toThrow();
+
+    await service.acceptFreeContributor(SUBJECT, agreement());
+    await expect(service.requireActive(SUBJECT)).resolves.toBe("FREE_CONTRIBUTOR");
+    expect(store.allAccounts()[0]).toMatchObject({ noticeVersion: RESEARCH_USE_NOTICE_VERSION });
   });
 
   it("blocks all later use after revocation", async () => {

@@ -58,8 +58,7 @@ const TOOL_NAMES = [
   "assess_treatment_landscape_coverage",
   "scout_gemini_youtube_candidates",
   "finalize_research",
-  "submit_lesson_candidate",
-  "save_research_findings"
+  "submit_lesson_candidate"
 ];
 const GEMINI_TOOL_NAMES = TOOL_NAMES.filter((name) =>
   ![
@@ -72,7 +71,6 @@ const GEMINI_TOOL_NAMES = TOOL_NAMES.filter((name) =>
     "scout_gemini_youtube_candidates",
     "finalize_research",
     "submit_lesson_candidate",
-    "save_research_findings",
   ].includes(name)
 );
 
@@ -106,7 +104,7 @@ const SPARSE_SEARCH_NOTE = " Few records: before saying anything was not found, 
   "the components of a mixed exposure, and citation chains.";
 
 describe("AskRigor MCP tools", () => {
-  it("registers the exact thirty-two-tool catalog with five declared writes", async () => {
+  it("registers the exact thirty-one-tool catalog with five declared writes", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {
@@ -119,7 +117,7 @@ describe("AskRigor MCP tools", () => {
           "submit_research_contribution",
           "review_research_contribution",
           "submit_lesson_candidate",
-          "save_research_findings",
+          "finalize_research",
         ].includes(name) ? MUTATING_ANNOTATIONS : READ_ONLY_ANNOTATIONS)
       );
       expect(tools.every(({ inputSchema, outputSchema }) =>
@@ -154,9 +152,10 @@ describe("AskRigor MCP tools", () => {
     expect(SERVER_INSTRUCTIONS.slice(0, 1_024)).toContain(
       "call finalize_research with every research_receipt"
     );
-    // Owner decisions Q9 and Q10 (2026-09-30): the final check carries a findings card; its save waits for a yes.
+    // Owner decisions Q9 to Q11 (2026-09-30): the final check carries a findings card, which free contributor
+    // mode saves; nothing asks the user.
     expect(SERVER_INSTRUCTIONS).toContain("a findings_card of its best findings");
-    expect(SERVER_INSTRUCTIONS).toContain("else copy its caveats. Call save_research_findings only after the user says yes.");
+    expect(SERVER_INSTRUCTIONS).not.toContain("save_research_findings");
   });
 
   it("publishes one-chain full-text handle and source-hash guidance", () => {
