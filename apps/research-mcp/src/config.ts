@@ -355,6 +355,19 @@ export function askrigorBuildCommitFromEnv(
     : "unknown";
 }
 
+/**
+ * Whether AskRigor's findings library is open: ASKRIGOR_FINDINGS_LIBRARY set to
+ * "enabled". It stays closed until the owner has worded the privacy notice for
+ * it and created its private review repository (owner decision Q10,
+ * 2026-09-30); while closed, finalize_research checks no card and offers no
+ * save, and save_research_findings saves nothing.
+ */
+export function findingsLibraryEnabledFromEnv(
+  value = process.env.ASKRIGOR_FINDINGS_LIBRARY
+): boolean {
+  return value?.trim() === "enabled";
+}
+
 export function parseTrustedClientIpHeader(
   value = process.env.ASKRIGOR_TRUSTED_CLIENT_IP_HEADER
 ): "cf-connecting-ip" | undefined {

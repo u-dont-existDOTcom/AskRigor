@@ -33,6 +33,7 @@ export const FINDINGS_SAVE_REASONS = [
   "unsafe_card",
   "hourly_limit",
   "daily_limit",
+  "library_closed",
   "queue_not_configured",
   "queue_auth_unavailable",
   "queue_service_unavailable"

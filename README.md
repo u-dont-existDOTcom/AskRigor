@@ -432,9 +432,12 @@ screen with no model call, stamps the version (build, protocol manifests, tool
 catalog, surface), and files a GitHub issue labeled `findings-card` and
 `pending-review` in the private `AskRigor-findings` repository, or adds an
 occurrence to an open card with the same question and claims. It returns only an
-`ARF-####` id. Nothing is accepted until the owner reviews it. Going live for
-other users waits for the owner's privacy-notice wording, the private repository
-and its GitHub App installation, and deploy approval; the data flow is in
+`ARF-####` id. Nothing is accepted until the owner reviews it. Stored cards hold
+no YouTube video IDs or links while the YouTube compliance review is open, only
+how many videos backed each finding. The library stays closed (no card checked,
+no save offered or made) until `ASKRIGOR_FINDINGS_LIBRARY=enabled`, which follows
+the owner's privacy-notice wording, the private repository and its GitHub App
+installation, and deploy approval; the data flow is in
 `docs/privacy-data-map.md`.
 
 ## Public-review status

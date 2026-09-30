@@ -8,7 +8,8 @@ import {
   findingsCardFingerprint,
   isSafeReportedModel,
   screenFindingsCard,
-  type FindingsCard
+  withoutYouTubeData,
+  type StoredFindingsCard
 } from "./card.js";
 import {
   saveResearchFindingsInputSchema,
@@ -57,8 +58,12 @@ export interface FindingsStamp {
 
 export interface FindingsRecord {
   schema: "askrigor.findings-card.v1";
-  card: FindingsCard;
+  /** The card as stored: without YouTube video IDs or links (see withoutYouTubeData). */
+  card: StoredFindingsCard;
+  /** The digest finalize_research signed, of the card as it was checked. */
   card_sha256: string;
+  /** What the stored card leaves out of the checked card. */
+  stored_without?: ["youtube_video_ids_and_links"];
   stamp: FindingsStamp;
 }
 
@@ -117,10 +122,12 @@ export class FindingsSaveService {
         });
       }
 
+      const stored = withoutYouTubeData(input.findings_card);
       const record: FindingsRecord = {
         schema: "askrigor.findings-card.v1",
-        card: input.findings_card,
+        card: stored.card,
         card_sha256: cardSha256,
+        ...(stored.omitted ? { stored_without: ["youtube_video_ids_and_links"] } : {}),
         stamp: {
           saved_at: now.toISOString(),
           askrigor_version: this.options.version,

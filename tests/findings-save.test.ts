@@ -5,7 +5,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { askrigorBuildCommitFromEnv } from "../apps/research-mcp/src/config.js";
-import { findingsCardDigest, findingsCardSchema } from "../apps/research-mcp/src/findings/card.js";
+import { findingsCardDigest, findingsCardSchema, withoutYouTubeData } from "../apps/research-mcp/src/findings/card.js";
 import type { FindingsSaveResult } from "../apps/research-mcp/src/findings/contracts.js";
 import { GitHubFindingsQueue } from "../apps/research-mcp/src/findings/github-findings.js";
 import {
@@ -228,10 +228,14 @@ describe("save_research_findings service", () => {
     const [issue] = github.issues;
     expect(issue).toMatchObject({ title: CARD.question, labels: [{ name: "findings-card" }, { name: "pending-review" }] });
     const record = storedRecord(issue!.body);
+    // The library stores no YouTube video IDs or links: the finding keeps its study and a count of its videos.
+    const { card: storedCard } = withoutYouTubeData(parsedCard());
+    expect(storedCard.findings[0]).toMatchObject({ sources: ["10.1002/art.41142"], youtube_videos: 1 });
     expect(record).toEqual({
       schema: "askrigor.findings-card.v1",
-      card: parsedCard(),
+      card: storedCard,
       card_sha256: findingsCardDigest(parsedCard()),
+      stored_without: ["youtube_video_ids_and_links"],
       stamp: {
         saved_at: "2026-09-30T12:00:00.000Z",
         askrigor_version: "0.1.0",
@@ -315,9 +319,19 @@ describe("save_research_findings service", () => {
     for (const key of ["ASKRIGOR_GITHUB_APP_ID", "ASKRIGOR_GITHUB_INSTALLATION_ID", "ASKRIGOR_GITHUB_PRIVATE_KEY_BASE64"]) {
       delete process.env[key];
     }
+    // Closed until the owner opens it, whatever else is configured.
+    delete process.env.ASKRIGOR_FINDINGS_LIBRARY;
     await expect(saveResearchFindings(saveInput(), CONTEXT)).resolves.toEqual({
-      status: "queue_unavailable", retryable: false, reason_code: "queue_not_configured",
+      status: "queue_unavailable", retryable: false, reason_code: "library_closed",
     });
+    process.env.ASKRIGOR_FINDINGS_LIBRARY = "enabled";
+    try {
+      await expect(saveResearchFindings(saveInput(), CONTEXT)).resolves.toEqual({
+        status: "queue_unavailable", retryable: false, reason_code: "queue_not_configured",
+      });
+    } finally {
+      delete process.env.ASKRIGOR_FINDINGS_LIBRARY;
+    }
   });
 
   it("reads the queue's repository and the build from the environment", () => {

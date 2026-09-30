@@ -215,7 +215,7 @@ export const finalizeResearchOutputSchema = z.object({
   }).strict(),
   answer_checked: z.boolean().describe("Whether answer_draft was read in this call."),
   findings_card: z.object({
-    status: z.enum(["checked", "rejected", "absent"]),
+    status: z.enum(["checked", "rejected", "absent", "closed"]),
     problems: z.array(z.string())
   }).strict().describe("Whether findings_card checked. Only a checked card can be saved: the finalization receipt " +
     "then signs it and the caveats offer the save."),
@@ -233,6 +233,9 @@ export interface FinalizeResearchOptions {
   // What Reddit's public embed endpoint said about each cited Reddit thread, by
   // post id; the MCP tool looks them up before the gate runs.
   redditThreads?: ReadonlyMap<string, RedditThreadCheck>;
+  // Whether AskRigor's findings library is open (ASKRIGOR_FINDINGS_LIBRARY).
+  // While it is closed a card is not checked and no save is offered.
+  findingsLibrary?: boolean;
 }
 
 export type RedditThreadCheck =
@@ -288,10 +291,12 @@ export function finalizeResearch(
       answer_checked: false,
       findings_card: input.findings_card === undefined
         ? noFindingsCard()
-        : {
-            status: "rejected",
-            problems: ["This AskRigor server cannot verify research receipts, so it cannot check or save a findings card."]
-          }
+        : options.findingsLibrary !== true
+          ? closedFindingsLibrary()
+          : {
+              status: "rejected",
+              problems: ["This AskRigor server cannot verify research receipts, so it cannot check or save a findings card."]
+            }
     };
   }
 
@@ -906,10 +911,12 @@ export function finalizeResearch(
   // caveat offering the save, which the answer then carries like any other.
   let findingsCard: FindingsCardCheck = input.findings_card === undefined
     ? noFindingsCard()
-    : {
-        status: "rejected",
-        problems: ["A findings card is checked against the answer: pass answer_draft with it."]
-      };
+    : options.findingsLibrary !== true
+      ? closedFindingsLibrary()
+      : {
+          status: "rejected",
+          problems: ["A findings card is checked against the answer: pass answer_draft with it."]
+        };
   if (draft === undefined) {
     if (nextSteps.length === 0) {
       nextSteps.push(
@@ -917,7 +924,7 @@ export function finalizeResearch(
       );
     }
   } else {
-    if (input.findings_card !== undefined) {
+    if (input.findings_card !== undefined && options.findingsLibrary === true) {
       const showing = quoteLocator(displayedProse(draft));
       // What a card may cite: studies validated or read as leads here (by
       // either of a PMID's identifiers), and videos audited or material here.
@@ -1234,6 +1241,11 @@ function quoteLocator(shownBlocks: readonly string[]): (quote: string) => number
 type FindingsCardCheck = FinalizeResearchOutput["findings_card"];
 
 const noFindingsCard = (): FindingsCardCheck => ({ status: "absent", problems: [] });
+
+const closedFindingsLibrary = (): FindingsCardCheck => ({
+  status: "closed",
+  problems: ["AskRigor's findings library is not open yet: the card was not checked, so do not offer to save it."]
+});
 
 // What a privacy problem is, as the card's problem names it.
 const FINDINGS_PRIVACY_PROBLEMS: Readonly<Record<FindingsPrivacyReason, string>> = {

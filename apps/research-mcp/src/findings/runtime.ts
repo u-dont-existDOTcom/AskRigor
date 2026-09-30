@@ -1,6 +1,6 @@
 import { getProtocolManifest } from "@askrigor/protocol";
 
-import { askrigorBuildCommitFromEnv, SERVICE_VERSION } from "../config.js";
+import { askrigorBuildCommitFromEnv, findingsLibraryEnabledFromEnv, SERVICE_VERSION } from "../config.js";
 import {
   GitHubInstallationTokenProvider,
   LESSON_REPOSITORY_NAME,
@@ -35,6 +35,10 @@ let cachedService: FindingsSaveService | undefined;
  * unconfigured library answers "unavailable" and never throws.
  */
 export async function saveResearchFindings(raw: unknown, context: FindingsSaveContext): Promise<FindingsSaveResult> {
+  // Closed until the owner opens it (ASKRIGOR_FINDINGS_LIBRARY=enabled).
+  if (!findingsLibraryEnabledFromEnv()) {
+    return { status: "queue_unavailable", retryable: false, reason_code: "library_closed" };
+  }
   let service: FindingsSaveService;
   try {
     cachedService ??= createFindingsServiceFromEnv();

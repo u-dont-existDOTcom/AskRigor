@@ -221,7 +221,12 @@ function readableCard(record: FindingsRecord): string {
       `- Certainty: ${escapeMarkdown(finding.certainty)}`,
       `- Applies to: ${escapeMarkdown(finding.applies_to)}`,
       `- In the answer: ${escapeMarkdown(finding.answer_quote)}`,
-      `- Sources: ${finding.sources.map(escapeMarkdown).join(", ")}`,
+      `- Sources: ${[
+        ...finding.sources.map(escapeMarkdown),
+        ...(finding.youtube_videos === undefined
+          ? []
+          : [`${finding.youtube_videos} YouTube video(s) whose comments were audited`]),
+      ].join(", ") || "none stored"}`,
       `- Why the usual answer misses it: ${escapeMarkdown(finding.why_not_usual)}`,
       `- Tags: ${finding.tags.length === 0 ? "none" : finding.tags.map(escapeMarkdown).join(", ")}`,
       `- What would change it: ${escapeMarkdown(finding.what_would_change_it)}`,

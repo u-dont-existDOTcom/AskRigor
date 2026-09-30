@@ -1536,7 +1536,7 @@ The design, as built:
   ten sources, why the usual answer misses it, tags, what would change it) and
   up to six open leads.
 - The card is checked only with `answer_draft`. Its problems never change the
-  answer's status. The output gains `findings_card` (checked, rejected or
+  answer's status. The output gains `findings_card` (checked, rejected, closed or
   absent, with problems).
 - A checked card adds one caveat, "If you want these findings saved to
   AskRigor's findings library for review, say yes; nothing is saved
@@ -1579,6 +1579,18 @@ What the server enforces:
   instead of a new issue. A save retried with the same receipt writes nothing.
 - A rate limit of its own (the lesson queue's limiter, separate bucket).
 - An unconfigured library answers `queue_unavailable`; nothing throws.
+- The library is closed unless `ASKRIGOR_FINDINGS_LIBRARY=enabled`. While it is
+  closed, the gate answers `closed` for a card, signs none and offers no save,
+  and the tool answers `library_closed`. The owner opens it once the notice is
+  live and the repository exists. (Added in review, so no user is offered a
+  save that cannot work.)
+- The stored card holds no YouTube video ID or link while the YouTube API
+  compliance review is open: each finding keeps the number of videos behind it,
+  and a link keeps its text (`stored_without`). The gate still checks the
+  videos; the record keeps the digest of the card as checked. (Added in review,
+  to match the living-evidence and frontier stores.)
+- NCT ids are not accepted as card sources: no tool verifies a trial
+  registration yet, so a trial is cited through its published paper.
 
 What stays the model's declaration, for the owner's review:
 
@@ -1594,17 +1606,8 @@ What waits:
 - The owner's wording for the public privacy notice (`site/privacy` is not
   changed here). The engineering data map is updated.
 - Creating the private `AskRigor-findings` repository and adding it to the
-  GitHub App's installation. This turns saving on for every user of a deployed
-  server, so it follows the notice.
-- Deploy approval. Once deployed, the gate offers the save to every connector
-  user even before the repository exists; saving then answers that the library
-  is unavailable. The deployment should also set `ASKRIGOR_BUILD_COMMIT`.
-- Two questions for the owner:
-  - cards may name public YouTube video ids as sources, while the
-    living-evidence and frontier stores keep no YouTube identifiers until the
-    YouTube compliance review closes;
-  - an NCT id can never check yet, because no receipt verifies a trial
-    registration.
+  GitHub App's installation, then setting `ASKRIGOR_FINDINGS_LIBRARY=enabled`.
+- Deploy approval. The deployment should also set `ASKRIGOR_BUILD_COMMIT`.
 
 ## Assurance lanes (UDA `patterns/development-assurance-lanes.md`)
 

@@ -38,8 +38,8 @@ export const findingsCardSchema = z.object({
     answer_quote: cardText(1_000)
       .describe("The answer's sentence that states this finding, copied exactly from answer_draft."),
     sources: z.array(cardText(300)).min(1).max(10)
-      .describe("DOI, PMID, PMCID, NCT id or YouTube video id, each verified in this call: a key source, or a video " +
-        "audited here."),
+      .describe("DOI, PMID or PMCID of a key source verified in this call, or the ID of a video audited here. No " +
+        "tool verifies a trial registration yet, so cite a trial through its published paper."),
     why_not_usual: cardText(300).describe("Why the usual answer misses this."),
     tags: z.array(z.enum(FINDING_TAGS)).max(FINDING_TAGS.length).default([])
       .describe("full_text_read needs a source read with a full-text method audit here; community_checked, a video " +
@@ -136,6 +136,66 @@ export function screenFindingsCard(card: FindingsCard): FindingsPrivacyProblem[]
 export function isSafeReportedModel(value: string): boolean {
   return /^[\p{L}\p{N}][\p{L}\p{N} ._:()/+-]{0,79}$/u.test(value) && !value.includes("://") &&
     !containsSecretLikeData(value);
+}
+
+/** A finding as the library stores it: its YouTube videos counted, not named. */
+export type StoredFinding = Omit<FindingsCard["findings"][number], "sources"> & {
+  sources: string[];
+  /** Videos whose audited comments back this finding; their IDs are not stored. */
+  youtube_videos?: number;
+};
+
+/** A card as the library stores it. */
+export type StoredFindingsCard = Omit<FindingsCard, "findings"> & { findings: StoredFinding[] };
+
+const YOUTUBE_PAGE =
+  "https?://(?:(?:www\\.|m\\.)?youtube\\.com/watch\\?v=[A-Za-z0-9_-]{11}(?:&t=\\d{1,6}s?)?" +
+  "|youtu\\.be/[A-Za-z0-9_-]{11}(?:\\?t=\\d{1,6}s?)?)";
+const YOUTUBE_LINK = new RegExp(`\\[([^[\\]\\n]{0,500})\\]\\(${YOUTUBE_PAGE}\\)`, "gu");
+const YOUTUBE_URL = new RegExp(YOUTUBE_PAGE, "gu");
+
+/**
+ * The card without YouTube video IDs or links, which AskRigor does not store
+ * while its YouTube API compliance review is open: each finding keeps the
+ * number of its videos, and a link keeps its text. The gate still checked the
+ * videos; the saved record keeps the digest it signed.
+ */
+export function withoutYouTubeData(card: FindingsCard): { card: StoredFindingsCard; omitted: boolean } {
+  let omitted = false;
+  const text = (value: string): string => {
+    const stored = value.replace(YOUTUBE_LINK, "$1 (YouTube video)").replace(YOUTUBE_URL, "(YouTube video)");
+    if (stored !== value) omitted = true;
+    return stored;
+  };
+  const findings = card.findings.map(({ sources, ...finding }): StoredFinding => {
+    const videos = sources.filter(isYouTubeVideoId).length;
+    if (videos > 0) omitted = true;
+    return {
+      ...finding,
+      claim: text(finding.claim),
+      applies_to: text(finding.applies_to),
+      answer_quote: text(finding.answer_quote),
+      why_not_usual: text(finding.why_not_usual),
+      what_would_change_it: text(finding.what_would_change_it),
+      sources: sources.filter((source) => !isYouTubeVideoId(source)),
+      ...(videos === 0 ? {} : { youtube_videos: videos })
+    };
+  });
+  return {
+    card: {
+      ...card,
+      question: text(card.question),
+      usual_answer: text(card.usual_answer),
+      findings,
+      open_leads: card.open_leads.map(text)
+    },
+    omitted
+  };
+}
+
+/** A YouTube video ID, as a card's source: 11 URL-safe characters that are not a study identifier. */
+export function isYouTubeVideoId(value: string): boolean {
+  return YOUTUBE_VIDEO_ID.test(value) && !STUDY_IDENTIFIER.test(value);
 }
 
 /** A DOI, PMID, PMCID or NCT id (any case, with or without its usual prefix), or a YouTube video id. */

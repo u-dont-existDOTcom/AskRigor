@@ -63,7 +63,13 @@ export function findingsSaveToolResult(raw: FindingsSaveResult): CallToolResult 
         true,
       );
     default:
-      return receipt("Not saved: the findings library is unavailable right now.", result, true);
+      return receipt(
+        result.reason_code === "library_closed"
+          ? "Not saved: AskRigor's findings library is not open yet."
+          : "Not saved: the findings library is unavailable right now.",
+        result,
+        true,
+      );
   }
 }
 

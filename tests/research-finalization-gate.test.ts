@@ -2458,6 +2458,8 @@ describe("finalize_research gate", () => {
 // Owner decisions Q9 and Q10 (2026-09-30): the final gate checks a findings card, which never changes the
 // answer's own status; a checked card adds one caveat offering the save and is signed into the receipt.
 describe("findings card at the final gate", () => {
+  // The library is open here; a closed library is tested last.
+  const options = { secret: SECRET, now, findingsLibrary: true };
   const READY = {
     receipts: [survey, emptySearch, repeatScout, videoA, study],
     community_evidence: "researched",
@@ -2584,12 +2586,22 @@ describe("findings card at the final gate", () => {
       status: "rejected",
       problems: ["A findings card is checked against the answer: pass answer_draft with it."]
     });
-    const unverifiable = finalizeResearchBare({ ...READY, findings_card: CARD }, { secret: undefined });
+    const unverifiable = finalizeResearchBare({ ...READY, findings_card: CARD }, { secret: undefined, findingsLibrary: true });
     expect(unverifiable.status).toBe("receipts_unavailable");
     expect(unverifiable.findings_card).toEqual({
       status: "rejected",
       problems: ["This AskRigor server cannot verify research receipts, so it cannot check or save a findings card."]
     });
     expect(finalizeResearchBare({ ...READY }, { secret: undefined }).findings_card).toEqual({ status: "absent", problems: [] });
+  });
+
+  it("while the library is closed, checks no card and offers no save", () => {
+    const closed = finalizeResearch({ ...READY, findings_card: CARD }, { secret: SECRET, now });
+    expect(closed.findings_card).toEqual({
+      status: "closed",
+      problems: ["AskRigor's findings library is not open yet: the card was not checked, so do not offer to save it."]
+    });
+    expect(closed.caveats.some((caveat) => caveat.includes("findings library"))).toBe(false);
+    expect(findingsClaim(closed.finalization_receipt)).toBeUndefined();
   });
 });

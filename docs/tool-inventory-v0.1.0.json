@@ -12634,7 +12634,7 @@
                         "minLength": 1,
                         "maxLength": 300
                       },
-                      "description": "DOI, PMID, PMCID, NCT id or YouTube video id, each verified in this call: a key source, or a video audited here."
+                      "description": "DOI, PMID or PMCID of a key source verified in this call, or the ID of a video audited here. No tool verifies a trial registration yet, so cite a trial through its published paper."
                     },
                     "why_not_usual": {
                       "type": "string",
@@ -12882,7 +12882,8 @@
                 "enum": [
                   "checked",
                   "rejected",
-                  "absent"
+                  "absent",
+                  "closed"
                 ]
               },
               "problems": {
@@ -13168,7 +13169,7 @@
                         "minLength": 1,
                         "maxLength": 300
                       },
-                      "description": "DOI, PMID, PMCID, NCT id or YouTube video id, each verified in this call: a key source, or a video audited here."
+                      "description": "DOI, PMID or PMCID of a key source verified in this call, or the ID of a video audited here. No tool verifies a trial registration yet, so cite a trial through its published paper."
                     },
                     "why_not_usual": {
                       "type": "string",
@@ -13298,6 +13299,7 @@
               "unsafe_card",
               "hourly_limit",
               "daily_limit",
+              "library_closed",
               "queue_not_configured",
               "queue_auth_unavailable",
               "queue_service_unavailable"

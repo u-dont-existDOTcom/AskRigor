@@ -692,14 +692,20 @@ reviews every card before it is accepted. The code is built but not deployed.
 The public notice at `https://askrigor.com/privacy` needs the owner's wording
 for this flow before other users can save; that page is not changed here.
 
+The library is closed unless `ASKRIGOR_FINDINGS_LIBRARY` is set to `enabled`,
+which the owner does once the notice is live and the private repository exists.
+While it is closed, `finalize_research` checks no card, signs none and adds no
+save offer, and `save_research_findings` saves nothing (`library_closed`).
+
 What the model sends, and when:
 
 - In `finalize_research`, with `answer_draft`, an optional `findings_card`: the
   question in general terms (at most 300 characters), what a quick ordinary
   answer would say (400), one to five findings, each with a claim (500),
   certainty, whom it applies to (300), one sentence copied from the answer
-  (`answer_quote`), one to ten source identifiers (DOI, PMID, PMCID, NCT id or
-  YouTube video id), why the usual answer misses it (300), allowlisted tags and
+  (`answer_quote`), one to ten source identifiers (DOI, PMID, PMCID or YouTube
+  video id; no tool verifies an NCT id yet, so a trial is cited through its
+  paper), why the usual answer misses it (300), allowlisted tags and
   what would change it (300), and up to six open leads (200 each). The gate
   checks the card and stores nothing; like the answer draft, it is used for that
   call only. A checked card's SHA-256 digest is signed into the finalization
@@ -721,11 +727,15 @@ What is stored, and where: one issue in the private GitHub repository
 lesson queue's GitHub App with a token scoped to that one private repository.
 The issue holds the question as its title, the labels `findings-card` and
 `pending-review`, a readable copy of the card, and a JSON record: the card, its
-SHA-256, and the server's version stamp (save time; AskRigor version and build
-commit, or `unknown`; HRP and Universal names, versions and SHA-256; a SHA-256 of
-the tool catalog; the endpoint, `/mcp` or `/mcp/claude`; the model name as
-reported and marked unverified; and the research depth, status, finalization
-time and receipt counts the receipt signed). A hidden marker holds the
+SHA-256, and the server's version stamp. The stored card holds no YouTube video
+ID or link while AskRigor's YouTube API compliance review is open: each finding
+keeps only the number of videos whose audited comments backed it, and a link
+keeps its text (`stored_without` records this; the SHA-256 is still the checked
+card's). The version stamp holds the save time; the AskRigor version and build
+commit, or `unknown`; the HRP and Universal names, versions and SHA-256; a
+SHA-256 of the tool catalog; the endpoint, `/mcp` or `/mcp/claude`; the model
+name as reported, marked unverified; and the research depth, status,
+finalization time and receipt counts the receipt signed. A hidden marker holds the
 duplicate fingerprint (a SHA-256 of the normalized question and claims), a
 SHA-256 of the finalization receipt, used only to make a retried save write
 nothing new, and the save time. A later save of the same question and claims

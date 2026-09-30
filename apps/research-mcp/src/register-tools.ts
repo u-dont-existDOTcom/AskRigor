@@ -49,6 +49,7 @@ import { z } from "zod";
 
 import {
   PUBLIC_TOOL_LIMITS,
+  findingsLibraryEnabledFromEnv,
   optionalLivingEvidenceReuseConfigFromEnv
 } from "./config.js";
 import { createConcurrencyLimiter } from "./rate-limit.js";
@@ -611,6 +612,8 @@ export interface RegisterToolsOptions {
   lessonSubmission?: (raw: unknown) => Promise<LessonSubmissionResult>;
   /** Replaces the production findings library, for tests. */
   findingsSave?: (raw: unknown, context: FindingsSaveContext) => Promise<FindingsSaveResult>;
+  /** Whether the findings library is open; defaults to ASKRIGOR_FINDINGS_LIBRARY. */
+  findingsLibrary?: boolean;
   mcpSurface?: McpSurface;
 }
 
@@ -1781,6 +1784,7 @@ function defineResearchOperations(
       const result = finalizeResearch(input, {
         secret: researchReceiptSecretFromEnv(),
         protocolNames: await protocolNames(),
+        findingsLibrary: options.findingsLibrary ?? findingsLibraryEnabledFromEnv(),
         ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) })
       });
       return successfulToolResult(
