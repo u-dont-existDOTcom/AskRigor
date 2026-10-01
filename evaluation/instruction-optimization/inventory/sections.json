@@ -1,0 +1,1414 @@
+[
+ {
+  "protocol": "HRP",
+  "section": "HeterodoxEpistemology",
+  "bytes": 1451,
+  "rows": 6,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 1451,
+  "summary": "Six compact rules encoding AskRigor's core stance: non-mainstream is neither false nor proven, steelman without inflation, symmetric scrutiny, consensus as evidence not closure. Already terse; its content is restated in CoreHierarchy, EpistemicSafetyRules, FinalSelfCheck FS24/FS25/FS101, and Universal reasoning_style.",
+  "top_opportunities": [
+   "Keep as canonical heterodox-fairness home; delete restatements elsewhere (CoreHierarchy Rule[10]/[11], FS24, FS25)",
+   "Owner approval needed for any wording change (method content)"
+  ],
+  "chunk": 1
+ },
+ {
+  "protocol": "HRP",
+  "section": "BiologicalDentistryAndSourceControl",
+  "bytes": 1404,
+  "rows": 6,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 1010,
+  "summary": "Topic module for dental/source-control decisions. Sound, compact method, but loaded on every run while relevant only to dental or irreversible-procedure questions. Two rules generalize (detection-to-action ladder, symptom relief is not source control); one overlaps PractitionerQualityAudit.",
+  "top_opportunities": [
+   "Serve only when dental/irreversible-procedure topics arise (step-scoped loading)",
+   "Merge PractitionerQualityControlsAction into PractitionerQualityAudit",
+   "Make SymptomReliefNotSourceControl the single canonical copy (FS23, FastEffectInterpretation point here)"
+  ],
+  "chunk": 1
+ },
+ {
+  "protocol": "HRP",
+  "section": "FinalSelfCheck",
+  "bytes": 41502,
+  "rows": 206,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 1067,
+  "summary": "206 end-of-run checks (41.5 KB, largest in chunk). Nearly every check restates a module rule, often also restated in FORUM_SIGNAL_MODULE and the project router. No rule references this list. Several checks need Custom-GPT-only tools absent from MCP. Replace with a ~17-line (~1 KB) pointer checklist plus server gates.",
+  "top_opportunities": [
+   "Replace 206 restatements with a ~1 KB pointer checklist (safety, gates, render)",
+   "Convert FS37/39/42/58/139/160/178/182 into server finalize-gate checks over receipts",
+   "Move FS137/FS138 release-packaging checks out of runtime; surface-gate ChatGPT-only FS84-FS89/FS107"
+  ],
+  "chunk": 1
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "reasoning_selection",
+  "bytes": 3347,
+  "rows": 16,
+  "dominant_category": "REASONING_DISCIPLINE",
+  "keep_bytes_estimate": 139,
+  "summary": "Owner-supplied (20.5.20) generic method menu: eight reasoning modes plus closing admonitions. Mostly behavior a strong model does by default; the rest duplicates heuristic-attractor, interview, reinvention, premise, and stopping rules. Byte-exact and hash-pinned in four tests and injected into controlled-session workers, so any change needs owner sign-off and test updates.",
+  "top_opportunities": [
+   "Cut the eight generic method bullets (owner approval required)",
+   "Replace closing paragraph with pointers to interview, reinvention, premise gates",
+   "Update sha pins in reasoning-selection, semantic-policy, controlled-route, private-orchestration tests"
+  ],
+  "chunk": 1
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "important_task_optimization_and_approval_gate",
+  "bytes": 7237,
+  "rows": 26,
+  "dominant_category": "OUTPUT_SHAPE",
+  "keep_bytes_estimate": 132,
+  "summary": "Universal preflight/approval gate for important non-HRP tasks. Its own precedence clause defers to HRP's orchestration gate whenever HRP applies, so it is dead weight in every AskRigor research run. Five approval states and handoff duplicate HRP verbatim; three rules duplicate self-resolution/adaptive_workflow.",
+  "top_opportunities": [
+   "Do not load this section in HRP research runs (server-side selection)",
+   "Keep one authorization-boundary line and one urgent-first line elsewhere",
+   "Merge self-resolution and anti-avoidance rules into their canonical Universal gates"
+  ],
+  "chunk": 1
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "research_before_reinvention_gate",
+  "bytes": 5300,
+  "rows": 20,
+  "dominant_category": "REASONING_DISCIPLINE",
+  "keep_bytes_estimate": 0,
+  "summary": "Owner-supplied design/development gate (prior-art scan, reuse decision, research debt). Valuable for building frameworks but essentially never triggered by health-research questions; applies to maintainer and design work. Structure and many phrases are text-pinned by its structure test.",
+  "top_opportunities": [
+   "Move out of research runtime; serve only for design/dev tasks",
+   "Rules 2, 5, 7 restate body paragraphs; compress if kept anywhere",
+   "Update tests/research-before-reinvention-structure.test.ts if moved"
+  ],
+  "chunk": 1
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "forward_motion_and_turn_completion_gate",
+  "bytes": 4096,
+  "rows": 14,
+  "dominant_category": "EXECUTION_BABYSITTING",
+  "keep_bytes_estimate": 628,
+  "summary": "Classic execution babysitting: advance the task, don't stop at plans, ask only user-only questions, end in a defined state. Most rules restate adaptive_workflow, self_resolution, output_style, corrections, and point-of-generation checks. Rule 11 (strategy switching) is the substantive part. Server continuation flags already drive research continuation.",
+  "top_opportunities": [
+   "Compress to two sentences: execute all doable work; end complete or with one user-only action",
+   "Cut dev-workflow rules 9-10 from runtime",
+   "Keep authorization boundary once across Universal"
+  ],
+  "chunk": 1
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "audience_accessible_terminology_gate",
+  "bytes": 2332,
+  "rows": 10,
+  "dominant_category": "OUTPUT_SHAPE",
+  "keep_bytes_estimate": 1643,
+  "summary": "Compact Universal version of the terminology gate; HRP's 6 KB AudienceAccessibleTerminologyGate, FS115-FS120, output_style, and CoreHierarchy restate it. Health-statistics rules (effect-measure minimum, hazard ratio, precision distinctions) are high-value and often violated.",
+  "top_opportunities": [
+   "Make this the single canonical terminology gate; merge HRP's 6 KB twin into it",
+   "Drop purpose line; fold rules 3, 4, 7 into rules 1-2"
+  ],
+  "chunk": 1
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "whole_argument_reconstruction_gate",
+  "bytes": 4563,
+  "rows": 16,
+  "dominant_category": "REASONING_DISCIPLINE",
+  "keep_bytes_estimate": 77,
+  "summary": "Editing/critique gate built for the owner's long-form writing (memoir, arguments, reviewer ledgers). Only the one-line invariant matters for health research (whole-report audits); HRP WholeReportAudit and Universal responsive_critique already cover research critique. Many phrases are text-pinned in its structure test.",
+  "top_opportunities": [
+   "Keep the one-line invariant; move the 13 rules out of research runtime",
+   "Serve full gate only for critique/editing tasks",
+   "Update whole-argument structure test if moved"
+  ],
+  "chunk": 1
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "epistemics",
+  "bytes": 2473,
+  "rows": 13,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 958,
+  "summary": "Original compact epistemic core: verify-or-flag, uncertainty labels, no modality inflation, as-of dates, conflict presentation, false-doom symmetry. Its quantitative and observation-vs-theory lines duplicate HRP QuantitativeRiskAndResearchAudit and EpistemicSafetyRules near-verbatim.",
+  "top_opportunities": [
+   "Keep the short core lines (verify, labels, modality, dates, conflict, false doom)",
+   "Merge quantitative, risk-language, marker, recompute lines into HRP/Universal canonical rules"
+  ],
+  "chunk": 1
+ },
+ {
+  "protocol": "HRP",
+  "section": "ComparisonEstimandAndDoseExposureIntegrityGate",
+  "bytes": 3298,
+  "rows": 7,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 1629,
+  "summary": "Pharmacology comparison rules added after a psychedelic screen was misread as a potency ranking. Estimand-lock and ranking-resolution rules restate Universal comparison_integrity_gate; exposure and endpoint rules partly do. Dose-rescue and mixture-attribution rules are unique and compact. Names and key phrases are pinned by tests/protocol.test.ts.",
+  "top_opportunities": [
+   "Merge estimand-lock and ranking-resolution rules into Universal comparison_integrity_gate",
+   "Compress exposure and endpoint rules to terse pharmacology deltas",
+   "Keep dose-rescue and mixture-attribution rules"
+  ],
+  "chunk": 2
+ },
+ {
+  "protocol": "HRP",
+  "section": "ExpertBookAndMonographDiscoveryGate",
+  "bytes": 4416,
+  "rows": 9,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 1448,
+  "summary": "Book and monograph discovery for neglected or historical interventions (HRP 20.5.6). Serves heterodox discovery, but trigger, output, appraisal and lawful-access text each recur two to four times elsewhere in HRP. Its global Partial-HRP escalation clause contradicts the later claim-local rule and FS60. No server check is possible (no book tool).",
+  "top_opportunities": [
+   "Keep one trigger, one output rule, one book-appraisal rule",
+   "Resolve Partial-HRP vs claim-local conflict for inaccessible books",
+   "Compress lawful access to a one-sentence boundary"
+  ],
+  "chunk": 2
+ },
+ {
+  "protocol": "HRP",
+  "section": "StudyMethodReliabilityGate",
+  "bytes": 3582,
+  "rows": 4,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 836,
+  "summary": "Core appraisal stance (design labels and prestige are not reliability) plus a full-text audit checklist. The checklist mirrors the 13 domains validate_study_method_audit already enforces when called; full-text acquisition is enforced by the MCP chain but never required before synthesis. Both are gate candidates; the anti-shortcut rule should stay, compressed.",
+  "top_opportunities": [
+   "Gate: validator receipt for each decision-important study before finalize",
+   "Replace the 1.8 KB checklist with a pointer to the validator schema",
+   "Compress the randomization paragraph"
+  ],
+  "chunk": 2
+ },
+ {
+  "protocol": "HRP",
+  "section": "LabAndTestInterpretation",
+  "bytes": 1893,
+  "rows": 8,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 1227,
+  "summary": "Compact lab and genetic interpretation rules (pre-20.2 baseline, no tests). Mostly knowledge a strong model has; critical-result verification is safety; reference-range and genotype rules fit AskRigor's functional-medicine audience. Analytic and clinical validity overlap EvidenceLayers and StudyDesignCapabilityMatrix. Serve only when labs or genetics are in scope.",
+  "top_opportunities": [
+   "Serve only when labs, tests or genetics are in scope",
+   "Merge analytic and clinical validity into one rule",
+   "Test cutting the generic multiple-testing rule"
+  ],
+  "chunk": 2
+ },
+ {
+  "protocol": "HRP",
+  "section": "OncologyModule",
+  "bytes": 1234,
+  "rows": 3,
+  "dominant_category": "PROCESS_GATE",
+  "keep_bytes_estimate": 434,
+  "summary": "Three oncology rules. The interaction checklist is unique and worth keeping; adjunct-not-replacement duplicates the SafetyAndScopeGate OncologyRedFlag action; the protocol-search rule restates the extended grey-literature sweep, which already activates for oncology and repurposed drugs. Serve only when cancer is in scope.",
+  "top_opportunities": [
+   "Merge AdjunctNotReplacement into OncologyRedFlag, keeping evidence clause",
+   "Merge CancerProtocolSearch into the extended sweep",
+   "Serve module only for oncology questions"
+  ],
+  "chunk": 2
+ },
+ {
+  "protocol": "HRP",
+  "section": "AudienceAccessibleTerminologyGate",
+  "bytes": 6118,
+  "rows": 14,
+  "dominant_category": "OUTPUT_SHAPE",
+  "keep_bytes_estimate": 144,
+  "summary": "A 6.1 KB terminology gate whose rules map almost one-to-one onto the 2.4 KB Universal terminology gate loaded in the same context, and recur in CoreHierarchy, OutputFormatting, ProtocolExecution, stress tests and FinalSelfCheck. Nearly every row is a merge candidate; the internal terminology ledger is unobservable bookkeeping.",
+  "top_opportunities": [
+   "Merge section into Universal terminology gate (about 5.8 KB saved)",
+   "Carry only the no-invented-baseline-risk clause",
+   "Cut TerminologyLedger"
+  ],
+  "chunk": 2
+ },
+ {
+  "protocol": "HRP",
+  "section": "ResearchAuditTemplates",
+  "bytes": 35576,
+  "rows": 44,
+  "dominant_category": "PROCESS_GATE",
+  "keep_bytes_estimate": 1117,
+  "summary": "35.6 KB of fill-in forms, the largest block in this chunk. Nearly every field restates a runtime gate; YouTube and treatment-landscape lock fields appear three times verbatim. Several forms are ChatGPT-specific (Pro, Deep Research). Two book/full-text fields are stale after the claim-local rule. Best served on demand or replaced by server-validated ledgers.",
+  "top_opportunities": [
+   "Move method forms out of runtime; serve at the step that needs them",
+   "Replace lock and coverage field lists with server receipts plus finalize check",
+   "Drop ChatGPT-only mode and Deep Research fields on MCP"
+  ],
+  "chunk": 2
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "interview_evidence_information_gain_gate",
+  "bytes": 8174,
+  "rows": 18,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 175,
+  "summary": "Domain-general interview-evidence rules from the owner's Life Patterns/HumanDesign method work (Universal 20.5.22). HRP PatientHistoryAndRecurrenceEvidenceGate restates every health-relevant rule; reasoning_selection and point-of-generation checks repeat the core. Method-design rules (human interfaces, frozen-method repair) never apply to research answering. Tests pin all rule names.",
+  "top_opportunities": [
+   "Exclude from research runtime; HRP patient-history gate covers health use",
+   "Move method-design rules and regression cases to docs/tests",
+   "Update interview-evidence-integrity test when names move"
+  ],
+  "chunk": 2
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "heuristic_attractor_check",
+  "bytes": 2372,
+  "rows": 9,
+  "dominant_category": "REASONING_DISCIPLINE",
+  "keep_bytes_estimate": 769,
+  "summary": "Generic anti-heuristic-hijack check (Universal 20.5.15) that a strong model largely performs by default. Mirrored almost verbatim by HRP HeuristicAttractorCheck, plus a point-of-generation check and the AGENTS.md summary. The owner's key line, that a correct heuristic in the wrong phase is an error, deserves one sentence.",
+  "top_opportunities": [
+   "Collapse to one ~350-byte canonical check and drop HRP mirror",
+   "Cut restated scope and precedence rules",
+   "Test removal on recurrence-prone evaluations"
+  ],
+  "chunk": 2
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "epistemic_phase_router",
+  "bytes": 5050,
+  "rows": 16,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 1915,
+  "summary": "Owner-specified development-versus-validation method (Universal 20.5.15), duplicated nearly rule-for-rule in HRP EpistemicPhaseRouter and HRP stress tests. Eleven rules restate a two-question checksum several ways. Rarely needed when answering health questions, so a compact version could be served only when phase-sensitive safeguards are in play.",
+  "top_opportunities": [
+   "Keep checksum plus four core rules (about 1.5 KB)",
+   "Serve conditionally and drop the HRP mirror",
+   "Move regression cases to tests (update epistemic-phase-routing test)"
+  ],
+  "chunk": 2
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "corrections_and_calibration",
+  "bytes": 1996,
+  "rows": 6,
+  "dominant_category": "REASONING_DISCIPLINE",
+  "keep_bytes_estimate": 806,
+  "summary": "Short correction-handling prose. Its recompute and update-structure paragraphs are the most compact statements of rules HRP spells out at length, so they make good canonical homes. The already-present-evidence and null-language paragraphs duplicate longitudinal and null-evidence rules; the opening is generic babysitting.",
+  "top_opportunities": [
+   "Use recompute and update-structure paragraphs as canonical homes",
+   "Merge already-present-evidence paragraph (four copies)",
+   "Compress the correction-as-calibration opener"
+  ],
+  "chunk": 2
+ },
+ {
+  "protocol": "HRP",
+  "section": "InstructionObligationLifecycle",
+  "bytes": 1411,
+  "rows": 5,
+  "dominant_category": "EXECUTION_BABYSITTING",
+  "keep_bytes_estimate": 7,
+  "summary": "Portable obligation-boundary rule added in HRP 20.5.29. It restates Universal's instruction_obligation_lifecycle (same ruleId) almost clause for clause: bind obligations to delivery boundaries, keep limitations and citations in the final answer, never invent compliance. Nothing here is health-specific; one copy should serve both protocols.",
+  "top_opportunities": [
+   "Deduplicate against Universal instruction_obligation_lifecycle (same ruleId)",
+   "Cut the maintainer-facing portability disclaimer",
+   "Update tests/instruction-boundaries.test.ts if one copy is removed"
+  ],
+  "chunk": 3
+ },
+ {
+  "protocol": "HRP",
+  "section": "CommunityCorpusCompletionGate",
+  "bytes": 4368,
+  "rows": 5,
+  "dominant_category": "PROCESS_GATE",
+  "keep_bytes_estimate": 1200,
+  "summary": "Compact, test-protected gate controlling community/YouTube coverage state: partial corpora stay reviewable but bounded, query-bounded comment search is discovery only, no premature saturation, and a 13-field coverage ledger precedes synthesis. The server already emits the receipts these rules read; it just never checks them before synthesis.",
+  "top_opportunities": [
+   "Gate: finalize requires per-video audit receipts with terminal completion_state",
+   "Gate: no live cursor or continuation_recommended=true at finalize",
+   "Server-computed coverage ledger replaces the 13-field prose ledger"
+  ],
+  "chunk": 3
+ },
+ {
+  "protocol": "HRP",
+  "section": "ProtocolExecutionAndComplianceGate",
+  "bytes": 33626,
+  "rows": 37,
+  "dominant_category": "PROCESS_GATE",
+  "keep_bytes_estimate": 4663,
+  "summary": "The largest section in the chunk (33.6 KB). Mostly restatement: each module's 'is not optional' rule repeats that module's trigger, protocol-loading and update-check rules repeat the Universal canonical gate and askrigor_keyword, and compliance-label rules repeat OutputFormatting. The real core is a module-completion gate and continuation handoff that the server could enforce.",
+  "top_opportunities": [
+   "Replace ledger and completion prose with a server completion gate (plan-step ledger plus finalize receipts)",
+   "Move protocol-loading, attestation, and update-check rules to the entry shell or server manifest",
+   "Merge the eight 'IsNotOptionalWhenTriggered' rules and ComplianceLabel into their home modules"
+  ],
+  "chunk": 3
+ },
+ {
+  "protocol": "HRP",
+  "section": "ExtendedHumanEvidenceAndGreyLiteratureSweep",
+  "bytes": 9654,
+  "rows": 16,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 3259,
+  "summary": "Core AskRigor discovery method: search registries, grey literature, books, and historical terminology before calling human evidence absent, and weigh non-mainstream sources symmetrically. The activation block duplicates AnswerShapeController, the historical and full-text rules duplicate other HRP sections, and the community-transfer rules duplicate the bidirectional loop.",
+  "top_opportunities": [
+   "Merge the activation block into ExtendedHumanEvidenceDefaultTrigger",
+   "Merge historical, full-text, and community-transfer rules into their home sections",
+   "Gate idea: an absence claim requires a registry-search receipt"
+  ],
+  "chunk": 3
+ },
+ {
+  "protocol": "HRP",
+  "section": "CofactorAndMechanismAudit",
+  "bytes": 2264,
+  "rows": 7,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 1661,
+  "summary": "Compact epidemiologic method for cofactor claims: dominant determinant first, methodology before 'mystery biology', calibrated modifier language, and a six-level evidence-rank scale. Already short, but Universal quantitative_risk_and_research_audit (items 8, 10, 11) and its health section restate most of it, including a near-identical rank scale.",
+  "top_opportunities": [
+   "Make this the canonical copy and merge the Universal restatements",
+   "Fold MechanismDoesNotUpgradeAssociation into EvidenceLayerMisuseControl",
+   "Fold IndependentModifierLanguage into DominantConfounderQuantification"
+  ],
+  "chunk": 3
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "comparison_integrity_gate",
+  "bytes": 2528,
+  "rows": 6,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 348,
+  "summary": "Domain-general comparison-set, estimand, ranking-resolution, and evidence-depth rules from the 2026-09-08 psychedelic-comparison lesson. HRP 20.5.25's ComparisonEstimandAndDoseExposureIntegrityGate implements the same controls for pharmacology, so in the combined research runtime only the reference-set rule is unique. Tests assert several phrases.",
+  "top_opportunities": [
+   "Keep one estimand/ranking gate (the HRP version) in the combined runtime",
+   "Compress ReferenceSetPreservation to one sentence",
+   "Update tests/protocol.test.ts phrase assertions if merged"
+  ],
+  "chunk": 3
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "self_resolution_and_user_effort_minimization_gate",
+  "bytes": 5038,
+  "rows": 15,
+  "dominant_category": "EXECUTION_BABYSITTING",
+  "keep_bytes_estimate": 14,
+  "summary": "Generic agent-behavior rules: resolve questions yourself, don't use the user as courier, automate repetitive work, end with a next step, and return-artifact packaging for software workflows. About half is software-only and never needed in health research; the rest duplicates forward_motion, output_style, adaptive_workflow, and point-of-generation checks.",
+  "top_opportunities": [
+   "Move software-workflow rules 4-7 and 12-14 out of the research runtime",
+   "Merge rules 1-3 and 9-10 into forward_motion/output_style",
+   "Keep rule 11's authorization boundary in its canonical copy"
+  ],
+  "chunk": 3
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "askrigor_keyword",
+  "bytes": 1467,
+  "rows": 9,
+  "dominant_category": "META_PROTOCOL",
+  "keep_bytes_estimate": 16,
+  "summary": "Consumer-shell activation rules for the 'AskRigor' keyword: load the saved protocols, skip status files and update checks, report versions, don't overclaim compliance. Circular when the protocol is already being read through load_protocol, and every item duplicates the canonical execution gate or HRP compliance rules.",
+  "top_opportunities": [
+   "Move keyword activation and status-file rules to the entry shell",
+   "Merge load, version, and compliance items into their HRP canonical rules",
+   "Server-stamp protocol versions from get_protocol_manifest"
+  ],
+  "chunk": 3
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "normality_base_rate_gate",
+  "bytes": 3041,
+  "rows": 6,
+  "dominant_category": "REASONING_DISCIPLINE",
+  "keep_bytes_estimate": 658,
+  "summary": "Target-preservation rule for 'is this normal/common/safe' questions from the Universal 20.5.18 hot-tea lesson. The core clauses are useful but generic, and a point-of-generation check restates them. Two regression cases are test fixtures. Tests assert many exact phrases, so compression needs test updates.",
+  "top_opportunities": [
+   "Move both regression cases to tests",
+   "Compress the rule prose to about two sentences",
+   "Cut the purpose paragraph"
+  ],
+  "chunk": 3
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "recommendation_preflight_integrity_gate",
+  "bytes": 6718,
+  "rows": 11,
+  "dominant_category": "PROCESS_GATE",
+  "keep_bytes_estimate": 1165,
+  "summary": "Shopping-recommendation gate from a 2026-09-17 incident: a candidate state machine plus price, orderability, reliability, compatibility, and variant invariants. Largely irrelevant to health research except the principle that recommendation is terminal after verification. Seven regression cases are test fixtures; tests assert many phrases.",
+  "top_opportunities": [
+   "Serve only for product-purchase tasks, not every research run",
+   "Move the seven regression cases to tests",
+   "Merge the six invariants into one checklist sentence"
+  ],
+  "chunk": 3
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "sources",
+  "bytes": 3581,
+  "rows": 9,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 163,
+  "summary": "General source hierarchy and appraisal guidance (numbers, forum signal, studies, secondary maps, institutional summaries, transportability, documents). Nearly every paragraph has a fuller HRP twin, so in the combined runtime it is duplication. Its 'forums are lead-level' framing sits uneasily with HRP's independent community-signal layer.",
+  "top_opportunities": [
+   "Merge into HRP SourceVerificationAndCitationAudit, CrowdSourced, and QuantitativeRisk twins",
+   "Reconcile the forum 'lead-level' wording with HRP community weighting",
+   "Keep a compact version only for Universal-only builds"
+  ],
+  "chunk": 3
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "untrusted_content",
+  "bytes": 481,
+  "rows": 2,
+  "dominant_category": "SAFETY",
+  "keep_bytes_estimate": 417,
+  "summary": "Tiny prompt-injection guard: treat retrieved content as data, ignore embedded commands, separate claim, credibility, verification, and unknowns. Unique in both protocols and especially relevant because AskRigor ingests comments, forums, and full texts. Keep it.",
+  "top_opportunities": [
+   "Keep as-is (481 bytes)",
+   "Optionally fold the four-way separation into one clause",
+   "Server could tag retrieved bodies as untrusted data"
+  ],
+  "chunk": 3
+ },
+ {
+  "protocol": "HRP",
+  "section": "HeuristicAttractorCheck",
+  "bytes": 2340,
+  "rows": 7,
+  "dominant_category": "REASONING_DISCIPLINE",
+  "keep_bytes_estimate": 0,
+  "summary": "Near-verbatim duplicate of the always co-loaded Universal heuristic_attractor_check. Generic reasoning discipline with no health content. One HRP pointer (HRP does not override the Universal check) preserves the precedence concern; tests assert the section tag and two rule names.",
+  "top_opportunities": [
+   "Replace section with a one-line pointer to UNIVERSAL:heuristic_attractor_check",
+   "Update tests/epistemic-phase-routing.test.ts assertions",
+   "Drop FS191/FS192 duplicates in FinalSelfCheck"
+  ],
+  "chunk": 4
+ },
+ {
+  "protocol": "HRP",
+  "section": "SafetyAndScopeGate",
+  "bytes": 7237,
+  "rows": 14,
+  "dominant_category": "SAFETY",
+  "keep_bytes_estimate": 5358,
+  "summary": "Core safety boundary: eight trigger/action conditions plus the research-not-prescription scope. Conditions are already terse. Main waste is five rules restating emergency/adjunct separation with escalating emphasis (DMSO lineage). All safety content stays; compress only redundancy.",
+  "top_opportunities": [
+   "Merge five emergency/adjunct rules and the AcuteEmergency adjunct clause into one ~450-byte rule",
+   "Make this the canonical safety list; point CoreHierarchy and coaching duplicates here"
+  ],
+  "chunk": 4
+ },
+ {
+  "protocol": "HRP",
+  "section": "ResearchOrchestrationAndModeSelectionGate",
+  "bytes": 26193,
+  "rows": 36,
+  "dominant_category": "PROCESS_GATE",
+  "keep_bytes_estimate": 4337,
+  "summary": "Largest section (26 KB). Mixes a real preflight gate (spec before broad search, approval states) with ChatGPT-UI mode advice (Pro, Deep Research, source-budget bands) irrelevant to MCP rigor, and restates the spec field list about six times. Roughly a fifth survives compression.",
+  "top_opportunities": [
+   "Cut ChatGPT mode taxonomy, budgets, Deep Research advice (~7 KB)",
+   "Keep one spec field list (template) and point Universal approval states",
+   "Gate spec-before-search via session ledger"
+  ],
+  "chunk": 4
+ },
+ {
+  "protocol": "HRP",
+  "section": "DoseRegimeIntegrityAndSelfDirectedHarmReductionResearch",
+  "bytes": 11864,
+  "rows": 21,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 5575,
+  "summary": "High-value AskRigor domain method (exposure indexing, validity versus applicability, threshold symmetry, harm reduction). Its CompactRule already compresses the module. Waste: duplicated triggers, output lists, label-stratification and correction-propagation rules found elsewhere, plus two generic rules misplaced here.",
+  "top_opportunities": [
+   "Use CompactRule as always-loaded core; serve full rules on demand",
+   "Merge OutputMinimum, ThresholdOutputMinimum, label and correction rules into existing canonical copies",
+   "Server-computed research-contract counts"
+  ],
+  "chunk": 4
+ },
+ {
+  "protocol": "HRP",
+  "section": "NullEvidenceAndSafetyLanguage",
+  "bytes": 3383,
+  "rows": 7,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 0,
+  "summary": "Valuable safety-language method, but the whole section is a near-verbatim copy of UNIVERSAL null_evidence_and_safety_language, which is always co-loaded and slightly more complete. Merge entirely into the Universal copy.",
+  "top_opportunities": [
+   "Delete HRP copy; keep Universal as canonical",
+   "Serve the mass-balance rule only for excretion-route claims"
+  ],
+  "chunk": 4
+ },
+ {
+  "protocol": "HRP",
+  "section": "EvidenceQualityBiasAndCOI",
+  "bytes": 4646,
+  "rows": 9,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 2341,
+  "summary": "Appraisal toolkit: instrument list, orphaned bias-concern scale, well-used intent-attribution scale, symmetric COI rules, and a checks list. Intent scale and COI balance are AskRigor method worth keeping; retraction and registration checks are gateable through existing server tools.",
+  "top_opportunities": [
+   "Require check_retraction_status receipt in study/review validators",
+   "Test removing orphaned BCG scale",
+   "Merge pattern rule into intent firewall"
+  ],
+  "chunk": 4
+ },
+ {
+  "protocol": "HRP",
+  "section": "ResearchDesignAndTracking",
+  "bytes": 2623,
+  "rows": 7,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 1114,
+  "summary": "Study and self-experiment design guidance. N-of-1 design and its safety exclusions are useful and compact; five textbook trial-design descriptions are generic knowledge rarely needed at runtime; stacking rule duplicates four other sections.",
+  "top_opportunities": [
+   "Cut or on-demand-serve textbook design descriptions",
+   "Merge ProtocolStackingPrevention into NoProtocolStacking"
+  ],
+  "chunk": 4
+ },
+ {
+  "protocol": "HRP",
+  "section": "EvidenceUpdateAndCorrectionProtocol",
+  "bytes": 5730,
+  "rows": 9,
+  "dominant_category": "REASONING_DISCIPLINE",
+  "keep_bytes_estimate": 551,
+  "summary": "Correction handling. Two rules hold 3.6 KB of exhaustive failure-type lists that mirror module names; most remaining rules duplicate UNIVERSAL corrections_and_calibration or other HRP rules. A few sentences preserve all requirements.",
+  "top_opportunities": [
+   "Replace ~90-item NameExactFailure list with one sentence",
+   "Replace ~40-item trigger list with one sentence",
+   "Merge five rules into Universal corrections_and_calibration"
+  ],
+  "chunk": 4
+ },
+ {
+  "protocol": "HRP",
+  "section": "PractitionerQualityAudit",
+  "bytes": 842,
+  "rows": 3,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 756,
+  "summary": "Small, specific practitioner-credibility checklist and red flags that directly serve crackpot filtering. Keep as is; serve only for practitioner or package questions.",
+  "top_opportunities": [
+   "Serve on demand for practitioner/package questions"
+  ],
+  "chunk": 4
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "priority",
+  "bytes": 1701,
+  "rows": 8,
+  "dominant_category": "META_PROTOCOL",
+  "keep_bytes_estimate": 940,
+  "summary": "Precedence rules plus a safety-interpretation paragraph and a no-simulated-verification line. Mostly short and needed; one first-person intent assertion is odd in a product protocol; one line duplicates epistemics; the never-summarize rule conflicts with plans to serve compressed modules.",
+  "top_opportunities": [
+   "Reword never-summarize-canonical-source rule before step-serving modules",
+   "Drop first-person 'legitimate purpose' assertion"
+  ],
+  "chunk": 4
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "canonical_protocol_execution_gate",
+  "bytes": 4120,
+  "rows": 17,
+  "dominant_category": "META_PROTOCOL",
+  "keep_bytes_estimate": 832,
+  "summary": "Protocol loading, activation, ledger, completion audit, and compliance labeling. Heavily duplicated by HRP ProtocolExecutionAndComplianceGate and askrigor_keyword. Its core requirements (load, ledger, audit, forum-signal execution, compliance label) are exactly what server session gating could enforce.",
+  "top_opportunities": [
+   "Gate forum-signal receipts before synthesis",
+   "Server module ledger plus signed finalization permit",
+   "Server-attested protocol receipt; drop status-file and update-check prose (moot on MCP)"
+  ],
+  "chunk": 4
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "premise_integrity_and_truth_priority_gate",
+  "bytes": 2674,
+  "rows": 10,
+  "dominant_category": "REASONING_DISCIPLINE",
+  "keep_bytes_estimate": 1163,
+  "summary": "Generic truth-over-agreement discipline duplicated nearly verbatim by HRP PremiseIntegrityAndTruthPriorityGate. Exact declaration phrases are owner-mandated and test-asserted. Keep this copy as canonical, compress to about half, and cut the HRP duplicate.",
+  "top_opportunities": [
+   "Delete HRP duplicate (chunk 7)",
+   "Merge rules 6, 8, 9 into rule 1 and epistemics"
+  ],
+  "chunk": 4
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "output_style",
+  "bytes": 1118,
+  "rows": 6,
+  "dominant_category": "OUTPUT_SHAPE",
+  "keep_bytes_estimate": 188,
+  "summary": "Brief style rules. The Next-step rule duplicates the self-resolution gate; terminology sentence duplicates two terminology gates; the euphemism-in-@-signs rule conflicts with precise terminology and could obscure safety-critical words.",
+  "top_opportunities": [
+   "Cut euphemism @-sign rule (owner decision)",
+   "Merge Next-step rule into self-resolution gate"
+  ],
+  "chunk": 4
+ },
+ {
+  "protocol": "HRP",
+  "section": "EpistemicPhaseRouter",
+  "bytes": 3777,
+  "rows": 11,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 135,
+  "summary": "Near-verbatim HRP mirror of Universal epistemic_phase_router, added in HRP 20.5.23 so HRP precedence could not erase the DEVELOPMENT/VALIDATION distinction. Sound scientific method but domain-general and rarely exercised in health Q&A. One HRP pointer line preserves the precedence concern; tests assert four HRP rule names.",
+  "top_opportunities": [
+   "Replace section with one pointer line to UNIVERSAL:epistemic_phase_router",
+   "Update rule-name assertions in tests/epistemic-phase-routing.test.ts",
+   "Serve the router only for model or dataset development tasks"
+  ],
+  "chunk": 5
+ },
+ {
+  "protocol": "HRP",
+  "section": "Architecture",
+  "bytes": 12475,
+  "rows": 22,
+  "dominant_category": "META_PROTOCOL",
+  "keep_bytes_estimate": 2269,
+  "summary": "Table of contents stated three ways: 18 layer blurbs, a 3.4 KB SingleSourceOfTruth that re-lists the same module scopes, and a roughly 30-item NoSilentOverride list. Operative content lives in each module. A one-line-per-module index (name, scope, trigger) would suit on-demand module serving. NotFlatMerge and NoDumbingDown duplicate router and completion-gate rules.",
+  "top_opportunities": [
+   "Collapse 18 layers plus SingleSourceOfTruth into a one-line-per-module index",
+   "Reduce NoSilentOverride to one sentence",
+   "Merge NotFlatMerge and NoDumbingDown into ModuleBudget and the completion gate"
+  ],
+  "chunk": 5
+ },
+ {
+  "protocol": "HRP",
+  "section": "ReleasePackagingRequirements",
+  "bytes": 2036,
+  "rows": 6,
+  "dominant_category": "MAINTAINER_ONLY",
+  "keep_bytes_estimate": 0,
+  "summary": "Release-engineering rules for ChatGPT Project packaging: 8,000-character limit, package separation, activation wording, status noise, retrieval-aid regeneration. None affects a research answer. The length limit is already enforced by a CI test, and no shipped HRP retrieval aids were found. Move the whole section to release docs and tests.",
+  "top_opportunities": [
+   "Move the whole section out of the runtime protocol",
+   "Rely on the existing CI length test (tests/project-router.test.ts)",
+   "Delete RetrievalAidRegeneration if no retrieval aids ship"
+  ],
+  "chunk": 5
+ },
+ {
+  "protocol": "HRP",
+  "section": "AnswerShapeController",
+  "bytes": 19146,
+  "rows": 24,
+  "dominant_category": "META_PROTOCOL",
+  "keep_bytes_estimate": 4456,
+  "summary": "Router section: task typing, module budget, 15 activation triggers, and five answer modes. Most triggers restate the target module's own Activation block and a ProtocolExecution not-optional rule, so each trigger appears about three times. Unique method: human-reachable exposure translation and historical-terminology search. Modes re-enumerate triggers. Best home for a compact routing table.",
+  "top_opportunities": [
+   "Turn triggers into one-line routing entries; drop copies where module Activation survives",
+   "Cut Deep Research disclaimers and mode re-enumerations",
+   "Merge UsefulAnswerBeforeFullTextWorkflow into ClaimLocalStatusUntilMaterialGapResolved"
+  ],
+  "chunk": 5
+ },
+ {
+  "protocol": "HRP",
+  "section": "AdverseEventAscertainmentAndActionabilityAudit",
+  "bytes": 6774,
+  "rows": 14,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 3481,
+  "summary": "Substantive harm-appraisal method (all events before relatedness filtering, latency windows, post-discontinuation capture, individual versus population attribution) that encodes AskRigor's skepticism of 'no related events' conclusions. Redundancy is modest: a field list repeated as an output list and a trigger duplicated in the router. Server audits check only a generic harms domain.",
+  "top_opportunities": [
+   "Merge the nine fields with AdverseEventAuditOutput into one list",
+   "Drop the duplicated trigger; make NonActivation the single global nonactivation rule",
+   "Compress causal-calibration and gap-register enumerations"
+  ],
+  "chunk": 5
+ },
+ {
+  "protocol": "HRP",
+  "section": "EvidenceLayers",
+  "bytes": 4531,
+  "rows": 8,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 2841,
+  "summary": "Core evidence taxonomy and weighting philosophy: relevance controls inclusion while quality controls weight, claim-specific utility of community versus trial evidence, two-way misuse controls, and risk-proportional thresholds. Mostly keep. Layer definitions can shrink to one line; NoSingleLayerDominates and the fixed-order rule duplicate ClaimSpecificEvidenceUtility and the bidirectional loop.",
+  "top_opportunities": [
+   "Compress seven layer definitions to one line",
+   "Merge NoSingleLayerDominates into ClaimSpecificEvidenceUtility",
+   "Make RelevanceControlsInclusion the canonical weight-not-inclusion rule"
+  ],
+  "chunk": 5
+ },
+ {
+  "protocol": "HRP",
+  "section": "UniversalFullTextAcquisitionProtocol",
+  "bytes": 10882,
+  "rows": 22,
+  "dominant_category": "PROCESS_GATE",
+  "keep_bytes_estimate": 2748,
+  "summary": "Full-text workflow written for user-mediated external extractors (roles, three-to-ten-study batches, per-batch audits). The MCP server now does lawful acquisition, identity and completeness checks, cursor exhaustion, and 13-domain method-audit validation, so much prose can become a pointer. The claim-local boundary is restated four times; an audit template still contradicts it.",
+  "top_opportunities": [
+   "Replace roles and workflow steps with a pointer to the acquire, continue, validate chain",
+   "Gate: session ledger proving an acquisition attempt per decision-critical source",
+   "Point ExtractionMinimum at validator domains plus uncovered fields"
+  ],
+  "chunk": 5
+ },
+ {
+  "protocol": "HRP",
+  "section": "PublicHealthInterventionAudit",
+  "bytes": 2387,
+  "rows": 7,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 2029,
+  "summary": "Compact, distinctive public-health method: no slogans in either direction, policy versus science separation, subgroup versus average symmetry, and historical attribution with pretrends and counterfactual designs. Little redundancy beyond the router trigger restating the historical rules and a date rule already in Universal epistemics. Keep nearly all.",
+  "top_opportunities": [
+   "Keep as canonical home for historical-attribution method",
+   "Merge CurrentEvidenceDate into Universal epistemics",
+   "Fold NoMonocausalHistoricalStory into the pretrend rule"
+  ],
+  "chunk": 5
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "explicit_commitment_obligation_closure",
+  "bytes": 698,
+  "rows": 2,
+  "dominant_category": "EXECUTION_BABYSITTING",
+  "keep_bytes_estimate": 0,
+  "summary": "Universal 20.5.19 agent-behavior rule: an explicitly promised operation stays open until executed. Substantively covered by Universal instruction_obligation_lifecycle and the forward-motion gate. Generic, not health-specific. A test pins the exact sentences with occurrence count 1, so merging requires editing that test.",
+  "top_opportunities": [
+   "Merge into instruction_obligation_lifecycle as one sentence",
+   "Update tests/explicit-commitment-obligation-structure.test.ts"
+  ],
+  "chunk": 5
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "adaptive_workflow",
+  "bytes": 5275,
+  "rows": 15,
+  "dominant_category": "EXECUTION_BABYSITTING",
+  "keep_bytes_estimate": 395,
+  "summary": "Grab-bag of general-assistant behaviors (frame challenging, troubleshooting, Direct-URL restraint, writing) plus restatements of forward-motion, self-resolution, epistemics, and quantitative-audit rules. Nothing is unique to health research except routing pointers. The Direct-URL stop-on-failure rule can conflict with HRP lawful full-text escalation.",
+  "top_opportunities": [
+   "Exclude general-assistant rules from the research-run payload",
+   "Merge restatements into forward_motion, self-resolution, and quantitative audit",
+   "Scope or remove the Direct-URL rule to avoid the full-text conflict"
+  ],
+  "chunk": 5
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "controversial_topic_research_core",
+  "bytes": 3331,
+  "rows": 12,
+  "dominant_category": "REASONING_DISCIPLINE",
+  "keep_bytes_estimate": 1053,
+  "summary": "Eleven-step method for reputational or political controversies; about half duplicates documentary_controversy_and_record_dump_research nearly verbatim (inventory, separate questions, chronology, adversarial search, research ledger). Useful for contested health claims in compressed form. The research ledger is better supplied by a server-side tool-call log.",
+  "top_opportunities": [
+   "Deduplicate against documentary_controversy items 2-4, 9, and 12",
+   "Gate: server-side per-session research ledger",
+   "Compress remaining steps to one line each"
+  ],
+  "chunk": 5
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "reasoning_style",
+  "bytes": 1168,
+  "rows": 4,
+  "dominant_category": "REASONING_DISCIPLINE",
+  "keep_bytes_estimate": 315,
+  "summary": "Owner's general reasoning template: first principles over consensus, a six-step answer sequence, evidence-update behavior, and methodology before mechanism. The last two restate corrections_and_calibration and CofactorAndMechanismAudit; HRP output rules supersede the sequence in research runs. The first-principles line is worth keeping.",
+  "top_opportunities": [
+   "Merge the new-evidence paragraph into corrections_and_calibration",
+   "Merge methodology-first into CofactorAndMechanismAudit",
+   "Compress the answer sequence to one line"
+  ],
+  "chunk": 5
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "dispute_analysis_and_mediation",
+  "bytes": 1870,
+  "rows": 11,
+  "dominant_category": "REASONING_DISCIPLINE",
+  "keep_bytes_estimate": 0,
+  "summary": "Interpersonal dispute-mediation guidance (neutrality, faithful claim reconstruction, tone versus argument, no false symmetry, default verdict structure). Not used in health research; overlaps responsive_critique and interpersonal_and_relational_questions. Keep it in public Universal instructions but exclude it from the AskRigor research-run payload.",
+  "top_opportunities": [
+   "Exclude the section from the research-run payload",
+   "Merge the clarification line into forward-motion rules"
+  ],
+  "chunk": 5
+ },
+ {
+  "protocol": "HRP",
+  "section": "Purpose",
+  "bytes": 3711,
+  "rows": 9,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 155,
+  "summary": "Mission paragraph that mostly restates later modules: research-spec gate, terminology, coaching boundaries, temporal and historical transport, bidirectional loop. Only the one-line mission is unique; every other paragraph duplicates a canonical rule elsewhere in HRP or Universal.",
+  "top_opportunities": [
+   "Reduce to a one-sentence mission (~150 B)",
+   "Drop restatements of ResearchOrchestration, terminology and bidirectional rules"
+  ],
+  "chunk": 6
+ },
+ {
+  "protocol": "HRP",
+  "section": "BidirectionalEvidenceDiscoveryAndTriangulationLoop",
+  "bytes": 13047,
+  "rows": 19,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 2733,
+  "summary": "Core AskRigor method: community findings redirect formal search and vice versa, discordance is preserved, community signal can reorder priority. About half the bytes are five YouTube rules overlapping CrowdSourced, CommunityCorpusCompletionGate, FinalSelfCheck and FORUM_SIGNAL_MODULE. Only the controlled Custom GPT session enforces return passes; MCP enforces none.",
+  "top_opportunities": [
+   "Move the five YouTube rules into one canonical YouTube rule",
+   "Gate return passes and continuation via signed receipts",
+   "Merge activation and synthesis-output rules into their routers"
+  ],
+  "chunk": 6
+ },
+ {
+  "protocol": "HRP",
+  "section": "SourceVerificationAndCitationAudit",
+  "bytes": 10862,
+  "rows": 22,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 2830,
+  "summary": "Source hierarchy and citation discipline. Most rules restate ExtendedHumanEvidence, ExpertBook, full-text, AE-ascertainment, comparator-lineage, dose-regime or Universal sources text nearly verbatim. Unique value: citation entailment and chain audit, current-status checks, and historical transport (niche, conditional). Identifier and full-text rules are gateable via existing tools.",
+  "top_opportunities": [
+   "Merge ~11 near-verbatim duplicates into their canonical gates",
+   "Gate citation identity and full-text receipts at finalize",
+   "Serve historical rules only for historical evidence"
+  ],
+  "chunk": 6
+ },
+ {
+  "protocol": "HRP",
+  "section": "StudyDesignCapabilityMatrix",
+  "bytes": 5066,
+  "rows": 6,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 313,
+  "summary": "Seventeen design can/cannot-support entries plus DesignClaimMatch. Thirteen entries are textbook epidemiology; the four comparator/program entries duplicate ComparatorLineage. The server's study validator already forces can_support and cannot_support capabilities on full-text-chain audits.",
+  "top_opportunities": [
+   "Move textbook design entries out of runtime (test removal)",
+   "Keep DesignClaimMatch as the one-line rule"
+  ],
+  "chunk": 6
+ },
+ {
+  "protocol": "HRP",
+  "section": "CrowdSourcedAndClinicalSignalAudit",
+  "bytes": 19032,
+  "rows": 34,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 5003,
+  "summary": "The heart of AskRigor's forum-signal method: platform mapping, strict-core cohorts, tiered inclusion, directional symmetry, person x episode unit, bias audits, three-part conclusion. Valuable but heavily internally redundant and restated in OutputFormatting, templates, FinalSelfCheck and Universal sources. Search and direction coverage are gateable using existing survey enums.",
+  "top_opportunities": [
+   "Collapse 34 rules to ~15 canonical rules",
+   "Gate actual-search and directional coverage with signed survey receipts",
+   "Replace 1.7 KB activation-prompt template with one line"
+  ],
+  "chunk": 6
+ },
+ {
+  "protocol": "HRP",
+  "section": "EnvironmentalHealthModule",
+  "bytes": 1280,
+  "rows": 5,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 1065,
+  "summary": "Five short environmental rules: source control first, exposure specificity, measurement validity, mold/mycotoxin skepticism, remediation economics. Compact and domain-specific; exposure and measurement rules partly overlap NullEvidence and LabAndTest rules.",
+  "top_opportunities": [
+   "Serve only for environmental questions",
+   "Merge exposure and measurement lines"
+  ],
+  "chunk": 6
+ },
+ {
+  "protocol": "HRP",
+  "section": "NeglectedInterventionModules",
+  "bytes": 2524,
+  "rows": 7,
+  "dominant_category": "SAFETY",
+  "keep_bytes_estimate": 596,
+  "summary": "DMSO and psychedelic safety rules. Emergency-adjunct separation, triage and no-rescue-recipe rules restate SafetyAndScopeGate and HighValueSignalShowcase. The DMSO signal-priming rule conflicts with NoFavoredRemedyPrivilege. Carrier-risk rule is unique.",
+  "top_opportunities": [
+   "Consolidate emergency and no-recipe rules into SafetyAndScopeGate",
+   "Cut remedy-specific signal priming",
+   "Serve DMSO carrier risk only for DMSO"
+  ],
+  "chunk": 6
+ },
+ {
+  "protocol": "HRP",
+  "section": "FunctionalHealthCoachingLayer",
+  "bytes": 4522,
+  "rows": 17,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 2335,
+  "summary": "Bounded lifestyle-coaching mode with safety precedence, behavior-change practice, PEM/pacing safeguards, nutrition boundaries and an output minimum. PEM, anti-graded-exercise, escalation and screening rules are valuable safety content; activation, output and foundation rules duplicate AnswerShapeController and FunctionalMedicineHypothesisRanking.",
+  "top_opportunities": [
+   "Merge activation and output lists into Mode coaching",
+   "Compress behavior-change and precedence lists",
+   "Keep PEM/GET and escalation safeguards"
+  ],
+  "chunk": 6
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "instruction_obligation_lifecycle",
+  "bytes": 2055,
+  "rows": 4,
+  "dominant_category": "META_PROTOCOL",
+  "keep_bytes_estimate": 500,
+  "summary": "Portable obligation-boundary rule: obligations are met only at the delivery surface, never by mention; no self-certified compliance or manufactured receipts. Mostly generic execution discipline aimed at agents, duplicated by HRP InstructionObligationLifecycle. A test asserts the element and ruleId exist exactly once.",
+  "top_opportunities": [
+   "Compress to two sentences (test needs the element)",
+   "Cut the failure post-mortem paragraph"
+  ],
+  "chunk": 6
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "documentary_controversy_and_record_dump_research",
+  "bytes": 6723,
+  "rows": 14,
+  "dominant_category": "REASONING_DISCIPLINE",
+  "keep_bytes_estimate": 0,
+  "summary": "A 13-step workflow for leaked-record political controversies with Epstein-specific examples. Irrelevant to health research, and about 70% duplicated by controversial_topic_research_core and responsive_critique. Loaded into every health run today.",
+  "top_opportunities": [
+   "Stop loading in health-research runs",
+   "Merge remainder into controversial_topic_research_core",
+   "Remove real-person case examples"
+  ],
+  "chunk": 6
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "health_labs_supplements_environmental_health",
+  "bytes": 3076,
+  "rows": 11,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 387,
+  "summary": "Generic health guidance for standalone Universal use: no prescribing, triage, evidence labels, hypothesis ranking, cofactors, supplement safety, null-evidence cross-reference, nutrient hierarchy, actionable ending. When HRP is loaded, nearly every line duplicates a more detailed HRP rule; the pathogen-clearance distinction is unique.",
+  "top_opportunities": [
+   "Skip in HRP-loaded runs except unique pathogen-clearance line",
+   "Verify 'IOM Nutrient Prioritization Pyramid' attribution"
+  ],
+  "chunk": 6
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "writing_voice_and_drafting",
+  "bytes": 1835,
+  "rows": 5,
+  "dominant_category": "OUTPUT_SHAPE",
+  "keep_bytes_estimate": 0,
+  "summary": "Personal writing-voice guidance for drafting posts and comments in the user's voice. Not used by health research; overlaps responsive_critique and output_style.",
+  "top_opportunities": [
+   "Stop loading in health-research runs"
+  ],
+  "chunk": 6
+ },
+ {
+  "protocol": "HRP",
+  "section": "ClinicalManagementPreservationGate",
+  "bytes": 5014,
+  "rows": 12,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 1577,
+  "summary": "MAST-derived (20.5.27) gate requiring an internal REQUIRED_NOW/CONTINGENT_LATER/OPTIONAL/AVOID action map. The core map and safety-departure rule are valuable; six short facet rules can become qualifiers of one rule, and the template plus three regression cases are eval fixtures already in docs/mast-derived JSON. Test asserts many exact phrases.",
+  "top_opportunities": [
+   "Collapse 7 rules into one action-map rule with 3 qualifier clauses",
+   "Move 3 RegressionCases (~1.2 KB) to the eval suite",
+   "Cut ClinicalActionMap template and Purpose (restate the rule)"
+  ],
+  "chunk": 7
+ },
+ {
+  "protocol": "HRP",
+  "section": "PatientHistoryAndRecurrenceEvidenceGate",
+  "bytes": 7792,
+  "rows": 14,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 420,
+  "summary": "Health instance of Universal interview-evidence and evidence-discrimination gates. Nearly every rule is a near-verbatim twin of a Universal rule (and of FS199/FS205/FS206), so HRP needs only a one-line pointer plus any health-specific phrase. Collection-method rules are maintainer governance; two regression cases are eval fixtures.",
+  "top_opportunities": [
+   "MERGE 9 rules into their Universal twins (~4.5 KB)",
+   "Move instrument-design/versioning rule and 2 regression cases out of runtime",
+   "Keep a one-line pointer carrying dose/formulation specifics"
+  ],
+  "chunk": 7
+ },
+ {
+  "protocol": "HRP",
+  "section": "TreatmentLandscapeAndVideoSelectionGate",
+  "bytes": 16844,
+  "rows": 32,
+  "dominant_category": "PROCESS_GATE",
+  "keep_bytes_estimate": 4763,
+  "summary": "Largest section (16.8 KB). Discovery method (class inventory, program fingerprints, selection value) is core AskRigor method; most remaining text restates the controlled-session assessor's ledger, lock and normalization logic, unreachable from MCP. MCP also lacks transcript and scout tools the gate presumes. Contains a stray dangling 'A' (HRP line 1399).",
+  "top_opportunities": [
+   "Expose assess_treatment_landscape_coverage (stateless, signed receipts) on MCP and cut lock prose to a pointer",
+   "Move assessor/transport/transcript-signing specs out of runtime",
+   "Deduplicate the 8-video/6-program floor and breadth-vs-depth (stated 3-4 times)"
+  ],
+  "chunk": 7
+ },
+ {
+  "protocol": "HRP",
+  "section": "CommunityEvidenceIndependenceAndActionabilityGate",
+  "bytes": 1584,
+  "rows": 4,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 1288,
+  "summary": "Compact, high-value statement of AskRigor's community-signal philosophy (20.5.17): absence of matched formal support is support_not_located, contradiction needs PICO alignment, and actionability weighs risk, reversibility and delay. Keep the three rules; only the Purpose restates them.",
+  "top_opportunities": [
+   "Cut Purpose (restates rules)",
+   "Keep rules; make this the canonical home FS161/FS162 point to",
+   "Server could require formal_relationship enum per signal in a ledger"
+  ],
+  "chunk": 7
+ },
+ {
+  "protocol": "HRP",
+  "section": "ResearchQuestionAndEstimandGate",
+  "bytes": 6669,
+  "rows": 13,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 833,
+  "summary": "Estimand definition gate whose rules are mostly restated in ComparatorLineage, DoseRegime and QuantitativeRisk modules, or in Universal (target preservation, risk language). The unique content is the dose-category map and the estimand field names; the 19 field definitions repeat other modules.",
+  "top_opportunities": [
+   "Reduce EstimandFields to a name list pointing to ComparatorClasses/temporal rules",
+   "MERGE comparator, contrast, risk-language and dose-label rules into canonical modules",
+   "Carry 'dose-category map' into DoseRegime"
+  ],
+  "chunk": 7
+ },
+ {
+  "protocol": "HRP",
+  "section": "PremiseIntegrityAndTruthPriorityGate",
+  "bytes": 3002,
+  "rows": 8,
+  "dominant_category": "REASONING_DISCIPLINE",
+  "keep_bytes_estimate": 150,
+  "summary": "Near-verbatim copy of UNIVERSAL premise_integrity_and_truth_priority_gate items 1-9 (20.5.18). Since both files load together, the HRP copy adds no content; generic reasoning discipline with owner-specified exact declarations. protocol.test.ts asserts several HRP phrases, so removal needs test updates.",
+  "top_opportunities": [
+   "Replace the whole gate with a one-line pointer to the Universal gate (~2.2 KB)",
+   "Update protocol.test.ts and premise-integrity-structure.test.ts accordingly",
+   "Keep exact declarations only in Universal"
+  ],
+  "chunk": 7
+ },
+ {
+  "protocol": "HRP",
+  "section": "EpistemicSafetyRules",
+  "bytes": 3512,
+  "rows": 12,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 1013,
+  "summary": "Twelve short baseline rules; most duplicate NullEvidence, EvidenceLayers, HeterodoxEpistemology, UNIVERSAL epistemics or sources. Warning relevance, symptom-screen, and anti-false-balance rules are the distinctive keepers. No provenance or test coverage.",
+  "top_opportunities": [
+   "MERGE 8 rules into their canonical homes",
+   "Keep RelevanceBeforeWarning and UncertaintyIsNotSymmetry",
+   "Fold ApparentlyAsymptomatic into SymptomsAreNotAQuantitativeScreen"
+  ],
+  "chunk": 7
+ },
+ {
+  "protocol": "HRP",
+  "section": "QuantitativeRiskAndResearchAudit",
+  "bytes": 18884,
+  "rows": 47,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 9547,
+  "summary": "18.9 KB epidemiology audit (20.4 burden/hotspot lessons, 20.5.8 comparator/AE, 20.5.10 temporal). Genuine domain method, but ~half the rules duplicate ComparatorLineage, AdverseEventAscertainment, DoseRegime, NullEvidence, StudyDesignCapabilityMatrix, StatisticalAndClinicalInterpretation or Universal. The 14-step AuditSequence already summarizes the module. Serve only when numeric claims appear.",
+  "top_opportunities": [
+   "Rebuild as the 14-step AuditSequence plus unique clauses (roughly half the bytes)",
+   "MERGE comparator, AE, dose, threshold, latency, outcome-layer and multiplicity duplicates",
+   "Route-gate: load only on numeric/temporal claims; relocate historical-dose rule"
+  ],
+  "chunk": 7
+ },
+ {
+  "protocol": "HRP",
+  "section": "FunctionalMedicineHypothesisRanking",
+  "bytes": 1328,
+  "rows": 5,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 66,
+  "summary": "Small baseline section; ranking dimensions, common-and-dangerous-first and foundation-before-optimization are restated almost verbatim in UNIVERSAL health_labs_supplements_environmental_health and FunctionalHealthCoachingLayer. Biomarker six-way classification is the only unique content.",
+  "top_opportunities": [
+   "MERGE whole section into UNIVERSAL health_labs (one sentence)",
+   "Move BiomarkerNotCause's six-way list into LabAndTestInterpretation",
+   "Keep common/dangerous-first safety default in one place"
+  ],
+  "chunk": 7
+ },
+ {
+  "protocol": "HRP",
+  "section": "MedicationSupplementBotanicalSafety",
+  "bytes": 2282,
+  "rows": 8,
+  "dominant_category": "SAFETY",
+  "keep_bytes_estimate": 731,
+  "summary": "Supplement safety basics. The interaction-domain and product-quality checklists are unique and worth keeping; the inventory, unknown-status, natural-is-not-safe, stacking and no-escalation rules are covered by PatientSpecificInterventionSafetyReconciliationGate, SafetyAndScopeGate and Universal health_labs.",
+  "top_opportunities": [
+   "Keep InteractionDomains and ProductQuality checklists",
+   "MERGE SafetyInventory into the patient-specific reconciliation gate (carry surgery, purity, recreational use)",
+   "MERGE no-escalation into SafetyAndScopeGate"
+  ],
+  "chunk": 7
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "responsive_critique",
+  "bytes": 2539,
+  "rows": 11,
+  "dominant_category": "OUTPUT_SHAPE",
+  "keep_bytes_estimate": 279,
+  "summary": "Owner-personal critique and reply drafting guidance with no health content; nine of ten items repeat documentary_controversy, whole_argument_reconstruction or writing_voice sections. Useful only when a user asks to critique or answer a specific source, so it should not load on ordinary research runs.",
+  "top_opportunities": [
+   "Serve only for critique/reply tasks (route by intro trigger)",
+   "MERGE items into documentary_controversy/whole_argument_reconstruction/writing_voice",
+   "Keep item 4 (structural critique priority) as one sentence"
+  ],
+  "chunk": 7
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "quantitative_risk_and_research_audit",
+  "bytes": 4278,
+  "rows": 20,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 214,
+  "summary": "Condensed Universal copy of the HRP quantitative audit plus cofactor, citation-chain and correction rules. Every item has an HRP canonical twin (and several also appear in UNIVERSAL epistemics/sources/health_labs). In AskRigor runs where HRP loads, it is pure duplication; standalone Universal use could keep a one-line pointer.",
+  "top_opportunities": [
+   "MERGE all 18 items into HRP QuantitativeRiskAndResearchAudit (~4.2 KB)",
+   "Keep a one-line trigger for standalone Universal use",
+   "Remove triple copies shared with UNIVERSAL epistemics and sources"
+  ],
+  "chunk": 7
+ },
+ {
+  "protocol": "HRP",
+  "section": "PatientSpecificInterventionSafetyReconciliationGate",
+  "bytes": 5820,
+  "rows": 11,
+  "dominant_category": "SAFETY",
+  "keep_bytes_estimate": 1298,
+  "summary": "Root safety gate from HRP 20.5.27, derived from MAST Derm001. Reconcile every candidate intervention against the patient's history before recommending or ranking it, grade the safety evidence, avoid universal bans, and keep alternatives. The method is sound, but the same field list appears in a rule, the template, and FS204. Nothing enforces it server-side; a test pins key phrases.",
+  "top_opportunities": [
+   "Gate: reconciliation-record validator; ranked output requires admission=yes for every candidate",
+   "Collapse rules, template, and FS204 into one ~700-byte rule",
+   "Move both RegressionCases to eval fixtures"
+  ],
+  "chunk": 8
+ },
+ {
+  "protocol": "HRP",
+  "section": "VersionDiscipline",
+  "bytes": 4896,
+  "rows": 4,
+  "dominant_category": "MAINTAINER_ONLY",
+  "keep_bytes_estimate": 0,
+  "summary": "Maintainer-only guidance on when and how to revise the protocol, plus a 4.3 KB list of features future revisions must preserve. None of it affects a research answer. The preserve-list duplicates the root fullName attribute, the Architecture section, and the module ledger.",
+  "top_opportunities": [
+   "Move the whole section (4.9 KB) out of runtime",
+   "Turn RegressionProtection into a maintainer checklist or structural test"
+  ],
+  "chunk": 8
+ },
+ {
+  "protocol": "HRP",
+  "section": "CoreHierarchy",
+  "bytes": 2602,
+  "rows": 12,
+  "dominant_category": "SAFETY",
+  "keep_bytes_estimate": 721,
+  "summary": "A twelve-rank precedence list. Ranks 1-3 are short, controlling safety rules. Ranks 4-12 each restate a whole module elsewhere: clinical action map, patient-specific safety, preflight approval, completion labeling, terminology, quantitative checks, heterodox fairness, and signal preservation. Rank 2's ban on individualized treatment sits uneasily with the decisive patient-specific recommendations required by ranks 4-5.",
+  "top_opportunities": [
+   "Reduce ranks 4-12 to a one-line precedence list of module names",
+   "Owner: reconcile 'do not prescribe' with patient-specific recommendation gates"
+  ],
+  "chunk": 8
+ },
+ {
+  "protocol": "HRP",
+  "section": "ComparatorLineageAndProgramCongruenceAudit",
+  "bytes": 9329,
+  "rows": 17,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 2359,
+  "summary": "Distinctive AskRigor method from HRP 20.5.8: exact comparator composition, what each comparator can estimate, lineage traced to an anchored baseline, baseline evidence debt, and component-to-program congruence. It is valuable but restated in four other HRP modules, the templates, and FinalSelfCheck. The study-method validator already partly enforces comparator identity.",
+  "top_opportunities": [
+   "Gate: add a comparator_class enum and block-cited composition to the study validator",
+   "Compress the 10 comparator classes into a short table",
+   "Merge the congruence and outcome-layer duplicates into canonical rules"
+  ],
+  "chunk": 8
+ },
+ {
+  "protocol": "HRP",
+  "section": "StatisticalAndClinicalInterpretation",
+  "bytes": 2152,
+  "rows": 9,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 546,
+  "summary": "Nine short, mostly textbook biostatistics rules: hard outcomes, absolute effects, NNT, clinical significance, multiplicity, heterogeneity, pooling, model calibration, and causal inference. Most are duplicated in QuantitativeRiskAndResearchAudit or AudienceAccessibleTerminologyGate, and a strong model already knows several of them.",
+  "top_opportunities": [
+   "Merge AbsoluteImpact, NNTAndNNH, and Multiplicity into existing QRRA rules",
+   "Test cutting ClinicalMeaning and ModelCalibration",
+   "Keep MetaAnalysisInputQuality as the one pooled-evidence rule"
+  ],
+  "chunk": 8
+ },
+ {
+  "protocol": "HRP",
+  "section": "HighValueSignalShowcase",
+  "bytes": 1237,
+  "rows": 5,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 851,
+  "summary": "Core heterodox-discovery philosophy: explain why a strong signal is research-worthy before listing limitations, never turn a signal into a protocol, consider alternative explanations for fast effects, and propose prospective tracking. Mostly keep, with light compression.",
+  "top_opportunities": [
+   "Keep PreserveSignal and SignalNotProtocol verbatim",
+   "Fold HighValueLowActionability into SignalNotProtocol"
+  ],
+  "chunk": 8
+ },
+ {
+  "protocol": "HRP",
+  "section": "EthnobotanicalSpecificity",
+  "bytes": 677,
+  "rows": 3,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 413,
+  "summary": "Three short botanical rules: verify species, part, and preparation; don't transfer genus-level hazards; consider legality and sustainability. Only the hazard-transfer rule duplicates EpistemicSafetyRules. Small enough to keep, ideally served only when botanicals are in scope.",
+  "top_opportunities": [
+   "Merge NoGenusLevelHazardSubstitution into RelevanceBeforeWarning",
+   "Serve only when botanicals are in scope"
+  ],
+  "chunk": 8
+ },
+ {
+  "protocol": "HRP",
+  "section": "OutputFormatting",
+  "bytes": 17396,
+  "rows": 24,
+  "dominant_category": "OUTPUT_SHAPE",
+  "keep_bytes_estimate": 1367,
+  "summary": "The largest HRP block in this chunk (17.4 KB). Most rules repeat a module's output rule and its ResearchAuditTemplates field list, so the same content appears three times. The compliance-label rule contradicts FS190 and the Forum module, and the 29-column EvidenceTable contradicts the concise answer style. A small core remains: response levels, the clinician plan, and the footer.",
+  "top_opportunities": [
+   "Delete the per-module '*Output' restatements; templates already hold them",
+   "Owner: resolve the compliance label versus 'omit compliance preambles' conflict",
+   "Cut the 29-column EvidenceTable from ordinary answers"
+  ],
+  "chunk": 8
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "claim_scope_predicate_alignment_gate",
+  "bytes": 4262,
+  "rows": 15,
+  "dominant_category": "REASONING_DISCIPLINE",
+  "keep_bytes_estimate": 714,
+  "summary": "Universal 20.5.25 logic gate: a correction must not change the proposition, swap in an adjacent relation, or broaden narrow evidence. The core fits in about 500 bytes. The examples (jurisdiction, platform control, structural leverage) are geopolitical rather than health-related. POG check 12 already summarizes the whole gate.",
+  "top_opportunities": [
+   "Compress the 10 rules to ~500 bytes built from rules 1, 3, 5, and 6",
+   "Move the 4 regression cases to tests",
+   "Keep either this gate or POG check 12, not both"
+  ],
+  "chunk": 8
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "evidence_discrimination_gate",
+  "bytes": 2866,
+  "rows": 5,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 514,
+  "summary": "Causal-reasoning checks: evidence direction, specificity against controls, 3-7 longitudinal constraints, and a phenotype-etiology firewall. The longitudinal and phenotype checks duplicate HRP's PatientHistoryAndRecurrenceEvidenceGate almost word for word, and POG checks 8-10 repeat the whole gate. Tests pin its tags and phrases.",
+  "top_opportunities": [
+   "Drop the longitudinal and phenotype copies whenever HRP is loaded",
+   "Compress the direction and specificity checks to one sentence each"
+  ],
+  "chunk": 8
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "point_of_generation_checks",
+  "bytes": 18001,
+  "rows": 41,
+  "dominant_category": "REASONING_DISCIPLINE",
+  "keep_bytes_estimate": 782,
+  "summary": "41 pre-answer checks (18 KB), mostly question-form restatements of gates elsewhere in Universal or HRP. The owner pairs each gate with a check on purpose, so every rule is loaded twice. About a dozen checks are canonical only here. Several give development, coding, shopping, or personal-conversation guidance that is irrelevant to health research runs.",
+  "top_opportunities": [
+   "Keep one form per rule, often this compact check, and cut the long gate",
+   "Exclude dev, coding, shopping, and personal checks from research loads",
+   "Merge the risk and null-evidence checks into HRP's canonical rules"
+  ],
+  "chunk": 8
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "null_evidence_and_safety_language",
+  "bytes": 3390,
+  "rows": 7,
+  "dominant_category": "DOMAIN_METHOD",
+  "keep_bytes_estimate": 0,
+  "summary": "Semantically the same as HRP's NullEvidenceAndSafetyLanguage: six-state null-evidence classification, exposure definition, hazard versus risk, and excretion mass balance. It adds institutional-webpage and precaution rules that HRP already holds elsewhere. When both protocols load, the entire section is duplicate text.",
+  "top_opportunities": [
+   "Load one null-evidence module per run (saves 3.4 KB)",
+   "Serve the mass-balance rule only for excretion-route claims"
+  ],
+  "chunk": 8
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "section": "interpersonal_and_relational_questions",
+  "bytes": 1739,
+  "rows": 8,
+  "dominant_category": "REASONING_DISCIPLINE",
+  "keep_bytes_estimate": 0,
+  "summary": "Relationship advice (forgiveness, trust tiers, caring messages, boundaries) from the general-purpose Universal saved instructions. It plays no role in health research runs, and its fidelity rule duplicates POG checks 22-23.",
+  "top_opportunities": [
+   "Exclude from research-run loads (1.7 KB)"
+  ],
+  "chunk": 8
+ }
+]

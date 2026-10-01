@@ -681,6 +681,9 @@ function buildTreatmentLandscapeInput(
     }),
     further_expansion_likely_to_improve_answer:
       submission.further_expansion_likely_to_improve_answer,
+    // The session controller's statuses (complete, terminal, in progress) have
+    // no first-pass ending with open leads yet, so it keeps deep coverage.
+    research_depth: "deep",
     directional_searches: Object.fromEntries(([
       "benefit",
       "no_effect_or_failure",

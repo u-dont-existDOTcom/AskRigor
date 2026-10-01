@@ -10,6 +10,11 @@ import {
   youtubeVideoCommunityAuditInputSchema,
   type YoutubeVideoCommunityAuditDependencies
 } from "../apps/research-mcp/src/youtube-video-community-audit.js";
+import {
+  compactYoutubeAuditForMcp,
+  YOUTUBE_VIDEO_AUDIT_SCOPE,
+  YoutubeMcpResponseTooLargeError
+} from "../apps/research-mcp/src/youtube-mcp-sample.js";
 
 const NOW = 1_786_579_200_000;
 const SECRET = "s".repeat(32);
@@ -204,6 +209,133 @@ describe("adaptive per-video YouTube community audit", () => {
     expect(first.limitations).toContain(
       "The Custom GPT Action returned a deterministic transport-bounded analysis sample; retrieval coverage and corpus counts are reported separately."
     );
+  });
+
+  it("labels a bounded sample with the caller's transport limitation", async () => {
+    const comments = makeComments(200).map((comment) => ({
+      ...comment,
+      text: `${comment.text} ${"evidence ".repeat(60)}`
+    }));
+    const original = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID },
+      CONFIG,
+      { now: () => NOW, dependencies: completeDependencies(comments) }
+    );
+    const bounded = boundYoutubeAuditForAction(original, 40_000, "MCP bounded sample.");
+
+    expect(Buffer.byteLength(JSON.stringify(bounded), "utf8")).toBeLessThanOrEqual(40_000);
+    expect(bounded.limitations).toContain("MCP bounded sample.");
+    expect(bounded.limitations.some((text) => text.startsWith("The Custom GPT Action"))).toBe(false);
+    expect(bounded.receipt).toEqual(original.receipt);
+  });
+
+  it("gives MCP clients compact, pseudonymous, budgeted sample records", async () => {
+    const comments = makeComments(200).map((comment, index) => ({
+      ...comment,
+      author_channel_id: `UC${String(index % 40).padStart(22, "0")}`,
+      author_display_name: `@person${index % 40}`,
+      text: `${comment.text} ${"firsthand report ".repeat(12)}`,
+      ...(index % 5 === 0 ? { updated_at: "2026-01-02T00:00:00Z" } : {})
+    }));
+    const original = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID },
+      CONFIG,
+      { now: () => NOW, dependencies: completeDependencies(comments) }
+    );
+    const view = compactYoutubeAuditForMcp(original, 40_000, "MCP bounded sample.");
+    const serialized = JSON.stringify(view);
+
+    expect(Buffer.byteLength(serialized, "utf8")).toBeLessThanOrEqual(40_000);
+    expect(serialized).not.toContain("@person");
+    expect(serialized).not.toContain("UC0000");
+    // The view names the lock for what it covers: this one video only.
+    const { completion_state: originalState, synthesis_lock: originalLock, ...originalChecks } = original.receipt;
+    expect(view.receipt).toEqual({
+      scope: YOUTUBE_VIDEO_AUDIT_SCOPE,
+      comment_retrieval_state: originalState,
+      video_comments_lock: originalLock,
+      ...originalChecks
+    });
+    expect(view.records_retrieved_cumulative).toBe(200);
+    const sample = view.sample!;
+    expect(sample.comments.length).toBe(view.records_returned_for_analysis);
+    expect(sample.sampled_count).toBe(sample.comments.length);
+    // Twice as many records fit as with full records (about 60 at this size).
+    expect(sample.comments.length).toBeGreaterThan(100);
+    expect(sample.comments.length).toBeLessThan(200);
+    expect(sample.mode).toBe("deterministic_hash_chronological");
+    expect(view.limitations).toContain("MCP bounded sample.");
+    expect(Object.keys(sample.comments[0]!).sort()).toEqual(
+      expect.arrayContaining(["author", "date", "id", "likes", "text"])
+    );
+    // The same person keeps one key within a video.
+    const byAuthor = new Map<string, Set<string>>();
+    for (const record of sample.comments) {
+      const index = Number(record.id.slice("comment-".length));
+      const person = `@person${index % 40}`;
+      byAuthor.set(person, (byAuthor.get(person) ?? new Set()).add(record.author));
+    }
+    for (const keys of byAuthor.values()) expect(keys.size).toBe(1);
+    expect(sample.comments.some((record) => record.edited === true)).toBe(true);
+    expect(sample.comments.every((record) => /^\d{4}-\d{2}-\d{2}$/u.test(record.date))).toBe(true);
+
+    const small = compactYoutubeAuditForMcp(
+      await auditYoutubeVideoCommunity(
+        { video_id_or_url: VIDEO_ID },
+        CONFIG,
+        { now: () => NOW, dependencies: completeDependencies(makeComments(5)) }
+      ),
+      40_000,
+      "MCP bounded sample."
+    );
+    expect(small.sample).toMatchObject({ mode: "all", sampled_count: 5 });
+    expect(small.limitations).not.toContain("MCP bounded sample.");
+  });
+
+  it("never merges commenters without a channel ID, even under one display name", async () => {
+    const comments = makeComments(4).map((comment) => ({ ...comment, author_display_name: "@samename" }));
+    const view = compactYoutubeAuditForMcp(
+      await auditYoutubeVideoCommunity(
+        { video_id_or_url: VIDEO_ID },
+        CONFIG,
+        { now: () => NOW, dependencies: completeDependencies(comments) }
+      ),
+      40_000,
+      "MCP bounded sample."
+    );
+    expect(new Set(view.sample!.comments.map(({ author }) => author)).size).toBe(4);
+  });
+
+  it("bounds the MCP view's fixed fields and never returns an oversized one", async () => {
+    const original = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID },
+      CONFIG,
+      { now: () => NOW, dependencies: completeDependencies(makeComments(50)) }
+    );
+    // A large video can report hundreds of reply-count mismatches.
+    const mismatched = {
+      ...original,
+      reply_count_mismatches: Array.from({ length: 500 }, (_, index) => ({
+        parent_comment_id: `UgxParent${String(index).padStart(14, "0")}`,
+        expected: 9,
+        retrieved: 3
+      }))
+    };
+    expect(Buffer.byteLength(JSON.stringify(mismatched), "utf8")).toBeGreaterThan(40_000);
+    const view = compactYoutubeAuditForMcp(mismatched, 40_000, "MCP bounded sample.");
+    expect(Buffer.byteLength(JSON.stringify(view), "utf8")).toBeLessThanOrEqual(40_000);
+    expect(view.reply_count_mismatches).toEqual(mismatched.reply_count_mismatches.slice(0, 20));
+    expect(view.limitations).toContain("This MCP view lists 20 of 500 reply-count mismatches.");
+    expect(view.sample!.comments.length).toBe(50);
+
+    // An unfinished audit whose state alone exceeds the budget is an explicit
+    // error, not a view the client would cut, losing the token.
+    const oversizedState = { ...original, continuation_token: "t".repeat(45_000) };
+    expect(() => compactYoutubeAuditForMcp(oversizedState, 40_000, "MCP bounded sample."))
+      .toThrow(YoutubeMcpResponseTooLargeError);
+    const { sample: _sample, ...withoutSample } = oversizedState;
+    expect(() => compactYoutubeAuditForMcp(withoutSample, 40_000, "MCP bounded sample."))
+      .toThrow(YoutubeMcpResponseTooLargeError);
   });
 
   it("fails closed when fixed non-comment fields cannot fit the Action response ceiling", async () => {

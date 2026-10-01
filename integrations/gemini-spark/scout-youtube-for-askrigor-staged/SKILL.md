@@ -56,6 +56,18 @@ The goal is the right videos, not a generic quota.
 7. Stop when later searches add no material program/outcome hypothesis, or
    record the gap. Do not manufacture diversity or pad weak results.
 
+Probe the way patients talk, not only the way clinicians do: first-person
+recovery videos carry the most useful community signal, and their comments name
+remedies that titles never mention. Spread `overlooked_intervention` probes over
+at least four families; run at least two first-person radical-outcome probes
+worded like patient video titles (`"how I fixed my [condition]"`,
+`"[condition] gone"`, `"growing my [body part] back"`, or rebuilt, regrew,
+restored or healed with the body part), searched as claims; run at least two
+patient-only probes such as `"[condition]" "what I learned" -clinic -hospital
+-doctor`; try first-person directions before practitioner tutorials; and search
+each named remedy, product, practitioner or routine individually for firsthand
+use or failure.
+
 Run 8 to 18 materially different searches in total. Include every closed
 purpose at least once:
 

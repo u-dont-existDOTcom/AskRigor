@@ -1,0 +1,628 @@
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import {
+  decodeScoutContinuation,
+  encodeScoutContinuation,
+  ScoutContinuationError
+} from "../apps/research-mcp/src/scout-continuation.js";
+import {
+  discoveryQueryDigest,
+  researchTargetDigest,
+  verifyResearchReceipt
+} from "../apps/research-mcp/src/research-receipts.js";
+
+const execute = vi.hoisted(() => vi.fn());
+const deleteResumed = vi.hoisted(() => vi.fn());
+const search = vi.hoisted(() => vi.fn());
+const getVideo = vi.hoisted(() => vi.fn());
+vi.mock("../apps/research-mcp/src/actions/gemini-scout-route.js", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../apps/research-mcp/src/actions/gemini-scout-route.js")>(),
+  executeResumableAutomatedGeminiScout: execute,
+  deleteResumedGeminiScoutInteraction: deleteResumed
+}));
+vi.mock("@askrigor/sources", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@askrigor/sources")>(),
+  searchYoutube: search,
+  getYoutubeVideo: getVideo
+}));
+
+const { createAskRigorServer } = await import("../apps/research-mcp/src/server.js");
+
+const SECRET = "scout-continuation-test-secret-0123456789";
+const CHECKPOINT = {
+  interaction_id: "interaction-1",
+  phase: "INITIAL" as const,
+  provider_interaction_count: 1 as const,
+  poll_attempts: 0,
+  executed_search_queries: []
+};
+const TARGET = {
+  research_target: "Adults trying to avoid a hip replacement: what they tried and what happened",
+  diagnosis_status: "diagnosis_not_specified" as const
+};
+
+describe("MCP Gemini scout continuation", () => {
+  const previous = {
+    continuation: process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET,
+    finalization: process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET,
+    billing: process.env.ASKRIGOR_GEMINI_BILLING
+  };
+  beforeEach(() => {
+    process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET = SECRET;
+    process.env.ASKRIGOR_GEMINI_BILLING = "none";
+    delete process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET;
+    execute.mockReset();
+    deleteResumed.mockReset();
+    search.mockReset();
+    getVideo.mockReset();
+  });
+  afterEach(() => {
+    for (const [name, value] of [
+      ["ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previous.continuation],
+      ["ASKRIGOR_FINALIZATION_SIGNING_SECRET", previous.finalization],
+      ["ASKRIGOR_GEMINI_BILLING", previous.billing]
+    ] as const) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  });
+
+  it("rejects altered and expired continuation tokens", () => {
+    const token = encodeScoutContinuation({
+      ...TARGET, checkpoint: CHECKPOINT, accounted_nano_usd: 1_000, expires_at_ms: 2_000
+    }, SECRET);
+    expect(decodeScoutContinuation(token, SECRET, 1_000)).toMatchObject({ ...TARGET, accounted_nano_usd: 1_000 });
+    expect(() => decodeScoutContinuation(`${token.slice(0, -2)}xx`, SECRET, 1_000))
+      .toThrow(new ScoutContinuationError("gemini_scout_continuation_invalid"));
+    expect(() => decodeScoutContinuation(token, "another-secret-of-sufficient-length-00", 1_000))
+      .toThrow(new ScoutContinuationError("gemini_scout_continuation_invalid"));
+    // An expired token that verifies still carries its state, so its stored
+    // search can be deleted.
+    expect(() => decodeScoutContinuation(token, SECRET, 2_000)).toThrow(new ScoutContinuationError(
+      "gemini_scout_continuation_expired", decodeScoutContinuation(token, SECRET, 1_000)
+    ));
+    // The signed state carries the language too, and only as a tag.
+    const french = encodeScoutContinuation({
+      ...TARGET, language: "fr", checkpoint: CHECKPOINT, accounted_nano_usd: 1_000, expires_at_ms: 2_000
+    }, SECRET);
+    expect(decodeScoutContinuation(french, SECRET, 1_000)).toMatchObject({ ...TARGET, language: "fr" });
+    expect(() => encodeScoutContinuation({
+      ...TARGET, language: "French", checkpoint: CHECKPOINT, accounted_nano_usd: 1_000, expires_at_ms: 2_000
+    }, SECRET)).toThrow();
+  });
+
+  it("keeps the person's language through the continuation, and a later call cannot switch it", async () => {
+    execute.mockResolvedValue({ controller_progress: { checkpoint: CHECKPOINT, accounted_nano_usd: 1_000_000_000 } });
+    const client = await connect();
+    const french = { ...TARGET, language: "fr" };
+
+    const first = await client.callTool({ name: "scout_gemini_youtube_candidates", arguments: french });
+    expect(first.isError).not.toBe(true);
+    const pending = first.structuredContent as { continuation_token: string; language: string };
+    expect(pending.language).toBe("fr");
+    expect(decodeScoutContinuation(pending.continuation_token, SECRET, Date.now()).language).toBe("fr");
+    expect(execute).toHaveBeenNthCalledWith(1, french, undefined, { deadlineMs: expect.any(Number) }, []);
+
+    // The signed token's language wins over one sent with it.
+    const resumed = { checkpoint: CHECKPOINT, accountedNanoUsd: 1_000_000_000 };
+    const switched = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { continuation_token: pending.continuation_token, language: "de" }
+    });
+    expect(execute).toHaveBeenNthCalledWith(2, french, resumed, { deadlineMs: expect.any(Number) }, []);
+    expect((switched.structuredContent as { language: string }).language).toBe("fr");
+
+    execute.mockReset();
+    execute.mockResolvedValueOnce({
+      controller_completion: {
+        provider_response_id: "response-language",
+        packet: { discovery_queries: [], search_gaps: [], candidates: [] },
+        validation: validationReceipt(),
+        provider_storage_mode: "TEMPORARY_BACKGROUND_DELETE_REQUESTED",
+        accounted_nano_usd: 900_000_000
+      }
+    });
+    const done = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { continuation_token: pending.continuation_token }
+    });
+    expect(execute).toHaveBeenCalledWith(french, resumed, { deadlineMs: expect.any(Number) }, []);
+    const output = done.structuredContent as { language: string; research_receipt: string };
+    expect(output.language).toBe("fr");
+    // The discovery receipt's target and query digests stay the English
+    // target's, which finalize_research and the coverage check recompute.
+    expect(verifyResearchReceipt(output.research_receipt, { secret: SECRET })).toMatchObject({
+      ok: true,
+      claims: {
+        target: researchTargetDigest(TARGET.research_target),
+        q: discoveryQueryDigest([TARGET.research_target])
+      }
+    });
+  });
+
+  it("refuses a language that is not a BCP 47 tag before any provider call", async () => {
+    const client = await connect();
+    for (const language of ["French", "fr_FR", "fr-FR-x-jane", "adults in Lyon"]) {
+      const refused = await client.callTool({
+        name: "scout_gemini_youtube_candidates",
+        arguments: { ...TARGET, language }
+      });
+      expect(refused.isError, language).toBe(true);
+    }
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("refuses a target the unchanged screen cannot read, and says to write it in English with the language apart", async () => {
+    const client = await connect();
+    for (const [research_target, language] of [
+      ["Adultes souffrant d'arthrose de la hanche qui veulent éviter une prothèse", "fr"],
+      ["Adultos con artrosis de cadera que quieren evitar una prótesis", "es"],
+      ["人工股関節置換術を避けたい変形性股関節症の成人", "ja"]
+    ] as const) {
+      const refused = await client.callTool({
+        name: "scout_gemini_youtube_candidates",
+        arguments: { ...TARGET, research_target, language }
+      });
+      expect(refused.isError, research_target).toBe(true);
+      const text = (refused.content as Array<{ text: string }>)[0]!.text;
+      expect(text).toContain("research_target_not_deidentified");
+      expect(text).toContain("Write research_target in English, whatever the person's language, as a group of people");
+      expect(text).toContain("give the person's language in language (for example: fr).");
+    }
+    expect(execute).not.toHaveBeenCalled();
+
+    // A resumed scout whose target the screen refuses says the same, for a new scout.
+    execute.mockResolvedValueOnce({
+      controller_boundary: { code: "research_target_not_population_level", retryable: false }
+    });
+    const token = encodeScoutContinuation({
+      ...TARGET, checkpoint: CHECKPOINT, accounted_nano_usd: 1_000, expires_at_ms: Date.now() + 60_000
+    }, SECRET);
+    const resumed = await client.callTool({
+      name: "scout_gemini_youtube_candidates", arguments: { continuation_token: token }
+    });
+    expect(resumed.isError).toBe(true);
+    expect((resumed.content as Array<{ text: string }>)[0]!.text).toBe(
+      "scout gemini youtube candidates could not complete: research_target_not_population_level. " +
+        "Start a new scout without the continuation_token. Write research_target in English, whatever the " +
+        "person's language, as a group of people and their goal in sentence case (for example: adults with hip " +
+        "osteoarthritis trying to avoid a replacement), without first-person words, he or she, names, places, a " +
+        "person's age, contact details or links, and give the person's language in language (for example: fr)."
+    );
+  });
+
+  it("returns a continuation while the scout searches, then validated and title-found videos with a discovery receipt", async () => {
+    const progress = { controller_progress: { checkpoint: CHECKPOINT, accounted_nano_usd: 1_000_000_000 } };
+    const now = vi.spyOn(Date, "now");
+    let clock = 1_790_000_000_000;
+    now.mockImplementation(() => clock);
+    // The executor polls until its deadline and is still searching, so the call hands back a token.
+    execute.mockImplementation(async () => {
+      clock += 38_000;
+      return progress;
+    });
+    const client = await connect();
+    const startedAt = clock;
+
+    const first = await client.callTool({ name: "scout_gemini_youtube_candidates", arguments: TARGET });
+    expect(first.isError).not.toBe(true);
+    const pending = first.structuredContent as { scout_status: string; continuation_token: string };
+    expect(pending.scout_status).toBe("pending");
+    // One deadline-paced advance per call keeps the call under Claude's 60-second tool timeout.
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(execute).toHaveBeenNthCalledWith(1, TARGET, undefined, { deadlineMs: startedAt + 40_000 }, []);
+
+    execute.mockReset();
+    execute.mockResolvedValueOnce({
+      controller_completion: {
+        provider_response_id: "response-1",
+        packet: {
+          discovery_queries: [{ purpose: "firsthand_outcome", query: "avoided hip replacement what worked" }],
+          search_gaps: [],
+          candidates: [
+            { video_id: "dQw4w9WgXcQ", title: "Real video", channel: "Real channel", why_surfaced: "Outcome" },
+            { video_id: "Zz9Yy8Xx7Ww", title: "GROWING MY HIP BACK", channel: "SHAPEFIXER", why_surfaced: "Recovery" }
+          ],
+          title_only_candidates: [
+            { title: "Gelatin for my hip, one year later", channel: "not described", why_surfaced: "Named remedy" }
+          ]
+        },
+        validation: {
+          ...validationReceipt(),
+          rejected_candidates: [{
+            video_id: "Zz9Yy8Xx7Ww",
+            metadata_access_status: "not_found",
+            retryable: false,
+            rejection_reasons: ["metadata_not_api_visible_complete"],
+            limitations: []
+          }]
+        },
+        provider_storage_mode: "TEMPORARY_BACKGROUND_DELETE_REQUESTED",
+        accounted_nano_usd: 900_000_000
+      }
+    });
+    search.mockImplementation(async ({ query }: { query: string }) => ({
+      access_status: "complete",
+      data: query === "GROWING MY HIP BACK"
+        ? [{ video_id: "XpZHKGGCK-o", title: "GROWING MY HIP BACK - How I Restored Full Function", channel_title: "SHAPEFIXER" }]
+        : []
+    }));
+    const second = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { continuation_token: pending.continuation_token }
+    });
+    now.mockRestore();
+
+    expect(execute).toHaveBeenCalledWith(
+      TARGET, { checkpoint: CHECKPOINT, accountedNanoUsd: 1_000_000_000 }, { deadlineMs: expect.any(Number) }, []
+    );
+    expect(second.isError).not.toBe(true);
+    const done = second.structuredContent as { scout_status: string; provider_storage_mode: string; research_receipt: string };
+    // Title-only finds come first, then the candidate whose ID did not exist.
+    expect(search.mock.calls.map(([request]) => request.query)).toEqual([
+      "Gelatin for my hip, one year later",
+      "GROWING MY HIP BACK"
+    ]);
+    expect(done).toMatchObject({
+      scout_status: "complete",
+      provider_storage_mode: "TEMPORARY_BACKGROUND_DELETE_REQUESTED",
+      title_lookup: {
+        found: [{
+          video_id: "XpZHKGGCK-o",
+          title: "GROWING MY HIP BACK - How I Restored Full Function",
+          channel: "SHAPEFIXER",
+          declared_title: "GROWING MY HIP BACK",
+          why_surfaced: "Recovery"
+        }],
+        unresolved: [{
+          title: "Gelatin for my hip, one year later",
+          channel: "not described",
+          why_surfaced: "Named remedy",
+          reason: "no_matching_video"
+        }]
+      }
+    });
+    const text = (second.content as Array<{ text: string }>)[0]!.text;
+    expect(text).toContain("validated 1 video(s) and found 1 more by exact title (title_lookup.found)");
+    expect(text).toContain("1 named video(s) could not be identified by exact title (title_lookup.unresolved, with YouTube's closest results)");
+    expect(verifyResearchReceipt(done.research_receipt, { secret: SECRET })).toMatchObject({
+      ok: true,
+      kind: "youtube_scout",
+      claims: { videos: ["dQw4w9WgXcQ", "XpZHKGGCK-o"], open: "0" }
+    });
+
+    const tampered = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { continuation_token: `${pending.continuation_token.slice(0, -2)}xx` }
+    });
+    expect(tampered.isError).toBe(true);
+    expect(tampered.content).toEqual([{
+      type: "text",
+      text: "scout gemini youtube candidates could not complete: gemini_scout_continuation_invalid."
+    }]);
+  });
+
+  it("hands an ID whose YouTube title is not the scout's back with both titles, without spending a search", async () => {
+    // Whether "How I avoided a hip replacement" and YouTube's title name one video takes reading them, in whatever
+    // language they are in: validation rejects the unconfirmed ID with both titles, and the model judges.
+    const receipt = {
+      ...validationReceipt(),
+      status: "blocked",
+      validated_candidates: [],
+      rejected_candidates: [{
+        video_id: "dQw4w9WgXcQ",
+        metadata_access_status: "api_visible_complete",
+        retryable: false,
+        rejection_reasons: ["declared_title_mismatch"],
+        provider_title: "My hip replacement story",
+        declared_title: "How I avoided a hip replacement",
+        limitations: []
+      }]
+    };
+    execute.mockResolvedValueOnce({
+      controller_completion: {
+        provider_response_id: "response-4",
+        packet: {
+          discovery_queries: [],
+          search_gaps: [],
+          candidates: [
+            { video_id: "dQw4w9WgXcQ", title: "How I avoided a hip replacement", channel: "Real channel", why_surfaced: "Outcome" }
+          ]
+        },
+        validation: receipt,
+        provider_storage_mode: "TEMPORARY_BACKGROUND_DELETE_REQUESTED",
+        accounted_nano_usd: 900_000_000
+      }
+    });
+    const client = await connect();
+    const done = await client.callTool({ name: "scout_gemini_youtube_candidates", arguments: TARGET });
+
+    expect(search).not.toHaveBeenCalled();
+    const output = done.structuredContent as { research_receipt: string };
+    expect(verifyResearchReceipt(output.research_receipt, { secret: SECRET })).toMatchObject({
+      ok: true,
+      // The receipt also signs it as left to the model's judgment, so auditing it counts as found by this round.
+      claims: { videos: [], open: "0", rej: ["dQw4w9WgXcQ"], alt: ["dQw4w9WgXcQ"] }
+    });
+    expect((done.content as Array<{ text: string }>)[0]!.text).toContain(
+      "1 more had a YouTube title other than the scout's (validation.rejected_candidates gives both): audit one if " +
+        "YouTube's title shows it is the video meant or relevant anyway."
+    );
+  });
+
+  it("leaves named titles unsearched when the call is running long, and counts them as open", async () => {
+    const now = vi.spyOn(Date, "now");
+    let clock = 1_790_000_000_000;
+    now.mockImplementation(() => clock);
+    execute.mockImplementation(async () => {
+      clock += 40_000;
+      return {
+        controller_completion: {
+          provider_response_id: "response-3",
+          packet: {
+            discovery_queries: [],
+            search_gaps: [],
+            candidates: [],
+            title_only_candidates: [
+              { title: "Gelatin for my hip, one year later", channel: "not described", why_surfaced: "Named remedy" },
+              { title: "Hip pain gone after hydration", channel: "not described", why_surfaced: "Named remedy" }
+            ]
+          },
+          validation: validationReceipt(),
+          provider_storage_mode: "TEMPORARY_BACKGROUND_DELETE_REQUESTED",
+          accounted_nano_usd: 900_000_000
+        }
+      };
+    });
+    const client = await connect();
+    const done = await client.callTool({ name: "scout_gemini_youtube_candidates", arguments: TARGET });
+    now.mockRestore();
+
+    expect(search).not.toHaveBeenCalled();
+    const output = done.structuredContent as {
+      title_lookup: { unresolved: Array<{ reason: string }> };
+      research_receipt: string;
+    };
+    expect(output.title_lookup.unresolved.map(({ reason }) => reason)).toEqual(["not_searched", "not_searched"]);
+    expect(verifyResearchReceipt(output.research_receipt, { secret: SECRET })).toMatchObject({
+      ok: true,
+      claims: { open: "2" }
+    });
+  });
+
+  it("starts no scout unless the deployment declares the Gemini key has no billing", async () => {
+    delete process.env.ASKRIGOR_GEMINI_BILLING;
+    const client = await connect();
+    const refused = await client.callTool({ name: "scout_gemini_youtube_candidates", arguments: TARGET });
+    expect(execute).not.toHaveBeenCalled();
+    expect(refused.isError).toBe(true);
+    const text = (refused.content as Array<{ text: string }>)[0]!.text;
+    expect(text).toContain("gemini_scout_spend_not_authorized");
+    expect(text).toContain("Use survey_youtube_community instead.");
+  });
+
+  it("refuses a target about one named person before any provider call", async () => {
+    const client = await connect();
+    const named = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { ...TARGET, research_target: "Jane Doe, age 47, in Boston has a rare cancer" }
+    });
+    expect(execute).not.toHaveBeenCalled();
+    expect(named.isError).toBe(true);
+    expect((named.content as Array<{ text: string }>)[0]!.text).toContain("research_target_not_deidentified");
+  });
+
+  it("sends only screened text to Gemini: a first-person target or lead is refused before any provider call", async () => {
+    const client = await connect();
+    const personal = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { ...TARGET, research_target: "My hip hurts and I want to avoid surgery" }
+    });
+    const badLead = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { ...TARGET, rediscovery_leads: ["gelatin", "see https://example.com/my-story"] }
+    });
+    expect(execute).not.toHaveBeenCalled();
+    expect(personal.isError).toBe(true);
+    expect((personal.content as Array<{ text: string }>)[0]!.text).toContain("research_target_not_deidentified");
+    expect(badLead.isError).toBe(true);
+    expect((badLead.content as Array<{ text: string }>)[0]!.text).toContain("rediscovery_lead_not_public_term");
+  });
+
+  it("refuses a lead that names or describes a person, and sends a video lead as YouTube's own title and channel", async () => {
+    const client = await connect();
+    const narrative = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { ...TARGET, rediscovery_leads: ["Jane Doe in Boston says chemotherapy cured her"] }
+    });
+    expect(narrative.isError).toBe(true);
+    expect((narrative.content as Array<{ text: string }>)[0]!.text).toContain("rediscovery_lead_not_public_term");
+
+    getVideo.mockImplementation(async (videoId: string) => videoId === "XpZHKGGCK-o"
+      ? { access_status: "api_visible_complete", data: { title: "GROWING MY HIP BACK", channel_title: "SHAPEFIXER" } }
+      : { access_status: "not_found", data: {} });
+    const missing = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { ...TARGET, rediscovery_leads: ["video:dQw4w9WgXcQ"] }
+    });
+    expect(missing.isError).toBe(true);
+    expect((missing.content as Array<{ text: string }>)[0]!.text).toContain("rediscovery_lead_video_unavailable");
+    expect(execute).not.toHaveBeenCalled();
+
+    execute.mockResolvedValueOnce({ controller_progress: { checkpoint: CHECKPOINT, accounted_nano_usd: 1_000_000_000 } });
+    await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { ...TARGET, rediscovery_leads: ["collagen peptides", "video:XpZHKGGCK-o"] }
+    });
+    expect(execute).toHaveBeenCalledWith(
+      TARGET, undefined, { deadlineMs: expect.any(Number) }, ["collagen peptides", "GROWING MY HIP BACK (SHAPEFIXER)"]
+    );
+  });
+
+  it("runs a rediscovery round from comment-named leads and carries them through the continuation", async () => {
+    const leads = ["gelatin", "hydration", "GROWING HIP BACK SHAPEFIXER"];
+    const progress = { controller_progress: { checkpoint: CHECKPOINT, accounted_nano_usd: 1_000_000_000 } };
+    const now = vi.spyOn(Date, "now");
+    let clock = 1_790_000_000_000;
+    now.mockImplementation(() => clock);
+    execute.mockImplementation(async () => {
+      clock += 15_000;
+      return progress;
+    });
+    const client = await connect();
+    const first = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { ...TARGET, rediscovery_leads: leads }
+    });
+    const pending = first.structuredContent as { continuation_token: string; rediscovery_leads: string[] };
+    expect(pending.rediscovery_leads).toEqual(leads);
+    expect(execute).toHaveBeenNthCalledWith(1, TARGET, undefined, { deadlineMs: expect.any(Number) }, leads);
+
+    const both = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { continuation_token: pending.continuation_token, rediscovery_leads: leads }
+    });
+    expect(both.isError).toBe(true);
+
+    execute.mockReset();
+    execute.mockResolvedValueOnce({
+      controller_completion: {
+        provider_response_id: "response-2",
+        packet: { discovery_queries: [], search_gaps: [], candidates: [] },
+        validation: validationReceipt(),
+        provider_storage_mode: "TEMPORARY_BACKGROUND_DELETE_REQUESTED",
+        accounted_nano_usd: 900_000_000
+      }
+    });
+    const done = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { continuation_token: pending.continuation_token }
+    });
+    now.mockRestore();
+    expect(execute).toHaveBeenCalledWith(
+      TARGET, { checkpoint: CHECKPOINT, accountedNanoUsd: 1_000_000_000 }, { deadlineMs: expect.any(Number) }, leads
+    );
+    const receipt = (done.structuredContent as { research_receipt: string }).research_receipt;
+    // A rediscovery round is a different angle from the first scout of the same target.
+    expect(verifyResearchReceipt(receipt, { secret: SECRET })).toMatchObject({
+      ok: true,
+      claims: { q: discoveryQueryDigest([TARGET.research_target, ...leads]) }
+    });
+    expect(discoveryQueryDigest([TARGET.research_target, ...leads]))
+      .not.toBe(discoveryQueryDigest([TARGET.research_target]));
+  });
+
+  it("deletes the stored search behind an expired continuation before reporting the expiry", async () => {
+    const expired = encodeScoutContinuation({
+      ...TARGET, checkpoint: CHECKPOINT, accounted_nano_usd: 1_000, expires_at_ms: 2_000
+    }, SECRET);
+    const client = await connect();
+    deleteResumed.mockResolvedValueOnce(true);
+    const cleaned = await client.callTool({
+      name: "scout_gemini_youtube_candidates", arguments: { continuation_token: expired }
+    });
+    expect(cleaned.content).toEqual([{
+      type: "text",
+      text: "scout gemini youtube candidates could not complete: gemini_scout_continuation_expired."
+    }]);
+    // A failed delete asks for the same token again, which tries again.
+    deleteResumed.mockResolvedValueOnce(false);
+    const pendingDelete = await client.callTool({
+      name: "scout_gemini_youtube_candidates", arguments: { continuation_token: expired }
+    });
+    expect(pendingDelete.content).toEqual([{
+      type: "text",
+      text: "scout gemini youtube candidates could not complete: gemini_scout_continuation_expired (retryable). " +
+        "Its stored search could not be deleted yet; call again later with the same continuation_token to delete it."
+    }]);
+    expect(deleteResumed.mock.calls).toEqual([[CHECKPOINT], [CHECKPOINT]]);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("applies the zero-spend gate to a resumed scout and deletes its stored search", async () => {
+    const token = encodeScoutContinuation({
+      ...TARGET, checkpoint: CHECKPOINT, accounted_nano_usd: 1_000, expires_at_ms: Date.now() + 60_000
+    }, SECRET);
+    delete process.env.ASKRIGOR_GEMINI_BILLING;
+    deleteResumed.mockResolvedValueOnce(true);
+    const client = await connect();
+    const refused = await client.callTool({
+      name: "scout_gemini_youtube_candidates", arguments: { continuation_token: token }
+    });
+    expect(execute).not.toHaveBeenCalled();
+    expect(deleteResumed).toHaveBeenCalledWith(CHECKPOINT);
+    expect(refused.content).toEqual([{
+      type: "text",
+      text: "scout gemini youtube candidates could not complete: gemini_scout_spend_not_authorized. " +
+        "The zero-spend policy allows the Gemini scout only with a key that has no billing " +
+        "(ASKRIGOR_GEMINI_BILLING=none). Use survey_youtube_community instead."
+    }]);
+  });
+
+  it("hands back a held scout's checkpoint without saying it is still searching", async () => {
+    execute.mockResolvedValueOnce({
+      controller_progress: { checkpoint: CHECKPOINT, accounted_nano_usd: 1_000, held_by: "gemini_provider_not_configured" }
+    });
+    const token = encodeScoutContinuation({
+      ...TARGET, checkpoint: CHECKPOINT, accounted_nano_usd: 1_000, expires_at_ms: Date.now() + 60_000
+    }, SECRET);
+    const client = await connect();
+    const held = await client.callTool({
+      name: "scout_gemini_youtube_candidates", arguments: { continuation_token: token }
+    });
+    expect(held.isError).not.toBe(true);
+    const output = held.structuredContent as { scout_status: string; continuation_token: string };
+    expect(output.scout_status).toBe("pending");
+    expect(decodeScoutContinuation(output.continuation_token, SECRET, Date.now()).checkpoint).toEqual(CHECKPOINT);
+    const text = (held.content as Array<{ text: string }>)[0]!.text;
+    expect(text).toContain("Gemini scout is on hold (gemini_provider_not_configured)");
+    expect(text).toContain("Continue discovery with survey_youtube_community");
+    expect(text).not.toContain("still searching");
+  });
+
+  it("reports provider boundaries as errors with their code", async () => {
+    execute.mockResolvedValueOnce({ controller_boundary: { code: "gemini_youtube_scout_request_failed", retryable: true } });
+    const client = await connect();
+    const result = await client.callTool({ name: "scout_gemini_youtube_candidates", arguments: TARGET });
+    expect(result.isError).toBe(true);
+    expect(result.content).toEqual([{
+      type: "text",
+      text: "scout gemini youtube candidates could not complete: gemini_youtube_scout_request_failed (retryable)."
+    }]);
+  });
+});
+
+async function connect(): Promise<Client> {
+  const server = createAskRigorServer();
+  const client = new Client({ name: "askrigor-scout-test", version: "0.1.0" });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await server.connect(serverTransport);
+  await client.connect(clientTransport);
+  return client;
+}
+
+function validationReceipt() {
+  return {
+    packet_name: "askrigor_gemini_youtube_candidate_validation",
+    packet_version: "1.0",
+    source_contract: "gemini_youtube_candidate_handoff",
+    source_packet_version: "2.0",
+    status: "accepted",
+    research_target: TARGET.research_target,
+    candidate_frontier: {
+      frontier_digest: "a".repeat(64),
+      source_candidate_video_ids: ["dQw4w9WgXcQ"],
+      validated_candidate_video_ids: ["dQw4w9WgXcQ"],
+      terminally_rejected_video_ids: [],
+      unresolved_candidate_video_ids: []
+    },
+    validated_candidates: [{ video_id: "dQw4w9WgXcQ" }],
+    rejected_candidates: [],
+    unresolved_candidates: [],
+    suggested_seed_receipts: [],
+    eligible_seed_video_ids: [],
+    access_boundaries: []
+  };
+}

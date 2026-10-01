@@ -192,7 +192,7 @@ function temporaryRoot(): string {
 }
 
 function initialState(
-  researchTarget = "de-identified treatment comparison",
+  researchTarget = "adults comparing de-identified treatment programs",
 ): ResearchSessionState {
   return createInitialResearchSessionState({
     research_target: researchTarget,

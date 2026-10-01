@@ -48,11 +48,16 @@ const promptInjectionPattern = /\b(?:ignore|disregard|override)\s+(?:all\s+)?(?:
  */
 export function screenLessonCandidate(candidate: LessonCandidate): PrivacyScreenResult {
   for (const value of candidateTextValues(candidate)) {
-    const reasonCode = screenText(value);
+    const reasonCode = screenPrivateText(value);
     if (reasonCode) return { safe: false, reasonCode };
   }
 
   return { safe: true, candidate };
+}
+
+/** Whether a text holds something shaped like an API key, access token or private key. */
+export function containsSecretLikeData(value: string): boolean {
+  return secretPatterns.some((pattern) => pattern.test(value));
 }
 
 /** Normalizes the only fields used to create the private duplicate key. */
@@ -90,13 +95,17 @@ function candidateTextValues(candidate: LessonCandidate): string[] {
   ];
 }
 
-function screenText(value: string): PrivacyScreenReasonCode | undefined {
+/**
+ * The deterministic screen for one text: the first rule it breaks, or
+ * undefined. Lessons screen every field with it; findings cards reuse it.
+ */
+export function screenPrivateText(value: string): PrivacyScreenReasonCode | undefined {
   if (forbiddenControlCharacters.test(value) || disallowedInvisibleCharacters.test(value) || markdownOrHtmlLinkPattern.test(value)) {
     return "control_or_markup";
   }
 
   if (hasUnsafeUrl(value)) return "unsafe_url";
-  if (secretPatterns.some((pattern) => pattern.test(value))) return "secret_like_data";
+  if (containsSecretLikeData(value)) return "secret_like_data";
   if (rawConversationPattern.test(value)) return "raw_conversation";
   if (longCopiedMaterialPattern.test(value)) return "quoted_material";
   if (firstPersonMedicalPattern.test(value) || personalAgeOrDatePattern.test(value)) return "personal_narrative";

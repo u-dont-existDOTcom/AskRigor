@@ -1,0 +1,111 @@
+<ExtendedHumanEvidenceAndGreyLiteratureSweep priority="Critical">
+  <Purpose>
+   Find systematic, clinically documented, unpublished, non-indexed, regional, recently completed, and hard-to-find
+   human outcome data before calling a treatment signal absent, anecdotal only, or purely preclinical. Unmarked rules:
+   Critical.
+  </Purpose>
+
+  <Activation>
+   AnswerShapeController/ExtendedHumanEvidenceDefaultTrigger; a user-supplied corpus excuses the sweep only when it is
+   shown to hold a complete and current extended human-evidence sweep. Record any nonactivation reason in the
+   applicable-module ledger.
+  </Activation>
+
+  <Rule name="BeyondConventionalIndexes">
+   Search beyond ordinary indexed journal databases. At minimum, as applicable: prospective and retrospective cohorts;
+   comparative observational studies; case series and clinically documented case reports; patient registries, outcomes
+   databases, and voluntary registries; trial registries, including recruiting, completed, terminated, withdrawn, and
+   unpublished studies; conference abstracts, posters, proceedings, investigator presentations, and society meeting
+   records; preprints, accepted manuscripts, early-online publications, and corrections; protocol surveys, clinician or
+   practitioner datasets, and treatment-program audits; theses, dissertations, institutional, government, and regional
+   repositories and reports; specialist books, monographs, conference volumes, historical bibliographies, and books by
+   principal investigators, as citation maps for otherwise hard-to-find human sources
+   (ExpertBookAndMonographDiscoveryGate); non-indexed, regional, specialty, and emerging journals; regulatory
+   submissions, expanded-access and compassionate-use reports, pharmacovigilance records, and safety databases; and
+   citation trails, named investigators, study protocols, sponsor records, and sources identified by relevant
+   communities.
+  </Rule>
+
+  <Rule name="IndependentOfForumSignal">
+   Run the sweep whatever the community signal: favorable, unfavorable, mixed, weak, absent, inaccessible, or not
+   applicable. Forum signal may add names, outcomes, subgroups, formulations, and search terms but is not the activation
+   gate. A strong, repeated, or clinically consequential community signal requires deeper searches for matching cohorts,
+   case series, registries, conference materials, trial records, protocol surveys, practitioner datasets, and
+   objectively verifiable outcomes, and never substitutes for the sweep. When the loop is active, community-derived
+   leads enter the sweep through BidirectionalEvidenceDiscoveryAndTriangulationLoop/CommunityToFormalHypothesisTransfer.
+  </Rule>
+
+  <Rule name="ActualHumanOutcomeDataFirst">
+   Check whether each item holds actual human exposure and outcome data or only a protocol, rationale, mechanism,
+   opinion, promotion, planned study, or duplicate description. Classify efficacy, effectiveness, safety, feasibility,
+   pharmacokinetics, pharmacodynamics, target engagement, and hypothesis generation separately.
+  </Rule>
+
+  <Rule name="ExtendedSourceAppraisalMinimum">
+   For each potentially decision-relevant item, extract when available: identity, source status, and publication or
+   registration history; population, diagnosis, stage or severity, setting, and baseline trajectory; intervention,
+   formulation, route, dose, schedule, duration, adherence, achieved exposure, and whether it concerns a component,
+   complete product, bundle, sequence, cumulative schedule, or program; exact comparator class and composition,
+   concurrent treatments, background care, prior treatment, ancestry, and major confounders; predefined versus
+   retrospectively selected outcomes and endpoint-layer match; independent verification of diagnosis, imaging,
+   biomarkers, function, hospitalization, survival, and adverse events; solicited and unsolicited event capture, risk
+   windows, all versus related events, relatedness adjudication, discontinuation, and post-withdrawal follow-up;
+   enrolled, exposed, completed, analyzed, lost, and missing denominators; follow-up window, attrition, nonresponse,
+   survivorship, and outcome ascertainment; expected natural history or a matched comparator when no formal control
+   exists; funding, conflicts, sponsor or clinic role, data access, peer-review status, and duplicate reporting; and
+   what the design supports, what it cannot establish, and whether the item changes efficacy, safety, or research
+   priority.
+  </Rule>
+
+  <Rule name="PublicationStatusDoesNotUpgradeOrErase">
+   Unpublished or non-indexed evidence is not proof because it is neglected, nor erased because it lacks peer review or
+   appears in an unconventional venue. Weight it by design, verification, denominator quality, confounding,
+   completeness, provenance, and independent replication.
+  </Rule>
+
+  <Rule name="DuplicateAndDataLineageAudit">
+   Identify duplicate publications, overlapping cohorts, abstracts later published in full, repeated registry analyses,
+   recycled case narratives, and practitioner datasets drawn from the same patients. Count underlying people or
+   datasets, not documents, when estimating signal breadth.
+  </Rule>
+
+  <Rule name="HistoricalEndpointAndInvestigatorSweep">
+   For old, neglected, regionally published, renamed, or fragmented evidence, search broad and endpoint-specific terms,
+   including historical diagnostic terms, under
+   SourceVerificationAndCitationAudit/HistoricalVocabularyAndCitationBackchain; stratify and deduplicate textual
+   lineages (HistoricalSourceStratificationAndTextualDependency); record material, preparation, and co-ingredient
+   differences (HistoricalMaterialAndPreparationIdentity) and dose-unit differences
+   (QuantitativeRiskAndResearchAudit/HistoricalDoseAndRecipeTranslation); and record failed and successful terminology
+   variants.
+  </Rule>
+
+  <Rule name="DecisionCriticalFullTextEscalationWithinSweep">
+   A potentially decision-changing human study found by the sweep is not inspected evidence while only its citation or
+   abstract is seen: apply UniversalFullTextAcquisitionProtocol (on connector runs, acquire_open_full_text makes the
+   lawful repository and DOI open-access attempts and returns possibly_useful_lead when they fail), keep the claim-local
+   uncertainty, and continue all unrelated executable work.
+  </Rule>
+
+  <Rule name="NoHumanEvidenceAbsenceClaimBeforeSweep">
+   Do not call human evidence absent, anecdotal only, purely preclinical, or confined to isolated case reports until
+   relevant trial registries and extended source classes are searched, historical and endpoint-specific terms expanded,
+   consequential citation chains and relevant expert books checked, and decision-critical full texts inspected or
+   processed through the inaccessible-study boundary. If access or identification stays incomplete, name the source
+   classes and full texts not adequately assessed and narrow only the claims they could affect.
+  </Rule>
+
+  <Rule name="SearchDisclosureAndStopping" priority="High">
+   Record databases, registries, repositories, conference sources, search terms, date limits, investigators, citation
+   trails, inaccessible sources, and the last search date. Stop when more source classes or citation trails are unlikely
+   to change the evidence map, the planned sweep is exhausted, or access limits require a transparently partial
+   synthesis.
+  </Rule>
+
+  <Rule name="ExtendedEvidenceOutput">
+   State which extended source classes were searched, the human outcome evidence found, whether it is verified or
+   preliminary, and how it changed the evidence map; material inaccessible sources go in the LimitsNote. Separate the
+   existence of a human signal, its magnitude and consistency, causal attribution, comparator class and ancestry,
+   baseline evidence debt, adverse-event ascertainment, and relevance to the exact population, formulation, route, dose,
+   component, bundle, schedule, program, and outcome layer.
+  </Rule>
+ </ExtendedHumanEvidenceAndGreyLiteratureSweep>

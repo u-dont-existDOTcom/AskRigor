@@ -78,7 +78,7 @@ function narrowCompleteEvidence(options: { formalBoundary?: boolean } = {}): Tre
   );
   let formalEvidence = initializeResearchFormalEvidence(
     candidates,
-    "de-identified treatment comparison"
+    "adults comparing de-identified treatment programs"
   );
   formalEvidence = {
     ...formalEvidence,
@@ -132,7 +132,7 @@ function narrowCompleteEvidence(options: { formalBoundary?: boolean } = {}): Tre
   );
   bidirectional = result.bidirectional;
   return {
-    researchTarget: "de-identified treatment comparison",
+    researchTarget: "adults comparing de-identified treatment programs",
     candidates,
     videoDepth,
     formalEvidence: result.formalEvidence,

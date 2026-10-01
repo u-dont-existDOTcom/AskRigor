@@ -83,6 +83,7 @@ export {
 } from "./public-evidence-gap-intake.js";
 export {
   contributionPrivacyBoundarySchema,
+  EARLIER_RESEARCH_USE_NOTICE_VERSIONS,
   freeContributorAgreementSchema,
   InMemoryResearchContributorAccessStore,
   PostgresResearchContributorAccessStore,
@@ -96,6 +97,8 @@ export {
   type ContributionPrivacyBoundary,
   type FreeContributorAgreement,
   type PostgresResearchContributorAccessStoreOptions,
+  type ResearchUseNoticeVersion,
+  type StoredFreeContributorAgreement,
   type ProposalInsertResult,
   type ResearchAccessView,
   type ResearchContributionProposalKind,

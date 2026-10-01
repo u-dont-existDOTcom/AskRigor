@@ -77,7 +77,7 @@ function initialSession() {
     sha256: "b".repeat(64)
   });
   const initial = createInitialResearchSessionState({
-    research_target: "de-identified treatment comparison",
+    research_target: "adults comparing de-identified treatment programs",
     diagnosis_status: "diagnosis_not_specified"
   }, protocols);
   const scouted = recordAutomatedScoutCompletion(initial, {

@@ -96,7 +96,7 @@ function manifest(protocol: "universal" | "hrp", hash?: string) {
 
 function initialState(): ResearchSessionState {
   return createInitialResearchSessionState({
-    research_target: "de-identified treatment comparison",
+    research_target: "adults comparing de-identified treatment programs",
     diagnosis_status: "diagnosis_not_specified"
   }, protocolBindingsFromManifests(manifest("universal"), manifest("hrp")));
 }
@@ -778,6 +778,32 @@ describe("research session controller core", () => {
     );
   });
 
+  it("goes on to native discovery when every scouted video has a title other than the scout's", () => {
+    // Rerunning the scout would reword its titles again (review of 62cefa2: the session looped on scouting).
+    const rejected = rejectedResearchReceipt();
+    const reworded = recordAutomatedScoutCompletion(initialState(), {
+      providerResponseId: "interaction-reworded",
+      packet: researchPacket(),
+      receipt: {
+        ...rejected,
+        rejected_candidates: rejected.rejected_candidates.map((candidate) => ({
+          ...candidate,
+          metadata_access_status: "api_visible_complete",
+          rejection_reasons: ["declared_title_mismatch"],
+          provider_title: "Another title",
+          declared_title: "The scout's title"
+        }))
+      }
+    });
+
+    expect(reworded.operations.automated_video_scout).toMatchObject({
+      status: "BLOCKED_TERMINAL",
+      boundary: { classification: "TERMINAL_NONRETRYABLE", code: "AUTOMATED_SCOUT_IDENTITIES_TERMINAL" }
+    });
+    expect(deriveRequiredNextCapabilities(reworded)).toContain("native_video_discovery");
+    expect(deriveRequiredNextCapabilities(reworded)).not.toContain("automated_video_scout");
+  });
+
   it("reconciles a retained partial frontier after a later terminal scout attempt", () => {
     const bounded = livePartialScout();
     const legacyBoundary = {
@@ -1236,7 +1262,9 @@ describe("research session controller core", () => {
       limitations_digest: "e".repeat(64)
     }, {
       ...permit,
-      signature: `${permit.signature.slice(0, -1)}A`
+      // The first character carries six signature bits; the last one carries
+      // only four, and replacing it with "A" is a no-op one time in sixteen.
+      signature: `${permit.signature.startsWith("A") ? "B" : "A"}${permit.signature.slice(1)}`
     }] as FinalizationPermit[]) {
       expect(() => verify(candidate)).toThrow(ResearchFinalizationPermitError);
     }

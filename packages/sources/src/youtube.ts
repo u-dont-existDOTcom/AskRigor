@@ -1819,7 +1819,7 @@ const youtubeFailure = (error: unknown, operation: YoutubeOperation): YoutubeFai
   const reason = upstreamReason(error);
   if (
     operation === "search" &&
-    status === 403 &&
+    (status === 403 || status === 429) &&
     (reason === "quotaExceeded" || reason === "dailyLimitExceeded")
   ) return YOUTUBE_SEARCH_QUOTA_EXHAUSTED_CODE;
   if (status === 429 || reason === "quotaExceeded") return "youtube_rate_limited";

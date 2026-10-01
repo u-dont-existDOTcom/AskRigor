@@ -89,7 +89,7 @@ describe("interview-evidence protocol integration", () => {
   it("adds the Universal 20.5.22 gate without weakening current integrity controls", async () => {
     const text = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
     expect(XMLValidator.validate(text)).toBe(true);
-    expect(text).toMatch(/version="20\.5\.27" revisionDate="2026-09-30"/u);
+    expect(text).toMatch(/version="20\.5\.33" revisionDate="2026-09-30"/u);
     for (const required of [
       '<revision version="20.5.22" priority="Critical">',
       '<interview_evidence_information_gain_gate priority="Critical">',
@@ -123,7 +123,7 @@ describe("interview-evidence protocol integration", () => {
   it("adds the HRP 20.5.26 patient-history application and regression", async () => {
     const text = await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
     expect(XMLValidator.validate(text)).toBe(true);
-    expect(text).toMatch(/version="20\.5\.29" revisionDate="2026-09-12"/u);
+    expect(text).toMatch(/version="20\.6\.8" revisionDate="2026-09-30"/u);
     for (const required of [
       '<Revision version="20.5.26" priority="Critical">',
       '<PatientHistoryAndRecurrenceEvidenceGate priority="Critical">',

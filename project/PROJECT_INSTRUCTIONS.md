@@ -35,13 +35,13 @@ REQUIRED cannot become NOT REQUIRED. Finding an excellent RCT does not satisfy o
 
 ## 2. Execute required modules
 
-Read `FORUM_SIGNAL_MODULE.md`; use `survey_youtube_community`; select up to three materially different candidates per batch; widen while expected information gain is positive.
+Read `FORUM_SIGNAL_MODULE.md`; discover with `scout_gemini_youtube_candidates` (`survey_youtube_community` is the fallback); select up to three materially different candidates per batch; widen until `finalize_research` accepts.
 
 Before selection, inventory materially distinct treatment classes. Split umbrellas by stage/outcome/horizon/benefit/failure/progression. Fingerprint components/dose/frequency/duration/supervision/adherence/cointerventions/stage. Missing=`program not described`. Do not pool “exercise,” PT, diet, injections, or conservative care. Derive breadth from valid state, never caller labels; two or three videos cannot establish coverage.
 
-Broad treatment/avoid-surgery requires `scout_gemini_youtube_candidates` and its validated frontier; screen every lead. Summaries are not evidence.
+Screen every scout lead against its validated frontier; summaries are not evidence.
 
-Ledger query/direction, fingerprint, decision value, classes/fingerprints lacking selection/formal follow-up. `get_youtube_video`→`get_youtube_transcript` to exhaustion/boundary; consume its server-produced `coverage_receipt` and opaque Action handle; never combine skipped/restarted counts. If `get_youtube_transcript` is unavailable, record `transcript_tool_unavailable`, withhold creator claims/watchlist, and never call an undeclared tool. Metadata/comments do not establish creator content.
+Ledger query/direction, fingerprint, decision value, classes/fingerprints lacking selection/formal follow-up. `get_youtube_video`→`get_youtube_transcript` to exhaustion/boundary; consume its server-produced `coverage_receipt` and opaque Action handle; never combine skipped/restarted counts. If `get_youtube_transcript` is unavailable, record `transcript_tool_unavailable`, label creator claims unverified, and never call an undeclared tool. Metadata/comments do not establish creator content.
 
 Audit exact programs; weak or mismatched comparator narrows inference. Call `audit_youtube_video_community`; continue while `continuation_recommended: true`. That field is authoritative for immediate automatic resubmission; false tokens are deferred recovery state. Read-only continuation needs no ceremonial user approval. Before `support_not_located`, separate matched/adjacent evidence and steelman without inflation.
 
@@ -51,14 +51,14 @@ Decision-important DOI: exhaust `acquire_open_full_text`; validate the source-li
 
 Before delivery, check the actual final answer against the existing ledger; required sources, limits and target identity must survive every rewrite.
 
-Do not emit a final verdict while work is incomplete. Do not emit the full-HRP opening until every required receipt has passed.
+No final verdict while work is incomplete; first call `finalize_research` with every `research_receipt`: `not_ready`=do its steps; `ready_with_limits`=state them.
 
 A partial or bounded answer does not waive executable required work; one unavailable full text or inaccessible private community cannot stop it.
 Review usable records from partial corpora and label them partial; bound claims to the observed subset. Coverage locks govern completeness, representativeness, prevalence, and broad ranking—not evidence eligibility.
 
-`HRP-complete` requires per-program formal retrieval and passed receipts. Require no unresolved material hypothesis or `incomplete` directional/bidirectional field; transcript-backed claims/withholding; all three treatment locks; `youtube_synthesis_lock: pass`; selected discussion audits' `synthesis_lock: pass`. Call `assess_treatment_landscape_coverage`; unavailable=`assessor_tool_unavailable` and fail closed. A valid ≥8-candidate/≥6-program ledger blocks below 8 fully audited videos/6 programs. Only terminal nonretryable boundaries permit bounded non-ranking output. **Videos actually audited** needs linked title, program, value, and plain-language boundary.
+`HRP-complete` requires per-program formal retrieval and passed receipts. Require no unresolved material hypothesis or `incomplete` directional/bidirectional field; transcript-backed claims/withholding; all three treatment locks; `youtube_synthesis_lock: pass`; selected discussion audits' `synthesis_lock: pass`. Call `assess_treatment_landscape_coverage`; unavailable=`assessor_tool_unavailable` and fail closed. Only terminal nonretryable boundaries permit bounded non-ranking output. **Videos actually audited** needs linked title, program, value, and plain-language boundary.
 
-Continue executable work if `further_expansion_likely_to_improve_answer` would be `yes`. A final answer may report only `no` or `blocked` with a reason.
+A first pass stops at saturation, ~3 fully audited videos or ~2 rounds, and ends with open leads. Deep research continues while `further_expansion_likely_to_improve_answer` would be `yes`; a complete answer reports only `no` or `blocked` with a reason.
 
 Translate internal status codes into plain language; expose codes only when the user explicitly asks for a technical audit or debug export.
 

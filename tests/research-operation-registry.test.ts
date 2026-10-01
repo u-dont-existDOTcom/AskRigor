@@ -29,7 +29,12 @@ const EXPECTED_NAMES = [
   "manage_research_access",
   "submit_research_contribution",
   "review_research_contribution",
-  "review_evidence_gap_submissions"
+  "review_evidence_gap_submissions",
+  "assess_treatment_landscape_coverage",
+  "scout_gemini_youtube_candidates",
+  "finalize_research",
+  "submit_lesson_candidate",
+  "save_research_findings"
 ] as const;
 
 interface RegistryEntry {
@@ -43,7 +48,7 @@ interface RegistryEntry {
 }
 
 describe("shared research-operation registry", () => {
-  it("is the exact frozen 27-operation source with executable full-text audits", async () => {
+  it("is the exact frozen 32-operation source with executable full-text audits", async () => {
     const researchModule = await import("../apps/research-mcp/src/index.js") as
       Record<string, unknown>;
     const operations = researchModule.RESEARCH_OPERATIONS as
@@ -51,13 +56,16 @@ describe("shared research-operation registry", () => {
 
     expect(operations).toBeDefined();
     expect(operations!.map(({ name }) => name)).toEqual(EXPECTED_NAMES);
-    expect(new Set(operations!.map(({ actionPath }) => actionPath)).size).toBe(27);
+    expect(new Set(operations!.map(({ actionPath }) => actionPath)).size).toBe(32);
     expect(operations!.every(({ name, actionPath, annotations }) =>
       actionPath === `/actions/research/${name}` &&
       annotations.readOnlyHint === !([
         "manage_research_access",
         "submit_research_contribution",
         "review_research_contribution",
+        "submit_lesson_candidate",
+        "finalize_research",
+        "save_research_findings",
       ] as string[]).includes(name) &&
       annotations.destructiveHint === false &&
       annotations.openWorldHint === false
@@ -65,6 +73,6 @@ describe("shared research-operation registry", () => {
 
     const inventory = await createToolInventory();
     expect(inventory.tools.map(({ name }) => name)).toEqual(EXPECTED_NAMES);
-    expect(inventory.tools).toHaveLength(27);
+    expect(inventory.tools).toHaveLength(32);
   });
 });

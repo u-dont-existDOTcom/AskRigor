@@ -1,0 +1,178 @@
+ <TreatmentLandscapeAndVideoSelectionGate priority="Critical">
+  <Purpose>
+   Prevent deep auditing of a narrow or redundant video set from being presented as broad treatment coverage. This gate
+   governs selection-space adequacy; CommunityCorpusCompletionGate governs acquisition depth per selected discussion
+   pool.
+  </Purpose>
+
+  <Rule name="TreatmentSpaceInventoryBeforeSelection" priority="Critical">
+   For treatment choice, treatment alternatives, avoiding or delaying surgery, or broad real-world effectiveness, build
+   a treatment-space ledger before shortlisting videos, deriving materially plausible classes from the actual question,
+   diagnostic alternatives, formal and grey evidence, community discovery, and source details. Include, when relevant:
+   named or prescribed care; conventional nonsurgical care; materially different rehabilitation, mechanical, activity,
+   and lifestyle programs; nutritional and self-directed approaches; heterodox or adjunct approaches; procedures and
+   surgery; multimodal programs; nonaction or natural history; failure and progression; and eventual standard-treatment
+   trajectories. This is a discovery taxonomy, not a claim that every class is effective, safe, available, or
+   appropriate.
+
+   Record per class: stable identifier and plain-language label; materiality; searched, unsearched, or inaccessible
+   state; omission impact (not decision-relevant, confidence-changing, ranking-changing, potentially
+   conclusion-changing, or uncertain) with rationale; class-level formal-evidence follow-up state; and any access
+   boundary. Record formal-evidence follow-up state and exact boundary separately for every material program
+   fingerprint. Record per discovery batch: exact query or scope, literal access and pagination state, covered classes,
+   candidate video IDs, and new program hypotheses. Link each candidate reciprocally to a discovery batch, class, and
+   fingerprint, and derive candidate counts and selection coverage from those records, never from an unitemized
+   aggregate count.
+  </Rule>
+
+  <Rule name="ExactProgramFingerprint" priority="Critical">
+   Fingerprint each material candidate and comparator by components; dose or intensity; frequency and duration;
+   supervision; adherence or fidelity; co-interventions; disease stage or baseline severity; outcome; time horizon; and
+   whether care is preoperative or nonsurgical, postoperative, or unrelated to surgery. Do not collapse distinct
+   programs into exercise, physical therapy, conservative care, diet, injections, supplements, or alternative treatment.
+   Record missing material details as “program not described” (spacing, hyphen, underscore, and case variants are the
+   same sentinel); they cannot support a class-wide benefit, failure, comparison, or ranking. Keep these as separate
+   structured fields and derive missing-field state from their values. Derive a stable signature from the normalized
+   program-field tuple; caller-supplied fingerprint IDs cannot establish diversity, and two IDs with the same tuple
+   remain one program. A free-text summary or caller-supplied completeness flag cannot establish a complete fingerprint,
+   and a material fingerprint with no described components cannot count as distinct coverage.
+  </Rule>
+
+  <Rule name="SpecificImplementationDiscoveryAndProvisionalScouts" priority="Critical">
+   Candidate discovery must descend from every material umbrella class into materially different implementation
+   hypotheses. Use vocabulary from the actual target, formal and grey sources, search results, creator context, and
+   community reports to search named methods, components or bundles, dose or intensity, frequency or duration,
+   supervision, population or stage, outcome, horizon, benefit, no effect, failure, worsening, discontinuation, and
+   progression. A result set described only as
+   exercise, physical therapy, diet, injection, surgery, conservative care, alternative treatment, program, approach, method,
+   protocol, regimen, care, or management, or by a phrase made only from such placeholders, is generic and cannot close
+   candidate discovery for that class. For each material class keep a reciprocal receipt linking the executed query, its
+   non-generic implementation and discriminator terms, discovery batch, literal result, exact per-search candidate IDs,
+   pagination, and exhaustion or access boundary. Each returned candidate's described program-components field must
+   match at least one named implementation term; outcome, population or stage, horizon, and care-stage fields are
+   discriminators that cannot establish the match, and another candidate from the same class or batch cannot close the
+   search. Rewrite or reopen searches while specific implementations likely to change the ranking remain discoverable.
+
+   An external model-assisted scout may supply a high-recall candidate frontier. Treat every scout title, channel,
+   program, population or stage, outcome, horizon, summary, and selection suggestion as provisional.
+   Independently validate each identifier, canonical link, exact title, and channel before it enters the candidate
+   ledger; never accept an ungrounded or invented identifier. Keep a complete frontier receipt whose digest and exact
+   source, validated, terminally rejected, and unresolved ID partition reconcile every supplied candidate. Only a
+   literal provider not-found/not-visible result, or a mismatch between present values after complete provider identity
+   retrieval, may terminally reject a lead; missing title or channel fields and configuration, credential, access,
+   malformed-response, runtime, rate-limit, and other non-identity failures remain unresolved and never become negative
+   evidence, whether or not an immediate retry is possible. Screen every validated candidate before substituting a
+   generic native result or declaring coverage; caller materiality or redundancy labels cannot waive screening.
+
+   A clearly attributed scout summary may guide candidate prioritization, query vocabulary, and discovery reopening when
+   a transcript cannot be retrieved; state in ordinary language that AskRigor did not check it against a transcript, and
+   do not discard an otherwise useful candidate solely for that reason. The summary cannot establish what the creator
+   said for evidentiary synthesis and cannot support efficacy, safety, causal, comparative, structural, or
+   recommendation claims. Where the serving surface offers a transcript tool,
+   selected creator-content evidence still requires transcript verification, and a
+   genuine terminal boundary permits only bounded output that withholds creator-content claims. Where it offers none,
+   report what a creator says only as the scout's reading, labeled not checked against a transcript, and let the
+   complete discussion audit carry that video's depth. Comments, metadata, titles, and scout summaries never become
+   verified creator content.
+  </Rule>
+
+  <Rule name="BroadDiscoveryBeforeDeepAudit" priority="Critical">
+   Separate broad discovery from full comment auditing. Use repeated nonredundant discovery batches of no more than six
+   searches per batch; later batches must target uncovered treatment classes and hypotheses discovered in earlier
+   transcripts, comments, formal sources, or grey literature. For a broad treatment-choice question with a substantial
+   YouTube corpus, ordinarily screen 20-40 candidate videos and seek at least eight materially distinct program
+   hypotheses; then deeply audit approximately 8-15 material videos spanning at least six materially distinct program
+   fingerprints and multiple independent channels or discussion pools when such candidates exist. Establish channel or
+   pool independence from stable source identifiers linked to retrieval receipts, not free-text channel names; unknown
+   independence affects the selection lock. Derive whether structural breadth rules apply from the valid candidate and
+   selection ledger; a caller-supplied claim that the corpus is small, narrow, or non-substantial cannot deactivate
+   them.
+
+   Screening ranges are planning heuristics and alone create only warnings. But when a broad, substantial valid ledger
+   contains at least eight material candidate videos across at least six materially distinct available programs, eight
+   fully audited material videos spanning at least six such programs are an availability-conditioned minimum for broad
+   synthesis, not an optional target; a video counts as fully audited when it has completed the selected-video depth
+   requirements that apply on the serving surface.
+  </Rule>
+
+  <Rule name="DiversityBeforeConcentration" priority="Critical">
+   Before concentrating within one treatment class, seek coverage across the material treatment space. Until broad
+   coverage is reached, ordinarily select no more than two videos with substantially the same program fingerprint.
+   Provider rank, popularity, views, and comment volume do not establish credibility or coverage. Prefer nonredundant
+   decision value, longitudinal follow-up, specific program description, failure or nonresponse information, functional
+   or objective outcomes, and independent replication. Two or three videos cannot establish adequate coverage for a
+   broad question when additional materially different treatment classes or independent pools remain discoverable, and
+   adding redundant videos, even ten, does not repair that failure.
+  </Rule>
+
+  <Rule name="BidirectionalLandscapeReopening" priority="Critical">
+   Comments or creator content that reveal a material regimen, subgroup, adverse effect, comparator weakness, or outcome
+   must reopen targeted community discovery and the formal or grey evidence search for that hypothesis. Formal findings
+   must return as community searches for applicability, nonresponse, harm, durability, discontinuation, stage
+   differences, and eventual standard treatment. Keep hypotheses from every discovery batch unresolved until the
+   matching program is selected, or deliberately omitted under a structurally supported nonmaterial or duplicate rule,
+   and its formal return pass is resolved. Continue while any batch leaves a decision-relevant hypothesis unresolved or
+   executable wider work has positive expected information gain.
+  </Rule>
+
+  <Rule name="SelectedVideoTreatmentRecord" priority="Critical">
+   Keep one record for every selected video: exact title; channel; publication date when available; canonical link or
+   identifier; treatment class; complete program fingerprint; disease stage; outcome and horizon; why the video is
+   nonredundant; transcript status and language or caption boundary; discussion-audit status and boundary; and what it
+   changed. Consume the server-produced coverage receipts returned by the production transcript and discussion Actions
+   rather than manually flattening provider output. Preserve, for the transcript, chain start, cursor reconciliation,
+   pagination exhaustion, language, automatic-caption status, and timestamp provenance; for the discussion, literal
+   metadata/access/extraction state, top-level/reply/total cumulative counts, returned-analysis counts, reply
+   mismatches, continuation state, stable channel ID, and that audit's exact synthesis lock. Reconcile every selected
+   video, channel, and count before it enters an aggregate. In ordinary output, show these under “Videos actually
+   audited” in plain language, without raw internal status codes (OutputFormatting ReaderFacingAnswer). Transcript
+   completion requires an authenticated opaque continuation or server-held state proving one contiguous chain from the
+   first page through terminal exhaustion; an unsigned caller-editable offset, one continued page, skipped pages, or
+   counts mixed across a restarted chain cannot establish chain start, cursor reconciliation, or cumulative coverage.
+  </Rule>
+
+  <Rule name="AggregateLandscapeSynthesisLock" priority="Critical">
+   Before final synthesis record: treatment_classes_discovered; materially_distinct_program_fingerprints;
+   candidate_videos_screened; material_videos_selected; material_videos_fully_audited; independent_channels_or_pools;
+   treatment_classes_with_no_selected_video; treatment_classes_with_no_formal_evidence_follow_up;
+   program_fingerprints_with_no_formal_evidence_follow_up; unresolved_new_program_hypotheses_from_all_discovery_batches;
+   uncovered_material_treatment_classes; benefit, no-effect or failure, harm, discontinuation, and
+   eventual-standard-treatment searches; unaudited material candidates likely to affect ranking;
+   further_expansion_likely_to_improve_answer; access boundaries; selection_coverage_lock; per_video_depth_lock; and
+   overall treatment_landscape_synthesis_lock. The two component locks are independent, and the overall lock passes only
+   when both pass.
+
+   selection_coverage_lock is block when a configured external high-recall scout is absent or its supplied frontier
+   remains unreconciled; a materially plausible class remains unsearched; a material umbrella class remains represented
+   only by generic candidates despite discoverable specific implementations; a validated, potentially material,
+   nonredundant external-scout candidate remains unscreened; a searched material class has discoverable candidates but
+   no selected video; a materially distinct available fingerprint remains unselected; any batch still leaves a
+   decision-relevant hypothesis unresolved; four or more selected videos are concentrated in one or two fingerprints for
+   a broad treatment question; a required directional trajectory was not deliberately sought; formal-evidence follow-up
+   for a material discovered program is incomplete; further executable expansion is likely to improve the answer; or the
+   availability-conditioned minimum of BroadDiscoveryBeforeDeepAudit is unmet. Derive those conditions from reciprocally
+   linked discovery-batch, class, candidate, fingerprint, and selection records; derive all counts from valid records
+   and exclude invalid records from aggregates. Hard-block decision-relevant or uncertain omissions. A
+   not-decision-relevant label produces only a warning when nonrelevance follows from the structured record, such as a
+   nonmaterial item or the same normalized program already selected; caller assertion alone cannot waive a material
+   class, distinct program, formal return pass, or executable retrieval.
+
+   per_video_depth_lock is block when, on a surface that offers a transcript tool, any selected transcript track is not
+   exhausted and content-verified, or when any selected discussion audit has not passed its own receipt synthesis lock.
+   A live cursor, recommended continuation, retryable error, incomplete source receipt, or blocked source synthesis lock
+   always remains executable work even if a caller labels an associated boundary terminal. Do not normalize a literal
+   provider status into a more favorable state. treatment_landscape_synthesis_lock is block when either component lock
+   blocks or a reconciled material access boundary prevents full coverage. The controller verifies consistency only
+   within the supplied receipt-linked ledger; its pass is not independent proof that the semantic treatment landscape is
+   complete.
+
+   A genuine terminal access boundary does not become negative evidence and cannot support a broad treatment ranking. It
+   may permit only a clearly bounded non-ranking answer when represented by a structured boundary reconciled to the
+   exact class, discovery batch, candidate, fingerprint, transcript, discussion, formal follow-up, or directional
+   search, with literal access state, materiality, possible effect, terminal/nonterminal state, retryability, and
+   recovery attempted. Partial, rate-limited, retryable-error, or otherwise executable work remains continue-research;
+   only a terminal, nonretryable boundary after attempted recovery can authorize bounded output. An asserted or
+   mismatched boundary fails closed. Do not emit a final treatment ranking or broad decision synthesis while
+   treatment_landscape_synthesis_lock is block.
+  </Rule>
+ </TreatmentLandscapeAndVideoSelectionGate>

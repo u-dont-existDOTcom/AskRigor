@@ -91,6 +91,7 @@ The runtime requires these exact names and constraints:
 | `ASKRIGOR_ACTIONS_API_KEY` | Dedicated Action Bearer secret; installed only on the server and in the GPT editor authentication control. |
 | `OPENAI_API_KEY` | Dedicated server-only OpenAI API project key for the privacy check. |
 | `ASKRIGOR_GEMINI_API_KEY` | Dedicated restricted paid Gemini API project key for automated public-candidate scouting. The controlled path uses a temporary background Interaction and requests deletion after use. Without the key the server returns `gemini_provider_not_configured`; never paste it into chat or the GPT editor. |
+| `ASKRIGOR_GEMINI_BILLING` | Set to `none` only when the configured Gemini key has no billing. Every scout route starts or resumes a scout only then, under the owner's zero-spend policy (`governance/chat-work-authority-policy.json`). Otherwise the MCP `scout_gemini_youtube_candidates` tool refuses with `gemini_scout_spend_not_authorized` and the model uses `survey_youtube_community`, the Custom GPT Action and research sessions report `gemini_provider_not_configured` and continue with the YouTube survey, and a resumed scout's stored search is deleted. |
 | `ASKRIGOR_AI_BUDGET_LEDGER` | Exact absolute path `/var/lib/askrigor-actions/ai-budget.json`. |
 | `ASKRIGOR_AI_MONTHLY_BUDGET_USD` | Canonical production literal `50.00`; the runtime accepts only exact `50` or `50.00`. |
 | `ASKRIGOR_GITHUB_APP_ID` | Positive decimal App ID. |
@@ -102,7 +103,9 @@ The server enforces one shared hard monthly cap of **$50.00**, recorded as an ag
 nano-USD ledger. Each Gemini scout reserves at most **$1.00** from that
 same cap before provider execution. One scout can use one grounded-search
 interaction and, only if its packet fails strict validation, one no-search
-correction interaction under the same reservation. The server accepts only the fixed privacy model
+correction interaction under the same reservation. A scout whose reported usage costs more
+than its reservation is refused (`gemini_scout_request_over_budget`) and charged the full $1.
+The server accepts only the fixed privacy model
 `gpt-5.4-nano-2026-03-17`; no moving alias is allowed.
 The lesson privacy check and the low-level Gemini route use provider storage-disabled modes. Controlled Gemini scouting uses temporary provider storage for background execution and requests deletion after each interaction. Budget exhaustion, ledger failure,
 privacy-model failure, or invalid structured output fails closed; none bypasses

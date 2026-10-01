@@ -1,0 +1,57 @@
+ <CommunityCorpusCompletionGate priority="Critical">
+  <Purpose>
+   Keep evidence-review eligibility separate from corpus completion, so incomplete coverage is labeled without
+   discarding retrieved evidence or misrepresenting a discovery query as the unseen corpus. This gate controls
+   completion, representativeness, and broad-ranking claims; the platform-specific community and YouTube rules control
+   acquisition, extraction, deduplication, and evidence grading.
+  </Purpose>
+
+  <Rule name="PartialRetrievalRemainsBoundedEvidence" priority="Critical">
+   Source-appropriate terminal successful access_status values are complete and api_visible_complete. If any
+   principal-community retrieval reports another access_status; extraction_coverage as partial, search-only, ranked,
+   manual, creator-only, or another incomplete class; an unconsumed next_cursor; has_more=true; or an explicit
+   limitation that results are query-bounded or incomplete, label the corpus partial and preserve the exact records,
+   acquired denominator, method, source scope, time or query window, pagination state, and limitations.
+
+   Review and synthesize the retrieved records as bounded evidence;
+   never exclude them solely because the corpus is partial.
+   Do not extrapolate their composition, prevalence, direction, rarity, typicality, strength, weakness, or absence to
+   unseen records, and do not use zero query matches as evidence about the unseen corpus. If more retrieval is useful
+   and possible in the current interaction, continue automatically, retaining the already reviewed partial evidence. If
+   broader retrieval is genuinely impossible, partial output alone does not establish an access boundary: preserve the
+   gap, and apply CommunityCorpusAccessBoundaryCompletion when a completion claim depends on that boundary.
+  </Rule>
+
+  <Rule name="QueryBoundedYouTubeSearchIsDiscoveryOnly" priority="Critical">
+   YouTube comment retrieval using searchTerms, keywords, search terms, or other query filters is a
+   discovery operation only: it may locate candidate firsthand reports but can never by itself constitute the
+   directional signal corpus. For every material selected video, retrieve the broadest accessible
+   unfiltered top-level comment corpus, then paginate until exhausted or a genuine access boundary is established,
+   retrieve accessible replies, and reconcile expected versus retrieved replies before using the video for directional
+   community-signal classification. Expand to additional material videos or independent discussion pools when platform
+   coverage requires it, and deduplicate unique people x treatment or exposure episodes rather than counting comments as
+   independent outcomes.
+  </Rule>
+
+  <Rule name="NoPrematureSaturation" priority="Critical">
+   Do not invoke search saturation while additional pages, unfiltered comments, replies, material principal videos, or
+   independent community discussion pools remain retrievable. A small or empty result caused by a restrictive query is
+   not evidence that the corpus itself is sparse and cannot support a weak, absent, rare, indeterminate, or no-signal
+   verdict.
+  </Rule>
+
+  <Rule name="CoverageStateBeforeSynthesis" priority="Critical">
+   Before synthesis record principal_platforms_mapped; acquisition_mode; unfiltered_retrieval_attempted;
+   pagination_exhausted; replies_reconciled; unique_firsthand_people; unique_treatment_episodes;
+   benefit_search_completed; no_effect_search_completed; harm_search_completed; discontinuation_search_completed;
+   independent_discussion_pools_sampled; and final_coverage_state. Record a missing count as unknown, never silently as
+   zero.
+
+   The allowed final coverage states are complete / completed-with-access-boundary / partial. Complete requires the
+   applicable accessible corpus and directional searches to be finished; completed-with-access-boundary requires every
+   condition of CommunityCorpusAccessBoundaryCompletion; partial means some usable evidence was retrieved but coverage
+   did not finish or reach a terminal boundary. Partial evidence must be reviewed and may appear in a bounded synthesis
+   with a prominent coverage label; it cannot support a complete, representative, corpus-wide prevalence, or
+   broad-ranking claim.
+  </Rule>
+ </CommunityCorpusCompletionGate>

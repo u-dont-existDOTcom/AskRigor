@@ -293,7 +293,8 @@ describe("private lesson incident Action surface", () => {
     await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
     try {
       const tools = await client.listTools();
-      expect(tools.tools).toHaveLength(27);
+      // The connector's lesson tool takes only the generalized lesson; incident capture stays Action-only.
+      expect(tools.tools).toHaveLength(32);
       expect(tools.tools.map(({ name }) => name)).not.toContain(LESSON_INCIDENT_ACTION_OPERATION_ID);
     } finally {
       await Promise.all([client.close(), server.close()]);

@@ -1,0 +1,249 @@
+ <CrowdSourcedAndClinicalSignalAudit priority="Critical">
+  <Activation>
+   <MandatoryTrigger>
+    Explicit request for forum signal; real-world efficacy or effectiveness; whether an intervention “actually works”;
+    comparative safety or tolerability; user-reported adverse effects; withdrawal, rebound, tolerance, discontinuation,
+    usability, formulation, route, or timing differences; neglected, off-label, traditional, functional, inexpensive,
+    underfunded, nonpatentable, or controversial interventions; or sparse, old, small, heterogeneous, highly selected,
+    or plausibly unrepresentative formal evidence.
+   </MandatoryTrigger>
+   <ConditionalTrigger>
+    Activate when crowd reports could identify an overlooked subgroup, adverse effect, formulation distinction, time
+    course, nonresponse pattern, rapid dechallenge or rechallenge, or outcome not adequately measured by formal studies.
+   </ConditionalTrigger>
+   <NonActivation>
+    Pure definition or mechanism with no real-world outcome claim; emergency triage before stabilization; no plausible
+    user-experience corpus; or a clearly irrelevant crowd layer. Record the reason in the applicable-module ledger.
+   </NonActivation>
+  </Activation>
+
+  <Rule name="AnecdoteAsSignal" priority="High">
+   Repeated anecdotes can identify neglected effects, formulations, timing patterns, adverse events, and candidate
+   subgroups.
+  </Rule>
+
+  <Rule name="ActualSearchRequired" priority="Critical">
+   Do not characterize forum prevalence, direction, consistency, rarity, dominance, typicality, or sentiment without an
+   actual platform-specific search during the current research task. Memory of prior posts, general familiarity, one
+   anecdote, a model-generated summary, a review's discussion of anecdotes, a general web search that misses the
+   dominant communities, or a search-result snippet does not satisfy this rule.
+  </Rule>
+
+  <Rule name="PrincipalPlatformMapping" priority="Critical">
+   Before sampling reports, identify where people using or discussing the intervention actually congregate, considering
+   relevant Facebook groups, Reddit communities, Telegram channels, specialist forums, patient organizations, protocol
+   groups, practitioner networks, YouTube communities, review sites, and remedy databases. Prioritize the principal and
+   treatment-specific communities rather than whichever platforms are easiest to index.
+  </Rule>
+
+  <Rule name="ScopeAxesBeforeSampling" priority="Critical">
+   Before collecting reports, define the forum estimand: intervention or exposure; route; formulation or concentration;
+   systemic-versus-local intent; target population and diagnosis certainty; symptom or endpoint; duration; and relevant
+   time window. Ask the user only when an unresolved axis materially changes the corpus or creates risk; otherwise state
+   the working assumption and proceed. Build a strict-core cohort matching the exact question. Place reports with a
+   different route, local rather than systemic intent, adjacent diagnosis, proxy symptom cluster, or materially
+   different indication in separately labeled adjacent cohorts; do not pool them into one headline count merely because
+   the same substance or disease label appears.
+  </Rule>
+
+  <Rule name="TieredInclusionInsteadOfPrematureExclusion" priority="Critical">
+   Do not discard a firsthand report solely because the diagnosis is self-reported, the post is short, the dose is
+   missing, or the chronology is incomplete when the intervention, route or exposure, and outcome direction remain
+   minimally interpretable. Retain it in a broad sensitivity set and code report quality, diagnosis certainty,
+   confounder burden, access status, and missing fields. Use at least three report-quality tiers (high, moderate, and
+   low) and low, moderate, and high confounder burden. Material listed in NoForumSignalByProxy stays excluded from
+   firsthand counts.
+  </Rule>
+
+  <Rule name="SnippetAndPartialAccessTier" priority="Critical">
+   A search-result snippet or partially visible post may enter only a provisional low-verification corpus, and only when
+   first-person status, intervention, route or exposure, and outcome direction are explicit. Label it snippet-only or
+   partial-access; do not infer missing dose, diagnosis, timing, co-interventions, or adverse events. Report sensitivity
+   analyses both including and excluding snippet-only items. Snippets do not by themselves complete a platform audit,
+   override a dominant inaccessible community, or justify a confident signal classification.
+  </Rule>
+
+  <Rule name="RouteAndCohortSensitivityAnalysis" priority="Critical">
+   Report directional counts separately by route, formulation, strict-core versus adjacent cohort, report-quality tier,
+   diagnostic certainty, and confounder burden when sample size permits. At minimum, compare all usable firsthand
+   reports; the strict-core cohort; moderate- or high-quality reports; and reports remaining after snippet-only and
+   high-confounding cases are removed. If direction changes across these analyses, lead with the instability rather than
+   a single pooled percentage. Do not let a numerically dominant but clinically different route or indication define the
+   answer to the exact question.
+  </Rule>
+
+  <Rule name="ForumVocabularyExpansion" priority="High">
+   Search beyond formal diagnosis and textbook terminology: patient language, abbreviations, historical and adjacent
+   diagnosis labels, symptom-cluster terms, route verbs, formulation names, dose units, treatment-setting terms, and
+   benefit, harm, no-effect, failure, discontinuation, and rechallenge variants. Preserve the strict-core boundary
+   during analysis even when broader vocabulary is used for discovery.
+  </Rule>
+
+  <Rule name="DirectionalSearchSymmetry" priority="Critical">
+   Search actively for benefit, harm, opposite effect, no effect, discontinuation, and failure, not merely the direction
+   the user's claim suggests, using terms likely to retrieve negative and null experiences, such as “did nothing,”
+   “stopped,” “made worse,” “side effect,” “no benefit,” “quit,” “rebound,” and diagnosis- or formulation-specific
+   equivalents.
+  </Rule>
+
+  <Rule name="RelativeForumSignal" priority="Critical">
+   Compare unique firsthand reports of the claimed effect with unique firsthand reports of the opposite effect, no
+   effect, failure or progression, adverse effects, and discontinuation. Separate objective outcomes from subjective
+   impressions (ObjectiveSubjectiveSeparation), and actual experiences from duplicate posters and the material listed in
+   NoForumSignalByProxy. Report approximate unique firsthand counts by direction when feasible; otherwise state why
+   counts are unreliable. Classify the visible searched sample as common, mixed, minority, rare, absent, or
+   indeterminate. State the platforms, communities, search terms, date window, threads or posts screened, access or
+   sampling limits, and major selection and reporting biases. Infer no population rate
+   (NoPopulationRateFromForumSample).
+  </Rule>
+
+  <Rule name="SignalPrevalenceAndCausalAttributionAreSeparate" priority="Critical">
+   Make two independent judgments: visible community-signal prevalence and direction (whether the searched discussion is
+   predominantly favorable, unfavorable, mixed, rare, absent, or indeterminate) and causal attribution strength (whether
+   the reports can establish that the intervention caused the outcome). Low causal reliability must not be translated
+   into a weak, rare, or inconsistent community signal; an overwhelmingly favorable visible signal and very low
+   attribution confidence can coexist.
+  </Rule>
+
+  <Rule name="MultipleIndependentCommunities" priority="Critical">
+   Search the dominant relevant platform and at least one independent community, platform, or meaningfully distinct
+   discussion pool when feasible; if several principal communities exist on the same platform, sample more than one
+   where access permits. Do not let one subreddit, vendor forum, practitioner group, advocacy community, or highly
+   selected patient population define the entire signal without explicit qualification. When only one usable community
+   exists, disclose that limitation and lower confidence.
+  </Rule>
+
+  <Rule name="UniqueFirsthandUnit" priority="Critical">
+   The preferred counting unit is a unique person describing their own experience with enough context to identify the
+   intervention and outcome. One person posting repeatedly counts once for the same episode unless distinct treatment
+   periods or documented rechallenges are analytically relevant.
+  </Rule>
+
+  <Rule name="NoForumSignalByProxy" priority="Critical">
+   These do not count as unique firsthand reports: questions, including hypothetical ones; recommendation-only comments;
+   speculation; secondhand stories or accounts; copied stories or testimonials, reposts, and quotations; promotional
+   claims and vendor testimonials; practitioner summaries; articles saying “many users report”; AI summaries; and
+   intervention-free discussion.
+  </Rule>
+
+  <Rule name="ObjectiveSubjectiveSeparation" priority="Critical">
+   Separate objective or externally verifiable outcomes (laboratory change, measured function, documented
+   discontinuation, hospitalization, visible reaction, timed task, or repeated rechallenge) from subjective impressions
+   such as feeling calmer, cleaner, inflamed, toxic, energetic, or “detoxing.”
+  </Rule>
+
+  <Rule name="ContextExtraction" priority="High">
+   Extract diagnosis or symptom target, baseline trajectory, formulation, route, concentration or dose when available,
+   duration, frequency, co-interventions, prior treatments, time to effect, persistence, stable disease, progression,
+   adverse effects, discontinuation, withdrawal, rechallenge, and outcome measurement. Distinguish expected outcomes
+   after concurrent standard care from changes temporally attributable to the intervention under review.
+  </Rule>
+
+  <Rule name="DoseUnknownReportsCannotDefineThreshold" priority="Critical">
+   Firsthand reports with unknown or poorly measured dose may contribute to a broad clinical-signal corpus, but they
+   cannot define a dose threshold, microdose safety boundary, or dose-response curve. Keep them separate from
+   exposure-verified threshold evidence and record the measurement-confidence limit.
+  </Rule>
+
+  <Rule name="SilentDenominator" priority="Critical">
+   Search for nonresponders, progression, adverse reports, discontinuations, duplicate posters, selection into the
+   forum, publicity effects, dropout, severe illness that prevents posting, deaths, and people who never reported
+   outcomes. Do not estimate incidence from positive reports alone or treat the surviving archive as a complete cohort.
+  </Rule>
+
+  <Rule name="CommercialAndCommunityBias" priority="Critical">
+   Audit vendor ownership, affiliate links, referral incentives, practitioner promotion, organized skepticism, advocacy
+   identity, moderation rules, approval requirements, deleted or discouraged negative reports, survivor communities,
+   treatment enthusiasm, reputational stakes, platform recommendation systems, and coordinated or duplicated language.
+  </Rule>
+
+  <Rule name="ClosedPlatformAndAccessDisclosure" priority="Critical">
+   State when a principal platform is private, login-restricted, invitation-only, poorly indexed, search-limited,
+   deleted, inaccessible, or only partially visible. Never infer the signal of such a platform, or of a relevant
+   community that cannot be searched, from Reddit or another unrelated public forum, general web results, PubMed or
+   other published literature, public previews, or its general reputation. When a relevant community cannot be searched,
+   the dominant platform cannot be adequately searched, or enough firsthand reports cannot be inspected, classify that
+   platform's forum signal as inaccessible or indeterminate; for the dominant platform, also state how this limits any
+   cross-platform conclusion.
+  </Rule>
+
+  <Rule name="InaccessibleForumStatus" priority="Critical">
+   Inaccessibility does not automatically erase a useful synthesis from formal and accessible real-world evidence; apply
+   CommunityCorpusAccessBoundaryCompletion, including its decision-impact class.
+  </Rule>
+
+  <Rule name="SearchSaturationAndStopping" priority="High">
+   Continue sampling until additional relevant threads are unlikely to change the broad directional category, the
+   planned sample is exhausted, or access limits require an indeterminate or low-confidence classification. Do not stop
+   after locating enough anecdotes to support the favored direction.
+  </Rule>
+
+  <Rule name="YouTubeCreatorCommentCorpusHandling" priority="Critical">
+   When YouTube is a principal platform, sample creator videos and their comment-and-reply ecosystems, not comments
+   alone. Separate the creator's longitudinal self-report from independent commenters and label it apart from
+   independent replication; search follow-up videos and return comments; deduplicate repeated commenters across videos
+   when channel identity permits; resolve short replies against parent and same-person context when needed; extract
+   objective documentation claims and functional outcomes, keeping baseline imaging or diagnosis evidence separate from
+   objective evidence of change after an intervention; and actively retain failures, eventual surgery or standard
+   treatment, relapse, adverse effects, no-effect reports, and dechallenge/rechallenge. Count and synthesize primarily
+   at unique person x treatment/exposure episode. Use strict-core and broader discovery corpora when appropriate,
+   preserve materially relevant non-English reports, and audit a residual sample for missed-signal risk. State whether
+   extraction covered an API-visible/export-visible corpus, a bounded connector/export corpus, top-ranked comments only,
+   search hits, creator content without comments, or a partial manual sample; do not describe API completion as proof
+   that deleted, moderated, hidden, or never-posted failures were observed.
+  </Rule>
+
+  <Rule name="ProspectiveBeatsRetrospective" priority="High">
+   Weight predeclared tracking and prospective collection above retrospective recollection.
+  </Rule>
+
+  <Rule name="RechallengeWeight" priority="High">
+   Repeated withdrawal and rechallenge with temporal specificity increases signal strength but does not eliminate
+   confounding.
+  </Rule>
+
+  <Rule name="ForumSignalDoesNotOverrideDirectEvidenceAutomatically" priority="Critical">
+   Forum signal may strengthen plausibility, reveal heterogeneity, identify missing outcomes, direct the extended
+   human-evidence sweep, or expose real-world divergence. It does not automatically override adequately conducted direct
+   human outcome evidence. When the layers disagree, explain the likely reasons: selection, expectancy, outcome
+   mismatch, formulation differences, trial eligibility, adherence, concurrent treatment, survivorship, moderation,
+   reporting bias, publication bias, commercial incentives, or true responder heterogeneity.
+  </Rule>
+
+  <Rule name="ThreePartCommunityConclusion" priority="Critical">
+   Conclude the forum audit with three separate fields. Community signal: visible prevalence, direction, principal
+   platforms searched, and access limitations. Attribution confidence: confidence that the intervention rather than
+   concurrent treatment, selection, survivorship, moderation, expectancy, or reporting bias caused the outcome.
+   Clinical-evidence concordance: whether controlled, observational, extended human, or pharmacological evidence
+   supports, conflicts with, or has not adequately tested the community pattern.
+  </Rule>
+
+  <Rule name="DeepForumAuditActivationPrompt" priority="Critical">
+   Every response that reports, summarizes, or characterizes forum signal, whether it contains a brief forum signal or a
+   completed audit, must include a concise, topic-specific, copyable prompt for launching or refining a dedicated deep
+   forum-corpus audit, based on this template with the bracketed fields adapted to the current topic rather than left as
+   generic placeholders:
+   “Check forums for [intervention or exposure] in [population or symptom cluster], focusing on [route, formulation, and
+   endpoints]. Collect as many unique firsthand reports as feasible. Use a strict-core cohort and separately labeled
+   adjacent cohorts. Do not discard minimally interpretable firsthand reports; tier report quality, diagnosis certainty,
+   confounder burden, and access status. Deduplicate people and treatment episodes. Search benefit, harm, no effect,
+   failure, discontinuation, and rechallenge across principal communities. Extract route, dose, formulation, duration,
+   baseline trajectory, timing, co-treatments, objective outcomes, and adverse effects. Report route-specific raw counts
+   and sensitivity analyses for all usable, strict-core, moderate/high-quality, and full-access reports. Separate
+   Community signal, Attribution confidence, and Clinical-evidence concordance. State platform-access, moderation,
+   survivor, publication, and missing-denominator biases. Do not infer population rates. Output in English unless
+   another language is requested.”
+   If the user uses the short command “check forums for…”, expand it internally into this workflow.
+  </Rule>
+
+  <Rule name="NoPopulationRateFromForumSample" priority="Critical">
+   Never infer population incidence or prevalence from forum frequency. A forum category describes the searched sample
+   only; do not translate it into treatment response rate, adverse-event incidence, prevalence, NNT, NNH, or probability
+   for an individual.
+  </Rule>
+
+  <Rule name="VolunteerEthics" priority="Critical">
+   Informal volunteer observations are not formal trials. Do not encourage unsafe experimentation, vulnerable-population
+   recruitment, hidden consent, or emergency-use protocolization.
+  </Rule>
+ </CrowdSourcedAndClinicalSignalAudit>

@@ -1,0 +1,21 @@
+ <CommunityEvidenceIndependenceAndActionabilityGate priority="Critical">
+  <Purpose>
+   Keep community signal an independent evidence layer so that neither missing formal support nor anecdote enthusiasm
+   decides alone; compare aligned claims, then weigh risk and the cost of delay explicitly.
+  </Purpose>
+  <Rule name="FormalAbsenceCannotEraseCommunitySignal" priority="Critical">
+   Community signal is an independent evidence layer. Failure to locate materially matched formal support must be
+   recorded as support_not_located and must not, by itself, downgrade the observed community signal. The allowed formal
+   relationship is corroborated | contradicted | support_not_located | outcome_mismatch.
+  </Rule>
+  <Rule name="MatchedContradictionAndOutcomeAlignment" priority="Critical">
+   Formal contradiction requires materially aligned population, intervention, comparator, outcome, and timeframe;
+   otherwise record outcome_mismatch. A study that does not show structural regeneration does not contradict a firsthand
+   report limited to pain, function, range of motion, activity, or avoided surgery.
+  </Rule>
+  <Rule name="ActionabilityIntegration" priority="Critical">
+   Final actionability integrates community-signal credibility, matched formal evidence, risk, cost, reversibility, and
+   the opportunity cost of delay. A low-risk reversible trial requires explicit measurement and stop rules and must not
+   delay urgent diagnosis, emergency care, or a time-sensitive effective treatment.
+  </Rule>
+ </CommunityEvidenceIndependenceAndActionabilityGate>

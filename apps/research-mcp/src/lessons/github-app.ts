@@ -7,6 +7,38 @@ export const LESSON_REPOSITORY_OWNER = "u-dont-existDOTcom" as const;
 export const LESSON_REPOSITORY_NAME = "AskRigor-lessons" as const;
 export const LESSON_REPOSITORY_FULL_NAME = `${LESSON_REPOSITORY_OWNER}/${LESSON_REPOSITORY_NAME}` as const;
 
+/** One private repository an installation token is scoped to. */
+export interface GitHubRepository {
+  owner: string;
+  name: string;
+}
+
+export const LESSON_REPOSITORY: Readonly<GitHubRepository> = Object.freeze({
+  owner: LESSON_REPOSITORY_OWNER,
+  name: LESSON_REPOSITORY_NAME,
+});
+
+const REPOSITORY_OWNER_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/u;
+const REPOSITORY_NAME_PATTERN = /^[A-Za-z0-9._-]{1,100}$/u;
+
+/** Parses "owner/name"; undefined for anything else. */
+export function parseGitHubRepository(fullName: string): GitHubRepository | undefined {
+  const parts = fullName.split("/");
+  if (parts.length !== 2) return undefined;
+  const [owner, name] = parts as [string, string];
+  return isValidRepository({ owner, name }) ? { owner, name } : undefined;
+}
+
+export function repositoryFullName(repository: GitHubRepository): string {
+  return `${repository.owner}/${repository.name}`;
+}
+
+function isValidRepository(repository: GitHubRepository): boolean {
+  return REPOSITORY_OWNER_PATTERN.test(repository.owner) &&
+    REPOSITORY_NAME_PATTERN.test(repository.name) &&
+    repository.name !== "." && repository.name !== "..";
+}
+
 export type GitHubErrorCode =
   | "github_auth_unavailable"
   | "github_service_unavailable"
@@ -41,6 +73,8 @@ export interface GitHubInstallationTokenProviderOptions {
   appId: string;
   installationId: string;
   privateKeyBase64: string;
+  /** The one private repository the token may reach: the lesson queue or the findings library. */
+  repository: GitHubRepository;
   fetch: typeof fetch;
   now?: () => Date;
 }
@@ -60,6 +94,9 @@ export class GitHubInstallationTokenProvider implements GitHubTokenProvider {
   private cachedToken?: CachedToken;
 
   constructor(private readonly options: GitHubInstallationTokenProviderOptions) {
+    if (!isValidRepository(options.repository)) {
+      throw new GitHubApiError("github_auth_unavailable", false);
+    }
     this.now = options.now ?? (() => new Date());
   }
 
@@ -85,7 +122,7 @@ export class GitHubInstallationTokenProvider implements GitHubTokenProvider {
         method: "POST",
         headers: { authorization: `Bearer ${jwt}` },
         body: JSON.stringify({
-          repositories: [LESSON_REPOSITORY_NAME],
+          repositories: [this.options.repository.name],
           permissions: REQUIRED_PERMISSIONS,
         }),
       },
@@ -145,7 +182,7 @@ export class GitHubInstallationTokenProvider implements GitHubTokenProvider {
     }
 
     if (repositories.length !== 1 ||
-      repositories[0]?.fullName !== LESSON_REPOSITORY_FULL_NAME ||
+      repositories[0]?.fullName !== repositoryFullName(this.options.repository) ||
       repositories[0]?.private !== true) {
       throw new GitHubApiError("github_scope_invalid", false);
     }

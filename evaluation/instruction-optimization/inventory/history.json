@@ -1,0 +1,650 @@
+[
+ {
+  "protocol": "HRP",
+  "version": "20.2",
+  "date": "on or before 2026-08-10 (not stated)",
+  "added_or_changed": [
+   "UniversalFullTextAcquisitionProtocol (optional deep-research full-text workflow)"
+  ],
+  "failure_that_triggered_it": "not stated",
+  "failure_class": "DOMAIN_METHOD_GAP",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.2-batching-patch",
+  "date": "on or before 2026-08-10 (not stated)",
+  "added_or_changed": [
+   "UniversalFullTextAcquisitionProtocol (small batches, per-batch audit, extraction ledger, stopping conditions)"
+  ],
+  "failure_that_triggered_it": "not stated (implied: external extractors producing unlabeled final synthesis before the citation-map extraction loop was complete)",
+  "failure_class": "MODEL_EXECUTION_LAPSE",
+  "model_or_surface_mentioned": "external full-text extractors (unnamed)"
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.3",
+  "date": "on or before 2026-08-10 (not stated)",
+  "added_or_changed": [
+   "FunctionalHealthCoachingLayer"
+  ],
+  "failure_that_triggered_it": "not stated",
+  "failure_class": "DOMAIN_METHOD_GAP",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.4",
+  "date": "on or before 2026-08-10 (not stated)",
+  "added_or_changed": [
+   "QuantitativeRiskAndResearchAudit",
+   "StudyDesignCapabilityMatrix",
+   "EvidenceUpdateAndCorrectionProtocol",
+   "StressTestExpectations (denominator, surveillance, novelty cases)"
+  ],
+  "failure_that_triggered_it": "Numerical claims lacking defined estimand/denominator; stress tests name denominator mismatch, surveillance mismatch, and novelty fixation.",
+  "failure_class": "DOMAIN_METHOD_GAP",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5",
+  "date": "on or before 2026-08-10 (not stated)",
+  "added_or_changed": [
+   "NullEvidenceAndSafetyLanguage",
+   "SourceVerificationAndCitationAudit/PublicFacingSummaryBoundary",
+   "NullEvidenceAndSafetyLanguage/ExcretionMassBalance"
+  ],
+  "failure_that_triggered_it": "Translating 'has not been shown to', 'no evidence of', or underpowered nulls into affirmative safety; institutional summaries treated as adjudicators; unquantified excretion-blockade toxicity claims.",
+  "failure_class": "DOMAIN_METHOD_GAP",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.1",
+  "date": "on or before 2026-08-10 (not stated)",
+  "added_or_changed": [
+   "QuantitativeRiskAndResearchAudit/RiskContextualization",
+   "CrowdSourcedAndClinicalSignalAudit/RelativeForumSignal"
+  ],
+  "failure_that_triggered_it": "Risks presented in isolation with dramatic labels or cherry-picked comparators; forum signal asserted without relative directional counts or read as population incidence.",
+  "failure_class": "DOMAIN_METHOD_GAP",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.2",
+  "date": "on or before 2026-08-10 (not stated)",
+  "added_or_changed": [
+   "ProtocolExecutionAndComplianceGate",
+   "ApplicableModuleLedger / completion audit",
+   "ComplianceLabel (full vs Partial HRP)",
+   "AnswerShapeController/ForumSignalDefaultTrigger",
+   "NeglectedInterventionModules/DMSO"
+  ],
+  "failure_that_triggered_it": "Model used remembered summaries or stock answers, silently skipped triggered modules (forum audit), fabricated forum prevalence after the omission was noticed, yet claimed full HRP compliance.",
+  "failure_class": "MODEL_EXECUTION_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.3",
+  "date": "on or before 2026-08-10 (not stated)",
+  "added_or_changed": [
+   "ProtocolExecutionAndComplianceGate/AuthoritativeProtocolLoad",
+   "CanonicalSourceVerificationAttestation",
+   "DirectSourceConflictAndCacheHandling",
+   "AnswerShapeController/HumanReachableExposureEfficacyTrigger",
+   "StressTestExpectations"
+  ],
+  "failure_that_triggered_it": "Remembered-summary substitution for the protocol, stale cached-source claims contradicting the user's live view, and literature-only answers to human-reachable-dose efficacy questions (named regressions).",
+  "failure_class": "MODEL_EXECUTION_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.4",
+  "date": "on or before 2026-08-10 (not stated)",
+  "added_or_changed": [
+   "ProtocolExecutionAndComplianceGate/UpdateCheckIsInformationalNotPrerequisite",
+   "ComplianceLabel (state version used)",
+   "ProtocolExecutionLedger template",
+   "FinalSelfCheck"
+  ],
+  "failure_that_triggered_it": "Prior gate made routine runs depend on live web retrieval; a failed optional update check could make an otherwise complete analysis partial.",
+  "failure_class": "MAINTENANCE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.5",
+  "date": "on or before 2026-08-10 (not stated)",
+  "added_or_changed": [
+   "ExtendedHumanEvidenceAndGreyLiteratureSweep",
+   "CrowdSourcedAndClinicalSignalAudit/PrincipalPlatformMapping",
+   "CrowdSourcedAndClinicalSignalAudit/SignalPrevalenceAndCausalAttributionAreSeparate"
+  ],
+  "failure_that_triggered_it": "Concluding human evidence absent, anecdotal only, or preclinical before a grey-literature sweep; community signal judged from convenient open-web proxies instead of dominant platforms.",
+  "failure_class": "DOMAIN_METHOD_GAP",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.6",
+  "date": "on or before 2026-08-10 (not stated)",
+  "added_or_changed": [
+   "Decision-Critical Full-Text Escalation (UniversalFullTextAcquisitionProtocol)",
+   "SourceVerificationAndCitationAudit/HistoricalVocabularyAndCitationBackchain",
+   "ExpertBookAndMonographDiscoveryGate"
+  ],
+  "failure_that_triggered_it": "Abstracts or snippets used for decision-critical papers; human evidence declared absent because broad modern search terms failed; specialist monographs ignored or sought via pirate links.",
+  "failure_class": "DOMAIN_METHOD_GAP",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.7",
+  "date": "on or before 2026-08-10 (not stated)",
+  "added_or_changed": [
+   "CrowdSourcedAndClinicalSignalAudit/TieredInclusionInsteadOfPrematureExclusion",
+   "RouteAndCohortSensitivityAnalysis",
+   "DeepForumAuditActivationPrompt",
+   "AnswerShapeController/CheckForumsForCommandTrigger"
+  ],
+  "failure_that_triggered_it": "Regression test of a systemic-DMSO/MCAS forum audit: over-strict screening erased a sparse informative corpus; a deep-research plan was treated as completion.",
+  "failure_class": "DOMAIN_METHOD_GAP",
+  "model_or_surface_mentioned": "deep-research tool (generic)"
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.8",
+  "date": "on or before 2026-08-10 (not stated)",
+  "added_or_changed": [
+   "ComparatorLineageAndProgramCongruenceAudit",
+   "AdverseEventAscertainmentAndActionabilityAudit",
+   "EvidenceQualityBiasAndCOI/IntentAttributionScale",
+   "PublicHealthInterventionAudit/HistoricalInterventionAttribution"
+  ],
+  "failure_that_triggered_it": "Controls called 'placebo' without stated contents; active-comparator or predecessor evidence read as absolute safety; baseline evidence debt treated as proof of safety or harm.",
+  "failure_class": "DOMAIN_METHOD_GAP",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.9",
+  "date": "on or before 2026-08-10 (not stated)",
+  "added_or_changed": [
+   "ResearchOrchestrationAndModeSelectionGate"
+  ],
+  "failure_that_triggered_it": "False claims that Deep Research or Pro mode was used; generic approve-or-modify requests; broad source collection before defining the decision and deliverable.",
+  "failure_class": "MODEL_EXECUTION_LAPSE",
+  "model_or_surface_mentioned": "ChatGPT Deep Research; Pro mode"
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.10",
+  "date": "on or before 2026-08-10 (not stated)",
+  "added_or_changed": [
+   "QuantitativeRiskAndResearchAudit (temporal-association and null-model rules)",
+   "SourceVerificationAndCitationAudit (historical strata, preparation identity, diagnosis translation)",
+   "QuantitativeRiskAndResearchAudit/HistoricalDoseAndRecipeTranslation"
+  ],
+  "failure_that_triggered_it": "Lessons from bat-guano and 夜明砂 passes: historical diagnoses, textual lineages, preparations, and dose units mis-transported; post-exposure clustering conflated with excess risk.",
+  "failure_class": "DOMAIN_METHOD_GAP",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.11",
+  "date": "on or before 2026-08-10 (not stated)",
+  "added_or_changed": [
+   "ResearchOrchestrationAndModeSelectionGate/UserVisibleOptimizedResearchSpecification",
+   "ConditionalPreResearchApprovalGate",
+   "ResearchQuestionAndEstimandGate/AmbiguousDoseLabelDefinitionAndStratification",
+   "ProtocolExecutionAndComplianceGate/IncompleteModuleContinuationHandoff"
+  ],
+  "failure_that_triggered_it": "Research began from silently refined questions without an approved visible spec; LDN/ULDN labels pooled without numeric doses; partial answers named gaps or offered 'go deeper' without handoffs.",
+  "failure_class": "MODEL_EXECUTION_LAPSE",
+  "model_or_surface_mentioned": "ChatGPT Deep Research (handoff target)"
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.12",
+  "date": "on or before 2026-08-10 (not stated)",
+  "added_or_changed": [
+   "AudienceAccessibleTerminologyGate",
+   "OutputFormatting/JargonControl"
+  ],
+  "failure_that_triggered_it": "Unexplained scientific terminology in otherwise compliant HRP answers; hazard ratios paraphrased as final proportions; glossaries substituted for first-use definitions.",
+  "failure_class": "OUTPUT_QUALITY",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.13",
+  "date": "on or before 2026-08-10 (not stated)",
+  "added_or_changed": [
+   "DoseRegimeIntegrityAndSelfDirectedHarmReductionResearch",
+   "SafetyAndScopeGate (emergency-pathway / unresolved-adjunct separation)",
+   "ReleasePackagingRequirements",
+   "ComplianceLabel (routine update communication)"
+  ],
+  "failure_that_triggered_it": "Cross-dose evidence laundering; 'threshold unknown' turned into 'no safe threshold'; emergency warnings converted into verdicts against unresolved adjuncts; routine answers narrating failed update checks.",
+  "failure_class": "DOMAIN_METHOD_GAP",
+  "model_or_surface_mentioned": "ChatGPT Projects; Custom GPT"
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.14",
+  "date": "2026-08-10",
+  "added_or_changed": [
+   "BidirectionalEvidenceDiscoveryAndTriangulationLoop",
+   "EvidenceLayers/ClaimSpecificEvidenceUtility"
+  ],
+  "failure_that_triggered_it": "Fixed 'studies, then forum appendix' workflow; formal-versus-community disagreement averaged away, force-reconciled, or one layer automatically privileged.",
+  "failure_class": "DOMAIN_METHOD_GAP",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.15",
+  "date": "2026-08-10 to 2026-08-12 (bounded)",
+  "added_or_changed": [
+   "ProtocolExecutionAndComplianceGate/CommunityCorpusAccessBoundaryCompletion",
+   "BidirectionalEvidenceDiscoveryAndTriangulationLoop/YouTubeDualLaneDiscoveryAndSignal",
+   "YouTubeLongitudinalExtraction"
+  ],
+  "failure_that_triggered_it": "Inability to retrieve a principal forum or YouTube corpus automatically turned otherwise useful reviews into protocol failure; comment-level sentiment used instead of person-episode units.",
+  "failure_class": "DOMAIN_METHOD_GAP",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.16",
+  "date": "2026-08-12",
+  "added_or_changed": [
+   "CommunityCorpusCompletionGate"
+  ],
+  "failure_that_triggered_it": "Observed execution failure: a one-query-bounded YouTube comment search (partial coverage) was presented as reconnaissance, the unseen community signal characterized, and the review finalized.",
+  "failure_class": "MODEL_EXECUTION_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.17",
+  "date": "2026-08-13",
+  "added_or_changed": [
+   "CommunityEvidenceIndependenceAndActionabilityGate"
+  ],
+  "failure_that_triggered_it": "Community signal for low-risk hip interventions downgraded because matched formal support was not located; premature final synthesis while wider YouTube acquisition still had positive information gain.",
+  "failure_class": "DOMAIN_METHOD_GAP",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.18",
+  "date": "2026-08-16",
+  "added_or_changed": [
+   "PremiseIntegrityAndTruthPriorityGate"
+  ],
+  "failure_that_triggered_it": "False-premise compliance, nonexistent-source hallucination, search-failure/nonexistence confusion, forced causal connections, citation non-entailment, and arithmetic-defense behavior (named regressions).",
+  "failure_class": "MODEL_REASONING_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.19",
+  "date": "2026-08-21 (approx., dated source candidate)",
+  "added_or_changed": [
+   "TreatmentLandscapeAndVideoSelectionGate"
+  ],
+  "failure_that_triggered_it": "Redundant video concentration, unsupported relevance waivers, live continuations mislabeled terminal, missing per-program formal return passes, and premature synthesis with unresolved hypotheses (named regressions).",
+  "failure_class": "MODEL_EXECUTION_LAPSE",
+  "model_or_surface_mentioned": "Custom GPT Actions (Action-produced coverage receipts)"
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.20",
+  "date": "2026-08-22",
+  "added_or_changed": [
+   "TreatmentLandscapeAndVideoSelectionGate/SpecificImplementationDiscoveryAndProvisionalScouts"
+  ],
+  "failure_that_triggered_it": "Generic umbrella candidates satisfied selection coverage; two fail-open candidate-reconciliation paths; scout leads either discarded for lacking transcripts or laundered into evidence.",
+  "failure_class": "TOOLING_OR_INTEGRATION",
+  "model_or_surface_mentioned": "external high-recall scout (unnamed)"
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.21",
+  "date": "2026-08-22 to 2026-08-23 (bounded)",
+  "added_or_changed": [
+   "TreatmentLandscapeAndVideoSelectionGate/AggregateLandscapeSynthesisLock (8 videos / 6 programs; scout lane required)",
+   "SelectedVideoTreatmentRecord (plain-language render)"
+  ],
+  "failure_that_triggered_it": "Four superficially diverse videos presented as broad coverage; configured scouting omitted; complete internal record rendered as jargon-heavy, structurally broken public prose (named regressions).",
+  "failure_class": "MODEL_EXECUTION_LAPSE",
+  "model_or_surface_mentioned": "external high-recall scout (unnamed)"
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.22",
+  "date": "2026-08-23",
+  "added_or_changed": [
+   "StudyMethodReliabilityGate",
+   "UniversalFullTextAcquisitionProtocol (lawful open-access discovery; claim-local inaccessible-source boundary)"
+  ],
+  "failure_that_triggered_it": "Randomization, peer review, and prestige used as reliability certificates; one inaccessible paper froze completion globally; routine acquisition work repeatedly transferred to the user.",
+  "failure_class": "DOMAIN_METHOD_GAP",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.23",
+  "date": "2026-08-24",
+  "added_or_changed": [
+   "EpistemicPhaseRouter",
+   "HeuristicAttractorCheck"
+  ],
+  "failure_that_triggered_it": "Correct heuristics (freezing, untouched holdouts, anti-overfitting) applied in the wrong phase, suppressing discovery; user-corrected failures recurring as local exceptions.",
+  "failure_class": "MODEL_REASONING_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.24",
+  "date": "2026-08-31",
+  "added_or_changed": [
+   "CommunityCorpusCompletionGate/PartialRetrievalRemainsBoundedEvidence",
+   "CommunityCorpusCompletionGate/CoverageStateBeforeSynthesis"
+  ],
+  "failure_that_triggered_it": "The community-corpus completion heuristic made incomplete coverage discard, quarantine, or defer analysis of records that were actually retrieved.",
+  "failure_class": "DOMAIN_METHOD_GAP",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.25",
+  "date": "2026-09-08",
+  "added_or_changed": [
+   "ComparisonEstimandAndDoseExposureIntegrityGate"
+  ],
+  "failure_that_triggered_it": "Common-dose or saturating screens read as potency rankings; equal mg/kg or nominal doses assumed exposure-matched; surrogate endpoints and mixture effects misattributed.",
+  "failure_class": "DOMAIN_METHOD_GAP",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.26",
+  "date": "2026-09-08",
+  "added_or_changed": [
+   "PatientHistoryAndRecurrenceEvidenceGate"
+  ],
+  "failure_that_triggered_it": "Generalized recurrence self-reports discounted; a requested confirming incident treated as independent frequency validation; ritual episode quotas in health follow-ups.",
+  "failure_class": "DOMAIN_METHOD_GAP",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.27",
+  "date": "2026-09-09",
+  "added_or_changed": [
+   "ClinicalManagementPreservationGate",
+   "PatientSpecificInterventionSafetyReconciliationGate"
+  ],
+  "failure_that_triggered_it": "One-best-action requests erased independently necessary concurrent care or invented dependencies; interventions ranked by efficacy before patient-specific safety reconciliation.",
+  "failure_class": "SAFETY",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.28",
+  "date": "2026-09-10",
+  "added_or_changed": [
+   "PatientHistoryAndRecurrenceEvidenceGate (longitudinal causal constraints; PhenotypeEtiologyFirewall)"
+  ],
+  "failure_that_triggered_it": "A salient photograph, morphology, or label displaced longitudinal causal constraints; later conclusion changes misdescribed as new evidence when decisive facts were already present.",
+  "failure_class": "MODEL_REASONING_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "HRP",
+  "version": "20.5.29",
+  "date": "2026-09-12",
+  "added_or_changed": [
+   "InstructionObligationLifecycle",
+   "ProtocolExecutionAndComplianceGate ledger (obligation boundaries)"
+  ],
+  "failure_that_triggered_it": "not stated",
+  "failure_class": "MODEL_EXECUTION_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "version": "20.5.7",
+  "date": "on or before 2026-08-07 (not stated)",
+  "added_or_changed": [
+   "important_task_optimization_and_approval_gate",
+   "task_continuation_handoff",
+   "canonical_protocol_execution_gate"
+  ],
+  "failure_that_triggered_it": "Generic approve-or-modify prompts or ceremonial preflight; blocked important tasks ending in vague offers to continue; stale opening language conflicting with HRP compliance wording.",
+  "failure_class": "MODEL_EXECUTION_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "version": "20.5.8",
+  "date": "on or before 2026-08-07 (not stated)",
+  "added_or_changed": [
+   "audience_accessible_terminology_gate"
+  ],
+  "failure_that_triggered_it": "Undefined acronyms and terms; relative statistics without reference group or absolute values; hazard ratio presented as final cumulative probability (named common error).",
+  "failure_class": "OUTPUT_QUALITY",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "version": "20.5.9",
+  "date": "on or before 2026-08-07 (not stated)",
+  "added_or_changed": [
+   "forward_motion_and_turn_completion_gate"
+  ],
+  "failure_that_triggered_it": "Stopping at acknowledgment, status, or plan narration; shifting executable work back to the user; ending with 'I can' or 'let me know'.",
+  "failure_class": "MODEL_EXECUTION_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "version": "20.5.10",
+  "date": "on or before 2026-08-07 (not stated)",
+  "added_or_changed": [
+   "self_resolution_and_user_effort_minimization_gate",
+   "point_of_generation_checks (described-person fidelity)",
+   "askrigor_keyword (routine status)"
+  ],
+  "failure_that_triggered_it": "Asking users answerable questions; using the user as a transport layer; no stated next step; invented third-party context; narrated stale-status diagnostics.",
+  "failure_class": "MODEL_EXECUTION_LAPSE",
+  "model_or_surface_mentioned": "AI coding CLI / headless agent (provider-neutral)"
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "version": "20.5.11",
+  "date": "2026-08-07",
+  "added_or_changed": [
+   "self_resolution_and_user_effort_minimization_gate (return-artifact closure)",
+   "point_of_generation_checks"
+  ],
+  "failure_that_triggered_it": "Users left to package outputs manually; inherited flags such as --no-zip copied mechanically; component success treated as end-to-end workflow completion.",
+  "failure_class": "MODEL_EXECUTION_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "version": "20.5.12",
+  "date": "2026-08-16",
+  "added_or_changed": [
+   "premise_integrity_and_truth_priority_gate"
+  ],
+  "failure_that_triggered_it": "Fabricating or silently repairing nonexistent facts, citations, or connections to make requested analysis work; failed searches treated as nonexistence; prompt premises inherited.",
+  "failure_class": "MODEL_REASONING_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "version": "20.5.13",
+  "date": "2026-08-17",
+  "added_or_changed": [
+   "whole_argument_reconstruction_gate"
+  ],
+  "failure_that_triggered_it": "Narrow claims broadened in paraphrase; concepts called missing when merely misplaced; generic frameworks replacing the source's architecture; withdrawn objections replaced to appear productive.",
+  "failure_class": "MODEL_REASONING_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "version": "20.5.14",
+  "date": "2026-08-18",
+  "added_or_changed": [
+   "research_before_reinvention_gate"
+  ],
+  "failure_that_triggered_it": "Bespoke methods built without an existing-work scan and evaluated only against their own previous versions.",
+  "failure_class": "MODEL_EXECUTION_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "version": "20.5.15",
+  "date": "2026-08-24",
+  "added_or_changed": [
+   "epistemic_phase_router",
+   "heuristic_attractor_check"
+  ],
+  "failure_that_triggered_it": "Validation-phase rules (preregistration, freezing, holdouts, anti-overfitting) misapplied to discovery; correct heuristics applied in the wrong phase; user-corrected failures recurring.",
+  "failure_class": "MODEL_REASONING_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "version": "20.5.16",
+  "date": "2026-09-07",
+  "added_or_changed": [
+   "evidence_discrimination_gate"
+  ],
+  "failure_that_triggered_it": "Selective observed patterns replaced by generic differentials; features shared by positive cases treated as causal without checking controls or tolerated cases.",
+  "failure_class": "MODEL_REASONING_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "version": "20.5.17",
+  "date": "2026-09-07",
+  "added_or_changed": [
+   "point_of_generation_checks (target preservation)",
+   "forward_motion_and_turn_completion_gate / adaptive_workflow (outcome-directed strategy switching)"
+  ],
+  "failure_that_triggered_it": "Adjacent properties substituted for the variable asked about; failing strategies continued because of sunk cost, local improvements, or green tests.",
+  "failure_class": "MODEL_REASONING_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "version": "20.5.18",
+  "date": "2026-09-07",
+  "added_or_changed": [
+   "normality_base_rate_gate"
+  ],
+  "failure_that_triggered_it": "'Normal' questions answered with mechanism or nonpathology instead of prevalence evidence, and the reverse; unknown prevalence treated as commonness or rarity.",
+  "failure_class": "MODEL_REASONING_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "version": "20.5.19",
+  "date": "2026-09-07",
+  "added_or_changed": [
+   "explicit_commitment_obligation_closure"
+  ],
+  "failure_that_triggered_it": "Promised operations displaced by adjacent analysis, planning, or a different method and then treated as done.",
+  "failure_class": "MODEL_EXECUTION_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "version": "20.5.20",
+  "date": "2026-09-08",
+  "added_or_changed": [
+   "reasoning_selection"
+  ],
+  "failure_that_triggered_it": "not stated",
+  "failure_class": "MODEL_REASONING_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "version": "20.5.21",
+  "date": "2026-09-08",
+  "added_or_changed": [
+   "comparison_integrity_gate"
+  ],
+  "failure_that_triggered_it": "Rankings inherited salient or assistant-introduced subsets; fixed-dose response presented as potency, surrogate as outcome; unresolvable point-estimate orderings; one-shot hits presented as established.",
+  "failure_class": "MODEL_REASONING_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "version": "20.5.22",
+  "date": "2026-09-08",
+  "added_or_changed": [
+   "interview_evidence_information_gain_gate",
+   "reasoning_selection (corrections)"
+  ],
+  "failure_that_triggered_it": "Vivid self-selected incidents treated as independent evidence; recurrence self-reports discarded for lacking episodes; unjustified example quotas; frozen artifacts silently reinterpreted after defects.",
+  "failure_class": "MODEL_REASONING_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "version": "20.5.23",
+  "date": "2026-09-10",
+  "added_or_changed": [
+   "evidence_discrimination_gate/phenotype_etiology_firewall",
+   "point_of_generation_checks"
+  ],
+  "failure_that_triggered_it": "Salient cross-sectional patterns outranked hypotheses explaining the full trajectory; decisive facts already supplied later misdescribed as new evidence.",
+  "failure_class": "MODEL_REASONING_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "version": "20.5.24",
+  "date": "2026-09-12",
+  "added_or_changed": [
+   "instruction_obligation_lifecycle (obligation-boundary binding, final-delivery checks)"
+  ],
+  "failure_that_triggered_it": "not stated",
+  "failure_class": "MODEL_EXECUTION_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "version": "20.5.25",
+  "date": "2026-09-14",
+  "added_or_changed": [
+   "claim_scope_predicate_alignment_gate"
+  ],
+  "failure_that_triggered_it": "True-but-orthogonal corrections, narrower-mechanism-to-broader-negation errors, relation substitution, and unsupported positive broadening.",
+  "failure_class": "MODEL_REASONING_LAPSE",
+  "model_or_surface_mentioned": null
+ },
+ {
+  "protocol": "UNIVERSAL",
+  "version": "20.5.26",
+  "date": "2026-09-17",
+  "added_or_changed": [
+   "recommendation_preflight_integrity_gate"
+  ],
+  "failure_that_triggered_it": "Promising candidates endorsed before orderability, price, reviews, and defects were resolved, then disqualified by caveats; failed candidates shown as options.",
+  "failure_class": "MODEL_EXECUTION_LAPSE",
+  "model_or_surface_mentioned": null
+ }
+]

@@ -86,7 +86,16 @@ export const PUBLIC_TOOL_LIMITS = {
   youtubeElapsedMs: 120_000,
   youtubeCommunityAuditElapsedMs: 15_000,
   youtubeVideoAuditElapsedMs: 15_000,
-  youtubeVideoAuditProviderRequests: 50
+  youtubeVideoAuditProviderRequests: 50,
+  // MCP calls read longer: every top-level comment costs at least one reply
+  // request, so 50 requests covered only about 50 comments per call, and each
+  // extra call costs the model a turn. 40 seconds stays well inside the 60
+  // seconds Claude waits for a tool call. Only a few calls at once read this
+  // long, so they cannot fill the shared public pool or multiply upstream
+  // requests; the rest use the Action's budget.
+  mcpYoutubeVideoAuditElapsedMs: 40_000,
+  mcpYoutubeVideoAuditProviderRequests: 300,
+  mcpLongYoutubeVideoAuditSlots: 2
 } as const;
 
 export function publicServerIsEnabled(
@@ -332,6 +341,33 @@ export function retractionWatchSnapshotRootFromEnv(
   return normalized;
 }
 
+/**
+ * The deployed build's commit, which a deployment may set as
+ * ASKRIGOR_BUILD_COMMIT; saved findings cards record it. "unknown" when it is
+ * unset or not a plain commit or tag name.
+ */
+export function askrigorBuildCommitFromEnv(
+  value = process.env.ASKRIGOR_BUILD_COMMIT
+): string {
+  const normalized = value?.trim();
+  return normalized !== undefined && /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/u.test(normalized)
+    ? normalized
+    : "unknown";
+}
+
+/**
+ * Whether AskRigor's findings library is open: ASKRIGOR_FINDINGS_LIBRARY set to
+ * "enabled". It stays closed until the owner has worded the privacy notice for
+ * it and created its private review repository (owner decision Q10,
+ * 2026-09-30); while closed, finalize_research checks no card and offers no
+ * save, and save_research_findings saves nothing.
+ */
+export function findingsLibraryEnabledFromEnv(
+  value = process.env.ASKRIGOR_FINDINGS_LIBRARY
+): boolean {
+  return value?.trim() === "enabled";
+}
+
 export function parseTrustedClientIpHeader(
   value = process.env.ASKRIGOR_TRUSTED_CLIENT_IP_HEADER
 ): "cf-connecting-ip" | undefined {
@@ -339,7 +375,7 @@ export function parseTrustedClientIpHeader(
 }
 
 export const SERVER_INSTRUCTIONS =
-  "Before ordinary research use, call manage_research_access with action inspect. If access is unregistered or revoked, present the returned exact notice and let the user explicitly accept free contributor mode or use an already entitled paid-private account; never infer consent or claim that checkout exists. Free contributor mode permits only eligible deidentified structured formal-research proposals, never raw chat, identity, private health narratives, uploads, raw source/provider bodies, or YouTube/community data. At the end of eligible free research, submit the strict frontier and each complete performed source analysis with submit_research_contribution; a pending proposal is not canonical evidence. Paid-private mode submits nothing. Before final synthesis, if firsthand community evidence could plausibly matter, call survey_youtube_community, then audit_youtube_video_community for each material video. Finding an excellent RCT does not remove this requirement. Automatically continue while continuation_recommended is true and widen while expected information gain is positive. Retrieve unfiltered YouTube comments and replies; search_youtube_comments is query-bounded discovery only and never satisfies corpus acquisition. Preserve provenance and blocking receipts. For each decision-important full-text chain, call acquire_open_full_text once with exactly one doi and an optional pmcid; bind coverage_receipt.document_handle and coverage_receipt.source_content_sha256; call continue_open_full_text only while exhausted is false; then call one matching method-audit validator with the same bound document_handle. When repository_study_audit.status is reusable, pass its repository_analysis_version_id to the study validator instead of constructing a new audit; the server rechecks compatibility and runs the same validator. If reuse returns fresh_study_audit_required, call the same validator again with a newly performed audit on the unchanged exhausted handle. Require its returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 to match the acquisition byte-for-byte; any mismatch blocks synthesis. A fresh_study_audit_required boundary is not validated and also blocks synthesis until the named next capability succeeds. If the handle expires or is invalidated, discard that chain and reacquire; never combine chains. Review usable records from partial corpora as bounded evidence and label them partial; completion locks do not make observed records ineligible. Read-only retrieval.";
+  "Before research, call manage_research_access with action inspect. If unregistered or revoked, show the exact notice and let the user explicitly accept free contributor mode or use an entitled paid-private account; never infer consent or claim checkout exists. Free contributor proposals hold only eligible deidentified structured formal research, never raw chat, identity, private health narratives, uploads, raw provider bodies, or YouTube/community data. After eligible free research, submit the strict frontier and each completed source analysis with submit_research_contribution; a pending proposal is not canonical evidence. Paid-private mode submits nothing. Before the final answer, call finalize_research with every research_receipt, your answer draft and a findings_card of its best findings; on not_ready do its next steps, else copy its caveats. If they offer a save, call save_research_findings only after the user's yes. If firsthand community evidence could plausibly matter, search the dominant community and an independent one: forums and Reddit by web search, YouTube by scout_gemini_youtube_candidates (else survey_youtube_community) and audit_youtube_video_community. An excellent RCT does not remove this requirement. Automatically continue while continuation_recommended is true; widen discovery until finalize_research accepts it. Retrieve unfiltered YouTube comments and replies; search_youtube_comments is query-bounded discovery only. For each decision-important full-text chain, call acquire_open_full_text once with exactly one doi and an optional pmcid; bind coverage_receipt.document_handle and coverage_receipt.source_content_sha256; call continue_open_full_text only while exhausted is false; then call one matching method-audit validator with the same bound document_handle. Its returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 must match the acquisition byte-for-byte; any mismatch blocks synthesis. If the handle expires, discard that chain and reacquire; never combine chains.";
 
 export const HEALTH_PAYLOAD = {
   status: "ok",
