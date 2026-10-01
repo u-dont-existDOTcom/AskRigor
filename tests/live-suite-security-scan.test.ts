@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -6,6 +6,16 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { scanLiveSuiteLog } from "../scripts/scan-live-suite-log.mts";
+
+// GNU coreutils translates `sha256sum -c` status words (`OK` reads `Réussi` under
+// fr_FR.UTF-8), so checksum verification runs in the C locale whatever the caller's locale.
+function spawnInCLocale(command: string, args: string[], cwd: string) {
+  return spawnSync(command, args, {
+    cwd,
+    env: { ...process.env, LC_ALL: "C", LANG: "C" },
+    encoding: "utf8"
+  });
+}
 
 describe("live-suite output secret scan", () => {
   it("accepts a clean provider summary without configured runtime values", () => {
@@ -136,10 +146,11 @@ describe("live-suite output secret scan", () => {
 
       const relocatedEvidenceDirectory = join(temporaryDirectory, "relocated-evidence");
       await rename(evidenceDirectory, relocatedEvidenceDirectory);
-      const relocatedVerify = spawnSync("sha256sum", ["-c", "provider-test.log.sha256"], {
-        cwd: relocatedEvidenceDirectory,
-        encoding: "utf8"
-      });
+      const relocatedVerify = spawnInCLocale(
+        "sha256sum",
+        ["-c", "provider-test.log.sha256"],
+        relocatedEvidenceDirectory
+      );
       expect(relocatedVerify.status, relocatedVerify.stderr).toBe(0);
       expect(relocatedVerify.stdout).toContain("provider-test.log: OK");
     } finally {
@@ -163,10 +174,7 @@ describe("live-suite output secret scan", () => {
       await mkdir(uploadDirectory);
       await rename(archive, join(uploadDirectory, "packet.tar.gz"));
       await rename(`${archive}.sha256`, join(uploadDirectory, "packet.tar.gz.sha256"));
-      const verify = spawnSync("sha256sum", ["-c", "packet.tar.gz.sha256"], {
-        cwd: uploadDirectory,
-        encoding: "utf8"
-      });
+      const verify = spawnInCLocale("sha256sum", ["-c", "packet.tar.gz.sha256"], uploadDirectory);
 
       expect(verify.status, verify.stderr).toBe(0);
       expect(verify.stdout).toContain("packet.tar.gz: OK");
@@ -174,4 +182,30 @@ describe("live-suite output secret scan", () => {
       await rm(temporaryDirectory, { force: true, recursive: true });
     }
   }, 15_000);
+
+  it("verifies checksums in the C locale when the caller's locale is French", async () => {
+    const temporaryDirectory = await mkdtemp(join(tmpdir(), "askrigor-checksum-locale-test-"));
+
+    try {
+      await writeFile(join(temporaryDirectory, "provider-test.log"), "Tests 5 passed (5)\n");
+      const checksum = spawnSync("sha256sum", ["provider-test.log"], {
+        cwd: temporaryDirectory,
+        encoding: "utf8"
+      });
+      expect(checksum.status, checksum.stderr).toBe(0);
+      await writeFile(join(temporaryDirectory, "provider-test.log.sha256"), checksum.stdout);
+
+      vi.stubEnv("LANG", "fr_FR.UTF-8");
+      vi.stubEnv("LC_ALL", "fr_FR.UTF-8");
+      const childLocale = spawnInCLocale("sh", ["-c", 'printf "%s %s" "$LC_ALL" "$LANG"'], temporaryDirectory);
+      const verify = spawnInCLocale("sha256sum", ["-c", "provider-test.log.sha256"], temporaryDirectory);
+
+      expect(childLocale.stdout).toBe("C C");
+      expect(verify.status, verify.stderr).toBe(0);
+      expect(verify.stdout).toBe("provider-test.log: OK\n");
+    } finally {
+      vi.unstubAllEnvs();
+      await rm(temporaryDirectory, { force: true, recursive: true });
+    }
+  });
 });
