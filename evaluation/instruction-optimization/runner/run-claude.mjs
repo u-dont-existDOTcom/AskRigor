@@ -1372,8 +1372,14 @@ async function main() {
     if (geminiKey) {
       serverEnv.ASKRIGOR_GEMINI_API_KEY = geminiKey;
       serverEnv.ASKRIGOR_GEMINI_BILLING = "none";
-      // The scout refuses without the shared monthly budget ledger production uses.
-      serverEnv.ASKRIGOR_AI_BUDGET_LEDGER = path.join(options.workDir, "ai-budget-ledger.json");
+      // The scout refuses without the shared monthly budget ledger production uses. The ledger refuses a
+      // parent directory that other users can write, and under umask 002 a new work directory is
+      // group-writable (every scout call then answered gemini_scout_budget_unavailable, 1 Oct). So the
+      // ledger gets its own owner-only directory, whatever the work directory's mode or the umask.
+      const ledgerDir = path.join(options.workDir, "ai-budget");
+      fs.mkdirSync(ledgerDir, { recursive: true, mode: 0o700 });
+      fs.chmodSync(ledgerDir, 0o700);
+      serverEnv.ASKRIGOR_AI_BUDGET_LEDGER = path.join(ledgerDir, "ledger.json");
       serverEnv.ASKRIGOR_AI_MONTHLY_BUDGET_USD = "50";
     }
     for (const name of [...SERVER_ENV_SECRETS, "ASKRIGOR_GEMINI_API_KEY"]) {

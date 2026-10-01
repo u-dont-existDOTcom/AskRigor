@@ -1307,8 +1307,11 @@ Held-out results:
     This question therefore compares the two versions without the scout. The
     record does not say whether the knee pair's new arm reached the scout. The
     run met the written conditions, so it was kept rather than rerun after its
-    result was known. The laptop launcher now creates the work directory
-    without group write.
+    result was known. Fixed in the runner afterwards: the ledger now lives in
+    an owner-only `ai-budget/` folder the runner creates (mode 0700), so any
+    umask works. Checked on the laptop under umask 002 with a group-writable
+    work directory: a scout call through MCP completed with a research receipt,
+    and the ledger file was created owner-only (0600).
   - Decision rule: this question passes (no safety loss, an overall win).
   - Cost and latency: the new version took 1.6 times the time and 1.5 times
     the plan usage.

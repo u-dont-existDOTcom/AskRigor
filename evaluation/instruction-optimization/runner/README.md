@@ -53,8 +53,11 @@ Other options: `--prompt <text>` instead of `--question-id`, `--max-turns`
    `NCBI_API_KEY`, `NCBI_TOOL`, `NCBI_EMAIL`, `CROSSREF_MAILTO` and
    `ASKRIGOR_UNPAYWALL_EMAIL` only when set (presence is recorded as booleans);
    `ASKRIGOR_GEMINI_API_KEY` (from itself or `GEMINI_API_KEY`) with a monthly
-   budget ledger at `<work-dir>/ai-budget-ledger.json` capped at USD 50, as in
-   production, so the Gemini scout can run. Under the zero-spend policy the key
+   budget ledger at `<work-dir>/ai-budget/ledger.json` capped at USD 50, as in
+   production, so the Gemini scout can run. The runner creates `ai-budget/`
+   owner-only (mode 0700), because the ledger refuses a parent directory other
+   users can write: under umask 002 a plain work directory is group-writable,
+   and the scout then answers `gemini_scout_budget_unavailable`. Under the zero-spend policy the key
    is passed only when the operator sets `ASKRIGOR_GEMINI_BILLING=none`,
    declaring that the key has no billing; otherwise the server gets no Gemini
    key and the model uses the YouTube survey;
