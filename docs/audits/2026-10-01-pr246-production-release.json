@@ -1,0 +1,211 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-pr246-instruction-optimization-release-2026-10-01",
+  "recordedAt": "2026-10-01T19:20:00Z",
+  "releaseState": "backend_release_complete_findings_library_closed",
+  "source": {
+    "pullRequest": "u-dont-existDOTcom/AskRigor#246",
+    "reviewedHead": "e8d0092fb8b1acd2a3e80021feccda90b764854f",
+    "mergeCommit": "5640e6d2cfef6d2436ef5459dee3fad08c8e8fd3",
+    "mergeTreeEqualsHead": true,
+    "ownerApproval": "approve all (owner question 19, 2026-10-01)",
+    "replacedImage": "askrigor-research:b04d1e1cb308261c8838eab1066b98c98891585f",
+    "replacedImageRecord": "none in this repository (deploy of #236, 2026-09-25; host rollback directory pre-claude-oauth-20260925T143000Z)",
+    "firstParentMergesShipped": 22
+  },
+  "canonicalArtifacts": {
+    "hrp": {
+      "version": "20.6.8",
+      "revisionDate": "2026-09-30",
+      "sha256": "641473288653e5e2249527c3626d20c298c9b2f302ffc79feaad7c12191606b8"
+    },
+    "universal": {
+      "version": "20.5.33",
+      "revisionDate": "2026-09-30",
+      "sha256": "981429bd73d163f860ab3939aae5ac7057a3557285faa59fa3c8779f12c9722a"
+    }
+  },
+  "migration": {
+    "before": 10,
+    "after": 11,
+    "added": "0011_research_use_notice_v2",
+    "addedSha256Prefix": "83a2731616f62ec4",
+    "constraint": "research_use_accounts_free_notice_check",
+    "accounts": {
+      "FREE_CONTRIBUTOR ACTIVE free-contributor-v1-2026-09-01": 1
+    }
+  },
+  "deployment": {
+    "sourceArchive": {
+      "members": 4062,
+      "bytes": 31170560,
+      "sha256": "951defc882bf2a9e6301b1c46833cba216eb1561de9a7fb0d8bac370ea541c33",
+      "gzipBytes": 5525328,
+      "gzipSha256": "9c8ddee876bbf5c0ead7a2ddfe46811d187fd80c3042855d5958d75f4d3e14b0"
+    },
+    "backend": {
+      "image": "askrigor-research:5640e6d2cfef6d2436ef5459dee3fad08c8e8fd3",
+      "imageId": "sha256:5da9b995b04d51d5faca1743daf99e753a875b548d8f780c455db3f5f960da3d",
+      "layerListSha256": "c74e1cc080851ba9dbc3d610fea6a5ee98711d3ea7923128e19218c4e5505731",
+      "imageArchiveBytes": 108882806,
+      "imageArchiveSha256": "1955496b8ac7c60d4fa7cdafd4c895aff7aa994643bb5dce30f8c645cafa8a1e",
+      "builtOn": "owner laptop, Docker 29.8.1, amd64",
+      "host": "Docker 29.7.2, x86_64; digest checked before load; same image ID and layer list after load",
+      "cutoverAt": "2026-10-01T18:51:03Z",
+      "healthyAfterSeconds": 8,
+      "recreated": [
+        "research-mcp"
+      ],
+      "notRecreated": [
+        "living-evidence-postgres",
+        "caddy"
+      ],
+      "envelope": {
+        "user": "node",
+        "readOnlyRootFilesystem": true,
+        "capDrop": [
+          "ALL"
+        ],
+        "noNewPrivileges": true,
+        "memoryBytes": 1073741824,
+        "pidsLimit": 256,
+        "writableMounts": [
+          "/var/lib/askrigor-actions",
+          "/var/lib/askrigor-research-sessions",
+          "/var/lib/askrigor/lesson-incidents"
+        ],
+        "networks": [
+          "askrigor_default",
+          "askrigor_living_evidence_private"
+        ]
+      },
+      "startupLogLines": 1,
+      "startupLogMarkers": 0,
+      "configuration": {
+        "added": [
+          "ASKRIGOR_BUILD_COMMIT",
+          "ASKRIGOR_GEMINI_BILLING=none"
+        ],
+        "unset": [
+          "ASKRIGOR_FINDINGS_LIBRARY"
+        ],
+        "geminiKeyFingerprintEqualsOwnerUnbilledKey": true,
+        "sha256Prefixes": {
+          "runtime.env": "dfcb9a40",
+          "living-evidence-image.env": "0fc69134",
+          "compose.yaml": "0dca1807"
+        },
+        "priorSha256Prefixes": {
+          "runtime.env": "ca6b7e4f",
+          "living-evidence-image.env": "c327465c",
+          "compose.yaml": "7defa51e",
+          "compose.living-evidence.yaml": "5631ff81"
+        }
+      }
+    },
+    "database": {
+      "dumpBytes": 496797,
+      "dumpFormat": "custom",
+      "tableDataEntries": 82
+    },
+    "rollback": {
+      "imageTag": "askrigor-research:rollback-pre-5640e6d2cfef",
+      "imageIdPrefix": "sha256:6dc01362",
+      "directory": "/opt/askrigor/rollbacks/pre-5640e6d2cfef6d2436ef5459dee3fad08c8e8fd3",
+      "noticeV2Scripts": {
+        "hold": "f64569dd",
+        "restore": "12bcecf9"
+      }
+    }
+  },
+  "activeWorker": {
+    "inImageProbe": {
+      "standardTools": 32,
+      "geminiTools": 22,
+      "manifestsExact": true,
+      "loadProtocolIndex": true,
+      "pubmedRecordWithReceipt": true,
+      "scout": {
+        "status": "complete",
+        "calls": 3,
+        "approxSeconds": 73,
+        "discoveryQueries": 16,
+        "foundByTitle": 2,
+        "validation": "partial"
+      },
+      "budgetLedgerModes": {
+        "directory": "0700",
+        "file": "0600"
+      }
+    },
+    "redditLookup": {
+      "post": "z1c9z",
+      "state": "found",
+      "subreddit": "iama",
+      "milliseconds": 432,
+      "nonexistentPost": "not_found"
+    },
+    "actionDocument": {
+      "bytes": 11701,
+      "sha256": "83314c552f92e9127f91967e3491e2ca883efb9da596cda4a60bac666825b1ed",
+      "operations": [
+        "submit_lesson_candidate",
+        "preserve_lesson_incident"
+      ],
+      "changedByThisRelease": false
+    },
+    "connector": {
+      "inspect": "UNENROLLED, v2 notice in the approved wording",
+      "paidPrivateActivation": "refused: no entitlement; none created"
+    },
+    "githubAppTokenScopes": {
+      "AskRigor-lessons": "exactly this private repository",
+      "AskRigor-findings": "exactly this private repository"
+    },
+    "plugin": {
+      "priorVersion": "0.1.0+codex.20260919021156",
+      "priorReceiptPrefix": "cf815264",
+      "version": "0.1.0+codex.20261001185906",
+      "sourceReceipt": "a434a72cf2506ed8c6855a14c4bee962ded91fa7f636db0fdc875c7986c9e3a7",
+      "installedReceipt": "a434a72cf2506ed8c6855a14c4bee962ded91fa7f636db0fdc875c7986c9e3a7",
+      "files": 8,
+      "rollbackCopy": "/home/joel/plugins/askrigor.rollback-20261001185906Z"
+    }
+  },
+  "promotionScheduler": {
+    "manualRun": "no_pending_promotion",
+    "journalMarkers": 0,
+    "runnerLeft": 0,
+    "timer": "enabled, active",
+    "scheduledRunsChecked": [
+      "2026-10-01T18:58Z",
+      "2026-10-01T19:00Z",
+      "2026-10-01T19:05Z"
+    ]
+  },
+  "liveVerification": {
+    "healthz": "ok",
+    "mcpClaude": 401,
+    "protectedResourceMetadata": 200
+  },
+  "verification": {
+    "verifyOnHead": "2211 passed, 6 skipped, typecheck, build (French locale)",
+    "ciOnHead": "7 of 7 passed",
+    "noticeV2RollbackAcceptance": "pass; two mutations fail it",
+    "lessonCheckpoint": {
+      "status": "available",
+      "openCandidates": 2,
+      "needsReview": 2,
+      "acceptedNotIncorporated": 0,
+      "incorporatedOrClosed": 5,
+      "deletionEligible": 0,
+      "checkedAt": "2026-10-01T18:40:52Z"
+    }
+  },
+  "typedCompletionClaim": "PARTIAL",
+  "remainingBlockers": [
+    "Merge u-dont-existDOTcom/AskRigor#259 (approved privacy and terms wording, effective October 1, 2026): held by Claude Code's safety check for the owner's explicit approval",
+    "Deploy the site from that merge (also ships #247's logo)",
+    "Set ASKRIGOR_FINDINGS_LIBRARY=enabled, recreate research-mcp, and save one synthetic card end to end"
+  ]
+}
