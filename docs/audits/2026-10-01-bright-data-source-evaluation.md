@@ -76,6 +76,30 @@ So the assessment is this session's own. Spending decisions stay with the owner.
     For 4 of 17 videos that was a track in an unrelated language. It should
     prefer the video's own language or its manual track.
 
+## Owner decision (2026-10-01)
+
+The owner answered the spending question (question 16 on the owner questions
+page) at 16:44 UTC: "free users don't get to use this option, it would be a
+paid feature using up AskRigor credits that they purchase (altho of course I as
+the owner can use it as i wish)".
+
+- Free contributor accounts get no Bright Data use. That covers both uses
+  above, since the transcript backup also spends Bright Data credits; the
+  owner can still choose to give everyone the transcript backup.
+- Paid accounts would spend AskRigor credits they buy. AskRigor has no credits,
+  prices or checkout yet: paid private access is a yes-or-no entitlement, and
+  the 2026-09-01 entitlement plan deferred pricing, the billing provider,
+  checkout, invoicing and refunds. The paid use therefore waits for that billing
+  work, whose own decisions (provider, credit price, credits per pass, refunds)
+  go to the owner when it starts.
+- The owner may use both without limit. The owner's use runs on Bright Data's
+  free 5,000 credits a month until the owner adds a payment method in Bright
+  Data; AskRigor adds none and spends nothing beyond the free tier itself.
+- Order, after AskRigor#246 merges: AskRigor's own two transcript fixes above,
+  for everyone; then both Bright Data uses for the owner's account only, with
+  the privacy entry in the owner's wording; then paid accounts, once the
+  credits exist.
+
 This was an isolated evaluation. It changed no MCP or Action tool, Custom GPT,
 plugin, protocol, privacy map, deployment or Railway setting. Raw provider
 responses stayed in a scratch folder on the owner's laptop and were deleted at
