@@ -63,7 +63,7 @@ function evidenceFixture(): BidirectionalEvidenceState {
     videoDepth,
     formalEvidence: initializeResearchFormalEvidence(
       candidates,
-      "de-identified treatment comparison"
+      "adults comparing de-identified treatment programs"
     )
   };
 }

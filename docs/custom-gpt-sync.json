@@ -30,15 +30,17 @@
     "bundle_sha256": "b5222aef204c21bf529b2050d27acc3f6c0c3742838ea03de5c31ce973cba064",
     "instructions_sha256": "657a94404278e0cecce65f72464af80477048a90cac40cfca5d27aa1f0423300"
   },
-  "internal_scout_skill_sha256": "562505f1c39843940d983c1b208e273be30d97c43ecbd9d9d6ea4b9226a62645",
+  "internal_scout_skill_sha256": "61fda03a6ec3a952b5a55e8167a49b6c75efdf1eeebd534baf8895fe8f7b65ad",
   "mcp_research_operation_ids": [
     "acquire_open_full_text",
+    "assess_treatment_landscape_coverage",
     "audit_youtube_community",
     "audit_youtube_video_community",
     "check_retraction_status",
     "continue_open_full_text",
     "fetch_clinical_trial",
     "fetch_pubmed_record",
+    "finalize_research",
     "get_protocol_manifest",
     "get_research_frontier",
     "get_youtube_comments",
@@ -48,12 +50,15 @@
     "resolve_doi",
     "review_evidence_gap_submissions",
     "review_research_contribution",
+    "save_research_findings",
+    "scout_gemini_youtube_candidates",
     "search_clinical_trials",
     "search_europe_pmc",
     "search_pubmed",
     "search_research_frontiers",
     "search_youtube",
     "search_youtube_comments",
+    "submit_lesson_candidate",
     "submit_research_contribution",
     "survey_youtube_community",
     "validate_review_method_audit",
@@ -74,7 +79,7 @@
     },
     {
       "path": "integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md",
-      "sha256": "562505f1c39843940d983c1b208e273be30d97c43ecbd9d9d6ea4b9226a62645"
+      "sha256": "61fda03a6ec3a952b5a55e8167a49b6c75efdf1eeebd534baf8895fe8f7b65ad"
     }
   ]
 }

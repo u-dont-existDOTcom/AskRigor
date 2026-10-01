@@ -3,6 +3,17 @@ import { readFile } from "node:fs/promises";
 
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 
+import { protocolSections, type ProtocolSection } from "./sections.js";
+
+export {
+  coreSectionNames,
+  PROTOCOL_PAGE_MAX_BYTES,
+  protocolSections,
+  protocolTextPage,
+  type ProtocolSection,
+  type ProtocolTextPage
+} from "./sections.js";
+
 export type ProtocolName = "hrp" | "universal";
 
 export interface ProtocolManifest {
@@ -45,6 +56,18 @@ export async function loadProtocolSnapshot(
   protocolName: ProtocolName
 ): Promise<ProtocolSnapshot> {
   return readProtocol(protocolName);
+}
+
+export interface ProtocolSectionSnapshot extends ProtocolSnapshot {
+  sections: ProtocolSection[];
+}
+
+/** Exact text, manifest, and top-level section byte ranges from one file read. */
+export async function loadProtocolSectionSnapshot(
+  protocolName: ProtocolName
+): Promise<ProtocolSectionSnapshot> {
+  const snapshot = await readProtocol(protocolName);
+  return { ...snapshot, sections: protocolSections(protocolName, snapshot.text) };
 }
 
 export async function verifyProtocolIntegrity(

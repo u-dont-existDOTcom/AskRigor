@@ -27,8 +27,13 @@ before substantive reasoning. A familiar rule is not applicable merely because
 it is generally sound or prominent. Test its intended problem, current phase,
 evidence of applicability, useful work it would suppress, and any more-specific
 instruction or first-principles objective. A correct heuristic applied to the
-wrong phase is an error. If a user-corrected failure recurs, diagnose the
-higher-level attractor rather than add another local exception.
+wrong phase is an error. If a failure class recurs after a fix, whether the
+user or a review, test or run finds it again, stop local fixes: name the class
+and diagnose the higher-level attractor or the mechanism's fit rather than add
+another local exception (UDA `patterns/reasoning-selection.md`, recurring-finding
+check). Pattern matching (regular expressions, word lists) decides exact,
+structural questions only; judgments about meaning go to the model or to an
+exact check of what it declares (same pattern, pattern-matching fit check).
 
 Before using preregistration, freezing, untouched-holdout, leakage, retuning,
 multiple-testing, anti-overfitting, post-hoc, or confirmation restrictions,
@@ -141,7 +146,7 @@ surfaces are technically accessible and no genuine consequential boundary
 intervenes.
 
 At every backend or Custom GPT release, also verify the installed AskRigor
-plugin against the release: exact 27-tool MCP catalog, live HRP/Universal
+plugin against the release: exact 32-tool MCP catalog, live HRP/Universal
 manifests, one read-only connector probe, and an exact installed-package
 receipt covering `.codex-plugin/plugin.json`, every file under the
 manifest-declared `skills/` tree (including `skills/askrigor/SKILL.md`), and
@@ -199,6 +204,7 @@ question on the owner questions page from a Claude session.
 - A required module or receipt cannot be treated as complete without its executable evidence; strong evidence from another layer does not silently deselect it.
 - Do not synthesize a full verdict while the project router says required work is incomplete or blocked.
 - Preserve the privacy data map and bounded live-validation contract; never broaden collected or exported data accidentally.
+- A check that judges meaning (paraphrase, negation, relevance, whether text reports something) is not repaired by adding a word or pattern to a list: move the judgment to the model, or to an exact check of what the model declares, or state the check's limit. Checks on user content or model output must work in any language.
 
 Treat chat as disposable working memory. A fresh worker must be able to recover
 from this repository without the old transcript.

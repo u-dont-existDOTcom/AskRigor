@@ -142,7 +142,7 @@ describe("private research orchestration HTTP boundary", () => {
       privateOrchestrationApiKey: API_KEY,
       privateOrchestrationHandler: fixtureHandler()
     }, async (baseUrl) => {
-      const target = "de-identified treatment comparison";
+      const target = "adults comparing de-identified treatment programs";
       const started = await privatePost(baseUrl, "/start", {
         research_target: target,
         diagnosis_status: "diagnosis_not_specified"
@@ -371,7 +371,7 @@ describe("private research orchestration HTTP boundary", () => {
         }))
       };
       const run = await runHermesResearchTask({
-        research_target: "de-identified treatment comparison",
+        research_target: "adults comparing de-identified treatment programs",
         maximum_no_progress_transitions: 1,
         maximum_transitions: 12
       }, client, worker);

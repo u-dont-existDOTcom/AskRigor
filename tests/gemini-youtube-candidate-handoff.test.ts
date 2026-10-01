@@ -5,6 +5,7 @@ import {
   MAX_GEMINI_YOUTUBE_CANDIDATE_RESPONSE_BYTES,
   parseGeminiYoutubeCandidateHandoff,
   validateGeminiYoutubeCandidateHandoff,
+  youtubeTitlesEqual,
   type GeminiYoutubeCandidatePacket,
   type YoutubeVideo
 } from "../packages/sources/src/index.js";
@@ -157,6 +158,58 @@ describe("Gemini YouTube candidate handoff", () => {
     expect(parsed.discovery_queries.map(({ purpose }) => purpose)).toContain("radical_outcome");
   });
 
+  it("accepts up to six title-only finds and nothing unbounded", () => {
+    const lead = { title: "GROWING MY HIP BACK", channel: "SHAPEFIXER", why_surfaced: "First-person recovery" };
+    const withLeads = { ...packet(), title_only_candidates: [lead] } as GeminiYoutubeCandidatePacket;
+    expect(parseGeminiYoutubeCandidateHandoff(response(withLeads))).toMatchObject({
+      title_only_candidates: [lead]
+    });
+    const tooMany = { ...packet(), title_only_candidates: Array.from({ length: 7 }, (_, index) => ({
+      ...lead,
+      title: `${lead.title} ${index}`
+    })) } as GeminiYoutubeCandidatePacket;
+    const blankChannel = { ...packet(), title_only_candidates: [{ ...lead, channel: " " }] } as GeminiYoutubeCandidatePacket;
+    for (const input of [tooMany, blankChannel]) {
+      expect(() => parseGeminiYoutubeCandidateHandoff(response(input))).toThrowError(
+        expect.objectContaining({ code: "invalid_packet" })
+      );
+    }
+  });
+
+  it("counts title-only finds toward the three-video floor and asks for a seed only among ID-backed candidates", async () => {
+    const lead = (index: number) => ({
+      title: `Hip recovery story ${index}`, channel: "not described", why_surfaced: "First-person recovery"
+    });
+    const withLeads = (candidates: number, leads: number, seeds: number) => ({
+      ...packet(),
+      candidates: packet().candidates.slice(0, candidates),
+      suggested_seed_video_ids: VIDEO_IDS.slice(0, seeds),
+      title_only_candidates: Array.from({ length: leads }, (_, index) => lead(index))
+    }) as GeminiYoutubeCandidatePacket;
+
+    // One ID and two titles, or three titles and no ID (so no seed), are enough.
+    expect(parseGeminiYoutubeCandidateHandoff(response(withLeads(1, 2, 1))).candidates).toHaveLength(1);
+    const titlesOnly = parseGeminiYoutubeCandidateHandoff(response(withLeads(0, 3, 0)));
+    expect(titlesOnly).toMatchObject({ candidates: [], suggested_seed_video_ids: [] });
+    // Two finds in all, or ID-backed candidates without a seed, are not.
+    for (const input of [withLeads(1, 1, 1), withLeads(1, 3, 0)]) {
+      expect(() => parseGeminiYoutubeCandidateHandoff(response(input))).toThrowError(
+        expect.objectContaining({ code: "invalid_packet" })
+      );
+    }
+
+    // With no ID to check, validation calls nobody and leaves the titles to be looked up.
+    const getVideo = vi.fn();
+    const receipt = await validateGeminiYoutubeCandidateHandoff(response(withLeads(0, 3, 0)), YOUTUBE, { get_video: getVideo });
+    expect(getVideo).not.toHaveBeenCalled();
+    expect(receipt).toMatchObject({
+      status: "accepted",
+      validated_candidates: [],
+      suggested_seed_receipts: [],
+      candidate_frontier: { source_candidate_video_ids: [] }
+    });
+  });
+
   it("retains exact framed-packet compatibility", () => {
     const parsed = parseGeminiYoutubeCandidateHandoff(
       legacyFramedResponse().replace(/\n/gu, "\r\n")
@@ -291,32 +344,142 @@ describe("Gemini YouTube candidate handoff", () => {
     });
   });
 
-  it("rejects mismatched declarations without discarding valid candidates", async () => {
-    const getVideo = vi.fn(async (videoId: string) => videoEnvelope(
-      videoId,
-      videoId === VIDEO_IDS[0] ? { title: "Different provider title" } : {}
-    ));
-
-    const receipt = await validateGeminiYoutubeCandidateHandoff(
+  it("confirms an ID only by YouTube's own title, and hands any other title back with both for the model", async () => {
+    const withVideo = (options: { title?: string; channel?: string }) => validateGeminiYoutubeCandidateHandoff(
       response(),
       YOUTUBE,
-      { get_video: getVideo }
+      { get_video: vi.fn(async (videoId: string) => videoEnvelope(videoId, videoId === VIDEO_IDS[0] ? options : {})) }
     );
+    // YouTube's usual additions to a title do not change it.
+    for (const title of [
+      "FIRST OUTCOME VIDEO!",
+      "First outcome video | Independent runner",
+      "First outcome video - one year on",
+      "First outcome video #shorts #hip"
+    ]) {
+      const receipt = await withVideo({ title });
+      expect(receipt.status).toBe("accepted");
+      expect(receipt.validated_candidates.map(({ video_id }) => video_id)).toEqual([...VIDEO_IDS]);
+    }
+    // Any other title may be the same video worded differently or another one. The ID is not confirmed, and the
+    // rejection carries both titles for the research model to judge.
+    for (const [title, channel, reasons] of [
+      ["My first outcome video, one year on", "An independent runner", ["declared_title_mismatch", "declared_channel_mismatch"]],
+      ["Different provider title", undefined, ["declared_title_mismatch"]],
+      ["Second outcome video", "Unrelated channel", ["declared_title_mismatch", "declared_channel_mismatch"]]
+    ] as const) {
+      const receipt = await withVideo({ title, ...(channel === undefined ? {} : { channel }) });
+      expect(receipt.status).toBe("partial");
+      expect(receipt.validated_candidates.map(({ video_id }) => video_id)).toEqual(VIDEO_IDS.slice(1));
+      expect(receipt.unresolved_candidates).toEqual([]);
+      expect(receipt.rejected_candidates).toEqual([expect.objectContaining({
+        video_id: VIDEO_IDS[0],
+        rejection_reasons: reasons,
+        provider_title: title,
+        declared_title: TITLES[0],
+        limitations: expect.arrayContaining([expect.stringMatching(/differs from the scout's \(declared_title\)/u)])
+      })]);
+      expect(receipt.suggested_seed_receipts[0]).toEqual({
+        video_id: VIDEO_IDS[0],
+        disposition: "rejected",
+        reasons: ["candidate_rejected"]
+      });
+    }
+    // YouTube's title under another channel name: YouTube's metadata is used.
+    const renamedChannel = await withVideo({ channel: "Unrelated channel" });
+    expect(renamedChannel.validated_candidates.find(({ video_id }) => video_id === VIDEO_IDS[0])).toMatchObject({
+      provider_metadata: { channel_title: "Unrelated channel" },
+      limitations: expect.arrayContaining([
+        "The scout's declared channel differed from YouTube's; YouTube's metadata is used."
+      ])
+    });
+  });
 
-    expect(receipt.status).toBe("partial");
-    expect(receipt.validated_candidates).toHaveLength(2);
-    expect(receipt.rejected_candidates).toEqual([
-      expect.objectContaining({
+  it("compares titles character by character, alike in every language, and leaves every rewording to the model", async () => {
+    const declaring = (title: string): GeminiYoutubeCandidatePacket => {
+      const value = packet();
+      return {
+        ...value,
+        candidates: value.candidates.map((candidate, index) => index === 0 ? { ...candidate, title } : candidate)
+      };
+    };
+    const check = (declaredTitle: string, providerTitle: string) => validateGeminiYoutubeCandidateHandoff(
+      response(declaring(declaredTitle)),
+      YOUTUBE,
+      { get_video: vi.fn(async (videoId: string) => videoEnvelope(
+        videoId,
+        videoId === VIDEO_IDS[0] ? { title: providerTitle } : {}
+      )) }
+    );
+    // Rewordings, opposite claims and translations are alike unconfirmed: telling them apart takes reading them.
+    for (const [declaredTitle, providerTitle] of [
+      ["How I healed hip pain", "How I healed back pain"],
+      ["Why surgery did not fix my hip", "Why surgery didn't fix my hip"],
+      ["No evidence TRT causes harm", "Evidence TRT causes no harm"],
+      ["TRT can help pain", "TRT cannot help pain"],
+      ["La chirurgie a aidé", "La chirurgie n'a pas aidé"],
+      ["Die Operation hat geholfen", "Die Operation hat nicht geholfen"],
+      ["膝の痛み", "膝の痛みを治した方法"],
+      ["How I healed my hip", "Cómo curé mi cadera"]
+    ] as const) {
+      const receipt = await check(declaredTitle, providerTitle);
+      expect(receipt.validated_candidates.map(({ video_id }) => video_id)).toEqual(VIDEO_IDS.slice(1));
+      expect(receipt.rejected_candidates).toEqual([expect.objectContaining({
         video_id: VIDEO_IDS[0],
         rejection_reasons: ["declared_title_mismatch"],
-        provider_title: "Different provider title"
-      })
-    ]);
-    expect(receipt.suggested_seed_receipts[0]).toEqual({
-      video_id: VIDEO_IDS[0],
-      disposition: "rejected",
-      reasons: ["candidate_rejected"]
-    });
+        declared_title: declaredTitle,
+        provider_title: providerTitle
+      })]);
+    }
+    // The same title in any script, give or take case, punctuation and YouTube's additions, confirms the ID.
+    for (const [declaredTitle, providerTitle] of [
+      ["Cómo curé mi cadera", "CÓMO CURÉ MI CADERA #shorts"],
+      ["La chirurgie n'a pas aidé", "La chirurgie n’a pas aidé | Dr Martin"],
+      ["膝の痛みを治した方法", "膝の痛みを治した方法 | 整体チャンネル"],
+      ["Как я вылечил колено", "Как я вылечил колено - история"]
+    ] as const) {
+      const receipt = await check(declaredTitle, providerTitle);
+      expect(receipt.validated_candidates.map(({ video_id }) => video_id)).toEqual([...VIDEO_IDS]);
+    }
+  });
+
+  it("keeps the marks and numbers that tell titles apart", () => {
+    // Vowel signs and tone marks carry meaning in Thai, Hindi and Tamil: dropping them would equate other words.
+    for (const [provider, declared] of [
+      ["ข่าวดี", "ขาวดี"],
+      ["เก่า", "เกา"],
+      ["घुटने का दर्द", "घुटने की दर्द"],
+      ["முதுகு வலி", "முதுகு வலு"],
+      // An episode number is part of the title; a hashtag has a letter.
+      ["Hip recovery diary #13", "Hip recovery diary #12"],
+      ["Knee rehab, day #5", "Knee rehab, day #6"]
+    ] as const) {
+      expect(youtubeTitlesEqual(provider, declared)).toBe(false);
+    }
+    for (const [provider, declared] of [
+      ["ข่าวดี", "ข่าวดี"],
+      ["วิธีแก้ปวดหลัง #ปวดหลัง", "วิธีแก้ปวดหลัง"],
+      ["घुटने का दर्द #घुटना", "घुटने का दर्द"],
+      ["Hip recovery diary #13 #hiprecovery", "Hip recovery diary #13"],
+      ["Hip recovery diary #13", "hip recovery diary #13"]
+    ] as const) {
+      expect(youtubeTitlesEqual(provider, declared)).toBe(true);
+    }
+  });
+
+  it("strips trailing hashtags in time linear in the title's length", () => {
+    // A single regular expression for the whole hashtag run backtracks on long runs of spaces
+    // (CodeQL: polynomial regular expression on provider titles).
+    const spaces = " ".repeat(100_000);
+    const started = performance.now();
+    expect(youtubeTitlesEqual(`Hip${spaces}diary`, "Hip diary")).toBe(true);
+    expect(youtubeTitlesEqual(`Hip diary #hiprecovery${spaces}`, "Hip diary")).toBe(true);
+    expect(youtubeTitlesEqual(`Hip diary${spaces}#12`, "Hip diary")).toBe(false);
+    expect(youtubeTitlesEqual("Hip diary", `Hip diary${spaces}#hip${spaces}`)).toBe(true);
+    expect(performance.now() - started).toBeLessThan(1_000);
+    // A title that is only a hashtag keeps it: a trailing hashtag follows whitespace.
+    expect(youtubeTitlesEqual("#hiprecovery", "#hiprecovery")).toBe(true);
+    expect(youtubeTitlesEqual("Hip diary #hip!", "Hip diary")).toBe(false);
   });
 
   it("keeps an API-visible candidate unresolved when required identity fields are missing", async () => {

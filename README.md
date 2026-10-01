@@ -23,10 +23,10 @@ AskRigor uses this order when sources disagree:
 6. current release/reviewer evidence indexed by `docs/INDEX.md`; and
 7. the recovery checkpoint at `project/CODEX-CURRENT-STATE.md`.
 
-The current canonical files identify HRP `20.5.29` (2026-09-12), SHA-256
-`254759df38934c28b06709dace9fcb266fc9967913be1296de99a461be596816`,
-and Universal Instructions `20.5.27` (2026-09-30), SHA-256
-`6dd95d86e3b49a54a9f597d13e8a9855b478d876d1a84842a8f88f144c999625`.
+The current canonical files identify HRP `20.6.8` (2026-09-30), SHA-256
+`641473288653e5e2249527c3626d20c298c9b2f302ffc79feaad7c12191606b8`,
+and Universal Instructions `20.5.33` (2026-09-30), SHA-256
+`981429bd73d163f860ab3939aae5ac7057a3557285faa59fa3c8779f12c9722a`.
 Those values are descriptive receipts derived from the exact XML bytes, not
 substitutes for the files. A README, manifest, router, lesson, checkpoint,
 release record, generated excerpt, or remembered summary never silently
@@ -240,7 +240,9 @@ clickable canonical links and provider-reported comment counts. It selects up
 to three materially different videos, then calls
 `audit_youtube_video_community` for each and automatically resubmits the opaque
 continuation token while `continuation_recommended` is true. Each call is
-bounded to about 15 seconds, but there is no arbitrary one-minute total limit:
+bounded to about 15 seconds on the Custom GPT Action and about 40 seconds on
+MCP (two such calls at a time; others get 15 seconds), but there is no
+arbitrary one-minute total limit:
 the controller keeps spending additional minutes while expected information
 gain is positive.
 
@@ -398,7 +400,10 @@ rollback, and acceptance steps are in `docs/custom-gpt-actions-setup.md` and
 The lesson Action accepts only a separately consented, generalized candidate,
 runs deterministic and fixed-model privacy checks, and writes only to a private
 human-review queue. It never receives raw chat, does not modify AskRigor, and
-does not change the 17-tool read-only MCP inventory. Setup, secret handling,
+does not change the 17-tool read-only MCP inventory. The connector now offers the
+same lesson write as `submit_lesson_candidate` (owner decision, 2026-09-30; in
+AskRigor#246, not yet deployed), using the same service, screen, limits and private
+queue, without incident provenance. Setup, secret handling,
 synthetic acceptance, queue status, rollback, and key rotation are documented
 in `docs/custom-gpt-actions-setup.md`.
 
@@ -411,6 +416,36 @@ and rollback path passed the bounded acceptance recorded in
 retrofit existing chats with standing consent; start a new Custom GPT chat after
 installation. Disabling the Action or revoking its repository-scoped App stops
 new lessons while MCP remains available and unchanged.
+
+## Findings library
+
+Owner decisions Q9 to Q11 (2026-09-30; not yet deployed): free AskRigor use is
+reciprocal, so the best findings of every finished free research answer are
+saved for the owner's review, with the AskRigor that made them, and nothing asks
+the user; a paid-private answer offers the save, and `save_research_findings`
+(the connector's 32nd tool) saves it only after the user says yes. In the last
+`finalize_research` call the model adds a `findings_card`, which any research
+account's answer needs; the gate checks each finding's sentence against the
+answer and each source against the receipts of that call, never holds back the
+answer for a rejected card, and signs a checked card's digest into the
+finalization receipt. For a free contributor account the tool then saves that
+exact card: it verifies the receipt, runs the lesson queue's deterministic
+privacy screen with no model call, stamps the version (build, protocol
+manifests, tool catalog, surface, reported model), and files a GitHub issue
+labeled `findings-card` and `pending-review` in the private `AskRigor-findings`
+repository, or adds an occurrence to an open card with the same question and
+claims. A later card from the same account on the same research target replaces
+the earlier one, so a corrected answer's findings are what gets reviewed.
+`finalize_research` is therefore declared a write. Nothing is accepted until
+the owner reviews it. Stored cards hold no YouTube video IDs or links while the
+YouTube compliance review is open, only how many videos backed each finding.
+The free contributor notice moves to `free-contributor-v2-2026-09-30`, which
+says findings cards are saved; accounts that accepted the first version accept
+the second before free research continues (migration
+`0011_research_use_notice_v2`). The library stays closed (no card needed,
+checked or saved) until `ASKRIGOR_FINDINGS_LIBRARY=enabled`, which follows the
+owner's notice wording, the private repository and its GitHub App installation,
+and deploy approval; the data flow is in `docs/privacy-data-map.md`.
 
 ## Public-review status
 

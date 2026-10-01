@@ -7,6 +7,7 @@ import {
 import { RESEARCH_OPERATIONS } from "../register-tools.js";
 import type { ResearchOperation } from "../research-operation.js";
 import { RESEARCH_ACTION_RESPONSE_MAX_BYTES } from "../config.js";
+import { youtubeCommunityAuditOutputSchema } from "../youtube-community-audit.js";
 import { youtubeVideoCommunityAuditOutputSchema } from
   "../youtube-video-community-audit.js";
 import {
@@ -171,7 +172,12 @@ function createResearchActionRoute(
   youtubeContinuationHandles: YoutubeActionContinuationHandleStore
 ): ActionRoute {
   const inputSchema = objectSchema(operation.inputSchema, operation.name, "input");
-  const outputSchema = objectSchema(operation.outputSchema, operation.name, "output");
+  // The MCP audit tools declare their compact views; Action calls get the full audits.
+  const outputSchema = operation.name === "audit_youtube_video_community"
+    ? youtubeVideoCommunityAuditOutputSchema
+    : operation.name === "audit_youtube_community"
+      ? youtubeCommunityAuditOutputSchema
+      : objectSchema(operation.outputSchema, operation.name, "output");
   const actionOutputSchema = operation.name === "audit_youtube_video_community"
     ? youtubeVideoCommunityAuditOutputSchema.extend({
         coverage_receipt: discussionReceiptSchema
@@ -240,8 +246,11 @@ function createResearchActionRoute(
         }
       }
       try {
-        const result = await operation.execute(operationInput);
-        const parsedOutput = outputSchema.safeParse(result.structuredContent);
+        const result = await operation.execute(operationInput, { surface: "action" });
+        // Research receipts serve MCP's finalize_research. The Custom GPT's
+        // session controller keeps its own ledger, so Actions return none.
+        const { research_receipt: _receipt, ...structuredContent } = result.structuredContent ?? {};
+        const parsedOutput = outputSchema.safeParse(structuredContent);
         if (!parsedOutput.success) {
           throw new Error("Research operation returned invalid structured output");
         }

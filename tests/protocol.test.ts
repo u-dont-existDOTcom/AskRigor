@@ -19,9 +19,9 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "254759df38934c28b06709dace9fcb266fc9967913be1296de99a461be596816";
+  "641473288653e5e2249527c3626d20c298c9b2f302ffc79feaad7c12191606b8";
 const UNIVERSAL_SHA_256 =
-  "6dd95d86e3b49a54a9f597d13e8a9855b478d876d1a84842a8f88f144c999625";
+  "981429bd73d163f860ab3939aae5ac7057a3557285faa59fa3c8779f12c9722a";
 
 describe("canonical protocol loader", () => {
   let actualReadFile: typeof import("node:fs/promises").readFile;
@@ -37,8 +37,8 @@ describe("canonical protocol loader", () => {
   it("derives the HRP manifest from its root attributes", async () => {
     await expect(getProtocolManifest("hrp")).resolves.toMatchObject({
       name: "HRP",
-      version: "20.5.29",
-      revisionDate: "2026-09-12"
+      version: "20.6.8",
+      revisionDate: "2026-09-30"
     });
   });
 
@@ -254,7 +254,7 @@ describe("canonical protocol loader", () => {
     };
 
     expect(text).toMatch(
-      /<Protocol name="HRP" version="20\.5\.29" revisionDate="2026-09-12"/
+      /<Protocol name="HRP" version="20\.6\.8" revisionDate="2026-09-30"/
     );
     for (const required of [
       '<Revision version="20.5.19" priority="Critical">',
@@ -289,9 +289,86 @@ describe("canonical protocol loader", () => {
       "stable source identifiers linked to retrieval receipts",
       "Hard-block decision-relevant or uncertain omissions",
       "only a terminal, nonretryable boundary after attempted recovery",
-      "caller-supplied claim that the corpus is small, narrow, or non-substantial cannot deactivate them",
+      "caller-supplied claim that the corpus is small, narrow, or non-substantial cannot end discovery",
+      "the first pass is a broad sweep with a cap, not a minimum",
+      "two consecutive rounds from different angles that add no new approach and no new video worth auditing",
+      "a niche topic may end with one video or none",
+      "only saturation or a completed first pass with its open leads can",
+      "Deep research continues rounds until saturation",
       "authenticated opaque continuation or server-held state proving one contiguous chain"
     ]) expect(normalizedText).toContain(required);
+
+    // HRP 20.6.3 and 20.6.6 (owner approval of 2026-09-29): the final self-check and regression case follow the
+    // shorter first pass.
+    const selfCheck = normalizedText.match(/<Check id="FS188">[^<]*<\/Check>/u)?.[0] ?? "";
+    expect(selfCheck).toContain(
+      "Stop a first pass at the earliest of saturation, about three fully audited videos, or about two discovery rounds"
+    );
+    expect(selfCheck).not.toContain("at least eight");
+    const fourDistinct = normalizedText.match(
+      /<Case id="FourDistinctVideosPresentedAsBroadCoverage">.*?<\/Case>/u
+    )?.[0] ?? "";
+    expect(fourDistinct).toContain("Two rounds and four fully audited videos complete a first pass");
+    expect(fourDistinct).toContain("the remaining programs become its open leads, never a final comparison or ranking");
+    expect(fourDistinct).toContain("In deep research, fail the treatment-landscape synthesis lock");
+    expect(fourDistinct).not.toContain("completion minimum");
+
+    // HRP 20.6.6: a shorter first pass that also searches beyond YouTube, no coverage lock in it, and an answer
+    // that ends with a deeper study review and deeper community research.
+    const broad = normalizedText.match(/<Rule name="BroadDiscoveryBeforeDeepAudit"[^>]*>.*?<\/Rule>/u)?.[0] ?? "";
+    expect(broad).toContain("about three fully audited videos; or about two rounds.");
+    expect(broad).toContain(
+      "briefly searches the dominant community and one independent one, not only YouTube (PrincipalPlatformMapping, " +
+        "MultipleIndependentCommunities)"
+    );
+    expect(broad).not.toContain("about six fully audited videos");
+    for (const required of [
+      "A first pass does not run this lock. It still searches every direction (DirectionalSearchSymmetry)",
+      "and it emits no final treatment ranking. In deeper research, skipped directional searches",
+      "After a first pass, offer the two directions it left open, a sentence or two each: a deeper study review",
+      "suggest two or three specific focuses within each to help them narrow the next investigation"
+    ]) expect(normalizedText).toContain(required);
+    expect(normalizedText).not.toContain("After a completed first pass, breadth gaps");
+
+    // HRP 20.6.4 (owner lesson of 2026-09-26): a source's advice is read in its own use context before a safety label.
+    const relevance = normalizedText.match(/<Rule name="RelevanceBeforeWarning"[^>]*>.*?<\/Rule>/u)?.[0] ?? "";
+    for (const required of [
+      "Apply the same test to a source's advice to avoid, reduce, stop, space, replace or not rely on a treatment",
+      "read it in the source's own use context (maintenance or rescue, starting or stopping, combined or spaced, dose, duration, population and stage)",
+      "state remaining ambiguity instead of assuming the riskiest reading",
+      "An explicit call to withhold rescue treatment in an emergency still gets a warning."
+    ]) expect(relevance).toContain(required);
+    const reduction = normalizedText.match(
+      /<Case id="ReductionAdviceReadAsRescueWithholding">.*?<\/Case>/u
+    )?.[0] ?? "";
+    expect(reduction).toContain("separate maintenance from rescue use and combined from spaced use");
+    expect(reduction).toContain("Warn about withholding rescue treatment only when the source actually advises it");
+
+    // HRP 20.6.5 (owner direction of 2026-09-27): a deeper-research offer says what it would focus on; a long prompt
+    // comes on request instead of being pasted.
+    const limits = normalizedText.match(/<Rule name="LimitsNote"[^>]*>.*?<\/Rule>/u)?.[0] ?? "";
+    for (const required of [
+      "say in plain words what the deeper research would focus on",
+      "Show its prompt only when it is about 60 words or shorter",
+      "“Show me the full deeper-research prompt and help me fine-tune it,”",
+      "give the complete prompt and help adjust its scope before it runs"
+    ]) expect(limits).toContain(required);
+    const forumPrompt = normalizedText.match(/<Rule name="DeepForumAuditActivationPrompt"[^>]*>.*?<\/Rule>/u)?.[0] ?? "";
+    expect(forumPrompt).toContain("must end with a deeper-research offer for a dedicated deep forum-corpus audit");
+    expect(forumPrompt).toContain("When the user asks for the full prompt, give it from this template");
+    expect(forumPrompt).not.toContain("must include a concise, topic-specific, copyable prompt");
+    const handoff = normalizedText.match(/<Rule name="ModeSpecificPromptAndHandoff"[^>]*>.*?<\/Rule>/u)?.[0] ?? "";
+    expect(handoff).toContain("After analysis, a prompt longer than about 60 words comes as the LimitsNote's deeper-research offer");
+    expect(handoff).not.toContain("offering one later");
+    expect(normalizedText).toMatch(/<Case id="PastedDeepResearchPromptHidesItsFocus">.*?Show me the full deeper-research prompt/u);
+    // Older cases agree: before research the prompt still comes automatically; after analysis a long one is offered.
+    const deepResearchCase = normalizedText.match(/<Case id="DeepResearchRecommendedWithoutPrompt">.*?<\/Case>/u)?.[0] ?? "";
+    expect(deepResearchCase).toContain("Before research, provide the complete copyable prompt automatically.");
+    expect(deepResearchCase).toContain("After analysis, show a prompt of about 60 words or fewer and offer a longer one");
+    const modeClaimCase = normalizedText.match(/<Case id="UserControlledModeClaimedWithoutSelection">.*?<\/Case>/u)?.[0] ?? "";
+    expect(modeClaimCase).toContain("after analysis, one longer than about 60 words comes as the deeper-research offer");
+    const modeSelection = normalizedText.match(/<Rule name="ModeSelection"[^>]*>.*?<\/Rule>/u)?.[0] ?? "";
+    expect(modeSelection).toContain("after analysis, one longer than about 60 words comes as the LimitsNote's deeper-research offer");
 
     const many = section("ManyVideosButOneTreatmentClass");
     expect(many).toContain("ten videos");
@@ -345,8 +422,8 @@ describe("canonical protocol loader", () => {
       'Case id="ProvisionalScoutCandidateDiscardedWithoutTranscript"',
       'Case id="ExternalScoutFrontierCandidateOmittedOrUnresolved"',
       'Case id="ProvisionalScoutSummaryUsedAsTreatmentEvidence"',
-      "Selected creator-content evidence still requires transcript verification",
-      "A genuine terminal boundary permits only",
+      "selected creator-content evidence still requires transcript",
+      "genuine terminal boundary permits only",
       '<Check id="FS186">',
       '<Check id="FS187">'
     ]) {
@@ -387,7 +464,7 @@ describe("canonical protocol loader", () => {
       "Unpaywall",
       'name="ClaimLocalStatusUntilMaterialGapResolved"',
       "possibly useful research lead",
-      "Do not impose a global `Partial HRP` label",
+      "Do not mark the whole answer partial solely because one lawful full text cannot be obtained",
       'Case id="RandomizedPeerReviewedStudyUsedAsScienceShortcut"'
     ]) {
       expect(text).toContain(required);
@@ -419,7 +496,7 @@ describe("canonical protocol loader", () => {
   it("derives the Universal manifest from its root attributes", async () => {
     await expect(getProtocolManifest("universal")).resolves.toMatchObject({
       name: "AskRigor.com universal saved instructions",
-      version: "20.5.27",
+      version: "20.5.33",
       revisionDate: "2026-09-30"
     });
   });

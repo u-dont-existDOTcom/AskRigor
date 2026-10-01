@@ -13,6 +13,8 @@ export const ALLOWED_UPSTREAM_HOSTS = new Set([
   "www.googleapis.com",
   "generativelanguage.googleapis.com",
   "api.unpaywall.org",
+  // Only Reddit's public embed endpoint, to check a cited thread's subreddit and title.
+  "www.reddit.com",
 ]);
 
 const DEFAULT_TIMEOUT_MS = 20_000;
@@ -36,7 +38,8 @@ export interface UpstreamFetchOptions
   extends Omit<RequestInit, "redirect" | "signal"> {
   timeoutMs?: number;
   maxRetries?: 0;
-  beforeAttempt?: () => void;
+  /** Runs before every attempt, retries included; a rate limiter can wait here. */
+  beforeAttempt?: () => void | Promise<void>;
 }
 
 const validateUpstreamUrl = (value: string): URL => {
@@ -131,6 +134,14 @@ const responseText = async (response: Response): Promise<string> => {
   return new TextDecoder().decode(body);
 };
 
+const isPerDayQuotaInfo = (detail: unknown): boolean => {
+  if (typeof detail !== "object" || detail === null) return false;
+  const metadata = (detail as Record<string, unknown>).metadata;
+  if (typeof metadata !== "object" || metadata === null) return false;
+  const limit = (metadata as Record<string, unknown>).quota_limit;
+  return typeof limit === "string" && /PerDay/u.test(limit);
+};
+
 const providerErrorReason = (body: string): string | undefined => {
   try {
     const parsed: unknown = JSON.parse(body);
@@ -138,6 +149,9 @@ const providerErrorReason = (body: string): string | undefined => {
     const error = (parsed as Record<string, unknown>).error;
     if (typeof error !== "object" || error === null) return undefined;
     const record = error as Record<string, unknown>;
+    // Google reports a per-day quota (e.g. YouTube's search.list calls per
+    // day) as a 429 "rateLimitExceeded"; only the ErrorInfo names the limit.
+    if (Array.isArray(record.details) && record.details.some(isPerDayQuotaInfo)) return "dailyLimitExceeded";
     const direct = record.reason;
     if (typeof direct === "string" && direct.length <= 100) return direct;
     const errors = record.errors;
@@ -160,7 +174,7 @@ export const fetchText = async (
   const retryLimit = maxRetries === 0 ? 0 : MAX_RETRIES;
 
   for (let retry = 0; retry <= retryLimit; retry += 1) {
-    beforeAttempt?.();
+    await beforeAttempt?.();
     const response = await fetch(upstreamUrl, {
       ...init,
       redirect: "error",

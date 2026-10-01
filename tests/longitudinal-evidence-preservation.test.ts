@@ -196,7 +196,7 @@ describe("canonical longitudinal-evidence and phenotype–etiology gates", () =>
   it("extends the existing Universal evidence-discrimination architecture once", async () => {
     const universal = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
     expect(XMLValidator.validate(universal)).toBe(true);
-    expect(universal).toMatch(/version="20\.5\.27" revisionDate="2026-09-30"/u);
+    expect(universal).toMatch(/version="20\.5\.33" revisionDate="2026-09-30"/u);
     for (const singleton of [
       '<revision version="20.5.23" priority="Critical">',
       '<evidence_discrimination_gate priority="Critical">',
@@ -227,7 +227,7 @@ describe("canonical longitudinal-evidence and phenotype–etiology gates", () =>
   it("adds one root HRP gate extension, regression, correction classifier, and final checks", async () => {
     const hrp = await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
     expect(XMLValidator.validate(hrp)).toBe(true);
-    expect(hrp).toMatch(/version="20\.5\.29" revisionDate="2026-09-12"/u);
+    expect(hrp).toMatch(/version="20\.6\.8" revisionDate="2026-09-30"/u);
     for (const singleton of [
       '<Revision version="20.5.28" priority="Critical">',
       '<PatientHistoryAndRecurrenceEvidenceGate priority="Critical">',
@@ -253,7 +253,7 @@ describe("canonical longitudinal-evidence and phenotype–etiology gates", () =>
 
   it("activates the rules in the compact Project router", async () => {
     const project = await readFile(new URL("project/PROJECT_INSTRUCTIONS.md", ROOT), "utf8");
-    expect(Array.from(project)).toHaveLength(7962);
+    expect(Array.from(project)).toHaveLength(7996);
     for (const required of [
       "### Reasoning, interview, and longitudinal evidence",
       "Before an individual-case differential, extract the 3–7 strongest longitudinal constraints",

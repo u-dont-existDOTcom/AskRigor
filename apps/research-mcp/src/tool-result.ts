@@ -11,6 +11,18 @@ export function successfulToolResult(
   };
 }
 
+export function protocolRequestError(
+  protocol: ProtocolName,
+  code: string,
+  message: string
+): CallToolResult {
+  return {
+    content: [{ type: "text", text: `Protocol request failed: ${message}` }],
+    structuredContent: { ok: false, protocol, error: { code, message } },
+    isError: true
+  };
+}
+
 export function protocolErrorResult(
   protocol: ProtocolName,
   error: unknown

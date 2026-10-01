@@ -112,7 +112,7 @@
     },
     {
       "name": "load_protocol",
-      "description": "Load the complete, unmodified canonical protocol text.",
+      "description": "Canonical protocol text in 40,000-byte pages. section \"index\" lists sections; section <name> loads one; page N continues.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -121,8 +121,13 @@
             "enum": [
               "hrp",
               "universal"
-            ],
-            "description": "Canonical protocol to load in full."
+            ]
+          },
+          "section": {
+            "type": "string"
+          },
+          "page": {
+            "type": "number"
           }
         },
         "required": [
@@ -166,6 +171,101 @@
               "sha256"
             ],
             "additionalProperties": false
+          },
+          "index": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "bytes": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "pages": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "core": {
+                  "type": "boolean"
+                },
+                "runtime": {
+                  "type": "boolean"
+                },
+                "sha256": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "bytes",
+                "pages",
+                "core",
+                "runtime",
+                "sha256",
+                "summary"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "core_sections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "full",
+              "section"
+            ]
+          },
+          "section": {
+            "type": "string"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "page_count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "next_page": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "byte_start": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "byte_end_exclusive": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "scope_bytes": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "scope_sha256": {
+            "type": "string"
           },
           "text": {
             "type": "string"
@@ -339,7 +439,7 @@
     },
     {
       "name": "search_pubmed",
-      "description": "Search PubMed citations and return stable PMIDs with explicit pagination and access state; no medical conclusions are generated.",
+      "description": "Search PubMed citations and return stable PMIDs with titles, explicit pagination and access state; no medical conclusions are generated.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -543,6 +643,15 @@
               "properties": {
                 "pmid": {
                   "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "journal": {
+                  "type": "string"
+                },
+                "year": {
+                  "type": "string"
                 }
               },
               "required": [
@@ -550,6 +659,9 @@
               ],
               "additionalProperties": false
             }
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -754,6 +866,9 @@
               "doi": {
                 "type": "string"
               },
+              "pmcid": {
+                "type": "string"
+              },
               "publication_types": {
                 "type": "array",
                 "items": {
@@ -762,6 +877,9 @@
               }
             },
             "additionalProperties": false
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -1049,6 +1167,9 @@
               ],
               "additionalProperties": false
             }
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -1422,6 +1543,9 @@
           "unseen_content_used_as_evidence": {
             "type": "boolean",
             "const": false
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -2657,6 +2781,9 @@
           "next_capability": {
             "type": "string",
             "const": "validate_study_method_audit_with_fresh_audit"
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -3280,6 +3407,9 @@
               "synthesis_use"
             ],
             "additionalProperties": false
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -3573,6 +3703,9 @@
               ],
               "additionalProperties": false
             }
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -4389,7 +4522,7 @@
     },
     {
       "name": "search_youtube",
-      "description": "Search YouTube videos and return API-visible metadata with explicit pagination and access state; no medical conclusions are generated.",
+      "description": "Search YouTube videos and return API-visible metadata with explicit pagination and access state; no medical conclusions are generated. For research, pass research_target so the search counts as a discovery round.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -4410,6 +4543,12 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 4096
+          },
+          "research_target": {
+            "description": "The research target, copied exactly as you give it to the scout and finalize_research. Without it this search does not count as discovery for that research.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000
           }
         },
         "required": [
@@ -4589,6 +4728,9 @@
               ],
               "additionalProperties": false
             }
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -5665,6 +5807,10 @@
                 "additionalProperties": false
               }
             ]
+          },
+          "absence_inference_permitted": {
+            "type": "boolean",
+            "const": false
           }
         },
         "required": [
@@ -5675,7 +5821,8 @@
           "pagination",
           "access_status",
           "limitations",
-          "data"
+          "data",
+          "absence_inference_permitted"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false
@@ -5701,7 +5848,7 @@
     },
     {
       "name": "audit_youtube_community",
-      "description": "Use before synthesis whenever firsthand community evidence could plausibly matter. In one read-only call, search YouTube, deduplicate bounded provider-ranked videos, retrieve metadata, unfiltered comments and all accessible replies, and return a deterministic completion receipt; no medical conclusions are generated.",
+      "description": "YouTube community evidence in one read-only call: search YouTube, deduplicate bounded provider-ranked videos, retrieve metadata, unfiltered comments and all accessible replies, and return a deterministic receipt for these videos; no medical conclusions are generated. It covers YouTube only: use it when YouTube is one of the places people discussing the question talk, and search the others, such as Reddit or a specialist forum, with your own web search. research_question must be the research_target given to the other tools.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -6240,7 +6387,8 @@
                       "type": "string",
                       "enum": [
                         "all",
-                        "systematic_chronological"
+                        "systematic_chronological",
+                        "deterministic_hash_chronological"
                       ]
                     },
                     "corpus_count": {
@@ -6259,71 +6407,39 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "video_id": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "reply_to": {
+                            "type": "string"
+                          },
+                          "author": {
                             "type": "string",
-                            "pattern": "^[A-Za-z0-9_-]{11}$"
+                            "pattern": "^[a-f0-9]{8}$"
                           },
-                          "comment_id": {
+                          "date": {
                             "type": "string",
-                            "minLength": 1,
-                            "maxLength": 512
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
                           },
-                          "parent_id": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 512
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "top_level_comment_id": {
-                            "type": "string",
-                            "minLength": 1,
-                            "maxLength": 512
-                          },
-                          "is_reply": {
-                            "type": "boolean"
-                          },
-                          "author_channel_id": {
-                            "type": "string",
-                            "pattern": "^UC[A-Za-z0-9_-]{22}$"
-                          },
-                          "author_display_name": {
-                            "type": "string",
-                            "maxLength": 10000
-                          },
-                          "text": {
-                            "type": "string",
-                            "maxLength": 1000000
-                          },
-                          "like_count": {
+                          "likes": {
                             "type": "integer",
                             "minimum": 0,
                             "maximum": 9007199254740991
                           },
-                          "published_at": {
-                            "type": "string",
-                            "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$"
+                          "edited": {
+                            "type": "boolean",
+                            "const": true
                           },
-                          "updated_at": {
-                            "type": "string",
-                            "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$"
+                          "text": {
+                            "type": "string"
                           }
                         },
                         "required": [
-                          "video_id",
-                          "comment_id",
-                          "parent_id",
-                          "top_level_comment_id",
-                          "is_reply",
-                          "text",
-                          "like_count",
-                          "published_at",
-                          "updated_at"
+                          "id",
+                          "author",
+                          "date",
+                          "likes",
+                          "text"
                         ],
                         "additionalProperties": false
                       }
@@ -6361,7 +6477,11 @@
           "receipt": {
             "type": "object",
             "properties": {
-              "completion_state": {
+              "scope": {
+                "type": "string",
+                "const": "Covers these YouTube videos' comments only: not Reddit, forums or other communities, and not whether the research is complete, which finalize_research decides."
+              },
+              "comment_retrieval_state": {
                 "type": "string",
                 "enum": [
                   "api_visible_complete",
@@ -6370,7 +6490,7 @@
                   "incomplete"
                 ]
               },
-              "synthesis_lock": {
+              "youtube_comments_lock": {
                 "type": "string",
                 "enum": [
                   "pass",
@@ -6418,8 +6538,9 @@
               }
             },
             "required": [
-              "completion_state",
-              "synthesis_lock",
+              "scope",
+              "comment_retrieval_state",
+              "youtube_comments_lock",
               "searches_requested",
               "searches_completed",
               "selected_video_ids",
@@ -6431,6 +6552,9 @@
               "blockers"
             ],
             "additionalProperties": false
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -6469,7 +6593,7 @@
     },
     {
       "name": "survey_youtube_community",
-      "description": "Survey bounded YouTube video candidates for a community-evidence question and return deduplicated metadata, canonical watch links, provider comment counts, pagination, and access receipts; no medical conclusions are generated.",
+      "description": "Survey bounded YouTube video candidates for a community-evidence question and return deduplicated metadata, canonical watch links, provider comment counts, pagination, and access receipts; no medical conclusions are generated. It covers YouTube only. For research, research_question must be the research_target given to the other tools.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -6872,6 +6996,9 @@
               ],
               "additionalProperties": false
             }
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -6908,7 +7035,7 @@
     },
     {
       "name": "audit_youtube_video_community",
-      "description": "Retrieve one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation. Returns exact retrieved-versus-analyzed counts, usable partial-corpus records for bounded review, and a separate completion receipt; no medical conclusions are generated.",
+      "description": "Retrieve one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation. Returns exact retrieved-versus-analyzed counts and a separate receipt covering this video only; the comment sample comes with the last page (or when the chain stops), for bounded review; no medical conclusions are generated. Sample records are compact: id, reply_to, a per-video pseudonymous author key for counting distinct people, date, likes, text.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -7232,71 +7359,39 @@
                 "items": {
                   "type": "object",
                   "properties": {
-                    "video_id": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "reply_to": {
+                      "type": "string"
+                    },
+                    "author": {
                       "type": "string",
-                      "pattern": "^[A-Za-z0-9_-]{11}$"
+                      "pattern": "^[a-f0-9]{8}$"
                     },
-                    "comment_id": {
+                    "date": {
                       "type": "string",
-                      "minLength": 1,
-                      "maxLength": 512
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
                     },
-                    "parent_id": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 512
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "top_level_comment_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 512
-                    },
-                    "is_reply": {
-                      "type": "boolean"
-                    },
-                    "author_channel_id": {
-                      "type": "string",
-                      "pattern": "^UC[A-Za-z0-9_-]{22}$"
-                    },
-                    "author_display_name": {
-                      "type": "string",
-                      "maxLength": 10000
-                    },
-                    "text": {
-                      "type": "string",
-                      "maxLength": 1000000
-                    },
-                    "like_count": {
+                    "likes": {
                       "type": "integer",
                       "minimum": 0,
                       "maximum": 9007199254740991
                     },
-                    "published_at": {
-                      "type": "string",
-                      "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$"
+                    "edited": {
+                      "type": "boolean",
+                      "const": true
                     },
-                    "updated_at": {
-                      "type": "string",
-                      "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$"
+                    "text": {
+                      "type": "string"
                     }
                   },
                   "required": [
-                    "video_id",
-                    "comment_id",
-                    "parent_id",
-                    "top_level_comment_id",
-                    "is_reply",
-                    "text",
-                    "like_count",
-                    "published_at",
-                    "updated_at"
+                    "id",
+                    "author",
+                    "date",
+                    "likes",
+                    "text"
                   ],
                   "additionalProperties": false
                 }
@@ -7313,7 +7408,11 @@
           "receipt": {
             "type": "object",
             "properties": {
-              "completion_state": {
+              "scope": {
+                "type": "string",
+                "const": "Covers this one YouTube video's comments only: not other videos, Reddit, forums or other communities, and not whether the research is complete, which finalize_research decides."
+              },
+              "comment_retrieval_state": {
                 "type": "string",
                 "enum": [
                   "api_visible_complete",
@@ -7321,7 +7420,7 @@
                   "incomplete"
                 ]
               },
-              "synthesis_lock": {
+              "video_comments_lock": {
                 "type": "string",
                 "enum": [
                   "pass",
@@ -7349,8 +7448,9 @@
               }
             },
             "required": [
-              "completion_state",
-              "synthesis_lock",
+              "scope",
+              "comment_retrieval_state",
+              "video_comments_lock",
               "chain_started_at_first_page",
               "top_level_pagination_exhausted",
               "replies_reconciled",
@@ -7358,6 +7458,9 @@
               "blockers"
             ],
             "additionalProperties": false
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -9149,7 +9252,7 @@
     },
     {
       "name": "manage_research_access",
-      "description": "Inspect or choose AskRigor's research-use mode. Free use requires explicit agreement to version free-contributor-v1-2026-09-01; only eligible deidentified structured research progress may enter a non-authoritative review inbox. Paid private mode contributes nothing and activates only for an existing verified entitlement; this release offers no price or checkout.",
+      "description": "Inspect or choose AskRigor's research-use mode. Free use requires explicit agreement to version free-contributor-v2-2026-09-30: what AskRigor learns from the research (deidentified structured research progress and each finished answer's findings card) is saved for non-authoritative review. Paid private mode saves an answer's findings card or lesson feedback only when the user accepts saving it for that answer, and activates only for an existing verified entitlement; this release offers no price or checkout.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -9167,7 +9270,7 @@
             "properties": {
               "noticeVersion": {
                 "type": "string",
-                "const": "free-contributor-v1-2026-09-01"
+                "const": "free-contributor-v2-2026-09-30"
               },
               "eligibleDeidentifiedResearchContributionRequired": {
                 "type": "boolean",
@@ -9235,11 +9338,11 @@
               },
               "noticeVersion": {
                 "type": "string",
-                "const": "free-contributor-v1-2026-09-01"
+                "const": "free-contributor-v2-2026-09-30"
               },
               "notice": {
                 "type": "string",
-                "const": "Free AskRigor use is reciprocal: eligible deidentified structured research progress from this use may be submitted to AskRigor's shared research repository. AskRigor excludes raw chat, prompts, identity or contact details, private health narratives, uploads, raw source or provider bodies, and YouTube or community content from this shared proposal path. Submitted proposals are reviewed and do not become evidence, conclusions, or scientific authority merely because they were submitted or repeated. Paid private access does not contribute to the shared repository and requires an active verified entitlement."
+                "const": "Free AskRigor use is reciprocal: what AskRigor learns from your research is saved for its research library. That includes deidentified structured research progress and, for each finished research answer, a findings card: the question in general terms, the main findings and how certain they are, the public studies behind them, and what public online communities reported, summarized without their posts, names, links or video IDs. AskRigor never saves raw chat, prompts, identity or contact details, private health narratives, uploads, or raw source or provider bodies. Saved research is reviewed and does not become evidence, conclusions, or scientific authority merely because it was saved or repeated. Paid private access saves research findings or lesson feedback only when you accept saving them for that answer, and requires an active verified entitlement."
               },
               "contributionRequired": {
                 "type": "boolean"
@@ -10181,6 +10284,3089 @@
             "type": "oauth2",
             "scopes": [
               "cases:review"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "assess_treatment_landscape_coverage",
+      "description": "In deep research, check treatment-landscape coverage before a broad treatment answer: program diversity, selection coverage and per-video depth (a first pass skips this check and presents any comparison as provisional). Pass your research receipts and only your judgment: treatment classes, program fingerprints, each discovered video as selected (with its four short notes), screened (fingerprint, materiality, why not selected) or not material (IDs by class), the classes each round searched, and specific-program searches with that round's exact queries. The server builds the discovery rounds (batch IDs r<receipt index>), candidates, audit depth and scout frontier from the receipts. Creator claims stay unverified because this connector has no transcript tool.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "research_target": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 800,
+            "description": "The research target every discovery tool received, copied exactly; only receipts for it count."
+          },
+          "broad_treatment_choice": {
+            "type": "boolean"
+          },
+          "research_depth": {
+            "description": "first_pass unless the user or an automated research brief asked for deep research.",
+            "type": "string",
+            "enum": [
+              "first_pass",
+              "deep"
+            ]
+          },
+          "substantial_youtube_corpus": {
+            "type": "string",
+            "enum": [
+              "yes",
+              "no",
+              "unknown"
+            ]
+          },
+          "further_expansion_likely_to_improve_answer": {
+            "type": "string",
+            "enum": [
+              "yes",
+              "no",
+              "blocked"
+            ]
+          },
+          "receipts": {
+            "minItems": 1,
+            "maxItems": 300,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 2048
+            },
+            "description": "Every research_receipt from discovery and comment audits so far, copied exactly."
+          },
+          "treatment_classes": {
+            "minItems": 1,
+            "maxItems": 80,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "class_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "plain_language_label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "materiality": {
+                  "type": "string",
+                  "enum": [
+                    "material",
+                    "not_material",
+                    "uncertain"
+                  ]
+                },
+                "search_status": {
+                  "type": "string",
+                  "enum": [
+                    "searched",
+                    "unsearched",
+                    "inaccessible"
+                  ]
+                },
+                "formal_follow_up": {
+                  "type": "string",
+                  "enum": [
+                    "complete",
+                    "support_not_located",
+                    "outcome_mismatch",
+                    "inaccessible",
+                    "incomplete",
+                    "not_applicable"
+                  ]
+                },
+                "omission_impact": {
+                  "type": "string",
+                  "enum": [
+                    "not_decision_relevant",
+                    "confidence_changing",
+                    "ranking_changing",
+                    "potentially_conclusion_changing",
+                    "uncertain"
+                  ]
+                },
+                "omission_rationale": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 800
+                },
+                "access_boundary_ids": {
+                  "default": [],
+                  "maxItems": 4,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
+                  }
+                }
+              },
+              "required": [
+                "class_id",
+                "plain_language_label",
+                "materiality",
+                "search_status",
+                "formal_follow_up",
+                "omission_impact",
+                "omission_rationale"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "program_fingerprints": {
+            "maxItems": 120,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fingerprint_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "treatment_class_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "materiality": {
+                  "type": "string",
+                  "enum": [
+                    "material",
+                    "not_material",
+                    "uncertain"
+                  ]
+                },
+                "availability_status": {
+                  "type": "string",
+                  "enum": [
+                    "available",
+                    "inaccessible"
+                  ]
+                },
+                "formal_follow_up": {
+                  "type": "string",
+                  "enum": [
+                    "complete",
+                    "support_not_located",
+                    "outcome_mismatch",
+                    "inaccessible",
+                    "incomplete",
+                    "not_applicable"
+                  ]
+                },
+                "omission_impact": {
+                  "type": "string",
+                  "enum": [
+                    "not_decision_relevant",
+                    "confidence_changing",
+                    "ranking_changing",
+                    "potentially_conclusion_changing",
+                    "uncertain"
+                  ]
+                },
+                "omission_rationale": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 800
+                },
+                "components": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "dose_or_intensity": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "frequency": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "duration": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "supervision": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "adherence_or_fidelity": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "cointerventions": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "stage_or_baseline": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "outcome": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "horizon": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "care_stage": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "access_boundary_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "formal_follow_up_boundary_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                }
+              },
+              "required": [
+                "fingerprint_id",
+                "treatment_class_id",
+                "materiality",
+                "availability_status",
+                "formal_follow_up",
+                "omission_impact",
+                "omission_rationale",
+                "components",
+                "dose_or_intensity",
+                "frequency",
+                "duration",
+                "supervision",
+                "adherence_or_fidelity",
+                "cointerventions",
+                "stage_or_baseline",
+                "outcome",
+                "horizon",
+                "care_stage"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "rounds": {
+            "default": [],
+            "maxItems": 60,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "receipt": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 299,
+                  "description": "Index of the discovery round's receipt in receipts."
+                },
+                "treatment_class_ids": {
+                  "default": [],
+                  "description": "Classes this round searched for; classes of the videos it found are added.",
+                  "maxItems": 30,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
+                  }
+                },
+                "queries": {
+                  "description": "The round's exact executed queries (a scout round: its rediscovery leads); needed for a specific-program search on this round.",
+                  "minItems": 1,
+                  "maxItems": 12,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 5000
+                  }
+                }
+              },
+              "required": [
+                "receipt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "selected_videos": {
+            "default": [],
+            "maxItems": 15,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "video_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9_-]+$"
+                },
+                "fingerprint_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "stage_or_baseline": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "outcome_and_horizon": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "nonredundant_value": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "what_it_changed": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                }
+              },
+              "required": [
+                "video_id",
+                "fingerprint_id",
+                "stage_or_baseline",
+                "outcome_and_horizon",
+                "nonredundant_value",
+                "what_it_changed"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "screened_videos": {
+            "default": [],
+            "description": "Discovered videos not selected for audit that are material, uncertain, or tied to a described program.",
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "video_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9_-]+$"
+                },
+                "fingerprint_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "materiality": {
+                  "type": "string",
+                  "enum": [
+                    "material",
+                    "not_material",
+                    "uncertain"
+                  ]
+                },
+                "omission_impact": {
+                  "type": "string",
+                  "enum": [
+                    "not_decision_relevant",
+                    "confidence_changing",
+                    "ranking_changing",
+                    "potentially_conclusion_changing",
+                    "uncertain"
+                  ]
+                },
+                "omission_rationale": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 800
+                },
+                "duplicate_of_video_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9_-]+$"
+                },
+                "access_boundary_id": {
+                  "description": "Only for a video that could not be opened: its candidate_video access boundary.",
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                }
+              },
+              "required": [
+                "video_id",
+                "fingerprint_id",
+                "materiality",
+                "omission_impact",
+                "omission_rationale"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "not_material_videos": {
+            "default": [],
+            "description": "Discovered videos screened as not material, grouped by treatment class.",
+            "maxItems": 80,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "treatment_class_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "video_ids": {
+                  "minItems": 1,
+                  "maxItems": 100,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "pattern": "^[A-Za-z0-9_-]+$"
+                  }
+                }
+              },
+              "required": [
+                "treatment_class_id",
+                "video_ids"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "specific_searches": {
+            "default": [],
+            "maxItems": 120,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "round": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 299,
+                  "description": "Index of the round's receipt in receipts."
+                },
+                "treatment_class_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "implementation_terms": {
+                  "minItems": 1,
+                  "maxItems": 8,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  }
+                },
+                "discriminator_terms": {
+                  "minItems": 1,
+                  "maxItems": 8,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  }
+                }
+              },
+              "required": [
+                "round",
+                "treatment_class_id",
+                "implementation_terms",
+                "discriminator_terms"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "directional_searches": {
+            "type": "object",
+            "properties": {
+              "benefit": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "complete",
+                      "no_material_reports",
+                      "inaccessible",
+                      "incomplete",
+                      "not_applicable"
+                    ]
+                  },
+                  "access_boundary_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "additionalProperties": false
+              },
+              "no_effect_or_failure": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "complete",
+                      "no_material_reports",
+                      "inaccessible",
+                      "incomplete",
+                      "not_applicable"
+                    ]
+                  },
+                  "access_boundary_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "additionalProperties": false
+              },
+              "harm": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "complete",
+                      "no_material_reports",
+                      "inaccessible",
+                      "incomplete",
+                      "not_applicable"
+                    ]
+                  },
+                  "access_boundary_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "additionalProperties": false
+              },
+              "discontinuation": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "complete",
+                      "no_material_reports",
+                      "inaccessible",
+                      "incomplete",
+                      "not_applicable"
+                    ]
+                  },
+                  "access_boundary_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "additionalProperties": false
+              },
+              "eventual_standard_treatment": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "complete",
+                      "no_material_reports",
+                      "inaccessible",
+                      "incomplete",
+                      "not_applicable"
+                    ]
+                  },
+                  "access_boundary_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "benefit",
+              "no_effect_or_failure",
+              "harm",
+              "discontinuation",
+              "eventual_standard_treatment"
+            ],
+            "additionalProperties": false
+          },
+          "access_boundaries": {
+            "default": [],
+            "description": "Access boundaries for videos, classes and other scopes. The server states a discovery round's own boundary when its receipt shows a rate limit, the daily search quota or a refusal; supply one only for a round that is partial or failed for another reason.",
+            "maxItems": 80,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "boundary_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "scope_type": {
+                  "type": "string",
+                  "enum": [
+                    "landscape_scope",
+                    "discovery_batch",
+                    "treatment_class",
+                    "program_fingerprint",
+                    "candidate_video",
+                    "video_transcript",
+                    "video_discussion",
+                    "formal_follow_up",
+                    "directional_search",
+                    "other"
+                  ]
+                },
+                "scope_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "access_status": {
+                  "type": "string",
+                  "enum": [
+                    "partial",
+                    "abstract_only",
+                    "metadata_only",
+                    "comments_disabled",
+                    "inaccessible",
+                    "rate_limited",
+                    "not_found",
+                    "error"
+                  ]
+                },
+                "materiality": {
+                  "type": "string",
+                  "enum": [
+                    "material",
+                    "not_material",
+                    "uncertain"
+                  ]
+                },
+                "impact": {
+                  "type": "string",
+                  "enum": [
+                    "not_decision_relevant",
+                    "confidence_changing",
+                    "ranking_changing",
+                    "potentially_conclusion_changing",
+                    "uncertain"
+                  ]
+                },
+                "terminal": {
+                  "type": "boolean"
+                },
+                "retryable": {
+                  "type": "boolean"
+                },
+                "recovery_attempted": {
+                  "type": "boolean"
+                },
+                "description": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 800
+                }
+              },
+              "required": [
+                "boundary_id",
+                "scope_type",
+                "scope_id",
+                "access_status",
+                "materiality",
+                "impact",
+                "terminal",
+                "retryable",
+                "recovery_attempted",
+                "description"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "research_target",
+          "broad_treatment_choice",
+          "substantial_youtube_corpus",
+          "further_expansion_likely_to_improve_answer",
+          "receipts",
+          "treatment_classes",
+          "program_fingerprints",
+          "directional_searches"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "coverage_claim": {
+            "type": "string",
+            "const": "ledger_consistency_only"
+          },
+          "treatment_classes_discovered": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "specific_implementation_search_status_by_class": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "treatment_class_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "specific_candidates_found",
+                    "exhausted_zero_results",
+                    "incomplete",
+                    "inaccessible"
+                  ]
+                }
+              },
+              "required": [
+                "treatment_class_id",
+                "status"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "materially_distinct_program_fingerprints": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "candidate_videos_screened": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "external_scout_candidates_screened": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "external_scout_candidates_pending": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            }
+          },
+          "discovery_saturated": {
+            "type": "boolean"
+          },
+          "material_videos_selected": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "material_videos_fully_audited": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "materially_distinct_programs_fully_audited": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "creator_content_unverified_videos": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "independent_channels_or_pools": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "treatment_classes_with_no_selected_video": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          "treatment_classes_with_no_formal_evidence_follow_up": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          "program_fingerprints_with_no_formal_evidence_follow_up": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          "program_fingerprints_available_but_not_selected": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          "program_fingerprint_missing_fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fingerprint_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "components",
+                      "dose_or_intensity",
+                      "frequency",
+                      "duration",
+                      "supervision",
+                      "adherence_or_fidelity",
+                      "cointerventions",
+                      "stage_or_baseline",
+                      "outcome",
+                      "horizon",
+                      "care_stage"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "fingerprint_id",
+                "fields"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "uncovered_material_treatment_classes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          "redundancy_flags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 800
+            }
+          },
+          "further_expansion_likely_to_improve_answer": {
+            "type": "string",
+            "enum": [
+              "yes",
+              "no",
+              "blocked"
+            ]
+          },
+          "videos_actually_audited": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "video_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9_-]+$"
+                },
+                "canonical_url": {
+                  "type": "string",
+                  "maxLength": 200,
+                  "format": "uri"
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "channel_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    },
+                    {
+                      "type": "string",
+                      "const": "not_reported"
+                    }
+                  ]
+                },
+                "channel_title": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 160
+                    },
+                    {
+                      "type": "string",
+                      "const": "not_reported"
+                    }
+                  ]
+                },
+                "published_date": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    {
+                      "type": "string",
+                      "const": "not_reported"
+                    }
+                  ]
+                },
+                "treatment_class_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "fingerprint_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "derived_program_signature": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "program_fields_not_described": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "components",
+                      "dose_or_intensity",
+                      "frequency",
+                      "duration",
+                      "supervision",
+                      "adherence_or_fidelity",
+                      "cointerventions",
+                      "stage_or_baseline",
+                      "outcome",
+                      "horizon",
+                      "care_stage"
+                    ]
+                  }
+                },
+                "stage_or_baseline": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "outcome_and_horizon": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "nonredundant_value": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "transcript_access_status": {
+                  "type": "string",
+                  "enum": [
+                    "complete",
+                    "api_visible_complete",
+                    "partial",
+                    "abstract_only",
+                    "metadata_only",
+                    "comments_disabled",
+                    "inaccessible",
+                    "rate_limited",
+                    "not_found",
+                    "error"
+                  ]
+                },
+                "transcript_language_code": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 35
+                    },
+                    {
+                      "type": "string",
+                      "const": "not_reported"
+                    }
+                  ]
+                },
+                "transcript_is_auto_generated": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "string",
+                      "const": "not_reported"
+                    }
+                  ]
+                },
+                "transcript_timestamp_provenance": {
+                  "type": "string",
+                  "enum": [
+                    "segment_timestamp_urls",
+                    "unavailable"
+                  ]
+                },
+                "creator_content_verified": {
+                  "type": "boolean"
+                },
+                "discussion_access_status": {
+                  "type": "string",
+                  "enum": [
+                    "complete",
+                    "api_visible_complete",
+                    "partial",
+                    "abstract_only",
+                    "metadata_only",
+                    "comments_disabled",
+                    "inaccessible",
+                    "rate_limited",
+                    "not_found",
+                    "error"
+                  ]
+                },
+                "discussion_records_retrieved_cumulative": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "discussion_records_returned_for_analysis": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 500
+                },
+                "discussion_synthesis_lock": {
+                  "type": "string",
+                  "enum": [
+                    "pass",
+                    "block"
+                  ]
+                },
+                "what_it_changed": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                }
+              },
+              "required": [
+                "video_id",
+                "canonical_url",
+                "title",
+                "channel_id",
+                "channel_title",
+                "published_date",
+                "treatment_class_id",
+                "fingerprint_id",
+                "derived_program_signature",
+                "program_fields_not_described",
+                "stage_or_baseline",
+                "outcome_and_horizon",
+                "nonredundant_value",
+                "transcript_access_status",
+                "transcript_language_code",
+                "transcript_is_auto_generated",
+                "transcript_timestamp_provenance",
+                "creator_content_verified",
+                "discussion_access_status",
+                "discussion_records_retrieved_cumulative",
+                "discussion_records_returned_for_analysis",
+                "discussion_synthesis_lock",
+                "what_it_changed"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "invalid_record_ids": {
+            "type": "object",
+            "properties": {
+              "discovery_batches": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                }
+              },
+              "specific_implementation_searches": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                }
+              },
+              "treatment_classes": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                }
+              },
+              "program_fingerprints": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                }
+              },
+              "candidate_videos": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9_-]+$"
+                }
+              },
+              "external_scout_frontiers": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              },
+              "external_scout_candidates": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9_-]+$"
+                }
+              },
+              "selected_videos": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9_-]+$"
+                }
+              },
+              "access_boundaries": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                }
+              }
+            },
+            "required": [
+              "discovery_batches",
+              "specific_implementation_searches",
+              "treatment_classes",
+              "program_fingerprints",
+              "candidate_videos",
+              "external_scout_frontiers",
+              "external_scout_candidates",
+              "selected_videos",
+              "access_boundaries"
+            ],
+            "additionalProperties": false
+          },
+          "selection_coverage_lock": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "block"
+            ]
+          },
+          "per_video_depth_lock": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "block"
+            ]
+          },
+          "synthesis_lock": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "block"
+            ]
+          },
+          "answer_boundary": {
+            "type": "string",
+            "enum": [
+              "ledger_consistent_for_synthesis",
+              "bounded_nonranking_only",
+              "continue_research",
+              "first_pass_with_open_leads"
+            ]
+          },
+          "research_depth": {
+            "type": "string",
+            "enum": [
+              "first_pass",
+              "deep"
+            ]
+          },
+          "first_pass_complete": {
+            "type": "boolean"
+          },
+          "selection_blockers": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 800
+            }
+          },
+          "breadth_gaps": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 800
+            }
+          },
+          "depth_blockers": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 800
+            }
+          },
+          "boundary_blockers": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 800
+            }
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 800
+            }
+          },
+          "planning_warnings": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 800
+            }
+          },
+          "access_boundary_ids_used": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          "receipt_derivation": {
+            "type": "object",
+            "properties": {
+              "receipts_verified": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "receipts_rejected": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "index": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "reason": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "index",
+                    "reason"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "discovery_rounds": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "rounds_for_other_targets": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "candidate_videos": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "unscreened_videos": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "audited_videos": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "scout_frontier_videos": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "open_scout_titles": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Titles scouts named but could not look up; search them by exact title with search_youtube."
+              },
+              "access_boundaries_derived": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Discovery rounds whose access boundary the server stated from the round's receipt."
+              },
+              "input_problems": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "receipts_verified",
+              "receipts_rejected",
+              "discovery_rounds",
+              "rounds_for_other_targets",
+              "candidate_videos",
+              "unscreened_videos",
+              "audited_videos",
+              "scout_frontier_videos",
+              "open_scout_titles",
+              "access_boundaries_derived",
+              "input_problems"
+            ],
+            "additionalProperties": false
+          },
+          "research_receipt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "coverage_claim",
+          "treatment_classes_discovered",
+          "specific_implementation_search_status_by_class",
+          "materially_distinct_program_fingerprints",
+          "candidate_videos_screened",
+          "external_scout_candidates_screened",
+          "external_scout_candidates_pending",
+          "discovery_saturated",
+          "material_videos_selected",
+          "material_videos_fully_audited",
+          "materially_distinct_programs_fully_audited",
+          "creator_content_unverified_videos",
+          "independent_channels_or_pools",
+          "treatment_classes_with_no_selected_video",
+          "treatment_classes_with_no_formal_evidence_follow_up",
+          "program_fingerprints_with_no_formal_evidence_follow_up",
+          "program_fingerprints_available_but_not_selected",
+          "program_fingerprint_missing_fields",
+          "uncovered_material_treatment_classes",
+          "redundancy_flags",
+          "further_expansion_likely_to_improve_answer",
+          "videos_actually_audited",
+          "invalid_record_ids",
+          "selection_coverage_lock",
+          "per_video_depth_lock",
+          "synthesis_lock",
+          "answer_boundary",
+          "research_depth",
+          "first_pass_complete",
+          "selection_blockers",
+          "breadth_gaps",
+          "depth_blockers",
+          "boundary_blockers",
+          "blockers",
+          "planning_warnings",
+          "access_boundary_ids_used",
+          "receipt_derivation"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "_meta": {
+        "securitySchemes": [
+          {
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "scout_gemini_youtube_candidates",
+      "description": "Ask Gemini with Google Search for YouTube videos on a de-identified, population-level target, then validate each video's identity. Describe a group of people, their condition and their goal (for example, adults trying to avoid a hip replacement and what they tried), with no names, places or personal details, and not a list of treatments: the scout searches natural, supplement, self-directed and conventional angles itself. After auditing comments, call it again with the remedies, methods and products the comments name as rediscovery_leads (short lowercase public terms), and a video or creator as video:<id>; never commenter details. A grounded search takes about a minute, so the result may be pending with a continuation_token; call again with only that token. Summaries are unverified leads. Give this same research_target to every discovery tool and to finalize_research.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "research_target": {
+            "description": "Write it in English, whatever the person's language, and give their language in language.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "diagnosis_status": {
+            "type": "string",
+            "enum": [
+              "diagnosis_not_specified",
+              "user_supplied_diagnosis"
+            ]
+          },
+          "language": {
+            "description": "The person's language as a BCP 47 tag (fr, pt-BR); the scout looks for videos in it.",
+            "type": "string",
+            "maxLength": 12,
+            "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z]{4})?(?:-(?:[A-Za-z]{2}|[0-9]{3}))?$"
+          },
+          "rediscovery_leads": {
+            "description": "Remedies, methods, products, videos or creators named in audited comments, to search next.",
+            "minItems": 1,
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 120
+            }
+          },
+          "continuation_token": {
+            "description": "Returned while the scout is still searching; call again with only this token.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "scout_status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "complete"
+            ]
+          },
+          "research_target": {
+            "type": "string"
+          },
+          "diagnosis_status": {
+            "type": "string",
+            "enum": [
+              "diagnosis_not_specified",
+              "user_supplied_diagnosis"
+            ]
+          },
+          "language": {
+            "type": "string"
+          },
+          "rediscovery_leads": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "continuation_token": {
+            "type": "string"
+          },
+          "retry_after_seconds": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "discovery_queries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "purpose": {
+                  "type": "string"
+                },
+                "query": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "purpose",
+                "query"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "search_gaps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "validation": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "title_lookup": {
+            "type": "object",
+            "properties": {
+              "found": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "video_id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "channel": {
+                      "type": "string"
+                    },
+                    "declared_title": {
+                      "type": "string"
+                    },
+                    "why_surfaced": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "video_id",
+                    "title",
+                    "channel",
+                    "declared_title"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "unresolved": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "channel": {
+                      "type": "string"
+                    },
+                    "why_surfaced": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "no_matching_video",
+                        "search_quota_exhausted",
+                        "search_failed",
+                        "not_searched"
+                      ]
+                    },
+                    "closest": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "video_id": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "channel": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "video_id",
+                          "title"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "channel",
+                    "reason"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "found",
+              "unresolved"
+            ],
+            "additionalProperties": false
+          },
+          "provider_storage_mode": {
+            "type": "string",
+            "enum": [
+              "DISABLED",
+              "TEMPORARY_BACKGROUND_DELETE_REQUESTED"
+            ]
+          },
+          "research_receipt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "scout_status",
+          "research_target",
+          "diagnosis_status"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "_meta": {
+        "securitySchemes": [
+          {
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "finalize_research",
+      "description": "Call before the final answer. Pass every research_receipt you received, the research_target (the same text given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits; discovery for any other target does not count), whether community evidence was researched, whether the answer compares treatment options, where people discussing it talk and what each community you searched outside YouTube showed (principal_communities, community_searches), what the YouTube comments you read showed (community_findings), the studies your conclusions depend on, after a first pass the focuses for going deeper (open_leads, another_pass_estimate), and the answer you are about to give (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, the sentences you quote from it for each lane (answer_quotes) and where it says something was not found, not studied or has no effect (absence_claims), and the caveats, and is not stored. not_ready lists the remaining steps; ready_with_limits lists limits, and caveats gives the sentences the answer must contain, each as its own sentence and as written (in an answer not in English, in its language: give answer_language and caveat_renderings); must_report lists what the answer must report from each lane researched; receipts_unavailable means this server cannot verify completion, so do the required work anyway and say that completion was not server-verified. In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the owner's review; in paid private mode the caveats offer its save.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "receipts": {
+            "maxItems": 300,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 2048
+            },
+            "description": "Every research_receipt AskRigor tools returned during this research, copied exactly."
+          },
+          "community_evidence": {
+            "type": "string",
+            "enum": [
+              "researched",
+              "not_relevant"
+            ],
+            "description": "researched when firsthand community evidence could plausibly matter; not_relevant needs a basis and a reason."
+          },
+          "not_relevant_basis": {
+            "description": "Why firsthand reports cannot matter: no real-world outcome (a definition, calculation, or chemical or mechanistic question), or an emergency before triage.",
+            "type": "string",
+            "enum": [
+              "no_real_world_outcome",
+              "emergency_before_triage"
+            ]
+          },
+          "not_relevant_reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "material_video_ids": {
+            "description": "Videos worth auditing: each adds an approach or substantial firsthand experience. Defaults to every audited video.",
+            "maxItems": 60,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{11}$"
+            }
+          },
+          "no_material_video_reason": {
+            "description": "Why none of the videos found was worth auditing; needed only when discovery found videos but material_video_ids is empty.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "treatment_choice": {
+            "type": "string",
+            "enum": [
+              "compared",
+              "not_compared"
+            ],
+            "description": "compared when the answer compares, ranks or recommends treatment options. Deep research then needs an assess_treatment_landscape_coverage result; a first pass presents the comparison as provisional, with no final ranking."
+          },
+          "research_target": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000,
+            "description": "The research target, copied exactly as given to the scout, search_youtube and assess_treatment_landscape_coverage, and as research_question to surveys and community audits. Discovery and coverage receipts made for any other target do not count."
+          },
+          "research_depth": {
+            "default": "first_pass",
+            "description": "first_pass unless the user or an automated research brief asked for deep research.",
+            "type": "string",
+            "enum": [
+              "first_pass",
+              "deep"
+            ]
+          },
+          "open_leads": {
+            "description": "After a first pass: two or three focuses for each way to go deeper, studies and (when community evidence was researched) community, each with why it looks promising. When discovery has not saturated, the community focuses include the topics where more community signal is likely. Focuses deepen what the answer covers: a first pass still covers every plausible option class and the red flags briefly, never leaving them for later.",
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "direction": {
+                  "default": "community",
+                  "description": "studies: a deeper study review (studies whose methods were not audited in full text, or questions not yet searched); community: deeper community research (communities, options or subgroups not yet reached).",
+                  "type": "string",
+                  "enum": [
+                    "studies",
+                    "community"
+                  ]
+                },
+                "topic": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "why": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                }
+              },
+              "required": [
+                "topic",
+                "why"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "another_pass_estimate": {
+            "description": "After a first pass: roughly what another pass would take, with a number in digits and a unit, such as \"about 20 minutes and 15 YouTube searches\".",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "community_findings": {
+            "description": "What the YouTube comments you read showed: benefit, no-effect and adverse reports with rough counts, how creators differ from independent commenters, and what this changes in the answer. Summarize; do not quote or name commenters. Needed whenever a comment audit ran, even if the signal was weak or neutral; the answer must report it (must_report).",
+            "type": "object",
+            "properties": {
+              "videos_reviewed": {
+                "minItems": 1,
+                "maxItems": 60,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{11}$"
+                },
+                "description": "Every video whose comments you read."
+              },
+              "benefit_reports": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 800
+              },
+              "no_effect_reports": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 800
+              },
+              "adverse_reports": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 800
+              },
+              "creators_versus_commenters": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "effect_on_answer": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 800
+              },
+              "answer_quotes": {
+                "description": "With answer_draft: the answer's sentence(s) that report each finding, copied from it; one may serve several.",
+                "type": "object",
+                "properties": {
+                  "benefit_reports": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "no_effect_reports": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "adverse_reports": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "creators_versus_commenters": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "effect_on_answer": {
+                    "type": "string",
+                    "maxLength": 1000
+                  }
+                },
+                "required": [
+                  "benefit_reports",
+                  "no_effect_reports",
+                  "adverse_reports",
+                  "creators_versus_commenters",
+                  "effect_on_answer"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "videos_reviewed",
+              "benefit_reports",
+              "no_effect_reports",
+              "adverse_reports",
+              "creators_versus_commenters",
+              "effect_on_answer"
+            ],
+            "additionalProperties": false
+          },
+          "principal_communities": {
+            "description": "Where people discussing this actually talk, the dominant first: subreddits, specialist forums, Facebook groups, patient organizations, YouTube. Needed when community evidence is researched; search the dominant one and at least one independent one.",
+            "minItems": 1,
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120,
+                  "description": "As its users know it, such as r/trt, MESO-Rx or YouTube."
+                },
+                "platform": {
+                  "type": "string",
+                  "enum": [
+                    "youtube",
+                    "reddit",
+                    "forum",
+                    "facebook",
+                    "telegram",
+                    "discord",
+                    "patient_organization",
+                    "review_site",
+                    "other"
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "platform"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "single_community_reason": {
+            "description": "Why only one community discusses this, when principal_communities lists one.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "community_searches": {
+            "description": "Each community outside YouTube that you searched with your own web search: the queries, the threads you read and what they showed (benefit, no-effect and adverse reports with rough counts, and the effect on the answer), or the access boundary that stopped the search. Summarize; do not quote or name posters. AskRigor cannot see these searches, so the answer links the threads you read and says they were not verified. YouTube goes through its own tools.",
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "community": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120,
+                  "description": "The community searched, named as in principal_communities."
+                },
+                "platform": {
+                  "type": "string",
+                  "enum": [
+                    "reddit",
+                    "forum",
+                    "facebook",
+                    "telegram",
+                    "discord",
+                    "patient_organization",
+                    "review_site",
+                    "other"
+                  ]
+                },
+                "queries": {
+                  "minItems": 1,
+                  "maxItems": 10,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  }
+                },
+                "threads_read": {
+                  "default": [],
+                  "maxItems": 30,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "url": {
+                        "type": "string",
+                        "maxLength": 2048,
+                        "format": "uri",
+                        "description": "The thread's full link; on Reddit, reddit.com/r/<name>/comments/<id>/…"
+                      },
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      }
+                    },
+                    "required": [
+                      "url"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "access_boundary": {
+                  "type": "string",
+                  "enum": [
+                    "no_web_search",
+                    "login_required",
+                    "blocked",
+                    "no_relevant_results"
+                  ]
+                },
+                "url": {
+                  "description": "The community's own address (its forum, group or site link). Needed when no thread was read outside Reddit, so the community is known by its site rather than its name.",
+                  "type": "string",
+                  "maxLength": 2048,
+                  "format": "uri"
+                },
+                "benefit_reports": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 800
+                },
+                "no_effect_reports": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 800
+                },
+                "adverse_reports": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 800
+                },
+                "effect_on_answer": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 800
+                },
+                "answer_quotes": {
+                  "description": "With answer_draft: the answer's sentence(s) that report each finding, copied from it; one may serve several.",
+                  "type": "object",
+                  "properties": {
+                    "benefit_reports": {
+                      "type": "string",
+                      "maxLength": 1000
+                    },
+                    "no_effect_reports": {
+                      "type": "string",
+                      "maxLength": 1000
+                    },
+                    "adverse_reports": {
+                      "type": "string",
+                      "maxLength": 1000
+                    },
+                    "effect_on_answer": {
+                      "type": "string",
+                      "maxLength": 1000
+                    }
+                  },
+                  "required": [
+                    "benefit_reports",
+                    "no_effect_reports",
+                    "adverse_reports",
+                    "effect_on_answer"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "community",
+                "platform",
+                "queries"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "key_sources": {
+            "maxItems": 60,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300,
+                  "description": "DOI, PMID or PMCID."
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "validated",
+                    "lead_only"
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1000
+                }
+              },
+              "required": [
+                "id",
+                "status"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Each study your conclusions depend on: validated after a full-text method audit, or lead_only when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text."
+          },
+          "answer_draft": {
+            "description": "The answer you are about to give, exactly as the user will see it. Needed before the gate reports ready; it is checked for internal labels, bare video IDs, a pasted long prompt, the sentences answer_quotes copies and the caveats (each as its own sentence, as written or as caveat_renderings gives it), and is not stored.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60000
+          },
+          "absence_claims": {
+            "description": "With answer_draft: each place the answer says something was not found, not studied, has no evidence or has no effect (an empty list if none).",
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "quote": {
+                  "type": "string",
+                  "maxLength": 1000,
+                  "description": "The sentence(s), copied from answer_draft."
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "support_not_located",
+                    "direct_null_evidence",
+                    "bounded_exclusion"
+                  ],
+                  "description": "support_not_located: the searches did not find it; direct_null_evidence: studies found no effect; bounded_exclusion: precise studies rule out an effect above a stated size."
+                },
+                "studies": {
+                  "description": "For direct_null_evidence and bounded_exclusion: the key sources (DOI, PMID or PMCID) it rests on.",
+                  "maxItems": 20,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  }
+                }
+              },
+              "required": [
+                "quote",
+                "state"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "search_coverage": {
+            "description": "What the searches covered beyond the indexed databases.",
+            "maxItems": 3,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "historical_terms",
+                "citation_chains",
+                "grey_literature"
+              ]
+            }
+          },
+          "answer_language": {
+            "description": "The answer's language tag, such as fr or pt-BR; needed for caveat_renderings.",
+            "type": "string",
+            "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{1,8}){0,3}$"
+          },
+          "caveat_renderings": {
+            "description": "In an answer not in English: each caveat in the answer's language.",
+            "maxItems": 40,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "caveat": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4000,
+                  "description": "As the gate returned it."
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4000,
+                  "description": "As the answer states it, with the caveat's links."
+                }
+              },
+              "required": [
+                "caveat",
+                "text"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "findings_card": {
+            "description": "With answer_draft: the answer's best findings for AskRigor's findings library, never claims the user corrected and no personal details, checked against the answer and this call's verified sources. In free contributor mode a checked card is saved for the owner's review; in paid private mode it adds a caveat offering the save. A rejected card is not saved or offered and does not hold back the answer.",
+            "type": "object",
+            "properties": {
+              "question": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300,
+                "description": "The question in general terms, with no personal details."
+              },
+              "usual_answer": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 400,
+                "description": "What a quick, ordinary AI answer would say."
+              },
+              "findings": {
+                "minItems": 1,
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "claim": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500
+                    },
+                    "certainty": {
+                      "type": "string",
+                      "enum": [
+                        "high",
+                        "moderate",
+                        "low",
+                        "very_low"
+                      ]
+                    },
+                    "applies_to": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300,
+                      "description": "Who or what the finding holds for."
+                    },
+                    "answer_quote": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000,
+                      "description": "The answer's sentence that states this finding, copied exactly from answer_draft."
+                    },
+                    "sources": {
+                      "minItems": 1,
+                      "maxItems": 10,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      },
+                      "description": "DOI, PMID or PMCID of a key source verified in this call, or the ID of a video audited here. No tool verifies a trial registration yet, so cite a trial through its published paper."
+                    },
+                    "why_not_usual": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300,
+                      "description": "Why the usual answer misses this."
+                    },
+                    "tags": {
+                      "default": [],
+                      "description": "full_text_read needs a source read with a full-text method audit here; community_checked, a video whose comments were audited here.",
+                      "maxItems": 5,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "full_text_read",
+                          "community_checked",
+                          "contradicts_common_answer",
+                          "overlooked_study",
+                          "documented_absence"
+                        ]
+                      }
+                    },
+                    "what_would_change_it": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    }
+                  },
+                  "required": [
+                    "claim",
+                    "certainty",
+                    "applies_to",
+                    "answer_quote",
+                    "sources",
+                    "why_not_usual",
+                    "what_would_change_it"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "open_leads": {
+                "default": [],
+                "maxItems": 6,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              }
+            },
+            "required": [
+              "question",
+              "usual_answer",
+              "findings"
+            ],
+            "additionalProperties": false
+          },
+          "reported_model": {
+            "description": "Your model's name as your app reports it; kept, unverified, with a saved findings card.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "receipts",
+          "community_evidence",
+          "treatment_choice",
+          "research_target",
+          "key_sources"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "ready_with_limits",
+              "not_ready",
+              "receipts_unavailable"
+            ]
+          },
+          "next_steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limits": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "caveats": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Sentences the answer must contain, each as its own sentence and as written; a link's text may change."
+          },
+          "must_report": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "What the answer must report from each evidence lane researched, even when weak or neutral."
+          },
+          "receipts_verified": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "receipts_rejected": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "index",
+                "reason"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "community": {
+            "type": "object",
+            "properties": {
+              "decision": {
+                "type": "string",
+                "enum": [
+                  "researched",
+                  "not_relevant"
+                ]
+              },
+              "surveys": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "discovery_rounds": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "saturated": {
+                "type": "boolean"
+              },
+              "depth": {
+                "type": "string",
+                "enum": [
+                  "first_pass",
+                  "deep"
+                ]
+              },
+              "first_pass_complete": {
+                "type": "boolean"
+              },
+              "open_leads": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "audited_videos": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "material_videos": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "principal_communities": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "communities_searched": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "decision",
+              "surveys",
+              "discovery_rounds",
+              "saturated",
+              "depth",
+              "first_pass_complete",
+              "open_leads",
+              "audited_videos",
+              "material_videos",
+              "principal_communities",
+              "communities_searched"
+            ],
+            "additionalProperties": false
+          },
+          "sources": {
+            "type": "object",
+            "properties": {
+              "validated": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "lead_only": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "validated",
+              "lead_only"
+            ],
+            "additionalProperties": false
+          },
+          "answer_checked": {
+            "type": "boolean",
+            "description": "Whether answer_draft was read in this call."
+          },
+          "findings_card": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "checked",
+                  "rejected",
+                  "absent",
+                  "closed",
+                  "private"
+                ]
+              },
+              "problems": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "saved": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "saved",
+                      "already_saved",
+                      "not_saved",
+                      "unconfirmed"
+                    ]
+                  },
+                  "card_id": {
+                    "type": "string",
+                    "pattern": "^ARF-[0-9]{4,}$"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "status",
+              "problems"
+            ],
+            "additionalProperties": false,
+            "description": "Whether findings_card checked, and for a free contributor account whether it was saved; for a paid private account a checked card's caveats offer the save. closed: the findings library is not open; private: no research account, so nothing is saved."
+          },
+          "finalization_receipt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "next_steps",
+          "limits",
+          "caveats",
+          "must_report",
+          "receipts_verified",
+          "receipts_rejected",
+          "community",
+          "sources",
+          "answer_checked",
+          "findings_card"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "_meta": {
+        "securitySchemes": [
+          {
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "submit_lesson_candidate",
+      "description": "Save one validated AskRigor lesson to the owner's private review queue, only after the user says yes to the lesson as shown to them. Send only the generalized lesson: no identity, personal health story, quotation, chat text or unnecessary link. Returns a receipt, never the stored lesson.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "missing_sources",
+              "conflicting_claims",
+              "incomplete_research",
+              "evidence_weighting",
+              "community_corpus",
+              "tool_semantics",
+              "protocol_execution",
+              "privacy_or_safety",
+              "usability",
+              "other"
+            ]
+          },
+          "general_lesson": {
+            "type": "string",
+            "minLength": 40,
+            "maxLength": 600,
+            "description": "\"When [general situation], AskRigor should [correct behavior] because [reason].\""
+          },
+          "expected_behavior": {
+            "type": "string",
+            "minLength": 40,
+            "maxLength": 1200
+          },
+          "failure_reason": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 800
+          },
+          "synthetic_regression_example": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 1200,
+            "description": "A made-up case, with no real person's details."
+          },
+          "evidence_basis": {
+            "type": "string",
+            "enum": [
+              "assistant_self_check",
+              "tool_receipt_conflict",
+              "source_recheck",
+              "instruction_mismatch"
+            ]
+          },
+          "askrigor_version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "protocol_identities": {
+            "maxItems": 4,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "version": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              },
+              "required": [
+                "name",
+                "version"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "consent_scope": {
+            "type": "string",
+            "enum": [
+              "once",
+              "conversation"
+            ],
+            "description": "\"conversation\" only after the user said yes for the whole chat."
+          }
+        },
+        "required": [
+          "category",
+          "general_lesson",
+          "expected_behavior",
+          "failure_reason",
+          "synthetic_regression_example",
+          "evidence_basis",
+          "consent_scope"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "submitted",
+              "existing_candidate",
+              "privacy_rejected",
+              "rate_limited",
+              "anonymizer_unavailable",
+              "github_unavailable"
+            ]
+          },
+          "retryable": {
+            "type": "boolean"
+          },
+          "candidate_id": {
+            "type": "string"
+          },
+          "occurrence_count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "retry_after_seconds": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "reason_code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "retryable"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "_meta": {
+        "securitySchemes": [
+          {
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "save_research_findings",
+      "description": "In paid private mode, save the findings card of the final checked answer to AskRigor's private findings library, for the owner's review, when the answer offered the save and the user said yes to it. Send the card exactly as the last finalize_research call checked it, with its finalization_receipt; never include claims the user corrected, and no personal details. (Free contributor findings are saved by finalize_research.) Returns a receipt, never the stored card.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "findings_card": {
+            "type": "object",
+            "properties": {
+              "question": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300,
+                "description": "The question in general terms, with no personal details."
+              },
+              "usual_answer": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 400,
+                "description": "What a quick, ordinary AI answer would say."
+              },
+              "findings": {
+                "minItems": 1,
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "claim": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500
+                    },
+                    "certainty": {
+                      "type": "string",
+                      "enum": [
+                        "high",
+                        "moderate",
+                        "low",
+                        "very_low"
+                      ]
+                    },
+                    "applies_to": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300,
+                      "description": "Who or what the finding holds for."
+                    },
+                    "answer_quote": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000,
+                      "description": "The answer's sentence that states this finding, copied exactly from answer_draft."
+                    },
+                    "sources": {
+                      "minItems": 1,
+                      "maxItems": 10,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      },
+                      "description": "DOI, PMID or PMCID of a key source verified in this call, or the ID of a video audited here. No tool verifies a trial registration yet, so cite a trial through its published paper."
+                    },
+                    "why_not_usual": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300,
+                      "description": "Why the usual answer misses this."
+                    },
+                    "tags": {
+                      "default": [],
+                      "description": "full_text_read needs a source read with a full-text method audit here; community_checked, a video whose comments were audited here.",
+                      "maxItems": 5,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "full_text_read",
+                          "community_checked",
+                          "contradicts_common_answer",
+                          "overlooked_study",
+                          "documented_absence"
+                        ]
+                      }
+                    },
+                    "what_would_change_it": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    }
+                  },
+                  "required": [
+                    "claim",
+                    "certainty",
+                    "applies_to",
+                    "answer_quote",
+                    "sources",
+                    "why_not_usual",
+                    "what_would_change_it"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "open_leads": {
+                "default": [],
+                "maxItems": 6,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              }
+            },
+            "required": [
+              "question",
+              "usual_answer",
+              "findings"
+            ],
+            "additionalProperties": false,
+            "description": "The card exactly as the last finalize_research call checked it."
+          },
+          "finalization_receipt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048,
+            "description": "The finalization_receipt that call returned."
+          },
+          "user_consent": {
+            "type": "string",
+            "const": "yes_to_this_save",
+            "description": "Only after the user said yes to saving these findings."
+          },
+          "reported_model": {
+            "description": "Your model's name as your app reports it; stored as reported, not verified.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "findings_card",
+          "finalization_receipt",
+          "user_consent"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "saved",
+              "existing_card",
+              "privacy_rejected",
+              "rate_limited",
+              "card_not_checked",
+              "queue_unavailable"
+            ]
+          },
+          "retryable": {
+            "type": "boolean"
+          },
+          "card_id": {
+            "type": "string",
+            "pattern": "^ARF-[0-9]{4,}$"
+          },
+          "occurrence_count": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "replaced_count": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "retry_after_seconds": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reason_code": {
+            "type": "string",
+            "enum": [
+              "invalid_request",
+              "receipts_unavailable",
+              "receipt_invalid",
+              "receipt_expired",
+              "card_not_in_receipt",
+              "card_changed",
+              "unsafe_card",
+              "hourly_limit",
+              "daily_limit",
+              "library_closed",
+              "research_account_required",
+              "queue_not_configured",
+              "queue_auth_unavailable",
+              "queue_service_unavailable"
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "retryable"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "_meta": {
+        "securitySchemes": [
+          {
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
             ]
           }
         ]

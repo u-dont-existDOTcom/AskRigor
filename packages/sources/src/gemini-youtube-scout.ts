@@ -23,8 +23,26 @@ const GEMINI_INTERACTIONS_ENDPOINT =
 export const GEMINI_YOUTUBE_SCOUT_MODEL = "gemini-3.6-flash" as const;
 export const GEMINI_YOUTUBE_SCOUT_MAX_OUTPUT_TOKENS = 12_000 as const;
 const GEMINI_YOUTUBE_SCOUT_TIMEOUT_MS = 45_000;
-const GEMINI_YOUTUBE_BACKGROUND_REQUEST_TIMEOUT_MS = 20_000;
+export const GEMINI_YOUTUBE_BACKGROUND_REQUEST_TIMEOUT_MS = 20_000;
 const GEMINI_YOUTUBE_BACKGROUND_MAX_POLLS = 120;
+/**
+ * The scout is asked for 8 to 18 searches, but grounded Gemini sometimes runs a
+ * few more. Accept up to this many instead of failing the whole scout.
+ */
+export const GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES = 30;
+/** Matches the title_only_candidates bound in the v2 handoff packet. */
+export const GEMINI_YOUTUBE_SCOUT_MAX_TITLE_ONLY_CANDIDATES = 6;
+export const GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS = 8;
+export const GEMINI_YOUTUBE_SCOUT_MAX_LEAD_CHARACTERS = 120;
+/**
+ * The language to look for videos in, as a BCP 47 tag: a language, then
+ * optionally a script and a region ("fr", "pt-BR", "zh-Hant-TW", "es-419").
+ * Tags ignore case. Variants, extensions and private-use parts are refused,
+ * so only a tag passes, never free text.
+ */
+export const geminiYoutubeScoutLanguageSchema = z.string()
+  .max(12)
+  .regex(/^[A-Za-z]{2,3}(?:-[A-Za-z]{4})?(?:-(?:[A-Za-z]{2}|[0-9]{3}))?$/u);
 const diagnosisStatusSchema = z.enum([
   "diagnosis_not_specified",
   "user_supplied_diagnosis"
@@ -32,7 +50,10 @@ const diagnosisStatusSchema = z.enum([
 const scoutInputSchema = z.object({
   researchTarget: z.string().trim().min(1).max(1_000),
   diagnosisStatus: diagnosisStatusSchema,
-  scoutInstructions: z.string().trim().min(1).max(30_000)
+  scoutInstructions: z.string().trim().min(1).max(30_000),
+  rediscoveryLeads: z.array(z.string().trim().min(2).max(GEMINI_YOUTUBE_SCOUT_MAX_LEAD_CHARACTERS))
+    .min(1).max(GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS).optional(),
+  language: geminiYoutubeScoutLanguageSchema.optional()
 }).strict();
 const scoutConfigSchema = z.object({
   apiKey: z.string().trim().min(1).max(4_096),
@@ -82,8 +103,10 @@ const compactProviderPacketSchema = z.object({
   packet_version: compactTextSchema,
   research_target: compactTextSchema,
   diagnosis_status: compactTextSchema,
-  discovery_query_rows: z.array(compactDiscoveryQueryRowSchema).max(18),
+  discovery_query_rows: z.array(compactDiscoveryQueryRowSchema).max(GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES),
   candidate_rows: z.array(compactCandidateRowSchema).max(16),
+  title_only_rows: z.array(z.tuple([compactTextSchema, compactTextSchema, compactTextSchema]))
+    .max(GEMINI_YOUTUBE_SCOUT_MAX_TITLE_ONLY_CANDIDATES).optional(),
   suggested_seed_video_ids: z.array(compactTextSchema).max(8),
   search_gaps: z.array(compactTextSchema).max(8),
   disclosures: z.array(compactTextSchema).max(4)
@@ -106,7 +129,10 @@ export const geminiYoutubeScoutBackgroundCheckpointSchema = z.object({
   phase: z.enum(["INITIAL", "REPAIR"]),
   provider_interaction_count: z.union([z.literal(1), z.literal(2)]),
   poll_attempts: z.number().int().min(0).max(GEMINI_YOUTUBE_BACKGROUND_MAX_POLLS),
-  executed_search_queries: z.array(z.string().min(1).max(500)).max(18),
+  executed_search_queries: z.array(z.string().min(1).max(500)).max(GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES),
+  // Every distinct search the initial interaction ran, for cost; the ledger
+  // above keeps only the first ones. Checkpoints from before it have none.
+  executed_search_count: z.number().int().nonnegative().max(10_000).optional(),
   initial_usage: backgroundUsageSchema.optional()
 }).strict().superRefine((checkpoint, context) => {
   if (
@@ -114,6 +140,7 @@ export const geminiYoutubeScoutBackgroundCheckpointSchema = z.object({
     (
       checkpoint.provider_interaction_count !== 1 ||
       checkpoint.executed_search_queries.length !== 0 ||
+      checkpoint.executed_search_count !== undefined ||
       checkpoint.initial_usage !== undefined
     )
   ) {
@@ -126,7 +153,9 @@ export const geminiYoutubeScoutBackgroundCheckpointSchema = z.object({
     checkpoint.phase === "REPAIR" &&
     (
       checkpoint.provider_interaction_count !== 2 ||
-      checkpoint.executed_search_queries.length < 8
+      checkpoint.executed_search_queries.length < 8 ||
+      (checkpoint.executed_search_count !== undefined &&
+        checkpoint.executed_search_count < checkpoint.executed_search_queries.length)
     )
   ) {
     context.addIssue({
@@ -157,6 +186,10 @@ export interface GeminiYoutubeScoutInput {
   researchTarget: string;
   diagnosisStatus: z.output<typeof diagnosisStatusSchema>;
   scoutInstructions: string;
+  /** Public remedies, methods, products, videos or creators named in audited comments. */
+  rediscoveryLeads?: string[];
+  /** The person's language as a BCP 47 tag; the scout looks for videos in it. */
+  language?: string;
 }
 
 export interface GeminiYoutubeScoutConfig {
@@ -291,7 +324,7 @@ export async function scoutGeminiYoutubeCandidates(
 
     const usage = providerUsage(
       responses.map(({ usage }) => usage),
-      executedSearchQueries.length
+      countExecutedSearchQueries(initialResponse.steps)
     );
     const responseIdentifier = responses.length === 1 && initialResponse.id !== undefined
       ? initialResponse.id
@@ -303,10 +336,7 @@ export async function scoutGeminiYoutubeCandidates(
       provider: "gemini_api",
       recordType: "gemini_youtube_candidate_frontier",
       primaryIdentifier: responseIdentifier,
-      query: {
-        research_target: parsedInput.data.researchTarget,
-        diagnosis_status: parsedInput.data.diagnosisStatus
-      },
+      query: scoutQuery(parsedInput.data),
       pagination: { exhausted: true },
       returned: packet.candidates.length,
       accessStatus: "complete",
@@ -427,6 +457,9 @@ async function processGeminiBackgroundInteraction(
           )
         : prior.poll_attempts,
     executed_search_queries: prior?.executed_search_queries ?? [],
+    ...(prior?.executed_search_count === undefined
+      ? {}
+      : { executed_search_count: prior.executed_search_count }),
     ...(prior?.initial_usage === undefined
       ? {}
       : { initial_usage: prior.initial_usage })
@@ -533,6 +566,7 @@ async function processGeminiBackgroundInteraction(
       provider_interaction_count: 2,
       poll_attempts: 0,
       executed_search_queries: executedSearchQueries,
+      executed_search_count: countExecutedSearchQueries(response.steps),
       ...(response.usage === undefined ? {} : { initial_usage: response.usage })
     }, false);
   }
@@ -550,7 +584,9 @@ async function processGeminiBackgroundInteraction(
     phase === "REPAIR"
       ? [current.initial_usage, response.usage]
       : [response.usage],
-    executedSearchQueries.length
+    phase === "REPAIR"
+      ? current.executed_search_count ?? executedSearchQueries.length
+      : countExecutedSearchQueries(response.steps)
   );
   const responseModel = response.model ?? config.model;
   const data: GeminiYoutubeScoutData = {
@@ -571,10 +607,7 @@ async function processGeminiBackgroundInteraction(
       provider: "gemini_api",
       recordType: "gemini_youtube_candidate_frontier",
       primaryIdentifier: interactionId,
-      query: {
-        research_target: input.researchTarget,
-        diagnosis_status: input.diagnosisStatus
-      },
+      query: scoutQuery(input),
       pagination: { exhausted: true },
       returned: attempt.packet.candidates.length,
       accessStatus: "complete",
@@ -652,6 +685,24 @@ async function pollGeminiBackgroundInteraction(
   );
 }
 
+/**
+ * Deletes one stored background Interaction without polling or repairing it,
+ * for a controller that abandons a checkpoint before advancing it. Returns
+ * false when the delete did not succeed, so the caller can keep the
+ * checkpoint and try again.
+ */
+export async function deleteGeminiYoutubeScoutInteraction(
+  config: GeminiYoutubeScoutConfig,
+  interactionId: string
+): Promise<boolean> {
+  const parsedConfig = scoutConfigSchema.safeParse(config);
+  if (!parsedConfig.success) throw new Error("Invalid Gemini YouTube scout configuration");
+  if (!/^[A-Za-z0-9._-]{1,500}$/u.test(interactionId)) {
+    throw new Error("Invalid Gemini background interaction id");
+  }
+  return deleteGeminiBackgroundInteraction(parsedConfig.data, interactionId);
+}
+
 async function deleteGeminiBackgroundInteraction(
   config: z.output<typeof scoutConfigSchema>,
   interactionId: string
@@ -670,8 +721,9 @@ async function deleteGeminiBackgroundInteraction(
       }
     );
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    // Already gone: an earlier delete succeeded, perhaps with its reply lost.
+    return error instanceof UpstreamHttpError && error.status === 404;
   }
 }
 
@@ -746,20 +798,58 @@ function buildScoutPrompt(input: z.output<typeof scoutInputSchema>): string {
     "",
     `Diagnosis status: ${input.diagnosisStatus}`,
     "",
+    ...languageInstructions(input.language),
+    ...rediscoveryInstructions(input.rediscoveryLeads),
     "Perform between 8 and 18 Google Search queries and no more than 18. Copy every executed query string exactly into discovery_query_rows and do not list an unexecuted query.",
     "Use public web and YouTube discovery context for candidate selection. Treat every creator summary as provisional and not transcript-verified by AskRigor.",
+    `Search results here often show no YouTube watch URL, so spend searches on discovery, not on finding video IDs. When a result names a promising video but shows no 11-character ID, never guess or reconstruct one: add [title, channel, why_surfaced] to title_only_rows (at most ${GEMINI_YOUTUBE_SCOUT_MAX_TITLE_ONLY_CANDIDATES}, most promising first) and AskRigor will look it up on YouTube by exact title. Use not described for an unknown channel.`,
     compactTransportInstructions()
   ].join("\n");
+}
+
+/**
+ * The target is written in English whatever the person's language; the tag
+ * says which language's videos to find. Gemini gets the language's English
+ * name, or the tag itself when no name is known for it.
+ */
+function languageInstructions(tag: string | undefined): string[] {
+  if (tag === undefined) return [];
+  const name = englishLanguageName(tag);
+  return [
+    `VIDEO LANGUAGE: ${name === tag ? tag : `${name} (${tag})`}. The research target above is written in English, ` +
+      `but look for videos in ${name}: write every search in ${name}, including the first-person probes, the way ` +
+      `its speakers search, and return videos in ${name}.`,
+    ""
+  ];
+}
+
+function englishLanguageName(tag: string): string {
+  try {
+    return new Intl.DisplayNames(["en"], { type: "language", fallback: "none" }).of(tag) ?? tag;
+  } catch {
+    return tag;
+  }
+}
+
+function rediscoveryInstructions(leads: readonly string[] | undefined): string[] {
+  if (leads === undefined || leads.length === 0) return [];
+  return [
+    "TARGETED REDISCOVERY. AskRigor audited community comments for this target, and they name these remedies, methods, products, videos or creators:",
+    ...leads.map((lead) => `- ${lead}`),
+    "Spend most searches on these leads: for each one, look for firsthand videos about using it for this target (what people did, for how long, and what happened, good or bad). Find a named video or a named creator's videos on this target. A lead is a claim to test, not evidence. Still cover the required purposes, and use the remaining searches for new angles the leads suggest.",
+    ""
+  ];
 }
 
 function compactTransportInstructions(): string {
   return [
     "AUTOMATED COMPACT TRANSPORT — this changes encoding only; every substantive discovery and safety rule above still applies.",
-    "Return exactly these top-level keys: packet_name, packet_version, research_target, diagnosis_status, discovery_query_rows, candidate_rows, suggested_seed_video_ids, search_gaps, disclosures.",
+    "Return exactly these top-level keys: packet_name, packet_version, research_target, diagnosis_status, discovery_query_rows, candidate_rows, title_only_rows, suggested_seed_video_ids, search_gaps, disclosures.",
     "Set packet_name to gemini_youtube_candidate_handoff and packet_version to 2.0.",
-    "Each discovery_query_rows entry is exactly [purpose, query]. Return 8–18 unique rows, reproduce every executed query exactly, and cover all five required purposes.",
+    "Each discovery_query_rows entry is exactly [purpose, query]. Return one unique row per executed query (normally 8–18), reproduce every executed query exactly, and cover all five required purposes.",
     "Each candidate_rows entry is exactly 12 strings in this order: [video_id, canonical_url, title, channel, target_distance, provisional_intervention_family, creator_claim_summary, provisional_specific_program, provisional_population_or_stage, provisional_outcome_and_horizon, summary_basis, why_surfaced].",
-    "For a broad treatment-choice or avoid-procedure target, return 8–16 unique candidate rows spanning materially different programs and trajectories when public candidates exist. For a narrower target, normally return 6–16. Return only 3–5 when the executed searches genuinely surface fewer useful candidates, and state that concrete gap in search_gaps. Use not described for an unavailable program, population/stage, outcome, or horizon.",
+    "Each title_only_rows entry is exactly [title, channel, why_surfaced]; return an empty array when every useful video has an ID.",
+    "For a broad treatment-choice or avoid-procedure target, return 8–16 unique candidate rows spanning materially different programs and trajectories when public candidates exist. For a narrower target, normally return 6–16. Return only 3–5 in all, counting title_only_rows, when the executed searches genuinely surface fewer useful candidates, and state that concrete gap in search_gaps. suggested_seed_video_ids names only candidate_rows videos, so leave it empty when candidate_rows is. Use not described for an unavailable program, population/stage, outcome, or horizon.",
     `Set every summary_basis cell to ${GEMINI_YOUTUBE_SUMMARY_BASIS}.`,
     "Set disclosures, in order, to comments_not_retrieved, provider_metadata_not_validated_by_gemini, creator_claims_not_validated, not_medical_advice.",
     "Do not return discovery_queries or candidates objects. AskRigor will reconstruct the canonical object packet and validate every value and relationship."
@@ -782,6 +872,10 @@ function compactStructuredPacketSchema(): Record<string, unknown> {
         type: "array",
         items: { type: "array", items: { type: "string" } }
       },
+      title_only_rows: {
+        type: "array",
+        items: { type: "array", items: { type: "string" } }
+      },
       suggested_seed_video_ids: { type: "array", items: { type: "string" } },
       search_gaps: { type: "array", items: { type: "string" } },
       disclosures: { type: "array", items: { type: "string" } }
@@ -793,6 +887,7 @@ function compactStructuredPacketSchema(): Record<string, unknown> {
       "diagnosis_status",
       "discovery_query_rows",
       "candidate_rows",
+      "title_only_rows",
       "suggested_seed_video_ids",
       "search_gaps",
       "disclosures"
@@ -910,6 +1005,15 @@ function decodeCompactProviderPacket(output: string): GeminiYoutubeCandidatePack
       why_surfaced: whySurfaced
     })),
     suggested_seed_video_ids: compact.data.suggested_seed_video_ids,
+    ...(compact.data.title_only_rows === undefined || compact.data.title_only_rows.length === 0
+      ? {}
+      : {
+          title_only_candidates: compact.data.title_only_rows.map(([title, channel, whySurfaced]) => ({
+            title,
+            channel,
+            why_surfaced: whySurfaced
+          }))
+        }),
     search_gaps: compact.data.search_gaps,
     disclosures: compact.data.disclosures
   };
@@ -971,6 +1075,24 @@ function findExecutedSearchQueries(
       queries.push(value.trim());
     }
   }
+  // The packet reproduces this ledger exactly. Grounded Gemini sometimes runs
+  // more searches than asked; the ledger keeps the first ones and cost
+  // accounting counts them all (countExecutedSearchQueries).
+  return uniqueSearchQueries(queries).slice(0, GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES);
+}
+
+function countExecutedSearchQueries(steps: z.output<typeof interactionStepSchema>[]): number {
+  const queries: string[] = [];
+  for (const step of steps) {
+    if (step.type !== "google_search_call") continue;
+    const values = (step.arguments as Record<string, unknown> | undefined)?.queries;
+    if (!Array.isArray(values)) continue;
+    for (const value of values) if (typeof value === "string" && value.trim().length > 0) queries.push(value.trim());
+  }
+  return uniqueSearchQueries(queries).length;
+}
+
+function uniqueSearchQueries(queries: readonly string[]): string[] {
   return [...new Map(queries.map((query) => [comparableSearchQuery(query), query])).values()];
 }
 
@@ -978,7 +1100,7 @@ function searchQueriesReconcile(
   packet: GeminiYoutubeCandidatePacket,
   executedSearchQueries: readonly string[]
 ): boolean {
-  if (executedSearchQueries.length < 8 || executedSearchQueries.length > 18) return false;
+  if (executedSearchQueries.length < 8 || executedSearchQueries.length > GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES) return false;
   const executed = new Set(executedSearchQueries.map(comparableSearchQuery));
   const declared = new Set(packet.discovery_queries.map(({ query }) =>
     comparableSearchQuery(query)
@@ -1078,6 +1200,14 @@ function scoutFailureEnvelope(
   });
 }
 
+function scoutQuery(input: z.output<typeof scoutInputSchema>): Record<string, string> {
+  return {
+    research_target: input.researchTarget,
+    diagnosis_status: input.diagnosisStatus,
+    ...(input.language === undefined ? {} : { language: input.language })
+  };
+}
+
 function scoutErrorEnvelope(
   input: z.output<typeof scoutInputSchema>,
   details: ScoutErrorDetails
@@ -1085,10 +1215,7 @@ function scoutErrorEnvelope(
   return errorEnvelope({
     provider: "gemini_api",
     recordType: "gemini_youtube_candidate_frontier",
-    query: {
-      research_target: input.researchTarget,
-      diagnosis_status: input.diagnosisStatus
-    },
+    query: scoutQuery(input),
     pagination: { exhausted: false },
     returned: 0,
     accessStatus: details.accessStatus,

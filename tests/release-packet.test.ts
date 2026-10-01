@@ -2,7 +2,9 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
+import { loadProtocolSnapshot } from "@askrigor/protocol";
 
+import { YOUTUBE_COMMUNITY_AUDIT_SCOPE } from "../apps/research-mcp/src/youtube-mcp-sample.js";
 import { createToolInventory } from "../scripts/generate-tool-inventory.mts";
 
 const rootFile = (path: string) => new URL(`../${path}`, import.meta.url);
@@ -43,7 +45,12 @@ const TOOL_NAMES = [
   "manage_research_access",
   "submit_research_contribution",
   "review_research_contribution",
-  "review_evidence_gap_submissions"
+  "review_evidence_gap_submissions",
+  "assess_treatment_landscape_coverage",
+  "scout_gemini_youtube_candidates",
+  "finalize_research",
+  "submit_lesson_candidate",
+  "save_research_findings"
 ];
 
 describe("AskRigor public-review packet", () => {
@@ -170,6 +177,7 @@ describe("AskRigor public-review packet", () => {
       ASKRIGOR_ACTIONS_API_KEY: "Dedicated Action Bearer secret; installed only on the server and in the GPT editor authentication control.",
       OPENAI_API_KEY: "Dedicated server-only OpenAI API project key for the privacy check.",
       ASKRIGOR_GEMINI_API_KEY: "Dedicated restricted paid Gemini API project key for automated public-candidate scouting. The controlled path uses a temporary background Interaction and requests deletion after use. Without the key the server returns `gemini_provider_not_configured`; never paste it into chat or the GPT editor.",
+      ASKRIGOR_GEMINI_BILLING: "Set to `none` only when the configured Gemini key has no billing. Every scout route starts or resumes a scout only then, under the owner's zero-spend policy (`governance/chat-work-authority-policy.json`). Otherwise the MCP `scout_gemini_youtube_candidates` tool refuses with `gemini_scout_spend_not_authorized` and the model uses `survey_youtube_community`, the Custom GPT Action and research sessions report `gemini_provider_not_configured` and continue with the YouTube survey, and a resumed scout's stored search is deleted.",
       ASKRIGOR_AI_BUDGET_LEDGER: "Exact absolute path `/var/lib/askrigor-actions/ai-budget.json`.",
       ASKRIGOR_AI_MONTHLY_BUDGET_USD: "Canonical production literal `50.00`; the runtime accepts only exact `50` or `50.00`.",
       ASKRIGOR_GITHUB_APP_ID: "Positive decimal App ID.",
@@ -394,10 +402,14 @@ describe("AskRigor public-review packet", () => {
     expect(release).toContain("creator-content verification");
     expect(release).toContain("get_youtube_transcript");
     expect(release).toContain("unofficial public YouTube interface");
-    expect(readme).toContain("Universal Instructions `20.5.27`");
-    expect(readme).toContain(
-      "6dd95d86e3b49a54a9f597d13e8a9855b478d876d1a84842a8f88f144c999625",
-    );
+    // The README's receipts name the canonical files as they are, so they are
+    // checked against the files' own manifests rather than copied values.
+    for (const [label, protocol] of [["HRP", "hrp"], ["Universal Instructions", "universal"]] as const) {
+      const { manifest } = await loadProtocolSnapshot(protocol);
+      expect(readme.replace(/\s+/gu, " ")).toContain(
+        `${label} \`${manifest.version}\` (${manifest.revisionDate}), SHA-256 \`${manifest.sha256}\``,
+      );
+    }
     expect(release).toContain("Deployed production protocols");
     expect(release).toContain(
       "Current direct production integrity checks matched both hashes and returned verified true.",
@@ -613,12 +625,15 @@ describe("AskRigor public-review packet", () => {
       endpoint: "https://mcp.askrigor.com/mcp"
     });
     expect(inventory.tools.map(({ name }: { name: string }) => name)).toEqual(TOOL_NAMES);
-    expect(inventory.tools).toHaveLength(27);
+    expect(inventory.tools).toHaveLength(32);
 
     for (const tool of inventory.tools) {
       const isWrite = tool.name === "manage_research_access" ||
         tool.name === "submit_research_contribution" ||
-        tool.name === "review_research_contribution";
+        tool.name === "review_research_contribution" ||
+        tool.name === "submit_lesson_candidate" ||
+        tool.name === "finalize_research" ||
+        tool.name === "save_research_findings";
       expect(tool).toMatchObject({
         description: expect.any(String),
         inputSchema: { type: "object", $schema: "http://json-schema.org/draft-07/schema#" },
@@ -653,13 +668,14 @@ describe("AskRigor public-review packet", () => {
         properties: {
           receipt: {
             properties: {
-              completion_state: { enum: [
+              scope: { const: YOUTUBE_COMMUNITY_AUDIT_SCOPE },
+              comment_retrieval_state: { enum: [
                 "api_visible_complete",
                 "complete_no_candidates",
                 "completed_with_access_boundary",
                 "incomplete"
               ] },
-              synthesis_lock: { enum: ["pass", "block"] },
+              youtube_comments_lock: { enum: ["pass", "block"] },
               query_bounded_comments_used_as_corpus: { const: false }
             }
           }
@@ -698,7 +714,7 @@ describe("AskRigor public-review packet", () => {
           continuation_recommended: { type: "boolean" },
           continuation_token: { type: "string", maxLength: 65536 },
           receipt: {
-            properties: { synthesis_lock: { enum: ["pass", "block"] } }
+            properties: { video_comments_lock: { enum: ["pass", "block"] } }
           }
         }
       }

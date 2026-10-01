@@ -378,7 +378,7 @@ export function ingestValidatedGeminiFrontier(
     ...state,
     external_scout: {
       status: receipt.status === "rejected"
-        ? "BLOCKED_RETRYABLE"
+        ? rejectedForDeclarationsOnly(receipt) ? "BLOCKED_TERMINAL" : "BLOCKED_RETRYABLE"
         : receipt.candidate_frontier.validated_candidate_video_ids.length > 0 &&
             receipt.unresolved_candidates.length > 0
           ? "BLOCKED_TERMINAL"
@@ -921,6 +921,19 @@ function validateReciprocalOrigins(
       });
     }
   }
+}
+
+/**
+ * Whether every candidate of a rejected packet names a real video under a
+ * title (and perhaps a channel) other than the scout declared. Rerunning the
+ * scout words its titles its own way again, so this route, which has no step
+ * where a model judges a reworded title, ends the scout step instead and goes
+ * on with native discovery; the MCP route hands such candidates to the model.
+ */
+function rejectedForDeclarationsOnly(receipt: GeminiYoutubeCandidateValidationReceipt): boolean {
+  return receipt.unresolved_candidates.length === 0 && receipt.rejected_candidates.length > 0 &&
+    receipt.rejected_candidates.every(({ rejection_reasons: reasons }) => reasons.every((reason) =>
+      reason === "declared_title_mismatch" || reason === "declared_channel_mismatch"));
 }
 
 function externalCandidate(

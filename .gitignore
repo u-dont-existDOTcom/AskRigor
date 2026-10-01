@@ -9,3 +9,5 @@ coverage/
 .artifacts/
 task-10-report.md
 task-11-report.md
+# Discovery bench local AI budget ledger
+.discovery-bench-ai-budget.json

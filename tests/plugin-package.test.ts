@@ -77,7 +77,22 @@ describe("AskRigor plugin package", () => {
     expect(skill.startsWith(`${EXPECTED_SKILL_FRONTMATTER}\n`)).toBe(true);
     expect(skill).not.toMatch(/\bv?20\.5\.(?:\d+|x)\b/i);
     expect(skill).not.toMatch(/<\/?(?:Protocol|Purpose|Research)/);
-    expect(skill.split(/\s+/).filter(Boolean).length).toBeLessThan(1_100);
+    // 1,100 until the findings card and its paid-private save (owner decisions Q9 to Q11, 2026-09-30).
+    expect(skill.split(/\s+/).filter(Boolean).length).toBeLessThan(1_125);
+  });
+
+  it("gives the final gate a findings card and saves an offered card only after the user says yes", async () => {
+    const skill = await readFile(rootFile("skills/askrigor/SKILL.md"), "utf8");
+    const gate = sectionBetween(skill, "## Protocol gate", "## Forum Signal routing");
+
+    // Owner decisions Q9 to Q11 (2026-09-30): the server saves free contributor findings; a paid-private answer
+    // offers the save, which waits for the user's yes.
+    expectFragmentsInOrder(gate, [
+      "call `finalize_research`",
+      "a `findings_card` of the answer's best findings",
+      "copy its `caveats`",
+      "If they offer a save, call `save_research_findings` only after the user says yes.",
+    ]);
   });
 
   it("requires an explicit reciprocal mode before research and bounds shared learning", async () => {
@@ -98,7 +113,9 @@ describe("AskRigor plugin package", () => {
       "identity/contact details",
       "private health narratives",
       "raw source or",
-      "YouTube/community data",
+      // Free mode saves findings cards that summarize community reports, so the exclusion names what stays out
+      // (the owner-approved privacy wording, question 11, 2026-09-30).
+      "YouTube/community posts, commenters, links",
       "pending proposal is not canonical evidence",
       "Preserve partial corpora as usable",
       "accepted_pending_promotion",
@@ -114,9 +131,8 @@ describe("AskRigor plugin package", () => {
 
     expect(gate).toContain("Load Universal first:");
     expectFragmentsInOrder(gate, [
-      "`get_protocol_manifest`",
-      "`verify_protocol_integrity`",
-      "every `load_protocol` chunk",
+      "`load_protocol` with `section: \"index\"`",
+      "then core sections and any that apply",
       "Use its activation boundary."
     ]);
     expect(gate).toContain(
@@ -124,7 +140,7 @@ describe("AskRigor plugin package", () => {
     );
     expect(gate).toContain("if unclear, ask");
     expect(gate).toContain(
-      "For HRP repeat the sequence with `protocol: \"hrp\"`."
+      "For HRP repeat the sequence with `protocol: \"hrp\"`, loading each section whose purpose or activation applies before the step that uses it."
     );
   });
 
@@ -137,9 +153,8 @@ describe("AskRigor plugin package", () => {
     );
     expect(gate).toContain("Use one orchestration/approval and applicability ledger.");
     expectFragmentsInOrder(gate, [
-      "`get_protocol_manifest`",
-      "`verify_protocol_integrity`",
-      "every `load_protocol` chunk",
+      "`load_protocol` with `section: \"index\"`",
+      "then core sections and any that apply",
       "Use its activation boundary.",
       "For HRP repeat the sequence",
       "Use one orchestration/approval and applicability ledger.",
@@ -186,7 +201,8 @@ describe("AskRigor plugin package", () => {
     expect(skill).toContain("Use installed Project router before HRP; otherwise require Forum Signal");
     expect(skill).toContain("endorsement/choice/start-defer-sequence");
     expect(skill).toContain("If uncertain, require it");
-    expect(skill).toContain("call `survey_youtube_community`");
+    expect(skill).toContain("call `scout_gemini_youtube_candidates`");
+    expect(skill).toContain("`rediscovery_leads`");
     expect(skill).toContain("formal evidence cannot deselect it");
     expect(skill).toContain("consume its coverage receipt");
     expect(skill).toContain("opaque Action handle");
@@ -194,7 +210,7 @@ describe("AskRigor plugin package", () => {
     expect(skill).toContain("caller corpus-size/scope labels cannot waive them");
     expect(skill).toContain("If `get_youtube_transcript` is unavailable");
     expect(skill).toContain("`transcript_tool_unavailable`");
-    expect(skill).toContain("never call an undeclared tool");
+    expect(skill).toContain("never call undeclared tools");
     expect(skill).toContain("Accept `api_visible_complete` only after all accessible top-level/reply pages");
     expect(skill).toContain(
       "it excludes deleted, moderated, private, hidden, unavailable, and never-posted material"

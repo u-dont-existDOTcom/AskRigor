@@ -447,7 +447,7 @@ describe("controlled research Action projection", () => {
       getProtocolManifest("hrp")
     ]);
     let state = createInitialResearchSessionState({
-      research_target: "de-identified treatment comparison",
+      research_target: "adults comparing de-identified treatment programs",
       diagnosis_status: "diagnosis_not_specified"
     }, protocolBindingsFromManifests(universal, hrp));
     state = applyServerModuleApplicability(state, {
@@ -528,7 +528,7 @@ describe("controlled research Action projection", () => {
       getProtocolManifest("hrp")
     ]);
     let state = createInitialResearchSessionState({
-      research_target: "de-identified treatment comparison",
+      research_target: "adults comparing de-identified treatment programs",
       diagnosis_status: "diagnosis_not_specified"
     }, protocolBindingsFromManifests(universal, hrp));
     state = applyServerModuleApplicability(state, {

@@ -92,20 +92,102 @@ function occurrences(text: string, needle: string): number {
   return text.split(needle).length - 1;
 }
 
+// Universal 20.5.32 added the lesson offer to corrections_and_calibration
+// (owner report, 2026-09-30); each pair is [20.5.32 text, 20.5.31 text].
+const UNIVERSAL_20_5_32_LESSON_OFFER: ReadonlyArray<readonly [RegExp | string, string]> = [
+  ['version="20.5.32" revisionDate="2026-09-30"', 'version="20.5.31" revisionDate="2026-09-30"'],
+  [/<revision version="20\.5\.32" priority="Critical">\nModel-behavior change after an owner report[^<]*<\/revision>\n/u, ""],
+  [/\nWhen a correction, rechecked and found valid, shows an AskRigor failure[^\n]*\n/u, ""],
+];
+
+// Merging main's task-mode integration (Universal 20.5.27, #252) renumbered
+// this branch's 20.5.27 to 20.5.30 as 20.5.28 to 20.5.31. Each pair is
+// [merged text, pre-merge text]; the renumbering runs lowest first.
+const UNIVERSAL_20_5_31_TASK_MODE_MERGE: ReadonlyArray<readonly [RegExp | string, string]> = [
+  ['version="20.5.31" revisionDate="2026-09-30"', 'version="20.5.30" revisionDate="2026-09-29"'],
+  [/<revision version="20\.5\.27" priority="Critical">\nExtended Reasoning Selection with task-mode integration[^<]*<\/revision>\n/u, ""],
+  ['<revision version="20.5.28" ', '<revision version="20.5.27" '],
+  ['<revision version="20.5.29" ', '<revision version="20.5.28" '],
+  ['<revision version="20.5.30" ', '<revision version="20.5.29" '],
+  ['<revision version="20.5.31" ', '<revision version="20.5.30" '],
+  [/\n<task_mode_integration [\s\S]*?<\/task_mode_integration>\n/u, ""],
+  [/Task-mode integration check:[^\n]*\n\n/u, ""],
+];
+
+function matchCount(text: string, pattern: RegExp | string): number {
+  return typeof pattern === "string"
+    ? occurrences(text, pattern)
+    : [...text.matchAll(new RegExp(pattern.source, `${pattern.flags}g`))].length;
+}
+
+// Universal 20.5.30 widened the heuristic-attractor recurrence trigger to
+// findings from any source; each pair is [20.5.30 text, 20.5.29 text].
+const UNIVERSAL_20_5_30_RECURRENCE: ReadonlyArray<readonly [string, string]> = [
+  ["<Protocol name=\"AskRigor.com universal saved instructions\" version=\"20.5.30\" revisionDate=\"2026-09-29\"", "<Protocol name=\"AskRigor.com universal saved instructions\" version=\"20.5.29\" revisionDate=\"2026-09-27\""],
+  ["<revision_history>\n<revision version=\"20.5.30\" priority=\"Critical\">\nModel-behavior change after an owner correction: recurrence no longer waits for the user to correct the same failure again. When the same class of failure recurs after a fix, found again by the user, a review, a test or a run, local fixes stop until the class is named and the mechanism's ability to decide it is checked. No clinical, source or output rule changed.\n</revision>\n<revision version=\"20.5.29\" priority=\"Critical\">", "<revision_history>\n<revision version=\"20.5.29\" priority=\"Critical\">"],
+  ["6. When the same class of failure recurs after a fix, whether the user corrects it again or a review, test or run finds it again, treat recurrence as evidence that a higher-level heuristic is hijacking task interpretation or that the mechanism cannot decide that class. Stop local fixes: name the class, check whether the mechanism can decide it at all, and repair the attractor or redesign the mechanism rather than adding another local exception, apology, or reminder.", "6. When the user has already corrected a recurring reasoning failure, treat recurrence as evidence that a higher-level heuristic is hijacking task interpretation. Diagnose and repair the attractor itself rather than adding another local exception, apology, or reminder."],
+  ["If a failure class recurred after a fix, found again by the user, a review, a test or a run, diagnose the higher-level attractor or the mechanism's fit rather than adding another local exception.", "If a user-corrected failure recurred, diagnose the higher-level attractor rather than adding another local exception."],
+];
+
+// Universal 20.5.29 replaced the euphemism rule with precise clinical terms;
+// each pair is [20.5.29 text, 20.5.28 text].
+const UNIVERSAL_20_5_29_CLINICAL_TERMS: ReadonlyArray<readonly [string, string]> = [
+  ["<Protocol name=\"AskRigor.com universal saved instructions\" version=\"20.5.29\" revisionDate=\"2026-09-27\"", "<Protocol name=\"AskRigor.com universal saved instructions\" version=\"20.5.28\" revisionDate=\"2026-09-26\""],
+  ["<revision_history>\n<revision version=\"20.5.29\" priority=\"Critical\">\nOwner-approved output change: the euphemism-substitution rule is replaced. Answers use precise clinical terms, including for overdose, self-harm and lethal doses, and never soften safety-relevant information; euphemisms made safety-critical statements less exact. Higher-priority platform rules still apply. No reasoning or source rule changed.\n</revision>\n<revision version=\"20.5.28\" priority=\"Critical\">", "<revision_history>\n<revision version=\"20.5.28\" priority=\"Critical\">"],
+  ["Use precise clinical terms, including for overdose, self-harm and lethal doses; never soften safety-relevant information.", "If you will be using words that might trip guardrails, DO NOT USE THEM. Substitute the closest safe euphemism and put it inside @ signs so I know, and for the first such substitution, put (euphemism) next to it."],
+];
+
+// Universal 20.5.28 added the finalize_research completion check and deferred
+// the opening to HRP's rules; each pair is [20.5.28 text, 20.5.27 text].
+const UNIVERSAL_20_5_28_FINALIZE: ReadonlyArray<readonly [string, string]> = [
+  ["<Protocol name=\"AskRigor.com universal saved instructions\" version=\"20.5.28\" revisionDate=\"2026-09-26\"", "<Protocol name=\"AskRigor.com universal saved instructions\" version=\"20.5.27\" revisionDate=\"2026-09-26\""],
+  ["<revision_history>\n<revision version=\"20.5.28\" priority=\"Critical\">\nOn AskRigor connector runs the server now checks research completion: research tools return signed receipts, and finalize_research verifies them before the final answer. The completion audit includes that call. HRP 20.6.0 removed its fixed opening, so a completed HRP analysis follows HRP's own opening and version-line rules. No reasoning, safety, or source rule changed.\n</revision>\n<revision version=\"20.5.27\" priority=\"Critical\">", "<revision_history>\n<revision version=\"20.5.27\" priority=\"Critical\">"],
+  ["4. Before answering, audit the completed work against the ledger and the loaded canonical sections; on AskRigor connector runs this includes calling `finalize_research` with every `research_receipt` the tools returned.", "4. Before answering, audit the completed work against the ledger and the loaded canonical sections."],
+  ["For a completed HRP analysis, follow the operative HRP's opening and version-line rules; do not preserve an older opening from Universal when HRP has changed it.", "For a completed HRP analysis, use the exact opening required by the operative HRP; do not preserve an older opening from Universal when HRP has changed it."],
+  ["9. Do not claim AskRigor compliance unless every applicable protocol was actually loaded and followed.\n10. On AskRigor connector runs, call `finalize_research` before the final answer with every `research_receipt` the tools returned; on `not_ready` do its next steps, and on `ready_with_limits` state its limits.", "9. Do not claim AskRigor compliance unless every applicable protocol was actually loaded and followed."],
+];
+
+// Universal 20.5.27 changed only protocol loading to the section index;
+// each pair is [20.5.27 text, 20.5.26 text].
+const UNIVERSAL_20_5_27_SECTION_LOADING: ReadonlyArray<readonly [string, string]> = [
+  ["<Protocol name=\"AskRigor.com universal saved instructions\" version=\"20.5.27\" revisionDate=\"2026-09-26\"", "<Protocol name=\"AskRigor.com universal saved instructions\" version=\"20.5.26\" revisionDate=\"2026-09-17\""],
+  ["<revision_history>\n<revision version=\"20.5.27\" priority=\"Critical\">\nProtocol loading is now section-based. Connector tools reject or truncate a tool result the size of a complete protocol file, so a model could not read the protocols at all on some surfaces. Load Universal's core sections and any section that applies; for HRP, load its section index, core sections, and each section whose purpose or activation applies, before the step that uses it. Sections are exact canonical text; remembered summaries still never substitute. No reasoning, safety, or source rule changed.\n</revision>\n<revision version=\"20.5.26\" priority=\"Critical\">", "<revision_history>\n<revision version=\"20.5.26\" priority=\"Critical\">"],
+  ["1. Load HRP through its section index: every core section, then each runtime section whose purpose or activation applies, before the step that uses it. Sections are exact canonical text; a complete user-supplied exact file or another direct authoritative full copy may supply them when the canonical source is unavailable.", "1. Load and inspect the complete saved canonical `HRP_Full.xml`. A complete user-supplied exact file or another direct authoritative full copy may be used when the saved canonical file is unavailable."],
+  ["For the universal instructions themselves, load their core sections and any section that applies for ordinary use.", "For the universal instructions themselves, load the complete saved canonical `Universal_Instructions.xml` for ordinary use."],
+  ["1. Verify the protocol title, version, and revision or internal identifier from the loaded canonical text or its manifest.", "1. Verify the protocol title, version, and revision or internal identifier from inside the loaded complete copy."],
+  ["4. Before answering, audit the completed work against the ledger and the loaded canonical sections.", "4. Before answering, audit the completed work against the ledger and the operative full text."],
+  ["If a required protocol section cannot be loaded or an applicable mandatory item remains incomplete,", "If a required complete protocol cannot be loaded or an applicable mandatory item remains incomplete,"],
+  ["6. Higher reasoning mode does not substitute for loading the required protocol sections, internal version verification,", "6. Higher reasoning mode does not substitute for loading the complete protocol, internal version verification,"],
+  ["Replace every version placeholder with the verified version of the operative HRP actually used.", "Replace every version placeholder with the version verified inside the complete operative HRP actually used."],
+  ["2. Load Universal's core sections and any section that applies; for a health or research task that triggers HRP, also load HRP's section index, core sections, and every section that applies before substantive analysis.", "2. Load the complete saved canonical `Universal_Instructions.xml`; for a health or research task that triggers HRP, also load the complete saved canonical `HRP_Full.xml` before substantive analysis."],
+  ["6. If a required protocol section cannot be retrieved, state that clearly,", "6. If a required complete protocol cannot be retrieved, state that clearly,"],
+];
+
 describe("canonical Reasoning Selection application", () => {
   it("adds the exact Critical selector and revision without reserializing Universal", async () => {
-    const current = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
-    expect(current).toContain('version="20.5.27" revisionDate="2026-09-30"');
-    const universal = current
-      .replace('version="20.5.27" revisionDate="2026-09-30"', 'version="20.5.26" revisionDate="2026-09-17"')
-      .replace(/<revision version="20\.5\.27" priority="Critical">[\s\S]*?<\/revision>\n/u, "")
-      .replace(/\n<task_mode_integration [\s\S]*?<\/task_mode_integration>\n/u, "")
-      .replace(/Task-mode integration check:[^\n]*\n\n/u, "");
-    expect(sha256(universal)).toBe("c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2");
+    const onDisk = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
+    expect(onDisk).toContain('version="20.5.33" revisionDate="2026-09-30"');
+    const undo = (text: string, steps: ReadonlyArray<readonly [RegExp | string, string]>) =>
+      steps.reduce((current, [later, prior]) => {
+        expect(matchCount(current, later), String(later).slice(0, 60)).toBe(1);
+        return current.replace(later, prior);
+      }, text);
+    // Universal 20.5.33 (owner's research-thread lessons): undoing its recorded edits gives 20.5.32 exactly.
+    const lessons = JSON.parse(
+      await readFile(new URL("tests/fixtures/protocol-edits/2026-09-30-owner-lessons.json", ROOT), "utf8"),
+    ).universal as { from: { sha256: string }; edits: Array<[string, string]> };
+    const universal20532 = undo(onDisk, lessons.edits.map(([prior, later]) => [later, prior] as const).reverse());
+    expect(sha256(universal20532)).toBe(lessons.from.sha256);
+    const universal20531 = undo(universal20532, UNIVERSAL_20_5_32_LESSON_OFFER);
+    expect(sha256(universal20531)).toBe("111cdecb46352e8cca98cfdb214edcfaf1c09a1cf991abf1c35dc2203d113e98");
+    // Undoing the merge of main's task-mode integration gives this branch's
+    // 20.5.30 bytes exactly; the chains below step back from there to 20.5.26.
+    const universal = undo(universal20531, UNIVERSAL_20_5_31_TASK_MODE_MERGE);
+    expect(sha256(universal)).toBe("9aca5620910aea329c3219a0e4be70c5a56cf0d6c3e39a73652e2a3ebfe3cee2");
 
     expect(XMLValidator.validate(universal)).toBe(true);
     expect(universal).toMatch(
-      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.26" revisionDate="2026-09-17"/u,
+      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.30" revisionDate="2026-09-29"/u,
     );
     expect(Buffer.byteLength(REASONING_SELECTION_TEXT, "utf8")).toBe(2884);
     expect(sha256(REASONING_SELECTION_TEXT)).toBe(
@@ -133,7 +215,45 @@ describe("canonical Reasoning Selection application", () => {
       expect(occurrences(CURRENT_REASONING_SELECTION_TEXT, `- ${method}:`), method).toBe(1);
     }
 
-    const priorRecommendationUniversal = universal
+    const universal20529 = UNIVERSAL_20_5_30_RECURRENCE.reduce(
+      (text, [current, prior]) => {
+        expect(occurrences(text, current), current.slice(0, 60)).toBe(1);
+        return text.replace(current, prior);
+      },
+      universal,
+    );
+    expect(sha256(universal20529)).toBe(
+      "5d9a9d76339ff1794b93bb1e932466f703c4a8c006a607b811f40b43ea703d36",
+    );
+    const universal20528 = UNIVERSAL_20_5_29_CLINICAL_TERMS.reduce(
+      (text, [current, prior]) => {
+        expect(occurrences(text, current), current.slice(0, 60)).toBe(1);
+        return text.replace(current, prior);
+      },
+      universal20529,
+    );
+    expect(sha256(universal20528)).toBe(
+      "6d7584c3b25104e70e80caf126a0a1bcb662bde2eb95a9976f90673263060d0c",
+    );
+    const universal20527 = UNIVERSAL_20_5_28_FINALIZE.reduce(
+      (text, [current, prior]) => {
+        expect(occurrences(text, current), current.slice(0, 60)).toBe(1);
+        return text.replace(current, prior);
+      },
+      universal20528,
+    );
+    const priorSectionLoadingUniversal = UNIVERSAL_20_5_27_SECTION_LOADING.reduce(
+      (text, [current, prior]) => {
+        expect(occurrences(text, current), current.slice(0, 60)).toBe(1);
+        return text.replace(current, prior);
+      },
+      universal20527,
+    );
+    expect(sha256(priorSectionLoadingUniversal)).toBe(
+      "c869d770ecc13280a40567ba382324e1d9a6b0af7c35165008781f186317d9b2",
+    );
+
+    const priorRecommendationUniversal = priorSectionLoadingUniversal
       .replace('version="20.5.26" revisionDate="2026-09-17"', 'version="20.5.25" revisionDate="2026-09-14"')
       .replace("Important-Task Optimization, Recommendation-Preflight Integrity, Approval", "Important-Task Optimization, Approval")
       .replace(/<revision version="20\.5\.26" priority="Critical">[\s\S]*?<\/revision>\n/u, "")
@@ -212,13 +332,63 @@ describe("canonical Reasoning Selection application", () => {
       "d5a4b02bc53fda30bbb586d2ec34233f19bb981d38427f6311f453b84209ba5a",
     );
     expect(project).toContain(`\n${CURRENT_PROJECT_APPLICATION}## 1. Run before HRP/research`);
-    expect(Buffer.byteLength(project, "utf8")).toBe(7978);
-    expect(Array.from(project)).toHaveLength(7962);
-    expect(project.split(/\s+/u).filter(Boolean)).toHaveLength(920);
+    expect(Buffer.byteLength(project, "utf8")).toBe(8008);
+    expect(Array.from(project)).toHaveLength(7996);
+    expect(project.split(/\s+/u).filter(Boolean)).toHaveLength(922);
     expect(sha256(project)).toBe(
-      "093aeeb0029eb7ba5e6238e74eef1788841524acf21b9f4ac35281e2587b7285",
+      "826c58e4b88c46b91e561287251114f24627fc0e71f35619bb45c47b4764b7d9",
     );
-    expect(sha256(project.replace(CURRENT_PROJECT_APPLICATION, PROJECT_APPLICATION))).toBe(
+    // 2026-09-29: HRP 20.6.6 shortens the first pass from ~6 videos or ~4 rounds; nothing else changed.
+    expect(sha256(project.replace(
+      "~3 fully audited videos or ~2 rounds",
+      "~6 fully audited videos or ~4 rounds",
+    ))).toBe(
+      "bfef8409e5ac27191988a2396e20331cd2a147a4ac2da7a22d443bff9f9e53aa",
+    );
+    // 2026-09-27: HRP 20.6.3 aligns the router with the first-pass rule of HRP 20.6.1.
+    const priorFirstPassRule = project.replace(
+      "Only terminal nonretryable boundaries permit bounded non-ranking output.",
+      "A valid ≥8-candidate/≥6-program ledger blocks below 8 fully audited videos/6 programs. Only terminal nonretryable boundaries permit bounded non-ranking output.",
+    ).replace(
+      "A first pass stops at saturation, ~3 fully audited videos or ~2 rounds, and ends with open leads. Deep research continues while `further_expansion_likely_to_improve_answer` would be `yes`; a complete answer reports only `no` or `blocked` with a reason.",
+      "Continue executable work if `further_expansion_likely_to_improve_answer` would be `yes`. A final answer may report only `no` or `blocked` with a reason.",
+    );
+    expect(sha256(priorFirstPassRule)).toBe(
+      "ff137be40f46bf93eb8bcdb6c8f939d7a059b48805064e4af495693e074f6c46",
+    );
+    // 2026-09-27: the Gemini scout is the primary discovery route; the survey is the fallback.
+    const priorScoutRule = priorFirstPassRule.replace(
+      "discover with `scout_gemini_youtube_candidates` (`survey_youtube_community` is the fallback);",
+      "use `survey_youtube_community`;",
+    ).replace(
+      "Screen every scout lead against its validated frontier; summaries are not evidence.",
+      "Broad treatment/avoid-surgery requires `scout_gemini_youtube_candidates` and its validated frontier; screen every lead. Summaries are not evidence.",
+    );
+    expect(sha256(priorScoutRule)).toBe(
+      "7aa4e0b9602609f11ef7a9911f6c41c719e625a8b8fb844e28e623ba47b56e49",
+    );
+    // 2026-09-27: discovery widens until finalize_research accepts (a capped first pass or saturation).
+    const priorWidenRule = priorScoutRule.replace(
+      "widen until `finalize_research` accepts.",
+      "widen while expected information gain is positive.",
+    );
+    expect(priorWidenRule).not.toBe(project);
+    expect(sha256(priorWidenRule)).toBe(
+      "33d85f488493e6ef75259b24bf92329286ee2b09a33089170fb7be65d5ba06fe",
+    );
+    // 2026-09-26: the synthesis gate points to finalize_research.
+    const priorFinalizeRule = priorWidenRule.replace(
+      "No final verdict while work is incomplete; first call `finalize_research` with every `research_receipt`: `not_ready`=do its steps; `ready_with_limits`=state them.",
+      "Do not emit a final verdict while work is incomplete. Do not emit the full-HRP opening until every required receipt has passed.",
+    );
+    expect(priorFinalizeRule).not.toBe(project);
+    // 2026-09-26: connectors without a transcript tool label creator claims unverified.
+    const priorTranscriptRule = priorFinalizeRule.replace(
+      "record `transcript_tool_unavailable`, label creator claims unverified, and never call an undeclared tool.",
+      "record `transcript_tool_unavailable`, withhold creator claims/watchlist, and never call an undeclared tool.",
+    );
+    expect(priorTranscriptRule).not.toBe(priorFinalizeRule);
+    expect(sha256(priorTranscriptRule.replace(CURRENT_PROJECT_APPLICATION, PROJECT_APPLICATION))).toBe(
       "0a6085528b6f4412198d0e9a3b225a1069a40e8f494b47cbd652b69fb07a4ca8",
     );
 
@@ -235,10 +405,10 @@ describe("canonical Reasoning Selection application", () => {
     ]);
 
     expect(sha256(hrp)).toBe(
-      "254759df38934c28b06709dace9fcb266fc9967913be1296de99a461be596816",
+      "641473288653e5e2249527c3626d20c298c9b2f302ffc79feaad7c12191606b8",
     );
     expect(sha256(forum)).toBe(
-      "75c088ba0edeb821d3d664d2f0b48b33f7dd3e627c01dfe830053d6dac2aed13",
+      "36640d420bc59d885c314b542cb9f3bae8525ee34844a5890e5b406866c71d20",
     );
   });
 });

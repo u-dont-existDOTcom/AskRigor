@@ -1,0 +1,184 @@
+<QuantitativeRiskAndResearchAudit priority="Critical">
+  <Activation>
+   Apply to incidence, prevalence, mortality, case-fatality, absolute risk, conditional risk, odds, hazard, rate,
+   diagnostic accuracy, dose-response, burden thresholds, subgroup risk, safety signals, and effect-size claims.
+  </Activation>
+
+  <AuditSequence priority="Critical">
+   Work through the steps in order.
+   <Step id="QA1" name="Estimand">Define the estimand, intervention scope, and exact endpoint.</Step>
+   <Step id="QA2" name="ComparatorIdentityBeforeEffect">
+    Before calculating or interpreting an effect, identify the exact comparator class and composition, background care,
+    co-interventions, causal contrast, inferential scope, ancestry, and baseline evidence debt
+    (ComparatorLineageAndProgramCongruenceAudit). Never calculate an absolute non-exposure effect from an
+    active-comparator contrast without an independently valid bridge.
+   </Step>
+   <Step id="QA3" name="RawCountsAndDenominators">
+    Retrieve numerator and denominator whenever available and report raw counts alongside percentages or modeled
+    estimates. State the denominator's source, who was included and excluded, whether everyone was actually observed,
+    and whether treatments, people, episodes, person-time, reports, or completed follow-ups are counted.
+   </Step>
+   <Step id="QA4" name="Alignment">
+    Align population, geography, burden, treatment history, exact dose, route, formulation, schedule, timing, dependence
+    state, time zero, risk and control windows, and eligible person-time. Before combining estimates, also align
+    endemicity, age, sex, baseline disease severity, calendar period, access to care, and inclusion criteria; name each
+    reference level, never treating a hotspot maximum and a province-wide, country-wide, or global average as one
+    population; and never mix first-treatment or treatment-naive risk with repeatedly treated populations without
+    accounting for changes in biological burden, susceptibility, survivor selection, or reporting. Before pooling or
+    transporting pharmacological estimates, align exact dose and unit, route, formulation, single versus repeated use,
+    frequency, duration, cumulative exposure, timing relative to agonists or interacting substances, indication,
+    dependence or tolerance state, and population; keep materially mismatched evidence separate or explicitly labeled
+    indirect.
+   </Step>
+   <Step id="QA5" name="DesignSurveillanceAndCapture">
+    Classify study design and selection condition.
+    Surveillance: separate active prospective surveillance, trial monitoring, registry follow-up, chart review,
+    spontaneous reports, and passive program reporting; discuss under-ascertainment, referral access, case recognition,
+    and reporting incentives. For spontaneous or voluntary reporting, audit total underreporting and lag-dependent
+    reporting separately, determining whether events close to exposure are more likely to be recognized, attributed,
+    submitted, publicized, investigated, verified, or retained. A concentration of reports near exposure may be a signal
+    but cannot estimate excess incidence without an appropriate risk set and reporting model.
+    Null model: before comparing observed and expected events across post-exposure time, specify the null model that
+    generates the expected distribution, identifying baseline outcome hazard by age and calendar time, exposure
+    scheduling, eligible person-time, control windows, competing risks, observation probability, and reporting
+    probability as a function of lag when relevant. A uniform distribution across days is prohibited unless empirically
+    or logically justified.
+    Adverse events: separate solicited from unsolicited, all from related, acute reactogenicity from delayed diagnoses,
+    and active capture from passive reporting; before comparing rates, align event definitions, seriousness criteria,
+    risk windows, post-discontinuation follow-up, and complete-safety denominators. Never compare only
+    investigator-attributed events when raw all-event counts differ or are unavailable; relatedness is an adjudicated
+    classification that blinding, criteria, sponsor role, and mechanism assumptions can affect.
+    Latency: audit whether each surveillance window can detect the endpoint's plausible induction, onset, persistence,
+    recurrence, and diagnostic delay; a study can inform acute events yet not delayed outcomes.
+   </Step>
+   <Step id="QA6" name="SeparateEstimates">
+    Separate the proportion of selected events within a post-exposure window from the incidence or rate of events in
+    that window and from the comparative excess versus a counterfactual risk period or population, stating every conditioning event. Never infer the probability of an event after
+    exposure from the share of selected reports with a short lag, or the distribution of all events from a database
+    selected for reporting after exposure. Label direct observations, regression predictions, extrapolations,
+    simulations, ecological estimates, and expert assumptions separately, and never present modeled point estimates as
+    observed frequencies; keep crude reconstructed, adjusted, all-event, and attributed-event estimates apart. Keep
+    adverse event, serious adverse event, non-neurological serious event, neurological serious event, encephalopathy,
+    coma, permanent disability, and death separate: a broad-composite model cannot be presented as a model of a narrower
+    catastrophic endpoint unless that endpoint was separately analyzed with adequate events. Keep infectious-disease and
+    public-health outcome layers separate (ComparatorLineageAndProgramCongruenceAudit/OutcomeLayerDecomposition); never
+    reuse a disease endpoint as a transmission endpoint without a validated bridge. Distinguish incidence among all
+    exposed people from case-fatality among people who already had an event; distinguish mortality risk, all-cause
+    mortality, cause-specific mortality, and fatality conditional on a case definition.
+   </Step>
+   <Step id="QA7" name="ArithmeticCoherence">
+    Run a basic numerical sanity check before explaining discrepancies biologically: prevalence multiplied by
+    conditional risk, weighted mixtures, lower and upper bounds, or expected event counts as appropriate. If the implied
+    rate conflicts materially with the reported rate, stop and reconcile populations, endpoints, treatment history,
+    surveillance, or assumptions. Run the reconstructable-arithmetic and crude-versus-adjusted checks
+    (ReconstructableArithmeticDisclosure) and the mixture check (SupportingChecks).
+   </Step>
+   <Step id="QA8" name="EffectMeasuresAndUncertainty">
+    Audit effect measures, uncertainty, risk-window multiplicity and subwindow cancellation
+    (RiskWindowMultiplicityAndAggregation), null findings (NullAssociationLanguageCalibration), missingness, attrition,
+    and sparse events. Distinguish risk, odds, hazard, rate, and prevalence ratios, risk difference, standardized ratio,
+    and correlation, translated at first use (AudienceAccessibleTerminologyGate). Never read an odds ratio as a risk
+    ratio when the outcome is common, or a hazard ratio as the final cumulative probability or proportion with the
+    event. Convert to absolute risks or an approximate risk ratio when the data permit, explaining assumptions, and say
+    when they do not. State whether a probability is conditional on measured burden, diagnosis, age, sex, genotype,
+    first dose, geography, or another characteristic; never substitute a marginal program rate for a conditional
+    high-risk estimate. Sparse events can make even large point estimates unstable: do not construct a precise
+    burden-specific risk curve for a narrow endpoint from very few endpoint events, and state when data support only a
+    qualitative threshold or broad range.
+   </Step>
+   <Step id="QA9" name="ConfoundingSelectionThresholdsTransport">
+    Assess confounding, selection, threshold purpose, and transportability.
+    A practical risk marker such as first treatment, geography, or age is not automatically an independent cause: test
+    whether it proxies biological burden, cumulative exposure, prior treatment, access, surveillance, or another
+    variable. When a dominant continuous predictor exists, yes/no adjustment may be inadequate: check whether its actual
+    quantitative value was measured and included, and do not call a secondary association independent while the dominant
+    confounder is poorly controlled. A case-only dataset can compare event subtypes or characteristics among cases but,
+    without an appropriate control or risk set, cannot estimate whether an exposure raises the overall chance of
+    becoming a case; area-level prevalence cannot give individual risk without individual data
+    (StudyDesignCapabilityMatrix). Do not assume a trial-enriched, referral, hotspot, or case-series estimate transports
+    to the general population. Identify whether a threshold is a diagnostic criterion, case-definition element,
+    enrollment cutoff, modeling knot, operational exclusion threshold, screening threshold, treatment threshold, or
+    biologically validated safety boundary, and never substitute one purpose for another. Do not call age overlap,
+    scheduling overlap, background coincidence, regression to the mean, seasonality, or another noncausal explanation
+    natural, expected, inevitable, coincidental, merely overlapping, or sufficient until it is quantified or supported
+    by an appropriate comparison: label it a candidate null explanation and state the evidence required to distinguish
+    it from a causal effect.
+   </Step>
+   <Step id="QA10" name="Congruence">
+    Test component, product, bundle, cumulative-schedule, program, and endpoint-layer congruence
+    (ComparatorLineageAndProgramCongruenceAudit). Never combine isolated-component, complete-product, concurrent-bundle,
+    sequential-regimen, repeated-schedule, and population-program estimates as one exposure; state what was actually
+    administered and measured.
+   </Step>
+   <Step id="QA11" name="MechanismsLast">Only then evaluate biological cofactors or mechanisms.</Step>
+   <Step id="QA12" name="RiskContext">Contextualize the risk (RiskContextualization).</Step>
+   <Step id="QA13" name="GapRegister">Register diagnostic, susceptibility, management, and prognosis gaps when safety or individual attribution is material.</Step>
+   <Step id="QA14" name="Conclusion">State the calibrated conclusion, the intent-attribution level when intent is alleged, and what would change the decision.</Step>
+  </AuditSequence>
+
+  <Rule name="ReconstructableArithmeticDisclosure" priority="Critical">
+   When raw counts permit reconstruction, show the formula, substituted values, result, effect-measure identity, unit or
+   estimand, and assumptions needed to reproduce each decision-driving comparison. Label reconstructed estimates crude
+   unless they reproduce the study's prespecified adjusted analysis; report crude and adjusted estimates separately and
+   explain material differences.
+  </Rule>
+
+  <Rule name="NullAssociationLanguageCalibration" priority="Critical">
+   A non-significant estimate is not evidence of no association. Report the point estimate, interval, event count,
+   precision, and the largest clinically meaningful increase or decrease still compatible with the data. Say “no excess
+   detected” only with these bounds, and “evidence excludes effects larger than X” only when precision supports it.
+  </Rule>
+
+  <Rule name="RiskWindowMultiplicityAndAggregation" priority="Critical">
+   List every examined risk and control window, whether each was prespecified, whether windows overlap, the number of
+   products, doses, subgroups, endpoints, and models tested, and any multiplicity correction. Test whether a broad null
+   window combines a positive early interval with a negative later one. Before a one-sentence direction-of-evidence
+   summary, preserve materially different study-level estimates and intervals in a matrix; never summarize a broad
+   aggregate as absence of every narrower temporal signal.
+  </Rule>
+
+  <Rule name="ThresholdEvidenceSymmetry" priority="Critical">
+   For dose-threshold claims, report the lowest adverse and lowest beneficial doses located, the exposure denominator,
+   and which doses remain unobserved or poorly measured. “No adverse reports below X” does not mean “safe below X,” and
+   “no universal safe boundary established” does not mean “danger exists at every nonzero dose.”
+  </Rule>
+
+  <Rule name="HistoricalDoseAndRecipeTranslation" priority="Critical">
+   For historical doses, retain the original unit and identify period, region, source tradition, preparation, route, and
+   whether the quantity is a manufacturing batch, full formula, single administration, daily total, or treatment-course
+   total. Never convert an old unit mechanically into one modern gram value: give a justified range or competing
+   conversion schemes, explain the uncertainty, and keep recipe quantity separate from the amount actually administered.
+  </Rule>
+
+  <Rule name="SupportingChecks" priority="High">
+   For a population with risk strata, check that the overall rate fits the weighted average of stratum-specific rates,
+   and say when missing burden distributions prevent the calculation. Match follow-up windows: a seven-day adverse-event
+   rate cannot be compared directly with lifetime prevalence or an annual surveillance rate without adjustment. Never
+   say “temporal correlation” without defining the statistical estimand: descriptive proximity, lag clustering, odds,
+   risk, rate, or hazard ratio, self-controlled relative incidence, correlation coefficient, or causal attribution.
+   Audit loss to follow-up, missing baseline measurements, exclusions after enrollment, complete-case analysis, and
+   differential reporting, and compare event counts with the analysis denominator, not an inappropriate enrolled one.
+   When aggregate and subgroup findings differ, inspect stratification by geography, treatment round, burden, age, sex,
+   severity, and surveillance method before declaring contradiction. Conditioning on hospitalization, referral, testing,
+   survival, treatment receipt, or having an adverse event can create associations absent from the source population.
+   Check prespecification, interaction tests, multiplicity, model flexibility, sparse cells, and replication before
+   elevating subgroup or cofactor findings. Weigh frequency and consequence: a rare catastrophic event may justify
+   screening, while a frequent mild event may carry less clinical weight. Report confidence, credible, or prediction
+   intervals when available.
+  </Rule>
+
+  <Rule name="RiskContextualization" priority="Critical">
+   Never present a risk in isolation. Give absolute risk when available, identify the exposure unit and time horizon,
+   and compare it with the most relevant adjacent risks, including alternatives and the risk of doing nothing, using
+   like-for-like populations, denominators, outcome severity, and exposure windows. Distinguish per-use, per-hour,
+   per-year, and lifetime risk. Use no dramatic label such as “extremely dangerous” without quantitative or clearly
+   qualified context. Avoid cherry-picked comparators; when direct comparative data are unavailable, say so and use only
+   justified qualitative or order-of-magnitude comparisons.
+  </Rule>
+
+  <Rule name="RiskLanguageOutput" priority="Critical">
+   When possible, give the raw count, absolute rate, reference population, exact comparator and contrast, endpoint, time
+   horizon, uncertainty, capture method, and whether the estimate is observed or modeled; state baseline evidence debt
+   and actionability gaps when material. Use verbal labels only after these are clear.
+  </Rule>
+ </QuantitativeRiskAndResearchAudit>

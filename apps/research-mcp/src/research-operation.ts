@@ -6,6 +6,11 @@ import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 
 export interface ResearchOperationExtra {
   authInfo?: AuthInfo;
+  /**
+   * Set by the Custom GPT Action adapter. Views shaped for MCP clients (such
+   * as the compact audit sample) are skipped for it.
+   */
+  surface?: "action";
 }
 
 export type ResearchOperationHandler = (

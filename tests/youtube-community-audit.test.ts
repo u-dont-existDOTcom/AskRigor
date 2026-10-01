@@ -6,8 +6,14 @@ import type { YoutubeComment } from "@askrigor/sources";
 import {
   allocateYoutubeCommunityCommentElapsedMs,
   auditYoutubeCommunity,
+  sampleWithinResponseBudget,
   sampleYoutubeComments
 } from "../apps/research-mcp/src/youtube-community-audit.js";
+import {
+  compactYoutubeCommunityAuditForMcp,
+  YOUTUBE_COMMUNITY_AUDIT_SCOPE,
+  YoutubeMcpResponseTooLargeError
+} from "../apps/research-mcp/src/youtube-mcp-sample.js";
 
 const YOUTUBE = { apiKey: "recorded-youtube-key" };
 const fixture = (name: string) =>
@@ -130,6 +136,114 @@ describe("YouTube community audit", () => {
       .every(({ searchParams }) => !searchParams.has("searchTerms"))).toBe(true);
   });
 
+  it("keeps a large three-video audit inside the MCP response budget with compact records", async () => {
+    // Uncompacted, three samples of 500 records reached about 63,000 tokens:
+    // the client truncated the result and the comments never reached the answer.
+    const [searchBody, videoBody, threadsPageOne, threadsPageTwo, repliesOne, repliesTwo, repliesThree] =
+      await Promise.all([
+        fixture("search-page-1.json"),
+        fixture("video-found.json"),
+        fixture("comment-threads-page-1.json"),
+        fixture("comment-threads-page-2.json"),
+        fixture("comments-top-1-page-1.json"),
+        fixture("comments-top-1-page-2.json"),
+        fixture("comments-top-2-page-1.json")
+      ]);
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/search")) return new Response(searchBody, { status: 200 });
+      if (url.pathname.endsWith("/videos")) return new Response(videoBody, { status: 200 });
+      if (url.pathname.endsWith("/commentThreads")) {
+        return new Response(url.searchParams.get("pageToken") === "thread-page-2" ? threadsPageTwo : threadsPageOne,
+          { status: 200 });
+      }
+      if (url.searchParams.get("parentId") === "UgxTop00000000000000002") return new Response(repliesThree, { status: 200 });
+      return new Response(url.searchParams.get("pageToken") === "reply-top-1-page-2" ? repliesTwo : repliesOne,
+        { status: 200 });
+    }));
+    const audited = await auditYoutubeCommunity({
+      research_question: "Adults using sermorelin for sleep and digestion",
+      searches: [{ direction: "general", query: "sermorelin sleep digestion experience" }],
+      max_videos: 1,
+      sample_comments_per_video: 20
+    }, YOUTUBE);
+    const videoIds = ["XpZHKGGCK-o", "dQw4w9WgXcQ", "abcdefghijk"];
+    const large = {
+      ...audited,
+      videos: videoIds.map((videoId, video) => ({
+        ...audited.videos[0]!,
+        video_id: videoId,
+        sample: {
+          mode: "systematic_chronological" as const,
+          corpus_count: 900,
+          sampled_count: 500,
+          comments: Array.from({ length: 500 }, (_, index): YoutubeComment => ({
+            video_id: videoId,
+            comment_id: `UgxV${video}c${String(index).padStart(4, "0")}`,
+            parent_id: null,
+            top_level_comment_id: `UgxV${video}c${String(index).padStart(4, "0")}`,
+            is_reply: false,
+            author_channel_id: `UC${String(video * 1000 + index).padStart(22, "0")}`,
+            author_display_name: `@person${index}`,
+            text: `I took it for ${index % 12 + 1} weeks; my sleep and my stomach changed in these ways. `.repeat(3),
+            like_count: index % 7,
+            published_at: new Date(Date.UTC(2025, 0, 1, 0, index)).toISOString(),
+            updated_at: new Date(Date.UTC(2025, 0, 1, 0, index)).toISOString()
+          }))
+        }
+      })),
+      receipt: { ...audited.receipt, selected_video_ids: videoIds }
+    };
+    expect(Buffer.byteLength(JSON.stringify(large), "utf8")).toBeGreaterThan(200_000);
+
+    const view = compactYoutubeCommunityAuditForMcp(large, 40_000, "MCP bounded sample.");
+    const serialized = JSON.stringify(view);
+    expect(Buffer.byteLength(serialized, "utf8")).toBeLessThanOrEqual(40_000);
+    expect(serialized).not.toContain("@person");
+    expect(serialized).not.toMatch(/"UC0{5}/u);
+    // The view names the lock for what it covers: these YouTube videos only.
+    const { completion_state: largeState, synthesis_lock: largeLock, ...largeChecks } = large.receipt;
+    expect(view.receipt).toEqual({
+      scope: YOUTUBE_COMMUNITY_AUDIT_SCOPE,
+      comment_retrieval_state: largeState,
+      youtube_comments_lock: largeLock,
+      ...largeChecks
+    });
+    expect(view.limitations).toContain("MCP bounded sample.");
+    // Every video keeps the same number of records, so none drops out.
+    const counts = view.videos.map((video) => video.sample!.comments.length);
+    expect(new Set(counts).size).toBe(1);
+    expect(counts[0]).toBeGreaterThan(20);
+    view.videos.forEach((video, index) => {
+      expect(video.manifest).toEqual(large.videos[index]!.manifest);
+      expect(video.sample).toMatchObject({ mode: "deterministic_hash_chronological", corpus_count: 900 });
+      expect(video.sample!.sampled_count).toBe(video.sample!.comments.length);
+    });
+
+    // Long echoed fields are shortened so even the fixed part fits.
+    const longQuery = "sermorelin ".repeat(450).trim();
+    const echoing = {
+      ...large,
+      research_question: "Adults using sermorelin ".repeat(200).trim(),
+      searches: Array.from({ length: 6 }, () => ({ ...large.searches[0]!, query: longQuery })),
+      videos: large.videos.map((video) => ({
+        ...video,
+        search_queries: Array.from({ length: 6 }, () => longQuery),
+        metadata: { ...video.metadata!, description: "Channel notes. ".repeat(6_000) }
+      }))
+    };
+    const shortened = compactYoutubeCommunityAuditForMcp(echoing, 40_000, "MCP bounded sample.");
+    expect(Buffer.byteLength(JSON.stringify(shortened), "utf8")).toBeLessThanOrEqual(40_000);
+    expect(shortened.searches[0]!.query.length).toBeLessThanOrEqual(300);
+    expect(shortened.videos[0]!.metadata!.description!.length).toBeLessThanOrEqual(1_000);
+    expect(shortened.limitations).toContain(
+      "Long queries, the research question and video metadata are shortened in this MCP view."
+    );
+    // A budget the fixed fields cannot meet is an error, never an oversized result.
+    expect(() => compactYoutubeCommunityAuditForMcp(large, 2_000, "MCP bounded sample."))
+      .toThrow(YoutubeMcpResponseTooLargeError);
+  });
+
   it("returns a deterministic evenly spaced chronological sample", () => {
     const comments = Array.from({ length: 25 }, (_, index): YoutubeComment => ({
       video_id: "XpZHKGGCK-o",
@@ -149,6 +263,31 @@ describe("YouTube community audit", () => {
       "comment-12", "comment-13", "comment-15", "comment-16", "comment-17",
       "comment-18", "comment-20", "comment-21", "comment-22", "comment-24"
     ]);
+  });
+
+  it("shrinks a video's systematic sample until it fits the response budget", () => {
+    const comments = Array.from({ length: 300 }, (_, index): YoutubeComment => ({
+      video_id: "XpZHKGGCK-o",
+      comment_id: `comment-${String(index).padStart(3, "0")}`,
+      parent_id: null,
+      top_level_comment_id: `comment-${String(index).padStart(3, "0")}`,
+      is_reply: false,
+      text: `Comment ${index} ${"long firsthand report ".repeat(20)}`,
+      like_count: index,
+      published_at: new Date(Date.UTC(2025, 0, 1) + index * 3_600_000).toISOString(),
+      updated_at: new Date(Date.UTC(2025, 0, 1) + index * 3_600_000).toISOString()
+    }));
+    const budget = 15_000;
+    const sampled = sampleWithinResponseBudget(comments, 250, budget);
+    const size = sampled.reduce((total, comment) => total + JSON.stringify(comment).length + 1, 0);
+
+    expect(size).toBeLessThanOrEqual(budget);
+    expect(sampled.length).toBeGreaterThan(10);
+    expect(sampled.length).toBeLessThan(250);
+    // Still spread across the whole period, not the earliest comments only.
+    expect(sampled[0]!.comment_id).toBe("comment-000");
+    expect(sampled.at(-1)!.comment_id).toBe("comment-299");
+    expect(sampleWithinResponseBudget(comments.slice(0, 5), 250, budget)).toHaveLength(5);
   });
 
   it("treats an exhausted zero-candidate search as terminal without inventing signal", async () => {

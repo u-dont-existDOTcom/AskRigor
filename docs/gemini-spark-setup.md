@@ -42,8 +42,11 @@ budget before Gemini is called. A background scout is conservatively charged
 the full reservation when its job starts; later polls do not reserve or charge
 again. A one-request technical call that completes synchronously commits an amount
 from reported input, output, thought, and Google Search-query usage at the
-reviewed list prices. Missing or implausible usage commits the full reservation;
-provider failures forfeit it conservatively. The shared application ledger
+reviewed list prices. Missing token usage commits the full reservation. A
+scout whose reported usage costs more than its reservation (72 or more Google
+searches do on their own) is refused and charged the full reservation, and its
+candidates are not used; the ledger cannot record its real cost above $1.
+Provider failures forfeit the reservation conservatively. The shared application ledger
 retains only UTC month, fixed monthly limit, aggregate charged nano-USD, update
 time, and schema version—never target text, candidates, credentials, or raw
 provider output.
@@ -149,7 +152,8 @@ Acceptance requires:
 
 The low-level technical request is stateless. The controlled path uses a
 temporarily stored Gemini Interaction so work can finish asynchronously. Only
-the already screened de-identified population target, public scout instructions,
+the already screened de-identified population target, any BCP 47 language tag
+with its English language name, public scout instructions,
 and—if needed—public candidate output, public search receipts, and safe
 validation issues are sent. AskRigor requests deletion after consuming each
 interaction. A successful delete request is not a claim that Google immediately

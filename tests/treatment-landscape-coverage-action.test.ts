@@ -11,6 +11,7 @@ import {
   PROGRAM_NOT_DESCRIBED,
   projectDiscussionCoverageReceipt,
   projectTranscriptCoverageReceipt,
+  treatmentLandscapeCoverageInputSchema,
   youtubeTranscriptActionOutputSchema,
   type TreatmentLandscapeCoverageInput
 } from "../apps/research-mcp/src/index.js";
@@ -57,7 +58,11 @@ const completeInput = (): TreatmentLandscapeCoverageInput => {
         .filter(({ treatment_class_id }) => treatment_class_id === id)
         .map(({ video_id }) => video_id),
       new_program_fingerprint_ids: index === classSpecs.length - 1 ? [] : [`fp-${id}`]
-    })),
+    })).concat([
+      // Two closing rounds from new angles that add nothing new: discovery has saturated.
+      closingBatch("batch-vernacular", "what finally worked for my joint pain", "strength"),
+      closingBatch("batch-comment-methods", "methods named in the audited comments", "multimodal")
+    ]),
     specific_implementation_searches: classSpecs.map(([id, , implementation]) => ({
       search_id: `specific-${id}`,
       discovery_batch_id: `batch-${id}`,
@@ -102,7 +107,7 @@ const completeInput = (): TreatmentLandscapeCoverageInput => {
 };
 
 describe("treatment-landscape coverage Action", () => {
-  it("is a public read-only Action and remains outside the frozen MCP registry", async () => {
+  it("is a public read-only Action and an MCP tool that does not replace the Action", async () => {
     const module = await import("../apps/research-mcp/src/index.js") as {
       RESEARCH_OPERATIONS: readonly { name: string }[];
     };
@@ -122,8 +127,61 @@ describe("treatment-landscape coverage Action", () => {
       maximumRequestBytes: 65_536,
       maximumResponseBytes: 60_000
     });
-    expect(module.RESEARCH_OPERATIONS.map(({ name }) => name))
-      .not.toContain("assess_treatment_landscape_coverage");
+    const operation = (module.RESEARCH_OPERATIONS as readonly {
+      name: string;
+      actionEnabled: boolean;
+    }[]).find(({ name }) => name === "assess_treatment_landscape_coverage");
+    expect(operation).toMatchObject({ actionEnabled: false });
+  });
+
+  it("lets a complete discussion audit carry depth only where no transcript tool exists", () => {
+    const input = completeInput();
+    input.selected_videos = input.selected_videos.map(({ transcript_receipt: _receipt, ...video }) => ({
+      ...video,
+      transcript_unavailable: "transcript_tool_unavailable" as const
+    }));
+
+    const withTranscriptTool = assessTreatmentLandscapeCoverage(input);
+    expect(withTranscriptTool).toMatchObject({
+      material_videos_fully_audited: 0,
+      per_video_depth_lock: "block",
+      synthesis_lock: "block"
+    });
+    expect(withTranscriptTool.invalid_record_ids.selected_videos).toHaveLength(8);
+
+    const withoutTranscriptTool = assessTreatmentLandscapeCoverage(input, {
+      transcriptToolAvailable: false
+    });
+    expect(withoutTranscriptTool).toMatchObject({
+      material_videos_fully_audited: 8,
+      materially_distinct_programs_fully_audited: 6,
+      creator_content_unverified_videos: 8,
+      per_video_depth_lock: "pass",
+      synthesis_lock: "pass",
+      answer_boundary: "ledger_consistent_for_synthesis"
+    });
+    expect(withoutTranscriptTool.videos_actually_audited[0]).toMatchObject({
+      transcript_access_status: "inaccessible",
+      transcript_timestamp_provenance: "unavailable",
+      creator_content_verified: false,
+      discussion_synthesis_lock: "pass"
+    });
+    expect(assessTreatmentLandscapeCoverage(completeInput(), { transcriptToolAvailable: false }))
+      .toMatchObject({ creator_content_unverified_videos: 0, material_videos_fully_audited: 8 });
+  });
+
+  it("requires exactly one of a transcript receipt or the unavailable marker", () => {
+    const input = completeInput();
+    const [first] = input.selected_videos;
+    const neither = { ...input, selected_videos: [{ ...first!, transcript_receipt: undefined }] };
+    const both = {
+      ...input,
+      selected_videos: [{ ...first!, transcript_unavailable: "transcript_tool_unavailable" }]
+    };
+
+    expect(treatmentLandscapeCoverageInputSchema.safeParse(input).success).toBe(true);
+    expect(treatmentLandscapeCoverageInputSchema.safeParse(neither).success).toBe(false);
+    expect(treatmentLandscapeCoverageInputSchema.safeParse(both).success).toBe(false);
   });
 
   it("passes only a receipt-linked, internally consistent diverse ledger", () => {
@@ -136,8 +194,7 @@ describe("treatment-landscape coverage Action", () => {
       candidate_videos_screened: 24,
       external_scout_candidates_screened: 1,
       external_scout_candidates_pending: [],
-      broad_structural_minimums_applied: true,
-      broad_structural_minimums_met: true,
+      discovery_saturated: true,
       material_videos_selected: 8,
       material_videos_fully_audited: 8,
       materially_distinct_programs_fully_audited: 6,
@@ -213,7 +270,7 @@ describe("treatment-landscape coverage Action", () => {
     );
   });
 
-  it("does not count a selected video toward the structural minimum until both audits finish", () => {
+  it("does not count a selected video as audited until both audits finish", () => {
     const input = completeInput();
     const video = input.selected_videos[0]!;
     video.transcript_receipt = {
@@ -230,8 +287,7 @@ describe("treatment-landscape coverage Action", () => {
 
     expect(result.material_videos_selected).toBe(8);
     expect(result.material_videos_fully_audited).toBe(7);
-    expect(result.broad_structural_minimums_applied).toBe(true);
-    expect(result.broad_structural_minimums_met).toBe(false);
+    expect(result.per_video_depth_lock).toBe("block");
     expect(result.synthesis_lock).toBe("block");
   });
 
@@ -253,19 +309,22 @@ describe("treatment-landscape coverage Action", () => {
     expect(result.material_videos_fully_audited).toBe(4);
     expect(result.materially_distinct_program_fingerprints).toBe(6);
     expect(result.synthesis_lock).toBe("block");
-    expect(result.broad_structural_minimums_applied).toBe(true);
-    expect(result.broad_structural_minimums_met).toBe(false);
+    // Blocked by the uncovered programs and classes, not by a count.
+    expect(result.selection_blockers.join(" ")).toContain("has candidates but no selected video");
   });
 
-  it("blocks six audited videos when eight material candidates are available", () => {
+  it("passes six audited videos covering every distinct program once discovery has saturated", () => {
+    // No fixed count: the two extra same-program videos add nothing once every program is audited.
     const input = completeInput();
     const selectedIds = new Set(classSpecs.map(([id]) => `v-${id}-0`));
-    input.candidate_videos = input.candidate_videos.map((candidate) => ({
-      ...candidate,
-      selection_status: selectedIds.has(candidate.video_id)
-        ? "selected" as const
-        : "screened_not_selected" as const
-    }));
+    input.candidate_videos = input.candidate_videos.map((candidate) => selectedIds.has(candidate.video_id)
+      ? candidate
+      : {
+          ...candidate,
+          selection_status: "screened_not_selected" as const,
+          omission_impact: "not_decision_relevant" as const,
+          omission_rationale: "Same program and outcome as the selected candidate."
+        });
     input.selected_videos = input.selected_videos.filter(({ video_id }) =>
       selectedIds.has(video_id)
     );
@@ -273,10 +332,184 @@ describe("treatment-landscape coverage Action", () => {
     const result = assessTreatmentLandscapeCoverage(input);
 
     expect(result.material_videos_fully_audited).toBe(6);
-    expect(result.synthesis_lock).toBe("block");
-    expect(result.broad_structural_minimums_met).toBe(false);
-    expect(result.selection_blockers.join(" ")).toContain(
-      "selecting at least eight material videos for full audit"
+    expect(result).toMatchObject({ discovery_saturated: true, selection_coverage_lock: "pass", synthesis_lock: "pass" });
+  });
+
+  it("blocks until the last two discovery batches add nothing new", () => {
+    const input = completeInput();
+    input.discovery_batches = input.discovery_batches.slice(0, -2);
+
+    const stillFinding = assessTreatmentLandscapeCoverage(input);
+    expect(stillFinding.discovery_saturated).toBe(false);
+    expect(stillFinding.selection_coverage_lock).toBe("block");
+    expect(stillFinding.selection_blockers).toContain(
+      "Discovery has not saturated: one of the last two batches still found a new material program or a video selected for audit; run another batch from a new angle."
+    );
+
+    const repeated = completeInput();
+    repeated.discovery_batches.at(-1)!.query_or_scope = "  What finally worked for my JOINT pain ";
+    const sameAngle = assessTreatmentLandscapeCoverage(repeated);
+    expect(sameAngle.discovery_saturated).toBe(false);
+    expect(sameAngle.selection_blockers).toContain(
+      "The last two discovery batches repeat one query; saturation needs two different angles that add nothing new."
+    );
+  });
+
+  it("ends a first pass at its cap with open leads, while deep research keeps going", () => {
+    const input = completeInput();
+    input.discovery_batches = input.discovery_batches.slice(0, -2);
+
+    const firstPass = assessTreatmentLandscapeCoverage(input);
+    expect(firstPass).toMatchObject({
+      research_depth: "first_pass",
+      first_pass_complete: true,
+      discovery_saturated: false,
+      selection_coverage_lock: "block",
+      per_video_depth_lock: "pass",
+      answer_boundary: "first_pass_with_open_leads"
+    });
+
+    const deep = assessTreatmentLandscapeCoverage({ ...input, research_depth: "deep" });
+    expect(deep).toMatchObject({ research_depth: "deep", first_pass_complete: false, answer_boundary: "continue_research" });
+
+    // Unfinished audits of selected videos are never left for a later pass.
+    const unfinished = completeInput();
+    unfinished.discovery_batches = unfinished.discovery_batches.slice(0, -2);
+    const video = unfinished.selected_videos[0]!;
+    video.transcript_receipt = {
+      ...video.transcript_receipt,
+      access_status: "partial",
+      pagination: { ...video.transcript_receipt.pagination, exhausted: false, next_cursor_present: true }
+    };
+    expect(assessTreatmentLandscapeCoverage(unfinished).answer_boundary).toBe("continue_research");
+
+    // Only breadth gaps become open leads; a skipped harm search is first-pass work.
+    const skipped = completeInput();
+    skipped.discovery_batches = skipped.discovery_batches.slice(0, -2);
+    skipped.directional_searches.harm = { status: "incomplete" };
+    expect(assessTreatmentLandscapeCoverage(skipped).answer_boundary).toBe("continue_research");
+  });
+
+  it("offers unread pages, unfinished specific searches and open formal return passes as first-pass leads", () => {
+    const input = completeInput();
+    input.discovery_batches = input.discovery_batches.slice(0, -2);
+    input.discovery_batches[0]!.pagination = { exhausted: false, next_cursor_present: true };
+    input.specific_implementation_searches = input.specific_implementation_searches
+      .filter(({ treatment_class_id }) => treatment_class_id !== "aquatic");
+    input.program_fingerprints[2]!.formal_follow_up = "incomplete";
+
+    const firstPass = assessTreatmentLandscapeCoverage(input);
+    expect(firstPass).toMatchObject({
+      first_pass_complete: true,
+      selection_coverage_lock: "block",
+      answer_boundary: "first_pass_with_open_leads"
+    });
+    expect(firstPass.breadth_gaps).toEqual(expect.arrayContaining([
+      "Discovery batch batch-strength still has an executable continuation cursor.",
+      "Treatment class aquatic has not completed specific-program discovery.",
+      "Program fingerprint fp-nutrition lacks formal-evidence follow-up: A distinct program could change the comparison."
+    ]));
+
+    const deep = assessTreatmentLandscapeCoverage({ ...input, research_depth: "deep" });
+    expect(deep.answer_boundary).toBe("continue_research");
+  });
+
+  it("counts a repeated discovery query once toward the first-pass cap", () => {
+    const input = completeInput();
+    // Two audited videos: only saturation or two distinct rounds can complete the first pass.
+    const kept = new Set(input.selected_videos.slice(0, 2).map(({ video_id }) => video_id));
+    input.selected_videos = input.selected_videos.filter(({ video_id }) => kept.has(video_id));
+    input.candidate_videos = input.candidate_videos.map((candidate) => kept.has(candidate.video_id)
+      ? candidate
+      : { ...candidate, selection_status: "screened_not_selected" as const });
+    const rounds = (queries: string[]) => [
+      input.discovery_batches[0]!,
+      ...queries.map((query, index) => closingBatch(`batch-late-${index}`, query, "strength"))
+    ];
+
+    // The first round's query again (case and spacing aside) is one angle.
+    const firstQuery = input.discovery_batches[0]!.query_or_scope;
+    const repeated = assessTreatmentLandscapeCoverage({
+      ...input,
+      discovery_batches: rounds([`  ${firstQuery.toUpperCase()} `])
+    });
+    expect(repeated).toMatchObject({ first_pass_complete: false, answer_boundary: "continue_research" });
+
+    // Two distinct angles complete the first pass.
+    const distinct = assessTreatmentLandscapeCoverage({
+      ...input,
+      discovery_batches: rounds(["what finally worked for my joint pain"])
+    });
+    expect(distinct.first_pass_complete).toBe(true);
+
+    // A round whose searches failed or only partly ran did not cover its angle;
+    // one a rate limit stopped still counts, as an open lead. The last two
+    // rounds repeat one query, so only the cap can complete the first pass.
+    for (const [access_status, complete] of [
+      ["api_visible_complete", true], ["error", false], ["partial", false], ["rate_limited", true]
+    ] as const) {
+      const batches = rounds(["what finally worked for my joint pain", "what finally worked for my joint pain"]);
+      batches[0] = { ...batches[0]!, access_status };
+      expect(assessTreatmentLandscapeCoverage({ ...input, discovery_batches: batches }).first_pass_complete).toBe(complete);
+    }
+  });
+
+  it("keeps a terminal access boundary as a stated limit of a first-pass answer", () => {
+    const input = completeInput();
+    input.discovery_batches = input.discovery_batches.slice(0, -2);
+    input.program_fingerprints[3]!.formal_follow_up = "inaccessible";
+    input.program_fingerprints[3]!.formal_follow_up_boundary_id = "ab-full-text";
+    input.access_boundaries = [{
+      boundary_id: "ab-full-text",
+      scope_type: "formal_follow_up",
+      scope_id: "fp-injection",
+      access_status: "inaccessible",
+      materiality: "material",
+      impact: "confidence_changing",
+      terminal: true,
+      retryable: false,
+      recovery_attempted: true,
+      description: "The decisive trial has no open full text."
+    }];
+
+    const result = assessTreatmentLandscapeCoverage(input);
+    expect(result.boundary_blockers).toContain(
+      "Access boundary ab-full-text prevents complete coverage: The decisive trial has no open full text."
+    );
+    expect(result.answer_boundary).toBe("first_pass_with_open_leads");
+
+    // A boundary with recovery work left is still work, not a limit.
+    input.access_boundaries[0]!.recovery_attempted = false;
+    expect(assessTreatmentLandscapeCoverage(input).answer_boundary).toBe("continue_research");
+  });
+
+  it("lists every kind of ledger problem at once, record problems before breadth gaps", () => {
+    const input = completeInput();
+    input.discovery_batches = input.discovery_batches.slice(0, -2);
+    for (const batch of input.discovery_batches) {
+      batch.pagination = { exhausted: false, next_cursor_present: true };
+    }
+    input.program_fingerprints[0]!.formal_follow_up_boundary_id = "ab-unused";
+    input.program_fingerprints[1]!.formal_follow_up_boundary_id = "ab-unused";
+
+    const result = assessTreatmentLandscapeCoverage(input);
+    expect(result.selection_blockers[0]).toBe(
+      "Program fingerprint fp-strength, fp-aquatic (2 records): cites a formal-follow-up boundary without an inaccessible state."
+    );
+    expect(result.breadth_gaps).toContain(
+      "Discovery batch batch-strength, batch-aquatic, batch-nutrition, batch-injection, batch-multimodal, batch-surgery (6 records): still has an executable continuation cursor."
+    );
+    expect(result.breadth_gaps).not.toContain(result.selection_blockers[0]);
+    expect(result.answer_boundary).toBe("continue_research");
+
+    // Caller-written rationales after the colon do not split a group.
+    const omitted = completeInput();
+    omitted.discovery_batches = omitted.discovery_batches.slice(0, -2);
+    omitted.program_fingerprints[0]!.formal_follow_up = "incomplete";
+    omitted.program_fingerprints[1]!.formal_follow_up = "incomplete";
+    omitted.program_fingerprints[1]!.omission_rationale = "A different reason.";
+    expect(assessTreatmentLandscapeCoverage(omitted).breadth_gaps).toContain(
+      "Program fingerprint fp-strength, fp-aquatic (2 records): lacks formal-evidence follow-up"
     );
   });
 
@@ -646,7 +879,7 @@ describe("treatment-landscape coverage Action", () => {
 
     expect(result.candidate_videos_screened).toBe(20);
     expect(result.selection_coverage_lock).toBe("block");
-    expect(result.selection_blockers.join(" ")).toContain("Two or three videos");
+    expect(result.selection_blockers.join(" ")).toContain("Discovery has not saturated");
     expect(result.selection_blockers.join(" ")).toContain(
       "caller labels cannot waive structural coverage"
     );
@@ -993,6 +1226,18 @@ describe("treatment-landscape coverage Action", () => {
     }))).resolves.toMatchObject({ status: 422 });
   });
 });
+
+function closingBatch(batchId: string, query: string, classId: string) {
+  return {
+    batch_id: batchId,
+    query_or_scope: query,
+    treatment_class_ids: [classId],
+    access_status: "api_visible_complete" as const,
+    pagination: { exhausted: true, next_cursor_present: false },
+    candidate_video_ids: [] as string[],
+    new_program_fingerprint_ids: [] as string[]
+  };
+}
 
 function treatmentClass(id: string, label: string) {
   return {

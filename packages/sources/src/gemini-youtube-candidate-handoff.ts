@@ -112,6 +112,12 @@ const REQUIRED_DISCLOSURES = [
   "not_medical_advice"
 ] as const;
 
+export const geminiTitleOnlyCandidateSchema = z.object({
+  title: boundedText(500),
+  channel: boundedText(500),
+  why_surfaced: boundedText(300)
+}).strict();
+
 const packetCommonShape = {
   packet_name: z.literal(GEMINI_YOUTUBE_CANDIDATE_PACKET_NAME),
   research_target: boundedText(1_000),
@@ -136,9 +142,15 @@ const geminiYoutubeCandidateV1PacketSchema = z.object({
 export const geminiYoutubeCandidateV2PacketSchema = z.object({
   ...packetCommonShape,
   packet_version: z.literal(GEMINI_YOUTUBE_CANDIDATE_PACKET_VERSION),
-  discovery_queries: z.array(discoveryQuerySchema).min(8).max(18),
-  candidates: z.array(geminiCandidateV2Schema).min(3).max(16),
-  suggested_seed_video_ids: z.array(youtubeVideoIdSchema).min(1).max(8)
+  // Matches GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES in gemini-youtube-scout.ts.
+  discovery_queries: z.array(discoveryQuerySchema).min(8).max(30),
+  // At least three finds in all, counting title-only ones (below).
+  candidates: z.array(geminiCandidateV2Schema).max(16),
+  // Required when candidates has any.
+  suggested_seed_video_ids: z.array(youtubeVideoIdSchema).max(8),
+  // Videos the scout found by title but whose ID no search result showed.
+  // AskRigor looks them up by exact title instead of accepting a guessed ID.
+  title_only_candidates: z.array(geminiTitleOnlyCandidateSchema).max(6).optional()
 }).strict().superRefine(addPacketRelationshipIssues);
 
 export const geminiYoutubeCandidatePacketSchema = z.union([
@@ -162,6 +174,25 @@ function addPacketRelationshipIssues(
     context
   );
   addDuplicateIssues(packet.suggested_seed_video_ids, "suggested_seed_video_ids", context);
+
+  if (packet.packet_version === GEMINI_YOUTUBE_CANDIDATE_PACKET_VERSION) {
+    // Search results often show no watch URL, so a scout may find most videos
+    // by title only: those count toward the floor, and no ID means no seed.
+    if (packet.candidates.length + (packet.title_only_candidates?.length ?? 0) < 3) {
+      context.addIssue({
+        code: "custom",
+        path: ["candidates"],
+        message: "must list at least 3 videos in all, counting title_only_candidates"
+      });
+    }
+    if (packet.candidates.length > 0 && packet.suggested_seed_video_ids.length === 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["suggested_seed_video_ids"],
+        message: "must suggest at least one candidate"
+      });
+    }
+  }
 
   const purposes = new Set(packet.discovery_queries.map(({ purpose }) => purpose));
   for (const purpose of geminiYoutubeDiscoveryPurposeSchema.options) {
@@ -247,6 +278,8 @@ const rejectedCandidateSchema = z.object({
   retryable: z.literal(false),
   rejection_reasons: z.array(identityRejectionReasonSchema).min(1),
   provider_title: z.string().optional(),
+  // The scout's title, when it is not YouTube's.
+  declared_title: z.string().optional(),
   provider_channel: z.string().optional(),
   provider_error_code: z.string().optional(),
   limitations: z.array(z.string())
@@ -268,7 +301,8 @@ const suggestedSeedReceiptSchema = z.object({
 
 export const geminiYoutubeCandidateFrontierSchema = z.object({
   frontier_digest: z.string().regex(/^[a-f0-9]{64}$/u),
-  source_candidate_video_ids: z.array(youtubeVideoIdSchema).min(3).max(16),
+  // Empty when the scout found its videos by title only.
+  source_candidate_video_ids: z.array(youtubeVideoIdSchema).max(16),
   validated_candidate_video_ids: z.array(youtubeVideoIdSchema).max(16),
   terminally_rejected_video_ids: z.array(youtubeVideoIdSchema).max(16),
   unresolved_candidate_video_ids: z.array(youtubeVideoIdSchema).max(16)
@@ -291,7 +325,7 @@ export const geminiYoutubeCandidateValidationReceiptSchema = z.object({
   validated_candidates: z.array(validatedCandidateSchema).max(16),
   rejected_candidates: z.array(rejectedCandidateSchema).max(16),
   unresolved_candidates: z.array(unresolvedCandidateSchema).max(16),
-  suggested_seed_receipts: z.array(suggestedSeedReceiptSchema).min(1).max(8),
+  suggested_seed_receipts: z.array(suggestedSeedReceiptSchema).max(8),
   eligible_seed_video_ids: z.array(youtubeVideoIdSchema).max(8),
   access_boundaries: z.tuple([
     z.literal(
@@ -503,13 +537,17 @@ export async function validateGeminiYoutubeCandidateHandoff(
   const allSuggestedSeedsEligible = suggestedSeedReceipts.every(
     ({ disposition }) => disposition === "eligible"
   );
-  const status = validatedCandidates.length === 0
-    ? unresolvedCandidates.length > 0
-      ? "blocked" as const
-      : "rejected" as const
-    : allCandidatesValidated && allSuggestedSeedsEligible
-      ? "accepted" as const
-      : "partial" as const;
+  // A packet of title-only finds has no identity to fail; its titles are
+  // looked up separately.
+  const status = packet.candidates.length === 0
+    ? "accepted" as const
+    : validatedCandidates.length === 0
+      ? unresolvedCandidates.length > 0
+        ? "blocked" as const
+        : "rejected" as const
+      : allCandidatesValidated && allSuggestedSeedsEligible
+        ? "accepted" as const
+        : "partial" as const;
   const candidateFrontier = deriveGeminiYoutubeCandidateFrontier(
     packet.candidates.map(({ video_id }) => video_id),
     validatedCandidates.map(({ video_id }) => video_id),
@@ -598,18 +636,21 @@ function validateCandidateIdentity(
   if (metadata.source_identity.canonical_url !== candidate.canonical_url) {
     reasons.push("provider_canonical_url_mismatch");
   }
-  if (
-    providerVideo.title !== undefined &&
-    comparableLabel(providerVideo.title) !== comparableLabel(candidate.title)
-  ) {
+  // YouTube's metadata says what the video is. A declared title equal to
+  // YouTube's (youtubeTitlesEqual) confirms that the scout named this ID.
+  // Anything else, a paraphrase of this video or the title of another, is not
+  // confirmed: telling those apart takes reading both titles, in whatever
+  // language they are in, which the research model does from the rejection.
+  const titleMatches = providerVideo.title === undefined || youtubeTitlesEqual(providerVideo.title, candidate.title);
+  const channelMatches = providerVideo.channel_title === undefined ||
+    youtubeChannelsEqual(providerVideo.channel_title, candidate.channel);
+  if (!titleMatches) {
     reasons.push("declared_title_mismatch");
+    if (!channelMatches) reasons.push("declared_channel_mismatch");
   }
-  if (
-    providerVideo.channel_title !== undefined &&
-    comparableLabel(providerVideo.channel_title) !== comparableLabel(candidate.channel)
-  ) {
-    reasons.push("declared_channel_mismatch");
-  }
+  const declarationLimitations = channelMatches
+    ? []
+    : ["The scout's declared channel differed from YouTube's; YouTube's metadata is used."];
 
   if (reasons.length > 0) {
     return {
@@ -620,9 +661,10 @@ function validateCandidateIdentity(
         retryable: false,
         rejection_reasons: reasons,
         ...(providerVideo.title === undefined ? {} : { provider_title: providerVideo.title }),
+        ...(titleMatches ? {} : { declared_title: candidate.title }),
         ...(providerVideo.channel_title === undefined ? {} : { provider_channel: providerVideo.channel_title }),
         ...(metadata.error?.code === undefined ? {} : { provider_error_code: metadata.error.code }),
-        limitations: metadata.limitations
+        limitations: [...metadata.limitations, ...(titleMatches ? [] : [TITLE_MISMATCH_NOTE])]
       }
     };
   }
@@ -682,7 +724,7 @@ function validateCandidateIdentity(
           : "legacy_spark_annotation_not_transcript_verified_by_askrigor",
         why_surfaced: candidate.why_surfaced
       },
-      limitations: metadata.limitations
+      limitations: [...metadata.limitations, ...declarationLimitations]
     }
   };
 }
@@ -722,6 +764,59 @@ export function deriveGeminiYoutubeCandidateFrontier(
 
 function comparableLabel(value: string): string {
   return value.normalize("NFC").replace(/\s+/gu, " ").trim();
+}
+
+const TITLE_MISMATCH_NOTE =
+  "YouTube's title for this ID (provider_title) differs from the scout's (declared_title): the same video worded " +
+  "differently, or another one. Audit it if YouTube's title shows it is the video meant or relevant anyway; " +
+  "otherwise search the scout's title.";
+
+/**
+ * A title as the identity check compares it: without case, spacing or
+ * punctuation. Letters, digits and combining marks stay: in Thai, Hindi or
+ * Tamil a vowel sign or tone mark tells one word from another.
+ */
+function compactTitle(value: string): string {
+  return value.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, "");
+}
+
+// What YouTube titles often add after the title itself: a " | Channel" or
+// " - subtitle" part, and trailing hashtags. A hashtag has a letter in it, so
+// an episode number such as "#12" is part of the title.
+const TITLE_ADDITION_BREAK = /\s[|\u2013\u2014-]\s/u;
+const HASHTAG = /^#[\p{N}_]*\p{L}[\p{L}\p{M}\p{N}_]*$/u;
+
+/**
+ * The title without its trailing hashtags, each of which follows whitespace.
+ * It works token by token, in time linear in the title's length; a single
+ * regular expression for the whole run backtracks on long runs of spaces.
+ */
+function withoutTrailingHashtags(title: string): string {
+  const parts = title.trimEnd().split(/(\s+)/u);
+  let end = parts.length;
+  while (end >= 3 && HASHTAG.test(parts[end - 1]!)) end -= 2;
+  return end === parts.length ? title : parts.slice(0, end).join("");
+}
+
+/**
+ * Whether YouTube's title is the declared title: equal ignoring case, spacing
+ * and punctuation, whole or before YouTube's usual additions (a " | Channel"
+ * or " - subtitle" part, trailing hashtags). It compares characters, so it
+ * works alike in every language and script, and it does not judge
+ * paraphrases: whether differently worded titles name one video is left to
+ * the research model, which reads them.
+ */
+export function youtubeTitlesEqual(provider: string, declared: string): boolean {
+  const target = compactTitle(withoutTrailingHashtags(declared));
+  if (target.length === 0) return false;
+  const untagged = withoutTrailingHashtags(provider);
+  return [provider, untagged, untagged.split(TITLE_ADDITION_BREAK)[0]!].some((title) => compactTitle(title) === target);
+}
+
+/** Whether YouTube's channel name is the declared one, ignoring case, spacing and punctuation. */
+export function youtubeChannelsEqual(provider: string, declared: string): boolean {
+  const target = compactTitle(declared);
+  return target.length > 0 && compactTitle(provider) === target;
 }
 
 function comparableQuery(value: string): string {

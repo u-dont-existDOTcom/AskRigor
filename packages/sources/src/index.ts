@@ -170,6 +170,12 @@ export {
   type YoutubeCommentSegmentRuntime
 } from "./youtube-comment-segment.js";
 export {
+  lookupRedditThread,
+  lookupRedditThreads,
+  redditPostId,
+  type RedditThreadLookup
+} from "./reddit-thread.js";
+export {
   GEMINI_YOUTUBE_CANDIDATE_CONTRACT,
   GEMINI_YOUTUBE_CANDIDATE_LEGACY_CONTRACT,
   GEMINI_YOUTUBE_CANDIDATE_LEGACY_PACKET_VERSION,
@@ -180,6 +186,7 @@ export {
   LEGACY_SPARK_YOUTUBE_SUMMARY_BASIS,
   MAX_GEMINI_YOUTUBE_CANDIDATE_RESPONSE_BYTES,
   GeminiYoutubeCandidateHandoffError,
+  geminiTitleOnlyCandidateSchema,
   geminiYoutubeCandidatePacketSchema,
   geminiYoutubeCandidateV2PacketSchema,
   geminiYoutubeCandidateFrontierSchema,
@@ -190,6 +197,8 @@ export {
   parseGeminiYoutubeCandidateHandoff,
   deriveGeminiYoutubeCandidateFrontier,
   validateGeminiYoutubeCandidateHandoff,
+  youtubeChannelsEqual,
+  youtubeTitlesEqual,
   type GeminiYoutubeCandidateHandoffErrorCode,
   type GeminiYoutubeCandidateHandoffIssue,
   type GeminiYoutubeCandidatePacket,
@@ -199,8 +208,15 @@ export {
 export {
   GEMINI_YOUTUBE_SCOUT_MAX_OUTPUT_TOKENS,
   GEMINI_YOUTUBE_SCOUT_MODEL,
+  GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES,
+  GEMINI_YOUTUBE_SCOUT_MAX_TITLE_ONLY_CANDIDATES,
+  GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS,
+  GEMINI_YOUTUBE_SCOUT_MAX_LEAD_CHARACTERS,
+  GEMINI_YOUTUBE_BACKGROUND_REQUEST_TIMEOUT_MS,
   advanceGeminiYoutubeScoutBackground,
+  deleteGeminiYoutubeScoutInteraction,
   geminiYoutubeScoutBackgroundCheckpointSchema,
+  geminiYoutubeScoutLanguageSchema,
   scoutGeminiYoutubeCandidates,
   type GeminiYoutubeScoutBackgroundAdvance,
   type GeminiYoutubeScoutBackgroundCheckpoint,

@@ -294,7 +294,7 @@ describe("YouTube audit continuation tokens", () => {
       cursor: {
         ...STATE.cursor,
         previous_top_level_page_sha256: Array.from(
-          { length: 21 },
+          { length: 101 },
           (_, index) => fingerprint(index)
         )
       }
@@ -337,7 +337,7 @@ describe("YouTube audit continuation tokens", () => {
         top_level_page_token: "t".repeat(1_024),
         page_fingerprint: "f".repeat(64),
         previous_top_level_page_sha256: Array.from(
-          { length: 20 },
+          { length: 100 },
           (_, index) => fingerprint("top", index)
         ),
         thread_offset: Number.MAX_SAFE_INTEGER,

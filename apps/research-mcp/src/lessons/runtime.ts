@@ -12,11 +12,13 @@ import {
 } from "./file-incident-vault.js";
 import {
   GitHubInstallationTokenProvider,
+  LESSON_REPOSITORY,
   LESSON_REPOSITORY_FULL_NAME,
 } from "./github-app.js";
 import { GitHubLessonQueue } from "./github-lessons.js";
 import { createLocalLessonGeneralizer } from "./local-generalizer.js";
 import { createLessonAttemptLimiter } from "./rate-limit.js";
+import type { LessonSubmissionResult } from "./contracts.js";
 import { LessonSubmissionService } from "./service.js";
 
 const CONFIGURATION_ERROR = "Lesson runtime configuration unavailable";
@@ -27,6 +29,7 @@ const LEGACY_AI_CONFIGURATION = [
 ] as const;
 
 let cachedRuntime: LessonSubmissionService | undefined;
+let cachedActionRuntime: LessonSubmissionService | undefined;
 
 const lazyRuntime = {
   async submit(raw: unknown) {
@@ -50,28 +53,55 @@ const defaultActionRoutes = Object.freeze([
 /** Constructs a production lesson service from the exact reviewed environment. */
 export function createLessonRuntimeFromEnv(): LessonSubmissionService {
   try {
-    const actionsEnabled = requiredEnvironment("ASKRIGOR_ACTIONS_ENABLED");
-    if (actionsEnabled !== "true") throw new Error(CONFIGURATION_ERROR);
+    assertLessonActionTransportConfigured();
+    return createLessonServiceFromEnv();
+  } catch {
+    throw new Error(CONFIGURATION_ERROR);
+  }
+}
 
-    requiredSecret("ASKRIGOR_ACTIONS_API_KEY");
+/**
+ * Submits one lesson candidate from the MCP connector through the same
+ * service, privacy screen, limits and private queue as the lesson Action.
+ * It does not depend on the GPT Action transport being enabled. An
+ * unconfigured queue returns the public "unavailable" receipt.
+ */
+export async function submitConnectorLessonCandidate(raw: unknown): Promise<LessonSubmissionResult> {
+  let service: LessonSubmissionService;
+  try {
+    service = sharedLessonService();
+  } catch {
+    return { status: "github_unavailable", retryable: false, reason_code: "github_auth_unavailable" };
+  }
+  return await service.submit(raw);
+}
+
+function assertLessonActionTransportConfigured(): void {
+  const actionsEnabled = requiredEnvironment("ASKRIGOR_ACTIONS_ENABLED");
+  if (actionsEnabled !== "true") throw new Error(CONFIGURATION_ERROR);
+  requiredSecret("ASKRIGOR_ACTIONS_API_KEY");
+}
+
+/** The transport-independent lesson service: private queue, limits and privacy screen. */
+function createLessonServiceFromEnv(): LessonSubmissionService {
+  try {
     validateLegacyAiConfigurationIfPresent();
 
-    const appId = positiveDecimalEnvironment("ASKRIGOR_GITHUB_APP_ID");
-    const installationId = positiveDecimalEnvironment("ASKRIGOR_GITHUB_INSTALLATION_ID");
-    const privateKeyBase64 = requiredSecret("ASKRIGOR_GITHUB_PRIVATE_KEY_BASE64");
+    const { appId, installationId, privateKeyBase64 } = githubAppCredentialsFromEnv();
     if (requiredEnvironment("ASKRIGOR_LESSONS_REPOSITORY") !== LESSON_REPOSITORY_FULL_NAME) {
       throw new Error(CONFIGURATION_ERROR);
     }
 
     const now = () => new Date();
-    // The ChatGPT Action request already contains the generalized lesson shown
-    // to and authorized by the user. Production validates it locally rather
-    // than paying for a second model/API pass.
+    // A lesson Action or connector request already contains the generalized
+    // lesson shown to and authorized by the user. Production validates it
+    // locally rather than paying for a second model/API pass.
     const anonymizer = createLocalLessonGeneralizer();
     const tokenProvider = new GitHubInstallationTokenProvider({
       appId,
       installationId,
       privateKeyBase64,
+      repository: LESSON_REPOSITORY,
       fetch,
       now,
     });
@@ -83,14 +113,38 @@ export function createLessonRuntimeFromEnv(): LessonSubmissionService {
   }
 }
 
+/**
+ * The GitHub App credentials the lesson queue and the findings library share;
+ * each scopes its own installation token to its one private repository.
+ */
+export function githubAppCredentialsFromEnv(): {
+  appId: string;
+  installationId: string;
+  privateKeyBase64: string;
+} {
+  return {
+    appId: positiveDecimalEnvironment("ASKRIGOR_GITHUB_APP_ID"),
+    installationId: positiveDecimalEnvironment("ASKRIGOR_GITHUB_INSTALLATION_ID"),
+    privateKeyBase64: requiredSecret("ASKRIGOR_GITHUB_PRIVATE_KEY_BASE64"),
+  };
+}
+
 /** Returns the shared registry without constructing or validating its runtime. */
 export function createDefaultActionRoutes(): readonly ActionRoute[] {
   return defaultActionRoutes;
 }
 
 function getOrCreateLessonRuntime(): LessonSubmissionService {
+  if (cachedActionRuntime) return cachedActionRuntime;
+  assertLessonActionTransportConfigured();
+  cachedActionRuntime = sharedLessonService();
+  return cachedActionRuntime;
+}
+
+// One service for the Action and the connector, so they share one set of limits.
+function sharedLessonService(): LessonSubmissionService {
   if (cachedRuntime) return cachedRuntime;
-  const runtime = createLessonRuntimeFromEnv();
+  const runtime = createLessonServiceFromEnv();
   cachedRuntime = runtime;
   return runtime;
 }

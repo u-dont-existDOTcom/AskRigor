@@ -427,15 +427,15 @@ describe("research-frontier persistence contracts", () => {
     contribution.run.protocolManifests = [
       {
         name: "AskRigor.com universal saved instructions",
-        version: "20.5.27",
+        version: "20.5.33",
         revisionDate: "2026-09-30",
-        sha256: "6dd95d86e3b49a54a9f597d13e8a9855b478d876d1a84842a8f88f144c999625",
+        sha256: "981429bd73d163f860ab3939aae5ac7057a3557285faa59fa3c8779f12c9722a",
       },
       {
         name: "HRP",
-        version: "20.5.29",
-        revisionDate: "2026-09-12",
-        sha256: "254759df38934c28b06709dace9fcb266fc9967913be1296de99a461be596816",
+        version: "20.6.8",
+        revisionDate: "2026-09-30",
+        sha256: "641473288653e5e2249527c3626d20c298c9b2f302ffc79feaad7c12191606b8",
       },
     ];
     const prepared = await prepareResearchFrontierImport(contribution);

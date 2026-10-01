@@ -16,7 +16,7 @@ export function researchPacket(): GeminiYoutubeCandidatePacket {
   return {
     packet_name: "gemini_youtube_candidate_handoff",
     packet_version: "2.0",
-    research_target: "de-identified treatment comparison",
+    research_target: "adults comparing de-identified treatment programs",
     diagnosis_status: "diagnosis_not_specified",
     discovery_queries: [
       { purpose: "firsthand_outcome", query: "condition what worked program" },
@@ -60,7 +60,7 @@ export function researchReceipt(): GeminiYoutubeCandidateValidationReceipt {
     source_contract: "youtube-candidate-handoff-v2",
     source_packet_version: "2.0",
     status: "accepted",
-    research_target: "de-identified treatment comparison",
+    research_target: "adults comparing de-identified treatment programs",
     candidate_frontier: deriveGeminiYoutubeCandidateFrontier(
       RESEARCH_FIXTURE_VIDEO_IDS,
       RESEARCH_FIXTURE_VIDEO_IDS,
@@ -145,7 +145,7 @@ export function nativeSurvey(
     provider: "youtube",
     record_type: "youtube_community_survey",
     retrieved_at: "2026-08-23T00:01:00.000Z",
-    research_question: "de-identified treatment comparison",
+    research_question: "adults comparing de-identified treatment programs",
     access_status: metadataStatus === "api_visible_complete" ? "complete" : "partial",
     limitations: ["Bounded fixture survey."],
     searches: [{

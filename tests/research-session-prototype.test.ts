@@ -164,7 +164,7 @@ describe("server-owned research session feasibility routes", () => {
     });
 
     const started = await route(routes, "start_research_session").handle(context({
-      research_target: "de-identified treatment comparison",
+      research_target: "adults comparing de-identified treatment programs",
       diagnosis_status: "diagnosis_not_specified"
     }));
     expect(started).toMatchObject({
@@ -226,7 +226,7 @@ describe("server-owned research session feasibility routes", () => {
       }
     });
     expect(scout).toHaveBeenCalledWith({
-      researchTarget: "de-identified treatment comparison",
+      researchTarget: "adults comparing de-identified treatment programs",
       diagnosisStatus: "diagnosis_not_specified",
       scoutInstructions: "Exact repository scout instructions"
     }, {
@@ -276,7 +276,7 @@ describe("server-owned research session feasibility routes", () => {
       }
     });
     expect(survey).toHaveBeenCalledWith({
-      research_question: "de-identified treatment comparison",
+      research_question: "adults comparing de-identified treatment programs",
       searches: expect.arrayContaining([
         { direction: "general", query: "condition what worked program" },
         { direction: "benefit", query: "condition standard benefit" }
@@ -333,7 +333,7 @@ describe("server-owned research session feasibility routes", () => {
       youtubeApiKey: "server-held-youtube-key"
     });
     const started = await route(routes, "start_research_session").handle(context({
-      research_target: "de-identified treatment comparison",
+      research_target: "adults comparing de-identified treatment programs",
       diagnosis_status: "diagnosis_not_specified"
     }));
     const sessionId = (started.body as { session_id: string }).session_id;
@@ -386,7 +386,7 @@ describe("server-owned research session feasibility routes", () => {
       getProtocolManifest: async (protocol) => protocolManifest(protocol)
     });
     const result = await route(routes, "start_research_session").handle(context({
-      research_target: "de-identified treatment comparison",
+      research_target: "adults comparing de-identified treatment programs",
       diagnosis_status: "diagnosis_not_specified",
       complete: true,
       synthesis_permitted: true,
@@ -404,7 +404,7 @@ describe("server-owned research session feasibility routes", () => {
     });
 
     const started = await route(routes, "start_research_session").handle(context({
-      research_target: "de-identified treatment comparison",
+      research_target: "adults comparing de-identified treatment programs",
       diagnosis_status: "diagnosis_not_specified"
     }));
     const sessionId = (started.body as { session_id: string }).session_id;
@@ -456,7 +456,7 @@ describe("server-owned research session feasibility routes", () => {
       scout
     });
     const started = await route(routes, "start_research_session").handle(context({
-      research_target: "de-identified treatment comparison",
+      research_target: "adults comparing de-identified treatment programs",
       diagnosis_status: "diagnosis_not_specified"
     }));
     const sessionId = (started.body as { session_id: string }).session_id;
@@ -500,7 +500,7 @@ describe("server-owned research session feasibility routes", () => {
       youtubeApiKey: "server-held-youtube-key"
     });
     const started = await route(routes, "start_research_session").handle(context({
-      research_target: "de-identified treatment comparison",
+      research_target: "adults comparing de-identified treatment programs",
       diagnosis_status: "diagnosis_not_specified"
     }));
     const sessionId = (started.body as { session_id: string }).session_id;

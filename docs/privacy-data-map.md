@@ -26,6 +26,17 @@ identity and contact data, private health narratives, uploads, raw source and
 provider bodies, credentials, and all community/YouTube content. It is not an
 automatic evidence-authority path.
 
+The September 30 source candidate (not deployed) adds a findings library for
+free contributor mode (owner decisions Q9 to Q11): when `finalize_research`
+checks a free contributor's answer, the server saves that answer's checked
+findings card to a private GitHub review queue; a paid-private answer offers the
+save, and its card is saved only after the user says yes to that save. It moves
+the free contributor notice to a second version that says so. It is described
+under "Findings library" below. The owner approved the public wording on
+2026-09-30; `https://askrigor.com/privacy` and `/terms` take it, with that day's
+effective date, when the library goes live, and the library stays closed until
+then.
+
 ## Purpose and boundary
 
 ### Approved isolated living-evidence pilot
@@ -251,27 +262,62 @@ AskRigor has deliberately separate processing paths:
   content is untrusted input; it is parsed as data and never executed as
   instructions.
 - **Optional lesson path:** after AskRigor validates a concrete criticism and
-  obtains separate consent, the consequential Custom GPT Action accepts a
-  derived candidate, screens it, sends the derived fields to a fixed OpenAI
-  privacy check, and writes a private GitHub review candidate plus anonymous
-  occurrence metadata. It is not an MCP operation and cannot change code,
-  protocols, instructions, providers, or releases.
-- **Automated Gemini-candidate path:** a public read-only Action accepts only a
-  de-identified population-level research target and a diagnosis-status enum.
+  obtains separate consent, the consequential Custom GPT Action or the
+  connector's `submit_lesson_candidate` tool (owner decision, 2026-09-30; behind
+  the research-access guard) accepts a derived candidate. Both use one service:
+  a deterministic screen and local schema check (production makes no model or
+  API call on this path; see `apps/research-mcp/src/lessons/runtime.ts`), shared
+  rate limits, and a private GitHub review candidate plus anonymous occurrence
+  metadata. The connector tool takes no incident provenance; raw incident
+  capture stays with the private incident Action. Neither can change code,
+  protocols, instructions, providers, or releases. The fixed OpenAI privacy check
+  described below is legacy configuration that the production lesson path does
+  not call.
+- **Findings library path:** for a free contributor account,
+  `finalize_research` (behind the research-access guard; not deployed) needs a
+  findings card with the answer, checks it, and saves the checked card and a
+  server-written version stamp in a private GitHub review queue; the answer is
+  never stored, and nothing asks the user. For a paid-private account the
+  answer offers the save, and the connector's `save_research_findings` saves
+  the checked card only after the user says yes to that save. See "Findings
+  library" below.
+- **Automated Gemini-candidate path:** a public read-only Action and the
+  `scout_gemini_youtube_candidates` MCP tool (behind the research-access guard)
+  share one implementation and accept only a
+  de-identified population-level research target, a diagnosis-status enum and,
+  optionally, the person's language as a BCP 47 tag (`language`).
+  Every route that reaches Gemini (this Action, Custom GPT research sessions,
+  private orchestration and the MCP tool) applies the population-level screen
+  described under the MCP tool below. The Action refuses any other target as
+  invalid input. A research session records a scout boundary instead and
+  continues with the YouTube survey.
   Deterministic screening rejects personal narratives, identifiers,
   credentials, raw chat, URLs, and control/injection-like text before any
-  provider request. The server sends the screened target and checked-in public
-  scout instructions to the fixed Gemini model with Google Search. The
+  provider request. The server sends the screened target, any language tag
+  with its English language name, and checked-in public scout instructions to
+  the fixed Gemini model with Google Search. The
   low-level technical route uses `store:false`; controlled research uses
   `background:true` and `store:true`, retains only an opaque bounded job
   checkpoint, and requests provider deletion immediately after consuming the
-  completed interaction. Gemini returns a compact fixed-column packet that the server
+  completed interaction. A resumed scout stopped before completion (its target
+  fails the population screen, or the MCP tool's spend gate refuses it) has its
+  interaction deleted without another poll. Until that deletion succeeds, or
+  while a provider key is not configured, the checkpoint is kept so a later
+  call can delete or resume it; an expired MCP continuation token still
+  triggers the deletion. Gemini returns a compact fixed-column packet that the server
   reconstructs and checks against the strict canonical candidate contract. If
   that check fails, the server may make exactly one no-search correction
   request to the same model containing only the public
   candidate output, exact executed public searches, and bounded non-sensitive
   validation issues; it then validates again and fails closed. The server
-  independently validates each public YouTube identity. It retrieves no comments or transcripts, makes no
+  independently validates each public YouTube identity: an ID whose YouTube
+  title is not the scout's (compared ignoring case, punctuation and YouTube's
+  usual additions) is not confirmed, and is returned with both public titles
+  for the model to judge. On the MCP tool, a named video with no usable ID, or
+  an ID YouTube does not have, is looked up by its public title with one YouTube
+  search each (at most four per call): a single exact title is accepted, and
+  otherwise YouTube's three closest public results are returned for the model
+  to judge. It retrieves no comments or transcripts, makes no
   medical conclusion, and creates no content-bearing provider-output store.
   The encrypted research checkpoint may temporarily retain the opaque Gemini
   interaction ID, phase, public search receipts, usage counters, and poll count;
@@ -423,7 +469,7 @@ separately in `docs/custom-gpt-action-live-acceptance.md` and
 | Protocol responses | complete canonical protocol text from `load_protocol`; manifest/integrity outputs from `get_protocol_manifest` and `verify_protocol_integrity`, including protocol name, version, revision date, SHA-256, verification boolean, and protocol error code/message when applicable | Protocol activation, integrity checking, and source reproducibility. |
 | Shared provenance | provider, record type, primary/provider IDs, retrieval timestamp, source URL/title/authors or channel, pagination, access status, limitations, and structured provider error | Makes source, time, coverage, and failure boundaries auditable. |
 | Shared nested response fields | `raw_metadata` provider counters/freshness fields; `error` code/message/optional HTTP status/retryability; `source_identity` canonical URL/title/authors or channel; pagination cursor/next cursor/page size/returned/exhausted; limitations | These nested fields disclose response coverage, provider context, and failure semantics without exposing a raw provider payload. |
-| Scholarly metadata | PMID, title, abstract when PubMed provides it, journal, dates, authors, DOI, publication types; Europe PMC source/IDs/title/authors/journal/year; Crossref candidates and backward-compatible update/retraction evidence; internal-only rich Crossref event assertions and FORRT relationship metadata in Phase D1 | Scholarly retrieval and discovery; citation, abstract, publication-event, or provider-reported replication metadata is not a substitute for inspecting the study and linked source. The new rich records are not public or session-connected in Phase D1. |
+| Scholarly metadata | PMID, title, abstract when PubMed provides it, journal, dates, authors, DOI, PubMed Central ID, publication types; Europe PMC source/IDs/title/authors/journal/year; Crossref candidates and backward-compatible update/retraction evidence; internal-only rich Crossref event assertions and FORRT relationship metadata in Phase D1 | Scholarly retrieval and discovery; citation, abstract, publication-event, or provider-reported replication metadata is not a substitute for inspecting the study and linked source. The new rich records are not public or session-connected in Phase D1. |
 | Open publication full text and audit index | Requested DOI/optional PMCID; Europe PMC or Unpaywall discovery attempts; public source URL, title, manuscript version and format; exact document and block SHA-256 values; extracted public JATS or PDF text with section/page location; opaque document handle and cursor; source-linked study or review audit submissions and bounded validation receipts | Attempts a lawful, identity-checked full-text method audit. Retrieval, open availability, randomization, peer review, journal status, or guideline status is not treated as proof of reliability. If no complete copy passes access and identity checks, only a possibly useful lead is returned and unseen contents are not evidence. |
 | Public trial metadata | NCT ID, title, status, study type/phases, conditions, interventions, sponsors, enrollment, dates, results flag, references, and last update | ClinicalTrials.gov record lookup/search. |
 | Public YouTube video metadata | video ID, title, description, published time, channel title/ID, duration, privacy status, and API-visible counts where supplied | Video discovery and provenance. |
@@ -432,8 +478,8 @@ separately in `docs/custom-gpt-action-live-acceptance.md` and
 | YouTube community survey | user-supplied research question and labeled YouTube queries; bounded, deduplicated candidate videos; canonical clickable URLs; public title/channel/date metadata; and provider-reported comment counts | Maps promising videos before deeper acquisition without treating query-bounded discovery as the comment corpus. |
 | Compound YouTube audit | user-supplied research question and labeled YouTube queries; bounded candidate/video selection; a complete small corpus or deterministic sample; corpus SHA-256; and a completion/synthesis-lock receipt | Performs reproducible multi-query discovery and complete API-visible acquisition in one request without making a medical conclusion. |
 | Adaptive per-video YouTube audit | video metadata; provider-reported comment count; exact top-level, reply, cumulative-retrieval, and returned-for-analysis counts; API-visible comments/replies; deterministic sample; rolling corpus digest; completion receipt; and optional opaque authenticated continuation state | Retrieves one important video's API-visible discussion over bounded calls while preserving exact depth and completion state. |
-| Treatment-landscape coverage assessment | caller-supplied research target; receipt-linked discovery batch queries/scopes, specific implementation/discriminator terms and results, literal access/pagination states, class IDs, and candidate IDs; complete external-scout frontier digests and candidate partitions; treatment-class labels/search/formal-follow-up/omission states; structured program fields with `program not described` normalized; public video and stable channel IDs, titles/dates, selection and omission states; projected transcript chain/language/caption/timestamp fields; projected comment-audit metadata/access/count/reply/lock fields; directional-search states; and terminal/retryable/recovery boundary fields | Reconciles the supplied ledger, derives valid counts and normalized program signatures, excludes invalid records from aggregates, and returns separate selection, per-video-depth, and overall workflow locks plus compact per-video records. It makes no provider call, persistence, semantic-completeness claim, efficacy judgment, or medical conclusion. |
-| Automated Gemini candidate scout and validation | screened de-identified population-level research target; diagnosis-status enum; checked-in scout instructions; aggregate token/Search usage; receipt-reconciled executed searches; public video IDs/URLs/titles/channels; provisional program/stage/outcome summaries; bounded safe validation issues when one correction is needed; independent public YouTube identity metadata; and a SHA-256 frontier partitioning validated, terminally rejected, and unresolved IDs | Finds a broad public candidate frontier without manual transfer. The low-level technical route uses a storage-disabled request. Controlled research uses a temporarily stored background Interaction, retains only its opaque bounded checkpoint, and requests deletion immediately after consuming it. If needed, one similarly temporary no-search correction returns only Gemini's public candidate output, exact public search receipts, and safe validation issues to the same provider and is deleted after consumption. YouTube receives only candidate video IDs. Provisional summaries remain discovery annotations, not transcript verification or treatment evidence. No comments, transcripts, or Gemini output are persisted by AskRigor. A deletion request is not a claim about provider backups or policy-required retention. |
+| Treatment-landscape coverage assessment | On MCP: the caller's research receipts (verified, then used only for this call), research target, treatment classes, program fields, per-video screening decisions and short notes, and specific-search terms with the exact executed queries, from which the server derives the ledger below. On the Custom GPT Action: caller-supplied research target; receipt-linked discovery batch queries/scopes, specific implementation/discriminator terms and results, literal access/pagination states, class IDs, and candidate IDs; complete external-scout frontier digests and candidate partitions; treatment-class labels/search/formal-follow-up/omission states; structured program fields with `program not described` normalized; public video and stable channel IDs, titles/dates, selection and omission states; projected transcript chain/language/caption/timestamp fields; projected comment-audit metadata/access/count/reply/lock fields; directional-search states; and terminal/retryable/recovery boundary fields | Reconciles the supplied ledger, derives valid counts and normalized program signatures, excludes invalid records from aggregates, and returns separate selection, per-video-depth, and overall workflow locks plus compact per-video records. It makes no provider call, persistence, semantic-completeness claim, efficacy judgment, or medical conclusion. |
+| Automated Gemini candidate scout and validation | screened de-identified population-level research target; diagnosis-status enum; optional BCP 47 language tag (only a tag, never user text) and its English language name, sent to Gemini with the target so the scout looks for videos in that language; checked-in scout instructions; aggregate token/Search usage; receipt-reconciled executed searches; public video IDs/URLs/titles/channels; provisional program/stage/outcome summaries; bounded safe validation issues when one correction is needed; independent public YouTube identity metadata; and a SHA-256 frontier partitioning validated, terminally rejected, and unresolved IDs | Finds a broad public candidate frontier without manual transfer. The low-level technical route uses a storage-disabled request. Controlled research uses a temporarily stored background Interaction, retains only its opaque bounded checkpoint, and requests deletion immediately after consuming it. If needed, one similarly temporary no-search correction returns only Gemini's public candidate output, exact public search receipts, and safe validation issues to the same provider and is deleted after consumption. YouTube receives candidate video IDs and, for the MCP tool's title lookup, public video titles as search queries. Provisional summaries remain discovery annotations, not transcript verification or treatment evidence. No comments, transcripts, or Gemini output are persisted by AskRigor. A deletion request is not a claim about provider backups or policy-required retention. |
 | Legacy Gemini packet validation | operator-supplied de-identified research target, executed searches, public video identity fields, and provisional annotations | Preserves backward-compatible technical validation of historical packets. It is not the ordinary automated research path and creates no additional store. |
 | Completeness/accounting data | top-level/reply counts, mismatch identifiers, page counts, API-visible coverage, output/text byte counts, elapsed time, and provider request attempts | Shows whether a comment corpus is complete, partial, inaccessible, or failed. |
 
@@ -516,10 +562,10 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 | Open-full-text Action handle map | A short random handle mapped to one exact identity-verified public document index plus the next block/character cursor, segment counts, public source metadata, manuscript version, and document/block hashes | Process memory only on the single application replica, no longer than one hour, at most 64 handles and 128 MiB total. The map may contain extracted public publication text but no private copy, provider credential, or user health record. Server restart, expiry, or capacity eviction removes access. Nothing is written to disk or application logs; horizontal scaling requires approved sticky routing or shared state. |
 | MCP or Custom GPT research Action response | The normalized fields in the table above. Action protocol and open-full-text reads use exact ordered chunks; transcript pages contain bounded timestamped caption segments; oversized per-video community samples may be deterministically transport-bounded without changing retrieval counts, digest, access state, or receipt. | Delivered to the connected client. The client/ChatGPT may retain conversation or tool-result data under its own terms; AskRigor v0 does not control that retention. |
 | Server logs | In routine operation the application emits a startup line only. A disabled-by-default MCP connector diagnostic can be enabled temporarily by a maintainer. It emits only a fixed route class, HTTP method class, coarse header/media-presence classes, selected JSON-RPC phase class, completion class, and response status. It never emits a URL or query, IP/network address, user-agent, header value, request or response body, JSON-RPC ID, tool name or argument, prompt, provider payload, comment text, user identifier, or credential. Infrastructure may independently process operational metadata such as time, route, HTTP status, latency, IP/network data, or security signals. | No request-body, response-body, candidate-content, or dedicated application access log is emitted or stored. The temporary connector diagnostic is restricted to a troubleshooting window and must be disabled by recreating the diagnostic container after the needed receipt is captured; its active container log is not a durable research-session store. Infrastructure retention and backups follow each provider's configured policy and are outside AskRigor's application storage. |
-| Provider requests | Necessary query/identifier and fixed service contact values where required by a provider, including the service contact email sent to Unpaywall; the screened population-level target plus public scout instructions sent to Gemini; and, only after a malformed scout packet, one bounded correction containing Gemini's own public candidate output, exact executed public queries, and safe validation issues. If the internal Phase D1 adapters are invoked by later controller work, Crossref receives the public DOI and configured service contact, while FORRT receives only the public DOI and fixed headers. | Europe PMC, Unpaywall, public copy hosts, Crossref, FORRT, Google Gemini, Google Search, and YouTube process requests under their own policies. The low-level Gemini route uses `store:false`; the controlled path uses `background:true`/`store:true` and requests deletion immediately after consumption. Only the first interaction can use Google Search. Provider keys and contacts remain server-only. AskRigor does not claim to control provider processing, backups, or policy-required retention. Phase D1 itself does not expose or deploy the new internal adapters. |
+| Provider requests | Necessary query/identifier and fixed service contact values where required by a provider, including the service contact email sent to Unpaywall; the screened population-level target, any language tag and public scout instructions sent to Gemini; and, only after a malformed scout packet, one bounded correction containing Gemini's own public candidate output, exact executed public queries, and safe validation issues. If the internal Phase D1 adapters are invoked by later controller work, Crossref receives the public DOI and configured service contact, while FORRT receives only the public DOI and fixed headers. | Europe PMC, Unpaywall, public copy hosts, Crossref, FORRT, Google Gemini, Google Search, and YouTube process requests under their own policies. The low-level Gemini route uses `store:false`; the controlled path uses `background:true`/`store:true` and requests deletion immediately after consumption. Only the first interaction can use Google Search. Provider keys and contacts remain server-only. AskRigor does not claim to control provider processing, backups, or policy-required retention. Phase D1 itself does not expose or deploy the new internal adapters. |
 | Aggregate AI budget ledger | UTC month, fixed $50 monthly limit, aggregate charged nano-USD, update time, and schema version shared by lesson privacy and Gemini scouting | Owner-only mode-0600 file. It contains no target, prompt, candidate, request, response, identity, or credential. Each Gemini scout reserves at most $1 before provider execution. A background scout charges that maximum at job start; later polls do not reserve or charge again. |
 | Optional local legacy Gemini-candidate validator | Operator-supplied de-identified research target, executed search queries, public video IDs/URLs/titles/channels, provisional creator-claim annotations, and independently retrieved bounded public video metadata | The operator controls the historical input file and standard output. AskRigor creates no additional file, database row, log, account record, comment corpus, or transcript store. YouTube processes the video-ID lookups under its own policy. |
-| Phase G/K2 research-session controller checkpoint | Opaque execution ID; sensitive research target and diagnosis-status enum; exact protocol identities; module/operation/controller state; public candidate/video/channel/source metadata; bounded semantic screening/program/audit/transfer/treatment annotations; source-linked de-identified creator/community findings; exact study/review method findings and claim capabilities; the bounded reader report and its digest; compact coverage receipts, source identities, hashes, directives, limitations, unresolved state, and final-audit basis. While Gemini background scouting is unfinished it may also contain one opaque interaction ID, phase, poll count, bounded public executed-query receipts, aggregate usage counters, and conservative charged amount. It excludes raw chat, transcript/comment/return-search text, commenter identity, article blocks/full text, raw provider bodies, Gemini responses, credentials, keys, cookies, and private sources. | With reviewed checkpoint configuration, one AES-256-GCM authenticated envelope is written per session to a mode-`0700` directory with mode-`0600` files; development without it uses the bounded in-memory adapter. Retention is 72 hours idle and seven days absolute, at most 1,024 sessions, 16 MiB plaintext and 24 MiB stored. It has no configured backup, rejects capacity rather than evicting unexpired sessions, physically removes expired files during access, inventory, and service startup and with an hourly sweep, supports internal deletion, and is single-writer/single-host only. The background checkpoint is removed when scouting completes or reaches a recognized boundary; each consumed provider interaction receives a deletion request. The report remains below the Action response budget. K2 changes only the authenticated Custom GPT Action projection; MCP remains unchanged. |
+| Phase G/K2 research-session controller checkpoint | Opaque execution ID; sensitive research target and diagnosis-status enum; exact protocol identities; module/operation/controller state; public candidate/video/channel/source metadata; bounded semantic screening/program/audit/transfer/treatment annotations; source-linked de-identified creator/community findings; exact study/review method findings and claim capabilities; the bounded reader report and its digest; compact coverage receipts, source identities, hashes, directives, limitations, unresolved state, and final-audit basis. While Gemini background scouting is unfinished it may also contain one opaque interaction ID, phase, poll count, bounded public executed-query receipts, aggregate usage counters, and conservative charged amount. It excludes raw chat, transcript/comment/return-search text, commenter identity, article blocks/full text, raw provider bodies, Gemini responses, credentials, keys, cookies, and private sources. | With reviewed checkpoint configuration, one AES-256-GCM authenticated envelope is written per session to a mode-`0700` directory with mode-`0600` files; development without it uses the bounded in-memory adapter. Retention is 72 hours idle and seven days absolute, at most 1,024 sessions, 16 MiB plaintext and 24 MiB stored. It has no configured backup, rejects capacity rather than evicting unexpired sessions, physically removes expired files during access, inventory, and service startup and with an hourly sweep, supports internal deletion, and is single-writer/single-host only. The background checkpoint is removed when scouting completes or reaches a recognized boundary; a resumed scout stopped before completion keeps it until its interaction is deleted, and each consumed provider interaction receives a deletion request. The report remains below the Action response budget. K2 changes only the authenticated Custom GPT Action projection; MCP remains unchanged. |
 | Phase K2 signed worker-payload chain | Exact bounded semantic-work descriptor, minimum task evidence, response schema, de-identified target, opaque session/state/work/payload digests, signed cursor, and terminal receipt | Returned transiently to the invoking Custom GPT in UTF-8-safe chunks no larger than 40,000 bytes. Cursors and receipts expire after one hour and use domain-separated HMAC. Raw evidence is not written into the checkpoint or server logs. ChatGPT may retain tool results under its own terms. |
 | Phase K2 product-acceptance receipt | Fixed synthetic challenge ID, opaque session ID, exact installation-bundle and protocol digests, ordered capability/result and before/after state digests, final boundary, permit/report digests, issue/expiry times, key ID, payload hash, and signature | Issued only after authorized or bounded finalization of the fixed challenge and expires after one hour. It contains no prompt, health detail, source text, provider body, credential, or private content and replaces caller-authored acceptance counts/prose. |
 | Phase H private orchestration request/result | Start may contain one screened de-identified target and diagnosis-status enum. Resume/status/finalize contain only an opaque session ID. Semantic submission contains that ID, exact state/package digest, and one bounded routing or candidate-screening assessment. Results contain minimized controller status, boundary, next capability, safe boundary codes/counts, and at most one bounded work package or compact finalization result. | The HTTP transport itself writes no body log or separate store. When enabled later, controller state follows the Phase G encrypted checkpoint rules above; raw provider/source material remains ephemeral. Authentication uses a distinct server-held secret. Browser Origin requests are refused, responses are non-cacheable, and neither secret nor raw research/source content is sent to an external orchestrator merely for convenience. Phase H adds no live external recipient or deployment. |
@@ -604,7 +650,8 @@ Recipients and provider boundaries are therefore distinct:
   candidate;
 - OpenAI receives those derived fields for the fixed privacy check;
 - Google Gemini first receives only a deterministically screened,
-  de-identified population-level research target plus the public
+  de-identified population-level research target, any BCP 47 language tag
+  with its English language name, and the public
   candidate-scout instructions; Google Search runs inside that request. If the
   compact packet fails strict validation, one no-search correction may return
   that bounded public packet, the exact executed public queries, and safe
@@ -642,6 +689,124 @@ request earlier deletion by sending the private-safe `ARL-####` receipt to
 `joel@askrigor.com`. AskRigor can act only on data it controls; provider
 retention and provider-side deletion remain governed by the provider.
 
+## Findings library
+
+Owner decisions Q9 to Q11 (2026-09-30): free AskRigor use is reciprocal, so what
+AskRigor learns from free research is saved. When `finalize_research` checks a
+free contributor account's answer, the server saves that answer's checked
+findings card to a private review queue, with nothing asked of the user. A
+paid-private answer ends by offering the save, and its card is saved only when
+the user accepts saving it for that answer, through the connector's
+`save_research_findings`. The owner reviews every card before it is accepted.
+The code is built but not deployed. The owner approved the wording of the
+in-app free contributor notice (in the code), `https://askrigor.com/privacy`
+and `/terms` on 2026-09-30; the two pages take it, with that day's effective
+date, when the library goes live (the text is in the plan).
+
+The free contributor notice is now version `free-contributor-v2-2026-09-30`,
+which says each finished research answer's findings card is saved. A free
+account that accepted `free-contributor-v1-2026-09-01` is shown as not yet
+enrolled, and research tools refuse it (`RESEARCH_ACCESS_REQUIRED`), until it
+accepts the new version. Migration `0011_research_use_notice_v2` lets the
+account table hold either version; the service admits only the current one.
+
+An image rollback to a version that reads only v1 first runs
+`infra/living-evidence-production/research-use-notice-v2-hold.sql`. It copies
+each v2 account row, unchanged, into `research_use_notice_v2_hold` and marks
+the account revoked, so the earlier version reads it and the person can accept
+v1 again. `research-use-notice-v2-restore.sql` puts back each account still in
+that state once a v2 version serves, and empties the table. The table holds no
+new kind of data, only the migrator role can read it, and it is empty except
+during such a rollback.
+
+The library is closed unless `ASKRIGOR_FINDINGS_LIBRARY` is set to `enabled`,
+which the owner does once the wording is live and the private repository
+exists. While it is closed, `finalize_research` needs no card, checks none and
+saves none.
+
+What the model sends, and when:
+
+- In `finalize_research`, with `answer_draft`, a `findings_card`, which a free
+  contributor's answer needs: the question in general terms (at most 300
+  characters), what a quick ordinary answer would say (400), one to five
+  findings, each with a claim (500), certainty, whom it applies to (300), one
+  sentence copied from the answer (`answer_quote`), one to ten source
+  identifiers (DOI, PMID, PMCID or YouTube video id; no tool verifies an NCT id
+  yet, so a trial is cited through its paper), why the usual answer misses it
+  (300), allowlisted tags and what would change it (300), and up to six open
+  leads (200 each). Optionally, the model name as the app reports it
+  (`reported_model`, at most 80 characters). The gate checks the card against
+  the answer and that call's verified sources. A rejected card is reported and
+  not saved; it never holds back the answer. A checked card's SHA-256 digest is
+  signed into the finalization receipt; for a paid-private account a checked
+  card also adds the sentence offering its save to the caveats the answer must
+  carry. For a caller with no research account the card is neither checked nor
+  saved (`private`).
+- In `save_research_findings`, only after a paid-private user says yes to that
+  offer: the same card, that finalization receipt, the literal consent
+  `yes_to_this_save`, and optionally the model name as the app reports it.
+
+What the server checks before it saves: that the caller's OAuth token belongs
+to an active research account (a free contributor under the current notice, at
+the final check, or a paid-private account, through `save_research_findings`
+after the user's yes); the receipt's
+signature, kind and 24-hour age, and that it signed this exact card; the lesson
+queue's deterministic privacy screen over every text field (with study and
+video identifiers, links to their pages, statistics-shaped numbers and in-word
+apostrophes set aside first); sources by their form; and a rate limit of its
+own (20 cards an hour and 100 a day per server process; later cards are not
+saved). A model name that does not read as one is left out. There is no model
+or API call on this path. Anything that fails is not stored, and the answer
+goes ahead; a save that has not finished within ten seconds is reported as
+unconfirmed, and the answer goes ahead while it completes.
+
+What is stored, and where: one issue in the private GitHub repository
+`u-dont-existDOTcom/AskRigor-findings` (or the repository named by
+`ASKRIGOR_FINDINGS_REPOSITORY`, under the same owner), reached through the
+lesson queue's GitHub App with a token scoped to that one private repository.
+The issue holds the question as its title, the labels `findings-card` and
+`pending-review`, a readable copy of the card, and a JSON record: the card, its
+SHA-256, and the server's version stamp. The stored card holds no YouTube video
+ID or link while AskRigor's YouTube API compliance review is open: each finding
+keeps only the number of videos whose audited comments backed it, and a link
+keeps its text (`stored_without` records this; the SHA-256 is still the checked
+card's). A finding may still summarize what public communities reported,
+without posts, commenter names, links or video IDs. The version stamp holds the
+save time; the AskRigor version and build commit, or `unknown`; the HRP and
+Universal names, versions and SHA-256; a SHA-256 of the tool catalog; the
+endpoint, `/mcp` or `/mcp/claude`; the model name as reported, marked
+unverified; and the research depth, status, finalization time and receipt
+counts the receipt signed. A hidden marker holds the duplicate fingerprint (a
+SHA-256 of the normalized question and claims), a SHA-256 of the finalization
+receipt, used only to make a retried save write nothing new, the save time, and
+the research thread: an HMAC, under the server's receipt secret, of the
+pseudonymous account key and the research target's 12-character digest. A later
+save of the same question and claims from another thread, while the card is
+open, adds a comment with its own record and stamp instead of a new issue; the
+same thread reaching the same findings again adds nothing. A thread's new card
+replaces its earlier open cards: each gets a comment naming the new card and is
+closed as not planned, unless it also holds another thread's save or a comment,
+when it stays open for the owner. The thread key cannot be reversed without the
+server's secret, and one account's threads on different research targets do
+not match.
+
+What is never stored: the chat, the answer beyond each finding's one quoted
+sentence, the research target or its digest, the account key, the receipts
+themselves, comment or caption text, commenter identities, the user's OAuth
+subject, email or network identity, and any upload. `finalize_research` reports
+only whether the card was saved and its `ARF-####` id, never the issue number,
+link, card text or fingerprint. Because a stored card carries no account
+identity, revoking research access does not withdraw it; its deletion is
+requested with its `ARF-####` id.
+
+The living-evidence and frontier stores hold no YouTube identifiers while the
+YouTube compliance review is open, and neither does this library.
+
+Cards have no automatic expiry: they stay in the private repository until the
+owner deletes them. GitHub processes the stored issues under its own policies.
+Until the private repository exists and is added to the App's installation, a
+save answers that the library is unavailable and stores nothing.
+
 ## Research data not persistently stored
 
 - Raw OAuth subjects, account email/contact fields, access tokens, passwords,
@@ -662,20 +827,159 @@ retention and provider-side deletion remain governed by the provider.
 
 The optional lesson path is one narrow durable-storage exception. It stores
 only the screened private candidate and anonymous recurrence metadata listed
-above; it does not create a transcript store or user profile. The independently
+above; it does not create a transcript store or user profile. The free
+contributor findings library, when deployed, is another: it stores only the
+checked, screened cards, stamps and thread keys listed above, with no user
+profile. The independently
 disclosed living-evidence, frontier, participant-intake, research-access, and
 pending-proposal stores have their own strict contracts and authority boundaries.
 
 ## Response minimization and security controls
 
-- Of 26 MCP operations, 24 are annotated `readOnlyHint: true`. The two explicit
-  research-access/proposal operations are declared writes with
-  `destructiveHint: false` and `openWorldHint: false`. They require authenticated
-  `research:use`; all ordinary research operations also require that scope and
-  an active free-contributor or paid-private mode. The Action-only transcript,
+- Of 32 MCP operations, 26 are annotated `readOnlyHint: true`. The six
+  explicit writes (research-access mode, pending proposal, owner review, lesson
+  candidate, `finalize_research`, which saves a free contributor's checked
+  findings card, and `save_research_findings`, a paid-private card saved after
+  the user's yes) are declared with `destructiveHint: false` and
+  `openWorldHint: false`. Owner review requires `cases:review`; the others
+  require authenticated `research:use`; all ordinary research operations also
+  require that scope and an active free-contributor or paid-private mode. The Action-only transcript,
   treatment-landscape, automated Gemini-candidate, and legacy validation routes
   remain read-only; legacy research Actions are omitted whenever OAuth research
-  access is active so they cannot bypass the mode choice.
+  access is active so they cannot bypass the mode choice. The treatment-landscape
+  assessor and the automated Gemini scout are also MCP tools; on MCP they sit
+  behind the same research-access guard as the other research tools, and the
+  assessor accepts videos without transcripts because MCP has no transcript tool.
+- The MCP `audit_youtube_video_community` tool returns its analysis sample as
+  compact records: comment id, parent id for a reply, a per-video pseudonymous
+  author key (the first 8 hex characters of a SHA-256 over a fixed label, the
+  video id and the author's channel id, or the comment id when YouTube gives no
+  channel id; display names are not unique, so they never key a person), date, likes, an edited
+  flag and the text. Author channel ids and display names are not sent to the
+  MCP client; the key only lets the model count distinct people within one
+  video. Records are cut to a 40,000-byte response budget in the deterministic
+  sample order; retrieval counts, corpus hashes and receipts cover the whole
+  corpus. The MCP one-call `audit_youtube_community` tool returns the same
+  compact records, with one 40,000-byte budget shared by its videos, each
+  keeping the same number of records. The Custom GPT Action output is
+  unchanged. `search_youtube_comments` results carry
+  `absence_inference_permitted: false`, since a query-bounded search says
+  nothing about comments that did not match.
+- MCP research receipts (`research_receipt`) are HMAC-SHA256 tokens under a
+  domain-separated key derived from the finalization signing secret, or else the
+  YouTube continuation secret. They carry only public identifiers (YouTube
+  video IDs, DOIs, PMIDs, PMCIDs), completion states, counts, and the issue
+  time; never comments, source text, questions, or user data. Discovery
+  receipts (surveys, searches, scouts, one-call community audits) also carry
+  `q`, the first 12 hex characters of a SHA-256 over the round's normalized
+  search terms, so the gate can tell rounds from different angles apart, and
+  `open`, a count of unread result pages or unchecked candidates; the terms
+  themselves are not in the receipt. Discovery receipts and treatment-coverage
+  receipts also carry `target`, the same kind of 12-hex digest of the research
+  target, never the target itself; `search_youtube` uses its optional
+  `research_target` only for this digest and does not send it to YouTube. A
+  treatment-coverage receipt also carries the check's answer boundary, lock,
+  broad-choice flag and judged video IDs. So that
+  `assess_treatment_landscape_coverage` can build its ledger from receipts, a
+  per-video audit receipt also carries the audited video's public channel ID
+  and the audit's counts and completion flags, a scout receipt the unresolved
+  and rejected candidate video IDs and the public IDs it left to the model's
+  judgment (reworded titles and YouTube's closest results for a title it could
+  not find), a literature search receipt (PubMed, Europe PMC or
+  ClinicalTrials.gov) the database, the 12-hex digest of its query and its
+  record counts, a search receipt its access status, and a
+  one-call community audit receipt the IDs of the videos whose comments its
+  response returned, and a per-video audit receipt how many comments its final
+  view returned. Survey, search and one-call community audit receipts also
+  count their searches that ended incomplete and those stopped by a rate limit
+  or the daily quota, so the checks can state that limit themselves; a round a
+  limit stopped is signed too. They also carry `pg` and `nx`, the results
+  pages a search read and left: the 12-hex digest of the caller's query, then
+  YouTube's opaque page token (an offset, not user data; a token that encodes
+  to more than 64 characters is not signed). The query itself is never in the
+  receipt. A later page's receipt settles the page before it.
+  Every MCP receipt carries `t`, its
+  issue time in milliseconds made strictly increasing within the server
+  process, so the gate orders rounds without trusting the caller. They expire
+  after 24 hours. `finalize_research` verifies the receipts the client passes
+  back and returns next steps or limits; it keeps no ledger, and its optional
+  free-text reasons, open-lead topics and its required research target are
+  processed for that call only (the target only to compare its digest). Its
+  `community_findings`, the model's short summary of what the comments it read
+  showed (benefit, no-effect and adverse reports, creators versus commenters,
+  effect on the answer, and the public video IDs), are checked against the
+  audit receipts and returned in `must_report` for the same call only; the
+  summary should not quote commenters or name them. Its `principal_communities`
+  and `community_searches` (the names of the communities where people discuss
+  the question, the model's own web-search queries, the public thread URLs it
+  read, the community's public address when no thread was read, and a short
+  summary of what they showed or the access boundary that stopped it) are
+  checked and returned in `must_report` for the same call only,
+  and the summary should not quote or name posters. AskRigor fetches none of
+  those pages. For each Reddit thread link it asks Reddit's public embed
+  endpoint (`https://www.reddit.com/oembed`) whether the thread exists and
+  under which subreddit and title, sending only the link; it compares the
+  answer, keeps nothing, and discards the poster name the endpoint returns.
+  When a thread's public title there differs from the one the model gave, the
+  next step quotes Reddit's title (one line, at most 150 characters) so the
+  model can check the link. Its `answer_draft`, the
+  answer the model is about to give, can contain whatever the user shared; it
+  is read in memory for that call only, to find internal labels, bare video
+  IDs, a pasted long prompt, the sentences the model copies from it for each
+  community lane (`answer_quotes`, inside `community_findings` and each
+  `community_searches` entry) and the caveats, which an answer not in English
+  gives in its own language (`caveat_renderings`, with the `answer_language`
+  tag), and the sentences where it says something was not found, not studied
+  or has no effect (`absence_claims`, each with its state and the study IDs it
+  rests on, and `search_coverage`, the search classes covered beyond indexed
+  databases). None of these is stored, logged or returned: of the answer, the
+  result names only the labels and public video IDs it found, and points to an
+  absence claim by its position in the list. `not_relevant_basis` is one of two
+  fixed values.
+- The MCP `scout_gemini_youtube_candidates` tool runs the same de-identified,
+  population-level scout as the controlled Action route, applying the same
+  screen: a target with first-person words, contact details, links, keys or
+  record fields is refused before any provider call. Its target also passes a
+  stricter population-level screen that fails closed. The target must name a
+  group of people, and is refused if it has any of:
+  - third-person singular pronouns;
+  - a single person's age;
+  - a title before a name;
+  - two capitalized words in a row that are not a medical or method term;
+  - a capitalized word followed by a narrative verb, unless it names a group;
+  - an identity or example marker ("named", "like …", "such as", "e.g.").
+
+  So a narrative about one named person, even with a name no list knows, does
+  not reach Gemini. The screen is heuristic. No pattern check can catch every
+  name; a lowercase name with no marker passes. So the tool contract also asks
+  the calling model for a population-level target. The screen reads English,
+  so the calling model writes the target in English whatever the person's
+  language, and gives the person's language apart in `language`: a BCP 47 tag
+  (a language, then optionally a script and a region, such as `fr` or `pt-BR`,
+  at most 12 characters) whose shape is checked exactly, so it is only a tag,
+  never user text. The tag and its English language name go to Gemini with
+  the English target, so the scout looks for videos in that language; the
+  screen itself is unchanged. Under the
+  owner's zero-spend policy it starts a new scout only when the deployment
+  sets `ASKRIGOR_GEMINI_BILLING=none` for a key without billing. A later round may add up
+  to eight rediscovery leads that audited comments mention. A lead is either
+  a short public term for a remedy, method or product (at most eight words,
+  refused if it could name or describe a person: names, pronouns, ages,
+  titles or report verbs such as "says" or "cured"), or `video:<id>`, which
+  AskRigor replaces with YouTube's own public title and channel for that video.
+  Leads never carry commenter identity or comment text. The screen is
+  heuristic in the same way: a name written without capitals can still pass. It runs in Gemini's background
+  mode: Google stores the interaction until AskRigor consumes it and requests
+  deletion, and the result reports `provider_storage_mode`. While the scout is
+  still searching, the tool returns a signed, expiring continuation token that
+  carries only that target, its language tag and leads, the diagnosis status, the provider checkpoint
+  (opaque interaction identity, executed public search queries, counters) and
+  the budget already charged; AskRigor stores none of it.
+  When the scout names a video it could not identify (a title with no visible
+  ID, or an ID that does not exist), the tool sends that public title to
+  YouTube search, at most four per call (100 quota units each), and returns
+  only the matching public video IDs, titles and channels plus the titles it
+  could not match.
 - Strict Zod input/output schemas reject undeclared input fields. Pagination cursors are opaque at the MCP boundary.
 - Internal external-evidence receipts use a server-held secret of at least 32
   UTF-8 bytes and domain-separated HMAC-SHA256; they bind session, study,

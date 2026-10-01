@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   advanceGeminiYoutubeScoutBackground,
+  deleteGeminiYoutubeScoutInteraction,
   scoutGeminiYoutubeCandidates,
   type GeminiYoutubeCandidatePacket
 } from "../packages/sources/src/index.js";
@@ -221,6 +222,100 @@ describe("Gemini YouTube scout adapter", () => {
     expect(String(request.input)).toContain(
       "broad treatment-choice or avoid-procedure target, return 8–16"
     );
+  });
+
+  it("carries finds without a visible video ID as title-only candidates instead of guessed IDs", async () => {
+    const title = "GROWING MY HIP BACK - How I Restored Full Function Without Surgery";
+    const withTitles = {
+      ...compactPacketValue(),
+      title_only_rows: [[title, "SHAPEFIXER", "First-person account of avoiding surgery"]]
+    };
+    const fetchMock = vi.fn(async () => interactionResponse(JSON.stringify(withTitles)));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await scoutGeminiYoutubeCandidates(INPUT, CONFIG);
+
+    expect(result.access_status).toBe("complete");
+    expect(result.data?.packet).toMatchObject({
+      title_only_candidates: [{
+        title,
+        channel: "SHAPEFIXER",
+        why_surfaced: "First-person account of avoiding surgery"
+      }]
+    });
+    const request = JSON.parse(String(fetchMock.mock.calls[0]![1]?.body)) as {
+      input: string;
+      response_format: { schema: { properties: Record<string, unknown>; required: string[] } };
+    };
+    expect(request.input).toContain("never guess or reconstruct one: add [title, channel, why_surfaced] to title_only_rows");
+    expect(request.response_format.schema.required).toContain("title_only_rows");
+
+    // An empty list adds nothing to the canonical packet.
+    vi.stubGlobal("fetch", vi.fn(async () => interactionResponse(JSON.stringify({
+      ...compactPacketValue(),
+      title_only_rows: []
+    }))));
+    const empty = await scoutGeminiYoutubeCandidates(INPUT, CONFIG);
+    expect(empty.data?.packet).not.toHaveProperty("title_only_candidates");
+  });
+
+  it("turns comment-named leads into a targeted rediscovery section of the prompt", async () => {
+    const fetchMock = vi.fn(async () => interactionResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    await scoutGeminiYoutubeCandidates({ ...INPUT, rediscoveryLeads: ["gelatin", "dead hangs"] }, CONFIG);
+    await scoutGeminiYoutubeCandidates(INPUT, CONFIG);
+
+    const [withLeads, without] = fetchMock.mock.calls.map(([, init]) =>
+      String((JSON.parse(String(init?.body)) as { input: string }).input)
+    );
+    expect(withLeads).toContain("TARGETED REDISCOVERY");
+    expect(withLeads).toContain("- gelatin\n- dead hangs");
+    expect(without).not.toContain("TARGETED REDISCOVERY");
+  });
+
+  it("asks Gemini for videos in the person's language, named in English, with the target left in English", async () => {
+    const fetchMock = vi.fn(async () => interactionResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    await scoutGeminiYoutubeCandidates({ ...INPUT, language: "fr" }, CONFIG);
+    await scoutGeminiYoutubeCandidates({ ...INPUT, language: "pt-BR" }, CONFIG);
+    // A well-formed tag with no known English name is sent as the tag.
+    await scoutGeminiYoutubeCandidates({ ...INPUT, language: "qaa" }, CONFIG);
+    await scoutGeminiYoutubeCandidates(INPUT, CONFIG);
+
+    const [french, portuguese, unnamed, without] = fetchMock.mock.calls.map(([, init]) =>
+      String((JSON.parse(String(init?.body)) as { input: string }).input)
+    );
+    expect(french).toContain(`AskRigor research target:\n${INPUT.researchTarget}\n`);
+    expect(french).toContain("VIDEO LANGUAGE: French (fr).");
+    expect(french).toContain("write every search in French, including the first-person probes");
+    expect(portuguese).toContain("VIDEO LANGUAGE: Brazilian Portuguese (pt-BR).");
+    expect(unnamed).toContain("VIDEO LANGUAGE: qaa.");
+    expect(without).not.toContain("VIDEO LANGUAGE");
+
+    // The background route that the MCP tool uses builds the same request.
+    const backgroundFetch = vi.fn(async () => new Response(JSON.stringify({
+      id: "interaction-language-1",
+      status: "in_progress"
+    }), { status: 200 }));
+    vi.stubGlobal("fetch", backgroundFetch);
+    await advanceGeminiYoutubeScoutBackground({ ...INPUT, language: "fr" }, CONFIG);
+    expect(String((JSON.parse(String(backgroundFetch.mock.calls[0]![1]?.body)) as { input: string }).input))
+      .toContain("VIDEO LANGUAGE: French (fr).");
+  });
+
+  it("sends no request for a language that is not a BCP 47 tag", async () => {
+    const fetchMock = vi.fn(async () => interactionResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    for (const language of ["French", "fr_FR", "fr-FR-x-jane", "speaks french"]) {
+      await expect(scoutGeminiYoutubeCandidates({ ...INPUT, language }, CONFIG))
+        .rejects.toThrow("Invalid Gemini YouTube scout input");
+      await expect(advanceGeminiYoutubeScoutBackground({ ...INPUT, language }, CONFIG))
+        .rejects.toThrow("Invalid Gemini YouTube scout input");
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("accepts the stateless live response shape without an interaction id", async () => {
@@ -481,6 +576,20 @@ describe("Gemini YouTube scout adapter", () => {
     expect(fetchMock.mock.calls[1]?.[1]?.method).toBe("DELETE");
   });
 
+  it("counts a stored interaction that is already gone as deleted", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 404 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 503 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await deleteGeminiYoutubeScoutInteraction(CONFIG, "interaction-already-deleted")).toBe(true);
+    expect(await deleteGeminiYoutubeScoutInteraction(CONFIG, "interaction-provider-unavailable")).toBe(false);
+    expect(fetchMock.mock.calls.map(([url, init]) => [String(url).split("/").pop(), init?.method])).toEqual([
+      ["interaction-already-deleted", "DELETE"],
+      ["interaction-provider-unavailable", "DELETE"]
+    ]);
+  });
+
   it("deletes an invalid initial interaction before starting a bound background repair", async () => {
     const invalid = compactPacketValue();
     invalid.candidate_rows[0]!.pop();
@@ -521,5 +630,62 @@ describe("Gemini YouTube scout adapter", () => {
     expect(repairRequest).toMatchObject({ background: true, store: true });
     expect(repairRequest.tools).toBeUndefined();
     expect(String(repairRequest.input)).toContain("Executed Google Search queries");
+  });
+
+  it("charges a repaired background scout for every search its first interaction ran", async () => {
+    // 72 distinct searches and no provider search count: the ledger keeps the
+    // first 30, and cost still counts all 72.
+    const queries = Array.from({ length: 72 }, (_, index) => `"hip pain" program ${index + 1}`);
+    const ledger = queries.slice(0, 30);
+    const repaired: GeminiYoutubeCandidatePacket = {
+      ...packet(),
+      // Every purpose still appears, as the contract requires.
+      discovery_queries: ledger.map((query, index) => ({
+        purpose: packet().discovery_queries[index % 8]!.purpose,
+        query
+      }))
+    };
+    const invalid = compactPacketValue(repaired);
+    invalid.candidate_rows[0]!.pop();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: "interaction-background-1",
+        status: "completed",
+        model: CONFIG.model,
+        steps: [
+          { type: "google_search_call", arguments: { queries } },
+          { type: "google_search_result", results: [] },
+          { type: "model_output", content: [{ type: "text", text: JSON.stringify(invalid) }] }
+        ],
+        usage: { total_input_tokens: 1_000, total_output_tokens: 2_000, total_thought_tokens: 500 }
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: "interaction-background-repair-1",
+        status: "in_progress",
+        steps: []
+      }), { status: 200 }))
+      .mockResolvedValueOnce(repairInteractionResponse(compactPacket(repaired)))
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const started = await advanceGeminiYoutubeScoutBackground(INPUT, CONFIG, {
+      interaction_id: "interaction-background-1",
+      phase: "INITIAL",
+      provider_interaction_count: 1,
+      poll_attempts: 0,
+      executed_search_queries: []
+    });
+    expect(started).toMatchObject({
+      kind: "progress",
+      checkpoint: { phase: "REPAIR", executed_search_queries: ledger, executed_search_count: 72 }
+    });
+    if (started.kind !== "progress") throw new Error("expected a repair checkpoint");
+
+    const finished = await advanceGeminiYoutubeScoutBackground(INPUT, CONFIG, started.checkpoint);
+    expect(finished).toMatchObject({
+      kind: "complete",
+      frontier: { data: { correction_attempted: true, usage: { google_search_queries: 72 } } }
+    });
   });
 });
