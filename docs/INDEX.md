@@ -33,7 +33,12 @@ complete XML protocol.
   Bright Data comparison against AskRigor's current video search, transcript
   and YouTube comment methods, plus Reddit, TikTok, Instagram, Facebook, X and
   blocked-forum access, with the frozen validation question, credit ledger,
-  routing blocker and nonclaims; evidence only, no adoption verdict
+  nonclaims, the session's assessment and the owner's decision (a paid feature
+  on purchased credits; the owner uses it freely)
+- `superpowers/plans/2026-10-01-pr246-production-release.md`: merge, build,
+  deployment, acceptance and rollback plan for PR #246, with the notice v2
+  hold and restore scripts and the gaps found while planning; awaiting the
+  owner's approval
 - `audits/2026-09-08-google-youtube-api-compliance-review.md`: Google review
   closeout covering current and historical project numbers, API-key-only
   authentication, exact public-data lifecycle, privacy remediation, credential
