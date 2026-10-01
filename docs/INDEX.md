@@ -55,6 +55,12 @@ complete XML protocol.
   and `.json`: exact PR #205 clinical-gate release, immutable backend image and
   rollback, authenticated HRP 20.5.27 worker readback, benchmark-target-integrity
   boundary, plugin receipt, and promotion-timer acceptance
+- `audits/2026-10-01-pr246-production-release.md` and `.json`: PR #246
+  instruction-optimization backend release (HRP 20.6.8, Universal 20.5.33,
+  32 tools), the unrecorded 2026-09-25 deployment it replaced, build, transfer,
+  migration 0011, rollback state, live acceptance including the first live
+  Reddit thread check, plugin receipts, the site wording release and the
+  findings library's opening
 - `audits/2026-09-11-longitudinal-evidence-production-release.md` and `.json`:
   exact PR #214 protocol/evidence-contract release, immutable backend image and
   rollback, authenticated Universal 20.5.23 and HRP 20.5.28 worker readback,
