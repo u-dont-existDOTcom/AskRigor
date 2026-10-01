@@ -90,7 +90,9 @@ held-out comparison is done, and the new version passes its rule. It won
 overall and on safety in the knee pair (30 Sep, at twice the time and plan
 usage) and in the Hashimoto pair (1 Oct, 1.6 times the time, 1.5 times the
 plan usage). The Hashimoto pair ran without the Gemini scout because of a
-local harness permission. Results and limits are in the plan. Merge and
+local harness permission, since fixed in the runner. A supplementary scout-on
+rerun of that question, made after the decision, also won (it confirms
+nothing). Results and limits are in the plan. Merge and
 deployment wait for the owner's explicit approval. The MAST
 records below are unchanged; the owner set aside a full MAST rerun for this task.
 

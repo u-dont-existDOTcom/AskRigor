@@ -1328,6 +1328,48 @@ Held-out results:
     each can catch a large step backwards, not a small difference. The judge
     shares the answering model's family. And the Hashimoto pair ran without the
     scout.
+- **Supplementary, 1 Oct: the Hashimoto question rerun with the scout working.**
+  Run after the decision above was known, so it cannot confirm anything and
+  does not change the decision. It checks that the scout-on path, which the
+  new version is built around, does not do worse. The new arm reran alone on
+  `0a0d27a` with the fixed runner (`71022ce3`), 15:37:50 to 16:17:21 UTC. The
+  judge compared it with the same `main` answer as above, with the same
+  settings (seed 1, web spot-checks).
+
+  | | New, scout working | New, held-out run | Live (`main`) |
+  |---|---|---|---|
+  | Wall time | 39.5 min | 34.8 min | 21.6 min |
+  | Tool calls | 147 | 111 | 93 |
+  | Tool waiting | 5.7 min | 3.3 min | 2.1 min |
+  | Final check | `ready_with_limits` on the third call (the first two sent back 5 and 1 next steps); 39 receipts | on the second call | none |
+  | YouTube quota units | 1,509 (10 searches) | 1,644 (12 searches) | 1,597 (12 searches) |
+  | API-equivalent estimate (actual spend $0) | $14.14 | $11.79 | $7.66 |
+
+  - The scout ran. The first call returned `pending`, and the second, 35
+    seconds later, `complete`, with 14 discovery queries and a research
+    receipt. Neither of the two videos it named by ID passed AskRigor's
+    identity check, because title and channel both differed from YouTube's
+    metadata. One was the same LDN video worded differently ("5 year" for
+    "five year"), and the model audited it anyway, as the check's limitation
+    allows. The other ID belonged to a different video. Four videos it named
+    only by title were found on YouTube, but none was audited. The scout-off
+    run had audited the same LDN video. So the scout barely changed the
+    audited set, and the difference between the two new answers is
+    run-to-run variation, not the scout's effect.
+  - Blind judge, 4.2 minutes, 6 citations checked, all supported: the scout-on
+    answer won overall with high confidence, and on all five criteria,
+    including appraisal, which `main` had won against the held-out run.
+  - The judge's errors in the scout-on answer:
+    - it says it read the full set of comments on four videos, then that it
+      reviewed about 440 of about 995;
+    - it says the comparison does not rank the options, then gives a "most
+      productive order";
+    - a categorical DIO2 statement;
+    - an uncited claim that a named creator no longer holds an active
+      medical license;
+    - the redacted protocol line and process text, as before.
+  - The uncited claim about a named person's license is new in these runs. It
+    is a candidate lesson for review, not a change to the version under test.
 
 ## Checks that work in any language (owner correction, 2026-09-29)
 
