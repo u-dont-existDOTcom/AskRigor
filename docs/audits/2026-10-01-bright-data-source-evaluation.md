@@ -12,8 +12,69 @@ pulling transcripts, and how it would do for other social sources (Facebook,
 Reddit if ChatGPT cannot reach it, and so forth).
 
 This record is the measured evidence for that question, capability by
-capability. It makes no adoption verdict: the reasoning chat and the owner
-decide whether each capability is adopted, kept as a fallback or rejected.
+capability, followed by an assessment. The directive was written for a Codex
+worker and left the verdict to a reasoning chat. After the run, the owner
+corrected that: a Claude session does its own reasoning
+(u-dont-existDOTcom/universal-dev-architecture#305, u-dont-existDOTcom/AskRigor#255).
+So the assessment is this session's own. Spending decisions stay with the owner.
+
+## Assessment
+
+- **Default research: don't use Bright Data.** Its YouTube keyword search takes
+  2 to 3 minutes a query, against under a second for the official search. Its
+  video records take about 80 seconds, against 2.5 seconds for AskRigor's own
+  transcripts. For YouTube comments the official API is better on every
+  measure: complete with replies, faster, and free. The owner reached the same
+  conclusion from these results.
+- **Use it as a transcript fallback.** YouTube rate-limited AskRigor's own
+  transcript route after about 30 consecutive requests, and it stayed limited
+  for at least 30 minutes. Bright Data returned all 17 transcripts, including
+  the two AskRigor lost. Called only when AskRigor's route answers
+  `youtube_transcript_rate_limited`, it costs one credit and a minute or two
+  per video.
+- **Use it for the deeper community pass, when the user asks for one.** The
+  first pass already offers "deeper community research". Bright Data reaches
+  what the user's AI can't:
+  - TikTok comments;
+  - public Facebook groups;
+  - X posts;
+  - Reddit when the AI is Claude. The owner found on 29 Sep that ChatGPT reads
+    Reddit itself.
+
+  Skip Instagram (no comments in either test) and Facebook pages (search
+  couldn't reach them). Run the platforms in parallel. The measured passes
+  would take about 5 to 15 minutes, set by TikTok.
+- **Cost per deeper pass, as measured.**
+  - Without Reddit, about 70 to 120 credits (TikTok 56 to 105, Facebook groups
+    6, X up to 5, searches about 5). Reddit adds about 90 to 140, three
+    threads' comments plus lookups. Worst case near 600, if every thread is
+    long.
+  - At Bright Data's pay-as-you-go price of $1.50 per 1,000 records, that's
+    about $0.11 to $0.18 a pass without Reddit and about $0.31 with it.
+  - The free 5,000 credits a month cover about 40 to 70 passes without Reddit,
+    or about 23 with it, shared with the owner's other Bright Data use.
+  - The Scale plan ($499 a month for 384,000 records, then $1.30 per 1,000)
+    only pays off at thousands of passes a month.
+- **Not worth more work: Bright Data video search and its relevance labels.**
+  Speed keeps its video search out of the default path, so labeling its
+  candidates would not change this assessment. The blinded pools stay on the
+  receipt page if a future question needs them.
+- **What building the two uses would take:**
+  - a Bright Data key on the AskRigor server, which the owner sets up;
+  - a privacy data map and public privacy page entry naming Bright Data as a
+    processor. It would receive public URLs and search phrases derived from the
+    research topic.
+  - dropping every author field the platforms return before anything is stored
+    or shown;
+  - a spending decision: free credits only, or pay-as-you-go with a monthly
+    cap.
+- **Two AskRigor findings to fix, separately from Bright Data:**
+  - Production serves no transcript route, neither Action nor MCP tool. So
+    connector users currently get no transcripts; the research-session runtime
+    uses the route only internally.
+  - Called without a language, the route picks the first listed caption track.
+    For 4 of 17 videos that was a track in an unrelated language. It should
+    prefer the video's own language or its manual track.
 
 This was an isolated evaluation. It changed no MCP or Action tool, Custom GPT,
 plugin, protocol, privacy map, deployment or Railway setting. Raw provider
@@ -175,11 +236,9 @@ T3 returned YouTube video links for 98% (Q1), 100% (Q2) and 87% (Q3) of its orga
   snapshot, not searched again. From then on T2 waited up to 900 seconds.
 - None of the three transports found the held-out video `XpZHKGGCK-o` with the
   static queries for Q1.
-- Relevance labels: pending. Labeling is a reasoning action (directive section
-  4). The blinded pools were built (see "Labeling and routing"), but the route
-  to the AskRigor Project Manager chat is down, so the label-based measures (the
-  count and share of each label per transport, and qualifying finds unique to
-  each transport) are not reported here.
+- Relevance labels: not done. The blinded pools were built, but labels would
+  not change the assessment, because speed keeps Bright Data's video search out
+  of the default path. The pools stay on the receipt page.
 
 ### Lane B: transcripts
 
@@ -288,8 +347,9 @@ tried each thread page and its `.json` form. The comment count came from the
 - Structure: every comment record carries `parent_comment_id`; nested replies
   come back inside records; deleted or removed comments are marked. Fields
   include `user_posted` and `community_name` (author data present).
-- ChatGPT capability probe: `chatgpt_reddit_probe_unattempted: relay_unavailable`
-  (see "Labeling and routing").
+- ChatGPT capability probe: `chatgpt_reddit_probe_unattempted: relay_unavailable`;
+  the owner's 29 Sep report that ChatGPT reads Reddit covers its question (see
+  "Labeling and routing").
 
 ### Lane E: other social platforms
 
@@ -449,13 +509,13 @@ monthly pool were requested.
   device was last seen 291 hours before 05:10 UTC on 2026-10-01). This session
   also holds no Mission Control worker credential. Nothing was queued or sent;
   the transport blocker is `relay_unavailable`.
-- The pools and the results packet therefore went into the final receipt for
-  the reasoning chat, as the directive provides. The label-based Lane A, D and
-  E measures stay pending until labels come back.
+- The pools and the results packet therefore went into the final receipt. After
+  the owner's correction, a Claude session reports to the owner directly, so no
+  packet needs routing. The pools were not labeled (see "Assessment").
 - ChatGPT Reddit capability probe:
-  `chatgpt_reddit_probe_unattempted: relay_unavailable`. The probe has to go to
-  a Mission Control-owned ChatGPT chat through the relay, never one of the
-  owner's personal chats.
+  `chatgpt_reddit_probe_unattempted: relay_unavailable`. The question it would
+  answer was settled by the owner's own report on 29 Sep: ChatGPT reads Reddit.
+  Bright Data's Reddit use is therefore scoped to Claude.
 
 ## Data handling
 

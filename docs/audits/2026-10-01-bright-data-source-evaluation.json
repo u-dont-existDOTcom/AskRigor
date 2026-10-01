@@ -4356,10 +4356,11 @@
   "state": "relay_unavailable",
   "queued": false,
   "delivered": false,
-  "reason": "relay host offline since about 2026-09-19; no Mission Control worker credential in this session"
+  "reason": "relay host offline since about 2026-09-19; no Mission Control worker credential in this session",
+  "after_owner_correction": "not needed: a Claude session reports to the owner directly (owner, 2026-10-01)"
  },
- "chatgpt_reddit_probe": "chatgpt_reddit_probe_unattempted: relay_unavailable",
- "labels": "pending",
+ "chatgpt_reddit_probe": "chatgpt_reddit_probe_unattempted: relay_unavailable; question settled by the owner report of 2026-09-29 that ChatGPT reads Reddit",
+ "labels": "not done: speed keeps Bright Data video search out of the default path, so labels would not change the assessment",
  "pool_key_sha256": "714df5f93101ea40b8831f5670bc125d57ca7284904206f97f31eda751f85e54",
  "pool_sizes": {
   "Q1": 104,
@@ -4373,5 +4374,42 @@
   "metadata_stripped": true
  },
  "lane_b_language_note": "Called without a language, the AskRigor route takes the first listed track; for stZdnA9zeQE, qfPjRBqADKk (ar), 0sZEvvPWq88 (zh-Hans) and Eq0SssY4ZXs (ar label) it was not the English track Bright Data returned; WER for the first three compares different languages.",
- "transcript_action_production": "HTTP 404 on 2026-10-01; route defined at 745b780 but not mounted by the default server"
+ "transcript_action_production": "HTTP 404 on 2026-10-01; route defined at 745b780 but not mounted by the default server",
+ "assessment": {
+  "author": "this Claude Code session, after the owner correction of 2026-10-01 that a Claude session does its own reasoning",
+  "default_research": "do not use Bright Data (video search 2-3 min/query, video records ~80 s; official YouTube comments API is complete, faster and free)",
+  "transcript_fallback": "use Bright Data only when AskRigor answers youtube_transcript_rate_limited: 1 credit per video",
+  "deeper_community_pass": "user-requested: TikTok comments, public Facebook groups, X posts, Reddit on Claude; skip Instagram and Facebook pages; ~5-15 min in parallel",
+  "credits_per_deeper_pass": {
+   "without_reddit": [
+    70,
+    120
+   ],
+   "with_reddit": [
+    205,
+    215
+   ],
+   "worst_case": 600
+  },
+  "usd_per_deeper_pass_at_payg_1_50_per_1000": {
+   "without_reddit": [
+    0.11,
+    0.18
+   ],
+   "with_reddit": 0.31
+  },
+  "free_tier_passes_per_month": {
+   "without_reddit": [
+    40,
+    70
+   ],
+   "with_reddit": 23
+  },
+  "pricing_source": "brightdata.com/pricing/web-scraper on 2026-10-01: free 5,000 records/month; pay-as-you-go 1.5 USD/1K; Scale 499 USD/month with 384,000 records then 1.3 USD/1K",
+  "owner_decisions": [
+   "spending: free credits only or pay-as-you-go with a monthly cap",
+   "Bright Data key on the AskRigor server",
+   "privacy map and public privacy page naming Bright Data as a processor"
+  ]
+ }
 }

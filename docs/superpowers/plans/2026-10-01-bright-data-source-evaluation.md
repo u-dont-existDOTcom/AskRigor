@@ -147,3 +147,8 @@ Results: `docs/audits/2026-10-01-bright-data-source-evaluation.md` and `.json`.
 - Routing: the Mission Control relay to the AskRigor Project Manager chat is
   offline, so the blinded labeling pools and the results packet went into the
   final receipt, and the ChatGPT Reddit probe is `unattempted: relay_unavailable`.
+- Assessment: after the owner's correction later on 1 Oct that a Claude session
+  does its own reasoning (UDA #305, AskRigor #255), the audit gained this
+  session's assessment. Bright Data stays out of the default path. It is
+  recommended as a transcript fallback, and for the deeper community pass the
+  user asks for, with measured costs. Spending decisions stay with the owner.
