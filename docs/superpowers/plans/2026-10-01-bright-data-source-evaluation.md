@@ -114,3 +114,36 @@ stores is sent to Bright Data.
 `codex/bright-data-eval-20261001`; open a pull request and leave it open; route
 the results packet if a route exists; final receipt to the owner and the
 reasoning chat.
+
+## Execution record (2026-10-01)
+
+Results: `docs/audits/2026-10-01-bright-data-source-evaluation.md` and `.json`.
+
+- Executor change: at 03:27 UTC the owner moved the work from the cloud session
+  to a local Claude Code session on the laptop (Opus 5.5, max effort). The cloud
+  session had finished the preflight, this plan and the official-search
+  baselines for Q1 and Q2. The local session rechecked the directive's bytes
+  from the owner's copy (19,978 bytes, same SHA-256) and reran the validator
+  (`CHAT_WORK_AUTHORITY_GATE_PASS`).
+- Transcript baseline: production returned HTTP 404 for the transcript Action,
+  which `745b780` defines but does not mount, and which the server drops when
+  OAuth research access is configured. The AskRigor side of Lane B therefore ran
+  the same route code from `745b780` on a local server bound to `127.0.0.1`.
+- Harness choices made on development data (Q1, Q2) before the freeze:
+  - T2 waits up to 900 seconds. A search that outlives the client is fetched from
+    its snapshot, not searched again.
+  - Searches that only find input URLs for Lanes D to F are retried once; Lane A's
+    transport searches are not.
+  - Google `/goto` result links are resolved to their destination.
+  - Facebook posts must be ID-form links.
+  - Lane F keeps two blocked pages per question across Q1, Q2 and Q3 (six), with
+    up to four searches per question.
+  - Lane B's AskRigor side uses the route's default track. Bright Data receives
+    full language names.
+- Freeze: 05:52:02 UTC, before any Q3 call, with SHA-256 receipts for the lane
+  scripts, query lists and metric code (listed in the audit). Every Q3 run
+  checked them first. Lane C's corrected processing is in a separate file, so
+  the frozen files stayed unchanged.
+- Routing: the Mission Control relay to the AskRigor Project Manager chat is
+  offline, so the blinded labeling pools and the results packet went into the
+  final receipt, and the ChatGPT Reddit probe is `unattempted: relay_unavailable`.

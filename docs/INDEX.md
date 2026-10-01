@@ -29,6 +29,11 @@ complete XML protocol.
   API comparison without paid Search grounding, covering planned discovery,
   validated URL generation, direct video summaries, transcript latency/access
   boundaries, and the recommended lazy-escalation architecture
+- `audits/2026-10-01-bright-data-source-evaluation.md` and `.json`: measured
+  Bright Data comparison against AskRigor's current video search, transcript
+  and YouTube comment methods, plus Reddit, TikTok, Instagram, Facebook, X and
+  blocked-forum access, with the frozen validation question, credit ledger,
+  routing blocker and nonclaims; evidence only, no adoption verdict
 - `audits/2026-09-08-google-youtube-api-compliance-review.md`: Google review
   closeout covering current and historical project numbers, API-key-only
   authentication, exact public-data lifecycle, privacy remediation, credential
