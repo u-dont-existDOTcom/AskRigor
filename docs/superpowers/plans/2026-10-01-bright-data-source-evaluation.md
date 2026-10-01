@@ -152,3 +152,9 @@ Results: `docs/audits/2026-10-01-bright-data-source-evaluation.md` and `.json`.
   session's assessment. Bright Data stays out of the default path. It is
   recommended as a transcript fallback, and for the deeper community pass the
   user asks for, with measured costs. Spending decisions stay with the owner.
+- Owner decision, 16:44 UTC (owner questions page, question 16): Bright Data is
+  a paid feature that spends AskRigor credits users buy; free users don't get
+  it; the owner uses it freely. AskRigor has no credits or checkout yet, so the
+  build order is AskRigor's own transcript fixes, then both uses for the owner
+  only, then paid accounts once billing exists. Recorded in the audit's "Owner
+  decision" section.
