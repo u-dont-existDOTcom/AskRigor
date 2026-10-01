@@ -292,7 +292,7 @@ exhaustion with its `coverage_receipt`, and `bdata pipelines youtube_videos`
   automatic tracks in other languages. Its `ar`-labeled AskRigor text matched
   Bright Data's output (WER 0.001), so the label, not the text, differs there.
   The non-English edge case was therefore not truly exercised. These are
-  findings for the reasoning chat; nothing was changed.
+  AskRigor findings, listed under "Assessment"; nothing was changed.
 - Credits: 17, one per video record.
 
 ### Lane C: YouTube comments
