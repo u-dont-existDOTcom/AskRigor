@@ -47,6 +47,17 @@ authority from selecting a reasoning method.
 
 ## Chat-to-Work authority gate
 
+This gate governs OpenAI surfaces, where ChatGPT reasons and Codex/Work
+executes. A Claude session (Claude Code, the Claude app or claude.ai) both
+reasons and executes (owner, 2026-10-01; UDA
+`patterns/chat-work-execution-routing-threshold.md`, "Claude sessions reason
+and execute"). It does its own analysis, method within the owner's decisions,
+verdicts and recommendations; it files validator requests as `CLAUDE_SESSION`,
+never `CODEX`; and it never routes reasoning to a reasoning chat or the Project
+Manager chat. A directive written for a Codex worker binds a Claude session's
+scope, data handling, spending caps and safety limits, not its reasoning.
+Owner-only decisions go on the owner questions page.
+
 Apply the shared Chat/Work actor, provenance, and pre-action rules through
 `project/DEVELOPMENT_INHERITANCE.md`. AskRigor's local binding is:
 
@@ -67,14 +78,21 @@ While its zero-spend owner decision is current:
 - the maximum model API spend is USD 0;
 - Codex/Work may not author a paid smoke proposal or pilot ceiling;
 - an older or hypothetical paid manifest cannot revive the path;
-- ChatGPT consumer Extra High/Pro is the default reasoning/evaluation surface;
-- any later nonzero-spend proposal must originate in a source-bound reasoning
-  chat and still requires a newer explicit owner decision before execution.
+- for GPT workers, ChatGPT consumer Extra High/Pro is the default
+  reasoning/evaluation surface; a Claude session reasons on the owner's Claude
+  plan;
+- any later nonzero-spend proposal must come from a reasoning surface (a
+  source-bound ChatGPT reasoning chat or a Claude session) and still requires a
+  newer explicit owner decision before execution.
 
 Preventing the API call while allowing Codex to invent and advocate the paid
 path is a gate failure.
 
 ## Internal supervisor routing
+
+This routing is for GPT workers supervised through Mission Control. A Claude
+session reports to the owner directly, in its replies and on the owner
+questions page, and queues nothing for a ChatGPT supervisor.
 
 Apply the shared internal-routing and delivery-truth rule activated by
 `project/DEVELOPMENT_INHERITANCE.md`. Bind the exact packet/digest, configured
@@ -173,7 +191,8 @@ work to the user's attention and obtain direction before expanding scope.
 Do not commit credentials, private user data, raw private research content, or
 unrestricted provider output. Preserve explicit inaccessible, partial, deferred,
 and error states. Health/research policy and substantive protocol changes require
-owner judgment through the ChatGPT reasoning surface.
+owner judgment: through the ChatGPT reasoning surface for GPT workers, or as a
+question on the owner questions page from a Claude session.
 
 ## Code review rules
 
