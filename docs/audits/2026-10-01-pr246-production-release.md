@@ -11,10 +11,12 @@ Production now serves HRP 20.6.8 (revision 2026-09-30, SHA-256
 Universal 20.5.33 (revision 2026-09-30, SHA-256
 `981429bd73d163f860ab3939aae5ac7057a3557285faa59fa3c8779f12c9722a`).
 
-**Release state: backend release complete; the findings library stays
-closed.** It opens after the approved privacy and terms wording is live
-(u-dont-existDOTcom/AskRigor#259). Claude Code's safety check held that merge
-for the owner's explicit approval.
+**Release state: complete.** The backend went live at 18:51 UTC. The approved
+privacy and terms wording went live at 20:18 UTC, and the findings library
+opened at 20:19 UTC.
+
+Claude Code's safety check held the wording merge
+(u-dont-existDOTcom/AskRigor#259) until the owner named it ("21 merge").
 
 ## What the release replaced
 
@@ -31,7 +33,8 @@ record in this repository. Its root-only rollback directory on the host is
 - the rule and record PRs (#253, #255, #256);
 - #246 itself.
 
-The site logo (#247) changes only the site, which this release did not deploy.
+The site logo (#247) changes only the site. It was already live: the active
+site release before this one was its merge, `0e0d0f4d`, from 2026-09-27.
 
 ## Build and transfer
 
@@ -169,17 +172,56 @@ The plan's "Rollback" section applies.
 - **Plugin.** Restore the source from the rollback copy and run
   `codex plugin add askrigor@personal`.
 
-## Still open
+## Site release (approved wording)
 
-1. Merge u-dont-existDOTcom/AskRigor#259, the approved privacy and terms
-   wording effective October 1, 2026 (all checks green), on the owner's
-   explicit approval.
-2. Deploy the site from that merge. It also ships the #247 logo.
-3. Set `ASKRIGOR_FINDINGS_LIBRARY=enabled`, recreate `research-mcp`, and save
-   one synthetic card end to end.
+- **Source.** u-dont-existDOTcom/AskRigor#259 merged as `df471dd644e1dc00a0b4fe66dcffdbfb2ed87cfb`;
+  its tree equals the PR head. The edits are the plan's approved list, applied
+  as written, with one comma added. Both pages are effective October 1, 2026.
+- **Archive.** Made with `scripts/create-public-site-archive.sh`, which ran
+  the site validator (4 pages). 17 members, 25,377 bytes, SHA-256
+  `45bb8d63cf0de4adab6c0719efe916670683e269fbcac64799015aa9add2d8f0`, verified
+  again from a separate directory. A secret scan matched only Docker format
+  strings (`.Config.Env`).
+- **Staging.** The archive, its checksum file and the merge's installer
+  (SHA-256 `faeb5f9f…`) went to `/opt/askrigor/site/staging/df471dd644e1`
+  (root, 0700), where checksum, ownership and no-symlink checks passed.
+- **Install.** `ops/public-site/install-public-site.sh` ran once and exited
+  0. It validated the Caddy configuration and activated
+  `/opt/askrigor/site/releases/df471dd644e1dc00a0b4fe66dcffdbfb2ed87cfb` at
+  20:18:04 UTC.
+  - It recreated only Caddy, whose container is new (`f3585e6e0e83`).
+  - The research container stayed the same one (`fe3d7ef80ba9`) and healthy.
+  - The orphan warning names the database container, which belongs to the
+    other Compose file, as before.
+- **Live, from outside.** `/`, `/privacy`, `/terms` and `/support` return
+  200 and match the merge byte for byte. `http://askrigor.com/privacy`
+  answers 308 to HTTPS. MCP `/healthz` and `/actions/openapi.json` return 200.
 
-Until then, the in-app v2 notice already says findings cards are saved, but
-none is: the library is closed.
+## Findings library
+
+- **Opened.** `runtime.env` was first copied to the rollback directory as
+  `runtime.env.pre-library`. Then `ASKRIGOR_FINDINGS_LIBRARY=enabled` was set
+  (new SHA-256 `b14ce30a…`, root 0600). `research-mcp` was recreated at about
+  20:19 UTC: healthy within about 8 seconds, the security envelope unchanged,
+  one log line.
+- **The gate holds.** In the live container, a well-formed card with a
+  finalization receipt the server never issued was refused:
+  `card_not_checked`, `receipt_invalid`. The library is open and still
+  requires a genuine receipt.
+- **Delivery works.** One clearly marked synthetic card went through the real
+  queue (`GitHubFindingsQueue`) to the private `AskRigor-findings` repository
+  and became `ARF-0001`. It carries the `findings-card` and `pending-review`
+  labels, the card marker and the build stamp. It was then commented and
+  closed as not planned, so the owner's queue holds no test card.
+- **Rollback.** Unset the flag, or restore `runtime.env.pre-library`, and
+  recreate `research-mcp`. Saved cards stay in the private repository.
+
+## Also merged on the owner's answers (not deployed by this release)
+
+- **ip-address security update.** u-dont-existDOTcom/AskRigor#258 ("20
+  merge"), a three-line lockfile change, merged as `a2fc064a`. GitHub marked
+  alerts 13 to 16 fixed, and Dependabot closed its duplicate (#251). The
+  server does not load this library; the next release picks up the lockfile.
 
 ## Verification and lessons
 
@@ -188,6 +230,8 @@ none is: the library is closed.
   checks passed.
 - `npm run contributor-access:notice-v2-rollback-acceptance` passed, and two
   mutations failed it as intended.
+- The site wording's head passed `npm run verify` (2,212 tests), `npm run test:site`
+  and `npm run test:site-deploy` (28 tests), and CI's deterministic verification.
 - Lesson checkpoint at 18:40:52 UTC: available, 2 open, 2 needing review, 0
   accepted but not incorporated, 5 incorporated or closed, 0
   deletion-eligible.

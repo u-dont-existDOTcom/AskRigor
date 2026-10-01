@@ -95,8 +95,8 @@ rerun of that question, made after the decision, also won (it confirms
 nothing). Results and limits are in the plan. Merged and
 deployed on 2026-10-01 (owner question 19): production serves the merge
 `5640e6d2`, recorded in `docs/audits/2026-10-01-pr246-production-release.md`.
-The findings library stays closed until the approved privacy and terms
-wording (AskRigor#259) is live; that merge waits for the owner (question 21). The MAST
+The approved privacy and terms wording went live at 20:18 UTC, and the
+findings library opened at 20:19 UTC (owner question 21). The MAST
 records below are unchanged; the owner set aside a full MAST rerun for this task.
 
 ## Authority and parent task

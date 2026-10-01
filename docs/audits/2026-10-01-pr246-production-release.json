@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-pr246-instruction-optimization-release-2026-10-01",
-  "recordedAt": "2026-10-01T19:20:00Z",
-  "releaseState": "backend_release_complete_findings_library_closed",
+  "recordedAt": "2026-10-01T20:30:00Z",
+  "releaseState": "production_release_complete",
   "source": {
     "pullRequest": "u-dont-existDOTcom/AskRigor#246",
     "reviewedHead": "e8d0092fb8b1acd2a3e80021feccda90b764854f",
@@ -11,7 +11,14 @@
     "ownerApproval": "approve all (owner question 19, 2026-10-01)",
     "replacedImage": "askrigor-research:b04d1e1cb308261c8838eab1066b98c98891585f",
     "replacedImageRecord": "none in this repository (deploy of #236, 2026-09-25; host rollback directory pre-claude-oauth-20260925T143000Z)",
-    "firstParentMergesShipped": 22
+    "firstParentMergesShipped": 22,
+    "siteWording": {
+      "pullRequest": "u-dont-existDOTcom/AskRigor#259",
+      "mergeCommit": "df471dd644e1dc00a0b4fe66dcffdbfb2ed87cfb",
+      "mergeTreeEqualsHead": true,
+      "ownerApproval": "21 merge (2026-10-01), after Claude Code's safety check held the merge under 'approve all'",
+      "effectiveDate": "October 1, 2026"
+    }
   },
   "canonicalArtifacts": {
     "hrp": {
@@ -116,6 +123,54 @@
         "hold": "f64569dd",
         "restore": "12bcecf9"
       }
+    },
+    "site": {
+      "archive": {
+        "members": 17,
+        "bytes": 25377,
+        "sha256": "45bb8d63cf0de4adab6c0719efe916670683e269fbcac64799015aa9add2d8f0"
+      },
+      "installerSha256Prefix": "faeb5f9f",
+      "staging": "/opt/askrigor/site/staging/df471dd644e1",
+      "activatedRelease": "/opt/askrigor/site/releases/df471dd644e1dc00a0b4fe66dcffdbfb2ed87cfb",
+      "activatedAt": "2026-10-01T20:18:04Z",
+      "previousRelease": "0e0d0f4dcd92c932846fc3b2ef9e4c2486925f62 (the #247 logo, 2026-09-27)",
+      "recreated": [
+        "caddy"
+      ],
+      "researchContainerUnchanged": true,
+      "livePages": {
+        "/": 200,
+        "/privacy": 200,
+        "/terms": 200,
+        "/support": 200,
+        "bytesMatchMerge": true,
+        "httpToHttps": 308
+      }
+    },
+    "findingsLibrary": {
+      "flag": "ASKRIGOR_FINDINGS_LIBRARY=enabled",
+      "runtimeEnvSha256Prefix": "b14ce30a",
+      "preLibraryCopy": "/opt/askrigor/rollbacks/pre-5640e6d2cfef6d2436ef5459dee3fad08c8e8fd3/runtime.env.pre-library",
+      "recreatedAt": "2026-10-01T20:19Z",
+      "healthyAfterSeconds": 8,
+      "gateTest": {
+        "input": "well-formed card, receipt the server never issued",
+        "status": "card_not_checked",
+        "reason": "receipt_invalid"
+      },
+      "deliveryTest": {
+        "queue": "GitHubFindingsQueue",
+        "repository": "u-dont-existDOTcom/AskRigor-findings",
+        "cardId": "ARF-0001",
+        "labels": [
+          "findings-card",
+          "pending-review"
+        ],
+        "cardMarker": true,
+        "buildStamp": true,
+        "afterTest": "commented and closed as not_planned"
+      }
     }
   },
   "activeWorker": {
@@ -202,10 +257,22 @@
       "checkedAt": "2026-10-01T18:40:52Z"
     }
   },
-  "typedCompletionClaim": "PARTIAL",
-  "remainingBlockers": [
-    "Merge u-dont-existDOTcom/AskRigor#259 (approved privacy and terms wording, effective October 1, 2026): held by Claude Code's safety check for the owner's explicit approval",
-    "Deploy the site from that merge (also ships #247's logo)",
-    "Set ASKRIGOR_FINDINGS_LIBRARY=enabled, recreate research-mcp, and save one synthetic card end to end"
+  "typedCompletionClaim": "OUTCOME",
+  "remainingBlockers": [],
+  "alsoMerged": [
+    {
+      "pullRequest": "u-dont-existDOTcom/AskRigor#258",
+      "mergeCommit": "a2fc064abdf691ad70b87ae48dfab57e30d093de",
+      "ownerApproval": "20 merge",
+      "change": "ip-address 10.5.0 -> 10.7.2 (package-lock.json, 3 lines)",
+      "alertsFixed": [
+        13,
+        14,
+        15,
+        16
+      ],
+      "duplicateClosed": "u-dont-existDOTcom/AskRigor#251",
+      "deployed": false
+    }
   ]
 }
