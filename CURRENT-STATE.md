@@ -92,10 +92,11 @@ usage) and in the Hashimoto pair (1 Oct, 1.6 times the time, 1.5 times the
 plan usage). The Hashimoto pair ran without the Gemini scout because of a
 local harness permission, since fixed in the runner. A supplementary scout-on
 rerun of that question, made after the decision, also won (it confirms
-nothing). Results and limits are in the plan. Merge and
-deployment wait for the owner's explicit approval (owner question 19); the
-release plan, with the notice v2 rollback step and the unrecorded production
-version, is `docs/superpowers/plans/2026-10-01-pr246-production-release.md`. The MAST
+nothing). Results and limits are in the plan. Merged and
+deployed on 2026-10-01 (owner question 19): production serves the merge
+`5640e6d2`, recorded in `docs/audits/2026-10-01-pr246-production-release.md`.
+The findings library stays closed until the approved privacy and terms
+wording (AskRigor#259) is live; that merge waits for the owner (question 21). The MAST
 records below are unchanged; the owner set aside a full MAST rerun for this task.
 
 ## Authority and parent task
