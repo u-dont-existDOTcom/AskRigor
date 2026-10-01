@@ -1447,7 +1447,7 @@ function defineResearchOperations(
   registrar.registerTool(
     "manage_research_access",
     {
-      description: `Inspect or choose AskRigor's research-use mode. Free use requires explicit agreement to version ${RESEARCH_USE_NOTICE_VERSION}: what AskRigor learns from the research (deidentified structured research progress and each finished answer's findings card) is saved for non-authoritative review. Paid private mode saves nothing and activates only for an existing verified entitlement; this release offers no price or checkout.`,
+      description: `Inspect or choose AskRigor's research-use mode. Free use requires explicit agreement to version ${RESEARCH_USE_NOTICE_VERSION}: what AskRigor learns from the research (deidentified structured research progress and each finished answer's findings card) is saved for non-authoritative review. Paid private mode saves an answer's findings card or lesson feedback only when the user accepts saving it for that answer, and activates only for an existing verified entitlement; this release offers no price or checkout.`,
       inputSchema: manageResearchAccessInputSchema,
       outputSchema: manageResearchAccessOutputSchema,
       annotations: MUTATING_ANNOTATIONS,

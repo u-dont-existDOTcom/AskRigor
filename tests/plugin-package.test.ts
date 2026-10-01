@@ -113,7 +113,9 @@ describe("AskRigor plugin package", () => {
       "identity/contact details",
       "private health narratives",
       "raw source or",
-      "YouTube/community data",
+      // Free mode saves findings cards that summarize community reports, so the exclusion names what stays out
+      // (the owner-approved privacy wording, question 11, 2026-09-30).
+      "YouTube/community posts, commenters, links",
       "pending proposal is not canonical evidence",
       "Preserve partial corpora as usable",
       "accepted_pending_promotion",

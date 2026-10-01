@@ -131,6 +131,24 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
+  it("says paid private mode saves findings or lessons only after the user accepts, per answer", async () => {
+    // Owner correction to Q11 (2026-09-30): paid users' findings and lessons "are saved when saving is
+    // accepted per turn", not never saved.
+    const { client, server } = await createInMemoryClient();
+
+    try {
+      const { tools } = await client.listTools();
+      const description = tools.find(({ name }) => name === "manage_research_access")?.description ?? "";
+
+      expect(description).toContain(
+        "Paid private mode saves an answer's findings card or lesson feedback only when the user accepts saving it for that answer"
+      );
+      expect(description).not.toContain("saves nothing");
+    } finally {
+      await server.close();
+    }
+  });
+
   it("prioritizes reciprocal access before the adaptive research workflow", () => {
     const criticalInstructions = SERVER_INSTRUCTIONS.slice(0, 512);
 
