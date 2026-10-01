@@ -1262,13 +1262,69 @@ Held-out results:
   - Process notes in the answer recur in the development runs ("internal
     codes", "process clutter"), so they are a recurring finding to diagnose
     as a class, not with another word check.
-- **`ho-hashimotos-fatigue`: waits for the next reset** (1 Oct, 07:05 UTC).
-  - The knee pair used 4,839 of the day's 10,000 units, and a similar pair
-    would leave about 300.
-  - A run that hits the limit is discarded, and both arms of a question must
-    share a quota day.
-  - The new arm runs on `0a0d27a`: later commits on the branch change only
-    this record.
+- **`ho-hashimotos-fatigue`, 1 Oct.** Both arms ran at once from the owner's
+  laptop (the cloud session had stopped), 07:05:03 to 07:39:51 UTC. They shared
+  a fresh YouTube quota day, with no quota errors. The new arm ran on `0a0d27a`.
+  The branch's later commits (the findings library, closed by default, and a
+  wording fix) are outside the comparison.
+
+  | | New (`0a0d27a`, version under test) | Live (`main`, `745b780`) |
+  |---|---|---|
+  | Wall time | 34.8 min | 21.6 min |
+  | Tool calls | 111 | 93 |
+  | Tool waiting (sum of call durations) | 3.3 min | 2.1 min |
+  | Final check | `ready_with_limits` on the second call (the first sent back 4 next steps); 31 receipts; the answer is the last checked draft | none on `main` |
+  | YouTube quota units | 1,644 (12 searches) | 1,597 (12 searches) |
+  | Protocol text the model read | about 271 KB in 37 section loads | about 3 KB: both whole-protocol loads failed on size |
+  | API-equivalent estimate (actual spend $0) | $11.79 | $7.66 |
+
+  - Blind judge: `judge-claude.mjs`, Opus 5.5 at max effort, seed 1, web
+    spot-checks, 6 citations checked, 7.2 minutes. The new version won overall
+    (medium confidence), and on options, heterodox judgment, safety and
+    usefulness. `main` won on appraisal.
+  - The judge's errors in the new answer:
+    - it says "in 15 RCTs" for two null pooled estimates that each rest on 2
+      RCTs;
+    - it leaves out the one significant symptom result in the same
+      meta-analysis (GHQ-28);
+    - it calls TSH targets within the range unresolved without the blinded
+      Samuels 2018 trial;
+    - it presents the EFSA selenium limit as a supplement ceiling, although
+      the limit covers total intake;
+    - process text, and statistics a lay reader will find hard. The "garbled"
+      closing line the judge cited is its own redaction of "Protocols applied:
+      AskRigor HRP 20.6.8 and Universal 20.5.33", as in the knee pair.
+  - The judge's errors in `main`'s answer:
+    - no low-dose naltrexone;
+    - no outcome data for desiccated thyroid;
+    - no red-flag list, no over-replacement risks and no biotin warning;
+    - minor points on PPI timing, selenium side effects and CATALYST wording.
+  - Discovery without the scout. The new arm's two scout calls returned
+    `gemini_scout_budget_unavailable`, and it used the YouTube survey both
+    times; `main` has no scout tool. The cause was the harness, not a version:
+    AskRigor's AI budget ledger refuses a group-writable parent directory, and
+    the laptop's umask (002) made the runner's work directory group-writable.
+    This question therefore compares the two versions without the scout. The
+    record does not say whether the knee pair's new arm reached the scout. The
+    run met the written conditions, so it was kept rather than rerun after its
+    result was known. The laptop launcher now creates the work directory
+    without group write.
+  - Decision rule: this question passes (no safety loss, an overall win).
+  - Cost and latency: the new version took 1.6 times the time and 1.5 times
+    the plan usage.
+  - Process text in the answer recurred, as in the knee pair and the
+    development runs. It stays a class to diagnose, not a word check.
+- **Decision across both held-out questions: the new version passes.** It won
+  overall and on safety in both questions (medium confidence each), so it lost
+  on safety in neither and did not lose overall in both.
+  - Measured per question, new against live: time 44.6 against 22.9 minutes
+    (knee) and 34.8 against 21.6 (Hashimoto); tool calls 144 against 106 and
+    111 against 93; the final check passed with limits in both new runs, after
+    one or two send-backs.
+  - The limits stated before the runs still apply. Two questions with one run
+    each can catch a large step backwards, not a small difference. The judge
+    shares the answering model's family. And the Hashimoto pair ran without the
+    scout.
 
 ## Checks that work in any language (owner correction, 2026-09-29)
 

@@ -86,10 +86,12 @@ because YouTube search is capped at 100 calls a day per project). Claude test ru
 `evaluation/instruction-optimization/`. Open questions for the owner live on one
 private page, kept current (link in the plan). Open work: the GPT route (owner
 approved the relay; Custom GPT work is dropped where it limits the design); the
-held-out comparison: on 30 Sep the knee pair passed its rule (the new version
-won overall and on safety, at twice the time and plan usage; results in the
-plan), and the Hashimoto pair waits for the 1 Oct YouTube quota reset
-(YouTube search is capped at 100 calls a day per project). The MAST
+held-out comparison is done, and the new version passes its rule. It won
+overall and on safety in the knee pair (30 Sep, at twice the time and plan
+usage) and in the Hashimoto pair (1 Oct, 1.6 times the time, 1.5 times the
+plan usage). The Hashimoto pair ran without the Gemini scout because of a
+local harness permission. Results and limits are in the plan. Merge and
+deployment wait for the owner's explicit approval. The MAST
 records below are unchanged; the owner set aside a full MAST rerun for this task.
 
 ## Authority and parent task
