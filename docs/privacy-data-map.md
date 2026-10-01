@@ -710,6 +710,15 @@ enrolled, and research tools refuse it (`RESEARCH_ACCESS_REQUIRED`), until it
 accepts the new version. Migration `0011_research_use_notice_v2` lets the
 account table hold either version; the service admits only the current one.
 
+An image rollback to a version that reads only v1 first runs
+`infra/living-evidence-production/research-use-notice-v2-hold.sql`. It copies
+each v2 account row, unchanged, into `research_use_notice_v2_hold` and marks
+the account revoked, so the earlier version reads it and the person can accept
+v1 again. `research-use-notice-v2-restore.sql` puts back each account still in
+that state once a v2 version serves, and empties the table. The table holds no
+new kind of data, only the migrator role can read it, and it is empty except
+during such a rollback.
+
 The library is closed unless `ASKRIGOR_FINDINGS_LIBRARY` is set to `enabled`,
 which the owner does once the wording is live and the private repository
 exists. While it is closed, `finalize_research` needs no card, checks none and

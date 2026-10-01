@@ -42,6 +42,7 @@
     "contributor-access:deterministic-acceptance": "tsx scripts/accept-research-contributor-access.mts",
     "contributor-access:acceptance": "npm run contributor-access:deterministic-acceptance && npm run contributor-access:postgres-acceptance",
     "contributor-access:postgres-acceptance": "bash scripts/run-research-contributor-access-postgres-acceptance.sh",
+    "contributor-access:notice-v2-rollback-acceptance": "bash scripts/run-research-use-notice-v2-rollback-acceptance.sh",
     "owner-review:preflight": "tsx scripts/owner-review-task-preflight.mts",
     "owner-review:acceptance": "npm run contributor-access:acceptance",
     "promotion-scheduler:preflight": "tsx scripts/promotion-scheduler-task-preflight.mts",
