@@ -14,6 +14,17 @@ export interface ChatWorkPolicy {
   };
   reasoningAuthorities: string[];
   executionOnlyActors: string[];
+  // Owner correction, 2026-10-01: a Claude session reasons and executes; the Chat/Work split is for OpenAI surfaces.
+  claudeSessions: {
+    ownerCorrectionDate: string;
+    ownerCorrection: string;
+    reasonsAndExecutes: boolean;
+    chatSourceReceiptRequiredForOwnReasoning: boolean;
+    routesReasoningToAnotherChat: boolean;
+    codexDirectiveBinds: string[];
+    ownerOnlyDecisionsAskedOn: string;
+    ownerOnlyDecisions: string[];
+  };
   reasoningReservedActions: string[];
   codexWorkAllowedActions: string[];
   sourceReceiptRequired: {
@@ -99,7 +110,10 @@ export function evaluateGateRequest(policy: ChatWorkPolicy, request: GateRequest
     errors.push(`${request.actor} cannot author reasoning-reserved action ${request.action}`);
   }
 
-  if (policy.reasoningReservedActions.includes(request.action)) {
+  // A Claude session does its own reasoning, so its reasoning needs no chat receipt; spending checks still apply.
+  const ownReasoning = request.actor === "CLAUDE_SESSION"
+    && !policy.claudeSessions.chatSourceReceiptRequiredForOwnReasoning;
+  if (policy.reasoningReservedActions.includes(request.action) && !ownReasoning) {
     if (!request.sourceReceipt) {
       errors.push("reasoning-reserved action requires a source message receipt");
     } else {
@@ -164,6 +178,19 @@ export function validateCanonicalPolicy(policy: ChatWorkPolicy): string[] {
   }
   for (const actor of ["CODEX", "WORK"]) {
     if (!policy.executionOnlyActors.includes(actor)) errors.push(`missing execution-only actor ${actor}`);
+  }
+  if (!policy.reasoningAuthorities.includes("CLAUDE_SESSION")
+    || policy.executionOnlyActors.includes("CLAUDE_SESSION")) {
+    errors.push("a Claude session must be a reasoning authority, not an execution-only actor");
+  }
+  if (policy.claudeSessions?.reasonsAndExecutes !== true) errors.push("a Claude session must both reason and execute");
+  if (policy.claudeSessions?.routesReasoningToAnotherChat !== false) {
+    errors.push("a Claude session must not route its reasoning to another chat");
+  }
+  for (const decision of ["NONZERO_SPEND", "MERGE_OR_DEPLOY"]) {
+    if (!policy.claudeSessions?.ownerOnlyDecisions.includes(decision)) {
+      errors.push(`a Claude session's owner-only decisions must include ${decision}`);
+    }
   }
   if (!policy.internalSupervisorRouting.automatic) errors.push("internal supervisor routing must be automatic");
   if (policy.internalSupervisorRouting.ownerRelayPermitted) errors.push("owner relay must be forbidden");

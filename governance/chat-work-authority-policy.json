@@ -11,12 +11,34 @@
   "reasoningAuthorities": [
     "OWNER",
     "PROJECT_MANAGER_CHAT",
-    "SPECIALIST_SUPERVISOR_CHAT"
+    "SPECIALIST_SUPERVISOR_CHAT",
+    "CLAUDE_SESSION"
   ],
   "executionOnlyActors": [
     "CODEX",
     "WORK"
   ],
+  "claudeSessions": {
+    "ownerCorrectionDate": "2026-10-01",
+    "ownerCorrection": "you're giving tasks now to a reasoning chat? i though you were doing the reasoning? maybe you are getting confused because of old Mission Control rules that applied to the intelligence difference in GPT between chat and work but claude tells me that doesn't apply to claude. so fix that if that's the issue",
+    "reasonsAndExecutes": true,
+    "chatSourceReceiptRequiredForOwnReasoning": false,
+    "routesReasoningToAnotherChat": false,
+    "codexDirectiveBinds": [
+      "SCOPE",
+      "DATA_HANDLING",
+      "SPENDING_CAPS",
+      "SAFETY_LIMITS"
+    ],
+    "ownerOnlyDecisionsAskedOn": "OWNER_QUESTIONS_PAGE",
+    "ownerOnlyDecisions": [
+      "NONZERO_SPEND",
+      "MERGE_OR_DEPLOY",
+      "ACCOUNT_OR_CREDENTIAL_CHANGE",
+      "EXTERNAL_PUBLICATION",
+      "OWNER_RESERVED_POLICY_OR_PROTOCOL_CHANGE"
+    ]
+  },
   "reasoningReservedActions": [
     "AUTHOR_PROPOSAL",
     "DESIGN_METHODOLOGY",

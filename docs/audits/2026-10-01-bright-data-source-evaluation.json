@@ -1,0 +1,4415 @@
+{
+ "schema": "askrigor-bright-data-source-evaluation-v1",
+ "directive": {
+  "id": "askrigor-bright-data-eval-20261001",
+  "bytes": 19978,
+  "sha256": "ad963aed0a433a4d6189ca03bf899dcab73aad6192b1c9bda2ba6629872cfb84",
+  "originating_chat": "https://claude.ai/code/session_01GqJMSg1M3maAy2BTapKnYk",
+  "owner_addendum": "credit cap 5,000 (2026-10-01 02:14 UTC)"
+ },
+ "executor": {
+  "surface": "Claude Code (cloud session, then a local session on the owner's laptop)",
+  "model": "claude-opus-5-5",
+  "effort": "max",
+  "model_api_spend_usd": 0,
+  "bright_data": {
+   "cli": "0.3.7",
+   "sdk": "brightdata-sdk 2.5.2",
+   "auto_create_zones": false,
+   "credits": "free monthly credits only"
+  }
+ },
+ "freeze": {
+  "frozen_at": "2026-10-01T05:52:02Z",
+  "files": {
+   "bdeval.py": "4aba7197a35fbb6b49dcc395418b674561578faac8146d8a0601217634b9cbb9",
+   "baseline.mts": "4c16fa857d635dfd7d55b8aef04700494b6b6badbf14decab6631a1de6ddfbce",
+   "analyze.py": "29cd70f6f7ea2ca0214bfa98541505b8158fee703e7b514da9104753d0f2207b",
+   "select_bc.py": "f24767c1dc7e129bb42873b41d37471b9c75f1c1ac44d2ee55da990725bf0d54",
+   "freeze.py": "ec0bf36c99a9e8b062ebec886d869e5f37f34042e24d7f5308e59c3a5827d7bf"
+  },
+  "q3_queries": {
+   "topic": "frozen shoulder (adhesive capsulitis), recovering without surgery",
+   "lane_a_S": [
+    "frozen shoulder (adhesive capsulitis), recovering without surgery treatment experience",
+    "frozen shoulder (adhesive capsulitis), recovering without surgery what worked",
+    "frozen shoulder (adhesive capsulitis), recovering without surgery no improvement failed",
+    "frozen shoulder (adhesive capsulitis), recovering without surgery side effects worsening",
+    "frozen shoulder (adhesive capsulitis), recovering without surgery stopped treatment",
+    "frozen shoulder (adhesive capsulitis), recovering without surgery evidence comparison trial"
+   ],
+   "lane_a_T3": [
+    "site:youtube.com frozen shoulder (adhesive capsulitis), recovering without surgery treatment experience",
+    "site:youtube.com frozen shoulder (adhesive capsulitis), recovering without surgery what worked",
+    "site:youtube.com frozen shoulder (adhesive capsulitis), recovering without surgery no improvement failed",
+    "site:youtube.com frozen shoulder (adhesive capsulitis), recovering without surgery side effects worsening",
+    "site:youtube.com frozen shoulder (adhesive capsulitis), recovering without surgery stopped treatment",
+    "site:youtube.com frozen shoulder (adhesive capsulitis), recovering without surgery evidence comparison trial"
+   ],
+   "lane_d": [
+    "site:reddit.com frozen shoulder (adhesive capsulitis), recovering without surgery"
+   ],
+   "lane_e": {
+    "tiktok_keyword": "frozen shoulder (adhesive capsulitis), recovering without surgery",
+    "instagram": "site:instagram.com/p/ frozen shoulder (adhesive capsulitis), recovering without surgery",
+    "facebook_post": [
+     "site:facebook.com frozen shoulder (adhesive capsulitis), recovering without surgery",
+     "site:facebook.com/*/posts frozen shoulder (adhesive capsulitis), recovering without surgery"
+    ],
+    "facebook_group": "site:facebook.com/groups frozen shoulder (adhesive capsulitis), recovering without surgery",
+    "x": [
+     "site:x.com frozen shoulder (adhesive capsulitis), recovering without surgery",
+     "site:twitter.com frozen shoulder (adhesive capsulitis), recovering without surgery"
+    ]
+   },
+   "lane_f": [
+    "frozen shoulder (adhesive capsulitis), recovering without surgery forum (page 1)",
+    "frozen shoulder (adhesive capsulitis), recovering without surgery reviews (page 1)",
+    "frozen shoulder (adhesive capsulitis), recovering without surgery forum (page 2)",
+    "frozen shoulder (adhesive capsulitis), recovering without surgery reviews (page 2)"
+   ]
+  },
+  "rule": "No Q3 call before this receipt; these files are not changed after Q3 results."
+ },
+ "lane_b_selection": {
+  "name": "lane-b",
+  "videos": [
+   {
+    "video_id": "XpZHKGGCK-o",
+    "edge_case": null,
+    "duration_s": 902,
+    "lang": null,
+    "caption_flag": "true"
+   },
+   {
+    "video_id": "-IX2RCCaVeo",
+    "edge_case": null,
+    "duration_s": 1282,
+    "lang": null,
+    "caption_flag": "true"
+   },
+   {
+    "video_id": "KpcPqnzAl_E",
+    "edge_case": null,
+    "duration_s": 1221,
+    "lang": null,
+    "caption_flag": "false"
+   },
+   {
+    "video_id": "Hz3Gd51hBn0",
+    "edge_case": null,
+    "duration_s": 1418,
+    "lang": null,
+    "caption_flag": "false"
+   },
+   {
+    "video_id": "LnlhK4MBaPw",
+    "edge_case": null,
+    "duration_s": 1055,
+    "lang": null,
+    "caption_flag": "false"
+   },
+   {
+    "video_id": "2LFgGibgJG0",
+    "edge_case": null,
+    "duration_s": 238,
+    "lang": null,
+    "caption_flag": "false"
+   },
+   {
+    "video_id": "stZdnA9zeQE",
+    "edge_case": null,
+    "duration_s": 231,
+    "lang": null,
+    "caption_flag": "false"
+   },
+   {
+    "video_id": "CD2vs-Ud6bo",
+    "edge_case": null,
+    "duration_s": 342,
+    "lang": null,
+    "caption_flag": "false"
+   },
+   {
+    "video_id": "WKEvbMgkg8w",
+    "edge_case": null,
+    "duration_s": 369,
+    "lang": null,
+    "caption_flag": "false"
+   },
+   {
+    "video_id": "2Fmx-iHsKYg",
+    "edge_case": null,
+    "duration_s": 330,
+    "lang": null,
+    "caption_flag": "false"
+   },
+   {
+    "video_id": "0sZEvvPWq88",
+    "edge_case": null,
+    "duration_s": 390,
+    "lang": null,
+    "caption_flag": "true"
+   },
+   {
+    "video_id": "qfPjRBqADKk",
+    "edge_case": null,
+    "duration_s": 2682,
+    "lang": null,
+    "caption_flag": "true"
+   },
+   {
+    "video_id": "_lgzIx5gr3c",
+    "edge_case": "no_captions",
+    "source": "lane_a",
+    "duration_s": 568,
+    "caption_flag": "false",
+    "lang": null
+   },
+   {
+    "video_id": "Eq0SssY4ZXs",
+    "edge_case": "non_english",
+    "source": "lane_a",
+    "duration_s": 772,
+    "caption_flag": "true",
+    "lang": "es"
+   },
+   {
+    "video_id": "6kKc2mTEb2c",
+    "edge_case": "short",
+    "source": "lane_a",
+    "duration_s": 58,
+    "caption_flag": "true",
+    "lang": null
+   },
+   {
+    "video_id": "jn49FjEM4EU",
+    "edge_case": "over_60_min",
+    "source": "lane_a",
+    "duration_s": 4108,
+    "caption_flag": "false",
+    "lang": null
+   },
+   {
+    "video_id": "iV_uMFtgOF0",
+    "edge_case": "live_replay",
+    "source": "lane_a",
+    "duration_s": 1885,
+    "caption_flag": "false",
+    "lang": null
+   }
+  ],
+  "missing": [
+   "age_restricted"
+  ]
+ },
+ "lane_c_selection": {
+  "videos": [
+   {
+    "video_id": "stZdnA9zeQE",
+    "provider_comment_count": 34,
+    "num_of_comments": 34
+   },
+   {
+    "video_id": "0sZEvvPWq88",
+    "provider_comment_count": 168,
+    "num_of_comments": 168
+   },
+   {
+    "video_id": "Hz3Gd51hBn0",
+    "provider_comment_count": 352,
+    "num_of_comments": 250
+   }
+  ],
+  "replaced": []
+ },
+ "lane_f_replies_check": {
+  "method": "reading check of the scraped Markdown by a Claude Haiku 4.5 subagent (page type and whether replies from more than one person are visible); a judgment, not a mechanical measure",
+  "rows": [
+   {
+    "question": "Q1",
+    "raw_path": "raw/F/scrape-Q1-13480918898416a4.md",
+    "host": "ukclimbing.com",
+    "page_type": "forum_thread",
+    "replies_present": true,
+    "reply_count_estimate": 28
+   },
+   {
+    "question": "Q1",
+    "raw_path": "raw/F/scrape-Q1-d686b8fcb346e39c.md",
+    "host": "aromotion.com",
+    "page_type": "article",
+    "replies_present": false,
+    "reply_count_estimate": 0
+   },
+   {
+    "question": "Q2",
+    "raw_path": "raw/F/scrape-Q2-449228c5e3d74cc3.md",
+    "host": "mayoclinic.org",
+    "page_type": "clinic_or_product_page",
+    "replies_present": false,
+    "reply_count_estimate": 0
+   },
+   {
+    "question": "Q3",
+    "raw_path": "raw/F/scrape-Q3-7314c98071028522.md",
+    "host": "mayoclinic.org",
+    "page_type": "clinic_or_product_page",
+    "replies_present": false,
+    "reply_count_estimate": 0
+   }
+  ]
+ },
+ "metrics": {
+  "lane_a": {
+   "Q1": {
+    "question": "Q1",
+    "transports": {
+     "T1": {
+      "queries": 6,
+      "failed_queries": 0,
+      "errors": [],
+      "recovered_after_client_timeout": 0,
+      "unique_candidates": 36,
+      "median_latency_s": 0.36,
+      "latencies_s": [
+       0.429,
+       0.35,
+       0.329,
+       0.401,
+       0.371,
+       0.341
+      ],
+      "held_out_found": false,
+      "held_out_best_rank": null,
+      "held_out_queries": []
+     },
+     "T2": {
+      "queries": 6,
+      "failed_queries": 0,
+      "errors": [
+       "Polling timeout after 240s",
+       "Polling timeout after 240s"
+      ],
+      "recovered_after_client_timeout": 2,
+      "unique_candidates": 45,
+      "median_latency_s": 141.66,
+      "latencies_s": [
+       172.87,
+       null,
+       109.46,
+       140.57,
+       null,
+       142.75
+      ],
+      "held_out_found": false,
+      "held_out_best_rank": null,
+      "held_out_queries": [],
+      "records": 60,
+      "share_with_transcript": 0.967,
+      "median_transcript_coverage": 1.0,
+      "share_with_embedded_comments": 0.783
+     },
+     "T3": {
+      "queries": 6,
+      "failed_queries": 1,
+      "errors": [
+       "Error: redirect location was rejected"
+      ],
+      "recovered_after_client_timeout": 0,
+      "unique_candidates": 34,
+      "median_latency_s": 3.83,
+      "latencies_s": [
+       3.06,
+       3.9,
+       6.37,
+       4.44,
+       3.12,
+       3.76
+      ],
+      "held_out_found": false,
+      "held_out_best_rank": null,
+      "held_out_queries": [],
+      "organic_results": 50,
+      "share_youtube_video_links": 0.98
+     }
+    },
+    "jaccard": {
+     "T1-T2": 0.35,
+     "T1-T3": 0.077,
+     "T2-T3": 0.082
+    },
+    "unique_to": {
+     "T1": [
+      "0JakI915GNA",
+      "2QPuhDW02G4",
+      "6_WBoHCq47k",
+      "6kKc2mTEb2c",
+      "9BlKesI7rLU",
+      "JjZrwk6gvSE",
+      "JkdfMUJf6nU",
+      "PInOZugiWtg",
+      "YuNE3VeSWvw",
+      "bYaTinQabd8",
+      "gzhii9elOoo",
+      "mqXTHzzWyLA",
+      "sErkzgABYzQ",
+      "tVHO4duVl1M",
+      "uNF5BL-M7D8"
+     ],
+     "T2": [
+      "2NA-0_AuBG8",
+      "2Y2UQGk7R-0",
+      "3dQAFKTPi88",
+      "5ROf80ll-dU",
+      "63ufj36tmG8",
+      "6sWmgtqROKU",
+      "FjhFpOGEfQk",
+      "OPXbzViaVPs",
+      "PXBhAMhrdkk",
+      "RbaOwfTImz0",
+      "Twcj9fnrZxg",
+      "UVTSDj-LXaI",
+      "VZ1h37EiagY",
+      "_a79x4cJtmY",
+      "bJE2N2KoVoY",
+      "dJKf35yMzYw",
+      "f7B1Zno_HD4",
+      "kjzfmLi8e5M",
+      "lWT5fkrY9oI",
+      "lxK9Rv9by_Q",
+      "v349wpqc7to",
+      "yNodCjckT9I",
+      "yQweJVNtOuY"
+     ],
+     "T3": [
+      "-KaFlwfZHVg",
+      "-qocjhCM6Ko",
+      "09rM2tLeUmg",
+      "2EWCcj7YVYA",
+      "3GSssdbIH_8",
+      "6w6RG9VVRKs",
+      "D6AM9WqyotE",
+      "FS2c14pjrhM",
+      "HAUMMCWbTiM",
+      "ILi_7KVqmEk",
+      "IQ5Ov0TaVT4",
+      "JCxuoGkf_iE",
+      "O50P3NOCftw",
+      "Q8o7Fahu6yE",
+      "QEuAoeBdx3E",
+      "RxZQkAAhrsw",
+      "T6zrOLht68M",
+      "TLIZnb_qcEA",
+      "WKWUxsdFIZw",
+      "YGsHJ8_q6EQ",
+      "ZxEJDyv2OMo",
+      "i3X5HQhoq60",
+      "kTTWvOg5SHo",
+      "kWREaoaNI7U",
+      "o-cDWGFLN5c",
+      "oJQQwcJjmTc",
+      "oSvAIA9HDOY",
+      "s1m5Iz1QGks"
+     ]
+    },
+    "unique_to_counts": {
+     "T1": 15,
+     "T2": 23,
+     "T3": 28
+    },
+    "candidate_ids": {
+     "T1": [
+      "-zyOW70_gZc",
+      "0JakI915GNA",
+      "1UQp42lCMWw",
+      "2QPuhDW02G4",
+      "3fJwssNZRhU",
+      "6_WBoHCq47k",
+      "6kKc2mTEb2c",
+      "7iZRJ7NbEBE",
+      "9BlKesI7rLU",
+      "AYdJ46rWyMg",
+      "DVXdNMZZnPo",
+      "GfHOyAHKYwk",
+      "H8H0TDmJFVo",
+      "Hz3Gd51hBn0",
+      "JjZrwk6gvSE",
+      "JkdfMUJf6nU",
+      "PCJKUBPQcnc",
+      "PInOZugiWtg",
+      "QtoMS0LLHFw",
+      "YuNE3VeSWvw",
+      "_lgzIx5gr3c",
+      "acbHTkPadcE",
+      "bYaTinQabd8",
+      "dfXMWCbCy3o",
+      "feqPglZ6p1w",
+      "gzhii9elOoo",
+      "iV_uMFtgOF0",
+      "jn49FjEM4EU",
+      "mqXTHzzWyLA",
+      "nWc_r11Hqj4",
+      "pl3CTL7v0sA",
+      "sErkzgABYzQ",
+      "tVHO4duVl1M",
+      "uNF5BL-M7D8",
+      "wD9YYVVIHIA",
+      "wdn6KTJjvrE"
+     ],
+     "T2": [
+      "-zyOW70_gZc",
+      "1UQp42lCMWw",
+      "2NA-0_AuBG8",
+      "2Y2UQGk7R-0",
+      "3dQAFKTPi88",
+      "3fJwssNZRhU",
+      "5ROf80ll-dU",
+      "63ufj36tmG8",
+      "6sWmgtqROKU",
+      "7iZRJ7NbEBE",
+      "AYdJ46rWyMg",
+      "DVXdNMZZnPo",
+      "FjhFpOGEfQk",
+      "GfHOyAHKYwk",
+      "H8H0TDmJFVo",
+      "Hz3Gd51hBn0",
+      "OPXbzViaVPs",
+      "PCJKUBPQcnc",
+      "PXBhAMhrdkk",
+      "QtoMS0LLHFw",
+      "RbaOwfTImz0",
+      "Twcj9fnrZxg",
+      "UVTSDj-LXaI",
+      "VZ1h37EiagY",
+      "_a79x4cJtmY",
+      "_lgzIx5gr3c",
+      "acbHTkPadcE",
+      "bJE2N2KoVoY",
+      "dJKf35yMzYw",
+      "dfXMWCbCy3o",
+      "f7B1Zno_HD4",
+      "feqPglZ6p1w",
+      "iV_uMFtgOF0",
+      "jn49FjEM4EU",
+      "kjzfmLi8e5M",
+      "lWT5fkrY9oI",
+      "lxK9Rv9by_Q",
+      "nFdKJmNgDbo",
+      "nWc_r11Hqj4",
+      "pl3CTL7v0sA",
+      "v349wpqc7to",
+      "wD9YYVVIHIA",
+      "wdn6KTJjvrE",
+      "yNodCjckT9I",
+      "yQweJVNtOuY"
+     ],
+     "T3": [
+      "-KaFlwfZHVg",
+      "-qocjhCM6Ko",
+      "09rM2tLeUmg",
+      "2EWCcj7YVYA",
+      "3GSssdbIH_8",
+      "3fJwssNZRhU",
+      "6w6RG9VVRKs",
+      "D6AM9WqyotE",
+      "FS2c14pjrhM",
+      "HAUMMCWbTiM",
+      "Hz3Gd51hBn0",
+      "ILi_7KVqmEk",
+      "IQ5Ov0TaVT4",
+      "JCxuoGkf_iE",
+      "O50P3NOCftw",
+      "PCJKUBPQcnc",
+      "Q8o7Fahu6yE",
+      "QEuAoeBdx3E",
+      "RxZQkAAhrsw",
+      "T6zrOLht68M",
+      "TLIZnb_qcEA",
+      "WKWUxsdFIZw",
+      "YGsHJ8_q6EQ",
+      "ZxEJDyv2OMo",
+      "i3X5HQhoq60",
+      "iV_uMFtgOF0",
+      "jn49FjEM4EU",
+      "kTTWvOg5SHo",
+      "kWREaoaNI7U",
+      "nFdKJmNgDbo",
+      "o-cDWGFLN5c",
+      "oJQQwcJjmTc",
+      "oSvAIA9HDOY",
+      "s1m5Iz1QGks"
+     ]
+    },
+    "labels": "pending: relevance labeling is a reasoning action (section 4)"
+   },
+   "Q2": {
+    "question": "Q2",
+    "transports": {
+     "T1": {
+      "queries": 6,
+      "failed_queries": 0,
+      "errors": [],
+      "recovered_after_client_timeout": 0,
+      "unique_candidates": 27,
+      "median_latency_s": 0.411,
+      "latencies_s": [
+       0.46,
+       0.775,
+       0.419,
+       0.358,
+       0.404,
+       0.335
+      ],
+      "held_out_found": false,
+      "held_out_best_rank": null,
+      "held_out_queries": []
+     },
+     "T2": {
+      "queries": 6,
+      "failed_queries": 0,
+      "errors": [],
+      "recovered_after_client_timeout": 0,
+      "unique_candidates": 40,
+      "median_latency_s": 163.34,
+      "latencies_s": [
+       89.04,
+       278.73,
+       162.67,
+       120.04,
+       164.01,
+       247.7
+      ],
+      "held_out_found": false,
+      "held_out_best_rank": null,
+      "held_out_queries": [],
+      "records": 60,
+      "share_with_transcript": 0.983,
+      "median_transcript_coverage": 1.0,
+      "share_with_embedded_comments": 0.7
+     },
+     "T3": {
+      "queries": 6,
+      "failed_queries": 1,
+      "errors": [
+       "Error: waiting for selector \"#main\" failed: timeout 30000ms exceeded"
+      ],
+      "recovered_after_client_timeout": 0,
+      "unique_candidates": 30,
+      "median_latency_s": 5.63,
+      "latencies_s": [
+       48.03,
+       4.24,
+       3.28,
+       5.96,
+       7.64,
+       5.3
+      ],
+      "held_out_found": false,
+      "held_out_best_rank": null,
+      "held_out_queries": [],
+      "organic_results": 50,
+      "share_youtube_video_links": 1.0
+     }
+    },
+    "jaccard": {
+     "T1-T2": 0.136,
+     "T1-T3": 0.018,
+     "T2-T3": 0.094
+    },
+    "unique_to": {
+     "T1": [
+      "299bpNXVccE",
+      "4w2P53XW6OA",
+      "E5jtWr9Esdc",
+      "GFVspd1by7w",
+      "H1nfgU1amvg",
+      "K4oPuz7HgPo",
+      "RcRCkwCunak",
+      "VgLVCiDkOMY",
+      "WIDdUMcGf30",
+      "XgsKC3QHi9c",
+      "eQICKCyL41o",
+      "g9d7LnSuU9w",
+      "iyyS-ZTCIjM",
+      "l0w-3xfoa48",
+      "lyc0A3U392k",
+      "syoJttgVSm0",
+      "vUYEmZRfaVE",
+      "yqJihFVWvKs",
+      "zmU8MhVMNzo"
+     ],
+     "T2": [
+      "0pXHXlmCBlk",
+      "2rrt4xkeBiQ",
+      "4mKmoFS3ChQ",
+      "5k9k_tioGSo",
+      "5nOATly3j9U",
+      "8TrBLNFXng8",
+      "Am1u5cif6AY",
+      "C_-7966jgAQ",
+      "H8Z3RJvbCNI",
+      "IuPQWKMfM_Y",
+      "MK0ZimvPQyY",
+      "MW0tAUIAr4Q",
+      "MWj1jNlJGtQ",
+      "PeLYuPvXhD8",
+      "VUHVSK7x_yc",
+      "Wo1WOtTMZ_s",
+      "_4ZfET5gENU",
+      "bjwAxxQYqwM",
+      "i20acbxf5SU",
+      "jlMQRu_TK6M",
+      "l-oMx-H8aTM",
+      "lfvL3YJoA7w",
+      "oVD2H6NK-dM",
+      "qcXFwyjRyfw",
+      "rfotyiQkz9M",
+      "tgdQU98EAs8",
+      "y3jYjUgR9PY"
+     ],
+     "T3": [
+      "2k92DGPzVbU",
+      "4sFDuWY4IPE",
+      "63p2_IBnzws",
+      "9AONYb8pkDE",
+      "By-K1G278Q0",
+      "NE0GqcRb9f8",
+      "NLsovYgb2tk",
+      "OeacaZSz4a8",
+      "RkcqJ3pLXng",
+      "aX-kKaJCfQc",
+      "bU19AY_lIAI",
+      "d6dBXCxvLk4",
+      "eXitWi5_QVQ",
+      "haK3G5bJPl4",
+      "iSjZLiXYBLQ",
+      "ko-uitcuY8Q",
+      "llQ8n8vSn5Q",
+      "loLx4yaxC50",
+      "mHInNgSHSiI",
+      "nIBWGZ5CbB0",
+      "p5vjmLJPxL8",
+      "qyOgFrWq1eY",
+      "swH-3UfH9Yw",
+      "w-ex5oPH47s"
+     ]
+    },
+    "unique_to_counts": {
+     "T1": 19,
+     "T2": 27,
+     "T3": 24
+    },
+    "candidate_ids": {
+     "T1": [
+      "299bpNXVccE",
+      "4w2P53XW6OA",
+      "6kFBwwZNmR8",
+      "7lnR8oVhVhc",
+      "AsSw0Yg6HRw",
+      "E5jtWr9Esdc",
+      "Eq0SssY4ZXs",
+      "GFVspd1by7w",
+      "H1nfgU1amvg",
+      "K4oPuz7HgPo",
+      "RcRCkwCunak",
+      "VgLVCiDkOMY",
+      "WIDdUMcGf30",
+      "XgsKC3QHi9c",
+      "eQICKCyL41o",
+      "g9d7LnSuU9w",
+      "i4mEsV4rx68",
+      "iyyS-ZTCIjM",
+      "l0w-3xfoa48",
+      "lyc0A3U392k",
+      "syoJttgVSm0",
+      "tN4UK8PuJro",
+      "vUYEmZRfaVE",
+      "xum8oHcPrpQ",
+      "yqJihFVWvKs",
+      "zMUWbzxuw7s",
+      "zmU8MhVMNzo"
+     ],
+     "T2": [
+      "-uTb31CvMqQ",
+      "0pXHXlmCBlk",
+      "2rrt4xkeBiQ",
+      "4mKmoFS3ChQ",
+      "5k9k_tioGSo",
+      "5nOATly3j9U",
+      "6kFBwwZNmR8",
+      "7lnR8oVhVhc",
+      "8TrBLNFXng8",
+      "Am1u5cif6AY",
+      "AsSw0Yg6HRw",
+      "BQOJa9o-j8g",
+      "C_-7966jgAQ",
+      "Eq0SssY4ZXs",
+      "H8Z3RJvbCNI",
+      "Hmet9woSPpQ",
+      "IuPQWKMfM_Y",
+      "MK0ZimvPQyY",
+      "MW0tAUIAr4Q",
+      "MWj1jNlJGtQ",
+      "PeLYuPvXhD8",
+      "VUHVSK7x_yc",
+      "Wo1WOtTMZ_s",
+      "_4ZfET5gENU",
+      "bjwAxxQYqwM",
+      "h6e-tGvQxYE",
+      "i20acbxf5SU",
+      "i4mEsV4rx68",
+      "jlMQRu_TK6M",
+      "l-oMx-H8aTM",
+      "lfvL3YJoA7w",
+      "oVD2H6NK-dM",
+      "qcXFwyjRyfw",
+      "rfotyiQkz9M",
+      "tN4UK8PuJro",
+      "tgdQU98EAs8",
+      "vNHOj3ubzbs",
+      "xum8oHcPrpQ",
+      "y3jYjUgR9PY",
+      "zMUWbzxuw7s"
+     ],
+     "T3": [
+      "-uTb31CvMqQ",
+      "2k92DGPzVbU",
+      "4sFDuWY4IPE",
+      "63p2_IBnzws",
+      "9AONYb8pkDE",
+      "BQOJa9o-j8g",
+      "By-K1G278Q0",
+      "Hmet9woSPpQ",
+      "NE0GqcRb9f8",
+      "NLsovYgb2tk",
+      "OeacaZSz4a8",
+      "RkcqJ3pLXng",
+      "aX-kKaJCfQc",
+      "bU19AY_lIAI",
+      "d6dBXCxvLk4",
+      "eXitWi5_QVQ",
+      "h6e-tGvQxYE",
+      "haK3G5bJPl4",
+      "iSjZLiXYBLQ",
+      "ko-uitcuY8Q",
+      "llQ8n8vSn5Q",
+      "loLx4yaxC50",
+      "mHInNgSHSiI",
+      "nIBWGZ5CbB0",
+      "p5vjmLJPxL8",
+      "qyOgFrWq1eY",
+      "swH-3UfH9Yw",
+      "vNHOj3ubzbs",
+      "w-ex5oPH47s",
+      "zMUWbzxuw7s"
+     ]
+    },
+    "labels": "pending: relevance labeling is a reasoning action (section 4)"
+   },
+   "Q3": {
+    "question": "Q3",
+    "transports": {
+     "T1": {
+      "queries": 6,
+      "failed_queries": 0,
+      "errors": [],
+      "recovered_after_client_timeout": 0,
+      "unique_candidates": 31,
+      "median_latency_s": 0.308,
+      "latencies_s": [
+       0.674,
+       0.3,
+       0.3,
+       0.316,
+       0.505,
+       0.236
+      ],
+      "held_out_found": false,
+      "held_out_best_rank": null,
+      "held_out_queries": []
+     },
+     "T2": {
+      "queries": 6,
+      "failed_queries": 0,
+      "errors": [],
+      "recovered_after_client_timeout": 0,
+      "unique_candidates": 40,
+      "median_latency_s": 151.56,
+      "latencies_s": [
+       141.47,
+       151.48,
+       162.79,
+       247.89,
+       142.52,
+       151.64
+      ],
+      "held_out_found": false,
+      "held_out_best_rank": null,
+      "held_out_queries": [],
+      "records": 60,
+      "share_with_transcript": 0.95,
+      "median_transcript_coverage": 0.999,
+      "share_with_embedded_comments": 0.633
+     },
+     "T3": {
+      "queries": 6,
+      "failed_queries": 0,
+      "errors": [],
+      "recovered_after_client_timeout": 0,
+      "unique_candidates": 34,
+      "median_latency_s": 3.74,
+      "latencies_s": [
+       17.52,
+       3.32,
+       2.57,
+       3.8,
+       3.68,
+       5.33
+      ],
+      "held_out_found": false,
+      "held_out_best_rank": null,
+      "held_out_queries": [],
+      "organic_results": 54,
+      "share_youtube_video_links": 0.87
+     }
+    },
+    "jaccard": {
+     "T1-T2": 0.246,
+     "T1-T3": 0.066,
+     "T2-T3": 0.072
+    },
+    "unique_to": {
+     "T1": [
+      "-VSdnupc7Gg",
+      "56lBX6K_0tI",
+      "5B14H1FwgMo",
+      "5JHFmLHb4T4",
+      "9rub2yOOgEo",
+      "DmojNUCOs6c",
+      "J7X_ZovLBhw",
+      "MB2F6iEE2Lk",
+      "MNzhDFyiEeY",
+      "RlYB_uHFzMQ",
+      "TGjlLsHFfqY",
+      "TTc78lmbvnw",
+      "aKBcaVK255I",
+      "utaZZxfBBrE",
+      "xSHjoegPayQ",
+      "zAZtZOpxAkE"
+     ],
+     "T2": [
+      "3RBFIUdfCXU",
+      "3s61bO4FnWo",
+      "4GCMo095uag",
+      "4mJC_AZE6gk",
+      "AVEbbN-Gztg",
+      "Cvgd33lv8xs",
+      "DIqNzoZRYxs",
+      "DuUZTWJhVg8",
+      "HglzWpmrnoU",
+      "Iv7dhrc_29g",
+      "LBsZIZs5p9o",
+      "T-XLgQ-qk7o",
+      "Xaacd4OgljA",
+      "b4Z5Sy26_z0",
+      "bm-dF1z_EyE",
+      "eXaEXPwkthk",
+      "gIGiRhSiJzQ",
+      "lIg91CQbomM",
+      "mL0DUPaAoh0",
+      "pdFzsW7mQo0",
+      "rtX25UFxz60",
+      "ujbjJfQNGzk",
+      "zM-hIdzlcVI",
+      "zUMwhZb64tI"
+     ],
+     "T3": [
+      "1gCfCyblYhY",
+      "4acSxaAHqgQ",
+      "7nZFlL05sLo",
+      "BJM-QgD8UTg",
+      "D6AM9WqyotE",
+      "DsgAUMB3lZ0",
+      "ENqiKG3Ommc",
+      "EffqyD8Dc2M",
+      "ILi_7KVqmEk",
+      "Kb3LCef7wbQ",
+      "MvMHmmMR4bE",
+      "OKGDkcUpZKs",
+      "PP76NQTPx-4",
+      "Rjd12mCLNgk",
+      "TuAtQAU1HvU",
+      "VhfaPe8f7g0",
+      "YVkUvmDQ3HY",
+      "Z0b6vybOhxA",
+      "ZAfAud_M_mg",
+      "b7yQwf-K7z0",
+      "bSHDfsX9r6s",
+      "dLPbwnRXEHo",
+      "dmaaFLTolmI",
+      "nsDywwJkdTI",
+      "o7DTcy-n7Jw",
+      "rM51Zv0lA-0",
+      "voxwcEraw6g",
+      "zo5CAiRnOts"
+     ]
+    },
+    "unique_to_counts": {
+     "T1": 16,
+     "T2": 24,
+     "T3": 28
+    },
+    "candidate_ids": {
+     "T1": [
+      "-VSdnupc7Gg",
+      "4kkaJvN-A6s",
+      "56lBX6K_0tI",
+      "5B14H1FwgMo",
+      "5JHFmLHb4T4",
+      "5nkFYjkqVE4",
+      "9rub2yOOgEo",
+      "ChD2yRmECxg",
+      "DmojNUCOs6c",
+      "Fu6H0fgS_3M",
+      "I88uzfD8Y4s",
+      "Ikyokh192Nc",
+      "J7X_ZovLBhw",
+      "MB2F6iEE2Lk",
+      "MNzhDFyiEeY",
+      "OU6-i4dKPKs",
+      "Qq6joEk2dSc",
+      "RI81maL6Vzk",
+      "RlYB_uHFzMQ",
+      "TGjlLsHFfqY",
+      "TTc78lmbvnw",
+      "WFCDMVK5HLc",
+      "WYLfT9nWt_I",
+      "aKBcaVK255I",
+      "j41m3wRy8Z4",
+      "mIIgrH1hM6M",
+      "ptzW9uqG1ok",
+      "utaZZxfBBrE",
+      "xSHjoegPayQ",
+      "yNCCd-p6ezI",
+      "zAZtZOpxAkE"
+     ],
+     "T2": [
+      "3RBFIUdfCXU",
+      "3s61bO4FnWo",
+      "4GCMo095uag",
+      "4MsFKYlvZbk",
+      "4kkaJvN-A6s",
+      "4mJC_AZE6gk",
+      "5nkFYjkqVE4",
+      "AVEbbN-Gztg",
+      "ChD2yRmECxg",
+      "Cvgd33lv8xs",
+      "DIqNzoZRYxs",
+      "DuUZTWJhVg8",
+      "HglzWpmrnoU",
+      "I88uzfD8Y4s",
+      "Ikyokh192Nc",
+      "Iv7dhrc_29g",
+      "LBsZIZs5p9o",
+      "OU6-i4dKPKs",
+      "Qq6joEk2dSc",
+      "RI81maL6Vzk",
+      "SV7exHYLVHU",
+      "T-XLgQ-qk7o",
+      "WFCDMVK5HLc",
+      "WYLfT9nWt_I",
+      "Xaacd4OgljA",
+      "b4Z5Sy26_z0",
+      "bm-dF1z_EyE",
+      "eXaEXPwkthk",
+      "gIGiRhSiJzQ",
+      "j41m3wRy8Z4",
+      "lIg91CQbomM",
+      "mIIgrH1hM6M",
+      "mL0DUPaAoh0",
+      "pdFzsW7mQo0",
+      "ptzW9uqG1ok",
+      "rtX25UFxz60",
+      "ujbjJfQNGzk",
+      "yNCCd-p6ezI",
+      "zM-hIdzlcVI",
+      "zUMwhZb64tI"
+     ],
+     "T3": [
+      "1gCfCyblYhY",
+      "4MsFKYlvZbk",
+      "4acSxaAHqgQ",
+      "7nZFlL05sLo",
+      "BJM-QgD8UTg",
+      "ChD2yRmECxg",
+      "D6AM9WqyotE",
+      "DsgAUMB3lZ0",
+      "ENqiKG3Ommc",
+      "EffqyD8Dc2M",
+      "Fu6H0fgS_3M",
+      "ILi_7KVqmEk",
+      "Kb3LCef7wbQ",
+      "MvMHmmMR4bE",
+      "OKGDkcUpZKs",
+      "PP76NQTPx-4",
+      "Rjd12mCLNgk",
+      "SV7exHYLVHU",
+      "TuAtQAU1HvU",
+      "VhfaPe8f7g0",
+      "YVkUvmDQ3HY",
+      "Z0b6vybOhxA",
+      "ZAfAud_M_mg",
+      "b7yQwf-K7z0",
+      "bSHDfsX9r6s",
+      "dLPbwnRXEHo",
+      "dmaaFLTolmI",
+      "j41m3wRy8Z4",
+      "nsDywwJkdTI",
+      "o7DTcy-n7Jw",
+      "ptzW9uqG1ok",
+      "rM51Zv0lA-0",
+      "voxwcEraw6g",
+      "zo5CAiRnOts"
+     ]
+    },
+    "labels": "pending: relevance labeling is a reasoning action (section 4)"
+   }
+  },
+  "lane_b": {
+   "videos": 17,
+   "transcript_action": "http://127.0.0.1:43219/actions/research/get_youtube_transcript",
+   "askrigor_available": 15,
+   "bright_data_available": 17,
+   "both_available": 16,
+   "askrigor_rate_limited": 2,
+   "askrigor_http_429": 0,
+   "askrigor_median_coverage": 0.998,
+   "bright_data_median_coverage": 0.998,
+   "askrigor_median_latency_s": 2.46,
+   "bright_data_median_latency_s": 80.29,
+   "median_wer_bd_vs_askrigor": 0.039,
+   "median_abs_start_diff_ms": 0.0,
+   "rows": [
+    {
+     "video_id": "XpZHKGGCK-o",
+     "edge_case": null,
+     "duration_s": 902,
+     "askrigor": {
+      "status": "ok",
+      "error": null,
+      "pages": 1,
+      "segments": 141,
+      "coverage": 0.999,
+      "latency_s": 3.6,
+      "track": {
+       "language_code": "en",
+       "language_name": "en",
+       "is_auto_generated": false
+      },
+      "rate_limited": false,
+      "receipt_exhausted": null
+     },
+     "bright_data": {
+      "error": null,
+      "latency_s": 80.29,
+      "records": 1,
+      "has_transcript": true,
+      "transcript_language": [
+       {
+        "language": "English",
+        "auto_translate": false
+       },
+       {
+        "language": "English (auto-generated)",
+        "auto_translate": true
+       }
+      ],
+      "segments": 123,
+      "coverage": 0.996,
+      "video_length": 901
+     },
+     "agreement": {
+      "wer_bd_vs_askrigor": 0.045,
+      "askrigor_words": 2869,
+      "bd_words": 2740,
+      "matched": 45,
+      "used": 10,
+      "median_abs_start_diff_ms": 460.0
+     }
+    },
+    {
+     "video_id": "-IX2RCCaVeo",
+     "edge_case": null,
+     "duration_s": 1282,
+     "askrigor": {
+      "status": "ok",
+      "error": null,
+      "pages": 1,
+      "segments": 172,
+      "coverage": 0.995,
+      "latency_s": 2.46,
+      "track": {
+       "language_code": "en",
+       "language_name": "en",
+       "is_auto_generated": false
+      },
+      "rate_limited": false,
+      "receipt_exhausted": null
+     },
+     "bright_data": {
+      "error": null,
+      "latency_s": 135.09,
+      "records": 1,
+      "has_transcript": true,
+      "transcript_language": [
+       {
+        "language": "English",
+        "auto_translate": false
+       },
+       {
+        "language": "English (auto-generated)",
+        "auto_translate": true
+       }
+      ],
+      "segments": 172,
+      "coverage": 0.995,
+      "video_length": 1281
+     },
+     "agreement": {
+      "wer_bd_vs_askrigor": 0.0,
+      "askrigor_words": 3018,
+      "bd_words": 3018,
+      "matched": 172,
+      "used": 10,
+      "median_abs_start_diff_ms": 0.0
+     }
+    },
+    {
+     "video_id": "KpcPqnzAl_E",
+     "edge_case": null,
+     "duration_s": 1221,
+     "askrigor": {
+      "status": "ok",
+      "error": null,
+      "pages": 3,
+      "segments": 510,
+      "coverage": 0.993,
+      "latency_s": 6.03,
+      "track": {
+       "language_code": "en",
+       "language_name": "en",
+       "is_auto_generated": true
+      },
+      "rate_limited": false,
+      "receipt_exhausted": null
+     },
+     "bright_data": {
+      "error": null,
+      "latency_s": 106.6,
+      "records": 1,
+      "has_transcript": true,
+      "transcript_language": [
+       {
+        "language": "English (auto-generated)",
+        "auto_translate": true
+       }
+      ],
+      "segments": 510,
+      "coverage": 0.993,
+      "video_length": 1221
+     },
+     "agreement": {
+      "wer_bd_vs_askrigor": 0.0253,
+      "askrigor_words": 3279,
+      "bd_words": 3196,
+      "matched": 343,
+      "used": 10,
+      "median_abs_start_diff_ms": 0.0
+     }
+    },
+    {
+     "video_id": "Hz3Gd51hBn0",
+     "edge_case": null,
+     "duration_s": 1418,
+     "askrigor": {
+      "status": "ok",
+      "error": null,
+      "pages": 4,
+      "segments": 631,
+      "coverage": 1.001,
+      "latency_s": 8.19,
+      "track": {
+       "language_code": "en",
+       "language_name": "en",
+       "is_auto_generated": true
+      },
+      "rate_limited": false,
+      "receipt_exhausted": null
+     },
+     "bright_data": {
+      "error": null,
+      "latency_s": 125.82,
+      "records": 1,
+      "has_transcript": true,
+      "transcript_language": [
+       {
+        "language": "English (auto-generated)",
+        "auto_translate": true
+       }
+      ],
+      "segments": 631,
+      "coverage": 1.001,
+      "video_length": 1417
+     },
+     "agreement": {
+      "wer_bd_vs_askrigor": 0.0466,
+      "askrigor_words": 4938,
+      "bd_words": 4708,
+      "matched": 409,
+      "used": 10,
+      "median_abs_start_diff_ms": 0.0
+     }
+    },
+    {
+     "video_id": "LnlhK4MBaPw",
+     "edge_case": null,
+     "duration_s": 1055,
+     "askrigor": {
+      "status": "ok",
+      "error": null,
+      "pages": 3,
+      "segments": 537,
+      "coverage": 1.001,
+      "latency_s": 6.25,
+      "track": {
+       "language_code": "en",
+       "language_name": "en",
+       "is_auto_generated": true
+      },
+      "rate_limited": false,
+      "receipt_exhausted": null
+     },
+     "bright_data": {
+      "error": null,
+      "latency_s": 68.6,
+      "records": 1,
+      "has_transcript": true,
+      "transcript_language": [
+       {
+        "language": "English (auto-generated)",
+        "auto_translate": true
+       }
+      ],
+      "segments": 537,
+      "coverage": 1.001,
+      "video_length": 1054
+     },
+     "agreement": {
+      "wer_bd_vs_askrigor": 0.0318,
+      "askrigor_words": 3210,
+      "bd_words": 3108,
+      "matched": 320,
+      "used": 10,
+      "median_abs_start_diff_ms": 0.0
+     }
+    },
+    {
+     "video_id": "2LFgGibgJG0",
+     "edge_case": null,
+     "duration_s": 238,
+     "askrigor": {
+      "status": "ok",
+      "error": null,
+      "pages": 1,
+      "segments": 110,
+      "coverage": 0.989,
+      "latency_s": 1.95,
+      "track": {
+       "language_code": "en",
+       "language_name": "en",
+       "is_auto_generated": true
+      },
+      "rate_limited": false,
+      "receipt_exhausted": null
+     },
+     "bright_data": {
+      "error": null,
+      "latency_s": 102.09,
+      "records": 1,
+      "has_transcript": true,
+      "transcript_language": [
+       {
+        "language": "English (auto-generated)",
+        "auto_translate": true
+       }
+      ],
+      "segments": 110,
+      "coverage": 0.989,
+      "video_length": 238
+     },
+     "agreement": {
+      "wer_bd_vs_askrigor": 0.0404,
+      "askrigor_words": 841,
+      "bd_words": 807,
+      "matched": 76,
+      "used": 10,
+      "median_abs_start_diff_ms": 0.0
+     }
+    },
+    {
+     "video_id": "stZdnA9zeQE",
+     "edge_case": null,
+     "duration_s": 231,
+     "askrigor": {
+      "status": "ok",
+      "error": null,
+      "pages": 1,
+      "segments": 191,
+      "coverage": 1.004,
+      "latency_s": 1.63,
+      "track": {
+       "language_code": "ar",
+       "language_name": "ar",
+       "is_auto_generated": true
+      },
+      "rate_limited": false,
+      "receipt_exhausted": null
+     },
+     "bright_data": {
+      "error": null,
+      "latency_s": 63.19,
+      "records": 1,
+      "has_transcript": true,
+      "transcript_language": [
+       {
+        "language": "Arabic (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Bangla (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Dutch (Netherlands) (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "English (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "French (France) (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "German (Germany) (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Hebrew (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Hindi (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Indonesian (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Italian (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Japanese (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Korean (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Malayalam (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Polish (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Portuguese (Brazil) (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Punjabi (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Russian (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Spanish (United States) (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Tamil (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Telugu (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Ukrainian (auto-generated)",
+        "auto_translate": true
+       }
+      ],
+      "segments": 111,
+      "coverage": 1.008,
+      "video_length": 231
+     },
+     "agreement": {
+      "wer_bd_vs_askrigor": 1.2388,
+      "askrigor_words": 645,
+      "bd_words": 801,
+      "matched": 0,
+      "median_abs_start_diff_ms": null
+     }
+    },
+    {
+     "video_id": "CD2vs-Ud6bo",
+     "edge_case": null,
+     "duration_s": 342,
+     "askrigor": {
+      "status": "ok",
+      "error": null,
+      "pages": 1,
+      "segments": 151,
+      "coverage": 1.0,
+      "latency_s": 2.15,
+      "track": {
+       "language_code": "en",
+       "language_name": "en",
+       "is_auto_generated": true
+      },
+      "rate_limited": false,
+      "receipt_exhausted": null
+     },
+     "bright_data": {
+      "error": null,
+      "latency_s": 114.57,
+      "records": 1,
+      "has_transcript": true,
+      "transcript_language": [
+       {
+        "language": "English (auto-generated)",
+        "auto_translate": true
+       }
+      ],
+      "segments": 151,
+      "coverage": 1.0,
+      "video_length": 341
+     },
+     "agreement": {
+      "wer_bd_vs_askrigor": 0.0363,
+      "askrigor_words": 1102,
+      "bd_words": 1062,
+      "matched": 112,
+      "used": 10,
+      "median_abs_start_diff_ms": 0.0
+     }
+    },
+    {
+     "video_id": "WKEvbMgkg8w",
+     "edge_case": null,
+     "duration_s": 369,
+     "askrigor": {
+      "status": "ok",
+      "error": null,
+      "pages": 1,
+      "segments": 153,
+      "coverage": 0.981,
+      "latency_s": 1.94,
+      "track": {
+       "language_code": "en",
+       "language_name": "en",
+       "is_auto_generated": true
+      },
+      "rate_limited": false,
+      "receipt_exhausted": null
+     },
+     "bright_data": {
+      "error": null,
+      "latency_s": 71.3,
+      "records": 1,
+      "has_transcript": true,
+      "transcript_language": [
+       {
+        "language": "English (auto-generated)",
+        "auto_translate": true
+       }
+      ],
+      "segments": 153,
+      "coverage": 0.981,
+      "video_length": 368
+     },
+     "agreement": {
+      "wer_bd_vs_askrigor": 0.0399,
+      "askrigor_words": 1154,
+      "bd_words": 1108,
+      "matched": 109,
+      "used": 10,
+      "median_abs_start_diff_ms": 0.0
+     }
+    },
+    {
+     "video_id": "2Fmx-iHsKYg",
+     "edge_case": null,
+     "duration_s": 330,
+     "askrigor": {
+      "status": "ok",
+      "error": null,
+      "pages": 1,
+      "segments": 175,
+      "coverage": 1.004,
+      "latency_s": 1.95,
+      "track": {
+       "language_code": "en",
+       "language_name": "en",
+       "is_auto_generated": true
+      },
+      "rate_limited": false,
+      "receipt_exhausted": null
+     },
+     "bright_data": {
+      "error": null,
+      "latency_s": 61.41,
+      "records": 1,
+      "has_transcript": true,
+      "transcript_language": [
+       {
+        "language": "English (auto-generated)",
+        "auto_translate": true
+       }
+      ],
+      "segments": 175,
+      "coverage": 1.004,
+      "video_length": 330
+     },
+     "agreement": {
+      "wer_bd_vs_askrigor": 0.0263,
+      "askrigor_words": 1257,
+      "bd_words": 1224,
+      "matched": 142,
+      "used": 10,
+      "median_abs_start_diff_ms": 0.0
+     }
+    },
+    {
+     "video_id": "0sZEvvPWq88",
+     "edge_case": null,
+     "duration_s": 390,
+     "askrigor": {
+      "status": "ok",
+      "error": null,
+      "pages": 1,
+      "segments": 70,
+      "coverage": 0.997,
+      "latency_s": 1.95,
+      "track": {
+       "language_code": "zh-Hans",
+       "language_name": "zh-Hans",
+       "is_auto_generated": false
+      },
+      "rate_limited": false,
+      "receipt_exhausted": null
+     },
+     "bright_data": {
+      "error": null,
+      "latency_s": 64.73,
+      "records": 1,
+      "has_transcript": true,
+      "transcript_language": [
+       {
+        "language": "Chinese (Simplified)",
+        "auto_translate": false
+       },
+       {
+        "language": "Chinese (Traditional)",
+        "auto_translate": false
+       },
+       {
+        "language": "English",
+        "auto_translate": false
+       }
+      ],
+      "segments": 70,
+      "coverage": 0.997,
+      "video_length": 389
+     },
+     "agreement": {
+      "wer_bd_vs_askrigor": 4.8711,
+      "askrigor_words": 225,
+      "bd_words": 1114,
+      "matched": 0,
+      "median_abs_start_diff_ms": null
+     }
+    },
+    {
+     "video_id": "qfPjRBqADKk",
+     "edge_case": null,
+     "duration_s": 2682,
+     "askrigor": {
+      "status": "ok",
+      "error": null,
+      "pages": 10,
+      "segments": 1824,
+      "coverage": 0.999,
+      "latency_s": 20.89,
+      "track": {
+       "language_code": "ar",
+       "language_name": "ar",
+       "is_auto_generated": true
+      },
+      "rate_limited": false,
+      "receipt_exhausted": null
+     },
+     "bright_data": {
+      "error": null,
+      "latency_s": 67.37,
+      "records": 1,
+      "has_transcript": true,
+      "transcript_language": [
+       {
+        "language": "Arabic (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Bangla (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Dutch (Netherlands) (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "English (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "English (United Kingdom)",
+        "auto_translate": false
+       },
+       {
+        "language": "French (France) (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "German (Germany) (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Hebrew (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Hindi (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Indonesian (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Italian (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Japanese (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Korean (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Malayalam (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Polish (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Portuguese (Brazil) (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Punjabi (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Russian (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Spanish (United States) (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Ukrainian (auto-generated)",
+        "auto_translate": true
+       }
+      ],
+      "segments": 473,
+      "coverage": 0.998,
+      "video_length": 2682
+     },
+     "agreement": {
+      "wer_bd_vs_askrigor": 1.3075,
+      "askrigor_words": 6461,
+      "bd_words": 8462,
+      "matched": 0,
+      "median_abs_start_diff_ms": null
+     }
+    },
+    {
+     "video_id": "_lgzIx5gr3c",
+     "edge_case": "no_captions",
+     "duration_s": 568,
+     "askrigor": {
+      "status": "ok",
+      "error": null,
+      "pages": 2,
+      "segments": 301,
+      "coverage": 0.996,
+      "latency_s": 3.99,
+      "track": {
+       "language_code": "en",
+       "language_name": "en",
+       "is_auto_generated": true
+      },
+      "rate_limited": false,
+      "receipt_exhausted": null
+     },
+     "bright_data": {
+      "error": null,
+      "latency_s": 352.84,
+      "records": 1,
+      "has_transcript": true,
+      "transcript_language": [
+       {
+        "language": "English (auto-generated)",
+        "auto_translate": true
+       }
+      ],
+      "segments": 301,
+      "coverage": 0.996,
+      "video_length": 568
+     },
+     "agreement": {
+      "wer_bd_vs_askrigor": 0.0374,
+      "askrigor_words": 2271,
+      "bd_words": 2186,
+      "matched": 213,
+      "used": 10,
+      "median_abs_start_diff_ms": 0.0
+     }
+    },
+    {
+     "video_id": "Eq0SssY4ZXs",
+     "edge_case": "non_english",
+     "duration_s": 772,
+     "askrigor": {
+      "status": "ok",
+      "error": null,
+      "pages": 3,
+      "segments": 549,
+      "coverage": 0.998,
+      "latency_s": 6.86,
+      "track": {
+       "language_code": "ar",
+       "language_name": "ar",
+       "is_auto_generated": true
+      },
+      "rate_limited": false,
+      "receipt_exhausted": null
+     },
+     "bright_data": {
+      "error": null,
+      "latency_s": 150.86,
+      "records": 1,
+      "has_transcript": true,
+      "transcript_language": [
+       {
+        "language": "Arabic (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Bangla (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "English (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "English - Default",
+        "auto_translate": false
+       },
+       {
+        "language": "Hebrew (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Italian (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Japanese (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Korean (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Malayalam (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Polish (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Russian (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Tamil (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Telugu (auto-generated)",
+        "auto_translate": true
+       },
+       {
+        "language": "Ukrainian (auto-generated)",
+        "auto_translate": true
+       }
+      ],
+      "segments": 549,
+      "coverage": 0.998,
+      "video_length": 771
+     },
+     "agreement": {
+      "wer_bd_vs_askrigor": 0.0011,
+      "askrigor_words": 1901,
+      "bd_words": 1899,
+      "matched": 260,
+      "used": 10,
+      "median_abs_start_diff_ms": 0.0
+     }
+    },
+    {
+     "video_id": "6kKc2mTEb2c",
+     "edge_case": "short",
+     "duration_s": 58,
+     "askrigor": {
+      "status": "ok",
+      "error": null,
+      "pages": 1,
+      "segments": 16,
+      "coverage": 0.995,
+      "latency_s": 1.74,
+      "track": {
+       "language_code": "en",
+       "language_name": "en",
+       "is_auto_generated": false
+      },
+      "rate_limited": false,
+      "receipt_exhausted": null
+     },
+     "bright_data": {
+      "error": null,
+      "latency_s": 149.67,
+      "records": 1,
+      "has_transcript": true,
+      "transcript_language": [
+       {
+        "language": "English",
+        "auto_translate": false
+       },
+       {
+        "language": "English (auto-generated)",
+        "auto_translate": true
+       }
+      ],
+      "segments": 16,
+      "coverage": 0.995,
+      "video_length": 58
+     },
+     "agreement": {
+      "wer_bd_vs_askrigor": 0.0343,
+      "askrigor_words": 204,
+      "bd_words": 197,
+      "matched": 8,
+      "used": 8,
+      "median_abs_start_diff_ms": 0.0
+     }
+    },
+    {
+     "video_id": "jn49FjEM4EU",
+     "edge_case": "over_60_min",
+     "duration_s": 4108,
+     "askrigor": {
+      "status": "error",
+      "error": "youtube_transcript_rate_limited",
+      "pages": 6,
+      "segments": 1000,
+      "coverage": 0.532,
+      "latency_s": 11.47,
+      "track": {
+       "language_code": "en",
+       "language_name": "en",
+       "is_auto_generated": true
+      },
+      "rate_limited": true,
+      "receipt_exhausted": null
+     },
+     "bright_data": {
+      "error": null,
+      "latency_s": 71.58,
+      "records": 1,
+      "has_transcript": true,
+      "transcript_language": [
+       {
+        "language": "English (auto-generated)",
+        "auto_translate": true
+       }
+      ],
+      "segments": 1911,
+      "coverage": 1.0,
+      "video_length": 4107
+     },
+     "agreement": {
+      "wer_bd_vs_askrigor": 0.8938,
+      "askrigor_words": 7648,
+      "bd_words": 13606,
+      "matched": 671,
+      "used": 10,
+      "median_abs_start_diff_ms": 0.0
+     }
+    },
+    {
+     "video_id": "iV_uMFtgOF0",
+     "edge_case": "live_replay",
+     "duration_s": 1885,
+     "askrigor": {
+      "status": "error",
+      "error": "youtube_transcript_rate_limited",
+      "pages": 1,
+      "segments": 0,
+      "coverage": null,
+      "latency_s": 2.15,
+      "track": null,
+      "rate_limited": true,
+      "receipt_exhausted": null
+     },
+     "bright_data": {
+      "error": null,
+      "latency_s": 78.23,
+      "records": 1,
+      "has_transcript": true,
+      "transcript_language": [
+       {
+        "language": "English (auto-generated)",
+        "auto_translate": true
+       }
+      ],
+      "segments": 859,
+      "coverage": 1.0,
+      "video_length": 1885
+     },
+     "agreement": null
+    }
+   ]
+  },
+  "lane_c": {
+   "rows": [
+    {
+     "video_id": "stZdnA9zeQE",
+     "official_top_level": 19,
+     "official_replies": 15,
+     "official_access_status": "api_visible_complete",
+     "official_latency_s": 2.433,
+     "official_reply_count_mismatches": 0,
+     "bd_requested": 34,
+     "bd_records": 19,
+     "bd_latency_s": 14.17,
+     "bd_error": null,
+     "bd_reply_records": 0,
+     "bd_nested_replies": 0,
+     "bd_nested_reply_text_present": false,
+     "bd_num_replies_sum": 15,
+     "bd_parent_key": null,
+     "match_basis": "comment_id",
+     "matched": 19,
+     "official_missing_from_bd": 15,
+     "bd_not_in_official": 0,
+     "credits_per_matched_comment": 1.0,
+     "embedded_comments": 19,
+     "embedded_matched_official": 19
+    },
+    {
+     "video_id": "0sZEvvPWq88",
+     "official_top_level": 88,
+     "official_replies": 80,
+     "official_access_status": "api_visible_complete",
+     "official_latency_s": 6.654,
+     "official_reply_count_mismatches": 0,
+     "bd_requested": 168,
+     "bd_records": 88,
+     "bd_latency_s": 12.89,
+     "bd_error": null,
+     "bd_reply_records": 0,
+     "bd_nested_replies": 0,
+     "bd_nested_reply_text_present": false,
+     "bd_num_replies_sum": 80,
+     "bd_parent_key": null,
+     "match_basis": "comment_id",
+     "matched": 88,
+     "official_missing_from_bd": 80,
+     "bd_not_in_official": 0,
+     "credits_per_matched_comment": 1.0,
+     "embedded_comments": 20,
+     "embedded_matched_official": 20
+    },
+    {
+     "video_id": "Hz3Gd51hBn0",
+     "official_top_level": 197,
+     "official_replies": 155,
+     "official_access_status": "api_visible_complete",
+     "official_latency_s": 12.792,
+     "official_reply_count_mismatches": 0,
+     "bd_requested": 250,
+     "bd_records": 197,
+     "bd_latency_s": 34.22,
+     "bd_error": null,
+     "bd_reply_records": 0,
+     "bd_nested_replies": 0,
+     "bd_nested_reply_text_present": false,
+     "bd_num_replies_sum": 155,
+     "bd_parent_key": null,
+     "match_basis": "comment_id",
+     "matched": 197,
+     "official_missing_from_bd": 155,
+     "bd_not_in_official": 0,
+     "credits_per_matched_comment": 1.0,
+     "embedded_comments": 20,
+     "embedded_matched_official": 20
+    }
+   ]
+  },
+  "lane_d": {
+   "Q1": {
+    "search_error": null,
+    "candidates": 10,
+    "screened": 6,
+    "shell_fetch_page": {
+     "js_shell": 6
+    },
+    "shell_fetch_json": {
+     "blocked_403": 6
+    },
+    "count_sources": {
+     "bd_reddit_posts": 6
+    },
+    "threads": [
+     {
+      "thread_id": "1gqm9d2",
+      "displayed_comments": 56,
+      "reddit_posts_records": 1,
+      "reddit_posts_comments_included": 23,
+      "comments_records": 32,
+      "records_vs_displayed": 0.571,
+      "parent_key": "parent_comment_id",
+      "nested_replies": 9,
+      "deleted_or_removed": 3,
+      "comments_latency_s": 119.57,
+      "comments_error": null,
+      "author_fields": [
+       "community_name",
+       "has_bot_in_username",
+       "user_posted"
+      ]
+     },
+     {
+      "thread_id": "1irk9yd",
+      "displayed_comments": 132,
+      "reddit_posts_records": 1,
+      "reddit_posts_comments_included": 25,
+      "comments_records": 91,
+      "records_vs_displayed": 0.689,
+      "parent_key": "parent_comment_id",
+      "nested_replies": 21,
+      "deleted_or_removed": 7,
+      "comments_latency_s": 34.76,
+      "comments_error": null,
+      "author_fields": [
+       "community_name",
+       "has_bot_in_username",
+       "user_posted"
+      ]
+     },
+     {
+      "thread_id": "18ttdoe",
+      "displayed_comments": 58,
+      "reddit_posts_records": 1,
+      "reddit_posts_comments_included": 11,
+      "comments_records": 13,
+      "records_vs_displayed": 0.224,
+      "parent_key": "parent_comment_id",
+      "nested_replies": 11,
+      "deleted_or_removed": 2,
+      "comments_latency_s": 77.77,
+      "comments_error": null,
+      "author_fields": [
+       "community_name",
+       "has_bot_in_username",
+       "user_posted"
+      ]
+     }
+    ],
+    "median_records_vs_displayed": 0.571,
+    "chatgpt_probe": null
+   },
+   "Q3": {
+    "search_error": null,
+    "candidates": 9,
+    "screened": 5,
+    "shell_fetch_page": {
+     "js_shell": 5
+    },
+    "shell_fetch_json": {
+     "blocked_403": 5
+    },
+    "count_sources": {
+     "bd_reddit_posts": 5
+    },
+    "threads": [
+     {
+      "thread_id": "15oyv1r",
+      "displayed_comments": 69,
+      "reddit_posts_records": 1,
+      "reddit_posts_comments_included": 15,
+      "comments_records": 26,
+      "records_vs_displayed": 0.377,
+      "parent_key": "parent_comment_id",
+      "nested_replies": 15,
+      "deleted_or_removed": 2,
+      "comments_latency_s": 76.56,
+      "comments_error": null,
+      "author_fields": [
+       "community_name",
+       "has_bot_in_username",
+       "user_posted"
+      ]
+     },
+     {
+      "thread_id": "10nh2qg",
+      "displayed_comments": 62,
+      "reddit_posts_records": 1,
+      "reddit_posts_comments_included": 14,
+      "comments_records": 26,
+      "records_vs_displayed": 0.419,
+      "parent_key": "parent_comment_id",
+      "nested_replies": 14,
+      "deleted_or_removed": 3,
+      "comments_latency_s": 55.71,
+      "comments_error": null,
+      "author_fields": [
+       "community_name",
+       "has_bot_in_username",
+       "user_posted"
+      ]
+     },
+     {
+      "thread_id": "1upunlq",
+      "displayed_comments": 61,
+      "reddit_posts_records": 1,
+      "reddit_posts_comments_included": 18,
+      "comments_records": 33,
+      "records_vs_displayed": 0.541,
+      "parent_key": "parent_comment_id",
+      "nested_replies": 16,
+      "deleted_or_removed": 0,
+      "comments_latency_s": 34.4,
+      "comments_error": null,
+      "author_fields": [
+       "community_name",
+       "has_bot_in_username",
+       "user_posted"
+      ]
+     }
+    ],
+    "median_records_vs_displayed": 0.419,
+    "chatgpt_probe": null
+   }
+  },
+  "lane_e": {
+   "Q1": {
+    "tiktok": {
+     "posts": 5,
+     "posts_latency_s": 320.29,
+     "posts_error": null,
+     "post_author_fields": [
+      "account_id",
+      "profile_avatar",
+      "profile_biography",
+      "profile_followers",
+      "profile_id",
+      "profile_url",
+      "profile_username",
+      "tagged_user"
+     ],
+     "comments": [
+      {
+       "displayed": 261,
+       "records": 1,
+       "error_records": 1,
+       "cap_held": true,
+       "replies_present": false,
+       "latency_s": 744.53,
+       "author_fields": [],
+       "shell_fetch": "challenge"
+      },
+      {
+       "displayed": 69,
+       "records": 50,
+       "error_records": 0,
+       "cap_held": true,
+       "replies_present": true,
+       "latency_s": 224.34,
+       "author_fields": [
+        "commenter_id",
+        "commenter_url",
+        "commenter_user_name"
+       ],
+       "shell_fetch": "js_shell"
+      }
+     ]
+    },
+    "instagram": {
+     "post_found": true,
+     "search_error": null,
+     "records": 0,
+     "error_records": 0,
+     "cap_held": true,
+     "replies_present": false,
+     "latency_s": 13.21,
+     "author_fields": [],
+     "shell_fetch": "challenge"
+    },
+    "facebook": {
+     "post_found": false,
+     "post_search_errors": [
+      null,
+      null
+     ],
+     "post_comments": null,
+     "group_found": true,
+     "group_search_error": null,
+     "group_posts": {
+      "records": 5,
+      "error_records": 0,
+      "posts_returned": true,
+      "latency_s": 161.14,
+      "author_fields": [
+       "avatar_image_url",
+       "group_name",
+       "profile_id",
+       "user_is_verified",
+       "user_to_not_include",
+       "user_url",
+       "user_username_raw"
+      ]
+     }
+    },
+    "x": {
+     "posts": 3,
+     "records": [
+      1,
+      1,
+      1
+     ],
+     "replies_present": [
+      false,
+      true,
+      false
+     ],
+     "latency_s": [
+      10.55,
+      10.11,
+      2.57
+     ],
+     "author_fields": [
+      "name",
+      "profile_image_link",
+      "user_id",
+      "user_posted"
+     ],
+     "shell_fetch": {
+      "ok": 3
+     }
+    }
+   },
+   "Q3": {
+    "tiktok": {
+     "posts": 5,
+     "posts_latency_s": 140.66,
+     "posts_error": null,
+     "post_author_fields": [
+      "account_id",
+      "profile_avatar",
+      "profile_biography",
+      "profile_followers",
+      "profile_id",
+      "profile_url",
+      "profile_username",
+      "tagged_user"
+     ],
+     "comments": [
+      {
+       "displayed": 146,
+       "records": 50,
+       "error_records": 0,
+       "cap_held": true,
+       "replies_present": true,
+       "latency_s": 76.83,
+       "author_fields": [
+        "commenter_id",
+        "commenter_url",
+        "commenter_user_name"
+       ],
+       "shell_fetch": "challenge"
+      },
+      {
+       "displayed": 73,
+       "records": 50,
+       "error_records": 0,
+       "cap_held": true,
+       "replies_present": true,
+       "latency_s": 152.08,
+       "author_fields": [
+        "commenter_id",
+        "commenter_url",
+        "commenter_user_name"
+       ],
+       "shell_fetch": "challenge"
+      }
+     ]
+    },
+    "instagram": {
+     "post_found": true,
+     "search_error": null,
+     "records": 0,
+     "error_records": 0,
+     "cap_held": true,
+     "replies_present": false,
+     "latency_s": 23.63,
+     "author_fields": [],
+     "shell_fetch": "challenge"
+    },
+    "facebook": {
+     "post_found": false,
+     "post_search_errors": [
+      null,
+      null
+     ],
+     "post_comments": null,
+     "group_found": true,
+     "group_search_error": null,
+     "group_posts": {
+      "records": 5,
+      "error_records": 0,
+      "posts_returned": true,
+      "latency_s": 77.07,
+      "author_fields": [
+       "avatar_image_url",
+       "group_name",
+       "profile_id",
+       "user_is_verified",
+       "user_to_not_include",
+       "user_url",
+       "user_username_raw"
+      ]
+     }
+    },
+    "x": {
+     "posts": 0,
+     "records": [],
+     "replies_present": [],
+     "latency_s": [],
+     "author_fields": [],
+     "shell_fetch": {}
+    }
+   }
+  },
+  "lane_f": {
+   "Q1": {
+    "searches": [
+     {
+      "tag": "forum",
+      "organic": 0,
+      "error": "Error: waiting for selector \"#main\" failed: timeout 30000ms exceeded",
+      "retried": false
+     },
+     {
+      "tag": "reviews",
+      "organic": 9,
+      "error": null,
+      "retried": false
+     },
+     {
+      "tag": "forum-p2",
+      "organic": 10,
+      "error": null,
+      "retried": false
+     },
+     {
+      "tag": "reviews-p2",
+      "organic": 10,
+      "error": null,
+      "retried": false
+     }
+    ],
+    "ordinary_attempts": 18,
+    "ordinary_classes": {
+     "ok": 15,
+     "http_203": 1,
+     "blocked_403": 2
+    },
+    "pages": [
+     {
+      "host": "ukclimbing.com",
+      "ordinary_class": "blocked_403",
+      "ordinary_status": 403,
+      "bd_success": true,
+      "content_chars": 33307,
+      "latency_s": 7.87,
+      "error": null,
+      "replies_present": null
+     },
+     {
+      "host": "aromotion.com",
+      "ordinary_class": "blocked_403",
+      "ordinary_status": 403,
+      "bd_success": true,
+      "content_chars": 12159,
+      "latency_s": 2.97,
+      "error": null,
+      "replies_present": null
+     }
+    ]
+   },
+   "Q2": {
+    "searches": [
+     {
+      "tag": "forum",
+      "organic": 9,
+      "error": null,
+      "retried": false
+     },
+     {
+      "tag": "reviews",
+      "organic": 8,
+      "error": null,
+      "retried": false
+     }
+    ],
+    "ordinary_attempts": 8,
+    "ordinary_classes": {
+     "ok": 6,
+     "challenge": 1,
+     "blocked_403": 1
+    },
+    "pages": [
+     {
+      "host": "pmc.ncbi.nlm.nih.gov",
+      "ordinary_class": "challenge",
+      "ordinary_status": 200,
+      "bd_success": false,
+      "content_chars": 0,
+      "latency_s": 14.25,
+      "error": "Error: Access denied: pmc.ncbi.nlm.nih.gov is classified as Government and blocked by Bright Data as it might breach Bright Data usage policy. For more details review the following: https://docs.brigh",
+      "replies_present": null
+     },
+     {
+      "host": "mayoclinic.org",
+      "ordinary_class": "blocked_403",
+      "ordinary_status": 403,
+      "bd_success": true,
+      "content_chars": 30294,
+      "latency_s": 6.38,
+      "error": null,
+      "replies_present": null
+     }
+    ]
+   },
+   "Q3": {
+    "searches": [
+     {
+      "tag": "forum",
+      "organic": 0,
+      "error": "Error: This query recently failed and cannot be attempted at this time. Please try again later, after a minimum of 15 seconds. https://docs.brightdata.com/scraping-automation/serp-api/debugging#serp-a",
+      "retried": true
+     },
+     {
+      "tag": "reviews",
+      "organic": 7,
+      "error": null,
+      "retried": false
+     }
+    ],
+    "ordinary_attempts": 3,
+    "ordinary_classes": {
+     "challenge": 1,
+     "ok": 1,
+     "blocked_403": 1
+    },
+    "pages": [
+     {
+      "host": "pmc.ncbi.nlm.nih.gov",
+      "ordinary_class": "challenge",
+      "ordinary_status": 200,
+      "bd_success": false,
+      "content_chars": 0,
+      "latency_s": 6.28,
+      "error": "Error: Access denied: pmc.ncbi.nlm.nih.gov is classified as Government and blocked by Bright Data as it might breach Bright Data usage policy. For more details review the following: https://docs.brigh",
+      "replies_present": null
+     },
+     {
+      "host": "mayoclinic.org",
+      "ordinary_class": "blocked_403",
+      "ordinary_status": 403,
+      "bd_success": true,
+      "content_chars": 29098,
+      "latency_s": 7.97,
+      "error": null,
+      "replies_present": null
+     }
+    ]
+   }
+  },
+  "credits": {
+   "calls": 136,
+   "by_lane": {
+    "PRE": 1,
+    "A": 216,
+    "D": 234,
+    "E": 192,
+    "B": 17,
+    "F": 12,
+    "C": 304
+   },
+   "total": 976
+  }
+ },
+ "credits": {
+  "by_lane": {
+   "PRE": 1,
+   "A": 216,
+   "D": 234,
+   "E": 192,
+   "B": 17,
+   "F": 12,
+   "C": 304
+  },
+  "total": 976,
+  "calls": 136,
+  "lane_caps": {
+   "A": 1333,
+   "B": 133,
+   "C": 1667,
+   "D": 1000,
+   "E": 667,
+   "F": 133,
+   "run": 5000
+  }
+ },
+ "ledger": [
+  {
+   "ts": "2026-10-01T04:21:56Z",
+   "lane": "PRE",
+   "method": "bdata pipelines youtube_videos",
+   "input": "XpZHKGGCK-o",
+   "records": 1,
+   "credits": 1,
+   "latency_s": null,
+   "status": "ok",
+   "note": "latency not captured"
+  },
+  {
+   "ts": "2026-10-01T04:22:12Z",
+   "lane": "A",
+   "method": "sdk search.youtube.videos_by_keyword(num_of_posts=10)",
+   "input": "Q1/S0",
+   "records": 10,
+   "credits": 10,
+   "latency_s": null,
+   "status": "ok_unlogged_crash",
+   "note": "backfilled 04:3x: the logger crashed after this call (a method in the SDK metadata); response saved; superseded by the rerun"
+  },
+  {
+   "ts": "2026-10-01T04:25:16Z",
+   "lane": "A",
+   "method": "sdk search.youtube.videos_by_keyword(num_of_posts=10)",
+   "input": "Q2/S0",
+   "records": 10,
+   "credits": 10,
+   "latency_s": null,
+   "status": "client_stopped_snapshot_ready",
+   "note": "backfilled: client stopped mid-poll after the Q1 crash; snapshot completed server-side with 10 records (dataset_size from the snapshot list); superseded by the rerun"
+  },
+  {
+   "ts": "2026-10-01T04:31:41Z",
+   "lane": "A",
+   "method": "sdk search.youtube.videos_by_keyword(num_of_posts=10)",
+   "input": "Q1/S0",
+   "records": 10,
+   "credits": 10,
+   "latency_s": 172.87,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.02,
+   "sdk_row_count": 10,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 170648.619
+  },
+  {
+   "ts": "2026-10-01T04:31:44Z",
+   "lane": "A",
+   "method": "bdata search site:youtube.com (us, en)",
+   "input": "Q1/S0",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 3.06,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T04:35:48Z",
+   "lane": "A",
+   "method": "sdk search.youtube.videos_by_keyword(num_of_posts=10)",
+   "input": "Q1/S1",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 244.45,
+   "status": "error",
+   "error": "Polling timeout after 240s",
+   "sdk_cost_usd": null,
+   "sdk_row_count": null,
+   "sdk_status": "timeout",
+   "sdk_elapsed_ms": 244447.21300000002
+  },
+  {
+   "ts": "2026-10-01T04:35:52Z",
+   "lane": "A",
+   "method": "bdata search site:youtube.com (us, en)",
+   "input": "Q1/S1",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 3.9,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T04:37:42Z",
+   "lane": "A",
+   "method": "sdk search.youtube.videos_by_keyword(num_of_posts=10)",
+   "input": "Q1/S2",
+   "records": 10,
+   "credits": 10,
+   "latency_s": 109.46,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.02,
+   "sdk_row_count": 10,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 107197.082
+  },
+  {
+   "ts": "2026-10-01T04:37:48Z",
+   "lane": "A",
+   "method": "bdata search site:youtube.com (us, en)",
+   "input": "Q1/S2",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 6.37,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T04:40:09Z",
+   "lane": "A",
+   "method": "sdk search.youtube.videos_by_keyword(num_of_posts=10)",
+   "input": "Q1/S3",
+   "records": 10,
+   "credits": 10,
+   "latency_s": 140.57,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.02,
+   "sdk_row_count": 10,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 138720.724
+  },
+  {
+   "ts": "2026-10-01T04:40:13Z",
+   "lane": "A",
+   "method": "bdata search site:youtube.com (us, en)",
+   "input": "Q1/S3",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 4.44,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T04:44:17Z",
+   "lane": "A",
+   "method": "sdk search.youtube.videos_by_keyword(num_of_posts=10)",
+   "input": "Q1/S4",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 244.14,
+   "status": "error",
+   "error": "Polling timeout after 240s",
+   "sdk_cost_usd": null,
+   "sdk_row_count": null,
+   "sdk_status": "timeout",
+   "sdk_elapsed_ms": 244140.84600000002
+  },
+  {
+   "ts": "2026-10-01T04:44:20Z",
+   "lane": "A",
+   "method": "bdata search site:youtube.com (us, en)",
+   "input": "Q1/S4",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 3.12,
+   "status": "error",
+   "error": "Error: redirect location was rejected",
+   "organic_results": 0
+  },
+  {
+   "ts": "2026-10-01T04:46:43Z",
+   "lane": "A",
+   "method": "sdk search.youtube.videos_by_keyword(num_of_posts=10)",
+   "input": "Q1/S5",
+   "records": 10,
+   "credits": 10,
+   "latency_s": 142.75,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.02,
+   "sdk_row_count": 10,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 138783.438
+  },
+  {
+   "ts": "2026-10-01T04:46:47Z",
+   "lane": "A",
+   "method": "bdata search site:youtube.com (us, en)",
+   "input": "Q1/S5",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 3.76,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T04:48:15Z",
+   "lane": "D",
+   "method": "bdata search --country us",
+   "input": "Q1/reddit",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 14.28,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T04:48:16Z",
+   "lane": "A",
+   "method": "sdk search.youtube.videos_by_keyword(num_of_posts=10, timeout=900)",
+   "input": "Q2/S0",
+   "records": 10,
+   "credits": 10,
+   "latency_s": 89.04,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.02,
+   "sdk_row_count": 10,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 86682.811
+  },
+  {
+   "ts": "2026-10-01T04:49:04Z",
+   "lane": "A",
+   "method": "bdata search site:youtube.com (us, en)",
+   "input": "Q2/S0",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 48.03,
+   "status": "error",
+   "error": "Error: waiting for selector \"#main\" failed: timeout 30000ms exceeded",
+   "organic_results": 0
+  },
+  {
+   "ts": "2026-10-01T04:50:02Z",
+   "lane": "D",
+   "method": "bdata pipelines reddit_posts",
+   "input": "d7ac06d852ce49f5406685adfde3967de9b54a44d61e998da346d8016b872498",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 106.31,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T04:52:28Z",
+   "lane": "D",
+   "method": "bdata pipelines reddit_posts",
+   "input": "6efe2efeb647e8dffa56391e61db6b32fec167a88e9e15cae1c98e8651f149bf",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 144.91,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T04:54:33Z",
+   "lane": "D",
+   "method": "bdata pipelines reddit_posts",
+   "input": "fc8b69a22a3bb9690eed84457f9bdad36f90aaecdd80e130f2caa3aeb38ebf54",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 123.61,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T04:57:31Z",
+   "lane": "D",
+   "method": "bdata pipelines reddit_posts",
+   "input": "d1663f0a5f2df16bf7dc78f2b3b1683245249a666f1dc57eef524e2544a79f49",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 177.47,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T04:58:19Z",
+   "lane": "A",
+   "method": "sdk search.youtube.videos_by_keyword(num_of_posts=10, timeout=900)",
+   "input": "Q2/S1",
+   "records": 10,
+   "credits": 10,
+   "latency_s": 278.73,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.02,
+   "sdk_row_count": 10,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 276160.027
+  },
+  {
+   "ts": "2026-10-01T04:58:23Z",
+   "lane": "A",
+   "method": "bdata search site:youtube.com (us, en)",
+   "input": "Q2/S1",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 4.24,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T05:00:07Z",
+   "lane": "D",
+   "method": "bdata pipelines reddit_posts",
+   "input": "f998ddae4229dbb8732163db8988e9a20e1b2f33fb3babd4e7a727348730032c",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 154.73,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:01:06Z",
+   "lane": "A",
+   "method": "sdk search.youtube.videos_by_keyword(num_of_posts=10, timeout=900)",
+   "input": "Q2/S2",
+   "records": 10,
+   "credits": 10,
+   "latency_s": 162.67,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.02,
+   "sdk_row_count": 10,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 160242.062
+  },
+  {
+   "ts": "2026-10-01T05:01:09Z",
+   "lane": "A",
+   "method": "bdata search site:youtube.com (us, en)",
+   "input": "Q2/S2",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 3.28,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T05:01:49Z",
+   "lane": "D",
+   "method": "bdata pipelines reddit_posts",
+   "input": "9c84f58c7529bb7adea2269fc3c551f121653ba8575432934775cb194d9e5327",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 100.26,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:03:09Z",
+   "lane": "A",
+   "method": "sdk search.youtube.videos_by_keyword(num_of_posts=10, timeout=900)",
+   "input": "Q2/S3",
+   "records": 10,
+   "credits": 10,
+   "latency_s": 120.04,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.02,
+   "sdk_row_count": 10,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 117535.471
+  },
+  {
+   "ts": "2026-10-01T05:03:15Z",
+   "lane": "A",
+   "method": "bdata search site:youtube.com (us, en)",
+   "input": "Q2/S3",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 5.96,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T05:03:48Z",
+   "lane": "D",
+   "method": "sdk scrape.reddit.comments(days_back=3650)",
+   "input": "6efe2efeb647e8dffa56391e61db6b32fec167a88e9e15cae1c98e8651f149bf",
+   "records": 32,
+   "credits": 32,
+   "latency_s": 119.57,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.032,
+   "sdk_row_count": 32,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 118345.854
+  },
+  {
+   "ts": "2026-10-01T05:04:23Z",
+   "lane": "D",
+   "method": "sdk scrape.reddit.comments(days_back=3650)",
+   "input": "d1663f0a5f2df16bf7dc78f2b3b1683245249a666f1dc57eef524e2544a79f49",
+   "records": 91,
+   "credits": 91,
+   "latency_s": 34.76,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.091,
+   "sdk_row_count": 91,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 33180.684
+  },
+  {
+   "ts": "2026-10-01T05:05:41Z",
+   "lane": "D",
+   "method": "sdk scrape.reddit.comments(days_back=3650)",
+   "input": "9c84f58c7529bb7adea2269fc3c551f121653ba8575432934775cb194d9e5327",
+   "records": 13,
+   "credits": 13,
+   "latency_s": 77.77,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.013000000000000001,
+   "sdk_row_count": 13,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 75418.903
+  },
+  {
+   "ts": "2026-10-01T05:05:59Z",
+   "lane": "A",
+   "method": "sdk search.youtube.videos_by_keyword(num_of_posts=10, timeout=900)",
+   "input": "Q2/S4",
+   "records": 10,
+   "credits": 10,
+   "latency_s": 164.01,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.02,
+   "sdk_row_count": 10,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 161296.349
+  },
+  {
+   "ts": "2026-10-01T05:06:07Z",
+   "lane": "A",
+   "method": "bdata search site:youtube.com (us, en)",
+   "input": "Q2/S4",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 7.64,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T05:10:14Z",
+   "lane": "A",
+   "method": "sdk search.youtube.videos_by_keyword(num_of_posts=10, timeout=900)",
+   "input": "Q2/S5",
+   "records": 10,
+   "credits": 10,
+   "latency_s": 247.7,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.02,
+   "sdk_row_count": 10,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 244795.401
+  },
+  {
+   "ts": "2026-10-01T05:10:20Z",
+   "lane": "A",
+   "method": "bdata search site:youtube.com (us, en)",
+   "input": "Q2/S5",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 5.3,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T05:15:52Z",
+   "lane": "E",
+   "method": "sdk search.tiktok.posts_by_keyword(num_of_posts=5)",
+   "input": "Q1/tiktok",
+   "records": 5,
+   "credits": 5,
+   "latency_s": 320.29,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.01,
+   "sdk_row_count": 5,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 319203.55799999996
+  },
+  {
+   "ts": "2026-10-01T05:17:38Z",
+   "lane": "A",
+   "method": "sdk snapshot fetch after client timeout (videos_by_keyword)",
+   "input": "Q1/S1",
+   "records": 10,
+   "credits": 10,
+   "latency_s": null,
+   "status": "recovered",
+   "note": "collected by the timed-out search; fetched, not re-run"
+  },
+  {
+   "ts": "2026-10-01T05:17:41Z",
+   "lane": "A",
+   "method": "sdk snapshot fetch after client timeout (videos_by_keyword)",
+   "input": "Q1/S4",
+   "records": 10,
+   "credits": 10,
+   "latency_s": null,
+   "status": "recovered",
+   "note": "collected by the timed-out search; fetched, not re-run"
+  },
+  {
+   "ts": "2026-10-01T05:20:08Z",
+   "lane": "B",
+   "method": "bdata pipelines youtube_videos",
+   "input": "XpZHKGGCK-o",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 80.29,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:22:23Z",
+   "lane": "B",
+   "method": "bdata pipelines youtube_videos",
+   "input": "-IX2RCCaVeo",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 135.09,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:24:10Z",
+   "lane": "B",
+   "method": "bdata pipelines youtube_videos",
+   "input": "KpcPqnzAl_E",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 106.6,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:24:48Z",
+   "lane": "F",
+   "method": "bdata search --country us",
+   "input": "Q1/forum",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 9.26,
+   "status": "ok",
+   "error": null,
+   "organic_results": 9
+  },
+  {
+   "ts": "2026-10-01T05:25:04Z",
+   "lane": "F",
+   "method": "bdata search --country us",
+   "input": "Q1/reviews",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 4.82,
+   "status": "error",
+   "error": "Error: redirect location was rejected",
+   "organic_results": 0
+  },
+  {
+   "ts": "2026-10-01T05:25:20Z",
+   "lane": "F",
+   "method": "bdata scrape -f markdown",
+   "input": "2a8d62a3c4a5d8fa8b429688a60fb423f343adc32ec669ff38e4fb2844bc8070",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 15.56,
+   "status": "error",
+   "error": "Error: this endpoint is not supported"
+  },
+  {
+   "ts": "2026-10-01T05:25:21Z",
+   "lane": "F",
+   "method": "bdata scrape -f markdown",
+   "input": "fff6d39d72ae8e0e811cd74266e52cce1022561ac64029a0c88b82da9df9fc2c",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 1.43,
+   "status": "error",
+   "error": "Error: this endpoint is not supported"
+  },
+  {
+   "ts": "2026-10-01T05:26:15Z",
+   "lane": "B",
+   "method": "bdata pipelines youtube_videos",
+   "input": "Hz3Gd51hBn0",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 125.82,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:26:54Z",
+   "lane": "F",
+   "method": "bdata search --country us",
+   "input": "Q1/forum",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 4.43,
+   "status": "error",
+   "error": "Error: redirect location was rejected",
+   "organic_results": 9
+  },
+  {
+   "ts": "2026-10-01T05:27:14Z",
+   "lane": "F",
+   "method": "bdata search --country us",
+   "input": "Q1/reviews",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 10.15,
+   "status": "ok",
+   "error": null,
+   "organic_results": 7
+  },
+  {
+   "ts": "2026-10-01T05:27:24Z",
+   "lane": "B",
+   "method": "bdata pipelines youtube_videos",
+   "input": "LnlhK4MBaPw",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 68.6,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:27:31Z",
+   "lane": "F",
+   "method": "bdata scrape -f markdown",
+   "input": "58c3da4b3491aebd691ad587882ca57a94662d54334bc7b3c09f76abf90bda2d",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 3.39,
+   "status": "error",
+   "error": "Error: Access denied: pmc.ncbi.nlm.nih.gov is classified as Government and blocked by Bright Data as it might breach Bright Data usage policy. For more details review the following: https://docs.brigh"
+  },
+  {
+   "ts": "2026-10-01T05:28:16Z",
+   "lane": "E",
+   "method": "sdk tiktok comments dataset (limit_per_input=50, limit_multiple_results=50)",
+   "input": "c306fac749153fa9054905072a158affa5885a6536bc2b62ff91b913e1a9aaf8",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 744.53,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.002,
+   "sdk_row_count": 1,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 743912.263
+  },
+  {
+   "ts": "2026-10-01T05:29:06Z",
+   "lane": "B",
+   "method": "bdata pipelines youtube_videos",
+   "input": "2LFgGibgJG0",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 102.09,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:29:32Z",
+   "lane": "F",
+   "method": "bdata search --country us",
+   "input": "Q1/forum",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 79.27,
+   "status": "error",
+   "error": "Error: waiting for selector \"#main\" failed: timeout 30000ms exceeded",
+   "organic_results": 0
+  },
+  {
+   "ts": "2026-10-01T05:29:35Z",
+   "lane": "F",
+   "method": "bdata search --country us",
+   "input": "Q1/reviews",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 3.58,
+   "status": "ok",
+   "error": null,
+   "organic_results": 9
+  },
+  {
+   "ts": "2026-10-01T05:29:55Z",
+   "lane": "F",
+   "method": "bdata search --country us",
+   "input": "Q1/forum-p2",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 4.08,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T05:30:09Z",
+   "lane": "B",
+   "method": "bdata pipelines youtube_videos",
+   "input": "stZdnA9zeQE",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 63.19,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:30:13Z",
+   "lane": "F",
+   "method": "bdata search --country us",
+   "input": "Q1/reviews-p2",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 10.97,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T05:30:25Z",
+   "lane": "F",
+   "method": "bdata scrape -f markdown",
+   "input": "13480918898416a493d1f188bd0936d21cbd78c3142c390372d074a65d7cdc4a",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 7.87,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:30:28Z",
+   "lane": "F",
+   "method": "bdata scrape -f markdown",
+   "input": "d686b8fcb346e39ccde6847f62e7af37f6b104b1875150945496a687a8de63e8",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 2.97,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:30:57Z",
+   "lane": "F",
+   "method": "bdata search --country us",
+   "input": "Q2/forum",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 28.78,
+   "status": "ok",
+   "error": null,
+   "organic_results": 9
+  },
+  {
+   "ts": "2026-10-01T05:32:02Z",
+   "lane": "E",
+   "method": "sdk tiktok comments dataset (limit_per_input=50, limit_multiple_results=50)",
+   "input": "5b60c061d2c8cc8f636b14cee8157835cd35a19ea0d54232e48397f4cd889235",
+   "records": 50,
+   "credits": 50,
+   "latency_s": 224.34,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.1,
+   "sdk_row_count": 50,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 223316.60400000002
+  },
+  {
+   "ts": "2026-10-01T05:32:04Z",
+   "lane": "B",
+   "method": "bdata pipelines youtube_videos",
+   "input": "CD2vs-Ud6bo",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 114.57,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:32:08Z",
+   "lane": "E",
+   "method": "bdata search",
+   "input": "Q1/instagram",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 5.45,
+   "status": "error",
+   "error": "Error: redirect location was rejected",
+   "organic_results": 0
+  },
+  {
+   "ts": "2026-10-01T05:32:10Z",
+   "lane": "F",
+   "method": "bdata search --country us",
+   "input": "Q2/reviews",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 61.87,
+   "status": "ok",
+   "error": null,
+   "organic_results": 8
+  },
+  {
+   "ts": "2026-10-01T05:32:25Z",
+   "lane": "F",
+   "method": "bdata scrape -f markdown",
+   "input": "ce8b724368ed41699b746e8bfa3779232d0f095e4493329d4ecc90746252e727",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 14.25,
+   "status": "error",
+   "error": "Error: Access denied: pmc.ncbi.nlm.nih.gov is classified as Government and blocked by Bright Data as it might breach Bright Data usage policy. For more details review the following: https://docs.brigh"
+  },
+  {
+   "ts": "2026-10-01T05:32:32Z",
+   "lane": "F",
+   "method": "bdata scrape -f markdown",
+   "input": "449228c5e3d74cc3b237db4835bc4704f19d00eabb0b45c96b24405b9d18ce83",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 6.38,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:32:32Z",
+   "lane": "E",
+   "method": "bdata search",
+   "input": "Q1/facebook-post",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 24.24,
+   "status": "ok",
+   "error": null,
+   "organic_results": 9
+  },
+  {
+   "ts": "2026-10-01T05:32:35Z",
+   "lane": "E",
+   "method": "bdata search",
+   "input": "Q1/facebook-post-2",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 3.37,
+   "status": "error",
+   "error": "Error: redirect location was rejected",
+   "organic_results": 0
+  },
+  {
+   "ts": "2026-10-01T05:32:37Z",
+   "lane": "E",
+   "method": "bdata search",
+   "input": "Q1/facebook-group",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 1.64,
+   "status": "error",
+   "error": "Error: redirect location was rejected",
+   "organic_results": 0
+  },
+  {
+   "ts": "2026-10-01T05:32:40Z",
+   "lane": "E",
+   "method": "bdata search",
+   "input": "Q1/x",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 2.97,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T05:32:50Z",
+   "lane": "E",
+   "method": "bdata pipelines x_posts",
+   "input": "5625a23ff019fa049c2064bf7edcd093290af92f1da75a921b980c344b683777",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 10.55,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:33:01Z",
+   "lane": "E",
+   "method": "bdata pipelines x_posts",
+   "input": "a7a655f658daf29d84747ab9f478aa64c5ead5ef93f84774cc08108c0db98a43",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 10.11,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:33:09Z",
+   "lane": "E",
+   "method": "bdata pipelines x_posts",
+   "input": "85c59e382ae04479630729bf011daff0788b5e154ffd8e3aa61d5d21a8684b38",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 2.57,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:33:15Z",
+   "lane": "B",
+   "method": "bdata pipelines youtube_videos",
+   "input": "WKEvbMgkg8w",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 71.3,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:34:17Z",
+   "lane": "B",
+   "method": "bdata pipelines youtube_videos",
+   "input": "2Fmx-iHsKYg",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 61.41,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:35:21Z",
+   "lane": "B",
+   "method": "bdata pipelines youtube_videos",
+   "input": "0sZEvvPWq88",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 64.73,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:36:29Z",
+   "lane": "B",
+   "method": "bdata pipelines youtube_videos",
+   "input": "qfPjRBqADKk",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 67.37,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:38:17Z",
+   "lane": "E",
+   "method": "bdata search",
+   "input": "Q1/instagram",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 3.66,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T05:38:30Z",
+   "lane": "E",
+   "method": "sdk instagram comments dataset (limit_per_input=50, limit_multiple_results=50)",
+   "input": "6d3b9702ca082422eabea7c1ede95d341f7e9c594c133659d8fbd42212ee3e9e",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 13.21,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": null,
+   "sdk_row_count": 0,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 12496.934
+  },
+  {
+   "ts": "2026-10-01T05:38:35Z",
+   "lane": "E",
+   "method": "bdata search",
+   "input": "Q1/facebook-post",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 3.19,
+   "status": "ok",
+   "error": null,
+   "organic_results": 9
+  },
+  {
+   "ts": "2026-10-01T05:38:36Z",
+   "lane": "E",
+   "method": "sdk scrape.facebook.comments(num_of_comments=50)",
+   "input": "cea24e967c9e9c61930a2552561e37c05f515063ee7955028ff1b43716d8ecf8",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 0.79,
+   "status": "error",
+   "error": "Trigger failed: Trigger failed (HTTP 400): {\"error\":\"Invalid input provided\",\"code\":\"validation_error\",\"type\":\"validation\",\"line\":\"{\\\"url\\\":\\\"[post URL redacted; SHA-256 in input]",
+   "sdk_cost_usd": null,
+   "sdk_row_count": null,
+   "sdk_status": "error",
+   "sdk_elapsed_ms": 793.122
+  },
+  {
+   "ts": "2026-10-01T05:38:39Z",
+   "lane": "E",
+   "method": "bdata search",
+   "input": "Q1/facebook-group",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 3.11,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T05:39:14Z",
+   "lane": "E",
+   "method": "sdk scrape.facebook.posts_by_group(num_of_posts=5)",
+   "input": "d1d5f309fe002631a15a4c6750b71a359c0136697d1e3cd6c889e385b7f5a455",
+   "records": 5,
+   "credits": 5,
+   "latency_s": 34.28,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.01,
+   "sdk_row_count": 5,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 33397.764
+  },
+  {
+   "ts": "2026-10-01T05:42:22Z",
+   "lane": "B",
+   "method": "bdata pipelines youtube_videos",
+   "input": "_lgzIx5gr3c",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 352.84,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:43:09Z",
+   "lane": "E",
+   "method": "bdata search",
+   "input": "Q1/facebook-post",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 10.53,
+   "status": "ok",
+   "error": null,
+   "organic_results": 9
+  },
+  {
+   "ts": "2026-10-01T05:43:14Z",
+   "lane": "E",
+   "method": "bdata search",
+   "input": "Q1/facebook-post-2",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 4.02,
+   "status": "ok",
+   "error": null,
+   "organic_results": 8
+  },
+  {
+   "ts": "2026-10-01T05:43:18Z",
+   "lane": "E",
+   "method": "bdata search",
+   "input": "Q1/facebook-group",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 3.09,
+   "status": "error",
+   "error": "Error: redirect location was rejected",
+   "organic_results": 0
+  },
+  {
+   "ts": "2026-10-01T05:43:20Z",
+   "lane": "E",
+   "method": "bdata search",
+   "input": "Q1/facebook-group",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 1.95,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T05:44:52Z",
+   "lane": "B",
+   "method": "sdk scrape.youtube.videos(transcription_language=Spanish)",
+   "input": "Eq0SssY4ZXs",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 150.86,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.002,
+   "sdk_row_count": 1,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 149792.392
+  },
+  {
+   "ts": "2026-10-01T05:46:01Z",
+   "lane": "E",
+   "method": "sdk scrape.facebook.posts_by_group(num_of_posts=5)",
+   "input": "d1d5f309fe002631a15a4c6750b71a359c0136697d1e3cd6c889e385b7f5a455",
+   "records": 5,
+   "credits": 5,
+   "latency_s": 161.14,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.01,
+   "sdk_row_count": 5,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 160271.40099999998
+  },
+  {
+   "ts": "2026-10-01T05:47:22Z",
+   "lane": "B",
+   "method": "bdata pipelines youtube_videos",
+   "input": "6kKc2mTEb2c",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 149.67,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:48:34Z",
+   "lane": "B",
+   "method": "bdata pipelines youtube_videos",
+   "input": "jn49FjEM4EU",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 71.58,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:49:52Z",
+   "lane": "B",
+   "method": "bdata pipelines youtube_videos",
+   "input": "iV_uMFtgOF0",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 78.23,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:50:07Z",
+   "lane": "C",
+   "method": "sdk scrape.youtube.comments(num_of_comments=34)",
+   "input": "stZdnA9zeQE",
+   "records": 19,
+   "credits": 19,
+   "latency_s": 14.17,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.038,
+   "sdk_row_count": 19,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 13295.705999999998
+  },
+  {
+   "ts": "2026-10-01T05:53:44Z",
+   "lane": "F",
+   "method": "bdata search --country us",
+   "input": "Q3/forum",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 2.78,
+   "status": "error",
+   "error": "Error: redirect location was rejected",
+   "organic_results": 0
+  },
+  {
+   "ts": "2026-10-01T05:53:45Z",
+   "lane": "D",
+   "method": "bdata search --country us",
+   "input": "Q3/reddit",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 3.71,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T05:53:46Z",
+   "lane": "C",
+   "method": "sdk scrape.youtube.comments(num_of_comments=168)",
+   "input": "0sZEvvPWq88",
+   "records": 88,
+   "credits": 88,
+   "latency_s": 12.89,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.176,
+   "sdk_row_count": 88,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 11895.238000000001
+  },
+  {
+   "ts": "2026-10-01T05:53:56Z",
+   "lane": "F",
+   "method": "bdata search --country us",
+   "input": "Q3/forum",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 11.7,
+   "status": "error",
+   "error": "Error: This query recently failed and cannot be attempted at this time. Please try again later, after a minimum of 15 seconds. https://docs.brightdata.com/scraping-automation/serp-api/debugging#serp-a",
+   "organic_results": 0
+  },
+  {
+   "ts": "2026-10-01T05:53:59Z",
+   "lane": "F",
+   "method": "bdata search --country us",
+   "input": "Q3/reviews",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 3.26,
+   "status": "ok",
+   "error": null,
+   "organic_results": 7
+  },
+  {
+   "ts": "2026-10-01T05:54:09Z",
+   "lane": "F",
+   "method": "bdata scrape -f markdown",
+   "input": "43953480e9dd8e83e390402b8f5e2d17fe5e88878ba4aa550a4e824b402a8ddc",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 6.28,
+   "status": "error",
+   "error": "Error: Access denied: pmc.ncbi.nlm.nih.gov is classified as Government and blocked by Bright Data as it might breach Bright Data usage policy. For more details review the following: https://docs.brigh"
+  },
+  {
+   "ts": "2026-10-01T05:54:17Z",
+   "lane": "F",
+   "method": "bdata scrape -f markdown",
+   "input": "7314c98071028522647bca9696681a335d1e47400d90faa8d5689a0bfebca3f0",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 7.97,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:54:20Z",
+   "lane": "C",
+   "method": "sdk scrape.youtube.comments(num_of_comments=250)",
+   "input": "Hz3Gd51hBn0",
+   "records": 197,
+   "credits": 197,
+   "latency_s": 34.22,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.394,
+   "sdk_row_count": 197,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 32730.789999999997
+  },
+  {
+   "ts": "2026-10-01T05:56:02Z",
+   "lane": "E",
+   "method": "sdk search.tiktok.posts_by_keyword(num_of_posts=5)",
+   "input": "Q3/tiktok",
+   "records": 5,
+   "credits": 5,
+   "latency_s": 140.66,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.01,
+   "sdk_row_count": 5,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 139523.473
+  },
+  {
+   "ts": "2026-10-01T05:56:03Z",
+   "lane": "A",
+   "method": "sdk search.youtube.videos_by_keyword(num_of_posts=10, timeout=900)",
+   "input": "Q3/S0",
+   "records": 10,
+   "credits": 10,
+   "latency_s": 141.47,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.02,
+   "sdk_row_count": 10,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 139513.26
+  },
+  {
+   "ts": "2026-10-01T05:56:21Z",
+   "lane": "A",
+   "method": "bdata search site:youtube.com (us, en)",
+   "input": "Q3/S0",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 17.52,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T05:57:19Z",
+   "lane": "E",
+   "method": "sdk tiktok comments dataset (limit_per_input=50, limit_multiple_results=50)",
+   "input": "afec8bf030342b88ac2f05a63be6176c953cbb13f0a1a8ac8383a7b5da56fe45",
+   "records": 50,
+   "credits": 50,
+   "latency_s": 76.83,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.1,
+   "sdk_row_count": 50,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 75500.546
+  },
+  {
+   "ts": "2026-10-01T05:57:30Z",
+   "lane": "D",
+   "method": "bdata pipelines reddit_posts",
+   "input": "e850aed6560fc39213312a2db4f0b49e68d49d833f2fc0f3840b21fa0d784185",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 223.53,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T05:58:52Z",
+   "lane": "A",
+   "method": "sdk search.youtube.videos_by_keyword(num_of_posts=10, timeout=900)",
+   "input": "Q3/S1",
+   "records": 10,
+   "credits": 10,
+   "latency_s": 151.48,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.02,
+   "sdk_row_count": 10,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 149681.745
+  },
+  {
+   "ts": "2026-10-01T05:58:55Z",
+   "lane": "A",
+   "method": "bdata search site:youtube.com (us, en)",
+   "input": "Q3/S1",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 3.32,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T05:59:52Z",
+   "lane": "E",
+   "method": "sdk tiktok comments dataset (limit_per_input=50, limit_multiple_results=50)",
+   "input": "beb7a83820fc7dd3e1e9a5241923f9720f81f09917942b4438c0cb532e9bd072",
+   "records": 50,
+   "credits": 50,
+   "latency_s": 152.08,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.1,
+   "sdk_row_count": 50,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 150959.662
+  },
+  {
+   "ts": "2026-10-01T05:59:56Z",
+   "lane": "E",
+   "method": "bdata search",
+   "input": "Q3/instagram",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 2.85,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T06:00:19Z",
+   "lane": "E",
+   "method": "sdk instagram comments dataset (limit_per_input=50, limit_multiple_results=50)",
+   "input": "f52fb4c9403b467747ca5576d3909b795c13d7b09486da4a83096544076e5c4d",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 23.63,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": null,
+   "sdk_row_count": 0,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 22707.723
+  },
+  {
+   "ts": "2026-10-01T06:00:26Z",
+   "lane": "D",
+   "method": "bdata pipelines reddit_posts",
+   "input": "bbc77bd17fef6db9163b56abd57733f91195f36339482afc98be0f8bd00d2f99",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 175.51,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T06:00:32Z",
+   "lane": "E",
+   "method": "bdata search",
+   "input": "Q3/facebook-post",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 11.37,
+   "status": "ok",
+   "error": null,
+   "organic_results": 9
+  },
+  {
+   "ts": "2026-10-01T06:00:40Z",
+   "lane": "E",
+   "method": "bdata search",
+   "input": "Q3/facebook-post-2",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 6.98,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T06:00:44Z",
+   "lane": "E",
+   "method": "bdata search",
+   "input": "Q3/facebook-group",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 4.41,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T06:01:38Z",
+   "lane": "A",
+   "method": "sdk search.youtube.videos_by_keyword(num_of_posts=10, timeout=900)",
+   "input": "Q3/S2",
+   "records": 10,
+   "credits": 10,
+   "latency_s": 162.79,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.02,
+   "sdk_row_count": 10,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 160540.585
+  },
+  {
+   "ts": "2026-10-01T06:01:41Z",
+   "lane": "A",
+   "method": "bdata search site:youtube.com (us, en)",
+   "input": "Q3/S2",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 2.57,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T06:02:01Z",
+   "lane": "E",
+   "method": "sdk scrape.facebook.posts_by_group(num_of_posts=5)",
+   "input": "60a72aa3a6608ca9e1bd571a684f299eb6af2851d67570e37b1e134c212f0bd2",
+   "records": 5,
+   "credits": 5,
+   "latency_s": 77.07,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.01,
+   "sdk_row_count": 5,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 76054.93
+  },
+  {
+   "ts": "2026-10-01T06:02:07Z",
+   "lane": "E",
+   "method": "bdata search",
+   "input": "Q3/x",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 4.73,
+   "status": "error",
+   "error": "Error: redirect location was rejected",
+   "organic_results": 0
+  },
+  {
+   "ts": "2026-10-01T06:02:09Z",
+   "lane": "E",
+   "method": "bdata search",
+   "input": "Q3/x",
+   "records": 0,
+   "credits": 0,
+   "latency_s": 1.74,
+   "status": "error",
+   "error": "Error: This query recently failed and cannot be attempted at this time. Please try again later, after a minimum of 15 seconds. https://docs.brightdata.com/scraping-automation/serp-api/debugging#serp-a",
+   "organic_results": 0
+  },
+  {
+   "ts": "2026-10-01T06:02:15Z",
+   "lane": "E",
+   "method": "bdata search",
+   "input": "Q3/x-2",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 5.54,
+   "status": "ok",
+   "error": null,
+   "organic_results": 1
+  },
+  {
+   "ts": "2026-10-01T06:02:54Z",
+   "lane": "D",
+   "method": "bdata pipelines reddit_posts",
+   "input": "0243d403a8342cac8541384eb74a0109b8e25c46721bc7053206af2701c6f804",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 146.8,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T06:04:05Z",
+   "lane": "D",
+   "method": "bdata pipelines reddit_posts",
+   "input": "89d52880c81ba873dd252e5f0b940b42ee8d6a5528f0384e978d588782e35441",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 69.33,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T06:05:49Z",
+   "lane": "A",
+   "method": "sdk search.youtube.videos_by_keyword(num_of_posts=10, timeout=900)",
+   "input": "Q3/S3",
+   "records": 10,
+   "credits": 10,
+   "latency_s": 247.89,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.02,
+   "sdk_row_count": 10,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 245426.202
+  },
+  {
+   "ts": "2026-10-01T06:05:52Z",
+   "lane": "A",
+   "method": "bdata search site:youtube.com (us, en)",
+   "input": "Q3/S3",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 3.8,
+   "status": "ok",
+   "error": null,
+   "organic_results": 10
+  },
+  {
+   "ts": "2026-10-01T06:06:05Z",
+   "lane": "D",
+   "method": "bdata pipelines reddit_posts",
+   "input": "e57018efdba03e2d11d22a079b2c6e15b42e4c3151b0d2dd397b7bc33c765299",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 118.38,
+   "status": "ok",
+   "error": null
+  },
+  {
+   "ts": "2026-10-01T06:07:21Z",
+   "lane": "D",
+   "method": "sdk scrape.reddit.comments(days_back=3650)",
+   "input": "e850aed6560fc39213312a2db4f0b49e68d49d833f2fc0f3840b21fa0d784185",
+   "records": 26,
+   "credits": 26,
+   "latency_s": 76.56,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.026000000000000002,
+   "sdk_row_count": 26,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 75534.987
+  },
+  {
+   "ts": "2026-10-01T06:08:15Z",
+   "lane": "A",
+   "method": "sdk search.youtube.videos_by_keyword(num_of_posts=10, timeout=900)",
+   "input": "Q3/S4",
+   "records": 10,
+   "credits": 10,
+   "latency_s": 142.52,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.02,
+   "sdk_row_count": 10,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 139234.037
+  },
+  {
+   "ts": "2026-10-01T06:08:17Z",
+   "lane": "D",
+   "method": "sdk scrape.reddit.comments(days_back=3650)",
+   "input": "0243d403a8342cac8541384eb74a0109b8e25c46721bc7053206af2701c6f804",
+   "records": 26,
+   "credits": 26,
+   "latency_s": 55.71,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.026000000000000002,
+   "sdk_row_count": 26,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 54163.991
+  },
+  {
+   "ts": "2026-10-01T06:08:19Z",
+   "lane": "A",
+   "method": "bdata search site:youtube.com (us, en)",
+   "input": "Q3/S4",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 3.68,
+   "status": "ok",
+   "error": null,
+   "organic_results": 9
+  },
+  {
+   "ts": "2026-10-01T06:08:51Z",
+   "lane": "D",
+   "method": "sdk scrape.reddit.comments(days_back=3650)",
+   "input": "e57018efdba03e2d11d22a079b2c6e15b42e4c3151b0d2dd397b7bc33c765299",
+   "records": 33,
+   "credits": 33,
+   "latency_s": 34.4,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.033,
+   "sdk_row_count": 33,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 33275.652
+  },
+  {
+   "ts": "2026-10-01T06:10:50Z",
+   "lane": "A",
+   "method": "sdk search.youtube.videos_by_keyword(num_of_posts=10, timeout=900)",
+   "input": "Q3/S5",
+   "records": 10,
+   "credits": 10,
+   "latency_s": 151.64,
+   "status": "ok",
+   "error": null,
+   "sdk_cost_usd": 0.02,
+   "sdk_row_count": 10,
+   "sdk_status": "ready",
+   "sdk_elapsed_ms": 149931.97
+  },
+  {
+   "ts": "2026-10-01T06:10:56Z",
+   "lane": "A",
+   "method": "bdata search site:youtube.com (us, en)",
+   "input": "Q3/S5",
+   "records": 1,
+   "credits": 1,
+   "latency_s": 5.33,
+   "status": "ok",
+   "error": null,
+   "organic_results": 5
+  }
+ ],
+ "routing": {
+  "destination": "configured AskRigor Project Manager chat via the Mission Control ChatGPT relay",
+  "state": "relay_unavailable",
+  "queued": false,
+  "delivered": false,
+  "reason": "relay host offline since about 2026-09-19; no Mission Control worker credential in this session",
+  "after_owner_correction": "not needed: a Claude session reports to the owner directly (owner, 2026-10-01)"
+ },
+ "chatgpt_reddit_probe": "chatgpt_reddit_probe_unattempted: relay_unavailable; question settled by the owner report of 2026-09-29 that ChatGPT reads Reddit",
+ "labels": "not done: speed keeps Bright Data video search out of the default path, so labels would not change the assessment",
+ "pool_key_sha256": "714df5f93101ea40b8831f5670bc125d57ca7284904206f97f31eda751f85e54",
+ "pool_sizes": {
+  "Q1": 104,
+  "Q2": 83,
+  "Q3": 98
+ },
+ "raw_deletion": {
+  "at": "2026-10-01T06:15:53Z",
+  "raw_files_deleted": 225,
+  "pool_copies_deleted": 3,
+  "metadata_stripped": true
+ },
+ "lane_b_language_note": "Called without a language, the AskRigor route takes the first listed track; for stZdnA9zeQE, qfPjRBqADKk (ar), 0sZEvvPWq88 (zh-Hans) and Eq0SssY4ZXs (ar label) it was not the English track Bright Data returned; WER for the first three compares different languages.",
+ "transcript_action_production": "HTTP 404 on 2026-10-01; route defined at 745b780 but not mounted by the default server",
+ "assessment": {
+  "author": "this Claude Code session, after the owner correction of 2026-10-01 that a Claude session does its own reasoning",
+  "default_research": "do not use Bright Data (video search 2-3 min/query, video records ~80 s; official YouTube comments API is complete, faster and free)",
+  "transcript_fallback": "use Bright Data only when AskRigor answers youtube_transcript_rate_limited: 1 credit per video",
+  "deeper_community_pass": "user-requested: TikTok comments, public Facebook groups, X posts, Reddit on Claude; skip Instagram and Facebook pages; ~5-15 min in parallel",
+  "credits_per_deeper_pass": {
+   "without_reddit": [
+    70,
+    120
+   ],
+   "with_reddit": [
+    205,
+    215
+   ],
+   "worst_case": 600
+  },
+  "usd_per_deeper_pass_at_payg_1_50_per_1000": {
+   "without_reddit": [
+    0.11,
+    0.18
+   ],
+   "with_reddit": 0.31
+  },
+  "free_tier_passes_per_month": {
+   "without_reddit": [
+    40,
+    70
+   ],
+   "with_reddit": 23
+  },
+  "pricing_source": "brightdata.com/pricing/web-scraper on 2026-10-01: free 5,000 records/month; pay-as-you-go 1.5 USD/1K; Scale 499 USD/month with 384,000 records then 1.3 USD/1K",
+  "owner_decisions": [
+   "spending: free credits only or pay-as-you-go with a monthly cap",
+   "Bright Data key on the AskRigor server",
+   "privacy map and public privacy page naming Bright Data as a processor"
+  ]
+ }
+}
