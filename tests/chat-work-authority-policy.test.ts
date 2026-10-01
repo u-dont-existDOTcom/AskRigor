@@ -64,6 +64,37 @@ describe("AskRigor Chat/Work authority policy", () => {
     expect(errors).toContain("model API spend 175 exceeds active ceiling 0");
   });
 
+  it("lets a Claude session do its own reasoning without a chat receipt (owner, 2026-10-01)", () => {
+    for (const action of ["SCIENTIFIC_INTERPRETATION", "DESIGN_METHODOLOGY", "AUTHOR_PROPOSAL"]) {
+      expect(evaluateGateRequest(policy, request({ actor: "CLAUDE_SESSION", action, sourceReceipt: null }))).toEqual([]);
+    }
+  });
+
+  it("still refuses paid model inference from a Claude session", () => {
+    const errors = evaluateGateRequest(policy, request({
+      actor: "CLAUDE_SESSION",
+      action: "DESIGN_SPEND",
+      sourceReceipt: null,
+      modelApiSpendUsd: 30,
+    }));
+    expect(errors).toContain("model API spend 30 exceeds active ceiling 0");
+    expect(errors).toContain("paid model API inference is canceled by the active owner decision");
+  });
+
+  it("keeps a Claude session a reasoning authority with owner-only spending and release decisions", () => {
+    const demoted: ChatWorkPolicy = {
+      ...policy,
+      reasoningAuthorities: policy.reasoningAuthorities.filter((actor) => actor !== "CLAUDE_SESSION"),
+      executionOnlyActors: [...policy.executionOnlyActors, "CLAUDE_SESSION"],
+      claudeSessions: { ...policy.claudeSessions, routesReasoningToAnotherChat: true, ownerOnlyDecisions: [] },
+    };
+    const errors = validateCanonicalPolicy(demoted);
+    expect(errors).toContain("a Claude session must be a reasoning authority, not an execution-only actor");
+    expect(errors).toContain("a Claude session must not route its reasoning to another chat");
+    expect(errors).toContain("a Claude session's owner-only decisions must include NONZERO_SPEND");
+    expect(errors).toContain("a Claude session's owner-only decisions must include MERGE_OR_DEPLOY");
+  });
+
   it("rejects a false attribution to a named ChatGPT chat", () => {
     const errors = evaluateGateRequest(policy, request({
       actor: "PROJECT_MANAGER_CHAT",
