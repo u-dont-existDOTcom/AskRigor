@@ -145,13 +145,13 @@ describe("AskRigor public site", () => {
   it("separates transient research from optional private lesson feedback", async () => {
     const html = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "Effective September 8, 2026",
+      "Effective October 1, 2026",
       "Optional lesson feedback",
       "separate consent",
       "generalized structured fields",
       "not the raw chat",
-      "deterministic screening",
-      "fixed OpenAI privacy check",
+      "screens the generalized candidate on its own server before GitHub; no other AI provider receives it.",
+      "The AI app used (ChatGPT or Claude) handles the surrounding conversation",
       "before GitHub",
       "private review candidate",
       "anonymous occurrence count",
@@ -169,6 +169,27 @@ describe("AskRigor public site", () => {
     expect(html).not.toContain("AskRigor-lessons");
     expect(html).not.toContain("github.com/");
     expect(html).not.toContain("deletion-eligible 90 days after terminal review");
+    // Production's lesson path makes no OpenAI call (owner-approved wording, 2026-09-30).
+    expect(html).not.toContain("fixed OpenAI privacy check");
+  });
+
+  it("describes the findings library as approved for its go-live", async () => {
+    const privacy = await pageHtml("site/privacy/index.html");
+    for (const fragment of [
+      "for each finished research answer a findings card",
+      "Findings cards are saved automatically, pass the same screening as lesson feedback",
+      "Cards are not linked to the account, so revoking access does not withdraw them",
+      "To request deletion of a findings card, send its <code>ARF-####</code> id to the same address.",
+      "Paid private mode submits no research progress, and saves an answer’s findings card or lesson feedback only when the person accepts saving it for that answer",
+      "a short language code (such as es or pt-BR)",
+    ]) expect(privacy).toContain(fragment);
+    const terms = await pageHtml("site/terms/index.html");
+    for (const fragment of [
+      "Effective October 1, 2026",
+      "for each finished research answer a findings card",
+      "or a findings card saved under it",
+      "saves an answer’s findings card or lesson feedback only when you accept saving it for that answer",
+    ]) expect(terms).toContain(fragment);
   });
 
   it("states the home research boundary", async () => {
