@@ -174,8 +174,10 @@ describe("encrypted lesson incident vault", () => {
 
     const path = join(directory, `${receipt.incident_id}.json`);
     const envelope = JSON.parse(await readFile(path, "utf8"));
-    // Change the first character: the last one may carry padding bits or already be "A".
-    envelope.ciphertext = `${envelope.ciphertext.startsWith("A") ? "B" : "A"}${envelope.ciphertext.slice(1)}`;
+    // Flip a bit so the stored ciphertext always changes; a fixed replacement character can match it.
+    const ciphertext = Buffer.from(envelope.ciphertext, "base64url");
+    ciphertext.writeUInt8(ciphertext.readUInt8(0) ^ 0x01, 0);
+    envelope.ciphertext = ciphertext.toString("base64url");
     await writeFile(path, `${JSON.stringify(envelope)}\n`);
     await expect(readFile(path, "utf8")).resolves.not.toContain("DMSO");
     expect(() => vault.read(receipt.incident_id)).toThrow(LessonIncidentVaultIntegrityError);
