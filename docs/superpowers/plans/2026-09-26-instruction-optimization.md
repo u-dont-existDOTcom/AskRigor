@@ -1712,8 +1712,12 @@ What waits:
 - Applying that wording to `site/privacy` and `site/terms`, with the go-live
   day's effective date, in the release that opens the library (the in-app
   notice text is already in the code). The engineering data map is updated.
-- Creating the private `AskRigor-findings` repository and adding it to the
-  GitHub App's installation, then setting `ASKRIGOR_FINDINGS_LIBRARY=enabled`.
+- Done by the owner on 2026-10-01 (00:14 to 00:22 UTC): the private
+  `u-dont-existDOTcom/AskRigor-findings` repository exists and was added to the
+  AskRigor Lesson Submitter App's installation. The release checks the App
+  reaches it (a findings token lists exactly that repository) and that a lesson
+  token still lists only `AskRigor-lessons`, then sets
+  `ASKRIGOR_FINDINGS_LIBRARY=enabled`.
 - Deploy approval. The deployment runs the one-shot admin `migrate` (for
   migration 0011) before the new image serves, and sets `ASKRIGOR_BUILD_COMMIT`.
 - Next, same direction: the server submits free contributors' study analyses

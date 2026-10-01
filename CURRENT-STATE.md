@@ -67,8 +67,8 @@ replaces the earlier one; a paid-private answer offers the save, and
 both tools are declared writes; the free contributor notice moves to version 2,
 with migration 0011; the owner approved the wording, which the privacy and terms
 pages take on the go-live day; closed until `ASKRIGOR_FINDINGS_LIBRARY=enabled`,
-which waits for the private `AskRigor-findings` repository and deploy
-approval); title identity checked by exact comparison, with
+which waits for deploy approval; the owner created the private
+`AskRigor-findings` repository and added it to the GitHub App on 2026-10-01); title identity checked by exact comparison, with
 rewordings left to the research model (owner correction, 2026-09-29: word
 lists were brittle and English-only); answer checks that work in any language
 (same correction: the model quotes the answer's sentences for each community
