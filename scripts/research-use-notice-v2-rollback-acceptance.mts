@@ -100,15 +100,27 @@ async function afterHold(pool: Pool, before: Snapshot): Promise<void> {
   const access = new Pool({ connectionString: requiredEnv("ASKRIGOR_RESEARCH_ACCESS_DATABASE_URL") });
   try {
     await access.query(`SELECT count(*) FROM ${SCHEMA}.research_use_accounts`);
-    let denied = false;
-    try {
-      await access.query(`SELECT count(*) FROM ${SCHEMA}.research_use_notice_v2_hold`);
-    } catch (error) {
-      denied = (error as { code?: string }).code === "42501";
-    }
-    assert(denied, "HOLD_READABLE_BY_RUNTIME_ROLE");
+    assert(await denied(access), "HOLD_READABLE_BY_RUNTIME_ROLE");
   } finally {
     await access.end();
+  }
+  // The reader's default privileges reach new tables (the probe), but the hold
+  // script removed its grant on the hold table.
+  const reader = new Pool({ connectionString: requiredEnv("ASKRIGOR_READER_DATABASE_URL") });
+  try {
+    await reader.query(`SELECT count(*) FROM ${SCHEMA}.default_privilege_probe`);
+    assert(await denied(reader), "HOLD_READABLE_BY_READER");
+  } finally {
+    await reader.end();
+  }
+}
+
+async function denied(pool: Pool): Promise<boolean> {
+  try {
+    await pool.query(`SELECT count(*) FROM ${SCHEMA}.research_use_notice_v2_hold`);
+    return false;
+  } catch (error) {
+    return (error as { code?: string }).code === "42501";
   }
 }
 

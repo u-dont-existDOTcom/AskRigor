@@ -5,13 +5,18 @@
 --
 --   psql -v schema=living_evidence -f research-use-notice-v2-hold.sql
 --
+-- In production the file is piped to psql in the PostgreSQL container (the
+-- release plan, docs/superpowers/plans/2026-10-01-pr246-production-release.md,
+-- has the exact command).
+--
 -- It copies each v2 row to research_use_notice_v2_hold and marks the account
 -- REVOKED, a state the earlier image reads and lets the person leave by
 -- accepting v1 again. research-use-notice-v2-restore.sql puts back, once an
 -- image that reads v2 serves again, every account still exactly in that held
 -- state. Safe to run again. Nothing is deleted: entitlements and proposals keep
 -- their account rows, and the hold table stores no kind of data the account
--- table did not already hold. Only the migrator can read the hold table.
+-- table did not already hold. Only its owner, the migrator, can read it: the
+-- script removes every other grant, including default-privilege ones.
 \set ON_ERROR_STOP on
 SET search_path TO :"schema", public;
 
@@ -35,6 +40,25 @@ COMMENT ON TABLE research_use_notice_v2_hold IS
   'Free contributor notice v2 rows held during an image rollback to a v1-only image; restored by research-use-notice-v2-restore.sql.';
 
 REVOKE ALL ON TABLE research_use_notice_v2_hold FROM PUBLIC;
+
+-- Default privileges can grant other roles access to every table the migrator
+-- creates (the read-only reader role gets SELECT that way). Remove every grant
+-- on the hold table except the owner's own.
+DO $$
+DECLARE
+  grantee_role text;
+BEGIN
+  FOR grantee_role IN
+    SELECT DISTINCT acl.grantee::regrole::text
+    FROM pg_class AS class, aclexplode(class.relacl) AS acl
+    WHERE class.oid = 'research_use_notice_v2_hold'::regclass
+      AND acl.grantee <> 0
+      AND acl.grantee <> class.relowner
+  LOOP
+    EXECUTE format('REVOKE ALL ON TABLE research_use_notice_v2_hold FROM %s', grantee_role);
+  END LOOP;
+END
+$$;
 
 -- held_at is the marker the restore matches: the account's revoked_at and
 -- updated_at both equal it until the person changes the account.

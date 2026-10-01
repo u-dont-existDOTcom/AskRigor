@@ -3,6 +3,10 @@
 --
 --   psql -v schema=living_evidence -f research-use-notice-v2-restore.sql
 --
+-- In production the file is piped to psql in the PostgreSQL container (the
+-- release plan, docs/superpowers/plans/2026-10-01-pr246-production-release.md,
+-- has the exact command).
+--
 -- Never run it while a v1-only image serves: restored v2 rows would fail its
 -- access checks again. An account restores only if it is still exactly in the
 -- held state. One the person changed meanwhile (accepted v1 again, chose paid

@@ -18,8 +18,10 @@ trap cleanup EXIT
 umask 077
 openssl rand -hex 32 >"$temporary_dir/migrator-password"
 openssl rand -hex 32 >"$temporary_dir/access-password"
+openssl rand -hex 32 >"$temporary_dir/reader-password"
 migrator_password="$(tr -d '\r\n' <"$temporary_dir/migrator-password")"
 access_password="$(tr -d '\r\n' <"$temporary_dir/access-password")"
+reader_password="$(tr -d '\r\n' <"$temporary_dir/reader-password")"
 
 docker run --detach --name "$container_name" \
   --env POSTGRES_DB=askrigor_living_evidence \
@@ -51,6 +53,7 @@ if [[ ! "$host_port" =~ ^[0-9]+$ ]]; then
 fi
 admin_url="postgresql://askrigor_migrator:${migrator_password}@127.0.0.1:${host_port}/askrigor_living_evidence"
 access_url="postgresql://askrigor_research_access:${access_password}@127.0.0.1:${host_port}/askrigor_living_evidence"
+reader_url="postgresql://askrigor_reader:${reader_password}@127.0.0.1:${host_port}/askrigor_living_evidence"
 
 DATABASE_URL="$admin_url" npx tsx \
   scripts/research-contributor-access-postgres-acceptance.mts migrate
@@ -66,28 +69,46 @@ docker exec \
   --env ASKRIGOR_RESEARCH_ACCESS_PASSWORD_FILE=/tmp/access-password \
   "$container_name" sh /tmp/provision-research-access-role
 
-docker cp infra/living-evidence-production/research-use-notice-v2-hold.sql "$container_name:/tmp/hold.sql"
-docker cp infra/living-evidence-production/research-use-notice-v2-restore.sql "$container_name:/tmp/restore.sql"
+# As production does: piped to psql in the database container, over TCP, as the
+# migrator with its password file.
 run_sql() {
-  docker exec "$container_name" psql --quiet --no-psqlrc \
-    --username askrigor_migrator --dbname askrigor_living_evidence \
-    -v schema=living_evidence -f "/tmp/$1"
+  docker exec -i "$container_name" sh -c \
+    'PGPASSWORD="$(tr -d "\r\n" </run/secrets/migrator-password)" exec psql --quiet --no-psqlrc -h 127.0.0.1 -U askrigor_migrator -d askrigor_living_evidence -v schema=living_evidence -f -' \
+    <"$1"
 }
 
+# A read-only role that, like production's reader, gets SELECT on every table
+# the migrator creates through default privileges. The probe table shows the
+# default grant works, so the hold table's denial below is the script's doing.
+cat >"$temporary_dir/reader.sql" <<SQL
+\\set ON_ERROR_STOP on
+CREATE ROLE askrigor_reader LOGIN PASSWORD '${reader_password}';
+GRANT CONNECT ON DATABASE askrigor_living_evidence TO askrigor_reader;
+GRANT USAGE ON SCHEMA living_evidence TO askrigor_reader;
+ALTER DEFAULT PRIVILEGES FOR ROLE askrigor_migrator IN SCHEMA living_evidence
+  GRANT SELECT ON TABLES TO askrigor_reader;
+CREATE TABLE living_evidence.default_privilege_probe (probe integer);
+SQL
+run_sql "$temporary_dir/reader.sql"
+
+hold=infra/living-evidence-production/research-use-notice-v2-hold.sql
+restore=infra/living-evidence-production/research-use-notice-v2-restore.sql
+
 # Restore before any hold has nothing to do and succeeds.
-run_sql restore.sql
+run_sql "$restore"
 
 phase() {
   DATABASE_URL="$admin_url" ASKRIGOR_RESEARCH_ACCESS_DATABASE_URL="$access_url" \
+    ASKRIGOR_READER_DATABASE_URL="$reader_url" \
     npx tsx scripts/research-use-notice-v2-rollback-acceptance.mts "$1" "$temporary_dir/snapshot.json"
 }
 
 phase seed
-run_sql hold.sql
-run_sql hold.sql
+run_sql "$hold"
+run_sql "$hold"
 phase after-hold
 phase reenroll-v1
-run_sql restore.sql
-run_sql restore.sql
+run_sql "$restore"
+run_sql "$restore"
 phase after-restore
 echo '{"status":"PASS","acceptance":"research-use-notice-v2-rollback"}'
