@@ -1,29 +1,38 @@
 # Free users see the paid features they're missing
 
 Date: 2026-10-02. Status: **REQUIREMENT RECORDED; built with the first paid
-feature free users can buy.**
+feature. Where the Bright Data search runs waits for owner question 23.**
 
 ## The owner's words
 
-Owner, 2026-10-02, in the Claude Code session that released PR #246:
+Owner, 2026-10-02, first message:
 
 > I would like Free users to know that they are missing out on paid features
 > whenever they are. So for Bright Data for example, for the free user it may
 > say "Paid users can also check forum signal in Facebook, TikTok, Instagram."
 
+Owner, 2026-10-02, second message, which sharpens the first:
+
+> also i'd like free users to know what they're missing. so instead of silently
+> dropping paid features, they should get a message: "Facebook, tiktok,
+> instagram posts can only be inspected with the paid version."
+> and whatever other paid features
+
 ## The requirement
 
-- When a free contributor's research answer would have gained from a paid-only
-  feature, the answer says so, in one line naming what the paid feature adds.
-- The line appears only when it is true:
-  - the paid feature is live for paid accounts;
-  - a free user can actually buy paid access;
-  - it would have helped this answer.
+- AskRigor never drops a paid feature silently for a free user. When a paid
+  feature would have been used for this request, a free contributor's answer
+  carries a message saying so, in the owner's form: "<what> can only be
+  <done> with the paid version."
+- Every paid feature gets such a message, not only the Bright Data search.
+- The message must be true where it is shown:
+  - the paid version can do the thing on that surface, ChatGPT or Claude;
+  - it names only what the paid feature really covers.
 
-  Paid accounts never see it.
-- It names only what the paid feature really covers.
-- It sits at the end of the answer, with the deeper-research offers. It appears
-  once per answer, in the answer's language.
+  Whether paid access can be bought yet does not hold the message back. The
+  owner's second message replaces the first record's condition that it did.
+- Paid accounts never see it. It sits at the end of the answer, once, in the
+  answer's language.
 
 ## Design
 
@@ -33,47 +42,70 @@ and the surface (`/mcp` for ChatGPT, `/mcp/claude` for Claude).
 translated ones through `caveat_renderings` and `answer_language`.
 
 - **The registry.** A small server-side list of paid features. Each entry has:
-  - when it applies (for the Bright Data search: the answer offers deeper
-    community research);
-  - its note, per surface;
-  - whether it is live for paid accounts;
-  - whether paid access can be bought.
-- **The note.** For a free account, `finalize_research` adds each applicable,
-  live and purchasable entry's note to the sentences the answer must carry.
-  The existing answer check then holds the answer to it, like the other
+  - when it applies (for the Bright Data search: the request would have
+    searched those platforms);
+  - the surfaces where paid accounts have it;
+  - its message.
+- **The message.** For a free account, `finalize_research` adds each applicable
+  entry's message, on the surfaces where the paid version has the feature. The
+  existing answer check then holds the answer to it, like the other
   server-written sentences.
-- **Tests.** The note:
-  - appears only for free accounts, only when its feature applies, and only
-    when it is live and purchasable;
+- **Tests.** The message:
+  - appears only for free accounts, only when its feature applies, and only on
+    surfaces where paid accounts have it;
   - never appears for paid accounts;
   - passes in a translated answer.
 
 ## State today
 
-No paid feature can be bought yet. Paid private access exists but has no price
-or checkout (the 2026-09-01 entitlement plan deferred billing). The Bright Data
-search isn't built. So no note shows yet, and none should: a note pointing to
-something no one can buy would mislead.
+No paid feature is built yet, so no message shows. Paid private access exists,
+but its difference is about saving, not a capability an answer drops, and the
+free notice already states it.
 
-## First note: the Bright Data community search
+## First message: the Bright Data community search
 
-This goes live when paid users can buy the deeper community search (see
-`docs/audits/2026-10-01-bright-data-source-evaluation.md`, "Owner decision").
+This goes live when the paid search does, on the surfaces where it runs (owner
+question 23).
 
-Draft wording, matched to what the 2026-10-01 test reached:
+- The owner's wording: "Facebook, TikTok, Instagram posts can only be inspected
+  with the paid version."
+- **What the 2026-10-01 test reached:**
+  - TikTok posts and comments worked.
+  - For Facebook, only public groups worked; search found no page posts.
+  - Instagram found one public post on a retry, but its comments came back
+    empty.
+- **Before launch:** retest Instagram, then use the owner's wording with only
+  the platforms the paid search really covers. If Instagram stays empty, the
+  message reads "Facebook group and TikTok posts can only be inspected with the
+  paid version." X can be added, since X posts worked.
 
-- On ChatGPT: "Paid users can also check forum signal on TikTok, Facebook groups
-  and X."
-- On Claude, which can't read Reddit itself: "Paid users can also check forum
-  signal on TikTok, Facebook groups, X and Reddit."
+## OpenAI's plugin rule (checked 2026-10-02)
 
-Instagram is left out because both tests returned no comments. Facebook pages
-are left out because search couldn't reach them. A retest before launch can add
-either one.
+OpenAI's Plugin Guidelines
+(https://developers.openai.com/apps-sdk/app-submission-guidelines), under
+third-party content and integrations, forbid two things:
 
-## Later candidates
+- scraping external websites, relaying queries or integrating third-party APIs
+  without proper authorization and compliance with that party's terms of
+  service;
+- bypassing a third party's API restrictions, rate limits or access controls.
 
-- **Paid private mode,** once it can be bought. Free answers save their findings
-  card automatically; paid users choose answer by answer. The note's wording
-  goes to the owner when checkout exists.
-- **The transcript backup,** if it stays paid-only (owner decision 16).
+This bears on two AskRigor sources:
+
+- **The Bright Data search.** Its TikTok, Facebook and Instagram collection is
+  scraping that those platforms don't authorize, and its unblocking works
+  around their access controls.
+- **AskRigor's own YouTube transcripts.** The transcript route uses YouTube's
+  unofficial Innertube interface (`packages/sources/src/youtube-transcript.ts`
+  says so). Production doesn't serve it today: it was an action for the Custom
+  GPT only, and the OAuth production setup leaves those actions off.
+
+Anthropic's Software Directory Policy (last updated 2026-04-15) has no such
+clause. It requires respect for intellectual property, data minimization, and
+a privacy policy.
+
+So the ChatGPT plugin should use authorized sources only. Where the Bright Data
+search may run is owner question 23. The "fix transcript fetching" item should
+not expose the unofficial interface. Reading public videos through Google's
+official Gemini API, as planned for "check this video", is the authorized
+route.
