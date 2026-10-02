@@ -1,7 +1,7 @@
 # Free users see the paid features they're missing
 
 Date: 2026-10-02. Status: **REQUIREMENT RECORDED; built with the first paid
-feature. Where the Bright Data search runs waits for owner question 23.**
+feature. The Bright Data search runs on Claude only (owner question 23: A).**
 
 ## The owner's words
 
@@ -64,8 +64,9 @@ free notice already states it.
 
 ## First message: the Bright Data community search
 
-This goes live when the paid search does, on the surfaces where it runs (owner
-question 23).
+This goes live when the paid search does, and only on Claude, where it runs
+(owner question 23: A). Free ChatGPT users don't see it, because paid ChatGPT
+users won't have the search either.
 
 - The owner's wording: "Facebook, TikTok, Instagram posts can only be inspected
   with the paid version."
@@ -104,8 +105,21 @@ Anthropic's Software Directory Policy (last updated 2026-04-15) has no such
 clause. It requires respect for intellectual property, data minimization, and
 a privacy policy.
 
-So the ChatGPT plugin should use authorized sources only. Where the Bright Data
-search may run is owner question 23. The "fix transcript fetching" item should
-not expose the unofficial interface. Reading public videos through Google's
-official Gemini API, as planned for "check this video", is the authorized
-route.
+So the ChatGPT plugin should use authorized sources only. The "fix transcript
+fetching" item should not expose the unofficial interface. Reading public
+videos through Google's official Gemini API, as planned for "check this video",
+is the authorized route.
+
+## Owner decision 23: A, Claude only (2026-10-02)
+
+The owner answered "23 A":
+
+- The Bright Data social search runs only for Claude connector users
+  (`/mcp/claude`) and for the owner.
+- The ChatGPT plugin (`/mcp`) uses authorized sources only: no Bright Data and
+  no unofficial YouTube transcripts.
+- Free Claude users get the paid-feature message for this search. ChatGPT users
+  get no offer their plugin can't provide.
+- The remaining exposure is that collecting on Claude still lacks the sites'
+  permission. Anthropic's directory policy doesn't forbid it, and the owner
+  accepted it.

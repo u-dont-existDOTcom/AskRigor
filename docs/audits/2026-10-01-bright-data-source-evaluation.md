@@ -105,7 +105,8 @@ the owner can use it as i wish)".
   covers, so Instagram stays in only if a retest before launch works.
 - OpenAI's Plugin Guidelines (checked 2026-10-02) forbid scraping or
   integrating third parties without their authorization, and bypassing their
-  access controls. Where this search may run is therefore owner question 23.
+  access controls. So this search runs only for Claude users and the owner,
+  and the ChatGPT plugin stays on authorized sources (owner question 23: A).
   Both points are in `docs/superpowers/plans/2026-10-02-free-user-paid-feature-notes.md`.
 
 This was an isolated evaluation. It changed no MCP or Action tool, Custom GPT,
