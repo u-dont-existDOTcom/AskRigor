@@ -99,6 +99,10 @@ the owner can use it as i wish)".
   for everyone; then both Bright Data uses for the owner's account only, with
   the privacy entry in the owner's wording; then paid accounts, once the
   credits exist.
+- Owner requirement, 2026-10-02: free users are told, in one line, what a paid
+  feature would have added to their answer, once paid users can buy it. For
+  this search the draft note names TikTok, Facebook groups and X (and Reddit on
+  Claude); see `docs/superpowers/plans/2026-10-02-free-user-paid-feature-notes.md`.
 
 This was an isolated evaluation. It changed no MCP or Action tool, Custom GPT,
 plugin, protocol, privacy map, deployment or Railway setting. Raw provider
