@@ -99,10 +99,15 @@ the owner can use it as i wish)".
   for everyone; then both Bright Data uses for the owner's account only, with
   the privacy entry in the owner's wording; then paid accounts, once the
   credits exist.
-- Owner requirement, 2026-10-02: free users are told, in one line, what a paid
-  feature would have added to their answer, once paid users can buy it. For
-  this search the draft note names TikTok, Facebook groups and X (and Reddit on
-  Claude); see `docs/superpowers/plans/2026-10-02-free-user-paid-feature-notes.md`.
+- Owner requirement, 2026-10-02: no paid feature is dropped silently for a
+  free user. A message such as "Facebook, TikTok, Instagram posts can only be
+  inspected with the paid version" names only what the paid search really
+  covers, so Instagram stays in only if a retest before launch works.
+- OpenAI's Plugin Guidelines (checked 2026-10-02) forbid scraping or
+  integrating third parties without their authorization, and bypassing their
+  access controls. So this search runs only for Claude users and the owner,
+  and the ChatGPT plugin stays on authorized sources (owner question 23: A).
+  Both points are in `docs/superpowers/plans/2026-10-02-free-user-paid-feature-notes.md`.
 
 This was an isolated evaluation. It changed no MCP or Action tool, Custom GPT,
 plugin, protocol, privacy map, deployment or Railway setting. Raw provider
