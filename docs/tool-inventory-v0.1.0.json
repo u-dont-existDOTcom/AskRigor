@@ -9445,7 +9445,7 @@
     },
     {
       "name": "submit_research_contribution",
-      "description": "Submit one already-validated deidentified formal research frontier or source-bound study/review analysis to the pending review inbox. Never include raw chat, prompts, identity/contact details, private health narratives, uploads, raw source/provider bodies, or YouTube/community data. A proposal is not canonical evidence and does not gain scientific authority by submission. Paid-private mode cannot use this operation.",
+      "description": "Submit one already-validated deidentified formal research frontier to the pending review inbox. Study and review audits validated in free contributor research are filed by the server when finalize_research passes, so do not submit them here. Never include raw chat, prompts, identity/contact details, private health narratives, uploads, raw source/provider bodies, or YouTube/community data. A proposal is not canonical evidence and does not gain scientific authority by submission. Paid-private mode cannot use this operation.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -12934,6 +12934,63 @@
           },
           "finalization_receipt": {
             "type": "string"
+          },
+          "analyses_saved": {
+            "description": "For a free contributor account whose research passed: the study and review analyses validated in it, which the server sent to the owner's review inbox.",
+            "type": "object",
+            "properties": {
+              "saved": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "already_saved": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "unconfirmed": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "not_saved": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "no_doi",
+                        "integrity_not_current",
+                        "integrity_check_unavailable",
+                        "contribution_invalid",
+                        "review_inbox_unavailable",
+                        "rejected_by_privacy_check"
+                      ]
+                    },
+                    "count": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "reason",
+                    "count"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "saved",
+              "already_saved",
+              "unconfirmed",
+              "not_saved"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
