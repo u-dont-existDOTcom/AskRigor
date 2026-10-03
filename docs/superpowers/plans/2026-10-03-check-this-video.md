@@ -1,7 +1,8 @@
 # Check this video: Gemini reads a pasted YouTube video
 
-Date: 2026-10-03. Status: **BUILT; live acceptance and owner gates pending** on
-`claude/check-this-video-20261003`.
+Date: 2026-10-03. Status: **BUILT and live-checked; the release waits for owner
+question 26** (privacy wording, merges, deploy), on
+`claude/check-this-video-20261003`, PR #270.
 Design source: u-dont-existDOTcom/AskRigor#248 (owner decision 2026-09-27).
 
 ## Why now
@@ -131,10 +132,16 @@ Design source: u-dont-existDOTcom/AskRigor#248 (owner decision 2026-09-27).
 ## Owner gates before release
 
 - **The public privacy notice** names exactly what Gemini receives today, the
-  scout's screened target only. The new flow is not covered. Release waits for
-  the owner's approval of the added wording, as the 2026-10-01 wording did.
-- **Live acceptance** on three public videos uses the owner's unbilled Gemini
-  key, following the zero-spend policy.
+  scout's screened target only. The new flow is not covered.
+  - Four sentences are proposed in `site/privacy/index.html`, word for word as
+    in owner question 26, effective October 3, 2026. Release waits for the
+    owner's approval, as the 2026-10-01 wording did.
+- **Live acceptance: done 2026-10-03** with the owner's unbilled Gemini key
+  (`docs/audits/2026-10-03-check-this-video-live-acceptance.md`).
+- **Release bundle** (question 26, option A): this PR, #269 (`/version`) and
+  Dependabot #263 to #268. Test-merged together on a scratch copy of main, it
+  passed `npm run verify`. #267 and #268 conflict with the others only in the
+  package files, and need a rebase as the merges go in.
 
 ## Later, not in this pass
 
