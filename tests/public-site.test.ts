@@ -145,7 +145,7 @@ describe("AskRigor public site", () => {
   it("separates transient research from optional private lesson feedback", async () => {
     const html = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "Effective October 1, 2026",
+      "Effective October 3, 2026",
       "Optional lesson feedback",
       "separate consent",
       "generalized structured fields",
@@ -190,6 +190,20 @@ describe("AskRigor public site", () => {
       "or a findings card saved under it",
       "saves an answer’s findings card or lesson feedback only when you accept saving it for that answer",
     ]) expect(terms).toContain(fragment);
+  });
+
+  it("says what Gemini receives when a video is checked, and what the daily ledger holds", async () => {
+    // "Check this video" (AskRigor#248), wording proposed for the owner's approval (owner questions page, question 26).
+    const privacy = await pageHtml("site/privacy/index.html");
+    for (const fragment of [
+      "Google Gemini then receives only that video’s public YouTube address, rebuilt from its video ID, and AskRigor’s fixed reading instructions",
+      "a follow-up about one moment adds only that time",
+      "Gemini never receives the person’s question, words, health details, or identity.",
+      "is a list of claims to check, not evidence",
+      "A video reading is likewise stored at Google only while Gemini reads",
+      "It holds only the day, the limit, the seconds counted, and the update time: no video, request, report, or person.",
+      "Google Gemini also processes the public video address and fixed instructions of a video reading.",
+    ]) expect(privacy).toContain(fragment);
   });
 
   it("states the home research boundary", async () => {
