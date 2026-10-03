@@ -12080,6 +12080,275 @@
       }
     },
     {
+      "name": "extract_youtube_video_claims",
+      "description": "When the person gives a YouTube video, have Gemini read it and list its health claims, each with its time, the speaker's words, who says it and the evidence the video gives, plus sponsorships and studies shown on screen. Gemini gets only the video's public URL, never the person's words. The result is what the video says, not evidence: check each material claim with the other tools, and link each claim to its time. For one unclear claim, call again with the video and at (MM:SS): Gemini quotes what is said there and describes what is shown. Reading takes about a minute, so the result may be pending with a continuation_token; call again with only that token. Each reading counts the whole video against a shared daily limit.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "video": {
+            "description": "The video's 11-character ID or its YouTube URL.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "at": {
+            "description": "Only to follow up one unclear claim: its time, as MM:SS (H:MM:SS from one hour on).",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10
+          },
+          "continuation_token": {
+            "description": "Returned while Gemini is still reading; call again with only this token.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "complete"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "claims",
+              "moment"
+            ]
+          },
+          "video": {
+            "type": "object",
+            "properties": {
+              "video_id": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "channel": {
+                "type": "string"
+              },
+              "duration": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "video_id",
+              "url",
+              "title",
+              "channel",
+              "duration"
+            ],
+            "additionalProperties": false
+          },
+          "at": {
+            "type": "string"
+          },
+          "continuation_token": {
+            "type": "string"
+          },
+          "retry_after_seconds": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "spoken_language": {
+            "type": "string"
+          },
+          "claims": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "start": {
+                  "type": "string"
+                },
+                "link": {
+                  "type": "string"
+                },
+                "speaker": {
+                  "type": "string",
+                  "enum": [
+                    "creator",
+                    "guest",
+                    "other",
+                    "unclear"
+                  ]
+                },
+                "quote": {
+                  "type": "string"
+                },
+                "claim": {
+                  "type": "string"
+                },
+                "evidence": {
+                  "type": "string",
+                  "enum": [
+                    "named_study",
+                    "personal_experience",
+                    "expert_opinion",
+                    "none"
+                  ]
+                },
+                "evidence_detail": {
+                  "type": "string"
+                },
+                "specifics": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "time_outside_video": {
+                  "type": "boolean",
+                  "const": true
+                }
+              },
+              "required": [
+                "start",
+                "link",
+                "speaker",
+                "quote",
+                "claim",
+                "evidence",
+                "evidence_detail",
+                "specifics"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "more_claims_not_listed": {
+            "type": "boolean"
+          },
+          "sponsorships": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "start": {
+                  "type": "string"
+                },
+                "link": {
+                  "type": "string"
+                },
+                "what": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "start",
+                "what"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "on_screen_citations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "start": {
+                  "type": "string"
+                },
+                "link": {
+                  "type": "string"
+                },
+                "citation": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "start",
+                "link",
+                "citation"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "moment": {
+            "type": "object",
+            "properties": {
+              "start": {
+                "type": "string"
+              },
+              "end": {
+                "type": "string"
+              },
+              "link": {
+                "type": "string"
+              },
+              "speaker": {
+                "type": "string",
+                "enum": [
+                  "creator",
+                  "guest",
+                  "other",
+                  "unclear"
+                ]
+              },
+              "said": {
+                "type": "string"
+              },
+              "shown": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "start",
+              "end",
+              "link",
+              "speaker",
+              "said",
+              "shown"
+            ],
+            "additionalProperties": false
+          },
+          "source_note": {
+            "type": "string"
+          },
+          "research_receipt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "mode",
+          "video"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "_meta": {
+        "securitySchemes": [
+          {
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "name": "finalize_research",
       "description": "Call before the final answer. Pass every research_receipt you received, the research_target (the same text given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits; discovery for any other target does not count), whether community evidence was researched, whether the answer compares treatment options, where people discussing it talk and what each community you searched outside YouTube showed (principal_communities, community_searches), what the YouTube comments you read showed (community_findings), the studies your conclusions depend on, after a first pass the focuses for going deeper (open_leads, another_pass_estimate), and the answer you are about to give (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, the sentences you quote from it for each lane (answer_quotes) and where it says something was not found, not studied or has no effect (absence_claims), and the caveats, and is not stored. not_ready lists the remaining steps; ready_with_limits lists limits, and caveats gives the sentences the answer must contain, each as its own sentence and as written (in an answer not in English, in its language: give answer_language and caveat_renderings); must_report lists what the answer must report from each lane researched; receipts_unavailable means this server cannot verify completion, so do the required work anyway and say that completion was not server-verified. In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the owner's review; in paid private mode the caveats offer its save.",
       "inputSchema": {

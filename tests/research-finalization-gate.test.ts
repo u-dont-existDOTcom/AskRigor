@@ -2324,6 +2324,27 @@ describe("finalize_research gate", () => {
     }, options).next_steps.join(" ")).toMatch(/Video ggggggggggg is not among the videos found/u);
   });
 
+  it("counts a video the person gave, which Gemini read, as found, but not as a discovery round", () => {
+    // "Check this video" (AskRigor#248): the person's own video is audited for comments like any material video.
+    const base = {
+      community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
+    };
+    const reading = sign("youtube_video_claims", { video: "ggggggggggg", mode: "claims", n: 4 }, options);
+    const videoG = sign("youtube_video_audit", {
+      video: "ggggggggggg", state: "api_visible_complete", lock: "pass", records: 60
+    }, options);
+    const audited = finalizeResearch({
+      ...base, receipts: [survey, emptySearch, reading, videoG, study], material_video_ids: ["ggggggggggg"]
+    }, options);
+    expect(audited.next_steps.join(" ")).not.toMatch(/is not among the videos found/u);
+    expect(audited.community.material_videos).toEqual(["ggggggggggg"]);
+    // Reading the video does not replace community discovery.
+    expect(finalizeResearch({
+      ...base, receipts: [reading, videoG, study], material_video_ids: ["ggggggggggg"]
+    }, options).next_steps.join(" ")).toMatch(/^Find community videos with scout_gemini_youtube_candidates/u);
+  });
+
   it("lists rejected receipts and skips community research only on one of HRP's bases, with a reason", () => {
     const result = finalizeResearch({
       receipts: [`${study.slice(0, -2)}xx`, "not-a-receipt"],

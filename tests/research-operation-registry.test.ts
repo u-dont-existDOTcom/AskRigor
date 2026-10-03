@@ -32,6 +32,7 @@ const EXPECTED_NAMES = [
   "review_evidence_gap_submissions",
   "assess_treatment_landscape_coverage",
   "scout_gemini_youtube_candidates",
+  "extract_youtube_video_claims",
   "finalize_research",
   "submit_lesson_candidate",
   "save_research_findings"
@@ -48,7 +49,7 @@ interface RegistryEntry {
 }
 
 describe("shared research-operation registry", () => {
-  it("is the exact frozen 32-operation source with executable full-text audits", async () => {
+  it("is the exact frozen 33-operation source with executable full-text audits", async () => {
     const researchModule = await import("../apps/research-mcp/src/index.js") as
       Record<string, unknown>;
     const operations = researchModule.RESEARCH_OPERATIONS as
@@ -56,7 +57,7 @@ describe("shared research-operation registry", () => {
 
     expect(operations).toBeDefined();
     expect(operations!.map(({ name }) => name)).toEqual(EXPECTED_NAMES);
-    expect(new Set(operations!.map(({ actionPath }) => actionPath)).size).toBe(32);
+    expect(new Set(operations!.map(({ actionPath }) => actionPath)).size).toBe(33);
     expect(operations!.every(({ name, actionPath, annotations }) =>
       actionPath === `/actions/research/${name}` &&
       annotations.readOnlyHint === !([
@@ -73,6 +74,6 @@ describe("shared research-operation registry", () => {
 
     const inventory = await createToolInventory();
     expect(inventory.tools.map(({ name }) => name)).toEqual(EXPECTED_NAMES);
-    expect(inventory.tools).toHaveLength(32);
+    expect(inventory.tools).toHaveLength(33);
   });
 });
