@@ -56,7 +56,12 @@ GPT-only; same service, screen, limits and private queue as the lesson Action);
 HRP 20.6.8 and Universal 20.5.33 (owner, 2026-09-30, "review and merge what
 makes sense": 15 of the 24 lessons from the geosmin and humic-acid thread were
 only partly covered and are now exact recorded edits, listed in the plan; the
-other 9 were already covered); the Gemini scout's research target written in
+other 9 were already covered); HRP 20.6.9 and Universal 20.5.34 (owner questions
+27 to 29, 2026-10-03: the owner's shopping module joins Universal with duplicated
+logic merged into one home per check, the claim-integrity checks Universal lacked
+plus HRP's pre-delivery research claim check, and lesson 17's coupling,
+subgroup-null and forum-direction rules; exact recorded edits in
+`tests/fixtures/protocol-edits/2026-10-03-owner-protocol-changes.json`); the Gemini scout's research target written in
 English, with the person's language passed separately (owner decision 6: A); a
 findings library (owner decisions Q9 to Q11, 2026-09-30: for a free contributor
 account `finalize_research` needs a findings card with the answer and saves the

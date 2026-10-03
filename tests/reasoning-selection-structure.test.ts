@@ -166,17 +166,23 @@ const UNIVERSAL_20_5_27_SECTION_LOADING: ReadonlyArray<readonly [string, string]
 describe("canonical Reasoning Selection application", () => {
   it("adds the exact Critical selector and revision without reserializing Universal", async () => {
     const onDisk = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
-    expect(onDisk).toContain('version="20.5.33" revisionDate="2026-09-30"');
+    expect(onDisk).toContain('version="20.5.34" revisionDate="2026-10-03"');
     const undo = (text: string, steps: ReadonlyArray<readonly [RegExp | string, string]>) =>
       steps.reduce((current, [later, prior]) => {
         expect(matchCount(current, later), String(later).slice(0, 60)).toBe(1);
         return current.replace(later, prior);
       }, text);
+    // Universal 20.5.34 (owner questions 27 and 28, 2026-10-03): undoing its recorded edits gives 20.5.33 exactly.
+    const ownerChanges = JSON.parse(
+      await readFile(new URL("tests/fixtures/protocol-edits/2026-10-03-owner-protocol-changes.json", ROOT), "utf8"),
+    ).universal as { from: { sha256: string }; edits: Array<[string, string]> };
+    const universal20533 = undo(onDisk, ownerChanges.edits.map(([prior, later]) => [later, prior] as const).reverse());
+    expect(sha256(universal20533)).toBe(ownerChanges.from.sha256);
     // Universal 20.5.33 (owner's research-thread lessons): undoing its recorded edits gives 20.5.32 exactly.
     const lessons = JSON.parse(
       await readFile(new URL("tests/fixtures/protocol-edits/2026-09-30-owner-lessons.json", ROOT), "utf8"),
     ).universal as { from: { sha256: string }; edits: Array<[string, string]> };
-    const universal20532 = undo(onDisk, lessons.edits.map(([prior, later]) => [later, prior] as const).reverse());
+    const universal20532 = undo(universal20533, lessons.edits.map(([prior, later]) => [later, prior] as const).reverse());
     expect(sha256(universal20532)).toBe(lessons.from.sha256);
     const universal20531 = undo(universal20532, UNIVERSAL_20_5_32_LESSON_OFFER);
     expect(sha256(universal20531)).toBe("111cdecb46352e8cca98cfdb214edcfaf1c09a1cf991abf1c35dc2203d113e98");
@@ -405,7 +411,7 @@ describe("canonical Reasoning Selection application", () => {
     ]);
 
     expect(sha256(hrp)).toBe(
-      "641473288653e5e2249527c3626d20c298c9b2f302ffc79feaad7c12191606b8",
+      "0a4cb419f7a73dfea6c9635daba60c0b64ea62073bf6d168810c31d92b51a041",
     );
     expect(sha256(forum)).toBe(
       "36640d420bc59d885c314b542cb9f3bae8525ee34844a5890e5b406866c71d20",
