@@ -1,9 +1,8 @@
 # Product reviews as community evidence (owner question 30)
 
-Date: 2026-10-03. Status: **exact text on the owner questions page as
-question 30**; built on `claude/forum-review-platforms-20261003`, stacked on
-`claude/protocol-changes-20261003` (#273). Nothing merges until the owner
-answers.
+Date: 2026-10-03. Status: **approved as written: the owner answered "30. A"
+on 2026-10-03**. Built on `claude/forum-review-platforms-20261003`, stacked on
+`claude/protocol-changes-20261003` (#273); it merges with the release.
 
 ## Owner outcome
 

@@ -129,15 +129,40 @@ provide a worse version" of a feature that the developer's own website or
 application also offers.
 
 So the constraint is not Bright Data's name. It is pointing ChatGPT users to
-Claude or to an upgrade. Owner question 32 asks how a ChatGPT answer says what
-it could not check.
+Claude or to an upgrade. Owner question 32 asked how a ChatGPT answer says
+what it could not check.
+
+**Owner decision 32: B (2026-10-03).** The owner: "ok then yes it should be
+option B that's obvious since it's permitted, and make sure it's compatible
+with Claude terms as well."
+
+- A ChatGPT answer says plainly what it could not check, in a line the server
+  adds, for example: "This answer could not check TikTok, Facebook groups or
+  full Amazon review sets." It never names Claude, a paid plan or an upgrade.
+- It links an informational page on askrigor.com that says what each version
+  covers (ChatGPT, Claude, and the web app once it works), with no checkout or
+  sign-up link. OpenAI allows linking "to an informational page describing
+  available plans"; its rule against comparisons covers a plugin's name,
+  description and prompts, not the developer's own site.
+- Claude: Anthropic's Software Directory Policy (last updated 2026-04-15) bars
+  software that "serves advertisements, sponsored content, paid product
+  placements, or exists primarily as an advertising or promotional vehicle".
+  It has no rule against saying a feature needs a paid plan or linking the
+  developer's own page, so free Claude users get the paid-feature message
+  and the same link.
+- The page's wording comes to the owner for approval when the first paid
+  feature is built; it must describe only what is live.
 
 **The web app's routing idea.** Bright Data runs on AskRigor's server, not
 inside Claude. So AskRigor's own web app could give it to whichever AI it
 calls; the Claude-only limit comes from OpenAI's plugin rules for the ChatGPT
 plugin. Reddit is the provider-bound case: ChatGPT reads it through OpenAI's
 own search, and Claude's web tools cannot. Whether OpenAI's API search reaches
-Reddit for a web app is untested. The web app also pays for model calls,
+Reddit for a web app is untested. The owner asked to test it through Venice
+(owner question 33): Venice runs GPT models with its own web search and
+scraping, not OpenAI's, so that test shows whether Venice's scraper reads
+Reddit, not whether ChatGPT's search does. Bright Data already read about half
+of a Reddit thread's comments in the 2026-10-01 test. The web app also pays for model calls,
 which the current $0 model-API policy forbids until the owner decides
 otherwise. The "worse version" clause needs a check when the web app nears
 launch.
