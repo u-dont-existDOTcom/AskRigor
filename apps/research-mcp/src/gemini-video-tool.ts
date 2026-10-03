@@ -121,10 +121,13 @@ export const extractYoutubeVideoClaimsOutputSchema = z.object({
 }).strict();
 type Output = z.output<typeof extractYoutubeVideoClaimsOutputSchema>;
 
+// Gemini reads the video only. Products a creator sells are often in the
+// description alone (live acceptance, 2026-10-03), so the note points there.
 const SOURCE_NOTE =
   "Gemini's transcription and description of the video, not checked by AskRigor: Gemini can mishear words and " +
   "misplace times, so give each quote with its link for the person to check. Nothing here is evidence for or " +
-  "against a claim.";
+  "against a claim. Gemini read the video only: read its description with get_youtube_video for affiliate links " +
+  "and products the creator sells.";
 const SPEND_GUIDANCE =
   "The zero-spend policy allows Gemini only with a key that has no billing (ASKRIGOR_GEMINI_BILLING=none). Check " +
   "the claims the person reports from the video with the other tools, and say the video itself was not read.";

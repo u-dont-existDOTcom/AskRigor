@@ -245,6 +245,7 @@ describe("extract_youtube_video_claims", () => {
       { start: "", what: "Shop link banner" }
     ]);
     expect(output.source_note).toMatch(/^Gemini's transcription and description of the video, not checked by AskRigor/u);
+    expect(output.source_note).toContain("read its description with get_youtube_video for affiliate links");
     expect(done.receipt).toEqual({ video: VIDEO, mode: "claims", n: 2 });
   });
 
