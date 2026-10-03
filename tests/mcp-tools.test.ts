@@ -25,6 +25,7 @@ import {
 } from
   "../apps/research-mcp/src/youtube-audit-continuation.js";
 import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
+import { getProtocolManifest } from "../packages/protocol/src/index.js";
 import { pageKey, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 
 const TOOL_NAMES = [
@@ -2949,6 +2950,35 @@ describe("AskRigor Streamable HTTP server", () => {
         '{"status":"ok","service":"askrigor-research","version":"0.1.0"}'
       );
     });
+  });
+
+  it("tells which AskRigor is running at /version, without sign-in", async () => {
+    const [hrp, universal] = await Promise.all([getProtocolManifest("hrp"), getProtocolManifest("universal")]);
+    const expected = (build: string) => ({
+      service: "askrigor-research",
+      version: "0.1.0",
+      build,
+      protocols: {
+        hrp: { version: hrp.version, revision_date: hrp.revisionDate, sha256: hrp.sha256 },
+        universal: { version: universal.version, revision_date: universal.revisionDate, sha256: universal.sha256 },
+      },
+    });
+    try {
+      await withHttpServer(async (baseUrl) => {
+        vi.stubEnv("ASKRIGOR_BUILD_COMMIT", "5640e6d2cfef");
+        const response = await fetch(new URL("/version", baseUrl));
+        expect(response.status).toBe(200);
+        expect(response.headers.get("content-type")).toBe("application/json");
+        expect(response.headers.get("cache-control")).toBe("no-store");
+        expect(await response.json()).toEqual(expected("5640e6d2cfef"));
+
+        // A value that is not a plain commit or tag name is never echoed.
+        vi.stubEnv("ASKRIGOR_BUILD_COMMIT", "<script>");
+        expect(await (await fetch(new URL("/version", baseUrl))).json()).toEqual(expected("unknown"));
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("supports consecutive MCP requests through the real stateless SDK transport", async () => {

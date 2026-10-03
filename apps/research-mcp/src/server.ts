@@ -73,6 +73,7 @@ import {
   type TrustedClientIpHeader
 } from "./rate-limit.js";
 import { registerTools } from "./register-tools.js";
+import { VERSION_PATH, versionPayload } from "./version.js";
 import { installGeminiCompatibleToolCatalog } from "./gemini-tool-catalog.js";
 import {
   createPrivateResearchOrchestrationHandler,
@@ -449,6 +450,19 @@ export function createAskRigorHttpServer(
     if (request.method === "GET" && pathname === "/healthz") {
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify(HEALTH_PAYLOAD));
+      return;
+    }
+
+    // Which AskRigor is running: build and protocol identities, public and without user data.
+    if (request.method === "GET" && pathname === VERSION_PATH) {
+      try {
+        const payload = await versionPayload();
+        response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+        response.end(JSON.stringify(payload));
+      } catch {
+        response.writeHead(503, { "content-type": "application/json", "cache-control": "no-store" });
+        response.end(JSON.stringify({ status: "unavailable" }));
+      }
       return;
     }
 

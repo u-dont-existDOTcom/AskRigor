@@ -114,7 +114,12 @@ the secret itself is never returned by a tool or Action.
 ASKRIGOR_PUBLIC_SERVER_ENABLED=true npm run dev:mcp
 ```
 
-`/healthz` is always available for a basic process check. The public `/mcp`
+`/healthz` is always available for a basic process check. `/version` says
+which AskRigor is running: the deployed build (`ASKRIGOR_BUILD_COMMIT`, or
+`unknown`) and the HRP and Universal versions, revision dates and SHA-256s that
+`get_protocol_manifest` reports. Like `/healthz` it needs no sign-in, carries
+no user data, and is neither throttled nor counted against the concurrency cap.
+Compare it with the latest release record under `docs/audits/`. The public `/mcp`
 route is fail-closed: unless `ASKRIGOR_PUBLIC_SERVER_ENABLED` is exactly
 `true`, it returns `503 public_server_disabled` before reading a request body,
 running the limiter, or creating an MCP tool server.
