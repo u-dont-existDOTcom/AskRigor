@@ -236,6 +236,37 @@ export async function researchUseAccount(
   }
 }
 
+/**
+ * Files a source analysis the server built itself (analysis-staging.ts) under
+ * the caller's own account, through the same intake and privacy checks as
+ * submit_research_contribution. The server's contribution carries none of
+ * the persisted material the privacy boundary rules out. Throws when the call
+ * has no valid research:use token or no access service.
+ */
+export async function submitServerSourceAnalysis(
+  extra: ResearchOperationExtra | undefined,
+  service: ResearchContributorAccessService | undefined,
+  contribution: unknown,
+): Promise<"inserted" | "idempotent_replay"> {
+  const auth = authorizedSubject(extra, undefined);
+  if ("error" in auth || service === undefined) throw new Error("RESEARCH_ACCOUNT_UNAVAILABLE");
+  const result = await service.submitProposal(auth.subject, {
+    proposalKind: "SOURCE_ANALYSIS",
+    privacyBoundary: {
+      rawChatPersisted: false,
+      promptPersisted: false,
+      accountIdentityInPayload: false,
+      privateHealthNarrativePersisted: false,
+      uploadContentPersisted: false,
+      rawSourceContentPersisted: false,
+      rawProviderResponsePersisted: false,
+      communityDataPersisted: false,
+    },
+    payload: contribution,
+  });
+  return result.status;
+}
+
 function withoutStructuredContent(result: CallToolResult): CallToolResult {
   const { structuredContent: _ignored, ...rest } = result;
   return rest;

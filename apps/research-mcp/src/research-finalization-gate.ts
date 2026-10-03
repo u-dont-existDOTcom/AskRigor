@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { analysesSavedSchema } from "./analysis-staging.js";
 import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
 import {
   FINDINGS_SAVE_OFFER,
@@ -227,7 +228,9 @@ export const finalizeResearchOutputSchema = z.object({
   }).strict().describe("Whether findings_card checked, and for a free contributor account whether it was saved; for " +
     "a paid private account a checked card's caveats offer the save. closed: the findings library is not open; " +
     "private: no research account, so nothing is saved."),
-  finalization_receipt: z.string().optional()
+  finalization_receipt: z.string().optional(),
+  analyses_saved: analysesSavedSchema.optional().describe("For a free contributor account whose research passed: the " +
+    "study and review analyses validated in it, which the server sent to the owner's review inbox.")
 }).strict();
 
 export type FinalizeResearchOutput = z.output<typeof finalizeResearchOutputSchema>;
