@@ -61,7 +61,11 @@ other 9 were already covered); HRP 20.6.9 and Universal 20.5.34 (owner questions
 logic merged into one home per check, the claim-integrity checks Universal lacked
 plus HRP's pre-delivery research claim check, and lesson 17's coupling,
 subgroup-null and forum-direction rules; exact recorded edits in
-`tests/fixtures/protocol-edits/2026-10-03-owner-protocol-changes.json`); the Gemini scout's research target written in
+`tests/fixtures/protocol-edits/2026-10-03-owner-protocol-changes.json`); HRP 20.6.10 (owner question 30,
+proposed 2026-10-03, merged only on the owner's approval: product reviews as community evidence, with review
+platforms mapped, product and ingredient kept apart, review counts and selection recorded, and carers'
+observations kept as their own cohort; exact recorded edits in
+`tests/fixtures/protocol-edits/2026-10-03-forum-review-platforms.json`); the Gemini scout's research target written in
 English, with the person's language passed separately (owner decision 6: A); a
 findings library (owner decisions Q9 to Q11, 2026-09-30: for a free contributor
 account `finalize_research` needs a findings card with the answer and saves the

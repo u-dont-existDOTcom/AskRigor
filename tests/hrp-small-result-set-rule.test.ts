@@ -15,9 +15,9 @@ function sha256(value: string): string {
 // HRP 20.6.6's recorded bytes, so nothing else changed.
 describe("HRP 20.6.7 small-result-set and exposure-decomposition rule", () => {
   it("adds only the approved rule, its routing and its revision", async () => {
-    // HRP 20.6.9 (owner questions 28 and 29, 2026-10-03) and then 20.6.8 (owner's
-    // research-thread lessons) come first: undoing each one's recorded edits gives
-    // the version before it exactly.
+    // HRP 20.6.10 (owner question 30, 2026-10-03), 20.6.9 (owner questions 28 and
+    // 29, 2026-10-03) and then 20.6.8 (owner's research-thread lessons) come first:
+    // undoing each one's recorded edits gives the version before it exactly.
     const onDisk = await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
     const recorded = async (name: string) => JSON.parse(
       await readFile(new URL(`tests/fixtures/protocol-edits/${name}`, ROOT), "utf8"),
@@ -27,8 +27,11 @@ describe("HRP 20.6.7 small-result-set and exposure-decomposition rule", () => {
         expect(current.split(later), later.slice(0, 60)).toHaveLength(2);
         return current.replace(later, prior);
       }, text);
+    const forumReviews = await recorded("2026-10-03-forum-review-platforms.json");
+    const hrp2069 = undo(onDisk, forumReviews.edits);
+    expect(sha256(hrp2069)).toBe(forumReviews.from.sha256);
     const ownerChanges = await recorded("2026-10-03-owner-protocol-changes.json");
-    const hrp2068 = undo(onDisk, ownerChanges.edits);
+    const hrp2068 = undo(hrp2069, ownerChanges.edits);
     expect(sha256(hrp2068)).toBe(ownerChanges.from.sha256);
     const lessons = await recorded("2026-09-30-owner-lessons.json");
     const hrp = undo(hrp2068, lessons.edits);

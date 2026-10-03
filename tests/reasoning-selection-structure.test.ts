@@ -411,10 +411,10 @@ describe("canonical Reasoning Selection application", () => {
     ]);
 
     expect(sha256(hrp)).toBe(
-      "0a4cb419f7a73dfea6c9635daba60c0b64ea62073bf6d168810c31d92b51a041",
+      "a024d442c68197383f7d147ffde48bbe01b92794342fd8b5b754f2dd4a8d52e5",
     );
     expect(sha256(forum)).toBe(
-      "36640d420bc59d885c314b542cb9f3bae8525ee34844a5890e5b406866c71d20",
+      "68d60830716eb5fd15d5ad5cf948a39db1f1ac98923fa6f9ec6ab931620cb9cf",
     );
   });
 });
