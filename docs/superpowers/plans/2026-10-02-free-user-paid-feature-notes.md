@@ -101,6 +101,47 @@ subscribers know they would need to upgrade for that."
   Keep reviewer names and IDs out of answers and records (HRP
   UniqueFirsthandUnit).
 
+## Owner direction, 2026-10-03: ChatGPT users should know what they miss
+
+The owner: "30. chatgpt users should be aware of what they're missing on
+chatgpt vs claude (we don't need to name Bright Data if that violates plugin
+guidelines). vs the web app once that's funcitonal and i guess web app can
+switch between calling claude and chatgpt depending on which one supports
+which connector? bc chatgpt has reddit, claude has bright data, etc."
+
+OpenAI's Plugin Guidelines, rechecked 2026-10-03 (same page as below), under
+"Commerce and monetization":
+
+> Selling digital products or services—including subscriptions, digital
+> content, tokens, or credits—is not allowed, whether offered directly or
+> indirectly (for example, through freemium upsells).
+
+> Plugins must not display subscription plans, initiate new subscriptions, or
+> promote upgrades.
+
+> If a certain plugin feature requires a different plan or entitlement [...]
+> the plugin may explain that.
+
+Plugins may link to an informational page about plans, never to checkout.
+Under "Respect user intent": "Do not insert unrelated content, attempt to
+redirect the interaction [...]". The same section says a plugin "must not
+provide a worse version" of a feature that the developer's own website or
+application also offers.
+
+So the constraint is not Bright Data's name. It is pointing ChatGPT users to
+Claude or to an upgrade. Owner question 32 asks how a ChatGPT answer says what
+it could not check.
+
+**The web app's routing idea.** Bright Data runs on AskRigor's server, not
+inside Claude. So AskRigor's own web app could give it to whichever AI it
+calls; the Claude-only limit comes from OpenAI's plugin rules for the ChatGPT
+plugin. Reddit is the provider-bound case: ChatGPT reads it through OpenAI's
+own search, and Claude's web tools cannot. Whether OpenAI's API search reaches
+Reddit for a web app is untested. The web app also pays for model calls,
+which the current $0 model-API policy forbids until the owner decides
+otherwise. The "worse version" clause needs a check when the web app nears
+launch.
+
 ## OpenAI's plugin rule (checked 2026-10-02)
 
 OpenAI's Plugin Guidelines
