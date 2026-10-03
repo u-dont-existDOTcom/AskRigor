@@ -157,6 +157,12 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
     const client = await connectClient(baseUrl);
 
     const { tools } = await client.listTools();
+    const ordinary = await client.callTool({
+      name: "load_protocol",
+      arguments: { protocol: "hrp" },
+    });
+    // The manifest is public protocol identity, as GET /version gives it, so
+    // asking which version is loaded needs no sign-in or research mode.
     const manifest = await client.callTool({
       name: "get_protocol_manifest",
       arguments: { protocol: "hrp" },
@@ -168,7 +174,12 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
       name === "review_research_contribution"
     );
 
-    expect(manifest.isError).toBe(true);
+    expect(ordinary.isError).toBe(true);
+    expect(manifest.isError).not.toBe(true);
+    expect(manifest.structuredContent).toMatchObject({ ok: true, protocol: "hrp" });
+    expect(tools.find(({ name }) => name === "get_protocol_manifest")?._meta).toEqual({
+      securitySchemes: [{ type: "noauth" }],
+    });
     expect(tools).toHaveLength(32);
     expect(review?._meta).toEqual({
       securitySchemes: [{ type: "oauth2", scopes: [CASE_REVIEW_SCOPE] }],
@@ -180,6 +191,7 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
       ![
         "review_evidence_gap_submissions",
         "review_research_contribution",
+        "get_protocol_manifest",
       ].includes(name)
     ).every(({ _meta }) => JSON.stringify(_meta) === JSON.stringify({
       securitySchemes: [{ type: "oauth2", scopes: [RESEARCH_USE_SCOPE] }],
@@ -222,16 +234,16 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
     for (const token of ["expired", "wrong-resource", "unscoped", "invalid"]) {
       const { baseUrl } = await startServer(await seededService());
       const client = await connectClient(baseUrl, token);
-      const manifest = await client.callTool({
-        name: "get_protocol_manifest",
-        arguments: { protocol: "universal" },
+      const research = await client.callTool({
+        name: "load_protocol",
+        arguments: { protocol: "universal", section: "index" },
       });
       const review = await client.callTool({
         name: "review_evidence_gap_submissions",
         arguments: { gap_slug: PUBLIC_PROLACTINOMA_GAP_SLUG },
       });
 
-      expect(manifest.isError, token).toBe(true);
+      expect(research.isError, token).toBe(true);
       expect(review.isError, token).toBe(true);
       expect(review.structuredContent, token).toMatchObject({
         ok: false,
@@ -257,8 +269,8 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
       access: { status: "UNENROLLED", paidCheckoutAvailable: false },
     });
     const blocked = await client.callTool({
-      name: "get_protocol_manifest",
-      arguments: { protocol: "universal" },
+      name: "load_protocol",
+      arguments: { protocol: "universal", section: "index" },
     });
     expect(blocked.isError).toBe(true);
 
@@ -284,8 +296,8 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
       },
     });
     const permitted = await client.callTool({
-      name: "get_protocol_manifest",
-      arguments: { protocol: "universal" },
+      name: "load_protocol",
+      arguments: { protocol: "universal", section: "index" },
     });
     expect(permitted.isError).not.toBe(true);
 
@@ -298,8 +310,8 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
       access: { status: "REVOKED", mode: null },
     });
     const blockedAgain = await client.callTool({
-      name: "get_protocol_manifest",
-      arguments: { protocol: "universal" },
+      name: "load_protocol",
+      arguments: { protocol: "universal", section: "index" },
     });
     expect(blockedAgain.isError).toBe(true);
   });

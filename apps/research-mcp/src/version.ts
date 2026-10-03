@@ -51,6 +51,29 @@ async function readProtocolIdentities(): Promise<VersionPayload["protocols"]> {
   return { hrp: identity(hrp), universal: identity(universal) };
 }
 
+/**
+ * The versions a running server announces where clients show it: its title and
+ * version in the MCP handshake, and the start of get_protocol_manifest's
+ * description (owner, 2026-10-03: "make sure the version number is in the
+ * plugin info panel so i don't have to ask it what version it is").
+ */
+export interface RunningVersions {
+  hrp: string;
+  universal: string;
+  /** The deployed build's commit, or "unknown". */
+  build: string;
+}
+
+export function runningVersionsOf(payload: VersionPayload): RunningVersions {
+  return { hrp: payload.protocols.hrp.version, universal: payload.protocols.universal.version, build: payload.build };
+}
+
+/** "HRP 20.6.10, Universal 20.5.34, build 5640e6d", without the build when it is unknown. */
+export function runningVersionsText(versions: RunningVersions): string {
+  return `HRP ${versions.hrp}, Universal ${versions.universal}` +
+    (versions.build === "unknown" ? "" : `, build ${versions.build}`);
+}
+
 function identity(manifest: ProtocolManifest): ProtocolIdentity {
   return { version: manifest.version, revision_date: manifest.revisionDate, sha256: manifest.sha256 };
 }
