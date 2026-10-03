@@ -1,6 +1,6 @@
 # The server saves free users' checked analyses itself
 
-Date: 2026-10-03. Status: **IN PROGRESS** on
+Date: 2026-10-03. Status: **BUILT; ships in the release of owner question 26**, PR #271, on
 `claude/server-saves-free-analyses-20261003`.
 
 ## Owner outcome
