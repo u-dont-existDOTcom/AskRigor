@@ -80,6 +80,27 @@ users won't have the search either.
   message reads "Facebook group and TikTok posts can only be inspected with the
   paid version." X can be added, since X posts worked.
 
+## Second message: Amazon reviews (owner, 2026-10-03)
+
+The owner, while answering owner question 30 (product reviews as community
+evidence): "and amazon is really important, butit looks like we might need to
+use Bright Data for this module to get good results, make sure free
+subscribers know they would need to upgrade for that."
+
+- Amazon shows a few reviews on a product page; the full set needs a login,
+  and plain fetching is often blocked. Bright Data's Amazon review data
+  reaches the full set, so reading it is part of the paid Bright Data search,
+  on Claude only (owner question 23: A).
+- **When it applies:** a free Claude account's research maps Amazon as a
+  review platform for the product. `finalize_research` already records this
+  in `community_searches` as a `review_site` with `review_corpora`.
+- **Wording, in the owner's form:** "Full Amazon review sets can only be
+  inspected with the paid version."
+- **Before launch:** test what Bright Data's Amazon review data returns for a
+  real product: how many reviews, which fields, and the credits per product.
+  Keep reviewer names and IDs out of answers and records (HRP
+  UniqueFirsthandUnit).
+
 ## OpenAI's plugin rule (checked 2026-10-02)
 
 OpenAI's Plugin Guidelines

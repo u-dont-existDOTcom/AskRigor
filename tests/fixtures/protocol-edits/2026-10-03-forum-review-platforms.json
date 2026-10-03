@@ -12,11 +12,11 @@
    ],
    [
     " <RevisionHistory>\n  <Revision version=\"20.6.9\" priority=\"Critical\">\n",
-    " <RevisionHistory>\n  <Revision version=\"20.6.10\" priority=\"Critical\">\n   Owner-approved method change (owner question 30, 2026-10-03): product reviews as community evidence. For a product\n   or service people buy, map where its buyers review it before sampling (PrincipalPlatformMapping); keep the exact\n   product and its ingredient as separate cohorts, checked against the label (ScopeAxesBeforeSampling); search review\n   text in every direction (DirectionalSearchSymmetry); treat top-ranked, outcome-word, snippet, and summary reviews\n   as discovery, recording how many reviews were shown and read and how they were chosen\n   (ReviewCorpusSelectionAndCounts); count a review once across listings, variants, and retailers\n   (UniqueFirsthandUnit); label review sources and incentives (CommercialAndCommunityBias); keep a carer's observation\n   of a dependent in its own cohort (NoForumSignalByProxy, CaregiverObservedCohort); and record an unreachable review\n   corpus as partial or inaccessible (ClosedPlatformAndAccessDisclosure). Two stress cases and final checks FS210 and\n   FS211.\n  </Revision>\n  <Revision version=\"20.6.9\" priority=\"Critical\">\n"
+    " <RevisionHistory>\n  <Revision version=\"20.6.10\" priority=\"Critical\">\n   Owner-approved method change (owner question 30, 2026-10-03): product reviews as community evidence. For a product\n   or service people buy, map where its buyers review it before sampling (PrincipalPlatformMapping); keep the exact\n   product and its ingredient as separate cohorts, checked against the label (ScopeAxesBeforeSampling); search review\n   text in every direction and language (DirectionalSearchSymmetry); treat top-ranked, outcome-word, snippet, and\n   summary reviews as discovery, recording how many reviews were shown and read and how they were chosen\n   (ReviewCorpusSelectionAndCounts); count a review once across listings, variants, and retailers\n   (UniqueFirsthandUnit); label review sources and incentives (CommercialAndCommunityBias); keep a carer's observation\n   of a dependent in its own cohort (NoForumSignalByProxy, CaregiverObservedCohort); and record an unreachable review\n   corpus as partial or inaccessible (ClosedPlatformAndAccessDisclosure). Two stress cases and final checks FS210 and\n   FS211.\n  </Revision>\n  <Revision version=\"20.6.9\" priority=\"Critical\">\n"
    ],
    [
     "   treatment-specific communities rather than whichever platforms are easiest to index.\n  </Rule>",
-    "   treatment-specific communities rather than whichever platforms are easiest to index.\n   When the intervention is a product or service people buy (a supplement, consumer health product, device, app,\n   formulation, or health service), also map where its buyers review that exact product or service: retailers such as\n   Amazon, iHerb, or Walmart, specialist retailers, app stores, and independent review sites, with manufacturer-hosted\n   reviews as a separately labeled source. A large relevant review corpus is a principal community. No one retailer is\n   required when another clearly dominates, and an easier-to-search forum does not substitute for it.\n  </Rule>"
+    "   treatment-specific communities rather than whichever platforms are easiest to index.\n   When the intervention is a product or service people buy (a supplement, consumer health product, device, app,\n   formulation, or health service), also map where its buyers review that exact product or service: retailers such as\n   Amazon, iHerb, or Walmart, including their stores in other countries where it sells, specialist retailers, app\n   stores, and independent review sites, with manufacturer-hosted reviews as a separately labeled source. A large\n   relevant review corpus is a principal community. No one retailer is required when another clearly dominates, and an\n   easier-to-search forum does not substitute for it.\n  </Rule>"
    ],
    [
     "   the same substance or disease label appears.\n  </Rule>",
@@ -24,7 +24,7 @@
    ],
    [
     "formulation-specific\n   equivalents.\n  </Rule>",
-    "formulation-specific\n   equivalents.\n   On review platforms, search the review text the same way, using the condition's and outcome's everyday words as\n   well as the product name, and read low-, middle-, and high-rated reviews rather than only those ranked first.\n  </Rule>"
+    "formulation-specific\n   equivalents.\n   On review platforms, search the review text the same way, in each language the reviews are written in, using the\n   condition's and outcome's everyday words as well as the product name, and read low-, middle-, and high-rated\n   reviews rather than only those ranked first.\n  </Rule>"
    ],
    [
     "   override a dominant inaccessible community, or justify a confident signal classification.\n  </Rule>\n",
@@ -44,7 +44,7 @@
    ],
    [
     "   cross-platform conclusion.\n  </Rule>",
-    "   cross-platform conclusion.\n   Reviews that ordinary search and page views cannot reach, such as those behind a login or past the first pages,\n   leave that review corpus partial: use an authorized structured route to the reviews when one is available, and\n   otherwise record the corpus as partial or inaccessible instead of inferring it from the reviews that were visible.\n  </Rule>"
+    "   cross-platform conclusion.\n   Reviews that ordinary search and page views cannot reach, such as those behind a login or past the first pages,\n   leave that review corpus partial: use a review-data tool the session provides when one is available, rather than\n   working around the platform's login, and otherwise record the corpus as partial or inaccessible instead of\n   inferring it from the reviews that were visible.\n  </Rule>"
    ],
    [
     "   can support and cannot estimate; for risk questions, what RiskLanguageOutput, ReconstructableArithmeticDisclosure,\n",

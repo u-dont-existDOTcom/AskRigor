@@ -35,7 +35,8 @@ describe("HRP 20.6.10: product reviews as community evidence", () => {
       "keep the exact product (brand, formulation, and variant) and its ingredient as separate cohorts and search each",
     );
     expect(forum).toContain("Check the product's actual label for what it contains and how much.");
-    expect(forum).toContain("On review platforms, search the review text the same way");
+    expect(forum).toContain("On review platforms, search the review text the same way, in each language the reviews are written in");
+    expect(forum).toContain("including their stores in other countries where it sells");
   });
 
   it("adds the two new rules directly after their neighbors, once each", async () => {
@@ -67,7 +68,7 @@ describe("HRP 20.6.10: product reviews as community evidence", () => {
       "use reviewer names, handles, and identifiers only for that matching, and never report or save them.",
     );
     expect(squash(ruleBody(hrp, "ClosedPlatformAndAccessDisclosure") ?? "")).toContain(
-      "use an authorized structured route to the reviews when one is available",
+      "use a review-data tool the session provides when one is available, rather than working around the platform's login",
     );
     for (const text of [hrp, module]) {
       expect(text).not.toMatch(/bright\s*data/iu);

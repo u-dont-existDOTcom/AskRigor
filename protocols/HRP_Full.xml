@@ -55,8 +55,8 @@
    Owner-approved method change (owner question 30, 2026-10-03): product reviews as community evidence. For a product
    or service people buy, map where its buyers review it before sampling (PrincipalPlatformMapping); keep the exact
    product and its ingredient as separate cohorts, checked against the label (ScopeAxesBeforeSampling); search review
-   text in every direction (DirectionalSearchSymmetry); treat top-ranked, outcome-word, snippet, and summary reviews
-   as discovery, recording how many reviews were shown and read and how they were chosen
+   text in every direction and language (DirectionalSearchSymmetry); treat top-ranked, outcome-word, snippet, and
+   summary reviews as discovery, recording how many reviews were shown and read and how they were chosen
    (ReviewCorpusSelectionAndCounts); count a review once across listings, variants, and retailers
    (UniqueFirsthandUnit); label review sources and incentives (CommercialAndCommunityBias); keep a carer's observation
    of a dependent in its own cohort (NoForumSignalByProxy, CaregiverObservedCohort); and record an unreachable review
@@ -3752,9 +3752,10 @@
    treatment-specific communities rather than whichever platforms are easiest to index.
    When the intervention is a product or service people buy (a supplement, consumer health product, device, app,
    formulation, or health service), also map where its buyers review that exact product or service: retailers such as
-   Amazon, iHerb, or Walmart, specialist retailers, app stores, and independent review sites, with manufacturer-hosted
-   reviews as a separately labeled source. A large relevant review corpus is a principal community. No one retailer is
-   required when another clearly dominates, and an easier-to-search forum does not substitute for it.
+   Amazon, iHerb, or Walmart, including their stores in other countries where it sells, specialist retailers, app
+   stores, and independent review sites, with manufacturer-hosted reviews as a separately labeled source. A large
+   relevant review corpus is a principal community. No one retailer is required when another clearly dominates, and an
+   easier-to-search forum does not substitute for it.
   </Rule>
 
   <Rule name="ScopeAxesBeforeSampling" priority="Critical">
@@ -3823,8 +3824,9 @@
    the user's claim suggests, using terms likely to retrieve negative and null experiences, such as “did nothing,”
    “stopped,” “made worse,” “side effect,” “no benefit,” “quit,” “rebound,” and diagnosis- or formulation-specific
    equivalents.
-   On review platforms, search the review text the same way, using the condition's and outcome's everyday words as
-   well as the product name, and read low-, middle-, and high-rated reviews rather than only those ranked first.
+   On review platforms, search the review text the same way, in each language the reviews are written in, using the
+   condition's and outcome's everyday words as well as the product name, and read low-, middle-, and high-rated
+   reviews rather than only those ranked first.
   </Rule>
 
   <Rule name="RelativeForumSignal" priority="Critical">
@@ -3933,8 +3935,9 @@
    platform's forum signal as inaccessible or indeterminate; for the dominant platform, also state how this limits any
    cross-platform conclusion.
    Reviews that ordinary search and page views cannot reach, such as those behind a login or past the first pages,
-   leave that review corpus partial: use an authorized structured route to the reviews when one is available, and
-   otherwise record the corpus as partial or inaccessible instead of inferring it from the reviews that were visible.
+   leave that review corpus partial: use a review-data tool the session provides when one is available, rather than
+   working around the platform's login, and otherwise record the corpus as partial or inaccessible instead of
+   inferring it from the reviews that were visible.
   </Rule>
 
   <Rule name="InaccessibleForumStatus" priority="Critical">
