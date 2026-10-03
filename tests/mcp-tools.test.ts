@@ -57,6 +57,7 @@ const TOOL_NAMES = [
   "review_evidence_gap_submissions",
   "assess_treatment_landscape_coverage",
   "scout_gemini_youtube_candidates",
+  "extract_youtube_video_claims",
   "finalize_research",
   "submit_lesson_candidate",
   "save_research_findings"
@@ -70,6 +71,7 @@ const GEMINI_TOOL_NAMES = TOOL_NAMES.filter((name) =>
     "submit_research_contribution",
     "assess_treatment_landscape_coverage",
     "scout_gemini_youtube_candidates",
+    "extract_youtube_video_claims",
     "finalize_research",
     "submit_lesson_candidate",
     "save_research_findings",
@@ -106,7 +108,7 @@ const SPARSE_SEARCH_NOTE = " Few records: before saying anything was not found, 
   "the components of a mixed exposure, and citation chains.";
 
 describe("AskRigor MCP tools", () => {
-  it("registers the exact thirty-two-tool catalog with six declared writes", async () => {
+  it("registers the exact thirty-three-tool catalog with six declared writes", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {

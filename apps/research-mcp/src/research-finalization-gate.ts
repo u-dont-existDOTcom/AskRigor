@@ -390,6 +390,12 @@ export function finalizeResearch(
       // judgment, so they count as found by the round.
       for (const video of [...list(claims.videos), ...list(claims.alt)]) discovered.add(video);
     }
+    if (kind === "youtube_video_claims") {
+      // A video the person gave, which Gemini read, counts as found: auditing
+      // its comments needs no discovery round to have turned it up. It is no
+      // round itself, so community discovery still runs as before.
+      discovered.add(text(claims.video));
+    }
     if (kind === "youtube_video_audit") {
       // Comments the audit's final view returned; receipts from before `shown`
       // existed count every record retrieved.

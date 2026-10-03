@@ -77,8 +77,9 @@ describe("AskRigor plugin package", () => {
     expect(skill.startsWith(`${EXPECTED_SKILL_FRONTMATTER}\n`)).toBe(true);
     expect(skill).not.toMatch(/\bv?20\.5\.(?:\d+|x)\b/i);
     expect(skill).not.toMatch(/<\/?(?:Protocol|Purpose|Research)/);
-    // 1,100 until the findings card and its paid-private save (owner decisions Q9 to Q11, 2026-09-30).
-    expect(skill.split(/\s+/).filter(Boolean).length).toBeLessThan(1_125);
+    // 1,100 until the findings card and its paid-private save (owner decisions Q9 to Q11, 2026-09-30); 1,125 until
+    // "check this video" (owner decision 2026-09-27, AskRigor#248).
+    expect(skill.split(/\s+/).filter(Boolean).length).toBeLessThan(1_200);
   });
 
   it("gives the final gate a findings card and saves an offered card only after the user says yes", async () => {
