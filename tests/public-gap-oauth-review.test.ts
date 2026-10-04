@@ -256,6 +256,51 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
     }
   });
 
+  // Owner report (2026-10-03): a chat holding AskRigor's tools from before the
+  // notice changed could send only the earlier version, which the server
+  // refuses, so the user could not accept at all. The schema now takes any
+  // well-formed version; the server still accepts only the current one and
+  // names it.
+  it("refuses an earlier notice version by naming the current one, so a stale tool copy cannot block consent", async () => {
+    const { baseUrl } = await startServer(await seededService());
+    const client = await connectClient(baseUrl, "researcher");
+    const { tools } = await client.listTools();
+    const access = tools.find(({ name }) => name === "manage_research_access")!;
+    const noticeVersion = (access.inputSchema as {
+      properties: { agreement: { properties: { noticeVersion: Record<string, unknown> } } };
+    }).properties.agreement.properties.noticeVersion;
+    expect(noticeVersion).not.toHaveProperty("const");
+    expect(noticeVersion).toHaveProperty("pattern");
+
+    const agreement = (version: string) => ({
+      noticeVersion: version,
+      eligibleDeidentifiedResearchContributionRequired: true,
+      prohibitedPrivateAndRawContentExcluded: true,
+      proposalReviewAndNoAuthorityAcknowledged: true,
+      paidPrivateAlternativeAcknowledged: true,
+    });
+    const stale = await client.callTool({
+      name: "manage_research_access",
+      arguments: { action: "accept_free_contributor", agreement: agreement("free-contributor-v1-2026-09-01") },
+    });
+    expect(stale.isError).toBe(true);
+    expect(stale.structuredContent).toMatchObject({ ok: false, error: { code: "research_access_required" } });
+    const message = (stale.content as Array<{ text: string }>)[0]!.text;
+    expect(message).toContain(`The current free-use notice is ${RESEARCH_USE_NOTICE_VERSION}`);
+    expect(message).toContain("start a new chat, or refresh or reconnect AskRigor");
+    const unchanged = await client.callTool({ name: "manage_research_access", arguments: { action: "inspect" } });
+    expect(unchanged.structuredContent).toMatchObject({
+      ok: true,
+      access: { status: "UNENROLLED", noticeVersion: RESEARCH_USE_NOTICE_VERSION },
+    });
+
+    const accepted = await client.callTool({
+      name: "manage_research_access",
+      arguments: { action: "accept_free_contributor", agreement: agreement(RESEARCH_USE_NOTICE_VERSION) },
+    });
+    expect(accepted.structuredContent).toMatchObject({ ok: true, access: { status: "ACTIVE", mode: "FREE_CONTRIBUTOR" } });
+  });
+
   it("activates reciprocal free access explicitly and revocation blocks later research", async () => {
     const { baseUrl } = await startServer(await seededService());
     const client = await connectClient(baseUrl, "researcher");
