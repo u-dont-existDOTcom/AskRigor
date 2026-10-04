@@ -12546,7 +12546,7 @@
             "additionalProperties": false
           },
           "principal_communities": {
-            "description": "Where people discussing this actually talk, the dominant first: subreddits, specialist forums, Facebook groups, patient organizations, YouTube. Needed when community evidence is researched; search the dominant one and at least one independent one.",
+            "description": "Where people discussing this actually talk, the dominant first: subreddits, specialist forums, Facebook groups, patient organizations, YouTube, and for a product people buy, the sites where buyers review it (platform review_site). Needed when community evidence is researched; search the dominant one and at least one independent one.",
             "minItems": 1,
             "maxItems": 8,
             "type": "array",
@@ -12634,7 +12634,7 @@
                         "type": "string",
                         "maxLength": 2048,
                         "format": "uri",
-                        "description": "The thread's full link; on Reddit, reddit.com/r/<name>/comments/<id>/…"
+                        "description": "The thread's full link; on Reddit, reddit.com/r/<name>/comments/<id>/…; on a review site, the product's reviews page"
                       },
                       "title": {
                         "type": "string",
@@ -12662,6 +12662,53 @@
                   "type": "string",
                   "maxLength": 2048,
                   "format": "uri"
+                },
+                "review_corpora": {
+                  "description": "Needed for a review_site whose reviews you read: for each product, how many reviews the site shows, how many you read and how you chose them.",
+                  "minItems": 1,
+                  "maxItems": 6,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "product": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200,
+                        "description": "The exact product and variant, as its label names it."
+                      },
+                      "reviews_shown": {
+                        "description": "How many written reviews the site shows for it, when it says.",
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "reviews_read": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 9007199254740991
+                      },
+                      "selection": {
+                        "type": "string",
+                        "enum": [
+                          "all",
+                          "condition_mentions",
+                          "most_recent",
+                          "random_or_stratified",
+                          "top_ranked",
+                          "outcome_keyword",
+                          "other_partial"
+                        ],
+                        "description": "How you chose the reviews you read: all of them; every one mentioning the condition; the most recent; a random sample or one stratified by rating; the ones ranked first; ones found by searching for outcomes; or another partial set. The last three show which experiences exist, not how common they are."
+                      }
+                    },
+                    "required": [
+                      "product",
+                      "reviews_read",
+                      "selection"
+                    ],
+                    "additionalProperties": false
+                  }
                 },
                 "benefit_reports": {
                   "type": "string",

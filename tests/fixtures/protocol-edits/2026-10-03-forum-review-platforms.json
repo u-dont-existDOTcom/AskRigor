@@ -1,0 +1,63 @@
+{
+ "purpose": "Exact edits of HRP 20.6.10 (owner question 30, 2026-10-03: product reviews as community evidence, from the owner's pasted forum review-platform repair). Each pair is [prior text, new text]; undoing them in reverse order must give the recorded prior bytes.",
+ "hrp": {
+  "from": {
+   "version": "20.6.9",
+   "sha256": "0a4cb419f7a73dfea6c9635daba60c0b64ea62073bf6d168810c31d92b51a041"
+  },
+  "edits": [
+   [
+    "<Protocol name=\"HRP\" version=\"20.6.9\" revisionDate=\"2026-10-03\"",
+    "<Protocol name=\"HRP\" version=\"20.6.10\" revisionDate=\"2026-10-03\""
+   ],
+   [
+    " <RevisionHistory>\n  <Revision version=\"20.6.9\" priority=\"Critical\">\n",
+    " <RevisionHistory>\n  <Revision version=\"20.6.10\" priority=\"Critical\">\n   Owner-approved method change (owner question 30, 2026-10-03): product reviews as community evidence. For a product\n   or service people buy, map where its buyers review it before sampling (PrincipalPlatformMapping); keep the exact\n   product and its ingredient as separate cohorts, checked against the label (ScopeAxesBeforeSampling); search review\n   text in every direction and language (DirectionalSearchSymmetry); treat top-ranked, outcome-word, snippet, and\n   summary reviews as discovery, recording how many reviews were shown and read and how they were chosen\n   (ReviewCorpusSelectionAndCounts); count a review once across listings, variants, and retailers\n   (UniqueFirsthandUnit); label review sources and incentives (CommercialAndCommunityBias); keep a carer's observation\n   of a dependent in its own cohort (NoForumSignalByProxy, CaregiverObservedCohort); and record an unreachable review\n   corpus as partial or inaccessible (ClosedPlatformAndAccessDisclosure). Two stress cases and final checks FS210 and\n   FS211.\n  </Revision>\n  <Revision version=\"20.6.9\" priority=\"Critical\">\n"
+   ],
+   [
+    "   treatment-specific communities rather than whichever platforms are easiest to index.\n  </Rule>",
+    "   treatment-specific communities rather than whichever platforms are easiest to index.\n   When the intervention is a product or service people buy (a supplement, consumer health product, device, app,\n   formulation, or health service), also map where its buyers review that exact product or service: retailers such as\n   Amazon, iHerb, or Walmart, including their stores in other countries where it sells, specialist retailers, app\n   stores, and independent review sites, with manufacturer-hosted reviews as a separately labeled source. A large\n   relevant review corpus is a principal community. No one retailer is required when another clearly dominates, and an\n   easier-to-search forum does not substitute for it.\n  </Rule>"
+   ],
+   [
+    "   the same substance or disease label appears.\n  </Rule>",
+    "   the same substance or disease label appears.\n   For a commercial product, keep the exact product (brand, formulation, and variant) and its ingredient as separate\n   cohorts and search each. Check the product's actual label for what it contains and how much. Place other products\n   containing the ingredient in a labeled adjacent cohort (CompositeInterventionAttribution), and a product whose\n   label does not list the ingredient, such as one containing it only as a natural trace, in a proxy cohort.\n  </Rule>"
+   ],
+   [
+    "formulation-specific\n   equivalents.\n  </Rule>",
+    "formulation-specific\n   equivalents.\n   On review platforms, search the review text the same way, in each language the reviews are written in, using the\n   condition's and outcome's everyday words as well as the product name, and read low-, middle-, and high-rated\n   reviews rather than only those ranked first.\n  </Rule>"
+   ],
+   [
+    "   override a dominant inaccessible community, or justify a confident signal classification.\n  </Rule>\n",
+    "   override a dominant inaccessible community, or justify a confident signal classification.\n  </Rule>\n\n  <Rule name=\"ReviewCorpusSelectionAndCounts\" priority=\"Critical\">\n   On a review platform, top-ranked reviews, reviews found by outcome words, snippets, and summaries (such as a\n   platform's generated “customers say” text) are discovery: they show which experiences exist, not how common each\n   is. For each product and platform, record how many written reviews the platform shows, how many were retrieved and\n   analyzed, and how they were selected. Label direction only within a frame not chosen by outcome: every review,\n   every review mentioning the condition, the most recent reviews, a random sample, or a rating-stratified sample\n   weighted by the platform's rating counts (DirectionLabelsNeedOutcomeNeutralSelection). From any other set, report\n   the directions observed with their frequency unknown. Star ratings are not outcome reports: they also rate taste,\n   price, delivery, and packaging. One review shows that an experience exists, never how often it occurs.\n  </Rule>\n"
+   ],
+   [
+    "   periods or documented rechallenges are analytically relevant.\n  </Rule>",
+    "   periods or documented rechallenges are analytically relevant.\n   A review shown on several listings, sizes, flavors, bundles, or retailers counts once. Match reviews by text, date,\n   and the platform's review identifiers; use reviewer names, handles, and identifiers only for that matching, and\n   never report or save them.\n  </Rule>"
+   ],
+   [
+    "   intervention-free discussion.\n  </Rule>\n",
+    "   intervention-free discussion. A carer's direct observation of a dependent is not a secondhand story; it goes to\n   CaregiverObservedCohort.\n  </Rule>\n\n  <Rule name=\"CaregiverObservedCohort\" priority=\"Critical\">\n   A parent's or carer's report of what they directly observed in a child or dependent who used the intervention is\n   neither a firsthand report nor discarded hearsay. Keep these reports in a separately labeled caregiver-observed\n   cohort, never pooled with self-reports. Observable outcomes, such as behavior, sleep, school or work reports,\n   measured values, and adverse reactions, carry weight there; the dependent's inner experiences, such as mood, focus,\n   or craving, stay weaker proxy evidence. Apply the same direction, deduplication, and selection rules as to\n   self-reports.\n  </Rule>\n"
+   ],
+   [
+    "   treatment enthusiasm, reputational stakes, platform recommendation systems, and coordinated or duplicated language.\n  </Rule>",
+    "   treatment enthusiasm, reputational stakes, platform recommendation systems, and coordinated or duplicated language.\n   On review platforms, label each review's source: an independent retailer, the manufacturer's own site, a product\n   given free or discounted for review, or promotional content. Verified-purchase marks and helpful votes describe the\n   review, not whether its outcome report is accurate.\n  </Rule>"
+   ],
+   [
+    "   cross-platform conclusion.\n  </Rule>",
+    "   cross-platform conclusion.\n   Reviews that ordinary search and page views cannot reach, such as those behind a login or past the first pages,\n   leave that review corpus partial: use a review-data tool the session provides when one is available, rather than\n   working around the platform's login, and otherwise record the corpus as partial or inaccessible instead of\n   inferring it from the reviews that were visible.\n  </Rule>"
+   ],
+   [
+    "   can support and cannot estimate; for risk questions, what RiskLanguageOutput, ReconstructableArithmeticDisclosure,\n",
+    "   can support and cannot estimate, and for each review platform, how many reviews it shows, how many were read, and\n   how they were chosen; for risk questions, what RiskLanguageOutput, ReconstructableArithmeticDisclosure,\n"
+   ],
+   [
+    "    unless a sample selected without outcome terms exists, such as every comment on threads found without them.\n   </ExpectedBehavior>\n  </Case>\n</StressTestExpectations>",
+    "    unless a sample selected without outcome terms exists, such as every comment on threads found without them.\n   </ExpectedBehavior>\n  </Case>\n  <Case id=\"ProductReviewCorpusForSupplementQuestion\">\n   <Prompt>\n    Does a humic acid supplement help children with ADHD? Two Reddit threads mention it; one brand's drops have 2,400\n    reviews on a large retailer, whose first page shows eight favorable top-ranked reviews.\n   </Prompt>\n   <ExpectedBehavior>\n    Map the retailer's reviews as a principal community, and do not call the signal absent from Reddit alone. Search\n    the exact product and humic acid separately and check the label. Search the review text in every direction with\n    words such as ADHD, focus, attention, hyperactivity, behavior, sleep, no difference, worse, and stopped. Treat the\n    eight top-ranked reviews as discovery with each direction's frequency unknown; record the 2,400 shown and how many\n    were read and how they were chosen; count a review repeated across sizes or listings once; and if the full set\n    cannot be reached, record that corpus as partial or inaccessible.\n   </ExpectedBehavior>\n  </Case>\n  <Case id=\"ParentReviewOfChildOutcome\">\n   <Prompt>\n    A review of the same drops reads: \"My son has ADHD. After a month his teacher says he finishes his work, and he\n    sleeps better.\" Is it a firsthand report?\n   </Prompt>\n   <ExpectedBehavior>\n    Place it in the caregiver-observed cohort, apart from self-reports. Count the teacher's report and the sleep\n    change as observed outcomes, treat any claim about how the child feels as weaker proxy evidence, and do not discard\n    it as secondhand.\n   </ExpectedBehavior>\n  </Case>\n</StressTestExpectations>"
+   ],
+   [
+    "  <Check id=\"FS209\">Every forum direction label names an outcome-neutral selection frame, or the direction is indeterminate (DirectionLabelsNeedOutcomeNeutralSelection).</Check>\n",
+    "  <Check id=\"FS209\">Every forum direction label names an outcome-neutral selection frame, or the direction is indeterminate (DirectionLabelsNeedOutcomeNeutralSelection).</Check>\n  <Check id=\"FS210\">For a product people buy, its review platforms were mapped, and each review corpus states the reviews shown, the reviews read, and how they were chosen, with direction labeled only from a frame not chosen by outcome (ReviewCorpusSelectionAndCounts).</Check>\n  <Check id=\"FS211\">A carer's observation of a dependent is kept in its own cohort, neither pooled with self-reports nor discarded (CaregiverObservedCohort).</Check>\n"
+   ]
+  ]
+ }
+}
