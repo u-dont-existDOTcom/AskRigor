@@ -119,7 +119,12 @@ which AskRigor is running: the deployed build (`ASKRIGOR_BUILD_COMMIT`, or
 `unknown`) and the HRP and Universal versions, revision dates and SHA-256s that
 `get_protocol_manifest` reports. Like `/healthz` it needs no sign-in, carries
 no user data, and is neither throttled nor counted against the concurrency cap.
-Compare it with the latest release record under `docs/audits/`. The public `/mcp`
+Compare it with the latest release record under `docs/audits/`. Plugin panels
+show the same versions: the MCP handshake's server title and version carry
+them, and so does the start of `get_protocol_manifest`'s description, the first
+tool listed (as of when the client loaded the tool list; refresh the plugin
+after a release). `get_protocol_manifest` itself, public protocol identity like
+`/version`, needs no sign-in or research mode. The public `/mcp`
 route is fail-closed: unless `ASKRIGOR_PUBLIC_SERVER_ENABLED` is exactly
 `true`, it returns `503 public_server_disabled` before reading a request body,
 running the limiter, or creating an MCP tool server.
