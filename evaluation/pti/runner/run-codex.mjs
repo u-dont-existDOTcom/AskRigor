@@ -14,7 +14,7 @@ import path from "node:path";
 import readline from "node:readline";
 import { parseArgs } from "node:util";
 
-import { createCleanCodexHome } from "./codex-home.mjs";
+import { CHAT_ITEM_TYPES, createCleanCodexHome } from "./codex-home.mjs";
 
 const USAGE = `Usage:
   node evaluation/pti/runner/run-codex.mjs --turns-file <case.json> --out <dir> [options]
@@ -142,6 +142,13 @@ try {
       usage: result.usage,
       errors: result.errors
     });
+    const offSurface = Object.keys(result.toolItems).filter((type) => !CHAT_ITEM_TYPES.has(type) ||
+      (type === "web_search" && !values["web-search"]));
+    if (offSurface.length > 0) {
+      log(`turn ${index + 1} used ${offSurface.join(", ")}, which a chat arm lacks; stopping`);
+      records.at(-1).off_surface_items = offSurface;
+      break;
+    }
     if (result.code !== 0 || answer === "" || (index === 0 && threadId === null)) {
       log(`turn ${index + 1} failed (exit ${result.code}); stopping`);
       records.at(-1).stderr_tail = result.stderrTail;
@@ -152,8 +159,8 @@ try {
   await new Promise((done) => transcript.end(done));
 }
 
-const complete = records.length === turns.length && records.every(({ exit_code, answer_chars }) =>
-  exit_code === 0 && answer_chars > 0);
+const complete = records.length === turns.length && records.every(({ exit_code, answer_chars, off_surface_items }) =>
+  exit_code === 0 && answer_chars > 0 && off_surface_items === undefined);
 const metrics = {
   schema_version: 1,
   runner: "evaluation/pti/runner/run-codex.mjs",

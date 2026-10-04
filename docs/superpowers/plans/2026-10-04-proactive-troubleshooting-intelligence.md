@@ -116,7 +116,7 @@ authored, not observed (`provenance` says so).
 
 | Arm | Surface | Model | Tools |
 | --- | --- | --- | --- |
-| Bare GPT | `evaluation/pti/runner/run-codex.mjs`: `codex exec`, clean `CODEX_HOME` (apps, plugins, memories off), read-only sandbox, owner's ChatGPT plan | gpt-6.1-sol, xhigh | Web search |
+| Bare GPT | `evaluation/pti/runner/run-codex.mjs`: `codex exec`, clean `CODEX_HOME` (apps, plugins, memories and the shell off, so it cannot read this machine's files), owner's ChatGPT plan; a run that uses any other tool is rejected | gpt-6.1-sol, xhigh | Web search |
 | Bare Claude | `run-claude.mjs --bare`: clean workspace, no MCP server, skill or harness note, owner's Claude plan | claude-opus-5-5, max | Web search |
 | Current AskRigor | `run-claude.mjs --ref 27deb4a5` (the live build: HRP 20.6.10, Universal 20.5.34) | claude-opus-5-5, max | AskRigor's 33 tools, skill, web search |
 | PTI candidate | `run-claude.mjs --ref <branch commit>` | claude-opus-5-5, max | Same as current AskRigor |
@@ -133,8 +133,10 @@ IDs only: per decision-window turn, the proposed actions in order, whether it
 asked for known information, repeats of failed actions, unsafe proposals;
 then the matched endpoint, calibration, overclaims, severe-failure flags and
 five 0 to 3 scores. Output is validated against the case and retried once
-with the identical prompt. Judges: Claude Opus 5.5 at max effort and GPT
-gpt-6.1-sol at xhigh through Codex.
+with the identical prompt. Judges: Claude Opus 5.5 at max effort with no
+tools, and GPT gpt-6.1-sol at xhigh through Codex with the shell off; a Codex
+judgment that used any tool is rejected, since it could have looked outside
+its packet.
 
 Code derives `time_to_useful_test`, `gold_action_capture`, `top_rank`,
 `burden_before_top`, `first_good_action_turn` and repeats. Each judge's

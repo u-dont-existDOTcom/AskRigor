@@ -252,9 +252,22 @@ async function judgeWithCodex(prompt, { model, effort }) {
   const codex = createCleanCodexHome({ model, effort, webSearch: false });
   const lastFile = path.join(codex.scratch, "verdict.txt");
   try {
-    const result = await run("codex", ["exec", "--skip-git-repo-check", "--sandbox", "read-only", "-o", lastFile,
-      "-m", model, "-"], { cwd: codex.workspace, env: codex.env, input: prompt });
+    const result = await run("codex", ["exec", "--json", "--skip-git-repo-check", "--sandbox", "read-only", "-o",
+      lastFile, "-m", model, "-"], { cwd: codex.workspace, env: codex.env, input: prompt });
     if (result.code !== 0) throw new Error(`codex exited ${result.code}: ${result.stderr.slice(-400)}`);
+    // A judge that ran a tool may have looked outside its packet, which would break the blinding.
+    for (const line of result.stdout.split("\n")) {
+      let event;
+      try {
+        event = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      const type = event.type === "item.completed" ? event.item?.type : undefined;
+      if (type !== undefined && !["agent_message", "reasoning", "error"].includes(type)) {
+        throw new Error(`codex judge used a tool (${type}); its verdict is not blind`);
+      }
+    }
     return { text: fs.readFileSync(lastFile, "utf8"), model: [model], home: codex.describe() };
   } finally {
     codex.remove();

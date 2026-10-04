@@ -7,12 +7,20 @@ import path from "node:path";
 // Even a fresh home syncs the account's ChatGPT apps and remote plugins (on
 // 2026-10-04 that included the AskRigor development plugin), so they are
 // switched off, with the browser, computer-use, image and agent features a
-// plain chat lacks.
+// plain chat lacks. The shell goes too: even read-only, it could read this
+// machine's files, including the cases' hidden outcomes and other arms' runs.
 export const DISABLED_FEATURES = [
   "apps", "plugins", "remote_plugin", "plugin_sharing", "browser_use", "browser_use_external",
   "browser_use_full_cdp_access", "computer_use", "in_app_browser", "image_generation", "multi_agent", "goals",
-  "skill_search", "skill_mcp_dependency_install", "tool_suggest", "memories"
+  "skill_search", "skill_mcp_dependency_install", "tool_suggest", "memories", "shell_tool", "unified_exec",
+  "code_mode_host", "sleep_tool"
 ];
+
+/**
+ * Item types a plain chat can produce; anything else means a tool the arm or judge must not have. "error" is a
+ * notice, such as Codex saying at start-up that code mode is off.
+ */
+export const CHAT_ITEM_TYPES = new Set(["agent_message", "reasoning", "web_search", "error"]);
 
 /** Creates the scratch folder, home and empty workspace; returns their paths and the child environment. */
 export function createCleanCodexHome({ model, effort, webSearch }) {
