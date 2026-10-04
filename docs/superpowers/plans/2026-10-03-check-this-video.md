@@ -133,9 +133,9 @@ Design source: u-dont-existDOTcom/AskRigor#248 (owner decision 2026-09-27).
 
 - **The public privacy notice** names exactly what Gemini receives today, the
   scout's screened target only. The new flow is not covered.
-  - Four sentences are proposed in `site/privacy/index.html`, word for word as
-    in owner question 26, effective October 3, 2026. Release waits for the
-    owner's approval, as the 2026-10-01 wording did.
+  - Four sentences in `site/privacy/index.html`, approved word for word in
+    owner question 34 ("34 A", 2026-10-04), effective October 4, 2026, the
+    day they went live.
 - **Live acceptance: done 2026-10-03** with the owner's unbilled Gemini key
   (`docs/audits/2026-10-03-check-this-video-live-acceptance.md`).
 - **Release bundle** (question 26, option A): this PR, #269 (`/version`) and
