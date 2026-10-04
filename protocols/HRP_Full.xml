@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.6.8" revisionDate="2026-09-30" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.6.10" revisionDate="2026-10-03" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -51,6 +51,29 @@
 </InstructionObligationLifecycle>
 
  <RevisionHistory>
+  <Revision version="20.6.10" priority="Critical">
+   Owner-approved method change (owner question 30, 2026-10-03): product reviews as community evidence. For a product
+   or service people buy, map where its buyers review it before sampling (PrincipalPlatformMapping); keep the exact
+   product and its ingredient as separate cohorts, checked against the label (ScopeAxesBeforeSampling); search review
+   text in every direction and language (DirectionalSearchSymmetry); treat top-ranked, outcome-word, snippet, and
+   summary reviews as discovery, recording how many reviews were shown and read and how they were chosen
+   (ReviewCorpusSelectionAndCounts); count a review once across listings, variants, and retailers
+   (UniqueFirsthandUnit); label review sources and incentives (CommercialAndCommunityBias); keep a carer's observation
+   of a dependent in its own cohort (NoForumSignalByProxy, CaregiverObservedCohort); and record an unreachable review
+   corpus as partial or inaccessible (ClosedPlatformAndAccessDisclosure). Two stress cases and final checks FS210 and
+   FS211.
+  </Revision>
+  <Revision version="20.6.9" priority="Critical">
+   Owner-approved method changes (owner questions 28 and 29, 2026-10-03). From lesson 17: before explaining why a marker
+   or side effect accompanies a benefit, test whether the two travel together (CouplingBeforeMechanism); a null result
+   leaves an effect confined to a subgroup, state or intermittent form untested when the design could not detect it,
+   and a subgroup proposed after the null is a hypothesis, not an explanation (AverageNullDoesNotRuleOutConditionalEffect);
+   and forum direction labels need a sample selected without regard to outcome, because counts from outcome-aimed
+   searches reflect their terms (DirectionLabelsNeedOutcomeNeutralSelection). Each has a stress case and a final check
+   (FS207 to FS209). From the claim-integrity checks: a final research verdict, finding or evidence summary has each
+   checkable claim checked against its source before delivery, by a separate checker when the runtime can start one
+   (PreDeliveryResearchClaimCheck); the other claim checks come from the universal instructions.
+  </Revision>
   <Revision version="20.6.8" priority="Critical">
    Owner-approved method change (2026-09-30), from the owner's lessons on a research thread about smelling geosmin and
    humic acid. Forum vocabulary starts with the words people use for natural exposures and labels natural sources as
@@ -3554,6 +3577,15 @@
    surveillance, model choice, and prediction intervals before pooling.
   </Rule>
 
+  <Rule name="AverageNullDoesNotRuleOutConditionalEffect" priority="Critical">
+   A null result supports only the estimand and population the design could detect. Before calling it "no effect" for
+   a plausible subgroup, state, intermittent, or rare form, check whether that form was testable: enough affected
+   people, exposure, and follow-up in that state, an outcome measure sensitive to it, and an analysis that did not
+   average it away. If it was not testable, say the null leaves that conditional effect untested. In the other
+   direction, a subgroup or state label proposed after a null does not explain the null away: it is a new hypothesis to
+   test on independent data (PostHocModelBecomesTestable), not evidence.
+  </Rule>
+
   <Rule name="MetaAnalysisInputQuality" priority="Critical">
    A pooled estimate cannot repair systematically biased inputs, incompatible endpoints, or incomparable populations.
   </Rule>
@@ -3587,6 +3619,15 @@
   <Rule name="MechanismDoesNotUpgradeAssociation" priority="Critical">
    A plausible transporter, inflammatory, metabolic, or vascular mechanism does not convert a weak retrospective
    association into an established risk factor.
+  </Rule>
+
+  <Rule name="CouplingBeforeMechanism" priority="Critical">
+   Before explaining why a marker, side effect, or abnormal finding accompanies a claimed benefit, test whether it
+   travels with the benefit: whether the benefit occurs without it (necessity); whether it occurs without the benefit
+   (specificity); whether more of it goes with more benefit across doses, severity, or people (covariation); whether
+   reducing it experimentally reduces the benefit (mediation); and whether exposure, intensity, severity, selection, or
+   another factor could produce both (common cause). Report which of these the evidence shows, contradicts, or leaves
+   untested. Until coupling is shown, any mechanism linking the two stays a hypothesis.
   </Rule>
 
   <Rule name="IndependentModifierLanguage" priority="Critical">
@@ -3709,6 +3750,12 @@
    relevant Facebook groups, Reddit communities, Telegram channels, specialist forums, patient organizations, protocol
    groups, practitioner networks, YouTube communities, review sites, and remedy databases. Prioritize the principal and
    treatment-specific communities rather than whichever platforms are easiest to index.
+   When the intervention is a product or service people buy (a supplement, consumer health product, device, app,
+   formulation, or health service), also map where its buyers review that exact product or service: retailers such as
+   Amazon, iHerb, or Walmart, including their stores in other countries where it sells, specialist retailers, app
+   stores, and independent review sites, with manufacturer-hosted reviews as a separately labeled source. A large
+   relevant review corpus is a principal community. No one retailer is required when another clearly dominates, and an
+   easier-to-search forum does not substitute for it.
   </Rule>
 
   <Rule name="ScopeAxesBeforeSampling" priority="Critical">
@@ -3719,6 +3766,10 @@
    different route, local rather than systemic intent, adjacent diagnosis, proxy symptom cluster, or materially
    different indication in separately labeled adjacent cohorts; do not pool them into one headline count merely because
    the same substance or disease label appears.
+   For a commercial product, keep the exact product (brand, formulation, and variant) and its ingredient as separate
+   cohorts and search each. Check the product's actual label for what it contains and how much. Place other products
+   containing the ingredient in a labeled adjacent cohort (CompositeInterventionAttribution), and a product whose
+   label does not list the ingredient, such as one containing it only as a natural trace, in a proxy cohort.
   </Rule>
 
   <Rule name="TieredInclusionInsteadOfPrematureExclusion" priority="Critical">
@@ -3736,6 +3787,17 @@
    partial-access; do not infer missing dose, diagnosis, timing, co-interventions, or adverse events. Report sensitivity
    analyses both including and excluding snippet-only items. Snippets do not by themselves complete a platform audit,
    override a dominant inaccessible community, or justify a confident signal classification.
+  </Rule>
+
+  <Rule name="ReviewCorpusSelectionAndCounts" priority="Critical">
+   On a review platform, top-ranked reviews, reviews found by outcome words, snippets, and summaries (such as a
+   platform's generated “customers say” text) are discovery: they show which experiences exist, not how common each
+   is. For each product and platform, record how many written reviews the platform shows, how many were retrieved and
+   analyzed, and how they were selected. Label direction only within a frame not chosen by outcome: every review,
+   every review mentioning the condition, the most recent reviews, a random sample, or a rating-stratified sample
+   weighted by the platform's rating counts (DirectionLabelsNeedOutcomeNeutralSelection). From any other set, report
+   the directions observed with their frequency unknown. Star ratings are not outcome reports: they also rate taste,
+   price, delivery, and packaging. One review shows that an experience exists, never how often it occurs.
   </Rule>
 
   <Rule name="RouteAndCohortSensitivityAnalysis" priority="Critical">
@@ -3762,6 +3824,9 @@
    the user's claim suggests, using terms likely to retrieve negative and null experiences, such as “did nothing,”
    “stopped,” “made worse,” “side effect,” “no benefit,” “quit,” “rebound,” and diagnosis- or formulation-specific
    equivalents.
+   On review platforms, search the review text the same way, in each language the reviews are written in, using the
+   condition's and outcome's everyday words as well as the product name, and read low-, middle-, and high-rated
+   reviews rather than only those ranked first.
   </Rule>
 
   <Rule name="RelativeForumSignal" priority="Critical">
@@ -3773,6 +3838,16 @@
    indeterminate. State the platforms, communities, search terms, date window, threads or posts screened, access or
    sampling limits, and major selection and reporting biases. Infer no population rate
    (NoPopulationRateFromForumSample).
+  </Rule>
+
+  <Rule name="DirectionLabelsNeedOutcomeNeutralSelection" priority="Critical">
+   Searches aimed at an outcome (success stories, failures, side effects, or balanced sets of direction terms) find
+   experiences; how many each search returns reflects its terms, not how experiences are distributed. Before a
+   RelativeForumSignal label (common, mixed, minority, rare, predominantly favorable or unfavorable), name how the
+   sample was selected. Label direction only within a frame whose items were not chosen by outcome, such as every
+   comment on a selected thread or video, and say how that thread or video was found. Never merge frames found by
+   different outcome terms into one distribution or present one frame's mix as the community's. Otherwise report what
+   each search found and call the overall direction indeterminate. NoPopulationRateFromForumSample still applies.
   </Rule>
 
   <Rule name="SignalPrevalenceAndCausalAttributionAreSeparate" priority="Critical">
@@ -3795,13 +3870,26 @@
    The preferred counting unit is a unique person describing their own experience with enough context to identify the
    intervention and outcome. One person posting repeatedly counts once for the same episode unless distinct treatment
    periods or documented rechallenges are analytically relevant.
+   A review shown on several listings, sizes, flavors, bundles, or retailers counts once. Match reviews by text, date,
+   and the platform's review identifiers; use reviewer names, handles, and identifiers only for that matching, and
+   never report or save them.
   </Rule>
 
   <Rule name="NoForumSignalByProxy" priority="Critical">
    These do not count as unique firsthand reports: questions, including hypothetical ones; recommendation-only comments;
    speculation; secondhand stories or accounts; copied stories or testimonials, reposts, and quotations; promotional
    claims and vendor testimonials; practitioner summaries; articles saying “many users report”; AI summaries; and
-   intervention-free discussion.
+   intervention-free discussion. A carer's direct observation of a dependent is not a secondhand story; it goes to
+   CaregiverObservedCohort.
+  </Rule>
+
+  <Rule name="CaregiverObservedCohort" priority="Critical">
+   A parent's or carer's report of what they directly observed in a child or dependent who used the intervention is
+   neither a firsthand report nor discarded hearsay. Keep these reports in a separately labeled caregiver-observed
+   cohort, never pooled with self-reports. Observable outcomes, such as behavior, sleep, school or work reports,
+   measured values, and adverse reactions, carry weight there; the dependent's inner experiences, such as mood, focus,
+   or craving, stay weaker proxy evidence. Apply the same direction, deduplication, and selection rules as to
+   self-reports.
   </Rule>
 
   <Rule name="ObjectiveSubjectiveSeparation" priority="Critical">
@@ -3833,6 +3921,9 @@
    Audit vendor ownership, affiliate links, referral incentives, practitioner promotion, organized skepticism, advocacy
    identity, moderation rules, approval requirements, deleted or discouraged negative reports, survivor communities,
    treatment enthusiasm, reputational stakes, platform recommendation systems, and coordinated or duplicated language.
+   On review platforms, label each review's source: an independent retailer, the manufacturer's own site, a product
+   given free or discounted for review, or promotional content. Verified-purchase marks and helpful votes describe the
+   review, not whether its outcome report is accurate.
   </Rule>
 
   <Rule name="ClosedPlatformAndAccessDisclosure" priority="Critical">
@@ -3843,6 +3934,10 @@
    the dominant platform cannot be adequately searched, or enough firsthand reports cannot be inspected, classify that
    platform's forum signal as inaccessible or indeterminate; for the dominant platform, also state how this limits any
    cross-platform conclusion.
+   Reviews that ordinary search and page views cannot reach, such as those behind a login or past the first pages,
+   leave that review corpus partial: use a review-data tool the session provides when one is available, rather than
+   working around the platform's login, and otherwise record the corpus as partial or inaccessible instead of
+   inferring it from the reviews that were visible.
   </Rule>
 
   <Rule name="InaccessibleForumStatus" priority="Critical">
@@ -4568,7 +4663,8 @@
    for forums, why the principal platforms matter, the scope axes and working assumptions, strict-core and
    adjacent-cohort definitions, approximate unique people and treatment episodes, what was excluded, available
    formulation, route, dose, duration, baseline-trajectory, and co-intervention patterns, and what the forum evidence
-   can support and cannot estimate; for risk questions, what RiskLanguageOutput, ReconstructableArithmeticDisclosure,
+   can support and cannot estimate, and for each review platform, how many reviews it shows, how many were read, and
+   how they were chosen; for risk questions, what RiskLanguageOutput, ReconstructableArithmeticDisclosure,
    NullAssociationLanguageCalibration, RiskWindowMultiplicityAndAggregation, and RiskContextualization require, plus
    intervention scope, time zero, selection condition, eligible person-time, temporal null model and expected events,
    lag-dependent ascertainment, major modifiers, and what cannot be estimated.
@@ -4629,6 +4725,17 @@
   <Rule name="NoPrescriptionFormatting" priority="Critical">
    Do not present medication, supplement, hormone, peptide, antimicrobial, detox, fasting, elimination-diet, or
    procedure instructions as an individualized dosing protocol.
+  </Rule>
+
+  <Rule name="PreDeliveryResearchClaimCheck" priority="Critical">
+   Before delivering a final research verdict, finding, or evidence summary, list internally every checkable claim,
+   its type—exact quotation, source content, inference, external fact, figure, or the user's intended meaning—its exact
+   passage or URL or lack of an anchor, and what was checked. If the runtime can start a separate checker, such as a
+   subagent or a fresh context, give it the sources, the draft, and the claim list, but not the drafting reasoning,
+   with a budget of one fetch per source and a cap on tool calls; have it pass or fail each claim with a reason and add
+   any claim the list missed. Otherwise check each entry against its source just before delivery and do not call the
+   result independently checked. Either way, fix every failure before delivery. Ask the user about a claim that
+   depends on what they meant. Do not run this check for companion or therapeutic replies.
   </Rule>
 
   <ComplexAnswerFooter>
@@ -7013,6 +7120,63 @@ Final integrated synthesis rule:
     uninspected VALIDATION test.
    </ExpectedBehavior>
   </Case>
+  <Case id="CouplingBeforeMechanismExplanation">
+   <Prompt>
+    Users of a supplement report more energy, and some have a raised liver enzyme. Explain why the enzyme rises along
+    with the energy benefit.
+   </Prompt>
+   <ExpectedBehavior>
+    Do not explain a shared cause before testing coupling: whether the benefit occurs without the enzyme rise, the rise
+    without the benefit, whether the two covary by dose or person, and whether dose, exertion, or another factor drives
+    both. Report which of these the evidence supports.
+   </ExpectedBehavior>
+  </Case>
+  <Case id="IntermittentSubtypeDilutionMistakenForNoEffect">
+   <Prompt>
+    A 12-week trial of a headache preventive finds no average difference. Users say it works only during cluster
+    periods, which few participants had during the trial.
+   </Prompt>
+   <ExpectedBehavior>
+    Do not call the null "no effect" for use during cluster periods: check whether enough participants were in that
+    state, with a measure sensitive to it, and say the conditional effect is untested if not. Do not treat the cluster
+    label, proposed after the null, as evidence either.
+   </ExpectedBehavior>
+  </Case>
+  <Case id="OutcomeSearchCountsAreNotDistribution">
+   <Prompt>
+    A forum search for "X helped me" returns 40 threads and "X did nothing" returns 12. Is the community mostly
+    positive about X?
+   </Prompt>
+   <ExpectedBehavior>
+    The counts reflect the search terms. Report what each search found and call the overall direction indeterminate,
+    unless a sample selected without outcome terms exists, such as every comment on threads found without them.
+   </ExpectedBehavior>
+  </Case>
+  <Case id="ProductReviewCorpusForSupplementQuestion">
+   <Prompt>
+    Does a humic acid supplement help children with ADHD? Two Reddit threads mention it; one brand's drops have 2,400
+    reviews on a large retailer, whose first page shows eight favorable top-ranked reviews.
+   </Prompt>
+   <ExpectedBehavior>
+    Map the retailer's reviews as a principal community, and do not call the signal absent from Reddit alone. Search
+    the exact product and humic acid separately and check the label. Search the review text in every direction with
+    words such as ADHD, focus, attention, hyperactivity, behavior, sleep, no difference, worse, and stopped. Treat the
+    eight top-ranked reviews as discovery with each direction's frequency unknown; record the 2,400 shown and how many
+    were read and how they were chosen; count a review repeated across sizes or listings once; and if the full set
+    cannot be reached, record that corpus as partial or inaccessible.
+   </ExpectedBehavior>
+  </Case>
+  <Case id="ParentReviewOfChildOutcome">
+   <Prompt>
+    A review of the same drops reads: "My son has ADHD. After a month his teacher says he finishes his work, and he
+    sleeps better." Is it a firsthand report?
+   </Prompt>
+   <ExpectedBehavior>
+    Place it in the caregiver-observed cohort, apart from self-reports. Count the teacher's report and the sleep
+    change as observed outcomes, treat any claim about how the child feels as weaker proxy evidence, and do not discard
+    it as secondhand.
+   </ExpectedBehavior>
+  </Case>
 </StressTestExpectations>
 
  <FinalSelfCheck priority="Critical">
@@ -7024,6 +7188,11 @@ Final integrated synthesis rule:
   <Check id="FS204">Before recommending or ranking any intervention, reconcile its patient-specific conflicts, treat missing safety inputs as unresolved, keep its evidence grade, and retain nonconflicting alternatives (PatientSpecificInterventionSafetyReconciliationGate).</Check>
   <Check id="FS205">Before an individual-case differential or causal ranking, test every leading hypothesis against the three to seven highest-information longitudinal constraints from the complete history, each linked to its source. Keep recurrence reports as evidence (PatientHistoryAndRecurrenceEvidenceGate).</Check>
   <Check id="FS206">Keep phenotype separate from etiology; no cross-sectional observation may erase stronger longitudinal evidence. Label a ranking change as new evidence or as reweighting of evidence already present, naming any earlier weighting or representation failure.</Check>
+  <Check id="FS207">Before a mechanism links a marker or side effect to a benefit, coupling was tested (CouplingBeforeMechanism).</Check>
+  <Check id="FS208">No null was called "no effect" for a subgroup, state, or intermittent form it could not detect (AverageNullDoesNotRuleOutConditionalEffect).</Check>
+  <Check id="FS209">Every forum direction label names an outcome-neutral selection frame, or the direction is indeterminate (DirectionLabelsNeedOutcomeNeutralSelection).</Check>
+  <Check id="FS210">For a product people buy, its review platforms were mapped, and each review corpus states the reviews shown, the reviews read, and how they were chosen, with direction labeled only from a frame not chosen by outcome (ReviewCorpusSelectionAndCounts).</Check>
+  <Check id="FS211">A carer's observation of a dependent is kept in its own cohort, neither pooled with self-reports nor discarded (CaregiverObservedCohort).</Check>
   <Check id="FS202">Give human judgment a human-facing interface. Repair a load-bearing pre-collection method defect in a new recorded, theory-blind version without altering frozen methods or prior data.</Check>
   <Check id="FS164">Verify every material prompt premise before it controls the answer (PremiseIntegrityAndTruthPriorityGate).</Check>
   <Check id="FS165">Put accuracy above agreement, validation, authority, consensus, user confidence, and expected-answer pressure.</Check>
