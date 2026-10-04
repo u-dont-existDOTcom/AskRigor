@@ -27,6 +27,7 @@ import {
   RESEARCH_USE_SCOPE,
   createJwtOAuthResourceServer,
   oauthResourceServerFromEnv,
+  allowedChatGptClientIds,
   type AskRigorOAuthResourceServer,
 } from "../apps/research-mcp/src/oauth-resource-server.js";
 import { createAskRigorHttpServer } from
@@ -150,6 +151,62 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
         `${missing}_INVALID`,
       );
     }
+  });
+
+  it("accepts ChatGPT's metadata-document client beside the static one, and only an exact https URL", async () => {
+    // ChatGPT plugins created from October 2026 sign in with client_id
+    // https://chatgpt.com/oauth/client.json, which Auth0 called an "Unknown
+    // client" until the tenant imported it (owner report, 2026-10-04).
+    const baseEnv = {
+      ASKRIGOR_OAUTH_ALLOWED_CLIENT_ID: "chatgpt-client",
+    } satisfies NodeJS.ProcessEnv;
+    const metadataClientId = "https://chatgpt.com/oauth/client.json";
+    expect(allowedChatGptClientIds(baseEnv)).toEqual(["chatgpt-client"]);
+    expect(allowedChatGptClientIds({
+      ...baseEnv,
+      ASKRIGOR_OAUTH_CHATGPT_METADATA_CLIENT_ID: metadataClientId,
+    })).toEqual(["chatgpt-client", metadataClientId]);
+    for (const invalid of [
+      "http://chatgpt.com/oauth/client.json",
+      "https://chatgpt.com/",
+      "https://chatgpt.com/oauth/client.json#x",
+      "https://user@chatgpt.com/oauth/client.json",
+      "HTTPS://CHATGPT.COM/oauth/client.json",
+      "chatgpt-client-2",
+      " https://chatgpt.com/oauth/client.json",
+    ]) {
+      expect(() => allowedChatGptClientIds({
+        ...baseEnv,
+        ASKRIGOR_OAUTH_CHATGPT_METADATA_CLIENT_ID: invalid,
+      }), invalid).toThrow("ASKRIGOR_OAUTH_CHATGPT_METADATA_CLIENT_ID_INVALID");
+    }
+
+    const { publicKey, privateKey } = await generateKeyPair("RS256");
+    const publicJwk = await exportJWK(publicKey);
+    publicJwk.kid = "askrigor-test-key";
+    const config = createJwtOAuthResourceServer({
+      resourceUrl,
+      issuerUrl,
+      jwks: createLocalJWKSet({ keys: [publicJwk] }),
+      allowedClientIds: allowedChatGptClientIds({
+        ...baseEnv,
+        ASKRIGOR_OAUTH_CHATGPT_METADATA_CLIENT_ID: metadataClientId,
+      }),
+    });
+    const token = (clientId: string) => new SignJWT({
+      iss: issuerUrl.href,
+      aud: resourceUrl.href,
+      exp: Math.floor(Date.now() / 1_000) + 300,
+      azp: clientId,
+      scope: RESEARCH_USE_SCOPE,
+      sub: "auth0|researcher",
+    }).setProtectedHeader({ alg: "RS256", kid: publicJwk.kid }).sign(privateKey);
+    for (const clientId of ["chatgpt-client", metadataClientId]) {
+      await expect(config.verifier.verifyAccessToken(await token(clientId)), clientId)
+        .resolves.toMatchObject({ clientId, scopes: [RESEARCH_USE_SCOPE] });
+    }
+    await expect(config.verifier.verifyAccessToken(await token("https://other.example/oauth/client.json")))
+      .rejects.toThrow("OAUTH_ACCESS_TOKEN_CLIENT_NOT_ALLOWED");
   });
 
   it("requires research OAuth for ordinary tools and keeps case review separately scoped", async () => {
