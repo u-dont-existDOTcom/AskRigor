@@ -93,9 +93,20 @@ Options:
   --allow-held-out        Required to run a HELD_OUT question (final comparison only)
   --web-search            Let the model use WebSearch (off by default, as in earlier runs)
   --setup-only            Build, start, probe and stop the server; do not run claude
+  --turns-file <path>     Run a staged conversation: a JSON file whose "turns" array holds
+                          {"id", "user"} messages (a PTI case file works). All turns go to one
+                          claude session in order, each after the previous answer; each turn's
+                          answer is saved under <out>/turns/<id>.md
+  --bare                  Plain Claude: no AskRigor server, connector or skill (a baseline arm)
   --reanalyze <dir>       Recompute metrics.json and answer.md from <dir>/transcript.jsonl
   -h, --help
 `;
+
+// A staged conversation has a user at every turn, so the default note's "no user
+// can reply" does not apply; this note only explains the local server.
+const CONVERSATION_HARNESS_NOTE =
+  "Test-run note: AskRigor's tools here come from a local test server. Research access is not required " +
+  "on it; if manage_research_access reports authorization_required, continue without asking the user to enroll.";
 
 const runnerStartMs = Date.now();
 const secrets = [];
@@ -166,6 +177,8 @@ function parseOptions() {
       "setup-only": { type: "boolean", default: false },
       "no-harness-note": { type: "boolean", default: false },
       surface: { type: "string", default: "claude-app" },
+      "turns-file": { type: "string" },
+      bare: { type: "boolean", default: false },
       reanalyze: { type: "string" },
       help: { type: "boolean", short: "h", default: false }
     },
@@ -177,12 +190,10 @@ function parseOptions() {
     process.exit(0);
   }
   if (values.reanalyze !== undefined) return { reanalyze: path.resolve(values.reanalyze) };
-  if (values["question-id"] !== undefined && values.prompt !== undefined) {
-    fail("Pass only one of --question-id or --prompt.");
-  }
-  if (values["question-id"] === undefined && values.prompt === undefined && !values["setup-only"]) {
-    fail("Pass --question-id or --prompt.");
-  }
+  const sources = [values["question-id"], values.prompt, values["turns-file"]].filter((value) => value !== undefined);
+  if (sources.length > 1) fail("Pass only one of --question-id, --prompt or --turns-file.");
+  if (sources.length === 0 && !values["setup-only"]) fail("Pass --question-id, --prompt or --turns-file.");
+  if (values.bare && values["setup-only"]) fail("--bare runs no server, so --setup-only has nothing to set up.");
   if (values.prompt !== undefined && values.prompt.trim() === "") fail("--prompt is empty.");
   const positiveInt = (name, raw, max) => {
     const number = Number(raw);
@@ -193,6 +204,8 @@ function parseOptions() {
     ref: values.ref,
     questionId: values["question-id"],
     prompt: values.prompt,
+    turnsFile: values["turns-file"] === undefined ? undefined : path.resolve(values["turns-file"]),
+    bare: values.bare,
     out: values.out,
     model: values.model,
     effort: values.effort,
@@ -221,6 +234,25 @@ const HARNESS_NOTE =
   "granted with sensible defaults, complete the research, and give your final answer.";
 
 function resolveQuestion(repoRoot, options) {
+  if (options.turnsFile !== undefined) {
+    const file = JSON.parse(fs.readFileSync(options.turnsFile, "utf8"));
+    const turns = Array.isArray(file.turns) ? file.turns : [];
+    if (turns.length === 0 || turns.some((turn) => typeof turn?.id !== "string" || typeof turn?.user !== "string" ||
+      turn.user.trim() === "")) {
+      fail(`${options.turnsFile} needs a "turns" array of {"id", "user"} messages.`);
+    }
+    if (new Set(turns.map(({ id }) => id)).size !== turns.length) fail(`${options.turnsFile} repeats a turn id.`);
+    if (file.data_role === "VALIDATION" && !options.allowHeldOut) {
+      fail(`${file.id ?? options.turnsFile} is VALIDATION: run it only in the frozen comparison, with --allow-held-out.`);
+    }
+    return {
+      id: typeof file.id === "string" ? file.id : path.basename(options.turnsFile, ".json"),
+      split: file.data_role ?? null,
+      text: turns[0].user,
+      turns: turns.map(({ id, user }) => ({ id, user })),
+      source: path.relative(repoRoot, options.turnsFile)
+    };
+  }
   if (options.prompt === undefined && options.questionId === undefined) {
     return { id: null, split: null, text: "", source: "none (setup only)" };
   }
@@ -647,7 +679,7 @@ function claudeCapabilities(claudeBin, env) {
   };
 }
 
-function runClaude({ claudeBin, args, cwd, env, transcriptPath, stderrPath, timeoutMs }) {
+function runClaude({ claudeBin, args, cwd, env, transcriptPath, stderrPath, timeoutMs, conversation }) {
   return new Promise((resolve, reject) => {
     const transcript = fs.createWriteStream(transcriptPath);
     const stderrLog = fs.createWriteStream(stderrPath);
@@ -657,9 +689,27 @@ function runClaude({ claudeBin, args, cwd, env, transcriptPath, stderrPath, time
     let unparsedLines = 0;
     let timedOut = false;
     const startedMs = Date.now();
-    const child = spawn(claudeBin, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
+    // A staged conversation streams one user message at a time on stdin
+    // (--input-format stream-json): the next turn goes only after the previous
+    // turn's result, and stdin closes after the last one.
+    const child = spawn(claudeBin, args, { cwd, env, stdio: [conversation === undefined ? "ignore" : "pipe", "pipe", "pipe"] });
     activeClaude = child;
     liveChildren.add(child);
+    // A turn written after claude has exited must not crash the runner.
+    child.stdin?.on("error", (error) => log(`stdin closed early: ${error.code ?? error.message}`));
+    let turnsSent = 0;
+    const sendNextTurn = () => {
+      if (conversation === undefined) return;
+      if (turnsSent >= conversation.length) {
+        child.stdin.end();
+        return;
+      }
+      const message = { type: "user", message: { role: "user", content: conversation[turnsSent] } };
+      turnsSent += 1;
+      log(`sending turn ${turnsSent} of ${conversation.length}`);
+      child.stdin.write(`${JSON.stringify(message)}\n`);
+    };
+    sendNextTurn();
     child.once("error", (error) => {
       clearTimeout(timer);
       liveChildren.delete(child);
@@ -695,6 +745,7 @@ function runClaude({ claudeBin, args, cwd, env, transcriptPath, stderrPath, time
         }
       } else if (event.type === "result") {
         log(`result: ${event.subtype}, ${event.num_turns} turns`);
+        sendNextTurn();
       }
     });
     child.stderr.on("data", (chunk) => {
@@ -1193,6 +1244,49 @@ function analyze(run, context) {
   };
 }
 
+/**
+ * A staged conversation's answers, one per turn: each "result" event closes a
+ * turn, and its text (or, failing that, the top-level assistant text since the
+ * previous result) is that turn's answer. Writes <outDir>/turns/<id>.md and
+ * metrics.turns; true when every turn got a successful result.
+ */
+function writeTurnAnswers(run, turns, outDir, metrics) {
+  const directory = path.join(outDir, "turns");
+  fs.mkdirSync(directory, { recursive: true });
+  const records = [];
+  let texts = [];
+  let toolCalls = 0;
+  let turnStart = 0;
+  for (const { t, event } of run.events) {
+    if (event.type === "assistant" && Array.isArray(event.message?.content)) {
+      for (const block of event.message.content) {
+        if (block?.type === "tool_use") toolCalls += 1;
+        else if (block?.type === "text" && typeof block.text === "string" && event.parent_tool_use_id == null) {
+          texts.push(block.text);
+        }
+      }
+    } else if (event.type === "result") {
+      const turn = turns[records.length];
+      const answer = typeof event.result === "string" && event.result.trim() !== "" ? event.result : texts.join("\n\n");
+      if (turn !== undefined) {
+        fs.writeFileSync(path.join(directory, `${turn.id}.md`), answer === "" ? "" : `${answer.trimEnd()}\n`);
+      }
+      records.push({
+        id: turn?.id ?? null,
+        result_subtype: event.subtype ?? null,
+        answer_chars: answer.length,
+        tool_calls: toolCalls,
+        seconds: typeof t === "number" ? Number((t - turnStart).toFixed(3)) : null
+      });
+      texts = [];
+      toolCalls = 0;
+      if (typeof t === "number") turnStart = t;
+    }
+  }
+  metrics.turns = records;
+  return records.length === turns.length && records.every(({ result_subtype }) => result_subtype === "success");
+}
+
 function applyAnalysis(metrics, analysis, outDir) {
   fs.writeFileSync(path.join(outDir, "answer.md"), analysis.answer === "" ? "" : `${analysis.answer.trimEnd()}\n`);
   metrics.model = analysis.init?.model ?? metrics.model ?? null;
@@ -1232,6 +1326,9 @@ function reanalyze(directory) {
   );
   const metrics = { ...previous };
   applyAnalysis(metrics, analysis, directory);
+  if (Array.isArray(previous.turns_requested)) {
+    writeTurnAnswers({ events }, previous.turns_requested.map((id) => ({ id })), directory, metrics);
+  }
   metrics.reanalyzed_at = new Date().toISOString();
   fs.writeFileSync(metricsPath, `${JSON.stringify(metrics, null, 2)}\n`);
   log(`reanalyzed ${directory}: ${metrics.tool_calls_total} tool calls, answer ${metrics.answer.chars} chars`);
@@ -1343,7 +1440,22 @@ async function main() {
   let serverLog;
   let port;
   let exitCode = 1;
+  let workspace;
+  let mcpConfigPath;
   try {
+    if (options.bare) {
+    // Bare arm: plain Claude in a clean workspace, with no AskRigor server,
+    // connector or skill, and an empty MCP config so nothing loads from settings.
+    const runDir = path.join(options.workDir, "runs", runId);
+    workspace = path.join(runDir, "workspace");
+    fs.mkdirSync(workspace, { recursive: true });
+    mcpConfigPath = path.join(runDir, "mcp-config.json");
+    fs.writeFileSync(mcpConfigPath, `${JSON.stringify({ mcpServers: {} }, null, 2)}\n`);
+    fs.copyFileSync(mcpConfigPath, path.join(outDir, "mcp-config.json"));
+    metrics.bare = true;
+    metrics.workspace = { path: workspace, skill_files: [], ancestor_instruction_files: ancestorInstructionFiles(workspace) };
+    log("bare run: no AskRigor server, connector or skill");
+    } else {
     // 1. Worktree, dependencies, build.
     log(`ref ${options.ref} -> ${sha}`);
     const worktree = ensureWorktree(repoRoot, options.workDir, sha);
@@ -1417,13 +1529,13 @@ async function main() {
 
     // 3. Clean workspace outside the repository, with the ref's skill.
     const runDir = path.join(options.workDir, "runs", runId);
-    const workspace = path.join(runDir, "workspace");
+    workspace = path.join(runDir, "workspace");
     const skillSource = path.join(worktree.path, "skills", "askrigor");
     if (!fs.existsSync(path.join(skillSource, "SKILL.md"))) fail(`${sha} has no skills/askrigor/SKILL.md`);
     const skillTarget = path.join(workspace, ".claude", "skills", "askrigor");
     fs.mkdirSync(path.dirname(skillTarget), { recursive: true });
     fs.cpSync(skillSource, skillTarget, { recursive: true });
-    const mcpConfigPath = path.join(runDir, "mcp-config.json");
+    mcpConfigPath = path.join(runDir, "mcp-config.json");
     const mcpConfig = { mcpServers: { [MCP_SERVER_NAME]: { type: "http", url: `http://127.0.0.1:${port}/mcp` } } };
     fs.writeFileSync(mcpConfigPath, `${JSON.stringify(mcpConfig, null, 2)}\n`);
     fs.copyFileSync(mcpConfigPath, path.join(outDir, "mcp-config.json"));
@@ -1435,25 +1547,34 @@ async function main() {
       skill_md_sha256: sha256(skillBytes),
       ancestor_instruction_files: ancestorInstructionFiles(workspace)
     };
+    }
 
-    // 4. claude -p.
+    // 4. claude -p. A staged conversation streams its turns on stdin.
+    const conversation = question.turns?.map(({ user }) => user);
     const args = [
-      "-p", question.text,
+      "-p", ...(conversation === undefined ? [question.text] : ["--input-format", "stream-json"]),
       "--mcp-config", mcpConfigPath,
       "--strict-mcp-config",
       "--output-format", "stream-json",
       "--verbose",
-      "--allowedTools", `mcp__${MCP_SERVER_NAME}`, `Skill(${MCP_SERVER_NAME})`, ...(options.webSearch ? ["WebSearch"] : []),
-      "--disallowedTools", ...disallowedTools(options.webSearch),
+      ...(options.bare
+        ? (options.webSearch ? ["--allowedTools", "WebSearch"] : [])
+        : ["--allowedTools", `mcp__${MCP_SERVER_NAME}`, `Skill(${MCP_SERVER_NAME})`, ...(options.webSearch ? ["WebSearch"] : [])]),
+      "--disallowedTools", ...disallowedTools(options.webSearch), ...(options.bare ? ["Skill"] : []),
       "--max-turns", String(options.maxTurns)
     ];
     if (claudeInfo.noSessionPersistence) args.push("--no-session-persistence");
     if (claudeInfo.permissionPrompts) args.push("--permission-prompts", "none");
     if (options.model !== undefined) args.push("--model", options.model);
     if (options.effort !== undefined) args.push("--effort", options.effort);
-    if (options.harnessNote) args.push("--append-system-prompt", HARNESS_NOTE);
-    metrics.harness_note = options.harnessNote ? HARNESS_NOTE : null;
-    const surfaceTools = SURFACE_BUILTIN_TOOLS[options.surface];
+    // The note explains the local AskRigor server, so a bare run gets none.
+    const harnessNote = options.bare ? null : conversation === undefined ? HARNESS_NOTE : CONVERSATION_HARNESS_NOTE;
+    if (options.harnessNote && harnessNote !== null) args.push("--append-system-prompt", harnessNote);
+    metrics.harness_note = options.harnessNote ? harnessNote : null;
+    metrics.turns_requested = question.turns?.map(({ id }) => id) ?? null;
+    const surfaceTools = options.bare && SURFACE_BUILTIN_TOOLS[options.surface] !== null
+      ? "ToolSearch"
+      : SURFACE_BUILTIN_TOOLS[options.surface];
     const builtinTools = surfaceTools !== null && options.webSearch ? `${surfaceTools},WebSearch` : surfaceTools;
     if (builtinTools !== null) args.push("--tools", builtinTools);
     metrics.surface = { name: options.surface, builtin_tools: builtinTools ?? "default" };
@@ -1476,7 +1597,8 @@ async function main() {
       env: childEnv,
       transcriptPath: path.join(outDir, "transcript.jsonl"),
       stderrPath: path.join(outDir, "claude-stderr.log"),
-      timeoutMs: options.timeoutMinutes * 60_000
+      timeoutMs: options.timeoutMinutes * 60_000,
+      conversation
     });
     metrics.started_at = new Date(run.startedMs).toISOString();
     metrics.ended_at = new Date(run.endedMs).toISOString();
@@ -1484,15 +1606,19 @@ async function main() {
     metrics.exit = { claude_exit_code: run.code, claude_signal: run.signal, timed_out: run.timedOut, interrupted };
 
     // 5. Stop the server before analysis.
-    const stop = await stopServer(server, port);
-    metrics.server = { ...metrics.server, ...stop };
-    log(`server stopped (port closed: ${stop.port_closed_after_stop})`);
+    if (server !== undefined) {
+      const stop = await stopServer(server, port);
+      metrics.server = { ...metrics.server, ...stop };
+      log(`server stopped (port closed: ${stop.port_closed_after_stop})`);
+    }
 
     const analysis = analyze(run, {
-      protocolFiles: metrics.protocol_files, claudeVersion: claudeInfo.version, webSearch: options.webSearch
+      protocolFiles: metrics.protocol_files ?? {}, claudeVersion: claudeInfo.version, webSearch: options.webSearch
     });
     applyAnalysis(metrics, analysis, outDir);
-    exitCode = run.code === 0 && analysis.metrics.result_subtype === "success" && !run.timedOut && !interrupted ? 0 : 1;
+    const turnsComplete = question.turns === undefined || writeTurnAnswers(run, question.turns, outDir, metrics);
+    exitCode = run.code === 0 && analysis.metrics.result_subtype === "success" && turnsComplete && !run.timedOut &&
+      !interrupted ? 0 : 1;
   } catch (error) {
     metrics.error = String(error?.message ?? error);
     throw error;
