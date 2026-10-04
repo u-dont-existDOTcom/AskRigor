@@ -31,10 +31,9 @@ video IDs. Paid private mode submits no shared contribution.
 
 At the end of eligible free-mode work, submit the strict formal research
 frontier with its exact coverage, candidate decisions, partial state, and open
-trails. Submit every complete performed source-bound study/review analysis to
-the extent actually performed, including limitations and future-analysis items.
-Use `submit_research_contribution`; never invent missing fields or reconstruct
-analysis from memory. A pending proposal is not canonical evidence;
+trails, with `submit_research_contribution`; never invent missing fields or
+reconstruct analysis from memory. The server files each study or review audit
+you validate when `finalize_research` passes; never submit those yourself. A pending proposal is not canonical evidence;
 never present it as accepted. Preserve partial corpora as usable and label them
 partial. If no eligible structured formal-research proposal exists, submit
 nothing.
