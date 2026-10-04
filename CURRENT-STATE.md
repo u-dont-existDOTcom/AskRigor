@@ -65,7 +65,12 @@ subgroup-null and forum-direction rules; exact recorded edits in
 proposed 2026-10-03, merged only on the owner's approval: product reviews as community evidence, with review
 platforms mapped, product and ingredient kept apart, review counts and selection recorded, and carers'
 observations kept as their own cohort; exact recorded edits in
-`tests/fixtures/protocol-edits/2026-10-03-forum-review-platforms.json`); the Gemini scout's research target written in
+`tests/fixtures/protocol-edits/2026-10-03-forum-review-platforms.json`); HRP 20.6.11 and Universal 20.5.35
+(candidates on the PTI development branch, 2026-10-04, not approved: proactive troubleshooting, where a safe,
+reversible discriminating test or fix is proposed early, judged by the matched provocation, with bounded credit
+for combinations and a self-test safety boundary; exact recorded edits in
+`tests/fixtures/protocol-edits/2026-10-04-pti-candidate.json`, plan in
+`docs/superpowers/plans/2026-10-04-proactive-troubleshooting-intelligence.md`); the Gemini scout's research target written in
 English, with the person's language passed separately (owner decision 6: A); a
 findings library (owner decisions Q9 to Q11, 2026-09-30: for a free contributor
 account `finalize_research` needs a findings card with the answer and saves the

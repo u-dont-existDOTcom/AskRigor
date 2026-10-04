@@ -19,9 +19,9 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "4337aa8ed2f8ccb3537443ae4c8ba953ba986d3aab049629ea1d57e423c42bda";
+  "6a975712792e094b0b5c4f740234296047f16b8480243503a5b5594a7a3f7b78";
 const UNIVERSAL_SHA_256 =
-  "d5e041b556bb8635866800c8b55ec5a5684a794df0411427c335c7b33a8f79ab";
+  "738a7be7c97ee53633e08bea7830e611b4e459f10e4ee7a1b4b56067cc2940f4";
 
 describe("canonical protocol loader", () => {
   let actualReadFile: typeof import("node:fs/promises").readFile;
@@ -37,8 +37,8 @@ describe("canonical protocol loader", () => {
   it("derives the HRP manifest from its root attributes", async () => {
     await expect(getProtocolManifest("hrp")).resolves.toMatchObject({
       name: "HRP",
-      version: "20.6.10",
-      revisionDate: "2026-10-03"
+      version: "20.6.11",
+      revisionDate: "2026-10-04"
     });
   });
 
@@ -254,7 +254,7 @@ describe("canonical protocol loader", () => {
     };
 
     expect(text).toMatch(
-      /<Protocol name="HRP" version="20\.6\.10" revisionDate="2026-10-03"/
+      /<Protocol name="HRP" version="20\.6\.11" revisionDate="2026-10-04"/
     );
     for (const required of [
       '<Revision version="20.5.19" priority="Critical">',
@@ -496,8 +496,8 @@ describe("canonical protocol loader", () => {
   it("derives the Universal manifest from its root attributes", async () => {
     await expect(getProtocolManifest("universal")).resolves.toMatchObject({
       name: "AskRigor.com universal saved instructions",
-      version: "20.5.34",
-      revisionDate: "2026-10-03"
+      version: "20.5.35",
+      revisionDate: "2026-10-04"
     });
   });
 
