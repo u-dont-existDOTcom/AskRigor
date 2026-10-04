@@ -31,10 +31,9 @@ video IDs. Paid private mode submits no shared contribution.
 
 At the end of eligible free-mode work, submit the strict formal research
 frontier with its exact coverage, candidate decisions, partial state, and open
-trails. Submit every complete performed source-bound study/review analysis to
-the extent actually performed, including limitations and future-analysis items.
-Use `submit_research_contribution`; never invent missing fields or reconstruct
-analysis from memory. A pending proposal is not canonical evidence;
+trails, with `submit_research_contribution`; never invent missing fields or
+reconstruct analysis from memory. The server files each study or review audit
+you validate when `finalize_research` passes; never submit those yourself. A pending proposal is not canonical evidence;
 never present it as accepted. Preserve partial corpora as usable and label them
 partial. If no eligible structured formal-research proposal exists, submit
 nothing.
@@ -69,6 +68,8 @@ For broad treatment/avoid-surgery, map classes before video selection. Never poo
 Per round call `scout_gemini_youtube_candidates` (condition, goal); after comment audits pass comment-named remedies/videos/creators as `rediscovery_leads`. `survey_youtube_community` (≤6 general/exact/contrarian/benefit/failure/harm/discriminator queries) is the fallback. “how I cured/reversed/fixed” and “what finally worked” are hooks, not claims. Rewrite/use cursors/new batches from new angles while information gain is positive; validate leads. Planning heuristics, not quotas: seek materially distinct program hypotheses; first pass stops at saturation, ~3 audited videos or ~2 rounds, then offers study/community focuses; deep runs to saturation. Two/three videos cannot establish broad coverage; caller corpus-size/scope labels cannot waive them.
 
 `get_youtube_video`→`get_youtube_transcript`; require a contiguous first-to-exhausted chain and its opaque Action handle. If `get_youtube_transcript` is unavailable, record `transcript_tool_unavailable`, label creator claims unverified, and never call undeclared tools. Metadata/comments cannot establish creator content. Call `audit_youtube_video_community`; consume its coverage receipt, continue while `continuation_recommended: true`, and defer false tokens.
+
+A video the person gives: read it with `extract_youtube_video_claims` (ID or link; continue a pending result with only `continuation_token`). Its claims are what the video says as Gemini heard it, not evidence: check each material claim with the usual tools, `audit_youtube_video_community` for its comments and `get_youtube_video` for sponsor links; quote each with its time link; list claims left unchecked. Follow up one unclear claim only with `at` (MM:SS).
 
 Review every usable record from a partial corpus and label it partial; bound claims to the retrieved subset/window. Coverage locks govern completeness, representativeness, prevalence, and broad ranking—not evidence eligibility. Continue retrieval; never discard observed records because coverage is unfinished or characterize unseen records.
 

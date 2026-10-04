@@ -225,6 +225,33 @@ export {
   type GeminiYoutubeScoutInput
 } from "./gemini-youtube-scout.js";
 export {
+  GEMINI_VIDEO_BOUNDARY_CODES,
+  GEMINI_VIDEO_MAX_CLAIMS,
+  GEMINI_VIDEO_MAX_POLLS,
+  GEMINI_VIDEO_MODEL,
+  GEMINI_VIDEO_MOMENT_SPAN_SECONDS,
+  GEMINI_VIDEO_REQUEST_TIMEOUT_MS,
+  advanceGeminiVideoPass,
+  buildGeminiVideoRequest,
+  deleteGeminiVideoInteraction,
+  formatVideoTime,
+  geminiVideoCheckpointSchema,
+  geminiVideoClaimSchema,
+  geminiVideoClaimsReportSchema,
+  geminiVideoMomentReportSchema,
+  geminiVideoRequestSchema,
+  geminiVideoWatchUrl,
+  parseVideoTime,
+  type GeminiVideoAdvance,
+  type GeminiVideoBoundaryCode,
+  type GeminiVideoCheckpoint,
+  type GeminiVideoClaimsReport,
+  type GeminiVideoConfig,
+  type GeminiVideoMomentReport,
+  type GeminiVideoRequest,
+  type GeminiVideoUsage
+} from "./gemini-video-claims.js";
+export {
   createYoutubeTranscriptProvider,
   getYoutubeTranscript,
   youtubeTranscriptEnvelopeSchema,

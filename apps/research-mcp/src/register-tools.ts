@@ -92,6 +92,13 @@ import {
 } from "./scout-continuation.js";
 import { lookUpScoutTitles } from "./scout-title-lookup.js";
 import {
+  EXTRACT_YOUTUBE_VIDEO_CLAIMS,
+  EXTRACT_YOUTUBE_VIDEO_CLAIMS_DESCRIPTION,
+  extractYoutubeVideoClaims,
+  extractYoutubeVideoClaimsInputSchema,
+  extractYoutubeVideoClaimsOutputSchema
+} from "./gemini-video-tool.js";
+import {
   auditYoutubeCommunity,
   youtubeCommunityAuditInputSchema,
   youtubeCommunityAuditOutputSchema,
@@ -127,7 +134,9 @@ import {
   evidenceGapReviewInputSchema,
   evidenceGapReviewOutputSchema,
   evidenceGapReviewSecurityMetadata,
+  publicToolSecurityMetadata,
 } from "./evidence-gap-review-tool.js";
+import { type RunningVersions, runningVersionsText } from "./version.js";
 import {
   createManageResearchAccessHandler,
   createResearchAccessGuard,
@@ -138,7 +147,13 @@ import {
   researchUseSecurityMetadata,
   submitResearchContributionInputSchema,
   submitResearchContributionOutputSchema,
+  submitServerSourceAnalysis,
 } from "./research-contributor-access-tool.js";
+import {
+  AnalysisStaging,
+  buildStagedAnalysis,
+  saveStagedAnalyses,
+} from "./analysis-staging.js";
 import {
   createResearchContributionReviewHandler,
   researchContributionReviewInputSchema,
@@ -589,6 +604,9 @@ const PRIVATE_MCP_OPERATION_NAMES = new Set([
   "review_evidence_gap_submissions",
   "review_research_contribution",
 ]);
+// Public protocol identity, the same as GET /version: it needs no sign-in or
+// research mode, so asking which version is loaded always gets an answer.
+const PUBLIC_IDENTITY_OPERATION_NAMES = new Set(["get_protocol_manifest"]);
 const RESEARCH_ACCESS_CONTROL_OPERATION_NAMES = new Set([
   "manage_research_access",
   "submit_research_contribution",
@@ -598,6 +616,8 @@ const RESEARCH_ACCESS_CONTROL_OPERATION_NAMES = new Set([
 const CONNECTOR_ONLY_OPERATION_NAMES = new Set([
   "submit_lesson_candidate",
   "save_research_findings",
+  // "Check this video" starts on MCP; a Custom GPT Action follows only if it fits (AskRigor#248).
+  "extract_youtube_video_claims",
 ]);
 
 /** The MCP endpoint a server is created for, recorded on saved findings cards. */
@@ -619,6 +639,8 @@ export interface RegisterToolsOptions {
   /** How long finalize_research waits for a findings save; replaced for tests. */
   findingsSaveDeadlineMilliseconds?: number;
   mcpSurface?: McpSurface;
+  /** The versions this server runs, shown first in get_protocol_manifest's description. */
+  runningVersions?: RunningVersions;
 }
 
 // A findings save never holds back the answer for long: past this, the answer
@@ -632,7 +654,13 @@ function defineResearchOperations(
   registrar.registerTool(
     "get_protocol_manifest",
     {
-      description: "Return canonical protocol identity and SHA-256 metadata.",
+      // Clients show tool descriptions in their plugin panels, so the versions
+      // lead; a client keeps the tool list until it is refreshed, so the
+      // description says when they applied and the tool gives the current ones.
+      description: (options.runningVersions === undefined
+        ? ""
+        : `Versions when this tool list was loaded: ${runningVersionsText(options.runningVersions)}. `) +
+        "Return canonical protocol identity and SHA-256 metadata.",
       inputSchema: {
         protocol: protocolSchema.describe("Canonical protocol to inspect.")
       },
@@ -923,7 +951,7 @@ function defineResearchOperations(
     }
   );
 
-  registerOpenFullTextMcpTools(registrar);
+  registerOpenFullTextMcpTools(registrar, options);
 
   registrar.registerTool(
     "search_clinical_trials",
@@ -1461,7 +1489,7 @@ function defineResearchOperations(
   registrar.registerTool(
     "submit_research_contribution",
     {
-      description: "Submit one already-validated deidentified formal research frontier or source-bound study/review analysis to the pending review inbox. Never include raw chat, prompts, identity/contact details, private health narratives, uploads, raw source/provider bodies, or YouTube/community data. A proposal is not canonical evidence and does not gain scientific authority by submission. Paid-private mode cannot use this operation.",
+      description: "Submit one already-validated deidentified formal research frontier to the pending review inbox. Study and review audits validated in free contributor research are filed by the server when finalize_research passes, so do not submit them here. Never include raw chat, prompts, identity/contact details, private health narratives, uploads, raw source/provider bodies, or YouTube/community data. A proposal is not canonical evidence and does not gain scientific authority by submission. Paid-private mode cannot use this operation.",
       inputSchema: submitResearchContributionInputSchema,
       outputSchema: submitResearchContributionOutputSchema,
       annotations: MUTATING_ANNOTATIONS,
@@ -1761,6 +1789,25 @@ function defineResearchOperations(
   );
 
   registrar.registerTool(
+    EXTRACT_YOUTUBE_VIDEO_CLAIMS,
+    {
+      description: EXTRACT_YOUTUBE_VIDEO_CLAIMS_DESCRIPTION,
+      inputSchema: extractYoutubeVideoClaimsInputSchema,
+      outputSchema: extractYoutubeVideoClaimsOutputSchema,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async (input) => {
+      const { result, receipt } = await extractYoutubeVideoClaims(input, {
+        secret: researchReceiptSecretFromEnv(),
+        geminiKeyUnbilled: geminiKeyDeclaredUnbilled()
+      });
+      return receipt === undefined
+        ? result
+        : withResearchReceipt(result, researchReceipt("youtube_video_claims", receipt));
+    }
+  );
+
+  registrar.registerTool(
     "finalize_research",
     {
       description:
@@ -1795,9 +1842,8 @@ function defineResearchOperations(
       // the agreement its user accepted; a paid-private answer offers the save,
       // which waits for the user's yes (save_research_findings).
       const library = options.findingsLibrary ?? findingsLibraryEnabledFromEnv();
-      const account = library
-        ? await researchUseAccount(extra, options.researchContributorAccessService)
-        : undefined;
+      const researcher = await researchUseAccount(extra, options.researchContributorAccessService);
+      const account = library ? researcher : undefined;
       const result = finalizeResearch(input, {
         secret: researchReceiptSecretFromEnv(),
         protocolNames: await protocolNames(),
@@ -1825,7 +1871,20 @@ function defineResearchOperations(
           { status: "unconfirmed" }
         );
       }
+      // Analyses validated in a free contributor's research go to the review
+      // inbox once the final check passes, like the findings card.
+      if (researcher?.mode === "FREE_CONTRIBUTOR" && result.finalization_receipt !== undefined) {
+        const held = ANALYSIS_STAGING.take(researcher.accountKey);
+        if (held.length > 0) {
+          result.analyses_saved = await saveStagedAnalyses(
+            held,
+            (contribution) => submitServerSourceAnalysis(extra, options.researchContributorAccessService, contribution),
+            options.findingsSaveDeadlineMilliseconds ?? ANALYSES_SAVE_DEADLINE_MILLISECONDS
+          );
+        }
+      }
       const card = result.findings_card;
+      const analyses = result.analyses_saved;
       return successfulToolResult(
         `Research finalization: ${result.status}; ${result.next_steps.length} next step(s), ` +
           `${result.limits.length} limit(s) to state; ${result.receipts_verified} receipt(s) verified.` +
@@ -1842,7 +1901,15 @@ function defineResearchOperations(
                       ? "the save had not finished; it may still complete"
                       : `saved for review as ${card.saved.card_id}`
                 }.`
-                : card.problems.length === 0 ? "." : `: ${card.problems.join(" ")}`)),
+                : card.problems.length === 0 ? "." : `: ${card.problems.join(" ")}`)) +
+          (analyses === undefined
+            ? ""
+            : `\nStudy and review analyses sent to the review inbox: ${analyses.saved + analyses.already_saved}` +
+              (analyses.unconfirmed === 0 ? "" : `, ${analyses.unconfirmed} still sending`) +
+              (analyses.not_saved.length === 0
+                ? ""
+                : `; not saved: ${analyses.not_saved.map(({ reason, count }) => `${count} (${reason})`).join(", ")}`) +
+              "."),
         result as unknown as Record<string, unknown>
       );
     }
@@ -2131,6 +2198,11 @@ const MCP_SCOUT_OUTPUT_SCHEMA = z.object({
 
 // Shared by every MCP server this process creates, one per request.
 const LONG_VIDEO_AUDIT_SLOTS = createConcurrencyLimiter(PUBLIC_TOOL_LIMITS.mcpLongYoutubeVideoAuditSlots);
+// Free contributors' validated analyses, held from the method check until the
+// final check sends them to the review inbox; see analysis-staging.ts.
+const ANALYSIS_STAGING = new AnalysisStaging();
+// Like the findings save, sending held analyses never holds the answer back long.
+const ANALYSES_SAVE_DEADLINE_MILLISECONDS = 10_000;
 
 const SCOUT_SPEND_GUIDANCE =
   "The zero-spend policy allows the Gemini scout only with a key that has no billing " +
@@ -2272,7 +2344,8 @@ function withResearchReceipt(
 
 
 function registerOpenFullTextMcpTools(
-  registrar: Pick<McpServer, "registerTool">
+  registrar: Pick<McpServer, "registerTool">,
+  options: RegisterToolsOptions
 ): void {
   registrar.registerTool(
     "acquire_open_full_text",
@@ -2302,7 +2375,9 @@ function registerOpenFullTextMcpTools(
       outputSchema: studyMethodAuditRouteOutputSchema.safeExtend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async (input) => invokeOpenFullTextMcp("validate_study_method_audit", input)
+    async (input, extra) => stageValidatedAnalysis(
+      "study", await invokeOpenFullTextMcp("validate_study_method_audit", input), extra, options
+    )
   );
   registrar.registerTool(
     "validate_review_method_audit",
@@ -2312,8 +2387,56 @@ function registerOpenFullTextMcpTools(
       outputSchema: reviewMethodAuditActionOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async (input) => invokeOpenFullTextMcp("validate_review_method_audit", input)
+    async (input, extra) => stageValidatedAnalysis(
+      "review", await invokeOpenFullTextMcp("validate_review_method_audit", input), extra, options
+    )
   );
+}
+
+/**
+ * Holds a free contributor's freshly validated analysis for the final check
+ * to send to the review inbox (owner decision, 30 Sep). The validation result
+ * is returned unchanged and never waits: building the contribution, with its
+ * Crossref integrity check, runs in the background. Repository reuse is
+ * skipped, since that analysis is already in the repository.
+ */
+async function stageValidatedAnalysis(
+  kind: "study" | "review",
+  result: CallToolResult,
+  extra: unknown,
+  options: RegisterToolsOptions
+): Promise<CallToolResult> {
+  const body = result.structuredContent as {
+    status?: string;
+    audit_receipt?: { audit_sha256?: string };
+    coverage_receipt?: { document_handle?: string };
+    repository_reuse_receipt?: unknown;
+  } | undefined;
+  const handle = body?.coverage_receipt?.document_handle;
+  const auditSha256 = body?.audit_receipt?.audit_sha256;
+  if (
+    result.isError === true || handle === undefined || auditSha256 === undefined ||
+    body?.repository_reuse_receipt !== undefined ||
+    body?.status !== (kind === "study" ? "source_linked_study_audit_validated" : "source_linked_review_audit_validated")
+  ) {
+    return result;
+  }
+  const account = await researchUseAccount(extra as ResearchOperationExtra | undefined, options.researchContributorAccessService);
+  if (account?.mode !== "FREE_CONTRIBUTOR") return result;
+  let index;
+  try {
+    index = OPEN_FULL_TEXT_READER.readAuditMaterial?.(handle);
+  } catch {
+    return result;
+  }
+  if (index === undefined) return result;
+  ANALYSIS_STAGING.stage(account.accountKey, `${kind}:${auditSha256}`, buildStagedAnalysis({
+    kind,
+    index,
+    auditReceipt: body!.audit_receipt as never,
+    crossref: crossrefConfig()
+  }));
+  return result;
 }
 
 function configuredOpenFullTextOptions(
@@ -2475,9 +2598,12 @@ function collectResearchOperations(
       const annotations = Object.freeze({ ...config.annotations });
       const _meta = PRIVATE_MCP_OPERATION_NAMES.has(name)
         ? evidenceGapReviewSecurityMetadata()
-        : researchUseSecurityMetadata();
+        : PUBLIC_IDENTITY_OPERATION_NAMES.has(name)
+          ? publicToolSecurityMetadata()
+          : researchUseSecurityMetadata();
       const guardedExecute = options.researchAccessRequired === true &&
           !PRIVATE_MCP_OPERATION_NAMES.has(name) &&
+          !PUBLIC_IDENTITY_OPERATION_NAMES.has(name) &&
           !RESEARCH_ACCESS_CONTROL_OPERATION_NAMES.has(name)
         ? createResearchAccessGuard(execute, {
             service: options.researchContributorAccessService,
@@ -2510,8 +2636,8 @@ function collectResearchOperations(
   } as unknown as Pick<McpServer, "registerTool">;
 
   defineResearchOperations(registrar, options);
-  if (operations.length !== 32) {
-    throw new Error(`Expected 32 research operations; received ${operations.length}`);
+  if (operations.length !== 33) {
+    throw new Error(`Expected 33 research operations; received ${operations.length}`);
   }
   if (new Set(operations.map(({ name }) => name)).size !== operations.length) {
     throw new Error("Research operation names must be unique");

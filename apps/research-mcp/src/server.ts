@@ -73,6 +73,13 @@ import {
   type TrustedClientIpHeader
 } from "./rate-limit.js";
 import { registerTools } from "./register-tools.js";
+import {
+  type RunningVersions,
+  VERSION_PATH,
+  runningVersionsOf,
+  runningVersionsText,
+  versionPayload,
+} from "./version.js";
 import { installGeminiCompatibleToolCatalog } from "./gemini-tool-catalog.js";
 import {
   createPrivateResearchOrchestrationHandler,
@@ -124,16 +131,22 @@ export interface AskRigorMcpServerOptions {
   findingsLibrary?: boolean;
   /** The endpoint this server answers on; saved findings cards record it. */
   mcpSurface?: McpSurface;
+  /** The versions this server runs: its title and version, and the manifest tool's description. */
+  runningVersions?: RunningVersions;
 }
 
 export function createAskRigorServer(
   profile: McpToolCatalogProfile = "standard",
   options: AskRigorMcpServerOptions = {},
 ): McpServer {
+  const running = options.runningVersions;
   const server = new McpServer(
     {
       name: profile === "gemini" ? GEMINI_COMPATIBLE_SERVICE_NAME : SERVICE_NAME,
-      version: SERVICE_VERSION
+      // Where a client shows the server's name and version, they carry the
+      // protocol versions; the build metadata keeps the version valid semver.
+      version: running === undefined ? SERVICE_VERSION : `${SERVICE_VERSION}+${semverBuildMetadata(running)}`,
+      ...(running === undefined ? {} : { title: `AskRigor (${runningVersionsText(running)})` })
     },
     { instructions: SERVER_INSTRUCTIONS }
   );
@@ -142,6 +155,13 @@ export function createAskRigorServer(
     installGeminiCompatibleToolCatalog(server);
   }
   return server;
+}
+
+/** "hrp.20.6.10.universal.20.5.34.build.5640e6d": semver build identifiers only. */
+function semverBuildMetadata(running: RunningVersions): string {
+  return [`hrp.${running.hrp}`, `universal.${running.universal}`, `build.${running.build}`]
+    .join(".")
+    .replace(/[^0-9A-Za-z.-]/gu, "-");
 }
 
 export interface AskRigorHttpServerOptions {
@@ -407,6 +427,13 @@ export function createAskRigorHttpServer(
     : options.claudeOAuthResourceServer === null
       ? undefined
       : options.claudeOAuthResourceServer ?? claudeOAuthResourceServerFromEnv();
+  // The versions this process runs, read once; a server created before the read
+  // settles, or after it failed, simply announces none.
+  let runningVersions: RunningVersions | undefined;
+  const runningVersionsRead = versionPayload().then(
+    (payload) => { runningVersions = runningVersionsOf(payload); },
+    () => undefined,
+  );
   const createMcpServer = options.createMcpServer ??
     ((profile?: McpToolCatalogProfile) => createAskRigorServer(profile, {
       publicEvidenceGapReviewService,
@@ -416,6 +443,7 @@ export function createAskRigorHttpServer(
       researchContributionReviewService,
       researchAccessRequired,
       mcpSurface: profile === "gemini" ? GEMINI_COMPATIBLE_MCP_PATH : "/mcp",
+      runningVersions,
     }));
   const createClaudeMcpServer = options.createMcpServer ??
     (() => createAskRigorServer("standard", {
@@ -428,6 +456,7 @@ export function createAskRigorHttpServer(
       researchContributionReviewService,
       researchAccessRequired,
       mcpSurface: CLAUDE_MCP_PATH,
+      runningVersions,
     }));
 
   return createServer(async (request, response) => {
@@ -449,6 +478,19 @@ export function createAskRigorHttpServer(
     if (request.method === "GET" && pathname === "/healthz") {
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify(HEALTH_PAYLOAD));
+      return;
+    }
+
+    // Which AskRigor is running: build and protocol identities, public and without user data.
+    if (request.method === "GET" && pathname === VERSION_PATH) {
+      try {
+        const payload = await versionPayload();
+        response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+        response.end(JSON.stringify(payload));
+      } catch {
+        response.writeHead(503, { "content-type": "application/json", "cache-control": "no-store" });
+        response.end(JSON.stringify({ status: "unavailable" }));
+      }
       return;
     }
 
@@ -626,6 +668,7 @@ export function createAskRigorHttpServer(
         const profile = pathname === GEMINI_COMPATIBLE_MCP_PATH
           ? "gemini"
           : "standard";
+        await runningVersionsRead;
         server = claudeSurface ? createClaudeMcpServer() : createMcpServer(profile);
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: undefined

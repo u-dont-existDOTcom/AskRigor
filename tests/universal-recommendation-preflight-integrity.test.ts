@@ -20,7 +20,7 @@ function section(startMarker: string, endMarker: string): string {
 describe("Universal recommendation-preflight integrity gate", () => {
   it("preserves the 20.5.26 recommendation gate under Universal 20.5.27", () => {
     expect(XMLValidator.validate(protocol)).toBe(true);
-    expect(protocol).toContain('version="20.5.33" revisionDate="2026-09-30"');
+    expect(protocol).toContain('version="20.5.34" revisionDate="2026-10-03"');
     expect(protocol).toContain('<revision version="20.5.26" priority="Critical">');
     expect(protocol).toContain('<revision version="20.5.25" priority="Critical">');
     expect(protocol.match(/<recommendation_preflight_integrity_gate\b/gu)).toHaveLength(1);
@@ -43,7 +43,7 @@ describe("Universal recommendation-preflight integrity gate", () => {
       "Listed is not orderable",
       "no visible current price or tightly bounded current range means no owner-facing value recommendation",
       "A page with no purchase path is not a buy option",
-      "A high mean rating does not erase recurring serious defects",
+      "For anything bought, apply shopping_research too",
       "Do not pad a recommendation list with items already known to be unavailable",
       "no verified recommendation was found in the checked set",
     ]) {

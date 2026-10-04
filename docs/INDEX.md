@@ -61,6 +61,11 @@ complete XML protocol.
   migration 0011, rollback state, live acceptance including the first live
   Reddit thread check, plugin receipts, the site wording release and the
   findings library's opening
+- `audits/2026-10-03-check-this-video-live-acceptance.md`: pre-release live
+  check of `extract_youtube_video_claims` on three public videos and one
+  follow-up with the unbilled Gemini key: timings, claim counts, the Pacific-day
+  ledger, Gemini's times checked against creator chapters (captions were
+  unreachable), and the open privacy-notice and product-interface gates
 - `audits/2026-09-11-longitudinal-evidence-production-release.md` and `.json`:
   exact PR #214 protocol/evidence-contract release, immutable backend image and
   rollback, authenticated Universal 20.5.23 and HRP 20.5.28 worker readback,

@@ -38,6 +38,7 @@
     "audit_youtube_video_community",
     "check_retraction_status",
     "continue_open_full_text",
+    "extract_youtube_video_claims",
     "fetch_clinical_trial",
     "fetch_pubmed_record",
     "finalize_research",

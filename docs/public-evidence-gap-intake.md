@@ -77,6 +77,14 @@ The optional ChatGPT/Codex review operation additionally requires:
 - `ASKRIGOR_OAUTH_JWKS_URL` (the issuer's HTTPS signing-key set)
 - `ASKRIGOR_OAUTH_ALLOWED_CLIENT_ID` (the exact ChatGPT OAuth application ID)
 - `ASKRIGOR_OAUTH_ALLOWED_SUBJECT` (the stable subject of the sole owner account)
+- optional `ASKRIGOR_OAUTH_CHATGPT_METADATA_CLIENT_ID`
+  (`https://chatgpt.com/oauth/client.json`): ChatGPT's Client ID Metadata
+  Document. Plugins created from October 2026 sign in with it instead of the
+  static client, so `/mcp` accepts both when it is set. The tenant must import
+  that document once (Applications → Create Application → Import from URL),
+  grant it user-delegated access to the API with `research:use` and
+  `cases:review`, and promote the database and Google connections to domain
+  level, because metadata-document clients are strict third-party clients.
 
 The approved production authorization server is Auth0. Its resource identifier
 is the canonical MCP URL. Resource Parameter Compatibility, issuer responses,

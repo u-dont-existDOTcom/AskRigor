@@ -1032,6 +1032,108 @@ describe("finalize_research gate", () => {
     expect(result.community.communities_searched).toEqual(["r/trt", "MESO-Rx"]);
   });
 
+  it("takes a review site's reviews with their counts and selection, and says what a partial set can show", () => {
+    // HRP ReviewCorpusSelectionAndCounts (owner question 30): reviews the site ranks first show which experiences
+    // exist, not how common each is, so the answer says so; a frame not chosen by outcome needs no such caveat.
+    const reviewsPage = "https://www.amazon.com/product-reviews/B0EXAMPLE1/";
+    const forumThread = "https://adhd-parents.example/threads/41/";
+    const amazon = (corpora?: unknown) => ({
+      community: "Amazon",
+      platform: "review_site",
+      queries: ["humic acid drops ADHD"],
+      threads_read: [{ url: reviewsPage }],
+      ...(corpora === undefined ? {} : { review_corpora: corpora }),
+      benefit_reports: "Several parents saw calmer evenings.",
+      no_effect_reports: "Some saw no difference.",
+      adverse_reports: "Two reported stomach upset.",
+      effect_on_answer: "Shows the range of experiences only.",
+      answer_quotes: {
+        benefit_reports: "several parents saw calmer evenings",
+        no_effect_reports: "some saw no difference",
+        adverse_reports: "two reported stomach upset",
+        effect_on_answer: "these show the range of experiences only"
+      }
+    });
+    const forum = {
+      community: "ADHD Parents Forum",
+      platform: "forum",
+      queries: ["humic acid ADHD"],
+      threads_read: [{ url: forumThread }],
+      benefit_reports: "One parent saw better sleep.",
+      no_effect_reports: "Most saw no change.",
+      adverse_reports: "None reported.",
+      effect_on_answer: "Adds little.",
+      answer_quotes: {
+        benefit_reports: "one parent saw better sleep",
+        no_effect_reports: "most saw no change",
+        adverse_reports: "none reported side effects",
+        effect_on_answer: "which adds little"
+      }
+    };
+    const request = (corpora?: unknown, searches?: unknown[]) => ({
+      research_depth: "deep",
+      receipts: [study],
+      community_evidence: "researched",
+      treatment_choice: "not_compared",
+      research_target: TARGET,
+      key_sources: [{ id: "https://doi.org/10.1002/ART.41142", status: "validated" }],
+      principal_communities: [
+        { name: "Amazon", platform: "review_site" },
+        { name: "ADHD Parents Forum", platform: "forum" }
+      ],
+      community_searches: searches ?? [amazon(corpora), forum],
+      absence_claims: []
+    });
+    const lanes = `In [the drops' reviews on Amazon](${reviewsPage}), several parents saw calmer evenings, some saw ` +
+      "no difference, and two reported stomach upset; these show the range of experiences only. On the " +
+      `[ADHD Parents Forum](${forumThread}), one parent saw better sleep, most saw no change, and none reported side ` +
+      "effects, which adds little.";
+    const product = "Humic Drops 2 oz";
+    const topRanked = [{ product, reviews_shown: 2400, reviews_read: 8, selection: "top_ranked" }];
+    const first = finalizeResearchBare({ ...request(topRanked), answer_draft: lanes }, options);
+    expect(first.limits).toContain(
+      `The 8 Amazon review(s) of ${product} you read (of 2400 shown) were the ones the site ranks first; say they ` +
+        "show which experiences people report, not how common each is."
+    );
+    const partialCaveat = `The Amazon reviews of ${product} that I read were the ones the site ranks first, so they ` +
+      "show which experiences people report, not how common each one is.";
+    expect(first.caveats).toContain(partialCaveat);
+    const ready = finalizeResearchBare({ ...request(topRanked), answer_draft: `${lanes} ${first.caveats.join(" ")}` }, options);
+    expect(ready.next_steps).toEqual([]);
+    expect(ready.status).toBe("ready_with_limits");
+    expect(ready.community.communities_searched).toEqual(["Amazon", "ADHD Parents Forum"]);
+    // The answer must carry the caveat, as it must every caveat the gate writes.
+    const dropped = finalizeResearchBare({
+      ...request(topRanked),
+      answer_draft: `${lanes} ${first.caveats.filter((sentence) => sentence !== partialCaveat).join(" ")}`
+    }, options);
+    expect(dropped.status).toBe("not_ready");
+
+    // Every review mentioning the condition is a frame not chosen by outcome.
+    const mentions = finalizeResearchBare({
+      ...request([{ product, reviews_shown: 2400, reviews_read: 31, selection: "condition_mentions" }]),
+      answer_draft: lanes
+    }, options);
+    expect(mentions.caveats.filter((sentence) => sentence.includes("how common each one is"))).toEqual([]);
+
+    // Missing, misplaced or impossible counts go back to the model.
+    expect(finalizeResearchBare(request(), options).next_steps).toContain(
+      "community_searches for Amazon lists reviews read on a review site: give review_corpora, with each product, how " +
+        "many reviews the site shows, how many you read and how you chose them."
+    );
+    const miscounted = "community_searches for Amazon gives review counts that do not fit (Humic Drops 2 oz): " +
+      "reviews_read cannot exceed reviews_shown, and selection all means every review shown was read.";
+    expect(finalizeResearchBare(request([{ product, reviews_shown: 5, reviews_read: 8, selection: "top_ranked" }]), options)
+      .next_steps).toContain(miscounted);
+    expect(finalizeResearchBare(request([{ product, reviews_shown: 2400, reviews_read: 8, selection: "all" }]), options)
+      .next_steps).toContain(miscounted);
+    expect(finalizeResearchBare(request(undefined, [amazon(topRanked), { ...forum, review_corpora: topRanked }]), options)
+      .next_steps).toContain(
+      "community_searches for ADHD Parents Forum gives review_corpora, which are for review sites: record the site's " +
+        "product reviews under platform review_site, or leave review_corpora out."
+    );
+  });
+
   it("finds the protocols' own names in the answer, acronym runs included", async () => {
     const names = protocolNamesFrom([
       '<Rule name="COINotAutomaticDisqualification" priority="High"/><Rule name="NNTAndNNH"/><LimitsNote>' +
@@ -2322,6 +2424,27 @@ describe("finalize_research gate", () => {
     expect(finalizeResearch({
       ...base, receipts: [survey, emptySearch, judgedScout, videoG, study], material_video_ids: ["ggggggggggg"]
     }, options).next_steps.join(" ")).toMatch(/Video ggggggggggg is not among the videos found/u);
+  });
+
+  it("counts a video the person gave, which Gemini read, as found, but not as a discovery round", () => {
+    // "Check this video" (AskRigor#248): the person's own video is audited for comments like any material video.
+    const base = {
+      community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
+    };
+    const reading = sign("youtube_video_claims", { video: "ggggggggggg", mode: "claims", n: 4 }, options);
+    const videoG = sign("youtube_video_audit", {
+      video: "ggggggggggg", state: "api_visible_complete", lock: "pass", records: 60
+    }, options);
+    const audited = finalizeResearch({
+      ...base, receipts: [survey, emptySearch, reading, videoG, study], material_video_ids: ["ggggggggggg"]
+    }, options);
+    expect(audited.next_steps.join(" ")).not.toMatch(/is not among the videos found/u);
+    expect(audited.community.material_videos).toEqual(["ggggggggggg"]);
+    // Reading the video does not replace community discovery.
+    expect(finalizeResearch({
+      ...base, receipts: [reading, videoG, study], material_video_ids: ["ggggggggggg"]
+    }, options).next_steps.join(" ")).toMatch(/^Find community videos with scout_gemini_youtube_candidates/u);
   });
 
   it("lists rejected receipts and skips community research only on one of HRP's bases, with a reason", () => {
