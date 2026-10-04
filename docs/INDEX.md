@@ -61,6 +61,10 @@ complete XML protocol.
   migration 0011, rollback state, live acceptance including the first live
   Reddit thread check, plugin receipts, the site wording release and the
   findings library's opening
+- `audits/2026-10-04-release-production-release.md` and `.json`: release #277 (owner
+  questions 34 and 35): 15 pull requests, HRP 20.6.10 and Universal 20.5.34, 33 tools,
+  "check this video", ChatGPT's metadata-document sign-in, the version display; build,
+  transfer, rollback state, the in-image probe, the privacy wording release and plugin receipts
 - `audits/2026-10-03-check-this-video-live-acceptance.md`: pre-release live
   check of `extract_youtube_video_claims` on three public videos and one
   follow-up with the unbilled Gemini key: timings, claim counts, the Pacific-day
