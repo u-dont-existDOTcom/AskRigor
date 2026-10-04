@@ -14,7 +14,7 @@
     "csv-parse": "7.0.2",
     "fast-xml-parser": "5.11.2",
     "pdfjs-dist": "6.3.289",
-    "youtube-transcript-plus": "2.0.1",
+    "youtube-transcript-plus": "2.0.3",
     "zod": "4.4.3"
   }
 }
