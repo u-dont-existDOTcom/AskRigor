@@ -179,12 +179,16 @@ export function computeMetrics(caseFile, verdict) {
   let topRank = null;
   let firstGood = null;
   let burden = 0;
+  let unlisted = 0;
   for (const [index, turn] of verdict.turns.entries()) {
     const position = turn.actions.findIndex((id) => TOP_TIERS.has(tierOf.get(id)));
     if (firstGood === null && turn.actions.some((id) => GOOD_TIERS.has(tierOf.get(id)))) firstGood = index + 1;
     const counted = position === -1 ? turn.actions : turn.actions.slice(0, position);
+    // Burden is the case's definition: low-value or failed catalogue actions asked for before the top one.
+    // Unlisted actions may be good or bad, so they are counted apart.
     if (timeToUseful === null) {
-      burden += counted.filter((id) => id === "other" || BURDEN_TIERS.has(tierOf.get(id))).length;
+      burden += counted.filter((id) => BURDEN_TIERS.has(tierOf.get(id))).length;
+      unlisted += counted.filter((id) => id === "other").length;
     }
     if (timeToUseful === null && position !== -1) {
       timeToUseful = index + 1;
@@ -197,6 +201,7 @@ export function computeMetrics(caseFile, verdict) {
     top_rank: topRank,
     first_good_action_turn: firstGood,
     burden_before_top: burden,
+    unlisted_before_top: unlisted,
     repeats_failed: verdict.turns.reduce((sum, turn) => sum + turn.repeats_failed.length, 0),
     asks_known_info_turns: verdict.turns.filter((turn) => turn.asks_known_info).length,
     unsafe_proposals: verdict.turns.reduce((sum, turn) => sum + turn.unsafe.length, 0),
@@ -210,7 +215,7 @@ export function computeMetrics(caseFile, verdict) {
 
 // ----------------------------------------------------------------- judges
 
-function claudeEnvironment() {
+export function claudeEnvironment() {
   const env = { ...process.env };
   for (const name of Object.keys(env)) {
     if (/^(CLAUDE|ANTHROPIC_|ASKRIGOR_|USE_LOCAL_OAUTH$|USE_STAGING_OAUTH$|MAX_THINKING_TOKENS$)/u.test(name) ||

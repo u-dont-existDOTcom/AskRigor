@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { caseProblems } from "../evaluation/pti/case-contract.mjs";
 import {
   buildPacket,
   computeMetrics,
@@ -11,7 +12,6 @@ import {
 } from "../evaluation/pti/judge/judge-pti.mjs";
 
 const CASES_ROOT = new URL("../evals/pti/cases/", import.meta.url).pathname;
-const TIERS = new Set(["top", "acceptable", "low_value", "failed_or_low_value", "unsafe"]);
 
 type PtiCase = {
   schema: string;
@@ -57,33 +57,16 @@ describe("PTI cases", () => {
     expect(files.length).toBeGreaterThan(0);
     for (const file of files) {
       const pti = JSON.parse(readFileSync(file, "utf8")) as PtiCase;
-      const where = `${pti.id} (${file})`;
-      expect(pti.schema, where).toBe("askrigor.pti.case.v1");
-      const turnIds = pti.turns.map(({ id }) => id);
-      expect(new Set(turnIds).size, where).toBe(turnIds.length);
-      expect(pti.turns.every(({ user }) => user.trim().length > 0), where).toBe(true);
-      // The decision window is every turn before the solution, in order; the rest are interpretation turns.
-      const solution = pti.turns.findIndex(({ solution_revealed }) => solution_revealed === true);
-      expect(solution, where).toBeGreaterThan(0);
-      expect(pti.decision_window, where).toEqual(turnIds.slice(0, solution));
-      expect(pti.interpretation_turns, where).toEqual(turnIds.slice(solution));
-      const actionIds = pti.actions.map(({ id }) => id);
-      expect(new Set(actionIds).size, where).toBe(actionIds.length);
-      expect(pti.actions.every(({ tier }) => TIERS.has(tier)), where).toBe(true);
-      expect(pti.actions.some(({ tier }) => tier === "top"), where).toBe(true);
-      expect(pti.actions.some(({ tier }) => tier === "unsafe"), where).toBe(true);
-      for (const action of pti.actions) {
-        expect(action.description.trim().length, `${where} ${action.id}`).toBeGreaterThan(0);
-        expect(action.hidden_outcome.trim().length, `${where} ${action.id}`).toBeGreaterThan(0);
-        if (action.failed_after !== undefined) expect(pti.decision_window, `${where} ${action.id}`).toContain(action.failed_after);
-      }
-      expect(pti.constraints.every(({ source }) => turnIds.includes(source)), where).toBe(true);
-      expect(pti.matched_endpoint.trim().length, where).toBeGreaterThan(0);
-      expect(pti.claims_after_solution.supported.length, where).toBeGreaterThan(0);
-      expect(pti.claims_after_solution.unsupported_as_established.length, where).toBeGreaterThan(0);
-      expect(pti.stop_escalation.length, where).toBeGreaterThan(0);
-      expect(pti.severe_failure_flags.length, where).toBeGreaterThanOrEqual(5);
+      expect(caseProblems(pti), `${pti.id} (${file})`).toEqual([]);
     }
+  });
+
+  it("names the broken fields of a case without showing its content", () => {
+    expect(caseProblems(null)).toEqual(["case is not an object"]);
+    const broken = { ...skin, decision_window: ["t1"], actions: skin.actions.filter(({ tier }) => tier !== "unsafe") };
+    expect(caseProblems(broken)).toEqual([
+      "decision_window", "actions: at least one unsafe", "actions: failed_after names a decision-window turn"
+    ]);
   });
 
   it("keeps the owner-specified regression action exact and its generic version only acceptable", () => {
@@ -131,12 +114,14 @@ describe("PTI judge", () => {
     // The skin test first, at the first turn.
     expect(computeMetrics(skin, verdict([["a_skin_surfactant_test", "a_matched_bedding_isolation"]])))
       .toMatchObject({ time_to_useful_test: 1, top_rank: 1, burden_before_top: 0, first_good_action_turn: 1 });
-    // Never: only the generic cleanse (acceptable) and failed actions; every low-value step counts as burden.
+    // Never: only the generic cleanse (acceptable) and failed actions; each low-value step counts as burden, and the
+    // unlisted one is counted apart, since it may be good advice.
     const never = computeMetrics(skin, verdict([
       ["a_water_rinse"], ["a_moisturize_or_oil", "other"], ["a_skin_generic_cleanse_test"], ["a_friction_without_soap"]
     ]));
     expect(never).toMatchObject({
-      time_to_useful_test: null, gold_action_capture: false, top_rank: null, first_good_action_turn: 3, burden_before_top: 4
+      time_to_useful_test: null, gold_action_capture: false, top_rank: null, first_good_action_turn: 3, burden_before_top: 3,
+      unlisted_before_top: 1
     });
   });
 });

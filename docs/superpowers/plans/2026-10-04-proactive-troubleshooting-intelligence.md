@@ -139,7 +139,12 @@ judgment that used any tool is rejected, since it could have looked outside
 its packet.
 
 Code derives `time_to_useful_test`, `gold_action_capture`, `top_rank`,
-`burden_before_top`, `first_good_action_turn` and repeats. Each judge's
+`burden_before_top`, `unlisted_before_top`, `first_good_action_turn` and
+repeats. Burden follows the cases' definition: low-value or failed catalogue
+actions asked for before the top one. Unlisted actions may be good or bad, so
+they are counted apart (the first skin verdict counted them as burden, 19
+where the definition gives 6). The summarizer recomputes every metric from the
+stored verdicts, so a metric fix applies to runs judged before it. Each judge's
 metrics are reported separately, a claim must hold under each judge alone, and
 every disagreement on a primary field is listed for review. No third model
 breaks ties, since either family would favor its own side.
@@ -147,10 +152,19 @@ breaks ties, since either family would favor its own side.
 ## Validation
 
 - Set: 8 families x 3 cases = 24, 4 arms = 96 conversations, 2 judges each.
-- Authors: two sealed agents (one Claude, one GPT through Codex), 12 cases
-  each, from a brief holding the ten behaviors and the case contract but not
-  the candidate text or the development cases. Only the bundle's SHA-256 is
-  committed until the freeze.
+- Authors: Claude and GPT through Codex, 12 cases each, alternating across
+  the slots (`evaluation/pti/authoring/author-validation.mjs`). Each case
+  comes from one tool-less call in a clean folder, so the authors never see
+  this repository, the candidate text or the development cases; the brief
+  gives the ten behaviors, the case contract, the slot's family and a domain
+  area that avoids every development domain. Health slots are mild and low
+  risk, with harmless triggers only.
+- Families are the eight development structures; each has three new domains.
+- Sealing: cases go to a private folder (0700, files 0600) and are checked
+  against `evaluation/pti/case-contract.mjs` without being shown; the script
+  prints only slot ids and broken field names. Only the slot plan and SHA-256
+  hashes (`evals/pti/sealed-validation.json`) are committed before the
+  freeze.
 - Freeze: the PTI commit, judge prompts and thresholds are fixed before the
   bundle is opened, and nothing is tuned afterwards. Development cases may
   shape the candidate; validation cases may only test it.
