@@ -1,4 +1,4 @@
-# Can an AI service read Reddit for the web app? Venice test (2026-10-04)
+# Can an AI service read Reddit for the web app? Venice and OpenRouter (2026-10-04)
 
 Owner question 33, answered 2026-10-04: "ok you can check venice i guess... and
 openrouter if venice doesn't work". Cap: USD 1 per service. The standing $0
@@ -42,5 +42,38 @@ needs. The GPT model alone does not bring ChatGPT's Reddit reach: that comes
 from OpenAI's own search. Bright Data read about 57% to 69% of the displayed
 comments on these same threads on 2026-10-01.
 
-Next, per the owner's answer: OpenRouter, which can route an OpenAI model to
-OpenAI's native web search. It waits for the owner's OpenRouter key file.
+## OpenRouter: OpenAI's own search
+
+Per the owner's answer, the next test went through OpenRouter. It routes an
+OpenAI model to OpenAI's native web search (`plugins: [{"id": "web",
+"engine": "native"}]`, search context `medium`). Model: `openai/gpt-6-luna`,
+with the key read from the owner's file into the environment only.
+
+- **Reading a thread: works.** Thread `15oyv1r` (r/frozenshoulder). The title
+  and subreddit match Reddit's exactly. It reported reading 53 comments;
+  Reddit shows 70. It gave three short quotes from comments.
+- **Checking the quotes: inconclusive.** Bright Data's Reddit record for the
+  thread (one lookup on its free credits, the owner's own-use allowance)
+  returned the post and 16 of its 70 comments, the newest ones. None of the
+  three quotes is among those 16. That does not show the quotes are wrong,
+  because the subset does not cover them, but it leaves them unverified.
+- **Finding threads: works.** The search returned 3 threads, all in
+  r/frozenshoulder, each with a quote it says came from a comment. All 3 exist,
+  with titles matching Reddit's exactly.
+- **Cost:** USD 0.0449 (0.0229 and 0.0220, as OpenRouter reported per call),
+  from the owner's prepaid OpenRouter credit. With the Venice test, under USD
+  0.08 in all.
+
+## Conclusion
+
+- **Venice:** finds Reddit threads but cannot read them.
+- **OpenAI's own search** (through OpenRouter, or OpenAI directly): finds
+  threads and reads them in part, as ChatGPT does.
+- **Bright Data:** reads more of a thread (57% to 69% of displayed comments on
+  2026-10-01), on any model. It is already planned for paid Claude users.
+
+So for AskRigor's own web app, Reddit could come from OpenAI's search when an
+OpenAI model answers, or from Bright Data on any model. The quotes OpenAI's
+search gives still need a check before the answer relies on them (HRP
+ActualSearchRequired and SnippetAndPartialAccessTier). Either route spends
+money per call, which needs the owner's decision when the web app starts.
