@@ -27,6 +27,7 @@ import {
   RESEARCH_USE_SCOPE,
   createJwtOAuthResourceServer,
   oauthResourceServerFromEnv,
+  allowedChatGptClientIds,
   type AskRigorOAuthResourceServer,
 } from "../apps/research-mcp/src/oauth-resource-server.js";
 import { createAskRigorHttpServer } from
@@ -152,11 +153,73 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
     }
   });
 
+  it("accepts ChatGPT's metadata-document client beside the static one, and only an exact https URL", async () => {
+    // ChatGPT plugins created from October 2026 sign in with client_id
+    // https://chatgpt.com/oauth/client.json, which Auth0 called an "Unknown
+    // client" until the tenant imported it (owner report, 2026-10-04).
+    const baseEnv = {
+      ASKRIGOR_OAUTH_ALLOWED_CLIENT_ID: "chatgpt-client",
+    } satisfies NodeJS.ProcessEnv;
+    const metadataClientId = "https://chatgpt.com/oauth/client.json";
+    expect(allowedChatGptClientIds(baseEnv)).toEqual(["chatgpt-client"]);
+    expect(allowedChatGptClientIds({
+      ...baseEnv,
+      ASKRIGOR_OAUTH_CHATGPT_METADATA_CLIENT_ID: metadataClientId,
+    })).toEqual(["chatgpt-client", metadataClientId]);
+    for (const invalid of [
+      "http://chatgpt.com/oauth/client.json",
+      "https://chatgpt.com/",
+      "https://chatgpt.com/oauth/client.json#x",
+      "https://user@chatgpt.com/oauth/client.json",
+      "HTTPS://CHATGPT.COM/oauth/client.json",
+      "chatgpt-client-2",
+      " https://chatgpt.com/oauth/client.json",
+    ]) {
+      expect(() => allowedChatGptClientIds({
+        ...baseEnv,
+        ASKRIGOR_OAUTH_CHATGPT_METADATA_CLIENT_ID: invalid,
+      }), invalid).toThrow("ASKRIGOR_OAUTH_CHATGPT_METADATA_CLIENT_ID_INVALID");
+    }
+
+    const { publicKey, privateKey } = await generateKeyPair("RS256");
+    const publicJwk = await exportJWK(publicKey);
+    publicJwk.kid = "askrigor-test-key";
+    const config = createJwtOAuthResourceServer({
+      resourceUrl,
+      issuerUrl,
+      jwks: createLocalJWKSet({ keys: [publicJwk] }),
+      allowedClientIds: allowedChatGptClientIds({
+        ...baseEnv,
+        ASKRIGOR_OAUTH_CHATGPT_METADATA_CLIENT_ID: metadataClientId,
+      }),
+    });
+    const token = (clientId: string) => new SignJWT({
+      iss: issuerUrl.href,
+      aud: resourceUrl.href,
+      exp: Math.floor(Date.now() / 1_000) + 300,
+      azp: clientId,
+      scope: RESEARCH_USE_SCOPE,
+      sub: "auth0|researcher",
+    }).setProtectedHeader({ alg: "RS256", kid: publicJwk.kid }).sign(privateKey);
+    for (const clientId of ["chatgpt-client", metadataClientId]) {
+      await expect(config.verifier.verifyAccessToken(await token(clientId)), clientId)
+        .resolves.toMatchObject({ clientId, scopes: [RESEARCH_USE_SCOPE] });
+    }
+    await expect(config.verifier.verifyAccessToken(await token("https://other.example/oauth/client.json")))
+      .rejects.toThrow("OAUTH_ACCESS_TOKEN_CLIENT_NOT_ALLOWED");
+  });
+
   it("requires research OAuth for ordinary tools and keeps case review separately scoped", async () => {
     const { baseUrl } = await startServer(await seededService());
     const client = await connectClient(baseUrl);
 
     const { tools } = await client.listTools();
+    const ordinary = await client.callTool({
+      name: "load_protocol",
+      arguments: { protocol: "hrp" },
+    });
+    // The manifest is public protocol identity, as GET /version gives it, so
+    // asking which version is loaded needs no sign-in or research mode.
     const manifest = await client.callTool({
       name: "get_protocol_manifest",
       arguments: { protocol: "hrp" },
@@ -168,8 +231,13 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
       name === "review_research_contribution"
     );
 
-    expect(manifest.isError).toBe(true);
-    expect(tools).toHaveLength(32);
+    expect(ordinary.isError).toBe(true);
+    expect(manifest.isError).not.toBe(true);
+    expect(manifest.structuredContent).toMatchObject({ ok: true, protocol: "hrp" });
+    expect(tools.find(({ name }) => name === "get_protocol_manifest")?._meta).toEqual({
+      securitySchemes: [{ type: "noauth" }],
+    });
+    expect(tools).toHaveLength(33);
     expect(review?._meta).toEqual({
       securitySchemes: [{ type: "oauth2", scopes: [CASE_REVIEW_SCOPE] }],
     });
@@ -180,6 +248,7 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
       ![
         "review_evidence_gap_submissions",
         "review_research_contribution",
+        "get_protocol_manifest",
       ].includes(name)
     ).every(({ _meta }) => JSON.stringify(_meta) === JSON.stringify({
       securitySchemes: [{ type: "oauth2", scopes: [RESEARCH_USE_SCOPE] }],
@@ -222,16 +291,16 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
     for (const token of ["expired", "wrong-resource", "unscoped", "invalid"]) {
       const { baseUrl } = await startServer(await seededService());
       const client = await connectClient(baseUrl, token);
-      const manifest = await client.callTool({
-        name: "get_protocol_manifest",
-        arguments: { protocol: "universal" },
+      const research = await client.callTool({
+        name: "load_protocol",
+        arguments: { protocol: "universal", section: "index" },
       });
       const review = await client.callTool({
         name: "review_evidence_gap_submissions",
         arguments: { gap_slug: PUBLIC_PROLACTINOMA_GAP_SLUG },
       });
 
-      expect(manifest.isError, token).toBe(true);
+      expect(research.isError, token).toBe(true);
       expect(review.isError, token).toBe(true);
       expect(review.structuredContent, token).toMatchObject({
         ok: false,
@@ -242,6 +311,51 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
         },
       });
     }
+  });
+
+  // Owner report (2026-10-03): a chat holding AskRigor's tools from before the
+  // notice changed could send only the earlier version, which the server
+  // refuses, so the user could not accept at all. The schema now takes any
+  // well-formed version; the server still accepts only the current one and
+  // names it.
+  it("refuses an earlier notice version by naming the current one, so a stale tool copy cannot block consent", async () => {
+    const { baseUrl } = await startServer(await seededService());
+    const client = await connectClient(baseUrl, "researcher");
+    const { tools } = await client.listTools();
+    const access = tools.find(({ name }) => name === "manage_research_access")!;
+    const noticeVersion = (access.inputSchema as {
+      properties: { agreement: { properties: { noticeVersion: Record<string, unknown> } } };
+    }).properties.agreement.properties.noticeVersion;
+    expect(noticeVersion).not.toHaveProperty("const");
+    expect(noticeVersion).toHaveProperty("pattern");
+
+    const agreement = (version: string) => ({
+      noticeVersion: version,
+      eligibleDeidentifiedResearchContributionRequired: true,
+      prohibitedPrivateAndRawContentExcluded: true,
+      proposalReviewAndNoAuthorityAcknowledged: true,
+      paidPrivateAlternativeAcknowledged: true,
+    });
+    const stale = await client.callTool({
+      name: "manage_research_access",
+      arguments: { action: "accept_free_contributor", agreement: agreement("free-contributor-v1-2026-09-01") },
+    });
+    expect(stale.isError).toBe(true);
+    expect(stale.structuredContent).toMatchObject({ ok: false, error: { code: "research_access_required" } });
+    const message = (stale.content as Array<{ text: string }>)[0]!.text;
+    expect(message).toContain(`The current free-use notice is ${RESEARCH_USE_NOTICE_VERSION}`);
+    expect(message).toContain("start a new chat, or refresh or reconnect AskRigor");
+    const unchanged = await client.callTool({ name: "manage_research_access", arguments: { action: "inspect" } });
+    expect(unchanged.structuredContent).toMatchObject({
+      ok: true,
+      access: { status: "UNENROLLED", noticeVersion: RESEARCH_USE_NOTICE_VERSION },
+    });
+
+    const accepted = await client.callTool({
+      name: "manage_research_access",
+      arguments: { action: "accept_free_contributor", agreement: agreement(RESEARCH_USE_NOTICE_VERSION) },
+    });
+    expect(accepted.structuredContent).toMatchObject({ ok: true, access: { status: "ACTIVE", mode: "FREE_CONTRIBUTOR" } });
   });
 
   it("activates reciprocal free access explicitly and revocation blocks later research", async () => {
@@ -257,8 +371,8 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
       access: { status: "UNENROLLED", paidCheckoutAvailable: false },
     });
     const blocked = await client.callTool({
-      name: "get_protocol_manifest",
-      arguments: { protocol: "universal" },
+      name: "load_protocol",
+      arguments: { protocol: "universal", section: "index" },
     });
     expect(blocked.isError).toBe(true);
 
@@ -284,8 +398,8 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
       },
     });
     const permitted = await client.callTool({
-      name: "get_protocol_manifest",
-      arguments: { protocol: "universal" },
+      name: "load_protocol",
+      arguments: { protocol: "universal", section: "index" },
     });
     expect(permitted.isError).not.toBe(true);
 
@@ -298,8 +412,8 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
       access: { status: "REVOKED", mode: null },
     });
     const blockedAgain = await client.callTool({
-      name: "get_protocol_manifest",
-      arguments: { protocol: "universal" },
+      name: "load_protocol",
+      arguments: { protocol: "universal", section: "index" },
     });
     expect(blockedAgain.isError).toBe(true);
   });

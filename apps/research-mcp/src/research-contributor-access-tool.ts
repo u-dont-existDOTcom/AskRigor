@@ -12,6 +12,14 @@ import { z } from "zod";
 import { RESEARCH_USE_SCOPE } from "./oauth-resource-server.js";
 import type { ResearchOperationExtra } from "./research-operation.js";
 
+// A notice version as a pattern, not the current value: clients keep a tool's
+// schema for as long as a chat or connector lives, so a constant here would let
+// a copy from before a notice change refuse the current version, and the user
+// could not accept it (owner report, 2026-10-03). The service still accepts
+// only the current notice; manage_research_access names it when it differs.
+const noticeVersionSchema = z.string().regex(/^free-contributor-v[0-9]{1,3}-[0-9]{4}-[0-9]{2}-[0-9]{2}$/u)
+  .describe(`The notice version the user accepted, exactly as inspect returns it (now ${RESEARCH_USE_NOTICE_VERSION}).`);
+
 export const manageResearchAccessInputSchema = z.object({
   action: z.enum([
     "inspect",
@@ -19,14 +27,14 @@ export const manageResearchAccessInputSchema = z.object({
     "activate_paid_private",
     "revoke",
   ]),
-  agreement: freeContributorAgreementSchema.optional(),
+  agreement: freeContributorAgreementSchema.extend({ noticeVersion: noticeVersionSchema }).strict().optional(),
 }).strict();
 
 const researchAccessViewSchema = z.object({
   status: z.enum(["UNENROLLED", "ACTIVE", "REVOKED"]),
   mode: z.enum(["FREE_CONTRIBUTOR", "PAID_PRIVATE"]).nullable(),
-  noticeVersion: z.literal(RESEARCH_USE_NOTICE_VERSION),
-  notice: z.literal(RESEARCH_USE_NOTICE),
+  noticeVersion: noticeVersionSchema,
+  notice: z.string().min(1),
   contributionRequired: z.boolean(),
   privateEntitlementRequired: z.boolean(),
   paidCheckoutAvailable: z.literal(false),
@@ -111,6 +119,18 @@ export function createManageResearchAccessHandler(
         return accessError(
           "invalid_request",
           "The exact versioned agreement is required only when accepting free contributor mode.",
+        );
+      }
+      // Consent counts only for the notice the user was shown: an earlier
+      // version's terms differ, so it is refused, never upgraded.
+      if (parsed.agreement !== undefined && parsed.agreement.noticeVersion !== RESEARCH_USE_NOTICE_VERSION) {
+        return accessError(
+          "research_access_required",
+          `The current free-use notice is ${RESEARCH_USE_NOTICE_VERSION}, not ${parsed.agreement.noticeVersion}. ` +
+            "Call manage_research_access with action inspect, show the user the notice it returns, and if they " +
+            `accept it, send agreement.noticeVersion "${RESEARCH_USE_NOTICE_VERSION}". If this tool's schema still ` +
+            "names the older version, the app is using a copy of AskRigor's tools from before the notice changed: " +
+            "start a new chat, or refresh or reconnect AskRigor in the app's settings.",
         );
       }
       const access = parsed.action === "inspect"
@@ -234,6 +254,37 @@ export async function researchUseAccount(
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Files a source analysis the server built itself (analysis-staging.ts) under
+ * the caller's own account, through the same intake and privacy checks as
+ * submit_research_contribution. The server's contribution carries none of
+ * the persisted material the privacy boundary rules out. Throws when the call
+ * has no valid research:use token or no access service.
+ */
+export async function submitServerSourceAnalysis(
+  extra: ResearchOperationExtra | undefined,
+  service: ResearchContributorAccessService | undefined,
+  contribution: unknown,
+): Promise<"inserted" | "idempotent_replay"> {
+  const auth = authorizedSubject(extra, undefined);
+  if ("error" in auth || service === undefined) throw new Error("RESEARCH_ACCOUNT_UNAVAILABLE");
+  const result = await service.submitProposal(auth.subject, {
+    proposalKind: "SOURCE_ANALYSIS",
+    privacyBoundary: {
+      rawChatPersisted: false,
+      promptPersisted: false,
+      accountIdentityInPayload: false,
+      privateHealthNarrativePersisted: false,
+      uploadContentPersisted: false,
+      rawSourceContentPersisted: false,
+      rawProviderResponsePersisted: false,
+      communityDataPersisted: false,
+    },
+    payload: contribution,
+  });
+  return result.status;
 }
 
 function withoutStructuredContent(result: CallToolResult): CallToolResult {

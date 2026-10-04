@@ -418,7 +418,7 @@ function submissionFromReceipt(receipt: StudyMethodAuditReceipt): StudyMethodAud
   return studyMethodAuditSubmissionSchema.parse(submission);
 }
 
-function sourceIdentifiers(
+export function sourceIdentifiers(
   index: AuditableDocumentIndex,
 ): Array<{ scheme: "doi" | "pmid" | "pmcid" | "other"; value: string }> {
   const identifiers: Array<{ scheme: "doi" | "pmid" | "pmcid" | "other"; value: string }> = [];

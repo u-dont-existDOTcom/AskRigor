@@ -102,10 +102,7 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "oauth2",
-            "scopes": [
-              "research:use"
-            ]
+            "type": "noauth"
           }
         ]
       }
@@ -9270,7 +9267,8 @@
             "properties": {
               "noticeVersion": {
                 "type": "string",
-                "const": "free-contributor-v2-2026-09-30"
+                "pattern": "^free-contributor-v[0-9]{1,3}-[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+                "description": "The notice version the user accepted, exactly as inspect returns it (now free-contributor-v2-2026-09-30)."
               },
               "eligibleDeidentifiedResearchContributionRequired": {
                 "type": "boolean",
@@ -9338,11 +9336,12 @@
               },
               "noticeVersion": {
                 "type": "string",
-                "const": "free-contributor-v2-2026-09-30"
+                "pattern": "^free-contributor-v[0-9]{1,3}-[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+                "description": "The notice version the user accepted, exactly as inspect returns it (now free-contributor-v2-2026-09-30)."
               },
               "notice": {
                 "type": "string",
-                "const": "Free AskRigor use is reciprocal: what AskRigor learns from your research is saved for its research library. That includes deidentified structured research progress and, for each finished research answer, a findings card: the question in general terms, the main findings and how certain they are, the public studies behind them, and what public online communities reported, summarized without their posts, names, links or video IDs. AskRigor never saves raw chat, prompts, identity or contact details, private health narratives, uploads, or raw source or provider bodies. Saved research is reviewed and does not become evidence, conclusions, or scientific authority merely because it was saved or repeated. Paid private access saves research findings or lesson feedback only when you accept saving them for that answer, and requires an active verified entitlement."
+                "minLength": 1
               },
               "contributionRequired": {
                 "type": "boolean"
@@ -9445,7 +9444,7 @@
     },
     {
       "name": "submit_research_contribution",
-      "description": "Submit one already-validated deidentified formal research frontier or source-bound study/review analysis to the pending review inbox. Never include raw chat, prompts, identity/contact details, private health narratives, uploads, raw source/provider bodies, or YouTube/community data. A proposal is not canonical evidence and does not gain scientific authority by submission. Paid-private mode cannot use this operation.",
+      "description": "Submit one already-validated deidentified formal research frontier to the pending review inbox. Study and review audits validated in free contributor research are filed by the server when finalize_research passes, so do not submit them here. Never include raw chat, prompts, identity/contact details, private health narratives, uploads, raw source/provider bodies, or YouTube/community data. A proposal is not canonical evidence and does not gain scientific authority by submission. Paid-private mode cannot use this operation.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -12080,6 +12079,275 @@
       }
     },
     {
+      "name": "extract_youtube_video_claims",
+      "description": "When the person gives a YouTube video, have Gemini read it and list its health claims, each with its time, the speaker's words, who says it and the evidence the video gives, plus sponsorships and studies shown on screen. Gemini gets only the video's public URL, never the person's words. The result is what the video says, not evidence: check each material claim with the other tools, and link each claim to its time. For one unclear claim, call again with the video and at (MM:SS): Gemini quotes what is said there and describes what is shown. Reading takes about a minute, so the result may be pending with a continuation_token; call again with only that token. Each reading counts the whole video against a shared daily limit.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "video": {
+            "description": "The video's 11-character ID or its YouTube URL.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "at": {
+            "description": "Only to follow up one unclear claim: its time, as MM:SS (H:MM:SS from one hour on).",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10
+          },
+          "continuation_token": {
+            "description": "Returned while Gemini is still reading; call again with only this token.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "complete"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "claims",
+              "moment"
+            ]
+          },
+          "video": {
+            "type": "object",
+            "properties": {
+              "video_id": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "channel": {
+                "type": "string"
+              },
+              "duration": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "video_id",
+              "url",
+              "title",
+              "channel",
+              "duration"
+            ],
+            "additionalProperties": false
+          },
+          "at": {
+            "type": "string"
+          },
+          "continuation_token": {
+            "type": "string"
+          },
+          "retry_after_seconds": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "spoken_language": {
+            "type": "string"
+          },
+          "claims": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "start": {
+                  "type": "string"
+                },
+                "link": {
+                  "type": "string"
+                },
+                "speaker": {
+                  "type": "string",
+                  "enum": [
+                    "creator",
+                    "guest",
+                    "other",
+                    "unclear"
+                  ]
+                },
+                "quote": {
+                  "type": "string"
+                },
+                "claim": {
+                  "type": "string"
+                },
+                "evidence": {
+                  "type": "string",
+                  "enum": [
+                    "named_study",
+                    "personal_experience",
+                    "expert_opinion",
+                    "none"
+                  ]
+                },
+                "evidence_detail": {
+                  "type": "string"
+                },
+                "specifics": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "time_outside_video": {
+                  "type": "boolean",
+                  "const": true
+                }
+              },
+              "required": [
+                "start",
+                "link",
+                "speaker",
+                "quote",
+                "claim",
+                "evidence",
+                "evidence_detail",
+                "specifics"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "more_claims_not_listed": {
+            "type": "boolean"
+          },
+          "sponsorships": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "start": {
+                  "type": "string"
+                },
+                "link": {
+                  "type": "string"
+                },
+                "what": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "start",
+                "what"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "on_screen_citations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "start": {
+                  "type": "string"
+                },
+                "link": {
+                  "type": "string"
+                },
+                "citation": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "start",
+                "link",
+                "citation"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "moment": {
+            "type": "object",
+            "properties": {
+              "start": {
+                "type": "string"
+              },
+              "end": {
+                "type": "string"
+              },
+              "link": {
+                "type": "string"
+              },
+              "speaker": {
+                "type": "string",
+                "enum": [
+                  "creator",
+                  "guest",
+                  "other",
+                  "unclear"
+                ]
+              },
+              "said": {
+                "type": "string"
+              },
+              "shown": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "start",
+              "end",
+              "link",
+              "speaker",
+              "said",
+              "shown"
+            ],
+            "additionalProperties": false
+          },
+          "source_note": {
+            "type": "string"
+          },
+          "research_receipt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "mode",
+          "video"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "_meta": {
+        "securitySchemes": [
+          {
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "name": "finalize_research",
       "description": "Call before the final answer. Pass every research_receipt you received, the research_target (the same text given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits; discovery for any other target does not count), whether community evidence was researched, whether the answer compares treatment options, where people discussing it talk and what each community you searched outside YouTube showed (principal_communities, community_searches), what the YouTube comments you read showed (community_findings), the studies your conclusions depend on, after a first pass the focuses for going deeper (open_leads, another_pass_estimate), and the answer you are about to give (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, the sentences you quote from it for each lane (answer_quotes) and where it says something was not found, not studied or has no effect (absence_claims), and the caveats, and is not stored. not_ready lists the remaining steps; ready_with_limits lists limits, and caveats gives the sentences the answer must contain, each as its own sentence and as written (in an answer not in English, in its language: give answer_language and caveat_renderings); must_report lists what the answer must report from each lane researched; receipts_unavailable means this server cannot verify completion, so do the required work anyway and say that completion was not server-verified. In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the owner's review; in paid private mode the caveats offer its save.",
       "inputSchema": {
@@ -12278,7 +12546,7 @@
             "additionalProperties": false
           },
           "principal_communities": {
-            "description": "Where people discussing this actually talk, the dominant first: subreddits, specialist forums, Facebook groups, patient organizations, YouTube. Needed when community evidence is researched; search the dominant one and at least one independent one.",
+            "description": "Where people discussing this actually talk, the dominant first: subreddits, specialist forums, Facebook groups, patient organizations, YouTube, and for a product people buy, the sites where buyers review it (platform review_site). Needed when community evidence is researched; search the dominant one and at least one independent one.",
             "minItems": 1,
             "maxItems": 8,
             "type": "array",
@@ -12366,7 +12634,7 @@
                         "type": "string",
                         "maxLength": 2048,
                         "format": "uri",
-                        "description": "The thread's full link; on Reddit, reddit.com/r/<name>/comments/<id>/…"
+                        "description": "The thread's full link; on Reddit, reddit.com/r/<name>/comments/<id>/…; on a review site, the product's reviews page"
                       },
                       "title": {
                         "type": "string",
@@ -12394,6 +12662,53 @@
                   "type": "string",
                   "maxLength": 2048,
                   "format": "uri"
+                },
+                "review_corpora": {
+                  "description": "Needed for a review_site whose reviews you read: for each product, how many reviews the site shows, how many you read and how you chose them.",
+                  "minItems": 1,
+                  "maxItems": 6,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "product": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200,
+                        "description": "The exact product and variant, as its label names it."
+                      },
+                      "reviews_shown": {
+                        "description": "How many written reviews the site shows for it, when it says.",
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "reviews_read": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 9007199254740991
+                      },
+                      "selection": {
+                        "type": "string",
+                        "enum": [
+                          "all",
+                          "condition_mentions",
+                          "most_recent",
+                          "random_or_stratified",
+                          "top_ranked",
+                          "outcome_keyword",
+                          "other_partial"
+                        ],
+                        "description": "How you chose the reviews you read: all of them; every one mentioning the condition; the most recent; a random sample or one stratified by rating; the ones ranked first; ones found by searching for outcomes; or another partial set. The last three show which experiences exist, not how common they are."
+                      }
+                    },
+                    "required": [
+                      "product",
+                      "reviews_read",
+                      "selection"
+                    ],
+                    "additionalProperties": false
+                  }
                 },
                 "benefit_reports": {
                   "type": "string",
@@ -12934,6 +13249,63 @@
           },
           "finalization_receipt": {
             "type": "string"
+          },
+          "analyses_saved": {
+            "description": "For a free contributor account whose research passed: the study and review analyses validated in it, which the server sent to the owner's review inbox.",
+            "type": "object",
+            "properties": {
+              "saved": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "already_saved": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "unconfirmed": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "not_saved": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "no_doi",
+                        "integrity_not_current",
+                        "integrity_check_unavailable",
+                        "contribution_invalid",
+                        "review_inbox_unavailable",
+                        "rejected_by_privacy_check"
+                      ]
+                    },
+                    "count": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "reason",
+                    "count"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "saved",
+              "already_saved",
+              "unconfirmed",
+              "not_saved"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [

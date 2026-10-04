@@ -7,7 +7,8 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
  * search or scout, even one that found nothing, a terminal per-video comment
  * audit, a PubMed record,
  * a validated full-text method audit, a failed full-text acquisition that
- * leaves only a lead, or a treatment-coverage check) returns one short token. The
+ * leaves only a lead, a treatment-coverage check, or Gemini's reading of a
+ * video the person gave) returns one short token. The
  * finalize_research gate verifies the tokens, so completion is checked by the
  * server instead of taken from the model's own report. Tokens are stateless:
  * they survive restarts and need no session store.
@@ -25,6 +26,7 @@ export const RESEARCH_RECEIPT_KINDS = [
   "youtube_scout",
   "youtube_video_audit",
   "youtube_community_audit",
+  "youtube_video_claims",
   "pubmed_record",
   "literature_search",
   "full_text_lead",

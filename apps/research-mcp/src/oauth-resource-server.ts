@@ -83,10 +83,7 @@ export function oauthResourceServerFromEnv(
     env.ASKRIGOR_OAUTH_JWKS_URL,
     "ASKRIGOR_OAUTH_JWKS_URL",
   );
-  const allowedClientId = parseTokenBinding(
-    env.ASKRIGOR_OAUTH_ALLOWED_CLIENT_ID,
-    "ASKRIGOR_OAUTH_ALLOWED_CLIENT_ID",
-  );
+  const allowedClientIds = allowedChatGptClientIds(env);
   const allowedSubject = parseTokenBinding(
     env.ASKRIGOR_OAUTH_ALLOWED_SUBJECT,
     "ASKRIGOR_OAUTH_ALLOWED_SUBJECT",
@@ -95,9 +92,53 @@ export function oauthResourceServerFromEnv(
     resourceUrl,
     issuerUrl,
     jwks: createRemoteJWKSet(jwksUrl),
-    allowedClientIds: [allowedClientId],
+    allowedClientIds,
     reviewerSubjects: [allowedSubject],
   });
+}
+
+/**
+ * The clients whose tokens /mcp accepts. Plugins created before October 2026
+ * sign in through the static client (ASKRIGOR_OAUTH_ALLOWED_CLIENT_ID).
+ * ChatGPT now signs in as a Client ID Metadata Document instead: its client ID
+ * is the document's https URL (https://chatgpt.com/oauth/client.json), which
+ * the Auth0 tenant imports once. When ASKRIGOR_OAUTH_CHATGPT_METADATA_CLIENT_ID
+ * names it, both clients are accepted.
+ */
+export function allowedChatGptClientIds(env: NodeJS.ProcessEnv = process.env): string[] {
+  const staticClientId = parseTokenBinding(
+    env.ASKRIGOR_OAUTH_ALLOWED_CLIENT_ID,
+    "ASKRIGOR_OAUTH_ALLOWED_CLIENT_ID",
+  );
+  const metadataClientId = env.ASKRIGOR_OAUTH_CHATGPT_METADATA_CLIENT_ID;
+  return metadataClientId === undefined
+    ? [staticClientId]
+    : [
+        staticClientId,
+        parseMetadataDocumentClientId(metadataClientId, "ASKRIGOR_OAUTH_CHATGPT_METADATA_CLIENT_ID"),
+      ];
+}
+
+/** A metadata document's client ID: an exact https URL with a path, and no credentials or fragment. */
+function parseMetadataDocumentClientId(value: string, name: string): string {
+  const clientId = parseTokenBinding(value, name);
+  let url: URL;
+  try {
+    url = new URL(clientId);
+  } catch {
+    throw new Error(`${name}_INVALID`);
+  }
+  if (
+    url.protocol !== "https:" ||
+    url.pathname === "/" ||
+    url.hash !== "" ||
+    url.username !== "" ||
+    url.password !== "" ||
+    url.href !== clientId
+  ) {
+    throw new Error(`${name}_INVALID`);
+  }
+  return clientId;
 }
 
 export function createJwtOAuthResourceServer(options: {

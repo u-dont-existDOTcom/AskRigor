@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { analysesSavedSchema } from "./analysis-staging.js";
 import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
 import {
   FINDINGS_SAVE_OFFER,
@@ -38,6 +39,18 @@ const communityPlatformSchema = z.enum([
   "youtube", "reddit", "forum", "facebook", "telegram", "discord", "patient_organization", "review_site", "other"
 ]);
 const communityFindingText = z.string().trim().min(1).max(800);
+// How the reviews read on a review site were chosen (HRP ReviewCorpusSelectionAndCounts;
+// the Forum Signal Module's review_platforms receipt lists the same values). The first
+// four are frames not chosen by outcome; the others show which experiences exist, not
+// how common each is, so the answer says so in the words below.
+export const REVIEW_SELECTIONS = [
+  "all", "condition_mentions", "most_recent", "random_or_stratified", "top_ranked", "outcome_keyword", "other_partial"
+] as const;
+const PARTIAL_REVIEW_SELECTIONS: ReadonlyMap<string, string> = new Map([
+  ["top_ranked", "the ones the site ranks first"],
+  ["outcome_keyword", "found by searching for outcomes"],
+  ["other_partial", "a partial set"]
+]);
 // The answer's own words for a finding, copied from answer_draft: the gate
 // checks that the answer shows them, which works in any language, and leaves
 // whether they report the finding to the model that wrote both.
@@ -106,8 +119,9 @@ export const finalizeResearchInputSchema = z.object({
     platform: communityPlatformSchema
   }).strict()).min(1).max(8).optional()
     .describe("Where people discussing this actually talk, the dominant first: subreddits, specialist forums, " +
-      "Facebook groups, patient organizations, YouTube. Needed when community evidence is researched; search the " +
-      "dominant one and at least one independent one."),
+      "Facebook groups, patient organizations, YouTube, and for a product people buy, the sites where buyers review " +
+      "it (platform review_site). Needed when community evidence is researched; search the dominant one and at " +
+      "least one independent one."),
   single_community_reason: z.string().trim().min(1).max(500).optional()
     .describe("Why only one community discusses this, when principal_communities lists one."),
   community_searches: z.array(z.object({
@@ -115,13 +129,26 @@ export const finalizeResearchInputSchema = z.object({
     platform: communityPlatformSchema.exclude(["youtube"]),
     queries: z.array(z.string().trim().min(1).max(300)).min(1).max(10),
     threads_read: z.array(z.object({
-      url: z.string().trim().url().max(2_048).describe("The thread's full link; on Reddit, reddit.com/r/<name>/comments/<id>/…"),
+      url: z.string().trim().url().max(2_048).describe("The thread's full link; on Reddit, reddit.com/r/<name>/comments/<id>/…; " +
+        "on a review site, the product's reviews page"),
       title: z.string().trim().min(1).max(300).optional()
     }).strict()).max(30).default([]),
     access_boundary: z.enum(["no_web_search", "login_required", "blocked", "no_relevant_results"]).optional(),
     url: z.string().trim().url().max(2_048).optional()
       .describe("The community's own address (its forum, group or site link). Needed when no thread was read outside " +
         "Reddit, so the community is known by its site rather than its name."),
+    review_corpora: z.array(z.object({
+      product: z.string().trim().min(1).max(200).describe("The exact product and variant, as its label names it."),
+      reviews_shown: z.number().int().min(0).optional()
+        .describe("How many written reviews the site shows for it, when it says."),
+      reviews_read: z.number().int().min(1),
+      selection: z.enum(REVIEW_SELECTIONS)
+        .describe("How you chose the reviews you read: all of them; every one mentioning the condition; the most " +
+          "recent; a random sample or one stratified by rating; the ones ranked first; ones found by searching for " +
+          "outcomes; or another partial set. The last three show which experiences exist, not how common they are.")
+    }).strict()).min(1).max(6).optional()
+      .describe("Needed for a review_site whose reviews you read: for each product, how many reviews the site shows, " +
+        "how many you read and how you chose them."),
     benefit_reports: communityFindingText.optional(),
     no_effect_reports: communityFindingText.optional(),
     adverse_reports: communityFindingText.optional(),
@@ -227,7 +254,9 @@ export const finalizeResearchOutputSchema = z.object({
   }).strict().describe("Whether findings_card checked, and for a free contributor account whether it was saved; for " +
     "a paid private account a checked card's caveats offer the save. closed: the findings library is not open; " +
     "private: no research account, so nothing is saved."),
-  finalization_receipt: z.string().optional()
+  finalization_receipt: z.string().optional(),
+  analyses_saved: analysesSavedSchema.optional().describe("For a free contributor account whose research passed: the " +
+    "study and review analyses validated in it, which the server sent to the owner's review inbox.")
 }).strict();
 
 export type FinalizeResearchOutput = z.output<typeof finalizeResearchOutputSchema>;
@@ -389,6 +418,12 @@ export function finalizeResearch(
       // closest results for a title it could not find. Auditing one is that
       // judgment, so they count as found by the round.
       for (const video of [...list(claims.videos), ...list(claims.alt)]) discovered.add(video);
+    }
+    if (kind === "youtube_video_claims") {
+      // A video the person gave, which Gemini read, counts as found: auditing
+      // its comments needs no discovery round to have turned it up. It is no
+      // round itself, so community discovery still runs as before.
+      discovered.add(text(claims.video));
     }
     if (kind === "youtube_video_audit") {
       // Comments the audit's final view returned; receipts from before `shown`
@@ -1704,7 +1739,10 @@ function boundaryCaveat(name: string, boundary: NonNullable<CommunitySearch["acc
 }
 
 function forumLane(search: CommunitySearch): string {
-  return `${search.community} (${search.threads_read.length} thread(s) read): Benefits: ${search.benefit_reports} ` +
+  const read = search.review_corpora === undefined
+    ? `${search.threads_read.length} thread(s) read`
+    : search.review_corpora.map(({ product, reviews_read }) => `${reviews_read} review(s) of ${product} read`).join("; ");
+  return `${search.community} (${read}): Benefits: ${search.benefit_reports} ` +
     `No effect: ${search.no_effect_reports} Adverse: ${search.adverse_reports} Effect on the answer: ` +
     `${search.effect_on_answer} Report this lane in the answer, naming ${search.community} and linking a thread you ` +
     "read, even if its signal is weak. Then copy the sentences that report it into the entry's answer_quotes.";
@@ -1861,6 +1899,31 @@ function communityCoverage(
       );
       continue;
     }
+    // A review site's reviews need their counts and selection (HRP ReviewCorpusSelectionAndCounts).
+    const corpora = search.review_corpora ?? [];
+    if (corpora.length > 0 && search.platform !== "review_site") {
+      out.nextSteps.push(
+        `community_searches for ${name} gives review_corpora, which are for review sites: record the site's product ` +
+          "reviews under platform review_site, or leave review_corpora out."
+      );
+      continue;
+    }
+    if (search.platform === "review_site" && search.threads_read.length > 0 && corpora.length === 0) {
+      out.nextSteps.push(
+        `community_searches for ${name} lists reviews read on a review site: give review_corpora, with each ` +
+          "product, how many reviews the site shows, how many you read and how you chose them."
+      );
+      continue;
+    }
+    const miscounted = corpora.filter(({ reviews_shown: shown, reviews_read: read, selection }) =>
+      shown !== undefined && (read > shown || (selection === "all" && read < shown)));
+    if (miscounted.length > 0) {
+      out.nextSteps.push(
+        `community_searches for ${name} gives review counts that do not fit (${miscounted.map(({ product }) => product)
+          .join(", ")}): reviews_read cannot exceed reviews_shown, and selection all means every review shown was read.`
+      );
+      continue;
+    }
     // Outside Reddit, whose subreddit names it, a community read nowhere is
     // known by its address, never by its name alone.
     if (search.platform !== "reddit" && search.threads_read.length === 0 && search.url === undefined) {
@@ -1903,6 +1966,16 @@ function communityCoverage(
       );
     }
     if (search.threads_read.length === 0) continue;
+    for (const { product, reviews_shown: shown, reviews_read: read, selection } of corpora) {
+      const chosen = PARTIAL_REVIEW_SELECTIONS.get(selection);
+      if (chosen === undefined) continue;
+      out.requireLimit(
+        `The ${read} ${name} review(s) of ${product} you read${shown === undefined ? "" : ` (of ${shown} shown)`} ` +
+          `were ${chosen}; say they show which experiences people report, not how common each is.`,
+        `The ${name} reviews of ${product} that I read were ${chosen}, so they show which experiences people report, ` +
+          "not how common each one is."
+      );
+    }
     const missing = COMMUNITY_FINDINGS.filter((field) => search[field] === undefined);
     if (missing.length > 0) {
       out.nextSteps.push(

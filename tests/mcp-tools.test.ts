@@ -25,6 +25,7 @@ import {
 } from
   "../apps/research-mcp/src/youtube-audit-continuation.js";
 import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
+import { getProtocolManifest } from "../packages/protocol/src/index.js";
 import { pageKey, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 
 const TOOL_NAMES = [
@@ -57,6 +58,7 @@ const TOOL_NAMES = [
   "review_evidence_gap_submissions",
   "assess_treatment_landscape_coverage",
   "scout_gemini_youtube_candidates",
+  "extract_youtube_video_claims",
   "finalize_research",
   "submit_lesson_candidate",
   "save_research_findings"
@@ -70,6 +72,7 @@ const GEMINI_TOOL_NAMES = TOOL_NAMES.filter((name) =>
     "submit_research_contribution",
     "assess_treatment_landscape_coverage",
     "scout_gemini_youtube_candidates",
+    "extract_youtube_video_claims",
     "finalize_research",
     "submit_lesson_candidate",
     "save_research_findings",
@@ -106,7 +109,7 @@ const SPARSE_SEARCH_NOTE = " Few records: before saying anything was not found, 
   "the components of a mixed exposure, and citation chains.";
 
 describe("AskRigor MCP tools", () => {
-  it("registers the exact thirty-two-tool catalog with six declared writes", async () => {
+  it("registers the exact thirty-three-tool catalog with six declared writes", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {
@@ -2800,15 +2803,15 @@ describe("AskRigor MCP tools", () => {
         protocol: "hrp",
         manifest: {
           name: "HRP",
-          version: "20.6.8",
-          revisionDate: "2026-09-30",
-          sha256: "641473288653e5e2249527c3626d20c298c9b2f302ffc79feaad7c12191606b8"
+          version: "20.6.10",
+          revisionDate: "2026-10-03",
+          sha256: "4337aa8ed2f8ccb3537443ae4c8ba953ba986d3aab049629ea1d57e423c42bda"
         },
         scope: "full",
         page: 1,
         next_page: 2,
         complete: false,
-        scope_sha256: "641473288653e5e2249527c3626d20c298c9b2f302ffc79feaad7c12191606b8"
+        scope_sha256: "4337aa8ed2f8ccb3537443ae4c8ba953ba986d3aab049629ea1d57e423c42bda"
       });
       const pageCount = (first.structuredContent as { page_count: number }).page_count;
       expect(first.content).toEqual([
@@ -2851,10 +2854,10 @@ describe("AskRigor MCP tools", () => {
         core_sections: string[];
       };
       expect(indexContent.manifest).toMatchObject({
-        version: "20.5.33",
-        sha256: "981429bd73d163f860ab3939aae5ac7057a3557285faa59fa3c8779f12c9722a"
+        version: "20.5.34",
+        sha256: "d5e041b556bb8635866800c8b55ec5a5684a794df0411427c335c7b33a8f79ab"
       });
-      expect(indexContent.index).toHaveLength(39);
+      expect(indexContent.index).toHaveLength(40);
       expect(indexContent.core_sections).toContain("epistemics");
       expect(indexContent.index.find(({ name }) => name === "revision_history")?.runtime).toBe(false);
 
@@ -2951,6 +2954,65 @@ describe("AskRigor Streamable HTTP server", () => {
     });
   });
 
+  it("tells which AskRigor is running at /version, without sign-in", async () => {
+    const [hrp, universal] = await Promise.all([getProtocolManifest("hrp"), getProtocolManifest("universal")]);
+    const expected = (build: string) => ({
+      service: "askrigor-research",
+      version: "0.1.0",
+      build,
+      protocols: {
+        hrp: { version: hrp.version, revision_date: hrp.revisionDate, sha256: hrp.sha256 },
+        universal: { version: universal.version, revision_date: universal.revisionDate, sha256: universal.sha256 },
+      },
+    });
+    try {
+      await withHttpServer(async (baseUrl) => {
+        vi.stubEnv("ASKRIGOR_BUILD_COMMIT", "5640e6d2cfef");
+        const response = await fetch(new URL("/version", baseUrl));
+        expect(response.status).toBe(200);
+        expect(response.headers.get("content-type")).toBe("application/json");
+        expect(response.headers.get("cache-control")).toBe("no-store");
+        expect(await response.json()).toEqual(expected("5640e6d2cfef"));
+
+        // A value that is not a plain commit or tag name is never echoed.
+        vi.stubEnv("ASKRIGOR_BUILD_COMMIT", "<script>");
+        expect(await (await fetch(new URL("/version", baseUrl))).json()).toEqual(expected("unknown"));
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("shows its versions where plugin panels look: its title and version, and the first tool's description", async () => {
+    // Owner, 2026-10-03: "make sure the version number is in the plugin info panel so i don't have to ask it what
+    // version it is". The build is read when the server starts, so it is set first.
+    const [hrp, universal] = await Promise.all([getProtocolManifest("hrp"), getProtocolManifest("universal")]);
+    const versions = `HRP ${hrp.version}, Universal ${universal.version}, build 5640e6d2cfef`;
+    vi.stubEnv("ASKRIGOR_BUILD_COMMIT", "5640e6d2cfef");
+    try {
+      await withHttpServer(async (baseUrl) => {
+        const client = new Client({ name: "askrigor-test", version: "0.1.0" });
+        try {
+          await client.connect(new StreamableHTTPClientTransport(new URL("/mcp", baseUrl)));
+          expect(client.getServerVersion()).toMatchObject({
+            name: "askrigor-research",
+            title: `AskRigor (${versions})`,
+            version: `0.1.0+hrp.${hrp.version}.universal.${universal.version}.build.5640e6d2cfef`,
+          });
+          const { tools } = await client.listTools();
+          expect(tools[0]?.name).toBe("get_protocol_manifest");
+          expect(tools[0]?.description).toBe(
+            `Versions when this tool list was loaded: ${versions}. Return canonical protocol identity and SHA-256 metadata.`
+          );
+        } finally {
+          await client.close();
+        }
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("supports consecutive MCP requests through the real stateless SDK transport", async () => {
     await withHttpServer(async (baseUrl) => {
       const client = new Client({ name: "askrigor-test", version: "0.1.0" });
@@ -2974,9 +3036,9 @@ describe("AskRigor Streamable HTTP server", () => {
           protocol: "universal",
           manifest: {
             name: "AskRigor.com universal saved instructions",
-            version: "20.5.33",
-            revisionDate: "2026-09-30",
-            sha256: "981429bd73d163f860ab3939aae5ac7057a3557285faa59fa3c8779f12c9722a"
+            version: "20.5.34",
+            revisionDate: "2026-10-03",
+            sha256: "d5e041b556bb8635866800c8b55ec5a5684a794df0411427c335c7b33a8f79ab"
           }
         });
       } finally {
@@ -3018,8 +3080,8 @@ describe("AskRigor Streamable HTTP server", () => {
           ok: true,
           protocol: "universal",
           manifest: {
-            version: "20.5.33",
-            sha256: "981429bd73d163f860ab3939aae5ac7057a3557285faa59fa3c8779f12c9722a"
+            version: "20.5.34",
+            sha256: "d5e041b556bb8635866800c8b55ec5a5684a794df0411427c335c7b33a8f79ab"
           }
         });
       } finally {

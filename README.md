@@ -23,10 +23,10 @@ AskRigor uses this order when sources disagree:
 6. current release/reviewer evidence indexed by `docs/INDEX.md`; and
 7. the recovery checkpoint at `project/CODEX-CURRENT-STATE.md`.
 
-The current canonical files identify HRP `20.6.8` (2026-09-30), SHA-256
-`641473288653e5e2249527c3626d20c298c9b2f302ffc79feaad7c12191606b8`,
-and Universal Instructions `20.5.33` (2026-09-30), SHA-256
-`981429bd73d163f860ab3939aae5ac7057a3557285faa59fa3c8779f12c9722a`.
+The current canonical files identify HRP `20.6.10` (2026-10-03), SHA-256
+`4337aa8ed2f8ccb3537443ae4c8ba953ba986d3aab049629ea1d57e423c42bda`,
+and Universal Instructions `20.5.34` (2026-10-03), SHA-256
+`d5e041b556bb8635866800c8b55ec5a5684a794df0411427c335c7b33a8f79ab`.
 Those values are descriptive receipts derived from the exact XML bytes, not
 substitutes for the files. A README, manifest, router, lesson, checkpoint,
 release record, generated excerpt, or remembered summary never silently
@@ -114,7 +114,17 @@ the secret itself is never returned by a tool or Action.
 ASKRIGOR_PUBLIC_SERVER_ENABLED=true npm run dev:mcp
 ```
 
-`/healthz` is always available for a basic process check. The public `/mcp`
+`/healthz` is always available for a basic process check. `/version` says
+which AskRigor is running: the deployed build (`ASKRIGOR_BUILD_COMMIT`, or
+`unknown`) and the HRP and Universal versions, revision dates and SHA-256s that
+`get_protocol_manifest` reports. Like `/healthz` it needs no sign-in, carries
+no user data, and is neither throttled nor counted against the concurrency cap.
+Compare it with the latest release record under `docs/audits/`. Plugin panels
+show the same versions: the MCP handshake's server title and version carry
+them, and so does the start of `get_protocol_manifest`'s description, the first
+tool listed (as of when the client loaded the tool list; refresh the plugin
+after a release). `get_protocol_manifest` itself, public protocol identity like
+`/version`, needs no sign-in or research mode. The public `/mcp`
 route is fail-closed: unless `ASKRIGOR_PUBLIC_SERVER_ENABLED` is exactly
 `true`, it returns `503 public_server_disabled` before reading a request body,
 running the limiter, or creating an MCP tool server.
