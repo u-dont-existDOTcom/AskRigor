@@ -92,6 +92,13 @@ import {
 } from "./scout-continuation.js";
 import { lookUpScoutTitles } from "./scout-title-lookup.js";
 import {
+  EXTRACT_YOUTUBE_VIDEO_CLAIMS,
+  EXTRACT_YOUTUBE_VIDEO_CLAIMS_DESCRIPTION,
+  extractYoutubeVideoClaims,
+  extractYoutubeVideoClaimsInputSchema,
+  extractYoutubeVideoClaimsOutputSchema
+} from "./gemini-video-tool.js";
+import {
   auditYoutubeCommunity,
   youtubeCommunityAuditInputSchema,
   youtubeCommunityAuditOutputSchema,
@@ -603,6 +610,8 @@ const RESEARCH_ACCESS_CONTROL_OPERATION_NAMES = new Set([
 const CONNECTOR_ONLY_OPERATION_NAMES = new Set([
   "submit_lesson_candidate",
   "save_research_findings",
+  // "Check this video" starts on MCP; a Custom GPT Action follows only if it fits (AskRigor#248).
+  "extract_youtube_video_claims",
 ]);
 
 /** The MCP endpoint a server is created for, recorded on saved findings cards. */
@@ -1774,6 +1783,25 @@ function defineResearchOperations(
   );
 
   registrar.registerTool(
+    EXTRACT_YOUTUBE_VIDEO_CLAIMS,
+    {
+      description: EXTRACT_YOUTUBE_VIDEO_CLAIMS_DESCRIPTION,
+      inputSchema: extractYoutubeVideoClaimsInputSchema,
+      outputSchema: extractYoutubeVideoClaimsOutputSchema,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async (input) => {
+      const { result, receipt } = await extractYoutubeVideoClaims(input, {
+        secret: researchReceiptSecretFromEnv(),
+        geminiKeyUnbilled: geminiKeyDeclaredUnbilled()
+      });
+      return receipt === undefined
+        ? result
+        : withResearchReceipt(result, researchReceipt("youtube_video_claims", receipt));
+    }
+  );
+
+  registrar.registerTool(
     "finalize_research",
     {
       description:
@@ -2526,8 +2554,8 @@ function collectResearchOperations(
   } as unknown as Pick<McpServer, "registerTool">;
 
   defineResearchOperations(registrar, options);
-  if (operations.length !== 32) {
-    throw new Error(`Expected 32 research operations; received ${operations.length}`);
+  if (operations.length !== 33) {
+    throw new Error(`Expected 33 research operations; received ${operations.length}`);
   }
   if (new Set(operations.map(({ name }) => name)).size !== operations.length) {
     throw new Error("Research operation names must be unique");

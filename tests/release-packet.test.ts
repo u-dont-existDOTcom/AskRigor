@@ -48,6 +48,7 @@ const TOOL_NAMES = [
   "review_evidence_gap_submissions",
   "assess_treatment_landscape_coverage",
   "scout_gemini_youtube_candidates",
+  "extract_youtube_video_claims",
   "finalize_research",
   "submit_lesson_candidate",
   "save_research_findings"
@@ -269,7 +270,7 @@ describe("AskRigor public-review packet", () => {
     );
     expect(privacyMap).not.toContain("publisher-matching public notice is live");
     expect(privacyMap).not.toContain("the notice, rather than this internal map, is the public privacy policy");
-    expect(privacySite).toContain("Effective October 1, 2026");
+    expect(privacySite).toContain("Effective October 3, 2026");
     expect(privacySite).toContain("Unpaywall");
     expect(privacySite).toContain("encrypted single-host checkpoint");
     expect(privacySite).toContain("Optional lesson feedback");
@@ -625,7 +626,7 @@ describe("AskRigor public-review packet", () => {
       endpoint: "https://mcp.askrigor.com/mcp"
     });
     expect(inventory.tools.map(({ name }: { name: string }) => name)).toEqual(TOOL_NAMES);
-    expect(inventory.tools).toHaveLength(32);
+    expect(inventory.tools).toHaveLength(33);
 
     for (const tool of inventory.tools) {
       const isWrite = tool.name === "manage_research_access" ||
