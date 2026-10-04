@@ -651,7 +651,10 @@ describe("AskRigor public-review packet", () => {
         "review_research_contribution",
       ].includes(tool.name)
         ? { securitySchemes: [{ type: "oauth2", scopes: ["cases:review"] }] }
-        : { securitySchemes: [{ type: "oauth2", scopes: ["research:use"] }] });
+        // Public protocol identity, as GET /version gives it, needs no sign-in.
+        : tool.name === "get_protocol_manifest"
+          ? { securitySchemes: [{ type: "noauth" }] }
+          : { securitySchemes: [{ type: "oauth2", scopes: ["research:use"] }] });
       expect(Object.keys(tool).filter((key) => tool[key] !== undefined).sort()).toEqual([
         "_meta", "annotations", "description", "execution", "inputSchema", "name", "outputSchema"
       ]);

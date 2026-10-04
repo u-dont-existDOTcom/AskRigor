@@ -19,7 +19,7 @@ import {
 } from "./types.js";
 
 const OPENAPI_PATH = "/actions/openapi.json";
-const RESERVED_PATHS = new Set(["/mcp", "/healthz", OPENAPI_PATH]);
+const RESERVED_PATHS = new Set(["/mcp", "/healthz", "/version", OPENAPI_PATH]);
 
 export interface DispatchActionRequestOptions {
   pathname: string;

@@ -25,6 +25,7 @@ import {
 } from
   "../apps/research-mcp/src/youtube-audit-continuation.js";
 import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
+import { getProtocolManifest } from "../packages/protocol/src/index.js";
 import { pageKey, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 
 const TOOL_NAMES = [
@@ -2949,6 +2950,65 @@ describe("AskRigor Streamable HTTP server", () => {
         '{"status":"ok","service":"askrigor-research","version":"0.1.0"}'
       );
     });
+  });
+
+  it("tells which AskRigor is running at /version, without sign-in", async () => {
+    const [hrp, universal] = await Promise.all([getProtocolManifest("hrp"), getProtocolManifest("universal")]);
+    const expected = (build: string) => ({
+      service: "askrigor-research",
+      version: "0.1.0",
+      build,
+      protocols: {
+        hrp: { version: hrp.version, revision_date: hrp.revisionDate, sha256: hrp.sha256 },
+        universal: { version: universal.version, revision_date: universal.revisionDate, sha256: universal.sha256 },
+      },
+    });
+    try {
+      await withHttpServer(async (baseUrl) => {
+        vi.stubEnv("ASKRIGOR_BUILD_COMMIT", "5640e6d2cfef");
+        const response = await fetch(new URL("/version", baseUrl));
+        expect(response.status).toBe(200);
+        expect(response.headers.get("content-type")).toBe("application/json");
+        expect(response.headers.get("cache-control")).toBe("no-store");
+        expect(await response.json()).toEqual(expected("5640e6d2cfef"));
+
+        // A value that is not a plain commit or tag name is never echoed.
+        vi.stubEnv("ASKRIGOR_BUILD_COMMIT", "<script>");
+        expect(await (await fetch(new URL("/version", baseUrl))).json()).toEqual(expected("unknown"));
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("shows its versions where plugin panels look: its title and version, and the first tool's description", async () => {
+    // Owner, 2026-10-03: "make sure the version number is in the plugin info panel so i don't have to ask it what
+    // version it is". The build is read when the server starts, so it is set first.
+    const [hrp, universal] = await Promise.all([getProtocolManifest("hrp"), getProtocolManifest("universal")]);
+    const versions = `HRP ${hrp.version}, Universal ${universal.version}, build 5640e6d2cfef`;
+    vi.stubEnv("ASKRIGOR_BUILD_COMMIT", "5640e6d2cfef");
+    try {
+      await withHttpServer(async (baseUrl) => {
+        const client = new Client({ name: "askrigor-test", version: "0.1.0" });
+        try {
+          await client.connect(new StreamableHTTPClientTransport(new URL("/mcp", baseUrl)));
+          expect(client.getServerVersion()).toMatchObject({
+            name: "askrigor-research",
+            title: `AskRigor (${versions})`,
+            version: `0.1.0+hrp.${hrp.version}.universal.${universal.version}.build.5640e6d2cfef`,
+          });
+          const { tools } = await client.listTools();
+          expect(tools[0]?.name).toBe("get_protocol_manifest");
+          expect(tools[0]?.description).toBe(
+            `Versions when this tool list was loaded: ${versions}. Return canonical protocol identity and SHA-256 metadata.`
+          );
+        } finally {
+          await client.close();
+        }
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("supports consecutive MCP requests through the real stateless SDK transport", async () => {

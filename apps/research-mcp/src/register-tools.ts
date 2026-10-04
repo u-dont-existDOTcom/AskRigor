@@ -127,7 +127,9 @@ import {
   evidenceGapReviewInputSchema,
   evidenceGapReviewOutputSchema,
   evidenceGapReviewSecurityMetadata,
+  publicToolSecurityMetadata,
 } from "./evidence-gap-review-tool.js";
+import { type RunningVersions, runningVersionsText } from "./version.js";
 import {
   createManageResearchAccessHandler,
   createResearchAccessGuard,
@@ -589,6 +591,9 @@ const PRIVATE_MCP_OPERATION_NAMES = new Set([
   "review_evidence_gap_submissions",
   "review_research_contribution",
 ]);
+// Public protocol identity, the same as GET /version: it needs no sign-in or
+// research mode, so asking which version is loaded always gets an answer.
+const PUBLIC_IDENTITY_OPERATION_NAMES = new Set(["get_protocol_manifest"]);
 const RESEARCH_ACCESS_CONTROL_OPERATION_NAMES = new Set([
   "manage_research_access",
   "submit_research_contribution",
@@ -619,6 +624,8 @@ export interface RegisterToolsOptions {
   /** How long finalize_research waits for a findings save; replaced for tests. */
   findingsSaveDeadlineMilliseconds?: number;
   mcpSurface?: McpSurface;
+  /** The versions this server runs, shown first in get_protocol_manifest's description. */
+  runningVersions?: RunningVersions;
 }
 
 // A findings save never holds back the answer for long: past this, the answer
@@ -632,7 +639,13 @@ function defineResearchOperations(
   registrar.registerTool(
     "get_protocol_manifest",
     {
-      description: "Return canonical protocol identity and SHA-256 metadata.",
+      // Clients show tool descriptions in their plugin panels, so the versions
+      // lead; a client keeps the tool list until it is refreshed, so the
+      // description says when they applied and the tool gives the current ones.
+      description: (options.runningVersions === undefined
+        ? ""
+        : `Versions when this tool list was loaded: ${runningVersionsText(options.runningVersions)}. `) +
+        "Return canonical protocol identity and SHA-256 metadata.",
       inputSchema: {
         protocol: protocolSchema.describe("Canonical protocol to inspect.")
       },
@@ -2475,9 +2488,12 @@ function collectResearchOperations(
       const annotations = Object.freeze({ ...config.annotations });
       const _meta = PRIVATE_MCP_OPERATION_NAMES.has(name)
         ? evidenceGapReviewSecurityMetadata()
-        : researchUseSecurityMetadata();
+        : PUBLIC_IDENTITY_OPERATION_NAMES.has(name)
+          ? publicToolSecurityMetadata()
+          : researchUseSecurityMetadata();
       const guardedExecute = options.researchAccessRequired === true &&
           !PRIVATE_MCP_OPERATION_NAMES.has(name) &&
+          !PUBLIC_IDENTITY_OPERATION_NAMES.has(name) &&
           !RESEARCH_ACCESS_CONTROL_OPERATION_NAMES.has(name)
         ? createResearchAccessGuard(execute, {
             service: options.researchContributorAccessService,
