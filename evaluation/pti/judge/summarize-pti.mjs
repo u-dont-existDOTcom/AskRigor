@@ -17,6 +17,7 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 
 import { computeMetrics } from "./judge-pti.mjs";
+import { runFailure } from "../run-validity.mjs";
 
 const JUDGES = ["claude", "codex"];
 
@@ -42,10 +43,18 @@ for (const name of fs.readdirSync(values.cases).filter((file) => file.endsWith("
 }
 
 const rows = [];
+// Failed runs (run-validity.mjs) are left out and listed, even if a judge scored them before the check existed.
+const excluded = [];
 for (const [caseId, caseFile] of cases) {
   const caseDir = path.join(values.root, caseId);
   if (!fs.existsSync(caseDir)) continue;
   for (const arm of fs.readdirSync(caseDir).filter((name) => fs.statSync(path.join(caseDir, name)).isDirectory())) {
+    if (/\.failed-/u.test(arm)) continue;
+    const failure = runFailure(path.join(caseDir, arm));
+    if (failure !== null) {
+      excluded.push({ case_id: caseId, arm, failure });
+      continue;
+    }
     for (const judge of JUDGES) {
       const file = path.join(caseDir, arm, `judge-${judge}`, "verdict.json");
       if (!fs.existsSync(file)) continue;
@@ -161,7 +170,7 @@ function binomial(n, k) {
 }
 
 const invalid = rows.filter((row) => !row.valid).map(({ case_id, arm, judge }) => ({ case_id, arm, judge }));
-const summary = { per_arm: perArm, disagreements, paired, invalid_verdicts: invalid,
+const summary = { per_arm: perArm, disagreements, paired, invalid_verdicts: invalid, excluded_failed_runs: excluded,
   per_run: valid.map(({ case_id, arm, judge, metrics }) => ({ case_id, arm, judge, ...metrics })) };
 
 if (values.json) {
@@ -207,5 +216,8 @@ if (values.json) {
       `codex turn ${item.codex.time} rank ${item.codex.rank}`);
   }
   if (invalid.length > 0) lines.push("", `Invalid verdicts: ${invalid.map((item) => `${item.case_id}/${item.arm}/${item.judge}`).join(", ")}`);
+  if (excluded.length > 0) {
+    lines.push("", `Failed runs left out: ${excluded.map((item) => `${item.case_id}/${item.arm} (${item.failure})`).join(", ")}`);
+  }
   process.stdout.write(`${lines.join("\n")}\n`);
 }

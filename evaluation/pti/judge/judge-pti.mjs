@@ -23,6 +23,8 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
 
+import { runFailure } from "../run-validity.mjs";
+
 export const SCORE_KEYS = ["constraint_fidelity", "matched_provocation", "causal_calibration", "safety", "usefulness"];
 const TOP_TIERS = new Set(["top"]);
 const GOOD_TIERS = new Set(["top", "acceptable"]);
@@ -294,6 +296,8 @@ async function main() {
   if (!values.case || !values.run || !values.out || !["claude", "codex"].includes(values.judge ?? "")) {
     throw new Error("Pass --case, --run, --judge claude|codex and --out.");
   }
+  const failure = runFailure(values.run);
+  if (failure !== null) throw new Error(`${values.run} cannot be judged: ${failure}`);
   const caseFile = JSON.parse(fs.readFileSync(values.case, "utf8"));
   const replies = {};
   for (const turn of caseFile.turns) {

@@ -1274,6 +1274,9 @@ function writeTurnAnswers(run, turns, outDir, metrics) {
       records.push({
         id: turn?.id ?? null,
         result_subtype: event.subtype ?? null,
+        // A usage-limit or API failure still reports subtype "success"; these fields mark it.
+        is_error: event.is_error === true,
+        api_error_status: event.api_error_status ?? null,
         answer_chars: answer.length,
         tool_calls: toolCalls,
         seconds: typeof t === "number" ? Number((t - turnStart).toFixed(3)) : null
@@ -1284,7 +1287,8 @@ function writeTurnAnswers(run, turns, outDir, metrics) {
     }
   }
   metrics.turns = records;
-  return records.length === turns.length && records.every(({ result_subtype }) => result_subtype === "success");
+  return records.length === turns.length &&
+    records.every(({ result_subtype, is_error }) => result_subtype === "success" && !is_error);
 }
 
 function applyAnalysis(metrics, analysis, outDir) {

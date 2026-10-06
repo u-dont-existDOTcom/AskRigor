@@ -10,6 +10,7 @@ import {
   redactArmIdentity,
   validateVerdict
 } from "../evaluation/pti/judge/judge-pti.mjs";
+import { metricsFailure } from "../evaluation/pti/run-validity.mjs";
 
 const CASES_ROOT = new URL("../evals/pti/cases/", import.meta.url).pathname;
 
@@ -123,5 +124,44 @@ describe("PTI judge", () => {
       time_to_useful_test: null, gold_action_capture: false, top_rank: null, first_good_action_turn: 3, burden_before_top: 3,
       unlisted_before_top: 1
     });
+  });
+});
+
+describe("PTI run validity", () => {
+  const turn = (id: string, extra: Record<string, unknown> = {}) => ({ id, result_subtype: "success", is_error: false, ...extra });
+  const claudeRun = (overrides: Record<string, unknown> = {}) => ({
+    exit: { claude_exit_code: 0, claude_signal: null, timed_out: false, interrupted: false },
+    result_is_error: false,
+    turns_requested: ["t1", "t2"],
+    turns: [turn("t1"), turn("t2")],
+    ...overrides
+  });
+
+  it("accepts a finished Claude or Codex run", () => {
+    expect(metricsFailure(claudeRun())).toBeNull();
+    expect(metricsFailure({ complete: true, turns: [] })).toBeNull();
+  });
+
+  it("refuses a run that hit a usage limit, even though every turn says success", () => {
+    // The 2026-10-04 shape: the CLI exits 1 and each limit notice is a "success" result with is_error true.
+    const limited = claudeRun({
+      exit: { claude_exit_code: 1, claude_signal: null, timed_out: false, interrupted: false },
+      result_is_error: true,
+      terminal_reason: "api_error"
+    });
+    expect(metricsFailure(limited)).toBe("claude exited 1");
+    // A failed turn is caught on its own fields as well.
+    expect(metricsFailure(claudeRun({ turns: [turn("t1"), turn("t2", { is_error: true, api_error_status: 429 })] })))
+      .toBe("turn t2 failed (API status 429)");
+    expect(metricsFailure(claudeRun({ result_is_error: true, terminal_reason: "api_error" })))
+      .toBe("the final result is an error (api_error)");
+  });
+
+  it("refuses missing turns, timeouts and incomplete Codex runs", () => {
+    expect(metricsFailure(claudeRun({ turns: [turn("t1")] }))).toBe("1 of 2 turns answered");
+    expect(metricsFailure(claudeRun({ exit: { claude_exit_code: null, claude_signal: "SIGTERM", timed_out: true } })))
+      .toBe("timed out");
+    expect(metricsFailure({ complete: false })).toBe("the Codex run is incomplete");
+    expect(metricsFailure({})).toBe("no exit record");
   });
 });

@@ -8,6 +8,11 @@
 #
 # Arms: bare-claude | bare-gpt | askrigor:<commit>. Output for each case goes to
 # <out-root>/<case id>/<arm label>/, with judge-claude/ and judge-codex/ inside.
+#
+# A run that failed (a usage limit, a crash, a timeout; see run-validity.mjs) is
+# moved aside to <arm label>.failed-<UTC time> and the queue stops with exit 3,
+# since a usage limit fails every later run too. Rerunning the same command
+# resumes. A file named PAUSE in <out-root> stops the queue before its next run.
 set -uo pipefail
 
 if [ "$#" -lt 3 ]; then
@@ -32,11 +37,16 @@ case "$arm" in
   *) echo "unknown arm: $arm" >&2; exit 2 ;;
 esac
 
+validity="$repo/evaluation/pti/run-validity.mjs"
 for case_file in "$@"; do
   case_id=$(node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).id)' "$case_file")
   run_dir="$out_root/$case_id/$label"
   mkdir -p "$out_root/$case_id"
   if [ ! -f "$run_dir/metrics.json" ]; then
+    if [ -e "$out_root/PAUSE" ]; then
+      echo "[$(date -u +%H:%M:%S)] $label: paused before $case_id ($out_root/PAUSE exists)"
+      exit 4
+    fi
     echo "[$(date -u +%H:%M:%S)] $label: running $case_id"
     case "$arm" in
       bare-claude)
@@ -52,6 +62,13 @@ for case_file in "$@"; do
     echo "[$(date -u +%H:%M:%S)] $label: $case_id run exit $?"
   fi
   [ -f "$run_dir/metrics.json" ] || continue
+  if ! failure=$(node "$validity" "$run_dir"); then
+    aside="$run_dir.failed-$(date -u +%Y%m%dT%H%M%SZ)"
+    mv "$run_dir" "$aside"
+    [ -f "$run_dir.log" ] && mv "$run_dir.log" "$aside.log"
+    echo "[$(date -u +%H:%M:%S)] $label: $case_id failed ($failure); moved to $aside; queue stopped"
+    exit 3
+  fi
   for judge in claude codex; do
     if [ ! -f "$run_dir/judge-$judge/verdict.json" ]; then
       node "$repo/evaluation/pti/judge/judge-pti.mjs" --case "$case_file" --run "$run_dir" --judge "$judge" \

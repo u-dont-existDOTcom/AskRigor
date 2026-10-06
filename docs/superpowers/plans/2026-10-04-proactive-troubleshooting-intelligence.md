@@ -188,7 +188,8 @@ breaks ties, since either family would favor its own side.
 | Staged-conversation runner (`--turns-file`, `--bare`), bare-GPT runner, judge, tests | Done |
 | Skin regression and eight development cases | Done |
 | Candidate protocol edits on the branch | Done, pending owner approval of the text |
-| Development runs and judging (9 cases x 4 arms) | Running: skin case, three baseline arms |
+| Development runs and judging (9 cases x 4 arms) | Restarted 2026-10-06, case by case with all arms (`runner/run-interleaved.sh`). Valid so far: bare GPT on all 9 cases; bare Claude on the skin and wiper cases |
+| Run-validity fix (2026-10-06) | Done: the weekly Claude limit was reached on 2026-10-04 at about 20:30 UTC; seven bare-Claude runs and both AskRigor skin runs held the limit notice, yet counted as finished, and the Codex judge scored them. `run-validity.mjs` now refuses such runs from the runners' exit and error fields; the queue moves them to `<arm>.failed-<time>` and stops; the judge and the summarizer refuse them. The nine runs and their verdicts are set aside, not deleted |
 | Development report and candidate revision | Next |
 | Sealed validation authoring, freeze, validation run | After development |
 | Owner report and approval question | After validation |
