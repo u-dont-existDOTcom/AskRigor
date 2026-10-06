@@ -1,0 +1,70 @@
+{
+ "schema_version": 1,
+ "release": "2026-10-04",
+ "owner_decisions": [
+  "owner question 34: A",
+  "owner question 35: merge 277"
+ ],
+ "merge_commit": "27deb4a57fddbf78f448a014c83361bc06c0e30b",
+ "release_head": "1a5d815f75c68725915dd246e1cf6f8ee51aeb4c",
+ "pull_requests": [
+  257,
+  263,
+  264,
+  265,
+  266,
+  267,
+  268,
+  269,
+  270,
+  271,
+  272,
+  273,
+  274,
+  275,
+  276
+ ],
+ "closed": [
+  250
+ ],
+ "image": {
+  "tag": "askrigor-research:27deb4a57fddbf78f448a014c83361bc06c0e30b",
+  "id": "sha256:275b2b315d207aba5922530f1e737159babb54e3461d6f8cf631c2d43954639c",
+  "archive_bytes": 109001201,
+  "archive_sha256": "a3fb4b125dff14d4098cd91d1cb7d40609b48eb1342181172f9065acd776da7a"
+ },
+ "prior_image": "askrigor-research:5640e6d2cfef6d2436ef5459dee3fad08c8e8fd3",
+ "rollback_image_tag": "askrigor-research:rollback-pre-27deb4a57fdd",
+ "switched_at_utc": "2026-10-04T04:24:53Z",
+ "healthy_at_utc": "2026-10-04T04:25:01Z",
+ "protocols": {
+  "hrp": {
+   "version": "20.6.10",
+   "sha256": "4337aa8ed2f8ccb3537443ae4c8ba953ba986d3aab049629ea1d57e423c42bda"
+  },
+  "universal": {
+   "version": "20.5.34",
+   "sha256": "d5e041b556bb8635866800c8b55ec5a5684a794df0411427c335c7b33a8f79ab"
+  }
+ },
+ "tools": {
+  "standard": 33,
+  "gemini": 22
+ },
+ "runtime_env_names_added": [
+  "ASKRIGOR_OAUTH_CHATGPT_METADATA_CLIENT_ID"
+ ],
+ "migrations": "none new; migrate complete",
+ "site_archive_sha256": "d0051aa1cb137cdf8d921562bd4f95097a0f45c893cd4170ced1b51ee34b5f11",
+ "privacy_effective": "October 4, 2026",
+ "action_document_sha256_prefix": "83314c552f92e912",
+ "plugin": {
+  "version": "0.1.0+codex.20261004044030.hrp.20.6.10.universal.20.5.34",
+  "receipt_prefix": "517f615afb46c304",
+  "files": 8
+ },
+ "open": [
+  "owner connects the ChatGPT plugin through the metadata-document client",
+  "owner checks whether ChatGPT's plugin details page shows the versions"
+ ]
+}
