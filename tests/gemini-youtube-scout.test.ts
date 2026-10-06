@@ -496,6 +496,24 @@ describe("Gemini YouTube scout adapter", () => {
     expect(JSON.stringify(result)).not.toContain("private provider message");
   });
 
+  // 2026-10-06: Google refused every scout with this 402 once the key's prepaid credits ran out, and the
+  // scout reported only a generic request failure.
+  it("names used-up prepaid credits, without the provider's message", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify([{
+      error: { code: 402, message: "Your prepayment credits are depleted.", status: "RESOURCE_EXHAUSTED" }
+    }]), { status: 402 })));
+
+    const result = await scoutGeminiYoutubeCandidates(INPUT, CONFIG);
+
+    expect(result.access_status).toBe("inaccessible");
+    expect(result.error).toMatchObject({
+      code: "gemini_youtube_scout_credits_depleted",
+      http_status: 402,
+      retryable: false
+    });
+    expect(JSON.stringify(result)).not.toContain("prepayment credits are depleted");
+  });
+
   it("keeps a transport timeout retryable", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => {
       throw new DOMException("timed out", "TimeoutError");

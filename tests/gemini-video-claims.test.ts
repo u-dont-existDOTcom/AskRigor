@@ -176,6 +176,8 @@ describe("Gemini video reading pass", () => {
 
   it("classifies a refused start", async () => {
     for (const [status, code, retryable] of [
+      // Prepaid credits used up (2026-10-06): a billing state, not an unreadable video.
+      [402, "gemini_video_credits_depleted", false],
       [429, "gemini_video_rate_limited", true],
       [403, "gemini_video_inaccessible", false],
       [400, "gemini_video_request_rejected", false],

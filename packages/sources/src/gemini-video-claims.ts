@@ -108,6 +108,7 @@ export interface GeminiVideoUsage {
 }
 
 export const GEMINI_VIDEO_BOUNDARY_CODES = [
+  "gemini_video_credits_depleted",
   "gemini_video_rate_limited",
   "gemini_video_inaccessible",
   "gemini_video_request_rejected",
@@ -503,6 +504,8 @@ async function pollAgain(
 
 function failureBoundary(error: unknown): Extract<GeminiVideoAdvance, { kind: "boundary" }> {
   const status = error instanceof UpstreamHttpError ? error.status : undefined;
+  // 402: the key's prepaid credits are used up, a billing state rather than anything about the video.
+  if (status === 402) return { kind: "boundary", code: "gemini_video_credits_depleted", retryable: false };
   if (status === 429) return { kind: "boundary", code: "gemini_video_rate_limited", retryable: true };
   if (status === 401 || status === 403) return { kind: "boundary", code: "gemini_video_inaccessible", retryable: false };
   // Gemini refuses a request it cannot serve, such as a video it cannot read.

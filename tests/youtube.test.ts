@@ -1975,6 +1975,39 @@ describe("YouTube comment response guard isolation", () => {
     });
   });
 
+  // 2026-10-06, live: pages run newest first, so a comment posted during retrieval pushed a thread from one
+  // page onto the next, and the duplicate stopped the whole retrieval.
+  it("drops a thread repeated whole on a later top-level page and keeps reading", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/commentThreads") && url.searchParams.has("pageToken")) {
+        const first = await mutableFixture("comment-threads-page-1.json");
+        const response = await mutableFixture("comment-threads-page-2.json");
+        const items = [(first.items as Record<string, unknown>[])[0]!, ...(response.items as Record<string, unknown>[])];
+        response.items = items;
+        response.pageInfo = { totalResults: items.length, resultsPerPage: items.length };
+        return jsonResponse(response);
+      }
+      return completeCommentResponse(url);
+    }));
+
+    const result = await getYoutubeComments({ video: "XpZHKGGCK-o" }, youtubeConfig);
+
+    expect(result.error).toBeUndefined();
+    expect(result.access_status).toBe("api_visible_complete");
+    expect(result.data.manifest).toMatchObject({
+      top_level_comments_retrieved: 2,
+      total_comments_and_replies: 6,
+      reply_count_mismatches: [],
+      extraction_coverage: "api_visible_complete"
+    });
+    expect(new Set(result.data.comments.map(({ comment_id }) => comment_id)).size).toBe(result.data.comments.length);
+    expect(result.limitations).toEqual([
+      "YouTube returned 1 comment thread(s) again on a later page, as happens when comments arrive during " +
+        "retrieval; each repeat was dropped."
+    ]);
+  });
+
   it("rejects a duplicate reply ID across separate comments.list pages", async () => {
     vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
       const url = new URL(String(input));

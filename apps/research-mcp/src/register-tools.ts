@@ -1693,7 +1693,10 @@ function defineResearchOperations(
         const { code, retryable } = execution.controller_boundary;
         return scoutError(code, retryable, code === "research_target_not_population_level"
           ? `Start a new scout without the continuation_token. ${SCOUT_TARGET_GUIDANCE}`
-          : undefined);
+          : code === "gemini_youtube_scout_credits_depleted"
+            ? "AskRigor's Gemini key has used up its prepaid credits, so the scout cannot run until its billing is " +
+              "fixed. Use survey_youtube_community instead."
+            : undefined);
       }
       if ("controller_progress" in execution) {
         const continuation = encodeScoutContinuation({
