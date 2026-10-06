@@ -1169,6 +1169,17 @@ function scoutFailureEnvelope(
   error: unknown
 ): ProvenanceEnvelope<Record<string, never>> {
   const status = error instanceof UpstreamHttpError ? error.status : undefined;
+  // Google answers 402 when the key's account runs on prepaid credits and they are used up (seen
+  // 2026-10-06; until then it surfaced only as a generic request failure).
+  if (status === 402) {
+    return scoutErrorEnvelope(input, {
+      accessStatus: "inaccessible",
+      code: "gemini_youtube_scout_credits_depleted",
+      message: "Gemini refused the scout: the prepaid credits of the configured key are used up",
+      httpStatus: status,
+      retryable: false
+    });
+  }
   if (status === 429) {
     return scoutErrorEnvelope(input, {
       accessStatus: "rate_limited",

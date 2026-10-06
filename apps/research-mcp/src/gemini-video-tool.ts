@@ -463,6 +463,10 @@ function dailyLimitGuidance(remainingSeconds: number): string {
 
 function boundaryGuidance(code: GeminiVideoBoundaryCode): string | undefined {
   switch (code) {
+    case "gemini_video_credits_depleted":
+      return "AskRigor's Gemini key has used up its prepaid credits, so no video can be read until its billing is " +
+        "fixed. Check the claims the person reports from the video with the other tools, and say the video itself " +
+        "could not be read.";
     case "gemini_video_not_completed":
     case "gemini_video_request_rejected":
       return "Gemini could not read this video; check the claims the person reports from it with the other tools.";
