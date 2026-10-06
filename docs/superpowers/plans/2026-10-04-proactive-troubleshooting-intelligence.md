@@ -159,7 +159,20 @@ breaks ties, since either family would favor its own side.
   gives the ten behaviors, the case contract, the slot's family and a domain
   area that avoids every development domain. Health slots are mild and low
   risk, with harmless triggers only.
-- Families are the eight development structures; each has three new domains.
+- Families are the directive's eight suggested validation families: skin or
+  contact; position, mechanical or ergonomic (no emergency features);
+  household or environmental; electronics contact and power; software or
+  configuration; networking path; audio or electrical interference; materials,
+  cleaning or maintenance. Each family mixes three different development
+  structures, so it is not three versions of one trick, and each structure
+  appears in three families (`FAMILIES` and `STRUCTURES` in
+  `author-validation.mjs`). Until 2026-10-06 the families were the structures
+  themselves, against the directive's list. The two cases sealed under that
+  plan on 2026-10-04 (val-01, val-02) were moved unread to
+  `~/askrigor-pti-runs/validation-sealed/superseded-20261004-structure-families/`
+  and are not used.
+- Authoring waits until the development runs finish: on 2026-10-04, four arms
+  and Opus judges at once used up the weekly Claude limit.
 - Sealing: cases go to a private folder (0700, files 0600) and are checked
   against `evaluation/pti/case-contract.mjs` without being shown; the script
   prints only slot ids and broken field names. Only the slot plan and SHA-256
@@ -189,10 +202,24 @@ breaks ties, since either family would favor its own side.
 | Skin regression and eight development cases | Done |
 | Candidate protocol edits on the branch | Done, pending owner approval of the text |
 | Development runs and judging (9 cases x 4 arms) | Restarted 2026-10-06, case by case with all arms (`runner/run-interleaved.sh`). Valid so far: bare GPT on all 9 cases; bare Claude on the skin and wiper cases |
+| Handover (2026-10-06) | The original PTI session ("Local AskRigor optimization") stood down on the owner's instruction; this session runs the lane, including its draft pull request |
+| Validation families (2026-10-06) | Corrected to the directive's list (above); not yet authored |
 | Run-validity fix (2026-10-06) | Done: the weekly Claude limit was reached on 2026-10-04 at about 20:30 UTC; seven bare-Claude runs and both AskRigor skin runs held the limit notice, yet counted as finished, and the Codex judge scored them. `run-validity.mjs` now refuses such runs from the runners' exit and error fields; the queue moves them to `<arm>.failed-<time>` and stops; the judge and the summarizer refuse them. The nine runs and their verdicts are set aside, not deleted |
 | Development report and candidate revision | Next |
 | Sealed validation authoring, freeze, validation run | After development |
 | Owner report and approval question | After validation |
+
+## Findings for the development report
+
+- Speed on a mild case: on 2026-10-04, before the limit, live AskRigor's
+  first reply on the skin case took about 23 minutes (1,387 to 1,391 s, over
+  100 tool calls, including clinical-trial and YouTube searches); the
+  candidate was still on its first reply after 22 minutes. Turn counts miss
+  this, so the tables also report seconds to the first reply and to the top
+  action. A candidate revision may need proportionality: for a mild problem
+  with no red flags, give the safe test in the first reply and offer deeper
+  research after. That changes HRP's research behavior, so the owner approves
+  the exact text.
 
 ## Active lesson contract
 

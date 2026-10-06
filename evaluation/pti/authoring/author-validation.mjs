@@ -28,37 +28,73 @@ import { caseProblems, CASE_SCHEMA, SCORING_KEYS } from "../case-contract.mjs";
 import { claudeEnvironment } from "../judge/judge-pti.mjs";
 import { createCleanCodexHome } from "../runner/codex-home.mjs";
 
-// Families are the development structures; domains are areas, never faults, and avoid every development domain.
+// Families follow the owner directive's suggested validation families (2026-10-04, "Frozen validation set"). Each family
+// mixes three different causal structures, so it is not three paraphrases of one trick, and each of the eight
+// development structures appears in three families. Domains are areas, never faults, and avoid every development
+// domain. (Until 2026-10-06 the families were the structures themselves; the two cases sealed under that plan were set
+// aside unread.)
+export const STRUCTURES = {
+  surface_contact_vs_remote: "A fault the user or an adviser blames on a remote, expensive or serious cause actually sits at a surface or contact point the user can test locally and cheaply.",
+  provocation_dependent_premature_recovery: "The problem appears only under one load or trigger, and someone declares it fixed after a stretch without that trigger.",
+  combination_attribution: "Two changes each failed when tried alone, at different times; together they work. The user concludes each is ruled out.",
+  obvious_attempts_failed: "The user already tried the obvious fixes before asking. Repeating them wastes effort; the useful test splits the problem at the failing condition.",
+  configuration_specific: "The failure happens in one configuration, profile, setting or environment while the same thing works elsewhere.",
+  intermittent_single_element: "An intermittent fault where one element in a chain is the cause; swapping only that element, then putting it back once, shows it.",
+  environmental_trigger: "A problem tied to one local exposure or condition; a natural contrast, such as time away, changes several things at once, and the useful test changes one exposure while holding the others constant.",
+  shared_source_interference: "A fault caused by a shared source (power, earth, water, air or signal) that shows only when two things are connected or on together."
+};
 export const FAMILIES = [
-  ["surface_contact_vs_remote", "A fault the user or an adviser blames on a remote, expensive or serious cause actually sits at a surface or contact point the user can test locally and cheaply."],
-  ["provocation_dependent_premature_recovery", "The problem appears only under one load or trigger, and someone declares it fixed after a stretch without that trigger."],
-  ["combination_attribution", "Two changes each failed when tried alone, at different times; together they work. The user concludes each is ruled out."],
-  ["obvious_attempts_failed", "The user already tried the obvious fixes before asking. Repeating them wastes effort; the useful test splits the problem at the failing condition."],
-  ["configuration_specific", "The failure happens in one configuration, profile, setting or environment while the same thing works elsewhere."],
-  ["intermittent_single_element", "An intermittent fault where one element in a chain is the cause; swapping only that element, then putting it back once, shows it."],
-  ["mild_environmental_health", "A mild, low-risk health symptom tied to a home or routine exposure; a natural contrast, such as time away, changes several things at once."],
-  ["shared_source_interference", "A fault caused by a shared source (power, earth, water, air or signal) that shows only when two things are connected or on together."]
-];
-const DOMAINS = [
-  ["a bicycle", "a kitchen appliance", "health: skin contact with an everyday personal item (low risk)"],
-  ["a car or motorbike", "home heating or hot water", "health: a joint or muscle ache provoked by one everyday activity (low risk)"],
-  ["home baking or fermentation", "a home aquarium or houseplants", "health: sleep quality (low risk)"],
-  ["a home printer", "a smartphone's battery or charging", "garden irrigation or a lawn"],
-  ["a spreadsheet or office program", "a smart TV or streaming device", "a shared family computer or account"],
-  ["a home security camera or video doorbell", "a car's electrical accessory", "a game controller or wireless peripheral"],
-  ["health: headaches on days at home (low risk)", "health: itchy eyes in one room (low risk)", "health: a dry night-time cough (low risk)"],
-  ["home lighting", "a radio or audio receiver", "home water pressure"]
+  ["skin_contact_local_physiology", [
+    ["surface_contact_vs_remote", "health: skin irritation where an everyday personal item touches the skin (low risk)"],
+    ["provocation_dependent_premature_recovery", "health: a skin sensation that appears only during one routine activity (low risk)"],
+    ["combination_attribution", "health: dry or irritated hands tied to a household routine (low risk)"]
+  ]],
+  ["position_mechanical_ergonomic", [
+    ["provocation_dependent_premature_recovery", "health: a joint or muscle ache provoked by one everyday movement, with no emergency features (low risk)"],
+    ["obvious_attempts_failed", "health: a stiff neck or back after the usual remedies were already tried, with no emergency features (low risk)"],
+    ["environmental_trigger", "health: wrist or shoulder discomfort that differs between two places where the person works (low risk)"]
+  ]],
+  ["household_environmental", [
+    ["environmental_trigger", "household: an odor or condensation problem in one room"],
+    ["combination_attribution", "household: a recurring kitchen result, such as bread or yogurt that will not turn out"],
+    ["obvious_attempts_failed", "household: a heating or hot-water problem after the usual fixes were already tried"]
+  ]],
+  ["electronics_hardware_contact_power", [
+    ["intermittent_single_element", "electronics: a game controller or wireless peripheral that drops out"],
+    ["surface_contact_vs_remote", "electronics: a device that will not charge, blamed on its battery or circuit board"],
+    ["shared_source_interference", "electronics: a car's electrical accessory"]
+  ]],
+  ["software_browser_configuration", [
+    ["configuration_specific", "software: a spreadsheet or office program"],
+    ["obvious_attempts_failed", "software: a phone app that the user already reinstalled"],
+    ["combination_attribution", "software: a smart TV or streaming device's settings"]
+  ]],
+  ["networking_connectivity_path", [
+    ["configuration_specific", "networking: a work laptop that cannot reach one service from home"],
+    ["intermittent_single_element", "networking: a home security camera or video doorbell that goes offline"],
+    ["provocation_dependent_premature_recovery", "networking: online play on a game console that fails only under one condition"]
+  ]],
+  ["audio_electrical_interference", [
+    ["shared_source_interference", "audio: a radio or audio receiver"],
+    ["intermittent_single_element", "audio: crackling in wired earbuds or a headset"],
+    ["configuration_specific", "audio: a microphone in one recording setup"]
+  ]],
+  ["material_cleaning_maintenance", [
+    ["surface_contact_vs_remote", "maintenance: a bicycle"],
+    ["environmental_trigger", "cleaning: spots or film on dishes, glassware or a shower screen"],
+    ["shared_source_interference", "maintenance: garden irrigation or home water pressure"]
+  ]]
 ];
 const EXCLUDED_DOMAINS = "windshield wipers, washing machines, seed starting, home Wi-Fi speed, webmail attachments, " +
   "external backup drives, bedding and morning stuffiness, speaker hum from a laptop, skin prickling when lying down";
 
 export function slotPlan() {
   const slots = [];
-  FAMILIES.forEach(([family, structure], familyIndex) => {
-    DOMAINS[familyIndex].forEach((domain, domainIndex) => {
+  FAMILIES.forEach(([family, entries]) => {
+    entries.forEach(([structureId, domain], entryIndex) => {
       const index = slots.length;
-      slots.push({ slot: `val-${String(index + 1).padStart(2, "0")}`, family, structure, domain,
-        author: index % 2 === 0 ? "claude" : "codex", letter: "abc"[domainIndex] });
+      slots.push({ slot: `val-${String(index + 1).padStart(2, "0")}`, family, structure_id: structureId,
+        structure: STRUCTURES[structureId], domain, author: index % 2 === 0 ? "claude" : "codex", letter: "abc"[entryIndex] });
     });
   });
   return slots;
