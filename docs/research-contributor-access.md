@@ -161,6 +161,26 @@ unregistered/revoked access,
 expired private entitlement, an unavailable access store, and malformed
 proposals fail closed.
 
+A refusal says why, to the caller only. With no sign-in it says the call
+carried none. With a refused token it names a fixed class taken from the
+verifier's exact error identity: `expired`, `wrong_audience`, `wrong_issuer`,
+`not_a_signed_token` (for example an opaque token issued without this API's
+audience), `bad_signature`, `client_not_allowed`, `subject_not_allowed`,
+`invalid_claims` or `unverifiable` (AskRigor could not check it). With no
+mode chosen it names the `manage_research_access` inspect call. Nothing is
+logged, and the token and its claims are never returned.
+
+ChatGPT showed every refused research call only as "The tool failed
+internally" (owner reports, 2026-10-03 and 2026-10-06), so `get_protocol_manifest`,
+which needs no sign-in, also reports the connection: `connection.sign_in`
+(`absent`, `refused` with `sign_in_refusal`, or `accepted`),
+`connection.research_access` (`ready`, `sign_in_needed`, `permission_missing`,
+`mode_not_chosen`, `revoked`, `entitlement_inactive` or `unavailable`) and a
+`next_step` sentence, which its text repeats. Its security schemes list
+`noauth` and then `oauth2` with `research:use`, so a signed-in client sends its
+token with it. The field is absent where `/mcp` has no OAuth and on Action
+calls.
+
 Legacy public research Action routes are removed from the effective Action
 catalog when OAuth research access is active so they cannot bypass the mode
 choice. The lesson-feedback Action remains separately governed. The Gemini

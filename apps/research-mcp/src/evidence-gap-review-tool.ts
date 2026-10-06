@@ -79,10 +79,6 @@ export function evidenceGapReviewSecurityMetadata(): Record<string, unknown> {
   };
 }
 
-export function publicToolSecurityMetadata(): Record<string, unknown> {
-  return { securitySchemes: [{ type: "noauth" }] };
-}
-
 export function createEvidenceGapReviewHandler(
   options: EvidenceGapReviewToolOptions,
 ): (

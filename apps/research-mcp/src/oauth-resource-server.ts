@@ -225,20 +225,104 @@ function parseTokenBinding(value: string | undefined, name: string): string {
   return value;
 }
 
+/**
+ * Why a request's bearer token was refused, as a fixed class. It is returned
+ * only to the caller that sent the token, so a client whose sign-in is set up
+ * wrongly can say why its research calls are refused; it is never logged, and
+ * it never carries the token or its claims.
+ */
+export type SignInRefusal =
+  | "expired"
+  | "wrong_audience"
+  | "wrong_issuer"
+  | "not_a_signed_token"
+  | "bad_signature"
+  | "client_not_allowed"
+  | "subject_not_allowed"
+  | "invalid_claims"
+  | "unverifiable";
+
+export const SIGN_IN_REFUSALS = [
+  "expired",
+  "wrong_audience",
+  "wrong_issuer",
+  "not_a_signed_token",
+  "bad_signature",
+  "client_not_allowed",
+  "subject_not_allowed",
+  "invalid_claims",
+  "unverifiable",
+] as const satisfies readonly SignInRefusal[];
+
+/** What happened to one request's sign-in on /mcp. */
+export type SignInState =
+  | { readonly state: "absent" }
+  | { readonly state: "refused"; readonly refusal: SignInRefusal }
+  | { readonly state: "accepted" };
+
+/**
+ * The refusal class of a verification error, from jose's error codes and this
+ * module's own error identifiers: exact identities, not message wording.
+ */
+export function signInRefusal(error: unknown): SignInRefusal {
+  const code = typeof error === "object" && error !== null
+    ? (error as { code?: unknown }).code
+    : undefined;
+  switch (code) {
+    case "ERR_JWT_EXPIRED":
+      return "expired";
+    case "ERR_JWT_CLAIM_VALIDATION_FAILED": {
+      const claim = (error as { claim?: unknown }).claim;
+      return claim === "aud" ? "wrong_audience" : claim === "iss" ? "wrong_issuer" : "invalid_claims";
+    }
+    // Not a signed JWT at all: for example an opaque or encrypted token, which an
+    // authorization server issues when the sign-in did not ask for this API.
+    case "ERR_JWS_INVALID":
+    case "ERR_JWT_INVALID":
+      return "not_a_signed_token";
+    case "ERR_JWS_SIGNATURE_VERIFICATION_FAILED":
+    case "ERR_JWKS_NO_MATCHING_KEY":
+    case "ERR_JWKS_MULTIPLE_MATCHING_KEYS":
+    case "ERR_JOSE_ALG_NOT_ALLOWED":
+    case "ERR_JOSE_NOT_SUPPORTED":
+      return "bad_signature";
+  }
+  const identifier = error instanceof Error ? error.message : undefined;
+  switch (identifier) {
+    case "OAUTH_ACCESS_TOKEN_CLIENT_NOT_ALLOWED":
+      return "client_not_allowed";
+    case "OAUTH_ACCESS_TOKEN_SUBJECT_NOT_ALLOWED":
+      return "subject_not_allowed";
+    case "OAUTH_ACCESS_TOKEN_INVALID":
+    case "OAUTH_ACCESS_TOKEN_EXPIRY_REQUIRED":
+    case "OAUTH_ACCESS_TOKEN_CLIENT_REQUIRED":
+    case "OAUTH_VERIFIER_RESULT_INVALID":
+      return "invalid_claims";
+  }
+  // Anything else, such as the signing keys being unreachable, is on AskRigor's side.
+  return "unverifiable";
+}
+
+/**
+ * Attaches a valid token's identity to the request and says what happened to
+ * the sign-in; undefined when /mcp has no OAuth configured.
+ */
 export async function attachOptionalOAuthIdentity(
   request: IncomingMessage,
   config: AskRigorOAuthResourceServer | undefined,
-): Promise<void> {
-  if (config === undefined) return;
+): Promise<SignInState | undefined> {
+  if (config === undefined) return undefined;
   const token = bearerToken(request.headers.authorization);
-  if (token === null) return;
+  if (token === null) return { state: "absent" };
   try {
     const authInfo = await config.verifier.verifyAccessToken(token);
     validateVerifiedAuthInfo(authInfo, token, config.resourceUrl);
     (request as IncomingMessage & { auth?: AuthInfo }).auth = authInfo;
-  } catch {
+    return { state: "accepted" };
+  } catch (error) {
     // Authentication is attached at the transport boundary, while each tool
     // enforces its own scope and returns the matching OAuth challenge.
+    return { state: "refused", refusal: signInRefusal(error) };
   }
 }
 

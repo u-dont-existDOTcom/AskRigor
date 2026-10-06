@@ -134,8 +134,8 @@ import {
   evidenceGapReviewInputSchema,
   evidenceGapReviewOutputSchema,
   evidenceGapReviewSecurityMetadata,
-  publicToolSecurityMetadata,
 } from "./evidence-gap-review-tool.js";
+import type { SignInState } from "./oauth-resource-server.js";
 import { type RunningVersions, runningVersionsText } from "./version.js";
 import {
   createManageResearchAccessHandler,
@@ -144,6 +144,10 @@ import {
   researchUseAccount,
   manageResearchAccessInputSchema,
   manageResearchAccessOutputSchema,
+  optionalSignInSecurityMetadata,
+  researchConnection,
+  researchConnectionSchema,
+  researchConnectionSummary,
   researchUseSecurityMetadata,
   submitResearchContributionInputSchema,
   submitResearchContributionOutputSchema,
@@ -641,6 +645,8 @@ export interface RegisterToolsOptions {
   mcpSurface?: McpSurface;
   /** The versions this server runs, shown first in get_protocol_manifest's description. */
   runningVersions?: RunningVersions;
+  /** What happened to this request's sign-in on /mcp; undefined without OAuth. */
+  signIn?: SignInState;
 }
 
 // A findings save never holds back the answer for long: past this, the answer
@@ -668,16 +674,24 @@ function defineResearchOperations(
         ok: z.boolean(),
         protocol: protocolSchema,
         manifest: manifestSchema.optional(),
+        // Whether this connection's research calls will be accepted: this call needs no sign-in, so it can say why
+        // the others are refused when a client shows only a generic error for them.
+        connection: researchConnectionSchema.optional(),
         error: errorSchema.optional()
       },
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async ({ protocol }) => {
+    async ({ protocol }, extra) => {
       try {
         const manifest = await getProtocolManifest(protocol);
+        const connection = await researchConnection(extra, {
+          service: options.researchContributorAccessService,
+          signIn: options.signIn,
+        });
         return successfulToolResult(
-          `Protocol manifest: ${manifest.name} ${manifest.version} (${manifest.revisionDate}); SHA-256 ${manifest.sha256}.`,
-          { ok: true, protocol, manifest }
+          `Protocol manifest: ${manifest.name} ${manifest.version} (${manifest.revisionDate}); SHA-256 ${manifest.sha256}.` +
+            (connection === undefined ? "" : ` ${researchConnectionSummary(connection)}`),
+          { ok: true, protocol, manifest, ...(connection === undefined ? {} : { connection }) }
         );
       } catch (error) {
         return protocolErrorResult(protocol, error);
@@ -1475,7 +1489,7 @@ function defineResearchOperations(
   registrar.registerTool(
     "manage_research_access",
     {
-      description: `Inspect or choose AskRigor's research-use mode. Free use requires explicit agreement to version ${RESEARCH_USE_NOTICE_VERSION}: what AskRigor learns from the research (deidentified structured research progress and each finished answer's findings card) is saved for non-authoritative review. Paid private mode saves an answer's findings card or lesson feedback only when the user accepts saving it for that answer, and activates only for an existing verified entitlement; this release offers no price or checkout.`,
+      description: `Inspect or choose AskRigor's research-use mode; call it with inspect before the first research call and whenever a research tool is refused. Free use requires explicit agreement to version ${RESEARCH_USE_NOTICE_VERSION}: what AskRigor learns from the research (deidentified structured research progress and each finished answer's findings card) is saved for non-authoritative review. Paid private mode saves an answer's findings card or lesson feedback only when the user accepts saving it for that answer, and activates only for an existing verified entitlement; this release offers no price or checkout.`,
       inputSchema: manageResearchAccessInputSchema,
       outputSchema: manageResearchAccessOutputSchema,
       annotations: MUTATING_ANNOTATIONS,
@@ -1483,6 +1497,7 @@ function defineResearchOperations(
     createManageResearchAccessHandler({
       service: options.researchContributorAccessService,
       resourceMetadataUrl: options.oauthResourceMetadataUrl,
+      signIn: options.signIn,
     }),
   );
 
@@ -1497,6 +1512,7 @@ function defineResearchOperations(
     createSubmitResearchContributionHandler({
       service: options.researchContributorAccessService,
       resourceMetadataUrl: options.oauthResourceMetadataUrl,
+      signIn: options.signIn,
     }),
   );
 
@@ -2599,7 +2615,7 @@ function collectResearchOperations(
       const _meta = PRIVATE_MCP_OPERATION_NAMES.has(name)
         ? evidenceGapReviewSecurityMetadata()
         : PUBLIC_IDENTITY_OPERATION_NAMES.has(name)
-          ? publicToolSecurityMetadata()
+          ? optionalSignInSecurityMetadata()
           : researchUseSecurityMetadata();
       const guardedExecute = options.researchAccessRequired === true &&
           !PRIVATE_MCP_OPERATION_NAMES.has(name) &&
@@ -2608,6 +2624,7 @@ function collectResearchOperations(
         ? createResearchAccessGuard(execute, {
             service: options.researchContributorAccessService,
             resourceMetadataUrl: options.oauthResourceMetadataUrl,
+            signIn: options.signIn,
           })
         : execute;
       const mcpConfig = Object.freeze({
