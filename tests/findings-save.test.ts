@@ -649,7 +649,7 @@ describe("finalize_research, save_research_findings and the findings library", (
     const yes = { findings_card: CHECKED_CARD, finalization_receipt: receipt, user_consent: "yes_to_this_save" };
     const signedOut = await save(yes);
     expect(signedOut.isError).toBe(true);
-    expect(JSON.stringify(signedOut.content)).toContain("Connect an AskRigor account");
+    expect(JSON.stringify(signedOut.content)).toContain("This call carried no AskRigor sign-in");
     // A surface without research accounts saves nothing either.
     const withoutAccount = await connectorTool("save_research_findings", { ...options, researchAccessRequired: false })(yes);
     expect(withoutAccount.isError).toBe(true);

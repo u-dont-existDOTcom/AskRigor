@@ -107,6 +107,7 @@ import {
   protectedResourceMetadataUrl,
   writeOAuthProtectedResourceMetadata,
   type AskRigorOAuthResourceServer,
+  type SignInState,
 } from "./oauth-resource-server.js";
 
 import type { LessonSubmissionResult } from "./lessons/contracts.js";
@@ -133,6 +134,8 @@ export interface AskRigorMcpServerOptions {
   mcpSurface?: McpSurface;
   /** The versions this server runs: its title and version, and the manifest tool's description. */
   runningVersions?: RunningVersions;
+  /** What happened to this request's sign-in on /mcp; undefined without OAuth. */
+  signIn?: SignInState;
 }
 
 export function createAskRigorServer(
@@ -174,7 +177,7 @@ export interface AskRigorHttpServerOptions {
   trustedClientIpHeader?: TrustedClientIpHeader;
   rateLimiter?: TokenBucketLimiter;
   concurrencyLimiter?: ConcurrencyLimiter;
-  createMcpServer?: (profile?: McpToolCatalogProfile) => McpServer;
+  createMcpServer?: (profile?: McpToolCatalogProfile, signIn?: SignInState) => McpServer;
   mcpHandshakeDiagnosticsEnabled?: boolean;
   mcpHandshakeDiagnosticLogger?: (
     record: McpHandshakeDiagnosticRecord
@@ -435,7 +438,7 @@ export function createAskRigorHttpServer(
     () => undefined,
   );
   const createMcpServer = options.createMcpServer ??
-    ((profile?: McpToolCatalogProfile) => createAskRigorServer(profile, {
+    ((profile?: McpToolCatalogProfile, signIn?: SignInState) => createAskRigorServer(profile, {
       publicEvidenceGapReviewService,
       oauthResourceMetadataUrl,
       allowedReviewerSubjects: oauthResourceServer?.reviewerSubjects,
@@ -444,9 +447,11 @@ export function createAskRigorHttpServer(
       researchAccessRequired,
       mcpSurface: profile === "gemini" ? GEMINI_COMPATIBLE_MCP_PATH : "/mcp",
       runningVersions,
+      signIn,
     }));
-  const createClaudeMcpServer = options.createMcpServer ??
-    (() => createAskRigorServer("standard", {
+  const createClaudeMcpServer = (signIn?: SignInState) => options.createMcpServer !== undefined
+    ? options.createMcpServer("standard", signIn)
+    : createAskRigorServer("standard", {
       publicEvidenceGapReviewService,
       oauthResourceMetadataUrl: claudeOAuthResourceServer === undefined
         ? undefined
@@ -457,7 +462,8 @@ export function createAskRigorHttpServer(
       researchAccessRequired,
       mcpSurface: CLAUDE_MCP_PATH,
       runningVersions,
-    }));
+      signIn,
+    });
 
   return createServer(async (request, response) => {
     const pathname = exactOriginFormPath(request.url);
@@ -662,14 +668,15 @@ export function createAskRigorHttpServer(
 
       let server: McpServer | undefined;
       try {
-        if (!claudeSurface) {
-          await attachOptionalOAuthIdentity(request, oauthResourceServer);
-        }
+        // /mcp/claude refused the request above unless its sign-in was valid.
+        const signIn: SignInState | undefined = claudeSurface
+          ? { state: "accepted" }
+          : await attachOptionalOAuthIdentity(request, oauthResourceServer);
         const profile = pathname === GEMINI_COMPATIBLE_MCP_PATH
           ? "gemini"
           : "standard";
         await runningVersionsRead;
-        server = claudeSurface ? createClaudeMcpServer() : createMcpServer(profile);
+        server = claudeSurface ? createClaudeMcpServer(signIn) : createMcpServer(profile, signIn);
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: undefined
         });

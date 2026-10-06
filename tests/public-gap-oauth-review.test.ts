@@ -234,8 +234,9 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
     expect(ordinary.isError).toBe(true);
     expect(manifest.isError).not.toBe(true);
     expect(manifest.structuredContent).toMatchObject({ ok: true, protocol: "hrp" });
+    // No sign-in needed, but a signed-in client sends its token so the manifest can report research access.
     expect(tools.find(({ name }) => name === "get_protocol_manifest")?._meta).toEqual({
-      securitySchemes: [{ type: "noauth" }],
+      securitySchemes: [{ type: "noauth" }, { type: "oauth2", scopes: [RESEARCH_USE_SCOPE] }],
     });
     expect(tools).toHaveLength(33);
     expect(review?._meta).toEqual({

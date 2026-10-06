@@ -9,7 +9,12 @@ import {
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
-import { RESEARCH_USE_SCOPE } from "./oauth-resource-server.js";
+import {
+  RESEARCH_USE_SCOPE,
+  SIGN_IN_REFUSALS,
+  type SignInRefusal,
+  type SignInState,
+} from "./oauth-resource-server.js";
 import type { ResearchOperationExtra } from "./research-operation.js";
 
 // A notice version as a pattern, not the current value: clients keep a tool's
@@ -87,11 +92,105 @@ export const submitResearchContributionOutputSchema = z.object({
 export interface ResearchContributorToolOptions {
   service?: ResearchContributorAccessService;
   resourceMetadataUrl?: URL;
+  /** What happened to this request's sign-in on /mcp; undefined without OAuth. */
+  signIn?: SignInState;
+}
+
+/**
+ * Whether this connection's research calls will be accepted, and if not, why
+ * and what the user can do. get_protocol_manifest reports it, because that call
+ * needs no sign-in and a client shows its result to the model: on 2026-10-03 and
+ * 2026-10-06, ChatGPT showed every refused research call only as "The tool
+ * failed internally", so neither the user nor the model could see the cause.
+ */
+export const researchConnectionSchema = z.object({
+  sign_in: z.enum(["absent", "refused", "accepted"]),
+  sign_in_refusal: z.enum(SIGN_IN_REFUSALS).optional(),
+  research_access: z.enum([
+    "ready",
+    "sign_in_needed",
+    "permission_missing",
+    "mode_not_chosen",
+    "revoked",
+    "entitlement_inactive",
+    "unavailable",
+  ]),
+  next_step: z.string().optional(),
+}).strict();
+
+export type ResearchConnection = z.infer<typeof researchConnectionSchema>;
+
+/** The connection status for this request, or undefined when /mcp has no OAuth or the call came through an Action. */
+export async function researchConnection(
+  extra: ResearchOperationExtra | undefined,
+  options: ResearchContributorToolOptions,
+): Promise<ResearchConnection | undefined> {
+  const signIn = options.signIn;
+  if (signIn === undefined || extra?.surface === "action") return undefined;
+  const signInFields = {
+    sign_in: signIn.state,
+    ...(signIn.state === "refused" ? { sign_in_refusal: signIn.refusal } : {}),
+  };
+  const problem = signInProblem(extra, signIn);
+  if ("code" in problem) {
+    return {
+      ...signInFields,
+      research_access: problem.code === "insufficient_scope" ? "permission_missing" : "sign_in_needed",
+      next_step: problem.message,
+    };
+  }
+  if (options.service === undefined) {
+    return {
+      ...signInFields,
+      research_access: "unavailable",
+      next_step: "AskRigor's research-access service is not configured; research tools are unavailable.",
+    };
+  }
+  try {
+    await options.service.requireActive(problem.subject);
+    return { ...signInFields, research_access: "ready" };
+  } catch (error) {
+    const mapped = mapError(error);
+    const access: ResearchConnection["research_access"] = mapped.code === "research_access_required"
+      ? "mode_not_chosen"
+      : mapped.code === "research_access_revoked"
+        ? "revoked"
+        : mapped.code === "paid_private_entitlement_required"
+          ? "entitlement_inactive"
+          : "unavailable";
+    return {
+      ...signInFields,
+      research_access: access,
+      next_step: access === "unavailable"
+        ? "AskRigor could not read this account's research mode just now; try again shortly."
+        : access === "mode_not_chosen"
+          ? `${mapped.message} Call manage_research_access with action inspect, show the user the notice it returns, and let them choose.`
+          : mapped.message,
+    };
+  }
+}
+
+/** One sentence on the connection for the manifest's text. */
+export function researchConnectionSummary(connection: ResearchConnection): string {
+  return connection.research_access === "ready"
+    ? "Research tools: ready for this connection."
+    : `Research tools will be refused for this connection: ${connection.next_step}`;
 }
 
 export function researchUseSecurityMetadata(): Record<string, unknown> {
   return {
     securitySchemes: [{ type: "oauth2", scopes: [RESEARCH_USE_SCOPE] }],
+  };
+}
+
+/**
+ * The manifest needs no sign-in but reports this connection's research access,
+ * so a signed-in client should send its token with it: both schemes together
+ * mark the sign-in as optional.
+ */
+export function optionalSignInSecurityMetadata(): Record<string, unknown> {
+  return {
+    securitySchemes: [{ type: "noauth" }, { type: "oauth2", scopes: [RESEARCH_USE_SCOPE] }],
   };
 }
 
@@ -102,7 +201,7 @@ export function createManageResearchAccessHandler(
     input: Record<string, unknown>,
     extra?: ResearchOperationExtra,
   ): Promise<CallToolResult> => {
-    const auth = authorizedSubject(extra, options.resourceMetadataUrl);
+    const auth = authorizedSubject(extra, options.resourceMetadataUrl, options.signIn);
     if ("error" in auth) return auth.error;
     if (options.service === undefined) {
       return accessError(
@@ -170,7 +269,7 @@ export function createSubmitResearchContributionHandler(
     input: Record<string, unknown>,
     extra?: ResearchOperationExtra,
   ): Promise<CallToolResult> => {
-    const auth = authorizedSubject(extra, options.resourceMetadataUrl);
+    const auth = authorizedSubject(extra, options.resourceMetadataUrl, options.signIn);
     if ("error" in auth) return auth.error;
     if (options.service === undefined) {
       return proposalError(
@@ -217,7 +316,7 @@ export function createResearchAccessGuard(
     input: Record<string, unknown>,
     extra?: ResearchOperationExtra,
   ): Promise<CallToolResult> => {
-    const auth = authorizedSubject(extra, options.resourceMetadataUrl);
+    const auth = authorizedSubject(extra, options.resourceMetadataUrl, options.signIn);
     if ("error" in auth) return withoutStructuredContent(auth.error);
     if (options.service === undefined) {
       return plainError(
@@ -229,7 +328,12 @@ export function createResearchAccessGuard(
       await options.service.requireActive(auth.subject);
     } catch (error) {
       const mapped = mapError(error);
-      return plainError(mapped.code, mapped.message);
+      return plainError(
+        mapped.code,
+        mapped.code === "research_access_required"
+          ? `${mapped.message} Call manage_research_access with action inspect, show the user the notice it returns, and let them choose.`
+          : mapped.message,
+      );
     }
     return handler(input, extra);
   };
@@ -305,44 +409,62 @@ function plainError(
 function authorizedSubject(
   extra: ResearchOperationExtra | undefined,
   resourceMetadataUrl: URL | undefined,
+  signIn?: SignInState,
 ): { subject: string } | { error: CallToolResult } {
+  const problem = signInProblem(extra, signIn);
+  if ("subject" in problem) return problem;
+  return {
+    error: oauthError(
+      problem.code,
+      problem.message,
+      resourceMetadataUrl,
+      problem.code === "insufficient_scope" ? "insufficient_scope" : "invalid_token",
+    ),
+  };
+}
+
+function signInProblem(
+  extra: ResearchOperationExtra | undefined,
+  signIn: SignInState | undefined,
+): { subject: string } | { code: "authorization_required" | "insufficient_scope"; message: string } {
   const authInfo = extra?.authInfo;
   if (
     authInfo === undefined ||
     authInfo.expiresAt === undefined ||
     authInfo.expiresAt <= Date.now() / 1_000
   ) {
-    return {
-      error: oauthError(
-        "authorization_required",
-        "Connect an AskRigor account before choosing a research-use mode.",
-        resourceMetadataUrl,
-        "invalid_token",
-      ),
-    };
+    return { code: "authorization_required", message: missingSignInMessage(signIn) };
   }
   if (!authInfo.scopes.includes(RESEARCH_USE_SCOPE)) {
     return {
-      error: oauthError(
-        "insufficient_scope",
-        "The connected account lacks the research:use permission.",
-        resourceMetadataUrl,
-        "insufficient_scope",
-      ),
+      code: "insufficient_scope",
+      message: "The connected account lacks the research:use permission. Reconnect AskRigor and approve research use.",
     };
   }
   const subject = authInfo.extra?.subject;
   if (typeof subject !== "string" || subject.length === 0) {
-    return {
-      error: oauthError(
-        "authorization_required",
-        "The connected account has no stable subject identity.",
-        resourceMetadataUrl,
-        "invalid_token",
-      ),
-    };
+    return { code: "authorization_required", message: "The connected account has no stable subject identity." };
   }
   return { subject };
+}
+
+const SIGN_IN_REFUSAL_REASONS: Record<SignInRefusal, string> = {
+  expired: "it had expired. Reconnect AskRigor, or retry so the app can refresh it.",
+  wrong_audience: "it was issued for a different service than AskRigor's research API. Reconnect AskRigor; if this repeats, AskRigor's sign-in setup needs fixing by its operator.",
+  not_a_signed_token: "it is not a token issued for AskRigor's research API. Reconnect AskRigor; if this repeats, AskRigor's sign-in setup needs fixing by its operator.",
+  wrong_issuer: "it does not come from AskRigor's sign-in service. Reconnect AskRigor; if this repeats, AskRigor's sign-in setup needs fixing by its operator.",
+  bad_signature: "its signature could not be verified. Reconnect AskRigor; if this repeats, AskRigor's sign-in setup needs fixing by its operator.",
+  client_not_allowed: "it was issued to an app that AskRigor does not accept yet. AskRigor's operator must allow this app.",
+  subject_not_allowed: "this account is not allowed on this AskRigor endpoint.",
+  invalid_claims: "it lacks details AskRigor requires. Reconnect AskRigor; if this repeats, AskRigor's sign-in setup needs fixing by its operator.",
+  unverifiable: "AskRigor could not check it just now. Try again shortly.",
+};
+
+function missingSignInMessage(signIn: SignInState | undefined): string {
+  if (signIn?.state === "refused") {
+    return `AskRigor refused this call's sign-in (${signIn.refusal}): ${SIGN_IN_REFUSAL_REASONS[signIn.refusal]}`;
+  }
+  return "This call carried no AskRigor sign-in. Connect or reconnect AskRigor in this app's connector settings, then call manage_research_access with action inspect.";
 }
 
 function oauthError(

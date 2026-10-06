@@ -172,13 +172,23 @@ describe("Claude custom-connector surface", () => {
     expect(JSON.stringify((await other.callTool(review)).content)).toContain("not an allowed AskRigor case reviewer");
   });
 
+  it("reports the research mode in the manifest, since /mcp/claude admits only a valid sign-in", async () => {
+    const { base, sign } = await start({ claude: true });
+    const client = await connect(base, "/mcp/claude", await token(sign));
+    const result = await client.callTool({ name: "get_protocol_manifest", arguments: { protocol: "hrp" } });
+    expect(result.structuredContent).toMatchObject({
+      connection: { sign_in: "accepted", research_access: "mode_not_chosen" },
+    });
+  });
+
   it("leaves /mcp unchanged: anonymous initialize still works and a Claude token is not accepted there", async () => {
     const { base, sign } = await start({ claude: true });
     expect((await post(base, "/mcp")).status).toBe(200);
     const client = await connect(base, "/mcp", await token(sign, { aud: primaryResource.href }));
     const result = await client.callTool({ name: "manage_research_access", arguments: { action: "inspect" } });
     expect(result.isError).toBe(true);
-    expect(JSON.stringify(result.content)).toContain("Connect an AskRigor account");
+    // The refusal names why: the token belongs to the Claude client, which /mcp does not accept.
+    expect(JSON.stringify(result.content)).toContain("AskRigor refused this call's sign-in (client_not_allowed)");
   });
 });
 
@@ -187,7 +197,8 @@ describe("primary /mcp surface with the Claude surface enabled", () => {
     const { base, sign } = await start({ claude: true });
     const client = await connect(base, "/mcp", await token(sign, { aud: primaryResource.href, client_id: "chatgpt-client" }));
     const result = await client.callTool({ name: "manage_research_access", arguments: { action: "inspect" } });
-    expect(JSON.stringify(result.content)).not.toContain("Connect an AskRigor account");
+    expect(result.isError).not.toBe(true);
+    expect(JSON.stringify(result.content)).not.toContain("sign-in");
   });
 });
 
