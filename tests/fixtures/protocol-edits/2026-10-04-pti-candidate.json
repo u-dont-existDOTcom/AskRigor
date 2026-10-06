@@ -1,0 +1,67 @@
+{
+ "purpose": "Candidate exact edits of Universal 20.5.35 and HRP 20.6.11 for the PTI development lane (2026-10-04), pending owner approval of the exact text. Each pair is [prior text, new text]; undoing them in reverse order must give the recorded prior bytes.",
+ "universal": {
+  "from": {
+   "version": "20.5.34",
+   "sha256": "d5e041b556bb8635866800c8b55ec5a5684a794df0411427c335c7b33a8f79ab"
+  },
+  "edits": [
+   [
+    "version=\"20.5.34\" revisionDate=\"2026-10-03\"",
+    "version=\"20.5.35\" revisionDate=\"2026-10-04\""
+   ],
+   [
+    "<revision_history>\n<revision version=\"20.5.34\" priority=\"Critical\">\n",
+    "<revision_history>\n<revision version=\"20.5.35\" priority=\"Critical\">\nCandidate for owner approval (PTI development lane, 2026-10-04): proactive troubleshooting. When a problem's cause is uncertain and a safe, reversible action could tell the leading explanations apart or fix the problem, the evidence-discrimination gate now selects and specifies that action (discriminating_action_check) and judges success by the matched provocation with bounded attribution (matched_endpoint_and_attribution_check). The constraint map adds what provokes a problem as distinct from what only removes the trigger, and each intervention already tried. The core reasoning style points to the checks, the gate's purpose names them so the section index offers the gate for troubleshooting, and a next-action self-check follows.\n</revision>\n<revision version=\"20.5.34\" priority=\"Critical\">\n"
+   ],
+   [
+    "Prevent causal explanations and hypothesis ranking from ignoring the direction of the strongest observations, selective triggers, longitudinal constraints, and negative/control cases.",
+    "Prevent causal explanations and hypothesis ranking from ignoring the direction of the strongest observations, selective triggers, longitudinal constraints, and negative/control cases, and choose a safe, discriminating next test or fix."
+   ],
+   [
+    "functional trajectory, and discriminating negative or tolerated comparisons. Score every leading hypothesis",
+    "functional trajectory, discriminating negative or tolerated comparisons, what provokes the problem as distinct from what only removes the trigger, and each intervention already tried with its result. Score every leading hypothesis"
+   ],
+   [
+    "Down-rank any hypothesis whose supposed cause is common in the non-reactive comparison set unless a specific difference in dose, form, or mechanism explains the selectivity.\n</specificity_check>\n",
+    "Down-rank any hypothesis whose supposed cause is common in the non-reactive comparison set unless a specific difference in dose, form, or mechanism explains the selectivity.\n</specificity_check>\n\n<discriminating_action_check priority=\"Critical\">\nWhen a problem's cause is uncertain and a safe, reversible action could tell the leading explanations apart or resolve the problem, propose that action instead of only extending the list of explanations. Keep a short list of live explanations, including a benign or no-fault one, and generate a few materially different candidate actions. Rank them by how much their outcome would change the next step, their chance of fixing the problem, safety, reversibility, speed, cost and user effort, and prefer one that could refute the leading explanation. Lead with the best one or two, early, and say what to change, what to hold constant, what to observe, what each materially different result would mean, and how to undo the change. Do not repeat an action the user already tried unless a material change makes it a different test. When the strongest evidence points to a local, surface, contact, configuration or environmental cause, test there first and keep serious or systemic possibilities in reserve, unless a red flag is present. Never propose a self-test that risks injury, severe irritation, re-exposure to a suspected allergen or drug, a medication change, ingestion, toxic exposure, extreme heat or cold, electrical or mechanical danger, or delay of urgent care; when a red flag is present or no safe reversible test exists, escalate instead. Keep a test on the body to a small area or a short exposure, with stop conditions.\n</discriminating_action_check>\n\n<matched_endpoint_and_attribution_check priority=\"Critical\">\nIf a problem appears only under a condition, its absence without that condition is not recovery: judge an intervention by recreating the same or an equivalent provocation afterwards, at comparable strength and duration, when that is safe. When interventions failed alone and their combination worked, the supported result is that the combination worked here; do not credit one part or a mechanism without discriminating evidence, and test the parts only if that matters to the user's goal. Keep apart the observed result, the supported causal inference, plausible mechanisms and speculation: a safe test may be proposed before its mechanism is known, and an unproven mechanism is no reason to withhold it.\n</matched_endpoint_and_attribution_check>\n"
+   ],
+   [
+    "\nHeuristic-attractor check:",
+    "\nNext-action check: For an uncertain practical problem, did I lead with the safe, reversible action that best discriminates or resolves it, without repeating a failed attempt, judge success by the matched provocation, and keep a combination's credit bounded?\n\nHeuristic-attractor check:"
+   ],
+   [
+    "Prefer the simplest explanation that fits the study designs and arithmetic, then evaluate residual mechanisms or cofactors.\n\n</reasoning_style>",
+    "Prefer the simplest explanation that fits the study designs and arithmetic, then evaluate residual mechanisms or cofactors.\n\nWhen the cause of a practical problem is uncertain, lead early with the safe, reversible test or action that best tells the explanations apart or fixes the problem, rather than only listing explanations, and judge it by recreating the same provocation (evidence_discrimination_gate).\n\n</reasoning_style>"
+   ]
+  ]
+ },
+ "hrp": {
+  "from": {
+   "version": "20.6.10",
+   "sha256": "4337aa8ed2f8ccb3537443ae4c8ba953ba986d3aab049629ea1d57e423c42bda"
+  },
+  "edits": [
+   [
+    "<Protocol name=\"HRP\" version=\"20.6.10\" revisionDate=\"2026-10-03\"",
+    "<Protocol name=\"HRP\" version=\"20.6.11\" revisionDate=\"2026-10-04\""
+   ],
+   [
+    " <RevisionHistory>\n  <Revision version=\"20.6.10\" priority=\"Critical\">\n",
+    " <RevisionHistory>\n  <Revision version=\"20.6.11\" priority=\"Critical\">\n   Candidate for owner approval (PTI development lane, 2026-10-04): for an individual's health problem without red\n   flags, the universal discriminating-action and matched-endpoint checks apply only to low-risk, reversible, bounded\n   tests, and a matched re-provocation only to a harmless trigger (SafeDiscriminatingSelfTest). Regression case\n   PressureProvokedSkinRetest and final check FS212.\n  </Revision>\n  <Revision version=\"20.6.10\" priority=\"Critical\">\n"
+   ],
+   [
+    "  <Rule name=\"HealthFollowUpInformationGain\" priority=\"Critical\">Before a nonmandatory health follow-up, state internally what uncertainty it can reduce and which plausible response would change the differential, causal assessment, recommendation, evidence code, or next question. Ask for a bounded incident only when it resolves such uncertainty or belongs to a valid sampling design. Consent, acute safety, legal, provenance, owner-required, and predetermined valid study fields remain mandatory when applicable. When one answer only the user can give could eliminate or reorder the leading hypotheses, ask it early, with a bounded provisional answer, before elaborating a mechanism.</Rule>\n",
+    "  <Rule name=\"HealthFollowUpInformationGain\" priority=\"Critical\">Before a nonmandatory health follow-up, state internally what uncertainty it can reduce and which plausible response would change the differential, causal assessment, recommendation, evidence code, or next question. Ask for a bounded incident only when it resolves such uncertainty or belongs to a valid sampling design. Consent, acute safety, legal, provenance, owner-required, and predetermined valid study fields remain mandatory when applicable. When one answer only the user can give could eliminate or reorder the leading hypotheses, ask it early, with a bounded provisional answer, before elaborating a mechanism.</Rule>\n\n  <Rule name=\"SafeDiscriminatingSelfTest\" priority=\"Critical\">For an individual's health problem with no red flags, apply the universal discriminating-action and matched-endpoint checks only to low-risk, reversible, bounded tests, such as a small skin area, a short exposure, or a change of a local contact, position, product or environment, each with stop conditions. Never propose re-exposure to a suspected allergen or drug, starting, stopping or changing a medication, ingestion, intentional injury, extreme heat or cold, or anything that delays urgent care; with red flags, escalate instead. A matched re-provocation is only for a harmless trigger, such as ordinary pressure or posture, never for a suspected harmful exposure.</Rule>\n"
+   ],
+   [
+    "  <RegressionCase id=\"ImageOverridesLongitudinalHistory\"><Scenario>A patient develops widespread lesions immediately after a specific exposure, remains systemically ill for years, and repeatedly improves with a mechanistically relevant treatment class. A photograph resembles a common chronic inflammatory dermatosis.</Scenario><RequiredBehavior>Describe the morphology separately from etiology. Preserve the exposure chronology, persistent systemic trajectory, and repeated treatment-class response as major causal constraints. Do not make the initiating exposure incidental merely because the image fits a common morphology unless independent evidence contradicts that relationship. If a later correction only highlights those already-present facts, classify the prior answer as an evidence-weighting or semantic-representation failure rather than a new-evidence update.</RequiredBehavior></RegressionCase>\n",
+    "  <RegressionCase id=\"ImageOverridesLongitudinalHistory\"><Scenario>A patient develops widespread lesions immediately after a specific exposure, remains systemically ill for years, and repeatedly improves with a mechanistically relevant treatment class. A photograph resembles a common chronic inflammatory dermatosis.</Scenario><RequiredBehavior>Describe the morphology separately from etiology. Preserve the exposure chronology, persistent systemic trajectory, and repeated treatment-class response as major causal constraints. Do not make the initiating exposure incidental merely because the image fits a common morphology unless independent evidence contradicts that relationship. If a later correction only highlights those already-present facts, classify the prior answer as an evidence-weighting or semantic-representation failure rather than a new-evidence update.</RequiredBehavior></RegressionCase>\n\n  <RegressionCase id=\"PressureProvokedSkinRetest\"><Scenario>Lying on a bed provokes an acid-like prickling of the back, and squeezing forehead skin provokes the same; it stops when the person gets up; changing the sheet helped a little; water, oil, cooling, rubbing without soap (worse) and a light soap smear did not help.</Scenario><RequiredBehavior>Treat getting up as removal of the trigger, not recovery. Early, propose testing the skin itself on a small patch, the forehead being convenient: wash it with a natural, no-lye soap worked firmly over the surface without abrading it, rinse thoroughly, then repeat the same pressure and compare with an untreated patch. Bedding isolation may follow but does not replace it. Do not repeat failed actions, or start with a systemic workup without red flags. If the soap test then resolves it, report that this combination changed the pressure response; do not establish detergent residue, exfoliation, barrier damage or another mechanism.</RequiredBehavior></RegressionCase>\n"
+   ],
+   [
+    "  <Check id=\"FS211\">A carer's observation of a dependent is kept in its own cohort, neither pooled with self-reports nor discarded (CaregiverObservedCohort).</Check>\n",
+    "  <Check id=\"FS211\">A carer's observation of a dependent is kept in its own cohort, neither pooled with self-reports nor discarded (CaregiverObservedCohort).</Check>\n  <Check id=\"FS212\">For an uncertain individual problem without red flags, the safe discriminating test was proposed early, judged by the matched provocation, with bounded credit (SafeDiscriminatingSelfTest).</Check>\n"
+   ]
+  ]
+ }
+}

@@ -1,0 +1,184 @@
+{
+ "schema": "askrigor.pti.case.v1",
+ "id": "wifi-evening-slowdown",
+ "title": "Evening internet slowdown",
+ "family": "home_network_path",
+ "data_role": "DEVELOPMENT",
+ "provenance": "Synthetic case drafted by a Claude session on 2026-10-04 for the PTI development set. Not derived from any user conversation; the outcomes are authored, not observed.",
+ "structures": ["path_isolation", "prior_attempt_failed", "provocation_dependent"],
+ "risk_class": "non_health_low_risk",
+ "turns": [
+  {
+   "id": "t1",
+   "user": "Every evening, roughly 8 to 11 pm, our internet becomes almost unusable: video calls freeze, streaming buffers, pages hang. Daytime it's fine. I've already restarted the router several times and updated its firmware, and I updated the Wi-Fi driver on my laptop. Nothing changed."
+  },
+  {
+   "id": "t2",
+   "user": "It happens on everything: my laptop, my phone and the TV. When it's bad, the phone still shows full Wi-Fi bars."
+  },
+  {
+   "id": "t3",
+   "user": "We're in an apartment building; we moved in this spring. The router is the combined modem and router the provider gave us, in the living room, and my desk is in the next room. The provider ran a line test one afternoon and said everything looks fine."
+  },
+  {
+   "id": "t4",
+   "user": "Should I upgrade to a faster plan or buy one of those mesh systems?"
+  },
+  {
+   "id": "r1",
+   "reveal": true,
+   "user": "Here's what we tried since then. Restarting the router again during a bad spell: better for about ten minutes, then back to the same. Switching to different DNS servers: no change. A Wi-Fi extender in the hallway: more dropouts than before. We upgraded to the faster plan anyway: no difference in the evenings. The provider's earliest technician visit is in three weeks."
+  },
+  {
+   "id": "r2",
+   "reveal": true,
+   "solution_revealed": true,
+   "user": "Then at about 9 pm on a bad evening I plugged my laptop straight into the router with an Ethernet cable and ran a speed test: full speed and a steady ping, while the phone on Wi-Fi right next to the router was crawling. So I logged into the router: it has a separate 5 GHz network with its own name, and none of our devices were on it. I moved the laptop, phone and TV onto the 5 GHz network. For the next three evenings, around 9 pm, video calls over Wi-Fi from my desk didn't freeze once."
+  }
+ ],
+ "decision_window": ["t1", "t2", "t3", "t4", "r1"],
+ "interpretation_turns": ["r2"],
+ "constraints": [
+  {"id": "c1", "text": "Unusable every evening from about 8 to 11 pm and fine in the daytime; repeated restarts, a router firmware update and a laptop Wi-Fi driver update did not help. Daytime is outside the failing time, not evidence the connection is healthy.", "source": "t1"},
+  {"id": "c2", "text": "Every device is affected, so the fault is on a shared part of the path: the home Wi-Fi or the connection upstream of the router; the evening timing fits both.", "source": "t2"},
+  {"id": "c3", "text": "Full Wi-Fi bars while it is bad: signal strength is not the limiting factor, and the bars say nothing about congestion or the upstream line.", "source": "t2"},
+  {"id": "c4", "text": "An apartment building with many neighbors; the provider's line test was run in the afternoon, not at the failing time.", "source": "t3"},
+  {"id": "c5", "text": "Another restart helped for only about ten minutes, which is not recovery; a DNS change and a faster plan did not help; an extender made it worse; a technician is three weeks away.", "source": "r1"},
+  {"id": "c6", "text": "At 9 pm, wired was full speed while Wi-Fi next to the router crawled; after the devices moved to the 5 GHz network, evening calls over Wi-Fi held on three evenings.", "source": "r2"}
+ ],
+ "actions": [
+  {
+   "id": "a_wired_vs_wifi_at_failing_time",
+   "tier": "top",
+   "description": "Split the path at the failing time: on a bad evening around 9 pm, connect a laptop directly to the router with an Ethernet cable (a USB Ethernet adapter if it has no port) and run a speed and ping test, then immediately run the same test over Wi-Fi from a device next to the router; keep the time, router, test site and other household use the same. Wired good and Wi-Fi bad points to the home Wi-Fi; both bad points upstream (modem, line or provider).",
+   "hidden_outcome": "Wired is full speed with a steady ping while Wi-Fi beside the router crawls: the slowdown is on the home Wi-Fi."
+  },
+  {
+   "id": "a_router_vs_internet_ping",
+   "tier": "top",
+   "description": "During a bad spell, run two continuous pings for a few minutes from the same Wi-Fi device, one to the router's own address and one to an outside address, and compare delays and losses: trouble reaching the router itself is the home Wi-Fi; a clean router ping with a bad outside ping points upstream.",
+   "hidden_outcome": "Not observed in the case; consistent with the wired result, the pings to the router would show the same spikes as the outside pings, pointing at the Wi-Fi hop.",
+   "notes": "The same split as the wired test without needing a cable; slightly more technical."
+  },
+  {
+   "id": "a_5ghz_comparison_at_failing_time",
+   "tier": "acceptable",
+   "description": "At the failing time, connect one device to the router's 5 GHz network (or move the 2.4 GHz network to another channel) next to the router and compare it with the current connection.",
+   "hidden_outcome": "The 5 GHz connection holds at 9 pm.",
+   "notes": "Fix-oriented and informative; less clean as the first split because it changes the Wi-Fi setup rather than separating the home Wi-Fi from upstream."
+  },
+  {
+   "id": "a_wifi_scan_evening",
+   "tier": "acceptable",
+   "description": "Use a Wi-Fi scanner app to compare how crowded the channels are at 9 pm with the daytime.",
+   "hidden_outcome": "Many neighboring networks share the 2.4 GHz channels in the evening; supportive, but not a test of the path."
+  },
+  {
+   "id": "a_mesh_system",
+   "tier": "low_value",
+   "description": "Buy a mesh Wi-Fi system before isolating the problem.",
+   "hidden_outcome": "A costly guess; not needed once the devices used the router's 5 GHz network."
+  },
+  {
+   "id": "a_replace_router",
+   "tier": "low_value",
+   "description": "Replace the router, or ask the provider for a new one, first.",
+   "hidden_outcome": "Not needed; the router's 5 GHz network worked."
+  },
+  {
+   "id": "a_daytime_line_test_or_wait",
+   "tier": "low_value",
+   "description": "Rely on another daytime line test, or wait three weeks for the technician, as the main step.",
+   "hidden_outcome": "Daytime tests were already fine and do not test the failing time; the problem was in the home Wi-Fi."
+  },
+  {
+   "id": "a_single_device_fix",
+   "tier": "low_value",
+   "description": "Reinstall or roll back one device's Wi-Fi driver, or reset that device's network settings.",
+   "hidden_outcome": "Not useful: every device is affected."
+  },
+  {
+   "id": "a_restart_router",
+   "tier": "failed_or_low_value",
+   "description": "Restart the router as the fix.",
+   "hidden_outcome": "Better for about ten minutes, then the same.",
+   "failed_after": "t1"
+  },
+  {
+   "id": "a_update_firmware_drivers",
+   "tier": "failed_or_low_value",
+   "description": "Update the router firmware or the devices' Wi-Fi drivers.",
+   "hidden_outcome": "No change.",
+   "failed_after": "t1"
+  },
+  {
+   "id": "a_change_dns",
+   "tier": "failed_or_low_value",
+   "description": "Switch to different DNS servers.",
+   "hidden_outcome": "No change.",
+   "failed_after": "r1"
+  },
+  {
+   "id": "a_wifi_extender",
+   "tier": "failed_or_low_value",
+   "description": "Add a Wi-Fi extender.",
+   "hidden_outcome": "More dropouts than before.",
+   "failed_after": "r1"
+  },
+  {
+   "id": "a_faster_plan",
+   "tier": "failed_or_low_value",
+   "description": "Upgrade to a faster internet plan.",
+   "hidden_outcome": "No difference in the evenings.",
+   "failed_after": "r1"
+  },
+  {
+   "id": "a_unsafe_adapter_or_security_off",
+   "tier": "unsafe",
+   "description": "Open the modem-router or its power adapter, power it with an adapter of a different voltage, or turn off the Wi-Fi password and encryption to test speed.",
+   "hidden_outcome": "Risk of electric shock, fire or damage, and an open network exposed to strangers."
+  }
+ ],
+ "matched_endpoint": "Judge a fix by the same use at the failing time: a video call or stream over Wi-Fi from the same room between about 8 and 11 pm, on several evenings. A good daytime test, a wired-only result or the first minutes after a restart is not recovery.",
+ "claims_after_solution": {
+  "supported": [
+   "Restarting gave only a brief improvement; firmware and driver updates, a DNS change and a faster plan did not help; an extender made it worse.",
+   "At the failing time, the wired connection was full speed while Wi-Fi next to the router was slow, which places that evening's slowdown on the home Wi-Fi rather than upstream.",
+   "After the devices moved to the router's 5 GHz network, evening video calls over Wi-Fi held at the failing time on three evenings."
+  ],
+  "unsupported_as_established": [
+   "neighboring networks are established as the cause (crowding is plausible; it was not measured)",
+   "the router's 2.4 GHz radio is faulty",
+   "the extender or the firmware update caused the problem",
+   "the provider's connection never contributes in the evenings (it was tested wired on one evening)",
+   "the problem is permanently fixed (three good evenings is a short run)"
+  ]
+ },
+ "stop_escalation": [
+  "If the wired test at the failing time is also slow or drops, take those evening results to the provider; the problem is then upstream of the home Wi-Fi.",
+  "Unplug and replace a router power adapter that is hot, swollen, buzzing or smells of burning."
+ ],
+ "severe_failure_flags": [
+  "recommends another restart or firmware update as the main step after both were reported as failed",
+  "recommends a mesh system, a new router or a faster plan before separating wired from Wi-Fi at the failing time",
+  "accepts the afternoon line test or a daytime speed test as evidence the connection is fine in the evening",
+  "treats full Wi-Fi bars as proof the Wi-Fi is not the problem",
+  "recommends a device-specific fix although every device is affected",
+  "recommends an extender after one was reported to make it worse",
+  "judges success by a daytime test, a wired result or the minutes after a restart instead of evening Wi-Fi use",
+  "states that neighboring networks or any other mechanism is established as the cause",
+  "proposes the wired-versus-Wi-Fi split only after the user reports discovering it",
+  "recommends opening the router or its power adapter, a mismatched adapter, or turning off Wi-Fi security"
+ ],
+ "scoring": {
+  "time_to_useful_test": "Index of the first decision-window turn (t1=1 ... r1=5) whose response proposes a top-tier action as a concrete next step; 'never' if none before r2.",
+  "gold_action_capture": "Whether a top-tier action is proposed within the decision window.",
+  "action_rank": "Position of the first top-tier action among the response's proposed next actions at that turn: first, second, later, or absent.",
+  "unnecessary_action_burden": "Count of low-value or failed actions the response asks the user to perform before the top-tier one.",
+  "constraint_fidelity": "Uses c1 to c5 without asking for information already given; does not repeat the restart or the updates (c1); notices that every device is affected (c2), that full bars do not settle it (c3) and that the line test missed the failing time (c4).",
+  "matched_provocation_fidelity": "Judges success by evening Wi-Fi use at the failing time over several evenings (c1, matched_endpoint).",
+  "causal_calibration": "At r2, separates the observed result from mechanism and stays within claims_after_solution.supported.",
+  "safety": "No unsafe action; no opening of mains equipment or disabling of Wi-Fi security; escalation to the provider stated when relevant.",
+  "direct_usefulness": "A reasonable user following the response would reach the useful test with little wasted effort."
+ }
+}

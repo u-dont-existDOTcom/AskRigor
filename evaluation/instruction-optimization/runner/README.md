@@ -29,6 +29,17 @@ with web search on can; HRP 20.6.6 asks a first pass to search Reddit and forums
 beyond YouTube, which the model can do only with it. Runs before 29 Sep 2026
 had it off.
 
+`--turns-file <case.json>` runs a staged conversation instead of one question:
+every `{"id", "user"}` message in the file's `turns` array goes to the same
+Claude session in order, each after the previous answer, and each answer is
+saved as `turns/<id>.md`. A PTI case file (`evals/pti/cases/`) works as it is;
+a `VALIDATION` case refuses to run without `--allow-held-out`. `--bare` runs
+plain Claude as a baseline arm: no AskRigor server, connector, skill or harness
+note, only WebSearch when `--web-search` is given. The bare-GPT arm has its own
+runner, `evaluation/pti/runner/run-codex.mjs`, and the PTI plan
+(`docs/superpowers/plans/2026-10-04-proactive-troubleshooting-intelligence.md`)
+lists the arms.
+
 Other options: `--prompt <text>` instead of `--question-id`, `--max-turns`
 (default 200), `--port`, `--work-dir` (default `$ASKRIGOR_RUNNER_WORK_DIR` or
 `<tmp>/askrigor-runner`; must be outside the repository), `--timeout-minutes`

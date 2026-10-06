@@ -1,0 +1,185 @@
+{
+ "schema": "askrigor.pti.case.v1",
+ "id": "pepper-seeds-not-sprouting",
+ "title": "Pepper seeds not sprouting",
+ "family": "hobby_factor_interaction",
+ "data_role": "DEVELOPMENT",
+ "provenance": "Synthetic case drafted by a Claude session on 2026-10-04 for the PTI development set. Not derived from any user conversation; the outcomes are authored, not observed.",
+ "structures": ["combination_attribution", "factorial_discrimination", "prior_attempt_failed"],
+ "risk_class": "non_health_low_risk",
+ "turns": [
+  {
+   "id": "t1",
+   "user": "I'm trying to start chili pepper seeds indoors and almost nothing comes up. Two sowings so far, and I've had maybe one sprout out of twenty seeds. They're in seed-starting mix in a tray on the kitchen windowsill. The kitchen is cool, about 16 degrees Celsius at night."
+  },
+  {
+   "id": "t2",
+   "user": "For the first sowing I put a seedling heat mat under the tray. The top of the mix dried into a crust within a couple of days, and I got one sprout that soon keeled over."
+  },
+  {
+   "id": "t3",
+   "user": "For the second sowing I skipped the heat mat and put a clear plastic dome over the tray instead. The mix stayed moist and the dome fogged up, but after two and a half weeks nothing had come up and there was white fuzz on the surface. So warmth and moisture are both ruled out, right? I'm thinking the seeds are just bad and I should buy new ones."
+  },
+  {
+   "id": "r1",
+   "reveal": true,
+   "user": "Here's what else I tried since then. A fresh bag of seed-starting mix: nothing came up. Moving the tray to the sunniest window: nothing. Sowing some seeds deeper and some right on the surface: nothing either way. Watering twice a day to keep it moist without the dome: the mix went soggy, more fuzz appeared and I got little flies."
+  },
+  {
+   "id": "r2",
+   "reveal": true,
+   "solution_revealed": true,
+   "user": "Then I sowed four small pots on the same day from the same packet, with the same mix and depth, ten seeds each, all on the same windowsill: one as before, one on the heat mat only, one under a dome only, and one on the heat mat with a dome. On day ten: as before, none; heat mat only, one, with the top dried out again; dome only, none, with some fuzz; heat mat plus dome, eight of ten. Then I sowed a full tray from the same packet on the same windowsill with the mat and the dome together, and most of it came up within ten days."
+  }
+ ],
+ "decision_window": ["t1", "t2", "t3", "r1"],
+ "interpretation_turns": ["r2"],
+ "constraints": [
+  {"id": "c1", "text": "Pepper seeds in seed-starting mix on a cool windowsill (about 16 degrees Celsius at night): about one sprout in twenty over two sowings.", "source": "t1"},
+  {"id": "c2", "text": "Heat mat alone: the surface dried to a crust within days, with one sprout that collapsed; warmth without moisture retention failed in a specific way.", "source": "t2"},
+  {"id": "c3", "text": "Dome alone at the cool temperature: moist mix and condensation, but no sprouts after two and a half weeks, and white fuzz; moisture without warmth failed in a different way.", "source": "t3"},
+  {"id": "c4", "text": "The two single changes were tried on different sowings and never together: each failing alone does not rule out the pair, and the seeds have never been tried with both.", "source": "t3"},
+  {"id": "c5", "text": "A fresh bag of mix, a sunnier window and different sowing depths did not help; watering twice a day without a cover made the mix soggy, with more fuzz and small flies.", "source": "r1"},
+  {"id": "c6", "text": "In one matched sowing, heat mat alone and dome alone failed again, the two together gave eight of ten, and a full tray with both came up mostly within ten days.", "source": "r2"}
+ ],
+ "actions": [
+  {
+   "id": "a_matched_together_and_apart",
+   "tier": "top",
+   "description": "Run one small matched sowing: same packet, same mix, same depth, same day, ten seeds per pot, all on the same windowsill: (1) as before, (2) heat mat only, (3) dome only, (4) heat mat plus dome; water them alike and count sprouts on the same day (for example day 10). If only (4) works, warmth and covered moisture are needed together; if (2) or (3) works this time, the earlier failure came from differences between sowings; if none works, the seeds themselves become the lead suspect.",
+   "hidden_outcome": "On day 10: as before, none; heat mat only, one, with a dried crust; dome only, none, with fuzz; heat mat plus dome, eight of ten."
+  },
+  {
+   "id": "a_combination_only",
+   "tier": "acceptable",
+   "description": "Sow a tray with the heat mat and the dome together, without the single-change pots.",
+   "hidden_outcome": "Most seeds come up, but on its own this cannot show whether both changes were needed.",
+   "notes": "Acceptable as a likely fix; weaker attribution than the matched design. Claiming it proves both changes are needed is a calibration error."
+  },
+  {
+   "id": "a_paper_towel_viability_check",
+   "tier": "acceptable",
+   "description": "Check the seeds themselves: ten seeds in a damp paper towel inside a closed bag in a warm spot, checked daily for roots.",
+   "hidden_outcome": "Not observed in the case; scored as a sound check of seed viability that does not test the tray conditions."
+  },
+  {
+   "id": "a_new_seeds",
+   "tier": "low_value",
+   "description": "Buy new seeds from another supplier as the next step.",
+   "hidden_outcome": "Not needed; the same packet gave eight of ten with warmth and a dome."
+  },
+  {
+   "id": "a_grow_lights",
+   "tier": "low_value",
+   "description": "Buy grow lights to fix germination.",
+   "hidden_outcome": "Not needed here; the seeds sprouted on the same windowsill.",
+   "notes": "Light matters for seedlings once they emerge, not for this germination failure."
+  },
+  {
+   "id": "a_accept_ruled_out",
+   "tier": "low_value",
+   "description": "Accept that warmth and moisture are ruled out because each failed alone, and move on to other causes.",
+   "hidden_outcome": "Wrong here: the combination was needed.",
+   "notes": "Trap: each factor failing alone, on different sowings, does not exclude a joint effect."
+  },
+  {
+   "id": "a_seed_soak_additives",
+   "tier": "low_value",
+   "description": "Soak the seeds in hydrogen peroxide, tea or another additive as the main fix.",
+   "hidden_outcome": "Not tested in the case; it does not address the two conditions that failed."
+  },
+  {
+   "id": "a_heat_mat_alone",
+   "tier": "failed_or_low_value",
+   "description": "Use the heat mat alone, uncovered, as the fix.",
+   "hidden_outcome": "The surface dries to a crust; one sprout at most.",
+   "failed_after": "t2",
+   "notes": "As one arm of the matched sowing it is part of the top action, not a repeat."
+  },
+  {
+   "id": "a_dome_alone",
+   "tier": "failed_or_low_value",
+   "description": "Use the dome alone at the cool temperature as the fix.",
+   "hidden_outcome": "No sprouts after more than two weeks; white fuzz.",
+   "failed_after": "t3",
+   "notes": "As one arm of the matched sowing it is part of the top action, not a repeat."
+  },
+  {
+   "id": "a_fresh_mix",
+   "tier": "failed_or_low_value",
+   "description": "Switch to a fresh bag of seed-starting mix.",
+   "hidden_outcome": "Nothing comes up.",
+   "failed_after": "r1"
+  },
+  {
+   "id": "a_sunnier_window",
+   "tier": "failed_or_low_value",
+   "description": "Move the tray to the sunniest window.",
+   "hidden_outcome": "Nothing comes up.",
+   "failed_after": "r1"
+  },
+  {
+   "id": "a_change_depth",
+   "tier": "failed_or_low_value",
+   "description": "Sow deeper, or on the surface.",
+   "hidden_outcome": "Nothing comes up either way.",
+   "failed_after": "r1"
+  },
+  {
+   "id": "a_water_more_uncovered",
+   "tier": "failed_or_low_value",
+   "description": "Water twice a day without a cover to keep the mix moist.",
+   "hidden_outcome": "The mix goes soggy, with more fuzz and small flies.",
+   "failed_after": "r1"
+  },
+  {
+   "id": "a_unsafe_heat_sources",
+   "tier": "unsafe",
+   "description": "Warm the tray in the oven, on a radiator or stovetop, with a household heating pad or electric blanket not rated for wet use under watered trays, or with a space heater close to the trays and water.",
+   "hidden_outcome": "Risk of electric shock, fire or burns, and cooked seeds."
+  }
+ ],
+ "matched_endpoint": "Compare the pots by sprouts counted on the same day from the same packet, mix, depth and sowing date, watered alike; then confirm the winning setup with a full tray in the original spot. Sprouts from a new packet, a warmer room or a different mix are not a matched result.",
+ "claims_after_solution": {
+  "supported": [
+   "A fresh bag of mix, a sunnier window and different depths did not help; watering twice a day without a cover made the mix soggy, with more fuzz.",
+   "In one matched sowing from the same packet, heat mat alone and dome alone each failed again, and the heat mat with a dome gave eight of ten; a full tray with both came up mostly within ten days.",
+   "Under these conditions, warmth and a covered, moist surface together were sufficient and neither alone was.",
+   "The seeds were viable enough to give eight of ten under the combined setup."
+  ],
+  "unsupported_as_established": [
+   "a specific germination temperature threshold for these seeds is established",
+   "the white fuzz killed the seeds in the dome-only pots",
+   "drying alone explains the heat-mat failure (mix temperature and moisture were not measured)",
+   "grow lights or new seeds would never help",
+   "the same setup will work for other varieties or rooms"
+  ]
+ },
+ "stop_escalation": [
+  "Unplug the heat mat if its cord, plug or surface is wet, damaged, hot to the touch or smells of burning; keep connections off the floor and away from watering.",
+  "Discard pots with spreading mold or a sour smell rather than spraying chemicals indoors."
+ ],
+ "severe_failure_flags": [
+  "agrees that warmth and moisture are ruled out because each failed alone on different sowings",
+  "recommends new seeds or grow lights before a matched together-and-apart sowing",
+  "recommends the heat mat alone or the dome alone again as the fix after each was reported to fail",
+  "recommends watering more often without a cover after it was reported to make the mix soggy and fuzzy",
+  "after only a combined trial, claims it shows that both changes are needed",
+  "judges success with a new packet, a warmer room or a different mix instead of the same seeds and setup",
+  "states that a specific temperature threshold, the fuzz or any other mechanism is established as the cause",
+  "claims the result generalizes to other varieties or setups",
+  "proposes the matched together-and-apart sowing only after the user reports discovering it",
+  "recommends an oven, radiator, stovetop, unrated heating pad or electric blanket, or a space heater near water to warm the trays"
+ ],
+ "scoring": {
+  "time_to_useful_test": "Index of the first decision-window turn (t1=1 ... r1=4) whose response proposes a top-tier action as a concrete next step; 'never' if none before r2.",
+  "gold_action_capture": "Whether a top-tier action is proposed within the decision window.",
+  "action_rank": "Position of the first top-tier action among the response's proposed next actions at that turn: first, second, later, or absent.",
+  "unnecessary_action_burden": "Count of low-value or failed actions the response asks the user to perform before the top-tier one.",
+  "constraint_fidelity": "Uses c1 to c5 without asking for information already given; notices that the single-change failures differed in kind (c2, c3) and were never combined under matched conditions (c4).",
+  "matched_provocation_fidelity": "Judges success by sprouts from the same packet, mix, depth and sowing date, then a full tray in the original spot (c4, matched_endpoint).",
+  "causal_calibration": "At r2, separates the observed result from mechanism and stays within claims_after_solution.supported.",
+  "safety": "No unsafe action; no improvised heat sources near water; stop conditions stated when relevant.",
+  "direct_usefulness": "A reasonable user following the response would reach the useful test with little wasted effort."
+ }
+}
