@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.6.10" revisionDate="2026-10-03" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.6.11" revisionDate="2026-10-06" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -51,6 +51,16 @@
 </InstructionObligationLifecycle>
 
  <RevisionHistory>
+  <Revision version="20.6.11" priority="Critical">
+   Candidate for owner approval (owner rule of 2026-10-06, carried from the shared development rules): consilience
+   and expected observability for practical effectiveness claims. One study or one evidence family cannot carry such
+   a claim when independent evidence streams are reasonably available; copies of one trial count once; real-world
+   silence counts against a large claimed effect only where the effect should be visible; discordance is diagnosed and
+   classified, and a ranking never rests on the largest point estimate of a discordant claim
+   (ConsilienceForPracticalEffectiveness, ExpectedObservabilityOfRealWorldTrace). Extended: EstimandFields
+   (effect_magnitude), CrossAgentRankingResolution, EvidenceLayerMisuseControl, DuplicateAndDataLineageAudit,
+   RelativeForumSignal, and ClaimOrganizedSynthesis; four stress cases and FS212.
+  </Revision>
   <Revision version="20.6.10" priority="Critical">
    Owner-approved method change (owner question 30, 2026-10-03): product reviews as community evidence. For a product
    or service people buy, map where its buyers review it before sampling (PrincipalPlatformMapping); keep the exact
@@ -801,7 +811,7 @@
 
   <Rule name="CompositeInterventionAttribution" priority="Critical">Treat mixtures, botanicals, combination products, polypharmacy, and their individual components as distinct interventions. Do not transfer an effect from a headline component to the mixture, or from the mixture to a component, unless composition, exposure, interaction, and mechanistic or component-level evidence support that attribution. Preserve plausible independent contributions and interactions as separate hypotheses. An agent inert alone but active during another drug's or physiological state may act by state dependence: treat that as its own mechanism category, not independent pharmacology, and do not count solo null results against it. Reproduction across independently sourced brands or batches weakens a one-product contaminant explanation and points to fractions the products share, without showing which fraction, including the headline ingredient, is active.</Rule>
 
-  <Rule name="CrossAgentRankingResolution" priority="Critical">Before strict ordinal ranking, inspect uncertainty, overlap, design comparability, endpoint comparability, and evidence depth. Use tiers, ties, or indeterminate pairwise order when the data do not resolve a strict order. A numerically larger one-shot screen effect does not outrank a smaller but replicated, dose-responsive, orthogonally validated result on evidential confidence.</Rule>
+  <Rule name="CrossAgentRankingResolution" priority="Critical">Before strict ordinal ranking, inspect uncertainty, overlap, design comparability, endpoint comparability, and evidence depth. Use tiers, ties, or indeterminate pairwise order when the data do not resolve a strict order. A numerically larger one-shot screen effect does not outrank a smaller but replicated, dose-responsive, orthogonally validated result on evidential confidence. When independent evidence streams on a practical effect disagree, rank it by a conservative magnitude, not its largest point estimate (ConsilienceForPracticalEffectiveness).</Rule>
  </ComparisonEstimandAndDoseExposureIntegrityGate>
 
  <PatientHistoryAndRecurrenceEvidenceGate priority="Critical">
@@ -1963,6 +1973,7 @@
    <Field id="inferential_contrast">What exact causal or descriptive contrast can this comparator estimate, and which absolute or component-specific question remains unanswered?</Field>
    <Field id="intervention_scope">Does the evidence concern an isolated component, complete product, simultaneous bundle, sequence, cumulative schedule, or real-world program?</Field>
    <Field id="endpoint">What exact outcome is counted? Is it rescue of an impairment, enhancement above a healthy baseline, or a state transition? Evidence for one does not transfer to another. For cognition, which domain: divergent creativity, convergent reasoning, sustained attention, working memory, error rate, processing speed, confidence, or real-world output?</Field>
+   <Field id="effect_magnitude">For an effectiveness claim that a ranking or recommendation relies on: how large is the effect, in what units, against which comparator, and with what uncertainty? A bare significant or nonsignificant label is not a magnitude.</Field>
    <Field id="time_horizon">Over what follow-up period, risk window, and plausible latency?</Field>
    <Field id="time_zero">What exact event defines time zero?</Field>
    <Field id="estimand_risk_windows">Which acute, delayed, cumulative, and alternative subwindows are tested?</Field>
@@ -2486,7 +2497,8 @@
    does not prove outcomes. Policy states an official position but does not settle biology. Abnormal biomarkers do not
    prove causality. A historical indication or formula establishes documented use and transmission, not efficacy or safety;
    a historical case may preserve a clinical signal but does not establish frequency or causality. Historical evidence does
-   not automatically transport to a modern formulation, diagnosis, dose, route, or product.
+   not automatically transport to a modern formulation, diagnosis, dose, route, product, or measured endpoint: a
+   traditional strengthening or nourishing label is not evidence of, for example, a one-repetition-maximum gain.
   </Rule>
 
   <Rule name="RelevanceControlsInclusionWeightControlsConclusion" priority="Critical">
@@ -2588,6 +2600,25 @@
    contextual effects; platform selection; creator-success bias; moderation or deletion; survivorship; and missing
    denominators. If the conflict remains, keep it unresolved and state which future evidence could separate the
    explanations.
+  </Rule>
+  <Rule name="ConsilienceForPracticalEffectiveness" priority="Critical">
+   For a practical effectiveness claim that a recommendation or ranking relies on, especially a large, surprising,
+   fast, or commercially actionable effect resting on few studies, do not let one study or one evidence family carry
+   the conclusion when materially independent streams are reasonably available. Fix the claim first: the exact
+   intervention or preparation, population, comparator, outcome and its measurement, magnitude with units and
+   uncertainty (EstimandFields/effect_magnitude), and duration. Then check the streams that can bear on it: independent
+   replications and reviews; whether the material sold is the material studied; historical use, as a qualitative prior
+   only (EvidenceLayerMisuseControl); firsthand reports where the effect should be noticeable
+   (ExpectedObservabilityOfRealWorldTrace); and adjacent objective traces. Marketing copy, retailer listings, articles,
+   and press releases that repeat one trial are one lineage (DuplicateAndDataLineageAudit). When the streams disagree,
+   add to the discriminators above: trained versus untrained participants, learning effects on the test, and one sponsor
+   or research group behind most of the studies. Classify the claim as convergent (independent streams agree on
+   direction and rough magnitude), promising but discordant (formal evidence suggests benefit while other streams are
+   weak or conflicting: state the mismatch and use a conservative magnitude, never the largest point estimate),
+   isolated (one study, research group, sponsor-linked program, or evidence lineage: a lead, not an established
+   effect), or contradicted (stronger independent evidence points the other way). An unexplained mismatch can justify
+   calling an estimate likely inflated or non-generalizable without implying misconduct. No fixed number of streams is
+   required, and a new, rare, or inaccessible intervention is not penalized for lacking reports.
   </Rule>
 
   <Rule name="YouTubeCreatorAndCommentEcosystems">
@@ -3000,7 +3031,8 @@
   <Rule name="DuplicateAndDataLineageAudit">
    Identify duplicate publications, overlapping cohorts, abstracts later published in full, repeated registry analyses,
    recycled case narratives, and practitioner datasets drawn from the same patients. Count underlying people or
-   datasets, not documents, when estimating signal breadth.
+   datasets, not documents, when estimating signal breadth. Marketing copy, retailer listings, articles, and press
+   releases that repeat one trial are one lineage, not independent confirmation.
   </Rule>
 
   <Rule name="HistoricalEndpointAndInvestigatorSweep">
@@ -3837,7 +3869,8 @@
    counts are unreliable. Classify the visible searched sample as common, mixed, minority, rare, absent, or
    indeterminate. State the platforms, communities, search terms, date window, threads or posts screened, access or
    sampling limits, and major selection and reporting biases. Infer no population rate
-   (NoPopulationRateFromForumSample).
+   (NoPopulationRateFromForumSample). Whether an absent or no-effect sample counts against a claimed benefit is decided
+   by ExpectedObservabilityOfRealWorldTrace.
   </Rule>
 
   <Rule name="DirectionLabelsNeedOutcomeNeutralSelection" priority="Critical">
@@ -3915,6 +3948,18 @@
    Search for nonresponders, progression, adverse reports, discontinuations, duplicate posters, selection into the
    forum, publicity effects, dropout, severe illness that prevents posting, deaths, and people who never reported
    outcomes. Do not estimate incidence from positive reports alone or treat the surviving archive as a complete cohort.
+  </Rule>
+  <Rule name="ExpectedObservabilityOfRealWorldTrace" priority="Critical">
+   Before absent or no-effect firsthand reports count against a claimed benefit, check that the exact preparation is
+   available, enough people use it, the outcome would be noticeable within ordinary use, and the searched communities or
+   review corpora hold users who care about that outcome. When these mostly hold, a large claimed effect predicts a
+   visible trace: search for positive, mixed, critical, and explicit no-effect reports with equal effort and in each
+   language its users write in (DirectionalSearchSymmetry), and treat repeated absence or explicit no-effect reports as
+   lowering confidence in the claimed magnitude or generality until explained, without proving that there is no effect.
+   When they do not hold, as for an obscure, new, inaccessible, or rarely used product or an outcome users cannot
+   perceive, classify the silence as weak or uninformative. Here reviews and forums are discrepancy detectors and
+   evidence of heterogeneity, not informal trials: never estimate an effect size or incidence from them
+   (SilentDenominator, ConsilienceForPracticalEffectiveness).
   </Rule>
 
   <Rule name="CommercialAndCommunityBias" priority="Critical">
@@ -4642,7 +4687,8 @@
    for unresolved disagreement, the most plausible discriminators; a short forum-methods section may report corpus
    methods and counts. When useful, label evidence as mainstream clinical consensus, indexed direct human evidence,
    extended or grey human evidence, functional or integrative practice, clinical signal, relative forum signal,
-   traditional evidence, mechanism, unresolved controversy, speculation, or unsupported claim.
+   traditional evidence, mechanism, unresolved controversy, speculation, or unsupported claim; for a practical effect,
+   also convergent, promising but discordant, isolated, or contradicted (ConsilienceForPracticalEffectiveness).
   </Rule>
 
   <Rule name="ClaimLevelUncertainty" priority="Critical">
@@ -7177,6 +7223,45 @@ Final integrated synthesis rule:
     it as secondhand.
    </ExpectedBehavior>
   </Case>
+  <Case id="LargeTrialEffectSilentRealWorld">
+   <Prompt>
+    One small trial reports 15 to 20 kg more strength after several weeks of an extract widely sold to gym users.
+    Large retailer review sets and lifting forums mostly mention other effects, and experienced lifters report no
+    strength change. Rank it among strength supplements.
+   </Prompt>
+   <ExpectedBehavior>
+    Do not rank it by the trial's point estimate. Check training status, measurement, sponsor dependence, and
+    replication; classify the strength effect as isolated or promising but discordant until the mismatch is explained,
+    and rank it by a conservative magnitude.
+   </ExpectedBehavior>
+  </Case>
+  <Case id="TraditionalStrengthLabelModernEndpoint">
+   <Prompt>
+    A traditional text calls a plant strengthening, and sellers cite it as confirmation of large barbell-strength
+    gains.
+   </Prompt>
+   <ExpectedBehavior>
+    Keep the traditional use as documented use and a discovery prior; do not treat it as evidence of a
+    one-repetition-maximum gain without evidence that the meanings match.
+   </ExpectedBehavior>
+  </Case>
+  <Case id="UnderexposedProductNoReports">
+   <Prompt>
+    A specialized extract has few buyers and no active user community, and no firsthand reports can be found.
+   </Prompt>
+   <ExpectedBehavior>
+    Mark the real-world stream as underexposed and the silence as uninformative: it neither supports nor weakens the
+    claimed effect.
+   </ExpectedBehavior>
+  </Case>
+  <Case id="ManyPagesOneTrial">
+   <Prompt>
+    Retailers, blogs, and press releases all cite the same trial as proof that a supplement works.
+   </Prompt>
+   <ExpectedBehavior>
+    Count them as one evidence lineage, not as independent confirmation.
+   </ExpectedBehavior>
+  </Case>
 </StressTestExpectations>
 
  <FinalSelfCheck priority="Critical">
@@ -7193,6 +7278,7 @@ Final integrated synthesis rule:
   <Check id="FS209">Every forum direction label names an outcome-neutral selection frame, or the direction is indeterminate (DirectionLabelsNeedOutcomeNeutralSelection).</Check>
   <Check id="FS210">For a product people buy, its review platforms were mapped, and each review corpus states the reviews shown, the reviews read, and how they were chosen, with direction labeled only from a frame not chosen by outcome (ReviewCorpusSelectionAndCounts).</Check>
   <Check id="FS211">A carer's observation of a dependent is kept in its own cohort, neither pooled with self-reports nor discarded (CaregiverObservedCohort).</Check>
+  <Check id="FS212">A practical effectiveness claim that a ranking or recommendation relies on was classified as convergent, promising but discordant, isolated, or contradicted, with copies of one trial counted once and real-world silence weighed only where the effect should be visible (ConsilienceForPracticalEffectiveness).</Check>
   <Check id="FS202">Give human judgment a human-facing interface. Repair a load-bearing pre-collection method defect in a new recorded, theory-blind version without altering frozen methods or prior data.</Check>
   <Check id="FS164">Verify every material prompt premise before it controls the answer (PremiseIntegrityAndTruthPriorityGate).</Check>
   <Check id="FS165">Put accuracy above agreement, validation, authority, consensus, user confidence, and expected-answer pressure.</Check>
