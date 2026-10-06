@@ -495,6 +495,10 @@ interface CommentRetrievalState {
   embeddedReplyIds: Set<string>;
   threadIds: Set<string>;
   topLevelIds: Set<string>;
+  /** Each committed thread's top-level comment, to recognize a thread repeated on a later page. */
+  threadTopLevelIds: Map<string, string>;
+  /** Exact repeats of committed threads that later pages returned and that were dropped. */
+  repeatedThreads: number;
   threads: CommentThreadState[];
   pages: { commentThreads: number; replies: number };
   topLevelExhausted: boolean;
@@ -731,6 +735,8 @@ const retrieveYoutubeComments = async (
     embeddedReplyIds: new Set(),
     threadIds: new Set(),
     topLevelIds: new Set(),
+    threadTopLevelIds: new Map(),
+    repeatedThreads: 0,
     threads: [],
     pages: { commentThreads: 0, replies: 0 },
     topLevelExhausted: false,
@@ -790,9 +796,9 @@ const collectCommentThreads = async (state: CommentRetrievalState): Promise<void
     if (!parsed.success) throw responseError("YouTube returned an invalid commentThreads response.");
     const response = parsed.data;
     validateCommentThreadPage(response, state);
-    const staged = stageCommentThreadPage(state, response, seenTokens);
+    const { staged, repeated } = stageCommentThreadPage(state, response, seenTokens);
     assertCommentBudgetElapsed(state.accounting);
-    commitCommentThreadPage(state, staged, response);
+    commitCommentThreadPage(state, staged, repeated, response);
 
     const nextToken = response.nextPageToken;
     if (nextToken === undefined) return;
@@ -820,7 +826,7 @@ const stageCommentThreadPage = (
   state: CommentRetrievalState,
   response: z.infer<typeof commentThreadsResponseSchema>,
   seenTokens: Set<string>
-): StagedCommentThread[] => {
+): { staged: StagedCommentThread[]; repeated: number } => {
   const prospectiveThreads = state.threads.length + response.items.length;
   const nextToken = response.nextPageToken;
   if (
@@ -841,6 +847,7 @@ const stageCommentThreadPage = (
   const pageTopLevelIds = new Set<string>();
   const pageCommentIds = new Set<string>();
   const staged: StagedCommentThread[] = [];
+  let repeated = 0;
   let stagedCommentCount = 0;
   let stagedTextBytes = 0;
 
@@ -853,6 +860,13 @@ const stageCommentThreadPage = (
       topLevel.snippet.parentId !== undefined
     ) {
       throw responseError("YouTube returned a comment thread that did not correlate to the requested video.");
+    }
+    // Pages run newest first, so a comment posted during retrieval pushes the last thread of one page onto
+    // the next (seen live on 2026-10-06, where it stopped the whole retrieval). The same thread with the
+    // same top-level comment is that repeat: drop it. Any other reuse of an identifier is still refused.
+    if (state.threadTopLevelIds.get(item.id) === topLevel.id && !pageThreadIds.has(item.id)) {
+      repeated += 1;
+      continue;
     }
     if (
       state.threadIds.has(item.id) || pageThreadIds.has(item.id) ||
@@ -931,17 +945,20 @@ const stageCommentThreadPage = (
     state.accounting.normalizedTextBytes + stagedTextBytes,
     state.accounting.budgets.maxTextBytes
   );
-  return staged;
+  return { staged, repeated };
 };
 
 const commitCommentThreadPage = (
   state: CommentRetrievalState,
   staged: StagedCommentThread[],
+  repeated: number,
   response: z.infer<typeof commentThreadsResponseSchema>
 ): void => {
+  state.repeatedThreads += repeated;
   for (const item of staged) {
     state.threadIds.add(item.threadId);
     state.topLevelIds.add(item.topLevelId);
+    state.threadTopLevelIds.set(item.threadId, item.topLevelId);
     state.threads.push(item.thread);
     state.expectedReplies += item.thread.expectedReplies;
     state.repliesRetrieved += item.thread.returnedReplyCount;
@@ -1506,11 +1523,16 @@ const buildCommentEnvelope = (
       : { rawMetadata: commentRawMetadata(state, selection, normalizedOutputBytes, elapsedMs) }),
     data
   };
+  // Dropping a repeated thread loses nothing, so the note does not make coverage partial.
+  const repeatNote = state.repeatedThreads === 0 ? [] : [
+    `YouTube returned ${state.repeatedThreads} comment thread(s) again on a later page, as happens when comments ` +
+      "arrive during retrieval; each repeat was dropped."
+  ];
   if (!isFailure) {
     return okEnvelope({
       ...common,
       accessStatus: extractionCoverage,
-      limitations: logicalLimitations
+      limitations: [...logicalLimitations, ...repeatNote]
     });
   }
 
@@ -1528,6 +1550,7 @@ const buildCommentEnvelope = (
     accessStatus: status,
     limitations: uniqueStrings([
       ...logicalLimitations,
+      ...repeatNote,
       ...outcome.limitations,
       ...(details.limitations ?? [])
     ]),

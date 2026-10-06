@@ -81,6 +81,7 @@ const automatedScoutBoundarySchema = z.object({
     "gemini_scout_budget_exhausted",
     "gemini_scout_request_over_budget",
     "research_target_not_population_level",
+    "gemini_youtube_scout_credits_depleted",
     "gemini_youtube_scout_rate_limited",
     "gemini_youtube_scout_inaccessible",
     "gemini_youtube_scout_invalid_response",
