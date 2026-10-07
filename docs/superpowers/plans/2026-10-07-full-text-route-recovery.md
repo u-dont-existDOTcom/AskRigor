@@ -471,3 +471,29 @@ paste there.
 Consequence for phase 2: Bright Data would get past challenge pages such as the Verona IRIS records. It would not get
 past the Academia.edu sign-in, because phase 2 never defeats a login or a paywall. For these three papers, the copies
 found so far are login-gated, records without a file, paywalled, or behind a challenge with unknown content.
+
+### Reconciliation, continued: GPT's reply on #287 (15:56 UTC)
+
+GPT reproduced its original route. ChatGPT's web retrieval returns a search index's crawled copy of a page ("Crawled:
+today; Content type: text/html"). For the Academia.edu uploads of all three papers, that copy holds the article body,
+although a live visit is login-gated (Academia.edu) or challenged (AskRigor's server).
+
+It quoted the methods:
+
+- 10734247: L-DOPA/carbidopa (Sinemet CR), 75/300 to 150/600 mg daily, in five of seven children.
+- 14529800: "l-dopa (250 mg) with carbidopa (25 mg)".
+- 11374875: "Recombinant pig kidney DDC was purified to homogeneity".
+
+So the details were read, not inferred; Claude's earlier guess was wrong. The 11374875 enzyme was recombinant, not
+extracted from pig tissue. The route is an indexed-corpus versus live-origin difference, not a bypass.
+
+Consequences:
+
+- Phase 2 as unlocking is off. Claude does not build or run bot-check bypasses, even with owner approval. It would not
+  have helped here anyway: the Academia.edu PDFs need a sign-in, and Semantic Scholar and OpenAIRE list all three papers
+  as closed, including the Verona copy.
+- The owner chooses the indexed-copy route in question 49:
+  - A: AI-supplied search-index copies, checked by identity, admission and an exact PubMed-abstract match, and labeled
+    as not fetched by AskRigor;
+  - B: a paid index provider trial;
+  - C: neither.
