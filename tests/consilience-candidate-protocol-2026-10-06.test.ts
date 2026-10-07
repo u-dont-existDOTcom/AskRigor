@@ -122,10 +122,10 @@ describe("consilience candidate: practical effectiveness claims", () => {
       readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8"),
     ]);
     expect(universal).toContain(
-      '<revision_history>\n<revision version="20.5.35" priority="Critical">\nCandidate for owner approval (owner rule of 2026-10-06',
+      '<revision version="20.5.35" priority="Critical">\nCandidate for owner approval (owner rule of 2026-10-06',
     );
     expect(hrp).toContain(
-      ' <RevisionHistory>\n  <Revision version="20.6.11" priority="Critical">\n   Candidate for owner approval (owner rule of 2026-10-06',
+      '  <Revision version="20.6.11" priority="Critical">\n   Candidate for owner approval (owner rule of 2026-10-06',
     );
   });
 });
