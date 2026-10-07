@@ -6,6 +6,8 @@ import {
 } from "@askrigor/contracts";
 import { z } from "zod";
 
+import { commentProductClassSchema, videoProductClassSchema, type CommentProductClass, type VideoProductClass } from "./product-identity.js";
+
 import { fetchJson, UpstreamHttpError } from "./http.js";
 
 const YOUTUBE_API_URL = "https://www.googleapis.com/youtube/v3";
@@ -161,6 +163,7 @@ export interface YoutubeConfig { apiKey: string; }
 export interface YoutubeRequestRuntime { max_elapsed_ms?: number; }
 export interface SearchYoutubeInput { query: string; pageSize?: number; cursor?: string; }
 export interface YoutubeSearchRecord {
+  product_class?: VideoProductClass;
   video_id: string;
   channel_id?: string;
   channel_title?: string;
@@ -216,6 +219,7 @@ export const DEFAULT_YOUTUBE_COMMENT_RETRIEVAL_BUDGETS: Readonly<YoutubeCommentR
   maxElapsedMs: 120_000
 };
 export interface YoutubeComment {
+  product_class?: CommentProductClass;
   video_id: string;
   comment_id: string;
   parent_id: string | null;
@@ -249,6 +253,7 @@ export interface YoutubeCommentData {
 }
 
 export const youtubeSearchRecordSchema = z.object({
+  product_class: videoProductClassSchema.optional(),
   video_id: youtubeVideoIdSchema,
   channel_id: channelIdSchema.optional(),
   channel_title: z.string().min(1).max(10_000).optional(),
@@ -278,6 +283,7 @@ export const youtubeVideoDataSchema = z.object({
 }).strict();
 export const youtubeVideoFailureDataSchema = z.object({}).strict();
 export const youtubeCommentSchema = z.object({
+  product_class: commentProductClassSchema.optional(),
   video_id: youtubeVideoIdSchema,
   comment_id: providerIdentifierSchema,
   parent_id: providerIdentifierSchema.nullable(),

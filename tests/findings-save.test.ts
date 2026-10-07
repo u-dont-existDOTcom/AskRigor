@@ -520,6 +520,7 @@ describe("finalize_research, save_research_findings and the findings library", (
     treatment_choice: "not_compared",
     research_target: TARGET,
     research_depth: "deep",
+    intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
     key_sources: [{ id: "PMC10518852", status: "validated" }],
     answer_draft: QUOTE,
     absence_claims: [],

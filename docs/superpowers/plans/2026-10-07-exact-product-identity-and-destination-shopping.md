@@ -159,6 +159,29 @@ These follow the `commercial_review_applicability` pattern.
 | Step | State |
 | --- | --- |
 | Lane items read, plan written | Done (2026-10-07) |
-| Server changes (sections 1 and 2) | Next, by Codex, then Claude's review |
+| Server changes (sections 1 and 2) | Implemented locally (2026-10-07); awaiting Claude's review |
 | Protocol text (section 3) | Exact text to the owner |
-| Endpoint acceptance, release | After review, owner approval |
+| Endpoint acceptance, release | Local MCP regression acceptance passed (2026-10-07); external acceptance/release after review and owner approval |
+
+## Implementation
+
+- Shared matching, video/comment classes and receipt claims: `packages/sources/src/product-identity.ts`, with
+  exports and classified record fields in `packages/sources/src/index.ts` and `packages/sources/src/youtube.ts`.
+  Tool integration: `apps/research-mcp/src/youtube-community-audit.ts`, `youtube-community-survey.ts`,
+  `youtube-video-community-audit.ts`, `youtube-audit-continuation.ts`, `youtube-mcp-sample.ts`, and `register-tools.ts`.
+  Declaration checks and reporting: `apps/research-mcp/src/research-finalization-gate.ts`.
+  `apps/research-mcp/src/gemini-tool-catalog.ts` compacts schema prose and constraint hints to preserve its existing
+  catalog size limit while retaining the new inputs. Updated `docs/privacy-data-map.md` and regenerated
+  `docs/tool-inventory-v0.1.0.json`; the standard catalog remains 33 tools.
+- New tests: `tests/product-identity.test.ts` (Unicode normalization, both boundaries, all nine no-space scripts,
+  all video/comment table rows and bounded receipt claims); `tests/youtube-product-identity.test.ts` (MUSSK
+  exclusions, full descriptions, survey/search classifications, Nan Bao comments/replies, continuation binding
+  and cumulative counts, refusals and MCP receipts); `tests/finalize-product-identity-and-shopping.test.ts`
+  (review counts/exclusions, product-bound comment receipts, intervention identity, all offer states, destination,
+  answer links and bounded shopping routes; each rule also through MCP). Existing fixtures/descriptions updated in
+  `tests/finalize-product-review-requirement.test.ts`, `research-finalization-gate.test.ts`, `mcp-tools.test.ts`,
+  `findings-save.test.ts`, and `analysis-staging.test.ts`.
+- Validation: final `npm run verify` passed: typecheck and build passed; 208 test files passed and 1 skipped;
+  2,367 tests passed and 6 skipped. Verification used Node 24.18.0, an external-socket guard, and loopback test servers. No external network or commits. Live GitHub bootstrap and lesson-queue status were
+  unavailable under the owner's no-network constraint; no queue counts were inferred. Section 3, external
+  acceptance and release remain with the owner/review process.

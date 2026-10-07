@@ -382,6 +382,7 @@ describe("the server sends a free contributor's validated analyses when the fina
       treatment_choice: "not_compared",
       research_target: "How the body clears a drug in adults",
       research_depth: "deep",
+      intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
       key_sources: [{ id: DOI, status: "validated" }],
       answer_draft: "The liver clears this drug within a few hours.",
       absence_claims: [],

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeProductName, productNameOccurs } from "@askrigor/sources";
 
 import { analysesSavedSchema } from "./analysis-staging.js";
 import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
@@ -107,6 +108,12 @@ export const finalizeResearchInputSchema = z.object({
     .describe("After a first pass: roughly what another pass would take, with a number in digits and a unit, such " +
       "as \"about 20 minutes and 15 YouTube searches\"."),
   community_findings: z.object({
+    product_corpora: z.array(z.object({
+      product: z.string().trim().min(1).max(200).describe("Records the exact listed product and variant."),
+      video_ids: z.array(youtubeVideoIdSchema).max(60).describe("Lists admitted videos covered by this product's comment-audit receipts, possibly empty."),
+      exact_product_signal: communityFindingText.describe("Records the signal from comments classified as the exact product."),
+      variant_unresolved_signal: communityFindingText.optional().describe("Records signal whose product variant remains unresolved.")
+    }).strict()).max(6).optional().describe("Records one corpus per listed product when commercial reviews are required."),
     videos_reviewed: z.array(youtubeVideoIdSchema).min(1).max(60)
       .describe("Every video whose comments you read."),
     benefit_reports: z.string().trim().min(1).max(800),
@@ -123,8 +130,7 @@ export const finalizeResearchInputSchema = z.object({
     }).strict().optional().describe(ANSWER_QUOTES_DESCRIPTION)
   }).strict().optional()
     .describe("What the YouTube comments you read showed: benefit, no-effect and adverse reports with rough counts, " +
-      "how creators differ from independent commenters, and what this changes in the answer. Summarize; do not quote " +
-      "or name commenters. Needed whenever a comment audit ran, even if the signal was weak or neutral; the answer " +
+      "how creators differ from independent commenters, and what this changes in the answer. Records summaries without quotations or commenter names. Needed whenever a comment audit ran, even if the signal was weak or neutral; the answer " +
       "must report it (must_report)."),
   principal_communities: z.array(z.object({
     name: z.string().trim().min(1).max(120).describe("As its users know it, such as r/trt, MESO-Rx or YouTube."),
@@ -132,8 +138,8 @@ export const finalizeResearchInputSchema = z.object({
   }).strict()).min(1).max(8).optional()
     .describe("Where people discussing this actually talk, the dominant first: subreddits, specialist forums, " +
       "Facebook groups, patient organizations, YouTube, and for a product people buy, the sites where buyers review " +
-      "it (platform review_site). Needed when community evidence is researched; search the dominant one and at " +
-      "least one independent one."),
+      "it (platform review_site). Needed when community evidence is researched; coverage includes the dominant " +
+      "community and at least one independent community."),
   single_community_reason: z.string().trim().min(1).max(500).optional()
     .describe("Why only one community discusses this, when principal_communities lists one."),
   community_searches: z.array(z.object({
@@ -154,6 +160,11 @@ export const finalizeResearchInputSchema = z.object({
       reviews_shown: z.number().int().min(0).optional()
         .describe("How many written reviews the site shows for it, when it says."),
       reviews_read: z.number().int().min(1),
+      item_identity: z.object({
+        exact_product: z.number().int().nonnegative(),
+        variant_unresolved: z.number().int().nonnegative(),
+        other_variant_excluded: z.number().int().nonnegative()
+      }).strict().optional().describe("Records item-level product identity counts; their sum equals reviews_read. Other variants are excluded from this product's signal."),
       selection: z.enum(REVIEW_SELECTIONS)
         .describe("How you chose the reviews you read: all of them; every one mentioning the condition; the most " +
           "recent; a random sample or one stratified by rating; the ones ranked first; ones found by searching for " +
@@ -174,7 +185,7 @@ export const finalizeResearchInputSchema = z.object({
   }).strict()).max(12).optional()
     .describe("Each community outside YouTube that you searched with your own web search: the queries, the threads " +
       "you read and what they showed (benefit, no-effect and adverse reports with rough counts, and the effect on " +
-      "the answer), or the access boundary that stopped the search. Summarize; do not quote or name posters. " +
+      "the answer), or the access boundary that stopped the search. Records summaries without quotations or poster names. " +
       "AskRigor cannot see these searches, so the answer links the threads you read and says they were not verified. " +
       "YouTube goes through its own tools."),
   key_sources: z.array(z.object({
@@ -183,6 +194,31 @@ export const finalizeResearchInputSchema = z.object({
     reason: z.string().trim().min(1).max(1_000).optional()
   }).strict()).max(60)
     .describe("Each study your conclusions depend on: validated after a full-text method audit, or lead_only when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text."),
+  intervention_identity: z.object({
+    status: z.enum(["not_applicable", "checked"]),
+    reason: z.string().trim().min(1).max(1_000).optional(),
+    interventions: z.array(z.object({
+      study_ids: z.array(z.string().trim().min(1).max(300)).min(1).max(60),
+      label: z.string().trim().min(1).max(200),
+      status: z.enum(["resolved", "unresolved"]),
+      identity: z.object({
+        registry_code: z.string().trim().min(1).max(300),
+        sponsor_or_maker: z.string().trim().min(1).max(300),
+        current_product: z.string().trim().min(1).max(200)
+      }).strict().optional()
+    }).strict()).min(1).max(60).optional()
+  }).strict().optional().describe("Records whether key studies tested coded or multi-ingredient interventions and their traced whole-product identity. Needed when key_sources is nonempty and the answer compares treatment options or covers a product people buy."),
+  shopping: z.object({
+    status: z.enum(["not_requested", "buy_options", "no_live_option_found"]),
+    destination: z.string().trim().min(1).max(200).optional(),
+    offers: z.array(z.object({
+      product: z.string().trim().min(1).max(200),
+      url: z.string().trim().url().max(2_048),
+      offer_state: z.enum(["identity_only", "domestic_orderable", "international_storefront", "destination_confirmed", "live_destination_orderable"]),
+      role: z.enum(["buy_option", "context"])
+    }).strict()).max(30).optional(),
+    routes_searched: z.array(z.enum(["international_storefronts", "marketplaces", "exporters", "specialist_sellers", "secondary_marketplaces"])).max(5).optional()
+  }).strict().optional().describe("Records destination-bound shopping declarations when commercial reviews are required: no request and no offers, live buy options linked in the draft, or a bounded no-result after at least three distinct international routes. These are model declarations, not provider-verified offers."),
   answer_draft: z.string().trim().min(1).max(60_000).optional()
     .describe("The answer you are about to give, exactly as the user will see it. Needed before the gate reports ready; " +
       "it is checked for internal labels, bare video IDs, a pasted long prompt, the sentences answer_quotes copies " +
@@ -644,6 +680,7 @@ export function finalizeResearch(
     }
   }
 
+  productIdentityDeclarations(input, rounds, verified, { nextSteps, requireLimit, mustReport });
   mustReport.push(...communityLanes);
 
   // Treatment coverage. A first pass does not run the coverage lock, so its
@@ -1763,6 +1800,120 @@ function commercialReviewCoverage(input: FinalizeResearchInput, out: { nextSteps
   }
   // communityCoverage checks matching searches' threads, corpora and access boundaries,
   // and requires the existing boundary and partial-selection limits, including for review_site.
+}
+
+/** Exact consistency checks of declarations; no web or semantic inference occurs here. */
+function productIdentityDeclarations(
+  input: FinalizeResearchInput,
+  rounds: readonly VerifiedReceipt[],
+  verified: readonly VerifiedReceipt[],
+  out: { nextSteps: string[]; requireLimit: (limit: string, ...caveats: string[]) => void; mustReport: string[] }
+): void {
+  const applicability = input.commercial_review_applicability;
+  if (applicability?.status === "required" && input.community_findings !== undefined) {
+    const corpora = input.community_findings.product_corpora;
+    if (corpora === undefined) {
+      out.nextSteps.push("Give community_findings.product_corpora: one entry per listed product, its admitted video_ids and exact_product_signal, with variant_unresolved_signal when present.");
+    } else {
+      const products = applicability.products ?? [];
+      const labels = corpora.map(({ product }) => normalizeProductName(product));
+      if (labels.length !== products.length || new Set(labels).size !== labels.length ||
+          products.some((product) => !labels.includes(normalizeProductName(product)))) {
+        out.nextSteps.push("community_findings.product_corpora needs exactly one entry for each commercial_review_applicability product, with the same product label.");
+      }
+      const receipts = [...rounds.filter(({ kind }) => kind === "youtube_community_audit"),
+        ...verified.filter(({ kind }) => kind === "youtube_video_audit")];
+      for (const corpus of corpora) {
+        const uncovered = corpus.video_ids.filter((video) => !receipts.some(({ claims }) => {
+          const product = text(claims.product);
+          return product !== "" && (productNameOccurs(product, corpus.product) ||
+            ([...product].length === 80 && normalizeProductName(corpus.product).includes(product))) &&
+            ["exact", "variant_unresolved", "mixed_variants"].some((productClass) => list(claims[productClass]).includes(video)) &&
+            (list(claims.videos).includes(video) || text(claims.video) === video);
+        }));
+        if (uncovered.length > 0) {
+          out.nextSteps.push(`The product corpus for ${corpus.product} lists ${uncovered.join(", ")} without a comment-audit receipt for that product that admitted those videos; audit them with product_identity or remove them from the corpus.`);
+        }
+        const unreviewed = corpus.video_ids.filter((video) => !input.community_findings!.videos_reviewed.includes(video));
+        if (unreviewed.length > 0) out.nextSteps.push(`The product corpus for ${corpus.product} lists ${unreviewed.join(", ")} outside community_findings.videos_reviewed; make the declarations agree.`);
+        out.mustReport.push(`${corpus.product}: Exact product signal: ${corpus.exact_product_signal}` +
+          (corpus.variant_unresolved_signal === undefined ? "" : ` Variant unresolved signal: ${corpus.variant_unresolved_signal}`));
+      }
+    }
+  }
+  for (const search of input.community_searches ?? []) {
+    for (const corpus of search.review_corpora ?? []) {
+      const counts = corpus.item_identity;
+      if (counts === undefined) {
+        out.nextSteps.push(`Give item_identity for ${corpus.product} in ${search.community}: exact_product, variant_unresolved and other_variant_excluded counts, adding up to reviews_read.`);
+      } else if (counts.exact_product + counts.variant_unresolved + counts.other_variant_excluded !== corpus.reviews_read) {
+        out.nextSteps.push(`item_identity for ${corpus.product} in ${search.community} does not add up to reviews_read; count every review in exactly one identity class.`);
+      } else {
+        out.mustReport.push(`${search.community}, ${corpus.product}: ${counts.exact_product} exact-product review(s), ${counts.variant_unresolved} variant-unresolved review(s), ${counts.other_variant_excluded} other-variant review(s) excluded.`);
+      }
+    }
+  }
+  const intervention = input.intervention_identity;
+  // Whole-intervention identity matters where an answer compares, ranks or recommends, or names a product to buy.
+  const interventionNeeded = input.key_sources.length > 0 &&
+    (input.treatment_choice === "compared" || applicability?.status === "required");
+  if (interventionNeeded && intervention === undefined) {
+    out.nextSteps.push("Give intervention_identity for the key studies: not_applicable with a reason, or checked with the coded or multi-ingredient interventions and their whole-product identities.");
+  }
+  if (intervention?.status === "not_applicable") {
+    if (intervention.reason === undefined) out.nextSteps.push("Give a reason for intervention_identity not_applicable.");
+    if (intervention.interventions !== undefined) out.nextSteps.push("intervention_identity not_applicable cannot list interventions; make the declaration agree.");
+  } else if (intervention?.status === "checked") {
+    if (intervention.interventions === undefined) out.nextSteps.push("Give interventions for intervention_identity checked, with study_ids, label and resolved or unresolved status.");
+    const sources = new Set(input.key_sources.map(({ id }) => normalizeIdentifier(id)));
+    for (const entry of intervention.interventions ?? []) {
+      if (entry.study_ids.some((id) => !sources.has(normalizeIdentifier(id)))) {
+        out.nextSteps.push(`intervention_identity for ${entry.label} lists study_ids outside key_sources; make the source declarations agree.`);
+      }
+      if (entry.status === "resolved" && entry.identity === undefined) {
+        out.nextSteps.push(`Give the resolved identity for ${entry.label}: registry_code, sponsor_or_maker and current_product.`);
+      } else if (entry.status === "unresolved") {
+        if (entry.identity !== undefined) out.nextSteps.push(`The unresolved intervention ${entry.label} cannot also declare a resolved identity.`);
+        out.requireLimit(`The intervention ${entry.label} has not been traced to a current product.`,
+          `The exact product tested in ${entry.label} was not traced to a current product, so this answer does not present it as something to buy.`);
+      }
+    }
+  }
+  const shopping = input.shopping;
+  if (applicability?.status === "required" && shopping === undefined) {
+    out.nextSteps.push("Give shopping: not_requested with no offers, buy_options for a destination, or no_live_option_found after at least three distinct international routes.");
+  }
+  if (shopping === undefined) return;
+  if (shopping.status === "not_requested") {
+    if ((shopping.offers?.length ?? 0) > 0) out.nextSteps.push("shopping not_requested cannot list offers.");
+    return;
+  }
+  if (shopping.destination === undefined) out.nextSteps.push("Give the destination for shopping buy_options or no_live_option_found.");
+  const offers = shopping.offers ?? [];
+  if (shopping.status === "buy_options" && !offers.some(({ role }) => role === "buy_option")) {
+    out.nextSteps.push("shopping buy_options needs at least one buy_option offer.");
+  }
+  const links = new Set(input.answer_draft === undefined ? [] : displayedProse(input.answer_draft)
+    .flatMap((block) => [...linkTargets(block).matchAll(LINKED_URL)].map(([url]) => comparableUrl(url))));
+  for (const offer of offers) {
+    if (offer.role !== "buy_option") continue;
+    if (offer.offer_state !== "live_destination_orderable") {
+      out.nextSteps.push(`The buy option for ${offer.product} is ${offer.offer_state}; a buy_option for ${shopping.destination ?? "the destination"} must be live_destination_orderable.`);
+    }
+    if (input.answer_draft !== undefined && !links.has(comparableUrl(offer.url))) {
+      out.nextSteps.push(`The buy option for ${offer.product} is missing from answer_draft; include its link ${offer.url}.`);
+    }
+  }
+  if (shopping.status === "no_live_option_found") {
+    if (offers.some(({ role }) => role === "buy_option")) out.nextSteps.push("shopping no_live_option_found cannot list buy options.");
+    if (new Set(shopping.routes_searched ?? []).size < 3) {
+      out.nextSteps.push("shopping no_live_option_found needs at least three distinct routes_searched: international_storefronts, marketplaces, exporters, specialist_sellers or secondary_marketplaces.");
+    }
+    if (shopping.destination !== undefined) {
+      for (const product of applicability?.products ?? []) out.requireLimit(`No live destination offer was found for ${product}.`,
+        `No seller with a live offer for ${shopping.destination} was found for ${product}.`);
+    }
+  }
 }
 
 /** A community read beyond YouTube, as the answer check needs it. */

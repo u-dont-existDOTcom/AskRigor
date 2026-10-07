@@ -319,8 +319,8 @@ describe("AskRigor MCP tools", () => {
       const audit = tools.find(({ name }) => name === "audit_youtube_video_community");
 
       expect(survey).toMatchObject({
-        description: "Survey bounded YouTube video candidates for a community-evidence question and return deduplicated metadata, canonical watch links, provider comment counts, pagination, and access receipts; no medical conclusions are generated. It covers YouTube only. " +
-          "For research, research_question must be the research_target given to the other tools.",
+        description: "Surveys bounded YouTube video candidates for a community-evidence question and returns deduplicated metadata, canonical watch links, provider comment counts, pagination, and access receipts. Optional product_identity classifies provider metadata, keeps admitted candidates and lists excluded videos; no medical conclusions are generated. It covers YouTube only. " +
+          "For research, research_question records the same research_target as the other tools.",
         annotations: READ_ONLY_ANNOTATIONS,
         inputSchema: {
           type: "object",
@@ -348,7 +348,7 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(audit).toMatchObject({
-        description: "Retrieve one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation. Returns exact retrieved-versus-analyzed counts and a separate receipt covering this video only; the comment sample comes with the last page (or when the chain stops), for bounded review; no medical conclusions are generated. Sample records are compact: id, reply_to, a per-video pseudonymous author key for counting distinct people, date, likes, text.",
+        description: "Retrieves one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation. Optional product_identity admits matching provider metadata, refuses other products or variants, and classifies each comment and reply. Identity continuations require the same declaration; only its digest is retained. Returns exact retrieved-versus-analyzed counts and a separate receipt covering this video only; the comment sample comes with the last page (or when the chain stops), for bounded review; no medical conclusions are generated. Sample records are compact: id, reply_to, a per-video pseudonymous author key for counting distinct people, date, likes, text.",
         annotations: READ_ONLY_ANNOTATIONS,
         inputSchema: {
           type: "object",
@@ -395,9 +395,9 @@ describe("AskRigor MCP tools", () => {
 
       expect(audit).toMatchObject({
         description:
-          "YouTube community evidence in one read-only call: search YouTube, deduplicate bounded provider-ranked videos, retrieve metadata, unfiltered comments and all accessible replies, and return a deterministic receipt for these videos; no medical conclusions are generated. " +
-          "It covers YouTube only: use it when YouTube is one of the places people discussing the question talk, and search the others, such as Reddit or a specialist forum, with your own web search. " +
-          "research_question must be the research_target given to the other tools.",
+          "Retrieves YouTube community evidence in one read-only call: bounded provider-ranked discovery, deduplicated metadata, unfiltered comments and all accessible replies, and a deterministic receipt for these videos. Optional product_identity skips excluded videos down the existing ranking and classifies admitted videos and comments; no medical conclusions are generated. " +
+          "It covers YouTube only; Reddit, specialist forums and other communities form separate evidence lanes. " +
+          "research_question records the same research_target as the other tools.",
         annotations: READ_ONLY_ANNOTATIONS,
         inputSchema: {
           type: "object",
@@ -836,6 +836,7 @@ describe("AskRigor MCP tools", () => {
           community_evidence: "researched",
           treatment_choice: "not_compared",
           research_target: "Adults with hip osteoarthritis comparing treatment programs",
+          intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
           key_sources: [{ id: "10.1000/forged", status: "validated" }]
         }
       });
@@ -856,6 +857,7 @@ describe("AskRigor MCP tools", () => {
         treatment_choice: "not_compared",
         research_target: "Adults asking about a dosing calculation",
         not_relevant_reason: "A dosing arithmetic question with no treatment choice.",
+        intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
         key_sources: [],
         absence_claims: []
       };
@@ -1414,8 +1416,8 @@ describe("AskRigor MCP tools", () => {
       const video = tools.find(({ name }) => name === "get_youtube_video");
 
       expect(search).toMatchObject({
-        description: "Search YouTube videos and return API-visible metadata with explicit pagination and access state; no medical conclusions are generated. " +
-          "For research, pass research_target so the search counts as a discovery round.",
+        description: "Searches YouTube videos and returns API-visible metadata with explicit pagination and access state. Optional product_identity marks each result from search snippets and reports that limitation; no medical conclusions are generated. " +
+          "An optional research_target binds the search to a research discovery round.",
         annotations: READ_ONLY_ANNOTATIONS,
         inputSchema: {
           type: "object",
@@ -3074,6 +3076,13 @@ describe("AskRigor Streamable HTTP server", () => {
         expect(tools.every((tool) => !("execution" in tool))).toBe(true);
         expect(unsupportedGeminiSchemaKeys(tools)).toEqual([]);
         expect(Buffer.byteLength(JSON.stringify({ tools }), "utf8")).toBeLessThan(25_000);
+        const searchSchema = tools.find(({ name }) => name === "search_youtube")!.inputSchema;
+        expect(searchSchema.properties).toHaveProperty("product_identity");
+        const identity = searchSchema.properties!.product_identity as { properties: Record<string, { items?: { description?: string }; description?: string }> };
+        expect(identity.properties.names.description).toContain("Items: 1–6.");
+        expect(identity.properties.names.items!.description).toContain("Length: 1–500.");
+        expect(identity.properties.maker_names.description).toContain("Default: []. Items: ≤6.");
+        expect(identity.properties.other_variant_names.description).toContain("Default: []. Items: ≤12.");
         expect(manifest.isError).not.toBe(true);
         expect(invalidPmid.isError).toBe(true);
         expect(manifest.structuredContent).toMatchObject({

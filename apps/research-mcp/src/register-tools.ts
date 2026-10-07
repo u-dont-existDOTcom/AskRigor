@@ -35,6 +35,11 @@ import {
   lookupRedditThreads,
   parseYoutubeVideoId,
   searchYoutube,
+  productIdentitySchema,
+  productIdentityClaims,
+  classifyProductVideo,
+  productVideoAdmitted,
+  PRODUCT_SNIPPET_LIMITATION,
   searchYoutubeComments,
   youtubeCommentDataSchema,
   youtubeCommentFailureDataSchema,
@@ -117,6 +122,7 @@ import {
   youtubeVideoCommunityAuditInputSchema,
   youtubeVideoCommunityAuditOutputSchema,
   type YoutubeVideoCommunityAuditInput,
+  YoutubeProductIdentityError,
   type YoutubeVideoCommunityAuditOutput
 } from "./youtube-video-community-audit.js";
 import {
@@ -478,6 +484,7 @@ const retractionStatusEnvelopeSchema = z.object({
   }).strict()
 }).strict();
 const youtubeSearchInputSchema = z.object({
+  product_identity: productIdentitySchema.optional(),
   query: z.string().trim().min(1).max(5_000).describe("YouTube video search query."),
   page_size: z.number().int().min(1).max(PUBLIC_TOOL_LIMITS.youtubeSearchPageSize).optional().describe(
     "Requested video results per page; allowed range is 1 through 50."
@@ -1088,20 +1095,25 @@ function defineResearchOperations(
     "search_youtube",
     {
       description:
-        "Search YouTube videos and return API-visible metadata with explicit pagination and access state; no medical conclusions are generated. " +
-          "For research, pass research_target so the search counts as a discovery round.",
+        "Searches YouTube videos and returns API-visible metadata with explicit pagination and access state. Optional product_identity marks each result from search snippets and reports that limitation; no medical conclusions are generated. " +
+          "An optional research_target binds the search to a research discovery round.",
       inputSchema: youtubeSearchInputSchema,
       outputSchema: youtubeSearchEnvelopeSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async ({ query, page_size, cursor, research_target }) => {
+    async ({ query, page_size, cursor, research_target, product_identity }) => {
       try {
         const result = await searchYoutube({
           query,
           ...(page_size === undefined ? {} : { pageSize: page_size }),
           ...(cursor === undefined ? {} : { cursor })
         }, youtubeConfig());
-        const videos = result.data.flatMap((record) =>
+        if (product_identity !== undefined) {
+          const identity = productIdentitySchema.parse(product_identity);
+          result.data = result.data.map((record) => ({ ...record, product_class: classifyProductVideo(identity, record) }));
+          result.limitations.push(PRODUCT_SNIPPET_LIMITATION);
+        }
+        const videos = result.data.filter((record) => record.product_class === undefined || productVideoAdmitted(record.product_class)).flatMap((record) =>
           "video_id" in record && typeof record.video_id === "string" ? [record.video_id] : []
         );
         // A search a rate limit or the daily quota stopped is signed too: its
@@ -1224,9 +1236,9 @@ function defineResearchOperations(
     "audit_youtube_community",
     {
       description:
-        "YouTube community evidence in one read-only call: search YouTube, deduplicate bounded provider-ranked videos, retrieve metadata, unfiltered comments and all accessible replies, and return a deterministic receipt for these videos; no medical conclusions are generated. " +
-          "It covers YouTube only: use it when YouTube is one of the places people discussing the question talk, and search the others, such as Reddit or a specialist forum, with your own web search. " +
-          "research_question must be the research_target given to the other tools.",
+        "Retrieves YouTube community evidence in one read-only call: bounded provider-ranked discovery, deduplicated metadata, unfiltered comments and all accessible replies, and a deterministic receipt for these videos. Optional product_identity skips excluded videos down the existing ranking and classifies admitted videos and comments; no medical conclusions are generated. " +
+          "It covers YouTube only; Reddit, specialist forums and other communities form separate evidence lanes. " +
+          "research_question records the same research_target as the other tools.",
       inputSchema: youtubeCommunityAuditInputSchema,
       outputSchema: mcpYoutubeCommunityAuditOutputSchema,
       annotations: READ_ONLY_ANNOTATIONS
@@ -1254,6 +1266,7 @@ function defineResearchOperations(
       const receiptFor = (read: string[]) => !failed
         ? researchReceipt("youtube_community_audit", {
             videos: result.receipt.selected_video_ids,
+            ...productIdentityClaims(input.product_identity === undefined ? undefined : productIdentitySchema.parse(input.product_identity), result.videos),
             read,
             // Its searches' access, apart from any comment boundary.
             access: searchLimits(result.searches).inc === 0 ? "complete" : "partial",
@@ -1306,8 +1319,8 @@ function defineResearchOperations(
     "survey_youtube_community",
     {
       description:
-        "Survey bounded YouTube video candidates for a community-evidence question and return deduplicated metadata, canonical watch links, provider comment counts, pagination, and access receipts; no medical conclusions are generated. It covers YouTube only. " +
-          "For research, research_question must be the research_target given to the other tools.",
+        "Surveys bounded YouTube video candidates for a community-evidence question and returns deduplicated metadata, canonical watch links, provider comment counts, pagination, and access receipts. Optional product_identity classifies provider metadata, keeps admitted candidates and lists excluded videos; no medical conclusions are generated. It covers YouTube only. " +
+          "For research, research_question records the same research_target as the other tools.",
       inputSchema: youtubeCommunitySurveyInputSchema,
       outputSchema: youtubeCommunitySurveyOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
@@ -1332,6 +1345,7 @@ function defineResearchOperations(
             ...searchLimits(result.searches),
             searches: result.searches.length,
             videos: result.candidates.map(({ video_id }) => video_id),
+            ...productIdentityClaims(input.product_identity === undefined ? undefined : productIdentitySchema.parse(input.product_identity), result.candidates),
             q: discoveryQueryDigest(input.searches.map(({ query }) => query)),
             target: researchTargetDigest(input.research_question),
             open: unreadResultPages(result.searches),
@@ -1345,17 +1359,17 @@ function defineResearchOperations(
     "audit_youtube_video_community",
     {
       description:
-        "Retrieve one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation. Returns exact retrieved-versus-analyzed counts and a separate receipt covering this video only; the comment sample comes with the last page (or when the chain stops), for bounded review; no medical conclusions are generated. Sample records are compact: id, reply_to, a per-video pseudonymous author key for counting distinct people, date, likes, text.",
+        "Retrieves one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation. Optional product_identity admits matching provider metadata, refuses other products or variants, and classifies each comment and reply. Identity continuations require the same declaration; only its digest is retained. Returns exact retrieved-versus-analyzed counts and a separate receipt covering this video only; the comment sample comes with the last page (or when the chain stops), for bounded review; no medical conclusions are generated. Sample records are compact: id, reply_to, a per-video pseudonymous author key for counting distinct people, date, likes, text.",
       inputSchema: MCP_YOUTUBE_VIDEO_AUDIT_INPUT_SCHEMA,
       outputSchema: mcpYoutubeVideoCommunityAuditOutputSchema,
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (rawInput, extra) => {
       // A continuation token carries the chain's video and analysis limit, so
-      // anything else sent with it is ignored rather than failing the audit.
+      // Extra video/limit fields are ignored; product identity stays request-local and bound to the chain.
       const input = rawInput.continuation_token === undefined
         ? rawInput
-        : { continuation_token: rawInput.continuation_token };
+        : { continuation_token: rawInput.continuation_token, ...(rawInput.product_identity === undefined ? {} : { product_identity: rawInput.product_identity }) };
       const actionCall = isActionCall(extra);
       // An MCP call reads longer only while one of a few process-wide slots is
       // free; otherwise it uses the Action's budget.
@@ -1392,6 +1406,7 @@ function defineResearchOperations(
         ? undefined
         : researchReceipt("youtube_video_audit", {
             video: result.video_id,
+            ...productIdentityClaims(input.product_identity === undefined ? undefined : productIdentitySchema.parse(input.product_identity), [{ video_id: result.video_id, product_class: result.product_class }]),
             state: result.receipt.completion_state,
             lock: result.receipt.synthesis_lock,
             records: result.records_retrieved_cumulative,
@@ -1839,7 +1854,8 @@ function defineResearchOperations(
         "count); whether community evidence was researched and whether the answer compares treatment options; where " +
         "the topic is discussed and what each community searched outside YouTube showed (principal_communities, " +
         "community_searches); what the YouTube comments read showed (community_findings); the studies the " +
-        "conclusions rest on (key_sources); after a first pass, the focuses for going deeper (open_leads, " +
+        "conclusions rest on (key_sources), whole-intervention identity (intervention_identity), item-level product " +
+        "identity (product_corpora and item_identity), and destination-bound offers or search routes (shopping); after a first pass, the focuses for going deeper (open_leads, " +
         "another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare " +
         "video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was " +
         "not found, not studied or has no effect (absence_claims), and the caveats, and is not stored. Result: " +
@@ -3047,20 +3063,21 @@ function youtubeVideoCommunityAuditFailure(
   cause?: unknown
 ): YoutubeVideoCommunityAuditOutput {
   const parsed = youtubeVideoCommunityAuditInputSchema.parse(input);
-  const videoId = parsed.video_id_or_url === undefined
+  const identityError = cause instanceof YoutubeProductIdentityError ? cause : undefined;
+  const videoId = identityError?.video_id ?? (parsed.video_id_or_url === undefined
     ? cause instanceof YoutubeAuditRestartRequiredError
       ? cause.snapshot.video_id
       : cause instanceof YoutubeAuditIdentifierMembershipBoundaryError
         ? cause.snapshot.video_id
       : "unknown0000"
-    : parseYoutubeVideoId(parsed.video_id_or_url) ?? "unknown0000";
+    : parseYoutubeVideoId(parsed.video_id_or_url) ?? "unknown0000");
   const continuationError = cause instanceof YoutubeAuditContinuationError ? cause : undefined;
   const restartError = cause instanceof YoutubeAuditRestartRequiredError ? cause : undefined;
   const identifierBoundary = cause instanceof YoutubeAuditIdentifierMembershipBoundaryError
     ? cause
     : undefined;
   const snapshot = restartError?.snapshot ?? identifierBoundary?.snapshot;
-  const limitation = restartError?.code ===
+  const limitation = identityError?.message ?? (restartError?.code ===
     "youtube_video_audit_continuation_migration_restart_required"
     ? "This continuation predates the full-corpus identifier-membership upgrade and cannot be resumed safely; restart the audit from the video ID."
     : identifierBoundary !== undefined
@@ -3069,11 +3086,11 @@ function youtubeVideoCommunityAuditFailure(
         ? "The YouTube video audit continuation expired; restart the audit from the video ID."
         : continuationError === undefined
           ? "YouTube video community audit failed before reaching a valid completion state."
-          : "The YouTube video audit continuation is invalid; restart the audit from the video ID.";
+          : "The YouTube video audit continuation is invalid; restart the audit from the video ID.");
   const error: ProviderErrorShape = {
-    code: identifierBoundary?.code ?? restartError?.code ?? continuationError?.code ??
+    code: identityError?.code ?? identifierBoundary?.code ?? restartError?.code ?? continuationError?.code ??
       "youtube_video_community_audit_failed",
-    message: continuationError === undefined && restartError === undefined &&
+    message: identityError !== undefined ? limitation : continuationError === undefined && restartError === undefined &&
         identifierBoundary === undefined
       ? "YouTube video community audit failed"
       : limitation,
@@ -3085,6 +3102,7 @@ function youtubeVideoCommunityAuditFailure(
     retrieved_at: new Date().toISOString(),
     video_id: videoId,
     canonical_url: `https://www.youtube.com/watch?v=${videoId}`,
+    ...(identityError?.product_class === undefined ? {} : { product_class: identityError.product_class }),
     analysis_limit: snapshot?.analysis_limit ?? parsed.analysis_limit ?? 500,
     segment_index: snapshot?.segment_index ?? 0,
     metadata_access_status: "error",

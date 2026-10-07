@@ -265,3 +265,4 @@ export {
   type YoutubeTranscriptProvenance,
   type YoutubeTranscriptRuntime
 } from "./youtube-transcript.js";
+export * from "./product-identity.js";

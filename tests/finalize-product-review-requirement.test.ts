@@ -52,7 +52,7 @@ const FORUM = search("COMT Forum", "forum", "https://comt.example/threads/egcg/"
 const REVIEW_SITE = { name: "Local Health Reviews", platform: "review_site" as const };
 const REVIEWS: Search = {
   ...search(REVIEW_SITE.name, "review_site", "https://reviews.example/products/egcg/reviews/"),
-  review_corpora: [{ product: "Green Tea Extract 200 mg capsules", reviews_shown: 12, reviews_read: 12, selection: "all" }]
+  review_corpora: [{ product: "Green Tea Extract 200 mg capsules", reviews_shown: 12, reviews_read: 12, item_identity: { exact_product: 12, variant_unresolved: 0, other_variant_excluded: 0 }, selection: "all" }]
 };
 const paragraph = (lane: Search) => `On [${lane.community}](${lane.threads_read[0]!.url}): ${Object.values(QUOTES).join(" ")}`;
 
@@ -71,7 +71,9 @@ function packageFor(
     commercial_review_applicability: { ...REQUIRED, products: [...REQUIRED.products] },
     research_target: TARGET,
     research_depth: "deep",
+    shopping: { status: "not_requested" },
     treatment_choice: "not_compared",
+    intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
     key_sources: [{ id: "10.1002/art.41142", status: "validated" }],
     principal_communities: [{ name: REDDIT.community, platform: REDDIT.platform }, { name: FORUM.community, platform: FORUM.platform }],
     community_searches: [REDDIT, FORUM],
@@ -195,7 +197,7 @@ describe("finalize_research product review requirement", () => {
 
   it("accepts outcome-keyword selection and still requires the partial-selection limit", () => {
     const input = packageFor(withReviews({
-      review_corpora: [{ ...REVIEWS.review_corpora![0]!, reviews_read: 3, selection: "outcome_keyword" }]
+      review_corpora: [{ ...REVIEWS.review_corpora![0]!, reviews_read: 3, item_identity: { exact_product: 3, variant_unresolved: 0, other_variant_excluded: 0 }, selection: "outcome_keyword" }]
     }));
     const result = checked(input);
     expect(result.status).toBe("ready_with_limits");
