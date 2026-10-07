@@ -61,6 +61,9 @@ complete XML protocol.
   migration 0011, rollback state, live acceptance including the first live
   Reddit thread check, plugin receipts, the site wording release and the
   findings library's opening
+- `audits/2026-10-07-consilience-production-release.md` and `.json`: release of #282 and #283 (owner
+  questions 40 and 41): HRP 20.6.11 and Universal 20.5.35 (consilience), reworded write-tool descriptions,
+  plugin refresh, and a deploy-script note on `docker compose run` and stdin.
 - `audits/2026-10-07-connector-fixes-production-release.md` and `.json`: release of #280 and #281 (owner
   questions 37 and 39): refused calls explain themselves, YouTube comment repeats, Gemini credit errors.
 - `audits/2026-10-04-release-production-release.md` and `.json`: release #277 (owner
