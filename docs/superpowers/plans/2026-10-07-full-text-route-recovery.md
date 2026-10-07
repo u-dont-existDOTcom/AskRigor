@@ -448,3 +448,26 @@ with loopback/IPC test sockets permitted; live/provider tests were disabled.
 - Question 46: B. The HRP 20.6.12 wording and the privacy-page sentence are approved; phase 1 is released together with
   phase 2. The revision entry now reads "Owner-approved, question 46".
 - Question 45: before phase 2, reconcile with GPT, which reported finding all three papers: how and where it found them.
+
+## Reconciliation with GPT (owner question 45, 2026-10-07)
+
+The owner reported that GPT had found all three papers. A fresh GPT run asked to find and read their full texts finished
+at 15:35 UTC. It was Codex on the owner's ChatGPT plan, with live web search and a browser. It could not read any of the
+three:
+
+- 10734247: an Academia.edu upload attributed to coauthor Steven Kugler (academia.edu/23529165), a five-page PDF. "See
+  full PDF" required sign-in, so only the abstract and references were visible. The publisher pages (pedneur.com) gave
+  the abstract and a login or purchase page.
+- 14529800: ScienceDirect showed a CAPTCHA; Ovid wanted a subscriber login; the UvA DARE record has no file.
+- 11374875: an Academia.edu upload attributed to C. Voltattorni (academia.edu/128459378), a four-page PDF, also behind
+  sign-in. ResearchGate states that no full text is available.
+
+Neither detail the directive cites appears in the PubMed abstracts (efetch, 15:36 UTC): "carbidopa" for 14529800 and
+"pig kidney" for 11374875. So the original chat either read copies that neither GPT nor Claude found, or inferred the
+details. Both are plausible inferences: L-DOPA is routinely given with carbidopa, and the Verona group habitually
+purifies DOPA decarboxylase from pig kidney. Only the original chat can say which. The owner was given the question to
+paste there.
+
+Consequence for phase 2: Bright Data would get past challenge pages such as the Verona IRIS records. It would not get
+past the Academia.edu sign-in, because phase 2 never defeats a login or a paywall. For these three papers, the copies
+found so far are login-gated, records without a file, paywalled, or behind a challenge with unknown content.
