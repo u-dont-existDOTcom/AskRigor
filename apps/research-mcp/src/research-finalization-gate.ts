@@ -308,7 +308,7 @@ export function finalizeResearch(
       status: "receipts_unavailable",
       next_steps: [],
       limits: [
-        "This AskRigor server cannot verify research receipts, so say that research completion was not server-verified."
+        "This AskRigor server cannot verify research receipts. The research steps still apply, and the answer says that research completion was not server-verified."
       ],
       caveats: [],
       must_report: input.community_findings === undefined
