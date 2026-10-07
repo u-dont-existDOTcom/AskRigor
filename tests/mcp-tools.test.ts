@@ -857,7 +857,7 @@ describe("AskRigor MCP tools", () => {
         research_target: "Adults asking about a dosing calculation",
         not_relevant_reason: "A dosing arithmetic question with no treatment choice.",
         key_sources: [],
-        absence_claims: []
+        absence_claims: [], scale_results: []
       };
       // The answer must carry the limit before it is signed.
       const uncaveated = await client.callTool({

@@ -522,7 +522,7 @@ describe("finalize_research, save_research_findings and the findings library", (
     research_depth: "deep",
     key_sources: [{ id: "PMC10518852", status: "validated" }],
     answer_draft: QUOTE,
-    absence_claims: [],
+    absence_claims: [], scale_results: [],
     findings_card: CHECKED_CARD,
     reported_model: "Example Model 2026-08-06",
     ...overrides,
