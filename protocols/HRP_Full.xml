@@ -52,7 +52,7 @@
 
  <RevisionHistory>
   <Revision version="20.6.12" priority="Critical">
-   Candidate for owner approval (owner directive of 2026-10-07): full-text route recovery. A failed open-access route
+   Owner-approved, question 46 (directive of 2026-10-07): full-text route recovery. A failed open-access route
    is not evidence that no public copy exists; require exact public-copy discovery, study identity and completeness
    checks, copy provenance, and truthful access states before a lead receipt. Extended:
    MandatoryProviderNeutralFullTextEscalation, FullTextAccessStatusClassification, and

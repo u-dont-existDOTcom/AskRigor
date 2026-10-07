@@ -1,5 +1,5 @@
 {
-  "purpose": "Candidate for owner approval (owner directive of 2026-10-07): full-text route recovery, sections A to E of the owner draft only. Undoing these edits gives the prior canonical HRP bytes exactly. Universal does not change.",
+  "purpose": "Owner-approved, question 46 (directive of 2026-10-07): full-text route recovery, sections A to E of the owner draft only. Undoing these edits gives the prior canonical HRP bytes exactly. Universal does not change.",
   "hrp": {
     "from": {
       "version": "20.6.11",
@@ -7,7 +7,7 @@
     },
     "to": {
       "version": "20.6.12",
-      "sha256": "14dca942e63d8381108e55915a2a19a542d9b0eb02ecc8a0d4065ef614aac2a5"
+      "sha256": "362c558eca8f8de908838702bd9487a898296e4ae0ef39b9067d00f122b6f801"
     },
     "edits": [
       [
@@ -16,7 +16,7 @@
       ],
       [
         " <RevisionHistory>\n  <Revision version=\"20.6.11\" priority=\"Critical\">",
-        " <RevisionHistory>\n  <Revision version=\"20.6.12\" priority=\"Critical\">\n   Candidate for owner approval (owner directive of 2026-10-07): full-text route recovery. A failed open-access route\n   is not evidence that no public copy exists; require exact public-copy discovery, study identity and completeness\n   checks, copy provenance, and truthful access states before a lead receipt. Extended:\n   MandatoryProviderNeutralFullTextEscalation, FullTextAccessStatusClassification, and\n   DecisionCriticalFullTextEscalationWithinSweep; four stress cases and FS213.\n  </Revision>\n  <Revision version=\"20.6.11\" priority=\"Critical\">"
+        " <RevisionHistory>\n  <Revision version=\"20.6.12\" priority=\"Critical\">\n   Owner-approved, question 46 (directive of 2026-10-07): full-text route recovery. A failed open-access route\n   is not evidence that no public copy exists; require exact public-copy discovery, study identity and completeness\n   checks, copy provenance, and truthful access states before a lead receipt. Extended:\n   MandatoryProviderNeutralFullTextEscalation, FullTextAccessStatusClassification, and\n   DecisionCriticalFullTextEscalationWithinSweep; four stress cases and FS213.\n  </Revision>\n  <Revision version=\"20.6.11\" priority=\"Critical\">"
       ],
       [
         "   When a decision-critical source lacks full text or an auditable full-text extraction, first automatically try\n   supported lawful repository routes and DOI-based open-access resolution. A resolver location is not inspected full\n   text until the linked document is fetched, identity-checked, version-labeled, and checked for completeness. On\n   AskRigor connector runs the server enforces this chain: acquire_open_full_text, continue_open_full_text until\n   exhausted, then validate_study_method_audit or validate_review_method_audit, which refuse unless the full text was\n   read to exhaustion; finalize_research requires a validated audit receipt for each key study or an acquisition receipt\n   proving a lead.",

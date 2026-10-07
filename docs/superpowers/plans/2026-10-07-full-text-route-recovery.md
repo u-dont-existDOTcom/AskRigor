@@ -436,9 +436,15 @@ Tests  28 passed (28)
 ```
 
 The final HRP SHA-256 is
-`14dca942e63d8381108e55915a2a19a542d9b0eb02ecc8a0d4065ef614aac2a5`.
+`362c558eca8f8de908838702bd9487a898296e4ae0ef39b9067d00f122b6f801`.
 The exact draft audit passed for A–E after XML whitespace normalization; the
 recorded edits reverse to the original committed HRP bytes, and the privacy
 page differs only by the requested sentence. `git diff --check` passed.
 Tests ran with a temporary Node guard blocking external connections and DNS,
 with loopback/IPC test sockets permitted; live/provider tests were disabled.
+
+## Owner decisions (2026-10-07)
+
+- Question 46: B. The HRP 20.6.12 wording and the privacy-page sentence are approved; phase 1 is released together with
+  phase 2. The revision entry now reads "Owner-approved, question 46".
+- Question 45: before phase 2, reconcile with GPT, which reported finding all three papers: how and where it found them.

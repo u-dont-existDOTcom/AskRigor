@@ -22,7 +22,7 @@ function rule(text: string, name: string): string {
   return squash(matches[0]![1]!);
 }
 
-// Sections A–E of the owner's 2026-10-07 draft only, as HRP 20.6.12 candidate text pending owner approval.
+// Sections A–E of the owner's 2026-10-07 draft only, as HRP 20.6.12 text, approved by the owner (question 46).
 // The recorded edits preserve all other bytes; the older chain also undoes this candidate before consilience.
 describe("full-text candidate: exact public-copy discovery and truthful access states", () => {
   it("records reversible edits to the prior canonical bytes and derives the new manifest from the same bytes", async () => {
@@ -110,6 +110,6 @@ describe("full-text candidate: exact public-copy discovery and truthful access s
     expect(checks).toMatch(/<Check id="FS212">[^<]+<\/Check>\s*<Check id="FS213">/u);
     expect(checks).toContain('<Check id="FS213">Every decision-critical study without admitted full text went through the open-access routes and an exact public-copy search, and its access state is named truthfully, never calling a route failure or a blocked fetch inaccessible (MandatoryProviderNeutralFullTextEscalation).</Check>');
     const hrp = await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
-    expect(hrp).toContain(' <RevisionHistory>\n  <Revision version="20.6.12" priority="Critical">\n   Candidate for owner approval (owner directive of 2026-10-07');
+    expect(hrp).toContain(' <RevisionHistory>\n  <Revision version="20.6.12" priority="Critical">\n   Owner-approved, question 46 (directive of 2026-10-07)');
   });
 });
