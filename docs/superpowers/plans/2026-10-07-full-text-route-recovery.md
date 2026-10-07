@@ -497,3 +497,27 @@ Consequences:
     as not fetched by AskRigor;
   - B: a paid index provider trial;
   - C: neither.
+
+## Exa test (owner question 49: B, 2026-10-07, 21:15 UTC)
+
+Exa `/contents` with `maxAgeHours: -1` (stored copies only, never a fresh crawl), on each paper's Academia.edu,
+publisher and repository addresses. Total cost $0.007.
+
+- Publisher pages (ScienceDirect, pedneur.com): `CONTENT_NOT_CACHED`.
+- 11374875: Exa's Academia.edu copy (57k characters) holds the full article as one 15.6k-character block after the
+  page's menus and "Related papers", starting with the journal citation and the DOI. It includes "Recombinant pig kidney
+  DDC was purified to homogeneity". The Verona IRIS copy is the record page only (3k characters, abstract).
+- 10734247 and 14529800: the Academia.edu copies hold only the abstract and other papers' summaries. There is no
+  article body: no "Sinemet", no carbidopa dose.
+- AskRigor's candidate checks rightly refused all three Academia.edu copies: an identity mismatch, or abstract only. To
+  use a copy like 11374875's, the extractor must find the paper's own text embedded in the page (the block that starts
+  with the paper's DOI or exact title) and detect section headings inside that flattened block.
+
+Comparison: ChatGPT's search index returned the article text for all three. Exa covers one of three for these papers.
+The owner chooses the build in question 52:
+
+- A: Exa for the owner, paid users and the web app, with a $5 monthly cap, plus AI-supplied copies for the free
+  plugin;
+- B: Exa only;
+- C: AI copies only;
+- D: neither.
