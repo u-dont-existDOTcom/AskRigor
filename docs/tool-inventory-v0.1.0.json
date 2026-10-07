@@ -12897,7 +12897,7 @@
     },
     {
       "name": "finalize_research",
-      "description": "Final check of a research answer before it is given. Input: the research_receipt values that AskRigor's tools returned in this session; the research_target as given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits (discovery for another target does not count); whether community evidence was researched and whether the answer compares treatment options; where the topic is discussed and what each community searched outside YouTube showed (principal_communities, community_searches); what the YouTube comments read showed (community_findings); the studies the conclusions rest on (key_sources), whole-intervention identity (intervention_identity), item-level product identity (product_corpora and item_identity), and destination-bound offers or search routes (shopping); after a first pass, the focuses for going deeper (open_leads, another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was not found, not studied or has no effect (absence_claims), and the caveats, and is not stored. Result: not_ready with the remaining steps; ready_with_limits with the limits, the caveat sentences for the answer (each as its own sentence and as written, in the answer's language when answer_language and caveat_renderings are given) and must_report, what the answer reports from each lane researched; or receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the owner's review; in paid private mode the caveats offer its save.",
+      "description": "Final check of a research answer before it is given. Input: the research_receipt values that AskRigor's tools returned in this session; the research_target as given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits (discovery for another target does not count); whether community evidence was researched and whether the answer compares treatment options; where the topic is discussed and what each community searched outside YouTube showed (principal_communities, community_searches); what the YouTube comments read showed (community_findings); the studies the conclusions rest on (key_sources), whole-intervention identity (intervention_identity), item-level product identity (product_corpora and item_identity), and destination-bound offers or search routes (shopping); after a first pass, the focuses for going deeper (open_leads, another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results (scale_results: quoted explanations with the scale name, range, values and benchmark), and the caveats, and is not stored. Result: not_ready with the remaining steps; ready_with_limits with the limits, the caveat sentences for the answer (each as its own sentence and as written, in the answer's language when answer_language and caveat_renderings are given) and must_report, what the answer reports from each lane researched; or receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the owner's review; in paid private mode the caveats offer its save.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -13661,6 +13661,100 @@
               "required": [
                 "quote",
                 "state"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "scale_results": {
+            "description": "Lists each scale or questionnaire result reported in answer_draft (an empty list if none). With answer_draft this declaration is required. The quote contains the scale name, both range endpoints, each value and any benchmark value as numbers; digits in any script and a decimal dot or comma count, compared by absolute value. Direction and magnitude interpretation remain the model's declarations.",
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "quote": {
+                  "type": "string",
+                  "maxLength": 1000,
+                  "description": "Records the sentence(s) reporting and explaining the result, copied from answer_draft."
+                },
+                "scale": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300,
+                  "description": "Records the scale's name or abbreviation as the answer writes it."
+                },
+                "range": {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Records the scale's possible range, with both endpoints in the quote."
+                },
+                "better": {
+                  "type": "string",
+                  "enum": [
+                    "lower",
+                    "higher"
+                  ],
+                  "description": "Records the model's declaration of which direction means a better outcome."
+                },
+                "values": {
+                  "minItems": 1,
+                  "maxItems": 4,
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "description": "Lists the numbers the quote reports, such as group scores and their difference."
+                },
+                "benchmark": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "type": "number"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "minimal_important_difference",
+                            "clinical_cutoff",
+                            "other"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "value",
+                        "kind"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "string",
+                      "const": "none_established"
+                    }
+                  ],
+                  "description": "Records a benchmark value in the quote and its kind, or none_established when no benchmark is established."
+                }
+              },
+              "required": [
+                "quote",
+                "scale",
+                "range",
+                "better",
+                "values",
+                "benchmark"
               ],
               "additionalProperties": false
             }

@@ -1858,7 +1858,9 @@ function defineResearchOperations(
         "identity (product_corpora and item_identity), and destination-bound offers or search routes (shopping); after a first pass, the focuses for going deeper (open_leads, " +
         "another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare " +
         "video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was " +
-        "not found, not studied or has no effect (absence_claims), and the caveats, and is not stored. Result: " +
+        "not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results " +
+        "(scale_results: quoted explanations with the scale name, range, values and benchmark), and the caveats, " +
+        "and is not stored. Result: " +
         "not_ready with the remaining steps; ready_with_limits with the limits, the caveat sentences for the answer " +
         "(each as its own sentence and as written, in the answer's language when answer_language and " +
         "caveat_renderings are given) and must_report, what the answer reports from each lane researched; or " +

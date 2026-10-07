@@ -859,7 +859,7 @@ describe("AskRigor MCP tools", () => {
         not_relevant_reason: "A dosing arithmetic question with no treatment choice.",
         intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
         key_sources: [],
-        absence_claims: []
+        absence_claims: [], scale_results: []
       };
       // The answer must carry the limit before it is signed.
       const uncaveated = await client.callTool({

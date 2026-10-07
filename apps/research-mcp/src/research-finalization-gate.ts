@@ -3,6 +3,7 @@ import { normalizeProductName, productNameOccurs } from "@askrigor/sources";
 
 import { analysesSavedSchema } from "./analysis-staging.js";
 import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
+import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
 import {
   FINDINGS_SAVE_OFFER,
   findingsCardDigest,
@@ -233,6 +234,27 @@ export const finalizeResearchInputSchema = z.object({
   }).strict()).max(20).optional()
     .describe("With answer_draft: each place the answer says something was not found, not studied, has no evidence or " +
       "has no effect (an empty list if none)."),
+  scale_results: z.array(z.object({
+    quote: answerQuote.describe("Records the sentence(s) reporting and explaining the result, copied from answer_draft."),
+    scale: z.string().trim().min(1).max(300).describe("Records the scale's name or abbreviation as the answer writes it."),
+    range: z.object({ min: z.number(), max: z.number() }).strict()
+      .describe("Records the scale's possible range, with both endpoints in the quote."),
+    better: z.enum(["lower", "higher"])
+      .describe("Records the model's declaration of which direction means a better outcome."),
+    values: z.array(z.number()).min(1).max(4)
+      .describe("Lists the numbers the quote reports, such as group scores and their difference."),
+    benchmark: z.union([
+      z.object({
+        value: z.number(),
+        kind: z.enum(["minimal_important_difference", "clinical_cutoff", "other"])
+      }).strict(),
+      z.literal("none_established")
+    ]).describe("Records a benchmark value in the quote and its kind, or none_established when no benchmark is established.")
+  }).strict()).max(20).optional()
+    .describe("Lists each scale or questionnaire result reported in answer_draft (an empty list if none). With " +
+      "answer_draft this declaration is required. The quote contains the scale name, both range endpoints, each " +
+      "value and any benchmark value as numbers; digits in any script and a decimal dot or comma count, compared " +
+      "by absolute value. Direction and magnitude interpretation remain the model's declarations."),
   search_coverage: z.array(z.enum(["historical_terms", "citation_chains", "grey_literature"])).max(3).optional()
     .describe("What the searches covered beyond the indexed databases."),
   answer_language: z.string().trim().regex(/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{1,8}){0,3}$/u).optional()
@@ -946,6 +968,12 @@ export function finalizeResearch(
         "give absence_claims, each such sentence with its state (an empty list if the answer states none)."
     );
   }
+  if (input.answer_draft !== undefined && input.scale_results === undefined) {
+    nextSteps.push(
+      "scale_results is missing: with answer_draft, the declaration lists each scale or questionnaire result " +
+        "reported in the answer (an empty list means none)."
+    );
+  }
   // A study is audited when a study or review audit receipt names it, or the DOI its PubMed record gives.
   const auditedStudy = (id: string): boolean => {
     const normalized = normalizeIdentifier(id);
@@ -1082,6 +1110,7 @@ export function finalizeResearch(
       caveats,
       lanes,
       absenceQuotes: absenceClaims.map(({ quote }) => quote),
+      scaleResults: input.scale_results ?? [],
       ...(input.answer_language === undefined ? {} : { answerLanguage: input.answer_language }),
       renderings: input.caveat_renderings ?? []
     }));
@@ -1203,6 +1232,7 @@ function answerDraftProblems(
     caveats: readonly string[];
     lanes: readonly AnswerLane[];
     absenceQuotes: readonly string[];
+    scaleResults: NonNullable<FinalizeResearchInput["scale_results"]>;
     answerLanguage?: string;
     renderings: ReadonlyArray<{ caveat: string; text: string }>;
   }
@@ -1287,6 +1317,31 @@ function answerDraftProblems(
       `${unshownAbsence.map((index) => `absence_claims[${index}]`).join(", ")} ${unshownAbsence.length === 1 ? "gives" : "give"} ` +
         "text the answer does not show: copy each sentence exactly from answer_draft."
     );
+  }
+  // As with absence_claims, undeclared results are invisible to this gate.
+  // Meaning, direction and magnitude wording remain the model's declarations;
+  // only the quote, scale name and declared numbers are checked here.
+  for (const [index, result] of context.scaleResults.entries()) {
+    const at = `scale_results[${index}]`;
+    if (showing(result.quote).length === 0) {
+      problems.push(`${at} gives text the answer does not show: the quote does not occur in answer_draft.`);
+    }
+    if (!result.quote.includes(result.scale)) {
+      problems.push(`${at} quotes no scale name: the quote does not contain the declared scale name.`);
+    }
+    const numbers = extractUnsignedNumbers(result.quote);
+    const missing = (values: readonly number[]) => values.filter((value) => !includesAbsoluteNumber(numbers, value));
+    const missingRange = missing([result.range.min, result.range.max]);
+    if (missingRange.length > 0) {
+      problems.push(`${at} quotes no range: the quote does not contain ${missingRange.join(" and ")}.`);
+    }
+    const missingValues = missing(result.values);
+    if (missingValues.length > 0) {
+      problems.push(`${at} quotes no declared values: the quote does not contain ${missingValues.join(" and ")}.`);
+    }
+    if (result.benchmark !== "none_established" && !includesAbsoluteNumber(numbers, result.benchmark.value)) {
+      problems.push(`${at} quotes no benchmark: the quote does not contain ${result.benchmark.value}.`);
+    }
   }
   // Each caveat the server wrote must reach the answer as a sentence of its
   // own. Only prose a reader sees counts: not code, comments, quotations or

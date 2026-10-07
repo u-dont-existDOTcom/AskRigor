@@ -385,7 +385,7 @@ describe("the server sends a free contributor's validated analyses when the fina
       intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
       key_sources: [{ id: DOI, status: "validated" }],
       answer_draft: "The liver clears this drug within a few hours.",
-      absence_claims: [],
+      absence_claims: [], scale_results: [],
     }), "auth0|free");
     const receipt = (validated.structuredContent as { research_receipt: string }).research_receipt;
     const done = await finalize([receipt]);

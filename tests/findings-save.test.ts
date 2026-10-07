@@ -523,7 +523,7 @@ describe("finalize_research, save_research_findings and the findings library", (
     intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
     key_sources: [{ id: "PMC10518852", status: "validated" }],
     answer_draft: QUOTE,
-    absence_claims: [],
+    absence_claims: [], scale_results: [],
     findings_card: CHECKED_CARD,
     reported_model: "Example Model 2026-08-06",
     ...overrides,
