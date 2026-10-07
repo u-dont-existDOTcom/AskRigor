@@ -205,16 +205,16 @@ const study = sign("study_audit", {
 const lead = sign("full_text_lead", { doi: "10.1016/j.joca.2020.01.001" }, options);
 
 describe("finalize_research gate", () => {
-  it("asks for the whole-intervention declaration only where an answer compares options or covers a product people buy", () => {
+  it("asks every answer with key studies for the whole-intervention declaration, compared or not (owner question 47)", () => {
     const base = {
       community_evidence: "researched" as const, research_target: TARGET, research_depth: "deep" as const,
       key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }],
       receipts: [survey, emptySearch, repeatScout, videoA, study], intervention_identity: undefined
     };
-    expect(finalizeResearch({ ...base, treatment_choice: "not_compared" }, options).next_steps.join(" "))
-      .not.toContain("Give intervention_identity");
-    expect(finalizeResearch({ ...base, treatment_choice: "compared" }, options).next_steps.join(" "))
-      .toContain("Give intervention_identity");
+    for (const treatment_choice of ["not_compared", "compared"] as const) {
+      expect(finalizeResearch({ ...base, treatment_choice }, options).next_steps.join(" "), treatment_choice)
+        .toContain("Give intervention_identity");
+    }
   });
 
   it("binds a treatment comparison to the latest treatment-coverage check", () => {

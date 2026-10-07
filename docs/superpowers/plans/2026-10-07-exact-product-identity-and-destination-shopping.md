@@ -105,7 +105,9 @@ These follow the `commercial_review_applicability` pattern.
   product's label) that admitted it.
 - `review_corpora[].item_identity`: `{ exact_product, variant_unresolved, other_variant_excluded }`. It is required for
   every review corpus, and the three counts must add up to `reviews_read`.
-- `intervention_identity`, needed when `key_sources` is not empty, has two forms:
+- `intervention_identity`, needed whenever `key_sources` is not empty, compared or not (owner question 47: a key
+  study can test something other than it seems, such as L-DOPA given with carbidopa). It covers coded, branded,
+  combination and multi-ingredient interventions, including co-administered drugs, and has two forms:
   - `not_applicable`, with a reason;
   - `checked`, with interventions. Each intervention has `study_ids`, which must be among `key_sources`; the study's
     `label`; and a `status` of `resolved` (with an `identity`: registry code, sponsor or maker, current product) or

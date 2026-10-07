@@ -13455,7 +13455,7 @@
             "description": "Each study your conclusions depend on: validated after a full-text method audit, or lead_only when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text."
           },
           "intervention_identity": {
-            "description": "Records whether key studies tested coded or multi-ingredient interventions and their traced whole-product identity. Needed when key_sources is nonempty and the answer compares treatment options or covers a product people buy.",
+            "description": "Records whether key studies tested coded, branded, combination or multi-ingredient interventions, including co-administered drugs (such as L-DOPA given with carbidopa), and their traced whole-intervention identity. Needed when key_sources is nonempty.",
             "type": "object",
             "properties": {
               "status": {

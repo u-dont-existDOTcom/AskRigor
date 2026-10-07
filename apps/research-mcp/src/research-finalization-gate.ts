@@ -207,7 +207,7 @@ export const finalizeResearchInputSchema = z.object({
         current_product: z.string().trim().min(1).max(200)
       }).strict().optional()
     }).strict()).min(1).max(60).optional()
-  }).strict().optional().describe("Records whether key studies tested coded or multi-ingredient interventions and their traced whole-product identity. Needed when key_sources is nonempty and the answer compares treatment options or covers a product people buy."),
+  }).strict().optional().describe("Records whether key studies tested coded, branded, combination or multi-ingredient interventions, including co-administered drugs (such as L-DOPA given with carbidopa), and their traced whole-intervention identity. Needed when key_sources is nonempty."),
   shopping: z.object({
     status: z.enum(["not_requested", "buy_options", "no_live_option_found"]),
     destination: z.string().trim().min(1).max(200).optional(),
@@ -1854,11 +1854,9 @@ function productIdentityDeclarations(
     }
   }
   const intervention = input.intervention_identity;
-  // Whole-intervention identity matters where an answer compares, ranks or recommends, or names a product to buy.
-  const interventionNeeded = input.key_sources.length > 0 &&
-    (input.treatment_choice === "compared" || applicability?.status === "required");
-  if (interventionNeeded && intervention === undefined) {
-    out.nextSteps.push("Give intervention_identity for the key studies: not_applicable with a reason, or checked with the coded or multi-ingredient interventions and their whole-product identities.");
+  // Every answer resting on key studies says what each study actually tested (owner question 47).
+  if (input.key_sources.length > 0 && intervention === undefined) {
+    out.nextSteps.push("Give intervention_identity for the key studies: not_applicable with a reason, or checked with the coded, branded, combination or multi-ingredient interventions (including co-administered drugs) and their whole-intervention identities.");
   }
   if (intervention?.status === "not_applicable") {
     if (intervention.reason === undefined) out.nextSteps.push("Give a reason for intervention_identity not_applicable.");
