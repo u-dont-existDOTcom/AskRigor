@@ -12423,6 +12423,41 @@
             ],
             "description": "researched when firsthand community evidence could plausibly matter; not_relevant needs a basis and a reason."
           },
+          "commercial_review_applicability": {
+            "description": "Whether the question concerns a product or service people buy (a supplement, consumer health product, device, app, formulation, or health service), whose buyers' reviews are then a community lane of their own (platform review_site). Needed when community evidence is researched.",
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "required",
+                  "not_applicable"
+                ],
+                "description": "Whether buyer reviews are required for this question or no product or service people buy is involved."
+              },
+              "products": {
+                "description": "When required: the products or services concerned, each exact product and variant when the user named one; for an ingredient, the product forms people buy.",
+                "minItems": 1,
+                "maxItems": 6,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              },
+              "reason": {
+                "description": "When not_applicable: why no product or service people buy is involved.",
+                "type": "string",
+                "minLength": 10,
+                "maxLength": 300
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "additionalProperties": false
+          },
           "not_relevant_basis": {
             "description": "Why firsthand reports cannot matter: no real-world outcome (a definition, calculation, or chemical or mechanistic question), or an emergency before triage.",
             "type": "string",

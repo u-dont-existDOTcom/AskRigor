@@ -63,6 +63,18 @@ export const finalizeResearchInputSchema = z.object({
     .describe("Every research_receipt AskRigor tools returned during this research, copied exactly."),
   community_evidence: z.enum(["researched", "not_relevant"])
     .describe("researched when firsthand community evidence could plausibly matter; not_relevant needs a basis and a reason."),
+  commercial_review_applicability: z.object({
+    status: z.enum(["required", "not_applicable"])
+      .describe("Whether buyer reviews are required for this question or no product or service people buy is involved."),
+    products: z.array(z.string().trim().min(1).max(200)).min(1).max(6).optional()
+      .describe("When required: the products or services concerned, each exact product and variant when the user " +
+        "named one; for an ingredient, the product forms people buy."),
+    reason: z.string().trim().min(10).max(300).optional()
+      .describe("When not_applicable: why no product or service people buy is involved.")
+  }).strict().optional()
+    .describe("Whether the question concerns a product or service people buy (a supplement, consumer health " +
+      "product, device, app, formulation, or health service), whose buyers' reviews are then a community lane of " +
+      "their own (platform review_site). Needed when community evidence is researched."),
   not_relevant_basis: z.enum(["no_real_world_outcome", "emergency_before_triage"]).optional()
     .describe("Why firsthand reports cannot matter: no real-world outcome (a definition, calculation, or chemical or " +
       "mechanistic question), or an emergency before triage."),
@@ -592,6 +604,7 @@ export function finalizeResearch(
     }
     ({ searched: communitiesSearched, read: communitiesRead, unverified: communitiesUnverified } =
       communityCoverage(input, youtubeResearched, { nextSteps, requireLimit, lanes: communityLanes }, options.redditThreads));
+    commercialReviewCoverage(input, { nextSteps });
   }
 
   // Comments that were read must reach the answer, even when their signal is
@@ -1690,6 +1703,66 @@ function communityKey(name: string, platform: string): string {
   return platform === "youtube"
     ? "youtube"
     : `${platform}:${name.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, "")}`;
+}
+
+/** The declared buyer-review lane cannot be omitted behind forum or YouTube coverage. */
+function commercialReviewCoverage(input: FinalizeResearchInput, out: { nextSteps: string[] }): void {
+  const applicability = input.commercial_review_applicability;
+  if (applicability === undefined) {
+    out.nextSteps.push(
+      "State in commercial_review_applicability whether the question concerns a product or service people buy " +
+        "(a supplement, consumer health product, device, app, formulation, or health service). If it does, map " +
+        "where its buyers review it and read those reviews as a community lane of their own (HRP PrincipalPlatformMapping)."
+    );
+    return;
+  }
+  const sites = (input.principal_communities ?? []).filter(({ platform }) => platform === "review_site");
+  const searches = (input.community_searches ?? []).filter(({ platform }) => platform === "review_site");
+  if (applicability.status === "not_applicable") {
+    if (applicability.reason === undefined) {
+      out.nextSteps.push(
+        "Give reason in commercial_review_applicability when status is not_applicable: why no product or service " +
+          "people buy is involved."
+      );
+    }
+    if (sites.length > 0 || searches.length > 0) {
+      out.nextSteps.push(
+        "commercial_review_applicability is not_applicable, but principal_communities or community_searches lists " +
+          "platform review_site: change the declaration or the review-site entry so they agree."
+      );
+    }
+    return;
+  }
+  if (applicability.products === undefined) {
+    out.nextSteps.push(
+      "Give products in commercial_review_applicability when status is required: the products or services " +
+        "concerned, each exact product and variant when the user named one; for an ingredient, the product forms " +
+        "people buy."
+    );
+    return;
+  }
+  if (sites.length === 0) {
+    out.nextSteps.push(
+      `Map where buyers review ${applicability.products.join(", ")} in principal_communities as platform ` +
+        "review_site, the main one in the user's country and language first; no single retailer is required. " +
+        "A forum, Reddit or YouTube does not stand in for buyer reviews (HRP PrincipalPlatformMapping)."
+    );
+    return;
+  }
+  const searched = new Set(searches.map(({ community, platform }) => communityKey(community, platform)));
+  const mapped = new Map(sites.map(({ name, platform }) => [communityKey(name, platform), name]));
+  // A buyer-review search must belong to a mapped site; the existing coverage
+  // rules still determine which other mapped communities must be searched.
+  if ([...mapped.keys()].some((key) => searched.has(key))) return;
+  for (const name of mapped.values()) {
+    out.nextSteps.push(
+      `Search ${name} and record it in community_searches under platform review_site: the reviews read, with ` +
+        "review_corpora (each product, the reviews shown and read, and how they were chosen), or the access_boundary " +
+        "that stopped the search."
+    );
+  }
+  // communityCoverage checks matching searches' threads, corpora and access boundaries,
+  // and requires the existing boundary and partial-selection limits, including for review_site.
 }
 
 /** A community read beyond YouTube, as the answer check needs it. */
