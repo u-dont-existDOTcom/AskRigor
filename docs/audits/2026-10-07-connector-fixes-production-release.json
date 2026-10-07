@@ -1,0 +1,54 @@
+{
+ "schema_version": 1,
+ "release": "2026-10-07",
+ "owner_decisions": [
+  "owner question 37: A",
+  "owner question 39: deploy 6c900d0"
+ ],
+ "merge_commit": "6c900d0cd2cfff169ed11e246252d0ff5f4a5696",
+ "release_head": "470a76c666cf510b0f076c9056390ad40ad17a7a",
+ "pull_requests": [
+  280,
+  281
+ ],
+ "image": {
+  "tag": "askrigor-research:6c900d0cd2cfff169ed11e246252d0ff5f4a5696",
+  "id": "sha256:351b55fb23e25c5728222d4c4b0c466aac3ca26d9ef884bfe486a66aa61cd581",
+  "archive_bytes": 109008105,
+  "archive_sha256": "d95b88157a495d717ea9de05c1b8b83d8546a64e5f6e74483ac9352864c14cea"
+ },
+ "prior_image": "askrigor-research:27deb4a57fddbf78f448a014c83361bc06c0e30b",
+ "rollback_image_tag": "askrigor-research:rollback-pre-6c900d0cd2cf",
+ "switched_at_utc": "2026-10-07T03:13:52Z",
+ "healthy_at_utc": "2026-10-07T03:13:58Z",
+ "protocols": {
+  "hrp": {
+   "version": "20.6.10",
+   "sha256": "4337aa8ed2f8ccb3537443ae4c8ba953ba986d3aab049629ea1d57e423c42bda"
+  },
+  "universal": {
+   "version": "20.5.34",
+   "sha256": "d5e041b556bb8635866800c8b55ec5a5684a794df0411427c335c7b33a8f79ab"
+  }
+ },
+ "tools": {
+  "standard": 33,
+  "gemini": 22
+ },
+ "runtime_env_names_added": [],
+ "migrations": "none new; migrate complete",
+ "schema_dump": {
+  "bytes": 479960,
+  "sha256_prefix": "36c97c37405f1944"
+ },
+ "plugin": {
+  "version": "0.1.0+codex.20261004044030.hrp.20.6.10.universal.20.5.34",
+  "receipt_prefix": "517f615afb46c304",
+  "files": 8,
+  "reinstalled": false
+ },
+ "open": [
+  "the consilience rule (#282) goes live with the next release",
+  "reworded write-tool descriptions for ChatGPT's warning await the owner's approval"
+ ]
+}
