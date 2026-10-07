@@ -384,7 +384,7 @@ describe("the server sends a free contributor's validated analyses when the fina
       research_depth: "deep",
       key_sources: [{ id: DOI, status: "validated" }],
       answer_draft: "The liver clears this drug within a few hours.",
-      absence_claims: [],
+      absence_claims: [], scale_results: [],
     }), "auth0|free");
     const receipt = (validated.structuredContent as { research_receipt: string }).research_receipt;
     const done = await finalize([receipt]);

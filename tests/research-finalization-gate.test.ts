@@ -145,11 +145,13 @@ const leftOut = (...caveats: string[]) =>
 // An answer states whether it says anything was not found; tests of other checks say it does not.
 const absenceDefaults = (input: Record<string, unknown>) =>
   "absence_claims" in input || !("answer_draft" in input) ? {} : { absence_claims: [] };
-// Every call gets the community, offer and absence defaults unless it passes its own.
+const scaleDefaults = (input: Record<string, unknown>) =>
+  "scale_results" in input || !("answer_draft" in input) ? {} : { scale_results: [] };
+// Every call gets the community, offer, absence and scale defaults unless it passes its own.
 const finalizeResearchRaw = (input: Record<string, unknown>, gateOptions: Parameters<typeof finalizeResearchBare>[1]) =>
   finalizeResearchBare({
     ...(input.community_evidence === "researched" ? { commercial_review_applicability: NONCOMMERCIAL_EXERCISE } : {}),
-    ...communityDefaults(input), ...offerDefaults(input), ...absenceDefaults(input), ...input
+    ...communityDefaults(input), ...offerDefaults(input), ...absenceDefaults(input), ...scaleDefaults(input), ...input
   }, gateOptions);
 const finalizeResearchGate = (input: Record<string, unknown>, gateOptions: typeof options) => {
   const request = { another_pass_estimate: PASS_ESTIMATE, ...communityDefaults(input), ...input };
@@ -933,7 +935,7 @@ describe("finalize_research gate", () => {
     const gate = (trt: RedditThreadCheck, trtTitle?: string, draft?: string) => finalizeResearchBare({
       ...base, commercial_review_applicability: NONCOMMERCIAL_EXERCISE,
       community_findings: findingsFor(["aaaaaaaaaaa"]), community_searches: searches(trtTitle),
-      ...(draft === undefined ? {} : { answer_draft: draft, absence_claims: [] })
+      ...(draft === undefined ? {} : { answer_draft: draft, absence_claims: [], scale_results: [] })
     }, { ...options, redditThreads: reddit(trt) });
 
     // Both confirmed: the answer says Reddit confirmed the threads, not their content.
@@ -1034,7 +1036,7 @@ describe("finalize_research gate", () => {
         "[MESO-Rx](https://thinksteroids.com/community/threads/2/), most users reported better recovery, some saw no " +
         "difference, and several reported joint pain as a side effect of growth hormone, consistent with the trials. " +
         "The reports from r/trt and MESO-Rx come from my own web search, which AskRigor could not verify.",
-      absence_claims: []
+      absence_claims: [], scale_results: []
     }, options);
     expect(result.next_steps).toEqual([]);
     expect(result.status).toBe("ready_with_limits");
@@ -1092,7 +1094,7 @@ describe("finalize_research gate", () => {
         { name: "ADHD Parents Forum", platform: "forum" }
       ],
       community_searches: searches ?? [amazon(corpora), forum],
-      absence_claims: []
+      absence_claims: [], scale_results: []
     });
     const lanes = `In [the drops' reviews on Amazon](${reviewsPage}), several parents saw calmer evenings, some saw ` +
       "no difference, and two reported stomach upset; these show the range of experiences only. On the " +

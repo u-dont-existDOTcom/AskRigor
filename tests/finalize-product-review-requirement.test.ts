@@ -76,7 +76,7 @@ function packageFor(
     principal_communities: [{ name: REDDIT.community, platform: REDDIT.platform }, { name: FORUM.community, platform: FORUM.platform }],
     community_searches: [REDDIT, FORUM],
     answer_draft: [paragraph(REDDIT), paragraph(FORUM), paragraph(REVIEWS)].join("\n\n"),
-    absence_claims: [],
+    absence_claims: [], scale_results: [],
     ...overrides
   };
 }

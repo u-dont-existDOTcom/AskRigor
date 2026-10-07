@@ -937,9 +937,13 @@ pending-proposal stores have their own strict contracts and authority boundaries
   tag), and the sentences where it says something was not found, not studied
   or has no effect (`absence_claims`, each with its state and the study IDs it
   rests on, and `search_coverage`, the search classes covered beyond indexed
-  databases). None of these is stored, logged or returned: of the answer, the
+  databases), and reported scale or questionnaire results (`scale_results`,
+  each with its quoted explanation, scale name, range, direction, values and
+  benchmark). These inputs are request-local and are not stored or logged.
+  None of their text is returned: of the answer, the
   result names only the labels and public video IDs it found, and points to an
-  absence claim by its position in the list. `not_relevant_basis` is one of two
+  absence claim or scale result by its position in the list; for a scale result,
+  it also names declared numbers missing from the quote. `not_relevant_basis` is one of two
   fixed values.
 - The MCP `scout_gemini_youtube_candidates` tool runs the same de-identified,
   population-level scout as the controlled Action route, applying the same
