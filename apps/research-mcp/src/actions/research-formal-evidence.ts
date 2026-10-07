@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import type { ProvenanceEnvelope } from "@askrigor/contracts";
 import {
-  acquisitionStateSchema, fullTextCandidateSchema, hasFailedFullTextAcquisition,
+  acquisitionStateSchema, fullTextCandidateSchema, canSignFullTextLead, publicCopySearchResultSchema,
   fetchPubmedRecord,
   normalizeDoiIdentifier,
   searchEuropePmc,
@@ -179,7 +179,7 @@ const sourceOriginSchema = z.object({
 
 const discoveryAttemptSchema = z.object({
   route: z.enum(["europe_pmc", "unpaywall", "candidate"]),
-  result: z.enum(["indexed", "not_found", "inaccessible", "error", "partial_text", "abstract_only", "identity_mismatch"]),
+  result: z.enum(["indexed", "not_found", "inaccessible", "fetch_blocked", "error", "partial_text", "abstract_only", "identity_mismatch"]),
   identifier: bounded(2_048).optional()
 }).strict();
 
@@ -196,6 +196,7 @@ const fullTextStateSchema = z.object({
   requested_doi: doi.optional(),
   discovery_attempts: z.array(discoveryAttemptSchema).max(20),
   acquisition_state: acquisitionStateSchema.optional(),
+  public_copy_search: publicCopySearchResultSchema.optional(),
   candidates: z.array(fullTextCandidateSchema).max(5).optional(),
   source_primary_identifier: bounded(2_048).optional(),
   source_canonical_url: z.string().url().max(4_000).optional(),
@@ -1002,7 +1003,7 @@ export function ingestOpenFullTextOutput(
     if (source.full_text.status === "IN_PROGRESS" || source.full_text.status === "EXHAUSTED") {
       throw new Error("An established full-text chain cannot be replaced by an unseen lead");
     }
-    const incomplete = hasFailedFullTextAcquisition(output) || output.acquisition_state === "PRIMARY_OA_ROUTES_EXHAUSTED";
+    const incomplete = !canSignFullTextLead(output);
     return replaceSource(state, sourceId, {
       ...source,
       full_text: fullTextStateSchema.parse({
@@ -1010,6 +1011,7 @@ export function ingestOpenFullTextOutput(
         requested_doi: output.requested_doi,
         discovery_attempts: output.discovery_attempts,
         acquisition_state: output.acquisition_state,
+        public_copy_search: output.public_copy_search,
         candidates: output.candidates,
         source_segments_retrieved_cumulative: 0,
         synthesis_lock: "fail",
@@ -1066,6 +1068,7 @@ export function ingestOpenFullTextOutput(
         ? page.discovery_attempts
         : before.discovery_attempts,
       acquisition_state: page.acquisition_state ?? before.acquisition_state,
+      public_copy_search: page.public_copy_search ?? before.public_copy_search,
       candidates: page.candidates ?? before.candidates,
       source_primary_identifier: page.source.primary_identifier,
       source_canonical_url: page.source.canonical_url,

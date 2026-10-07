@@ -1699,6 +1699,23 @@ describe("finalize_research gate", () => {
     expect(result.next_steps[1]).toMatch(/^Try acquire_open_full_text for 10\.1000\/unattempted/u);
   });
 
+  it.each([
+    ["NO_COPY_FOUND_AFTER_EXPANDED_SEARCH", "no public full text was found after an exact search"],
+    ["PAYWALL_OR_LOGIN_REQUIRED", "its full text needs a login or a subscription"],
+    ["CANDIDATE_FOUND_FETCH_BLOCKED", "a public copy was found but AskRigor could not fetch it"],
+    ["ABSTRACT_ONLY", "only its abstract was readable"],
+    ["PARTIAL_TEXT_READABLE", "only part of its text was readable"],
+    ["IDENTITY_MISMATCH", "no copy found could be verified as the same paper"]
+  ])("prints the signed lead boundary for %s", (state, limit) => {
+    const id = "10.1016/j.joca.2020.01.001";
+    const receipt = sign("full_text_lead", { doi: id, state }, options);
+    const result = finalizeResearch({ receipts: [survey, emptySearch, repeatScout, videoA, videoB, study, receipt],
+      community_evidence: "researched", treatment_choice: "not_compared", research_target: TARGET,
+      key_sources: [{ id, status: "lead_only" }] }, options);
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.limits).toContain(`Cite ${id} as a lead: ${limit}, so its methods were not audited.`);
+  });
+
   it("turns bounded audits and server-proven leads into limits", () => {
     const noDoiRecord = sign("pubmed_record", { pmid: "31234567" }, options);
     const result = finalizeResearch({

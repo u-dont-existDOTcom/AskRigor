@@ -24,6 +24,7 @@ import {
 } from "@askrigor/protocol";
 import {
   hasFailedFullTextAcquisition,
+  canSignFullTextLead,
   fetchClinicalTrial,
   fetchPubmedRecord,
   checkRetractionStatus,
@@ -2373,7 +2374,7 @@ function registerOpenFullTextMcpTools(
   registrar.registerTool(
     "acquire_open_full_text",
     {
-      description: "Acquires one DOI through Europe PMC, Unpaywall PDFs, and up to five public HTTPS candidate_urls, with an optional PMCID. Reports identity, structural completeness, source class, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID.",
+      description: "Acquires one DOI through Europe PMC, Unpaywall PDFs, and up to five public HTTPS candidate_urls, with an optional PMCID. Records expanded public-copy searches with public_copy_search; lead receipts require exact DOI and known-title queries without technical failures. Reports identity, structural completeness, source class and its basis, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID.",
       inputSchema: acquireOpenFullTextActionInputSchema,
       outputSchema: openFullTextMcpOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
@@ -2520,8 +2521,8 @@ async function invokeOpenFullTextMcp(
       type: "text",
       text: `${operationId.replaceAll("_", " ")} completed.` +
         ((result.body as { access_boundary?: string; acquisition_state?: string }).acquisition_state === undefined ? "" : ` ${(result.body as { access_boundary?: string }).access_boundary ?? ""}`) + (failedLead
-        ? " A source failed (an outage or rate limit), so this is not yet a lead and has no receipt: " +
-          "call acquire_open_full_text again later before listing the study as lead_only."
+        ? " A source failed (an outage or rate limit), so this is not yet a completed lead and has no receipt. " +
+          "A later acquire_open_full_text attempt can establish a completed boundary before the study is listed as lead_only."
         : "")
     }],
     structuredContent: result.body as Record<string, unknown>
@@ -2539,16 +2540,18 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
     status?: string;
     requested_doi?: string;
     requested_pmcid?: string;
+    acquisition_state?: string;
     audit_receipt?: { audit_status?: string };
     coverage_receipt?: { document_handle?: string };
   };
   if (operationId === "acquire_open_full_text" && output.status === "possibly_useful_lead") {
     // A lead receipt records completed attempts, not proof of paper
-    // inaccessibility. Failed or blocked routes cannot certify completion.
-    if (hasFailedFullTextSource(body)) return undefined;
+    // inaccessibility. Exact expanded search and no technical failures are required.
+    if (!canSignFullTextLead(body as Parameters<typeof canSignFullTextLead>[0])) return undefined;
     return researchReceipt("full_text_lead", {
       doi: output.requested_doi,
-      pmcid: output.requested_pmcid
+      pmcid: output.requested_pmcid,
+      state: output.acquisition_state
     });
   }
   const kind = output.status === "source_linked_study_audit_validated"

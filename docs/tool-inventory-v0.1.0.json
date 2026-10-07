@@ -1260,7 +1260,7 @@
     },
     {
       "name": "acquire_open_full_text",
-      "description": "Acquires one DOI through Europe PMC, Unpaywall PDFs, and up to five public HTTPS candidate_urls, with an optional PMCID. Reports identity, structural completeness, source class, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID.",
+      "description": "Acquires one DOI through Europe PMC, Unpaywall PDFs, and up to five public HTTPS candidate_urls, with an optional PMCID. Records expanded public-copy searches with public_copy_search; lead receipts require exact DOI and known-title queries without technical failures. Reports identity, structural completeness, source class and its basis, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1301,6 +1301,25 @@
               ],
               "additionalProperties": false
             }
+          },
+          "public_copy_search": {
+            "type": "object",
+            "properties": {
+              "queries": {
+                "minItems": 2,
+                "maxItems": 12,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 400
+                }
+              }
+            },
+            "required": [
+              "queries"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -1344,6 +1363,7 @@
                     "indexed",
                     "not_found",
                     "inaccessible",
+                    "fetch_blocked",
                     "error",
                     "partial_text",
                     "abstract_only",
@@ -1375,6 +1395,39 @@
               "PRIMARY_OA_ROUTES_EXHAUSTED"
             ]
           },
+          "public_copy_search": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "declared",
+                  "not_declared",
+                  "missing_exact_identifiers"
+                ]
+              },
+              "missing": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "doi",
+                    "title"
+                  ]
+                }
+              },
+              "query_count": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 12
+              }
+            },
+            "required": [
+              "status",
+              "query_count"
+            ],
+            "additionalProperties": false
+          },
           "candidates": {
             "maxItems": 5,
             "type": "array",
@@ -1393,6 +1446,15 @@
                     "author_copy",
                     "researcher_upload",
                     "other"
+                  ]
+                },
+                "source_class_basis": {
+                  "type": "string",
+                  "enum": [
+                    "known_host",
+                    "metadata_publisher_host",
+                    "declared",
+                    "unrecognized_host"
                   ]
                 },
                 "retrieval_provider": {
@@ -1416,6 +1478,7 @@
                   "type": "string",
                   "enum": [
                     "doi_exact",
+                    "pii_exact",
                     "title_match",
                     "not_verified"
                   ]
@@ -1449,6 +1512,7 @@
               "required": [
                 "url",
                 "source_class",
+                "source_class_basis",
                 "retrieval_provider",
                 "state",
                 "identity_verification",
@@ -1514,6 +1578,7 @@
                 "enum": [
                   "pmcid_exact",
                   "doi_exact",
+                  "pii_exact",
                   "title_match"
                 ]
               }
@@ -1811,6 +1876,7 @@
                     "indexed",
                     "not_found",
                     "inaccessible",
+                    "fetch_blocked",
                     "error",
                     "partial_text",
                     "abstract_only",
@@ -1842,6 +1908,39 @@
               "PRIMARY_OA_ROUTES_EXHAUSTED"
             ]
           },
+          "public_copy_search": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "declared",
+                  "not_declared",
+                  "missing_exact_identifiers"
+                ]
+              },
+              "missing": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "doi",
+                    "title"
+                  ]
+                }
+              },
+              "query_count": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 12
+              }
+            },
+            "required": [
+              "status",
+              "query_count"
+            ],
+            "additionalProperties": false
+          },
           "candidates": {
             "maxItems": 5,
             "type": "array",
@@ -1860,6 +1959,15 @@
                     "author_copy",
                     "researcher_upload",
                     "other"
+                  ]
+                },
+                "source_class_basis": {
+                  "type": "string",
+                  "enum": [
+                    "known_host",
+                    "metadata_publisher_host",
+                    "declared",
+                    "unrecognized_host"
                   ]
                 },
                 "retrieval_provider": {
@@ -1883,6 +1991,7 @@
                   "type": "string",
                   "enum": [
                     "doi_exact",
+                    "pii_exact",
                     "title_match",
                     "not_verified"
                   ]
@@ -1916,6 +2025,7 @@
               "required": [
                 "url",
                 "source_class",
+                "source_class_basis",
                 "retrieval_provider",
                 "state",
                 "identity_verification",
@@ -1981,6 +2091,7 @@
                 "enum": [
                   "pmcid_exact",
                   "doi_exact",
+                  "pii_exact",
                   "title_match"
                 ]
               }

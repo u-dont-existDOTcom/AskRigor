@@ -218,7 +218,7 @@ describe("AskRigor MCP tools", () => {
       );
 
       expect(descriptions.acquire_open_full_text).toBe(
-        "Acquires one DOI through Europe PMC, Unpaywall PDFs, and up to five public HTTPS candidate_urls, with an optional PMCID. Reports identity, structural completeness, source class, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID."
+        "Acquires one DOI through Europe PMC, Unpaywall PDFs, and up to five public HTTPS candidate_urls, with an optional PMCID. Records expanded public-copy searches with public_copy_search; lead receipts require exact DOI and known-title queries without technical failures. Reports identity, structural completeness, source class and its basis, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID."
       );
       expect(descriptions.continue_open_full_text).toBe(
         "Retrieves the next contiguous page of an existing document_handle from its server-owned cursor. Coverage binds the handle and content hash; exhausted, expired, or invalid handles cannot advance. Pages preserve the exact document chain for source-linked audit."

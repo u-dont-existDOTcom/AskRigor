@@ -36,7 +36,7 @@ export const auditableDocumentIndexSchema = z.object({
     format: z.enum(["jats_xml", "pdf_text", "html_text", "plain_text"]),
     content_sha256: sha256Schema,
     document_completeness: z.literal("full_text_with_body"),
-    identity_verification: z.enum(["pmcid_exact", "doi_exact", "title_match"])
+    identity_verification: z.enum(["pmcid_exact", "doi_exact", "pii_exact", "title_match"])
   }).strict(),
   section_paths: z.array(z.array(z.string().min(1).max(500)).max(20)).max(10_000),
   blocks: z.array(auditableDocumentBlockSchema).min(1).max(100_000)

@@ -549,7 +549,13 @@ reacquiring and rereading the exact document; chains cannot be combined.
 Phase 1 public-copy recovery (2026-10-07, working-tree draft; no deployment or
 live-policy approval is claimed) adds optional `candidate_urls` to the MCP and
 Action acquisition inputs: one to five public HTTPS URLs with an optional
-declared source class. After the primary OA routes yield no admitted document,
+declared source class. The optional strict `public_copy_search` object contains
+two to twelve trimmed queries (3–400 characters each). Queries are checked in
+request memory for the exact DOI and a known title variant; they are never
+stored, logged, echoed, checkpointed, or included in receipts. Only search
+status, missing identifier kinds, and a query count are returned and may enter
+the compact checkpoint. A lead receipt includes the acquisition state, not
+the queries. After the primary OA routes yield no admitted document,
 the server sends a direct GET to each supplied URL. This is a new data flow:
 the model supplies the destination, rather than Unpaywall alone choosing it.
 The URL path and query are sent to that host; redirects send their resulting
@@ -574,12 +580,13 @@ states. There is no Bright Data integration or new paid model call.
 
 Retrieved bytes and rejected/partial/abstract text remain request-local and
 are not logged or written to disk. Only identity-verified copies passing the
-shared structural full-text admission check enter the existing one-hour,
+route-specific full-text admission check enter the existing one-hour,
 64-entry/128-MiB document-handle map. Responses add acquisition state and per-copy
-retrieved URL, class, direct retrieval provider, identity-verification status,
+retrieved URL, class and its basis (`known_host`, `metadata_publisher_host`,
+`declared`, or `unrecognized_host`), direct retrieval provider, identity-verification status,
 observed sections, completeness, and timestamp. The research-session controller
 may retain that compact public provenance (including returned URL paths and
-queries), route attempts, and acquisition state in its existing encrypted
+URL query strings), route attempts, and acquisition state in its existing encrypted
 checkpoint, under its existing 72-hour idle/seven-day absolute retention; it
 does not retain candidate bodies there. Connected clients can retain returned
 provenance and admitted text under their own terms. A public notice review is

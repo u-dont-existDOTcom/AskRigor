@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 
 import { auditableDocumentIndexSchema, type AuditableDocumentBlock, type AuditableDocumentIndex } from "./auditable-document-index.js";
-import { admitFullText, classifySource, sectionKind, verifyArticleIdentity, type CandidateUrl, type FrozenArticleIdentity, type FullTextCandidate } from "./full-text-admission.js";
-import { fetchCandidateDocument, UpstreamHttpError, type DiscoveredDocumentFetchRuntime } from "./http.js";
+import { admitFullText, sourceClassification, sectionKind, verifyArticleIdentity, type CandidateUrl, type FrozenArticleIdentity, type FullTextCandidate } from "./full-text-admission.js";
+import { DiscoveredDocumentError, fetchCandidateDocument, UpstreamHttpError, type DiscoveredDocumentFetchRuntime } from "./http.js";
 import { extractAuditablePdf } from "./unpaywall-full-text.js";
 
 export interface CandidateFullTextRuntime {
@@ -17,14 +17,14 @@ export async function acquireCandidateFullText(
   runtime: CandidateFullTextRuntime = {}
 ): Promise<{ candidate: FullTextCandidate; index?: AuditableDocumentIndex }> {
   let record: FullTextCandidate = {
-    url: candidate.url, source_class: classifySource(candidate.url, candidate.declared_class, identity.publisher_host),
+    url: candidate.url, ...sourceClassification(candidate.url, candidate.declared_class, identity.publisher_host),
     retrieval_provider: "direct", state: "CANDIDATE_FOUND_FETCH_BLOCKED", identity_verification: "not_verified",
     sections_observed: [], completeness: "unavailable", retrieved_at: (runtime.now?.() ?? new Date()).toISOString()
   };
   try {
     const fetched = await (runtime.fetchDocument ?? fetchCandidateDocument)(candidate.url, runtime.documentFetchRuntime);
     record = { ...record, url: fetched.finalUrl,
-      source_class: classifySource(fetched.finalUrl, candidate.declared_class, identity.publisher_host) };
+      ...sourceClassification(fetched.finalUrl, candidate.declared_class, identity.publisher_host) };
     const hash = createHash("sha256").update(fetched.bytes).digest("hex");
     if (new TextDecoder("ascii").decode(fetched.bytes.slice(0, 5)) === "%PDF-") {
       const index = await (runtime.extractPdf ?? extractAuditablePdf)({
@@ -41,28 +41,36 @@ export async function acquireCandidateFullText(
       }
       const admission = admitFullText(index.blocks);
       record = { ...record, state: admission.state, sections_observed: admission.sections_observed,
-        completeness: admission.completeness, identity_verification: index.source.identity_verification === "doi_exact" ? "doi_exact" : "title_match" };
+        completeness: admission.completeness, identity_verification: index.source.identity_verification === "pii_exact" ? "pii_exact" : index.source.identity_verification === "doi_exact" ? "doi_exact" : "title_match" };
       return { candidate: record, ...(admission.state === "FULL_TEXT_READABLE"
         ? { index: { ...index, source: { ...index.source, provider: "direct_candidate" } } } : {}) };
     }
     const type = fetched.contentType?.split(";")[0]?.trim().toLowerCase();
-    if (!["text/html", "application/xhtml+xml", "text/plain"].includes(type ?? "")) return { candidate: record };
+    if (!["text/html", "application/xhtml+xml", "text/plain"].includes(type ?? "")) {
+      throw new DiscoveredDocumentError("unsupported_content", "Candidate content type is unsupported");
+    }
     const charset = fetched.contentType?.match(/;\s*charset\s*=\s*["']?([^;"'\s]+)/iu)?.[1] ?? "utf-8";
-    const raw = new TextDecoder(charset, { fatal: true }).decode(fetched.bytes)
+    let decoder: TextDecoder;
+    try { decoder = new TextDecoder(charset, { fatal: false }); } catch { decoder = new TextDecoder("utf-8", { fatal: false }); }
+    const raw = decoder.decode(fetched.bytes)
       .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/gu, "");
     const isHtml = type !== "text/plain";
     const extracted = isHtml ? extractHtmlText(raw) : { text: raw };
-    // These are exact access-control structures/labels, not scientific or
-    // free-prose semantic judgments. Unknown short pages remain abstract-only.
-    const accessState = isHtml ? htmlAccessState(raw, extracted.text) : undefined;
-    if (accessState !== undefined) return { candidate: { ...record, state: accessState } };
-    const verification = verifyArticleIdentity(identity, extracted.text, extracted.title);
-    if (verification === undefined) return { candidate: { ...record, state: "IDENTITY_MISMATCH" } };
+    const verification = verifyArticleIdentity(identity, extracted.text, extracted.title,
+      "doi" in extracted && extracted.doi !== undefined ? { citation_doi: extracted.doi } : {});
     const blocks = textBlocks(extracted.text);
     const admission = admitFullText(blocks);
+    // Access structures explain a failed identity or admission check; an
+    // embedded sign-up form does not hide an otherwise readable public paper.
+    if (verification === undefined || admission.state !== "FULL_TEXT_READABLE") {
+      const accessState = isHtml ? htmlAccessState(raw, extracted.text) : undefined;
+      return { candidate: { ...record,
+        state: accessState ?? (verification === undefined ? "IDENTITY_MISMATCH" : admission.state),
+        identity_verification: verification ?? "not_verified",
+        ...(verification === undefined ? {} : { sections_observed: admission.sections_observed, completeness: admission.completeness }) } };
+    }
     record = { ...record, state: admission.state, identity_verification: verification,
       sections_observed: admission.sections_observed, completeness: admission.completeness };
-    if (admission.state !== "FULL_TEXT_READABLE") return { candidate: record };
     const index = auditableDocumentIndexSchema.parse({
       source: { provider: "direct_candidate", primary_identifier: identity.doi, canonical_url: fetched.finalUrl,
         doi: identity.doi, ...(identity.pmid === undefined ? {} : { pmid: identity.pmid }),
@@ -75,7 +83,7 @@ export async function acquireCandidateFullText(
     const status = error instanceof UpstreamHttpError ? error.status : undefined;
     const state = status === 401 || status === 402 ? "PAYWALL_OR_LOGIN_REQUIRED"
       : status === 404 || status === 410 ? "NO_COPY_FOUND_AFTER_EXPANDED_SEARCH"
-        : status !== undefined && status >= 500 ? "PROVIDER_UNAVAILABLE" : "CANDIDATE_FOUND_FETCH_BLOCKED";
+        : status === 429 || status !== undefined && status >= 500 || error instanceof DiscoveredDocumentError && error.code === "transport" ? "PROVIDER_UNAVAILABLE" : "CANDIDATE_FOUND_FETCH_BLOCKED";
     return { candidate: { ...record, state } };
   }
 }
@@ -102,9 +110,18 @@ function decodeEntities(text: string): string {
 /** Small static extractor: block tags preserve heading/paragraph boundaries.
  * Scripts, templates, hidden blocks and navigation never supply article text.
  * No script execution, subresource requests, cookies, or browser rendering. */
-export function extractHtmlText(html: string): { text: string; title?: string } {
-  const citationTitle = html.match(/<meta\b[^>]*name\s*=\s*["']citation_title["'][^>]*content\s*=\s*["']([^"']+)["'][^>]*>/iu)?.[1]
-    ?? html.match(/<meta\b[^>]*content\s*=\s*["']([^"']+)["'][^>]*name\s*=\s*["']citation_title["'][^>]*>/iu)?.[1];
+export function extractHtmlText(html: string): { text: string; title?: string; doi?: string } {
+  const meta = new Map<string, string>();
+  for (const tag of html.matchAll(/<meta\b(?:[^>"']|"[^"]*"|'[^']*')*>/giu)) {
+    const attributes = new Map<string, string>();
+    for (const attribute of tag[0].matchAll(/([\w:-]+)\s*=\s*(["'])(.*?)\2/gsu)) {
+      attributes.set(attribute[1]!.toLowerCase(), attribute[3]!);
+    }
+    const name = attributes.get("name")?.toLowerCase();
+    const content = attributes.get("content");
+    if (name !== undefined && content !== undefined) meta.set(name, content);
+  }
+  const citationTitle = meta.get("citation_title");
   const h1 = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1\s*>/iu)?.[1];
   const title = citationTitle ?? (h1 === undefined ? undefined : h1.replace(/<[^>]*>/gu, " "));
   const visible = html.replace(/<!--[\s\S]*?-->/gu, "")
@@ -113,7 +130,8 @@ export function extractHtmlText(html: string): { text: string; title?: string } 
     .replace(/<\/?(?:h[1-6]|p|div|section|article|li|tr|br|title|strong|b)\b[^>]*>/giu, "\n")
     .replace(/<[^>]*>/gu, " ");
   return { text: decodeEntities(visible).replace(/[ \t\f\v]+/gu, " ").replace(/\s*\n\s*/gu, "\n").trim(),
-    ...(title === undefined ? {} : { title: decodeEntities(title).replace(/\s+/gu, " ").trim() }) };
+    ...(title === undefined ? {} : { title: decodeEntities(title).replace(/\s+/gu, " ").trim() }),
+    ...(meta.get("citation_doi") === undefined ? {} : { doi: decodeEntities(meta.get("citation_doi")!) }) };
 }
 function htmlAccessState(html: string, text: string): "PAYWALL_OR_LOGIN_REQUIRED" | "CANDIDATE_FOUND_FETCH_BLOCKED" | undefined {
   const loginLabels = ["sign in to read", "log in to read", "login required", "subscription required", "purchase access", "subscribe to read", "paywall", "accès réservé aux abonnés", "iniciar sesión para leer", "acesso restrito", "anmeldung erforderlich", "accesso riservato"];

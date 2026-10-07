@@ -32,7 +32,7 @@ import {
   transcriptOutput
 } from "./helpers/research-video-depth-fixtures.js";
 
-function narrowCompleteEvidence(options: { formalBoundary?: boolean; retryableSource?: boolean } = {}): TreatmentFinalizationEvidence {
+function narrowCompleteEvidence(options: { formalBoundary?: boolean; retryableSource?: boolean; declaredSource?: boolean } = {}): TreatmentFinalizationEvidence {
   const packet = structuredClone(researchPacket());
   const receipt = structuredClone(researchReceipt());
   packet.candidates[0]!.provisional_specific_program = "named program one";
@@ -115,6 +115,12 @@ function narrowCompleteEvidence(options: { formalBoundary?: boolean; retryableSo
       external_evidence: { status: "BOUNDED_NONRETRYABLE", provider_attempt_hashes: [], provider_coverage: [], controller_directives: [], unresolved_item_hashes: [], claim_local_limitation_hashes: [], claim_local_limitations: [], linked_work: [], possible_decision_impact: "unknown", effect_claims_excluded: false },
       claim_capability: { status: "UNAVAILABLE_UNSEEN_SOURCE", unrestricted_decision_use: false }
     }] });
+  }
+  if (options.declaredSource) {
+    const source = formalEvidence.sources[0]!;
+    source.full_text = { ...source.full_text, status: "LEAD_BOUNDARY",
+      public_copy_search: { status: "declared", query_count: 2 },
+      discovery_attempts: [{ route: "candidate", result: "inaccessible" }] };
   }
   let bidirectional = initialResearchBidirectionalIterationState();
   const bidirectionalWork = createBidirectionalIterationWorkPackage(
@@ -312,6 +318,24 @@ describe("session-derived treatment landscape finalization", () => {
     });
     expect(deriveTreatmentFinalizationDiagnostics(next, evidence).answer_boundary).toBe("continue_research");
     expect(deriveTreatmentFinalizationStatus(next, evidence)).not.toBe("BLOCKED_TERMINAL");
+  });
+
+  it("keeps a declared blocked-copy boundary terminal in treatment follow-up", () => {
+    const evidence = narrowCompleteEvidence({ retryableSource: true, declaredSource: true });
+    const state = initialResearchTreatmentFinalizationState();
+    const work = createTreatmentLandscapeWorkPackage(state, evidence);
+    const material = work.candidates.find(({ materiality }) => materiality === "MATERIAL")!;
+    const batch = work.discovery_batches.find(({ query_or_scope }) => query_or_scope.includes("named program one"))!;
+    const next = ingestTreatmentLandscapeSubmission(state, evidence, {
+      package_version: work.package_version, evidence_basis_digest: work.evidence_basis_digest, attempt: work.attempt,
+      broad_treatment_choice: false, specific_implementation_searches: [{ search_id: "specific_named_program_one", discovery_batch_id: batch.batch_id,
+        treatment_class_id: material.treatment_class_id, implementation_terms: ["named program one"],
+        discriminator_terms: ["condition"], candidate_video_ids: [material.video_id] }],
+      directional_search_batches: { benefit: [], no_effect_or_failure: [], harm: [], discontinuation: [], eventual_standard_treatment: [] },
+      selected_video_interpretations: selectedInterpretations(work), further_expansion_likely_to_improve_answer: "no"
+    });
+    expect(deriveTreatmentFinalizationDiagnostics(next, evidence).answer_boundary).toBe("bounded_nonranking_only");
+    expect(deriveTreatmentFinalizationStatus(next, evidence)).toBe("BLOCKED_TERMINAL");
   });
 
   it("projects a nonretryable formal-source gap as bounded nonranking work", () => {

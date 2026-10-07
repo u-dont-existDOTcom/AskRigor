@@ -45,15 +45,15 @@ Discovery runs where the model's own search tools are, as community searches alr
 1. **Route-failure semantics (Phase 1).** A provider error, rate limit or outage is a failed route (`error`), not
    `inaccessible`. When the open-access routes end without an admitted copy, the result says
    `primary_oa_routes_exhausted` and names what can still be tried. A `full_text_lead` receipt is signed only after
-   every applicable route, including supplied candidates, ended without a technical failure.
+   an exact expanded-search declaration is valid and every applicable route, including supplied candidates, ended without a technical failure.
 2. **Candidate copies (Phase 1).** `acquire_open_full_text` takes optional `candidate_urls`, at most 5: public copies
    the model found by exact search (title in quotes, DOI, PMID, PII, title plus first author and year). Examples are
    a repository or author copy, Academia.edu, ResearchGate or the publisher. The server fetches each through the
    SSRF-guarded fetcher, extended to HTML and text. Scholarly search hits are discovery, never evidence.
-3. **Identity (Phase 1).** One frozen identity per call: DOI, PMID, exact title, first author, year, journal and
-   PII when known. A copy passes on the DOI, or on the exact title plus the first author or year. Otherwise it is
+3. **Identity (Phase 1).** One frozen identity per call: DOI, PMID, deduplicated title variants, first author, year, journal and
+   PII when known. A copy passes on the DOI or compact PII, or on a compact exact title plus the first author or year. Otherwise it is
    IDENTITY_MISMATCH.
-4. **Full-text admission (Phase 1, all routes).**
+4. **Full-text admission (Phase 1, PDFs and candidates; JATS retains body admission).**
    - FULL_TEXT_READABLE needs headings or equivalent sections for methods or materials, results, and discussion or
      conclusions, plus body text well beyond an abstract.
    - Fewer sections give PARTIAL_TEXT_READABLE; an abstract or metadata alone gives ABSTRACT_ONLY.
@@ -66,8 +66,9 @@ Discovery runs where the model's own search tools are, as community searches alr
 6. **Provenance per copy.**
    - identity;
    - retrieved URL and retrieval provider (`direct`, later `bright_data`);
-   - source class (publisher | repository | author_copy | researcher_upload | other), taken from the host by exact
-     host lists, plus the model's declared class when the host cannot tell author copy from repository;
+   - source class (publisher | repository | author_copy | researcher_upload | other), taken from exact
+     host lists or metadata-bound publisher host, with declared author/repository classes accepted on unknown hosts;
+   - source-class basis (`known_host`, `metadata_publisher_host`, `declared`, `unrecognized_host`);
    - access status, completeness, sections observed, timestamp and identity verification.
    - The preference order is official open access or a repository manuscript, then an author copy, then a verified
      researcher upload, then another verified mirror. A verified lower-ranked full text beats a higher-ranked
@@ -110,28 +111,42 @@ No protocol bytes, Git history, merge, deployment, or paid provider path changes
 The live Universal architecture bootstrap and lesson queue could not be retrieved
 under this task's explicit no-network constraint.
 
-The shared `admitFullText` check requires exact structural titles for methods,
-results, and discussion/conclusions, at least 100 text characters under each,
-and at least **6,000 characters in total under those body sections**. Abstract
-and reference blocks/sections do not contribute. Numbered headings and case are
-normalized. JATS retains its additional `<body>` check. PDF text retains line
-boundaries; HTML/XHTML uses a small static extractor with block boundaries and
-no script execution. The labels cover English, French, Spanish, Portuguese,
-German, and Italian; unsupported or lost headings may conservatively prevent
-admission. This proves structural readability only, not study quality or that
-all scientific content/supplements were extracted.
+The optional strict `public_copy_search: { queries: string[] }` declaration
+contains 2–12 trimmed queries, 3–400 characters each. After metadata identity
+assembly, at least one query must contain the DOI case-insensitively and at
+least one must contain a known title variant after `normalizeIdentityText`.
+Queries are checked only in memory and never echoed, logged, stored,
+checkpointed, or signed. Only `status` (`declared`, `not_declared`, or
+`missing_exact_identifiers`), missing identifier kinds, and `query_count`
+are returned. Without candidates, a valid declaration produces
+`NO_COPY_FOUND_AFTER_EXPANDED_SEARCH`; otherwise the OA routes remain exhausted
+and the descriptive boundary names exact title/DOI/PMID/PII discovery,
+`candidate_urls` for found copies, and `public_copy_search` even for no results.
 
-One identity assembled from exact DOI-matched Europe PMC metadata and the
-existing Unpaywall metadata response is frozen before supplied copies are
-inspected. DOI matches count in the document's identity area (before abstract,
-introduction/background, methods or references), so a review's body/reference
-quotation is not identity evidence. A declared article title (citation-title
-metadata or H1) conflicting with the known exact normalized title fails. The
-alternative is exact normalized title plus the first author's surname or year.
-The metadata carries PMID, journal and PII when available. No extra metadata
-host or DOI redirect lookup was added. A publisher landing host reported by
-Unpaywall is used when available; otherwise publisher classification relies on
-listed exact hosts or the declared class, without inventing a resolved host.
+PDFs and supplied copies require methods, results, and discussion/conclusions,
+at least **1,000 characters per section**, and **6,000 distinct body characters**.
+Combined results/discussion headings credit both kinds; case-report headings
+credit methods and results. English, French, Spanish, Portuguese, German and
+Italian labels are structural checks, not judgments of scientific meaning.
+Abstracts/references do not inflate the body floor. Europe PMC JATS retains its
+prior `full_text_with_body` admission without an IMRaD heading requirement.
+PDFs preserve line boundaries; HTML/XHTML extraction is static. Full readable
+identity-verified pages are admitted before embedded login, paywall, challenge
+or JavaScript markers are used to explain a failed identity/admission check.
+Only admitted full text opens a method-audit handle.
+
+One identity is frozen before supplied copies: DOI, PMID, title variants from
+Europe PMC search, Unpaywall/Crossref, and Europe PMC JATS, first author, year,
+journal, and PII when available. Variants are deduplicated by normalized form.
+Declared page titles conflict only if they match no variant. Title comparisons
+use NFKC/lowercase letters and numbers only, with at least 24 compact characters;
+first-author surname/year support remains word-bounded. Quote-consistent meta
+parsing preserves apostrophes. HTML `citation_doi` establishes an exact DOI or
+an identity mismatch. PII uses compact matching with at least 10 characters,
+recorded as `pii_exact`. PDF identity uses pages one and two up to references,
+including footers and cover pages; HTML/plain text keep the front area so a
+review's body/reference quotation cannot establish identity. No additional
+metadata lookup was added.
 
 Exact source host sets (optional `www` variants are individually enumerated):
 
@@ -139,34 +154,46 @@ Exact source host sets (optional `www` variants are individually enumerated):
 - Repository: `europepmc.org`, `www.europepmc.org`, `ncbi.nlm.nih.gov`, `www.ncbi.nlm.nih.gov`, `pmc.ncbi.nlm.nih.gov`, `arxiv.org`, `www.arxiv.org`, `biorxiv.org`, `www.biorxiv.org`, `medrxiv.org`, `www.medrxiv.org`, `zenodo.org`, `www.zenodo.org`, `figshare.com`, `www.figshare.com`, `hal.science`, `www.hal.science`, `core.ac.uk`, `www.core.ac.uk`.
 - Publisher: `sciencedirect.com`, `www.sciencedirect.com`, `link.springer.com`, `nature.com`, `www.nature.com`, `onlinelibrary.wiley.com`, `academic.oup.com`, `journals.sagepub.com`, `tandfonline.com`, `www.tandfonline.com`, `journals.plos.org`, `mdpi.com`, `www.mdpi.com`, `frontiersin.org`, `www.frontiersin.org`, `bmj.com`, `www.bmj.com`, plus the metadata-bound publisher host above.
 
-Known hosts override declared class. Unknown hosts use declared class, then
-`other`; arbitrary subdomains and suffix lookalikes do not inherit a class.
+Known hosts override declarations (`known_host`); an Unpaywall-bound publisher
+host uses `metadata_publisher_host`. Unknown hosts accept only declared
+`author_copy` or `repository` (`declared`); all other declarations become
+`other` (`unrecognized_host`). Arbitrary subdomains and suffix lookalikes do not
+inherit a class. Candidate fetching is concurrent, with results and equal-rank
+selection preserving input order.
 Among full readable candidates, publisher and repository tie for first,
 followed by author copy, researcher upload, then other; ties preserve input
 order. A full readable lower-ranked copy beats a higher-ranked abstract.
 
 | Acquisition state | Meaning |
 | --- | --- |
-| FULL_TEXT_READABLE | Identity passes and the structural/body threshold passes; only this state issues a handle. |
+| FULL_TEXT_READABLE | Identity and route-specific admission pass (JATS body; PDF/candidate structural/body floor); only this state issues a handle. |
 | PARTIAL_TEXT_READABLE | Some body sections are readable but required sections or the length floor are missing. |
 | ABSTRACT_ONLY | Only front matter, abstract or metadata is structurally readable. |
-| CANDIDATE_FOUND_FETCH_BLOCKED | Candidate 403/429, structural challenge/JavaScript-only page, unsupported response or network/retrieval failure; no lead receipt. |
+| CANDIDATE_FOUND_FETCH_BLOCKED | Candidate 403, non-public destination refusal, redirect/byte cap, unsupported/undecodable body, challenge or JavaScript-only page; a terminal boundary. |
 | PAYWALL_OR_LOGIN_REQUIRED | Candidate 401/402 or a recognized login/paywall structure; no bypass. |
-| NO_COPY_FOUND_AFTER_EXPANDED_SEARCH | Supplied URLs answered 404/410 and no better candidate was readable; this is limited to attempted URLs. |
-| PROVIDER_UNAVAILABLE | Provider failure or candidate 5xx; failed route, no lead receipt. |
+| NO_COPY_FOUND_AFTER_EXPANDED_SEARCH | A per-candidate 404/410, or no candidates and an exact expanded-search declaration; no copy was admitted. |
+| PROVIDER_UNAVAILABLE | Provider failure, candidate 429/5xx, timeout, DNS, connection or TLS failure; typed transport failure, no lead receipt. |
 | IDENTITY_MISMATCH | The retrieved copy did not establish the target's own identity. |
-| PRIMARY_OA_ROUTES_EXHAUSTED | No OA copy was admitted and no candidate URLs were supplied; exact public-copy discovery remains, even when attempts record provider errors. |
+| PRIMARY_OA_ROUTES_EXHAUSTED | No OA copy or candidate and no valid exact-search declaration; also Unpaywall's internal no-open-location state. Exact public-copy discovery remains. |
 
 When candidates are supplied but none is admitted, overall precedence is partial,
-abstract, blocked, unavailable, paywall/login, mismatch, then no copy; every
-candidate's individual state remains visible. A technical failure in *any*
-attempt or candidate suppresses a lead receipt even if another partial candidate
-sets the overall state. OA-only exhaustion and technical failures stay pending
-in the session controller; one call never spins on repeated immediate retries.
-The existing final checks consume that controller status, and cannot treat a
-`BLOCKED_RETRYABLE` source as a completed lead. Old output `status` values remain
-`full_text_available` and `possibly_useful_lead`; the new fields are additive.
-Clients with cached strict schemas need a refreshed tool list.
+abstract, blocked, unavailable, paywall/login, mismatch, then no copy; each
+candidate retains its state. Technical failure means any discovery attempt with
+`result: error` or any candidate/overall `PROVIDER_UNAVAILABLE`, using one shared
+predicate. Blocked copies and paywalls are terminal boundaries, not failures.
+HTTP 401/402 maps to paywall/login, 403 to blocked, 404/410 to no copy, and
+429/5xx to provider unavailable. Transport refusal codes distinguish blocking
+limits from outages; text decoding uses replacement and unknown charsets fall
+back to UTF-8.
+
+A `possibly_useful_lead` receipt requires no technical failure and a `declared`
+exact expanded search, and signs `state = acquisition_state`. The controller
+uses that same predicate: ineligible results are `BLOCKED_RETRYABLE`; eligible
+results are `LEAD_BOUNDARY`. Treatment follow-up preserves this rule. Finalization
+uses the signed state for the exact public-copy, login/subscription, fetch-block,
+abstract, partial-text or identity-mismatch limit; old receipts without state
+retain their prior wording. Old top-level status values remain additive and
+clients with cached strict schemas need a refreshed tool list.
 
 The privacy data-map draft describes direct model-supplied URL fetching,
 request-local bodies, handle retention, compact checkpoint provenance, and the
@@ -258,9 +285,23 @@ Changed files (30):
 - `tests/research-treatment-finalization.test.ts`
 - `tests/unpaywall-full-text.test.ts`
 
-Full-text recovery test names (parameterized templates expand to the 58 cases):
+Review-fix test-name list (synthetic, parameterized cases):
 
-- `\n`
+- `records exact expanded search without candidates, returning no query text`
+- `reports a declaration missing the exact %s without echoing queries`
+- `validates trimmed, bounded queries in a strict public-copy search object`
+- `admits a public full-text page with an embedded password input`
+- `preserves apostrophes in quote-consistent citation metadata %s`
+- `matches the Crossref title variant when MEDLINE appends a collective author for PMID 10734247`
+- `matches a PDF title hyphenated across a line break`
+- `verifies a PDF DOI in the %s after the abstract`
+- `excludes references from the PDF identity area`
+- `excludes a DOI appearing only on a later PDF page from identity verification`
+- `checks HTML citation_doi %s as the page identity`
+- `verifies compact PII identity in %s`
+- `rejects structured abstract labels followed by unrelated related-paper text`
+- `decodes %s text with replacement rather than rejecting its body`
+- `fetches candidates concurrently, preserves result order and breaks equal ranks by input order`
 - `keeps Unpaywall %s as a failed route, never inaccessible`
 - `recovers Europe PMC not_found plus Unpaywall failure with an Academia HTML copy and a handle`
 - `recovers the plan's DOI identity for PMID $pmid ($first_author)`
@@ -272,7 +313,7 @@ Full-text recovery test names (parameterized templates expand to the 58 cases):
 - `preserves entity-encoded French headings and exact article identity`
 - `decodes a declared public-text charset without executing HTML`
 - `classifies candidate HTTP %i without calling the paper inaccessible`
-- `preserves network failure as blocked and continues subsequent candidates`
+- `preserves network failure as unavailable and continues subsequent candidates`
 - `accepts the exact normalized title plus %s without a DOI`
 - `rejects the exact title without an author or year`
 - `prefers full repository text over full researcher upload, but full upload over a repository abstract`
@@ -280,14 +321,54 @@ Full-text recovery test names (parameterized templates expand to the 58 cases):
 - `budgets first-page candidate provenance and long URLs within client limits`
 - `classifies exact hosts before declared class and refuses suffix lookalikes`
 - `requires 6,000 body characters without inflating them with an abstract`
+- `keeps title length, surname and year support exact`
+- `credits both kinds in %s without counting the body twice`
+- `credits methods and results for %s`
+- `credits methods for %s with the per-section minimum`
+- `preserves %s failure as provider unavailable using the transport code`
+- `preserves typed %s refusal as blocked rather than unavailable`
 - `recognizes exact structural headings %s / %s / %s`
 - `rejects %s before a request`
 - `rechecks redirect DNS and rejects a rebound destination`
 - `enforces the byte cap on candidate HTML`
-
-Receipt/controller/finalization regression names also include:
-
-- `signs no lead for %s even when an older producer omits attempt errors`
+- `signs no receipt for incomplete expanded search %j`
+- `signs the state of an exact expanded search finding no copy without retaining queries`
+- `signs a lead for a declared search after every source answered without failure`
+- `signs no lead when a source failed, and asks for a retry`
+- `signs a declared terminal boundary only without a technical failure for %s`
 - `signs no lead after actual Unpaywall acquisition receives HTTP %i`
-- `keeps %s pending after one acquisition rather than a terminal lead`
-- `keeps a blocked candidate incomplete even when legacy audit fields look terminal`
+
+Additional controller/finalization regressions:
+
+- `binds expanded-search completion %j to controller status %s`
+- `checkpoints only the public-copy search summary after checking queries in memory`
+- `prints the signed lead boundary for %s`
+- `keeps a declared blocked-copy boundary terminal in treatment follow-up`
+- `uses an exact Europe PMC full text before Unpaywall` (original JATS fixture)
+
+Lesson closeout: the reviewed failure class was primary-route exhaustion being
+mistaken for completed expanded discovery. The shared receipt/controller predicate
+now requires an exact declaration and separates technical failures from terminal
+access boundaries. No lesson-queue operation or scope expansion was made; live
+queue status remains unavailable under the owner’s no-network constraint.
+
+
+## Phase 1 review-fix validation (2026-10-07)
+
+The final `npm run verify` on Node 24.18.0 exited **0**: typecheck, the
+complete deterministic suite, and build passed. Exact final result lines:
+
+```text
+Test Files  205 passed | 1 skipped (206)
+Tests  2423 passed | 6 skipped (2429)
+```
+
+The sandbox denied loopback/IPC sockets in the initial full-suite attempt.
+The passing final run allowed local test sockets with a temporary Node guard
+blocking external connections and DNS; live/provider tests remained disabled.
+A new checkpoint fixture initially reached the default JATS fetcher through
+its synthetic PMCID; that route was replaced with a synthetic no-copy response.
+All added article bodies and abstracts are synthetic. Tool inventory generation
+followed `npm run typecheck` and used Node's `tsx` loader to avoid the CLI's
+sandbox-denied IPC socket. `git diff --check` passes; `protocols/` has no diff,
+the branch and HEAD remain unchanged, and no commit or release was made.

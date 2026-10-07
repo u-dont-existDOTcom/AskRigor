@@ -702,6 +702,7 @@ export function finalizeResearch(
   // Key studies.
   const validatedIds = new Set<string>();
   const leadIds = new Set<string>();
+  const leadStates = new Map<string, string>();
   // PMID -> DOI ("" when the PubMed record has none), from fetch_pubmed_record receipts.
   const pubmedDois = new Map<string, string>();
   // PMID -> PMCID when PubMed lists an open copy in PubMed Central.
@@ -724,7 +725,11 @@ export function finalizeResearch(
     if (kind === "full_text_lead") {
       for (const key of ["doi", "pmcid"]) {
         const value = claims[key];
-        if (typeof value === "string" && value.length > 0) leadIds.add(normalizeIdentifier(value));
+        if (typeof value === "string" && value.length > 0) {
+          const id = normalizeIdentifier(value);
+          leadIds.add(id);
+          if (typeof claims.state === "string") leadStates.set(id, claims.state);
+        }
       }
       if (typeof claims.doi === "string" && claims.doi !== "") {
         const doi = normalizeIdentifier(claims.doi);
@@ -766,7 +771,17 @@ export function finalizeResearch(
         continue;
       }
       leadSources.push(source.id);
-      requireLimit(`Cite ${source.id} as a lead: no open full text was available, so its methods were not audited.`);
+      const limits: Record<string, string> = {
+        NO_COPY_FOUND_AFTER_EXPANDED_SEARCH: "no public full text was found after an exact search",
+        PAYWALL_OR_LOGIN_REQUIRED: "its full text needs a login or a subscription",
+        CANDIDATE_FOUND_FETCH_BLOCKED: "a public copy was found but AskRigor could not fetch it",
+        ABSTRACT_ONLY: "only its abstract was readable",
+        PARTIAL_TEXT_READABLE: "only part of its text was readable",
+        IDENTITY_MISMATCH: "no copy found could be verified as the same paper"
+      };
+      const state = ids.map((candidate) => leadStates.get(candidate)).find((state) => state !== undefined);
+      const limit = state === undefined ? "no open full text was available" : limits[state] ?? "no open full text was available";
+      requireLimit(`Cite ${source.id} as a lead: ${limit}, so its methods were not audited.`);
       unreadStudies.add(id);
       continue;
     }

@@ -266,4 +266,4 @@ export {
   type YoutubeTranscriptRuntime
 } from "./youtube-transcript.js";
 
-export { acquisitionStateSchema, candidateUrlsSchema, fullTextCandidateSchema, hasFailedFullTextAcquisition, admitFullText, FULL_TEXT_BODY_MIN_CHARACTERS, type AcquisitionState, type FullTextCandidate, type FrozenArticleIdentity } from "./full-text-admission.js";
+export { acquisitionStateSchema, candidateUrlsSchema, fullTextCandidateSchema, publicCopySearchSchema, publicCopySearchResultSchema, hasFailedFullTextAcquisition, canSignFullTextLead, admitFullText, FULL_TEXT_BODY_MIN_CHARACTERS, type AcquisitionState, type FullTextCandidate, type FrozenArticleIdentity } from "./full-text-admission.js";

@@ -24,7 +24,7 @@ import {
   type UnpaywallOpenLocation
 } from "./unpaywall.js";
 
-import { admitFullText, verifyArticleIdentity, type AcquisitionState, type FrozenArticleIdentity, type FullTextAdmission } from "./full-text-admission.js";
+import { admitFullText, titleVariants, verifyArticleIdentity, type AcquisitionState, type FrozenArticleIdentity, type FullTextAdmission } from "./full-text-admission.js";
 
 const MAX_PDF_PAGES = 1_000;
 const MAX_EXTRACTED_CHARACTERS = 20_000_000;
@@ -84,7 +84,7 @@ export async function acquireUnpaywallFullText(
       resolution.access_status,
       [],
       "Open-access resolution did not produce an auditable document location.",
-      resolution.access_status === "not_found" ? "NO_COPY_FOUND_AFTER_EXPANDED_SEARCH" : "PROVIDER_UNAVAILABLE"
+      resolution.access_status === "not_found" ? "PRIMARY_OA_ROUTES_EXHAUSTED" : "PROVIDER_UNAVAILABLE"
     );
   }
 
@@ -92,7 +92,8 @@ export async function acquireUnpaywallFullText(
   const identity: FrozenArticleIdentity = Object.freeze({
     doi, title: discovery.title, first_author: discovery.first_author, year: discovery.year,
     journal: discovery.journal, pii: discovery.pii, publisher_host: discovery.publisher_host,
-    ...runtime.identity
+    ...runtime.identity,
+    title_variants: Object.freeze(titleVariants(runtime.identity?.title, ...(runtime.identity?.title_variants ?? []), discovery.title))
   });
   const locations = pdfCandidates(discovery);
   if (locations.length === 0) {
@@ -101,7 +102,7 @@ export async function acquireUnpaywallFullText(
       resolution.access_status,
       [],
       "Unpaywall found no direct HTTPS PDF candidate. The citation remains a possibly useful lead requiring further investigation.",
-      discovery.full_text_lead_status === "no_open_location_found" ? "NO_COPY_FOUND_AFTER_EXPANDED_SEARCH" : "ABSTRACT_ONLY", identity
+      discovery.full_text_lead_status === "no_open_location_found" ? "PRIMARY_OA_ROUTES_EXHAUSTED" : "ABSTRACT_ONLY", identity
     );
   }
 
@@ -199,7 +200,7 @@ interface ExtractPdfInput {
   bytes: Uint8Array;
   identity?: FrozenArticleIdentity;
   onInspection?: (admission: FullTextAdmission) => void;
-  onIdentity?: (verification: "doi_exact" | "title_match") => void;
+  onIdentity?: (verification: "doi_exact" | "pii_exact" | "title_match") => void;
 }
 
 export async function extractAuditablePdf(
@@ -235,8 +236,7 @@ export async function extractAuditablePdf(
       }
       pageTexts.push(text);
     }
-    const completeText = pageTexts.join("\n");
-    const identity = verifyArticleIdentity(input.identity ?? { doi: input.doi, title: input.title }, completeText);
+    const identity = verifyArticleIdentity(input.identity ?? { doi: input.doi, title: input.title }, pageTexts.slice(0, 2).join("\n"), undefined, { pdf: true });
     if (identity === undefined) return undefined;
     input.onIdentity?.(identity);
     const blocks: AuditableDocumentBlock[] = [];
@@ -357,7 +357,7 @@ function unavailable(
   discoveryStatus: string,
   attempts: UnpaywallFullTextData["attempted_locations"],
   boundary: string,
-  state: AcquisitionState = "NO_COPY_FOUND_AFTER_EXPANDED_SEARCH",
+  state: AcquisitionState = "PRIMARY_OA_ROUTES_EXHAUSTED",
   identity?: FrozenArticleIdentity
 ): ProvenanceEnvelope<UnpaywallFullTextData> {
   const envelope = errorEnvelope({
@@ -367,7 +367,7 @@ function unavailable(
     sourceIdentity: { canonical_url: `https://doi.org/${doi}` },
     pagination: { exhausted: true },
     returned: 0,
-    accessStatus: state === "PROVIDER_UNAVAILABLE" ? "error" : state === "NO_COPY_FOUND_AFTER_EXPANDED_SEARCH" ? "not_found" : "partial",
+    accessStatus: state === "PROVIDER_UNAVAILABLE" ? "error" : state === "PRIMARY_OA_ROUTES_EXHAUSTED" ? "not_found" : "partial",
     limitations: [
       boundary,
       "The study remains a possibly useful research lead; unseen full-text content was not treated as evidence."

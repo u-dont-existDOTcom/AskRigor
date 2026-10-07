@@ -11,7 +11,7 @@ import {
   type UnpaywallFullTextData
 } from "../packages/sources/src/index.js";
 
-import { syntheticBody, syntheticArticleText } from "./helpers/synthetic-full-text.js";
+import { syntheticArticleText } from "./helpers/synthetic-full-text.js";
 
 const DOI = "10.1234/recorded.example";
 
@@ -140,11 +140,10 @@ describe("automatic open-full-text routing", () => {
 });
 
 async function fixtureArticle(): Promise<EuropePmcFullTextArticle> {
-  const smallXml = await readFile(
+  const xml = await readFile(
     new URL("fixtures/europe-pmc/full-text.xml", import.meta.url),
     "utf8"
   );
-  const xml = smallXml.replace("</body>", `<sec><title>Methods</title><p>${syntheticBody("methods")}</p></sec><sec><title>Results</title><p>${syntheticBody("results")}</p></sec><sec><title>Discussion</title><p>${syntheticBody("discussion")}</p></sec></body>`);
   return {
     pmcid: "PMC1234567",
     pmid: "40123456",
