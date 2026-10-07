@@ -63,10 +63,20 @@ describe("Phase 1 full-text route recovery", () => {
       coverage_receipt: { document_handle: expect.stringMatching(/^aft1_/u) } });
   });
   it.each(planAcceptanceIdentities)("recovers the plan's DOI identity for PMID $pmid ($first_author)", async (identity) => {
-    const front = `Synthetic fixture for PMID ${identity.pmid} (title unavailable offline)\n${identity.first_author} ${identity.year} ${identity.journal}\nDOI ${identity.doi}`;
+    const front = `${identity.title}\n${identity.first_author} ${identity.year} ${identity.journal}\nDOI ${identity.doi}`;
     const output = await acquire(html(front), { identity });
     expect(output).toMatchObject({ requested_doi: identity.doi, status: "full_text_available", acquisition_state: "FULL_TEXT_READABLE",
       candidates: [{ identity_verification: "doi_exact", source_class: "researcher_upload", sections_observed: ["methods", "results", "discussion"] }] });
+    expect(output).toHaveProperty("coverage_receipt.document_handle");
+  });
+  it.each(planAcceptanceIdentities.flatMap((identity) =>
+    (["author", "year"] as const).map((basis) => ({ ...identity, basis }))
+  ))("recovers PMID $pmid by exact title plus $basis without a DOI in the text", async (identity) => {
+    const content = html(`${identity.title}\n${identity.basis === "author" ? identity.first_author : identity.year}`);
+    expect(content).not.toContain(identity.doi);
+    const output = await acquire(content, { identity });
+    expect(output).toMatchObject({ requested_doi: identity.doi, status: "full_text_available", acquisition_state: "FULL_TEXT_READABLE",
+      candidates: [{ identity_verification: "title_match", source_class: "researcher_upload", sections_observed: ["methods", "results", "discussion"] }] });
     expect(output).toHaveProperty("coverage_receipt.document_handle");
   });
 

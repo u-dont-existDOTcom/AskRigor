@@ -98,7 +98,7 @@ Discovery runs where the model's own search tools are, as community searches alr
 | Phase | State |
 | --- | --- |
 | Survey and plan | Done (2026-10-07) |
-| Phase 1: route semantics, candidates, identity, admission, states, provenance | Code implemented in this working tree; deterministic gate green; exact-title fixture metadata pending |
+| Phase 1: route semantics, candidates, identity, admission, states, provenance | Code implemented in this working tree; deterministic gate green; all three exact titles covered by synthetic DOI and title-plus-first-author/year cases (2026-10-07) |
 | Phase 2: Bright Data unlocking | Needs owner decisions (privacy wording, who may use it) |
 | Phase 3: HRP text | Exact text to the owner |
 | Live acceptance on the three PMIDs | After Phase 1 |
@@ -174,9 +174,9 @@ fact that public-address validation does not screen sensitive URL paths/queries.
 It does not claim that the public notice was updated or deployed.
 
 
-## Phase 1 deterministic validation and remaining input
+## Phase 1 deterministic validation and exact-title coverage
 
-Final `npm run verify` on Node 24.18.0 exited **0**: typecheck, the complete
+Initial Phase 1 `npm run verify` on Node 24.18.0 exited **0**: typecheck, the complete
 hermetic test suite, and build passed. Exact result lines:
 
 ```text
@@ -184,22 +184,35 @@ Test Files  205 passed | 1 skipped (206)
 Tests  2345 passed | 6 skipped (2351)
 ```
 
-The full-text recovery suite contains 52 deterministic synthetic cases. The
+The initial full-text recovery suite contained 52 deterministic synthetic cases. The
 existing source, Europe PMC, Unpaywall, Action, receipt, controller and catalog
 checks pass. No live/provider smoke was run. `git diff --check` passes; the
 branch remains `claude/full-text-route-recovery-20261007`, and `protocols/` has
 no working-tree diff. No commit, staging, history mutation, merge or deployment
 was performed.
 
-The three acceptance identifiers each have a DOI/first-author/year/journal
-synthetic fixture in `tests/helpers/full-text-acceptance-identities.ts`.
-**Their exact titles are unavailable offline and were not supplied in the
-plan.** They were requested from the owner and never guessed. These fixtures
-therefore exercise DOI identity, not those three papers' exact-title identity.
-To finish that requested fixture coverage, the owner supplies the exact titles
-for PMIDs 10734247, 14529800 and 11374875; the next action is to insert those
-metadata titles and use them in the synthetic front matter, then rerun verify.
-No actual paper body, abstract, or claimed live acceptance enters a fixture.
+Claude supplied the exact PubMed metadata (esummary, checked 2026-10-07) for PMIDs
+10734247, 14529800 and 11374875. PubMed's title for 10734247 ends with the collective
+author "Dopaminergic Therapy Study Group."; the fixture uses the article title without it. Their fixtures now include exact titles, DOI, first
+author, year, journal and PII in
+`tests/helpers/full-text-acceptance-identities.ts`. Synthetic front matter uses
+each exact title. Each paper exercises DOI identity and both exact-title
+alternatives separately: title plus first author, and title plus year, without
+a DOI in the document text. These six additional cases require `title_match`,
+full-text admission and a document handle, bringing the recovery suite to 58
+cases. No actual paper body, abstract, or claimed live acceptance enters a
+fixture. This follow-up runs offline and makes no commits.
+
+Exact-title follow-up `npm run verify` on Node 24.18.0 exited **0**:
+typecheck, the complete hermetic suite and build passed. Live provider tests
+were disabled. The initial sandbox attempt could not bind loopback test
+servers (`EPERM`); the successful rerun allowed local test servers, with no
+external network work. Exact result lines:
+
+```text
+Test Files  205 passed | 1 skipped (206)
+Tests  2351 passed | 6 skipped (2357)
+```
 
 Long unsectioned text stays partial; it cannot issue a handle. Supplied-copy
 extraction is capped at 100,000 blocks with bounded block text, and scans lines
@@ -245,12 +258,13 @@ Changed files (30):
 - `tests/research-treatment-finalization.test.ts`
 - `tests/unpaywall-full-text.test.ts`
 
-Full-text recovery test names (parameterized templates expand to the 52 cases):
+Full-text recovery test names (parameterized templates expand to the 58 cases):
 
 - `\n`
 - `keeps Unpaywall %s as a failed route, never inaccessible`
 - `recovers Europe PMC not_found plus Unpaywall failure with an Academia HTML copy and a handle`
 - `recovers the plan's DOI identity for PMID $pmid ($first_author)`
+- `recovers PMID $pmid by exact title plus $basis without a DOI in the text`
 - `rejects admission for %s`
 - `rejects a PDF containing only front matter`
 - `admits a candidate PDF using the same identity and completeness rule`
