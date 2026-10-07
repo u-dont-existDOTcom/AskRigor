@@ -25,6 +25,10 @@ const SECRET = "research-finalization-test-secret-0123456789";
 const now = () => new Date("2026-09-26T12:00:00.000Z");
 const options = { secret: SECRET, now };
 const TARGET = "Adults with hip osteoarthritis trying to avoid a replacement";
+const NONCOMMERCIAL_EXERCISE = {
+  status: "not_applicable",
+  reason: "The research target concerns unbranded exercise, not a product or service people buy."
+};
 const DISCOVERY_KINDS = new Set(["youtube_survey", "youtube_search", "youtube_scout", "youtube_community_audit"]);
 // As the MCP tools do, discovery receipts sign the research target and every
 // receipt signs its issue order `t`; here receipts are issued in the order the
@@ -143,7 +147,10 @@ const absenceDefaults = (input: Record<string, unknown>) =>
   "absence_claims" in input || !("answer_draft" in input) ? {} : { absence_claims: [] };
 // Every call gets the community, offer and absence defaults unless it passes its own.
 const finalizeResearchRaw = (input: Record<string, unknown>, gateOptions: Parameters<typeof finalizeResearchBare>[1]) =>
-  finalizeResearchBare({ ...communityDefaults(input), ...offerDefaults(input), ...absenceDefaults(input), ...input }, gateOptions);
+  finalizeResearchBare({
+    ...(input.community_evidence === "researched" ? { commercial_review_applicability: NONCOMMERCIAL_EXERCISE } : {}),
+    ...communityDefaults(input), ...offerDefaults(input), ...absenceDefaults(input), ...input
+  }, gateOptions);
 const finalizeResearchGate = (input: Record<string, unknown>, gateOptions: typeof options) => {
   const request = { another_pass_estimate: PASS_ESTIMATE, ...communityDefaults(input), ...input };
   return finalizeResearchRaw(
@@ -924,7 +931,8 @@ describe("finalize_research gate", () => {
       ["xyz789", trt], ["def456", found("testosterone", "Ten years on TRT")]
     ]);
     const gate = (trt: RedditThreadCheck, trtTitle?: string, draft?: string) => finalizeResearchBare({
-      ...base, community_findings: findingsFor(["aaaaaaaaaaa"]), community_searches: searches(trtTitle),
+      ...base, commercial_review_applicability: NONCOMMERCIAL_EXERCISE,
+      community_findings: findingsFor(["aaaaaaaaaaa"]), community_searches: searches(trtTitle),
       ...(draft === undefined ? {} : { answer_draft: draft, absence_claims: [] })
     }, { ...options, redditThreads: reddit(trt) });
 
@@ -1013,6 +1021,7 @@ describe("finalize_research gate", () => {
       research_depth: "deep",
       receipts: [study],
       community_evidence: "researched",
+      commercial_review_applicability: NONCOMMERCIAL_EXERCISE,
       treatment_choice: "not_compared",
       research_target: TARGET,
       key_sources: [{ id: "https://doi.org/10.1002/ART.41142", status: "validated" }],
@@ -1074,6 +1083,7 @@ describe("finalize_research gate", () => {
       research_depth: "deep",
       receipts: [study],
       community_evidence: "researched",
+      commercial_review_applicability: { status: "required", products: ["Humic Drops 2 oz"] },
       treatment_choice: "not_compared",
       research_target: TARGET,
       key_sources: [{ id: "https://doi.org/10.1002/ART.41142", status: "validated" }],
