@@ -521,3 +521,24 @@ The owner chooses the build in question 52:
 - B: Exa only;
 - C: AI copies only;
 - D: neither.
+
+## Parallel, Wayback and Common Crawl (owner question 53, 2026-10-07, about 23:40 UTC)
+
+| Route | Full texts of the three papers |
+| --- | --- |
+| ChatGPT's search (OpenAI's crawl of the Academia.edu pages) | 3 of 3 (GPT's reply on #287) |
+| Exa stored copies (`maxAgeHours: -1`) | 1 of 3: 11374875, embedded in the Academia.edu page |
+| Parallel Search API (index, the default; no live fetch) | 0 of 3: short query-focused excerpts. Every "carbidopa" or "pig kidney" hit was another paper citing these or a reference list |
+| Wayback Machine (availability and CDX APIs) | 0 of 3: no snapshots of the Academia.edu pages |
+| Common Crawl (four latest collections) | 0 of 3 |
+| Unpaywall, Semantic Scholar, OpenAIRE | 0 of 3: all closed, the Verona copy included |
+
+Wayback has no paid read tier. It allows about 15 requests a minute, with a 5-minute block after a 429. Credentials raise
+only "Save Page Now" limits, and bulk access is by partnership request.
+
+Next, decided in owner question 55:
+
+- the AI-copy route for the plugin;
+- an embedded-text extractor (a paper's own block inside a host page, found by its DOI or exact title), which makes
+  Exa's copy of 11374875 usable as well;
+- a 20-paper Exa coverage test before any paid route for the web app.
