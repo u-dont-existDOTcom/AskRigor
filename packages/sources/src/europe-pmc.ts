@@ -33,6 +33,7 @@ const providerRecordSchema = z.object({
   pmid: z.string().nullable().optional(),
   pmcid: z.string().nullable().optional(),
   doi: z.string().nullable().optional(),
+  pii: z.string().nullable().optional(),
   title: z.string().nullable().optional(),
   authorString: z.string().nullable().optional(),
   journalTitle: z.string().nullable().optional(),
@@ -72,6 +73,7 @@ export interface EuropePmcRecord {
   pmid?: string;
   pmcid?: string;
   doi?: string;
+  pii?: string;
   title?: string;
   authors?: string[];
   journal?: string;
@@ -173,6 +175,7 @@ const normalizeRecord = (record: z.infer<typeof providerRecordSchema>): EuropePm
     ...definedString("pmid", record.pmid),
     ...definedString("pmcid", record.pmcid),
     ...definedString("doi", record.doi),
+    ...definedString("pii", record.pii),
     ...definedString("title", record.title),
     ...(recordAuthors === undefined ? {} : { authors: recordAuthors }),
     ...definedString("journal", record.journalTitle),

@@ -14,7 +14,7 @@ import type { ResearchVideoDepthState } from
 const digest = z.string().regex(/^[a-f0-9]{64}$/u);
 const youtubeVideoId = z.string().regex(/^[A-Za-z0-9_-]{11}$/u);
 const bounded = (maximum: number) => z.string().trim().min(1).max(maximum);
-const blockId = z.string().regex(/^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$/u);
+const blockId = z.string().regex(/^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$/u);
 const directCommunityIdentifier = /(?:\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b|(?:\+?\d[\d .()-]{6,}\d)|https?:\/\/|(?:^|\s)@[A-Za-z0-9_.-]{2,})/iu;
 
 export const boundedProgramSchema = z.object({

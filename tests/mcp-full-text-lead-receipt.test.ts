@@ -1,3 +1,4 @@
+import { errorEnvelope, okEnvelope } from "@askrigor/contracts";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -79,4 +80,26 @@ describe("MCP full-text lead receipts", () => {
     expect(text).toContain("A source failed (an outage or rate limit), so this is not yet a lead");
     expect(text).toContain("call acquire_open_full_text again later before listing the study as lead_only");
   });
+  it.each(["CANDIDATE_FOUND_FETCH_BLOCKED", "PROVIDER_UNAVAILABLE"] as const)("signs no lead for %s even when an older producer omits attempt errors", async (state) => {
+    acquire.mockResolvedValueOnce({ ...noOpenText([{ route: "europe_pmc", result: "not_found" }]), data: {
+      ...noOpenText([]).data, acquisition_state: state,
+      candidates: [{ url: "https://www.academia.edu/fixture", source_class: "researcher_upload", retrieval_provider: "direct", state,
+        identity_verification: "not_verified", sections_observed: [], completeness: "unavailable", retrieved_at: "2026-10-07T00:00:00.000Z" }]
+    } });
+    expect((await acquireOnce()).receipt).toBeUndefined();
+  });
+
+  it.each([429, 503])("signs no lead after actual Unpaywall acquisition receives HTTP %i", async (httpStatus) => {
+    const actual = await vi.importActual<typeof import("@askrigor/sources")>("@askrigor/sources");
+    acquire.mockImplementationOnce((input) => actual.acquireOpenFullText(input, { email: "research@example.test" }, {
+      searchEuropePmc: async () => okEnvelope({ provider: "europe_pmc", recordType: "europe_pmc_search_result", accessStatus: "complete", returned: 0, pagination: { exhausted: true }, data: [] }),
+      unpaywallRuntime: { resolve: async () => errorEnvelope({ provider: "unpaywall", recordType: "open_access_location_resolution", primaryIdentifier: DOI,
+        accessStatus: httpStatus === 429 ? "rate_limited" : "error", code: "synthetic_upstream_failure", message: "Synthetic failure", httpStatus, retryable: true, data: {} }) }
+    }));
+    const result = await acquireOnce();
+    expect(result.receipt).toBeUndefined();
+    expect(result.text).toContain("Exact public-copy discovery remains");
+    expect(result.text).not.toContain("paper inaccessible");
+  });
+
 });

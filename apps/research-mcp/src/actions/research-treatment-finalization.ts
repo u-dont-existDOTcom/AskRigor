@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { hasFailedFullTextAcquisition } from "@askrigor/sources";
+
 import { z } from "zod";
 
 import type { ResearchBidirectionalIterationState } from "./research-bidirectional-iteration.js";
@@ -738,6 +740,13 @@ function formalFollowUp(
   const decisionSources = sources.filter(({ decision_importance }) =>
     decision_importance === "DECISION_IMPORTANT"
   );
+  if (decisionSources.some(({ full_text }) =>
+    full_text.status === "BLOCKED_RETRYABLE" ||
+    full_text.status !== "EXHAUSTED" && (
+      full_text.acquisition_state === "PRIMARY_OA_ROUTES_EXHAUSTED" ||
+      hasFailedFullTextAcquisition(full_text)
+    )
+  )) return { status: "incomplete" };
   const sourceBounded = decisionSources.some((source) =>
     source.full_text.status === "LEAD_BOUNDARY" ||
     source.method_audit.status === "BOUNDARY" ||

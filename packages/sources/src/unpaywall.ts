@@ -34,6 +34,10 @@ const doiRecordSchema = z.object({
   doi: z.string(),
   doi_url: z.string().url().optional(),
   title: z.string().nullable().optional(),
+  z_authors: z.array(z.object({ family: z.string().optional(), given: z.string().optional() }).passthrough()).optional(),
+  year: z.number().int().nullable().optional(),
+  journal_name: z.string().nullable().optional(),
+  pii: z.string().nullable().optional(),
   is_oa: z.boolean(),
   oa_status: z.string(),
   has_repository_copy: z.boolean().optional(),
@@ -62,6 +66,11 @@ export interface UnpaywallOpenLocation {
 export interface UnpaywallOpenAccessData {
   doi: string;
   title?: string;
+  first_author?: string;
+  year?: string;
+  journal?: string;
+  pii?: string;
+  publisher_host?: string;
   is_oa: boolean;
   oa_status: string;
   has_repository_copy?: boolean;
@@ -120,6 +129,11 @@ export async function resolveUnpaywallOpenAccess(
       ...(parsed.data.title === undefined || parsed.data.title === null
         ? {}
         : { title: parsed.data.title }),
+      ...(parsed.data.z_authors?.[0]?.family === undefined ? {} : { first_author: parsed.data.z_authors[0].family }),
+      ...(parsed.data.year == null ? {} : { year: String(parsed.data.year) }),
+      ...(parsed.data.journal_name == null ? {} : { journal: parsed.data.journal_name }),
+      ...(parsed.data.pii == null ? {} : { pii: parsed.data.pii }),
+      ...(bestLocation?.host_type !== "publisher" || bestLocation.landing_page_url === undefined ? {} : { publisher_host: new URL(bestLocation.landing_page_url).hostname }),
       is_oa: parsed.data.is_oa,
       oa_status: parsed.data.oa_status,
       ...(parsed.data.has_repository_copy === undefined

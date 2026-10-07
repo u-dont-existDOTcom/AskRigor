@@ -8,7 +8,7 @@ import {
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/u);
 
 export const auditableDocumentBlockSchema = z.object({
-  block_id: z.string().regex(/^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$/u),
+  block_id: z.string().regex(/^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$/u),
   kind: z.enum([
     "abstract",
     "paragraph",
@@ -25,7 +25,7 @@ export const auditableDocumentBlockSchema = z.object({
 
 export const auditableDocumentIndexSchema = z.object({
   source: z.object({
-    provider: z.enum(["europe_pmc", "unpaywall_open_location"]),
+    provider: z.enum(["europe_pmc", "unpaywall_open_location", "direct_candidate"]),
     primary_identifier: z.string().min(1).max(2_048),
     canonical_url: z.string().url(),
     pmcid: z.string().regex(/^PMC[1-9]\d{0,15}$/u).optional(),
@@ -33,7 +33,7 @@ export const auditableDocumentIndexSchema = z.object({
     doi: z.string().optional(),
     title: z.string().optional(),
     version: z.string().optional(),
-    format: z.enum(["jats_xml", "pdf_text"]),
+    format: z.enum(["jats_xml", "pdf_text", "html_text", "plain_text"]),
     content_sha256: sha256Schema,
     document_completeness: z.literal("full_text_with_body"),
     identity_verification: z.enum(["pmcid_exact", "doi_exact", "title_match"])

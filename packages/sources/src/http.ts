@@ -245,8 +245,7 @@ export interface FetchedDiscoveredDocument {
 }
 
 /**
- * Fetches a document URL supplied by a trusted discovery provider. The caller
- * cannot supply arbitrary URLs through the public API: Unpaywall chooses the
+ * Fetches a public document URL discovered by a provider or supplied as a
  * candidate. Every redirect is rechecked and private/reserved destinations are
  * rejected before a request is sent.
  */
@@ -307,6 +306,14 @@ export async function fetchDiscoveredDocument(
   throw new Error("Discovered document retrieval failed");
 }
 
+/** Same DNS-pinned, redirect-rechecked, bounded transport for public candidates. */
+export async function fetchCandidateDocument(
+  value: string,
+  runtime: DiscoveredDocumentFetchRuntime = {}
+): Promise<FetchedDiscoveredDocument> {
+  return fetchDiscoveredDocument(value, runtime);
+}
+
 async function requestWithInjectedFetch(
   fetcher: typeof globalThis.fetch,
   url: URL,
@@ -316,7 +323,7 @@ async function requestWithInjectedFetch(
   const response = await fetcher(url, {
     method: "GET",
     headers: {
-      Accept: "application/pdf,application/octet-stream;q=0.8"
+      Accept: "application/pdf,text/html,application/xhtml+xml,text/plain,application/octet-stream;q=0.8"
     },
     redirect: "manual",
     signal: AbortSignal.timeout(timeoutMs)
@@ -359,7 +366,7 @@ function requestPinnedAddress(
       method: "GET",
       path: `${url.pathname}${url.search}`,
       headers: {
-        Accept: "application/pdf,application/octet-stream;q=0.8",
+        Accept: "application/pdf,text/html,application/xhtml+xml,text/plain,application/octet-stream;q=0.8",
         Host: url.host
       },
       ...(isIP(originalHostname) === 0 ? { servername: originalHostname } : {}),
@@ -474,22 +481,26 @@ function isPublicIp(address: string): boolean {
       (a === 192 && b === 168) ||
       (a === 192 && b === 0 && c === 0) ||
       (a === 192 && b === 0 && c === 2) ||
+      (a === 192 && b === 88 && c === 99) ||
       (a === 198 && (b === 18 || b === 19)) ||
       (a === 198 && b === 51 && c === 100) ||
       (a === 203 && b === 0 && c === 113)
     );
   }
   if (isIP(address) === 6) {
-    const normalized = address.toLowerCase();
-    if (normalized.startsWith("::ffff:")) {
-      return isPublicIp(normalized.slice("::ffff:".length));
+    const raw = address.toLowerCase();
+    if (raw.startsWith("::ffff:")) {
+      return isPublicIp(raw.slice("::ffff:".length));
     }
+    const normalized = new URL(`https://[${address}]/`).hostname.slice(1, -1);
+    // Only global unicast; exclude documentation, transition and special-use
+    // ranges too. Compression/leading zeroes cannot evade these checks.
+    const [first = "", second = "0"] = normalized.split(":");
     return !(
-      normalized === "::" || normalized === "::1" ||
-      normalized.startsWith("fc") || normalized.startsWith("fd") ||
-      /^fe[89ab]/u.test(normalized) ||
-      normalized.startsWith("ff") ||
-      normalized.startsWith("2001:db8:")
+      !/^[23][0-9a-f]{3}$/u.test(first) ||
+      (first === "2001" && parseInt(second, 16) < 0x200) ||
+      normalized.startsWith("2001:db8:") || first === "2002" ||
+      first === "3ffe" || first === "3fff"
     );
   }
   return false;

@@ -5,6 +5,8 @@ import { z } from "zod";
 import { RESEARCH_OPERATIONS } from "./register-tools.js";
 
 const GEMINI_DESCRIPTION_MAX_CHARACTERS = 170;
+const GEMINI_CATALOG_MAX_BYTES = 25_000;
+const GEMINI_DESCRIPTION_MIN_CHARACTERS = 64;
 
 // Inputs that only bind research receipts for finalize_research, which this
 // catalog does not offer; leaving them out keeps it inside its size budget.
@@ -27,7 +29,7 @@ const GEMINI_FUNCTION_SCHEMA_KEYS = new Set([
 ]);
 
 export function installGeminiCompatibleToolCatalog(server: McpServer): void {
-  const tools = RESEARCH_OPERATIONS
+  const operations = RESEARCH_OPERATIONS
     .filter(({ name }) => ![
       "review_evidence_gap_submissions",
       "review_research_contribution",
@@ -40,10 +42,11 @@ export function installGeminiCompatibleToolCatalog(server: McpServer): void {
       "scout_gemini_youtube_candidates",
       "extract_youtube_video_claims",
       "finalize_research",
-    ].includes(name))
+    ].includes(name));
+  const fullTools = operations
     .map((operation) => ({
     name: operation.name,
-    description: compactGeminiDescription(operation.description),
+    description: operation.description,
     inputSchema: withoutInputs(
       geminiCompatibleInputSchema(operation.inputSchema),
       FINALIZATION_ONLY_INPUTS[operation.name] ?? []
@@ -51,7 +54,26 @@ export function installGeminiCompatibleToolCatalog(server: McpServer): void {
     annotations: operation.annotations
     }));
 
+  // Input growth must not defeat the transport's total catalog budget.
+  // Keep every tool and input; reduce description length only as needed.
+  let descriptionLimit = GEMINI_DESCRIPTION_MAX_CHARACTERS;
+  let tools = compactTools(descriptionLimit);
+  while (Buffer.byteLength(JSON.stringify({ tools }), "utf8") >= GEMINI_CATALOG_MAX_BYTES) {
+    descriptionLimit -= 5;
+    if (descriptionLimit < GEMINI_DESCRIPTION_MIN_CHARACTERS) {
+      throw new Error("Gemini tool catalog exceeds its byte budget with complete inputs");
+    }
+    tools = compactTools(descriptionLimit);
+  }
+
   server.server.setRequestHandler(ListToolsRequestSchema, () => ({ tools }));
+
+  function compactTools(maximumCharacters: number) {
+    return fullTools.map((tool) => ({
+      ...tool,
+      description: compactGeminiDescription(tool.description, maximumCharacters)
+    }));
+  }
 }
 
 function withoutInputs(
@@ -67,9 +89,9 @@ function withoutInputs(
   return { ...schema, properties, ...(required === undefined ? {} : { required }) };
 }
 
-function compactGeminiDescription(description: string): string {
-  if (description.length <= GEMINI_DESCRIPTION_MAX_CHARACTERS) return description;
-  const prefix = description.slice(0, GEMINI_DESCRIPTION_MAX_CHARACTERS - 1);
+function compactGeminiDescription(description: string, maximumCharacters: number): string {
+  if (description.length <= maximumCharacters) return description;
+  const prefix = description.slice(0, maximumCharacters - 1);
   const boundary = prefix.lastIndexOf(" ");
   return `${prefix.slice(0, Math.max(1, boundary)).replace(/[.;,:]+$/u, "")}.`;
 }

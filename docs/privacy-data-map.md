@@ -546,6 +546,45 @@ aggregate, are never written to disk or application logs, and have the same
 single-replica/sticky-routing constraint. Expiry, eviction, or restart requires
 reacquiring and rereading the exact document; chains cannot be combined.
 
+Phase 1 public-copy recovery (2026-10-07, working-tree draft; no deployment or
+live-policy approval is claimed) adds optional `candidate_urls` to the MCP and
+Action acquisition inputs: one to five public HTTPS URLs with an optional
+declared source class. After the primary OA routes yield no admitted document,
+the server sends a direct GET to each supplied URL. This is a new data flow:
+the model supplies the destination, rather than Unpaywall alone choosing it.
+The URL path and query are sent to that host; redirects send their resulting
+path and query to the next host. Hosts and DNS infrastructure can observe the
+server's request/network identity and timing and process them under their own
+policies. No chat, health narrative, research target, account identity,
+provider contact address, API credential, cookie, or authorization header is
+added to these copy requests. Callers must supply public publication URLs;
+the server cannot establish from a URL alone whether its path/query contains
+private information or an access token. HTTPS/public-address checks are not
+a semantic privacy screen and do not certify reuse rights.
+
+The existing discovered-document guards also apply to supplied candidates:
+HTTPS without URL credentials or custom ports; rejection of private/reserved
+destinations and mixed public/private DNS answers; DNS-pinned production HTTPS;
+fresh destination checks for every redirect; at most five redirects; a
+20-second timeout per request; and a 30 MiB response cap. Retrieval accepts
+PDF, HTML/XHTML, and plain text. HTML extraction is static: no JavaScript,
+browser session, subresource fetches, login, or paywall bypass. Unknown formats,
+malformed PDFs, failed providers, and blocked pages produce explicit unresolved
+states. There is no Bright Data integration or new paid model call.
+
+Retrieved bytes and rejected/partial/abstract text remain request-local and
+are not logged or written to disk. Only identity-verified copies passing the
+shared structural full-text admission check enter the existing one-hour,
+64-entry/128-MiB document-handle map. Responses add acquisition state and per-copy
+retrieved URL, class, direct retrieval provider, identity-verification status,
+observed sections, completeness, and timestamp. The research-session controller
+may retain that compact public provenance (including returned URL paths and
+queries), route attempts, and acquisition state in its existing encrypted
+checkpoint, under its existing 72-hour idle/seven-day absolute retention; it
+does not retain candidate bodies there. Connected clients can retain returned
+provenance and admitted text under their own terms. A public notice review is
+still required before deployment of this changed processing.
+
 The ordered protocol Action cursor contains only protocol identity, digest, byte offset, chunk index, and expiry. It contains no protocol text, health content, or secret. It is authenticated with a protocol-specific key derived
 from the existing server-only continuation secret. The Action returns each
 exact UTF-8 chunk transiently and keeps no protocol-loading session record.

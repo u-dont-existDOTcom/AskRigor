@@ -8,14 +8,14 @@ import {
   type UnpaywallOpenAccessData
 } from "../packages/sources/src/index.js";
 
+import { syntheticArticleText, syntheticPdf } from "./helpers/synthetic-full-text.js";
+
 const DOI = "10.1234/open.study";
 const CONFIG = { email: "research@example.org" };
 
 describe("Unpaywall open-full-text acquisition", () => {
   it("extracts and identity-checks an open PDF before making it auditable", async () => {
-    const bytes = minimalPdf(
-      "A careful open study of treatment methods DOI 10.1234/open.study full methods results"
-    );
+    const bytes = syntheticPdf(syntheticArticleText("A careful open study of treatment methods DOI 10.1234/open.study"));
     const result = await acquireUnpaywallFullText(DOI, CONFIG, {
       resolve: async () => resolution(openData()),
       fetchDocument: async () => ({
@@ -70,7 +70,7 @@ describe("Unpaywall open-full-text acquisition", () => {
     });
 
     expect(result).toMatchObject({
-      access_status: "inaccessible",
+      access_status: "partial",
       data: {
         outcome: "possibly_useful_lead",
         attempted_locations: [{ result: "identity_not_verified" }]
@@ -191,7 +191,8 @@ describe("PDF identity extraction", () => {
       doi: DOI,
       title: "A careful open study of treatment methods",
       canonicalUrl: "https://repository.example.org/open-study.pdf",
-      bytes: minimalPdf("A careful open study of\ntreatment methods Full methods and results")
+      identity: { doi: DOI, title: "A careful open study of treatment methods", first_author: "Testauthor A", year: "2001" },
+      bytes: syntheticPdf(syntheticArticleText("A careful open study of\ntreatment methods Testauthor A 2001"))
     });
 
     expect(index?.source.identity_verification).toBe("title_match");

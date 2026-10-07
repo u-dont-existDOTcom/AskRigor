@@ -11,6 +11,8 @@ import {
   type UnpaywallFullTextData
 } from "../packages/sources/src/index.js";
 
+import { syntheticBody, syntheticArticleText } from "./helpers/synthetic-full-text.js";
+
 const DOI = "10.1234/recorded.example";
 
 describe("automatic open-full-text routing", () => {
@@ -126,10 +128,11 @@ describe("automatic open-full-text routing", () => {
     );
 
     expect(result).toMatchObject({
-      access_status: "inaccessible",
+      access_status: "error",
       data: {
         outcome: "possibly_useful_lead",
-        discovery_attempts: [{ route: "europe_pmc", result: "not_found" }]
+        acquisition_state: "PRIMARY_OA_ROUTES_EXHAUSTED",
+        discovery_attempts: [{ route: "europe_pmc", result: "not_found" }, { route: "unpaywall", result: "error", identifier: DOI }]
       }
     });
     expect(result.limitations.join(" ")).toContain("unseen contents");
@@ -137,10 +140,11 @@ describe("automatic open-full-text routing", () => {
 });
 
 async function fixtureArticle(): Promise<EuropePmcFullTextArticle> {
-  const xml = await readFile(
+  const smallXml = await readFile(
     new URL("fixtures/europe-pmc/full-text.xml", import.meta.url),
     "utf8"
   );
+  const xml = smallXml.replace("</body>", `<sec><title>Methods</title><p>${syntheticBody("methods")}</p></sec><sec><title>Results</title><p>${syntheticBody("results")}</p></sec><sec><title>Discussion</title><p>${syntheticBody("discussion")}</p></sec></body>`);
   return {
     pmcid: "PMC1234567",
     pmid: "40123456",
@@ -155,7 +159,7 @@ async function fixtureArticle(): Promise<EuropePmcFullTextArticle> {
 }
 
 function pdfIndex(): AuditableDocumentIndex {
-  const text = "Identity-checked PDF text";
+  const text = syntheticArticleText(`Recorded full-text study DOI ${DOI}`);
   const textHash = createHash("sha256").update(text, "utf8").digest("hex");
   return {
     source: {

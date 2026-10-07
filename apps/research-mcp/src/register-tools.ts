@@ -23,6 +23,7 @@ import {
   type ProtocolName
 } from "@askrigor/protocol";
 import {
+  hasFailedFullTextAcquisition,
   fetchClinicalTrial,
   fetchPubmedRecord,
   checkRetractionStatus,
@@ -343,6 +344,7 @@ const europePmcRecordSchema = z.object({
   pmid: z.string().optional(),
   pmcid: z.string().optional(),
   doi: z.string().optional(),
+  pii: z.string().optional(),
   title: z.string().optional(),
   authors: z.array(z.string()).optional(),
   journal: z.string().optional(),
@@ -2371,7 +2373,7 @@ function registerOpenFullTextMcpTools(
   registrar.registerTool(
     "acquire_open_full_text",
     {
-      description: "Start one lawful full-text chain. Input is exactly one doi string plus an optional pmcid string, never an identifier array. Bind the returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 for every continuation and validation. If repository_study_audit.status is reusable, also bind its repository_analysis_version_id; otherwise perform a fresh audit.",
+      description: "Acquires one DOI through Europe PMC, Unpaywall PDFs, and up to five public HTTPS candidate_urls, with an optional PMCID. Reports identity, structural completeness, source class, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID.",
       inputSchema: acquireOpenFullTextActionInputSchema,
       outputSchema: openFullTextMcpOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
@@ -2381,7 +2383,7 @@ function registerOpenFullTextMcpTools(
   registrar.registerTool(
     "continue_open_full_text",
     {
-      description: "Continue only the exact bound document_handle while its coverage_receipt.exhausted is false. Never call when exhausted is true; never switch, reacquire, or combine handles within a chain.",
+      description: "Retrieves the next contiguous page of an existing document_handle from its server-owned cursor. Coverage binds the handle and content hash; exhausted, expired, or invalid handles cannot advance. Pages preserve the exact document chain for source-linked audit.",
       inputSchema: continueOpenFullTextActionInputSchema,
       outputSchema: availableOpenFullTextActionOutputSchema,
       annotations: READ_ONLY_ANNOTATIONS
@@ -2516,7 +2518,8 @@ async function invokeOpenFullTextMcp(
   return withResearchReceipt({
     content: [{
       type: "text",
-      text: `${operationId.replaceAll("_", " ")} completed.` + (failedLead
+      text: `${operationId.replaceAll("_", " ")} completed.` +
+        ((result.body as { access_boundary?: string; acquisition_state?: string }).acquisition_state === undefined ? "" : ` ${(result.body as { access_boundary?: string }).access_boundary ?? ""}`) + (failedLead
         ? " A source failed (an outage or rate limit), so this is not yet a lead and has no receipt: " +
           "call acquire_open_full_text again later before listing the study as lead_only."
         : "")
@@ -2528,8 +2531,7 @@ async function invokeOpenFullTextMcp(
 const OPEN_FULL_TEXT_READER = createOpenFullTextExecutor();
 
 function hasFailedFullTextSource(body: unknown): boolean {
-  const attempts = (body as { discovery_attempts?: Array<{ result?: string }> }).discovery_attempts ?? [];
-  return attempts.some(({ result }) => result === "error");
+  return hasFailedFullTextAcquisition(body as Parameters<typeof hasFailedFullTextAcquisition>[0]);
 }
 
 function openFullTextResearchReceipt(operationId: string, body: unknown): string | undefined {
@@ -2541,9 +2543,8 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
     coverage_receipt?: { document_handle?: string };
   };
   if (operationId === "acquire_open_full_text" && output.status === "possibly_useful_lead") {
-    // A lead receipt proves that no open full text exists. A source that
-    // failed (an outage or rate limit) proves nothing, so the acquisition
-    // must be retried before the study can be listed as lead_only.
+    // A lead receipt records completed attempts, not proof of paper
+    // inaccessibility. Failed or blocked routes cannot certify completion.
     if (hasFailedFullTextSource(body)) return undefined;
     return researchReceipt("full_text_lead", {
       doi: output.requested_doi,

@@ -1184,6 +1184,9 @@
                 "doi": {
                   "type": "string"
                 },
+                "pii": {
+                  "type": "string"
+                },
                 "title": {
                   "type": "string"
                 },
@@ -1257,7 +1260,7 @@
     },
     {
       "name": "acquire_open_full_text",
-      "description": "Start one lawful full-text chain. Input is exactly one doi string plus an optional pmcid string, never an identifier array. Bind the returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 for every continuation and validation. If repository_study_audit.status is reusable, also bind its repository_analysis_version_id; otherwise perform a fresh audit.",
+      "description": "Acquires one DOI through Europe PMC, Unpaywall PDFs, and up to five public HTTPS candidate_urls, with an optional PMCID. Reports identity, structural completeness, source class, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1269,6 +1272,35 @@
           "pmcid": {
             "type": "string",
             "pattern": "^PMC[1-9]\\d{0,15}$"
+          },
+          "candidate_urls": {
+            "minItems": 1,
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "url": {
+                  "type": "string",
+                  "maxLength": 4000,
+                  "format": "uri"
+                },
+                "declared_class": {
+                  "type": "string",
+                  "enum": [
+                    "publisher",
+                    "repository",
+                    "author_copy",
+                    "researcher_upload",
+                    "other"
+                  ]
+                }
+              },
+              "required": [
+                "url"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
@@ -1302,7 +1334,8 @@
                   "type": "string",
                   "enum": [
                     "europe_pmc",
-                    "unpaywall"
+                    "unpaywall",
+                    "candidate"
                   ]
                 },
                 "result": {
@@ -1311,7 +1344,10 @@
                     "indexed",
                     "not_found",
                     "inaccessible",
-                    "error"
+                    "error",
+                    "partial_text",
+                    "abstract_only",
+                    "identity_mismatch"
                   ]
                 },
                 "identifier": {
@@ -1325,6 +1361,104 @@
               "additionalProperties": false
             }
           },
+          "acquisition_state": {
+            "type": "string",
+            "enum": [
+              "FULL_TEXT_READABLE",
+              "PARTIAL_TEXT_READABLE",
+              "ABSTRACT_ONLY",
+              "CANDIDATE_FOUND_FETCH_BLOCKED",
+              "PAYWALL_OR_LOGIN_REQUIRED",
+              "NO_COPY_FOUND_AFTER_EXPANDED_SEARCH",
+              "PROVIDER_UNAVAILABLE",
+              "IDENTITY_MISMATCH",
+              "PRIMARY_OA_ROUTES_EXHAUSTED"
+            ]
+          },
+          "candidates": {
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "source_class": {
+                  "type": "string",
+                  "enum": [
+                    "publisher",
+                    "repository",
+                    "author_copy",
+                    "researcher_upload",
+                    "other"
+                  ]
+                },
+                "retrieval_provider": {
+                  "type": "string",
+                  "const": "direct"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "FULL_TEXT_READABLE",
+                    "PARTIAL_TEXT_READABLE",
+                    "ABSTRACT_ONLY",
+                    "CANDIDATE_FOUND_FETCH_BLOCKED",
+                    "PAYWALL_OR_LOGIN_REQUIRED",
+                    "NO_COPY_FOUND_AFTER_EXPANDED_SEARCH",
+                    "PROVIDER_UNAVAILABLE",
+                    "IDENTITY_MISMATCH"
+                  ]
+                },
+                "identity_verification": {
+                  "type": "string",
+                  "enum": [
+                    "doi_exact",
+                    "title_match",
+                    "not_verified"
+                  ]
+                },
+                "sections_observed": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "methods",
+                      "results",
+                      "discussion"
+                    ]
+                  }
+                },
+                "completeness": {
+                  "type": "string",
+                  "enum": [
+                    "full_text",
+                    "partial_text",
+                    "abstract_only",
+                    "unavailable"
+                  ]
+                },
+                "retrieved_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                }
+              },
+              "required": [
+                "url",
+                "source_class",
+                "retrieval_provider",
+                "state",
+                "identity_verification",
+                "sections_observed",
+                "completeness",
+                "retrieved_at"
+              ],
+              "additionalProperties": false
+            }
+          },
           "source": {
             "type": "object",
             "properties": {
@@ -1332,7 +1466,8 @@
                 "type": "string",
                 "enum": [
                   "europe_pmc",
-                  "unpaywall_open_location"
+                  "unpaywall_open_location",
+                  "direct_candidate"
                 ]
               },
               "primary_identifier": {
@@ -1361,7 +1496,9 @@
                 "type": "string",
                 "enum": [
                   "jats_xml",
-                  "pdf_text"
+                  "pdf_text",
+                  "html_text",
+                  "plain_text"
                 ]
               },
               "content_sha256": {
@@ -1399,7 +1536,7 @@
               "properties": {
                 "block_id": {
                   "type": "string",
-                  "pattern": "^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$"
+                  "pattern": "^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$"
                 },
                 "segment_number": {
                   "type": "integer",
@@ -1627,7 +1764,7 @@
     },
     {
       "name": "continue_open_full_text",
-      "description": "Continue only the exact bound document_handle while its coverage_receipt.exhausted is false. Never call when exhausted is true; never switch, reacquire, or combine handles within a chain.",
+      "description": "Retrieves the next contiguous page of an existing document_handle from its server-owned cursor. Coverage binds the handle and content hash; exhausted, expired, or invalid handles cannot advance. Pages preserve the exact document chain for source-linked audit.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1664,7 +1801,8 @@
                   "type": "string",
                   "enum": [
                     "europe_pmc",
-                    "unpaywall"
+                    "unpaywall",
+                    "candidate"
                   ]
                 },
                 "result": {
@@ -1673,7 +1811,10 @@
                     "indexed",
                     "not_found",
                     "inaccessible",
-                    "error"
+                    "error",
+                    "partial_text",
+                    "abstract_only",
+                    "identity_mismatch"
                   ]
                 },
                 "identifier": {
@@ -1687,6 +1828,104 @@
               "additionalProperties": false
             }
           },
+          "acquisition_state": {
+            "type": "string",
+            "enum": [
+              "FULL_TEXT_READABLE",
+              "PARTIAL_TEXT_READABLE",
+              "ABSTRACT_ONLY",
+              "CANDIDATE_FOUND_FETCH_BLOCKED",
+              "PAYWALL_OR_LOGIN_REQUIRED",
+              "NO_COPY_FOUND_AFTER_EXPANDED_SEARCH",
+              "PROVIDER_UNAVAILABLE",
+              "IDENTITY_MISMATCH",
+              "PRIMARY_OA_ROUTES_EXHAUSTED"
+            ]
+          },
+          "candidates": {
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "source_class": {
+                  "type": "string",
+                  "enum": [
+                    "publisher",
+                    "repository",
+                    "author_copy",
+                    "researcher_upload",
+                    "other"
+                  ]
+                },
+                "retrieval_provider": {
+                  "type": "string",
+                  "const": "direct"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "FULL_TEXT_READABLE",
+                    "PARTIAL_TEXT_READABLE",
+                    "ABSTRACT_ONLY",
+                    "CANDIDATE_FOUND_FETCH_BLOCKED",
+                    "PAYWALL_OR_LOGIN_REQUIRED",
+                    "NO_COPY_FOUND_AFTER_EXPANDED_SEARCH",
+                    "PROVIDER_UNAVAILABLE",
+                    "IDENTITY_MISMATCH"
+                  ]
+                },
+                "identity_verification": {
+                  "type": "string",
+                  "enum": [
+                    "doi_exact",
+                    "title_match",
+                    "not_verified"
+                  ]
+                },
+                "sections_observed": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "methods",
+                      "results",
+                      "discussion"
+                    ]
+                  }
+                },
+                "completeness": {
+                  "type": "string",
+                  "enum": [
+                    "full_text",
+                    "partial_text",
+                    "abstract_only",
+                    "unavailable"
+                  ]
+                },
+                "retrieved_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                }
+              },
+              "required": [
+                "url",
+                "source_class",
+                "retrieval_provider",
+                "state",
+                "identity_verification",
+                "sections_observed",
+                "completeness",
+                "retrieved_at"
+              ],
+              "additionalProperties": false
+            }
+          },
           "source": {
             "type": "object",
             "properties": {
@@ -1694,7 +1933,8 @@
                 "type": "string",
                 "enum": [
                   "europe_pmc",
-                  "unpaywall_open_location"
+                  "unpaywall_open_location",
+                  "direct_candidate"
                 ]
               },
               "primary_identifier": {
@@ -1723,7 +1963,9 @@
                 "type": "string",
                 "enum": [
                   "jats_xml",
-                  "pdf_text"
+                  "pdf_text",
+                  "html_text",
+                  "plain_text"
                 ]
               },
               "content_sha256": {
@@ -1762,7 +2004,7 @@
               "properties": {
                 "block_id": {
                   "type": "string",
-                  "pattern": "^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$"
+                  "pattern": "^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$"
                 },
                 "segment_number": {
                   "type": "integer",
@@ -2221,7 +2463,7 @@
                       "type": "array",
                       "items": {
                         "type": "string",
-                        "pattern": "^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$"
+                        "pattern": "^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$"
                       }
                     },
                     "unresolved_fields": {
@@ -2274,7 +2516,7 @@
                       "type": "array",
                       "items": {
                         "type": "string",
-                        "pattern": "^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$"
+                        "pattern": "^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$"
                       }
                     }
                   },
@@ -2554,7 +2796,7 @@
                       "type": "array",
                       "items": {
                         "type": "string",
-                        "pattern": "^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$"
+                        "pattern": "^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$"
                       }
                     },
                     "unresolved_fields": {
@@ -2607,7 +2849,7 @@
                       "type": "array",
                       "items": {
                         "type": "string",
-                        "pattern": "^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$"
+                        "pattern": "^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$"
                       }
                     }
                   },
@@ -3035,7 +3277,7 @@
                       "type": "array",
                       "items": {
                         "type": "string",
-                        "pattern": "^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$"
+                        "pattern": "^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$"
                       }
                     },
                     "unresolved_fields": {
@@ -3088,7 +3330,7 @@
                       "type": "array",
                       "items": {
                         "type": "string",
-                        "pattern": "^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$"
+                        "pattern": "^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$"
                       }
                     }
                   },
@@ -3292,7 +3534,7 @@
                       "type": "array",
                       "items": {
                         "type": "string",
-                        "pattern": "^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$"
+                        "pattern": "^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$"
                       }
                     },
                     "unresolved_fields": {
@@ -3345,7 +3587,7 @@
                       "type": "array",
                       "items": {
                         "type": "string",
-                        "pattern": "^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$"
+                        "pattern": "^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$"
                       }
                     }
                   },

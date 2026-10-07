@@ -661,6 +661,25 @@ describe("controller-owned formal evidence frontier", () => {
     });
   });
 
+
+  it.each(["PRIMARY_OA_ROUTES_EXHAUSTED", "CANDIDATE_FOUND_FETCH_BLOCKED", "PROVIDER_UNAVAILABLE"] as const)("keeps %s pending after one acquisition rather than a terminal lead", async (acquisition_state) => {
+    const formal = selectAllStudies(await searchedFormal());
+    const acquire = vi.fn(async ({ doi }) => okEnvelope({ provider: "open_full_text", recordType: "open_full_text_acquisition", accessStatus: "partial", returned: 0,
+      pagination: { exhausted: true }, data: { requested_doi: doi, outcome: "possibly_useful_lead", discovery_attempts: [], acquisition_state,
+        access_boundary: "Synthetic pending discovery or transport.",
+        ...(acquisition_state === "PRIMARY_OA_ROUTES_EXHAUSTED" ? {} : { candidates: [{ url: "https://www.academia.edu/synthetic", source_class: "researcher_upload", retrieval_provider: "direct", state: acquisition_state,
+          identity_verification: "not_verified", sections_observed: [], completeness: "unavailable", retrieved_at: "2026-10-07T00:00:00.000Z" }] }),
+      } satisfies OpenFullTextAcquisitionData }));
+    const executor = createOpenFullTextExecutor({ acquire, unpaywallConfig: { email: "research@example.test" } });
+    const sourceId = formal.sources[0]!.source_id;
+    const next = await executeResearchSourceFullTextChain(formal, sourceId, executor);
+    expect(acquire).toHaveBeenCalledOnce();
+    const source = next.sources.find(({ source_id }) => source_id === sourceId)!;
+    expect(source.full_text).toMatchObject({ status: "BLOCKED_RETRYABLE", acquisition_state, synthesis_lock: "fail" });
+    expect(source.method_audit.status).toBe("NOT_STARTED");
+    expect(deriveFormalEvidenceOperationStatus(next, "formal_method_audit")).not.toBe("COMPLETE");
+  });
+
   it("keeps abstract-only or inaccessible sources as unseen claim-local leads", async () => {
     let formal = selectAllStudies(await searchedFormal());
     const executor = createOpenFullTextExecutor({

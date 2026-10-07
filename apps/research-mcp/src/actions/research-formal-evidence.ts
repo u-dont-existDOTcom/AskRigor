@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import type { ProvenanceEnvelope } from "@askrigor/contracts";
 import {
+  acquisitionStateSchema, fullTextCandidateSchema, hasFailedFullTextAcquisition,
   fetchPubmedRecord,
   normalizeDoiIdentifier,
   searchEuropePmc,
@@ -49,7 +50,7 @@ const doi = z.string().regex(/^10\.\d{4,9}\/[!#$%&'*+\-._;()/:a-z0-9]+$/u);
 const pmid = z.string().regex(/^[1-9]\d{0,15}$/u);
 const pmcid = z.string().regex(/^PMC[1-9]\d{0,15}$/u);
 const handle = z.string().regex(/^aft1_[A-Za-z0-9_-]{32}$/u);
-const blockId = z.string().regex(/^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$/u);
+const blockId = z.string().regex(/^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$/u);
 
 export const FORMAL_EVIDENCE_PROVIDERS = ["pubmed", "europe_pmc"] as const;
 const FORMAL_QUERY_SUBJECT_MAX_CHARACTERS = 160;
@@ -177,8 +178,8 @@ const sourceOriginSchema = z.object({
 }).strict();
 
 const discoveryAttemptSchema = z.object({
-  route: z.enum(["europe_pmc", "unpaywall"]),
-  result: z.enum(["indexed", "not_found", "inaccessible", "error"]),
+  route: z.enum(["europe_pmc", "unpaywall", "candidate"]),
+  result: z.enum(["indexed", "not_found", "inaccessible", "error", "partial_text", "abstract_only", "identity_mismatch"]),
   identifier: bounded(2_048).optional()
 }).strict();
 
@@ -194,6 +195,8 @@ const fullTextStateSchema = z.object({
   document_handle: handle.optional(),
   requested_doi: doi.optional(),
   discovery_attempts: z.array(discoveryAttemptSchema).max(20),
+  acquisition_state: acquisitionStateSchema.optional(),
+  candidates: z.array(fullTextCandidateSchema).max(5).optional(),
   source_primary_identifier: bounded(2_048).optional(),
   source_canonical_url: z.string().url().max(4_000).optional(),
   source_version: bounded(200).optional(),
@@ -878,6 +881,7 @@ export async function executeResearchSourceFullTextChain(
       throw error;
     }
     state = ingestOpenFullTextOutput(state, sourceId, output);
+    if (output.status === "possibly_useful_lead") return state;
   }
   return state;
 }
@@ -998,19 +1002,22 @@ export function ingestOpenFullTextOutput(
     if (source.full_text.status === "IN_PROGRESS" || source.full_text.status === "EXHAUSTED") {
       throw new Error("An established full-text chain cannot be replaced by an unseen lead");
     }
+    const incomplete = hasFailedFullTextAcquisition(output) || output.acquisition_state === "PRIMARY_OA_ROUTES_EXHAUSTED";
     return replaceSource(state, sourceId, {
       ...source,
       full_text: fullTextStateSchema.parse({
-        status: "LEAD_BOUNDARY",
+        status: incomplete ? "BLOCKED_RETRYABLE" : "LEAD_BOUNDARY",
         requested_doi: output.requested_doi,
         discovery_attempts: output.discovery_attempts,
+        acquisition_state: output.acquisition_state,
+        candidates: output.candidates,
         source_segments_retrieved_cumulative: 0,
         synthesis_lock: "fail",
         access_boundary: output.access_boundary,
         unseen_content_used_as_evidence: false
       }),
-      method_audit: boundaryMethodAudit(source.source_kind),
-      external_evidence: boundaryExternalEvidence(source.source_kind),
+      method_audit: incomplete ? initialMethodAudit(source.source_kind) : boundaryMethodAudit(source.source_kind),
+      external_evidence: incomplete ? initialExternalEvidence(source.source_kind) : boundaryExternalEvidence(source.source_kind),
       claim_capability: unseenClaimCapability()
     });
   }
@@ -1058,6 +1065,8 @@ export function ingestOpenFullTextOutput(
       discovery_attempts: before.discovery_attempts.length === 0
         ? page.discovery_attempts
         : before.discovery_attempts,
+      acquisition_state: page.acquisition_state ?? before.acquisition_state,
+      candidates: page.candidates ?? before.candidates,
       source_primary_identifier: page.source.primary_identifier,
       source_canonical_url: page.source.canonical_url,
       ...(page.source.version === undefined ? {} : { source_version: page.source.version }),
