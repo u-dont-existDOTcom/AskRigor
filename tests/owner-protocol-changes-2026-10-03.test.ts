@@ -243,11 +243,14 @@ describe("owner protocol changes of 2026-10-03", () => {
       readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8"),
       readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8"),
     ]);
+    // Universal 20.5.35 (the consilience candidate, 2026-10-06) is the one entry above it.
+    const newestUniversal = /^<revision_history>\n<revision version="20\.5\.35" priority="Critical">\n[^<]*<\/revision>\n/mu;
+    expect(universal.match(newestUniversal)?.[0]).toBeDefined();
     expect(universal).toContain(
-      '<revision_history>\n<revision version="20.5.34" priority="Critical">\nOwner-approved changes (owner questions 27 and 28, 2026-10-03).',
+      `${universal.match(newestUniversal)?.[0]}<revision version="20.5.34" priority="Critical">\nOwner-approved changes (owner questions 27 and 28, 2026-10-03).`,
     );
-    // HRP 20.6.10 (owner question 30, the same day) is the one entry above it.
-    const newest = /^ <RevisionHistory>\n  <Revision version="20\.6\.10" priority="Critical">\n[^<]*  <\/Revision>\n/mu;
+    // HRP 20.6.11 (the consilience candidate) and 20.6.10 (owner question 30, the same day) are the two entries above it.
+    const newest = /^ <RevisionHistory>\n  <Revision version="20\.6\.11" priority="Critical">\n[^<]*  <\/Revision>\n  <Revision version="20\.6\.10" priority="Critical">\n[^<]*  <\/Revision>\n/mu;
     expect(hrp.match(newest)?.[0]).toBeDefined();
     expect(hrp).toContain(
       `${hrp.match(newest)?.[0]}  <Revision version="20.6.9" priority="Critical">\n   Owner-approved method changes (owner questions 28 and 29, 2026-10-03).`,
