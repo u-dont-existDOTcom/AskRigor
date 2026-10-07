@@ -3004,7 +3004,7 @@ describe("AskRigor Streamable HTTP server", () => {
           const { tools } = await client.listTools();
           expect(tools[0]?.name).toBe("get_protocol_manifest");
           expect(tools[0]?.description).toBe(
-            `Versions when this tool list was loaded: ${versions}. Return canonical protocol identity and SHA-256 metadata.`
+            `Versions when this tool list was loaded: ${versions}. Lists canonical protocol identity, SHA-256 metadata and the finalize_research input contract version.`
           );
         } finally {
           await client.close();

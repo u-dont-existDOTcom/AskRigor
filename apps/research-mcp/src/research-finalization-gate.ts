@@ -60,6 +60,10 @@ const answerQuote = z.string().trim().max(1_000);
 const ANSWER_QUOTES_DESCRIPTION = "With answer_draft: the answer's sentence(s) that report each finding, copied from " +
   "it; one may serve several.";
 
+export const FINALIZE_RESEARCH_CONTRACT = "2026-10-07";
+export const TOOL_LIST_REFRESH_HINT = "If this chat's AskRigor tool has no such field, its tool list is outdated: " +
+  "refreshing the AskRigor connector in the app's settings and starting a new chat loads the current list.";
+
 export const finalizeResearchInputSchema = z.object({
   receipts: z.array(z.string().max(RESEARCH_RECEIPT_MAX_CHARACTERS)).max(300)
     .describe("Every research_receipt AskRigor tools returned during this research, copied exactly."),
@@ -76,7 +80,8 @@ export const finalizeResearchInputSchema = z.object({
   }).strict().optional()
     .describe("Whether the question concerns a product or service people buy (a supplement, consumer health " +
       "product, device, app, formulation, or health service), whose buyers' reviews are then a community lane of " +
-      "their own (platform review_site). Needed when community evidence is researched."),
+      "their own (platform review_site). Records a required declaration when community evidence is researched, " +
+      "or when no_real_world_outcome is declared with key studies."),
   not_relevant_basis: z.enum(["no_real_world_outcome", "emergency_before_triage"]).optional()
     .describe("Why firsthand reports cannot matter: no real-world outcome (a definition, calculation, or chemical or " +
       "mechanistic question), or an emergency before triage."),
@@ -194,7 +199,9 @@ export const finalizeResearchInputSchema = z.object({
     status: z.enum(["validated", "lead_only"]),
     reason: z.string().trim().min(1).max(1_000).optional()
   }).strict()).max(60)
-    .describe("Each study your conclusions depend on: validated after a full-text method audit, or lead_only when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text."),
+    .describe("Lists each study the conclusions depend on: validated after a full-text method audit, or lead_only " +
+      "when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text. " +
+      "With answer_draft, each study has a visible link containing its identifier or its PubMed-receipt DOI."),
   intervention_identity: z.object({
     status: z.enum(["not_applicable", "checked"]),
     reason: z.string().trim().min(1).max(1_000).optional(),
@@ -283,6 +290,7 @@ const finalizationStatusSchema = z.enum([
 ]);
 
 export const finalizeResearchOutputSchema = z.object({
+  contract: z.literal(FINALIZE_RESEARCH_CONTRACT).describe("Records the server's finalize_research input contract version."),
   status: finalizationStatusSchema,
   next_steps: z.array(z.string()),
   limits: z.array(z.string()),
@@ -375,6 +383,7 @@ export function finalizeResearch(
   const input = finalizeResearchInputSchema.parse(rawInput);
   if (options.secret === undefined) {
     return {
+      contract: FINALIZE_RESEARCH_CONTRACT,
       status: "receipts_unavailable",
       next_steps: [],
       limits: [
@@ -430,6 +439,11 @@ export function finalizeResearch(
   });
 
   const nextSteps: string[] = [];
+  let missingDeclaration = false;
+  const requireDeclaration = (step: string): void => {
+    missingDeclaration = true;
+    nextSteps.push(step);
+  };
   const limits: string[] = [];
   // Each limit's sentences for the user, written here so the answer carries
   // them as they are: a caveat cannot be dropped, garbled or negated.
@@ -525,7 +539,7 @@ export function finalizeResearch(
     // one of its listed reasons; a topic with no user-experience corpus is
     // known only by searching, so it is researched with its boundary.
     if (input.not_relevant_basis === undefined || input.not_relevant_reason === undefined) {
-      nextSteps.push(
+      requireDeclaration(
         "Community evidence is not_relevant only for a definition, calculation, or chemical or mechanistic question " +
           "with no real-world outcome (not_relevant_basis no_real_world_outcome) or an emergency before triage " +
           "(emergency_before_triage), with not_relevant_reason. Otherwise research it: name where people discussing " +
@@ -533,6 +547,24 @@ export function finalizeResearch(
           "scout_gemini_youtube_candidates and audit_youtube_video_community, the others with your web search); a " +
           "topic nobody discusses is searched and its access boundary recorded."
       );
+    }
+    if (input.not_relevant_basis === "no_real_world_outcome") {
+      const triggers = [
+        ...(input.treatment_choice === "compared" ? ["treatment_choice is compared"] : []),
+        ...(input.commercial_review_applicability?.status === "required"
+          ? ["commercial_review_applicability is required"] : []),
+        ...(input.shopping?.status === "buy_options" || input.shopping?.status === "no_live_option_found"
+          ? [`shopping is ${input.shopping.status}`] : [])
+      ];
+      if (triggers.length > 0) {
+        nextSteps.push(
+          `community_evidence cannot be not_relevant with no_real_world_outcome when ${triggers.join("; ")}: ` +
+            "comparing options' real-world usefulness or a product people buy needs the community and buyer-review " +
+            "layer. Research that layer with community_evidence researched, principal_communities and " +
+            "community_searches, or complete it with an access_boundary."
+        );
+      }
+      if (input.key_sources.length > 0) commercialReviewCoverage(input, { nextSteps, requireDeclaration });
     }
   } else {
     const communities = input.principal_communities;
@@ -604,7 +636,7 @@ export function finalizeResearch(
             );
           }
         } else if (input.no_material_video_reason === undefined) {
-          nextSteps.push(
+          requireDeclaration(
             `Discovery found ${discovered.size} video(s) but none is in material_video_ids: audit each one that adds an approach ` +
               "or substantial firsthand experience, or give no_material_video_reason."
           );
@@ -661,8 +693,8 @@ export function finalizeResearch(
       }
     }
     ({ searched: communitiesSearched, read: communitiesRead, unverified: communitiesUnverified } =
-      communityCoverage(input, youtubeResearched, { nextSteps, requireLimit, lanes: communityLanes }, options.redditThreads));
-    commercialReviewCoverage(input, { nextSteps });
+      communityCoverage(input, youtubeResearched, { nextSteps, requireDeclaration, requireLimit, lanes: communityLanes }, options.redditThreads));
+    commercialReviewCoverage(input, { nextSteps, requireDeclaration });
   }
 
   // Comments that were read must reach the answer, even when their signal is
@@ -677,7 +709,7 @@ export function finalizeResearch(
   const auditedAtAll = new Set([...audited.keys(), ...communityAudited]);
   const findings = input.community_findings;
   if (commentVideos.size > 0 && findings === undefined) {
-    nextSteps.push(
+    requireDeclaration(
       "Say what the comments you read showed: give community_findings (benefit, no-effect and adverse reports, " +
         "creators versus independent commenters, and the effect on the answer), even if the signal is weak or neutral."
     );
@@ -702,7 +734,7 @@ export function finalizeResearch(
     }
   }
 
-  productIdentityDeclarations(input, rounds, verified, { nextSteps, requireLimit, mustReport });
+  productIdentityDeclarations(input, rounds, verified, { nextSteps, requireDeclaration, requireLimit, mustReport });
   mustReport.push(...communityLanes);
 
   // Treatment coverage. A first pass does not run the coverage lock, so its
@@ -814,6 +846,13 @@ export function finalizeResearch(
   };
   const validatedSources: string[] = [];
   const leadSources: string[] = [];
+  // DOI paths may contain parentheses; displayedProse already resolves a
+  // Markdown link's delimiters, so its complete target survives extraction.
+  const studyLinkPaths = input.answer_draft === undefined ? [] : displayedProse(input.answer_draft)
+    .flatMap((block) => [...linkTargets(block).matchAll(/https?:\/\/[^\s<>]+/giu)].flatMap(([target]) => {
+      try { return [decodeURIComponent(new globalThis.URL(target).pathname).toLowerCase()]; }
+      catch { return []; }
+    }));
   // Studies read only as leads: one limit each, one caveat for all of them.
   const unreadStudies = new Set<string>();
   for (const source of input.key_sources) {
@@ -821,6 +860,13 @@ export function finalizeResearch(
     // A PMID's DOI (from its PubMed record receipt) also identifies the study.
     const pubmedDoi = isPmid(id) ? pubmedDois.get(id) : undefined;
     const ids = pubmedDoi === undefined || pubmedDoi === "" ? [id] : [id, pubmedDoi];
+    if (input.answer_draft !== undefined && (isPmid(id) || isDoi(id) || isPmcid(id)) &&
+        !keyStudyLinked(studyLinkPaths, ids)) {
+      const page = isPmid(id) ? `https://pubmed.ncbi.nlm.nih.gov/${id}/`
+        : isPmcid(id) ? `https://pmc.ncbi.nlm.nih.gov/articles/${id}/`
+        : `https://doi.org/${id}`;
+      nextSteps.push(`Key study ${source.id} has no link in the answer; link it to the page AskRigor's tools returned, such as ${page}.`);
+    }
     if (ids.some((candidate) => validatedIds.has(candidate))) {
       validatedSources.push(source.id);
       continue;
@@ -909,7 +955,7 @@ export function finalizeResearch(
         return;
       }
       if (count >= 2) return;
-      nextSteps.push(
+      requireDeclaration(
         `List two or three open_leads with direction ${direction}: ${what}, each with why it looks promising.` +
           (direction === "community" && unsaturatedFirstPass
             ? " Discovery has not saturated, so include the topics where more community signal is likely" +
@@ -919,7 +965,7 @@ export function finalizeResearch(
     });
     const estimate = input.another_pass_estimate === undefined ? undefined : withoutEndPunctuation(input.another_pass_estimate);
     if (estimate === undefined || !PASS_COST_NUMBER.test(estimate)) {
-      nextSteps.push(
+      (estimate === undefined ? requireDeclaration : (step: string) => nextSteps.push(step))(
         "Give another_pass_estimate: roughly what another pass over the open leads would take, with a number in " +
           "digits and a unit (for example, \"about 20 minutes and 15 YouTube searches\")."
       );
@@ -963,13 +1009,13 @@ export function finalizeResearch(
   // found no evidence that smelling humic acid treats neuroinflammation").
   const absenceClaims = input.absence_claims ?? [];
   if (input.answer_draft !== undefined && input.absence_claims === undefined) {
-    nextSteps.push(
+    requireDeclaration(
       "Say whether the answer states that something was not found, not studied, has no evidence or has no effect: " +
         "give absence_claims, each such sentence with its state (an empty list if the answer states none)."
     );
   }
   if (input.answer_draft !== undefined && input.scale_results === undefined) {
-    nextSteps.push(
+    requireDeclaration(
       "scale_results is missing: with answer_draft, the declaration lists each scale or questionnaire result " +
         "reported in the answer (an empty list means none)."
     );
@@ -987,7 +1033,7 @@ export function finalizeResearch(
     const studies = claim.studies ?? [];
     const unaudited = studies.filter((id) => !auditedStudy(id));
     if (studies.length === 0) {
-      nextSteps.push(
+      requireDeclaration(
         `${stated} without the studies it rests on: name them in studies, each read with a full-text method audit, ` +
           "or state it as support_not_located."
       );
@@ -1051,14 +1097,12 @@ export function finalizeResearch(
             problems: ["A findings card is checked against the answer: pass answer_draft with it."]
           };
   if (draft === undefined) {
-    if (nextSteps.length === 0) {
-      nextSteps.push(
-        "Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final check reads it."
-      );
-    }
+    requireDeclaration(
+      "Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final check reads it."
+    );
   } else {
     if (findingsOpen(options) && input.findings_card === undefined) {
-      nextSteps.push(
+      requireDeclaration(
         (options.findings === "save"
           ? "Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library for " +
             "the owner's review."
@@ -1111,10 +1155,13 @@ export function finalizeResearch(
       lanes,
       absenceQuotes: absenceClaims.map(({ quote }) => quote),
       scaleResults: input.scale_results ?? [],
+      missingDeclaration: () => { missingDeclaration = true; },
       ...(input.answer_language === undefined ? {} : { answerLanguage: input.answer_language }),
       renderings: input.caveat_renderings ?? []
     }));
   }
+
+  if (missingDeclaration) nextSteps.push(TOOL_LIST_REFRESH_HINT);
 
   const status = nextSteps.length > 0
     ? "not_ready"
@@ -1122,6 +1169,7 @@ export function finalizeResearch(
       ? "ready_with_limits"
       : "ready";
   const output: FinalizeResearchOutput = {
+    contract: FINALIZE_RESEARCH_CONTRACT,
     status,
     next_steps: nextSteps,
     limits,
@@ -1233,6 +1281,7 @@ function answerDraftProblems(
     lanes: readonly AnswerLane[];
     absenceQuotes: readonly string[];
     scaleResults: NonNullable<FinalizeResearchInput["scale_results"]>;
+    missingDeclaration: () => void;
     answerLanguage?: string;
     renderings: ReadonlyArray<{ caveat: string; text: string }>;
   }
@@ -1281,6 +1330,7 @@ function answerDraftProblems(
   const showing = quoteLocator(shownBlocks);
   for (const lane of context.lanes) {
     if (lane.quotes.length === 0) {
+      context.missingDeclaration();
       problems.push(
         `Give answer_quotes for ${lane.name} in ${lane.field}: for each finding, the sentence(s) of the answer that ` +
           `report it, copied from answer_draft. The answer must report what ${lane.name} showed, even if the signal ` +
@@ -1352,6 +1402,7 @@ function answerDraftProblems(
   const blocks = shownBlocks.map((block) => caveatText(linkTargets(block)));
   const translated = context.answerLanguage !== undefined && !/^eng?(?:-|$)/iu.test(context.answerLanguage);
   if (context.renderings.length > 0 && !translated) {
+    if (context.answerLanguage === undefined) context.missingDeclaration();
     problems.push(
       "caveat_renderings counts only for an answer not in English: give answer_language (such as fr or es), or " +
         "state each caveat as written."
@@ -1597,6 +1648,13 @@ const PASS_COST_NUMBER = /\p{Nd}/u;
 // Links as the answer shows them: a link's destination or a bare URL.
 const LINKED_URL = /https?:\/\/[^\s<>()]+/giu;
 
+/** Structural identifier check on the same displayed links used for community threads. */
+function keyStudyLinked(paths: readonly string[], identifiers: readonly string[]): boolean {
+  return paths.some((path) => identifiers.some((id) => isDoi(id)
+    ? path.includes(id.toLowerCase())
+    : path.split("/").some((part) => part.replace(/[.,;:!?]+$/u, "") === id.toLowerCase())));
+}
+
 const REDDIT_HOST = /(?:^|\.)(?:reddit\.com|redd\.it)$/u;
 // A thread, not a subreddit's front page, wiki, search or share link:
 // /r/<name>/comments/<post id>, a comment permalink within it included.
@@ -1798,10 +1856,15 @@ function communityKey(name: string, platform: string): string {
 }
 
 /** The declared buyer-review lane cannot be omitted behind forum or YouTube coverage. */
-function commercialReviewCoverage(input: FinalizeResearchInput, out: { nextSteps: string[] }): void {
+interface DeclarationSteps {
+  nextSteps: string[];
+  requireDeclaration: (step: string) => void;
+}
+
+function commercialReviewCoverage(input: FinalizeResearchInput, out: DeclarationSteps): void {
   const applicability = input.commercial_review_applicability;
   if (applicability === undefined) {
-    out.nextSteps.push(
+    out.requireDeclaration(
       "State in commercial_review_applicability whether the question concerns a product or service people buy " +
         "(a supplement, consumer health product, device, app, formulation, or health service). If it does, map " +
         "where its buyers review it and read those reviews as a community lane of their own (HRP PrincipalPlatformMapping)."
@@ -1812,7 +1875,7 @@ function commercialReviewCoverage(input: FinalizeResearchInput, out: { nextSteps
   const searches = (input.community_searches ?? []).filter(({ platform }) => platform === "review_site");
   if (applicability.status === "not_applicable") {
     if (applicability.reason === undefined) {
-      out.nextSteps.push(
+      out.requireDeclaration(
         "Give reason in commercial_review_applicability when status is not_applicable: why no product or service " +
           "people buy is involved."
       );
@@ -1826,7 +1889,7 @@ function commercialReviewCoverage(input: FinalizeResearchInput, out: { nextSteps
     return;
   }
   if (applicability.products === undefined) {
-    out.nextSteps.push(
+    out.requireDeclaration(
       "Give products in commercial_review_applicability when status is required: the products or services " +
         "concerned, each exact product and variant when the user named one; for an ingredient, the product forms " +
         "people buy."
@@ -1834,7 +1897,7 @@ function commercialReviewCoverage(input: FinalizeResearchInput, out: { nextSteps
     return;
   }
   if (sites.length === 0) {
-    out.nextSteps.push(
+    out.requireDeclaration(
       `Map where buyers review ${applicability.products.join(", ")} in principal_communities as platform ` +
         "review_site, the main one in the user's country and language first; no single retailer is required. " +
         "A forum, Reddit or YouTube does not stand in for buyer reviews (HRP PrincipalPlatformMapping)."
@@ -1847,7 +1910,7 @@ function commercialReviewCoverage(input: FinalizeResearchInput, out: { nextSteps
   // rules still determine which other mapped communities must be searched.
   if ([...mapped.keys()].some((key) => searched.has(key))) return;
   for (const name of mapped.values()) {
-    out.nextSteps.push(
+    out.requireDeclaration(
       `Search ${name} and record it in community_searches under platform review_site: the reviews read, with ` +
         "review_corpora (each product, the reviews shown and read, and how they were chosen), or the access_boundary " +
         "that stopped the search."
@@ -1862,13 +1925,13 @@ function productIdentityDeclarations(
   input: FinalizeResearchInput,
   rounds: readonly VerifiedReceipt[],
   verified: readonly VerifiedReceipt[],
-  out: { nextSteps: string[]; requireLimit: (limit: string, ...caveats: string[]) => void; mustReport: string[] }
+  out: DeclarationSteps & { requireLimit: (limit: string, ...caveats: string[]) => void; mustReport: string[] }
 ): void {
   const applicability = input.commercial_review_applicability;
   if (applicability?.status === "required" && input.community_findings !== undefined) {
     const corpora = input.community_findings.product_corpora;
     if (corpora === undefined) {
-      out.nextSteps.push("Give community_findings.product_corpora: one entry per listed product, its admitted video_ids and exact_product_signal, with variant_unresolved_signal when present.");
+      out.requireDeclaration("Give community_findings.product_corpora: one entry per listed product, its admitted video_ids and exact_product_signal, with variant_unresolved_signal when present.");
     } else {
       const products = applicability.products ?? [];
       const labels = corpora.map(({ product }) => normalizeProductName(product));
@@ -1887,7 +1950,7 @@ function productIdentityDeclarations(
             (list(claims.videos).includes(video) || text(claims.video) === video);
         }));
         if (uncovered.length > 0) {
-          out.nextSteps.push(`The product corpus for ${corpus.product} lists ${uncovered.join(", ")} without a comment-audit receipt for that product that admitted those videos; audit them with product_identity or remove them from the corpus.`);
+          out.nextSteps.push(`The product corpus for ${corpus.product} lists ${uncovered.join(", ")} without a comment-audit receipt for that product that admitted those videos; rerun audit_youtube_video_community for that product or remove them from the corpus.`);
         }
         const unreviewed = corpus.video_ids.filter((video) => !input.community_findings!.videos_reviewed.includes(video));
         if (unreviewed.length > 0) out.nextSteps.push(`The product corpus for ${corpus.product} lists ${unreviewed.join(", ")} outside community_findings.videos_reviewed; make the declarations agree.`);
@@ -1900,7 +1963,7 @@ function productIdentityDeclarations(
     for (const corpus of search.review_corpora ?? []) {
       const counts = corpus.item_identity;
       if (counts === undefined) {
-        out.nextSteps.push(`Give item_identity for ${corpus.product} in ${search.community}: exact_product, variant_unresolved and other_variant_excluded counts, adding up to reviews_read.`);
+        out.requireDeclaration(`Give item_identity for ${corpus.product} in ${search.community}: exact_product, variant_unresolved and other_variant_excluded counts, adding up to reviews_read.`);
       } else if (counts.exact_product + counts.variant_unresolved + counts.other_variant_excluded !== corpus.reviews_read) {
         out.nextSteps.push(`item_identity for ${corpus.product} in ${search.community} does not add up to reviews_read; count every review in exactly one identity class.`);
       } else {
@@ -1911,20 +1974,20 @@ function productIdentityDeclarations(
   const intervention = input.intervention_identity;
   // Every answer resting on key studies says what each study actually tested (owner question 47).
   if (input.key_sources.length > 0 && intervention === undefined) {
-    out.nextSteps.push("Give intervention_identity for the key studies: not_applicable with a reason, or checked with the coded, branded, combination or multi-ingredient interventions (including co-administered drugs) and their whole-intervention identities.");
+    out.requireDeclaration("Give intervention_identity for the key studies: not_applicable with a reason, or checked with the coded, branded, combination or multi-ingredient interventions (including co-administered drugs) and their whole-intervention identities.");
   }
   if (intervention?.status === "not_applicable") {
-    if (intervention.reason === undefined) out.nextSteps.push("Give a reason for intervention_identity not_applicable.");
+    if (intervention.reason === undefined) out.requireDeclaration("Give a reason for intervention_identity not_applicable.");
     if (intervention.interventions !== undefined) out.nextSteps.push("intervention_identity not_applicable cannot list interventions; make the declaration agree.");
   } else if (intervention?.status === "checked") {
-    if (intervention.interventions === undefined) out.nextSteps.push("Give interventions for intervention_identity checked, with study_ids, label and resolved or unresolved status.");
+    if (intervention.interventions === undefined) out.requireDeclaration("Give interventions for intervention_identity checked, with study_ids, label and resolved or unresolved status.");
     const sources = new Set(input.key_sources.map(({ id }) => normalizeIdentifier(id)));
     for (const entry of intervention.interventions ?? []) {
       if (entry.study_ids.some((id) => !sources.has(normalizeIdentifier(id)))) {
         out.nextSteps.push(`intervention_identity for ${entry.label} lists study_ids outside key_sources; make the source declarations agree.`);
       }
       if (entry.status === "resolved" && entry.identity === undefined) {
-        out.nextSteps.push(`Give the resolved identity for ${entry.label}: registry_code, sponsor_or_maker and current_product.`);
+        out.requireDeclaration(`Give the resolved identity for ${entry.label}: registry_code, sponsor_or_maker and current_product.`);
       } else if (entry.status === "unresolved") {
         if (entry.identity !== undefined) out.nextSteps.push(`The unresolved intervention ${entry.label} cannot also declare a resolved identity.`);
         out.requireLimit(`The intervention ${entry.label} has not been traced to a current product.`,
@@ -1934,17 +1997,17 @@ function productIdentityDeclarations(
   }
   const shopping = input.shopping;
   if (applicability?.status === "required" && shopping === undefined) {
-    out.nextSteps.push("Give shopping: not_requested with no offers, buy_options for a destination, or no_live_option_found after at least three distinct international routes.");
+    out.requireDeclaration("Give shopping: not_requested with no offers, buy_options for a destination, or no_live_option_found after at least three distinct international routes.");
   }
   if (shopping === undefined) return;
   if (shopping.status === "not_requested") {
     if ((shopping.offers?.length ?? 0) > 0) out.nextSteps.push("shopping not_requested cannot list offers.");
     return;
   }
-  if (shopping.destination === undefined) out.nextSteps.push("Give the destination for shopping buy_options or no_live_option_found.");
+  if (shopping.destination === undefined) out.requireDeclaration("Give the destination for shopping buy_options or no_live_option_found.");
   const offers = shopping.offers ?? [];
   if (shopping.status === "buy_options" && !offers.some(({ role }) => role === "buy_option")) {
-    out.nextSteps.push("shopping buy_options needs at least one buy_option offer.");
+    out.requireDeclaration("shopping buy_options needs at least one buy_option offer.");
   }
   const links = new Set(input.answer_draft === undefined ? [] : displayedProse(input.answer_draft)
     .flatMap((block) => [...linkTargets(block).matchAll(LINKED_URL)].map(([url]) => comparableUrl(url))));
@@ -1960,7 +2023,7 @@ function productIdentityDeclarations(
   if (shopping.status === "no_live_option_found") {
     if (offers.some(({ role }) => role === "buy_option")) out.nextSteps.push("shopping no_live_option_found cannot list buy options.");
     if (new Set(shopping.routes_searched ?? []).size < 3) {
-      out.nextSteps.push("shopping no_live_option_found needs at least three distinct routes_searched: international_storefronts, marketplaces, exporters, specialist_sellers or secondary_marketplaces.");
+      out.requireDeclaration("shopping no_live_option_found needs at least three distinct routes_searched: international_storefronts, marketplaces, exporters, specialist_sellers or secondary_marketplaces.");
     }
     if (shopping.destination !== undefined) {
       for (const product of applicability?.products ?? []) out.requireLimit(`No live destination offer was found for ${product}.`,
@@ -2036,7 +2099,7 @@ function forumLane(search: CommunitySearch): string {
 function communityCoverage(
   input: FinalizeResearchInput,
   youtubeResearched: boolean,
-  out: { nextSteps: string[]; requireLimit: (text: string, ...sentences: string[]) => void; lanes: string[] },
+  out: DeclarationSteps & { requireLimit: (text: string, ...sentences: string[]) => void; lanes: string[] },
   redditThreads?: ReadonlyMap<string, RedditThreadCheck>
 ): { searched: string[]; read: CommunityRead[]; unverified: number } {
   const communities = input.principal_communities;
@@ -2045,7 +2108,7 @@ function communityCoverage(
   // Each thread counts for one community only, so one search cannot pass as two.
   const threadOwners = new Map<string, string>();
   if (communities === undefined) {
-    out.nextSteps.push(
+    out.requireDeclaration(
       "Name where people discussing this actually talk in principal_communities, the dominant first (subreddits, " +
         "specialist forums, Facebook groups, patient organizations, YouTube). Then search the dominant one and at " +
         "least one independent one: YouTube with its tools, the others with your own web search, recorded in " +
@@ -2163,7 +2226,7 @@ function communityCoverage(
     }
     for (const { url } of search.threads_read) threadOwners.set(comparableUrl(url), key);
     if (search.threads_read.length === 0 && search.access_boundary === undefined) {
-      out.nextSteps.push(
+      out.requireDeclaration(
         `community_searches for ${name} lists no thread read: add the threads you read, or the access_boundary ` +
           "that stopped the search."
       );
@@ -2186,7 +2249,7 @@ function communityCoverage(
       continue;
     }
     if (search.platform === "review_site" && search.threads_read.length > 0 && corpora.length === 0) {
-      out.nextSteps.push(
+      out.requireDeclaration(
         `community_searches for ${name} lists reviews read on a review site: give review_corpora, with each ` +
           "product, how many reviews the site shows, how many you read and how you chose them."
       );
@@ -2204,7 +2267,7 @@ function communityCoverage(
     // Outside Reddit, whose subreddit names it, a community read nowhere is
     // known by its address, never by its name alone.
     if (search.platform !== "reddit" && search.threads_read.length === 0 && search.url === undefined) {
-      out.nextSteps.push(
+      out.requireDeclaration(
         `community_searches for ${name} records an access boundary but no url: give the community's address (its ` +
           "forum, group or site link), so it is known by its site rather than its name."
       );
@@ -2255,7 +2318,7 @@ function communityCoverage(
     }
     const missing = COMMUNITY_FINDINGS.filter((field) => search[field] === undefined);
     if (missing.length > 0) {
-      out.nextSteps.push(
+      out.requireDeclaration(
         `Say what ${name} showed: give ${missing.join(", ")} in its community_searches entry, even if the signal is ` +
           "weak or neutral."
       );
@@ -2300,7 +2363,7 @@ function communityCoverage(
   }
   const dominant = communities[0]!;
   if (dominant.platform !== "youtube" && !searched.has(communityKey(dominant.name, dominant.platform))) {
-    out.nextSteps.push(
+    out.requireDeclaration(
       `Search ${dominant.name}, the community listed first, with your web search and record it in ` +
         "community_searches, or the access boundary that stops you."
     );
@@ -2315,7 +2378,7 @@ function communityCoverage(
   }));
   if (listed.size === 1 && pools.size <= 1) {
     if (input.single_community_reason === undefined) {
-      out.nextSteps.push(
+      out.requireDeclaration(
         "principal_communities lists one community: name an independent one (another platform, forum or discussion " +
           "pool) and search it, or give single_community_reason."
       );
