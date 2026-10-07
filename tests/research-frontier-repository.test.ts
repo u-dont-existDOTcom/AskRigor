@@ -433,9 +433,9 @@ describe("research-frontier persistence contracts", () => {
       },
       {
         name: "HRP",
-        version: "20.6.11",
-        revisionDate: "2026-10-06",
-        sha256: "38606fbc0ea661f412a7887b7b60667fc61cb0854eb0c637ca52ebb0d3357122",
+        version: "20.6.12",
+        revisionDate: "2026-10-07",
+        sha256: "14dca942e63d8381108e55915a2a19a542d9b0eb02ecc8a0d4065ef614aac2a5",
       },
     ];
     const prepared = await prepareResearchFrontierImport(contribution);

@@ -77,7 +77,7 @@
     ],
     "protocols/HRP_Full.xml": [
       "ruleId=\"portable.obligation-boundary.v1\"",
-      "version=\"20.6.11\""
+      "version=\"20.6.12\""
     ],
     "skills/askrigor/SKILL.md": [
       "complete",

@@ -589,8 +589,9 @@ may retain that compact public provenance (including returned URL paths and
 URL query strings), route attempts, and acquisition state in its existing encrypted
 checkpoint, under its existing 72-hour idle/seven-day absolute retention; it
 does not retain candidate bodies there. Connected clients can retain returned
-provenance and admitted text under their own terms. A public notice review is
-still required before deployment of this changed processing.
+provenance and admitted text under their own terms. The public notice change is
+drafted in `site/privacy/index.html`, pending owner approval before deployment
+of this changed processing.
 
 The ordered protocol Action cursor contains only protocol identity, digest, byte offset, chunk index, and expiry. It contains no protocol text, health content, or secret. It is authenticated with a protocol-specific key derived
 from the existing server-only continuation secret. The Action returns each

@@ -101,7 +101,7 @@ Discovery runs where the model's own search tools are, as community searches alr
 | Survey and plan | Done (2026-10-07) |
 | Phase 1: route semantics, candidates, identity, admission, states, provenance | Code implemented in this working tree; deterministic gate green; all three exact titles covered by synthetic DOI and title-plus-first-author/year cases (2026-10-07) |
 | Phase 2: Bright Data unlocking | Needs owner decisions (privacy wording, who may use it) |
-| Phase 3: HRP text | Exact text to the owner |
+| Phase 3: HRP text | Sections A–E applied as the HRP 20.6.12 working-tree candidate; exact owner approval pending |
 | Live acceptance on the three PMIDs | After Phase 1 |
 
 ## Phase 1 working-tree implementation contract (2026-10-07)
@@ -373,7 +373,7 @@ followed `npm run typecheck` and used Node's `tsx` loader to avoid the CLI's
 sandbox-denied IPC socket. `git diff --check` passes; `protocols/` has no diff,
 the branch and HEAD remain unchanged, and no commit or release was made.
 
-## Live acceptance, phase 1 (2026-10-07, about 13:50 UTC)
+## Live acceptance, phase 1 (2026-10-07, about 13:33 UTC)
 
 Run by Claude against the live services: the real `acquire_open_full_text` tool, in process, on this branch
 (b65a7002 plus the wording fixes). Public copies were found with web search by exact title, DOI and author. Each call
@@ -404,3 +404,41 @@ Two wording fixes came from this run:
 - A blocked copy's limit now reads "a possible public copy was found, but AskRigor could not fetch it to check it". The
   copy's identity is unverified.
 - The discovery hint lists every known title form. PubMed's title for 10734247 adds "Dopaminergic Therapy Study Group.".
+
+## Full-text protocol and public-notice candidates (2026-10-07)
+
+At the owner's direction, sections A–E of the full-text draft are applied as
+HRP 20.6.12, revision date 2026-10-07, pending owner approval. The recorded edit
+fixture `tests/fixtures/protocol-edits/2026-10-07-full-text-candidate.json`
+reverses to the exact HRP 20.6.11 bytes; the historical chain undoes it first.
+Placement and sentence tests cover the three existing rules, four stress cases,
+and FS213. Universal bytes and the PTI candidate's files are unchanged.
+
+The public-copy sentence is drafted in `site/privacy/index.html`, pending owner
+approval. Its effective date remains October 4, 2026; release sets the date.
+The privacy data map records the draft's pending status. This work uses no
+external network and makes no commits or releases. Live architecture retrieval
+and lesson-queue status remain unavailable under the owner's network constraint.
+Lesson closeout: candidate text now names exact public-copy discovery and the
+route-failure versus access-boundary distinction enforced by Phase 1; this is
+proposed protocol wording, not owner approval or production acceptance.
+
+Candidate validation on Node 24.18.0: final `npm run verify` exited **0**
+(typecheck, complete hermetic suite, build). `npm run test:site` and
+`npm run test:site-deploy` each exited **0**. Exact final result lines:
+
+```text
+Test Files  206 passed | 1 skipped (207)
+Tests  2428 passed | 6 skipped (2434)
+Validated AskRigor public site: 4 pages
+Test Files  1 passed (1)
+Tests  28 passed (28)
+```
+
+The final HRP SHA-256 is
+`14dca942e63d8381108e55915a2a19a542d9b0eb02ecc8a0d4065ef614aac2a5`.
+The exact draft audit passed for A–E after XML whitespace normalization; the
+recorded edits reverse to the original committed HRP bytes, and the privacy
+page differs only by the requested sentence. `git diff --check` passed.
+Tests ran with a temporary Node guard blocking external connections and DNS,
+with loopback/IPC test sockets permitted; live/provider tests were disabled.
