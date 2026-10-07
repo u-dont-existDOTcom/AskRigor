@@ -178,7 +178,10 @@ export function verifyArticleIdentity(
   const pii = compactIdentityText(identity.pii ?? "");
   if (pii.length >= 10 && compact.includes(pii)) return "pii_exact";
   const normalized = ` ${normalizeIdentityText(front)} `;
-  const surname = identity.first_author?.split(",")[0]?.trim().replace(/\s+(?:[\p{Lu}]\.?){1,5}$/u, "");
+  // Drops one trailing initials token ("Walters AS" -> "Walters") without a backtracking pattern.
+  const authorParts = identity.first_author?.split(",")[0]?.trim().split(/\s+/u).filter((part) => part.length > 0) ?? [];
+  if (authorParts.length > 1 && /^(?:\p{Lu}\.?){1,5}$/u.test(authorParts.at(-1)!)) authorParts.pop();
+  const surname = authorParts.length === 0 ? undefined : authorParts.join(" ");
   const supporting = surname !== undefined && normalized.includes(` ${normalizeIdentityText(surname)} `) ||
     identity.year !== undefined && normalized.includes(` ${identity.year} `);
   return titles.some((title) => {

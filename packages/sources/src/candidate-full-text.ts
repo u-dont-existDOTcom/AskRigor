@@ -124,14 +124,23 @@ export function extractHtmlText(html: string): { text: string; title?: string; d
   const citationTitle = meta.get("citation_title");
   const h1 = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1\s*>/iu)?.[1];
   const title = citationTitle ?? (h1 === undefined ? undefined : h1.replace(/<[^>]*>/gu, " "));
-  const visible = html.replace(/<!--[\s\S]*?-->/gu, "")
-    .replace(/<(script|style|template|noscript|nav|footer)\b[^>]*>[\s\S]*?<\/\1\s*>/giu, "")
+  // Removal repeats until nothing changes, so nested or split markup cannot reassemble a comment or script.
+  const visible = removeAll(removeAll(html, /<!--[\s\S]*?-->/gu), /<(script|style|template|noscript|nav|footer)\b[^>]*>[\s\S]*?<\/\1\s*>/giu)
     .replace(/<([a-z][\w:-]*)\b[^>]*(?:\shidden(?:\s|=|>)|aria-hidden\s*=\s*["']true["']|style\s*=\s*["'][^"']*display\s*:\s*none)[^>]*>[\s\S]*?<\/\1\s*>/giu, "")
     .replace(/<\/?(?:h[1-6]|p|div|section|article|li|tr|br|title|strong|b)\b[^>]*>/giu, "\n")
     .replace(/<[^>]*>/gu, " ");
   return { text: decodeEntities(visible).replace(/[ \t\f\v]+/gu, " ").replace(/\s*\n\s*/gu, "\n").trim(),
     ...(title === undefined ? {} : { title: decodeEntities(title).replace(/\s+/gu, " ").trim() }),
     ...(meta.get("citation_doi") === undefined ? {} : { doi: decodeEntities(meta.get("citation_doi")!) }) };
+}
+function removeAll(text: string, pattern: RegExp): string {
+  let previous: string;
+  let current = text;
+  do {
+    previous = current;
+    current = current.replace(pattern, "");
+  } while (current !== previous);
+  return current;
 }
 function htmlAccessState(html: string, text: string): "PAYWALL_OR_LOGIN_REQUIRED" | "CANDIDATE_FOUND_FETCH_BLOCKED" | undefined {
   const loginLabels = ["sign in to read", "log in to read", "login required", "subscription required", "purchase access", "subscribe to read", "paywall", "accès réservé aux abonnés", "iniciar sesión para leer", "acesso restrito", "anmeldung erforderlich", "accesso riservato"];
@@ -144,7 +153,7 @@ function htmlAccessState(html: string, text: string): "PAYWALL_OR_LOGIN_REQUIRED
     if (blockedLabels.includes(label)) blocked = true;
   }
   if (blocked ||
-      /<(?:div|form|iframe)\b[^>]*(?:id|class|src)\s*=\s*["'][^"']*(?:cf-challenge|challenge-form|g-recaptcha|h-captcha|challenges.cloudflare.com)[^"']*["']/iu.test(html) ||
+      /<(?:div|form|iframe)\b[^>]*(?:id|class|src)\s*=\s*["'][^"']*(?:cf-challenge|challenge-form|g-recaptcha|h-captcha|challenges\.cloudflare\.com)[^"']*["']/iu.test(html) ||
       (/<script\b/iu.test(html) && text.length < 100)) return "CANDIDATE_FOUND_FETCH_BLOCKED";
   return undefined;
 }
