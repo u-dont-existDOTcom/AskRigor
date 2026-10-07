@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.6.11" revisionDate="2026-10-06" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.6.12" revisionDate="2026-10-07" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -51,6 +51,12 @@
 </InstructionObligationLifecycle>
 
  <RevisionHistory>
+  <Revision version="20.6.12" priority="Critical">
+   Owner-approved, question 50 (2026-10-07): state each key study's exact tested intervention, trace a whole
+   multi-ingredient, coded, or branded intervention before ranking its ingredients, and admit community reports
+   item by item for the exact product. Added WholeInterventionIdentityTrace, extended ScopeAxesBeforeSampling, and
+   added three stress cases and final checks FS214 and FS215.
+  </Revision>
   <Revision version="20.6.11" priority="Critical">
    Candidate for owner approval (owner rule of 2026-10-06, carried from the shared development rules): consilience
    and expected observability for practical effectiveness claims. One study or one evidence family cannot carry such
@@ -810,6 +816,17 @@
   <Rule name="EndpointHierarchyAndTriangulation" priority="Critical">Classify the comparison endpoint as direct clinical outcome, direct physiological measure, validated surrogate, contested surrogate, biomarker, behavioral proxy, or model-specific readout. Do not relabel a surrogate as the target outcome. A contested or indirect endpoint requires triangulation with orthogonal physiology, histology, biomarkers, outcomes, or other direct measures before broad efficacy claims receive high confidence.</Rule>
 
   <Rule name="CompositeInterventionAttribution" priority="Critical">Treat mixtures, botanicals, combination products, polypharmacy, and their individual components as distinct interventions. Do not transfer an effect from a headline component to the mixture, or from the mixture to a component, unless composition, exposure, interaction, and mechanistic or component-level evidence support that attribution. Preserve plausible independent contributions and interactions as separate hypotheses. An agent inert alone but active during another drug's or physiological state may act by state dependence: treat that as its own mechanism category, not independent pharmacology, and do not count solo null results against it. Reproduction across independently sourced brands or batches weakens a one-product contaminant explanation and points to fractions the products share, without showing which fraction, including the headline ingredient, is active.</Rule>
+
+  <Rule name="WholeInterventionIdentityTrace" priority="Critical">
+   State exactly what each key study tested: the formulation, dose, route, and any co-administered drug, such as
+   L-DOPA given with carbidopa. When a study of a multi-ingredient, coded, or branded intervention reports a large
+   or surprising practical effect, make the exact tested intervention its own candidate before ranking its
+   ingredients. Trace its study label to its registry code or name, its sponsor or maker, its formulation, and any
+   current commercial product, and record material differences between the tested and the sold versions. Keep the
+   exact formulation as its own evidence object and its ingredients' evidence separate
+   (CompositeInterventionAttribution); no ingredient is credited with the formula's effect. If the identity cannot
+   be traced, say so, and do not present the formula as something to buy.
+  </Rule>
 
   <Rule name="CrossAgentRankingResolution" priority="Critical">Before strict ordinal ranking, inspect uncertainty, overlap, design comparability, endpoint comparability, and evidence depth. Use tiers, ties, or indeterminate pairwise order when the data do not resolve a strict order. A numerically larger one-shot screen effect does not outrank a smaller but replicated, dose-responsive, orthogonally validated result on evidential confidence. When independent evidence streams on a practical effect disagree, rank it by a conservative magnitude, not its largest point estimate (ConsilienceForPracticalEffectiveness).</Rule>
  </ComparisonEstimandAndDoseExposureIntegrityGate>
@@ -3802,6 +3819,10 @@
    cohorts and search each. Check the product's actual label for what it contains and how much. Place other products
    containing the ingredient in a labeled adjacent cohort (CompositeInterventionAttribution), and a product whose
    label does not list the ingredient, such as one containing it only as a natural trace, in a proxy cohort.
+   Check product identity item by item, not by container: a video, page, or thread about the product admits only
+   the reports that are about it. A report naming another maker or variant joins that variant's labeled cohort, and
+   a report on a page that pools several makers without naming its own stays unresolved, never attributed to the
+   page's maker. Fuzzy name matches, sibling products of the same brand, and look-alike names are other products.
   </Rule>
 
   <Rule name="TieredInclusionInsteadOfPrematureExclusion" priority="Critical">
@@ -7262,6 +7283,35 @@ Final integrated synthesis rule:
     Count them as one evidence lineage, not as independent confirmation.
    </ExpectedBehavior>
   </Case>
+  <Case id="CodedFormulaLargeEffect">
+   <Prompt>
+    A randomized trial of a coded eight-herb formula reports a large effect on testosterone and sexual function;
+    each herb is also sold alone.
+   </Prompt>
+   <ExpectedBehavior>
+    Trace the formula to its registry code, sponsor, formulation, and current commercial product before ranking the
+    herbs; keep its evidence separate from each herb's; credit no single herb with its effect.
+   </ExpectedBehavior>
+  </Case>
+  <Case id="LookAlikeProductVideos">
+   <Prompt>
+    A video search for a named herbal product returns a sibling product from the same brand and an unrelated face
+    wash with a similar name.
+   </Prompt>
+   <ExpectedBehavior>
+    Admit only videos that name the exact product; the sibling and the face wash never enter its community corpus.
+   </ExpectedBehavior>
+  </Case>
+  <Case id="MixedMakerReviewPage">
+   <Prompt>
+    A review page for one manufacturer's version of a generic formula includes a review naming another
+    manufacturer's version.
+   </Prompt>
+   <ExpectedBehavior>
+    Count that review in the other manufacturer's labeled cohort, and keep reviews that name no manufacturer
+    unresolved rather than attributing them to the page's manufacturer.
+   </ExpectedBehavior>
+  </Case>
 </StressTestExpectations>
 
  <FinalSelfCheck priority="Critical">
@@ -7279,6 +7329,8 @@ Final integrated synthesis rule:
   <Check id="FS210">For a product people buy, its review platforms were mapped, and each review corpus states the reviews shown, the reviews read, and how they were chosen, with direction labeled only from a frame not chosen by outcome (ReviewCorpusSelectionAndCounts).</Check>
   <Check id="FS211">A carer's observation of a dependent is kept in its own cohort, neither pooled with self-reports nor discarded (CaregiverObservedCohort).</Check>
   <Check id="FS212">A practical effectiveness claim that a ranking or recommendation relies on was classified as convergent, promising but discordant, isolated, or contradicted, with copies of one trial counted once and real-world silence weighed only where the effect should be visible (ConsilienceForPracticalEffectiveness).</Check>
+  <Check id="FS214">Each key study's exact tested intervention, including any co-administered drug, was stated, and a multi-ingredient or coded intervention with a large practical effect was traced to its tested and current identity before its ingredients were ranked (WholeInterventionIdentityTrace).</Check>
+  <Check id="FS215">Community reports about a product were admitted item by item for the exact product, with other variants and unresolved reports kept apart (ScopeAxesBeforeSampling).</Check>
   <Check id="FS202">Give human judgment a human-facing interface. Repair a load-bearing pre-collection method defect in a new recorded, theory-blind version without altering frozen methods or prior data.</Check>
   <Check id="FS164">Verify every material prompt premise before it controls the answer (PremiseIntegrityAndTruthPriorityGate).</Check>
   <Check id="FS165">Put accuracy above agreement, validation, authority, consensus, user confidence, and expected-answer pressure.</Check>

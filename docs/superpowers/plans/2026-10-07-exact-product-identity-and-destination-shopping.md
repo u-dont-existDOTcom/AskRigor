@@ -162,7 +162,7 @@ These follow the `commercial_review_applicability` pattern.
 | --- | --- |
 | Lane items read, plan written | Done (2026-10-07) |
 | Server changes (sections 1 and 2) | Implemented locally (2026-10-07); awaiting Claude's review |
-| Protocol text (section 3) | Exact text to the owner |
+| Protocol text (section 3) | Owner question 50: A (2026-10-07); final draft sections F to K applied locally as HRP 20.6.12 and Universal 20.5.36 |
 | Endpoint acceptance, release | Local MCP regression acceptance passed (2026-10-07); external acceptance/release after review and owner approval |
 
 ## Implementation
@@ -185,5 +185,26 @@ These follow the `commercial_review_applicability` pattern.
   `findings-save.test.ts`, and `analysis-staging.test.ts`.
 - Validation: final `npm run verify` passed: typecheck and build passed; 208 test files passed and 1 skipped;
   2,367 tests passed and 6 skipped. Verification used Node 24.18.0, an external-socket guard, and loopback test servers. No external network or commits. Live GitHub bootstrap and lesson-queue status were
-  unavailable under the owner's no-network constraint; no queue counts were inferred. Section 3, external
+  unavailable under the owner's no-network constraint; no queue counts were inferred. External
   acceptance and release remain with the owner/review process.
+
+## Owner-approved protocol wording (question 50: A, 2026-10-07)
+
+Final draft sections F to K are applied verbatim apart from XML formatting and escaping: HRP adds
+WholeInterventionIdentityTrace after CompositeInterventionAttribution, extends ScopeAxesBeforeSampling,
+adds CodedFormulaLargeEffect, LookAlikeProductVideos and MixedMakerReviewPage after ManyPagesOneTrial,
+and places FS214 and FS215 after FS212. Universal extends OrderabilityInvariant and sources.
+Each protocol has a two-sentence owner-approved revision entry dated 2026-10-07; no other protocol text changed.
+
+- HRP 20.6.12 SHA-256: `cc836d5a6e92c7100a8d725f549c4fa782436499f15606638380d7d4df5592c0`.
+- Universal 20.5.36 SHA-256: `f6400780776635880e0365320d892cf50462e9644947c9e65cd1ec174b4864d1`.
+- Recorded edit fixture: `tests/fixtures/protocol-edits/2026-10-07-product-identity-wording.json`.
+  Chain tests restore HRP 20.6.11 and Universal 20.5.35 byte for byte before undoing earlier revisions.
+  `tests/product-identity-wording-protocol-2026-10-07.test.ts` independently checks all approved text and placement.
+- Current manifest/version/date/hash pins in tests, README and the instruction-layering profile are updated;
+  historical release receipts and prior edit fixtures retain their original versions and hashes.
+- Validation: `npm run verify` passed (exit 0): typecheck and build passed; 211 test files passed and 1 skipped;
+  2,459 tests passed and 6 skipped. The fixture also reverses both current files to their exact `HEAD` bytes.
+- Constraints: Node 24.18.0; no external network; no commits. Live UDA bootstrap and lesson-queue status
+  remain unavailable under the owner's no-network instruction. No new lesson candidate was inferred from this
+  bounded wording application; exact wording and prior-byte preservation are covered by executable regression tests.
