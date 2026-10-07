@@ -774,7 +774,7 @@ export function finalizeResearch(
       const limits: Record<string, string> = {
         NO_COPY_FOUND_AFTER_EXPANDED_SEARCH: "no public full text was found after an exact search",
         PAYWALL_OR_LOGIN_REQUIRED: "its full text needs a login or a subscription",
-        CANDIDATE_FOUND_FETCH_BLOCKED: "a public copy was found but AskRigor could not fetch it",
+        CANDIDATE_FOUND_FETCH_BLOCKED: "a possible public copy was found, but AskRigor could not fetch it to check it",
         ABSTRACT_ONLY: "only its abstract was readable",
         PARTIAL_TEXT_READABLE: "only part of its text was readable",
         IDENTITY_MISMATCH: "no copy found could be verified as the same paper"

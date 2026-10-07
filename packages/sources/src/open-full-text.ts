@@ -126,7 +126,8 @@ export async function acquireOpenFullText(
   }
   if (selected !== undefined) return indexed(doi, pmcid, attempts, selected.index, candidates, publicCopySearch);
   const state: AcquisitionState = supplied.length === 0 ? publicCopySearch.status === "declared" ? "NO_COPY_FOUND_AFTER_EXPANDED_SEARCH" : "PRIMARY_OA_ROUTES_EXHAUSTED" : overallCandidateState(candidates);
-  const identifiers = `title ${JSON.stringify(identity.title ?? "unknown (metadata unavailable)")}, DOI ${doi}, PMID ${identity.pmid ?? "unknown"}, PII ${identity.pii ?? "unknown"}`;
+  const knownTitles = titleVariants(identity.title, ...(identity.title_variants ?? []));
+  const identifiers = `${knownTitles.length > 1 ? "titles" : "title"} ${knownTitles.length === 0 ? "unknown (metadata unavailable)" : knownTitles.map((title) => JSON.stringify(title)).join(" or ")}, DOI ${doi}, PMID ${identity.pmid ?? "unknown"}, PII ${identity.pii ?? "unknown"}`;
   const discovery = `Exact public-copy discovery remains: an exact search by the listed ${identifiers}. candidate_urls records public copies found; public_copy_search records the searches, including a search that found nothing without candidate_urls.`;
   const missing = publicCopySearch.status === "missing_exact_identifiers"
     ? ` The declared queries lack the exact ${publicCopySearch.missing!.join(" and ")}.` : "";

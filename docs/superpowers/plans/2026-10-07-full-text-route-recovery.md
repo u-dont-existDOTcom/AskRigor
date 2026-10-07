@@ -372,3 +372,35 @@ All added article bodies and abstracts are synthetic. Tool inventory generation
 followed `npm run typecheck` and used Node's `tsx` loader to avoid the CLI's
 sandbox-denied IPC socket. `git diff --check` passes; `protocols/` has no diff,
 the branch and HEAD remain unchanged, and no commit or release was made.
+
+## Live acceptance, phase 1 (2026-10-07, about 13:50 UTC)
+
+Run by Claude against the live services: the real `acquire_open_full_text` tool, in process, on this branch
+(b65a7002 plus the wording fixes). Public copies were found with web search by exact title, DOI and author. Each call
+took 0.4 to 1.7 seconds.
+
+| Call | End state | Receipt |
+| --- | --- | --- |
+| 10734247, primary routes only | PRIMARY_OA_ROUTES_EXHAUSTED; Europe PMC and Unpaywall found nothing; the boundary lists both title forms, DOI and PMID | none |
+| 10734247, four possible copies (PMC page of the 2011 double-blind trial, two Academia.edu uploads, Verona IRIS record) | CANDIDATE_FOUND_FETCH_BLOCKED: every host answered with a challenge | lead, state CANDIDATE_FOUND_FETCH_BLOCKED |
+| 14529800, three possible copies (UvA DARE, UMC Utrecht, ResearchGate) | ABSTRACT_ONLY: DARE matched by DOI and UMC Utrecht by title, both abstract-only records with no file; ResearchGate blocked | lead, state ABSTRACT_ONLY |
+| 11374875, three possible copies (Verona IRIS record, ResearchGate, Semantic Scholar) | CANDIDATE_FOUND_FETCH_BLOCKED | lead, state CANDIDATE_FOUND_FETCH_BLOCKED |
+| 11374875, searches without the exact title | PRIMARY_OA_ROUTES_EXHAUSTED, public_copy_search missing_exact_identifiers ["title"] | none |
+
+What blocked plain fetching:
+
+- Academia.edu and iris.univr.it: Cloudflare "Just a moment..." challenges (HTTP 403).
+- ResearchGate: HTTP 403, "Temporarily Unavailable".
+- Semantic Scholar: HTTP 202 with an empty body.
+- pmc.ncbi.nlm.nih.gov: a reCAPTCHA "Checking your browser" page with HTTP 200, recognized by its structure. PMC copies
+  still come through Europe PMC's API by PMCID.
+
+Unpaywall lists all three papers as closed. With direct fetching alone, none of their full texts can be read. So the
+scientific checks the directive names (L-DOPA given with carbidopa; purified pig-kidney enzyme in vitro) could not be
+confirmed live. They need phase 2 (Bright Data unlocking), owner question 45.
+
+Two wording fixes came from this run:
+
+- A blocked copy's limit now reads "a possible public copy was found, but AskRigor could not fetch it to check it". The
+  copy's identity is unverified.
+- The discovery hint lists every known title form. PubMed's title for 10734247 adds "Dopaminergic Therapy Study Group.".
