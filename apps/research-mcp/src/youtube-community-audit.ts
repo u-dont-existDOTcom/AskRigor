@@ -3,6 +3,14 @@ import { createHash } from "node:crypto";
 import { ACCESS_STATUSES, type AccessStatus } from "@askrigor/contracts";
 import {
   DEFAULT_YOUTUBE_COMMENT_RETRIEVAL_BUDGETS,
+  productIdentitySchema,
+  videoProductClassSchema,
+  commentProductCountsSchema,
+  classifyProductVideo,
+  classifyProductComment,
+  productVideoAdmitted,
+  emptyCommentProductCounts,
+  PRODUCT_SNIPPET_LIMITATION,
   getYoutubeComments,
   getYoutubeVideo,
   searchYoutube,
@@ -22,6 +30,7 @@ import { youtubeCommunityDirectionSchema } from "./youtube-community-survey.js";
 export { youtubeCommunityDirectionSchema } from "./youtube-community-survey.js";
 
 export const youtubeCommunityAuditInputSchema = z.object({
+  product_identity: productIdentitySchema.optional(),
   research_question: z.string().trim().min(1).max(5_000),
   searches: z.array(z.object({
     direction: youtubeCommunityDirectionSchema,
@@ -55,6 +64,8 @@ const searchReceiptSchema = z.object({
   candidate_video_ids: z.array(z.string()).max(3)
 }).strict();
 const auditVideoSchema = z.object({
+  product_class: videoProductClassSchema.optional(),
+  comment_product_counts: commentProductCountsSchema.optional(),
   video_id: z.string(),
   directions: z.array(youtubeCommunityDirectionSchema).min(1).max(6),
   search_queries: z.array(z.string()).min(1).max(6),
@@ -94,6 +105,7 @@ export const youtubeCommunityAuditOutputSchema = z.object({
   }).strict(),
   searches: z.array(searchReceiptSchema).min(1).max(6),
   videos: z.array(auditVideoSchema).max(3),
+  skipped_videos: z.array(z.object({ video_id: z.string(), product_class: videoProductClassSchema }).strict()).max(18).optional(),
   receipt: z.object({
     completion_state: completionStateSchema,
     synthesis_lock: z.enum(["pass", "block"]),
@@ -144,11 +156,28 @@ export async function auditYoutubeCommunity(
     })));
 
   const associations = candidateAssociations(searchResults);
-  const selectedVideoIds = roundRobinVideoIds(searchResults, parsed.max_videos);
-  const metadataResults = new Map(await Promise.all(selectedVideoIds.map(async (videoId) => [
-    videoId,
-    await getYoutubeVideo(videoId, config)
-  ] as const)));
+  const rankedVideoIds = roundRobinVideoIds(searchResults, associations.size);
+  const selectedVideoIds: string[] = [];
+  const skippedVideos: NonNullable<YoutubeCommunityAuditOutput["skipped_videos"]> = [];
+  const classes = new Map<string, z.output<typeof videoProductClassSchema>>();
+  const metadataResults = new Map<string, Awaited<ReturnType<typeof getYoutubeVideo>>>();
+  for (const videoId of rankedVideoIds) {
+    if (selectedVideoIds.length === parsed.max_videos) break;
+    const metadata = await getYoutubeVideo(videoId, config);
+    metadataResults.set(videoId, metadata);
+    if (parsed.product_identity !== undefined) {
+      const fullMetadata = metadata.access_status === "api_visible_complete";
+      const snippet = searchResults.flatMap(({ result }) => result.data).find(({ video_id }) => video_id === videoId)!;
+      if (!fullMetadata) metadata.limitations.push(PRODUCT_SNIPPET_LIMITATION);
+      const productClass = classifyProductVideo(parsed.product_identity, fullMetadata ? metadata.data : snippet);
+      classes.set(videoId, productClass);
+      if (!productVideoAdmitted(productClass)) {
+        skippedVideos.push({ video_id: videoId, product_class: productClass });
+        continue;
+      }
+    }
+    selectedVideoIds.push(videoId);
+  }
   const commentElapsedMs = selectedVideoIds.length === 0
     ? undefined
     : allocateYoutubeCommunityCommentElapsedMs(
@@ -159,7 +188,10 @@ export async function auditYoutubeCommunity(
   const blockers: string[] = [];
   const boundaryStatuses: AccessStatus[] = [];
   let attemptedUnfiltered = 0;
-  let incomplete = false;
+  let incomplete = [...metadataResults.values()].some((metadata) =>
+    metadata.access_status !== "api_visible_complete" && !isTerminalAccessBoundary(metadata.access_status, metadata.error?.code)
+  );
+  if (incomplete) blockers.push("One or more candidate metadata lookups did not complete.");
 
   for (const videoId of selectedVideoIds) {
     const association = associations.get(videoId)!;
@@ -167,6 +199,7 @@ export async function auditYoutubeCommunity(
     const videoLimitations = [...metadataResult.limitations];
     const video: YoutubeCommunityAuditOutput["videos"][number] = {
       video_id: videoId,
+      ...(classes.has(videoId) ? { product_class: classes.get(videoId), comment_product_counts: emptyCommentProductCounts() } : {}),
       directions: association.directions,
       search_queries: association.queries,
       metadata_access_status: metadataResult.access_status,
@@ -212,14 +245,19 @@ export async function auditYoutubeCommunity(
       corpusComplete ||
       (commentsResult.access_status === "partial" && commentData.data.comments.length > 0)
     )) {
-      const comments = commentData.data.comments;
+      const comments = commentData.data.comments.map((comment) => {
+        if (parsed.product_identity === undefined) return comment;
+        const product_class = classifyProductComment(parsed.product_identity, classes.get(videoId)!, comment.text);
+        video.comment_product_counts![product_class] += 1;
+        return { ...comment, product_class };
+      });
       const sampled = sampleWithinResponseBudget(
         comments,
         parsed.sample_comments_per_video,
         Math.floor(COMMUNITY_AUDIT_SAMPLE_BUDGET_CHARACTERS / selectedVideoIds.length)
       );
       video.manifest = commentData.data.manifest;
-      video.corpus_sha256 = hashYoutubeCommentCorpus(comments);
+      video.corpus_sha256 = hashYoutubeCommentCorpus(commentData.data.comments);
       video.sample = {
         mode: comments.length <= parsed.sample_comments_per_video
           ? "all"
@@ -292,6 +330,7 @@ export async function auditYoutubeCommunity(
     limitations: uniqueStrings([
       DISCOVERY_LIMITATION,
       ...searchReceipts.flatMap(({ limitations }) => limitations),
+      ...[...metadataResults.values()].flatMap(({ limitations }) => limitations),
       ...videos.flatMap(({ limitations }) => limitations)
     ]),
     selection: {
@@ -301,6 +340,7 @@ export async function auditYoutubeCommunity(
     },
     searches: searchReceipts,
     videos,
+    ...(parsed.product_identity === undefined ? {} : { skipped_videos: skippedVideos }),
     receipt: {
       completion_state: completionState,
       synthesis_lock: completionState === "incomplete" ? "block" : "pass",

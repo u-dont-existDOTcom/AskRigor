@@ -6,14 +6,16 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
-  OUTDATED_TOOL_LIST_HINT,
   finalizeResearch,
+  TOOL_LIST_REFRESH_HINT,
   finalizeResearchInputSchema,
   type FinalizeResearchInput,
   type FinalizeResearchOutput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
+
+import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
 const SECRET = "scale-results-test-secret-01234567890123456789";
 // These are the owner's regression sentences, used as synthetic gate fixtures,
@@ -34,8 +36,10 @@ const packageFor = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeRes
   }, { secret: SECRET })],
   research_target: "Synthetic scale interpretation gate fixture", research_depth: "deep",
   community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome",
+  commercial_review_applicability: { status: "not_applicable", reason: "Synthetic scale checks involve no product or service people buy." },
   not_relevant_reason: "Isolates exact declaration checks with synthetic receipts and text.",
   treatment_choice: "not_compared", key_sources: [{ id: "10.1002/art.41142", status: "validated" }],
+  intervention_identity: { status: "not_applicable", reason: "This synthetic key study does not concern a coded or multi-ingredient product." },
   answer_draft: GOOD, absence_claims: [], scale_results: [declaration()], ...overrides
 });
 
@@ -67,21 +71,22 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
   });
   const call = async (overrides: Partial<FinalizeResearchInput> = {}): Promise<FinalizeResearchOutput> => {
     const input = packageFor(overrides);
-    if (surface === "gate") return finalizeResearch(input, { secret: SECRET });
+    if (input.answer_draft !== undefined) input.answer_draft += "\n\n[Study](https://doi.org/10.1002/art.41142)";
+    if (surface === "gate") return assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
     const result = await client!.callTool({ name: "finalize_research", arguments: { ...input } });
     expect(result.isError).not.toBe(true);
-    return result.structuredContent as FinalizeResearchOutput;
+    return assertNextStepsContract(result.structuredContent as FinalizeResearchOutput);
   };
   const ready = (result: FinalizeResearchOutput) => {
     expect(result.status).toBe("ready");
-    expect(result.next_steps).toEqual([]);
+    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(verifyResearchReceipt(result.finalization_receipt!, { secret: SECRET })).toMatchObject({
       ok: true, kind: "finalization", claims: { status: "ready" }
     });
   };
   const blocked = (result: FinalizeResearchOutput, steps: string[]) => {
     expect(result.status).toBe("not_ready");
-    expect(result.next_steps).toEqual(steps);
+    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual(steps);
     expect(result.finalization_receipt).toBeUndefined();
   };
 
@@ -95,10 +100,13 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
   });
 
   it("requires scale_results with answer_draft, while accepting an explicit empty list", async () => {
-    blocked(await call({ scale_results: undefined }), [
+    const missing = await call({ scale_results: undefined });
+    blocked(missing, [
       "scale_results is missing: with answer_draft, the declaration lists each scale or questionnaire result " +
-        "reported in the answer (an empty list means none). " + OUTDATED_TOOL_LIST_HINT
+        "reported in the answer (an empty list means none)."
     ]);
+    // A chat whose tool list predates scale_results is told the way out once.
+    expect(missing.next_steps.filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
     ready(await call({ answer_draft: "This answer reports no scale scores.", scale_results: [] }));
   });
 
@@ -106,7 +114,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
     const result = await call({ answer_draft: undefined, scale_results: undefined });
     expect(result.status).toBe("not_ready");
     expect(result.answer_checked).toBe(false);
-    expect(result.next_steps.join(" ")).not.toContain("scale_results");
+    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).not.toContain("scale_results");
   });
 
   it("rejects a quote absent from the answer", async () => {
@@ -224,24 +232,9 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
   if (surface === "MCP endpoint") it("retains 33 tools and pins the descriptive finalize_research catalog text", async () => {
     const { tools } = await client!.listTools();
     expect(tools).toHaveLength(33);
-    expect(tools.find(({ name }) => name === "finalize_research")?.description).toBe(
-      "Final check of a research answer before it is given. Input: the research_receipt values that AskRigor's " +
-      "tools returned in this session; the research_target as given to the scout, search_youtube and the coverage " +
-      "check, and as research_question to surveys and community audits (discovery for another target does not " +
-      "count); whether community evidence was researched and whether the answer compares treatment options; where " +
-      "the topic is discussed and what each community searched outside YouTube showed (principal_communities, " +
-      "community_searches); what the YouTube comments read showed (community_findings); the studies the " +
-      "conclusions rest on (key_sources); after a first pass, the focuses for going deeper (open_leads, " +
-      "another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare " +
-      "video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was " +
-      "not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results " +
-      "(scale_results: quoted explanations with the scale name, range, values and benchmark), and the caveats, " +
-      "and is not stored. Result: not_ready with the remaining steps; ready_with_limits with the limits, the caveat " +
-      "sentences for the answer (each as its own sentence and as written, in the answer's language when " +
-      "answer_language and caveat_renderings are given) and must_report, what the answer reports from each lane " +
-      "researched; or receipts_unavailable when this server cannot verify receipts. In free contributor mode a " +
-      "checked findings_card is saved to AskRigor's private findings library for the owner's review; in paid " +
-      "private mode the caveats offer its save."
+    // tests/mcp-tools.test.ts pins the whole description; this file checks the scale_results part.
+    expect(tools.find(({ name }) => name === "finalize_research")?.description).toContain(
+      "(scale_results: quoted explanations with the scale name, range, values and benchmark)"
     );
   });
 });

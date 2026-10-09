@@ -22,7 +22,7 @@ describe("Universal normality and base-rate integration", () => {
     const text = await readFile(UNIVERSAL_URL, "utf8");
 
     expect(text).toMatch(
-      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.35" revisionDate="2026-10-06"[^>]+Normality-Base-Rate/u,
+      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.37" revisionDate="2026-10-09"[^>]+Normality-Base-Rate/u,
     );
 
     for (const singleton of [

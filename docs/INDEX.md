@@ -61,6 +61,10 @@ complete XML protocol.
   migration 0011, rollback state, live acceptance including the first live
   Reddit thread check, plugin receipts, the site wording release and the
   findings library's opening
+- `audits/2026-10-09-product-identity-finalizer-production-release.md`: release of #288 and #290 (owner question 60):
+  exact product identity, the final-check contract and HRP 20.6.13 / Universal 20.5.37, with the plugin refresh.
+- `audits/2026-10-09-offline-access-production-release.md`: release of #289 and #291 (owner question 56):
+  `scale_results`, sign-in asking for `offline_access`, and the owner's remaining Auth0 step.
 - `audits/2026-10-07-buyer-review-production-release.md`: release of #285 (owner question 43): the final
   check requires the buyer-review lane for a product people buy.
 - `audits/2026-10-07-consilience-production-release.md` and `.json`: release of #282 and #283 (owner

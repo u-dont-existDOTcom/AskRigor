@@ -1,6 +1,11 @@
 import { ACCESS_STATUSES, type AccessStatus, type Pagination, type ProviderError } from "@askrigor/contracts";
 import {
   getYoutubeVideo,
+  productIdentitySchema,
+  videoProductClassSchema,
+  classifyProductVideo,
+  productVideoAdmitted,
+  PRODUCT_SNIPPET_LIMITATION,
   searchYoutube,
   youtubeVideoDataSchema,
   type YoutubeConfig,
@@ -22,6 +27,7 @@ export const youtubeCommunityDirectionSchema = z.enum([
 ]);
 
 export const youtubeCommunitySurveyInputSchema = z.object({
+  product_identity: productIdentitySchema.optional(),
   research_question: z.string().trim().min(1).max(5_000),
   searches: z.array(z.object({
     direction: youtubeCommunityDirectionSchema,
@@ -61,6 +67,7 @@ const surveySearchReceiptSchema = z.object({
   candidate_video_ids: z.array(z.string()).max(10)
 }).strict();
 const surveyCandidateSchema = z.object({
+  product_class: videoProductClassSchema.optional(),
   video_id: z.string(),
   canonical_url: z.string().url(),
   directions: z.array(youtubeCommunityDirectionSchema).min(1).max(6),
@@ -86,7 +93,8 @@ export const youtubeCommunitySurveyOutputSchema = z.object({
   limitations: z.array(z.string()),
   error: providerErrorSchema.optional(),
   searches: z.array(surveySearchReceiptSchema).min(1).max(6),
-  candidates: z.array(surveyCandidateSchema).max(60)
+  candidates: z.array(surveyCandidateSchema).max(60),
+  excluded_videos: z.array(surveyCandidateSchema).max(60).optional()
 }).strict();
 
 export type YoutubeCommunityDirection = z.output<typeof youtubeCommunityDirectionSchema>;
@@ -146,7 +154,15 @@ export async function surveyYoutubeCommunity(
   const candidates = await Promise.all(orderedVideoIds.map(async (videoId) => {
     const metadata = await getYoutubeVideo(videoId, config);
     const association = associations.get(videoId)!;
-    return candidateFromMetadata(videoId, association, metadata);
+    const candidate = candidateFromMetadata(videoId, association, metadata);
+    if (parsedInput.data.product_identity === undefined) return candidate;
+    const complete = isComplete(metadata.access_status);
+    const snippet = outcomes.flatMap(({ records }) => records).find(({ video_id }) => video_id === videoId)!;
+    return {
+      ...candidate,
+      product_class: classifyProductVideo(parsedInput.data.product_identity, complete ? metadata.data : snippet),
+      limitations: [...candidate.limitations, ...(complete ? [] : [PRODUCT_SNIPPET_LIMITATION])]
+    };
   }));
   const allSearchesComplete = outcomes.every(({ access_status }) => isComplete(access_status));
   const allMetadataComplete = candidates.every(({ metadata_access_status }) =>
@@ -181,7 +197,10 @@ export async function surveyYoutubeCommunity(
       ...(error === undefined ? {} : { error }),
       candidate_video_ids: records.map(({ video_id }) => video_id)
     })),
-    candidates
+    candidates: candidates.filter((video) => video.product_class === undefined || productVideoAdmitted(video.product_class)),
+    ...(parsedInput.data.product_identity === undefined ? {} : {
+      excluded_videos: candidates.filter((video) => video.product_class !== undefined && !productVideoAdmitted(video.product_class))
+    })
   });
 }
 

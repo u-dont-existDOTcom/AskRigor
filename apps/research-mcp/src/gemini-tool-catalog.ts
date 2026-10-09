@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { RESEARCH_OPERATIONS } from "./register-tools.js";
 
-const GEMINI_DESCRIPTION_MAX_CHARACTERS = 170;
+const GEMINI_DESCRIPTION_MAX_CHARACTERS = 150;
 
 // Inputs that only bind research receipts for finalize_research, which this
 // catalog does not offer; leaving them out keeps it inside its size budget.
@@ -67,9 +67,9 @@ function withoutInputs(
   return { ...schema, properties, ...(required === undefined ? {} : { required }) };
 }
 
-function compactGeminiDescription(description: string): string {
-  if (description.length <= GEMINI_DESCRIPTION_MAX_CHARACTERS) return description;
-  const prefix = description.slice(0, GEMINI_DESCRIPTION_MAX_CHARACTERS - 1);
+function compactGeminiDescription(description: string, maximum = GEMINI_DESCRIPTION_MAX_CHARACTERS): string {
+  if (description.length <= maximum) return description;
+  const prefix = description.slice(0, maximum - 1);
   const boundary = prefix.lastIndexOf(" ");
   return `${prefix.slice(0, Math.max(1, boundary)).replace(/[.;,:]+$/u, "")}.`;
 }
@@ -100,7 +100,10 @@ function sanitizeGeminiFunctionSchema(
       sanitized[key] = sanitizeNamedSchemas(value);
       continue;
     }
-    sanitized[key] = sanitizeSchemaValue(value);
+    // Schema prose has its own bound; exact constraints remain in the hints below.
+    sanitized[key] = key === "description" && typeof value === "string"
+      ? compactGeminiDescription(value, 50)
+      : sanitizeSchemaValue(value);
   }
 
   const hints = constraintHints(schema);
@@ -141,29 +144,29 @@ function sanitizeSchemaValue(value: unknown): unknown {
 function constraintHints(schema: Record<string, unknown>): string[] {
   const hints: string[] = [];
   if ("default" in schema) {
-    hints.push(`Default when omitted: ${JSON.stringify(schema.default)}.`);
+    hints.push(`Default: ${JSON.stringify(schema.default)}.`);
   }
   if (typeof schema.minimum === "number" || typeof schema.maximum === "number") {
-    hints.push(rangeHint("Accepted range", schema.minimum, schema.maximum));
+    hints.push(rangeHint("Range", schema.minimum, schema.maximum));
   }
   if (typeof schema.minLength === "number" || typeof schema.maxLength === "number") {
-    hints.push(rangeHint("Accepted character count", schema.minLength, schema.maxLength));
+    hints.push(rangeHint("Length", schema.minLength, schema.maxLength));
   }
   if (typeof schema.minItems === "number" || typeof schema.maxItems === "number") {
-    hints.push(rangeHint("Accepted item count", schema.minItems, schema.maxItems));
+    hints.push(rangeHint("Items", schema.minItems, schema.maxItems));
   }
   if (typeof schema.pattern === "string") {
-    hints.push(`Required format: ${schema.pattern}.`);
+    hints.push(`Pattern: ${schema.pattern}.`);
   }
   return hints;
 }
 
 function rangeHint(label: string, minimum: unknown, maximum: unknown): string {
   if (typeof minimum === "number" && typeof maximum === "number") {
-    return `${label}: ${minimum} through ${maximum}.`;
+    return `${label}: ${minimum}–${maximum}.`;
   }
   if (typeof minimum === "number") {
-    return `${label}: at least ${minimum}.`;
+    return `${label}: ≥${minimum}.`;
   }
-  return `${label}: at most ${String(maximum)}.`;
+  return `${label}: ≤${String(maximum)}.`;
 }

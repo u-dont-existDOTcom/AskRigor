@@ -1,6 +1,8 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { deflateRawSync, inflateRawSync } from "node:zlib";
 
+import { commentProductCountsSchema, type CommentProductClass } from "@askrigor/sources";
+
 import type {
   YoutubeComment,
   YoutubeCommentSegmentCursor,
@@ -103,6 +105,8 @@ const continuationStateSchema = z.object({
   version: z.literal(TOKEN_VERSION),
   video_id: z.string().regex(/^[A-Za-z0-9_-]{11}$/),
   analysis_limit: z.number().int().min(1).max(MAX_ANALYSIS_RECORDS),
+  product_identity_sha256: z.string().regex(SHA256_PATTERN).optional(),
+  comment_product_counts: commentProductCountsSchema.optional(),
   started_at_ms: boundedInteger,
   expires_at_ms: boundedInteger,
   segment_index: boundedInteger,
@@ -137,6 +141,11 @@ const continuationStateSchema = z.object({
       code: "custom",
       message: "Continuation sample count does not reconcile with retrieved records"
     });
+  }
+  const counts = state.comment_product_counts;
+  if ((state.product_identity_sha256 === undefined) !== (counts === undefined) ||
+      (counts !== undefined && counts.exact + counts.variant_unresolved + counts.other_variant !== state.records_retrieved_cumulative)) {
+    context.addIssue({ code: "custom", message: "Product identity class counts do not reconcile with the continuation corpus" });
   }
   const identifiers = state.sample_identifiers;
   if (new Set(identifiers).size !== identifiers.length) {
@@ -204,6 +213,8 @@ export interface YoutubeVideoAuditContinuationState {
   version: 1;
   video_id: string;
   analysis_limit: number;
+  product_identity_sha256?: string;
+  comment_product_counts?: { exact: number; variant_unresolved: number; other_variant: number };
   started_at_ms: number;
   expires_at_ms: number;
   segment_index: number;
@@ -345,7 +356,8 @@ export function advanceYoutubeAuditState(
     pagination_overlaps_reconciled?: number;
     reply_count_mismatches: YoutubeReplyCountMismatch[];
   },
-  cursor: YoutubeCommentSegmentCursor
+  cursor: YoutubeCommentSegmentCursor,
+  classifyComment?: (comment: YoutubeComment) => CommentProductClass
 ): YoutubeVideoAuditContinuationState {
   const numericCounters = [
     counters.top_level_comments_retrieved,
@@ -410,9 +422,15 @@ export function advanceYoutubeAuditState(
     }
     mismatchByParent.set(mismatch.parent_comment_id, mismatch);
   }
+  const commentProductCounts = state.comment_product_counts === undefined ? undefined : { ...state.comment_product_counts };
+  if (commentProductCounts !== undefined) {
+    if (classifyComment === undefined) throw new Error("Product comment classification is missing");
+    for (const comment of acceptedComments) commentProductCounts[classifyComment(comment)] += 1;
+  }
   const commentPayload = acceptedComments.map(canonicalCommentJson).join("\n");
   const candidate: YoutubeVideoAuditContinuationState = {
     ...state,
+    ...(commentProductCounts === undefined ? {} : { comment_product_counts: commentProductCounts }),
     segment_index: state.segment_index + 1,
     cursor,
     top_level_comments_retrieved:
