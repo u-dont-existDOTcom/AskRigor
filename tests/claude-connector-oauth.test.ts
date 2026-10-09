@@ -19,7 +19,6 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   CASE_REVIEW_SCOPE,
-  OFFLINE_ACCESS_SCOPE,
   RESEARCH_USE_SCOPE,
   claudeOAuthResourceServerFromEnv,
   createJwtOAuthResourceServer,
@@ -74,7 +73,7 @@ async function start(options: { claude: boolean }) {
       ? createJwtOAuthResourceServer({
         resourceUrl: claudeResource, issuerUrl, jwks,
         allowedClientIds: ["claude-client"], reviewerSubjects: ["owner"],
-        scopesSupported: [RESEARCH_USE_SCOPE, CASE_REVIEW_SCOPE, OFFLINE_ACCESS_SCOPE],
+        scopesSupported: [RESEARCH_USE_SCOPE, CASE_REVIEW_SCOPE],
       })
       : null,
     researchContributorAccessService: new ResearchContributorAccessService({
@@ -129,7 +128,7 @@ describe("Claude custom-connector surface", () => {
     expect(await response.json()).toEqual({
       resource: claudeResource.href,
       authorization_servers: [issuerUrl.href],
-      scopes_supported: [RESEARCH_USE_SCOPE, CASE_REVIEW_SCOPE, OFFLINE_ACCESS_SCOPE],
+      scopes_supported: [RESEARCH_USE_SCOPE, CASE_REVIEW_SCOPE],
     });
   });
 
@@ -149,8 +148,7 @@ describe("Claude custom-connector surface", () => {
       const challenge = response.headers.get("www-authenticate") ?? "";
       expect(challenge).toContain('Bearer error="invalid_token"');
       expect(challenge).toContain('resource_metadata="https://mcp.askrigor.example/.well-known/oauth-protected-resource/mcp/claude"');
-      // offline_access makes clients ask for a refresh token, so a connector does not expire with its access token.
-      expect(challenge).toContain(`scope="${RESEARCH_USE_SCOPE} ${CASE_REVIEW_SCOPE} ${OFFLINE_ACCESS_SCOPE}"`);
+      expect(challenge).toContain(`scope="${RESEARCH_USE_SCOPE} ${CASE_REVIEW_SCOPE}"`);
     }
   });
 
@@ -222,7 +220,7 @@ describe("claudeOAuthResourceServerFromEnv", () => {
       ...base, ASKRIGOR_OAUTH_CLAUDE_CLIENT_ID: "claude-client", ASKRIGOR_OAUTH_CLAUDE_RESOURCE_URL: claudeResource.href,
     });
     expect(ok?.resourceUrl.href).toBe(claudeResource.href);
-    expect(ok?.scopesSupported).toEqual([RESEARCH_USE_SCOPE, CASE_REVIEW_SCOPE, OFFLINE_ACCESS_SCOPE]);
+    expect(ok?.scopesSupported).toEqual([RESEARCH_USE_SCOPE, CASE_REVIEW_SCOPE]);
     expect([...(ok?.reviewerSubjects ?? [])]).toEqual(["owner"]);
     for (const resource of [primaryResource.href, "http://mcp.askrigor.example/mcp/claude", undefined]) {
       expect(() => claudeOAuthResourceServerFromEnv({
