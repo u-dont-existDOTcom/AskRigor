@@ -87,7 +87,8 @@ The optional ChatGPT/Codex review operation additionally requires:
   level, because metadata-document clients are strict third-party clients.
   The API also needs **Allow Offline Access** (APIs → AskRigor MCP → Settings →
   Access Settings). AskRigor advertises `offline_access` in its protected-resource
-  metadata and 401 challenge (2026-10-09), so clients request a refresh token.
+  metadata and 401 challenge (2026-10-09), and in the sign-in prompts its tools
+  return, so clients request a refresh token.
   Without one, a ChatGPT connector's sign-in ends with its access token ("connection
   has expired"). After the change, the connector is recreated in ChatGPT so it reads
   the new metadata.

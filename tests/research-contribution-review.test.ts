@@ -132,6 +132,9 @@ describe("research contribution owner review", () => {
     expect(unauthorized.structuredContent).toMatchObject({
       error: { code: "authorization_required" },
     });
+    expect(unauthorized._meta?.["mcp/www_authenticate"]).toEqual([
+      expect.stringContaining('scope="cases:review offline_access"'),
+    ]);
 
     const forbidden = await handler({ action: "inspect" }, auth("auth0|other"));
     expect(forbidden.structuredContent).toMatchObject({

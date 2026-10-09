@@ -10,6 +10,7 @@ import {
 import { z } from "zod";
 
 import {
+  OFFLINE_ACCESS_SCOPE,
   RESEARCH_USE_SCOPE,
   SIGN_IN_REFUSALS,
   type SignInRefusal,
@@ -477,7 +478,7 @@ function oauthError(
   if (resourceMetadataUrl !== undefined) {
     result._meta = {
       "mcp/www_authenticate": [
-        `Bearer resource_metadata="${resourceMetadataUrl.href}", scope="${RESEARCH_USE_SCOPE}", error="${oauthCode}", error_description="${message}"`,
+        `Bearer resource_metadata="${resourceMetadataUrl.href}", scope="${RESEARCH_USE_SCOPE} ${OFFLINE_ACCESS_SCOPE}", error="${oauthCode}", error_description="${message}"`,
       ],
     };
   }

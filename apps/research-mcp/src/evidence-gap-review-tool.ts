@@ -6,7 +6,7 @@ import {
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
-import { CASE_REVIEW_SCOPE } from "./oauth-resource-server.js";
+import { CASE_REVIEW_SCOPE, OFFLINE_ACCESS_SCOPE } from "./oauth-resource-server.js";
 import type { ResearchOperationExtra } from "./research-operation.js";
 
 export const evidenceGapReviewInputSchema = z.object({
@@ -155,7 +155,7 @@ function authorizationError(
   if (resourceMetadataUrl !== undefined) {
     result._meta = {
       "mcp/www_authenticate": [
-        `Bearer resource_metadata="${resourceMetadataUrl.href}", scope="${CASE_REVIEW_SCOPE}", error="${oauthError}", error_description="${message}"`,
+        `Bearer resource_metadata="${resourceMetadataUrl.href}", scope="${CASE_REVIEW_SCOPE} ${OFFLINE_ACCESS_SCOPE}", error="${oauthError}", error_description="${message}"`,
       ],
     };
   }

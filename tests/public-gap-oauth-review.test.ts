@@ -287,6 +287,11 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
         'resource_metadata="https://mcp.askrigor.example/.well-known/oauth-protected-resource/mcp"',
       ),
     ]);
+    // A sign-in started from this prompt also asks for a refresh token, so the
+    // connection outlives its first access token.
+    expect(result._meta?.["mcp/www_authenticate"]).toEqual([
+      expect.stringContaining('scope="cases:review offline_access"'),
+    ]);
   });
 
   it("rejects stale, wrong-resource, and insufficient-scope tokens for both research and review", async () => {
@@ -304,6 +309,12 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
 
       expect(research.isError, token).toBe(true);
       expect(review.isError, token).toBe(true);
+      expect(research._meta?.["mcp/www_authenticate"], token).toEqual([
+        expect.stringContaining('scope="research:use offline_access"'),
+      ]);
+      expect(review._meta?.["mcp/www_authenticate"], token).toEqual([
+        expect.stringContaining('scope="cases:review offline_access"'),
+      ]);
       expect(review.structuredContent, token).toMatchObject({
         ok: false,
         error: {
