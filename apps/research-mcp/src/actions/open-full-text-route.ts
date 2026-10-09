@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 
 import {
   acquireOpenFullText,
+  publicBasisSchema,
+  type AcquireOpenFullTextRuntime,
   acquisitionStateSchema, candidateUrlsSchema, candidateTextsSchema, fullTextCandidateSchema, publicCopySearchSchema, publicCopySearchResultSchema,
   type AcquireOpenFullTextInput,
   type AuditableDocumentBlock,
@@ -81,7 +83,9 @@ const blockSegmentSchema = z.object({
   source_block_text_sha256: z.string().regex(/^[a-f0-9]{64}$/u)
 }).strict();
 const sourceSchema = z.object({
-  provider: z.enum(["europe_pmc", "unpaywall_open_location", "direct_candidate", "client_supplied"]),
+  provider: z.enum(["europe_pmc", "unpaywall_open_location", "direct_candidate", "client_supplied", "owner_library"]),
+  retrieval_provider: z.literal("owner_library").optional(),
+  public_basis: publicBasisSchema.optional(),
   primary_identifier: z.string(),
   canonical_url: z.string().url(),
   pmcid: z.string().optional(),
@@ -95,8 +99,8 @@ const sourceSchema = z.object({
   identity_verification: z.enum(["pmcid_exact", "doi_exact", "pii_exact", "title_match"])
 }).strict();
 const discoveryAttemptSchema = z.object({
-  route: z.enum(["europe_pmc", "unpaywall", "candidate"]),
-  result: z.enum(["indexed", "not_found", "inaccessible", "fetch_blocked", "error", "partial_text", "abstract_only", "identity_mismatch"]),
+  route: z.enum(["europe_pmc", "unpaywall", "candidate", "owner_library"]),
+  result: z.enum(["indexed", "not_found", "inaccessible", "fetch_blocked", "error", "partial_text", "abstract_only", "identity_mismatch", "not_public"]),
   identifier: z.string().optional()
 }).strict();
 const coverageSchema = z.object({
@@ -302,7 +306,8 @@ export interface CreateOpenFullTextActionRoutesOptions {
   store?: OpenFullTextHandleStore;
   acquire?: (
     input: AcquireOpenFullTextInput,
-    config: UnpaywallConfig | undefined
+    config: UnpaywallConfig | undefined,
+    runtime?: AcquireOpenFullTextRuntime
   ) => ReturnType<typeof acquireOpenFullText>;
   unpaywallConfig?: UnpaywallConfig;
   studyAuditReuse?: {
@@ -314,7 +319,8 @@ export interface CreateOpenFullTextActionRoutesOptions {
 export interface OpenFullTextExecutor {
   readAuditMaterial?(documentHandle: string): AuditableDocumentIndex;
   acquire(
-    input: z.output<typeof acquireOpenFullTextActionInputSchema>
+    input: z.output<typeof acquireOpenFullTextActionInputSchema>,
+    runtime?: AcquireOpenFullTextRuntime
   ): Promise<z.output<typeof openFullTextActionOutputSchema>>;
   continue(
     input: z.output<typeof continueOpenFullTextActionInputSchema>
@@ -366,9 +372,9 @@ export function createOpenFullTextExecutor(
       if (!state.cursor.exhausted) throw new OpenFullTextNotReadError();
       return structuredClone(state.index);
     },
-    async acquire(input) {
+    async acquire(input, runtime) {
       const parsed = acquireOpenFullTextActionInputSchema.parse(input);
-      const result = await acquire(parsed, unpaywallConfig);
+      const result = await acquire(parsed, unpaywallConfig, runtime);
       const data = result.data as OpenFullTextAcquisitionData;
       if (result.access_status !== "complete" || data.document_index === undefined ||
           data.acquisition_state !== undefined && data.acquisition_state !== "FULL_TEXT_READABLE") {

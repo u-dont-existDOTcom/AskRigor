@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import type { ProvenanceEnvelope } from "@askrigor/contracts";
 import {
+  publicBasisSchema,
   acquisitionStateSchema, fullTextCandidateSchema, canSignFullTextLead, publicCopySearchResultSchema,
   fetchPubmedRecord,
   normalizeDoiIdentifier,
@@ -178,8 +179,8 @@ const sourceOriginSchema = z.object({
 }).strict();
 
 const discoveryAttemptSchema = z.object({
-  route: z.enum(["europe_pmc", "unpaywall", "candidate"]),
-  result: z.enum(["indexed", "not_found", "inaccessible", "fetch_blocked", "error", "partial_text", "abstract_only", "identity_mismatch"]),
+  route: z.enum(["europe_pmc", "unpaywall", "candidate", "owner_library"]),
+  result: z.enum(["indexed", "not_found", "inaccessible", "fetch_blocked", "error", "partial_text", "abstract_only", "identity_mismatch", "not_public"]),
   identifier: bounded(2_048).optional()
 }).strict();
 
@@ -199,6 +200,8 @@ const fullTextStateSchema = z.object({
   public_copy_search: publicCopySearchResultSchema.optional(),
   candidates: z.array(fullTextCandidateSchema).max(7).optional(),
   source_primary_identifier: bounded(2_048).optional(),
+  retrieval_provider: z.literal("owner_library").optional(),
+  public_basis: publicBasisSchema.optional(),
   source_canonical_url: z.string().url().max(4_000).optional(),
   source_version: bounded(200).optional(),
   source_content_sha256: digest.optional(),
@@ -1072,6 +1075,8 @@ export function ingestOpenFullTextOutput(
       candidates: page.candidates ?? before.candidates,
       source_primary_identifier: page.source.primary_identifier,
       source_canonical_url: page.source.canonical_url,
+      retrieval_provider: page.source.retrieval_provider,
+      public_basis: page.source.public_basis,
       ...(page.source.version === undefined ? {} : { source_version: page.source.version }),
       source_content_sha256: receipt.source_content_sha256,
       source_block_count: receipt.source_block_count,

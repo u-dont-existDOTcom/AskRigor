@@ -24,7 +24,7 @@ import {
   type UnpaywallOpenLocation
 } from "./unpaywall.js";
 
-import { admitFullText, titleVariants, verifyArticleIdentity, type AcquisitionState, type FrozenArticleIdentity, type FullTextAdmission } from "./full-text-admission.js";
+import { admitFullText, titleVariants, verifyArticleIdentity, type AcquisitionState, type FrozenArticleIdentity, type FullTextAdmission, type PublicBasis } from "./full-text-admission.js";
 
 const MAX_PDF_PAGES = 1_000;
 const MAX_EXTRACTED_CHARACTERS = 20_000_000;
@@ -42,6 +42,7 @@ export interface AcquireUnpaywallFullTextRuntime {
 }
 
 export interface UnpaywallFullTextData {
+  public_basis?: PublicBasis;
   requested_doi: string;
   outcome: "full_text_indexed" | "possibly_useful_lead";
   discovery_status: string;
@@ -95,6 +96,12 @@ export async function acquireUnpaywallFullText(
     ...runtime.identity,
     title_variants: Object.freeze(titleVariants(runtime.identity?.title, ...(runtime.identity?.title_variants ?? []), discovery.title))
   });
+  const licensedLocation = [discovery.best_location, ...discovery.oa_locations]
+    .find((location) => location?.license?.toLowerCase().startsWith("cc-") === true);
+  const publicBasis: PublicBasis | undefined = licensedLocation === undefined ? undefined : {
+    route: "unpaywall", url: licensedLocation.landing_page_url ?? licensedLocation.location_url ??
+      licensedLocation.pdf_url ?? licensedLocation.candidate_full_text_url ?? `https://doi.org/${doi}`
+  };
   const locations = pdfCandidates(discovery);
   if (locations.length === 0) {
     return unavailable(
@@ -102,7 +109,7 @@ export async function acquireUnpaywallFullText(
       resolution.access_status,
       [],
       "Unpaywall found no direct HTTPS PDF candidate. The citation remains a possibly useful lead requiring further investigation.",
-      discovery.full_text_lead_status === "no_open_location_found" ? "PRIMARY_OA_ROUTES_EXHAUSTED" : "ABSTRACT_ONLY", identity
+      discovery.full_text_lead_status === "no_open_location_found" ? "PRIMARY_OA_ROUTES_EXHAUSTED" : "ABSTRACT_ONLY", identity, publicBasis
     );
   }
 
@@ -175,7 +182,8 @@ export async function acquireUnpaywallFullText(
           attempted_locations: attempts,
           document_index: index,
           acquisition_state: "FULL_TEXT_READABLE",
-          identity
+          identity,
+          ...(publicBasis === undefined ? {} : { public_basis: publicBasis })
         }
       });
     } catch {
@@ -188,7 +196,7 @@ export async function acquireUnpaywallFullText(
     resolution.access_status,
     attempts,
     "Open copies were discovered, but none passed bounded retrieval, PDF extraction, identity and full-text admission. Their unseen contents were not treated as evidence.",
-    attempts.some(({ result }) => result === "fetch_failed" || result === "extraction_failed" || result === "not_pdf") ? "PROVIDER_UNAVAILABLE" : observedState, identity
+    attempts.some(({ result }) => result === "fetch_failed" || result === "extraction_failed" || result === "not_pdf") ? "PROVIDER_UNAVAILABLE" : observedState, identity, publicBasis
   );
 }
 
@@ -358,7 +366,8 @@ function unavailable(
   attempts: UnpaywallFullTextData["attempted_locations"],
   boundary: string,
   state: AcquisitionState = "PRIMARY_OA_ROUTES_EXHAUSTED",
-  identity?: FrozenArticleIdentity
+  identity?: FrozenArticleIdentity,
+  publicBasis?: PublicBasis
 ): ProvenanceEnvelope<UnpaywallFullTextData> {
   const envelope = errorEnvelope({
     provider: "unpaywall",
@@ -382,7 +391,8 @@ function unavailable(
       attempted_locations: attempts,
       access_boundary: boundary,
       acquisition_state: state,
-      ...(identity === undefined ? {} : { identity })
+      ...(identity === undefined ? {} : { identity }),
+      ...(publicBasis === undefined ? {} : { public_basis: publicBasis })
     }
   });
   return envelope as ProvenanceEnvelope<UnpaywallFullTextData>;

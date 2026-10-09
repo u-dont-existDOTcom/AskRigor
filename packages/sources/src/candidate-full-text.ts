@@ -72,7 +72,7 @@ export function acquireSuppliedCandidateFullText(
   identity: FrozenArticleIdentity,
   abstractText: string | undefined,
   runtime: Pick<CandidateFullTextRuntime, "now"> = {}
-): { candidate: FullTextCandidate; index?: AuditableDocumentIndex } {
+): { candidate: FullTextCandidate; index?: AuditableDocumentIndex; abstractVerified?: boolean } {
   const record: FullTextCandidate = {
     url: supplied.url, ...sourceClassification(supplied.url, undefined, identity.publisher_host),
     retrieval_provider: "client_search_index", state: "IDENTITY_MISMATCH", identity_verification: "not_verified",
@@ -100,7 +100,7 @@ export function acquireSuppliedCandidateFullText(
       ? "The exact abstract cross-check was skipped because the existing Europe PMC DOI-search record carries no abstract."
       : "The exact abstract cross-check was skipped because the study's abstract is too short to identify it."];
   }
-  return checked;
+  return { ...checked, abstractVerified: abstractCheckable };
 }
 
 function inspectCandidateText(

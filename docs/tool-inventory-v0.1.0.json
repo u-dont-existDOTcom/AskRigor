@@ -1264,7 +1264,7 @@
     },
     {
       "name": "acquire_open_full_text",
-      "description": "Acquires one DOI through Europe PMC, Unpaywall PDFs, up to five public HTTPS candidate_urls, and up to two AI-supplied candidate_texts from a client search index, with an optional PMCID. Supplied texts receive the same identity, admission and embedded-block checks plus an exact abstract cross-check when available; audits carry a search-copy caveat. Records expanded public-copy searches with public_copy_search; lead receipts require exact DOI and known-title queries without technical failures. Reports identity, structural completeness, source class and its basis, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID.",
+      "description": "Acquires one DOI through Europe PMC, Unpaywall PDFs, up to five public HTTPS candidate_urls, and up to two AI-supplied candidate_texts from a client search index, with an optional PMCID. When none of these is admitted, the configured owner library serves the signed-in owner, or an active paid-private account whose paper shows a verified public basis: a public page with the paper's own text beyond its abstract, or an open license. Library copies cite the public basis URL and expose no library link. Supplied texts receive the same identity, admission and embedded-block checks plus an exact abstract cross-check when available; audits carry a search-copy caveat. Records expanded public-copy searches with public_copy_search; lead receipts require exact DOI and known-title queries without technical failures. Reports identity, structural completeness, source class and its basis, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1392,7 +1392,8 @@
                   "enum": [
                     "europe_pmc",
                     "unpaywall",
-                    "candidate"
+                    "candidate",
+                    "owner_library"
                   ]
                 },
                 "result": {
@@ -1405,7 +1406,8 @@
                     "error",
                     "partial_text",
                     "abstract_only",
-                    "identity_mismatch"
+                    "identity_mismatch",
+                    "not_public"
                   ]
                 },
                 "identifier": {
@@ -1499,8 +1501,32 @@
                   "type": "string",
                   "enum": [
                     "direct",
-                    "client_search_index"
+                    "client_search_index",
+                    "owner_library"
                   ]
+                },
+                "public_basis": {
+                  "type": "object",
+                  "properties": {
+                    "route": {
+                      "type": "string",
+                      "enum": [
+                        "europe_pmc",
+                        "unpaywall",
+                        "candidate"
+                      ]
+                    },
+                    "url": {
+                      "type": "string",
+                      "maxLength": 4000,
+                      "format": "uri"
+                    }
+                  },
+                  "required": [
+                    "route",
+                    "url"
+                  ],
+                  "additionalProperties": false
                 },
                 "extraction": {
                   "description": "Records selection of one qualifying embedded article block after whole-page inspection failed.",
@@ -1585,8 +1611,36 @@
                   "europe_pmc",
                   "unpaywall_open_location",
                   "direct_candidate",
-                  "client_supplied"
+                  "client_supplied",
+                  "owner_library"
                 ]
+              },
+              "retrieval_provider": {
+                "type": "string",
+                "const": "owner_library"
+              },
+              "public_basis": {
+                "type": "object",
+                "properties": {
+                  "route": {
+                    "type": "string",
+                    "enum": [
+                      "europe_pmc",
+                      "unpaywall",
+                      "candidate"
+                    ]
+                  },
+                  "url": {
+                    "type": "string",
+                    "maxLength": 4000,
+                    "format": "uri"
+                  }
+                },
+                "required": [
+                  "route",
+                  "url"
+                ],
+                "additionalProperties": false
               },
               "primary_identifier": {
                 "type": "string"
@@ -1921,7 +1975,8 @@
                   "enum": [
                     "europe_pmc",
                     "unpaywall",
-                    "candidate"
+                    "candidate",
+                    "owner_library"
                   ]
                 },
                 "result": {
@@ -1934,7 +1989,8 @@
                     "error",
                     "partial_text",
                     "abstract_only",
-                    "identity_mismatch"
+                    "identity_mismatch",
+                    "not_public"
                   ]
                 },
                 "identifier": {
@@ -2028,8 +2084,32 @@
                   "type": "string",
                   "enum": [
                     "direct",
-                    "client_search_index"
+                    "client_search_index",
+                    "owner_library"
                   ]
+                },
+                "public_basis": {
+                  "type": "object",
+                  "properties": {
+                    "route": {
+                      "type": "string",
+                      "enum": [
+                        "europe_pmc",
+                        "unpaywall",
+                        "candidate"
+                      ]
+                    },
+                    "url": {
+                      "type": "string",
+                      "maxLength": 4000,
+                      "format": "uri"
+                    }
+                  },
+                  "required": [
+                    "route",
+                    "url"
+                  ],
+                  "additionalProperties": false
                 },
                 "extraction": {
                   "description": "Records selection of one qualifying embedded article block after whole-page inspection failed.",
@@ -2114,8 +2194,36 @@
                   "europe_pmc",
                   "unpaywall_open_location",
                   "direct_candidate",
-                  "client_supplied"
+                  "client_supplied",
+                  "owner_library"
                 ]
+              },
+              "retrieval_provider": {
+                "type": "string",
+                "const": "owner_library"
+              },
+              "public_basis": {
+                "type": "object",
+                "properties": {
+                  "route": {
+                    "type": "string",
+                    "enum": [
+                      "europe_pmc",
+                      "unpaywall",
+                      "candidate"
+                    ]
+                  },
+                  "url": {
+                    "type": "string",
+                    "maxLength": 4000,
+                    "format": "uri"
+                  }
+                },
+                "required": [
+                  "route",
+                  "url"
+                ],
+                "additionalProperties": false
               },
               "primary_identifier": {
                 "type": "string"

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { publicBasisSchema } from "./full-text-admission.js";
+
 import {
   jatsStudyIndexSchema,
   type JatsStudyIndex
@@ -25,7 +27,9 @@ export const auditableDocumentBlockSchema = z.object({
 
 export const auditableDocumentIndexSchema = z.object({
   source: z.object({
-    provider: z.enum(["europe_pmc", "unpaywall_open_location", "direct_candidate", "client_supplied"]),
+    provider: z.enum(["europe_pmc", "unpaywall_open_location", "direct_candidate", "client_supplied", "owner_library"]),
+    retrieval_provider: z.literal("owner_library").optional(),
+    public_basis: publicBasisSchema.optional(),
     primary_identifier: z.string().min(1).max(2_048),
     canonical_url: z.string().url(),
     pmcid: z.string().regex(/^PMC[1-9]\d{0,15}$/u).optional(),

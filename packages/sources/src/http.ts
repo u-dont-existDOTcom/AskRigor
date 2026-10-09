@@ -227,11 +227,12 @@ export const fetchJson = async <T = unknown>(
 };
 
 export interface DiscoveredDocumentFetchRuntime {
+  signal?: AbortSignal;
   resolveAddresses?: (hostname: string) => Promise<readonly string[]>;
   requestDocument?: (
     url: URL,
     vettedAddresses: readonly string[],
-    options: { timeoutMs: number; maximumBytes: number }
+    options: { timeoutMs: number; maximumBytes: number; signal?: AbortSignal }
   ) => Promise<DiscoveredDocumentHttpResponse>;
   /** Test-only compatibility hook. Production uses the DNS-pinned HTTPS requester. */
   fetch?: typeof globalThis.fetch;
@@ -282,12 +283,13 @@ export async function fetchDiscoveredDocument(
   for (let redirect = 0; redirect <= maximumRedirects; redirect += 1) {
     let response: DiscoveredDocumentHttpResponse;
     try {
-      const vettedAddresses = await publicDestinationAddresses(current, resolver);
+      runtime.signal?.throwIfAborted();
+      const vettedAddresses = await withAbortSignal(publicDestinationAddresses(current, resolver), runtime.signal);
       response = runtime.fetch === undefined
         ? await (runtime.requestDocument ?? requestPinnedDocument)(
-          current, vettedAddresses, { timeoutMs, maximumBytes }
+          current, vettedAddresses, { timeoutMs, maximumBytes, signal: runtime.signal }
         )
-        : await requestWithInjectedFetch(runtime.fetch, current, timeoutMs, maximumBytes);
+        : await requestWithInjectedFetch(runtime.fetch, current, timeoutMs, maximumBytes, runtime.signal);
     } catch (error) {
       if (error instanceof DiscoveredDocumentError || error instanceof UpstreamHttpError) throw error;
       throw new DiscoveredDocumentError("transport", "Discovered document transport failed");
@@ -328,6 +330,19 @@ export async function fetchDiscoveredDocument(
   throw new DiscoveredDocumentError("invalid_response", "Discovered document retrieval failed");
 }
 
+/** Includes DNS resolution in a caller's overall deadline. */
+async function withAbortSignal<T>(pending: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (signal === undefined) return pending;
+  let onAbort: () => void = () => undefined;
+  const aborted = new Promise<never>((_resolve, reject) => {
+    onAbort = () => reject(signal.reason);
+    signal.addEventListener("abort", onAbort, { once: true });
+    if (signal.aborted) onAbort();
+  });
+  try { return await Promise.race([pending, aborted]); }
+  finally { signal.removeEventListener("abort", onAbort); }
+}
+
 /** Same DNS-pinned, redirect-rechecked, bounded transport for public candidates. */
 export async function fetchCandidateDocument(
   value: string,
@@ -340,7 +355,8 @@ async function requestWithInjectedFetch(
   fetcher: typeof globalThis.fetch,
   url: URL,
   timeoutMs: number,
-  maximumBytes: number
+  maximumBytes: number,
+  signal?: AbortSignal
 ): Promise<DiscoveredDocumentHttpResponse> {
   const response = await fetcher(url, {
     method: "GET",
@@ -348,7 +364,7 @@ async function requestWithInjectedFetch(
       Accept: "application/pdf,text/html,application/xhtml+xml,text/plain,application/octet-stream;q=0.8"
     },
     redirect: "manual",
-    signal: AbortSignal.timeout(timeoutMs)
+    signal: signal === undefined ? AbortSignal.timeout(timeoutMs) : AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)])
   });
   const shouldRead = response.status >= 200 && response.status < 300;
   const bytes = shouldRead
@@ -361,7 +377,7 @@ async function requestWithInjectedFetch(
 async function requestPinnedDocument(
   url: URL,
   vettedAddresses: readonly string[],
-  options: { timeoutMs: number; maximumBytes: number }
+  options: { timeoutMs: number; maximumBytes: number; signal?: AbortSignal }
 ): Promise<DiscoveredDocumentHttpResponse> {
   let lastError: unknown;
   for (const address of vettedAddresses) {
@@ -377,7 +393,7 @@ async function requestPinnedDocument(
 function requestPinnedAddress(
   url: URL,
   address: string,
-  options: { timeoutMs: number; maximumBytes: number }
+  options: { timeoutMs: number; maximumBytes: number; signal?: AbortSignal }
 ): Promise<DiscoveredDocumentHttpResponse> {
   const originalHostname = url.hostname.replace(/^\[|\]$/gu, "");
   return new Promise((resolve, reject) => {
@@ -393,7 +409,7 @@ function requestPinnedAddress(
       },
       ...(isIP(originalHostname) === 0 ? { servername: originalHostname } : {}),
       rejectUnauthorized: true,
-      signal: AbortSignal.timeout(options.timeoutMs)
+      signal: options.signal === undefined ? AbortSignal.timeout(options.timeoutMs) : AbortSignal.any([options.signal, AbortSignal.timeout(options.timeoutMs)])
     }, (response) => {
       void (async () => {
         const status = response.statusCode ?? 0;

@@ -1,5 +1,8 @@
 export {
   ALLOWED_UPSTREAM_HOSTS,
+  fetchDiscoveredDocument,
+  DiscoveredDocumentError,
+  type DiscoveredDocumentFetchRuntime,
   fetchJson,
   fetchText,
   type UpstreamFetchOptions,
@@ -39,6 +42,8 @@ export {
 } from "./unpaywall-full-text.js";
 export {
   acquireOpenFullText,
+  type OwnerLibraryPdf,
+  type OwnerLibraryErrorCode,
   type AcquireOpenFullTextInput,
   type AcquireOpenFullTextRuntime,
   type OpenFullTextAcquisitionData
@@ -266,4 +271,4 @@ export {
   type YoutubeTranscriptRuntime
 } from "./youtube-transcript.js";
 
-export { acquisitionStateSchema, candidateUrlsSchema, candidateTextsSchema, fullTextCandidateSchema, publicCopySearchSchema, publicCopySearchResultSchema, hasFailedFullTextAcquisition, canSignFullTextLead, admitFullText, FULL_TEXT_BODY_MIN_CHARACTERS, type AcquisitionState, type CandidateText, type FullTextCandidate, type FrozenArticleIdentity } from "./full-text-admission.js";
+export { publicBasisSchema, type PublicBasis, acquisitionStateSchema, candidateUrlsSchema, candidateTextsSchema, fullTextCandidateSchema, publicCopySearchSchema, publicCopySearchResultSchema, hasFailedFullTextAcquisition, canSignFullTextLead, admitFullText, FULL_TEXT_BODY_MIN_CHARACTERS, type AcquisitionState, type CandidateText, type FullTextCandidate, type FrozenArticleIdentity } from "./full-text-admission.js";

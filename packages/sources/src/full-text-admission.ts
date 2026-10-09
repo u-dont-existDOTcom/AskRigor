@@ -36,11 +36,17 @@ export const publicCopySearchResultSchema = z.object({
 }).strict();
 export type PublicCopySearch = z.output<typeof publicCopySearchSchema>;
 export type PublicCopySearchResult = z.output<typeof publicCopySearchResultSchema>;
+export const publicBasisSchema = z.object({
+  route: z.enum(["europe_pmc", "unpaywall", "candidate"]),
+  url: z.string().url().max(4_000)
+}).strict();
+export type PublicBasis = z.output<typeof publicBasisSchema>;
 export const fullTextCandidateSchema = z.object({
   url: z.string().url(),
   source_class: sourceClassSchema,
   source_class_basis: z.enum(["known_host", "metadata_publisher_host", "declared", "unrecognized_host"]),
-  retrieval_provider: z.enum(["direct", "client_search_index"]),
+  retrieval_provider: z.enum(["direct", "client_search_index", "owner_library"]),
+  public_basis: publicBasisSchema.optional(),
   extraction: z.literal("embedded_block").optional().describe("Records selection of one qualifying embedded article block after whole-page inspection failed."),
   limitations: z.array(z.string()).optional().describe("Records structural extraction limits and failed or skipped abstract cross-checks."),
   state: acquisitionStateSchema.exclude(["PRIMARY_OA_ROUTES_EXHAUSTED"]),

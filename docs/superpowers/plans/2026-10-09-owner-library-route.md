@@ -25,12 +25,15 @@
 3. **`owner`:** fetch by DOI, then admit the copy like any other: identity on PDF pages 1 and 2 (DOI, PII or title),
    and readable methods, results and discussion.
 4. **`public_only`:** the library copy is used only when, in the same call, the same paper has a public basis:
-   - an admitted public copy from any route (Europe PMC open access, an Unpaywall open-access location, or a
-     candidate URL that AskRigor fetched and admitted);
-   - a candidate that passed the identity checks even if its own text is partial: a fetched candidate URL, or an
-     AI-supplied search-index copy that passed the exact-abstract check. This is the case of a ResearchGate or
-     Academia.edu page that the AI's search reached but AskRigor cannot read itself;
+   - a public page that passed the identity checks and shows the paper's own text beyond its abstract, even if
+     only partly: a fetched candidate URL, or an AI-supplied search-index copy that passed the exact-abstract check.
+     This is the case of a ResearchGate or Academia.edu page that the AI's search reached but AskRigor cannot read
+     in full itself;
    - or an open license on Unpaywall's record (`cc-*`).
+
+   An abstract-only page, or a bare URL AskRigor could not read, is not a public copy of the paper.
+   (Implementation review, 2026-10-09: a public copy that AskRigor admits in full is returned as it is, and the library
+   is not consulted. The library only fills a gap, for the owner too.)
 5. **Search first (the owner's condition):**
    - The route returns `not_public` only after `public_copy_search` is declared. That declaration records the AI's
      exact title and DOI searches over the sites its search reaches, such as ResearchGate, Academia.edu, author and
