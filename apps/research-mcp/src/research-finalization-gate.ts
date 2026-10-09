@@ -61,6 +61,9 @@ const ANSWER_QUOTES_DESCRIPTION = "With answer_draft: the answer's sentence(s) t
   "it; one may serve several.";
 
 export const FINALIZE_RESEARCH_CONTRACT = "2026-10-07";
+// A chat keeps its own copy of the tool list, so a field added in a release can be missing from it. When a required
+// declaration is missing, next_steps names the way out once instead of looping (UDA lane item
+// 2026-10-07-finalizer-must-not-require-unexposed-schema-fields).
 export const TOOL_LIST_REFRESH_HINT = "If this chat's AskRigor tool has no such field, its tool list is outdated: " +
   "refreshing the AskRigor connector in the app's settings and starting a new chat loads the current list.";
 

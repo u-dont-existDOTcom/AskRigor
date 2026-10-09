@@ -117,6 +117,7 @@ describe("finalize_research product review requirement", () => {
     const result = checked(input);
     expect(result.status).toBe("not_ready");
     expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([STATE_STEP]);
+    expect(result.next_steps.filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
     expect(result.finalization_receipt).toBeUndefined();
   });
 

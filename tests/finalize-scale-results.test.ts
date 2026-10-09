@@ -100,10 +100,13 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
   });
 
   it("requires scale_results with answer_draft, while accepting an explicit empty list", async () => {
-    blocked(await call({ scale_results: undefined }), [
+    const missing = await call({ scale_results: undefined });
+    blocked(missing, [
       "scale_results is missing: with answer_draft, the declaration lists each scale or questionnaire result " +
         "reported in the answer (an empty list means none)."
     ]);
+    // A chat whose tool list predates scale_results is told the way out once.
+    expect(missing.next_steps.filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
     ready(await call({ answer_draft: "This answer reports no scale scores.", scale_results: [] }));
   });
 

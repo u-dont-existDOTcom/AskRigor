@@ -24,6 +24,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   CASE_REVIEW_SCOPE,
+  OFFLINE_ACCESS_SCOPE,
   RESEARCH_USE_SCOPE,
   createJwtOAuthResourceServer,
   oauthResourceServerFromEnv,
@@ -271,7 +272,7 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
     expect(await metadata.json()).toEqual({
       resource: resourceUrl.href,
       authorization_servers: [issuerUrl.href],
-      scopes_supported: [RESEARCH_USE_SCOPE, CASE_REVIEW_SCOPE],
+      scopes_supported: [RESEARCH_USE_SCOPE, CASE_REVIEW_SCOPE, OFFLINE_ACCESS_SCOPE],
     });
     expect(result.isError).toBe(true);
     expect(result.structuredContent).toEqual({
