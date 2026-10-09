@@ -25,7 +25,7 @@ function packageFor(overrides: Partial<FinalizeResearchInput> = {}): FinalizeRes
   const reviews = {
     community: "Local Reviews", platform: "review_site" as const, queries: [TARGET],
     threads_read: [{ url: "https://reviews.example/nan-bao" }], ...QUOTES, answer_quotes: { ...QUOTES },
-    review_corpora: [{ product: PRODUCT, reviews_shown: 3, reviews_read: 3, selection: "all" as const,
+    review_corpora: [{ outcome_search: { queries: [TARGET], directions: ["benefit" as const, "no_effect" as const, "worse" as const] }, product: PRODUCT, reviews_shown: 3, reviews_read: 3, selection: "all" as const,
       item_identity: { exact_product: 2, variant_unresolved: 0, other_variant_excluded: 1 } }]
   };
   const forum = { community: "Herbs Forum", platform: "forum" as const, queries: [TARGET],

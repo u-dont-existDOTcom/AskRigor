@@ -1128,7 +1128,7 @@ describe("finalize_research gate", () => {
       `[ADHD Parents Forum](${forumThread}), one parent saw better sleep, most saw no change, and none reported side ` +
       "effects, which adds little.";
     const product = "Humic Drops 2 oz";
-    const topRanked = [{ product, reviews_shown: 2400, reviews_read: 8, item_identity: { exact_product: 8, variant_unresolved: 0, other_variant_excluded: 0 }, selection: "top_ranked" }];
+    const topRanked = [{ outcome_search: { queries: ["humic acid ADHD outcomes"], directions: ["benefit", "no_effect", "worse"] }, product, reviews_shown: 2400, reviews_read: 8, item_identity: { exact_product: 8, variant_unresolved: 0, other_variant_excluded: 0 }, selection: "top_ranked" }];
     const first = finalizeResearchBare({ intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." }, ...request(topRanked), answer_draft: lanes }, options);
     expect(first.limits).toContain(
       `The 8 Amazon review(s) of ${product} you read (of 2400 shown) were the ones the site ranks first; say they ` +
@@ -1150,7 +1150,7 @@ describe("finalize_research gate", () => {
 
     // Every review mentioning the condition is a frame not chosen by outcome.
     const mentions = finalizeResearchBare({
-      ...request([{ product, reviews_shown: 2400, reviews_read: 31, selection: "condition_mentions" }]),
+      ...request([{ outcome_search: { queries: ["humic acid ADHD outcomes"], directions: ["benefit", "no_effect", "worse"] }, product, reviews_shown: 2400, reviews_read: 31, selection: "condition_mentions" }]),
       answer_draft: lanes
     }, options);
     expect(mentions.caveats.filter((sentence) => sentence.includes("how common each one is"))).toEqual([]);
@@ -1162,9 +1162,9 @@ describe("finalize_research gate", () => {
     );
     const miscounted = "community_searches for Amazon gives review counts that do not fit (Humic Drops 2 oz): " +
       "reviews_read cannot exceed reviews_shown, and selection all means every review shown was read.";
-    expect(finalizeResearchBare(request([{ product, reviews_shown: 5, reviews_read: 8, item_identity: { exact_product: 8, variant_unresolved: 0, other_variant_excluded: 0 }, selection: "top_ranked" }]), options)
+    expect(finalizeResearchBare(request([{ outcome_search: { queries: ["humic acid ADHD outcomes"], directions: ["benefit", "no_effect", "worse"] }, product, reviews_shown: 5, reviews_read: 8, item_identity: { exact_product: 8, variant_unresolved: 0, other_variant_excluded: 0 }, selection: "top_ranked" }]), options)
       .next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(miscounted);
-    expect(finalizeResearchBare(request([{ product, reviews_shown: 2400, reviews_read: 8, item_identity: { exact_product: 8, variant_unresolved: 0, other_variant_excluded: 0 }, selection: "all" }]), options)
+    expect(finalizeResearchBare(request([{ outcome_search: { queries: ["humic acid ADHD outcomes"], directions: ["benefit", "no_effect", "worse"] }, product, reviews_shown: 2400, reviews_read: 8, item_identity: { exact_product: 8, variant_unresolved: 0, other_variant_excluded: 0 }, selection: "all" }]), options)
       .next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(miscounted);
     expect(finalizeResearchBare(request(undefined, [amazon(topRanked), { ...forum, review_corpora: topRanked }]), options)
       .next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(

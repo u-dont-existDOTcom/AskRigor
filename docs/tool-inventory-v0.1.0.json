@@ -13296,7 +13296,7 @@
                   "format": "uri"
                 },
                 "review_corpora": {
-                  "description": "Needed for a review_site whose reviews you read: for each product, how many reviews the site shows, how many you read and how you chose them.",
+                  "description": "Records each product's review corpus on a review_site: star ratings when given, written reviews shown, reviews read and their selection, and outcome-search queries and directions or the review-text search boundary.",
                   "minItems": 1,
                   "maxItems": 6,
                   "type": "array",
@@ -13309,8 +13309,14 @@
                         "maxLength": 200,
                         "description": "The exact product and variant, as its label names it."
                       },
+                      "ratings_shown": {
+                        "description": "Records the star-rating count shown by the site, separate from written reviews.",
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
                       "reviews_shown": {
-                        "description": "How many written reviews the site shows for it, when it says.",
+                        "description": "Records the written-review count shown by the site, separate from star ratings.",
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 9007199254740991
@@ -13319,6 +13325,53 @@
                         "type": "integer",
                         "minimum": 1,
                         "maximum": 9007199254740991
+                      },
+                      "outcome_search": {
+                        "description": "Records outcome searches run within this product's written reviews, as the model's declaration. Exactly one of outcome_search or outcome_search_boundary is present.",
+                        "type": "object",
+                        "properties": {
+                          "queries": {
+                            "minItems": 1,
+                            "maxItems": 12,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "description": "Lists searches run in the site's review text for the outcome, in reviewers' everyday words and languages."
+                          },
+                          "directions": {
+                            "minItems": 1,
+                            "maxItems": 5,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "benefit",
+                                "no_effect",
+                                "worse",
+                                "adverse",
+                                "stopped"
+                              ]
+                            },
+                            "description": "Lists distinct searched directions, including benefit, no_effect and worse or adverse."
+                          }
+                        },
+                        "required": [
+                          "queries",
+                          "directions"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "outcome_search_boundary": {
+                        "description": "Records why this product's reviews could not be searched for the outcome; the reviews read are a preview, not a measure of how often it helps or harms.",
+                        "type": "string",
+                        "enum": [
+                          "no_text_search",
+                          "search_blocked",
+                          "login_required"
+                        ]
                       },
                       "item_identity": {
                         "description": "Records item-level product identity counts; their sum equals reviews_read. Other variants are excluded from this product's signal.",

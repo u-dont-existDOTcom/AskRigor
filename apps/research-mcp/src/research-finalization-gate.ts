@@ -163,9 +163,21 @@ export const finalizeResearchInputSchema = z.object({
         "Reddit, so the community is known by its site rather than its name."),
     review_corpora: z.array(z.object({
       product: z.string().trim().min(1).max(200).describe("The exact product and variant, as its label names it."),
+      ratings_shown: z.number().int().min(0).optional()
+        .describe("Records the star-rating count shown by the site, separate from written reviews."),
       reviews_shown: z.number().int().min(0).optional()
-        .describe("How many written reviews the site shows for it, when it says."),
+        .describe("Records the written-review count shown by the site, separate from star ratings."),
       reviews_read: z.number().int().min(1),
+      outcome_search: z.object({
+        queries: z.array(z.string().trim().min(1).max(200)).min(1).max(12)
+          .describe("Lists searches run in the site's review text for the outcome, in reviewers' everyday words and languages."),
+        directions: z.array(z.enum(["benefit", "no_effect", "worse", "adverse", "stopped"])).min(1).max(5)
+          .refine((directions) => new Set(directions).size === directions.length, "Directions must be unique.")
+          .describe("Lists distinct searched directions, including benefit, no_effect and worse or adverse.")
+      }).strict().optional()
+        .describe("Records outcome searches run within this product's written reviews, as the model's declaration. Exactly one of outcome_search or outcome_search_boundary is present."),
+      outcome_search_boundary: z.enum(["no_text_search", "search_blocked", "login_required"]).optional()
+        .describe("Records why this product's reviews could not be searched for the outcome; the reviews read are a preview, not a measure of how often it helps or harms."),
       item_identity: z.object({
         exact_product: z.number().int().nonnegative(),
         variant_unresolved: z.number().int().nonnegative(),
@@ -176,8 +188,8 @@ export const finalizeResearchInputSchema = z.object({
           "recent; a random sample or one stratified by rating; the ones ranked first; ones found by searching for " +
           "outcomes; or another partial set. The last three show which experiences exist, not how common they are.")
     }).strict()).min(1).max(6).optional()
-      .describe("Needed for a review_site whose reviews you read: for each product, how many reviews the site shows, " +
-        "how many you read and how you chose them."),
+      .describe("Records each product's review corpus on a review_site: star ratings when given, written reviews shown, " +
+        "reviews read and their selection, and outcome-search queries and directions or the review-text search boundary."),
     benefit_reports: communityFindingText.optional(),
     no_effect_reports: communityFindingText.optional(),
     adverse_reports: communityFindingText.optional(),
@@ -1969,6 +1981,35 @@ function productIdentityDeclarations(
       } else {
         out.mustReport.push(`${search.community}, ${corpus.product}: ${counts.exact_product} exact-product review(s), ${counts.variant_unresolved} variant-unresolved review(s), ${counts.other_variant_excluded} other-variant review(s) excluded.`);
       }
+      const outcomeSearch = corpus.outcome_search;
+      const boundary = corpus.outcome_search_boundary;
+      if (outcomeSearch === undefined && boundary === undefined) {
+        out.requireDeclaration(`Give outcome_search or outcome_search_boundary for ${corpus.product} in ${search.community}: the searches run within the review text for the outcome and their directions, or why that search could not run.`);
+      } else if (outcomeSearch !== undefined && boundary !== undefined) {
+        out.nextSteps.push(`Give exactly one of outcome_search or outcome_search_boundary for ${corpus.product} in ${search.community}, so the declarations agree.`);
+      }
+      if (outcomeSearch !== undefined) {
+        const directions = outcomeSearch.directions;
+        const missing = [
+          ...(directions.includes("benefit") ? [] : ["benefit"]),
+          ...(directions.includes("no_effect") ? [] : ["no_effect"]),
+          ...(directions.includes("worse") || directions.includes("adverse") ? [] : ["worse or adverse"])
+        ];
+        if (missing.length > 0) {
+          out.nextSteps.push(`outcome_search.directions for ${corpus.product} in ${search.community} is missing ${missing.join(", ")}; record searches for each missing direction.`);
+        }
+        // The community's own caveat already says AskRigor could not verify its searches; no second limit here.
+      }
+      if (boundary !== undefined || (outcomeSearch === undefined && PARTIAL_REVIEW_SELECTIONS.has(corpus.selection))) {
+        const preview = `On ${search.community}, the reviews of ${corpus.product} could not be searched for the outcome, so the ${corpus.reviews_read} read are a preview, not a measure of how often it helps or harms.`;
+        out.requireLimit(preview, preview);
+      }
+      out.mustReport.push(`${search.community}, ${corpus.product}: ` +
+        (corpus.ratings_shown === undefined ? "" : `${corpus.ratings_shown} star ratings shown; `) +
+        (corpus.reviews_shown === undefined ? "written reviews shown: not given; " : `${corpus.reviews_shown} written reviews shown; `) +
+        `${corpus.reviews_read} reviews read; selection ${corpus.selection}; ` +
+        (outcomeSearch === undefined ? `outcome-search boundary: ${boundary ?? "not given"}.`
+          : `outcome-search directions: ${outcomeSearch.directions.join(", ")}.`));
     }
   }
   const intervention = input.intervention_identity;

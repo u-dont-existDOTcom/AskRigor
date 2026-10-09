@@ -43,13 +43,14 @@ const findings = {
 const reviewSearch = {
   community: "Reviews", platform: "review_site" as const, queries: [TARGET],
   threads_read: [{ url: "https://reviews.example/product" }],
-  review_corpora: [{ product: "Clinoptilolite", reviews_read: 2, selection: "all" as const }]
+  review_corpora: [{ outcome_search: { queries: [TARGET], directions: ["benefit" as const, "no_effect" as const, "worse" as const] }, product: "Clinoptilolite", reviews_read: 2, selection: "all" as const }]
 };
 
 describe("finalize next-step identifier contract", () => {
   it("derives allowed identifiers from all schema depths, enums, tool names and reviewed output fields", () => {
     expect(inventory.tools).toHaveLength(33);
-    for (const identifier of ["registry_code", "other_variant_excluded", "minimal_important_difference",
+    for (const identifier of ["registry_code", "other_variant_excluded", "outcome_search", "outcome_search_boundary",
+      "ratings_shown", "no_text_search", "search_blocked", "benefit", "no_effect", "worse", "adverse", "stopped", "minimal_important_difference",
       "none_established", "finalize_research", "research_receipt"]) expect(allowedNextStepIdentifiers.has(identifier)).toBe(true);
     expect(schemaIdentifiers({ properties: { array: { items: { anyOf: [
       { properties: { nested_field: { enum: ["enum_value"] } } }, { const: "literal_value" }
@@ -75,6 +76,23 @@ describe("finalize next-step identifier contract", () => {
     expect(input.properties.commercial_review_applicability!.description).toContain(
       "Records a required declaration when community evidence is researched, or when no_real_world_outcome is declared with key studies."
     );
+    const searches = tool.inputSchema as { properties: { community_searches: { items: { properties: {
+      review_corpora: { description: string; items: { properties: Record<string, {
+        description: string; properties?: Record<string, { description: string }>
+      }> } }
+    } } } } };
+    const corpora = searches.properties.community_searches.items.properties.review_corpora;
+    expect(corpora.description).toBe(
+      "Records each product's review corpus on a review_site: star ratings when given, written reviews shown, " +
+      "reviews read and their selection, and outcome-search queries and directions or the review-text search boundary."
+    );
+    const fields = corpora.items.properties;
+    expect(fields.ratings_shown!.description).toBe("Records the star-rating count shown by the site, separate from written reviews.");
+    expect(fields.reviews_shown!.description).toBe("Records the written-review count shown by the site, separate from star ratings.");
+    expect(fields.outcome_search!.description).toBe("Records outcome searches run within this product's written reviews, as the model's declaration. Exactly one of outcome_search or outcome_search_boundary is present.");
+    expect(fields.outcome_search_boundary!.description).toBe("Records why this product's reviews could not be searched for the outcome; the reviews read are a preview, not a measure of how often it helps or harms.");
+    expect(fields.outcome_search!.properties!.queries!.description).toBe("Lists searches run in the site's review text for the outcome, in reviewers' everyday words and languages.");
+    expect(fields.outcome_search!.properties!.directions!.description).toBe("Lists distinct searched directions, including benefit, no_effect and worse or adverse.");
     for (const name of ["finalize_research", "get_protocol_manifest"]) {
       const output = inventory.tools.find((entry) => entry.name === name)!.outputSchema as { properties: Record<string, { description: string }> };
       expect(output.properties.contract!.description).toBe("Records the server's finalize_research input contract version.");

@@ -55,7 +55,7 @@ const FORUM = search("COMT Forum", "forum", "https://comt.example/threads/egcg/"
 const REVIEW_SITE = { name: "Local Health Reviews", platform: "review_site" as const };
 const REVIEWS: Search = {
   ...search(REVIEW_SITE.name, "review_site", "https://reviews.example/products/egcg/reviews/"),
-  review_corpora: [{ product: "Green Tea Extract 200 mg capsules", reviews_shown: 12, reviews_read: 12, item_identity: { exact_product: 12, variant_unresolved: 0, other_variant_excluded: 0 }, selection: "all" }]
+  review_corpora: [{ outcome_search: { queries: ["EGCG effects"], directions: ["benefit", "no_effect", "worse"] }, product: "Green Tea Extract 200 mg capsules", reviews_shown: 12, reviews_read: 12, item_identity: { exact_product: 12, variant_unresolved: 0, other_variant_excluded: 0 }, selection: "all" }]
 };
 const paragraph = (lane: Search) => `On [${lane.community}](${lane.threads_read[0]!.url}): ${Object.values(QUOTES).join(" ")}`;
 

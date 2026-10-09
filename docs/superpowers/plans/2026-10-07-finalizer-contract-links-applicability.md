@@ -117,3 +117,67 @@ limit, which is stated.
 | Plan | Done (2026-10-07) |
 | Implementation | Codex, then Claude's review |
 | Release | With #288, owner question |
+
+## 4. Buyer reviews are searched for the outcome, not just previewed (lane item of 2026-10-08)
+
+Source: `2026-10-08-targeted-health-product-review-audit-enforcement.md` (owner request). A supplement's iHerb page showed
+about 65,000 star ratings. The answer read 10 default first-page reviews and never searched the review text for the
+outcome (fibrosis, FibroScan, ALT/AST, liver enzymes, or their failure). It still presented that as a product-review
+audit. HRP already requires the search (DirectionalSearchSymmetry, ReviewCorpusSelectionAndCounts); the final check did
+not enforce it.
+
+Each `community_searches[].review_corpora[]` entry gains these fields:
+
+- `outcome_search`: `{ queries: string[] (1 to 12, each 1 to 200 characters), directions: ("benefit" | "no_effect" |
+  "worse" | "adverse" | "stopped")[] (1 to 5, unique) }`. These are the searches run in the site's review text, in
+  the reviewers' everyday words and languages.
+- `outcome_search_boundary`: `"no_text_search" | "search_blocked" | "login_required"`, when the site offers no
+  review-text search or it could not be used.
+- `ratings_shown`: an optional integer, the star-rating count. It stays separate from `reviews_shown`, the written
+  reviews.
+
+These are the rules:
+
+1. Each review corpus needs exactly one of `outcome_search` or `outcome_search_boundary`. A missing one is a missing
+   declaration: it gets the refresh hint, and its next step names both fields.
+2. `outcome_search.directions` must include `benefit`, `no_effect`, and `worse` or `adverse`. The next step names the
+   missing directions.
+3. With `outcome_search_boundary`, a required limit and caveat: "On <community>, the reviews of <product> could not be
+   searched for the outcome, so the <reviews_read> read are a preview, not a measure of how often it helps or harms."
+4. Selection `ranked_first` (or another partial frame) without `outcome_search` gets that same preview caveat.
+5. The corpus's must_report line states the denominators: star ratings when given, written reviews shown, reviews read
+   and their selection, and the outcome-search directions or the boundary.
+
+These are exact checks on the model's declarations. Whether the queries really ran stays the model's declaration, a
+stated limit. Tests:
+
+- the iHerb case: ratings shown, 10 reviews ranked first, no outcome search, which gets a next step;
+- the same with `outcome_search_boundary`, which passes with the preview caveat;
+- a full three-direction search, which passes with no preview caveat;
+- missing directions;
+- ratings and written reviews kept apart in must_report;
+- the real MCP endpoint;
+- the contract test still passing.
+
+## Implementation (section 4)
+
+- Changed `apps/research-mcp/src/research-finalization-gate.ts` for the search-or-boundary declarations,
+  directional checks, required preview limit/caveat, separate rating and written-review denominators in
+  `must_report`, and the stated limit that searches remain the model's declaration.
+- Added `tests/finalize-review-outcome-search.test.ts`, running the rules through the gate and a loopback HTTP MCP
+  endpoint. Test names include "blocks the iHerb first-page preview without outcome_search or outcome_search_boundary",
+  "accepts %s with the required preview caveat", "accepts benefit, no_effect and %s without a preview caveat",
+  "names missing directions: $missing", "refuses both the outcome search and its boundary",
+  "requires the preview caveat for %s without outcome search", "requires a search declaration for every corpus,
+  including all written reviews", and "keeps star ratings apart from written-review denominators and omitted counts".
+  Input-contract tests cover multilingual queries, bounds, unique directions and integer rating counts.
+- Adjusted review-corpus fixtures in `tests/finalize-product-review-requirement.test.ts`,
+  `tests/finalize-product-identity-and-shopping.test.ts`, `tests/research-finalization-gate.test.ts` and
+  `tests/finalize-next-steps-contract.test.ts` with the minimal `outcome_search` declaration for `benefit`, `no_effect`
+  and `worse`. The contract suite also pins the new descriptive field text and published identifiers.
+- After `npm run typecheck`, regenerated `docs/tool-inventory-v0.1.0.json` with
+  `npx tsx scripts/generate-tool-inventory.mts --write` (33 tools).
+- Validation: `npm run verify` passed on Node 24.18.0: 213 test files passed, one skipped; 2,611 tests passed,
+  six skipped; typecheck and build passed. The next-step contract suite and `git diff --check` passed.
+- No protocol edits, external network or commits. Live UDA bootstrap and lesson-queue status are unavailable under
+  the owner's no-network constraint; no queue totals are inferred.
