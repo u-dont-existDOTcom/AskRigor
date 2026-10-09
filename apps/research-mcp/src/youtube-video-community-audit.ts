@@ -1,6 +1,15 @@
+import { createHash } from "node:crypto";
+
 import { ACCESS_STATUSES, type AccessStatus, type ProviderError } from "@askrigor/contracts";
 import {
   getYoutubeCommentSegment,
+  productIdentitySchema,
+  videoProductClassSchema,
+  commentProductCountsSchema,
+  classifyProductVideo,
+  classifyProductComment,
+  productVideoAdmitted,
+  emptyCommentProductCounts,
   getYoutubeCommentsByIds,
   getYoutubeVideo,
   parseYoutubeVideoId,
@@ -46,6 +55,7 @@ const PARTIAL_CORPUS_EVIDENCE_LIMITATION =
   "This is a partial corpus. The retrieved records remain eligible for bounded evidence review, but they do not represent unseen records or establish corpus-wide prevalence, direction, rarity, or typicality.";
 
 export const youtubeVideoCommunityAuditInputSchema = z.object({
+  product_identity: productIdentitySchema.optional(),
   video_id_or_url: z.string().min(1).max(2_048).optional(),
   continuation_token: z.string().min(1).max(65_536).optional(),
   analysis_limit: z.number().int().min(1).max(500).optional().describe(
@@ -78,6 +88,8 @@ export const youtubeVideoCommunityAuditOutputSchema = z.object({
   record_type: z.literal("youtube_video_community_audit"),
   retrieved_at: z.string(),
   video_id: z.string(),
+  product_class: videoProductClassSchema.optional(),
+  comment_product_counts: commentProductCountsSchema.optional(),
   canonical_url: z.string().url(),
   analysis_limit: z.number().int().min(1).max(500),
   segment_index: z.number().int().nonnegative(),
@@ -159,6 +171,13 @@ const DEFAULT_DEPENDENCIES: YoutubeVideoCommunityAuditDependencies = {
   get_comments_by_ids: getYoutubeCommentsByIds
 };
 
+export class YoutubeProductIdentityError extends Error {
+  readonly code = "youtube_product_identity_refused";
+  constructor(message: string, readonly video_id: string, readonly product_class?: z.output<typeof videoProductClassSchema>) {
+    super(message);
+  }
+}
+
 export async function auditYoutubeVideoCommunity(
   input: YoutubeVideoCommunityAuditInput,
   config: { youtube: YoutubeConfig; continuation_secret: string },
@@ -167,6 +186,8 @@ export async function auditYoutubeVideoCommunity(
   validateSecret(config.continuation_secret);
   const parsedInput = youtubeVideoCommunityAuditInputSchema.safeParse(input);
   if (!parsedInput.success) throw new Error("YouTube video community audit input is invalid");
+  const identity = parsedInput.data.product_identity;
+  const identityDigest = identity === undefined ? undefined : createHash("sha256").update(JSON.stringify(identity)).digest("hex");
   const clock = runtime.now ?? Date.now;
   const nowMs = readNow(clock);
   const maxElapsedMs = readMaxElapsed(runtime.max_elapsed_ms);
@@ -185,6 +206,9 @@ export async function auditYoutubeVideoCommunity(
     if (input.analysis_limit !== undefined && input.analysis_limit !== decoded.analysis_limit) {
       throw new Error("YouTube audit continuation analysis limit cannot change");
     }
+    if (identityDigest !== decoded.product_identity_sha256) {
+      throw new YoutubeProductIdentityError("The continuation needs the same product_identity declaration as the first call; declared names are not retained by the server.", decoded.video_id);
+    }
     videoId = decoded.video_id;
     resumeCursor = decoded.cursor;
     const { cursor: _cursor, ...withoutCursor } = decoded;
@@ -194,6 +218,7 @@ export async function auditYoutubeVideoCommunity(
     if (videoId.length === 0) throw new Error("YouTube video identifier is invalid");
     baseState = {
       version: 1,
+      ...(identityDigest === undefined ? {} : { product_identity_sha256: identityDigest, comment_product_counts: emptyCommentProductCounts() }),
       video_id: videoId,
       analysis_limit: parsedInput.data.analysis_limit ?? DEFAULT_ANALYSIS_LIMIT,
       started_at_ms: nowMs,
@@ -217,6 +242,12 @@ export async function auditYoutubeVideoCommunity(
     max_elapsed_ms: remainingElapsed(clock, nowMs, maxElapsedMs)
   });
   const metadataVideo = isComplete(metadata.access_status) ? metadata.data : undefined;
+  const productClass = identity === undefined ? undefined : classifyProductVideo(identity, metadataVideo ?? {});
+  if (productClass !== undefined && !productVideoAdmitted(productClass)) {
+    throw new YoutubeProductIdentityError(
+      `This video's provider title, full description and tags classify it as ${productClass}; it was not admitted for this product and no comments were audited. Without product_identity, it can be audited as general community evidence.`, videoId, productClass
+    );
+  }
   const currentProviderCount = metadataVideo?.statistics?.comment_count;
   baseState = {
     ...baseState,
@@ -254,7 +285,8 @@ export async function auditYoutubeVideoCommunity(
       pagination_overlaps_reconciled: segment.pagination_overlaps_reconciled ?? 0,
       reply_count_mismatches: segment.reply_count_mismatches
     },
-    segment.next_cursor ?? resumeCursor ?? { thread_offset: 0, top_level_emitted: false }
+    segment.next_cursor ?? resumeCursor ?? { thread_offset: 0, top_level_emitted: false },
+    identity === undefined ? undefined : (comment) => classifyProductComment(identity, productClass!, comment.text)
   );
 
   const mismatchBlock = state.reply_count_mismatches.length > 0;
@@ -360,7 +392,9 @@ export async function auditYoutubeVideoCommunity(
             returnedIds.length !== sampleIds.length ||
             sampleIds.some((id) => !returnedIds.includes(id));
           sampleRefetchLimitations = refetched.limitations;
-          const comments = chronological(refetched.comments);
+          const comments = chronological(refetched.comments).map((comment) => identity === undefined ? comment : {
+            ...comment, product_class: classifyProductComment(identity, productClass!, comment.text)
+          });
           sample = {
             mode: state.records_retrieved_cumulative <= DEFAULT_ANALYSIS_LIMIT &&
                 !sampleRefetchBoundary
@@ -471,6 +505,7 @@ export async function auditYoutubeVideoCommunity(
     record_type: "youtube_video_community_audit",
     retrieved_at: new Date(nowMs).toISOString(),
     video_id: videoId,
+    ...(productClass === undefined ? {} : { product_class: productClass, comment_product_counts: state.comment_product_counts }),
     canonical_url: `https://www.youtube.com/watch?v=${videoId}`,
     analysis_limit: state.analysis_limit,
     segment_index: state.segment_index,

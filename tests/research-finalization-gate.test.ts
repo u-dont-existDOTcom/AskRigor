@@ -8,7 +8,8 @@ import {
   findingsCardSchema
 } from "../apps/research-mcp/src/findings/card.js";
 import {
-  finalizeResearch as finalizeResearchBare,
+  finalizeResearch as finalizeResearchUnwrapped,
+  TOOL_LIST_REFRESH_HINT,
   type RedditThreadCheck,
   normalizeIdentifier,
   protocolNamesFrom
@@ -21,10 +22,20 @@ import {
   verifyResearchReceipt
 } from "../apps/research-mcp/src/research-receipts.js";
 
+import { assertNextStepsContract, fixtureStudyLinks } from "./helpers/finalize-next-steps-contract.js";
+
+const finalizeResearchBare = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  assertNextStepsContract(finalizeResearchUnwrapped(...args));
+
+// Detailed legacy assertions inspect diagnostics; the contract suite pins the refresh hint itself.
 const SECRET = "research-finalization-test-secret-0123456789";
 const now = () => new Date("2026-09-26T12:00:00.000Z");
 const options = { secret: SECRET, now };
 const TARGET = "Adults with hip osteoarthritis trying to avoid a replacement";
+const NONCOMMERCIAL_EXERCISE = {
+  status: "not_applicable",
+  reason: "The research target concerns unbranded exercise, not a product or service people buy."
+};
 const DISCOVERY_KINDS = new Set(["youtube_survey", "youtube_search", "youtube_scout", "youtube_community_audit"]);
 // As the MCP tools do, discovery receipts sign the research target and every
 // receipt signs its issue order `t`; here receipts are issued in the order the
@@ -50,7 +61,7 @@ const commentVideos = (receipts: readonly string[]) => [...new Set(receipts.flat
 }))];
 // The gate reads the answer before it reports ready. Tests of other checks
 // pass this clean draft; a test can pass its own answer_draft, or undefined.
-const CLEAN_DRAFT = "Exercise therapy has the strongest evidence for hip osteoarthritis. People commenting on " +
+const CLEAN_DRAFT = "[Study](https://doi.org/10.1002/art.41142) reports exercise outcomes. Exercise therapy has the strongest evidence for hip osteoarthritis. People commenting on " +
   "YouTube videos about it reported less pain after several months; a few noticed no change, and none reported side " +
   "effects. The channels' creators sell programs; the commenters have no stake. This weak firsthand signal supports " +
   "trying exercise before surgery. On Reddit, members of " +
@@ -141,9 +152,18 @@ const leftOut = (...caveats: string[]) =>
 // An answer states whether it says anything was not found; tests of other checks say it does not.
 const absenceDefaults = (input: Record<string, unknown>) =>
   "absence_claims" in input || !("answer_draft" in input) ? {} : { absence_claims: [] };
-// Every call gets the community, offer and absence defaults unless it passes its own.
+const scaleDefaults = (input: Record<string, unknown>) =>
+  "scale_results" in input || !("answer_draft" in input) ? {} : { scale_results: [] };
+// Every call gets the community, offer, absence and scale defaults unless it passes its own.
 const finalizeResearchRaw = (input: Record<string, unknown>, gateOptions: Parameters<typeof finalizeResearchBare>[1]) =>
-  finalizeResearchBare({ ...communityDefaults(input), ...offerDefaults(input), ...absenceDefaults(input), ...input }, gateOptions);
+  finalizeResearchBare({
+    intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
+    ...((input.community_evidence === "researched" || input.not_relevant_basis === "no_real_world_outcome")
+      ? { commercial_review_applicability: NONCOMMERCIAL_EXERCISE } : {}),
+    ...communityDefaults(input), ...offerDefaults(input), ...absenceDefaults(input), ...scaleDefaults(input), ...input,
+    ...(typeof input.answer_draft === "string"
+      ? { answer_draft: `${fixtureStudyLinks(input)}\n\n${input.answer_draft}` } : {})
+  }, gateOptions);
 const finalizeResearchGate = (input: Record<string, unknown>, gateOptions: typeof options) => {
   const request = { another_pass_estimate: PASS_ESTIMATE, ...communityDefaults(input), ...input };
   return finalizeResearchRaw(
@@ -197,6 +217,18 @@ const study = sign("study_audit", {
 const lead = sign("full_text_lead", { doi: "10.1016/j.joca.2020.01.001" }, options);
 
 describe("finalize_research gate", () => {
+  it("asks every answer with key studies for the whole-intervention declaration, compared or not (owner question 47)", () => {
+    const base = {
+      community_evidence: "researched" as const, research_target: TARGET, research_depth: "deep" as const,
+      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }],
+      receipts: [survey, emptySearch, repeatScout, videoA, study], intervention_identity: undefined
+    };
+    for (const treatment_choice of ["not_compared", "compared"] as const) {
+      expect(finalizeResearch({ ...base, treatment_choice }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" "), treatment_choice)
+        .toContain("Give intervention_identity");
+    }
+  });
+
   it("binds a treatment comparison to the latest treatment-coverage check", () => {
     const target = TARGET;
     // Deep research runs the coverage lock; a first pass does not (below).
@@ -219,14 +251,14 @@ describe("finalize_research gate", () => {
 
     const missing = finalizeResearch({ ...base, receipts: ready, treatment_choice: "compared" }, options);
     expect(missing.status).toBe("not_ready");
-    expect(missing.next_steps.join(" ")).toContain("call assess_treatment_landscape_coverage");
+    expect(missing.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toContain("call assess_treatment_landscape_coverage");
 
     // A blocking result binds the answer even when the caller says no comparison was made.
     const blocked = finalizeResearch({
       ...base, receipts: [...ready, coverage("continue_research", "2026-09-26T11:00:00.000Z")], treatment_choice: "not_compared"
     }, options);
     expect(blocked.status).toBe("not_ready");
-    expect(blocked.next_steps.join(" ")).toContain("was continue_research");
+    expect(blocked.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toContain("was continue_research");
 
     const bounded = finalizeResearch({
       ...base, receipts: [...ready, coverage("bounded_nonranking_only", "2026-09-26T11:00:00.000Z")], treatment_choice: "compared"
@@ -235,7 +267,7 @@ describe("finalize_research gate", () => {
     expect(bounded.limits.join(" ")).toContain("do not rank or recommend");
 
     const firstPass = [...ready, coverage("first_pass_with_open_leads", "2026-09-26T11:00:00.000Z")];
-    expect(finalizeResearch({ ...base, receipts: firstPass, treatment_choice: "compared" }, options).next_steps.join(" "))
+    expect(finalizeResearch({ ...base, receipts: firstPass, treatment_choice: "compared" }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" "))
       .toContain("deep research needs ledger_consistent_for_synthesis");
 
     // A first pass does not run the lock: its comparison needs no check, is
@@ -277,7 +309,7 @@ describe("finalize_research gate", () => {
       treatment_choice: "compared"
     }, options);
     expect(sameSecond.status).toBe("not_ready");
-    expect(sameSecond.next_steps.join(" ")).toContain("was continue_research");
+    expect(sameSecond.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toContain("was continue_research");
     // The signed issue order separates checks within one second.
     const ordered = (boundary: string, t: number) => issueResearchReceipt("treatment_coverage", {
       boundary,
@@ -304,7 +336,7 @@ describe("finalize_research gate", () => {
       treatment_choice: "compared"
     }, options);
     expect(narrow.status).toBe("not_ready");
-    expect(narrow.next_steps.join(" ")).toContain("broad_treatment_choice true");
+    expect(narrow.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toContain("with broad_treatment_choice true");
 
     // A check made for another target does not count, and the target must be passed to match one.
     const otherTarget = finalizeResearch({
@@ -313,7 +345,7 @@ describe("finalize_research gate", () => {
       treatment_choice: "compared"
     }, options);
     expect(otherTarget.status).toBe("not_ready");
-    expect(otherTarget.next_steps.join(" ")).toContain("was made for this research_target");
+    expect(otherTarget.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toContain("was made for this research_target");
     // The research target is required, so a check can always be matched.
     const { research_target: _target, ...withoutTarget } = base;
     expect(() => finalizeResearch({
@@ -335,7 +367,7 @@ describe("finalize_research gate", () => {
       ...base, receipts: [...ready, judged(["aaaaaaaaaaa", "zzzzzzzzzzz"])], treatment_choice: "compared"
     }, options);
     expect(foreign.status).toBe("not_ready");
-    expect(foreign.next_steps.join(" ")).toContain("judged video(s) zzzzzzzzzzz that no discovery receipt");
+    expect(foreign.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toContain("judged video(s) zzzzzzzzzzz that no discovery receipt");
   });
 
   it("has a first pass or a bounded answer say that it does not rank, and leaves the wording to the model", () => {
@@ -353,7 +385,7 @@ describe("finalize_research gate", () => {
       }, options);
     // A first pass names no best option (HRP 20.6.6): the answer says so in the gate's words.
     const firstPass = draftWith(base, "Exercise and weight loss both help; which suits you depends on your goals.");
-    expect(firstPass.next_steps).toEqual([]);
+    expect(firstPass.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(firstPass.limits).toContain(
       "The treatment comparison rests on a first pass: present it as provisional, with no final ranking."
     );
@@ -364,7 +396,7 @@ describe("finalize_research gate", () => {
     // Whether a sentence names a best option is a judgment about meaning, in whatever language the answer is in;
     // no word list makes it, so the gate reads none (AGENTS.md code review rules). An answer that states the
     // caveat and still ranks gets past the gate: its reader sees both.
-    expect(draftWith(base, "Of these, exercise is the best option for most people.").next_steps).toEqual([]);
+    expect(draftWith(base, "Of these, exercise is the best option for most people.").next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     // Deep research may rank once the coverage check allows it; a bounded result says it does not.
     const coverage = (boundary: string) => issueResearchReceipt("treatment_coverage", {
       boundary, lock: boundary === "ledger_consistent_for_synthesis" ? "pass" : "block",
@@ -372,7 +404,7 @@ describe("finalize_research gate", () => {
     }, { secret: SECRET, now: () => new Date("2026-09-26T11:00:00.000Z") });
     const deep = (boundary: string) => ({ ...base, research_depth: "deep", receipts: [...base.receipts, coverage(boundary)] });
     const bounded = draftWith(deep("bounded_nonranking_only"), "Physiotherapy suits most people.");
-    expect(bounded.next_steps).toEqual([]);
+    expect(bounded.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(bounded.caveats).toContain(
       "The evidence check allows only a limited comparison here, so this answer does not rank or recommend among " +
         "the options."
@@ -390,7 +422,7 @@ describe("finalize_research gate", () => {
       key_sources: [{ id: "https://doi.org/10.1002/ART.41142", status: "validated" }]
     }, options);
     expect(result.status).toBe("ready_with_limits");
-    expect(result.next_steps).toEqual([]);
+    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(result.limits).toEqual([FORUM_LIMIT, OFFER_LIMIT]);
     expect(result.community).toEqual({
       decision: "researched",
@@ -450,7 +482,7 @@ describe("finalize_research gate", () => {
     const gate = (input: Record<string, unknown>) => finalizeResearch({ ...youtubeOnly, ...input }, options);
 
     // No map: YouTube alone does not finish the community lane.
-    expect(finalizeResearchBare({ ...youtubeOnly, community_findings: findingsFor(["aaaaaaaaaaa"]) }, options).next_steps)
+    expect(finalizeResearchBare({ intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." }, ...youtubeOnly, community_findings: findingsFor(["aaaaaaaaaaa"]) }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toContain(
         "Name where people discussing this actually talk in principal_communities, the dominant first (subreddits, " +
           "specialist forums, Facebook groups, patient organizations, YouTube). Then search the dominant one and at " +
@@ -460,7 +492,7 @@ describe("finalize_research gate", () => {
     // A map whose communities outside YouTube went unsearched.
     const unsearched = gate({ principal_communities: communities, community_searches: [] });
     expect(unsearched.status).toBe("not_ready");
-    expect(unsearched.next_steps).toEqual([
+    expect(unsearched.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "Search r/trt, the community listed first, with your web search and record it in community_searches, or the " +
         "access boundary that stops you.",
       "Search at least one more community, independent of YouTube (r/trt, MESO-Rx): YouTube with its tools, the " +
@@ -487,7 +519,7 @@ describe("finalize_research gate", () => {
       answer_draft: reported
     });
     expect(renamed.status).toBe("not_ready");
-    expect(renamed.next_steps).toContain(
+    expect(renamed.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
       "Search r/trt, the community listed first, with your web search and record it in community_searches, or the " +
         "access boundary that stops you."
     );
@@ -510,15 +542,15 @@ describe("finalize_research gate", () => {
     expect(gate({
       principal_communities: communities, community_searches: [trt],
       answer_draft: `${CLEAN_DRAFT.replace(/ On Reddit, .*$/u, "")} ${offer}`
-    }).next_steps).toEqual([
+    }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       unshown,
       leftOut("The reports from r/trt come from my own web search, which AskRigor could not verify.")
     ]);
     // Naming the community, as the caveat does, is not reporting what its posters said.
-    expect(gate({ principal_communities: communities, community_searches: [trt], answer_draft: withoutForums }).next_steps)
+    expect(gate({ principal_communities: communities, community_searches: [trt], answer_draft: withoutForums }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toEqual([unshown]);
     const { answer_quotes: _quotes, ...unquoted } = trt;
-    expect(gate({ principal_communities: communities, community_searches: [unquoted], answer_draft: reported }).next_steps)
+    expect(gate({ principal_communities: communities, community_searches: [unquoted], answer_draft: reported }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toEqual([
         "Give answer_quotes for r/trt in its community_searches entry: for each finding, the sentence(s) of the answer " +
           "that report it, copied from answer_draft. The answer must report what r/trt showed, even if the signal is weak."
@@ -526,11 +558,11 @@ describe("finalize_research gate", () => {
     // Reported without a link to a thread read there, it cannot be checked.
     const unlinked = reported.replace(
       "On [r/trt](https://www.reddit.com/r/trt/comments/xyz789/hgh_and_trt_five_years/), ", "\n\nOn r/trt, ");
-    expect(gate({ principal_communities: communities, community_searches: [trt], answer_draft: unlinked }).next_steps)
+    expect(gate({ principal_communities: communities, community_searches: [trt], answer_draft: unlinked }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toEqual(["Link a thread you read from r/trt in a paragraph that reports it, so a reader can check it."]);
     // Findings are needed for a community that was read.
     const { benefit_reports: _benefit, effect_on_answer: _effect, ...unreported } = trt;
-    expect(gate({ principal_communities: communities, community_searches: [unreported] }).next_steps).toContain(
+    expect(gate({ principal_communities: communities, community_searches: [unreported] }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
       "Say what r/trt showed: give benefit_reports, effect_on_answer in its community_searches entry, even if the " +
         "signal is weak or neutral."
     );
@@ -559,7 +591,7 @@ describe("finalize_research gate", () => {
       community_searches: [meso, mesoAgain]
     });
     expect(onePool.status).toBe("not_ready");
-    expect(onePool.next_steps).toContain(
+    expect(onePool.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
       "community_searches for MESO-Rx Men's Health is on thinksteroids.com, as MESO-Rx is: one site is one " +
         "discussion pool, so list its threads under one entry and search an independent community."
     );
@@ -575,14 +607,14 @@ describe("finalize_research gate", () => {
     expect(gate({
       principal_communities: [{ name: "HGH users group", platform: "facebook" }, { name: "HGH users (mobile)", platform: "facebook" }],
       community_searches: [groupPost, sameGroup]
-    }).next_steps).toContain(
+    }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
       "community_searches for HGH users (mobile) is on facebook.com/groups/hghusers, as HGH users group is: one site " +
         "is one discussion pool, so list its threads under one entry and search an independent community."
     );
     // A community read nowhere is known by its address, never by its name alone.
     const blockedGroup = { community: "HGH users group", platform: "facebook", queries: ["hgh"], access_boundary: "login_required" };
     const blockedMap = [{ name: "HGH users group", platform: "facebook" }, { name: "HGH users mobile", platform: "facebook" }];
-    expect(gate({ principal_communities: blockedMap, community_searches: [blockedGroup] }).next_steps).toContain(
+    expect(gate({ principal_communities: blockedMap, community_searches: [blockedGroup] }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
       "community_searches for HGH users group records an access boundary but no url: give the community's address " +
         "(its forum, group or site link), so it is known by its site rather than its name."
     );
@@ -592,7 +624,7 @@ describe("finalize_research gate", () => {
         { ...blockedGroup, url: "https://www.facebook.com/groups/hghusers" },
         { ...blockedGroup, community: "HGH users mobile", url: "https://m.facebook.com/groups/hghusers/" }
       ]
-    }).next_steps).toContain(
+    }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
       "community_searches for HGH users mobile is on facebook.com/groups/hghusers, as HGH users group is: one site is " +
         "one discussion pool, so list its threads under one entry and search an independent community."
     );
@@ -605,14 +637,14 @@ describe("finalize_research gate", () => {
         { ...trtBoundary, url: "https://www.reddit.com/r/trt/" },
         { ...trtBoundary, community: "TRT forum", platform: "forum", url: "https://reddit.com/r/trt" }
       ]
-    }).next_steps).toContain(
+    }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
       "community_searches for TRT forum lists Reddit links; record them under platform reddit, as the subreddit they " +
         "are in."
     );
     expect(gate({
       principal_communities: communities,
       community_searches: [{ ...trtBoundary, url: "https://www.reddit.com/r/Testosterone/" }]
-    }).next_steps).toContain("community_searches for r/trt gives a url outside r/trt; give the subreddit's own link.");
+    }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain("community_searches for r/trt gives a url outside r/trt; give the subreddit's own link.");
     // Facebook, Telegram and Discord live on their own hosts too: an entry there links only there, and their links
     // belong to them.
     const chat = { community: "TRT men chat", queries: ["hgh"], access_boundary: "login_required" };
@@ -651,7 +683,7 @@ describe("finalize_research gate", () => {
         "community_searches for TRT men chat gives Discord links other than a server invite: Discord servers can be " +
           "read only by joining, so record the server's invite (discord.gg/…) as url, with the access boundary you hit."]
     ] as const) {
-      expect(gate({ principal_communities: communities, community_searches: [search] }).next_steps).toContain(step);
+      expect(gate({ principal_communities: communities, community_searches: [search] }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(step);
     }
     for (const search of [
       { ...chat, platform: "telegram", url: "https://t.me/trtmen" },
@@ -659,7 +691,7 @@ describe("finalize_research gate", () => {
       { ...chat, platform: "telegram", url: "https://t.me/joinchat/AbCdEf123" },
       { ...chat, platform: "discord", url: "https://discord.gg/trtmen" }
     ]) {
-      expect(gate({ principal_communities: communities, community_searches: [search] }).next_steps
+      expect(gate({ principal_communities: communities, community_searches: [search] }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)
         .filter((step) => step.startsWith("community_searches for TRT men chat"))).toEqual([]);
     }
     // Two invites may open one Discord server, so Facebook, Telegram and Discord count once each toward
@@ -671,7 +703,7 @@ describe("finalize_research gate", () => {
     ];
     expect(finalizeResearch({
       ...youtubeOnly, receipts: [study], principal_communities: servers, community_searches: invites
-    }, options).next_steps).toContain(
+    }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
       "Search at least one more community, independent of TRT Discord, HGH Discord: YouTube with its tools, the others " +
         "with your web search recorded in community_searches, or record the access boundary that stops you. " +
         "Communities on one of Facebook, Telegram or Discord count once together: their links cannot show that they " +
@@ -680,14 +712,14 @@ describe("finalize_research gate", () => {
     // A search cannot both find nothing relevant and report the threads it read.
     expect(gate({
       principal_communities: communities, community_searches: [{ ...trt, access_boundary: "no_relevant_results" }]
-    }).next_steps).toContain(
+    }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
       "community_searches for r/trt gives both threads read and access_boundary no_relevant_results; keep one: the " +
         "threads and what they showed, or the boundary if nothing relevant turned up."
     );
 
     // Two YouTube entries are one community: YouTube alone needs a stated reason.
     const twoYoutube = [{ name: "YouTube", platform: "youtube" }, { name: "YouTube TRT channels", platform: "youtube" }];
-    expect(gate({ principal_communities: twoYoutube }).next_steps).toEqual([
+    expect(gate({ principal_communities: twoYoutube }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "principal_communities lists one community: name an independent one (another platform, forum or discussion " +
         "pool) and search it, or give single_community_reason."
     ]);
@@ -707,7 +739,7 @@ describe("finalize_research gate", () => {
         { community: "ExcelMale", platform: "forum", queries: ["hgh"] }
       ]
     });
-    expect(misfiled.next_steps.slice(0, 3)).toEqual([
+    expect(misfiled.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).slice(0, 3)).toEqual([
       "community_searches for r/trt lists YouTube links; research YouTube with its own tools.",
       "community_searches for MESO-Rx is on Reddit but lists links elsewhere; list the Reddit threads you read.",
       "community_searches for ExcelMale lists no thread read: add the threads you read, or the access_boundary that " +
@@ -762,37 +794,37 @@ describe("finalize_research gate", () => {
     const generic = `${CLEAN_DRAFT}\n\nOn Reddit, users reported better recovery; some saw no difference and a few ` +
       `reported side effects, consistent with the trials. See [one thread](${trtThread}) and [another](${testosteroneThread}).` +
       `\n\n${caveat}`;
-    expect(gate({ community_searches: both, answer_draft: generic }).next_steps)
+    expect(gate({ community_searches: both, answer_draft: generic }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toEqual([unshown("r/trt"), unshown("r/Testosterone")]);
     // Quoted for both, it reports both: a thread from each is linked where it does.
     const genericQuotes = quotesOf("On Reddit, users reported better recovery; some saw no difference");
     expect(gate({
       community_searches: both.map((search) => ({ ...search, answer_quotes: genericQuotes })), answer_draft: generic
-    }).next_steps).toEqual([]);
+    }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     // A section per subreddit, each with its findings and its own thread, passes.
     const sections = `${CLEAN_DRAFT}\n\nOn [r/trt](${trtThread}), most reported better recovery; some saw no difference ` +
       "and a few reported side effects, consistent with the trials.\n\nOn " +
       `[r/Testosterone](${testosteroneThread}), most reported better recovery too; some saw no difference and a few ` +
       `reported side effects, consistent with the trials.\n\n${caveat}`;
     const passed = gate({ community_searches: both, answer_draft: sections });
-    expect(passed.next_steps).toEqual([]);
+    expect(passed.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(passed.status).toBe("ready_with_limits");
     // A share link, another slug or a comment permalink in the same thread is its link.
     for (const alias of ["https://www.reddit.com/r/trt/comments/xyz789/?utm_source=share&utm_medium=web2x#top",
       "https://redd.it/xyz789", "https://www.reddit.com/r/trt/comments/xyz789/other_slug/c0mm3nt/?context=3"]) {
       expect(gate({ community_searches: both, answer_draft: sections.replace(`[r/trt](${trtThread})`, `[r/trt](${alias})`) })
-        .next_steps).toEqual([]);
+        .next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     }
     // A link to one subreddit's thread in another's section is not its link.
     const swapped = sections.replace(`[r/trt](${trtThread})`, `[r/trt](${testosteroneThread})`);
-    expect(gate({ community_searches: both, answer_draft: swapped }).next_steps).toEqual([
+    expect(gate({ community_searches: both, answer_draft: swapped }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "Link a thread you read from r/trt in a paragraph that reports it, so a reader can check it."
     ]);
 
     // A subreddit's entry names it, and its threads are in it; Reddit threads are Reddit's.
     expect(gate({
       community_searches: [read("r/trt", testosteroneThread), read("MESO-Rx", trtThread, "forum"), read("TRT forum", trtThread, "reddit")]
-    }).next_steps.slice(0, 3)).toEqual([
+    }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).slice(0, 3)).toEqual([
       "community_searches for r/trt lists links that are not threads in r/trt: list each thread you read by its " +
         "full link (reddit.com/r/trt/comments/…), under its own subreddit's entry.",
       "community_searches for MESO-Rx lists Reddit links; record them under platform reddit, as the subreddit " +
@@ -802,7 +834,7 @@ describe("finalize_research gate", () => {
     // A subreddit's front page, wiki, search or share link is not a thread read.
     for (const page of ["https://www.reddit.com/r/trt/", "https://www.reddit.com/r/trt/wiki/index/",
       "https://www.reddit.com/r/trt/search/?q=hgh", "https://www.reddit.com/r/trt/s/AbCdEf123", "https://redd.it/xyz789"]) {
-      expect(gate({ community_searches: [read("r/trt", page), read("r/Testosterone", testosteroneThread)] }).next_steps)
+      expect(gate({ community_searches: [read("r/trt", page), read("r/Testosterone", testosteroneThread)] }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
         .toContain("community_searches for r/trt lists links that are not threads in r/trt: list each thread you read " +
           "by its full link (reddit.com/r/trt/comments/…), under its own subreddit's entry.");
     }
@@ -814,19 +846,19 @@ describe("finalize_research gate", () => {
     });
     const alreadyListed = (community: string) => `community_searches for ${community} lists a thread already listed ` +
       "for another community; list each thread under the one community it belongs to.";
-    expect(twice.next_steps).toContain(alreadyListed("ExcelMale"));
+    expect(twice.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(alreadyListed("ExcelMale"));
     // A fragment, tracking parameter or trailing slash does not make it another thread...
     for (const alias of [`${forumThread}#post-12`, `${forumThread}?utm_source=share&fbclid=abc`, forumThread.slice(0, -1),
       forumThread.replace("https://", "http://www.")]) {
       expect(gate({
         principal_communities: [{ name: "MESO-Rx", platform: "forum" }, { name: "ExcelMale", platform: "forum" }],
         community_searches: [read("MESO-Rx", forumThread, "forum"), read("ExcelMale", alias, "forum")]
-      }).next_steps).toContain(alreadyListed("ExcelMale"));
+      }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(alreadyListed("ExcelMale"));
     }
     // ...nor does another subreddit's path: a Reddit post's id is the thread.
     expect(gate({
       community_searches: [read("r/trt", trtThread), read("r/Testosterone", trtThread.replace("/r/trt/", "/r/Testosterone/"))]
-    }).next_steps).toContain(alreadyListed("r/Testosterone"));
+    }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(alreadyListed("r/Testosterone"));
     // Nor does a page, post, session or sort order of the same forum thread.
     const phpbb = "https://forum.example.org/viewtopic.php?t=2";
     const xenforo = "https://thinksteroids.com/community/threads/hgh-and-trt.12345/";
@@ -841,7 +873,7 @@ describe("finalize_research gate", () => {
       expect(gate({
         principal_communities: [{ name: "MESO-Rx", platform: "forum" }, { name: "ExcelMale", platform: "forum" }],
         community_searches: [read("MESO-Rx", first!, "forum"), read("ExcelMale", alias!, "forum")]
-      }).next_steps).toContain(alreadyListed("ExcelMale"));
+      }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(alreadyListed("ExcelMale"));
     }
     // Nor does a post or forum id beside the thread id.
     for (const [first, alias] of [
@@ -851,24 +883,24 @@ describe("finalize_research gate", () => {
       expect(gate({
         principal_communities: [{ name: "MESO-Rx", platform: "forum" }, { name: "ExcelMale", platform: "forum" }],
         community_searches: [read("MESO-Rx", first!, "forum"), read("ExcelMale", alias!, "forum")]
-      }).next_steps).toContain(alreadyListed("ExcelMale"));
+      }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(alreadyListed("ExcelMale"));
     }
     // A query parameter or topic number that names the thread keeps two threads apart; so does a post id without one.
     expect(gate({
       principal_communities: [{ name: "MESO-Rx", platform: "forum" }, { name: "ExcelMale", platform: "forum" }],
       community_searches: [read("MESO-Rx", "https://forum.example.org/viewtopic.php?p=77", "forum"),
         read("ExcelMale", "https://forum.example.org/viewtopic.php?p=78", "forum")]
-    }).next_steps).not.toContain(alreadyListed("ExcelMale"));
+    }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).not.toContain(alreadyListed("ExcelMale"));
     expect(gate({
       principal_communities: [{ name: "MESO-Rx", platform: "forum" }, { name: "ExcelMale", platform: "forum" }],
       community_searches: [read("MESO-Rx", "https://forum.example.org/t/hgh-results/123", "forum"),
         read("ExcelMale", "https://forum.example.org/t/hgh-results/124", "forum")]
-    }).next_steps).not.toContain(alreadyListed("ExcelMale"));
+    }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).not.toContain(alreadyListed("ExcelMale"));
     const topic = (id: number) => `https://forum.example.org/viewtopic.php?t=${id}`;
     expect(gate({
       principal_communities: [{ name: "MESO-Rx", platform: "forum" }, { name: "ExcelMale", platform: "forum" }],
       community_searches: [read("MESO-Rx", topic(1), "forum"), read("ExcelMale", topic(2), "forum")]
-    }).next_steps).not.toContain(alreadyListed("ExcelMale"));
+    }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).not.toContain(alreadyListed("ExcelMale"));
 
     // The permit counts every community searched outside YouTube once, a boundary included.
     const facebook = { name: "TRT Facebook group", platform: "facebook" };
@@ -885,7 +917,7 @@ describe("finalize_research gate", () => {
         "from my own web search, which AskRigor could not verify. TRT Facebook group needs a login to read, so reports " +
         "there are not included."
     });
-    expect(counted.next_steps).toEqual([]);
+    expect(counted.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(verifyResearchReceipt(counted.finalization_receipt!, options))
       .toMatchObject({ ok: true, claims: { unverified: "2" } });
   });
@@ -924,8 +956,10 @@ describe("finalize_research gate", () => {
       ["xyz789", trt], ["def456", found("testosterone", "Ten years on TRT")]
     ]);
     const gate = (trt: RedditThreadCheck, trtTitle?: string, draft?: string) => finalizeResearchBare({
-      ...base, community_findings: findingsFor(["aaaaaaaaaaa"]), community_searches: searches(trtTitle),
-      ...(draft === undefined ? {} : { answer_draft: draft, absence_claims: [] })
+      ...base, commercial_review_applicability: NONCOMMERCIAL_EXERCISE,
+      intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." },
+      community_findings: findingsFor(["aaaaaaaaaaa"]), community_searches: searches(trtTitle),
+      ...(draft === undefined ? {} : { answer_draft: draft, absence_claims: [], scale_results: [] })
     }, { ...options, redditThreads: reddit(trt) });
 
     // Both confirmed: the answer says Reddit confirmed the threads, not their content.
@@ -938,14 +972,14 @@ describe("finalize_research gate", () => {
       "recovery; some saw no difference and a few reported side effects, consistent with the trials.\n\nOn " +
       `[r/Testosterone](${testosteroneThread}), most reported better recovery too; some saw no difference and a few ` +
       `reported side effects, consistent with the trials.\n\n${confirmedCaveat}`;
-    expect(gate(found("trt", "HGH and TRT: five years in"), "HGH and TRT: five years in", draft).next_steps).toEqual([]);
+    expect(gate(found("trt", "HGH and TRT: five years in"), "HGH and TRT: five years in", draft).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
 
     // A thread Reddit does not have, one it files elsewhere, or one under another title goes back.
-    expect(gate({ state: "not_found" }).next_steps).toContain(
+    expect(gate({ state: "not_found" }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
       `community_searches for r/trt lists thread(s) Reddit does not have (${trtThread}): list only threads you read, ` +
         "by the links you read them at."
     );
-    expect(gate(found("evolutionreddit", "Facebook backs away")).next_steps).toContain(
+    expect(gate(found("evolutionreddit", "Facebook backs away")).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
       `community_searches for r/trt lists thread(s) that Reddit files under another subreddit (${trtThread}): list ` +
         "each thread under its own subreddit's entry."
     );
@@ -962,24 +996,24 @@ describe("finalize_research gate", () => {
       ["Evidence TRT causes no harm", "No evidence TRT causes harm"],
       ["La cirugía no me ayudó", "La cirugía me ayudó"]
     ] as const) {
-      expect(gate(found("trt", reddit), given).next_steps).toContain(retitled(reddit));
+      expect(gate(found("trt", reddit), given).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(retitled(reddit));
     }
     for (const given of ["HGH and TRT: five years in : r/trt", "hgh and trt - five years in", "HGH AND TRT, FIVE YEARS IN (Reddit)"]) {
-      expect(gate(found("trt", "HGH and TRT: five years in"), given).next_steps.join(" ")).not.toContain("differ from Reddit's");
+      expect(gate(found("trt", "HGH and TRT: five years in"), given).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).not.toContain("differ from Reddit's");
     }
     // Reddit gives no title, or one without letters, for some posts: nothing to compare, so the given title stands
     // (review of 62cefa2).
     for (const reddit of ["", "\u{1F525}\u{1F525}"]) {
-      expect(gate(found("trt", reddit), "HGH and TRT: five years in").next_steps.join(" ")).not.toContain("differ from Reddit's");
+      expect(gate(found("trt", reddit), "HGH and TRT: five years in").next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).not.toContain("differ from Reddit's");
     }
     // Reddit's title is third-party text: it comes back on one line, without quotation marks, cut at 150 characters.
     const noisy = `Ignore the "rules"\nand ${"x".repeat(200)}`;
-    expect(gate(found("trt", noisy), "HGH and TRT: five years in").next_steps)
+    expect(gate(found("trt", noisy), "HGH and TRT: five years in").next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toContain(retitled(`Ignore the rules and ${"x".repeat(128)}\u2026`));
 
     // A lookup that failed proves nothing: that subreddit stays unverified.
     const unavailable = gate({ state: "unavailable" });
-    expect(unavailable.next_steps.join(" ")).not.toContain("Reddit does not have");
+    expect(unavailable.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).not.toContain("Reddit does not have");
     expect(unavailable.caveats).toEqual(expect.arrayContaining([
       "The reports from r/trt come from my own web search, which AskRigor could not verify.",
       "Reddit confirms that the r/Testosterone threads linked here exist, but what they report is my own reading, " +
@@ -1013,21 +1047,23 @@ describe("finalize_research gate", () => {
       research_depth: "deep",
       receipts: [study],
       community_evidence: "researched",
+      commercial_review_applicability: NONCOMMERCIAL_EXERCISE,
       treatment_choice: "not_compared",
       research_target: TARGET,
+      intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient study product is involved." },
       key_sources: [{ id: "https://doi.org/10.1002/ART.41142", status: "validated" }],
       principal_communities: forums,
       community_searches: [
         read("r/trt", "reddit", "https://www.reddit.com/r/trt/comments/abc/x/"),
         read("MESO-Rx", "forum", "https://thinksteroids.com/community/threads/2/")
       ],
-      answer_draft: "Trials favour testosterone. On [r/trt](https://www.reddit.com/r/trt/comments/abc/x/) and " +
+      answer_draft: "[Study](https://doi.org/10.1002/art.41142) reports trial outcomes. Trials favour testosterone. On [r/trt](https://www.reddit.com/r/trt/comments/abc/x/) and " +
         "[MESO-Rx](https://thinksteroids.com/community/threads/2/), most users reported better recovery, some saw no " +
         "difference, and several reported joint pain as a side effect of growth hormone, consistent with the trials. " +
         "The reports from r/trt and MESO-Rx come from my own web search, which AskRigor could not verify.",
-      absence_claims: []
+      absence_claims: [], scale_results: []
     }, options);
-    expect(result.next_steps).toEqual([]);
+    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(result.status).toBe("ready_with_limits");
     expect(result.community.communities_searched).toEqual(["r/trt", "MESO-Rx"]);
   });
@@ -1071,9 +1107,12 @@ describe("finalize_research gate", () => {
       }
     };
     const request = (corpora?: unknown, searches?: unknown[]) => ({
+      intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient study product is involved." },
+      shopping: { status: "not_requested" },
       research_depth: "deep",
       receipts: [study],
       community_evidence: "researched",
+      commercial_review_applicability: { status: "required", products: ["Humic Drops 2 oz"] },
       treatment_choice: "not_compared",
       research_target: TARGET,
       key_sources: [{ id: "https://doi.org/10.1002/ART.41142", status: "validated" }],
@@ -1082,15 +1121,15 @@ describe("finalize_research gate", () => {
         { name: "ADHD Parents Forum", platform: "forum" }
       ],
       community_searches: searches ?? [amazon(corpora), forum],
-      absence_claims: []
+      absence_claims: [], scale_results: []
     });
-    const lanes = `In [the drops' reviews on Amazon](${reviewsPage}), several parents saw calmer evenings, some saw ` +
+    const lanes = `[Study](https://doi.org/10.1002/art.41142) reports study outcomes.\n\nIn [the drops' reviews on Amazon](${reviewsPage}), several parents saw calmer evenings, some saw ` +
       "no difference, and two reported stomach upset; these show the range of experiences only. On the " +
       `[ADHD Parents Forum](${forumThread}), one parent saw better sleep, most saw no change, and none reported side ` +
       "effects, which adds little.";
     const product = "Humic Drops 2 oz";
-    const topRanked = [{ product, reviews_shown: 2400, reviews_read: 8, selection: "top_ranked" }];
-    const first = finalizeResearchBare({ ...request(topRanked), answer_draft: lanes }, options);
+    const topRanked = [{ outcome_search: { queries: ["humic acid ADHD outcomes"], directions: ["benefit", "no_effect", "worse"] }, product, reviews_shown: 2400, reviews_read: 8, item_identity: { exact_product: 8, variant_unresolved: 0, other_variant_excluded: 0 }, selection: "top_ranked" }];
+    const first = finalizeResearchBare({ intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." }, ...request(topRanked), answer_draft: lanes }, options);
     expect(first.limits).toContain(
       `The 8 Amazon review(s) of ${product} you read (of 2400 shown) were the ones the site ranks first; say they ` +
         "show which experiences people report, not how common each is."
@@ -1098,8 +1137,8 @@ describe("finalize_research gate", () => {
     const partialCaveat = `The Amazon reviews of ${product} that I read were the ones the site ranks first, so they ` +
       "show which experiences people report, not how common each one is.";
     expect(first.caveats).toContain(partialCaveat);
-    const ready = finalizeResearchBare({ ...request(topRanked), answer_draft: `${lanes} ${first.caveats.join(" ")}` }, options);
-    expect(ready.next_steps).toEqual([]);
+    const ready = finalizeResearchBare({ intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." }, ...request(topRanked), answer_draft: `${lanes} ${first.caveats.join(" ")}` }, options);
+    expect(ready.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(ready.status).toBe("ready_with_limits");
     expect(ready.community.communities_searched).toEqual(["Amazon", "ADHD Parents Forum"]);
     // The answer must carry the caveat, as it must every caveat the gate writes.
@@ -1111,24 +1150,24 @@ describe("finalize_research gate", () => {
 
     // Every review mentioning the condition is a frame not chosen by outcome.
     const mentions = finalizeResearchBare({
-      ...request([{ product, reviews_shown: 2400, reviews_read: 31, selection: "condition_mentions" }]),
+      ...request([{ outcome_search: { queries: ["humic acid ADHD outcomes"], directions: ["benefit", "no_effect", "worse"] }, product, reviews_shown: 2400, reviews_read: 31, selection: "condition_mentions" }]),
       answer_draft: lanes
     }, options);
     expect(mentions.caveats.filter((sentence) => sentence.includes("how common each one is"))).toEqual([]);
 
     // Missing, misplaced or impossible counts go back to the model.
-    expect(finalizeResearchBare(request(), options).next_steps).toContain(
+    expect(finalizeResearchBare(request(), options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
       "community_searches for Amazon lists reviews read on a review site: give review_corpora, with each product, how " +
         "many reviews the site shows, how many you read and how you chose them."
     );
     const miscounted = "community_searches for Amazon gives review counts that do not fit (Humic Drops 2 oz): " +
       "reviews_read cannot exceed reviews_shown, and selection all means every review shown was read.";
-    expect(finalizeResearchBare(request([{ product, reviews_shown: 5, reviews_read: 8, selection: "top_ranked" }]), options)
-      .next_steps).toContain(miscounted);
-    expect(finalizeResearchBare(request([{ product, reviews_shown: 2400, reviews_read: 8, selection: "all" }]), options)
-      .next_steps).toContain(miscounted);
+    expect(finalizeResearchBare(request([{ outcome_search: { queries: ["humic acid ADHD outcomes"], directions: ["benefit", "no_effect", "worse"] }, product, reviews_shown: 5, reviews_read: 8, item_identity: { exact_product: 8, variant_unresolved: 0, other_variant_excluded: 0 }, selection: "top_ranked" }]), options)
+      .next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(miscounted);
+    expect(finalizeResearchBare(request([{ outcome_search: { queries: ["humic acid ADHD outcomes"], directions: ["benefit", "no_effect", "worse"] }, product, reviews_shown: 2400, reviews_read: 8, item_identity: { exact_product: 8, variant_unresolved: 0, other_variant_excluded: 0 }, selection: "all" }]), options)
+      .next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(miscounted);
     expect(finalizeResearchBare(request(undefined, [amazon(topRanked), { ...forum, review_corpora: topRanked }]), options)
-      .next_steps).toContain(
+      .next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
       "community_searches for ADHD Parents Forum gives review_corpora, which are for review sites: record the site's " +
         "product reviews under platform review_site, or leave review_corpora out."
     );
@@ -1158,7 +1197,7 @@ describe("finalize_research gate", () => {
       answer_draft: `${CLEAN_DRAFT} Under COINotAutomaticDisqualification the funded trial still counts, and ` +
         "NNTAndNNH puts the benefit at about 1 in 8."
     }, { ...options, protocolNames: canonical });
-    expect(result.next_steps).toEqual([
+    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "The answer shows internal labels (COINotAutomaticDisqualification, NNTAndNNH): say what each means in plain " +
         "words, or leave it out."
     ]);
@@ -1178,7 +1217,7 @@ describe("finalize_research gate", () => {
     // Everything else passes, so the gate asks for the answer itself.
     const withoutDraft = finalizeResearchRaw(request, options);
     expect(withoutDraft).toMatchObject({ status: "not_ready", answer_checked: false });
-    expect(withoutDraft.next_steps).toEqual([
+    expect(withoutDraft.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final check reads it."
     ]);
     expect(withoutDraft.finalization_receipt).toBeUndefined();
@@ -1199,7 +1238,7 @@ describe("finalize_research gate", () => {
       `does not show (${findings.join(", ")}): report each finding in the answer, and copy the sentence(s) that ` +
       "report it exactly, from one paragraph or list item.";
     expect(leaky).toMatchObject({ status: "not_ready", answer_checked: true });
-    expect(leaky.next_steps).toEqual([
+    expect(leaky.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "The answer shows internal labels (REQUIRED_NOW, CONTINGENT_LATER, api_visible_complete, finalize_research, " +
         "DeepForumAuditActivationPrompt, synthesis lock): say what each means in plain words, or leave it out.",
       "The answer names video(s) by bare ID (Z8jn_6WMquo, aaaaaaaaaaa): give each its linked title instead.",
@@ -1221,7 +1260,7 @@ describe("finalize_research gate", () => {
       "no stake. This weak firsthand signal supports trying exercise before surgery.";
     const lane = (answerDraft: string, findings: Record<string, unknown> = request.community_findings) =>
       finalizeResearchRaw({ ...request, community_findings: findings, answer_draft: `${subreddit}\n\n${answerDraft}` }, options)
-        .next_steps;
+        .next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
     expect(lane(youtubeLane)).toEqual([]);
     // Naming YouTube is not reporting what its commenters said.
     expect(lane("Exercise helps most people with hip osteoarthritis. I also searched YouTube."))
@@ -1336,10 +1375,10 @@ describe("finalize_research gate", () => {
     const check = (input: Record<string, unknown>) => finalizeResearchRaw({ ...request, ...input }, options);
     const result = check({});
     expect(result.caveats).toEqual([FORUM_CAVEAT, leadCaveat, ...OFFER_CAVEATS]);
-    expect(result.next_steps).toEqual([]);
+    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(result.status).toBe("ready_with_limits");
     // A link's text may change in a rendering too.
-    expect(check({ answer_draft: draft.replace("[este estudio](", "[el estudio de 2020](") }).next_steps).toEqual([]);
+    expect(check({ answer_draft: draft.replace("[este estudio](", "[el estudio de 2020](") }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
 
     // Accents written as one character or as a letter and a combining mark compare alike.
     const decomposed = "Esta sen\u0303al de\u0301bil apoya probar el ejercicio antes de la cirugi\u0301a.";
@@ -1348,24 +1387,24 @@ describe("finalize_research gate", () => {
         ...request.community_findings,
         answer_quotes: { ...request.community_findings.answer_quotes, effect_on_answer: decomposed }
       }
-    }).next_steps).toEqual([]);
+    }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
 
     // Renderings count only for an answer declared in another language: an English one states each caveat as written.
     const englishOnly = "caveat_renderings counts only for an answer not in English: give answer_language (such as fr " +
       "or es), or state each caveat as written.";
     const allLeftOut = leftOut(FORUM_CAVEAT, leadCaveat, ...OFFER_CAVEATS);
-    expect(check({ answer_language: undefined }).next_steps).toEqual([englishOnly, allLeftOut]);
-    expect(check({ answer_language: "en-GB" }).next_steps).toEqual([englishOnly, allLeftOut]);
+    expect(check({ answer_language: undefined }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([englishOnly, allLeftOut]);
+    expect(check({ answer_language: "en-GB" }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([englishOnly, allLeftOut]);
     // A rendering stands as a sentence of its own, as a caveat does: embedded, it is not stated.
     const forum = spanish.get(FORUM_CAVEAT)!;
-    expect(check({ answer_draft: draft.replace(forum, `No es cierto que l${forum.slice(1)}`) }).next_steps)
+    expect(check({ answer_draft: draft.replace(forum, `No es cierto que l${forum.slice(1)}`) }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toEqual([leftOut(FORUM_CAVEAT)]);
     // It keeps the caveat's links.
     const unlinked = (text: string) => text.replace("[este estudio](https://doi.org/10.1016/j.joca.2020.01.001)", "este estudio");
     expect(check({
       answer_draft: unlinked(draft),
       caveat_renderings: request.caveat_renderings.map(({ caveat, text }) => ({ caveat, text: unlinked(text) }))
-    }).next_steps).toEqual([`caveat_renderings drops the link(s) of this caveat; keep each link: "${leadCaveat}"`]);
+    }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([`caveat_renderings drops the link(s) of this caveat; keep each link: "${leadCaveat}"`]);
     // A rendering with no letter or digit states nothing, and the check still ends (review of d71db54: an
     // empty rendering never ended the search, and one of marks alone matched any sentence end).
     for (const text of [".", "**", "___", "\u3002"]) {
@@ -1375,11 +1414,11 @@ describe("finalize_research gate", () => {
           not_relevant_reason: "A lab value.",
           treatment_choice: "not_compared", research_target: TARGET, key_sources: [], answer_draft: answer,
           answer_language: "fr", caveat_renderings: [{ caveat: "No study's methods were checked in full text for this answer.", text }]
-        }, options).next_steps).toEqual([leftOut("No study's methods were checked in full text for this answer.")]);
+        }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([leftOut("No study's methods were checked in full text for this answer.")]);
       }
     }
     // Quotes are the answer's own words, in its language, and must be in it.
-    expect(check({ answer_draft: draft.replace("nadie mencionó efectos secundarios", "nadie habló de daños") }).next_steps)
+    expect(check({ answer_draft: draft.replace("nadie mencionó efectos secundarios", "nadie habló de daños") }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toEqual([
         "For the YouTube comments, answer_quotes gives text the answer does not show (adverse_reports): report each " +
           "finding in the answer, and copy the sentence(s) that report it exactly, from one paragraph or list item."
@@ -1399,14 +1438,14 @@ describe("finalize_research gate", () => {
     const japanese = "[この研究](https://doi.org/10.1016/j.joca.2020.01.001)の全文は公開されていなかったため、その方法は確認できませんでした。";
     const inJapanese = (answer: string) => finalizeResearchRaw({
       ...deep, answer_draft: answer, answer_language: "ja", caveat_renderings: [{ caveat: leadCaveat, text: japanese }]
-    }, options).next_steps;
+    }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
     expect(inJapanese(`運動療法の効果は複数の試験で確認されています。${japanese}詳しくは主治医に相談してください。`)).toEqual([]);
     expect(inJapanese(`専門家によれば、${japanese}`)).toEqual([leftOut(leadCaveat)]);
     const arabic = "لم يكن النص الكامل لـ[هذه الدراسة](https://doi.org/10.1016/j.joca.2020.01.001) متاحًا، لذلك لم تُفحص طرقها.";
     expect(finalizeResearchRaw({
       ...deep, answer_language: "ar", caveat_renderings: [{ caveat: leadCaveat, text: arabic }],
       answer_draft: `هل التمارين مفيدة؟${arabic}`
-    }, options).next_steps).toEqual([]);
+    }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
   });
 
   it("bounds what the searches did not find and grounds a null result in audited studies (the geosmin report)", () => {
@@ -1431,28 +1470,28 @@ describe("finalize_research gate", () => {
       "PMC) did not find it, and they did not cover older or variant terms, citation chains and grey literature; that " +
       "is not evidence that it does not exist.";
     expect(check({}).caveats).toEqual([bounded]);
-    expect(check({}).next_steps).toEqual([leftOut(bounded)]);
+    expect(check({}).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([leftOut(bounded)]);
     expect(check({ answer_draft: `${answer} ${bounded}` })).toMatchObject({ status: "ready_with_limits", next_steps: [] });
     const covered = "Where this answer says something was not found, it means the searches made here (PubMed and Europe " +
       "PMC) did not find it; that is not evidence that it does not exist.";
     expect(check({ search_coverage: ["historical_terms", "citation_chains", "grey_literature"] }).caveats).toEqual([covered]);
-    expect(check({ receipts: [study] }).next_steps).toContain(
+    expect(check({ receipts: [study] }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
       "The answer says something was not found, but no literature search receipt was passed: search with " +
         "search_pubmed or search_europe_pmc (and search_clinical_trials for trials) and pass their research receipts."
     );
     // The answer must say which it is: an absence it does not declare cannot be checked.
-    expect(check({ absence_claims: undefined }).next_steps).toContain(
+    expect(check({ absence_claims: undefined }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
       "Say whether the answer states that something was not found, not studied, has no evidence or has no effect: " +
         "give absence_claims, each such sentence with its state (an empty list if the answer states none)."
     );
-    expect(check({ absence_claims: [{ quote: "There is no evidence at all.", state: "support_not_located" }] }).next_steps)
+    expect(check({ absence_claims: [{ quote: "There is no evidence at all.", state: "support_not_located" }] }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toContain("absence_claims[0] gives text the answer does not show: copy each sentence exactly from answer_draft.");
     // A null result or an exclusion rests on studies whose methods were audited, and gives its numbers.
     const nullResult = "The trial found no difference in pain (mean difference 0.1 points, 95% CI -0.4 to 0.6).";
     const withNull = (claim: Record<string, unknown>, text = nullResult) =>
       check({ answer_draft: `${answer} ${bounded} ${text}`, absence_claims: [
         { quote: notFound, state: "support_not_located" }, { quote: text, state: "direct_null_evidence", ...claim }
-      ] }).next_steps;
+      ] }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
     expect(withNull({ studies: ["10.1002/art.41142"] })).toEqual([]);
     expect(withNull({ studies: ["PMC10518852"] })).toEqual([]);
     expect(withNull({})).toEqual([
@@ -1480,7 +1519,7 @@ describe("finalize_research gate", () => {
       material_video_ids: ["bbbbbbbbbbb"],
       key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
     }, options);
-    const steps = result.next_steps.join(" ");
+    const steps = result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ");
     expect(steps).not.toMatch(/Find community videos/u);
     expect(steps).not.toMatch(/Survey community evidence/u);
   });
@@ -1494,7 +1533,7 @@ describe("finalize_research gate", () => {
       key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
     }, options);
     expect(noSurvey.status).toBe("not_ready");
-    expect(noSurvey.next_steps.join(" ")).toMatch(/scout_gemini_youtube_candidates .*survey_youtube_community only if the scout is unavailable.*rediscovery_leads/u);
+    expect(noSurvey.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toMatch(/scout_gemini_youtube_candidates .*survey_youtube_community only if the scout is unavailable.*rediscovery_leads/u);
     expect(noSurvey.finalization_receipt).toBeUndefined();
 
     const missingVideo = finalizeResearch({
@@ -1506,7 +1545,7 @@ describe("finalize_research gate", () => {
       key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
     }, options);
     expect(missingVideo.status).toBe("not_ready");
-    expect(missingVideo.next_steps).toEqual([
+    expect(missingVideo.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "Audit video ccccccccccc with audit_youtube_video_community and continue until the audit completes."
     ]);
   });
@@ -1530,7 +1569,7 @@ describe("finalize_research gate", () => {
     }, options);
     expect(communityOnly.status).toBe("not_ready");
     expect(communityOnly.community).toMatchObject({ surveys: 1, discovery_rounds: 3, audited_videos: [] });
-    expect(communityOnly.next_steps).toEqual([
+    expect(communityOnly.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "Video aaaaaaaaaaa has only a one-call community audit. Audit video aaaaaaaaaaa with " +
         "audit_youtube_video_community and continue until the audit completes."
     ]);
@@ -1561,7 +1600,7 @@ describe("finalize_research gate", () => {
     };
     const silent = finalizeResearchGate(request, options);
     expect(silent.status).toBe("not_ready");
-    expect(silent.next_steps).toEqual([
+    expect(silent.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "Say what the comments you read showed: give community_findings (benefit, no-effect and adverse reports, " +
         "creators versus independent commenters, and the effect on the answer), even if the signal is weak or neutral."
     ]);
@@ -1572,7 +1611,7 @@ describe("finalize_research gate", () => {
       ...request,
       community_findings: findingsFor(["aaaaaaaaaaa", "ccccccccccc", "ddddddddddd"])
     }, options);
-    expect(partial.next_steps).toEqual([
+    expect(partial.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "Add bbbbbbbbbbb to community_findings.videos_reviewed: their comments were read, so the findings must account for them.",
       "community_findings.videos_reviewed lists ddddddddddd, but no comment-audit receipt passed here covers them; " +
         "pass the receipt or drop them."
@@ -1609,7 +1648,7 @@ describe("finalize_research gate", () => {
     const onlyRead = finalizeResearchGate({
       ...request, receipts, community_findings: findingsFor(["aaaaaaaaaaa"])
     }, options);
-    expect(onlyRead.next_steps).toEqual([]);
+    expect(onlyRead.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(onlyRead.must_report).toEqual([
       expect.stringMatching(/^YouTube comments \(1 video\(s\) read\): /u),
       expect.stringMatching(/^r\/HipOA \(1 thread\(s\) read\): /u)
@@ -1618,7 +1657,7 @@ describe("finalize_research gate", () => {
     const both = finalizeResearchGate({
       ...request, receipts, community_findings: findingsFor(["aaaaaaaaaaa", "bbbbbbbbbbb"])
     }, options);
-    expect(both.next_steps).toEqual([]);
+    expect(both.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(both.must_report).toEqual([
       expect.stringMatching(/^YouTube comments \(1 video\(s\) read\): /u),
       expect.stringMatching(/^r\/HipOA \(1 thread\(s\) read\): /u)
@@ -1635,12 +1674,12 @@ describe("finalize_research gate", () => {
       no_material_video_reason: "Only the one-call audit read these comments.",
       receipts: [oneCall, emptySearch, repeatScout, study]
     };
-    expect(finalizeResearchGate(oneCallRequest, options).next_steps).toEqual([
+    expect(finalizeResearchGate(oneCallRequest, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "Say what the comments you read showed: give community_findings (benefit, no-effect and adverse reports, " +
         "creators versus independent commenters, and the effect on the answer), even if the signal is weak or neutral."
     ]);
     const covered = finalizeResearchGate({ ...oneCallRequest, community_findings: findingsFor(["ddddddddddd"]) }, options);
-    expect(covered.next_steps).toEqual([]);
+    expect(covered.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(covered.must_report).toHaveLength(2);
 
     // Findings cover the comments the audit's final view returned: a comment
@@ -1651,14 +1690,14 @@ describe("finalize_research gate", () => {
     expect(finalizeResearchGate({
       ...request, receipts: [survey, emptySearch, repeatScout, videoA, unshown, study],
       community_findings: findingsFor(["aaaaaaaaaaa"])
-    }, options).next_steps).toEqual([]);
+    }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     const shownOne = sign("youtube_video_audit", {
       video: "bbbbbbbbbbb", state: "api_visible_complete", lock: "pass", records: 1, shown: 1
     }, options);
     expect(finalizeResearchGate({
       ...request, receipts: [survey, emptySearch, repeatScout, videoA, shownOne, study],
       community_findings: findingsFor(["aaaaaaaaaaa"])
-    }, options).next_steps).toEqual([
+    }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "Add bbbbbbbbbbb to community_findings.videos_reviewed: their comments were read, so the findings must account for them."
     ]);
 
@@ -1676,7 +1715,7 @@ describe("finalize_research gate", () => {
         receipts: [survey, emptySearch, repeatScout, videoA, ...audits, study],
         community_findings: findingsFor(["aaaaaaaaaaa"])
       }, options);
-      expect(reread.next_steps).toEqual([
+      expect(reread.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
         "Add bbbbbbbbbbb to community_findings.videos_reviewed: their comments were read, so the findings must account for them."
       ]);
     }
@@ -1694,9 +1733,9 @@ describe("finalize_research gate", () => {
       ]
     }, options);
     expect(result.status).toBe("not_ready");
-    expect(result.next_steps).toHaveLength(2);
-    expect(result.next_steps[0]).toMatch(/^For 10\.1002\/art\.41142: acquire_open_full_text/u);
-    expect(result.next_steps[1]).toMatch(/^Try acquire_open_full_text for 10\.1000\/unattempted/u);
+    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toHaveLength(2);
+    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)[0]).toMatch(/^For 10\.1002\/art\.41142: acquire_open_full_text/u);
+    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)[1]).toMatch(/^Try acquire_open_full_text for 10\.1000\/unattempted/u);
   });
 
   it.each([
@@ -1775,7 +1814,7 @@ describe("finalize_research gate", () => {
     const studiesCaveat = caveats[1]!;
     const oneStudy = "The full text of [this study](https://doi.org/10.1016/j.joca.2020.01.001) was not openly " +
       "available, so its methods were not checked.";
-    expect(answerWith(caveats[0]!, oneStudy, "The PubMed study was only an abstract.").next_steps).toEqual([
+    expect(answerWith(caveats[0]!, oneStudy, "The PubMed study was only an abstract.").next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       leftOut(studiesCaveat)
     ]);
     // A link's text may change, and formatting and line breaks do not matter.
@@ -1817,13 +1856,13 @@ describe("finalize_research gate", () => {
     const untried = finalizeResearch(base, options);
     expect(untried.status).toBe("not_ready");
     expect(untried.sources.lead_only).toEqual([]);
-    expect(untried.next_steps).toEqual([
+    expect(untried.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "PubMed lists an open copy of 10.1016/j.joca.2020.01.001 in PubMed Central (PMC7654321) that the full-text " +
         "attempt did not try: call acquire_open_full_text with DOI 10.1016/j.joca.2020.01.001 and pmcid PMC7654321, " +
         "then audit it, or pass the new research_receipt if it still finds no full text."
     ]);
     const byPmid = finalizeResearch({ ...base, key_sources: [{ id: "PMID: 31234567", status: "lead_only" as const }] }, options);
-    expect(byPmid.next_steps).toEqual([
+    expect(byPmid.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       expect.stringMatching(/^PubMed lists an open copy of PMID: 31234567 in PubMed Central \(PMC7654321\)/u)
     ]);
     // Once that copy was tried and still gave no full text, the lead stands.
@@ -1847,7 +1886,7 @@ describe("finalize_research gate", () => {
     }, options);
     expect(result.status).toBe("not_ready");
     expect(result.sources.lead_only).toEqual([]);
-    expect(result.next_steps).toEqual([
+    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "PubMed lists an open full text in PubMed Central (PMC7654321) for PMID 31234567 but no DOI. Find its DOI " +
         "(search_europe_pmc for PMC7654321) and read it with acquire_open_full_text and that pmcid, or leave it out of " +
         "key_sources and label its claims unverified."
@@ -1864,7 +1903,7 @@ describe("finalize_research gate", () => {
       key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
     }, options);
     expect(unbound.status).toBe("not_ready");
-    expect(unbound.next_steps).toEqual([
+    expect(unbound.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "Video aaaaaaaaaaa is not among the videos found by the surveys, scouts or searches whose receipts were passed; " +
         "pass the receipt of the discovery call that found it, or drop it from material_video_ids."
     ]);
@@ -1916,7 +1955,7 @@ describe("finalize_research gate", () => {
       ]
     }, options);
     expect(result.status).toBe("not_ready");
-    expect(result.next_steps).toEqual([
+    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "Try acquire_open_full_text for PMC123 with its DOI and this pmcid before treating it as lead_only; pass the research_receipt it returns.",
       "Fetch PMID 999 with fetch_pubmed_record and pass its research_receipt; if it has a DOI, try acquire_open_full_text.",
       "Try acquire_open_full_text for 4242 (DOI 10.1016/j.joca.2020.01.001) before treating it as lead_only; pass the research_receipt it returns.",
@@ -1944,14 +1983,14 @@ describe("finalize_research gate", () => {
     const oneRound = finalizeResearch({ ...base, receipts: [survey, videoA, study] }, options);
     expect(oneRound.status).toBe("not_ready");
     expect(oneRound.community.saturated).toBe(false);
-    expect(oneRound.next_steps).toEqual([expect.stringMatching(/^Run another discovery round from a new angle/u)]);
+    expect(oneRound.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([expect.stringMatching(/^Run another discovery round from a new angle/u)]);
 
     // Video d first turned up in the last round, so the search is still finding material.
     const lateFind = sign("youtube_scout", { videos: ["ddddddddddd"], open: 0, q: "g7g7g7g7g7g7" }, options);
     const videoD = sign("youtube_video_audit", { video: "ddddddddddd", state: "api_visible_complete", lock: "pass", records: 90 }, options);
     const fresh = finalizeResearch({ ...base, receipts: [survey, emptySearch, lateFind, videoA, videoD, study] }, options);
     expect(fresh.status).toBe("not_ready");
-    expect(fresh.next_steps).toEqual([expect.stringMatching(/^Discovery has not saturated: ddddddddddd first turned up/u)]);
+    expect(fresh.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([expect.stringMatching(/^Discovery has not saturated: ddddddddddd first turned up/u)]);
 
     // Two more rounds from different angles that add nothing new close it,
     // wherever the caller puts them in the list.
@@ -1972,11 +2011,11 @@ describe("finalize_research gate", () => {
     };
     // A later call repeating the same query (a byte-identical receipt would count once).
     const sameAngle = sign("youtube_search", { videos: ["zzzzzzzzzzz"], q: "b2b2b2b2b2b2" }, options);
-    expect(finalizeResearch({ ...base, receipts: [survey, emptySearch, sameAngle, videoA, study] }, options).next_steps)
+    expect(finalizeResearch({ ...base, receipts: [survey, emptySearch, sameAngle, videoA, study] }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toEqual([expect.stringMatching(/^The last two discovery rounds repeated the same searches/u)]);
 
     const openScout = sign("youtube_scout", { videos: [], open: 3, q: "i9i9i9i9i9i9" }, options);
-    expect(finalizeResearch({ ...base, receipts: [survey, emptySearch, openScout, videoA, study] }, options).next_steps)
+    expect(finalizeResearch({ ...base, receipts: [survey, emptySearch, openScout, videoA, study] }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toEqual([expect.stringMatching(/^A recent round left results unchecked/u)]);
 
     // A search whose results continue on an unread page is not a settled round.
@@ -1995,12 +2034,12 @@ describe("finalize_research gate", () => {
     };
     const next = pageKey("hip pain what worked", "CAoQAA");
     const pageOne = sign("youtube_search", { videos: [], open: 1, nx: next, q: "j0j0j0j0j0j0" }, options);
-    expect(finalizeResearch({ ...base, receipts: [survey, emptySearch, pageOne, videoA, study] }, options).next_steps)
+    expect(finalizeResearch({ ...base, receipts: [survey, emptySearch, pageOne, videoA, study] }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toEqual([expect.stringContaining("Continue a search with its next cursor")]);
     // Page two read the rest: nothing is left unread, though two pages of one
     // query are one angle, so saturation still needs a new one.
     const pageTwo = sign("youtube_search", { videos: [], open: 0, pg: next, q: "j0j0j0j0j0j0" }, options);
-    expect(finalizeResearch({ ...base, receipts: [survey, pageOne, pageTwo, videoA, study] }, options).next_steps)
+    expect(finalizeResearch({ ...base, receipts: [survey, pageOne, pageTwo, videoA, study] }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toEqual([expect.stringMatching(/^The last two discovery rounds repeated the same searches/u)]);
   });
 
@@ -2018,13 +2057,13 @@ describe("finalize_research gate", () => {
     const deep = finalizeResearch({ ...base, receipts, research_depth: "deep" }, options);
     expect(deep.status).toBe("not_ready");
     expect(deep.community.saturated).toBe(false);
-    expect(deep.next_steps).toEqual([expect.stringMatching(
+    expect(deep.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([expect.stringMatching(
       /^1 search\(es\) in the latest discovery rounds did not complete, 1 stopped by YouTube's rate limit or daily quota\. Rerun them once it resets and pass the new research_receipt\./u
     )]);
 
     // A first pass cannot rerun them until the limit resets, so it ends with them as open leads.
     const firstPass = { ...base, receipts, research_depth: "first_pass" as const };
-    expect(finalizeResearch({ ...firstPass, open_leads: [] }, options).next_steps).toEqual([
+    expect(finalizeResearch({ ...firstPass, open_leads: [] }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "List two or three open_leads with direction studies: studies whose methods were not audited in full text, or " +
         "questions not yet searched, each with why it looks promising.",
       "List two or three open_leads with direction community: communities, options or subgroups not yet reached, each " +
@@ -2039,7 +2078,7 @@ describe("finalize_research gate", () => {
         ...STUDY_FOCUSES.map((lead) => ({ ...lead, topic: `${lead.topic}, in more depth` })),
         ...COMMUNITY_FOCUSES
       ]
-    }, options).next_steps).toEqual([
+    }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "open_leads lists 4 focuses with direction studies; keep the two or three most promising."
     ]);
     const withLeads = finalizeResearch({
@@ -2071,7 +2110,7 @@ describe("finalize_research gate", () => {
     expect(fullDraft).toContain(rateCaveat);
     const answered = (answerDraft: string) => finalizeResearchRaw({
       ...rateLimited, another_pass_estimate: PASS_ESTIMATE, answer_draft: answerDraft
-    }, options).next_steps;
+    }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
     expect(answered(fullDraft)).toEqual([]);
     const leftOutRate = [
       leftOut(rateCaveat)
@@ -2154,8 +2193,8 @@ describe("finalize_research gate", () => {
     const failedSearch = sign("youtube_search", { videos: [], access: "error", rl: 0, inc: 1, open: 0, q: "n4n4n4n4n4n4" }, options);
     const rerun = /^1 search\(es\) in the latest discovery rounds did not complete\. Rerun them and pass the new research_receipt\./u;
     expect(finalizeResearch({ ...base, research_depth: "deep", receipts: [survey, emptySearch, failedSearch, videoA, study] }, options)
-      .next_steps).toEqual([expect.stringMatching(rerun)]);
-    expect(finalizeResearch({ ...firstPass, receipts: [survey, failedSearch, videoA, study] }, options).next_steps)
+      .next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([expect.stringMatching(rerun)]);
+    expect(finalizeResearch({ ...firstPass, receipts: [survey, failedSearch, videoA, study] }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toEqual([expect.stringMatching(rerun)]);
 
     // The quota stopped the only round before any video turned up: community
@@ -2217,7 +2256,7 @@ describe("finalize_research gate", () => {
     // Naming the leads in other words is not the caveat.
     const studies = STUDY_FOCUS_CAVEATS.join(" ");
     expect(check(`${CLEAN_DRAFT} ${partialCaveat} ${studies} Collagen and physiotherapy are mentioned above. ${passCaveat}`)
-      .next_steps).toEqual([leftOut(...leadCaveats)]);
+      .next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([leftOut(...leadCaveats)]);
     // A lead of short words must appear itself, not just words around it.
     expect(finalizeResearchRaw({
       ...request,
@@ -2228,7 +2267,7 @@ describe("finalize_research gate", () => {
       ],
       answer_draft: `${CLEAN_DRAFT} ${partialCaveat} ${studies} Comments suggest hip pain needs more study. ` +
         `${OFFER_CAVEATS[3]} ${passCaveat}`
-    }, options).next_steps).toEqual([leftOut("Community focus: PRP for hip pain. Two commenters credit injections with relief.")]);
+    }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([leftOut("Community focus: PRP for hip pain. Two commenters credit injections with relief.")]);
     // A long draft is read in linear time, however many brackets or backticks it has.
     const started = Date.now();
     expect(check(`${CLEAN_DRAFT} ${"[a](".repeat(14_000)}`).status).toBe("not_ready");
@@ -2241,7 +2280,7 @@ describe("finalize_research gate", () => {
     const estimateStep = "Give another_pass_estimate: roughly what another pass over the open leads would take, with " +
       "a number in digits and a unit (for example, \"about 20 minutes and 15 YouTube searches\").";
     const estimated = (estimate: string | undefined) =>
-      finalizeResearchRaw({ ...request, another_pass_estimate: estimate, answer_draft: CLEAN_DRAFT }, options).next_steps;
+      finalizeResearchRaw({ ...request, another_pass_estimate: estimate, answer_draft: CLEAN_DRAFT }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
     for (const estimate of [undefined, "a while", "half an hour"]) expect(estimated(estimate)).toContain(estimateStep);
     for (const estimate of ["unas 2 horas y 10 b\u00FAsquedas", "\u7D04\uFF12\uFF10\u5206", "\u062D\u0648\u0627\u0644\u064A \u0662\u0660 \u062F\u0642\u064A\u0642\u0629"]) {
       expect(estimated(estimate)).not.toContain(estimateStep);
@@ -2258,7 +2297,7 @@ describe("finalize_research gate", () => {
     const noLeads = finalizeResearch({ ...base, receipts, open_leads: [] }, options);
     expect(noLeads.status).toBe("not_ready");
     expect(noLeads.community).toMatchObject({ saturated: false, first_pass_complete: true });
-    expect(noLeads.next_steps).toEqual([
+    expect(noLeads.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "List two or three open_leads with direction studies: studies whose methods were not audited in full text, or " +
         "questions not yet searched, each with why it looks promising.",
       "List two or three open_leads with direction community: communities, options or subgroups not yet reached, each " +
@@ -2311,7 +2350,7 @@ describe("finalize_research gate", () => {
     const deep = finalizeResearch({ ...base, receipts, research_depth: "deep" }, options);
     expect(deep.status).toBe("not_ready");
     expect(deep.community).toMatchObject({ depth: "deep", first_pass_complete: false });
-    expect(deep.next_steps).toEqual([
+    expect(deep.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       expect.stringMatching(/^Discovery has not saturated: aaaaaaaaaaa, eeeeeeeeeee first turned up/u)
     ]);
   });
@@ -2352,7 +2391,7 @@ describe("finalize_research gate", () => {
     }, options);
     expect(earlier.community).toMatchObject({ discovery_rounds: 4, first_pass_complete: false });
     expect(earlier.status).toBe("not_ready");
-    expect(earlier.next_steps).toEqual([expect.stringMatching(/^Discovery has not saturated: eeeeeeeeeee first turned up/u)]);
+    expect(earlier.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([expect.stringMatching(/^Discovery has not saturated: eeeeeeeeeee first turned up/u)]);
 
     // Failed searches in the latest rounds are rerun, not counted.
     const latest = finalizeResearch({
@@ -2360,7 +2399,7 @@ describe("finalize_research gate", () => {
       receipts: [round("r7r7r7r7r7r7", ["eeeeeeeeeee"]), failed("p5p5p5p5p5p5"), failed("q6q6q6q6q6q6"), lateVideo, study]
     }, options);
     expect(latest.community).toMatchObject({ discovery_rounds: 3, first_pass_complete: false });
-    expect(latest.next_steps).toEqual([
+    expect(latest.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       expect.stringMatching(/^2 search\(es\) in the latest discovery rounds did not complete\. Rerun them/u)
     ]);
   });
@@ -2372,7 +2411,7 @@ describe("finalize_research gate", () => {
     const early = finalizeResearch({ ...base, receipts: [lateFind, videoD, study] }, options);
     expect(early.status).toBe("not_ready");
     expect(early.community.first_pass_complete).toBe(false);
-    expect(early.next_steps[0]).toMatch(/A first pass may also stop once 3 material videos are audited or 2 rounds are done/u);
+    expect(early.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)[0]).toMatch(/A first pass may also stop once 3 material videos are audited or 2 rounds are done/u);
   });
 
   it("lets a niche topic finish with no video once discovery has saturated", () => {
@@ -2388,7 +2427,7 @@ describe("finalize_research gate", () => {
     const thinDraft = (text: string) => finalizeResearchRaw({
       ...base, receipts: [emptySurvey, emptySearch, study], another_pass_estimate: PASS_ESTIMATE,
       answer_draft: `${CLEAN_DRAFT} ${text} ${OFFER_CAVEATS.join(" ")}`
-    }, options).next_steps;
+    }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
     expect(thinDraft("A few commenters on YouTube reported relief.")).toEqual([
       leftOut(thinCaveat)
     ]);
@@ -2397,7 +2436,7 @@ describe("finalize_research gate", () => {
     // Videos were found but none was audited: the model must say why.
     const unexplained = finalizeResearch({ ...base, receipts: [survey, emptySearch, repeatScout, study] }, options);
     expect(unexplained.status).toBe("not_ready");
-    expect(unexplained.next_steps).toEqual([expect.stringMatching(/^Discovery found 3 video\(s\) but none is in material_video_ids/u)]);
+    expect(unexplained.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([expect.stringMatching(/^Discovery found 3 video\(s\) but none is in material_video_ids/u)]);
     const explained = finalizeResearch({
       ...base,
       receipts: [survey, emptySearch, repeatScout, study],
@@ -2426,21 +2465,21 @@ describe("finalize_research gate", () => {
     const audited = finalizeResearch({
       ...base, receipts: [survey, emptySearch, judgedScout, videoF, study], material_video_ids: ["fffffffffff"]
     }, options);
-    expect(audited.next_steps.join(" ")).not.toMatch(/is not among the videos found/u);
+    expect(audited.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).not.toMatch(/is not among the videos found/u);
     expect(audited.community.material_videos).toEqual(["fffffffffff"]);
     // Rounds whose candidates were all left to judgment found videos: unaudited, the model says why, and the answer
     // does not say that none turned up.
     const secondJudged = sign("youtube_scout", { videos: [], alt: ["iiiiiiiiiii"], open: 0, q: "l2l2l2l2l2l2" }, options);
     const unaudited = finalizeResearch({ ...base, receipts: [judgedScout, secondJudged, study] }, options);
     expect(unaudited.caveats.join(" ")).not.toMatch(/No relevant video turned up/u);
-    expect(unaudited.next_steps).toEqual([expect.stringMatching(/^Discovery found 3 video\(s\) but none is in material_video_ids/u)]);
+    expect(unaudited.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([expect.stringMatching(/^Discovery found 3 video\(s\) but none is in material_video_ids/u)]);
     // An ID no receipt signed is still refused.
     const videoG = sign("youtube_video_audit", {
       video: "ggggggggggg", state: "api_visible_complete", lock: "pass", records: 60
     }, options);
     expect(finalizeResearch({
       ...base, receipts: [survey, emptySearch, judgedScout, videoG, study], material_video_ids: ["ggggggggggg"]
-    }, options).next_steps.join(" ")).toMatch(/Video ggggggggggg is not among the videos found/u);
+    }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toMatch(/Video ggggggggggg is not among the videos found/u);
   });
 
   it("counts a video the person gave, which Gemini read, as found, but not as a discovery round", () => {
@@ -2456,12 +2495,12 @@ describe("finalize_research gate", () => {
     const audited = finalizeResearch({
       ...base, receipts: [survey, emptySearch, reading, videoG, study], material_video_ids: ["ggggggggggg"]
     }, options);
-    expect(audited.next_steps.join(" ")).not.toMatch(/is not among the videos found/u);
+    expect(audited.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).not.toMatch(/is not among the videos found/u);
     expect(audited.community.material_videos).toEqual(["ggggggggggg"]);
     // Reading the video does not replace community discovery.
     expect(finalizeResearch({
       ...base, receipts: [reading, videoG, study], material_video_ids: ["ggggggggggg"]
-    }, options).next_steps.join(" ")).toMatch(/^Find community videos with scout_gemini_youtube_candidates/u);
+    }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toMatch(/^Find community videos with scout_gemini_youtube_candidates/u);
   });
 
   it("lists rejected receipts and skips community research only on one of HRP's bases, with a reason", () => {
@@ -2477,7 +2516,7 @@ describe("finalize_research gate", () => {
       { index: 0, reason: "signature_invalid" },
       { index: 1, reason: "malformed" }
     ]);
-    expect(result.next_steps).toHaveLength(2);
+    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toHaveLength(2);
 
     // HRP ForumSignalNonTrigger: nonactivation is affirmative, for a question with no real-world outcome or an
     // emergency before triage. A question whether smelling geosmin helps is neither (owner report, 2026-09-30).
@@ -2491,7 +2530,7 @@ describe("finalize_research gate", () => {
       receipts: [study], community_evidence: "not_relevant", treatment_choice: "not_compared", research_target: TARGET,
       not_relevant_reason: "The user asked about studies of smelling geosmin, not about experiences.",
       key_sources: [{ id: "PMC10518852", status: "validated" }]
-    }, options).next_steps).toContain(skipStep);
+    }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(skipStep);
     const reasoned = finalizeResearch({
       receipts: [study],
       community_evidence: "not_relevant",
@@ -2541,8 +2580,8 @@ describe("finalize_research gate", () => {
     expect(reused.status).toBe("not_ready");
     expect(reused.community).toMatchObject({ discovery_rounds: 0, surveys: 0 });
     expect(reused.receipts_rejected).toEqual([0, 1, 2].map((index) => ({ index, reason: "other_research_target" })));
-    expect(reused.next_steps.join(" ")).toContain("3 discovery receipt(s) passed here were made for another research target");
-    expect(reused.next_steps.join(" ")).toContain("Video aaaaaaaaaaa was found only by discovery for another research target");
+    expect(reused.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toContain("3 discovery receipt(s) passed here were made for another research target");
+    expect(reused.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toContain("Video aaaaaaaaaaa was found only by discovery for another research target");
 
     // A search run without a research target does not count either.
     const untargeted = sign("youtube_search", { videos: [], q: "n1n1n1n1n1n1", target: undefined }, options);
@@ -2576,13 +2615,13 @@ describe("finalize_research gate", () => {
     const videoF = sign("youtube_video_audit", { video: "fffffffffff", state: "api_visible_complete", lock: "pass", records: 30 }, options);
     const reordered = finalizeResearch({ ...base, receipts: [survey, finder, empty1, empty2, videoA, videoF, study] }, options);
     expect(reordered.status).toBe("not_ready");
-    expect(reordered.next_steps).toEqual([expect.stringMatching(/^Discovery has not saturated: fffffffffff first turned up/u)]);
+    expect(reordered.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([expect.stringMatching(/^Discovery has not saturated: fffffffffff first turned up/u)]);
 
     // Rounds the signed order cannot separate all count as recent.
     const tied = inSecond("p4p4p4p4p4p4", [], second + 300);
     const withTie = finalizeResearch({ ...base, receipts: [survey, empty1, finder, tied, videoA, videoF, study] }, options);
     expect(withTie.community.saturated).toBe(false);
-    expect(withTie.next_steps).toEqual([expect.stringMatching(/^Discovery has not saturated: fffffffffff/u)]);
+    expect(withTie.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([expect.stringMatching(/^Discovery has not saturated: fffffffffff/u)]);
   });
 
   it("normalizes DOI, PMID and PMCID spellings", () => {
@@ -2646,12 +2685,12 @@ describe("findings card at the final gate", () => {
     const missing = finalizeResearch(READY, options);
     expect(missing).toMatchObject({
       status: "not_ready",
-      next_steps: [expect.stringMatching(/^Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library/u)],
+      next_steps: [expect.stringMatching(/^Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library/u), TOOL_LIST_REFRESH_HINT],
       findings_card: { status: "absent", problems: [] }
     });
     expect(missing.finalization_receipt).toBeUndefined();
     // The card is asked for with the answer, not before it.
-    expect(finalizeResearchRaw(READY, options).next_steps.some((step) => step.startsWith("Give findings_card"))).toBe(false);
+    expect(finalizeResearchRaw(READY, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).some((step) => step.startsWith("Give findings_card"))).toBe(false);
   });
 
   it("leaves the answer's status alone when the card has problems, and does not sign it", () => {
@@ -2674,7 +2713,7 @@ describe("findings card at the final gate", () => {
       const result = finalizeResearch({ ...READY, findings_card: card }, options);
       expect(result.findings_card).toEqual({ status: "rejected", problems: [expect.stringContaining(problem)] });
       expect(result.status).toBe(plain.status);
-      expect(result.next_steps).toEqual(plain.next_steps);
+      expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual(plain.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT));
       expect(result.limits).toEqual(plain.limits);
       expect(result.caveats).toEqual(plain.caveats);
       expect(findingsClaim(result.finalization_receipt)).toBeUndefined();
@@ -2721,13 +2760,13 @@ describe("findings card at the final gate", () => {
       status: "rejected",
       problems: ["A findings card is checked against the answer: pass answer_draft with it."]
     });
-    const unverifiable = finalizeResearchBare({ ...READY, findings_card: CARD }, { secret: undefined, findings: "save" });
+    const unverifiable = finalizeResearchBare({ intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." }, ...READY, findings_card: CARD }, { secret: undefined, findings: "save" });
     expect(unverifiable.status).toBe("receipts_unavailable");
     expect(unverifiable.findings_card).toEqual({
       status: "rejected",
       problems: ["This AskRigor server cannot verify research receipts, so it cannot check or save a findings card."]
     });
-    expect(finalizeResearchBare({ ...READY }, { secret: undefined }).findings_card).toEqual({ status: "absent", problems: [] });
+    expect(finalizeResearchBare({ intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." }, ...READY }, { secret: undefined }).findings_card).toEqual({ status: "absent", problems: [] });
   });
 
   it("while the library is closed, needs no card and checks none", () => {
@@ -2763,7 +2802,7 @@ describe("findings card at the final gate", () => {
     // The answer needs a card; a rejected one is neither offered nor signed, and holds nothing back.
     expect(finalizeResearch(READY, offerOptions)).toMatchObject({
       status: "not_ready",
-      next_steps: [expect.stringMatching(/^Give findings_card with answer_draft: the answer offers to save its findings/u)]
+      next_steps: [expect.stringMatching(/^Give findings_card with answer_draft: the answer offers to save its findings/u), TOOL_LIST_REFRESH_HINT]
     });
     const rejected = finalizeResearch({ ...READY, findings_card: withFinding({ answer_quote: "Not in the answer." }) }, offerOptions);
     expect(rejected).toMatchObject({ status: "ready_with_limits", findings_card: { status: "rejected" } });
@@ -2794,7 +2833,7 @@ describe("findings card at the final gate", () => {
     expect(translated).toMatchObject({
       status: "ready", next_steps: [], limits: [], caveats: [FINDINGS_SAVE_OFFER], findings_card: { status: "checked" }
     });
-    expect(finalizeResearch({ ...base, findings_card: card, answer_draft: quote, answer_language: "fr" }, offerOptions).next_steps)
+    expect(finalizeResearch({ ...base, findings_card: card, answer_draft: quote, answer_language: "fr" }, offerOptions).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toEqual([leftOut(FINDINGS_SAVE_OFFER)]);
   });
 
@@ -2805,7 +2844,7 @@ describe("findings card at the final gate", () => {
       expect(result).toMatchObject({ status: "ready_with_limits", next_steps: [], findings_card: { status: "private", problems: [] } });
       expect(findingsClaim(result.finalization_receipt)).toBeUndefined();
     }
-    expect(finalizeResearchBare({ ...READY, findings_card: CARD }, { secret: undefined, findings: "private" }).findings_card)
+    expect(finalizeResearchBare({ intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." }, ...READY, findings_card: CARD }, { secret: undefined, findings: "private" }).findings_card)
       .toEqual({ status: "private", problems: [] });
   });
 });

@@ -2,21 +2,21 @@
   "purpose": "Owner-approved, question 46 (directive of 2026-10-07): full-text route recovery, sections A to E of the owner draft only. Undoing these edits gives the prior canonical HRP bytes exactly. Universal does not change.",
   "hrp": {
     "from": {
-      "version": "20.6.11",
-      "sha256": "38606fbc0ea661f412a7887b7b60667fc61cb0854eb0c637ca52ebb0d3357122"
+      "version": "20.6.13",
+      "sha256": "b6e2b08322c52678520b3154a8058063ea3f1a049d0980b348b987c6d8bef3fa"
     },
     "to": {
-      "version": "20.6.12",
-      "sha256": "362c558eca8f8de908838702bd9487a898296e4ae0ef39b9067d00f122b6f801"
+      "version": "20.6.14",
+      "sha256": "c5f544d0ad666970f122ecd14dbbca25befd2b53c7f2078275fdb3026bab70f1"
     },
     "edits": [
       [
-        "<Protocol name=\"HRP\" version=\"20.6.11\" revisionDate=\"2026-10-06\"",
-        "<Protocol name=\"HRP\" version=\"20.6.12\" revisionDate=\"2026-10-07\""
+        "<Protocol name=\"HRP\" version=\"20.6.13\" revisionDate=\"2026-10-09\"",
+        "<Protocol name=\"HRP\" version=\"20.6.14\" revisionDate=\"2026-10-09\""
       ],
       [
-        " <RevisionHistory>\n  <Revision version=\"20.6.11\" priority=\"Critical\">",
-        " <RevisionHistory>\n  <Revision version=\"20.6.12\" priority=\"Critical\">\n   Owner-approved, question 46 (directive of 2026-10-07): full-text route recovery. A failed open-access route\n   is not evidence that no public copy exists; require exact public-copy discovery, study identity and completeness\n   checks, copy provenance, and truthful access states before a lead receipt. Extended:\n   MandatoryProviderNeutralFullTextEscalation, FullTextAccessStatusClassification, and\n   DecisionCriticalFullTextEscalationWithinSweep; four stress cases and FS213.\n  </Revision>\n  <Revision version=\"20.6.11\" priority=\"Critical\">"
+        " <RevisionHistory>\n  <Revision version=\"20.6.13\" priority=\"Critical\">",
+        " <RevisionHistory>\n  <Revision version=\"20.6.14\" priority=\"Critical\">\n   Owner-approved, question 46 (directive of 2026-10-07): full-text route recovery. A failed open-access route\n   is not evidence that no public copy exists; require exact public-copy discovery, study identity and completeness\n   checks, copy provenance, and truthful access states before a lead receipt. Extended:\n   MandatoryProviderNeutralFullTextEscalation, FullTextAccessStatusClassification, and\n   DecisionCriticalFullTextEscalationWithinSweep; four stress cases and FS213.\n  </Revision>\n  <Revision version=\"20.6.13\" priority=\"Critical\">"
       ],
       [
         "   When a decision-critical source lacks full text or an auditable full-text extraction, first automatically try\n   supported lawful repository routes and DOI-based open-access resolution. A resolver location is not inspected full\n   text until the linked document is fetched, identity-checked, version-labeled, and checked for completeness. On\n   AskRigor connector runs the server enforces this chain: acquire_open_full_text, continue_open_full_text until\n   exhausted, then validate_study_method_audit or validate_review_method_audit, which refuse unless the full text was\n   read to exhaustion; finalize_research requires a validated audit receipt for each key study or an acquisition receipt\n   proving a lead.",

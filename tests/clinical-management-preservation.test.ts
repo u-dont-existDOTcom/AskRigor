@@ -50,7 +50,7 @@ describe("root clinical-management and patient-specific safety gates", () => {
   it("places both Critical gates before ranking and outside Functional Health Coaching", async () => {
     const hrp = await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
     expect(XMLValidator.validate(hrp)).toBe(true);
-    expect(hrp).toMatch(/version="20\.6\.12" revisionDate="2026-10-07"/u);
+    expect(hrp).toMatch(/version="20\.6\.14" revisionDate="2026-10-09"/u);
 
     const management = '<ClinicalManagementPreservationGate priority="Critical">';
     const safety = '<PatientSpecificInterventionSafetyReconciliationGate priority="Critical">';
