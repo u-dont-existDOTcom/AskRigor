@@ -6,14 +6,16 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
-  OUTDATED_TOOL_LIST_HINT,
   finalizeResearch,
+  TOOL_LIST_REFRESH_HINT,
   finalizeResearchInputSchema,
   type FinalizeResearchInput,
   type FinalizeResearchOutput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
+
+import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
 const SECRET = "scale-results-test-secret-01234567890123456789";
 // These are the owner's regression sentences, used as synthetic gate fixtures,
@@ -34,6 +36,7 @@ const packageFor = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeRes
   }, { secret: SECRET })],
   research_target: "Synthetic scale interpretation gate fixture", research_depth: "deep",
   community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome",
+  commercial_review_applicability: { status: "not_applicable", reason: "Synthetic scale checks involve no product or service people buy." },
   not_relevant_reason: "Isolates exact declaration checks with synthetic receipts and text.",
   treatment_choice: "not_compared", key_sources: [{ id: "10.1002/art.41142", status: "validated" }],
   intervention_identity: { status: "not_applicable", reason: "This synthetic key study does not concern a coded or multi-ingredient product." },
@@ -68,21 +71,22 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
   });
   const call = async (overrides: Partial<FinalizeResearchInput> = {}): Promise<FinalizeResearchOutput> => {
     const input = packageFor(overrides);
-    if (surface === "gate") return finalizeResearch(input, { secret: SECRET });
+    if (input.answer_draft !== undefined) input.answer_draft += "\n\n[Study](https://doi.org/10.1002/art.41142)";
+    if (surface === "gate") return assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
     const result = await client!.callTool({ name: "finalize_research", arguments: { ...input } });
     expect(result.isError).not.toBe(true);
-    return result.structuredContent as FinalizeResearchOutput;
+    return assertNextStepsContract(result.structuredContent as FinalizeResearchOutput);
   };
   const ready = (result: FinalizeResearchOutput) => {
     expect(result.status).toBe("ready");
-    expect(result.next_steps).toEqual([]);
+    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(verifyResearchReceipt(result.finalization_receipt!, { secret: SECRET })).toMatchObject({
       ok: true, kind: "finalization", claims: { status: "ready" }
     });
   };
   const blocked = (result: FinalizeResearchOutput, steps: string[]) => {
     expect(result.status).toBe("not_ready");
-    expect(result.next_steps).toEqual(steps);
+    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual(steps);
     expect(result.finalization_receipt).toBeUndefined();
   };
 
@@ -96,10 +100,13 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
   });
 
   it("requires scale_results with answer_draft, while accepting an explicit empty list", async () => {
-    blocked(await call({ scale_results: undefined }), [
+    const missing = await call({ scale_results: undefined });
+    blocked(missing, [
       "scale_results is missing: with answer_draft, the declaration lists each scale or questionnaire result " +
-        "reported in the answer (an empty list means none). " + OUTDATED_TOOL_LIST_HINT
+        "reported in the answer (an empty list means none)."
     ]);
+    // A chat whose tool list predates scale_results is told the way out once.
+    expect(missing.next_steps.filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
     ready(await call({ answer_draft: "This answer reports no scale scores.", scale_results: [] }));
   });
 
@@ -107,7 +114,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
     const result = await call({ answer_draft: undefined, scale_results: undefined });
     expect(result.status).toBe("not_ready");
     expect(result.answer_checked).toBe(false);
-    expect(result.next_steps.join(" ")).not.toContain("scale_results");
+    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).not.toContain("scale_results");
   });
 
   it("rejects a quote absent from the answer", async () => {

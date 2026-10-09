@@ -36,6 +36,7 @@ import {
 import type { LessonAttemptLimiter } from "../apps/research-mcp/src/lessons/rate-limit.js";
 import { RESEARCH_OPERATIONS, registerTools, type RegisterToolsOptions } from "../apps/research-mcp/src/register-tools.js";
 import { issueResearchReceipt, researchTargetDigest } from "../apps/research-mcp/src/research-receipts.js";
+import { TOOL_LIST_REFRESH_HINT } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { CARD, parsedCard } from "./helpers/findings-fixtures.js";
 
 const SECRET = "findings-library-test-secret-0123456789";
@@ -516,17 +517,18 @@ describe("finalize_research, save_research_findings and the findings library", (
     }, { secret: SECRET })],
     community_evidence: "not_relevant",
     not_relevant_basis: "no_real_world_outcome",
+    commercial_review_applicability: { status: "not_applicable", reason: "Drug clearance mechanism involves no product or service people buy." },
     not_relevant_reason: "How the body clears a drug, with no real-world outcome.",
     treatment_choice: "not_compared",
     research_target: TARGET,
     research_depth: "deep",
     intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
     key_sources: [{ id: "PMC10518852", status: "validated" }],
-    answer_draft: QUOTE,
     absence_claims: [], scale_results: [],
     findings_card: CHECKED_CARD,
     reported_model: "Example Model 2026-08-06",
     ...overrides,
+    answer_draft: `${overrides.answer_draft ?? QUOTE}\n\n[Study](https://pmc.ncbi.nlm.nih.gov/articles/PMC10518852/)`,
   });
 
   function recorder(reply: FindingsSaveResult = {
@@ -578,7 +580,7 @@ describe("finalize_research, save_research_findings and the findings library", (
     const result = await finalize(withoutCard, "auth0|free");
     expect(result.structuredContent).toMatchObject({
       status: "not_ready",
-      next_steps: [expect.stringMatching(/^Give findings_card with answer_draft/u)],
+      next_steps: [expect.stringMatching(/^Give findings_card with answer_draft/u), TOOL_LIST_REFRESH_HINT],
       findings_card: { status: "absent" },
     });
     expect(calls).toEqual([]);

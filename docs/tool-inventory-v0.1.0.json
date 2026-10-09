@@ -4,7 +4,7 @@
   "tools": [
     {
       "name": "get_protocol_manifest",
-      "description": "Return canonical protocol identity and SHA-256 metadata.",
+      "description": "Lists canonical protocol identity, SHA-256 metadata and the finalize_research input contract version.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -25,6 +25,11 @@
       "outputSchema": {
         "type": "object",
         "properties": {
+          "contract": {
+            "type": "string",
+            "const": "2026-10-07",
+            "description": "Records the server's finalize_research input contract version."
+          },
           "ok": {
             "type": "boolean"
           },
@@ -132,6 +137,7 @@
           }
         },
         "required": [
+          "contract",
           "ok",
           "protocol"
         ],
@@ -12897,7 +12903,7 @@
     },
     {
       "name": "finalize_research",
-      "description": "Final check of a research answer before it is given. Input: the research_receipt values that AskRigor's tools returned in this session; the research_target as given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits (discovery for another target does not count); whether community evidence was researched and whether the answer compares treatment options; where the topic is discussed and what each community searched outside YouTube showed (principal_communities, community_searches); what the YouTube comments read showed (community_findings); the studies the conclusions rest on (key_sources), whole-intervention identity (intervention_identity), item-level product identity (product_corpora and item_identity), and destination-bound offers or search routes (shopping); after a first pass, the focuses for going deeper (open_leads, another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results (scale_results: quoted explanations with the scale name, range, values and benchmark), and the caveats, and is not stored. Result: not_ready with the remaining steps; ready_with_limits with the limits, the caveat sentences for the answer (each as its own sentence and as written, in the answer's language when answer_language and caveat_renderings are given) and must_report, what the answer reports from each lane researched; or receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the owner's review; in paid private mode the caveats offer its save.",
+      "description": "Final check of a research answer before it is given. Input: the research_receipt values that AskRigor's tools returned in this session; the research_target as given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits (discovery for another target does not count); whether community evidence was researched and whether the answer compares treatment options; where the topic is discussed and what each community searched outside YouTube showed (principal_communities, community_searches); what the YouTube comments read showed (community_findings); the studies the conclusions rest on (key_sources), whole-intervention identity (intervention_identity), item-level product identity (product_corpora and item_identity), and destination-bound offers or search routes (shopping); after a first pass, the focuses for going deeper (open_leads, another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results (scale_results: quoted explanations with the scale name, range, values and benchmark), visible links to each key study, and the caveats, and is not stored. Result: contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh hint when a required declaration is missing; ready_with_limits with the limits, the caveat sentences for the answer (each as its own sentence and as written, in the answer's language when answer_language and caveat_renderings are given) and must_report, what the answer reports from each lane researched; or receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the owner's review; in paid private mode the caveats offer its save.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -12919,7 +12925,7 @@
             "description": "researched when firsthand community evidence could plausibly matter; not_relevant needs a basis and a reason."
           },
           "commercial_review_applicability": {
-            "description": "Whether the question concerns a product or service people buy (a supplement, consumer health product, device, app, formulation, or health service), whose buyers' reviews are then a community lane of their own (platform review_site). Needed when community evidence is researched.",
+            "description": "Whether the question concerns a product or service people buy (a supplement, consumer health product, device, app, formulation, or health service), whose buyers' reviews are then a community lane of their own (platform review_site). Records a required declaration when community evidence is researched, or when no_real_world_outcome is declared with key studies.",
             "type": "object",
             "properties": {
               "status": {
@@ -13290,7 +13296,7 @@
                   "format": "uri"
                 },
                 "review_corpora": {
-                  "description": "Needed for a review_site whose reviews you read: for each product, how many reviews the site shows, how many you read and how you chose them.",
+                  "description": "Records each product's review corpus on a review_site: star ratings when given, written reviews shown, reviews read and their selection, and outcome-search queries and directions or the review-text search boundary.",
                   "minItems": 1,
                   "maxItems": 6,
                   "type": "array",
@@ -13303,8 +13309,14 @@
                         "maxLength": 200,
                         "description": "The exact product and variant, as its label names it."
                       },
+                      "ratings_shown": {
+                        "description": "Records the star-rating count shown by the site, separate from written reviews.",
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
                       "reviews_shown": {
-                        "description": "How many written reviews the site shows for it, when it says.",
+                        "description": "Records the written-review count shown by the site, separate from star ratings.",
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 9007199254740991
@@ -13313,6 +13325,53 @@
                         "type": "integer",
                         "minimum": 1,
                         "maximum": 9007199254740991
+                      },
+                      "outcome_search": {
+                        "description": "Records outcome searches run within this product's written reviews, as the model's declaration. Exactly one of outcome_search or outcome_search_boundary is present.",
+                        "type": "object",
+                        "properties": {
+                          "queries": {
+                            "minItems": 1,
+                            "maxItems": 12,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "description": "Lists searches run in the site's review text for the outcome, in reviewers' everyday words and languages."
+                          },
+                          "directions": {
+                            "minItems": 1,
+                            "maxItems": 5,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "benefit",
+                                "no_effect",
+                                "worse",
+                                "adverse",
+                                "stopped"
+                              ]
+                            },
+                            "description": "Lists distinct searched directions, including benefit, no_effect and worse or adverse."
+                          }
+                        },
+                        "required": [
+                          "queries",
+                          "directions"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "outcome_search_boundary": {
+                        "description": "Records why this product's reviews could not be searched for the outcome; the reviews read are a preview, not a measure of how often it helps or harms.",
+                        "type": "string",
+                        "enum": [
+                          "no_text_search",
+                          "search_blocked",
+                          "login_required"
+                        ]
                       },
                       "item_identity": {
                         "description": "Records item-level product identity counts; their sum equals reviews_read. Other variants are excluded from this product's signal.",
@@ -13452,7 +13511,7 @@
               ],
               "additionalProperties": false
             },
-            "description": "Each study your conclusions depend on: validated after a full-text method audit, or lead_only when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text."
+            "description": "Lists each study the conclusions depend on: validated after a full-text method audit, or lead_only when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text. With answer_draft, each study has a visible link containing its identifier or its PubMed-receipt DOI."
           },
           "intervention_identity": {
             "description": "Records whether key studies tested coded, branded, combination or multi-ingredient interventions, including co-administered drugs (such as L-DOPA given with carbidopa), and their traced whole-intervention identity. Needed when key_sources is nonempty.",
@@ -13580,8 +13639,10 @@
                         "domestic_orderable",
                         "international_storefront",
                         "destination_confirmed",
-                        "live_destination_orderable"
-                      ]
+                        "live_destination_orderable",
+                        "exporter_lead"
+                      ],
+                      "description": "Records the offer's declared orderability state. exporter_lead is a business-to-business supplier lead and can only be context; a buy_option requires live_destination_orderable."
                     },
                     "role": {
                       "type": "string",
@@ -13942,6 +14003,11 @@
       "outputSchema": {
         "type": "object",
         "properties": {
+          "contract": {
+            "type": "string",
+            "const": "2026-10-07",
+            "description": "Records the server's finalize_research input contract version."
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -14222,6 +14288,7 @@
           }
         },
         "required": [
+          "contract",
           "status",
           "next_steps",
           "limits",

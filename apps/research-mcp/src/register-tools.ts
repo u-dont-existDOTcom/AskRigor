@@ -192,6 +192,7 @@ import {
   studyMethodAuditRouteOutputSchema
 } from "./actions/open-full-text-route.js";
 import {
+  FINALIZE_RESEARCH_CONTRACT,
   finalizeResearch,
   protocolNamesFrom,
   finalizeResearchInputSchema,
@@ -673,11 +674,12 @@ function defineResearchOperations(
       description: (options.runningVersions === undefined
         ? ""
         : `Versions when this tool list was loaded: ${runningVersionsText(options.runningVersions)}. `) +
-        "Return canonical protocol identity and SHA-256 metadata.",
+        "Lists canonical protocol identity, SHA-256 metadata and the finalize_research input contract version.",
       inputSchema: {
         protocol: protocolSchema.describe("Canonical protocol to inspect.")
       },
       outputSchema: {
+        contract: z.literal(FINALIZE_RESEARCH_CONTRACT).describe("Records the server's finalize_research input contract version."),
         ok: z.boolean(),
         protocol: protocolSchema,
         manifest: manifestSchema.optional(),
@@ -698,10 +700,11 @@ function defineResearchOperations(
         return successfulToolResult(
           `Protocol manifest: ${manifest.name} ${manifest.version} (${manifest.revisionDate}); SHA-256 ${manifest.sha256}.` +
             (connection === undefined ? "" : ` ${researchConnectionSummary(connection)}`),
-          { ok: true, protocol, manifest, ...(connection === undefined ? {} : { connection }) }
+          { contract: FINALIZE_RESEARCH_CONTRACT, ok: true, protocol, manifest, ...(connection === undefined ? {} : { connection }) }
         );
       } catch (error) {
-        return protocolErrorResult(protocol, error);
+        const result = protocolErrorResult(protocol, error);
+        return { ...result, structuredContent: { ...result.structuredContent, contract: FINALIZE_RESEARCH_CONTRACT } };
       }
     }
   );
@@ -1859,9 +1862,11 @@ function defineResearchOperations(
         "another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare " +
         "video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was " +
         "not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results " +
-        "(scale_results: quoted explanations with the scale name, range, values and benchmark), and the caveats, " +
+        "(scale_results: quoted explanations with the scale name, range, values and benchmark), visible links to " +
+        "each key study, and the caveats, " +
         "and is not stored. Result: " +
-        "not_ready with the remaining steps; ready_with_limits with the limits, the caveat sentences for the answer " +
+        "contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh " +
+        "hint when a required declaration is missing; ready_with_limits with the limits, the caveat sentences for the answer " +
         "(each as its own sentence and as written, in the answer's language when answer_language and " +
         "caveat_renderings are given) and must_report, what the answer reports from each lane researched; or " +
         "receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked " +

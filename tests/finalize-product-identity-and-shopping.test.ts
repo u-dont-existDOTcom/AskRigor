@@ -5,6 +5,8 @@ import { finalizeResearch, type FinalizeResearchInput, type FinalizeResearchOutp
 import { issueResearchReceipt, researchTargetDigest } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 
+import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
+
 const SECRET = "finalize-product-identity-test-secret-0123456789";
 const TARGET = "Lisheng Nan Bao experiences";
 const PRODUCT = "Tianjin Lisheng Nan Bao";
@@ -23,7 +25,7 @@ function packageFor(overrides: Partial<FinalizeResearchInput> = {}): FinalizeRes
   const reviews = {
     community: "Local Reviews", platform: "review_site" as const, queries: [TARGET],
     threads_read: [{ url: "https://reviews.example/nan-bao" }], ...QUOTES, answer_quotes: { ...QUOTES },
-    review_corpora: [{ product: PRODUCT, reviews_shown: 3, reviews_read: 3, selection: "all" as const,
+    review_corpora: [{ outcome_search: { queries: [TARGET], directions: ["benefit" as const, "no_effect" as const, "worse" as const] }, product: PRODUCT, reviews_shown: 3, reviews_read: 3, selection: "all" as const,
       item_identity: { exact_product: 2, variant_unresolved: 0, other_variant_excluded: 1 } }]
   };
   const forum = { community: "Herbs Forum", platform: "forum" as const, queries: [TARGET],
@@ -36,7 +38,7 @@ function packageFor(overrides: Partial<FinalizeResearchInput> = {}): FinalizeRes
     community_searches: [reviews, forum], key_sources: [{ id: STUDY, status: "validated" }],
     intervention_identity: { status: "not_applicable", reason: "This study does not test a coded or multi-ingredient product." },
     shopping: { status: "not_requested" }, absence_claims: [], scale_results: [],
-    answer_draft: [reviews, forum].map((lane) => `On [${lane.community}](${lane.threads_read[0]!.url}): ${Object.values(QUOTES).join(" ")}`).join("\n\n"),
+    answer_draft: `[Study](https://doi.org/${STUDY})\n\n` + [reviews, forum].map((lane) => `On [${lane.community}](${lane.threads_read[0]!.url}): ${Object.values(QUOTES).join(" ")}`).join("\n\n"),
     ...overrides
   };
 }
@@ -82,14 +84,15 @@ const cases: Case[] = [
   { name: "adds the exact unresolved-intervention caveat", input: () => packageFor({ intervention_identity: unresolved }), caveat: interventionCaveat },
   { name: "requires shopping when a commercial product is listed", input: () => packageFor({ shopping: undefined }), step: "Give shopping" },
   { name: "refuses offers when shopping was not requested", input: () => packageFor({ shopping: { ...shopping("live_destination_orderable"), status: "not_requested" } }), step: "not_requested cannot list offers" },
-  ...["identity_only", "domestic_orderable", "international_storefront", "destination_confirmed"].map((offer_state) => ({
-    name: `refuses ${offer_state} as a destination buy option`, input: () => packageFor({ shopping: shopping(offer_state as "domestic_orderable"), answer_draft: `${packageFor().answer_draft}\n\n[Seller](${URL})` }), step: "must be live_destination_orderable"
+  ...["identity_only", "domestic_orderable", "international_storefront", "destination_confirmed", "exporter_lead"].map((offer_state) => ({
+    name: `refuses ${offer_state} as a destination buy option`, input: () => packageFor({ shopping: shopping(offer_state as Offer["offer_state"]), answer_draft: `${packageFor().answer_draft}\n\n[Seller](${URL})` }), step: "must be live_destination_orderable"
   })),
   { name: "requires a destination", input: () => packageFor({ shopping: { ...shopping("live_destination_orderable"), destination: undefined }, answer_draft: `${packageFor().answer_draft}\n\n[Seller](${URL})` }), step: "Give the destination" },
   { name: "refuses a live buy option missing from the answer", input: () => packageFor({ shopping: shopping("live_destination_orderable") }), step: "missing from answer_draft" },
   { name: "refuses a URL hidden in a code fence", input: () => packageFor({ shopping: shopping("live_destination_orderable"), answer_draft: `${packageFor().answer_draft}\n\n\`\`\`\n${URL}\n\`\`\`` }), step: "missing from answer_draft" },
   { name: "accepts a linked live destination buy option", input: () => packageFor({ shopping: shopping("live_destination_orderable"), answer_draft: `${packageFor().answer_draft}\n\n[Seller](${URL})` }) },
   { name: "accepts a domestic seller only as context", input: () => packageFor({ shopping: { ...shopping("live_destination_orderable"), offers: [...shopping("live_destination_orderable").offers, { product: PRODUCT, url: "https://india.example/nan-bao", offer_state: "domestic_orderable", role: "context" }] }, answer_draft: `${packageFor().answer_draft}\n\n[Seller](${URL})` }) },
+  { name: "accepts an exporter lead only as context", input: () => packageFor({ shopping: { status: "no_live_option_found", destination: "Mauritania", routes_searched: [...routes], offers: [{ product: PRODUCT, url: URL, offer_state: "exporter_lead", role: "context" }] } }), caveat: shoppingCaveat },
   { name: "refuses fewer than three no-result routes", input: () => packageFor({ shopping: { status: "no_live_option_found", destination: "Mauritania", routes_searched: ["international_storefronts", "marketplaces"] } }), step: "at least three distinct" },
   { name: "refuses duplicate routes as three routes", input: () => packageFor({ shopping: { status: "no_live_option_found", destination: "Mauritania", routes_searched: ["marketplaces", "marketplaces", "marketplaces"] } }), step: "at least three distinct" },
   { name: "adds the exact no-live-option caveat", input: () => packageFor({ shopping: { status: "no_live_option_found", destination: "Mauritania", routes_searched: [...routes] } }), caveat: shoppingCaveat },
@@ -120,12 +123,12 @@ afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 async function exercise(c: Case, call: (input: FinalizeResearchInput) => Promise<FinalizeResearchOutput>) {
   const input = c.input();
-  const first = await call(input);
+  const first = assertNextStepsContract(await call(input));
   if (c.caveat) {
     expect(first.caveats).toContain(c.caveat);
     expect(first.status).toBe("not_ready");
   }
-  const result = await call({ ...input, answer_draft: `${input.answer_draft}\n\n${first.caveats.join(" ")}` });
+  const result = assertNextStepsContract(await call({ ...input, answer_draft: `${input.answer_draft}\n\n${first.caveats.join(" ")}` }));
   if (c.step) {
     expect(result.status).toBe("not_ready");
     expect(result.next_steps.join(" ")).toContain(c.step);
