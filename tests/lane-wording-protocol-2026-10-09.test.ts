@@ -89,7 +89,17 @@ describe("owner-approved lane wording, question 58: A (2026-10-09)", () => {
         new URL("tests/fixtures/protocol-edits/2026-10-07-product-identity-wording.json", ROOT), "utf8",
       ))[protocol] as RecordedEdits;
       expect(fixture.from).toEqual(previous.to);
-      const onDisk = await readFile(new URL(`protocols/${FILES[protocol]}`, ROOT), "utf8");
+      let onDisk = await readFile(new URL(`protocols/${FILES[protocol]}`, ROOT), "utf8");
+      if (protocol === "hrp") {
+        const { hrp: fullText } = JSON.parse(await readFile(
+          new URL("tests/fixtures/protocol-edits/2026-10-07-full-text-candidate.json", ROOT), "utf8",
+        )) as { hrp: RecordedEdits };
+        expect(sha256(onDisk)).toBe(fullText.to.sha256);
+        expect(fullText.from).toEqual(fixture.to);
+        onDisk = [...fullText.edits].reverse().reduce(
+          (text, [before, after]) => replaceOnce(text, after, before), onDisk,
+        );
+      }
       expect(XMLValidator.validate(onDisk)).toBe(true);
       expect(sha256(onDisk)).toBe(fixture.to.sha256);
       expect(onDisk).toContain(`version="${fixture.to.version}" revisionDate="2026-10-09"`);
@@ -145,11 +155,11 @@ describe("owner-approved lane wording, question 58: A (2026-10-09)", () => {
     }
   });
 
-  it("starts both revision histories with the owner-approved question 58 entry", async () => {
+  it("preserves the question 58 revision below HRP's reapplied question 46 and at the start of Universal", async () => {
     for (const protocol of ["hrp", "universal"] as const) {
       const text = await readFile(new URL(`protocols/${FILES[protocol]}`, ROOT), "utf8");
       const pattern = protocol === "hrp"
-        ? /<RevisionHistory>\s*<Revision version="20\.6\.13" priority="Critical">([^<]+)<\/Revision>/u
+        ? /<RevisionHistory>\s*<Revision version="20\.6\.14" priority="Critical">[^<]+<\/Revision>\s*<Revision version="20\.6\.13" priority="Critical">([^<]+)<\/Revision>/u
         : /<revision_history>\s*<revision version="20\.5\.37" priority="Critical">([^<]+)<\/revision>/u;
       const entry = text.match(pattern)?.[1];
       expect(entry).toBeDefined();

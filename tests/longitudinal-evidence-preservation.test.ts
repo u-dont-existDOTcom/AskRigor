@@ -227,7 +227,7 @@ describe("canonical longitudinal-evidence and phenotype–etiology gates", () =>
   it("adds one root HRP gate extension, regression, correction classifier, and final checks", async () => {
     const hrp = await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
     expect(XMLValidator.validate(hrp)).toBe(true);
-    expect(hrp).toMatch(/version="20\.6\.13" revisionDate="2026-10-09"/u);
+    expect(hrp).toMatch(/version="20\.6\.14" revisionDate="2026-10-09"/u);
     for (const singleton of [
       '<Revision version="20.5.28" priority="Critical">',
       '<PatientHistoryAndRecurrenceEvidenceGate priority="Critical">',

@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.6.13" revisionDate="2026-10-09" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.6.14" revisionDate="2026-10-09" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -51,6 +51,13 @@
 </InstructionObligationLifecycle>
 
  <RevisionHistory>
+  <Revision version="20.6.14" priority="Critical">
+   Owner-approved, question 46 (directive of 2026-10-07): full-text route recovery. A failed open-access route
+   is not evidence that no public copy exists; require exact public-copy discovery, study identity and completeness
+   checks, copy provenance, and truthful access states before a lead receipt. Extended:
+   MandatoryProviderNeutralFullTextEscalation, FullTextAccessStatusClassification, and
+   DecisionCriticalFullTextEscalationWithinSweep; four stress cases and FS213.
+  </Revision>
   <Revision version="20.6.13" priority="Critical">
    Owner-approved, question 58 (2026-10-09): preserve the primary outcome and rejected candidates across
    continuing research, search outcome-specific traditional preparations when formal candidates are few, and
@@ -3085,10 +3092,11 @@
   </Rule>
 
   <Rule name="DecisionCriticalFullTextEscalationWithinSweep">
-   A potentially decision-changing human study found by the sweep is not inspected evidence while only its citation or
-   abstract is seen: apply UniversalFullTextAcquisitionProtocol (on connector runs, acquire_open_full_text makes the
-   lawful repository and DOI open-access attempts and returns possibly_useful_lead when they fail), keep the claim-local
-   uncertainty, and continue all unrelated executable work.
+   A potentially decision-changing human study found by the sweep is not inspected evidence while only its citation
+   or abstract is seen: apply UniversalFullTextAcquisitionProtocol (on connector runs, acquire_open_full_text makes
+   the lawful repository and DOI open-access attempts, then verifies the public copies an exact search finds;
+   MandatoryProviderNeutralFullTextEscalation), keep the claim-local uncertainty, and continue all unrelated
+   executable work.
   </Rule>
 
   <Rule name="NoHumanEvidenceAbsenceClaimBeforeSweep">
@@ -3143,19 +3151,32 @@
   </Rule>
 
   <Rule name="FullTextAccessStatusClassification" priority="Critical">
-   Classify each prioritized source's access as full text inspected; auditable full-text extraction inspected; partial
-   text; abstract only; snippet or secondary description only; identified but inaccessible; or identity unresolved.
-   Never merge these states.
+   Classify each prioritized source's access as full text inspected; auditable full-text extraction inspected;
+   partial text; abstract only; snippet or secondary description only; identified but inaccessible, such as behind a
+   login or a paywall or in print only; a public copy found but its fetch blocked; no copy found after the exact
+   search; a provider or route failure; or identity unresolved. Never merge these states, and never report a route
+   failure or a blocked fetch as inaccessibility.
   </Rule>
 
   <Rule name="MandatoryProviderNeutralFullTextEscalation" priority="Critical">
    When a decision-critical source lacks full text or an auditable full-text extraction, first automatically try
-   supported lawful repository routes and DOI-based open-access resolution. A resolver location is not inspected full
-   text until the linked document is fetched, identity-checked, version-labeled, and checked for completeness. On
-   AskRigor connector runs the server enforces this chain: acquire_open_full_text, continue_open_full_text until
-   exhausted, then validate_study_method_audit or validate_review_method_audit, which refuse unless the full text was
-   read to exhaustion; finalize_research requires a validated audit receipt for each key study or an acquisition receipt
-   proving a lead.
+   supported lawful repository routes and DOI-based open-access resolution. A failed, rate-limited, or unavailable
+   route is a route failure, not evidence that no open copy exists. When those routes end without an admitted copy,
+   search exactly for a legitimately public copy, without favoring any one site: the exact title in quotes, the DOI,
+   PMID, and PII, and the exact title with the first author or year, reaching repository and author copies,
+   researcher-upload platforms, and the publisher. A search hit is discovery, never evidence. A resolver location or
+   a found copy is not inspected full text until the document is fetched, identity-checked against the exact study
+   (its DOI or PII, or its exact title with the first author or year), version-labeled, and checked for completeness:
+   its methods, results, and discussion or conclusions are readable. A different paper, a review quoting the study,
+   an abstract-only page, and a login page never count. Record each copy's provenance (identity check, retrieved
+   address and route, source class, completeness, sections observed, and time). Prefer official open access or a
+   repository manuscript, then an author copy, then a verified researcher upload, then another verified mirror; a
+   verified full text from a lower class beats an abstract from a higher one. On AskRigor connector runs the server
+   enforces this chain: acquire_open_full_text, given the copies found as candidate_urls and the exact searches as
+   public_copy_search; continue_open_full_text until exhausted; then validate_study_method_audit or
+   validate_review_method_audit, which refuse unless the full text was read to exhaustion. finalize_research requires
+   a validated audit receipt for each key study, or a lead receipt, which the server signs only after the exact
+   public-copy search is recorded and no route failed.
 
    If access still fails, record the exact studies in priority order, verified identifiers when available, why each may
    change the decision, the fields still unresolved, and the claim-local uncertainty. Offer a lawful user upload,
@@ -7305,6 +7326,45 @@ Final integrated synthesis rule:
     Count them as one evidence lineage, not as independent confirmation.
    </ExpectedBehavior>
   </Case>
+  <Case id="OpenAccessRouteOutage">
+   <Prompt>
+    Europe PMC is rate-limited and Unpaywall times out while acquiring a decision-critical trial's full text.
+   </Prompt>
+   <ExpectedBehavior>
+    Record route failures, not inaccessibility; search exactly for a public copy by title, DOI, PMID, and PII; retry
+    the failed routes later; do not cite the trial as unreadable until the search is recorded and no route failed.
+   </ExpectedBehavior>
+  </Case>
+  <Case id="RelatedPaperPublicCopy">
+   <Prompt>
+    The only public copies found for an open-label study are a researcher upload of a later double-blind trial by
+    overlapping authors and a review that discusses both.
+   </Prompt>
+   <ExpectedBehavior>
+    Refuse both as identity mismatches, since neither is the study's own text; keep searching, or report no copy
+    found after the exact search.
+   </ExpectedBehavior>
+  </Case>
+  <Case id="ChallengeBlockedRepositoryCopy">
+   <Prompt>
+    The authors' university repository lists the study, but every automated fetch gets a browser challenge.
+   </Prompt>
+   <ExpectedBehavior>
+    Report a copy found but its fetch blocked, not inaccessible; escalate through an authorized unlocking route when
+    the account may use one, never past a login or paywall; admit the copy only after the same identity and
+    completeness checks.
+   </ExpectedBehavior>
+  </Case>
+  <Case id="FullTextChangesTheArm">
+   <Prompt>
+    An abstract says children received L-DOPA, and another abstract says a tea polyphenol inhibits an enzyme.
+   </Prompt>
+   <ExpectedBehavior>
+    Read the full texts before using either. When the first arm was really L-DOPA with carbidopa and the second was a
+    test-tube study of a purified animal enzyme, bind each claim to the exact intervention and model the full text
+    shows.
+   </ExpectedBehavior>
+  </Case>
   <Case id="CodedFormulaLargeEffect">
    <Prompt>
     A randomized trial of a coded eight-herb formula reports a large effect on testosterone and sexual function;
@@ -7402,6 +7462,7 @@ Final integrated synthesis rule:
   <Check id="FS210">For a product people buy, its review platforms were mapped, and each review corpus states the reviews shown, the reviews read, and how they were chosen, with direction labeled only from a frame not chosen by outcome (ReviewCorpusSelectionAndCounts).</Check>
   <Check id="FS211">A carer's observation of a dependent is kept in its own cohort, neither pooled with self-reports nor discarded (CaregiverObservedCohort).</Check>
   <Check id="FS212">A practical effectiveness claim that a ranking or recommendation relies on was classified as convergent, promising but discordant, isolated, or contradicted, with copies of one trial counted once and real-world silence weighed only where the effect should be visible (ConsilienceForPracticalEffectiveness).</Check>
+  <Check id="FS213">Every decision-critical study without admitted full text went through the open-access routes and an exact public-copy search, and its access state is named truthfully, never calling a route failure or a blocked fetch inaccessible (MandatoryProviderNeutralFullTextEscalation).</Check>
   <Check id="FS214">Each key study's exact tested intervention, including any co-administered drug, was stated, and a multi-ingredient or coded intervention with a large practical effect was traced to its tested and current identity before its ingredients were ranked (WholeInterventionIdentityTrace).</Check>
   <Check id="FS215">Community reports about a product were admitted item by item for the exact product, with other variants and unresolved reports kept apart (ScopeAxesBeforeSampling).</Check>
   <Check id="FS216">A named product's technical or health claims were reconstructed from first-party material and graded claim by claim before any verdict (Universal claim reconstruction).</Check>
