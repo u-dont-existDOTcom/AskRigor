@@ -23,6 +23,8 @@ import {
   type ProtocolName
 } from "@askrigor/protocol";
 import {
+  acquireOpenFullText,
+  type AcquireOpenFullTextRuntime,
   hasFailedFullTextAcquisition,
   canSignFullTextLead,
   fetchClinicalTrial,
@@ -54,6 +56,8 @@ import {
 } from "@askrigor/sources";
 import { z } from "zod";
 
+import { infoAccessClientFromEnv, type InfoAccessClient } from "./infoaccess-client.js";
+import { authorizedSubject } from "./research-contributor-access-tool.js";
 import {
   PUBLIC_TOOL_LIMITS,
   findingsLibraryEnabledFromEnv,
@@ -640,6 +644,7 @@ const CONNECTOR_ONLY_OPERATION_NAMES = new Set([
 export type McpSurface = "/mcp" | "/mcp/gemini" | "/mcp/claude";
 
 export interface RegisterToolsOptions {
+  infoAccess?: InfoAccessClient;
   publicEvidenceGapReviewService?: PublicEvidenceGapIntakeService;
   oauthResourceMetadataUrl?: URL;
   allowedReviewerSubjects?: ReadonlySet<string>;
@@ -2395,15 +2400,26 @@ function registerOpenFullTextMcpTools(
   registrar: Pick<McpServer, "registerTool">,
   options: RegisterToolsOptions
 ): void {
+  const infoAccess = options.infoAccess ?? infoAccessClientFromEnv();
   registrar.registerTool(
     "acquire_open_full_text",
     {
-      description: "Acquires one DOI through Europe PMC, Unpaywall PDFs, up to five public HTTPS candidate_urls, and up to two AI-supplied candidate_texts from a client search index, with an optional PMCID. Supplied texts receive the same identity, admission and embedded-block checks plus an exact abstract cross-check when available; audits carry a search-copy caveat. Records expanded public-copy searches with public_copy_search; lead receipts require exact DOI and known-title queries without technical failures. Reports identity, structural completeness, source class and its basis, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID.",
+      description: "Acquires one DOI through Europe PMC, Unpaywall PDFs, up to five public HTTPS candidate_urls, and up to two AI-supplied candidate_texts from a client search index, with an optional PMCID. When none of these is admitted, the configured owner library serves the signed-in owner, or an active paid-private account whose paper shows a verified public basis: a public page with the paper's own text beyond its abstract, or an open license. Library copies cite the public basis URL and expose no library link. Supplied texts receive the same identity, admission and embedded-block checks plus an exact abstract cross-check when available; audits carry a search-copy caveat. Records expanded public-copy searches with public_copy_search; lead receipts require exact DOI and known-title queries without technical failures. Reports identity, structural completeness, source class and its basis, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID.",
       inputSchema: acquireOpenFullTextActionInputSchema,
       outputSchema: openFullTextMcpOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async (input) => invokeOpenFullTextMcp("acquire_open_full_text", input)
+    async (input, extra) => {
+      let runtime: AcquireOpenFullTextRuntime | undefined;
+      const auth = authorizedSubject(extra as ResearchOperationExtra | undefined, options.oauthResourceMetadataUrl, options.signIn);
+      if (infoAccess !== undefined && "subject" in auth) {
+        const access = options.allowedReviewerSubjects?.has(auth.subject) === true ? "owner" :
+          (await researchUseAccount(extra as ResearchOperationExtra | undefined, options.researchContributorAccessService))?.mode === "PAID_PRIVATE"
+            ? "public_only" : undefined;
+        if (access !== undefined) runtime = { ownerLibrary: { access, fetchPdf: (doi) => infoAccess.fetchPdf(doi) } };
+      }
+      return invokeOpenFullTextMcp("acquire_open_full_text", input, runtime);
+    }
   );
   registrar.registerTool(
     "continue_open_full_text",
@@ -2517,9 +2533,14 @@ function configuredLivingEvidenceRepository(): PostgresEvidenceRepository | unde
 
 async function invokeOpenFullTextMcp(
   operationId: string,
-  body: unknown
+  body: unknown,
+  runtime?: AcquireOpenFullTextRuntime
 ): Promise<CallToolResult> {
-  const route = OPEN_FULL_TEXT_MCP_ROUTES.find((candidate) =>
+  const routes = runtime === undefined ? OPEN_FULL_TEXT_MCP_ROUTES : createOpenFullTextActionRoutes({
+    ...configuredOpenFullTextOptions(LIVING_EVIDENCE_READER),
+    acquire: (input, config) => acquireOpenFullText(input, config, runtime)
+  });
+  const route = routes.find((candidate) =>
     candidate.operationId === operationId
   );
   if (route === undefined) throw new Error("Open full-text MCP route is missing");

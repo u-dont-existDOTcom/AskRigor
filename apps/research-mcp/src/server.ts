@@ -110,6 +110,7 @@ import {
   type SignInState,
 } from "./oauth-resource-server.js";
 
+import type { InfoAccessClient } from "./infoaccess-client.js";
 import type { LessonSubmissionResult } from "./lessons/contracts.js";
 import type { FindingsSaveResult } from "./findings/contracts.js";
 import type { FindingsSaveContext } from "./findings/service.js";
@@ -118,6 +119,7 @@ import type { McpSurface } from "./register-tools.js";
 export type McpToolCatalogProfile = "standard" | "gemini";
 
 export interface AskRigorMcpServerOptions {
+  infoAccess?: InfoAccessClient;
   publicEvidenceGapReviewService?: PublicEvidenceGapIntakeService;
   oauthResourceMetadataUrl?: URL;
   allowedReviewerSubjects?: ReadonlySet<string>;

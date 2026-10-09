@@ -783,6 +783,27 @@ describe("controller-owned formal evidence frontier", () => {
     expect(checkpoint).not.toContain('"candidate_texts":');
   });
 
+  it("preserves owner-library public provenance through continuation and formal checkpoint schemas", async () => {
+    const formal = selectAllStudies(await searchedFormal());
+    const source = formal.sources[0]!;
+    const bodyMarker = "Synthetic owner-library text retained only in the document handle. ";
+    const index = documentIndex(source.identity.doi!, bodyMarker.repeat(800));
+    index.source.provider = "owner_library";
+    index.source.retrieval_provider = "owner_library";
+    index.source.public_basis = { route: "candidate", url: "https://www.researchgate.net/synthetic-public-basis" };
+    index.source.canonical_url = index.source.public_basis.url;
+    const executor = createOpenFullTextExecutor({ acquire: async () => {
+      const result = acquisition(index);
+      return { ...result, data: { ...result.data, discovery_attempts: [{ route: "owner_library", result: "indexed", identifier: source.identity.doi }] } };
+    }, unpaywallConfig: { email: "fixture@example.test" } });
+    const next = researchFormalEvidenceStateSchema.parse(await executeResearchSourceFullTextChain(formal, source.source_id, executor));
+    expect(next.sources.find(({ source_id }) => source_id === source.source_id)!.full_text).toMatchObject({
+      status: "EXHAUSTED", retrieval_provider: "owner_library", public_basis: index.source.public_basis,
+      source_canonical_url: index.source.public_basis.url, discovery_attempts: [{ route: "owner_library", result: "indexed" }]
+    });
+    expect(JSON.stringify(next)).not.toContain(bodyMarker);
+  });
+
   it("discards an expired partial full-text chain and restarts the exact source without combining counts", async () => {
     let formal = selectAllStudies(await searchedFormal());
     const sourceId = formal.sources[0]!.source_id;

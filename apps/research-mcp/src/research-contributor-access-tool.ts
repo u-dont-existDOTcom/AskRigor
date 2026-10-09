@@ -406,7 +406,7 @@ function plainError(
   };
 }
 
-function authorizedSubject(
+export function authorizedSubject(
   extra: ResearchOperationExtra | undefined,
   resourceMetadataUrl: URL | undefined,
   signIn?: SignInState,
