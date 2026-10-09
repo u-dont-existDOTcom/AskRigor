@@ -85,6 +85,12 @@ The optional ChatGPT/Codex review operation additionally requires:
   grant it user-delegated access to the API with `research:use` and
   `cases:review`, and promote the database and Google connections to domain
   level, because metadata-document clients are strict third-party clients.
+  The API also needs **Allow Offline Access** (APIs → AskRigor MCP → Settings →
+  Access Settings). AskRigor advertises `offline_access` in its protected-resource
+  metadata and 401 challenge (2026-10-09), so clients request a refresh token.
+  Without one, a ChatGPT connector's sign-in ends with its access token ("connection
+  has expired"). After the change, the connector is recreated in ChatGPT so it reads
+  the new metadata.
 
 The approved production authorization server is Auth0. Its resource identifier
 is the canonical MCP URL. Resource Parameter Compatibility, issuer responses,
