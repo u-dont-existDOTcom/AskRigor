@@ -34,6 +34,16 @@ export class UpstreamHttpError extends Error {
   }
 }
 
+export class DiscoveredDocumentError extends Error {
+  constructor(
+    readonly code: "transport" | "destination" | "redirect_limit" | "byte_limit" | "unsupported_content" | "undecodable_body" | "invalid_url" | "invalid_response",
+    message: string
+  ) {
+    super(message);
+    this.name = "DiscoveredDocumentError";
+  }
+}
+
 export interface UpstreamFetchOptions
   extends Omit<RequestInit, "redirect" | "signal"> {
   timeoutMs?: number;
@@ -245,8 +255,7 @@ export interface FetchedDiscoveredDocument {
 }
 
 /**
- * Fetches a document URL supplied by a trusted discovery provider. The caller
- * cannot supply arbitrary URLs through the public API: Unpaywall chooses the
+ * Fetches a public document URL discovered by a provider or supplied as a
  * candidate. Every redirect is rechecked and private/reserved destinations are
  * rejected before a request is sent.
  */
@@ -271,23 +280,35 @@ export async function fetchDiscoveredDocument(
   let current = validateDiscoveredDocumentUrl(value);
 
   for (let redirect = 0; redirect <= maximumRedirects; redirect += 1) {
-    const vettedAddresses = await publicDestinationAddresses(current, resolver);
-    const response = runtime.fetch === undefined
-      ? await (runtime.requestDocument ?? requestPinnedDocument)(
-        current,
-        vettedAddresses,
-        { timeoutMs, maximumBytes }
-      )
-      : await requestWithInjectedFetch(runtime.fetch, current, timeoutMs, maximumBytes);
+    let response: DiscoveredDocumentHttpResponse;
+    try {
+      const vettedAddresses = await publicDestinationAddresses(current, resolver);
+      response = runtime.fetch === undefined
+        ? await (runtime.requestDocument ?? requestPinnedDocument)(
+          current, vettedAddresses, { timeoutMs, maximumBytes }
+        )
+        : await requestWithInjectedFetch(runtime.fetch, current, timeoutMs, maximumBytes);
+    } catch (error) {
+      if (error instanceof DiscoveredDocumentError || error instanceof UpstreamHttpError) throw error;
+      throw new DiscoveredDocumentError("transport", "Discovered document transport failed");
+    }
+    if (response.bytes.byteLength > maximumBytes) {
+      throw new DiscoveredDocumentError("byte_limit", "Discovered document exceeds byte limit");
+    }
     if ([301, 302, 303, 307, 308].includes(response.status)) {
       if (redirect === maximumRedirects) {
-        throw new Error("Discovered document exceeded redirect limit");
+        throw new DiscoveredDocumentError("redirect_limit", "Discovered document exceeded redirect limit");
       }
       const location = response.headers.get("location");
       if (location === null) {
-        throw new Error("Discovered document redirect omitted location");
+        throw new DiscoveredDocumentError("invalid_response", "Discovered document redirect omitted location");
       }
-      current = validateDiscoveredDocumentUrl(new URL(location, current).toString());
+      try {
+        current = validateDiscoveredDocumentUrl(new URL(location, current).toString());
+      } catch (error) {
+        if (error instanceof DiscoveredDocumentError) throw error;
+        throw new DiscoveredDocumentError("invalid_url", "Discovered document redirect URL was invalid");
+      }
       redirects.push(current.toString());
       continue;
     }
@@ -304,7 +325,15 @@ export async function fetchDiscoveredDocument(
       bytes: response.bytes
     };
   }
-  throw new Error("Discovered document retrieval failed");
+  throw new DiscoveredDocumentError("invalid_response", "Discovered document retrieval failed");
+}
+
+/** Same DNS-pinned, redirect-rechecked, bounded transport for public candidates. */
+export async function fetchCandidateDocument(
+  value: string,
+  runtime: DiscoveredDocumentFetchRuntime = {}
+): Promise<FetchedDiscoveredDocument> {
+  return fetchDiscoveredDocument(value, runtime);
 }
 
 async function requestWithInjectedFetch(
@@ -316,7 +345,7 @@ async function requestWithInjectedFetch(
   const response = await fetcher(url, {
     method: "GET",
     headers: {
-      Accept: "application/pdf,application/octet-stream;q=0.8"
+      Accept: "application/pdf,text/html,application/xhtml+xml,text/plain,application/octet-stream;q=0.8"
     },
     redirect: "manual",
     signal: AbortSignal.timeout(timeoutMs)
@@ -359,7 +388,7 @@ function requestPinnedAddress(
       method: "GET",
       path: `${url.pathname}${url.search}`,
       headers: {
-        Accept: "application/pdf,application/octet-stream;q=0.8",
+        Accept: "application/pdf,text/html,application/xhtml+xml,text/plain,application/octet-stream;q=0.8",
         Host: url.host
       },
       ...(isIP(originalHostname) === 0 ? { servername: originalHostname } : {}),
@@ -402,7 +431,7 @@ async function incomingResponseBytes(
   const declared = Number(Array.isArray(rawLength) ? rawLength[0] : rawLength);
   if (Number.isFinite(declared) && declared > maximumBytes) {
     response.destroy();
-    throw new Error("Discovered document exceeds byte limit");
+    throw new DiscoveredDocumentError("byte_limit", "Discovered document exceeds byte limit");
   }
   const chunks: Uint8Array[] = [];
   let total = 0;
@@ -413,7 +442,7 @@ async function incomingResponseBytes(
     total += chunk.byteLength;
     if (total > maximumBytes) {
       response.destroy();
-      throw new Error("Discovered document exceeds byte limit");
+      throw new DiscoveredDocumentError("byte_limit", "Discovered document exceeds byte limit");
     }
     chunks.push(chunk);
   }
@@ -425,13 +454,13 @@ function validateDiscoveredDocumentUrl(value: string): URL {
   try {
     url = new URL(value);
   } catch {
-    throw new Error("Discovered document URL was invalid");
+    throw new DiscoveredDocumentError("invalid_url", "Discovered document URL was invalid");
   }
   if (url.protocol !== "https:") {
-    throw new Error("Discovered document URL must use HTTPS");
+    throw new DiscoveredDocumentError("invalid_url", "Discovered document URL must use HTTPS");
   }
   if (url.username || url.password || url.port.length > 0) {
-    throw new Error("Discovered document URL cannot contain credentials or a custom port");
+    throw new DiscoveredDocumentError("invalid_url", "Discovered document URL cannot contain credentials or a custom port");
   }
   const hostname = url.hostname.toLowerCase().replace(/\.$/u, "");
   if (
@@ -440,7 +469,7 @@ function validateDiscoveredDocumentUrl(value: string): URL {
     hostname.endsWith(".local") ||
     hostname.length === 0
   ) {
-    throw new Error("Discovered document destination was not public");
+    throw new DiscoveredDocumentError("destination", "Discovered document destination was not public");
   }
   return url;
 }
@@ -452,7 +481,7 @@ async function publicDestinationAddresses(
   const hostname = url.hostname.replace(/^\[|\]$/gu, "");
   const addresses = isIP(hostname) === 0 ? await resolver(hostname) : [hostname];
   if (addresses.length === 0 || addresses.some((address) => !isPublicIp(address))) {
-    throw new Error("Discovered document destination resolved outside the public internet");
+    throw new DiscoveredDocumentError("destination", "Discovered document destination resolved outside the public internet");
   }
   return addresses;
 }
@@ -474,22 +503,26 @@ function isPublicIp(address: string): boolean {
       (a === 192 && b === 168) ||
       (a === 192 && b === 0 && c === 0) ||
       (a === 192 && b === 0 && c === 2) ||
+      (a === 192 && b === 88 && c === 99) ||
       (a === 198 && (b === 18 || b === 19)) ||
       (a === 198 && b === 51 && c === 100) ||
       (a === 203 && b === 0 && c === 113)
     );
   }
   if (isIP(address) === 6) {
-    const normalized = address.toLowerCase();
-    if (normalized.startsWith("::ffff:")) {
-      return isPublicIp(normalized.slice("::ffff:".length));
+    const raw = address.toLowerCase();
+    if (raw.startsWith("::ffff:")) {
+      return isPublicIp(raw.slice("::ffff:".length));
     }
+    const normalized = new URL(`https://[${address}]/`).hostname.slice(1, -1);
+    // Only global unicast; exclude documentation, transition and special-use
+    // ranges too. Compression/leading zeroes cannot evade these checks.
+    const [first = "", second = "0"] = normalized.split(":");
     return !(
-      normalized === "::" || normalized === "::1" ||
-      normalized.startsWith("fc") || normalized.startsWith("fd") ||
-      /^fe[89ab]/u.test(normalized) ||
-      normalized.startsWith("ff") ||
-      normalized.startsWith("2001:db8:")
+      !/^[23][0-9a-f]{3}$/u.test(first) ||
+      (first === "2001" && parseInt(second, 16) < 0x200) ||
+      normalized.startsWith("2001:db8:") || first === "2002" ||
+      first === "3ffe" || first === "3fff"
     );
   }
   return false;
@@ -502,7 +535,7 @@ async function responseBytes(
   const declared = Number(response.headers.get("content-length"));
   if (Number.isFinite(declared) && declared > maximumBytes) {
     await response.body?.cancel();
-    throw new Error("Discovered document exceeds byte limit");
+    throw new DiscoveredDocumentError("byte_limit", "Discovered document exceeds byte limit");
   }
   const reader = response.body?.getReader();
   if (reader === undefined) return new Uint8Array();
@@ -515,7 +548,7 @@ async function responseBytes(
       total += value.byteLength;
       if (total > maximumBytes) {
         await reader.cancel();
-        throw new Error("Discovered document exceeds byte limit");
+        throw new DiscoveredDocumentError("byte_limit", "Discovered document exceeds byte limit");
       }
       chunks.push(value);
     }

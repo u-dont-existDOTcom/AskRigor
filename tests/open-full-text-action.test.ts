@@ -19,7 +19,12 @@ const DOI = "10.1234/open.study";
 describe("open-full-text Actions", () => {
   it.each([
     [{ doi: "not-a-doi" }],
-    [{ doi: DOI, pmcid: "PMC0" }]
+    [{ doi: DOI, pmcid: "PMC0" }],
+    [{ doi: DOI, candidate_urls: [] }],
+    [{ doi: DOI, candidate_urls: Array.from({ length: 6 }, () => ({ url: "https://public.example/copy" })) }],
+    [{ doi: DOI, candidate_urls: [{ url: "http://public.example/copy" }] }],
+    [{ doi: DOI, candidate_urls: [{ url: "https://user:secret@public.example/copy" }] }],
+    [{ doi: DOI, candidate_urls: [{ url: "https://public.example/copy", declared_class: "private" }] }]
   ])("rejects malformed study identifiers at the Action boundary", async (body) => {
     const acquire = vi.fn(async () => acquisition(documentIndex("unused")));
     const routes = createOpenFullTextActionRoutes({

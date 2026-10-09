@@ -661,6 +661,25 @@ describe("controller-owned formal evidence frontier", () => {
     });
   });
 
+
+  it.each(["PRIMARY_OA_ROUTES_EXHAUSTED", "CANDIDATE_FOUND_FETCH_BLOCKED", "PROVIDER_UNAVAILABLE"] as const)("keeps %s pending after one acquisition rather than a terminal lead", async (acquisition_state) => {
+    const formal = selectAllStudies(await searchedFormal());
+    const acquire = vi.fn(async ({ doi }) => okEnvelope({ provider: "open_full_text", recordType: "open_full_text_acquisition", accessStatus: "partial", returned: 0,
+      pagination: { exhausted: true }, data: { requested_doi: doi, outcome: "possibly_useful_lead", discovery_attempts: [], acquisition_state,
+        access_boundary: "Synthetic pending discovery or transport.",
+        ...(acquisition_state === "PRIMARY_OA_ROUTES_EXHAUSTED" ? {} : { candidates: [{ url: "https://www.academia.edu/synthetic", source_class: "researcher_upload", source_class_basis: "known_host", retrieval_provider: "direct", state: acquisition_state,
+          identity_verification: "not_verified", sections_observed: [], completeness: "unavailable", retrieved_at: "2026-10-07T00:00:00.000Z" }] }),
+      } satisfies OpenFullTextAcquisitionData }));
+    const executor = createOpenFullTextExecutor({ acquire, unpaywallConfig: { email: "research@example.test" } });
+    const sourceId = formal.sources[0]!.source_id;
+    const next = await executeResearchSourceFullTextChain(formal, sourceId, executor);
+    expect(acquire).toHaveBeenCalledOnce();
+    const source = next.sources.find(({ source_id }) => source_id === sourceId)!;
+    expect(source.full_text).toMatchObject({ status: "BLOCKED_RETRYABLE", acquisition_state, synthesis_lock: "fail" });
+    expect(source.method_audit.status).toBe("NOT_STARTED");
+    expect(deriveFormalEvidenceOperationStatus(next, "formal_method_audit")).not.toBe("COMPLETE");
+  });
+
   it("keeps abstract-only or inaccessible sources as unseen claim-local leads", async () => {
     let formal = selectAllStudies(await searchedFormal());
     const executor = createOpenFullTextExecutor({
@@ -676,6 +695,7 @@ describe("controller-owned formal evidence frontier", () => {
         data: {
           requested_doi: doi,
           outcome: "possibly_useful_lead",
+          public_copy_search: { status: "declared", query_count: 2 },
           discovery_attempts: [
             { route: "europe_pmc", result: "not_found" },
             { route: "unpaywall", result: "inaccessible", identifier: doi }
@@ -701,6 +721,66 @@ describe("controller-owned formal evidence frontier", () => {
     });
     expect(deriveFormalEvidenceOperationStatus(formal, "claim_capability_recalculation"))
       .toBe("BLOCKED_TERMINAL");
+  });
+
+  it.each([
+    [undefined, "BLOCKED_RETRYABLE"],
+    [{ status: "not_declared", query_count: 0 }, "BLOCKED_RETRYABLE"],
+    [{ status: "missing_exact_identifiers", missing: ["doi"], query_count: 2 }, "BLOCKED_RETRYABLE"],
+    [{ status: "missing_exact_identifiers", missing: ["title"], query_count: 2 }, "BLOCKED_RETRYABLE"],
+    [{ status: "declared", query_count: 2 }, "LEAD_BOUNDARY"]
+  ] as const)("binds expanded-search completion %j to controller status %s", async (public_copy_search, status) => {
+    const formal = selectAllStudies(await searchedFormal());
+    const sourceId = formal.sources[0]!.source_id;
+    const executor = createOpenFullTextExecutor({ acquire: async ({ doi }) => okEnvelope({ provider: "open_full_text", recordType: "open_full_text_acquisition",
+      accessStatus: "partial", returned: 0, pagination: { exhausted: true }, data: { requested_doi: doi, outcome: "possibly_useful_lead",
+        discovery_attempts: [], acquisition_state: "NO_COPY_FOUND_AFTER_EXPANDED_SEARCH", public_copy_search,
+        access_boundary: "Synthetic exact search found no copy." } }), unpaywallConfig: { email: "research@example.test" } });
+    const next = await executeResearchSourceFullTextChain(formal, sourceId, executor);
+    expect(next.sources.find(({ source_id }) => source_id === sourceId)!.full_text).toMatchObject({ status, public_copy_search });
+  });
+
+  it("checkpoints only the public-copy search summary after checking queries in memory", async () => {
+    const { acquireOpenFullText } = await import("@askrigor/sources");
+    const formal = selectAllStudies(await searchedFormal());
+    const source = formal.sources[0]!;
+    const title = "Synthetic checkpoint title study";
+    const queries = [`${source.identity.doi} synthetic-checkpoint-DOI-query`, `"${title}" synthetic-checkpoint-title-query`];
+    const executor = createOpenFullTextExecutor({ acquire: (input) => acquireOpenFullText({ ...input, public_copy_search: { queries } }, { email: "research@example.test" }, {
+      searchEuropePmc: async () => okEnvelope({ provider: "europe_pmc", recordType: "europe_pmc_search_result", accessStatus: "complete", returned: 1, pagination: { exhausted: true }, data: [{ source: "MED", id: "99901", doi: input.doi, title }] }),
+      fetchEuropePmcFullText: async () => errorEnvelope({ provider: "europe_pmc", recordType: "europe_pmc_full_text", accessStatus: "not_found", code: "synthetic_no_copy", message: "Synthetic no copy", retryable: false, data: {} }),
+      unpaywallRuntime: { resolve: async () => okEnvelope({ provider: "unpaywall", recordType: "open_access_location_resolution", accessStatus: "metadata_only", returned: 1, pagination: { exhausted: true }, data: { doi: input.doi, title, is_oa: false, oa_status: "closed", full_text_lead_status: "no_open_location_found", oa_locations: [] } }) }
+    }), unpaywallConfig: { email: "research@example.test" } });
+    const next = await executeResearchSourceFullTextChain(formal, source.source_id, executor);
+    expect(next.sources.find(({ source_id }) => source_id === source.source_id)!.full_text)
+      .toMatchObject({ status: "LEAD_BOUNDARY", public_copy_search: { status: "declared", query_count: 2 } });
+    const checkpoint = JSON.stringify(researchFormalEvidenceStateSchema.parse(next));
+    expect(checkpoint).not.toContain('"queries":');
+    for (const query of queries) expect(checkpoint).not.toContain(query);
+  });
+
+  it("checkpoints seven candidate provenance records without supplied copy text", async () => {
+    const formal = selectAllStudies(await searchedFormal());
+    const source = formal.sources[0]!;
+    const bodyMarker = "Synthetic admitted search-copy body marker";
+    const index = documentIndex(source.identity.doi!, bodyMarker);
+    index.source.provider = "client_supplied";
+    const candidates = Array.from({ length: 7 }, (_, n) => ({ url: `https://zenodo.org/synthetic-copy-${n}`,
+      source_class: "repository" as const, source_class_basis: "known_host" as const,
+      retrieval_provider: n < 5 ? "direct" as const : "client_search_index" as const,
+      state: "FULL_TEXT_READABLE" as const, identity_verification: "doi_exact" as const,
+      sections_observed: ["methods", "results", "discussion"] as const,
+      completeness: "full_text" as const, retrieved_at: "2026-10-09T00:00:00.000Z" }));
+    const executor = createOpenFullTextExecutor({ acquire: async () => {
+      const result = acquisition(index);
+      return { ...result, data: { ...result.data, candidates: candidates.map((candidate) => ({ ...candidate, sections_observed: [...candidate.sections_observed] })) } };
+    }, unpaywallConfig: { email: "fixture@example.test" } });
+    const next = researchFormalEvidenceStateSchema.parse(await executeResearchSourceFullTextChain(formal, source.source_id, executor));
+    expect(next.sources.find(({ source_id }) => source_id === source.source_id)!.full_text.candidates).toHaveLength(7);
+    const checkpoint = JSON.stringify(next);
+    expect(checkpoint).toContain("client_search_index");
+    expect(checkpoint).not.toContain(bodyMarker);
+    expect(checkpoint).not.toContain('"candidate_texts":');
   });
 
   it("discards an expired partial full-text chain and restarts the exact source without combining counts", async () => {

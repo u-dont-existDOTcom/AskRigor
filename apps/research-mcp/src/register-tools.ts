@@ -23,6 +23,8 @@ import {
   type ProtocolName
 } from "@askrigor/protocol";
 import {
+  hasFailedFullTextAcquisition,
+  canSignFullTextLead,
   fetchClinicalTrial,
   fetchPubmedRecord,
   checkRetractionStatus,
@@ -350,7 +352,9 @@ const europePmcRecordSchema = z.object({
   pmid: z.string().optional(),
   pmcid: z.string().optional(),
   doi: z.string().optional(),
+  pii: z.string().optional(),
   title: z.string().optional(),
+  abstractText: z.string().optional().describe("Records the abstract when the Europe PMC response carries one."),
   authors: z.array(z.string()).optional(),
   journal: z.string().optional(),
   year: z.string().optional(),
@@ -2394,7 +2398,7 @@ function registerOpenFullTextMcpTools(
   registrar.registerTool(
     "acquire_open_full_text",
     {
-      description: "Start one lawful full-text chain. Input is exactly one doi string plus an optional pmcid string, never an identifier array. Bind the returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 for every continuation and validation. If repository_study_audit.status is reusable, also bind its repository_analysis_version_id; otherwise perform a fresh audit.",
+      description: "Acquires one DOI through Europe PMC, Unpaywall PDFs, up to five public HTTPS candidate_urls, and up to two AI-supplied candidate_texts from a client search index, with an optional PMCID. Supplied texts receive the same identity, admission and embedded-block checks plus an exact abstract cross-check when available; audits carry a search-copy caveat. Records expanded public-copy searches with public_copy_search; lead receipts require exact DOI and known-title queries without technical failures. Reports identity, structural completeness, source class and its basis, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID.",
       inputSchema: acquireOpenFullTextActionInputSchema,
       outputSchema: openFullTextMcpOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
@@ -2404,7 +2408,7 @@ function registerOpenFullTextMcpTools(
   registrar.registerTool(
     "continue_open_full_text",
     {
-      description: "Continue only the exact bound document_handle while its coverage_receipt.exhausted is false. Never call when exhausted is true; never switch, reacquire, or combine handles within a chain.",
+      description: "Retrieves the next contiguous page of an existing document_handle from its server-owned cursor. Coverage binds the handle and content hash; exhausted, expired, or invalid handles cannot advance. Pages preserve the exact document chain for source-linked audit.",
       inputSchema: continueOpenFullTextActionInputSchema,
       outputSchema: availableOpenFullTextActionOutputSchema,
       annotations: READ_ONLY_ANNOTATIONS
@@ -2414,7 +2418,7 @@ function registerOpenFullTextMcpTools(
   registrar.registerTool(
     "validate_study_method_audit",
     {
-      description: "Validate a full-text, source-linked individual-study audit on the exact exhausted document_handle. Supply either a newly performed audit or the repository_analysis_version_id advertised by this same acquisition. Repository reuse repeats exact source/protocol/rubric/freshness/impact checks and runs the same validator; fresh_study_audit_required means call again with a newly performed audit. Before synthesis, require the returned validated coverage receipt to match the acquisition byte-for-byte.",
+      description: "Validates a full-text, source-linked individual-study audit on the exact exhausted document_handle. Accepts a newly performed audit or the repository_analysis_version_id advertised by the same acquisition. Repository reuse repeats exact source/protocol/rubric/freshness/impact checks and runs the same validator; fresh_study_audit_required records the need for a newly performed audit. Validated coverage binds the acquisition handle and content hash. Audits of client_supplied copies sign search-index provenance for the required finalization caveat.",
       inputSchema: studyMethodAuditActionInputSchema,
       outputSchema: studyMethodAuditRouteOutputSchema.safeExtend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
@@ -2426,7 +2430,7 @@ function registerOpenFullTextMcpTools(
   registrar.registerTool(
     "validate_review_method_audit",
     {
-      description: "Validate a full-text, source-linked review or guideline audit on the exact bound acquisition document_handle, including search coverage, study ancestry, heterogeneity, bias, conflicts, and claim scope. Before synthesis, require the returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 to match the acquisition byte-for-byte; mismatch blocks synthesis.",
+      description: "Validates a full-text, source-linked review or guideline audit on the exact exhausted acquisition document_handle, including search coverage, study ancestry, heterogeneity, bias, conflicts, and claim scope. Coverage binds the acquisition handle and source_content_sha256; mismatches block synthesis. Audits of client_supplied copies sign search-index provenance for the required finalization caveat.",
       inputSchema: reviewMethodAuditActionInputSchema,
       outputSchema: reviewMethodAuditActionOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
@@ -2539,9 +2543,10 @@ async function invokeOpenFullTextMcp(
   return withResearchReceipt({
     content: [{
       type: "text",
-      text: `${operationId.replaceAll("_", " ")} completed.` + (failedLead
-        ? " A source failed (an outage or rate limit), so this is not yet a lead and has no receipt: " +
-          "call acquire_open_full_text again later before listing the study as lead_only."
+      text: `${operationId.replaceAll("_", " ")} completed.` +
+        ((result.body as { access_boundary?: string; acquisition_state?: string }).acquisition_state === undefined ? "" : ` ${(result.body as { access_boundary?: string }).access_boundary ?? ""}`) + (failedLead
+        ? " A source failed (an outage or rate limit), so this is not yet a completed lead and has no receipt. " +
+          "A later acquire_open_full_text attempt can establish a completed boundary before the study is listed as lead_only."
         : "")
     }],
     structuredContent: result.body as Record<string, unknown>
@@ -2551,8 +2556,7 @@ async function invokeOpenFullTextMcp(
 const OPEN_FULL_TEXT_READER = createOpenFullTextExecutor();
 
 function hasFailedFullTextSource(body: unknown): boolean {
-  const attempts = (body as { discovery_attempts?: Array<{ result?: string }> }).discovery_attempts ?? [];
-  return attempts.some(({ result }) => result === "error");
+  return hasFailedFullTextAcquisition(body as Parameters<typeof hasFailedFullTextAcquisition>[0]);
 }
 
 function openFullTextResearchReceipt(operationId: string, body: unknown): string | undefined {
@@ -2560,17 +2564,18 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
     status?: string;
     requested_doi?: string;
     requested_pmcid?: string;
+    acquisition_state?: string;
     audit_receipt?: { audit_status?: string };
     coverage_receipt?: { document_handle?: string };
   };
   if (operationId === "acquire_open_full_text" && output.status === "possibly_useful_lead") {
-    // A lead receipt proves that no open full text exists. A source that
-    // failed (an outage or rate limit) proves nothing, so the acquisition
-    // must be retried before the study can be listed as lead_only.
-    if (hasFailedFullTextSource(body)) return undefined;
+    // A lead receipt records completed attempts, not proof of paper
+    // inaccessibility. Exact expanded search and no technical failures are required.
+    if (!canSignFullTextLead(body as Parameters<typeof canSignFullTextLead>[0])) return undefined;
     return researchReceipt("full_text_lead", {
       doi: output.requested_doi,
-      pmcid: output.requested_pmcid
+      pmcid: output.requested_pmcid,
+      state: output.acquisition_state
     });
   }
   const kind = output.status === "source_linked_study_audit_validated"
@@ -2580,7 +2585,7 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
       : undefined;
   const handle = output.coverage_receipt?.document_handle;
   if (kind === undefined || handle === undefined) return undefined;
-  let source: { primary_identifier: string; doi?: string; pmid?: string; pmcid?: string } | undefined;
+  let source: { primary_identifier: string; doi?: string; pmid?: string; pmcid?: string; provider: string; canonical_url: string } | undefined;
   try {
     source = OPEN_FULL_TEXT_READER.readAuditMaterial?.(handle).source;
   } catch {
@@ -2592,6 +2597,10 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
     doi: source.doi,
     pmid: source.pmid,
     pmcid: source.pmcid,
+    ...(source.provider === "client_supplied" ? {
+      retrieval_provider: "client_search_index",
+      host: new URL(source.canonical_url).hostname
+    } : {}),
     status: output.audit_receipt?.audit_status ?? "validated"
   });
 }

@@ -13,6 +13,18 @@ afterEach(() => {
 });
 
 describe("Europe PMC search", () => {
+  it("preserves a synthetic abstract carried by the existing DOI-search record", async () => {
+    const query = 'DOI:"10.1234/synthetic.abstract"';
+    const abstractText = "Synthetic abstract text supplied by the fixture, never a real paper.";
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ hitCount: 1,
+      request: { queryString: query, cursorMark: "*", pageSize: 10 },
+      resultList: { result: [{ source: "MED", id: "9990001", doi: "10.1234/synthetic.abstract", abstractText }] }
+    }), { status: 200 }));
+    vi.stubGlobal("fetch", fetch);
+    const result = await searchEuropePmc({ query, pageSize: 10 });
+    expect(result.data[0]).toMatchObject({ abstractText });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
   it("preserves provider source, ID, and next cursor exactly", async () => {
     const body = await fixture("search-page-1.json");
     const requests: URL[] = [];
@@ -93,6 +105,19 @@ describe("Europe PMC search", () => {
       exhausted: false
     });
     expect(requests[0]!.searchParams.get("cursorMark")).toBe(cursor);
+  });
+
+  it("asks for core records, which carry abstracts, only when requested", async () => {
+    const body = await fixture("search-empty.json");
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      requests.push(new URL(String(input)));
+      return new Response(body, { status: 200 });
+    }));
+    await searchEuropePmc({ query: "DOI:\"10.1000/x\"" });
+    await searchEuropePmc({ query: "DOI:\"10.1000/x\"", resultType: "core" });
+    expect(requests[0]!.searchParams.has("resultType")).toBe(false);
+    expect(requests[1]!.searchParams.get("resultType")).toBe("core");
   });
 
   it("adds a validated inclusive publication-date range to the provider query", async () => {

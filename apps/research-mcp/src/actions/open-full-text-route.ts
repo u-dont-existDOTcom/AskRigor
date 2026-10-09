@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import {
   acquireOpenFullText,
+  acquisitionStateSchema, candidateUrlsSchema, candidateTextsSchema, fullTextCandidateSchema, publicCopySearchSchema, publicCopySearchResultSchema,
   type AcquireOpenFullTextInput,
   type AuditableDocumentBlock,
   type AuditableDocumentIndex,
@@ -61,13 +62,16 @@ const actionDoiSchema = z.string().trim().max(2_048).regex(
 );
 export const acquireOpenFullTextActionInputSchema = z.object({
   doi: actionDoiSchema,
-  pmcid: z.string().trim().regex(/^PMC[1-9]\d{0,15}$/iu).optional()
+  pmcid: z.string().trim().regex(/^PMC[1-9]\d{0,15}$/iu).optional(),
+  candidate_urls: candidateUrlsSchema.optional(),
+  candidate_texts: candidateTextsSchema.optional(),
+  public_copy_search: publicCopySearchSchema.optional()
 }).strict();
 export const continueOpenFullTextActionInputSchema = z.object({
   document_handle: handleSchema
 }).strict();
 const blockSegmentSchema = z.object({
-  block_id: z.string().regex(/^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$/u),
+  block_id: z.string().regex(/^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$/u),
   segment_number: z.number().int().positive(),
   segment_count: z.number().int().positive(),
   kind: z.string(),
@@ -77,7 +81,7 @@ const blockSegmentSchema = z.object({
   source_block_text_sha256: z.string().regex(/^[a-f0-9]{64}$/u)
 }).strict();
 const sourceSchema = z.object({
-  provider: z.enum(["europe_pmc", "unpaywall_open_location"]),
+  provider: z.enum(["europe_pmc", "unpaywall_open_location", "direct_candidate", "client_supplied"]),
   primary_identifier: z.string(),
   canonical_url: z.string().url(),
   pmcid: z.string().optional(),
@@ -85,14 +89,14 @@ const sourceSchema = z.object({
   doi: z.string().optional(),
   title: z.string().optional(),
   version: z.string().optional(),
-  format: z.enum(["jats_xml", "pdf_text"]),
+  format: z.enum(["jats_xml", "pdf_text", "html_text", "plain_text"]),
   content_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
   document_completeness: z.literal("full_text_with_body"),
-  identity_verification: z.enum(["pmcid_exact", "doi_exact", "title_match"])
+  identity_verification: z.enum(["pmcid_exact", "doi_exact", "pii_exact", "title_match"])
 }).strict();
 const discoveryAttemptSchema = z.object({
-  route: z.enum(["europe_pmc", "unpaywall"]),
-  result: z.enum(["indexed", "not_found", "inaccessible", "error"]),
+  route: z.enum(["europe_pmc", "unpaywall", "candidate"]),
+  result: z.enum(["indexed", "not_found", "inaccessible", "fetch_blocked", "error", "partial_text", "abstract_only", "identity_mismatch"]),
   identifier: z.string().optional()
 }).strict();
 const coverageSchema = z.object({
@@ -110,6 +114,9 @@ export const availableOpenFullTextActionOutputSchema = z.object({
   requested_doi: z.string(),
   requested_pmcid: z.string().optional(),
   discovery_attempts: z.array(discoveryAttemptSchema),
+  acquisition_state: acquisitionStateSchema.optional(),
+  public_copy_search: publicCopySearchResultSchema.optional(),
+  candidates: z.array(fullTextCandidateSchema).max(7).optional(),
   source: sourceSchema,
   blocks: z.array(blockSegmentSchema).min(1),
   coverage_receipt: coverageSchema,
@@ -120,6 +127,9 @@ export const openFullTextLeadActionOutputSchema = z.object({
   requested_doi: z.string(),
   requested_pmcid: z.string().optional(),
   discovery_attempts: z.array(discoveryAttemptSchema),
+  acquisition_state: acquisitionStateSchema.optional(),
+  public_copy_search: publicCopySearchResultSchema.optional(),
+  candidates: z.array(fullTextCandidateSchema).max(7).optional(),
   access_boundary: z.string(),
   unseen_content_used_as_evidence: z.literal(false)
 }).strict();
@@ -132,6 +142,9 @@ export const openFullTextMcpOutputSchema = z.object({
   requested_doi: z.string(),
   requested_pmcid: z.string().optional(),
   discovery_attempts: z.array(discoveryAttemptSchema),
+  acquisition_state: acquisitionStateSchema.optional(),
+  public_copy_search: publicCopySearchResultSchema.optional(),
+  candidates: z.array(fullTextCandidateSchema).max(7).optional(),
   source: sourceSchema.optional(),
   blocks: z.array(blockSegmentSchema).optional(),
   coverage_receipt: coverageSchema.optional(),
@@ -160,7 +173,7 @@ export const noticeMethodAuditSubmissionSchema = z.object({
   ]),
   affected_source_identity: z.string().trim().min(1).max(2_048),
   plain_language_finding: z.string().trim().min(1).max(2_000),
-  evidence_block_ids: z.array(z.string().regex(/^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$/u)).min(1).max(100),
+  evidence_block_ids: z.array(z.string().regex(/^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$/u)).min(1).max(100),
   possible_decision_impact: z.enum([
     "detail_only",
     "confidence_changing",
@@ -357,7 +370,8 @@ export function createOpenFullTextExecutor(
       const parsed = acquireOpenFullTextActionInputSchema.parse(input);
       const result = await acquire(parsed, unpaywallConfig);
       const data = result.data as OpenFullTextAcquisitionData;
-      if (result.access_status !== "complete" || data.document_index === undefined) {
+      if (result.access_status !== "complete" || data.document_index === undefined ||
+          data.acquisition_state !== undefined && data.acquisition_state !== "FULL_TEXT_READABLE") {
         return openFullTextLeadActionOutputSchema.parse({
           status: "possibly_useful_lead",
           requested_doi: data.requested_doi,
@@ -365,16 +379,27 @@ export function createOpenFullTextExecutor(
             ? {}
             : { requested_pmcid: data.requested_pmcid }),
           discovery_attempts: data.discovery_attempts,
+          acquisition_state: data.acquisition_state,
+          public_copy_search: data.public_copy_search,
+          candidates: data.candidates,
           access_boundary: data.access_boundary ??
             "No complete identity-verified open full text was available.",
           unseen_content_used_as_evidence: false
         });
       }
-      const page = pageFrom(data.document_index, initialCursor());
       const repositoryStudyAudit = await repositoryStudyAuditFor(
         data.document_index,
         parsed.doi
       );
+      const extraMetadataCharacters = JSON.stringify({
+        source: data.document_index.source,
+        discovery_attempts: data.discovery_attempts,
+        candidates: data.candidates,
+        public_copy_search: data.public_copy_search,
+        repository_study_audit: repositoryStudyAudit?.projection
+      }).length;
+      const page = pageFrom(data.document_index, initialCursor(),
+        Math.max(1, RESPONSE_PAGE_CHARACTERS - extraMetadataCharacters));
       const advertisedVersionId = repositoryStudyAudit?.projection.status === "reusable"
         ? repositoryStudyAudit.projection.repository_analysis_version_id
         : undefined;
@@ -581,7 +606,10 @@ export function createOpenFullTextActionRoutes(
   function acquireRoute(): ActionRoute {
     return route({
       operationId: "acquire_open_full_text",
-      description: "Automatically try Europe PMC and then Unpaywall for a lawful complete study text. Identity-check and index the exact version, or return a plain access boundary without treating unseen contents as evidence.",
+      // Two 400,000-character copies plus bounded URLs/queries, including
+      // JSON's worst-case six-byte character escaping; other routes keep 64 KiB.
+      maximumRequestBytes: 5_000_000,
+      description: "Acquires an identity-verified full text through Europe PMC, Unpaywall PDFs, up to five public HTTPS candidate_urls, and up to two AI-supplied candidate_texts from a client search index. Reports structural completeness, embedded-block extraction, copy provenance, abstract cross-check limitations, and access or provider failures; admitted copies have a document handle for method audit.",
       inputSchema: acquireOpenFullTextActionInputSchema,
       outputSchema: openFullTextActionOutputSchema,
       async handle(input) {
@@ -605,7 +633,7 @@ export function createOpenFullTextActionRoutes(
   function studyAuditRoute(): ActionRoute {
     return route({
       operationId: "validate_study_method_audit",
-      description: "Validate a source-linked study-method audit only after the exact full text was read to exhaustion. Randomization or publication labels are not reliability verdicts.",
+      description: "Validates a source-linked study-method audit only after the exact full text was read to exhaustion. Randomization or publication labels are not reliability verdicts.",
       inputSchema: studyMethodAuditActionInputSchema,
       outputSchema: studyMethodAuditRouteOutputSchema,
       async handle(input) {
@@ -625,7 +653,7 @@ export function createOpenFullTextActionRoutes(
   function reviewAuditRoute(): ActionRoute {
     return route({
       operationId: "validate_review_method_audit",
-      description: "Validate a source-linked systematic-review, meta-analysis, or guideline-method audit only after the exact full text was read to exhaustion. Review labels and pooled estimates are not authority verdicts.",
+      description: "Validates a source-linked systematic-review, meta-analysis, or guideline-method audit only after the exact full text was read to exhaustion. Review labels and pooled estimates are not authority verdicts.",
       inputSchema: reviewMethodAuditActionInputSchema,
       outputSchema: reviewMethodAuditActionOutputSchema,
       async handle(input) {
@@ -643,7 +671,8 @@ interface Page {
 
 function pageFrom(
   index: AuditableDocumentIndex,
-  start: OpenFullTextHandleState["cursor"]
+  start: OpenFullTextHandleState["cursor"],
+  maximumCharacters = RESPONSE_PAGE_CHARACTERS
 ): Page {
   const blocks: z.output<typeof blockSegmentSchema>[] = [];
   let usedCharacters = 0;
@@ -663,7 +692,7 @@ function pageFrom(
     // Count the serialized text: JSON escaping doubles newline-heavy segments.
     const cost = JSON.stringify(text).length + SEGMENT_METADATA_CHARACTERS +
       JSON.stringify(block.section_path).length + block.kind.length;
-    if (blocks.length > 0 && usedCharacters + cost > RESPONSE_PAGE_CHARACTERS) break;
+    if (blocks.length > 0 && usedCharacters + cost > maximumCharacters) break;
     const segmentNumber = Math.floor(characterOffset / SEGMENT_CHARACTERS) + 1;
     const segmentCount = Math.ceil(block.text.length / SEGMENT_CHARACTERS);
     blocks.push({
@@ -697,7 +726,7 @@ function pageFrom(
 }
 
 function availableOutput(
-  data: Pick<OpenFullTextAcquisitionData, "requested_doi" | "requested_pmcid" | "discovery_attempts">,
+  data: Pick<OpenFullTextAcquisitionData, "requested_doi" | "requested_pmcid" | "discovery_attempts" | "acquisition_state" | "candidates" | "public_copy_search">,
   index: AuditableDocumentIndex,
   handle: string,
   page: Page,
@@ -709,6 +738,9 @@ function availableOutput(
     requested_doi: data.requested_doi,
     ...(data.requested_pmcid === undefined ? {} : { requested_pmcid: data.requested_pmcid }),
     discovery_attempts: data.discovery_attempts,
+    acquisition_state: data.acquisition_state ?? "FULL_TEXT_READABLE",
+    public_copy_search: data.public_copy_search,
+    candidates: data.candidates,
     source: index.source,
     blocks: page.blocks,
     ...(repositoryStudyAudit === undefined
@@ -775,6 +807,7 @@ function unavailableStudyAuditReuse(
 
 interface RouteDefinition<I extends z.ZodType, O extends z.ZodType> {
   operationId: string;
+  maximumRequestBytes?: number;
   description: string;
   inputSchema: I;
   outputSchema: O;
@@ -793,7 +826,7 @@ function route<I extends z.ZodType, O extends z.ZodType>(
     consequential: false,
     public: true,
     publicResearch: true,
-    maximumRequestBytes: 65_536,
+    maximumRequestBytes: definition.maximumRequestBytes ?? 65_536,
     maximumResponseBytes: RESEARCH_ACTION_RESPONSE_MAX_BYTES,
     requestSchema: actionJsonSchema(definition.inputSchema),
     responseSchemas: {

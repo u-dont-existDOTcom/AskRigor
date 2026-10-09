@@ -76,7 +76,17 @@ async function productIdentityRevision(protocol: keyof typeof FILES): Promise<st
   const lane = JSON.parse(await readFile(
     new URL("tests/fixtures/protocol-edits/2026-10-09-lane-wording.json", ROOT), "utf8",
   ))[protocol] as RecordedEdits;
-  const current = await readFile(new URL(`protocols/${FILES[protocol]}`, ROOT), "utf8");
+  let current = await readFile(new URL(`protocols/${FILES[protocol]}`, ROOT), "utf8");
+  if (protocol === "hrp") {
+    const { hrp: fullText } = JSON.parse(await readFile(
+      new URL("tests/fixtures/protocol-edits/2026-10-07-full-text-candidate.json", ROOT), "utf8",
+    )) as { hrp: RecordedEdits };
+    expect(sha256(current)).toBe(fullText.to.sha256);
+    expect(fullText.from).toEqual(lane.to);
+    current = [...fullText.edits].reverse().reduce(
+      (text, [before, after]) => replaceOnce(text, after, before), current,
+    );
+  }
   expect(sha256(current)).toBe(lane.to.sha256);
   const prior = [...lane.edits].reverse().reduce(
     (text, [before, after]) => replaceOnce(text, after, before), current,
@@ -121,12 +131,15 @@ describe("owner-approved product identity wording of 2026-10-07", () => {
     expect(plain(scope.slice(scope.indexOf(anchor) + anchor.length))).toBe(APPROVED.G);
   });
 
-  it("places all three cases after ManyPagesOneTrial, with the exact prompts and expected behaviors", async () => {
+  it("places all three cases after the four full-text cases, with the exact prompts and expected behaviors", async () => {
     const cases = await sectionText("hrp", "StressTestExpectations");
     const ids = [...cases.matchAll(/<Case id="([^"]+)">/gu)].map((match) => match[1]);
     const start = ids.indexOf("ManyPagesOneTrial");
     expect(start).toBeGreaterThanOrEqual(0);
-    expect(ids.slice(start, start + 4)).toEqual(["ManyPagesOneTrial", ...APPROVED.cases.map(({ id }) => id)]);
+    expect(ids.slice(start, start + 8)).toEqual([
+      "ManyPagesOneTrial", "OpenAccessRouteOutage", "RelatedPaperPublicCopy",
+      "ChallengeBlockedRepositoryCopy", "FullTextChangesTheArm", ...APPROVED.cases.map(({ id }) => id),
+    ]);
     for (const { id, prompt, expected } of APPROVED.cases) {
       const body = element(cases, "Case", "id", id);
       expect(body).toMatch(/^\s*<Prompt>[^<]+<\/Prompt>\s*<ExpectedBehavior>[^<]+<\/ExpectedBehavior>\s*$/u);
@@ -135,9 +148,9 @@ describe("owner-approved product identity wording of 2026-10-07", () => {
     }
   });
 
-  it("places FS214 and FS215 directly after FS212, preserving their exact sentences", async () => {
+  it("places FS214 and FS215 directly after FS213, preserving their exact sentences", async () => {
     const checks = await sectionText("hrp", "FinalSelfCheck");
-    expect(checks).toMatch(/<Check id="FS212">[^<]+<\/Check>\s*<Check id="FS214">[^<]+<\/Check>\s*<Check id="FS215">/u);
+    expect(checks).toMatch(/<Check id="FS213">[^<]+<\/Check>\s*<Check id="FS214">[^<]+<\/Check>\s*<Check id="FS215">/u);
     for (const [id, sentence] of Object.entries(APPROVED.checks)) {
       expect(plain(element(checks, "Check", "id", id))).toBe(sentence);
     }

@@ -39,7 +39,7 @@ export const STUDY_METHOD_AUDIT_DOMAINS = [
 ] as const;
 
 const domainSchema = z.enum(STUDY_METHOD_AUDIT_DOMAINS);
-const blockIdSchema = z.string().regex(/^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$/u);
+const blockIdSchema = z.string().regex(/^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$/u);
 const boundedPlainText = (maximum: number) => z.string().trim().min(1).max(maximum);
 const programSchema = z.object({
   name: boundedPlainText(500),

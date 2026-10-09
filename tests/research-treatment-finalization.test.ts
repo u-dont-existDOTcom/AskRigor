@@ -17,6 +17,7 @@ import {
   initialResearchCandidateDiscoveryState,
   initialResearchTreatmentFinalizationState,
   initializeResearchFormalEvidence,
+  researchFormalEvidenceStateSchema,
   initializeResearchVideoDepth,
   type TreatmentFinalizationEvidence
 } from "../apps/research-mcp/src/index.js";
@@ -31,7 +32,7 @@ import {
   transcriptOutput
 } from "./helpers/research-video-depth-fixtures.js";
 
-function narrowCompleteEvidence(options: { formalBoundary?: boolean } = {}): TreatmentFinalizationEvidence {
+function narrowCompleteEvidence(options: { formalBoundary?: boolean; retryableSource?: boolean; declaredSource?: boolean } = {}): TreatmentFinalizationEvidence {
   const packet = structuredClone(researchPacket());
   const receipt = structuredClone(researchReceipt());
   packet.candidates[0]!.provisional_specific_program = "named program one";
@@ -102,6 +103,25 @@ function narrowCompleteEvidence(options: { formalBoundary?: boolean } = {}): Tre
       })) as typeof hypothesis.provider_searches
     }))
   };
+  if (options.retryableSource) {
+    const hypothesisId = formalEvidence.hypotheses[0]!.hypothesis_id;
+    formalEvidence = researchFormalEvidenceStateSchema.parse({ ...formalEvidence, sources: [{
+      source_id: "a".repeat(64), hypothesis_ids: [hypothesisId],
+      origins: [{ provider: "pubmed", provider_record_id: "99901", canonical_url: "https://pubmed.ncbi.nlm.nih.gov/99901/", hypothesis_ids: [hypothesisId], provider_access_status: "metadata_only", source_record_hash: "b".repeat(64) }],
+      identity: { doi: "10.1234/synthetic.target", title: "Synthetic pending study", identity_status: "PROVIDER_REPORTED", identity_hash: "c".repeat(64) },
+      source_kind: "SCIENTIFIC_STUDY", abstract_visibility: "ABSTRACT_PRESENT", screening_status: "SCREENED", decision_importance: "DECISION_IMPORTANT", possible_decision_impact: "ranking_changing", screening_rationale: "Synthetic decision-important source.",
+      full_text: { status: "BLOCKED_RETRYABLE", acquisition_state: "CANDIDATE_FOUND_FETCH_BLOCKED", discovery_attempts: [{ route: "candidate", result: "error" }], source_segments_retrieved_cumulative: 0, synthesis_lock: "fail", unseen_content_used_as_evidence: false, access_boundary: "Synthetic blocked candidate." },
+      method_audit: { status: "BOUNDARY", audit_kind: "STUDY" },
+      external_evidence: { status: "BOUNDED_NONRETRYABLE", provider_attempt_hashes: [], provider_coverage: [], controller_directives: [], unresolved_item_hashes: [], claim_local_limitation_hashes: [], claim_local_limitations: [], linked_work: [], possible_decision_impact: "unknown", effect_claims_excluded: false },
+      claim_capability: { status: "UNAVAILABLE_UNSEEN_SOURCE", unrestricted_decision_use: false }
+    }] });
+  }
+  if (options.declaredSource) {
+    const source = formalEvidence.sources[0]!;
+    source.full_text = { ...source.full_text, status: "LEAD_BOUNDARY",
+      public_copy_search: { status: "declared", query_count: 2 },
+      discovery_attempts: [{ route: "candidate", result: "inaccessible" }] };
+  }
   let bidirectional = initialResearchBidirectionalIterationState();
   const bidirectionalWork = createBidirectionalIterationWorkPackage(
     bidirectional,
@@ -284,6 +304,38 @@ describe("session-derived treatment landscape finalization", () => {
       answer_boundary: "ledger_consistent_for_synthesis"
     });
     expect(deriveTreatmentFinalizationStatus(next, evidence)).toBe("COMPLETE");
+  });
+
+  it("keeps a blocked candidate incomplete even when legacy audit fields look terminal", () => {
+    const evidence = narrowCompleteEvidence({ retryableSource: true });
+    const state = initialResearchTreatmentFinalizationState();
+    const work = createTreatmentLandscapeWorkPackage(state, evidence);
+    const next = ingestTreatmentLandscapeSubmission(state, evidence, {
+      package_version: work.package_version, evidence_basis_digest: work.evidence_basis_digest, attempt: work.attempt,
+      broad_treatment_choice: false, specific_implementation_searches: [],
+      directional_search_batches: { benefit: [], no_effect_or_failure: [], harm: [], discontinuation: [], eventual_standard_treatment: [] },
+      selected_video_interpretations: selectedInterpretations(work), further_expansion_likely_to_improve_answer: "no"
+    });
+    expect(deriveTreatmentFinalizationDiagnostics(next, evidence).answer_boundary).toBe("continue_research");
+    expect(deriveTreatmentFinalizationStatus(next, evidence)).not.toBe("BLOCKED_TERMINAL");
+  });
+
+  it("keeps a declared blocked-copy boundary terminal in treatment follow-up", () => {
+    const evidence = narrowCompleteEvidence({ retryableSource: true, declaredSource: true });
+    const state = initialResearchTreatmentFinalizationState();
+    const work = createTreatmentLandscapeWorkPackage(state, evidence);
+    const material = work.candidates.find(({ materiality }) => materiality === "MATERIAL")!;
+    const batch = work.discovery_batches.find(({ query_or_scope }) => query_or_scope.includes("named program one"))!;
+    const next = ingestTreatmentLandscapeSubmission(state, evidence, {
+      package_version: work.package_version, evidence_basis_digest: work.evidence_basis_digest, attempt: work.attempt,
+      broad_treatment_choice: false, specific_implementation_searches: [{ search_id: "specific_named_program_one", discovery_batch_id: batch.batch_id,
+        treatment_class_id: material.treatment_class_id, implementation_terms: ["named program one"],
+        discriminator_terms: ["condition"], candidate_video_ids: [material.video_id] }],
+      directional_search_batches: { benefit: [], no_effect_or_failure: [], harm: [], discontinuation: [], eventual_standard_treatment: [] },
+      selected_video_interpretations: selectedInterpretations(work), further_expansion_likely_to_improve_answer: "no"
+    });
+    expect(deriveTreatmentFinalizationDiagnostics(next, evidence).answer_boundary).toBe("bounded_nonranking_only");
+    expect(deriveTreatmentFinalizationStatus(next, evidence)).toBe("BLOCKED_TERMINAL");
   });
 
   it("projects a nonretryable formal-source gap as bounded nonranking work", () => {

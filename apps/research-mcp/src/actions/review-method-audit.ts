@@ -24,7 +24,7 @@ export const REVIEW_METHOD_AUDIT_DOMAINS = [
   "currency_citation_entailment_and_recommendation_scope"
 ] as const;
 
-const blockIdSchema = z.string().regex(/^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$/u);
+const blockIdSchema = z.string().regex(/^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$/u);
 const boundedText = (maximum: number) => z.string().trim().min(1).max(maximum);
 const reviewDomainSchema = z.object({
   domain: z.enum(REVIEW_METHOD_AUDIT_DOMAINS),

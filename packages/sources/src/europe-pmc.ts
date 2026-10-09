@@ -24,7 +24,9 @@ const searchInputSchema = z.object({
   query: z.string().trim().min(1).max(5_000),
   dateRange: dateRangeSchema.optional(),
   pageSize: z.number().int().min(1).max(MAX_PAGE_SIZE).optional(),
-  cursor: z.string().min(1).max(4_096).optional()
+  cursor: z.string().min(1).max(4_096).optional(),
+  // "core" records carry the abstract; the default "lite" records do not.
+  resultType: z.enum(["lite", "core"]).optional()
 }).strict();
 const flagSchema = z.union([z.boolean(), z.enum(["Y", "N"])]).nullable().optional();
 const providerRecordSchema = z.object({
@@ -33,7 +35,9 @@ const providerRecordSchema = z.object({
   pmid: z.string().nullable().optional(),
   pmcid: z.string().nullable().optional(),
   doi: z.string().nullable().optional(),
+  pii: z.string().nullable().optional(),
   title: z.string().nullable().optional(),
+  abstractText: z.string().nullable().optional(),
   authorString: z.string().nullable().optional(),
   journalTitle: z.string().nullable().optional(),
   pubYear: z.union([z.string(), z.number().int()]).nullable().optional(),
@@ -59,6 +63,7 @@ export interface SearchEuropePmcInput {
   dateRange?: EuropePmcDateRange;
   pageSize?: number;
   cursor?: string;
+  resultType?: "lite" | "core";
 }
 
 export interface EuropePmcDateRange {
@@ -72,7 +77,9 @@ export interface EuropePmcRecord {
   pmid?: string;
   pmcid?: string;
   doi?: string;
+  pii?: string;
   title?: string;
+  abstractText?: string;
   authors?: string[];
   journal?: string;
   year?: string;
@@ -89,7 +96,7 @@ export const searchEuropePmc = async (
     throw new Error("Invalid Europe PMC search input");
   }
 
-  const { query, dateRange, cursor } = parsedInput.data;
+  const { query, dateRange, cursor, resultType } = parsedInput.data;
   const pageSize = parsedInput.data.pageSize ?? DEFAULT_PAGE_SIZE;
   const cursorMark = cursor ?? "*";
   const providerQuery = dateRange === undefined
@@ -106,6 +113,7 @@ export const searchEuropePmc = async (
     url.searchParams.set("format", "json");
     url.searchParams.set("pageSize", String(pageSize));
     url.searchParams.set("cursorMark", cursorMark);
+    if (resultType !== undefined) url.searchParams.set("resultType", resultType);
 
     let response: unknown;
     try {
@@ -173,7 +181,9 @@ const normalizeRecord = (record: z.infer<typeof providerRecordSchema>): EuropePm
     ...definedString("pmid", record.pmid),
     ...definedString("pmcid", record.pmcid),
     ...definedString("doi", record.doi),
+    ...definedString("pii", record.pii),
     ...definedString("title", record.title),
+    ...definedString("abstractText", record.abstractText),
     ...(recordAuthors === undefined ? {} : { authors: recordAuthors }),
     ...definedString("journal", record.journalTitle),
     ...(record.pubYear === undefined || record.pubYear === null

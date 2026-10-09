@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { canSignFullTextLead } from "@askrigor/sources";
+
 import { z } from "zod";
 
 import type { ResearchBidirectionalIterationState } from "./research-bidirectional-iteration.js";
@@ -738,6 +740,12 @@ function formalFollowUp(
   const decisionSources = sources.filter(({ decision_importance }) =>
     decision_importance === "DECISION_IMPORTANT"
   );
+  if (decisionSources.some(({ full_text, identity }) =>
+    full_text.status === "BLOCKED_RETRYABLE" ||
+    full_text.status !== "EXHAUSTED" && identity.doi !== undefined &&
+    (full_text.status === "LEAD_BOUNDARY" || full_text.acquisition_state !== undefined) &&
+    !canSignFullTextLead(full_text)
+  )) return { status: "incomplete" };
   const sourceBounded = decisionSources.some((source) =>
     source.full_text.status === "LEAD_BOUNDARY" ||
     source.method_audit.status === "BOUNDARY" ||
