@@ -759,6 +759,30 @@ describe("controller-owned formal evidence frontier", () => {
     for (const query of queries) expect(checkpoint).not.toContain(query);
   });
 
+  it("checkpoints seven candidate provenance records without supplied copy text", async () => {
+    const formal = selectAllStudies(await searchedFormal());
+    const source = formal.sources[0]!;
+    const bodyMarker = "Synthetic admitted search-copy body marker";
+    const index = documentIndex(source.identity.doi!, bodyMarker);
+    index.source.provider = "client_supplied";
+    const candidates = Array.from({ length: 7 }, (_, n) => ({ url: `https://zenodo.org/synthetic-copy-${n}`,
+      source_class: "repository" as const, source_class_basis: "known_host" as const,
+      retrieval_provider: n < 5 ? "direct" as const : "client_search_index" as const,
+      state: "FULL_TEXT_READABLE" as const, identity_verification: "doi_exact" as const,
+      sections_observed: ["methods", "results", "discussion"] as const,
+      completeness: "full_text" as const, retrieved_at: "2026-10-09T00:00:00.000Z" }));
+    const executor = createOpenFullTextExecutor({ acquire: async () => {
+      const result = acquisition(index);
+      return { ...result, data: { ...result.data, candidates: candidates.map((candidate) => ({ ...candidate, sections_observed: [...candidate.sections_observed] })) } };
+    }, unpaywallConfig: { email: "fixture@example.test" } });
+    const next = researchFormalEvidenceStateSchema.parse(await executeResearchSourceFullTextChain(formal, source.source_id, executor));
+    expect(next.sources.find(({ source_id }) => source_id === source.source_id)!.full_text.candidates).toHaveLength(7);
+    const checkpoint = JSON.stringify(next);
+    expect(checkpoint).toContain("client_search_index");
+    expect(checkpoint).not.toContain(bodyMarker);
+    expect(checkpoint).not.toContain('"candidate_texts":');
+  });
+
   it("discards an expired partial full-text chain and restarts the exact source without combining counts", async () => {
     let formal = selectAllStudies(await searchedFormal());
     const sourceId = formal.sources[0]!.source_id;

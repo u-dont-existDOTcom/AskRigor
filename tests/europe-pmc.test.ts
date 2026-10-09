@@ -13,6 +13,18 @@ afterEach(() => {
 });
 
 describe("Europe PMC search", () => {
+  it("preserves a synthetic abstract carried by the existing DOI-search record", async () => {
+    const query = 'DOI:"10.1234/synthetic.abstract"';
+    const abstractText = "Synthetic abstract text supplied by the fixture, never a real paper.";
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ hitCount: 1,
+      request: { queryString: query, cursorMark: "*", pageSize: 10 },
+      resultList: { result: [{ source: "MED", id: "9990001", doi: "10.1234/synthetic.abstract", abstractText }] }
+    }), { status: 200 }));
+    vi.stubGlobal("fetch", fetch);
+    const result = await searchEuropePmc({ query, pageSize: 10 });
+    expect(result.data[0]).toMatchObject({ abstractText });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
   it("preserves provider source, ID, and next cursor exactly", async () => {
     const body = await fixture("search-page-1.json");
     const requests: URL[] = [];

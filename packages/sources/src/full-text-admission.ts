@@ -11,14 +11,21 @@ export const acquisitionStateSchema = z.enum([
 export type AcquisitionState = z.output<typeof acquisitionStateSchema>;
 export const sourceClassSchema = z.enum(["publisher", "repository", "author_copy", "researcher_upload", "other"]);
 export type SourceClass = z.output<typeof sourceClassSchema>;
+const candidateHttpsUrlSchema = z.string().url().max(4_000).refine((value) => {
+  const url = new URL(value);
+  return url.protocol === "https:" && !url.username && !url.password && !url.port;
+}, "Candidate URLs require HTTPS without credentials or custom ports");
 export const candidateUrlsSchema = z.array(z.object({
-  url: z.string().url().max(4_000).refine((value) => {
-    const url = new URL(value);
-    return url.protocol === "https:" && !url.username && !url.password && !url.port;
-  }, "Candidate URLs require HTTPS without credentials or custom ports"),
+  url: candidateHttpsUrlSchema,
   declared_class: sourceClassSchema.optional()
 }).strict()).min(1).max(5);
 export type CandidateUrl = z.output<typeof candidateUrlsSchema>[number];
+export const candidateTextsSchema = z.array(z.object({
+  url: candidateHttpsUrlSchema.describe("Records the public HTTPS page represented by the search-index copy."),
+  text: z.string().min(2_000).max(400_000).describe("Accepts the page text returned by the client's search index, from 2,000 to 400,000 characters."),
+  retrieved_via: z.literal("client_search_index").describe("Records client search-index retrieval; AskRigor does not fetch this copy.")
+}).strict()).min(1).max(2).describe("Accepts up to two AI-supplied public-page search-index copies for identity, full-text admission and abstract cross-checking.");
+export type CandidateText = z.output<typeof candidateTextsSchema>[number];
 export const publicCopySearchSchema = z.object({
   queries: z.array(z.string().trim().min(3).max(400)).min(2).max(12)
 }).strict();
@@ -33,7 +40,9 @@ export const fullTextCandidateSchema = z.object({
   url: z.string().url(),
   source_class: sourceClassSchema,
   source_class_basis: z.enum(["known_host", "metadata_publisher_host", "declared", "unrecognized_host"]),
-  retrieval_provider: z.literal("direct"),
+  retrieval_provider: z.enum(["direct", "client_search_index"]),
+  extraction: z.literal("embedded_block").optional().describe("Records selection of one qualifying embedded article block after whole-page inspection failed."),
+  limitations: z.array(z.string()).optional().describe("Records structural extraction limits and failed or skipped abstract cross-checks."),
   state: acquisitionStateSchema.exclude(["PRIMARY_OA_ROUTES_EXHAUSTED"]),
   identity_verification: z.enum(["doi_exact", "pii_exact", "title_match", "not_verified"]),
   sections_observed: z.array(z.enum(["methods", "results", "discussion"])),
@@ -65,6 +74,11 @@ const CASE_REPORTS = ["case report", "case presentation", "case description", "c
 const ABSTRACT = ["abstract", "summary", "résumé", "resumen", "resumo", "zusammenfassung", "riassunto"];
 const IDENTITY_BODY_BOUNDARIES = ["introduction", "background", "introducción", "introdução", "einleitung", "introduzione", "contexte"];
 const REFERENCES = ["references", "bibliography", "références", "referencias", "referências", "literatur", "literaturverzeichnis", "bibliografia", "reference list"];
+// The same exact labels drive line admission and the inline structural split.
+export const INLINE_SECTION_HEADINGS: readonly string[] = [...new Set([
+  ...Object.values(FORMS).flat(), ...COMBINED_RESULTS_DISCUSSION, ...CASE_REPORTS,
+  ...ABSTRACT, ...REFERENCES
+])].sort((a, b) => b.length - a.length);
 export const FULL_TEXT_BODY_MIN_CHARACTERS = 6_000;
 export function normalizedHeading(value: string): string {
   return value.normalize("NFKC").toLowerCase().trim()

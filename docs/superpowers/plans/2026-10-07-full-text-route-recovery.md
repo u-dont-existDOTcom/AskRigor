@@ -542,3 +542,111 @@ Next, decided in owner question 55:
 - an embedded-text extractor (a paper's own block inside a host page, found by its DOI or exact title), which makes
   Exa's copy of 11374875 usable as well;
 - a 20-paper Exa coverage test before any paid route for the web app.
+
+## Exa coverage test, 20 papers (owner question 55, 2026-10-09)
+
+The sample: 20 PubMed trials of supplements and diets in Clin Nutr, Nutrition and Complement Ther Med (2015), each
+without a PMC copy and closed in Unpaywall. For each paper, an Exa search by exact title limited to academia.edu and
+researchgate.net, with stored text only (`maxAgeHours: -1`).
+
+| Measure | Result |
+| --- | --- |
+| A matching upload page found | 12 of 20; several of these are other papers whose text cites the trial |
+| Full text present in Exa's stored copy | 1 of 20 (an Academia.edu upload with the DOI and IMRaD text) |
+| ResearchGate pages | abstract and page chrome only (8k to 15k characters) |
+| Cost | $0.140 (the estimate of $0.05 left out the search charge) |
+
+With the earlier test (1 of 3), Exa reaches roughly one closed paper in twenty. That is not enough for a paid route.
+Owner question 55: A builds the AI-copy route and the in-page extractor; see the next section.
+
+## Phase 1b: AI-supplied search copies and in-page extraction (owner question 55: A)
+
+### In-page extraction
+
+A researcher-upload page (Academia.edu, for example) embeds a paper's PDF text as one flattened block among the page's
+menus and "Related papers". The extraction works as follows:
+
+1. **Whole page first.** The text goes through identity and admission as it does today.
+2. **Fallback to the embedded block.** If that fails, the extractor looks for one block (line) of at least 6,000
+   characters whose first 2,000 characters contain the target DOI, its PII, or an exact title variant (compact
+   match). If there is exactly one, that block is the document.
+3. **Splitting the block.** It is split before inline section headings: an all-caps form of a recognized heading
+   (such as `MATERIALS AND METHODS` or `RESULTS AND DISCUSSION`) bounded by non-letters, or a title-case form that
+   follows a sentence end and precedes a capital letter. Identity and admission then run on the result.
+4. **Recording it.** The candidate records `extraction: "embedded_block"`. Without a unique qualifying block, the
+   result is unchanged.
+
+The heading split is structural. It covers the six languages the heading lists cover; anything else stays partial, a
+stated limit.
+
+### AI-supplied search copies
+
+`acquire_open_full_text` gains `candidate_texts`: up to 2 entries, each `{ url (https), text (2,000 to 400,000
+characters), retrieved_via: "client_search_index" }`. The text is what the AI's own search tool returned for that
+public page (the ChatGPT plugin's main route).
+
+- **Checks.** It passes the same identity checks, admission and in-page extraction as a fetched copy. One more exact
+  check comes on top: the study's abstract from Europe PMC or PubMed must appear in the supplied text, as a compact
+  normalized run of at least its first 300 characters. If the source has no abstract, the check is skipped and the
+  result says so.
+- **Provenance.** `retrieval_provider: "client_search_index"`, with source class from the host. The document index
+  source is `client_supplied`.
+- **Labeling.** Audits of such a copy carry a required caveat in finalize_research: "The full text of <study> came from
+  the AI's search-index copy of <host>; AskRigor did not fetch it."
+- **Privacy.** The text stays request-local, and only an admitted copy enters the one-hour handle map. The privacy map
+  draft records this.
+
+### Tests
+
+- The green-tea Academia.edu layout: menus, related papers, then the flattened PDF block with the DOI and inline
+  caps headings. It passes through embedded extraction.
+- The same page without the paper's block gives `ABSTRACT_ONLY` or `IDENTITY_MISMATCH`.
+- A supplied copy whose abstract doesn't match, such as a paraphrase or a different paper, is refused.
+- A supplied copy that matches gives `FULL_TEXT_READABLE`, a handle and the provenance label.
+- Two supplied texts are allowed; a third is refused.
+- Every new rule through the real MCP endpoint, plus the caveat on an audit receipt.
+
+## Implementation (phase 1b)
+
+Implemented offline on Node 24.18.0 (2026-10-09). Source changes are in
+`packages/sources/src/{candidate-full-text,full-text-admission,open-full-text,europe-pmc,auditable-document-index,index}.ts`;
+MCP/Action changes are in `apps/research-mcp/src/actions/{open-full-text-route,research-formal-evidence}.ts`,
+`register-tools.ts` and `research-finalization-gate.ts`. The privacy map and
+33-tool inventory describe `candidate_texts`, extraction and search-copy provenance;
+pinned composing-tool descriptions remain descriptive. Acquisition Actions have a
+bounded 5,000,000-byte request allowance for the new text fields; the existing MCP
+1-MiB total request cap still applies. A carried abstract with fewer than 300 compact
+characters cannot satisfy the minimum exact check and yields an explicit refusal;
+an absent abstract yields an explicit skipped-check limitation, with no new lookup.
+
+Synthetic HTTP MCP coverage is in `tests/full-text-search-copies.test.ts`, including
+`extracts the synthetic green-tea Academia layout after menus and related papers`,
+`does not admit the same upload page without its own paper block`,
+`refuses a supplied copy with a %s`,
+`admits a matching supplied copy with a handle and truthful provenance without fetching its URL`,
+`allows two supplied copies and preserves source ranking and input order`,
+`refuses %s at the MCP schema boundary before acquisition`, and
+`signs server-derived search provenance on a %s audit receipt and requires its finalization caveat`.
+The suite also covers uniqueness, the line/front limits, six-language inline headings,
+identity/admission independence, markup/NFKC abstract checks, text bounds and seven
+combined candidates. `tests/europe-pmc.test.ts` adds
+`preserves a synthetic abstract carried by the existing DOI-search record`;
+`tests/research-formal-evidence.test.ts` adds
+`checkpoints seven candidate provenance records without supplied copy text`;
+`tests/mcp-tools.test.ts` pins the descriptions and regenerated inventory.
+
+No live acceptance, live architecture bootstrap or authenticated lesson-queue lookup
+was possible under the explicit no-external-network constraint. Verification permits
+only loopback/IPC sockets, with a temporary Node guard blocking external connections
+and DNS. No real paper text enters a fixture. No protocol edits, commits, release or
+paid-provider work were performed. Lesson closeout: page chrome can obscure the
+paper's own identity; a unique structural fallback preserves the original first pass,
+while client search-copy provenance stays bound to the audited handle and its caveat.
+
+Final Phase 1b `npm run verify` exited **0**: typecheck, the complete hermetic
+suite and build passed. `git diff --check` passes; `protocols/` has no diff.
+
+```text
+Test Files  207 passed | 1 skipped (208)
+Tests  2483 passed | 6 skipped (2489)
+```

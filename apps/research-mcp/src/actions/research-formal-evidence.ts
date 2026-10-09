@@ -197,7 +197,7 @@ const fullTextStateSchema = z.object({
   discovery_attempts: z.array(discoveryAttemptSchema).max(20),
   acquisition_state: acquisitionStateSchema.optional(),
   public_copy_search: publicCopySearchResultSchema.optional(),
-  candidates: z.array(fullTextCandidateSchema).max(5).optional(),
+  candidates: z.array(fullTextCandidateSchema).max(7).optional(),
   source_primary_identifier: bounded(2_048).optional(),
   source_canonical_url: z.string().url().max(4_000).optional(),
   source_version: bounded(200).optional(),

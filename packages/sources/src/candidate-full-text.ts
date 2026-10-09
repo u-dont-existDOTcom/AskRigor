@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { auditableDocumentIndexSchema, type AuditableDocumentBlock, type AuditableDocumentIndex } from "./auditable-document-index.js";
-import { admitFullText, sourceClassification, sectionKind, verifyArticleIdentity, type CandidateUrl, type FrozenArticleIdentity, type FullTextCandidate } from "./full-text-admission.js";
+import { admitFullText, compactIdentityText, FULL_TEXT_BODY_MIN_CHARACTERS, INLINE_SECTION_HEADINGS, sourceClassification, sectionKind, titleVariants, verifyArticleIdentity, type CandidateText, type CandidateUrl, type FrozenArticleIdentity, type FullTextCandidate } from "./full-text-admission.js";
 import { DiscoveredDocumentError, fetchCandidateDocument, UpstreamHttpError, type DiscoveredDocumentFetchRuntime } from "./http.js";
 import { extractAuditablePdf } from "./unpaywall-full-text.js";
 
@@ -56,29 +56,7 @@ export async function acquireCandidateFullText(
       .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/gu, "");
     const isHtml = type !== "text/plain";
     const extracted = isHtml ? extractHtmlText(raw) : { text: raw };
-    const verification = verifyArticleIdentity(identity, extracted.text, extracted.title,
-      "doi" in extracted && extracted.doi !== undefined ? { citation_doi: extracted.doi } : {});
-    const blocks = textBlocks(extracted.text);
-    const admission = admitFullText(blocks);
-    // Access structures explain a failed identity or admission check; an
-    // embedded sign-up form does not hide an otherwise readable public paper.
-    if (verification === undefined || admission.state !== "FULL_TEXT_READABLE") {
-      const accessState = isHtml ? htmlAccessState(raw, extracted.text) : undefined;
-      return { candidate: { ...record,
-        state: accessState ?? (verification === undefined ? "IDENTITY_MISMATCH" : admission.state),
-        identity_verification: verification ?? "not_verified",
-        ...(verification === undefined ? {} : { sections_observed: admission.sections_observed, completeness: admission.completeness }) } };
-    }
-    record = { ...record, state: admission.state, identity_verification: verification,
-      sections_observed: admission.sections_observed, completeness: admission.completeness };
-    const index = auditableDocumentIndexSchema.parse({
-      source: { provider: "direct_candidate", primary_identifier: identity.doi, canonical_url: fetched.finalUrl,
-        doi: identity.doi, ...(identity.pmid === undefined ? {} : { pmid: identity.pmid }),
-        ...(identity.title === undefined ? {} : { title: identity.title }), format: isHtml ? "html_text" : "plain_text",
-        content_sha256: hash, document_completeness: "full_text_with_body", identity_verification: verification },
-      blocks, section_paths: [...new Map(blocks.map((block) => [JSON.stringify(block.section_path), block.section_path])).values()]
-    });
-    return { candidate: record, index };
+    return inspectCandidateText(record, identity, extracted, hash, isHtml ? "html_text" : "plain_text", isHtml ? raw : undefined);
   } catch (error) {
     const status = error instanceof UpstreamHttpError ? error.status : undefined;
     const state = status === 401 || status === 402 ? "PAYWALL_OR_LOGIN_REQUIRED"
@@ -86,6 +64,119 @@ export async function acquireCandidateFullText(
         : status === 429 || status !== undefined && status >= 500 || error instanceof DiscoveredDocumentError && error.code === "transport" ? "PROVIDER_UNAVAILABLE" : "CANDIDATE_FOUND_FETCH_BLOCKED";
     return { candidate: { ...record, state } };
   }
+}
+
+/** Client search-index text is inspected locally; its URL is provenance only. */
+export function acquireSuppliedCandidateFullText(
+  supplied: CandidateText,
+  identity: FrozenArticleIdentity,
+  abstractText: string | undefined,
+  runtime: Pick<CandidateFullTextRuntime, "now"> = {}
+): { candidate: FullTextCandidate; index?: AuditableDocumentIndex } {
+  const record: FullTextCandidate = {
+    url: supplied.url, ...sourceClassification(supplied.url, undefined, identity.publisher_host),
+    retrieval_provider: "client_search_index", state: "IDENTITY_MISMATCH", identity_verification: "not_verified",
+    sections_observed: [], completeness: "unavailable", retrieved_at: (runtime.now?.() ?? new Date()).toISOString()
+  };
+  // The first 300 compact characters of the abstract, or all of a shorter one, must appear in the copy. An abstract
+  // under 80 compact characters is too short to identify a paper, so the check is skipped and the result says so.
+  const abstract = compactIdentityText(extractHtmlText(abstractText ?? "").text);
+  const abstractCheckable = abstract.length >= 80;
+  if (abstractCheckable && !compactIdentityText(supplied.text).includes(abstract.slice(0, 300))) {
+    return { candidate: { ...record, limitations: [
+      "The supplied text does not contain the study's abstract (its first 300 compact normalized characters, or all of a shorter one); the exact abstract cross-check failed."
+    ] } };
+  }
+  let checked: { candidate: FullTextCandidate; index?: AuditableDocumentIndex };
+  try {
+    checked = inspectCandidateText(record, identity, { text: supplied.text },
+      createHash("sha256").update(supplied.text, "utf8").digest("hex"), "plain_text");
+  } catch {
+    checked = { candidate: { ...record, state: "CANDIDATE_FOUND_FETCH_BLOCKED",
+      limitations: ["The supplied text could not be indexed within the document's structural limits."] } };
+  }
+  if (!abstractCheckable) {
+    checked.candidate.limitations = [...(checked.candidate.limitations ?? []), abstract.length === 0
+      ? "The exact abstract cross-check was skipped because the existing Europe PMC DOI-search record carries no abstract."
+      : "The exact abstract cross-check was skipped because the study's abstract is too short to identify it."];
+  }
+  return checked;
+}
+
+function inspectCandidateText(
+  record: FullTextCandidate,
+  identity: FrozenArticleIdentity,
+  extracted: { text: string; title?: string; doi?: string },
+  hash: string,
+  format: "html_text" | "plain_text",
+  html?: string
+): { candidate: FullTextCandidate; index?: AuditableDocumentIndex } {
+  let verification = verifyArticleIdentity(identity, extracted.text, extracted.title,
+    extracted.doi === undefined ? {} : { citation_doi: extracted.doi });
+  let blocks = textBlocks(extracted.text);
+  let admission = admitFullText(blocks);
+  // Whole-page inspection retains the original identity and admission rules.
+  if (verification === undefined || admission.state !== "FULL_TEXT_READABLE") {
+    const embedded = uniqueEmbeddedBlock(extracted.text, identity);
+    if (embedded !== undefined) {
+      const text = splitInlineHeadings(embedded);
+      verification = verifyArticleIdentity(identity, text);
+      blocks = textBlocks(text);
+      admission = admitFullText(blocks);
+      record = { ...record, extraction: "embedded_block", limitations: [
+        "Inline heading extraction recognizes structural labels in English, French, Spanish, Portuguese, German and Italian; other forms remain partial."
+      ] };
+    }
+  }
+  // Access structures explain failure only after both possible inspections.
+  const accessState = verification === undefined || admission.state !== "FULL_TEXT_READABLE"
+    ? html === undefined ? undefined : htmlAccessState(html, extracted.text) : undefined;
+  record = { ...record, state: accessState ?? (verification === undefined ? "IDENTITY_MISMATCH" : admission.state),
+    identity_verification: verification ?? "not_verified",
+    ...(verification === undefined ? {} : { sections_observed: admission.sections_observed, completeness: admission.completeness }) };
+  if (verification === undefined || record.state !== "FULL_TEXT_READABLE") return { candidate: record };
+  const index = auditableDocumentIndexSchema.parse({
+    source: { provider: record.retrieval_provider === "client_search_index" ? "client_supplied" : "direct_candidate",
+      primary_identifier: identity.doi, canonical_url: record.url,
+      doi: identity.doi, ...(identity.pmid === undefined ? {} : { pmid: identity.pmid }),
+      ...(identity.title === undefined ? {} : { title: identity.title }), format,
+      content_sha256: hash, document_completeness: "full_text_with_body", identity_verification: verification },
+    blocks, section_paths: [...new Map(blocks.map((block) => [JSON.stringify(block.section_path), block.section_path])).values()]
+  });
+  return { candidate: record, index };
+}
+
+function uniqueEmbeddedBlock(text: string, identity: FrozenArticleIdentity): string | undefined {
+  const identifiers = [compactIdentityText(identity.doi),
+    ...(compactIdentityText(identity.pii ?? "").length >= 10 ? [compactIdentityText(identity.pii!)] : []),
+    ...titleVariants(identity.title, ...(identity.title_variants ?? [])).map(compactIdentityText).filter((title) => title.length >= 24)];
+  let selected: string | undefined;
+  for (const line of textLines(text)) {
+    if (line.length < FULL_TEXT_BODY_MIN_CHARACTERS) continue;
+    const front = compactIdentityText(line.slice(0, 2_000));
+    if (!identifiers.some((identifier) => front.includes(identifier))) continue;
+    if (selected !== undefined) return undefined;
+    selected = line;
+  }
+  return selected;
+}
+
+const inlineHeadingPattern = new RegExp(`(?<!\\p{L})(?:${INLINE_SECTION_HEADINGS
+  .map((heading) => heading.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")).join("|")})(?!\\p{L})`, "giu");
+function splitInlineHeadings(text: string): string {
+  return text.replace(inlineHeadingPattern, (heading: string, offset: number) => {
+    const caps = heading === heading.toUpperCase();
+    if (caps) return `\n${heading}\n`;
+    const sentenceCase = heading === heading[0]!.toUpperCase() + heading.slice(1).toLowerCase();
+    const titleCase = heading.split(" ").every((word) =>
+      word === word[0]!.toUpperCase() + word.slice(1).toLowerCase() || ["and", "et", "y", "e", "und", "&"].includes(word));
+    let previous = offset - 1;
+    while (previous >= 0 && /\s/u.test(text[previous]!)) previous -= 1;
+    while (previous >= 0 && /["'”’)]/u.test(text[previous]!)) previous -= 1;
+    const afterSentence = previous >= 0 && /\p{STerm}/u.test(text[previous]!);
+    const beforeCapital = /^\s*[:.]?\s*\p{Lu}/u.test(text.slice(offset + heading.length));
+    return (sentenceCase || titleCase) && afterSentence && beforeCapital ? `\n${heading}\n` : heading;
+  });
 }
 
 function decodeEntities(text: string): string {

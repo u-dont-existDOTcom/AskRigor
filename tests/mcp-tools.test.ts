@@ -218,16 +218,16 @@ describe("AskRigor MCP tools", () => {
       );
 
       expect(descriptions.acquire_open_full_text).toBe(
-        "Acquires one DOI through Europe PMC, Unpaywall PDFs, and up to five public HTTPS candidate_urls, with an optional PMCID. Records expanded public-copy searches with public_copy_search; lead receipts require exact DOI and known-title queries without technical failures. Reports identity, structural completeness, source class and its basis, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID."
+        "Acquires one DOI through Europe PMC, Unpaywall PDFs, up to five public HTTPS candidate_urls, and up to two AI-supplied candidate_texts from a client search index, with an optional PMCID. Supplied texts receive the same identity, admission and embedded-block checks plus an exact abstract cross-check when available; audits carry a search-copy caveat. Records expanded public-copy searches with public_copy_search; lead receipts require exact DOI and known-title queries without technical failures. Reports identity, structural completeness, source class and its basis, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID."
       );
       expect(descriptions.continue_open_full_text).toBe(
         "Retrieves the next contiguous page of an existing document_handle from its server-owned cursor. Coverage binds the handle and content hash; exhausted, expired, or invalid handles cannot advance. Pages preserve the exact document chain for source-linked audit."
       );
       expect(descriptions.validate_study_method_audit).toBe(
-        "Validate a full-text, source-linked individual-study audit on the exact exhausted document_handle. Supply either a newly performed audit or the repository_analysis_version_id advertised by this same acquisition. Repository reuse repeats exact source/protocol/rubric/freshness/impact checks and runs the same validator; fresh_study_audit_required means call again with a newly performed audit. Before synthesis, require the returned validated coverage receipt to match the acquisition byte-for-byte."
+        "Validates a full-text, source-linked individual-study audit on the exact exhausted document_handle. Accepts a newly performed audit or the repository_analysis_version_id advertised by the same acquisition. Repository reuse repeats exact source/protocol/rubric/freshness/impact checks and runs the same validator; fresh_study_audit_required records the need for a newly performed audit. Validated coverage binds the acquisition handle and content hash. Audits of client_supplied copies sign search-index provenance for the required finalization caveat."
       );
       expect(descriptions.validate_review_method_audit).toBe(
-        "Validate a full-text, source-linked review or guideline audit on the exact bound acquisition document_handle, including search coverage, study ancestry, heterogeneity, bias, conflicts, and claim scope. Before synthesis, require the returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 to match the acquisition byte-for-byte; mismatch blocks synthesis."
+        "Validates a full-text, source-linked review or guideline audit on the exact exhausted acquisition document_handle, including search coverage, study ancestry, heterogeneity, bias, conflicts, and claim scope. Coverage binds the acquisition handle and source_content_sha256; mismatches block synthesis. Audits of client_supplied copies sign search-index provenance for the required finalization caveat."
       );
     } finally {
       await server.close();

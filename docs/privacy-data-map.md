@@ -549,7 +549,15 @@ reacquiring and rereading the exact document; chains cannot be combined.
 Phase 1 public-copy recovery (2026-10-07, working-tree draft; no deployment or
 live-policy approval is claimed) adds optional `candidate_urls` to the MCP and
 Action acquisition inputs: one to five public HTTPS URLs with an optional
-declared source class. The optional strict `public_copy_search` object contains
+declared source class. Phase 1b also adds optional `candidate_texts`: one to two
+entries containing a public HTTPS page URL, 2,000–400,000 characters of text
+returned by the AI's own search tool, and `retrieved_via: client_search_index`.
+These copies are inspected locally without fetching their URLs or sending their
+text to a provider. The abstract cross-check uses only an abstract carried by
+the existing Europe PMC DOI-search record; missing abstracts produce an explicit
+skipped-check limitation and no additional lookup. Whole-page inspection and a
+unique qualifying embedded-block fallback share identity and full-text admission
+checks. The optional strict `public_copy_search` object contains
 two to twelve trimmed queries (3–400 characters each). Queries are checked in
 request memory for the exact DOI and a known title variant; they are never
 stored, logged, echoed, checkpointed, or included in receipts. Only search
@@ -578,18 +586,22 @@ browser session, subresource fetches, login, or paywall bypass. Unknown formats,
 malformed PDFs, failed providers, and blocked pages produce explicit unresolved
 states. There is no Bright Data integration or new paid model call.
 
-Retrieved bytes and rejected/partial/abstract text remain request-local and
-are not logged or written to disk. Only identity-verified copies passing the
+Retrieved bytes, supplied search-copy text, and rejected/partial/abstract text
+remain request-local and are not logged or written to disk. Only identity-verified copies passing the
 route-specific full-text admission check enter the existing one-hour,
 64-entry/128-MiB document-handle map. Responses add acquisition state and per-copy
 retrieved URL, class and its basis (`known_host`, `metadata_publisher_host`,
-`declared`, or `unrecognized_host`), direct retrieval provider, identity-verification status,
-observed sections, completeness, and timestamp. The research-session controller
+`declared`, or `unrecognized_host`), retrieval provider (`direct` or
+`client_search_index`), optional `embedded_block` extraction, check limitations,
+identity-verification status, observed sections, completeness, and timestamp. The research-session controller
 may retain that compact public provenance (including returned URL paths and
 URL query strings), route attempts, and acquisition state in its existing encrypted
 checkpoint, under its existing 72-hour idle/seven-day absolute retention; it
-does not retain candidate bodies there. Connected clients can retain returned
-provenance and admitted text under their own terms. The public notice change is
+does not retain candidate bodies there. Admitted search copies use the document
+index source `client_supplied`; audit receipts bind their search-index provenance
+and host, and finalization requires a caveat that AskRigor did not fetch the copy.
+Connected clients can retain returned provenance and admitted text under their
+own terms. The public notice change is
 drafted in `site/privacy/index.html`, pending owner approval before deployment
 of this changed processing.
 

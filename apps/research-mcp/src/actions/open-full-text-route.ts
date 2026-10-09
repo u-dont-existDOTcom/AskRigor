@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import {
   acquireOpenFullText,
-  acquisitionStateSchema, candidateUrlsSchema, fullTextCandidateSchema, publicCopySearchSchema, publicCopySearchResultSchema,
+  acquisitionStateSchema, candidateUrlsSchema, candidateTextsSchema, fullTextCandidateSchema, publicCopySearchSchema, publicCopySearchResultSchema,
   type AcquireOpenFullTextInput,
   type AuditableDocumentBlock,
   type AuditableDocumentIndex,
@@ -64,6 +64,7 @@ export const acquireOpenFullTextActionInputSchema = z.object({
   doi: actionDoiSchema,
   pmcid: z.string().trim().regex(/^PMC[1-9]\d{0,15}$/iu).optional(),
   candidate_urls: candidateUrlsSchema.optional(),
+  candidate_texts: candidateTextsSchema.optional(),
   public_copy_search: publicCopySearchSchema.optional()
 }).strict();
 export const continueOpenFullTextActionInputSchema = z.object({
@@ -80,7 +81,7 @@ const blockSegmentSchema = z.object({
   source_block_text_sha256: z.string().regex(/^[a-f0-9]{64}$/u)
 }).strict();
 const sourceSchema = z.object({
-  provider: z.enum(["europe_pmc", "unpaywall_open_location", "direct_candidate"]),
+  provider: z.enum(["europe_pmc", "unpaywall_open_location", "direct_candidate", "client_supplied"]),
   primary_identifier: z.string(),
   canonical_url: z.string().url(),
   pmcid: z.string().optional(),
@@ -115,7 +116,7 @@ export const availableOpenFullTextActionOutputSchema = z.object({
   discovery_attempts: z.array(discoveryAttemptSchema),
   acquisition_state: acquisitionStateSchema.optional(),
   public_copy_search: publicCopySearchResultSchema.optional(),
-  candidates: z.array(fullTextCandidateSchema).max(5).optional(),
+  candidates: z.array(fullTextCandidateSchema).max(7).optional(),
   source: sourceSchema,
   blocks: z.array(blockSegmentSchema).min(1),
   coverage_receipt: coverageSchema,
@@ -128,7 +129,7 @@ export const openFullTextLeadActionOutputSchema = z.object({
   discovery_attempts: z.array(discoveryAttemptSchema),
   acquisition_state: acquisitionStateSchema.optional(),
   public_copy_search: publicCopySearchResultSchema.optional(),
-  candidates: z.array(fullTextCandidateSchema).max(5).optional(),
+  candidates: z.array(fullTextCandidateSchema).max(7).optional(),
   access_boundary: z.string(),
   unseen_content_used_as_evidence: z.literal(false)
 }).strict();
@@ -143,7 +144,7 @@ export const openFullTextMcpOutputSchema = z.object({
   discovery_attempts: z.array(discoveryAttemptSchema),
   acquisition_state: acquisitionStateSchema.optional(),
   public_copy_search: publicCopySearchResultSchema.optional(),
-  candidates: z.array(fullTextCandidateSchema).max(5).optional(),
+  candidates: z.array(fullTextCandidateSchema).max(7).optional(),
   source: sourceSchema.optional(),
   blocks: z.array(blockSegmentSchema).optional(),
   coverage_receipt: coverageSchema.optional(),
@@ -605,7 +606,10 @@ export function createOpenFullTextActionRoutes(
   function acquireRoute(): ActionRoute {
     return route({
       operationId: "acquire_open_full_text",
-      description: "Acquires an identity-verified full text through Europe PMC, Unpaywall PDFs, and up to five supplied public HTTPS candidate copies. Reports structural completeness, copy provenance, and access or provider failures; admitted copies have a document handle for method audit.",
+      // Two 400,000-character copies plus bounded URLs/queries, including
+      // JSON's worst-case six-byte character escaping; other routes keep 64 KiB.
+      maximumRequestBytes: 5_000_000,
+      description: "Acquires an identity-verified full text through Europe PMC, Unpaywall PDFs, up to five public HTTPS candidate_urls, and up to two AI-supplied candidate_texts from a client search index. Reports structural completeness, embedded-block extraction, copy provenance, abstract cross-check limitations, and access or provider failures; admitted copies have a document handle for method audit.",
       inputSchema: acquireOpenFullTextActionInputSchema,
       outputSchema: openFullTextActionOutputSchema,
       async handle(input) {
@@ -629,7 +633,7 @@ export function createOpenFullTextActionRoutes(
   function studyAuditRoute(): ActionRoute {
     return route({
       operationId: "validate_study_method_audit",
-      description: "Validate a source-linked study-method audit only after the exact full text was read to exhaustion. Randomization or publication labels are not reliability verdicts.",
+      description: "Validates a source-linked study-method audit only after the exact full text was read to exhaustion. Randomization or publication labels are not reliability verdicts.",
       inputSchema: studyMethodAuditActionInputSchema,
       outputSchema: studyMethodAuditRouteOutputSchema,
       async handle(input) {
@@ -649,7 +653,7 @@ export function createOpenFullTextActionRoutes(
   function reviewAuditRoute(): ActionRoute {
     return route({
       operationId: "validate_review_method_audit",
-      description: "Validate a source-linked systematic-review, meta-analysis, or guideline-method audit only after the exact full text was read to exhaustion. Review labels and pooled estimates are not authority verdicts.",
+      description: "Validates a source-linked systematic-review, meta-analysis, or guideline-method audit only after the exact full text was read to exhaustion. Review labels and pooled estimates are not authority verdicts.",
       inputSchema: reviewMethodAuditActionInputSchema,
       outputSchema: reviewMethodAuditActionOutputSchema,
       async handle(input) {
@@ -803,6 +807,7 @@ function unavailableStudyAuditReuse(
 
 interface RouteDefinition<I extends z.ZodType, O extends z.ZodType> {
   operationId: string;
+  maximumRequestBytes?: number;
   description: string;
   inputSchema: I;
   outputSchema: O;
@@ -821,7 +826,7 @@ function route<I extends z.ZodType, O extends z.ZodType>(
     consequential: false,
     public: true,
     publicResearch: true,
-    maximumRequestBytes: 65_536,
+    maximumRequestBytes: definition.maximumRequestBytes ?? 65_536,
     maximumResponseBytes: RESEARCH_ACTION_RESPONSE_MAX_BYTES,
     requestSchema: actionJsonSchema(definition.inputSchema),
     responseSchemas: {

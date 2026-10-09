@@ -709,6 +709,7 @@ export function finalizeResearch(
   const pubmedPmcids = new Map<string, string>();
   // DOI -> the PMCIDs its full_text_lead receipts tried ("" when none was).
   const leadAttempts = new Map<string, Set<string>>();
+  const searchCopyCaveats = new Set<string>();
   for (const { kind, claims } of verified) {
     if (kind === "pubmed_record" && typeof claims.pmid === "string") {
       pubmedDois.set(normalizeIdentifier(claims.pmid), typeof claims.doi === "string" ? normalizeIdentifier(claims.doi) : "");
@@ -717,6 +718,10 @@ export function finalizeResearch(
       }
     }
     if (kind === "study_audit" || kind === "review_audit") {
+      if (claims.retrieval_provider === "client_search_index" && typeof claims.host === "string") {
+        const study = typeof claims.doi === "string" ? claims.doi : text(claims.id);
+        searchCopyCaveats.add(`The full text of ${study} came from the AI's search-index copy of ${claims.host}; AskRigor did not fetch it.`);
+      }
       for (const key of ["id", "doi", "pmid", "pmcid"]) {
         const value = claims[key];
         if (typeof value === "string" && value.length > 0) validatedIds.add(normalizeIdentifier(value));
@@ -739,6 +744,7 @@ export function finalizeResearch(
       }
     }
   }
+  for (const caveat of searchCopyCaveats) requireLimit(caveat, caveat);
   // The PubMed Central copy PubMed links to a study, by PMID or by DOI.
   const pmcidFor = (id: string): string | undefined => {
     if (isPmid(id)) return pubmedPmcids.get(id);

@@ -1,10 +1,10 @@
 import { errorEnvelope, okEnvelope, type ProvenanceEnvelope } from "@askrigor/contracts";
 
 import { type AuditableDocumentIndex, toAuditableDocumentIndex } from "./auditable-document-index.js";
-import { acquireCandidateFullText, type CandidateFullTextRuntime } from "./candidate-full-text.js";
+import { acquireCandidateFullText, acquireSuppliedCandidateFullText, type CandidateFullTextRuntime } from "./candidate-full-text.js";
 import { fetchEuropePmcFullText, type EuropePmcFullTextArticle } from "./europe-pmc-full-text.js";
 import { searchEuropePmc, type EuropePmcRecord } from "./europe-pmc.js";
-import { admitFullText, candidateUrlsSchema, checkPublicCopySearch, publicCopySearchSchema, titleVariants, hasFailedFullTextAcquisition, sourceClassRank, type AcquisitionState, type CandidateUrl, type FrozenArticleIdentity, type FullTextCandidate, type PublicCopySearch, type PublicCopySearchResult } from "./full-text-admission.js";
+import { admitFullText, candidateUrlsSchema, candidateTextsSchema, checkPublicCopySearch, publicCopySearchSchema, titleVariants, hasFailedFullTextAcquisition, sourceClassRank, type AcquisitionState, type CandidateText, type CandidateUrl, type FrozenArticleIdentity, type FullTextCandidate, type PublicCopySearch, type PublicCopySearchResult } from "./full-text-admission.js";
 import { indexJatsStudyDocument } from "./jats-study-index.js";
 import { acquireUnpaywallFullText, type AcquireUnpaywallFullTextRuntime } from "./unpaywall-full-text.js";
 import type { UnpaywallConfig } from "./unpaywall.js";
@@ -16,6 +16,7 @@ export interface AcquireOpenFullTextInput {
   doi: string;
   pmcid?: string;
   candidate_urls?: CandidateUrl[];
+  candidate_texts?: CandidateText[];
   public_copy_search?: PublicCopySearch;
 }
 export interface AcquireOpenFullTextRuntime {
@@ -52,9 +53,11 @@ export async function acquireOpenFullText(
   const pmcid = rawInput.pmcid?.trim().toUpperCase();
   if (pmcid !== undefined && !PMCID_PATTERN.test(pmcid)) throw new Error("Invalid open-full-text PMCID");
   const supplied = rawInput.candidate_urls === undefined ? [] : candidateUrlsSchema.parse(rawInput.candidate_urls);
+  const suppliedTexts = rawInput.candidate_texts === undefined ? [] : candidateTextsSchema.parse(rawInput.candidate_texts);
   const search = rawInput.public_copy_search === undefined ? undefined : publicCopySearchSchema.parse(rawInput.public_copy_search);
   const attempts: OpenFullTextAcquisitionData["discovery_attempts"] = [];
   let identity: FrozenArticleIdentity = { doi };
+  let abstractText: string | undefined;
   let resolvedPmcid = pmcid;
   try {
     // The same DOI search also supplies a single exact metadata identity; no
@@ -64,6 +67,7 @@ export async function acquireOpenFullText(
       const records = result.data.filter((record) => record.doi !== undefined && normalizeDoi(record.doi) === doi);
       if (records.length === 1) {
         identity = identityFromRecord(records[0]!, doi);
+        abstractText = records[0]!.abstractText;
         resolvedPmcid ??= records[0]!.pmcid?.toUpperCase();
       }
       if (resolvedPmcid === undefined) attempts.push({ route: "europe_pmc", result: "not_found" });
@@ -113,7 +117,10 @@ export async function acquireOpenFullText(
   const publicCopySearch = checkPublicCopySearch(frozenIdentity, search);
   const candidates: FullTextCandidate[] = [];
   let selected: { index: AuditableDocumentIndex; rank: number } | undefined;
-  const results = await Promise.all(supplied.map((candidate) => acquireCandidateFullText(candidate, frozenIdentity, runtime.candidateRuntime)));
+  const results = await Promise.all([
+    ...supplied.map((candidate) => acquireCandidateFullText(candidate, frozenIdentity, runtime.candidateRuntime)),
+    ...suppliedTexts.map((candidate) => acquireSuppliedCandidateFullText(candidate, frozenIdentity, abstractText, runtime.candidateRuntime))
+  ]);
   for (const result of results) {
     candidates.push(result.candidate);
     const state = result.candidate.state;
@@ -125,10 +132,10 @@ export async function acquireOpenFullText(
     if (result.index !== undefined && (selected === undefined || rank > selected.rank)) selected = { index: result.index, rank };
   }
   if (selected !== undefined) return indexed(doi, pmcid, attempts, selected.index, candidates, publicCopySearch);
-  const state: AcquisitionState = supplied.length === 0 ? publicCopySearch.status === "declared" ? "NO_COPY_FOUND_AFTER_EXPANDED_SEARCH" : "PRIMARY_OA_ROUTES_EXHAUSTED" : overallCandidateState(candidates);
+  const state: AcquisitionState = candidates.length === 0 ? publicCopySearch.status === "declared" ? "NO_COPY_FOUND_AFTER_EXPANDED_SEARCH" : "PRIMARY_OA_ROUTES_EXHAUSTED" : overallCandidateState(candidates);
   const knownTitles = titleVariants(identity.title, ...(identity.title_variants ?? []));
   const identifiers = `${knownTitles.length > 1 ? "titles" : "title"} ${knownTitles.length === 0 ? "unknown (metadata unavailable)" : knownTitles.map((title) => JSON.stringify(title)).join(" or ")}, DOI ${doi}, PMID ${identity.pmid ?? "unknown"}, PII ${identity.pii ?? "unknown"}`;
-  const discovery = `Exact public-copy discovery remains: an exact search by the listed ${identifiers}. candidate_urls records public copies found; public_copy_search records the searches, including a search that found nothing without candidate_urls.`;
+  const discovery = `Exact public-copy discovery remains: an exact search by the listed ${identifiers}. candidate_urls records public copies found; candidate_texts accepts AI-supplied search-index copies; public_copy_search records the searches, including a search that found nothing without candidate_urls or candidate_texts.`;
   const missing = publicCopySearch.status === "missing_exact_identifiers"
     ? ` The declared queries lack the exact ${publicCopySearch.missing!.join(" and ")}.` : "";
   const boundary = state === "PRIMARY_OA_ROUTES_EXHAUSTED"
@@ -142,7 +149,7 @@ export async function acquireOpenFullText(
       "The citation remains a possibly useful lead requiring further investigation; unseen contents were not treated as evidence."],
     code: failed ? "open_full_text_route_failed" : "open_full_text_not_auditable", message: boundary, retryable: failed,
     data: { requested_doi: doi, ...(pmcid === undefined ? {} : { requested_pmcid: pmcid }), outcome: "possibly_useful_lead",
-      discovery_attempts: attempts, acquisition_state: state, public_copy_search: publicCopySearch, ...(supplied.length === 0 ? {} : { candidates }), access_boundary: boundary }
+      discovery_attempts: attempts, acquisition_state: state, public_copy_search: publicCopySearch, ...(candidates.length === 0 ? {} : { candidates }), access_boundary: boundary }
   }) as ProvenanceEnvelope<OpenFullTextAcquisitionData>;
 }
 function indexed(doi: string, pmcid: string | undefined, attempts: OpenFullTextAcquisitionData["discovery_attempts"], index: AuditableDocumentIndex, candidates?: FullTextCandidate[], publicCopySearch?: PublicCopySearchResult): ProvenanceEnvelope<OpenFullTextAcquisitionData> {

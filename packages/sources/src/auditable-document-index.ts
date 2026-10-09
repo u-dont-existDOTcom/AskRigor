@@ -25,7 +25,7 @@ export const auditableDocumentBlockSchema = z.object({
 
 export const auditableDocumentIndexSchema = z.object({
   source: z.object({
-    provider: z.enum(["europe_pmc", "unpaywall_open_location", "direct_candidate"]),
+    provider: z.enum(["europe_pmc", "unpaywall_open_location", "direct_candidate", "client_supplied"]),
     primary_identifier: z.string().min(1).max(2_048),
     canonical_url: z.string().url(),
     pmcid: z.string().regex(/^PMC[1-9]\d{0,15}$/u).optional(),
