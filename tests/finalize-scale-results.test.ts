@@ -6,6 +6,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
+  OUTDATED_TOOL_LIST_HINT,
   finalizeResearch,
   finalizeResearchInputSchema,
   type FinalizeResearchInput,
@@ -96,7 +97,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
   it("requires scale_results with answer_draft, while accepting an explicit empty list", async () => {
     blocked(await call({ scale_results: undefined }), [
       "scale_results is missing: with answer_draft, the declaration lists each scale or questionnaire result " +
-        "reported in the answer (an empty list means none)."
+        "reported in the answer (an empty list means none). " + OUTDATED_TOOL_LIST_HINT
     ]);
     ready(await call({ answer_draft: "This answer reports no scale scores.", scale_results: [] }));
   });
