@@ -378,13 +378,15 @@ describe("the server sends a free contributor's validated analyses when the fina
       receipts,
       community_evidence: "not_relevant",
       not_relevant_basis: "no_real_world_outcome",
+      commercial_review_applicability: { status: "not_applicable", reason: "Drug clearance mechanism involves no product or service people buy." },
       not_relevant_reason: "How the body clears a drug, with no real-world outcome.",
       treatment_choice: "not_compared",
       research_target: "How the body clears a drug in adults",
       research_depth: "deep",
+      intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
       key_sources: [{ id: DOI, status: "validated" }],
-      answer_draft: "The liver clears this drug within a few hours.",
-      absence_claims: [],
+      answer_draft: `The liver clears this drug within a few hours. [Study](https://doi.org/${DOI})`,
+      absence_claims: [], scale_results: [],
     }), "auth0|free");
     const receipt = (validated.structuredContent as { research_receipt: string }).research_receipt;
     const done = await finalize([receipt]);

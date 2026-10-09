@@ -15,7 +15,9 @@ function sha256(value: string): string {
 // HRP 20.6.6's recorded bytes, so nothing else changed.
 describe("HRP 20.6.7 small-result-set and exposure-decomposition rule", () => {
   it("adds only the approved rule, its routing and its revision", async () => {
-    // HRP 20.6.12 (full-text candidate), 20.6.11 (consilience candidate), 20.6.10 (owner question 30,
+    // HRP 20.6.13 (owner question 58, 2026-10-09), 20.6.12 (owner question 50,
+    // 2026-10-07), 20.6.11 (consilience candidate),
+    // 20.6.10 (owner question 30,
     // 2026-10-03), 20.6.9 (owner questions 28 and 29, 2026-10-03) and then 20.6.8
     // (owner's research-thread lessons) come first: undoing each one's recorded
     // edits gives the version before it exactly.
@@ -28,9 +30,12 @@ describe("HRP 20.6.7 small-result-set and exposure-decomposition rule", () => {
         expect(current.split(later), later.slice(0, 60)).toHaveLength(2);
         return current.replace(later, prior);
       }, text);
-    const fullText = await recorded("2026-10-07-full-text-candidate.json");
-    const hrp20611 = undo(onDisk, fullText.edits);
-    expect(sha256(hrp20611)).toBe(fullText.from.sha256);
+    const lane = await recorded("2026-10-09-lane-wording.json");
+    const hrp20612 = undo(onDisk, lane.edits);
+    expect(sha256(hrp20612)).toBe(lane.from.sha256);
+    const productIdentity = await recorded("2026-10-07-product-identity-wording.json");
+    const hrp20611 = undo(hrp20612, productIdentity.edits);
+    expect(sha256(hrp20611)).toBe(productIdentity.from.sha256);
     const consilience = await recorded("2026-10-06-consilience-candidate.json");
     const hrp20610 = undo(hrp20611, consilience.edits);
     expect(sha256(hrp20610)).toBe(consilience.from.sha256);

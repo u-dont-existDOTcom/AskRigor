@@ -267,3 +267,4 @@ export {
 } from "./youtube-transcript.js";
 
 export { acquisitionStateSchema, candidateUrlsSchema, candidateTextsSchema, fullTextCandidateSchema, publicCopySearchSchema, publicCopySearchResultSchema, hasFailedFullTextAcquisition, canSignFullTextLead, admitFullText, FULL_TEXT_BODY_MIN_CHARACTERS, type AcquisitionState, type CandidateText, type FullTextCandidate, type FrozenArticleIdentity } from "./full-text-admission.js";
+export * from "./product-identity.js";

@@ -927,10 +927,31 @@ pending-proposal stores have their own strict contracts and authority boundaries
   unchanged. `search_youtube_comments` results carry
   `absence_inference_permitted: false`, since a query-bounded search says
   nothing about comments that did not match.
+- Optional `product_identity` on `search_youtube`, `survey_youtube_community`,
+  `audit_youtube_community` and `audit_youtube_video_community` contains exact
+  product names, aliases, maker names and other-variant names. Names remain
+  request-local: they are not logged, stored or sent to YouTube. Video and
+  comment classes and per-video identity counts are returned. Product-aware
+  audit continuations carry only the declaration's SHA-256 and cumulative
+  class counts; each continuation call supplies the same request-local names.
+  Survey and comment-audit research receipts return only the first normalized
+  product name (at most 80 characters) and admitted video IDs grouped by class;
+  aliases, maker names and other-variant names do not enter receipts.
+- `finalize_research` receives `community_findings.product_corpora` (product,
+  admitted video IDs, exact and optionally unresolved signal), review-corpus
+  `item_identity` counts, `intervention_identity` (applicability or key-study
+  labels, source IDs and resolved registry/maker/current-product identity), and
+  `shopping` (request state, destination, product offers/URLs/states/roles or
+  international routes searched). These declarations and product names are
+  request-local and are not logged or persisted; the gate returns consistency
+  problems, reporting requirements and caveats. Only the bounded receipt
+  product claim described above is returned as a declared product name in a
+  research receipt. Declarations do not cause external verification calls.
 - MCP research receipts (`research_receipt`) are HMAC-SHA256 tokens under a
   domain-separated key derived from the finalization signing secret, or else the
   YouTube continuation secret. They carry only public identifiers (YouTube
-  video IDs, DOIs, PMIDs, PMCIDs), completion states, counts, and the issue
+  video IDs, DOIs, PMIDs, PMCIDs), the bounded normalized product claim above
+  when product identity was declared, completion states, counts, and the issue
   time; never comments, source text, questions, or user data. Discovery
   receipts (surveys, searches, scouts, one-call community audits) also carry
   `q`, the first 12 hex characters of a SHA-256 over the round's normalized
@@ -996,9 +1017,13 @@ pending-proposal stores have their own strict contracts and authority boundaries
   tag), and the sentences where it says something was not found, not studied
   or has no effect (`absence_claims`, each with its state and the study IDs it
   rests on, and `search_coverage`, the search classes covered beyond indexed
-  databases). None of these is stored, logged or returned: of the answer, the
+  databases), and reported scale or questionnaire results (`scale_results`,
+  each with its quoted explanation, scale name, range, direction, values and
+  benchmark). These inputs are request-local and are not stored or logged.
+  None of their text is returned: of the answer, the
   result names only the labels and public video IDs it found, and points to an
-  absence claim by its position in the list. `not_relevant_basis` is one of two
+  absence claim or scale result by its position in the list; for a scale result,
+  it also names declared numbers missing from the quote. `not_relevant_basis` is one of two
   fixed values.
 - The MCP `scout_gemini_youtube_candidates` tool runs the same de-identified,
   population-level scout as the controlled Action route, applying the same

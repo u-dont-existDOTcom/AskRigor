@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import type { YoutubeComment } from "@askrigor/sources";
+import { commentProductClassSchema, type YoutubeComment } from "@askrigor/sources";
 import { z } from "zod";
 
 import { rankYoutubeCommentIdentifier } from "./youtube-audit-continuation.js";
@@ -28,6 +28,7 @@ import {
  */
 
 export const compactYoutubeCommentSchema = z.object({
+  product_class: commentProductClassSchema.optional(),
   id: z.string(),
   reply_to: z.string().optional(),
   author: z.string().regex(/^[a-f0-9]{8}$/u),
@@ -313,6 +314,7 @@ function compactComment(
 ): z.output<typeof compactYoutubeCommentSchema> {
   return {
     id: comment.comment_id,
+    ...(comment.product_class === undefined ? {} : { product_class: comment.product_class }),
     ...(comment.is_reply && comment.parent_id !== null ? { reply_to: comment.parent_id } : {}),
     author: authorKey(videoId, comment),
     date: comment.published_at.slice(0, 10),
