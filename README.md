@@ -23,10 +23,10 @@ AskRigor uses this order when sources disagree:
 6. current release/reviewer evidence indexed by `docs/INDEX.md`; and
 7. the recovery checkpoint at `project/CODEX-CURRENT-STATE.md`.
 
-The current canonical files identify HRP `20.6.12` (2026-10-07), SHA-256
-`cc836d5a6e92c7100a8d725f549c4fa782436499f15606638380d7d4df5592c0`,
-and Universal Instructions `20.5.36` (2026-10-07), SHA-256
-`f6400780776635880e0365320d892cf50462e9644947c9e65cd1ec174b4864d1`.
+The current canonical files identify HRP `20.6.13` (2026-10-09), SHA-256
+`b6e2b08322c52678520b3154a8058063ea3f1a049d0980b348b987c6d8bef3fa`,
+and Universal Instructions `20.5.37` (2026-10-09), SHA-256
+`342e32e1568954ed62a8b53d75d1ad0efe39cba8d9ad7d143658f02dded169bb`.
 Those values are descriptive receipts derived from the exact XML bytes, not
 substitutes for the files. A README, manifest, router, lesson, checkpoint,
 release record, generated excerpt, or remembered summary never silently

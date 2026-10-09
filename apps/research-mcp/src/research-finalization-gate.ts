@@ -234,7 +234,8 @@ export const finalizeResearchInputSchema = z.object({
     offers: z.array(z.object({
       product: z.string().trim().min(1).max(200),
       url: z.string().trim().url().max(2_048),
-      offer_state: z.enum(["identity_only", "domestic_orderable", "international_storefront", "destination_confirmed", "live_destination_orderable"]),
+      offer_state: z.enum(["identity_only", "domestic_orderable", "international_storefront", "destination_confirmed", "live_destination_orderable", "exporter_lead"])
+        .describe("Records the offer's declared orderability state. exporter_lead is a business-to-business supplier lead and can only be context; a buy_option requires live_destination_orderable."),
       role: z.enum(["buy_option", "context"])
     }).strict()).max(30).optional(),
     routes_searched: z.array(z.enum(["international_storefronts", "marketplaces", "exporters", "specialist_sellers", "secondary_marketplaces"])).max(5).optional()

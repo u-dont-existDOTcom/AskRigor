@@ -2805,15 +2805,15 @@ describe("AskRigor MCP tools", () => {
         protocol: "hrp",
         manifest: {
           name: "HRP",
-          version: "20.6.12",
-          revisionDate: "2026-10-07",
-          sha256: "cc836d5a6e92c7100a8d725f549c4fa782436499f15606638380d7d4df5592c0"
+          version: "20.6.13",
+          revisionDate: "2026-10-09",
+          sha256: "b6e2b08322c52678520b3154a8058063ea3f1a049d0980b348b987c6d8bef3fa"
         },
         scope: "full",
         page: 1,
         next_page: 2,
         complete: false,
-        scope_sha256: "cc836d5a6e92c7100a8d725f549c4fa782436499f15606638380d7d4df5592c0"
+        scope_sha256: "b6e2b08322c52678520b3154a8058063ea3f1a049d0980b348b987c6d8bef3fa"
       });
       const pageCount = (first.structuredContent as { page_count: number }).page_count;
       expect(first.content).toEqual([
@@ -2856,8 +2856,8 @@ describe("AskRigor MCP tools", () => {
         core_sections: string[];
       };
       expect(indexContent.manifest).toMatchObject({
-        version: "20.5.36",
-        sha256: "f6400780776635880e0365320d892cf50462e9644947c9e65cd1ec174b4864d1"
+        version: "20.5.37",
+        sha256: "342e32e1568954ed62a8b53d75d1ad0efe39cba8d9ad7d143658f02dded169bb"
       });
       expect(indexContent.index).toHaveLength(40);
       expect(indexContent.core_sections).toContain("epistemics");
@@ -3038,9 +3038,9 @@ describe("AskRigor Streamable HTTP server", () => {
           protocol: "universal",
           manifest: {
             name: "AskRigor.com universal saved instructions",
-            version: "20.5.36",
-            revisionDate: "2026-10-07",
-            sha256: "f6400780776635880e0365320d892cf50462e9644947c9e65cd1ec174b4864d1"
+            version: "20.5.37",
+            revisionDate: "2026-10-09",
+            sha256: "342e32e1568954ed62a8b53d75d1ad0efe39cba8d9ad7d143658f02dded169bb"
           }
         });
       } finally {
@@ -3089,8 +3089,8 @@ describe("AskRigor Streamable HTTP server", () => {
           ok: true,
           protocol: "universal",
           manifest: {
-            version: "20.5.36",
-            sha256: "f6400780776635880e0365320d892cf50462e9644947c9e65cd1ec174b4864d1"
+            version: "20.5.37",
+            sha256: "342e32e1568954ed62a8b53d75d1ad0efe39cba8d9ad7d143658f02dded169bb"
           }
         });
       } finally {

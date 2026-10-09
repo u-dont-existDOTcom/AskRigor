@@ -13639,8 +13639,10 @@
                         "domestic_orderable",
                         "international_storefront",
                         "destination_confirmed",
-                        "live_destination_orderable"
-                      ]
+                        "live_destination_orderable",
+                        "exporter_lead"
+                      ],
+                      "description": "Records the offer's declared orderability state. exporter_lead is a business-to-business supplier lead and can only be context; a buy_option requires live_destination_orderable."
                     },
                     "role": {
                       "type": "string",

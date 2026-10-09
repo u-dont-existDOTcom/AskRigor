@@ -72,6 +72,19 @@ function replaceOnce(text: string, before: string, after: string): string {
   return text.replace(before, after);
 }
 
+async function productIdentityRevision(protocol: keyof typeof FILES): Promise<string> {
+  const lane = JSON.parse(await readFile(
+    new URL("tests/fixtures/protocol-edits/2026-10-09-lane-wording.json", ROOT), "utf8",
+  ))[protocol] as RecordedEdits;
+  const current = await readFile(new URL(`protocols/${FILES[protocol]}`, ROOT), "utf8");
+  expect(sha256(current)).toBe(lane.to.sha256);
+  const prior = [...lane.edits].reverse().reduce(
+    (text, [before, after]) => replaceOnce(text, after, before), current,
+  );
+  expect(sha256(prior)).toBe(lane.from.sha256);
+  return prior;
+}
+
 describe("owner-approved product identity wording of 2026-10-07", () => {
   for (const protocol of ["hrp", "universal"] as const) {
     it(`reverses ${protocol}'s recorded edits to the prior canonical bytes and reapplies them exactly`, async () => {
@@ -80,7 +93,7 @@ describe("owner-approved product identity wording of 2026-10-07", () => {
         new URL("tests/fixtures/protocol-edits/2026-10-06-consilience-candidate.json", ROOT), "utf8",
       ))[protocol] as RecordedEdits;
       expect(fixture.from).toEqual(previous.to);
-      const onDisk = await readFile(new URL(`protocols/${FILES[protocol]}`, ROOT), "utf8");
+      const onDisk = await productIdentityRevision(protocol);
       expect(XMLValidator.validate(onDisk)).toBe(true);
       expect(sha256(onDisk)).toBe(fixture.to.sha256);
       expect(onDisk).toContain(`version="${fixture.to.version}" revisionDate="2026-10-07"`);
@@ -111,7 +124,9 @@ describe("owner-approved product identity wording of 2026-10-07", () => {
   it("places all three cases after ManyPagesOneTrial, with the exact prompts and expected behaviors", async () => {
     const cases = await sectionText("hrp", "StressTestExpectations");
     const ids = [...cases.matchAll(/<Case id="([^"]+)">/gu)].map((match) => match[1]);
-    expect(ids.slice(-4)).toEqual(["ManyPagesOneTrial", ...APPROVED.cases.map(({ id }) => id)]);
+    const start = ids.indexOf("ManyPagesOneTrial");
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(ids.slice(start, start + 4)).toEqual(["ManyPagesOneTrial", ...APPROVED.cases.map(({ id }) => id)]);
     for (const { id, prompt, expected } of APPROVED.cases) {
       const body = element(cases, "Case", "id", id);
       expect(body).toMatch(/^\s*<Prompt>[^<]+<\/Prompt>\s*<ExpectedBehavior>[^<]+<\/ExpectedBehavior>\s*$/u);
@@ -146,7 +161,7 @@ describe("owner-approved product identity wording of 2026-10-07", () => {
 
   it("starts both revision histories with the owner-approved question 50 entry", async () => {
     for (const protocol of ["hrp", "universal"] as const) {
-      const text = await readFile(new URL(`protocols/${FILES[protocol]}`, ROOT), "utf8");
+      const text = await productIdentityRevision(protocol);
       const pattern = protocol === "hrp"
         ? /<RevisionHistory>\s*<Revision version="20\.6\.12" priority="Critical">([^<]+)<\/Revision>/u
         : /<revision_history>\s*<revision version="20\.5\.36" priority="Critical">([^<]+)<\/revision>/u;
