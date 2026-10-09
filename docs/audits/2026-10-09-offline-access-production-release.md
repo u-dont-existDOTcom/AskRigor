@@ -42,12 +42,15 @@
   both the source and installed package, version `0.1.0+codex.20261007033157.hrp.20.6.11.universal.20.5.35`; the
   installed `SKILL.md` equals main.
 - **Still open:**
-  - Auth0 issues a refresh token only when the API allows it. The owner turns on **Allow Offline Access** for the
-    `AskRigor MCP` API (`https://mcp.askrigor.com/mcp`), then removes and re-adds the AskRigor connector in ChatGPT
-    so it signs in again with `offline_access`. Until then, ChatGPT connections still expire with their first
-    access token.
-  - The sign-in prompts that three tools return still name only their own scope. #292 adds `offline_access` to them
-    for the next release.
+  - After the deploy, the owner reported that **Allow Offline Access** was already on for the `AskRigor MCP` API
+    (`https://mcp.askrigor.com/mcp`). OpenAI staff say ChatGPT takes its scope from the sign-in challenge, and a
+    developer saw it add `offline_access` by itself. So ChatGPT most likely held a refresh token before this
+    release, and the expiry has another cause, such as a failed refresh. Auth0's log records the reason (owner
+    question 61).
+  - MCP SEP-2207 (final) says a resource server should not list `offline_access` in its protected-resource metadata
+    or `WWW-Authenticate` scope, because a resource never requires a refresh token. This release does both. That is
+    harmless, and a later release undoes it if the log shows it does not matter. #292, which would extend it to the
+    tools' own sign-in prompts, is held.
 - **Rollback:** stop and disable the timer; restore the selector and `runtime.env` from the rollback folder; recreate
   only `research-mcp` with `askrigor-research:rollback-pre-47eb3994241e`; check health; re-enable the timer. The
   database needs no step.
