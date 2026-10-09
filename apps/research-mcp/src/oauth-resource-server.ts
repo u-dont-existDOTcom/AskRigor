@@ -12,9 +12,8 @@ import {
 
 export const CASE_REVIEW_SCOPE = "cases:review";
 export const RESEARCH_USE_SCOPE = "research:use";
-// Lets a client hold a refresh token. Without it, Auth0 issues none and a connector's sign-in ends when its access
-// token expires (ChatGPT then shows "connection has expired").
-export const OFFLINE_ACCESS_SCOPE = "offline_access";
+// offline_access is deliberately not listed in metadata or challenges: it is between the client and Auth0, and a
+// resource never requires it (MCP SEP-2207). ChatGPT and Claude add it themselves (Auth0 log, 2026-10-09).
 
 export interface AskRigorOAuthResourceServer {
   resourceUrl: URL;
@@ -65,7 +64,7 @@ export function claudeOAuthResourceServerFromEnv(
     jwks: createRemoteJWKSet(jwksUrl),
     allowedClientIds: [clientId],
     reviewerSubjects: [ownerSubject],
-    scopesSupported: [RESEARCH_USE_SCOPE, CASE_REVIEW_SCOPE, OFFLINE_ACCESS_SCOPE],
+    scopesSupported: [RESEARCH_USE_SCOPE, CASE_REVIEW_SCOPE],
   });
 }
 
@@ -335,7 +334,7 @@ export function oauthProtectedResourceMetadata(
   return {
     resource: config.resourceUrl.href,
     authorization_servers: config.authorizationServerUrls.map(({ href }) => href),
-    scopes_supported: config.scopesSupported ?? [RESEARCH_USE_SCOPE, CASE_REVIEW_SCOPE, OFFLINE_ACCESS_SCOPE],
+    scopes_supported: config.scopesSupported ?? [RESEARCH_USE_SCOPE, CASE_REVIEW_SCOPE],
   };
 }
 
@@ -363,7 +362,7 @@ export function writeOAuthChallenge(
   response: ServerResponse,
   config: AskRigorOAuthResourceServer,
 ): void {
-  const scope = (config.scopesSupported ?? [RESEARCH_USE_SCOPE, OFFLINE_ACCESS_SCOPE]).join(" ");
+  const scope = (config.scopesSupported ?? [RESEARCH_USE_SCOPE]).join(" ");
   response.writeHead(401, {
     "content-type": "application/json",
     "www-authenticate": `Bearer error="invalid_token", error_description="Authentication required", resource_metadata="${protectedResourceMetadataUrl(config.resourceUrl).href}", scope="${scope}"`,
