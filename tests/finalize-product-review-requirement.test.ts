@@ -3,6 +3,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  OUTDATED_TOOL_LIST_HINT,
   finalizeResearch,
   type FinalizeResearchInput,
   type FinalizeResearchOutput
@@ -25,7 +26,8 @@ const NOT_APPLICABLE = {
 };
 const STATE_STEP = "State in commercial_review_applicability whether the question concerns a product or service " +
   "people buy (a supplement, consumer health product, device, app, formulation, or health service). If it does, " +
-  "map where its buyers review it and read those reviews as a community lane of their own (HRP PrincipalPlatformMapping).";
+  "map where its buyers review it and read those reviews as a community lane of their own (HRP PrincipalPlatformMapping). " +
+  OUTDATED_TOOL_LIST_HINT;
 const MAP_STEP = `Map where buyers review ${PRODUCT} in principal_communities as platform review_site, the main ` +
   "one in the user's country and language first; no single retailer is required. A forum, Reddit or YouTube does " +
   "not stand in for buyer reviews (HRP PrincipalPlatformMapping).";

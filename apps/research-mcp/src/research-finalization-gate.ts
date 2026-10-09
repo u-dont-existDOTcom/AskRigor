@@ -60,6 +60,11 @@ const answerQuote = z.string().trim().max(1_000);
 const ANSWER_QUOTES_DESCRIPTION = "With answer_draft: the answer's sentence(s) that report each finding, copied from " +
   "it; one may serve several.";
 
+// A chat keeps its own copy of the tool list, so a field added in a release can be missing from it; the step then
+// names the way out instead of looping (UDA lane item 2026-10-07-finalizer-must-not-require-unexposed-schema-fields).
+export const OUTDATED_TOOL_LIST_HINT = "If this chat's AskRigor tool has no such field, its tool list is outdated: " +
+  "refreshing the AskRigor connector in the app's settings and starting a new chat loads the current list.";
+
 export const finalizeResearchInputSchema = z.object({
   receipts: z.array(z.string().max(RESEARCH_RECEIPT_MAX_CHARACTERS)).max(300)
     .describe("Every research_receipt AskRigor tools returned during this research, copied exactly."),
@@ -971,7 +976,7 @@ export function finalizeResearch(
   if (input.answer_draft !== undefined && input.scale_results === undefined) {
     nextSteps.push(
       "scale_results is missing: with answer_draft, the declaration lists each scale or questionnaire result " +
-        "reported in the answer (an empty list means none)."
+        "reported in the answer (an empty list means none). " + OUTDATED_TOOL_LIST_HINT
     );
   }
   // A study is audited when a study or review audit receipt names it, or the DOI its PubMed record gives.
@@ -1804,7 +1809,8 @@ function commercialReviewCoverage(input: FinalizeResearchInput, out: { nextSteps
     out.nextSteps.push(
       "State in commercial_review_applicability whether the question concerns a product or service people buy " +
         "(a supplement, consumer health product, device, app, formulation, or health service). If it does, map " +
-        "where its buyers review it and read those reviews as a community lane of their own (HRP PrincipalPlatformMapping)."
+        "where its buyers review it and read those reviews as a community lane of their own (HRP PrincipalPlatformMapping). " +
+        OUTDATED_TOOL_LIST_HINT
     );
     return;
   }
