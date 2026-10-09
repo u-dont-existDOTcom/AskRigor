@@ -107,6 +107,19 @@ describe("Europe PMC search", () => {
     expect(requests[0]!.searchParams.get("cursorMark")).toBe(cursor);
   });
 
+  it("asks for core records, which carry abstracts, only when requested", async () => {
+    const body = await fixture("search-empty.json");
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      requests.push(new URL(String(input)));
+      return new Response(body, { status: 200 });
+    }));
+    await searchEuropePmc({ query: "DOI:\"10.1000/x\"" });
+    await searchEuropePmc({ query: "DOI:\"10.1000/x\"", resultType: "core" });
+    expect(requests[0]!.searchParams.has("resultType")).toBe(false);
+    expect(requests[1]!.searchParams.get("resultType")).toBe("core");
+  });
+
   it("adds a validated inclusive publication-date range to the provider query", async () => {
     const body = await fixture("search-date-range-empty.json");
     const requests: URL[] = [];

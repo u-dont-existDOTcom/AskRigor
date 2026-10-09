@@ -650,3 +650,18 @@ suite and build passed. `git diff --check` passes; `protocols/` has no diff.
 Test Files  207 passed | 1 skipped (208)
 Tests  2483 passed | 6 skipped (2489)
 ```
+
+### Live check of phase 1b (2026-10-09, about 03:00 UTC)
+
+The test: Exa's stored copy of the green-tea paper's Academia.edu page (57k characters, held in memory only, $0.001),
+passed to the real tool in process as `candidate_texts`, as if the AI's search had returned it.
+
+- **The real copy** gives `FULL_TEXT_READABLE` with `doi_exact`, `extraction: embedded_block`, methods, results and
+  discussion, and a handle. The "Recombinant pig kidney DDC was purified to homogeneity" passage sits under MATERIALS
+  AND METHODS, and the exact abstract check passed.
+- **The same copy with its first abstract sentence altered** is refused, as the abstract check failed.
+- **The copy with the paper's block removed** gives `IDENTITY_MISMATCH`.
+
+The first run skipped the abstract check. The Europe PMC DOI search returned "lite" records, which carry no abstract,
+so every supplied copy would have skipped its main safeguard. The search now asks for "core" records (same host) when
+`candidate_texts` are given, and a unit test pins the parameter.

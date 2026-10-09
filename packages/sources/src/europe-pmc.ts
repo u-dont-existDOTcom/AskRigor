@@ -24,7 +24,9 @@ const searchInputSchema = z.object({
   query: z.string().trim().min(1).max(5_000),
   dateRange: dateRangeSchema.optional(),
   pageSize: z.number().int().min(1).max(MAX_PAGE_SIZE).optional(),
-  cursor: z.string().min(1).max(4_096).optional()
+  cursor: z.string().min(1).max(4_096).optional(),
+  // "core" records carry the abstract; the default "lite" records do not.
+  resultType: z.enum(["lite", "core"]).optional()
 }).strict();
 const flagSchema = z.union([z.boolean(), z.enum(["Y", "N"])]).nullable().optional();
 const providerRecordSchema = z.object({
@@ -61,6 +63,7 @@ export interface SearchEuropePmcInput {
   dateRange?: EuropePmcDateRange;
   pageSize?: number;
   cursor?: string;
+  resultType?: "lite" | "core";
 }
 
 export interface EuropePmcDateRange {
@@ -93,7 +96,7 @@ export const searchEuropePmc = async (
     throw new Error("Invalid Europe PMC search input");
   }
 
-  const { query, dateRange, cursor } = parsedInput.data;
+  const { query, dateRange, cursor, resultType } = parsedInput.data;
   const pageSize = parsedInput.data.pageSize ?? DEFAULT_PAGE_SIZE;
   const cursorMark = cursor ?? "*";
   const providerQuery = dateRange === undefined
@@ -110,6 +113,7 @@ export const searchEuropePmc = async (
     url.searchParams.set("format", "json");
     url.searchParams.set("pageSize", String(pageSize));
     url.searchParams.set("cursorMark", cursorMark);
+    if (resultType !== undefined) url.searchParams.set("resultType", resultType);
 
     let response: unknown;
     try {

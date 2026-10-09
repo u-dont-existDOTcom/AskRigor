@@ -62,7 +62,9 @@ export async function acquireOpenFullText(
   try {
     // The same DOI search also supplies a single exact metadata identity; no
     // extra metadata host or DOI redirect request is introduced.
-    const result = await (runtime.searchEuropePmc ?? searchEuropePmc)({ query: `DOI:"${doi}"`, pageSize: 10 });
+    // A supplied search-index copy is checked against the abstract, which only "core" records carry.
+    const result = await (runtime.searchEuropePmc ?? searchEuropePmc)({ query: `DOI:"${doi}"`, pageSize: 10,
+      ...(suppliedTexts.length > 0 ? { resultType: "core" as const } : {}) });
     if (result.access_status === "complete") {
       const records = result.data.filter((record) => record.doi !== undefined && normalizeDoi(record.doi) === doi);
       if (records.length === 1) {
