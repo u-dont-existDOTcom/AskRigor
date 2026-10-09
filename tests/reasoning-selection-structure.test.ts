@@ -166,17 +166,23 @@ const UNIVERSAL_20_5_27_SECTION_LOADING: ReadonlyArray<readonly [string, string]
 describe("canonical Reasoning Selection application", () => {
   it("adds the exact Critical selector and revision without reserializing Universal", async () => {
     const onDisk = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
-    expect(onDisk).toContain('version="20.5.35" revisionDate="2026-10-06"');
+    expect(onDisk).toContain('version="20.5.36" revisionDate="2026-10-07"');
     const undo = (text: string, steps: ReadonlyArray<readonly [RegExp | string, string]>) =>
       steps.reduce((current, [later, prior]) => {
         expect(matchCount(current, later), String(later).slice(0, 60)).toBe(1);
         return current.replace(later, prior);
       }, text);
+    // Universal 20.5.36 (owner question 50, 2026-10-07): undoing its edits gives 20.5.35 exactly.
+    const productIdentity = JSON.parse(
+      await readFile(new URL("tests/fixtures/protocol-edits/2026-10-07-product-identity-wording.json", ROOT), "utf8"),
+    ).universal as { from: { sha256: string }; edits: Array<[string, string]> };
+    const universal20535 = undo(onDisk, productIdentity.edits.map(([prior, later]) => [later, prior] as const).reverse());
+    expect(sha256(universal20535)).toBe(productIdentity.from.sha256);
     // Universal 20.5.35 (consilience candidate, 2026-10-06): undoing its recorded edits gives 20.5.34 exactly.
     const consilience = JSON.parse(
       await readFile(new URL("tests/fixtures/protocol-edits/2026-10-06-consilience-candidate.json", ROOT), "utf8"),
     ).universal as { from: { sha256: string }; edits: Array<[string, string]> };
-    const universal20534 = undo(onDisk, consilience.edits.map(([prior, later]) => [later, prior] as const).reverse());
+    const universal20534 = undo(universal20535, consilience.edits.map(([prior, later]) => [later, prior] as const).reverse());
     expect(sha256(universal20534)).toBe(consilience.from.sha256);
     // Universal 20.5.34 (owner questions 27 and 28, 2026-10-03): undoing its recorded edits gives 20.5.33 exactly.
     const ownerChanges = JSON.parse(
@@ -417,7 +423,7 @@ describe("canonical Reasoning Selection application", () => {
     ]);
 
     expect(sha256(hrp)).toBe(
-      "38606fbc0ea661f412a7887b7b60667fc61cb0854eb0c637ca52ebb0d3357122",
+      "cc836d5a6e92c7100a8d725f549c4fa782436499f15606638380d7d4df5592c0",
     );
     expect(sha256(forum)).toBe(
       "a744b82edde9c9c26e07f535a236d98deec5e5da4541ef285392d7b54b06825d",

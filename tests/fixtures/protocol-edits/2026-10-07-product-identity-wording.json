@@ -1,0 +1,67 @@
+{
+  "purpose": "Owner-approved, question 50 (2026-10-07): exact tested intervention and bundle identity, item-by-item community product identity, and destination-bound orderability. Sections F to K of the owner's final wording are preserved verbatim apart from XML formatting and escaping. Undoing these edits gives the prior canonical bytes exactly.",
+  "universal": {
+    "from": {
+      "version": "20.5.35",
+      "sha256": "4e907f9ac53873fe3df51c6d4d6f8886afcb39201195b000d970d90a5ea76caf"
+    },
+    "to": {
+      "version": "20.5.36",
+      "sha256": "f6400780776635880e0365320d892cf50462e9644947c9e65cd1ec174b4864d1"
+    },
+    "edits": [
+      [
+        "version=\"20.5.35\" revisionDate=\"2026-10-06\"",
+        "version=\"20.5.36\" revisionDate=\"2026-10-07\""
+      ],
+      [
+        "<revision_history>\n",
+        "<revision_history>\n<revision version=\"20.5.36\" priority=\"Critical\">\nOwner-approved, question 50 (2026-10-07): state the exact tested identity for any study, test, or benchmark, trace a tested bundle to its current version before crediting its parts, and preserve material differences. OrderabilityInvariant now binds buy options to a verified route to the user's destination and a live offer for the exact variant, with international routes searched before a bounded no-result.\n</revision>\n"
+      ],
+      [
+        "<rule name=\"OrderabilityInvariant\" priority=\"Critical\">\nListed is not orderable. A comparison-engine price, stale snippet, or catalog presence does not prove the exact variant can currently be bought. When current purchase availability matters, verify a purchase path, stock/order state, or equivalent live offer evidence. A page with no purchase path is not a buy option; an unresolved state remains UNKNOWN.\n</rule>",
+        "<rule name=\"OrderabilityInvariant\" priority=\"Critical\">\nListed is not orderable. A comparison-engine price, stale snippet, or catalog presence does not prove the exact variant can currently be bought. When current purchase availability matters, verify a purchase path, stock/order state, or equivalent live offer evidence. A page with no purchase path is not a buy option; an unresolved state remains UNKNOWN.\nOrderable means orderable for the user's destination. When the user buys outside a product's home market, a buy option needs a verified route to that destination (the seller ships there, or a named international storefront, marketplace, exporter, or specialist seller sells there) and a live offer for the exact variant. A domestic-only seller can support identity, label, reviews, or price, but is not presented as a place to buy. When the domestic path fails, continue through international storefronts, marketplaces, exporters, and specialist sellers before reporting a bounded no-result.\n</rule>"
+      ],
+      [
+        "For a practical effectiveness claim a recommendation or ranking relies on (a device, software, therapy, supplement, or training method), especially a large or surprising effect from few studies, check that independent streams agree before treating it as established: independent replication, whether the thing sold is the thing tested, and real-world reports. Copies of one study count once. Real-world silence counts against a claimed effect only when the exact product is widely used and the effect would be noticeable to users who care about it; otherwise it is uninformative. Reviews and forums detect discrepancies; they are not trials. Classify the claim as convergent, promising but discordant, isolated, or contradicted.\n",
+        "For a practical effectiveness claim a recommendation or ranking relies on (a device, software, therapy, supplement, or training method), especially a large or surprising effect from few studies, check that independent streams agree before treating it as established: independent replication, whether the thing sold is the thing tested, and real-world reports. Copies of one study count once. Real-world silence counts against a claimed effect only when the exact product is widely used and the effect would be noticeable to users who care about it; otherwise it is uninformative. Reviews and forums detect discrepancies; they are not trials. Classify the claim as convergent, promising but discordant, isolated, or contradicted.\nExact tested identity applies to any study, test, or benchmark an answer relies on, whatever was tested: a therapy, supplement, device, software, program, or method. State exactly what was tested: its version, formulation, or configuration; its dose, setting, or intensity; how it was used; and anything used alongside it. When a source reports a large or surprising effect for a bundle (a multi-ingredient product, a multi-component program, a kit, or a software stack), make the exact tested bundle its own candidate before crediting or ranking its parts, and trace it to what is available now, noting material differences between the tested and current versions. Never move a bundle's result to one of its parts, or one version's result to another, without evidence for that transfer. If the tested identity cannot be traced to something available now, say so, and do not present it as something to buy or adopt.\n"
+      ]
+    ]
+  },
+  "hrp": {
+    "from": {
+      "version": "20.6.11",
+      "sha256": "38606fbc0ea661f412a7887b7b60667fc61cb0854eb0c637ca52ebb0d3357122"
+    },
+    "to": {
+      "version": "20.6.12",
+      "sha256": "cc836d5a6e92c7100a8d725f549c4fa782436499f15606638380d7d4df5592c0"
+    },
+    "edits": [
+      [
+        "version=\"20.6.11\" revisionDate=\"2026-10-06\"",
+        "version=\"20.6.12\" revisionDate=\"2026-10-07\""
+      ],
+      [
+        " <RevisionHistory>\n",
+        " <RevisionHistory>\n  <Revision version=\"20.6.12\" priority=\"Critical\">\n   Owner-approved, question 50 (2026-10-07): state each key study's exact tested intervention, trace a whole\n   multi-ingredient, coded, or branded intervention before ranking its ingredients, and admit community reports\n   item by item for the exact product. Added WholeInterventionIdentityTrace, extended ScopeAxesBeforeSampling, and\n   added three stress cases and final checks FS214 and FS215.\n  </Revision>\n"
+      ],
+      [
+        "  <Rule name=\"CompositeInterventionAttribution\" priority=\"Critical\">Treat mixtures, botanicals, combination products, polypharmacy, and their individual components as distinct interventions. Do not transfer an effect from a headline component to the mixture, or from the mixture to a component, unless composition, exposure, interaction, and mechanistic or component-level evidence support that attribution. Preserve plausible independent contributions and interactions as separate hypotheses. An agent inert alone but active during another drug's or physiological state may act by state dependence: treat that as its own mechanism category, not independent pharmacology, and do not count solo null results against it. Reproduction across independently sourced brands or batches weakens a one-product contaminant explanation and points to fractions the products share, without showing which fraction, including the headline ingredient, is active.</Rule>\n",
+        "  <Rule name=\"CompositeInterventionAttribution\" priority=\"Critical\">Treat mixtures, botanicals, combination products, polypharmacy, and their individual components as distinct interventions. Do not transfer an effect from a headline component to the mixture, or from the mixture to a component, unless composition, exposure, interaction, and mechanistic or component-level evidence support that attribution. Preserve plausible independent contributions and interactions as separate hypotheses. An agent inert alone but active during another drug's or physiological state may act by state dependence: treat that as its own mechanism category, not independent pharmacology, and do not count solo null results against it. Reproduction across independently sourced brands or batches weakens a one-product contaminant explanation and points to fractions the products share, without showing which fraction, including the headline ingredient, is active.</Rule>\n\n  <Rule name=\"WholeInterventionIdentityTrace\" priority=\"Critical\">\n   State exactly what each key study tested: the formulation, dose, route, and any co-administered drug, such as\n   L-DOPA given with carbidopa. When a study of a multi-ingredient, coded, or branded intervention reports a large\n   or surprising practical effect, make the exact tested intervention its own candidate before ranking its\n   ingredients. Trace its study label to its registry code or name, its sponsor or maker, its formulation, and any\n   current commercial product, and record material differences between the tested and the sold versions. Keep the\n   exact formulation as its own evidence object and its ingredients' evidence separate\n   (CompositeInterventionAttribution); no ingredient is credited with the formula's effect. If the identity cannot\n   be traced, say so, and do not present the formula as something to buy.\n  </Rule>\n"
+      ],
+      [
+        "   label does not list the ingredient, such as one containing it only as a natural trace, in a proxy cohort.\n",
+        "   label does not list the ingredient, such as one containing it only as a natural trace, in a proxy cohort.\n   Check product identity item by item, not by container: a video, page, or thread about the product admits only\n   the reports that are about it. A report naming another maker or variant joins that variant's labeled cohort, and\n   a report on a page that pools several makers without naming its own stays unresolved, never attributed to the\n   page's maker. Fuzzy name matches, sibling products of the same brand, and look-alike names are other products.\n"
+      ],
+      [
+        "</StressTestExpectations>",
+        "  <Case id=\"CodedFormulaLargeEffect\">\n   <Prompt>\n    A randomized trial of a coded eight-herb formula reports a large effect on testosterone and sexual function;\n    each herb is also sold alone.\n   </Prompt>\n   <ExpectedBehavior>\n    Trace the formula to its registry code, sponsor, formulation, and current commercial product before ranking the\n    herbs; keep its evidence separate from each herb's; credit no single herb with its effect.\n   </ExpectedBehavior>\n  </Case>\n  <Case id=\"LookAlikeProductVideos\">\n   <Prompt>\n    A video search for a named herbal product returns a sibling product from the same brand and an unrelated face\n    wash with a similar name.\n   </Prompt>\n   <ExpectedBehavior>\n    Admit only videos that name the exact product; the sibling and the face wash never enter its community corpus.\n   </ExpectedBehavior>\n  </Case>\n  <Case id=\"MixedMakerReviewPage\">\n   <Prompt>\n    A review page for one manufacturer's version of a generic formula includes a review naming another\n    manufacturer's version.\n   </Prompt>\n   <ExpectedBehavior>\n    Count that review in the other manufacturer's labeled cohort, and keep reviews that name no manufacturer\n    unresolved rather than attributing them to the page's manufacturer.\n   </ExpectedBehavior>\n  </Case>\n</StressTestExpectations>"
+      ],
+      [
+        "  <Check id=\"FS212\">A practical effectiveness claim that a ranking or recommendation relies on was classified as convergent, promising but discordant, isolated, or contradicted, with copies of one trial counted once and real-world silence weighed only where the effect should be visible (ConsilienceForPracticalEffectiveness).</Check>\n",
+        "  <Check id=\"FS212\">A practical effectiveness claim that a ranking or recommendation relies on was classified as convergent, promising but discordant, isolated, or contradicted, with copies of one trial counted once and real-world silence weighed only where the effect should be visible (ConsilienceForPracticalEffectiveness).</Check>\n  <Check id=\"FS214\">Each key study's exact tested intervention, including any co-administered drug, was stated, and a multi-ingredient or coded intervention with a large practical effect was traced to its tested and current identity before its ingredients were ranked (WholeInterventionIdentityTrace).</Check>\n  <Check id=\"FS215\">Community reports about a product were admitted item by item for the exact product, with other variants and unresolved reports kept apart (ScopeAxesBeforeSampling).</Check>\n"
+      ]
+    ]
+  }
+}

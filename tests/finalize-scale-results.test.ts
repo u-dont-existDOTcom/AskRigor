@@ -36,6 +36,7 @@ const packageFor = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeRes
   community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome",
   not_relevant_reason: "Isolates exact declaration checks with synthetic receipts and text.",
   treatment_choice: "not_compared", key_sources: [{ id: "10.1002/art.41142", status: "validated" }],
+  intervention_identity: { status: "not_applicable", reason: "This synthetic key study does not concern a coded or multi-ingredient product." },
   answer_draft: GOOD, absence_claims: [], scale_results: [declaration()], ...overrides
 });
 
@@ -224,24 +225,9 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
   if (surface === "MCP endpoint") it("retains 33 tools and pins the descriptive finalize_research catalog text", async () => {
     const { tools } = await client!.listTools();
     expect(tools).toHaveLength(33);
-    expect(tools.find(({ name }) => name === "finalize_research")?.description).toBe(
-      "Final check of a research answer before it is given. Input: the research_receipt values that AskRigor's " +
-      "tools returned in this session; the research_target as given to the scout, search_youtube and the coverage " +
-      "check, and as research_question to surveys and community audits (discovery for another target does not " +
-      "count); whether community evidence was researched and whether the answer compares treatment options; where " +
-      "the topic is discussed and what each community searched outside YouTube showed (principal_communities, " +
-      "community_searches); what the YouTube comments read showed (community_findings); the studies the " +
-      "conclusions rest on (key_sources); after a first pass, the focuses for going deeper (open_leads, " +
-      "another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare " +
-      "video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was " +
-      "not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results " +
-      "(scale_results: quoted explanations with the scale name, range, values and benchmark), and the caveats, " +
-      "and is not stored. Result: not_ready with the remaining steps; ready_with_limits with the limits, the caveat " +
-      "sentences for the answer (each as its own sentence and as written, in the answer's language when " +
-      "answer_language and caveat_renderings are given) and must_report, what the answer reports from each lane " +
-      "researched; or receipts_unavailable when this server cannot verify receipts. In free contributor mode a " +
-      "checked findings_card is saved to AskRigor's private findings library for the owner's review; in paid " +
-      "private mode the caveats offer its save."
+    // tests/mcp-tools.test.ts pins the whole description; this file checks the scale_results part.
+    expect(tools.find(({ name }) => name === "finalize_research")?.description).toContain(
+      "(scale_results: quoted explanations with the scale name, range, values and benchmark)"
     );
   });
 });
