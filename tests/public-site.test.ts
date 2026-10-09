@@ -145,7 +145,8 @@ describe("AskRigor public site", () => {
   it("separates transient research from optional private lesson feedback", async () => {
     const html = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "Effective October 4, 2026",
+      "Effective October 10, 2026",
+      "AskRigor may also read a study from its operator's own study library: for the operator's own research, and for a paying account only while the same study is publicly available elsewhere. The library receives only the study's DOI, with no question, health detail, or account information.",
       "Optional lesson feedback",
       "separate consent",
       "generalized structured fields",
