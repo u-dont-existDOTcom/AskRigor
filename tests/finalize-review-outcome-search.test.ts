@@ -42,6 +42,7 @@ function packageFor(overrides: Partial<Corpus> = {}): FinalizeResearchInput {
     ...QUOTES, answer_quotes: { ...QUOTES }
   };
   return {
+    full_text_search: { status: "not_needed", reason: "Synthetic fixtures isolate review outcome searches." },
     receipts: [issueResearchReceipt("study_audit", { id: "10.1000/liver", status: "complete_no_unresolved_fields" }, { secret: SECRET })],
     research_target: TARGET, research_depth: "deep", treatment_choice: "not_compared", community_evidence: "researched",
     commercial_review_applicability: { status: "required", products: [PRODUCT] },

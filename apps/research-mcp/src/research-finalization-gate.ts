@@ -13,6 +13,7 @@ import {
   type FindingsPrivacyReason
 } from "./findings/card.js";
 import {
+  discoveryQueryDigest,
   issueResearchReceipt,
   RESEARCH_RECEIPT_MAX_CHARACTERS,
   readPages,
@@ -70,6 +71,18 @@ export const TOOL_LIST_REFRESH_HINT = "If this chat's AskRigor tool has no such 
 export const finalizeResearchInputSchema = z.object({
   receipts: z.array(z.string().max(RESEARCH_RECEIPT_MAX_CHARACTERS)).max(300)
     .describe("Every research_receipt AskRigor tools returned during this research, copied exactly."),
+  full_text_search: z.discriminatedUnion("status", [
+    z.object({
+      status: z.literal("run"),
+      queries: z.array(z.string().min(1).max(500)).min(1).max(10)
+    }).strict(),
+    z.object({
+      status: z.literal("not_needed"),
+      reason: z.string().trim().min(10).max(300)
+    }).strict()
+  ]).optional().describe("Records the model's declaration of full-text search: run with the Europe PMC section queries " +
+    "searched, or not_needed with its reason. Required when key_sources is non-empty; each run query matches a " +
+    "verified Europe PMC section-search receipt."),
   community_evidence: z.enum(["researched", "not_relevant"])
     .describe("researched when firsthand community evidence could plausibly matter; not_relevant needs a basis and a reason."),
   commercial_review_applicability: z.object({
@@ -477,6 +490,21 @@ export function finalizeResearch(
     nextSteps.push(
       `${rejected.length} receipt(s) failed verification; pass each research_receipt exactly as the tool returned it.`
     );
+  }
+
+  if (input.full_text_search === undefined && input.key_sources.length > 0) {
+    requireDeclaration("Give full_text_search: status run with queries searched in Europe PMC article sections, " +
+      "or status not_needed with reason.");
+  } else if (input.full_text_search?.status === "run") {
+    for (const query of input.full_text_search.queries) {
+      const matches = verified.filter(({ kind, claims }) => kind === "literature_search" &&
+        claims.src === "europepmc" && claims.q === discoveryQueryDigest([query]));
+      if (!matches.some(({ claims }) => Array.isArray(claims.ft) && claims.ft.length > 0)) {
+        nextSteps.push(`full_text_search query ${JSON.stringify(query)} has no verified Europe PMC section-search receipt` +
+          (matches.length === 0 ? ". " : " (the matching receipt has no section fields). ") +
+          "Search that query with section fields using search_europe_pmc and pass its research_receipt in receipts.");
+      }
+    }
   }
 
   // Community evidence. Discovery receipts (surveys, one-call community audits,
@@ -1088,6 +1116,13 @@ export function finalizeResearch(
     }
   }
   if (absenceClaims.some(({ state }) => state === "support_not_located")) {
+    if (input.full_text_search?.status === "run") {
+      requireLimit(
+        "The answer says something was not found after full-text searches: bound that to their coverage, as the caveat does.",
+        "Where it says something was not found, the full-text searches covered Europe PMC's full texts only, " +
+          "about 30% of PubMed records."
+      );
+    }
     const searched = new Set(verified.filter(({ kind }) => kind === "literature_search")
       .map(({ claims }) => text(claims.src)));
     const names = LITERATURE_SOURCES.filter(({ id }) => searched.has(id)).map(({ name }) => name);

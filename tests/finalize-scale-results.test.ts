@@ -31,6 +31,7 @@ const declaration = (overrides: Partial<ScaleResult> = {}): ScaleResult => ({
   benchmark: { value: 6, kind: "minimal_important_difference" }, ...overrides
 });
 const packageFor = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchInput => ({
+  full_text_search: { status: "not_needed", reason: "Synthetic fixtures isolate scale interpretation checks." },
   receipts: [issueResearchReceipt("study_audit", {
     id: "PMC10518852", doi: "10.1002/art.41142", status: "complete_no_unresolved_fields"
   }, { secret: SECRET })],

@@ -973,7 +973,7 @@
     },
     {
       "name": "search_europe_pmc",
-      "description": "Search Europe PMC records while preserving provider source identifiers and cursors with explicit pagination and access state; no medical conclusions are generated.",
+      "description": "Search Europe PMC records while preserving provider source identifiers and cursors with explicit pagination and access state; no medical conclusions are generated. A query can search within article sections of Europe PMC's full texts: INTRO, METHODS, RESULTS, DISCUSS, CONCL, TABLE, FIG, SUPPL, ACK_FUND, COMP_INT, CASE, REF and BODY. Such results carry full_text_scope with the sections and coverage: Europe PMC full texts only, about 30% of PubMed records.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1167,6 +1167,42 @@
             "required": [
               "code",
               "message"
+            ],
+            "additionalProperties": false
+          },
+          "full_text_scope": {
+            "type": "object",
+            "properties": {
+              "sections": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "INTRO",
+                    "METHODS",
+                    "RESULTS",
+                    "DISCUSS",
+                    "CONCL",
+                    "TABLE",
+                    "FIG",
+                    "SUPPL",
+                    "ACK_FUND",
+                    "COMP_INT",
+                    "CASE",
+                    "REF",
+                    "BODY"
+                  ]
+                }
+              },
+              "coverage": {
+                "type": "string",
+                "const": "Europe PMC full texts only, about 30% of PubMed records"
+              }
+            },
+            "required": [
+              "sections",
+              "coverage"
             ],
             "additionalProperties": false
           },
@@ -13446,6 +13482,54 @@
               "maxLength": 2048
             },
             "description": "Every research_receipt AskRigor tools returned during this research, copied exactly."
+          },
+          "full_text_search": {
+            "description": "Records the model's declaration of full-text search: run with the Europe PMC section queries searched, or not_needed with its reason. Required when key_sources is non-empty; each run query matches a verified Europe PMC section-search receipt.",
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "const": "run"
+                  },
+                  "queries": {
+                    "minItems": 1,
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "queries"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "const": "not_needed"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 300
+                  }
+                },
+                "required": [
+                  "status",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
           },
           "community_evidence": {
             "type": "string",

@@ -2158,7 +2158,7 @@ describe("AskRigor MCP tools", () => {
 
       expect(search).toMatchObject({
         description:
-          "Search Europe PMC records while preserving provider source identifiers and cursors with explicit pagination and access state; no medical conclusions are generated.",
+          "Search Europe PMC records while preserving provider source identifiers and cursors with explicit pagination and access state; no medical conclusions are generated. A query can search within article sections of Europe PMC's full texts: INTRO, METHODS, RESULTS, DISCUSS, CONCL, TABLE, FIG, SUPPL, ACK_FUND, COMP_INT, CASE, REF and BODY. Such results carry full_text_scope with the sections and coverage: Europe PMC full texts only, about 30% of PubMed records.",
         annotations: READ_ONLY_ANNOTATIONS,
         inputSchema: {
           type: "object",

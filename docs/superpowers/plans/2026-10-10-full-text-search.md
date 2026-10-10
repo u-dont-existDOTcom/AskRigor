@@ -93,3 +93,37 @@ The answer often sits outside the abstract for:
 1. Build version 1 as planned.
 2. The HRP rule's exact wording, approved before release.
 3. The release question.
+
+## Version 1 implementation and closeout
+
+Owner question 64, answer A, authorizes this implementation on
+`claude/full-text-search-plan-20261010` (draft PR #303). The later HRP text and
+release questions remain separate owner items.
+
+- Added a pure, forward-scanning section-field detector with quote handling,
+  token boundaries, case normalization, deduplication and sorted output.
+- Published `full_text_scope` on Europe PMC section queries and signed their
+  section codes as the literature-search receipt's `ft` claim.
+- Published the strict `full_text_search` run/not_needed union. Key sources
+  require the declaration; run queries require matching verified Europe PMC
+  section-search receipts. The server accepts the model's not-needed reason
+  without judging applicability.
+- Added the specified coverage caveat for support-not-located declarations
+  after a declared full-text search, using the existing rendering mechanism.
+- Added 39 regressions covering section syntax, real in-memory MCP calls with
+  stubbed Europe PMC responses, signed receipts, the declaration gate and
+  translated caveats. Extended the next-step contract suite and supplied
+  not-needed declarations in fixtures isolating other completion rules.
+- After typecheck, regenerated `docs/tool-inventory-v0.1.0.json` with
+  `npx tsx scripts/generate-tool-inventory.mts --write`.
+- Final `npm run verify` passed (exit 0) on Node 24.18.0 with an external-socket
+  guard permitting only loopback and Unix IPC, offline npm, and live tests
+  disabled: 220 test files passed and one skipped; 2,941 tests passed and six
+  skipped. Typecheck and build passed, including the Gemini catalog byte-budget
+  and next-step contract tests. Final diff review and `git diff --check` passed.
+
+Live canonical UDA retrieval and authenticated lesson-queue status are
+unavailable under the owner's no-external-network constraint; no queue totals
+are inferred. Lesson closeout: no validated criticism or new lesson candidate
+arose from this approved implementation. No protocol edits or commits were
+made; release and plugin installation remain outside this task.
