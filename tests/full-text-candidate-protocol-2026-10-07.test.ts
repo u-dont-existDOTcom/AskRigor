@@ -1,15 +1,31 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
+import { XMLParser } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
-import { getProtocolManifest, loadProtocolSectionSnapshot } from "@askrigor/protocol";
+import { getProtocolManifest, protocolSections } from "@askrigor/protocol";
 
 const ROOT = new URL("../", import.meta.url);
 const squash = (text: string) => text.replace(/\s+/gu, " ").trim();
 const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
 
+async function hrp20614(): Promise<string> {
+  const onDisk = await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
+  const { hrp: search } = JSON.parse(await readFile(
+    new URL("tests/fixtures/protocol-edits/2026-10-10-full-text-search.json", ROOT), "utf8",
+  )) as { hrp: { from: { sha256: string }; to: { sha256: string }; edits: Array<[string, string]> } };
+  expect(sha256(onDisk)).toBe(search.to.sha256);
+  const prior = [...search.edits].reverse().reduce((text, [before, after]) => {
+    expect(text.split(after), after.slice(0, 80)).toHaveLength(2);
+    return text.replace(after, before);
+  }, onDisk);
+  expect(sha256(prior)).toBe(search.from.sha256);
+  return prior;
+}
+
 async function sectionText(name: string): Promise<string> {
-  const { text, sections } = await loadProtocolSectionSnapshot("hrp");
+  const text = await hrp20614();
+  const sections = protocolSections("hrp", text);
   const matches = sections.filter((section) => section.name === name);
   expect(matches, name).toHaveLength(1);
   const [section] = matches;
@@ -26,7 +42,7 @@ function rule(text: string, name: string): string {
 // reapplied unchanged above main's HRP 20.6.13 as 20.6.14. The recorded edits preserve all other bytes.
 describe("full-text candidate: exact public-copy discovery and truthful access states", () => {
   it("records reversible edits to the prior canonical bytes and derives the new manifest from the same bytes", async () => {
-    const hrp = await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
+    const hrp = await hrp20614();
     const { hrp: fixture } = JSON.parse(await readFile(
       new URL("tests/fixtures/protocol-edits/2026-10-07-full-text-candidate.json", ROOT), "utf8",
     )) as { hrp: { from: { version: string; sha256: string }; to: { version: string; sha256: string }; edits: Array<[string, string]> } };
@@ -49,7 +65,8 @@ describe("full-text candidate: exact public-copy discovery and truthful access s
       return current.replace(before, after);
     }, prior);
     expect(reapplied).toBe(hrp);
-    await expect(getProtocolManifest("hrp")).resolves.toEqual({
+    const root = new XMLParser({ ignoreAttributes: false }).parse(hrp).Protocol;
+    expect({ name: root["@_name"], version: root["@_version"], revisionDate: root["@_revisionDate"], sha256: sha256(hrp) }).toEqual({
       name: "HRP", version: "20.6.14", revisionDate: "2026-10-09", sha256: fixture.to.sha256,
     });
     await expect(getProtocolManifest("universal")).resolves.toEqual({
@@ -116,7 +133,7 @@ describe("full-text candidate: exact public-copy discovery and truthful access s
     expect(checks.split('<Check id="FS213">')).toHaveLength(2);
     expect(checks).toMatch(/<Check id="FS212">[^<]+<\/Check>\s*<Check id="FS213">[^<]+<\/Check>\s*<Check id="FS214">/u);
     expect(checks).toContain('<Check id="FS213">Every decision-critical study without admitted full text went through the open-access routes and an exact public-copy search, and its access state is named truthfully, never calling a route failure or a blocked fetch inaccessible (MandatoryProviderNeutralFullTextEscalation).</Check>');
-    const hrp = await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
+    const hrp = await hrp20614();
     expect(hrp).toContain(' <RevisionHistory>\n  <Revision version="20.6.14" priority="Critical">\n   Owner-approved, question 46 (directive of 2026-10-07)');
     expect(hrp).toMatch(/<Revision version="20\.6\.14" priority="Critical">[^<]+<\/Revision>\s*<Revision version="20\.6\.13" priority="Critical">/u);
   });

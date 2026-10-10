@@ -249,8 +249,8 @@ describe("owner protocol changes of 2026-10-03", () => {
     expect(universal).toContain(
       `${universal.match(newestUniversal)?.[0]}<revision version="20.5.34" priority="Critical">\nOwner-approved changes (owner questions 27 and 28, 2026-10-03).`,
     );
-    // HRP 20.6.14 (owner question 46 reapplied), 20.6.13 (owner question 58), 20.6.12 (owner question 50), 20.6.11 (consilience) and 20.6.10 (owner question 30) are above it.
-    const newest = /^ <RevisionHistory>\n  <Revision version="20\.6\.14" priority="Critical">\n[^<]*  <\/Revision>\n  <Revision version="20\.6\.13" priority="Critical">\n[^<]*  <\/Revision>\n  <Revision version="20\.6\.12" priority="Critical">\n[^<]*  <\/Revision>\n  <Revision version="20\.6\.11" priority="Critical">\n[^<]*  <\/Revision>\n  <Revision version="20\.6\.10" priority="Critical">\n[^<]*  <\/Revision>\n/mu;
+    // HRP 20.6.15 (owner question 65), 20.6.14 (owner question 46 reapplied), 20.6.13 (owner question 58), 20.6.12 (owner question 50), 20.6.11 (consilience) and 20.6.10 (owner question 30) are above it.
+    const newest = /^ <RevisionHistory>\n  <Revision version="20\.6\.15" priority="Critical">\n[^<]*  <\/Revision>\n  <Revision version="20\.6\.14" priority="Critical">\n[^<]*  <\/Revision>\n  <Revision version="20\.6\.13" priority="Critical">\n[^<]*  <\/Revision>\n  <Revision version="20\.6\.12" priority="Critical">\n[^<]*  <\/Revision>\n  <Revision version="20\.6\.11" priority="Critical">\n[^<]*  <\/Revision>\n  <Revision version="20\.6\.10" priority="Critical">\n[^<]*  <\/Revision>\n/mu;
     expect(hrp.match(newest)?.[0]).toBeDefined();
     expect(hrp).toContain(
       `${hrp.match(newest)?.[0]}  <Revision version="20.6.9" priority="Critical">\n   Owner-approved method changes (owner questions 28 and 29, 2026-10-03).`,

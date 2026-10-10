@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.6.14" revisionDate="2026-10-09" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.6.15" revisionDate="2026-10-10" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -51,6 +51,10 @@
 </InstructionObligationLifecycle>
 
  <RevisionHistory>
+  <Revision version="20.6.15" priority="Critical">
+   Owner-approved, question 65 (2026-10-10): added FullTextSearchTriggers, which searches full texts when the answer
+   may sit only there and states the coverage searched, with stress case HarmOnlyInTables and final check FS218.
+  </Revision>
   <Revision version="20.6.14" priority="Critical">
    Owner-approved, question 46 (directive of 2026-10-07): full-text route recovery. A failed open-access route
    is not evidence that no public copy exists; require exact public-copy discovery, study identity and completeness
@@ -3097,6 +3101,17 @@
    the lawful repository and DOI open-access attempts, then verifies the public copies an exact search finds;
    MandatoryProviderNeutralFullTextEscalation), keep the claim-local uncertainty, and continue all unrelated
    executable work.
+  </Rule>
+
+  <Rule name="FullTextSearchTriggers" priority="Critical">
+   Abstracts report a study's main question. Also search full texts when the answer may sit only there: harms and
+   adverse events; co-interventions, background or rescue treatment, and the comparator's exact makeup; an exact
+   product, formulation, dose or schedule; secondary outcomes and unhighlighted null results; funding and competing
+   interests; details given only in case narratives; and when an abstract search returns few studies or a record has
+   no abstract. Use section searches (methods, results, tables, funding, case reports) where the index offers them. A
+   full-text hit is a lead until the passage is read in the acquired paper, and a match in an introduction or
+   reference list is not a finding. State the coverage searched: a full-text index holds only part of the literature,
+   so finding nothing there does not show that nothing was reported.
   </Rule>
 
   <Rule name="NoHumanEvidenceAbsenceClaimBeforeSweep">
@@ -7365,6 +7380,15 @@ Final integrated synthesis rule:
     shows.
    </ExpectedBehavior>
   </Case>
+  <Case id="HarmOnlyInTables">
+   <Prompt>
+    A user asks whether a supplement causes insomnia, and abstract searches find no trial that studied sleep.
+   </Prompt>
+   <ExpectedBehavior>
+    Search trial full texts for insomnia among adverse events (results and tables), read each passage found, and
+    report the coverage searched; do not conclude there is no harm from abstracts alone.
+   </ExpectedBehavior>
+  </Case>
   <Case id="CodedFormulaLargeEffect">
    <Prompt>
     A randomized trial of a coded eight-herb formula reports a large effect on testosterone and sexual function;
@@ -7467,6 +7491,7 @@ Final integrated synthesis rule:
   <Check id="FS215">Community reports about a product were admitted item by item for the exact product, with other variants and unresolved reports kept apart (ScopeAxesBeforeSampling).</Check>
   <Check id="FS216">A named product's technical or health claims were reconstructed from first-party material and graded claim by claim before any verdict (Universal claim reconstruction).</Check>
   <Check id="FS217">In a continuing mission, the primary outcome and the user's rejected candidates were carried into the next step, and seller ratings were never reported as product ratings.</Check>
+  <Check id="FS218">Where the answer could sit only in full texts (harms, co-interventions, exact products or doses, secondary results, funding, case details), a full-text search was run and its coverage stated, or the final check records why none was needed.</Check>
   <Check id="FS202">Give human judgment a human-facing interface. Repair a load-bearing pre-collection method defect in a new recorded, theory-blind version without altering frozen methods or prior data.</Check>
   <Check id="FS164">Verify every material prompt premise before it controls the answer (PremiseIntegrityAndTruthPriorityGate).</Check>
   <Check id="FS165">Put accuracy above agreement, validation, authority, consensus, user confidence, and expected-answer pressure.</Check>

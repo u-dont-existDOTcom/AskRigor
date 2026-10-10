@@ -81,6 +81,18 @@ function replaceOnce(text: string, before: string, after: string): string {
   return text.replace(before, after);
 }
 
+async function undoFullTextSearch(text: string): Promise<string> {
+  const { hrp: search } = JSON.parse(await readFile(
+    new URL("tests/fixtures/protocol-edits/2026-10-10-full-text-search.json", ROOT), "utf8",
+  )) as { hrp: RecordedEdits };
+  expect(sha256(text)).toBe(search.to.sha256);
+  const prior = [...search.edits].reverse().reduce(
+    (current, [before, after]) => replaceOnce(current, after, before), text,
+  );
+  expect(sha256(prior)).toBe(search.from.sha256);
+  return prior;
+}
+
 describe("owner-approved lane wording, question 58: A (2026-10-09)", () => {
   for (const protocol of ["hrp", "universal"] as const) {
     it(`reverses ${protocol}'s recorded edits to the prior canonical bytes and reapplies them exactly`, async () => {
@@ -91,6 +103,7 @@ describe("owner-approved lane wording, question 58: A (2026-10-09)", () => {
       expect(fixture.from).toEqual(previous.to);
       let onDisk = await readFile(new URL(`protocols/${FILES[protocol]}`, ROOT), "utf8");
       if (protocol === "hrp") {
+        onDisk = await undoFullTextSearch(onDisk);
         const { hrp: fullText } = JSON.parse(await readFile(
           new URL("tests/fixtures/protocol-edits/2026-10-07-full-text-candidate.json", ROOT), "utf8",
         )) as { hrp: RecordedEdits };
@@ -157,7 +170,8 @@ describe("owner-approved lane wording, question 58: A (2026-10-09)", () => {
 
   it("preserves the question 58 revision below HRP's reapplied question 46 and at the start of Universal", async () => {
     for (const protocol of ["hrp", "universal"] as const) {
-      const text = await readFile(new URL(`protocols/${FILES[protocol]}`, ROOT), "utf8");
+      let text = await readFile(new URL(`protocols/${FILES[protocol]}`, ROOT), "utf8");
+      if (protocol === "hrp") text = await undoFullTextSearch(text);
       const pattern = protocol === "hrp"
         ? /<RevisionHistory>\s*<Revision version="20\.6\.14" priority="Critical">[^<]+<\/Revision>\s*<Revision version="20\.6\.13" priority="Critical">([^<]+)<\/Revision>/u
         : /<revision_history>\s*<revision version="20\.5\.37" priority="Critical">([^<]+)<\/revision>/u;

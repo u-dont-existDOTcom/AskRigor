@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
-import { loadProtocolSectionSnapshot } from "@askrigor/protocol";
+import { loadProtocolSectionSnapshot, protocolSections } from "@askrigor/protocol";
 
 const ROOT = new URL("../", import.meta.url);
 const FIXTURE = new URL("tests/fixtures/protocol-edits/2026-10-07-product-identity-wording.json", ROOT);
@@ -49,7 +49,9 @@ const APPROVED = {
 } as const;
 
 async function sectionText(protocol: keyof typeof FILES, name: string): Promise<string> {
-  const { text, sections } = await loadProtocolSectionSnapshot(protocol);
+  const snapshot = await loadProtocolSectionSnapshot(protocol);
+  const text = protocol === "hrp" ? await undoFullTextSearch(snapshot.text) : snapshot.text;
+  const sections = protocolSections(protocol, text);
   const matches = sections.filter((section) => section.name === name);
   expect(matches, name).toHaveLength(1);
   const [section] = matches;
@@ -72,12 +74,25 @@ function replaceOnce(text: string, before: string, after: string): string {
   return text.replace(before, after);
 }
 
+async function undoFullTextSearch(text: string): Promise<string> {
+  const { hrp: search } = JSON.parse(await readFile(
+    new URL("tests/fixtures/protocol-edits/2026-10-10-full-text-search.json", ROOT), "utf8",
+  )) as { hrp: RecordedEdits };
+  expect(sha256(text)).toBe(search.to.sha256);
+  const prior = [...search.edits].reverse().reduce(
+    (current, [before, after]) => replaceOnce(current, after, before), text,
+  );
+  expect(sha256(prior)).toBe(search.from.sha256);
+  return prior;
+}
+
 async function productIdentityRevision(protocol: keyof typeof FILES): Promise<string> {
   const lane = JSON.parse(await readFile(
     new URL("tests/fixtures/protocol-edits/2026-10-09-lane-wording.json", ROOT), "utf8",
   ))[protocol] as RecordedEdits;
   let current = await readFile(new URL(`protocols/${FILES[protocol]}`, ROOT), "utf8");
   if (protocol === "hrp") {
+    current = await undoFullTextSearch(current);
     const { hrp: fullText } = JSON.parse(await readFile(
       new URL("tests/fixtures/protocol-edits/2026-10-07-full-text-candidate.json", ROOT), "utf8",
     )) as { hrp: RecordedEdits };
