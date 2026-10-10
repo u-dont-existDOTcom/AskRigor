@@ -199,3 +199,11 @@ Notes:
 - **Lesson queue at 04:53 UTC:** 3 open candidates, 3 needing review, 0 accepted but not incorporated, 5 incorporated
   or closed, 0 deletion eligible.
 - **Lesson closeout:** no new lesson candidate. Review caught the brief-wording slip above.
+
+## Release (2026-10-10, 12:59 UTC): step 3 done
+
+- The owner wrote "A: merge 302 and 303 and deploy". #302 and #303 merged; build `8195c324` has been live since 12:59 UTC
+  (HRP 20.6.15, Universal 20.5.37, 33 tools), and the Codex plugin is refreshed.
+- Record: `docs/audits/2026-10-10-full-text-search-production-release.md`.
+- Still open: the five Dependabot PRs (#297 to #301), for a separate release. InfoAccess still fails for the owner's
+  three test papers; that failure is on InfoAccess's side.
