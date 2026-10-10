@@ -174,3 +174,28 @@ Notes:
 - `/opt/askrigor/active-https` points to a 2026-10-09 HTTPS release that is not running. That isn't AskRigor's change,
   so leave it alone; the running Caddy uses the 2026-10-04 release.
 - Lesson queue on 2026-10-09: 3 open, 3 needing review. The newest is #20, on clinician endorsements.
+
+## Progress (2026-10-10, about 05:20 UTC)
+
+- **Step 1, done (`59d2e506`):** HRP 20.6.15, SHA-256 `ea4e14bd50471ef8…`.
+  - Codex applied it from a precise brief.
+  - Review checked the five edits against the approved text, checked the undo to 20.6.14's exact bytes, and found no
+    older assertion weakened.
+- **Step 2, done (`442e1740`):**
+  - The client reads the code from structured content, or else from the exact "Article request failed (<code>):"
+    prefix.
+  - A library `not_found` is a completed miss, like any other route's not_found, so the lead can be signed.
+  - Every other code stays a retryable route failure, with no receipt.
+  - Codex first kept a miss as a route failure, following the brief's "change nothing else". Review corrected it,
+    because retrying cannot find a paper the library lacks.
+- **Correction to the handoff:** the green-tea DOI now returns `retrieval_failed`. This was checked on 2026-10-10
+  through this session's free InfoAccess connector, at no charge. So it is an InfoAccess retrieval failure, not a
+  library miss.
+- **Privacy data map (`3f8bde43`):** names the `ft` receipt claim and the request-local `full_text_search` declaration.
+- **Next: step 3, the release question.**
+  - The owner questions page could not be read from this session: the Artifact tool saw no artifacts on this account.
+    So the question goes to chat.
+  - The five Dependabot PRs (#297 to #301) pass their checks. The recommendation is a separate release for them.
+- **Lesson queue at 04:53 UTC:** 3 open candidates, 3 needing review, 0 accepted but not incorporated, 5 incorporated
+  or closed, 0 deletion eligible.
+- **Lesson closeout:** no new lesson candidate. Review caught the brief-wording slip above.
