@@ -77,12 +77,28 @@ const metadataSchema = z.object({
   url: z.string().url(), size: z.number().int().nonnegative(),
   sha256: z.string().regex(/^[a-f0-9]{64}$/iu).transform((value) => value.toLowerCase())
 });
+const retrievalErrorCodeSchema = z.enum([
+  "not_found", "retrieval_failed", "pdf_invalid", "too_large", "rate_limited", "timeout", "busy", "invalid_doi",
+  "invalid_request", "quota_exhausted", "access_denied", "not_configured", "invalid_response", "internal_error"
+]);
 /** Documented result: a resource_link or download URL, byte size and SHA256. */
 function pdfMetadata(result: CallToolResult): z.output<typeof metadataSchema> {
   if (result.isError) {
-    const code = result.structuredContent?.code ??
+    let code = result.structuredContent?.code ??
       (result.structuredContent?.error as { code?: unknown } | undefined)?.code;
-    throw new InfoAccessError(code === "not_found" ? "not_found" : "unavailable");
+    if (code === undefined || code === null) {
+      for (const block of result.content) {
+        if (block.type !== "text") continue;
+        // Exact provider syntax only; never interpret the message body.
+        const prefix = /^Article request failed \(([^)]+)\):/u.exec(block.text);
+        if (prefix === null) continue;
+        code = prefix[1];
+        break;
+      }
+    }
+    const parsed = retrievalErrorCodeSchema.safeParse(code);
+    throw new InfoAccessError(parsed.success && (parsed.data === "not_found" || parsed.data === "too_large")
+      ? parsed.data : "unavailable");
   }
   const records: Record<string, unknown>[] = [];
   if (result.structuredContent !== undefined) records.push(result.structuredContent);

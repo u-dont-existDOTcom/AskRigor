@@ -25,6 +25,7 @@ const TITLE = "Synthetic library study of fixture participants";
 const URL = "https://www.researchgate.net/synthetic-public-copy";
 const LIBRARY_URL = "https://infoaccess.example/pdf/private-library-link";
 const TOKEN = "synthetic-dedicated-library-token";
+const PROVIDER_MESSAGE = `Synthetic private provider detail ${LIBRARY_URL} ${TOKEN}`;
 const CONFIG = { email: "test@example.test" };
 const ABSTRACT = "Synthetic abstract of fixture participants and generated measurements. ".repeat(10);
 const SEARCH = { queries: [`DOI ${DOI}`, `"${TITLE}"`] };
@@ -36,6 +37,7 @@ let pdf: Uint8Array;
 let advertisedHash: string | undefined;
 let advertisedSize: number | undefined;
 let outage: boolean;
+let retrievalErrorCode: string | undefined;
 let metadataFormat: "structured" | "resource" | "text" | "split";
 let calls: Array<{ name: string; arguments: unknown }>;
 let downloads: number;
@@ -67,6 +69,8 @@ function fakeLibrary() {
           : metadataFormat === "split" ? { content: [{ type: "resource_link", uri: LIBRARY_URL, name: "article.pdf", size: metadata.size }, { type: "text", text: JSON.stringify({ sha256: metadata.sha256 }) }] }
           : metadataFormat === "text" ? { content: [{ type: "text", text: JSON.stringify({ download_url: LIBRARY_URL, size: metadata.size, sha256: metadata.sha256 }) }] }
             : { content: [], structuredContent: metadata };
+        if (retrievalErrorCode !== undefined) result = { isError: true, structuredContent: { code: retrievalErrorCode },
+          content: [{ type: "text", text: `Article request failed (${retrievalErrorCode}): ${PROVIDER_MESSAGE}` }] };
       }
       return new Response(JSON.stringify({ jsonrpc: "2.0", id: request.id, result }), { headers: { "content-type": "application/json" } });
     }) as typeof fetch,
@@ -105,6 +109,12 @@ async function run(surface: "function" | "mcp", input: Partial<AcquireOpenFullTe
     expect(output.isError).not.toBe(true);
     expect(JSON.stringify(output)).not.toContain(LIBRARY_URL);
     expect(JSON.stringify(output)).not.toContain(TOKEN);
+    if (retrievalErrorCode !== undefined) {
+      expect(JSON.stringify(output)).not.toContain(PROVIDER_MESSAGE);
+      // A library miss may carry a lead receipt; a library failure never does.
+      if (retrievalErrorCode !== "not_found") expect(JSON.stringify(output)).not.toContain("research_receipt");
+      expect(JSON.stringify(output)).not.toContain("coverage_receipt");
+    }
     return output.structuredContent as any;
   } finally { await client.close(); await server.close(); }
 }
@@ -116,6 +126,7 @@ beforeEach(async () => {
   acquire.mockReset();
   pdf = syntheticPdf(syntheticArticleText(FRONT));
   advertisedHash = undefined; advertisedSize = undefined; outage = false;
+  retrievalErrorCode = undefined;
   metadataFormat = "structured"; calls = []; downloads = 0;
   abstract = ABSTRACT; candidateText = PARTIAL; candidateFailure = false;
   runtime = {
@@ -254,6 +265,39 @@ for (const surface of ["function", "mcp"] as const) describe(`owner library thro
     expect(result.discovery_attempts.some((attempt: any) => attempt.route === "owner_library" && attempt.result === "inaccessible")).toBe(false);
     expect(result.research_receipt).toBeUndefined();
   });
+  it.each(["retrieval_failed", "too_large"])("records InfoAccess %s as an error attempt with no lead receipt", async (code) => {
+    retrievalErrorCode = "retrieval_failed";
+    const before = await run(surface, { public_copy_search: SEARCH });
+    retrievalErrorCode = code;
+    const result = await run(surface, { public_copy_search: SEARCH });
+    expect(result.discovery_attempts.at(-1)).toMatchObject({ route: "owner_library", result: "error" });
+    expect(result.discovery_attempts.some((item: any) => item.result === "inaccessible")).toBe(false);
+    expect(result.source).toBeUndefined(); expect(result.blocks).toBeUndefined(); expect(result.research_receipt).toBeUndefined();
+    expect(result.coverage_receipt).toBeUndefined(); expect(result.document_handle).toBeUndefined();
+    expect(actual.canSignFullTextLead(result)).toBe(false);
+    expect(JSON.stringify(result)).not.toContain(LIBRARY_URL);
+    expect(JSON.stringify(result)).not.toContain(TOKEN);
+    expect(JSON.stringify(result)).not.toContain(PROVIDER_MESSAGE);
+    expect(JSON.stringify(result)).not.toContain(syntheticBody("methods"));
+    expect(result).toEqual(before);
+    expect(downloads).toBe(0);
+  });
+  it("records an InfoAccess not_found as a completed library miss, not a route failure", async () => {
+    retrievalErrorCode = "not_found";
+    const result = await run(surface, { public_copy_search: SEARCH });
+    expect(result.discovery_attempts.at(-1)).toMatchObject({ route: "owner_library", result: "not_found" });
+    expect(result.discovery_attempts.some((item: any) => item.result === "inaccessible" || item.result === "error")).toBe(false);
+    expect(result.source).toBeUndefined(); expect(result.blocks).toBeUndefined();
+    expect(result.coverage_receipt).toBeUndefined(); expect(result.document_handle).toBeUndefined();
+    // Like a miss on any other route: the attempts completed, so the lead can be signed; that proves no inaccessibility.
+    expect(actual.canSignFullTextLead(result)).toBe(true);
+    if (surface === "mcp") expect(result.research_receipt).toEqual(expect.any(String));
+    expect(JSON.stringify(result)).not.toContain(LIBRARY_URL);
+    expect(JSON.stringify(result)).not.toContain(TOKEN);
+    expect(JSON.stringify(result)).not.toContain(PROVIDER_MESSAGE);
+    expect(JSON.stringify(result)).not.toContain(syntheticBody("methods"));
+    expect(downloads).toBe(0);
+  });
   it.each(["missing", "short", "mismatched"])("rejects supplied text as library public basis when its abstract is %s", async (kind) => {
     abstract = kind === "missing" ? undefined : kind === "short" ? "Too short" : "Another synthetic abstract unrelated to this study. ".repeat(10);
     const result = await run(surface, { candidate_texts: [{ url: URL, text: PARTIAL, retrieved_via: "client_search_index" }], public_copy_search: SEARCH }, "paid");
@@ -275,6 +319,24 @@ for (const surface of ["function", "mcp"] as const) describe(`owner library thro
 });
 
 describe("owner library sign-in and configuration", () => {
+  it("treats a structural not_found as a completed library miss and any other failure as a retryable route failure", async () => {
+    const acquireWithCode = (code: string) => actual.acquireOpenFullText({ doi: DOI, public_copy_search: SEARCH }, CONFIG,
+      { ...runtime, ownerLibrary: { access: "owner", fetchPdf: async () => { throw { code, message: PROVIDER_MESSAGE }; } } });
+    const failed = await acquireWithCode("unavailable");
+    const missed = await acquireWithCode("not_found");
+    expect(failed.data.discovery_attempts.at(-1)).toMatchObject({ route: "owner_library", result: "error" });
+    expect(failed).toMatchObject({ access_status: "error", error: { code: "open_full_text_route_failed", retryable: true } });
+    expect(actual.hasFailedFullTextAcquisition(failed.data)).toBe(true);
+    expect(actual.canSignFullTextLead(failed.data)).toBe(false);
+    expect(missed.data.discovery_attempts.at(-1)).toMatchObject({ route: "owner_library", result: "not_found" });
+    expect(missed).toMatchObject({ access_status: "partial", error: { code: "open_full_text_not_auditable", retryable: false } });
+    expect(actual.hasFailedFullTextAcquisition(missed.data)).toBe(false);
+    expect(actual.canSignFullTextLead(missed.data)).toBe(true);
+    for (const result of [failed, missed]) {
+      expect(result.data.document_index).toBeUndefined();
+      expect(JSON.stringify(result)).not.toContain(PROVIDER_MESSAGE);
+    }
+  });
   it.each([{}, { ASKRIGOR_INFOACCESS_URL: "https://infoaccess.example/mcp" }, { ASKRIGOR_INFOACCESS_TOKEN: TOKEN }])("is off without both config values: %j", (env) => {
     expect(infoAccessClientFromEnv(env)).toBeUndefined();
   });

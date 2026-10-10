@@ -184,8 +184,9 @@ export async function acquireOpenFullText(
         }
         attempts.push({ route: "owner_library", identifier: doi,
           result: admission === undefined ? "identity_mismatch" : admission.state === "ABSTRACT_ONLY" ? "abstract_only" : "partial_text" });
-      } catch {
-        attempts.push({ route: "owner_library", result: "error", identifier: doi });
+      } catch (error) {
+        const notFound = error !== null && typeof error === "object" && "code" in error && error.code === "not_found";
+        attempts.push({ route: "owner_library", result: notFound ? "not_found" : "error", identifier: doi });
       }
     }
   }
