@@ -127,3 +127,50 @@ unavailable under the owner's no-external-network constraint; no queue totals
 are inferred. Lesson closeout: no validated criticism or new lesson candidate
 arose from this approved implementation. No protocol edits or commits were
 made; release and plugin installation remain outside this task.
+
+## Handoff (2026-10-10, about 01:30 UTC): the next session starts here
+
+State:
+- Production runs `03fb5214` (HRP 20.6.14, Universal 20.5.37).
+- Version 1 is built on this branch, `ad8b3276`, PR #303. `npm run verify`: 220 files, 2,941 tests.
+- Open PRs: #303 (this one) and #302 (record of the release of 62, docs only). Both wait for an owner release question.
+
+Next, in order:
+
+1. **Apply HRP 20.6.15, owner-approved in question 65 (A, 2026-10-10).** Use this exact text, and follow the pattern
+   of `tests/fixtures/protocol-edits/2026-10-09-lane-wording.json`: a recorded edit fixture
+   `2026-10-10-full-text-search.json` chained from 20.6.14 (`c5f544d0ad666970…`), chain tests, a placement-and-sentence
+   test, and current pins moved. Owner preference: give this to Codex with a precise brief, then review it.
+   - **Revision entry:** begins "Owner-approved, question 65 (2026-10-10):" and summarizes the change in one sentence.
+   - **Rule `FullTextSearchTriggers`** (priority Critical), directly after `DecisionCriticalFullTextEscalationWithinSweep`:
+     the text in "Design, version 1", step 5 above, without the leading "FullTextSearchTriggers.".
+   - **Case `HarmOnlyInTables`**, directly after `FullTextChangesTheArm`:
+     - Prompt: "A user asks whether a supplement causes insomnia, and abstract searches find no trial that studied
+       sleep."
+     - Expected: "Search trial full texts for insomnia among adverse events (results and tables), read each passage
+       found, and report the coverage searched; do not conclude there is no harm from abstracts alone."
+   - **Check FS218**, directly after FS217: "Where the answer could sit only in full texts (harms, co-interventions,
+     exact products or doses, secondary results, funding, case details), a full-text search was run and its coverage
+     stated, or the final check records why none was needed."
+2. **InfoAccess error codes.** The owner added them to InfoAccess on 2026-10-10. The code arrives in the error
+   result's structured content and message.
+   - The codes: `not_found`, `retrieval_failed`, `pdf_invalid`, `too_large`, `rate_limited`, `timeout`, `busy`,
+     `invalid_doi`, `invalid_request`, `quota_exhausted`, `access_denied`, `not_configured`, `invalid_response`,
+     `internal_error`.
+   - In `apps/research-mcp/src/infoaccess-client.ts` (`pdfMetadata`), map them to `OwnerLibraryErrorCode`.
+   - Let the `owner_library` attempt report `not_found` for `not_found`, and `error` for the rest. Never report
+     "inaccessible".
+   - Test every code with the fake InfoAccess.
+   - The owner's three test DOIs return a library miss: the green-tea paper is `10.1006/bbrc.2001.4945`.
+3. **The release question:** merge #302 and #303 in that order, and deploy.
+   - Follow the record `docs/audits/2026-10-10-full-text-owner-library-production-release.md` and the deploy pattern
+     in it.
+   - Refresh the Codex plugin for HRP 20.6.15.
+   - Write a release record.
+
+Notes:
+- Deploy scripts sent over `ssh … 'bash -s'` need `< /dev/null` on every docker compose call and on any installer that
+  calls compose. The site installer swallowed a restore step on 2026-10-10.
+- `/opt/askrigor/active-https` points to a 2026-10-09 HTTPS release that is not running. That isn't AskRigor's change,
+  so leave it alone; the running Caddy uses the 2026-10-04 release.
+- Lesson queue on 2026-10-09: 3 open, 3 needing review. The newest is #20, on clinician endorsements.
