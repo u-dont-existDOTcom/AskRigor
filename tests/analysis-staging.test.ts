@@ -375,6 +375,7 @@ describe("the server sends a free contributor's validated analyses when the fina
     expect(store.inserted).toHaveLength(0);
 
     const finalize = (receipts: string[]) => call("finalize_research", finalizeResearchInputSchema.parse({
+      full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates staged analysis checks." },
       receipts,
       community_evidence: "not_relevant",
       not_relevant_basis: "no_real_world_outcome",

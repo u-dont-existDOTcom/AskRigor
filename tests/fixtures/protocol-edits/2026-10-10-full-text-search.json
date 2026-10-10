@@ -1,0 +1,35 @@
+{
+  "purpose": "Owner-approved, question 65 (2026-10-10): search full texts when the answer may sit only there, and state the coverage searched. FullTextSearchTriggers, the HarmOnlyInTables case and FS218 preserve the owner's approved wording verbatim apart from XML formatting. Undoing these edits gives the prior canonical HRP bytes exactly. Universal does not change.",
+  "hrp": {
+    "from": {
+      "version": "20.6.14",
+      "sha256": "c5f544d0ad666970f122ecd14dbbca25befd2b53c7f2078275fdb3026bab70f1"
+    },
+    "to": {
+      "version": "20.6.15",
+      "sha256": "ea4e14bd50471ef8305bc93a2c9a85537bbbe1b99c24faf773b899d12eb41ace"
+    },
+    "edits": [
+      [
+        "<Protocol name=\"HRP\" version=\"20.6.14\" revisionDate=\"2026-10-09\"",
+        "<Protocol name=\"HRP\" version=\"20.6.15\" revisionDate=\"2026-10-10\""
+      ],
+      [
+        " <RevisionHistory>\n  <Revision version=\"20.6.14\" priority=\"Critical\">",
+        " <RevisionHistory>\n  <Revision version=\"20.6.15\" priority=\"Critical\">\n   Owner-approved, question 65 (2026-10-10): added FullTextSearchTriggers, which searches full texts when the answer\n   may sit only there and states the coverage searched, with stress case HarmOnlyInTables and final check FS218.\n  </Revision>\n  <Revision version=\"20.6.14\" priority=\"Critical\">"
+      ],
+      [
+        "  <Rule name=\"DecisionCriticalFullTextEscalationWithinSweep\">\n   A potentially decision-changing human study found by the sweep is not inspected evidence while only its citation\n   or abstract is seen: apply UniversalFullTextAcquisitionProtocol (on connector runs, acquire_open_full_text makes\n   the lawful repository and DOI open-access attempts, then verifies the public copies an exact search finds;\n   MandatoryProviderNeutralFullTextEscalation), keep the claim-local uncertainty, and continue all unrelated\n   executable work.\n  </Rule>",
+        "  <Rule name=\"DecisionCriticalFullTextEscalationWithinSweep\">\n   A potentially decision-changing human study found by the sweep is not inspected evidence while only its citation\n   or abstract is seen: apply UniversalFullTextAcquisitionProtocol (on connector runs, acquire_open_full_text makes\n   the lawful repository and DOI open-access attempts, then verifies the public copies an exact search finds;\n   MandatoryProviderNeutralFullTextEscalation), keep the claim-local uncertainty, and continue all unrelated\n   executable work.\n  </Rule>\n\n  <Rule name=\"FullTextSearchTriggers\" priority=\"Critical\">\n   Abstracts report a study's main question. Also search full texts when the answer may sit only there: harms and\n   adverse events; co-interventions, background or rescue treatment, and the comparator's exact makeup; an exact\n   product, formulation, dose or schedule; secondary outcomes and unhighlighted null results; funding and competing\n   interests; details given only in case narratives; and when an abstract search returns few studies or a record has\n   no abstract. Use section searches (methods, results, tables, funding, case reports) where the index offers them. A\n   full-text hit is a lead until the passage is read in the acquired paper, and a match in an introduction or\n   reference list is not a finding. State the coverage searched: a full-text index holds only part of the literature,\n   so finding nothing there does not show that nothing was reported.\n  </Rule>"
+      ],
+      [
+        "  <Case id=\"FullTextChangesTheArm\">\n   <Prompt>\n    An abstract says children received L-DOPA, and another abstract says a tea polyphenol inhibits an enzyme.\n   </Prompt>\n   <ExpectedBehavior>\n    Read the full texts before using either. When the first arm was really L-DOPA with carbidopa and the second was a\n    test-tube study of a purified animal enzyme, bind each claim to the exact intervention and model the full text\n    shows.\n   </ExpectedBehavior>\n  </Case>",
+        "  <Case id=\"FullTextChangesTheArm\">\n   <Prompt>\n    An abstract says children received L-DOPA, and another abstract says a tea polyphenol inhibits an enzyme.\n   </Prompt>\n   <ExpectedBehavior>\n    Read the full texts before using either. When the first arm was really L-DOPA with carbidopa and the second was a\n    test-tube study of a purified animal enzyme, bind each claim to the exact intervention and model the full text\n    shows.\n   </ExpectedBehavior>\n  </Case>\n  <Case id=\"HarmOnlyInTables\">\n   <Prompt>\n    A user asks whether a supplement causes insomnia, and abstract searches find no trial that studied sleep.\n   </Prompt>\n   <ExpectedBehavior>\n    Search trial full texts for insomnia among adverse events (results and tables), read each passage found, and\n    report the coverage searched; do not conclude there is no harm from abstracts alone.\n   </ExpectedBehavior>\n  </Case>"
+      ],
+      [
+        "  <Check id=\"FS217\">In a continuing mission, the primary outcome and the user's rejected candidates were carried into the next step, and seller ratings were never reported as product ratings.</Check>",
+        "  <Check id=\"FS217\">In a continuing mission, the primary outcome and the user's rejected candidates were carried into the next step, and seller ratings were never reported as product ratings.</Check>\n  <Check id=\"FS218\">Where the answer could sit only in full texts (harms, co-interventions, exact products or doses, secondary results, funding, case details), a full-text search was run and its coverage stated, or the final check records why none was needed.</Check>"
+      ]
+    ]
+  }
+}

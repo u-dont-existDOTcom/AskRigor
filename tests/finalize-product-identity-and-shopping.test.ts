@@ -31,6 +31,7 @@ function packageFor(overrides: Partial<FinalizeResearchInput> = {}): FinalizeRes
   const forum = { community: "Herbs Forum", platform: "forum" as const, queries: [TARGET],
     threads_read: [{ url: "https://forum.example/nan-bao" }], ...QUOTES, answer_quotes: { ...QUOTES } };
   return {
+    full_text_search: { status: "not_needed", reason: "Synthetic fixtures isolate product identity checks." },
     receipts: [sign("study_audit", { id: STUDY, status: "complete_no_unresolved_fields" })],
     community_evidence: "researched", commercial_review_applicability: { status: "required", products: [PRODUCT] },
     treatment_choice: "not_compared", research_target: TARGET, research_depth: "deep",

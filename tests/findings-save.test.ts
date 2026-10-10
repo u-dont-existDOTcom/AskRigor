@@ -512,6 +512,7 @@ describe("finalize_research, save_research_findings and the findings library", (
   }
 
   const request = (overrides: Record<string, unknown> = {}) => ({
+    full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates findings save checks." },
     receipts: [issueResearchReceipt("study_audit", {
       id: "PMC10518852", doi: "10.1002/art.41142", status: "complete_no_unresolved_fields",
     }, { secret: SECRET })],

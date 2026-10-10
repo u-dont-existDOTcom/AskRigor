@@ -55,6 +55,7 @@ import {
   type GeminiYoutubeScoutBackgroundCheckpoint
 } from "@askrigor/sources";
 import { z } from "zod";
+import { EUROPE_PMC_SECTIONS, EUROPE_PMC_FULL_TEXT_COVERAGE, europePmcSections } from "./europe-pmc-sections.js";
 
 import { infoAccessClientFromEnv, type InfoAccessClient } from "./infoaccess-client.js";
 import { authorizedSubject } from "./research-contributor-access-tool.js";
@@ -380,6 +381,10 @@ const europePmcSearchEnvelopeSchema = z.object({
   limitations: z.array(z.string()),
   raw_metadata: z.object({ hit_count: z.number().int().nonnegative() }).strict().optional(),
   error: errorSchema.optional(),
+  full_text_scope: z.object({
+    sections: z.array(z.enum(EUROPE_PMC_SECTIONS)).min(1),
+    coverage: z.literal(EUROPE_PMC_FULL_TEXT_COVERAGE)
+  }).strict().optional(),
   data: z.array(europePmcRecordSchema)
 }).strict();
 const searchClinicalTrialsInputSchema = z.object({
@@ -953,12 +958,16 @@ function defineResearchOperations(
     "search_europe_pmc",
     {
       description:
-        "Search Europe PMC records while preserving provider source identifiers and cursors with explicit pagination and access state; no medical conclusions are generated.",
+        "Search Europe PMC records while preserving provider source identifiers and cursors with explicit pagination and access state; no medical conclusions are generated. A query can search within article sections of Europe PMC's full texts: INTRO, METHODS, RESULTS, DISCUSS, CONCL, TABLE, FIG, SUPPL, ACK_FUND, COMP_INT, CASE, REF and BODY. Such results carry full_text_scope with the sections and coverage: Europe PMC full texts only, about 30% of PubMed records.",
       inputSchema: searchEuropePmcInputSchema,
       outputSchema: europePmcSearchEnvelopeSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
     async ({ query, date_range, page_size, cursor }) => {
+      const sections = europePmcSections(query);
+      const scope = sections.length === 0 ? {} : {
+        full_text_scope: { sections, coverage: EUROPE_PMC_FULL_TEXT_COVERAGE }
+      };
       try {
         const search = (pageSize: number | undefined) => searchEuropePmc({
           query,
@@ -973,12 +982,12 @@ function defineResearchOperations(
         return withResearchReceipt(europePmcToolResult(
           `Europe PMC search returned ${result.pagination.returned} record(s); access status ${result.access_status}.` +
             sparseSearchNote(total),
-          result
+          { ...result, ...scope }
         ), literatureSearchReceipt("europepmc", query, result, total));
       } catch (error) {
         return europePmcToolResult(
           "Europe PMC search retrieval failed; access status error.",
-          europePmcSearchFailure(query, date_range, page_size, cursor, error)
+          { ...europePmcSearchFailure(query, date_range, page_size, cursor, error), ...scope }
         );
       }
     }
@@ -2130,10 +2139,12 @@ function literatureSearchReceipt(
   total: number | undefined
 ): string | undefined {
   if (result.error !== undefined) return undefined;
+  const sections = source === "europepmc" ? europePmcSections(query) : [];
   return researchReceipt("literature_search", {
     src: source,
     q: discoveryQueryDigest([query]),
     ret: result.pagination.returned,
+    ...(sections.length === 0 ? {} : { ft: sections }),
     ...(total === undefined ? {} : { n: total })
   });
 }

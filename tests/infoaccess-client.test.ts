@@ -4,19 +4,85 @@ import type { AddressInfo } from "node:net";
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { fetchDiscoveredDocument } from "../packages/sources/src/http.js";
 
-import { createInfoAccessClient } from "../apps/research-mcp/src/infoaccess-client.js";
+import { createInfoAccessClient, InfoAccessError } from "../apps/research-mcp/src/infoaccess-client.js";
 import { syntheticArticleText, syntheticPdf } from "./helpers/synthetic-full-text.js";
 
 const DOI = "10.1234/synthetic.transport";
 const TOKEN = "synthetic-infoaccess-test-token";
 const DOWNLOAD_URL = "https://infoaccess.example/ephemeral.pdf";
+const ERROR_CODES = ["not_found", "retrieval_failed", "pdf_invalid", "too_large", "rate_limited", "timeout", "busy",
+  "invalid_doi", "invalid_request", "quota_exhausted", "access_denied", "not_configured", "invalid_response", "internal_error"] as const;
+const PRIVATE_MESSAGE = `Synthetic provider message ${DOWNLOAD_URL} ${TOKEN}`;
+
+async function expectRetrievalError(result: CallToolResult, code: string) {
+  const servers = new Set<McpServer>();
+  const requestDocument = vi.fn();
+  const upstream = createServer(async (request, response) => {
+    const mcp = new McpServer({ name: "fake-infoaccess-error", version: "1.0" });
+    servers.add(mcp);
+    mcp.registerTool("get_article_pdf", { inputSchema: z.object({ doi: z.string() }) }, async () => result);
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+    try {
+      await mcp.connect(transport);
+      await transport.handleRequest(request, response);
+    } finally { await mcp.close(); servers.delete(mcp); }
+  });
+  await new Promise<void>((resolve) => upstream.listen(0, "127.0.0.1", resolve));
+  try {
+    const library = createInfoAccessClient({ url: `http://127.0.0.1:${(upstream.address() as AddressInfo).port}/mcp`, token: TOKEN,
+      documentFetchRuntime: { requestDocument } });
+    const error = await library.fetchPdf(DOI).catch((error: unknown) => error);
+    expect(error).toBeInstanceOf(InfoAccessError);
+    expect(error).toMatchObject({ code, message: `Owner library ${code}` });
+    expect(requestDocument).not.toHaveBeenCalled();
+  } finally {
+    for (const server of servers) await server.close();
+    upstream.closeAllConnections();
+    await new Promise<void>((resolve, reject) => upstream.close((error) => error ? reject(error) : resolve()));
+  }
+}
 
 describe("free InfoAccess Streamable HTTP client", () => {
+  for (const format of ["code", "error.code", "text"] as const) {
+    it.each(ERROR_CODES)(`maps %s from ${format} without exposing provider text`, async (code) => {
+      const result: CallToolResult = { isError: true, content: [{ type: "text", text: format === "text"
+        ? `Article request failed (${code}): ${PRIVATE_MESSAGE}` : PRIVATE_MESSAGE }] };
+      if (format !== "text") result.structuredContent = format === "code" ? { code } : { error: { code } };
+      await expectRetrievalError(result, code === "not_found" || code === "too_large" ? code : "unavailable");
+    });
+  }
+  it.each([
+    { isError: true, structuredContent: { code: "unknown_code" }, content: [] },
+    { isError: true, content: [{ type: "text", text: `Article request failed (unknown_code): ${PRIVATE_MESSAGE}` }] },
+    { isError: true, content: [] },
+    { isError: true, content: [{ type: "text", text: PRIVATE_MESSAGE }] },
+    ...["not_found", "too_large"].flatMap((code) => [
+      `${code}: ${PRIVATE_MESSAGE}`,
+      `Article request failed: ${code} ${PRIVATE_MESSAGE}`,
+      ` Article request failed (${code}): ${PRIVATE_MESSAGE}`,
+      `Other prefix\nArticle request failed (${code}): ${PRIVATE_MESSAGE}`,
+      `article request failed (${code}): ${PRIVATE_MESSAGE}`,
+      `Article request failed (${code}) ${PRIVATE_MESSAGE}`,
+      JSON.stringify({ code })
+    ].map((text) => ({ isError: true, content: [{ type: "text" as const, text }] })))
+  ] satisfies CallToolResult[])("rejects unknown, absent or misplaced codes: %j", async (result) => {
+    await expectRetrievalError(result, "unavailable");
+  });
+  it.each(["not_found", "too_large", "retrieval_failed", "unknown_code"])("prefers structured code %s over text", async (code) => {
+    await expectRetrievalError({ isError: true, structuredContent: { code },
+      content: [{ type: "text", text: `Article request failed (${code === "not_found" ? "too_large" : "not_found"}): ${PRIVATE_MESSAGE}` }] },
+    code === "not_found" || code === "too_large" ? code : "unavailable");
+  });
+  it("finds an exact prefix in a later text block", async () => {
+    await expectRetrievalError({ isError: true, content: [{ type: "text", text: PRIVATE_MESSAGE },
+      { type: "text", text: `Article request failed (not_found): ${PRIVATE_MESSAGE}` }] }, "not_found");
+  });
   it("uses a Bearer token with the actual MCP transport and only calls get_article_pdf", async () => {
     const bytes = syntheticPdf(syntheticArticleText(`Synthetic transport study DOI ${DOI}`));
     const sha256 = createHash("sha256").update(bytes).digest("hex");
