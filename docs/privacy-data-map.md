@@ -971,7 +971,9 @@ pending-proposal stores have their own strict contracts and authority boundaries
   judgment (reworded titles and YouTube's closest results for a title it could
   not find), a literature search receipt (PubMed, Europe PMC or
   ClinicalTrials.gov) the database, the 12-hex digest of its query and its
-  record counts, a search receipt its access status, and a
+  record counts (and, for a Europe PMC query that searches within article
+  sections, `ft`: the provider's section field codes it used, such as
+  `METHODS` or `TABLE`), a search receipt its access status, and a
   one-call community audit receipt the IDs of the videos whose comments its
   response returned, and a per-video audit receipt how many comments its final
   view returned. Survey, search and one-call community audit receipts also
@@ -1021,6 +1023,10 @@ pending-proposal stores have their own strict contracts and authority boundaries
   databases), and reported scale or questionnaire results (`scale_results`,
   each with its quoted explanation, scale name, range, direction, values and
   benchmark). These inputs are request-local and are not stored or logged.
+  Its `full_text_search` declaration (`run` with the Europe PMC section
+  queries the model ran, or `not_needed` with a short reason) is request-local
+  too: each query is compared by its 12-hex digest with a section-search
+  receipt, and the reason is not judged.
   None of their text is returned: of the answer, the
   result names only the labels and public video IDs it found, and points to an
   absence claim or scale result by its position in the list; for a scale result,
