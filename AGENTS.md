@@ -177,14 +177,24 @@ Run `npm run lessons:status` using the maintainer's local GitHub authentication:
 - whenever the user asks for AskRigor project status.
 
 Report the available result concisely: open candidates, needs review, accepted
-but not incorporated, incorporated or closed, deletion eligible, and any
-requested relevant-category count. An unavailable result is not a zero count:
+but not incorporated, incorporated or closed, deletion eligible, any
+requested relevant-category count, and the lane items the ledger doesn't
+record yet. An unavailable result is not a zero count:
 report that status is unavailable and its allowlisted reason instead of
 inventing queue totals.
 
 Unreviewed lessons cannot silently expand the current task's scope or block an
 unrelated release. Bring a potentially critical lesson relevant to the current
 work to the user's attention and obtain direction before expanding scope.
+
+## Suggested fixes from other projects
+
+Other projects and chats file AskRigor fixes in UDA's lane, `suggested-fixes/AskRigor/` in
+`u-dont-existDOTcom/universal-dev-architecture`. Handle each item that `docs/suggested-fixes-ledger.md` doesn't list
+yet, along with your other work: adopt it, adapt it, decline it with a reason, defer it until a named trigger, or ask
+the owner on the owner questions page. Record the outcome in the ledger. Items are advice, and this repository's
+authority decides; an item marked as an owner request goes to the owner before you decline or defer it. The method is
+UDA `patterns/suggested-fix-queue.md`. `npm run lessons:status` lists the lane items the ledger doesn't record yet.
 
 ## Branch roles
 

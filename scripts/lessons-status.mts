@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
@@ -5,6 +6,12 @@ import { resolve } from "node:path";
 import { z } from "zod";
 
 const REPOSITORY_ISSUES_PATH = "repos/u-dont-existDOTcom/AskRigor-lessons/issues";
+const LANE_PATH = "repos/u-dont-existDOTcom/universal-dev-architecture/contents/suggested-fixes/AskRigor";
+const LEDGER_PATH = new URL("../docs/suggested-fixes-ledger.md", import.meta.url);
+const laneSchema = z.array(z.object({
+  name: z.string().min(1).max(255).regex(/^[^/\\\x00-\x1f\x7f]+$/),
+  type: z.string().min(1),
+}));
 const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1_000;
 const MAX_GH_OUTPUT_BYTES = 16 * 1_024 * 1_024;
 const TERMINAL_LABELS = new Set([
@@ -20,6 +27,7 @@ const reasonCodeSchema = z.enum([
   "repository_unavailable",
   "github_rate_limited",
   "invalid_response",
+  "ledger_unavailable",
 ]);
 
 export type LessonQueueReasonCode = z.infer<typeof reasonCodeSchema>;
@@ -32,6 +40,10 @@ export interface LessonQueueSummary {
   incorporated_or_closed?: number;
   deletion_eligible?: number;
   relevant_to_category?: number;
+  lane_status?: "available" | "unavailable";
+  lane_unrecorded?: number;
+  lane_unrecorded_items?: string[];
+  lane_reason_code?: LessonQueueReasonCode;
   checked_at: string;
   reason_code?: LessonQueueReasonCode;
 }
@@ -95,6 +107,7 @@ export type LessonStatusExecFile = (
 
 export interface LessonStatusDependencies {
   execute?: LessonStatusExecFile;
+  readLedger?: () => Promise<string>;
   now?: () => Date;
   stdout?: (value: string) => void;
   stderr?: (value: string) => void;
@@ -225,6 +238,10 @@ function runGh(execute: LessonStatusExecFile, slurp: boolean): Promise<GhResult>
     ? [...COMMON_GH_ARGS.slice(0, 4), "--slurp", ...COMMON_GH_ARGS.slice(4)]
     : [...COMMON_GH_ARGS];
 
+  return executeGh(execute, args);
+}
+
+function executeGh(execute: LessonStatusExecFile, args: readonly string[]): Promise<GhResult> {
   return new Promise((fulfill) => {
     execute("gh", args, {
       encoding: "utf8",
@@ -341,6 +358,43 @@ async function fetchLessonIssues(
   return parseSequentialPages(fallback.stdout);
 }
 
+async function fetchLaneSummary(dependencies: LessonStatusDependencies): Promise<Partial<LessonQueueSummary>> {
+  const result = await executeGh(
+    dependencies.execute ?? execFile as unknown as LessonStatusExecFile,
+    ["api", LANE_PATH],
+  );
+  if (result.error !== null) {
+    throw new LessonStatusError(classifyGhFailure(result.error, result.stderr));
+  }
+  if (Buffer.byteLength(result.stdout, "utf8") > MAX_GH_OUTPUT_BYTES) return invalidResponse();
+  let raw: unknown;
+  try {
+    raw = JSON.parse(result.stdout) as unknown;
+  } catch {
+    return invalidResponse();
+  }
+  const parsed = laneSchema.safeParse(raw);
+  if (!parsed.success) return invalidResponse();
+
+  let ledger: string;
+  try {
+    ledger = await (dependencies.readLedger?.() ?? readFile(LEDGER_PATH, "utf8"));
+  } catch {
+    throw new LessonStatusError("ledger_unavailable");
+  }
+  const recorded = new Set<string>();
+  for (const line of ledger.split(/\r?\n/)) {
+    const cell = /^\s*\|\s*([^|]+?)\s*\|/.exec(line)?.[1];
+    if (cell !== undefined) recorded.add(cell.trim());
+  }
+  const items = parsed.data
+    .filter((entry) => entry.type === "file" && entry.name.endsWith(".md") && entry.name !== "README.md")
+    .map((entry) => entry.name.slice(0, -3))
+    .filter((name) => !recorded.has(name))
+    .sort();
+  return { lane_status: "available", lane_unrecorded: items.length, lane_unrecorded_items: items };
+}
+
 function parseCategory(args: readonly string[]): string | undefined {
   if (args.length === 0) return undefined;
   if (
@@ -370,9 +424,27 @@ export async function runLessonsStatus(
   const writeStderr = dependencies.stderr ?? ((value: string) => process.stderr.write(value));
   try {
     const category = parseCategory(args);
-    const issues = await fetchLessonIssues(dependencies.execute);
-    writeStdout(`${JSON.stringify(summarizeLessonIssues(issues, now, category))}\n`);
-    return 0;
+    let summary: LessonQueueSummary;
+    let exitCode = 0;
+    try {
+      const issues = await fetchLessonIssues(dependencies.execute);
+      summary = summarizeLessonIssues(issues, now, category);
+    } catch (error) {
+      const reasonCode = error instanceof LessonStatusError ? error.reasonCode : "gh_unavailable";
+      summary = unavailableSummary(now, reasonCode);
+      writeStderr(`Lesson queue status unavailable: ${reasonCode}\n`);
+      exitCode = 1;
+    }
+    try {
+      Object.assign(summary, await fetchLaneSummary(dependencies));
+    } catch (error) {
+      const reasonCode = error instanceof LessonStatusError ? error.reasonCode : "gh_unavailable";
+      Object.assign(summary, { lane_status: "unavailable", lane_reason_code: reasonCode });
+      writeStderr(`Suggested fixes lane status unavailable: ${reasonCode}\n`);
+      exitCode = 1;
+    }
+    writeStdout(`${JSON.stringify(summary)}\n`);
+    return exitCode;
   } catch (error) {
     const reasonCode = error instanceof LessonStatusError
       ? error.reasonCode
