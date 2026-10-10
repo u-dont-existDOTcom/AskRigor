@@ -71,7 +71,16 @@
     Compose files". On 2026-10-09 at 05:00 UTC, the `/opt/askrigor/active-https` selector was moved to a newer HTTPS
     release dated 2026-10-09. The running Caddy was started on 2026-10-04 from the earlier release. That change was
     not part of this release.
-  - The live notice is still the October 4 version (owner question 63).
+  - **Owner question 63, answered "63A":** for the install only, the selector was pointed at the HTTPS release the
+    running Caddy uses. The installer then activated `03fb5214…` and recreated Caddy at 00:35:51 UTC, still on the
+    2026-10-04 configuration. The selector was restored to the 2026-10-09 release afterwards. The first restore step,
+    placed after the installer in the same `bash -s` script, never ran: the installer's own `docker compose` read the
+    rest of the script from stdin. A separate command restored it at about 00:37.
+  - **Live:** `/privacy` reads "Effective October 10, 2026" and holds both the question-46 public-copy sentence and the
+    question-62 library sentence. `/terms`, `/support`, `/` and `mcp.askrigor.com` answer 200.
+  - **InfoAccess cross-check:** the owner's own InfoAccess connection got the same "request_failed" answer for the
+    green-tea DOI as the server's key, so the failure does not depend on which key is used. The owner reports
+    that full texts did come back through AskRigor in ChatGPT.
 - **Plugin:**
   - before: `0.1.0+codex.20261009221000.hrp.20.6.13.universal.20.5.37`, receipt `1fe804edf385b6b2…`;
   - rollback copy `/home/joel/plugins/askrigor.rollback-20261010T001203Z`;
@@ -87,4 +96,4 @@
   4. Re-enable the timer.
   5. For the plugin, restore the rollback copy and run `codex plugin add askrigor@personal`.
 
-  The database needs no step, and the site was not changed.
+  The database needs no step. Site: reinstall the 2026-10-04 site archive with the installer.
