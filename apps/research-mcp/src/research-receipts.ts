@@ -6,7 +6,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
  * A tool that finishes a unit of research work (a completed community survey,
  * search or scout, even one that found nothing, a terminal per-video comment
  * audit, a PubMed record,
- * a validated full-text method audit, a failed full-text acquisition that
+ * an exhausted full-text reading, a validated full-text method audit, a failed full-text acquisition that
  * leaves only a lead, a treatment-coverage check, or Gemini's reading of a
  * video the person gave) returns one short token. The
  * finalize_research gate verifies the tokens, so completion is checked by the
@@ -30,6 +30,7 @@ export const RESEARCH_RECEIPT_KINDS = [
   "pubmed_record",
   "literature_search",
   "full_text_lead",
+  "full_text_read",
   "study_audit",
   "review_audit",
   "treatment_coverage",

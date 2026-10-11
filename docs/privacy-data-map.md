@@ -948,6 +948,14 @@ pending-proposal stores have their own strict contracts and authority boundaries
   problems, reporting requirements and caveats. Only the bounded receipt
   product claim described above is returned as a declared product name in a
   research receipt. Declarations do not cause external verification calls.
+- `full_text_read` research receipts sign known DOI, PMID or PMCID identifiers
+  and the first 16 hexadecimal characters of the document content SHA-256 after
+  coverage is exhausted. They carry no document text; finalization verifies them
+  with the same signature and expiry checks as study-audit receipts.
+  `key_sources.read_depth` records declared reading depth, and `answer_marker`
+  records the visible source label (3–80 characters), checked on the source
+  link's line without judging its meaning. These declarations are request-local
+  and are not logged or persisted.
 - MCP research receipts (`research_receipt`) are HMAC-SHA256 tokens under a
   domain-separated key derived from the finalization signing secret, or else the
   YouTube continuation secret. They carry only public identifiers (YouTube
@@ -1027,6 +1035,7 @@ pending-proposal stores have their own strict contracts and authority boundaries
   queries the model ran, or `not_needed` with a short reason) is request-local
   too: each query is compared by its 12-hex digest with a section-search
   receipt, and the reason is not judged.
+  Its `lab_preparation` declaration is request-local too: its quotes are compared with the answer for that call only, and nothing from it is stored.
   None of their text is returned: of the answer, the
   result names only the labels and public video IDs it found, and points to an
   absence claim or scale result by its position in the list; for a scale result,

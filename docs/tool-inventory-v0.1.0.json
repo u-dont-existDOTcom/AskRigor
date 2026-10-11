@@ -2522,6 +2522,9 @@
                 "additionalProperties": false
               }
             ]
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -13531,6 +13534,54 @@
               }
             ]
           },
+          "lab_preparation": {
+            "description": "Records the model's declaration of lab preparation: covered with one to five quotes from answer_draft giving collection conditions or preparation advice, or not_applicable with its reason when the answer interprets no lab result and plans no test. Required when key_sources is non-empty; each covered quote is compared with the answer for this call only. Applicability and advice quality remain the model's declaration.",
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "const": "covered"
+                  },
+                  "answer_quotes": {
+                    "minItems": 1,
+                    "maxItems": 5,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 10,
+                      "maxLength": 500
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "answer_quotes"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "const": "not_applicable"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 300
+                  }
+                },
+                "required": [
+                  "status",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
           "community_evidence": {
             "type": "string",
             "enum": [
@@ -14113,6 +14164,27 @@
                     "validated",
                     "lead_only"
                   ]
+                },
+                "read_depth": {
+                  "description": "Records each source's required reading depth; full_text_audited needs a verified method audit, full_text_read a completed-reading or audit receipt.",
+                  "type": "string",
+                  "enum": [
+                    "full_text_audited",
+                    "full_text_read",
+                    "partial_text",
+                    "abstract_only",
+                    "conference_abstract",
+                    "secondary_only",
+                    "metadata_only",
+                    "inaccessible",
+                    "route_error"
+                  ]
+                },
+                "answer_marker": {
+                  "description": "Required with answer_draft: the visible label for this source, 3–80 characters, on the same line as its link.",
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 80
                 },
                 "reason": {
                   "type": "string",

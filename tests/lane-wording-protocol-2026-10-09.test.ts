@@ -1,3 +1,4 @@
+import { undoReadDepth } from "./helpers/undo-read-depth.js";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
@@ -81,7 +82,21 @@ function replaceOnce(text: string, before: string, after: string): string {
   return text.replace(before, after);
 }
 
+async function undoLabPreparation(text: string): Promise<string> {
+  text = await undoReadDepth(text, "hrp");
+  const { hrp: lab } = JSON.parse(await readFile(
+    new URL("tests/fixtures/protocol-edits/2026-10-11-lab-preparation.json", ROOT), "utf8",
+  )) as { hrp: RecordedEdits };
+  expect(sha256(text)).toBe(lab.to.sha256);
+  const prior = [...lab.edits].reverse().reduce(
+    (current, [before, after]) => replaceOnce(current, after, before), text,
+  );
+  expect(sha256(prior)).toBe(lab.from.sha256);
+  return prior;
+}
+
 async function undoFullTextSearch(text: string): Promise<string> {
+  text = await undoLabPreparation(text);
   const { hrp: search } = JSON.parse(await readFile(
     new URL("tests/fixtures/protocol-edits/2026-10-10-full-text-search.json", ROOT), "utf8",
   )) as { hrp: RecordedEdits };
@@ -102,6 +117,7 @@ describe("owner-approved lane wording, question 58: A (2026-10-09)", () => {
       ))[protocol] as RecordedEdits;
       expect(fixture.from).toEqual(previous.to);
       let onDisk = await readFile(new URL(`protocols/${FILES[protocol]}`, ROOT), "utf8");
+      if (protocol === "universal") onDisk = await undoReadDepth(onDisk, "universal");
       if (protocol === "hrp") {
         onDisk = await undoFullTextSearch(onDisk);
         const { hrp: fullText } = JSON.parse(await readFile(
@@ -171,6 +187,7 @@ describe("owner-approved lane wording, question 58: A (2026-10-09)", () => {
   it("preserves the question 58 revision below HRP's reapplied question 46 and at the start of Universal", async () => {
     for (const protocol of ["hrp", "universal"] as const) {
       let text = await readFile(new URL(`protocols/${FILES[protocol]}`, ROOT), "utf8");
+      if (protocol === "universal") text = await undoReadDepth(text, "universal");
       if (protocol === "hrp") text = await undoFullTextSearch(text);
       const pattern = protocol === "hrp"
         ? /<RevisionHistory>\s*<Revision version="20\.6\.14" priority="Critical">[^<]+<\/Revision>\s*<Revision version="20\.6\.13" priority="Critical">([^<]+)<\/Revision>/u
