@@ -79,6 +79,8 @@
 
 ## Owner items
 
+Question 71 answered "71 a" on 2026-10-11; built on this branch.
+
 1. Question 71: the three wordings and this plan. A: all; B: choose among them; C: change a wording.
 2. The release question, after the build.
 3. Later: #311's controlled comparison of older guidance.

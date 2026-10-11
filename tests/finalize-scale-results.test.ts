@@ -40,7 +40,7 @@ const packageFor = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeRes
   community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome",
   commercial_review_applicability: { status: "not_applicable", reason: "Synthetic scale checks involve no product or service people buy." },
   not_relevant_reason: "Isolates exact declaration checks with synthetic receipts and text.",
-  treatment_choice: "not_compared", key_sources: [{ id: "10.1002/art.41142", status: "validated" }],
+  treatment_choice: "not_compared", key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" }],
   intervention_identity: { status: "not_applicable", reason: "This synthetic key study does not concern a coded or multi-ingredient product." },
   answer_draft: GOOD, absence_claims: [], scale_results: [declaration()], ...overrides
 });

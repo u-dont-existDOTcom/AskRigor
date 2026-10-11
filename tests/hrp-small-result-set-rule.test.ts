@@ -1,3 +1,4 @@
+import { undoReadDepth } from "./helpers/undo-read-depth.js";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
@@ -34,7 +35,8 @@ describe("HRP 20.6.7 small-result-set and exposure-decomposition rule", () => {
         return current.replace(later, prior);
       }, text);
     const lab = await recorded("2026-10-11-lab-preparation.json");
-    const hrp20615 = undo(onDisk, lab.edits);
+    const hrp20616 = await undoReadDepth(onDisk, "hrp");
+    const hrp20615 = undo(hrp20616, lab.edits);
     expect(sha256(hrp20615)).toBe(lab.from.sha256);
     const search = await recorded("2026-10-10-full-text-search.json");
     const hrp20614 = undo(hrp20615, search.edits);

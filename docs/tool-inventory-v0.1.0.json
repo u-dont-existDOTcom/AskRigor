@@ -2522,6 +2522,9 @@
                 "additionalProperties": false
               }
             ]
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -14161,6 +14164,27 @@
                     "validated",
                     "lead_only"
                   ]
+                },
+                "read_depth": {
+                  "description": "Records each source's required reading depth; full_text_audited needs a verified method audit, full_text_read a completed-reading or audit receipt.",
+                  "type": "string",
+                  "enum": [
+                    "full_text_audited",
+                    "full_text_read",
+                    "partial_text",
+                    "abstract_only",
+                    "conference_abstract",
+                    "secondary_only",
+                    "metadata_only",
+                    "inaccessible",
+                    "route_error"
+                  ]
+                },
+                "answer_marker": {
+                  "description": "Required with answer_draft: the visible label for this source, 3–80 characters, on the same line as its link.",
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 80
                 },
                 "reason": {
                   "type": "string",

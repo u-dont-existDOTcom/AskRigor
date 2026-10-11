@@ -7,7 +7,7 @@ import { loadProtocolSectionSnapshot } from "@askrigor/protocol";
 describe("owner research-thread lessons", () => {
   it("puts NoFavoredExplanationPrivilege in a core HRP section beside NoFavoredRemedyPrivilege", async () => {
     const { text, manifest, sections } = await loadProtocolSectionSnapshot("hrp");
-    expect(manifest).toMatchObject({ version: "20.6.16", revisionDate: "2026-10-11" });
+    expect(manifest).toMatchObject({ version: "20.6.17", revisionDate: "2026-10-11" });
     const bytes = Buffer.from(text, "utf8");
     const holding = (rule: string) =>
       sections.filter((section) =>

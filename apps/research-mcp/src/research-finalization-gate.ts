@@ -68,6 +68,11 @@ export const FINALIZE_RESEARCH_CONTRACT = "2026-10-07";
 export const TOOL_LIST_REFRESH_HINT = "If this chat's AskRigor tool has no such field, its tool list is outdated: " +
   "refreshing the AskRigor connector in the app's settings and starting a new chat loads the current list.";
 
+export const READ_DEPTH_VALUES = [
+  "full_text_audited", "full_text_read", "partial_text", "abstract_only", "conference_abstract",
+  "secondary_only", "metadata_only", "inaccessible", "route_error"
+] as const;
+
 export const finalizeResearchInputSchema = z.object({
   receipts: z.array(z.string().max(RESEARCH_RECEIPT_MAX_CHARACTERS)).max(300)
     .describe("Every research_receipt AskRigor tools returned during this research, copied exactly."),
@@ -238,6 +243,10 @@ export const finalizeResearchInputSchema = z.object({
   key_sources: z.array(z.object({
     id: z.string().trim().min(1).max(300).describe("DOI, PMID or PMCID."),
     status: z.enum(["validated", "lead_only"]),
+    read_depth: z.enum(READ_DEPTH_VALUES).optional()
+      .describe("Records each source's required reading depth; full_text_audited needs a verified method audit, full_text_read a completed-reading or audit receipt."),
+    answer_marker: z.string().trim().min(3).max(80).optional()
+      .describe("Required with answer_draft: the visible label for this source, 3–80 characters, on the same line as its link."),
     reason: z.string().trim().min(1).max(1_000).optional()
   }).strict()).max(60)
     .describe("Lists each study the conclusions depend on: validated after a full-text method audit, or lead_only " +
@@ -875,12 +884,19 @@ export function finalizeResearch(
   const pubmedPmcids = new Map<string, string>();
   // DOI -> the PMCIDs its full_text_lead receipts tried ("" when none was).
   const leadAttempts = new Map<string, Set<string>>();
+  const readIds = new Set<string>();
   const searchCopyCaveats = new Set<string>();
   for (const { kind, claims } of verified) {
     if (kind === "pubmed_record" && typeof claims.pmid === "string") {
       pubmedDois.set(normalizeIdentifier(claims.pmid), typeof claims.doi === "string" ? normalizeIdentifier(claims.doi) : "");
       if (typeof claims.pmcid === "string" && claims.pmcid !== "") {
         pubmedPmcids.set(normalizeIdentifier(claims.pmid), claims.pmcid.toUpperCase());
+      }
+    }
+    if (kind === "full_text_read") {
+      for (const key of ["doi", "pmid", "pmcid"]) {
+        const value = claims[key];
+        if (typeof value === "string" && value.length > 0) readIds.add(normalizeIdentifier(value));
       }
     }
     if (kind === "study_audit" || kind === "review_audit") {
@@ -921,11 +937,14 @@ export function finalizeResearch(
   const leadSources: string[] = [];
   // DOI paths may contain parentheses; displayedProse already resolves a
   // Markdown link's delimiters, so its complete target survives extraction.
-  const studyLinkPaths = input.answer_draft === undefined ? [] : displayedProse(input.answer_draft)
-    .flatMap((block) => [...linkTargets(block).matchAll(/https?:\/\/[^\s<>]+/giu)].flatMap(([target]) => {
+  const pathsFor = (block: string): string[] =>
+    [...linkTargets(block).matchAll(/https?:\/\/[^\s<>]+/giu)].flatMap(([target]) => {
       try { return [decodeURIComponent(new globalThis.URL(target).pathname).toLowerCase()]; }
       catch { return []; }
-    }));
+    });
+  const studyLines = input.answer_draft === undefined ? [] : displayedProse(input.answer_draft, true)
+    .flatMap((block) => block.split("\n"));
+  const studyLinkPaths = studyLines.flatMap(pathsFor);
   // Studies read only as leads: one limit each, one caveat for all of them.
   const unreadStudies = new Set<string>();
   for (const source of input.key_sources) {
@@ -933,6 +952,24 @@ export function finalizeResearch(
     // A PMID's DOI (from its PubMed record receipt) also identifies the study.
     const pubmedDoi = isPmid(id) ? pubmedDois.get(id) : undefined;
     const ids = pubmedDoi === undefined || pubmedDoi === "" ? [id] : [id, pubmedDoi];
+    const audited = ids.some((candidate) => validatedIds.has(candidate));
+    const read = audited || ids.some((candidate) => readIds.has(candidate));
+    if (source.read_depth === undefined) {
+      requireDeclaration(`Give key_sources.read_depth for ${source.id}: ${READ_DEPTH_VALUES.join(", ")}.`);
+    } else if ((source.read_depth === "full_text_audited" && !audited) ||
+               (source.read_depth === "full_text_read" && !read)) {
+      nextSteps.push(`Key source ${source.id} cannot support read_depth ${source.read_depth} with these receipts; ` +
+        `give read_depth ${read ? "full_text_read" : "partial_text or another lower value reflecting what was read"}, ` +
+        `or pass its matching research_receipt.`);
+    }
+    if (input.answer_draft !== undefined) {
+      if (source.answer_marker === undefined) {
+        requireDeclaration(`Give key_sources.answer_marker for ${source.id}: the visible label, 3 to 80 characters, on the same line as its link in answer_draft.`);
+      } else if (!studyLines.some((line) => keyStudyLinked(pathsFor(line), ids) && caveatText(source.answer_marker!) !== "" &&
+          caveatText(visibleText(line)).includes(caveatText(source.answer_marker!)))) {
+        nextSteps.push(`Key source ${source.id} has no answer_marker on the same line as its link in answer_draft; put its answer_marker there.`);
+      }
+    }
     if (input.answer_draft !== undefined && (isPmid(id) || isDoi(id) || isPmcid(id)) &&
         !keyStudyLinked(studyLinkPaths, ids)) {
       const page = isPmid(id) ? `https://pubmed.ncbi.nlm.nih.gov/${id}/`

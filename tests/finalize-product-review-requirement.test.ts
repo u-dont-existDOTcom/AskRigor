@@ -79,7 +79,7 @@ function packageFor(
     shopping: { status: "not_requested" },
     treatment_choice: "not_compared",
     intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
-    key_sources: [{ id: "10.1002/art.41142", status: "validated" }],
+    key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" }],
     principal_communities: [{ name: REDDIT.community, platform: REDDIT.platform }, { name: FORUM.community, platform: FORUM.platform }],
     community_searches: [REDDIT, FORUM],
     answer_draft: "[Study](https://doi.org/10.1002/art.41142)\n\n" + [paragraph(REDDIT), paragraph(FORUM), paragraph(REVIEWS)].join("\n\n"),
