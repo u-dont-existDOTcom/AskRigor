@@ -71,6 +71,7 @@ function packageFor(
       id: "PMC10518852", doi: "10.1002/art.41142", status: "complete_no_unresolved_fields"
     }, receiptOptions)],
     community_evidence: "researched",
+    lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
     full_text_search: { status: "not_needed", reason: "Synthetic fixtures isolate buyer review checks." },
     commercial_review_applicability: { ...REQUIRED, products: [...REQUIRED.products] },
     research_target: TARGET,

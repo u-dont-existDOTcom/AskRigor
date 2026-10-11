@@ -24,6 +24,7 @@ const sign = (kind: Parameters<typeof issueResearchReceipt>[0], claims: Paramete
 const study = (id = DOI) => sign("study_audit", { id, status: "complete_no_unresolved_fields" });
 const declaration = { status: "not_applicable" as const, reason: "Pure ion-exchange mechanism involves no product or service people buy." };
 const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchInput => ({
+  lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
   full_text_search: { status: "not_needed", reason: "Synthetic fixtures isolate other completion checks." },
   receipts: [study()], research_target: TARGET, research_depth: "deep", treatment_choice: "not_compared",
   community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome", not_relevant_reason: "Pure chemical mechanism with no real-world outcome.",
@@ -51,7 +52,7 @@ describe("finalize next-step identifier contract", () => {
   it("derives allowed identifiers from all schema depths, enums, tool names and reviewed output fields", () => {
     expect(inventory.tools).toHaveLength(33);
     for (const identifier of ["registry_code", "other_variant_excluded", "outcome_search", "outcome_search_boundary",
-      "full_text_search", "run", "not_needed", "ratings_shown", "no_text_search", "search_blocked", "benefit", "no_effect", "worse", "adverse", "stopped", "minimal_important_difference",
+      "lab_preparation", "covered", "answer_quotes", "not_applicable", "full_text_search", "run", "not_needed", "ratings_shown", "no_text_search", "search_blocked", "benefit", "no_effect", "worse", "adverse", "stopped", "minimal_important_difference",
       "none_established", "finalize_research", "research_receipt"]) expect(allowedNextStepIdentifiers.has(identifier)).toBe(true);
     expect(schemaIdentifiers({ properties: { array: { items: { anyOf: [
       { properties: { nested_field: { enum: ["enum_value"] } } }, { const: "literal_value" }
@@ -76,6 +77,12 @@ describe("finalize next-step identifier contract", () => {
     );
     expect(input.properties.commercial_review_applicability!.description).toContain(
       "Records a required declaration when community evidence is researched, or when no_real_world_outcome is declared with key studies."
+    );
+    expect(input.properties.lab_preparation!.description).toBe(
+      "Records the model's declaration of lab preparation: covered with one to five quotes from " +
+      "answer_draft giving collection conditions or preparation advice, or not_applicable with its reason when the " +
+      "answer interprets no lab result and plans no test. Required when key_sources is non-empty; each covered quote " +
+      "is compared with the answer for this call only. Applicability and advice quality remain the model's declaration."
     );
     const searches = tool.inputSchema as { properties: { community_searches: { items: { properties: {
       review_corpora: { description: string; items: { properties: Record<string, {
@@ -112,6 +119,9 @@ describe("finalize next-step identifier contract", () => {
     ["missing answer", { answer_draft: undefined }],
     ["missing scale", { scale_results: undefined }],
     ["missing absence claims", { absence_claims: undefined }],
+    ["missing lab declaration", { lab_preparation: undefined }],
+    ["unshown lab quote", { lab_preparation: { status: "covered", answer_quotes: ["This sentence is missing from the answer."] } }],
+    ["lab quote without answer", { answer_draft: undefined, lab_preparation: { status: "covered", answer_quotes: ["This sentence needs an answer draft."] } }],
     ["missing full-text declaration", { full_text_search: undefined }],
     ["unmatched full-text query", { full_text_search: { status: "run", queries: ["METHODS:fixture"] } }],
     ["missing commercial reason", { commercial_review_applicability: { status: "not_applicable" } }],

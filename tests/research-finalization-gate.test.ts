@@ -157,6 +157,7 @@ const scaleDefaults = (input: Record<string, unknown>) =>
 // Every call gets the community, offer, absence and scale defaults unless it passes its own.
 const finalizeResearchRaw = (input: Record<string, unknown>, gateOptions: Parameters<typeof finalizeResearchBare>[1]) =>
   finalizeResearchBare({
+    lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
     full_text_search: { status: "not_needed", reason: "Synthetic fixtures isolate other completion checks." },
     intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
     ...((input.community_evidence === "researched" || input.not_relevant_basis === "no_real_world_outcome")
@@ -957,6 +958,7 @@ describe("finalize_research gate", () => {
       ["xyz789", trt], ["def456", found("testosterone", "Ten years on TRT")]
     ]);
     const gate = (trt: RedditThreadCheck, trtTitle?: string, draft?: string) => finalizeResearchBare({
+      lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
       full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates Reddit thread verification." },
       ...base, commercial_review_applicability: NONCOMMERCIAL_EXERCISE,
       intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." },
@@ -1046,6 +1048,7 @@ describe("finalize_research gate", () => {
       }
     });
     const result = finalizeResearchBare({
+      lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
       full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates community coverage checks." },
       research_depth: "deep",
       receipts: [study],
@@ -1110,6 +1113,7 @@ describe("finalize_research gate", () => {
       }
     };
     const request = (corpora?: unknown, searches?: unknown[]) => ({
+      lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
       full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates review corpus checks." },
       intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient study product is involved." },
       shopping: { status: "not_requested" },

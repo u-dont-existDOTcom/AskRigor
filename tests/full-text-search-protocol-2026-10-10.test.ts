@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
-import { getProtocolManifest, loadProtocolSectionSnapshot } from "@askrigor/protocol";
+import { getProtocolManifest, protocolSections } from "@askrigor/protocol";
 
 const ROOT = new URL("../", import.meta.url);
 const FIXTURE = new URL("tests/fixtures/protocol-edits/2026-10-10-full-text-search.json", ROOT);
@@ -25,8 +25,21 @@ const APPROVED = {
   check: "Where the answer could sit only in full texts (harms, co-interventions, exact products or doses, secondary results, funding, case details), a full-text search was run and its coverage stated, or the final check records why none was needed.",
 } as const;
 
+async function undoLabPreparation(text: string): Promise<string> {
+  const { hrp: lab } = JSON.parse(await readFile(
+    new URL("tests/fixtures/protocol-edits/2026-10-11-lab-preparation.json", ROOT), "utf8",
+  )) as { hrp: RecordedEdits };
+  expect(sha256(text)).toBe(lab.to.sha256);
+  const prior = [...lab.edits].reverse().reduce(
+    (current, [before, after]) => replaceOnce(current, after, before), text,
+  );
+  expect(sha256(prior)).toBe(lab.from.sha256);
+  return prior;
+}
+
 async function sectionText(name: string): Promise<string> {
-  const { text, sections } = await loadProtocolSectionSnapshot("hrp");
+  const text = await undoLabPreparation(await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8"));
+  const sections = protocolSections("hrp", text);
   const matches = sections.filter((section) => section.name === name);
   expect(matches, name).toHaveLength(1);
   const [section] = matches;
@@ -65,7 +78,8 @@ describe("owner-approved full-text search triggers, question 65: A (2026-10-10)"
     });
     expect(fixture.to.version).toBe("20.6.15");
     expect(fixture.edits).toHaveLength(5);
-    const onDisk = await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
+    const current = await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
+    const onDisk = await undoLabPreparation(current);
     expect(XMLValidator.validate(onDisk)).toBe(true);
     expect(sha256(onDisk)).toBe(fixture.to.sha256);
     expect(onDisk).toContain('<Protocol name="HRP" version="20.6.15" revisionDate="2026-10-10"');
@@ -77,7 +91,7 @@ describe("owner-approved full-text search triggers, question 65: A (2026-10-10)"
     expect(prior).toContain('<Protocol name="HRP" version="20.6.14" revisionDate="2026-10-09"');
     expect(fixture.edits.reduce((text, [before, after]) => replaceOnce(text, before, after), prior)).toBe(onDisk);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: "20.6.15", revisionDate: "2026-10-10", sha256: sha256(onDisk),
+      name: "HRP", version: "20.6.16", revisionDate: "2026-10-11", sha256: sha256(current),
     });
     await expect(getProtocolManifest("universal")).resolves.toEqual({
       name: "AskRigor.com universal saved instructions", version: "20.5.37", revisionDate: "2026-10-09",

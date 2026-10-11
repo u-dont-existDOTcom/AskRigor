@@ -74,7 +74,20 @@ function replaceOnce(text: string, before: string, after: string): string {
   return text.replace(before, after);
 }
 
+async function undoLabPreparation(text: string): Promise<string> {
+  const { hrp: lab } = JSON.parse(await readFile(
+    new URL("tests/fixtures/protocol-edits/2026-10-11-lab-preparation.json", ROOT), "utf8",
+  )) as { hrp: RecordedEdits };
+  expect(sha256(text)).toBe(lab.to.sha256);
+  const prior = [...lab.edits].reverse().reduce(
+    (current, [before, after]) => replaceOnce(current, after, before), text,
+  );
+  expect(sha256(prior)).toBe(lab.from.sha256);
+  return prior;
+}
+
 async function undoFullTextSearch(text: string): Promise<string> {
+  text = await undoLabPreparation(text);
   const { hrp: search } = JSON.parse(await readFile(
     new URL("tests/fixtures/protocol-edits/2026-10-10-full-text-search.json", ROOT), "utf8",
   )) as { hrp: RecordedEdits };
