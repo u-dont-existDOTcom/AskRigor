@@ -46,6 +46,8 @@ export interface OpenFullTextAcquisitionData {
     route: "europe_pmc" | "unpaywall" | "candidate" | "owner_library";
     result: "indexed" | "not_found" | "inaccessible" | "fetch_blocked" | "error" | "partial_text" | "abstract_only" | "identity_mismatch" | "not_public";
     identifier?: string;
+    http_status?: number;
+    retryable?: boolean;
   }>;
   document_index?: AuditableDocumentIndex;
   access_boundary?: string;
@@ -106,7 +108,9 @@ export async function acquireOpenFullText(
           }
           attempts.push({ route: "europe_pmc", result: admission.state === "ABSTRACT_ONLY" ? "abstract_only" : "partial_text", identifier: resolvedPmcid });
         }
-      } else attempts.push({ route: "europe_pmc", result: routeResult(result.access_status), identifier: resolvedPmcid });
+      } else attempts.push({ route: "europe_pmc", result: routeResult(result.access_status), identifier: resolvedPmcid,
+        ...(result.error?.http_status === undefined ? {} : { http_status: result.error.http_status }),
+        ...(result.error?.retryable === undefined ? {} : { retryable: result.error.retryable }) });
     } catch { attempts.push({ route: "europe_pmc", result: "error", identifier: resolvedPmcid }); }
   }
   if (unpaywallConfig === undefined) {
@@ -196,11 +200,15 @@ export async function acquireOpenFullText(
   const discovery = `Exact public-copy discovery remains: an exact search by the listed ${identifiers}. candidate_urls records public copies found; candidate_texts accepts AI-supplied search-index copies; public_copy_search records the searches, including a search that found nothing without candidate_urls or candidate_texts.`;
   const missing = publicCopySearch.status === "missing_exact_identifiers"
     ? ` The declared queries lack the exact ${publicCopySearch.missing!.join(" and ")}.` : "";
-  const boundary = librarySearchRequired
+  const europePmcFailure = attempts.find((attempt) => attempt.route === "europe_pmc" && attempt.identifier === resolvedPmcid &&
+    attempt.http_status !== undefined && (attempt.http_status === 429 || attempt.http_status >= 500 && attempt.http_status < 600));
+  const pmcBoundary = europePmcFailure === undefined ? ""
+    : ` Europe PMC's full-text service failed for ${resolvedPmcid} (HTTP ${europePmcFailure.http_status}); the article's PubMed Central page (https://pmc.ncbi.nlm.nih.gov/articles/${resolvedPmcid}/) may be readable by the AI's own browsing, and a copy read there can be passed back as candidate_texts with retrieved_via "client_search_index", which AskRigor checks for identity and completeness as usual.`;
+  const boundary = (librarySearchRequired
     ? `The owner library requires a verified public basis for this account. ${discovery}${missing}`
     : state === "PRIMARY_OA_ROUTES_EXHAUSTED"
     ? `The primary open-access routes ended without an admitted copy. ${discovery}${missing}`
-    : `No supplied or primary-route${runtime.ownerLibrary === undefined ? "" : " or owner-library"} copy was admitted. The public-copy search is ${publicCopySearch.status}.${missing}`;
+    : `No supplied or primary-route${runtime.ownerLibrary === undefined ? "" : " or owner-library"} copy was admitted. The public-copy search is ${publicCopySearch.status}.${missing}`) + pmcBoundary;
   const failed = hasFailedFullTextAcquisition({ discovery_attempts: attempts, candidates, acquisition_state: state });
   return errorEnvelope({
     provider: "open_full_text", recordType: "open_full_text_acquisition", primaryIdentifier: doi,
