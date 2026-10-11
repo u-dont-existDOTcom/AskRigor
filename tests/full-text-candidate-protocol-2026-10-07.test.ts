@@ -10,7 +10,16 @@ const squash = (text: string) => text.replace(/\s+/gu, " ").trim();
 const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
 
 async function hrp20614(): Promise<string> {
-  const onDisk = await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
+  const current = await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
+  const { hrp: lab } = JSON.parse(await readFile(
+    new URL("tests/fixtures/protocol-edits/2026-10-11-lab-preparation.json", ROOT), "utf8",
+  )) as { hrp: { from: { sha256: string }; to: { sha256: string }; edits: Array<[string, string]> } };
+  expect(sha256(current)).toBe(lab.to.sha256);
+  const onDisk = [...lab.edits].reverse().reduce((text, [before, after]) => {
+    expect(text.split(after), after.slice(0, 80)).toHaveLength(2);
+    return text.replace(after, before);
+  }, current);
+  expect(sha256(onDisk)).toBe(lab.from.sha256);
   const { hrp: search } = JSON.parse(await readFile(
     new URL("tests/fixtures/protocol-edits/2026-10-10-full-text-search.json", ROOT), "utf8",
   )) as { hrp: { from: { sha256: string }; to: { sha256: string }; edits: Array<[string, string]> } };

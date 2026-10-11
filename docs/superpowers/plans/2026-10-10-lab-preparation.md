@@ -76,7 +76,7 @@
 - **Check FS219:** "For a lab result or a planned repeat test, collection conditions that could change the value or the
   draw were considered, preparation advice was given before any repeat draw, and no preparation factor replaced
   confirmation or urgent evaluation (PreanalyticReadiness)."
-- **Revision entry:** "Owner-approved, question 70 (2026-10-10): added PreanalyticReadiness, which considers collection
+- **Revision entry:** "Owner-approved, question 70 (2026-10-11): added PreanalyticReadiness, which considers collection
   conditions before treating a lab result as real and gives preparation advice before a repeat draw, with two stress
   cases and final check FS219."
 

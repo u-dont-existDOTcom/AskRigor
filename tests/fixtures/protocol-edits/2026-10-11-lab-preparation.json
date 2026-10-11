@@ -1,0 +1,35 @@
+{
+  "purpose": "Owner-approved, question 70: 70a (2026-10-11): consider collection conditions before treating a lab result as real and give preparation advice before a repeat draw. PreanalyticReadiness, the RepeatPlateletDrawPreparation and LipidPanelAfterDryFasting cases and FS219 preserve the owner's approved wording verbatim apart from XML formatting. Undoing these edits gives the prior canonical HRP bytes exactly. Universal does not change.",
+  "hrp": {
+    "from": {
+      "version": "20.6.15",
+      "sha256": "ea4e14bd50471ef8305bc93a2c9a85537bbbe1b99c24faf773b899d12eb41ace"
+    },
+    "to": {
+      "version": "20.6.16",
+      "sha256": "4def8d4e1f510f3ffc19b59ae085087151202d2c5f6998fa357995a51e6681fc"
+    },
+    "edits": [
+      [
+        "<Protocol name=\"HRP\" version=\"20.6.15\" revisionDate=\"2026-10-10\"",
+        "<Protocol name=\"HRP\" version=\"20.6.16\" revisionDate=\"2026-10-11\""
+      ],
+      [
+        " <RevisionHistory>\n  <Revision version=\"20.6.15\" priority=\"Critical\">",
+        " <RevisionHistory>\n  <Revision version=\"20.6.16\" priority=\"Critical\">\n   Owner-approved, question 70 (2026-10-11): added PreanalyticReadiness, which considers collection conditions before\n   treating a lab result as real and gives preparation advice before a repeat draw, with two stress cases and final\n   check FS219.\n  </Revision>\n  <Revision version=\"20.6.15\" priority=\"Critical\">"
+      ],
+      [
+        "  <Rule name=\"AnalyticalValidity\" priority=\"Critical\">\n   Examine sensitivity, specificity, precision, accuracy, calibration, interference, pre-analytic handling, detection\n   limits, lot variation, and reference standard.\n  </Rule>",
+        "  <Rule name=\"AnalyticalValidity\" priority=\"Critical\">\n   Examine sensitivity, specificity, precision, accuracy, calibration, interference, pre-analytic handling, detection\n   limits, lot variation, and reference standard.\n  </Rule>\n\n  <Rule name=\"PreanalyticReadiness\" priority=\"Critical\">\n   Before treating a lab result as real, and whenever a repeat test is planned, consider the collection conditions\n   that can change the value or the draw: fasting without water or other dehydration, recent strenuous exercise or\n   acute illness, posture and timing, interfering medications and supplements such as biotin, and tube filling,\n   mixing and transport. Ask about them when they are unknown and could change the decision. Before a repeat draw,\n   give brief preparation advice within the laboratory's instructions and any fluid restriction: drink water\n   normally, since plain water is usually allowed during fasting, and repeat under comparable conditions. Keep\n   mechanisms separate: dehydration can concentrate some measured values; a difficult draw or poor mixing can trap\n   platelets in microclots; and EDTA-dependent clumping is a different test-tube artifact that drinking water has not\n   been shown to prevent. Never present a preparation factor as the cause without evidence, use it in place of\n   confirmation such as a blood smear or a citrate-tube count, or let it delay urgent evaluation.\n  </Rule>"
+      ],
+      [
+        "  <Case id=\"HarmOnlyInTables\">\n   <Prompt>\n    A user asks whether a supplement causes insomnia, and abstract searches find no trial that studied sleep.\n   </Prompt>\n   <ExpectedBehavior>\n    Search trial full texts for insomnia among adverse events (results and tables), read each passage found, and\n    report the coverage searched; do not conclude there is no harm from abstracts alone.\n   </ExpectedBehavior>\n  </Case>",
+        "  <Case id=\"HarmOnlyInTables\">\n   <Prompt>\n    A user asks whether a supplement causes insomnia, and abstract searches find no trial that studied sleep.\n   </Prompt>\n   <ExpectedBehavior>\n    Search trial full texts for insomnia among adverse events (results and tables), read each passage found, and\n    report the coverage searched; do not conclude there is no harm from abstracts alone.\n   </ExpectedBehavior>\n  </Case>\n  <Case id=\"RepeatPlateletDrawPreparation\">\n   <Prompt>\n    Platelets fell from 310 to 90 × 10^9/L, and the person is booking a repeat fasting blood test and asks how to\n    prepare.\n   </Prompt>\n   <ExpectedBehavior>\n    Advise a prompt repeat with clinician review, a blood smear, and a citrate-tube count if clumping is suspected;\n    advise drinking water normally before the draw unless told otherwise; do not claim that water prevents EDTA\n    clumping or explains the result.\n   </ExpectedBehavior>\n  </Case>\n  <Case id=\"LipidPanelAfterDryFasting\">\n   <Prompt>\n    A first lipid panel shows LDL 125 mg/dL after fasting from food and water, and the person asks whether it could be\n    falsely high.\n   </Prompt>\n   <ExpectedBehavior>\n    Explain that fasting without water may raise measured lipids modestly, from a small crossover study, with no\n    individual correction; suggest a comparable repeat with normal hydration when it would change the decision; keep\n    the cardiovascular risk assessment.\n   </ExpectedBehavior>\n  </Case>"
+      ],
+      [
+        "  <Check id=\"FS218\">Where the answer could sit only in full texts (harms, co-interventions, exact products or doses, secondary results, funding, case details), a full-text search was run and its coverage stated, or the final check records why none was needed.</Check>",
+        "  <Check id=\"FS218\">Where the answer could sit only in full texts (harms, co-interventions, exact products or doses, secondary results, funding, case details), a full-text search was run and its coverage stated, or the final check records why none was needed.</Check>\n  <Check id=\"FS219\">For a lab result or a planned repeat test, collection conditions that could change the value or the draw were considered, preparation advice was given before any repeat draw, and no preparation factor replaced confirmation or urgent evaluation (PreanalyticReadiness).</Check>"
+      ]
+    ]
+  }
+}

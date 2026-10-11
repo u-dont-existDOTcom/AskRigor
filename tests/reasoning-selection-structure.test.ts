@@ -428,14 +428,23 @@ describe("canonical Reasoning Selection application", () => {
       readFile(new URL("project/FORUM_SIGNAL_MODULE.md", ROOT)),
     ]);
 
-    const { hrp: search } = JSON.parse(await readFile(
-      new URL("tests/fixtures/protocol-edits/2026-10-10-full-text-search.json", ROOT), "utf8",
+    const { hrp: lab } = JSON.parse(await readFile(
+      new URL("tests/fixtures/protocol-edits/2026-10-11-lab-preparation.json", ROOT), "utf8",
     )) as { hrp: { from: { sha256: string }; to: { sha256: string }; edits: Array<[string, string]> } };
-    expect(sha256(hrp)).toBe(search.to.sha256);
-    const prior = [...search.edits].reverse().reduce((text, [before, after]) => {
+    expect(sha256(hrp)).toBe(lab.to.sha256);
+    const hrp20615 = [...lab.edits].reverse().reduce((text, [before, after]) => {
       expect(text.split(after), after.slice(0, 80)).toHaveLength(2);
       return text.replace(after, before);
     }, hrp.toString("utf8"));
+    expect(sha256(hrp20615)).toBe(lab.from.sha256);
+    const { hrp: search } = JSON.parse(await readFile(
+      new URL("tests/fixtures/protocol-edits/2026-10-10-full-text-search.json", ROOT), "utf8",
+    )) as { hrp: { from: { sha256: string }; to: { sha256: string }; edits: Array<[string, string]> } };
+    expect(sha256(hrp20615)).toBe(search.to.sha256);
+    const prior = [...search.edits].reverse().reduce((text, [before, after]) => {
+      expect(text.split(after), after.slice(0, 80)).toHaveLength(2);
+      return text.replace(after, before);
+    }, hrp20615);
     expect(sha256(prior)).toBe(search.from.sha256);
     expect(sha256(prior)).toBe(
       "c5f544d0ad666970f122ecd14dbbca25befd2b53c7f2078275fdb3026bab70f1",

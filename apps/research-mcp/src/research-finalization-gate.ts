@@ -83,6 +83,19 @@ export const finalizeResearchInputSchema = z.object({
   ]).optional().describe("Records the model's declaration of full-text search: run with the Europe PMC section queries " +
     "searched, or not_needed with its reason. Required when key_sources is non-empty; each run query matches a " +
     "verified Europe PMC section-search receipt."),
+  lab_preparation: z.discriminatedUnion("status", [
+    z.object({
+      status: z.literal("covered"),
+      answer_quotes: z.array(z.string().trim().min(10).max(500)).min(1).max(5)
+    }).strict(),
+    z.object({
+      status: z.literal("not_applicable"),
+      reason: z.string().trim().min(10).max(300)
+    }).strict()
+  ]).optional().describe("Records the model's declaration of lab preparation: covered with one to five quotes from " +
+    "answer_draft giving collection conditions or preparation advice, or not_applicable with its reason when the " +
+    "answer interprets no lab result and plans no test. Required when key_sources is non-empty; each covered quote " +
+    "is compared with the answer for this call only. Applicability and advice quality remain the model's declaration."),
   community_evidence: z.enum(["researched", "not_relevant"])
     .describe("researched when firsthand community evidence could plausibly matter; not_relevant needs a basis and a reason."),
   commercial_review_applicability: z.object({
@@ -505,6 +518,11 @@ export function finalizeResearch(
           "Search that query with section fields using search_europe_pmc and pass its research_receipt in receipts.");
       }
     }
+  }
+
+  if (input.lab_preparation === undefined && input.key_sources.length > 0) {
+    requireDeclaration("Give lab_preparation: status covered with answer_quotes from answer_draft giving collection " +
+      "conditions or preparation advice, or status not_applicable with reason.");
   }
 
   // Community evidence. Discovery receipts (surveys, one-call community audits,
@@ -1227,6 +1245,7 @@ export function finalizeResearch(
       lanes,
       absenceQuotes: absenceClaims.map(({ quote }) => quote),
       scaleResults: input.scale_results ?? [],
+      labPreparationQuotes: input.lab_preparation?.status === "covered" ? input.lab_preparation.answer_quotes : [],
       missingDeclaration: () => { missingDeclaration = true; },
       ...(input.answer_language === undefined ? {} : { answerLanguage: input.answer_language }),
       renderings: input.caveat_renderings ?? []
@@ -1353,6 +1372,7 @@ function answerDraftProblems(
     lanes: readonly AnswerLane[];
     absenceQuotes: readonly string[];
     scaleResults: NonNullable<FinalizeResearchInput["scale_results"]>;
+    labPreparationQuotes: readonly string[];
     missingDeclaration: () => void;
     answerLanguage?: string;
     renderings: ReadonlyArray<{ caveat: string; text: string }>;
@@ -1439,6 +1459,12 @@ function answerDraftProblems(
       `${unshownAbsence.map((index) => `absence_claims[${index}]`).join(", ")} ${unshownAbsence.length === 1 ? "gives" : "give"} ` +
         "text the answer does not show: copy each sentence exactly from answer_draft."
     );
+  }
+  for (const [index, quote] of context.labPreparationQuotes.entries()) {
+    if (showing(quote).length === 0) {
+      problems.push(`lab_preparation.answer_quotes[${index}] gives text the answer does not show: ` +
+        "the quote does not occur in answer_draft.");
+    }
   }
   // As with absence_claims, undeclared results are invisible to this gate.
   // Meaning, direction and magnitude wording remain the model's declarations;

@@ -22,6 +22,7 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   not_relevant_reason: "Synthetic exact syntax and receipt checks.",
   commercial_review_applicability: { status: "not_applicable", reason: "Synthetic fixture concerns no commercial product." },
   intervention_identity: { status: "not_applicable", reason: "Synthetic fixture contains no study intervention." },
+  lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
   key_sources: [{ id: DOI, status: "validated" }], absence_claims: [], scale_results: [],
   answer_draft: `[Study](https://doi.org/${DOI}) reports a synthetic mechanism.`, ...overrides
 });
