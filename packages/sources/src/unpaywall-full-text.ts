@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
+import { dirname, join, sep } from "node:path";
 
 import {
   errorEnvelope,
@@ -27,6 +29,9 @@ import {
 import { admitFullText, titleVariants, verifyArticleIdentity, type AcquisitionState, type FrozenArticleIdentity, type FullTextAdmission, type PublicBasis } from "./full-text-admission.js";
 
 const MAX_PDF_PAGES = 1_000;
+const PDFJS_DIRECTORY = dirname(createRequire(import.meta.url).resolve("pdfjs-dist/package.json"));
+const STANDARD_FONT_DATA_URL = join(PDFJS_DIRECTORY, "standard_fonts") + sep;
+const CMAP_URL = join(PDFJS_DIRECTORY, "cmaps") + sep;
 const MAX_EXTRACTED_CHARACTERS = 20_000_000;
 const DOI_PATTERN = /^10\.\d{4,9}\/[!#$%&'*+\-._;()/:a-z0-9]+$/iu;
 
@@ -218,6 +223,10 @@ export async function extractAuditablePdf(
   const contentHash = createHash("sha256").update(input.bytes).digest("hex");
   const loadingTask = getDocument({
     data: input.bytes.slice(),
+    standardFontDataUrl: STANDARD_FONT_DATA_URL,
+    cMapUrl: CMAP_URL,
+    cMapPacked: true,
+    verbosity: 0,
     stopAtErrors: true,
     useSystemFonts: false,
     useWasm: false

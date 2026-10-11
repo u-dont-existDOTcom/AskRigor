@@ -1,4 +1,8 @@
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { join, sep } from "node:path";
+
 import { okEnvelope } from "@askrigor/contracts";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { describe, expect, it, vi } from "vitest";
 
 import { fetchDiscoveredDocument } from "../packages/sources/src/http.js";
@@ -9,6 +13,11 @@ import {
 } from "../packages/sources/src/index.js";
 
 import { syntheticArticleText, syntheticPdf } from "./helpers/synthetic-full-text.js";
+
+vi.mock("pdfjs-dist/legacy/build/pdf.mjs", async (importOriginal) => {
+  const original = await importOriginal<typeof import("pdfjs-dist/legacy/build/pdf.mjs")>();
+  return { ...original, getDocument: vi.fn(original.getDocument) };
+});
 
 const DOI = "10.1234/open.study";
 const CONFIG = { email: "research@example.org" };
@@ -186,6 +195,60 @@ describe("bounded discovered-document transport", () => {
 });
 
 describe("PDF identity extraction", () => {
+  it("extracts non-embedded Helvetica silently using installed font and CMap assets", async () => {
+    const text = syntheticArticleText(`A careful open study DOI ${DOI}`);
+    const bytes = syntheticPdf(text);
+    expect(new TextDecoder().decode(bytes)).toContain("/BaseFont /Helvetica");
+    expect(new TextDecoder().decode(bytes)).not.toContain("/FontFile");
+    vi.mocked(getDocument).mockClear();
+    const outputSpies = [
+      vi.spyOn(console, "log").mockImplementation(() => {}),
+      vi.spyOn(console, "warn").mockImplementation(() => {}),
+      vi.spyOn(console, "error").mockImplementation(() => {}),
+      vi.spyOn(process.stdout, "write").mockImplementation(() => true),
+      vi.spyOn(process.stderr, "write").mockImplementation(() => true)
+    ];
+    let index: Awaited<ReturnType<typeof extractAuditablePdf>>;
+    let outputCalls: number[];
+    try {
+      index = await extractAuditablePdf({
+        doi: DOI,
+        canonicalUrl: "https://repository.example.org/open-study.pdf",
+        bytes
+      });
+      outputCalls = outputSpies.map((spy) => spy.mock.calls.length);
+    } finally {
+      for (const spy of outputSpies) spy.mockRestore();
+    }
+    expect(outputCalls).toEqual([0, 0, 0, 0, 0]);
+    expect(index?.source.identity_verification).toBe("doi_exact");
+    expect(index?.blocks.map((block) => block.text).join(" ").replace(/\s+/gu, " ").trim())
+      .toBe(text.replace(/\s+/gu, " ").trim());
+
+    expect(getDocument).toHaveBeenCalledOnce();
+    const options = vi.mocked(getDocument).mock.calls[0]![0];
+    expect(options).toMatchObject({
+      standardFontDataUrl: expect.stringContaining(`${sep}standard_fonts${sep}`),
+      cMapUrl: expect.stringContaining(`${sep}cmaps${sep}`),
+      cMapPacked: true,
+      verbosity: 0,
+      stopAtErrors: true,
+      useSystemFonts: false,
+      useWasm: false
+    });
+    if (typeof options !== "object" || options === null || !("standardFontDataUrl" in options) || !("cMapUrl" in options)) {
+      throw new Error("Missing PDF asset options");
+    }
+    const fontDirectory = options.standardFontDataUrl!;
+    const cmapDirectory = options.cMapUrl!;
+    expect(statSync(fontDirectory).isDirectory()).toBe(true);
+    expect(existsSync(join(fontDirectory, "LiberationSans-Regular.ttf"))).toBe(true);
+    expect(existsSync(join(fontDirectory, "FoxitSerif.pfb"))).toBe(true);
+    expect(statSync(cmapDirectory).isDirectory()).toBe(true);
+    expect(existsSync(join(cmapDirectory, "Adobe-Japan1-UCS2.bcmap"))).toBe(true);
+    expect(readdirSync(cmapDirectory).filter((file) => file.endsWith(".bcmap")).length).toBeGreaterThan(0);
+  });
+
   it("accepts an exact title despite PDF line breaks when the DOI is absent", async () => {
     const index = await extractAuditablePdf({
       doi: DOI,
