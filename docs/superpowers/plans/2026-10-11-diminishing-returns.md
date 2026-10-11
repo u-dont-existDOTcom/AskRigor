@@ -61,5 +61,7 @@ survives "continue" turns and context resets. It needs its own design and privac
 
 ## Owner items
 
+Question 73 answered "73a" on 2026-10-11; built on this branch.
+
 1. Question 73: this wording. A: as drafted; B: change it.
 2. The release question, after the build. It stacks on question 71's HRP 20.6.17.
