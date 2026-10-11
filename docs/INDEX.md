@@ -63,6 +63,8 @@ complete XML protocol.
   findings library's opening
 - `audits/2026-10-10-full-text-owner-library-production-release.md`: release of #294, #287 and #296 (owner question 62):
   full-text route recovery with HRP 20.6.14, the owner library route, and the pending site install.
+- `audits/2026-10-10-full-text-search-production-release.md`: release of #302 and #303: full-text search version 1,
+  HRP 20.6.15, owner-library error codes, production acceptance and the Codex plugin refresh.
 - `audits/2026-10-09-product-identity-finalizer-production-release.md`: release of #288 and #290 (owner question 60):
   exact product identity, the final-check contract and HRP 20.6.13 / Universal 20.5.37, with the plugin refresh.
 - `audits/2026-10-09-offline-access-production-release.md`: release of #289 and #291 (owner question 56):
