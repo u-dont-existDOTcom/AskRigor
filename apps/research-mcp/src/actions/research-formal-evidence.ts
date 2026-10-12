@@ -181,7 +181,9 @@ const sourceOriginSchema = z.object({
 const discoveryAttemptSchema = z.object({
   route: z.enum(["europe_pmc", "unpaywall", "candidate", "owner_library"]),
   result: z.enum(["indexed", "not_found", "inaccessible", "fetch_blocked", "error", "partial_text", "abstract_only", "identity_mismatch", "not_public"]),
-  identifier: bounded(2_048).optional()
+  identifier: bounded(2_048).optional(),
+  http_status: z.number().int().optional(),
+  retryable: z.boolean().optional()
 }).strict();
 
 const fullTextStateSchema = z.object({

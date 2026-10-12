@@ -1454,6 +1454,14 @@
                 },
                 "identifier": {
                   "type": "string"
+                },
+                "http_status": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "retryable": {
+                  "type": "boolean"
                 }
               },
               "required": [
@@ -2037,6 +2045,14 @@
                 },
                 "identifier": {
                   "type": "string"
+                },
+                "http_status": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "retryable": {
+                  "type": "boolean"
                 }
               },
               "required": [
