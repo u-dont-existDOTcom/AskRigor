@@ -2,9 +2,9 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { expect } from "vitest";
 
-export async function undoReadDepth(text: string, protocol: "hrp" | "universal"): Promise<string> {
+async function undoRecordedEdits(text: string, protocol: "hrp" | "universal", file: string): Promise<string> {
   const recorded = JSON.parse(await readFile(new URL(
-    "../fixtures/protocol-edits/2026-10-11-read-depth.json", import.meta.url,
+    `../fixtures/protocol-edits/${file}`, import.meta.url,
   ), "utf8"))[protocol] as {
     from: { sha256: string }; to: { sha256: string }; edits: Array<[string, string]>;
   };
@@ -16,4 +16,13 @@ export async function undoReadDepth(text: string, protocol: "hrp" | "universal")
   }, text);
   expect(hash(prior)).toBe(recorded.from.sha256);
   return prior;
+}
+
+export async function undoDiminishingReturns(text: string): Promise<string> {
+  return undoRecordedEdits(text, "hrp", "2026-10-11-diminishing-returns.json");
+}
+
+export async function undoReadDepth(text: string, protocol: "hrp" | "universal"): Promise<string> {
+  if (protocol === "hrp") text = await undoDiminishingReturns(text);
+  return undoRecordedEdits(text, protocol, "2026-10-11-read-depth.json");
 }

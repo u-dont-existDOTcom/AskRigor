@@ -1,3 +1,4 @@
+import { undoDiminishingReturns } from "./helpers/undo-read-depth.js";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { XMLParser, XMLValidator } from "fast-xml-parser";
@@ -34,7 +35,11 @@ function replaceOnce(text: string, before: string, after: string): string {
   return result;
 }
 const files = { hrp: "HRP_Full.xml", universal: "Universal_Instructions.xml" } as const;
-const load = (protocol: keyof typeof files) => readFile(new URL(`protocols/${files[protocol]}`, ROOT), "utf8");
+const loadCurrent = (protocol: keyof typeof files) => readFile(new URL(`protocols/${files[protocol]}`, ROOT), "utf8");
+const load = async (protocol: keyof typeof files) => {
+  const text = await loadCurrent(protocol);
+  return protocol === "hrp" ? undoDiminishingReturns(text) : text;
+};
 
 describe("question 71: all four wordings and the read-depth check", () => {
   it("chains both reversible edits and derives both current manifests from the canonical bytes", async () => {
@@ -59,7 +64,8 @@ describe("question 71: all four wordings and the read-depth check", () => {
       expect(fixture.edits.reduce((text, [before, after]) => replaceOnce(text, before, after), prior)).toBe(current);
       await expect(getProtocolManifest(protocol)).resolves.toEqual({
         name: protocol === "hrp" ? "HRP" : "AskRigor.com universal saved instructions",
-        version: fixture.to.version, revisionDate: "2026-10-11", sha256: hash(current),
+        version: protocol === "hrp" ? "20.6.18" : fixture.to.version,
+        revisionDate: "2026-10-11", sha256: hash(await loadCurrent(protocol)),
       });
     }
   });
