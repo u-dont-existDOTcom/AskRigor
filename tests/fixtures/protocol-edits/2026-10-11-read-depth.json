@@ -1,0 +1,59 @@
+{
+  "purpose": "Owner-approved, question 71: 71 a (2026-10-11): all four wordings and the read-depth check. Protocol sentences preserve the approved text apart from XML formatting. Undoing these edits gives both prior canonical protocols byte-exactly.",
+  "hrp": {
+    "from": {
+      "version": "20.6.16",
+      "sha256": "4def8d4e1f510f3ffc19b59ae085087151202d2c5f6998fa357995a51e6681fc"
+    },
+    "to": {
+      "version": "20.6.17",
+      "sha256": "682ce6a9e7421f127e0035141d3292ee12842e506039e97302f7974b4f40c340"
+    },
+    "edits": [
+      [
+        "version=\"20.6.16\" revisionDate=\"2026-10-11\"",
+        "version=\"20.6.17\" revisionDate=\"2026-10-11\""
+      ],
+      [
+        " <RevisionHistory>\n",
+        " <RevisionHistory>\n  <Revision version=\"20.6.17\" priority=\"Critical\">\n   Owner-approved, question 71 (2026-10-11): added StudyReadDepthDisclosure, which says beside each supporting study\n   what was actually read and whether its method audit was validated, with stress case CrossTrialResponderRatio and\n   final check FS220.\n  </Revision>\n"
+      ],
+      [
+        "  <Rule name=\"FullTextAccessStatusClassification\" priority=\"Critical\">\n   Classify each prioritized source's access as full text inspected; auditable full-text extraction inspected;\n   partial text; abstract only; snippet or secondary description only; identified but inaccessible, such as behind a\n   login or a paywall or in print only; a public copy found but its fetch blocked; no copy found after the exact\n   search; a provider or route failure; or identity unresolved. Never merge these states, and never report a route\n   failure or a blocked fetch as inaccessibility.\n  </Rule>",
+        "  <Rule name=\"FullTextAccessStatusClassification\" priority=\"Critical\">\n   Classify each prioritized source's access as full text inspected; auditable full-text extraction inspected;\n   partial text; abstract only; snippet or secondary description only; identified but inaccessible, such as behind a\n   login or a paywall or in print only; a public copy found but its fetch blocked; no copy found after the exact\n   search; a provider or route failure; or identity unresolved. Never merge these states, and never report a route\n   failure or a blocked fetch as inaccessibility.\n  </Rule>\n\n  <Rule name=\"StudyReadDepthDisclosure\" priority=\"Critical\">\n   When a study supports a treatment claim or a ranking, say beside the claim, or in the same evidence table, what was\n   actually read: the full text with its methods and results, extracted or partial text, the abstract, a conference\n   abstract, or only a secondary description; and whether its method audit was validated. A full text that is\n   available has not therefore been read, and a full text read has not therefore been audited. A review read in full\n   does not make the studies it cites read. If the status is unknown, say so; never imply a fuller reading than\n   happened.\n  </Rule>"
+      ],
+      [
+        "  <Case id=\"LipidPanelAfterDryFasting\">\n   <Prompt>\n    A first lipid panel shows LDL 125 mg/dL after fasting from food and water, and the person asks whether it could be\n    falsely high.\n   </Prompt>\n   <ExpectedBehavior>\n    Explain that fasting without water may raise measured lipids modestly, from a small crossover study, with no\n    individual correction; suggest a comparable repeat with normal hydration when it would change the decision; keep\n    the cardiovascular risk assessment.\n   </ExpectedBehavior>\n  </Case>",
+        "  <Case id=\"LipidPanelAfterDryFasting\">\n   <Prompt>\n    A first lipid panel shows LDL 125 mg/dL after fasting from food and water, and the person asks whether it could be\n    falsely high.\n   </Prompt>\n   <ExpectedBehavior>\n    Explain that fasting without water may raise measured lipids modestly, from a small crossover study, with no\n    individual correction; suggest a comparable repeat with normal hydration when it would change the decision; keep\n    the cardiovascular risk assessment.\n   </ExpectedBehavior>\n  </Case>\n  <Case id=\"CrossTrialResponderRatio\">\n   <Prompt>\n    One herbal trial reports a 29-point gain in responders but an 11-point severity change on a 0–500 scale; a\n    different drug's trials report a 9-point responder gain. The user asks whether the herb is about three times as\n    effective.\n   </Prompt>\n   <ExpectedBehavior>\n    Refuse the three-times claim across trials with different populations and endpoint definitions; show the responder\n    difference and the severity change with its scale side by side; treat the herb as a weak or unclear effect, not a\n    high-impact finding.\n   </ExpectedBehavior>\n  </Case>"
+      ],
+      [
+        "  <Check id=\"FS219\">For a lab result or a planned repeat test, collection conditions that could change the value or the draw were considered, preparation advice was given before any repeat draw, and no preparation factor replaced confirmation or urgent evaluation (PreanalyticReadiness).</Check>",
+        "  <Check id=\"FS219\">For a lab result or a planned repeat test, collection conditions that could change the value or the draw were considered, preparation advice was given before any repeat draw, and no preparation factor replaced confirmation or urgent evaluation (PreanalyticReadiness).</Check>\n  <Check id=\"FS220\">No ratio or 'times as effective' comparison was drawn across studies unless their estimands, endpoint definitions and populations are comparable, and a responder gain was shown together with any continuous severity change and its scale (ComparisonEstimandAndDoseExposureIntegrityGate).</Check>"
+      ]
+    ]
+  },
+  "universal": {
+    "from": {
+      "version": "20.5.37",
+      "sha256": "342e32e1568954ed62a8b53d75d1ad0efe39cba8d9ad7d143658f02dded169bb"
+    },
+    "to": {
+      "version": "20.5.38",
+      "sha256": "06e5ca6befb9dac648fd41996213394e793e17795087eee8fbc63cbcbbbd8174"
+    },
+    "edits": [
+      [
+        "version=\"20.5.37\" revisionDate=\"2026-10-09\"",
+        "version=\"20.5.38\" revisionDate=\"2026-10-11\""
+      ],
+      [
+        "<revision_history>\n",
+        "<revision_history>\n<revision version=\"20.5.38\" priority=\"Critical\">\nOwner-approved, question 71 (2026-10-11): added ToolListCurrency, which compares the AskRigor tool list's versions\nwith the loaded protocols at the start of research and tells the user before researching when the tool list is out of\ndate.\n</revision>\n"
+      ],
+      [
+        "6. Higher reasoning mode does not substitute for loading the required protocol sections, internal version verification, module execution, or the completion audit. Tool or source failure does not authorize simulated compliance.",
+        "6. Higher reasoning mode does not substitute for loading the required protocol sections, internal version verification, module execution, or the completion audit. Tool or source failure does not authorize simulated compliance.\n<rule name=\"ToolListCurrency\" priority=\"Critical\">\nAt the start of research, compare the versions named at the top of the AskRigor tool list with the protocol versions\njust loaded. If the tool list is older, tell the user before researching: this chat's AskRigor tools are out of date,\nnewer checks cannot run in it, and a new chat or a refreshed connector fixes that. Continue in this chat only if the\nuser chooses to, and then say which checks could not run.\n</rule>"
+      ]
+    ]
+  }
+}

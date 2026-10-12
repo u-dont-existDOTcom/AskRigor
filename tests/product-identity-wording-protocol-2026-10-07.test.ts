@@ -1,3 +1,4 @@
+import { undoReadDepth } from "./helpers/undo-read-depth.js";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
@@ -75,6 +76,7 @@ function replaceOnce(text: string, before: string, after: string): string {
 }
 
 async function undoLabPreparation(text: string): Promise<string> {
+  text = await undoReadDepth(text, "hrp");
   const { hrp: lab } = JSON.parse(await readFile(
     new URL("tests/fixtures/protocol-edits/2026-10-11-lab-preparation.json", ROOT), "utf8",
   )) as { hrp: RecordedEdits };
@@ -104,6 +106,7 @@ async function productIdentityRevision(protocol: keyof typeof FILES): Promise<st
     new URL("tests/fixtures/protocol-edits/2026-10-09-lane-wording.json", ROOT), "utf8",
   ))[protocol] as RecordedEdits;
   let current = await readFile(new URL(`protocols/${FILES[protocol]}`, ROOT), "utf8");
+  if (protocol === "universal") current = await undoReadDepth(current, "universal");
   if (protocol === "hrp") {
     current = await undoFullTextSearch(current);
     const { hrp: fullText } = JSON.parse(await readFile(

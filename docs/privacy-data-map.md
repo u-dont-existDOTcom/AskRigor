@@ -948,6 +948,14 @@ pending-proposal stores have their own strict contracts and authority boundaries
   problems, reporting requirements and caveats. Only the bounded receipt
   product claim described above is returned as a declared product name in a
   research receipt. Declarations do not cause external verification calls.
+- `full_text_read` research receipts sign known DOI, PMID or PMCID identifiers
+  and the first 16 hexadecimal characters of the document content SHA-256 after
+  coverage is exhausted. They carry no document text; finalization verifies them
+  with the same signature and expiry checks as study-audit receipts.
+  `key_sources.read_depth` records declared reading depth, and `answer_marker`
+  records the visible source label (3–80 characters), checked on the source
+  link's line without judging its meaning. These declarations are request-local
+  and are not logged or persisted.
 - MCP research receipts (`research_receipt`) are HMAC-SHA256 tokens under a
   domain-separated key derived from the finalization signing secret, or else the
   YouTube continuation secret. They carry only public identifiers (YouTube

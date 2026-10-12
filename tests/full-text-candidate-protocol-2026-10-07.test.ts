@@ -1,3 +1,4 @@
+import { undoReadDepth } from "./helpers/undo-read-depth.js";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
@@ -10,7 +11,7 @@ const squash = (text: string) => text.replace(/\s+/gu, " ").trim();
 const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
 
 async function hrp20614(): Promise<string> {
-  const current = await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
+  const current = await undoReadDepth(await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8"), "hrp");
   const { hrp: lab } = JSON.parse(await readFile(
     new URL("tests/fixtures/protocol-edits/2026-10-11-lab-preparation.json", ROOT), "utf8",
   )) as { hrp: { from: { sha256: string }; to: { sha256: string }; edits: Array<[string, string]> } };
@@ -79,8 +80,8 @@ describe("full-text candidate: exact public-copy discovery and truthful access s
       name: "HRP", version: "20.6.14", revisionDate: "2026-10-09", sha256: fixture.to.sha256,
     });
     await expect(getProtocolManifest("universal")).resolves.toEqual({
-      name: "AskRigor.com universal saved instructions", version: "20.5.37", revisionDate: "2026-10-09",
-      sha256: "342e32e1568954ed62a8b53d75d1ad0efe39cba8d9ad7d143658f02dded169bb",
+      name: "AskRigor.com universal saved instructions", version: "20.5.38", revisionDate: "2026-10-11",
+      sha256: "06e5ca6befb9dac648fd41996213394e793e17795087eee8fbc63cbcbbbd8174",
     });
   });
 

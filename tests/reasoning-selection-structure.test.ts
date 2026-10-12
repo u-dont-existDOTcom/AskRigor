@@ -1,3 +1,4 @@
+import { undoReadDepth } from "./helpers/undo-read-depth.js";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
@@ -166,7 +167,7 @@ const UNIVERSAL_20_5_27_SECTION_LOADING: ReadonlyArray<readonly [string, string]
 describe("canonical Reasoning Selection application", () => {
   it("adds the exact Critical selector and revision without reserializing Universal", async () => {
     const onDisk = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
-    expect(onDisk).toContain('version="20.5.37" revisionDate="2026-10-09"');
+    expect(onDisk).toContain('version="20.5.38" revisionDate="2026-10-11"');
     const undo = (text: string, steps: ReadonlyArray<readonly [RegExp | string, string]>) =>
       steps.reduce((current, [later, prior]) => {
         expect(matchCount(current, later), String(later).slice(0, 60)).toBe(1);
@@ -176,7 +177,8 @@ describe("canonical Reasoning Selection application", () => {
     const lane = JSON.parse(
       await readFile(new URL("tests/fixtures/protocol-edits/2026-10-09-lane-wording.json", ROOT), "utf8"),
     ).universal as { from: { sha256: string }; edits: Array<[string, string]> };
-    const universal20536 = undo(onDisk, lane.edits.map(([prior, later]) => [later, prior] as const).reverse());
+    const universal20537 = await undoReadDepth(onDisk, "universal");
+    const universal20536 = undo(universal20537, lane.edits.map(([prior, later]) => [later, prior] as const).reverse());
     expect(sha256(universal20536)).toBe(lane.from.sha256);
     // Universal 20.5.36 (owner question 50, 2026-10-07): undoing its edits gives 20.5.35 exactly.
     const productIdentity = JSON.parse(
@@ -431,11 +433,12 @@ describe("canonical Reasoning Selection application", () => {
     const { hrp: lab } = JSON.parse(await readFile(
       new URL("tests/fixtures/protocol-edits/2026-10-11-lab-preparation.json", ROOT), "utf8",
     )) as { hrp: { from: { sha256: string }; to: { sha256: string }; edits: Array<[string, string]> } };
-    expect(sha256(hrp)).toBe(lab.to.sha256);
+    const hrp20616 = await undoReadDepth(hrp.toString("utf8"), "hrp");
+    expect(sha256(hrp20616)).toBe(lab.to.sha256);
     const hrp20615 = [...lab.edits].reverse().reduce((text, [before, after]) => {
       expect(text.split(after), after.slice(0, 80)).toHaveLength(2);
       return text.replace(after, before);
-    }, hrp.toString("utf8"));
+    }, hrp20616);
     expect(sha256(hrp20615)).toBe(lab.from.sha256);
     const { hrp: search } = JSON.parse(await readFile(
       new URL("tests/fixtures/protocol-edits/2026-10-10-full-text-search.json", ROOT), "utf8",
