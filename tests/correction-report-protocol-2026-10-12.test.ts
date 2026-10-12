@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
 import { getProtocolManifest } from "@askrigor/protocol";
-import { undoCorrectionReport } from "./helpers/undo-read-depth.js";
+import { undoCorrectionReport, undoReviewProvenance } from "./helpers/undo-read-depth.js";
 
 const ROOT = new URL("../", import.meta.url);
 const parser = new XMLParser({ parseTagValue: false });
@@ -18,7 +18,8 @@ const APPROVED = {
   rule: "When the user corrects AskRigor and a recheck shows the user was right, acknowledge the error and, in that reply, ask one short question: may AskRigor send a bug report about it, or does the user want to clarify something first? Show the report it would send, on its own and apart from any engineering report: \"When [general situation], AskRigor should [correct behavior] because [reason].\" Include no identity, personal health story, quotation or unnecessary link. Send it only after the user says yes, and only through a lesson tool or Action this surface actually offers; if it offers none, say so and tell the user it can be sent through AskRigor's lesson Action. When the user clarifies, apply the clarification and show the revised report before sending it. When the recheck shows the user was not right, say what the source supports and offer no report.",
   check: "Correction-report check: When the user corrected AskRigor and a recheck showed the user was right, did this reply ask whether AskRigor may send a bug report or whether the user wants to clarify first, with the report shown, and is nothing sent before the user's yes?",
 } as const;
-const load = () => readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
+const loadCurrent = () => readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
+const load = async () => undoReviewProvenance(await loadCurrent());
 function section(text: string, tag: string): string {
   const matches = [...text.matchAll(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, "gu"))];
   expect(matches).toHaveLength(1);
@@ -50,10 +51,10 @@ describe("question 78: correction bug report with clarification and consent", ()
     expect(XMLValidator.validate(prior)).toBe(true);
     expect(hash(prior)).toBe(fixture.from.sha256);
     expect(fixture.edits.reduce((text, [before, after]) => replaceOnce(text, before, after), prior)).toBe(current);
-    await expect(undoCorrectionReport(current)).resolves.toBe(prior);
+    await expect(undoCorrectionReport(await loadCurrent())).resolves.toBe(prior);
     await expect(getProtocolManifest("universal")).resolves.toEqual({
-      name: "AskRigor.com universal saved instructions", version: "20.5.39",
-      revisionDate: "2026-10-12", sha256: hash(current),
+      name: "AskRigor.com universal saved instructions", version: "20.5.40",
+      revisionDate: "2026-10-12", sha256: hash(await loadCurrent()),
     });
   });
 
@@ -70,7 +71,7 @@ describe("question 78: correction bug report with clarification and consent", ()
   it("replaces only the old paragraph in corrections_and_calibration with the exact single-line rule", async () => {
     const text = await load();
     const current = section(text, "corrections_and_calibration");
-    const prior = section(await undoCorrectionReport(text), "corrections_and_calibration");
+    const prior = section(await undoCorrectionReport(await loadCurrent()), "corrections_and_calibration");
     const old = prior.split("\n").filter((line) => line.startsWith("When a correction, rechecked and found valid,"));
     expect(old).toHaveLength(1);
     expect(current.split("\n").filter((line) => line === APPROVED.rule)).toHaveLength(1);
@@ -81,7 +82,7 @@ describe("question 78: correction bug report with clarification and consent", ()
   it("inserts only the exact single-line check directly after Overcorrection check", async () => {
     const text = await load();
     const current = section(text, "point_of_generation_checks");
-    const prior = section(await undoCorrectionReport(text), "point_of_generation_checks");
+    const prior = section(await undoCorrectionReport(await loadCurrent()), "point_of_generation_checks");
     const over = prior.split("\n").filter((line) => line.startsWith("Overcorrection check:"));
     expect(over).toHaveLength(1);
     expect(current).toBe(replaceOnce(prior, over[0]!, `${over[0]}\n${APPROVED.check}`));

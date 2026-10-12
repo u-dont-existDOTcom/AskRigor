@@ -1,0 +1,35 @@
+{
+  "purpose": "Owner-approved, question 82: \"82 yeah i mean that's good\" (2026-10-12): keep review auditability, reviewer genuineness and product efficacy apart, record review provenance, reconcile platforms and weigh specific firsthand reports in both directions, with a regression case. Protocol sentences preserve the approved text apart from XML formatting. Undoing these edits gives Universal 20.5.39 byte-exactly.",
+  "universal": {
+    "from": {
+      "version": "20.5.39",
+      "sha256": "09f2d6651b036512f98857925f181ef664f0b2bf4599158c5fe0800bcd0ef8bf"
+    },
+    "to": {
+      "version": "20.5.40",
+      "sha256": "c8f770f0ac340b87f97f257f2c981db70f643b0abfddfe7513ec047b0a29f900"
+    },
+    "edits": [
+      [
+        "version=\"20.5.39\" revisionDate=\"2026-10-12\"",
+        "version=\"20.5.40\" revisionDate=\"2026-10-12\""
+      ],
+      [
+        "<revision_history>\n",
+        "<revision_history>\n<revision version=\"20.5.40\" priority=\"Critical\">\nOwner-approved, question 82 (2026-10-12): the shopping module keeps review auditability, reviewer genuineness and\nproduct efficacy apart, records review provenance against the texts actually read, reconciles platforms before\nreading a mismatch as manipulation, and weighs specific firsthand reports in both directions, with a regression\ncase.\n</revision>\n"
+      ],
+      [
+        "# AskRigor shopping module v0.3",
+        "# AskRigor shopping module v0.4"
+      ],
+      [
+        "Check visible duplication/variant drift/incentives/documented manipulation. Detail, stars, badges or AI detectors cannot certify truth/fakery; incentives are not automatic falsity. Separate usefulness/credibility.",
+        "Check visible duplication/variant drift/incentives/documented manipulation. Detail, stars, badges or AI detectors cannot certify truth/fakery; incentives are not automatic falsity. Separate usefulness/credibility.\n\nKeep three questions apart: whether a seller's review display can be audited, whether each review reflects a real buyer, and whether the product works; an answer to one settles neither of the others. Record each review's provenance (seller-curated, embedded testimonial, independent platform, imported or syndicated, email- or order-verified, incentivized, unknown) and compare displayed totals with the texts actually read; a failed \"load more\" or an empty review feed is an access boundary, not evidence of fabrication. Before reading a cross-platform mismatch as manipulation, check imports, order-ID eligibility, earlier product IDs and migrated testimonials. Weigh specific firsthand reports (symptom or function, duration, co-exposures, stop and restart, objective measures) above content-free praise, in both directions: they can raise the probability that some buyers benefit, never establish how many or how much. A questionable review practice and a working product are compatible."
+      ],
+      [
+        "<case id=\"DeadOfferTriggersAlternateSellers\">\nThe preferred product's U.S. retailer page says it is no longer available: drop it from the buy options, search other legitimate sellers for the same product, including secondary marketplaces when appropriate, then equivalent brands if needed, and show only exact live offers.\n</case>",
+        "<case id=\"DeadOfferTriggersAlternateSellers\">\nThe preferred product's U.S. retailer page says it is no longer available: drop it from the buy options, search other legitimate sellers for the same product, including secondary marketplaces when appropriate, then equivalent brands if needed, and show only exact live offers.\n</case>\n<case id=\"ReviewProvenanceVersusEfficacy\">\nA supplement seller's widget claims 600 reviews but shows five old five-star testimonials and returns nothing for the rest; a buyer app shows 490 ratings with generic praise, a few detailed improvements and some nonresponse, and excludes imports without order IDs: explain the incomplete corpus and the different verification rules, allege no fraud from the mismatch or the empty feed, keep both detailed positive and negative buyer reports as low-certainty signals, and give no buyer benefit percentage or efficacy conclusion.\n</case>"
+      ]
+    ]
+  }
+}
