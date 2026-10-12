@@ -80,8 +80,8 @@ describe("full-text candidate: exact public-copy discovery and truthful access s
       name: "HRP", version: "20.6.14", revisionDate: "2026-10-09", sha256: fixture.to.sha256,
     });
     await expect(getProtocolManifest("universal")).resolves.toEqual({
-      name: "AskRigor.com universal saved instructions", version: "20.5.40", revisionDate: "2026-10-12",
-      sha256: "c8f770f0ac340b87f97f257f2c981db70f643b0abfddfe7513ec047b0a29f900",
+      name: "AskRigor.com universal saved instructions", version: "20.5.41", revisionDate: "2026-10-12",
+      sha256: "115b22a595b4cdcd663bb60986bd3dba0fb0d3f65f64bcc7bbb6d5a4bfd8a708",
     });
   });
 

@@ -64,7 +64,7 @@ describe("question 71: all four wordings and the read-depth check", () => {
       expect(fixture.edits.reduce((text, [before, after]) => replaceOnce(text, before, after), prior)).toBe(current);
       await expect(getProtocolManifest(protocol)).resolves.toEqual({
         name: protocol === "hrp" ? "HRP" : "AskRigor.com universal saved instructions",
-        version: protocol === "hrp" ? "20.6.20" : "20.5.40",
+        version: protocol === "hrp" ? "20.6.21" : "20.5.41",
         revisionDate: "2026-10-12", sha256: hash(await loadCurrent(protocol)),
       });
     }

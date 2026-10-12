@@ -80,3 +80,7 @@
 
 1. Question 82: this wording. A: as drafted; B: change a wording; C: decline, with your reason.
 2. The release question, after the build. It stacks with question 78's Universal change if both are approved.
+
+Question 82 answered "82 yeah i mean that's good" and question 83 approved on 2026-10-12, with the owner's change (no
+detector named: the AI judges whether a review reads as machine-written and gives the signs); built on #319 as
+Universal 20.5.40.

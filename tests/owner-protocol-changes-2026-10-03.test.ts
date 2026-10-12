@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
 import { loadProtocolSectionSnapshot } from "@askrigor/protocol";
-import { undoReviewProvenance } from "./helpers/undo-read-depth.js";
+import { undoAcceptedLessonsHrp, undoReviewProvenance } from "./helpers/undo-read-depth.js";
 
 const ROOT = new URL("../", import.meta.url);
 
@@ -243,11 +243,12 @@ describe("owner protocol changes of 2026-10-03", () => {
   });
 
   it("records both releases at the top of their revision histories", async () => {
-    const [hrp, currentUniversal] = await Promise.all([
+    const [currentHrp, currentUniversal] = await Promise.all([
       readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8"),
       readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8"),
     ]);
     const universal = await undoReviewProvenance(currentUniversal);
+    const hrp = await undoAcceptedLessonsHrp(currentHrp);
     // Universal 20.5.37 (owner question 58), 20.5.36 (owner question 50) and 20.5.35 (consilience) are above it.
     const newestUniversal = /^<revision_history>\n<revision version="20\.5\.39" priority="Critical">\n[^<]*<\/revision>\n<revision version="20\.5\.38" priority="Critical">\n[^<]*<\/revision>\n<revision version="20\.5\.37" priority="Critical">\n[^<]*<\/revision>\n<revision version="20\.5\.36" priority="Critical">\n[^<]*<\/revision>\n<revision version="20\.5\.35" priority="Critical">\n[^<]*<\/revision>\n/mu;
     expect(universal.match(newestUniversal)?.[0]).toBeDefined();
