@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
 import { getProtocolManifest } from "@askrigor/protocol";
-import { undoCorrectionReport, undoReviewProvenance } from "./helpers/undo-read-depth.js";
+import { undoContestedEvidence, undoCorrectionReport, undoReviewProvenance } from "./helpers/undo-read-depth.js";
 
 const ROOT = new URL("../", import.meta.url);
 const parser = new XMLParser({ parseTagValue: false });
@@ -60,9 +60,11 @@ describe("question 82: review provenance versus product efficacy", () => {
       name: "AskRigor.com universal saved instructions", version: "20.5.40",
       revisionDate: "2026-10-12", sha256: hash(current),
     });
+    const hrp = await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
+    expect(hash(await undoContestedEvidence(hrp))).toBe("48e0e80ab412a3bce84ed834159664975933c3446b28bfcb5fea2964075f268e");
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: "20.6.18", revisionDate: "2026-10-11",
-      sha256: "48e0e80ab412a3bce84ed834159664975933c3446b28bfcb5fea2964075f268e",
+      name: "HRP", version: "20.6.20", revisionDate: "2026-10-12",
+      sha256: "faa656b4d51a2554ff4b668c713bf35fb065624cc53e7871cdd5c16910fc74d0",
     });
   });
 

@@ -2805,15 +2805,15 @@ describe("AskRigor MCP tools", () => {
         protocol: "hrp",
         manifest: {
           name: "HRP",
-          version: "20.6.18",
-          revisionDate: "2026-10-11",
-          sha256: "48e0e80ab412a3bce84ed834159664975933c3446b28bfcb5fea2964075f268e"
+          version: "20.6.20",
+          revisionDate: "2026-10-12",
+          sha256: "faa656b4d51a2554ff4b668c713bf35fb065624cc53e7871cdd5c16910fc74d0"
         },
         scope: "full",
         page: 1,
         next_page: 2,
         complete: false,
-        scope_sha256: "48e0e80ab412a3bce84ed834159664975933c3446b28bfcb5fea2964075f268e"
+        scope_sha256: "faa656b4d51a2554ff4b668c713bf35fb065624cc53e7871cdd5c16910fc74d0"
       });
       const pageCount = (first.structuredContent as { page_count: number }).page_count;
       expect(first.content).toEqual([

@@ -1,4 +1,4 @@
-import { undoReadDepth } from "./helpers/undo-read-depth.js";
+import { undoContestedEvidence, undoReadDepth } from "./helpers/undo-read-depth.js";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
@@ -159,7 +159,9 @@ describe("owner-approved lane wording, question 58: A (2026-10-09)", () => {
   });
 
   it("places the exact primary-outcome rule directly after WholeInterventionIdentityTrace", async () => {
-    const gate = await sectionText("hrp", "ComparisonEstimandAndDoseExposureIntegrityGate");
+    // Question 77 inserts UserReportedUseFidelity between these rules; check this older placement on its bytes.
+    const prior = await undoContestedEvidence(await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8"));
+    const gate = element(prior, "ComparisonEstimandAndDoseExposureIntegrityGate", "priority", "Critical");
     expect(gate).toMatch(/<Rule name="WholeInterventionIdentityTrace"[^>]*>[^<]+<\/Rule>\s*<Rule name="PrimaryOutcomeContinuity" priority="Critical">/u);
     expect(plain(element(gate, "Rule", "name", "PrimaryOutcomeContinuity"))).toBe(APPROVED.H1);
   });

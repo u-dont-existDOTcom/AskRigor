@@ -27,7 +27,17 @@ export async function undoCorrectionReport(text: string): Promise<string> {
   return undoRecordedEdits(text, "universal", "2026-10-12-correction-report.json");
 }
 
+export async function undoHandoffTarget(text: string): Promise<string> {
+  return undoRecordedEdits(text, "hrp", "2026-10-12-handoff-target.json");
+}
+
+export async function undoContestedEvidence(text: string): Promise<string> {
+  text = await undoHandoffTarget(text);
+  return undoRecordedEdits(text, "hrp", "2026-10-12-contested-evidence.json");
+}
+
 export async function undoDiminishingReturns(text: string): Promise<string> {
+  text = await undoContestedEvidence(text);
   return undoRecordedEdits(text, "hrp", "2026-10-11-diminishing-returns.json");
 }
 

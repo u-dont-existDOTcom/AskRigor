@@ -642,6 +642,8 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 | Held validated analysis (free contributor) | HMAC-SHA-256 account key; the study or review audit's SHA-256; the living-evidence contribution built from one validated method audit: source identifiers, title, content hash and locator, structured domain findings and claim capabilities, the audit receipt, the protocol identities, and a Crossref integrity-check hash | Process memory only, between a free contributor's successful `validate_study_method_audit` or `validate_review_method_audit` on MCP and a passing `finalize_research`. The final check then files it as a pending `SOURCE_ANALYSIS` proposal through the same intake and privacy checks as `submit_research_contribution`, so the AI no longer has to send it. Held only for active free contributor accounts, never paid private, and only for a source with a DOI and a clean Crossref integrity check; repository reuse is not held. No source text, chat, prompt or person's details; entries drop after 24 hours, past 500 entries, or on restart. The contribution itself is the same data a pending proposal already stores. |
 | Owner-accepted contribution promotion | Proposal UUID, strict kind and SHA-256; explicit owner decision/reason and timestamps; pending/claimed/completed/failed promotion state; bounded attempt metadata; canonical identifiers; stable receipt and receipt SHA-256 | The public runtime cannot write this state or canonical evidence. One function-only owner-review call atomically creates the exact intent only on acceptance. A separate root-scheduled short-lived admin container receives only the existing canonical writer environment and processes one accepted intent per activation. The static unit accepts no user input and logs only the bounded operation receipt; it receives no raw chat, account key, private health narrative, upload, raw source/provider content, or community data. Disabling the timer preserves all rows. |
 
+Contribution intake rejects frontier candidate and source-analysis identifier values beginning with `sandbox:` (case-insensitive), because a sandbox link points into another session and can never be opened.
+
 Full application request bodies and response bodies are not logged or written
 to durable storage for either research transport. The Action adapter retains
 only the minimized signed discussion token, compact transcript chain metadata,
@@ -1026,7 +1028,8 @@ pending-proposal stores have their own strict contracts and authority boundaries
   `community_searches` entry) and the caveats, which an answer not in English
   gives in its own language (`caveat_renderings`, with the `answer_language`
   tag), and the sentences where it says something was not found, not studied
-  or has no effect (`absence_claims`, each with its state and the study IDs it
+  or has no effect, or calls an intervention's evidence unconvincing, weak, not
+  demonstrated or showing no benefit (`absence_claims`, each with its state and the study IDs it
   rests on, and `search_coverage`, the search classes covered beyond indexed
   databases), and reported scale or questionnaire results (`scale_results`,
   each with its quoted explanation, scale name, range, direction, values and
