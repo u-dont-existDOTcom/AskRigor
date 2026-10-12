@@ -17,8 +17,7 @@
   - a hospital cohort and a randomized trial of related routes;
   - the clinician literature the user's sources pointed to.
 - Only a harm case was cited.
-- The answer also changed the routes the user had described, for example turning "swallowed, diluted in water" into
-  inhalation.
+- The answer also replaced the routes the user had described with different ones.
 
 ## Diagnosis
 
@@ -50,6 +49,10 @@
    with synthetic wording.
 
 ## Draft wording (for the owner's exact-text approval)
+
+The two case prompts below were approved as written ("77a"). Their routes follow the owner's report, which UDA has
+since made public-safe at the owner's request, so owner question 81 proposes synthetic prompts in their place before
+release.
 
 - **Rule `UserNamedInterventionSweep`:**
   > When the user names an intervention, especially a contested one they have used, search before judging its
