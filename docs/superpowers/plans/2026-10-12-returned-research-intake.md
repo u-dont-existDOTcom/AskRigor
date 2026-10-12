@@ -80,6 +80,8 @@
 
 ## Owner items
 
+Question 79 answered "79a" on 2026-10-12; built on this branch.
+
 1. Question 79: the wording above and the `sandbox:` check. A: all; B: the protocol wording only; C: change a
    wording.
 2. The release question, after the build.

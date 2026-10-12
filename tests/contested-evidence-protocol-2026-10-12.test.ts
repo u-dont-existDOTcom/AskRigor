@@ -3,12 +3,13 @@ import { readFile } from "node:fs/promises";
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
 import { getProtocolManifest } from "@askrigor/protocol";
-import { undoContestedEvidence, undoDiminishingReturns, undoReadDepth } from "./helpers/undo-read-depth.js";
+import { undoHandoffTarget, undoContestedEvidence, undoDiminishingReturns, undoReadDepth } from "./helpers/undo-read-depth.js";
 
 const ROOT = new URL("../", import.meta.url);
 const parser = new XMLParser({ parseTagValue: false });
 const hash = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
-const load = () => readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
+const loadCurrent = () => readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
+const load = async () => undoHandoffTarget(await loadCurrent());
 interface Edits {
   from: { version: string; sha256: string };
   to: { version: string; sha256: string };
@@ -78,12 +79,12 @@ describe("owner-approved contested intervention evidence, question 77: 77a (2026
     expect(hash(prior)).toBe(fixture.from.sha256);
     expect(prior).toContain('<Protocol name="HRP" version="20.6.18" revisionDate="2026-10-11"');
     expect(fixture.edits.reduce((text, [before, after]) => replaceOnce(text, before, after), prior)).toBe(current);
-    await expect(undoContestedEvidence(current)).resolves.toBe(prior);
+    await expect(undoContestedEvidence(await loadCurrent())).resolves.toBe(prior);
     const beforeDiminishingReturns = [...previous.edits].reverse().reduce(
       (text, [before, after]) => replaceOnce(text, after, before), prior,
     );
     expect(hash(beforeDiminishingReturns)).toBe(previous.from.sha256);
-    await expect(undoDiminishingReturns(current)).resolves.toBe(beforeDiminishingReturns);
+    await expect(undoDiminishingReturns(await loadCurrent())).resolves.toBe(beforeDiminishingReturns);
     const { hrp: readDepth } = JSON.parse(await readFile(
       new URL("tests/fixtures/protocol-edits/2026-10-11-read-depth.json", ROOT), "utf8",
     )) as { hrp: Edits };
@@ -91,9 +92,9 @@ describe("owner-approved contested intervention evidence, question 77: 77a (2026
       (text, [before, after]) => replaceOnce(text, after, before), beforeDiminishingReturns,
     );
     expect(hash(beforeReadDepth)).toBe(readDepth.from.sha256);
-    await expect(undoReadDepth(current, "hrp")).resolves.toBe(beforeReadDepth);
+    await expect(undoReadDepth(await loadCurrent(), "hrp")).resolves.toBe(beforeReadDepth);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: "20.6.19", revisionDate: "2026-10-12", sha256: hash(current),
+      name: "HRP", version: "20.6.20", revisionDate: "2026-10-12", sha256: hash(await loadCurrent()),
     });
     const universal = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
     expect(hash(universal)).toBe("06e5ca6befb9dac648fd41996213394e793e17795087eee8fbc63cbcbbbd8174");

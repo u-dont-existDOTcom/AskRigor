@@ -18,7 +18,12 @@ async function undoRecordedEdits(text: string, protocol: "hrp" | "universal", fi
   return prior;
 }
 
+export async function undoHandoffTarget(text: string): Promise<string> {
+  return undoRecordedEdits(text, "hrp", "2026-10-12-handoff-target.json");
+}
+
 export async function undoContestedEvidence(text: string): Promise<string> {
+  text = await undoHandoffTarget(text);
   return undoRecordedEdits(text, "hrp", "2026-10-12-contested-evidence.json");
 }
 
