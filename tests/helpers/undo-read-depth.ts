@@ -18,7 +18,12 @@ async function undoRecordedEdits(text: string, protocol: "hrp" | "universal", fi
   return prior;
 }
 
+export async function undoContestedEvidence(text: string): Promise<string> {
+  return undoRecordedEdits(text, "hrp", "2026-10-12-contested-evidence.json");
+}
+
 export async function undoDiminishingReturns(text: string): Promise<string> {
+  text = await undoContestedEvidence(text);
   return undoRecordedEdits(text, "hrp", "2026-10-11-diminishing-returns.json");
 }
 

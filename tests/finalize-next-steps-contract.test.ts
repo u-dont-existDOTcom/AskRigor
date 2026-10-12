@@ -54,7 +54,7 @@ describe("finalize next-step identifier contract", () => {
     for (const identifier of ["registry_code", "other_variant_excluded", "outcome_search", "outcome_search_boundary",
       "read_depth", "answer_marker", "full_text_audited", "full_text_read", "partial_text", "abstract_only",
       "conference_abstract", "secondary_only", "metadata_only", "inaccessible", "route_error", "lab_preparation", "covered", "answer_quotes", "not_applicable", "full_text_search", "run", "not_needed", "ratings_shown", "no_text_search", "search_blocked", "benefit", "no_effect", "worse", "adverse", "stopped", "minimal_important_difference",
-      "none_established", "finalize_research", "research_receipt"]) expect(allowedNextStepIdentifiers.has(identifier)).toBe(true);
+      "none_established", "not_established", "finalize_research", "research_receipt"]) expect(allowedNextStepIdentifiers.has(identifier)).toBe(true);
     expect(schemaIdentifiers({ properties: { array: { items: { anyOf: [
       { properties: { nested_field: { enum: ["enum_value"] } } }, { const: "literal_value" }
     ] } } } })).toEqual(new Set(["array", "nested_field", "enum_value", "literal_value"]));
@@ -147,6 +147,8 @@ describe("finalize next-step identifier contract", () => {
     ["unproven PMCID lead", { receipts: [], key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: PMCID, status: "lead_only" }] }],
     ["first pass missing offers", { research_depth: "first_pass" }],
     ["first pass excessive focuses", { research_depth: "first_pass", open_leads: Array.from({ length: 4 }, (_, n) => ({ direction: "studies", topic: `Focus ${n}`, why: "Incomplete methods." })), another_pass_estimate: "some time" }],
+    ["absent evidence-strength sources", { absence_claims: [{ quote: "Evidence is weak.", state: "not_established" }] }],
+    ["unaudited evidence-strength sources", { absence_claims: [{ quote: "Evidence is weak.", state: "not_established", studies: ["10.1000/other"] }] }],
     ["absent null sources", { absence_claims: [{ quote: "No effect.", state: "direct_null_evidence" }] }],
     ["unaudited null sources", { absence_claims: [{ quote: "No effect.", state: "bounded_exclusion", studies: ["10.1000/other"] }] }],
     ["no literature search", { absence_claims: [{ quote: "Not found.", state: "support_not_located" }] }],
