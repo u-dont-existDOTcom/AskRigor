@@ -169,8 +169,13 @@
     full-text-audited key sources. Only the withheld findings card remained.
   - **Gap:** the pass did not find the 2022 Ghana two-hospital cohort of gargle and nasal antisepsis
     (`10.1016/j.jhin.2022.05.007`), one of the four sources in the owner's report. Its searches reached the Brazil
-    trial of the same routes but not this cohort. A deeper study pass, which the answer offered, is where it should
-    appear; first-pass coverage of related-route cohorts is incomplete.
+    trial of the same routes but not this cohort. The Claude session checked why: PubMed indexes it under its
+    authors' word "antisepsis". "hydrogen peroxide nasal antisepsis COVID-19" returns exactly this record
+    (PMID 35594985), while "hydrogen peroxide gargle nasal COVID-19 hospital" and a prevention-worded query do not.
+    The clinician literature the answer used cites it too. `UserNamedInterventionSweep` asks for both routes to it:
+    the intervention's synonyms, and following the clinician literature's citations. The pass did neither within its
+    budget of about 25 calls, which the brief set; its answer lists the clinician book's bibliography as not yet
+    inspected. This is a depth limit of the test, not a missing rule.
 - **Tool use:**
   - Case 5 took about 39 calls, over its budget of 25, mostly schema retries and repairs of the final check.
   - Several web opens failed with `Internal Error ()`: Reddit, a YouTube page, Earth Clinic, and DOI and Europe PMC
