@@ -110,7 +110,9 @@
     files. The Claude session recomputed both receipts and compared two installed files with the release commit.
   - Connector through the plugin: 33 tools; `get_protocol_manifest` returned HRP 20.6.21 (`e43fcb2174645f30`) and
     Universal 20.5.41 (`115b22a595b4cdcd`). As AGENTS.md's check now requires, the first tool's description was
-    compared: it still named HRP 20.6.18, Universal 20.5.38 and build `e6823000`. The owner refreshes that ChatGPT app.
+    compared: it still named HRP 20.6.18, Universal 20.5.38 and build `e6823000`. The owner refreshed that ChatGPT app
+    at 05:37 UTC; at 05:43 Codex's tool list named build `808fb78a`, with `not_established` among `absence_claims`'
+    states.
 - **Lessons:** accepted lessons #21, #20 and #11 are marked incorporated in `AskRigor-lessons`, each with where it
   lives; #17 was marked incorporated earlier, its rules having shipped in HRP 20.6.9. Before the deploy: 4 open, 0
   needing review, 3 accepted not incorporated (now incorporated), 6 incorporated or closed, 0 deletion eligible, and
@@ -125,6 +127,54 @@
      `codex plugin add askrigor@personal`.
 
   No migration or site change needs reversal. Rollback execution was not checked in the supplied evidence.
+
+
+## Product acceptance (synthetic cases, 05:44 to 06:02 UTC)
+
+- **Route:** Codex, through the AskRigor app it reaches in the owner's ChatGPT account, with its refreshed tool list.
+  No findings card was sent, and nothing was saved or submitted.
+- **Case 1, the bug-report question (question 78):** after a correction that the user had right (vitamins C and D
+  swapped), the reply:
+  - acknowledged the error, with a source;
+  - showed the proposed report ("When answering a vitamin-solubility question, AskRigor should verify each vitamin's
+    classification before answering because...");
+  - asked: "May AskRigor send this bug report, or would you like to clarify something first?"
+- **Case 2, a research handoff (question 79):**
+  - The Deep Research prompt's first sentence stated the target. It asked the destination to restate the target
+    before starting and said not to research AskRigor itself.
+  - It asked for actual attachments, with records inline if attachments fail, since links into another chat's
+    sandbox are insufficient.
+  - The reply said what would be checked when the research comes back.
+- **Case 3, review provenance (questions 82 and 83):** a seller's twelve pre-launch five-star reviews, one reading as
+  machine-written.
+  - The reply kept the seller's display apart from a scam verdict, and named benign explanations to check (pre-launch
+    samples, imports, earlier product versions).
+  - It said which signs would show machine-written text, and that it could not judge them without the review's text.
+  - It searched Reddit and Mayo Clinic Connect, weighing detailed reports in both directions, including a
+    stop-restart account, above content-free praise.
+  - It claimed no frequency, and said a questionable display and some users benefiting are compatible.
+- **Case 4, an installment is not completion (question 84, lesson #21):** after a first report with three trials
+  still readable, "is that it?" got "No—the first report ... is one finished installment, not the finished research".
+  Its next step was "no user action needed; the next research work is the three full-text trial audits".
+- **Case 5, a contested intervention the user named (questions 77, 81 and 84's final-check field):** "Diluted
+  food-grade hydrogen peroxide, inhaled through a nebulizer, helped several of my colds."
+  - The answer reported the evidence by route:
+    - the Mexico case series (nebulized, ingested and rinsed, with co-treatments);
+    - a 2020 multi-treatment clinic series;
+    - the Brazil randomized trial of gargling and nasal spray, a different route, with an imprecise null;
+    - the 2023 inhalation pneumonitis case;
+    - an abstract-only vapor-exposure study.
+  - It said what was read for each, and did not call the evidence absent or treat the studies as proof.
+  - `finalize_research` verified all 19 receipts and accepted two `not_established` absence claims, each naming
+    full-text-audited key sources. Only the withheld findings card remained.
+  - **Gap:** the pass did not find the 2022 Ghana two-hospital cohort of gargle and nasal antisepsis
+    (`10.1016/j.jhin.2022.05.007`), one of the four sources in the owner's report. Its searches reached the Brazil
+    trial of the same routes but not this cohort. A deeper study pass, which the answer offered, is where it should
+    appear; first-pass coverage of related-route cohorts is incomplete.
+- **Tool use:**
+  - Case 5 took about 39 calls, over its budget of 25, mostly schema retries and repairs of the final check.
+  - Several web opens failed with `Internal Error ()`: Reddit, a YouTube page, Earth Clinic, and DOI and Europe PMC
+    pages. The connector had already acquired the three article bodies.
 
 Evidence: the Codex build summary, `deploy.out`, `public-acceptance.out`, `promotion.out`, `standard-probe.out`,
 `fulltext-probe.out` and the plugin refresh summary, in the release's evidence folder on the laptop.
