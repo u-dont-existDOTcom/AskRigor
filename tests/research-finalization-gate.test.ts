@@ -157,6 +157,7 @@ const scaleDefaults = (input: Record<string, unknown>) =>
 // Every call gets the community, offer, absence and scale defaults unless it passes its own.
 const finalizeResearchRaw = (input: Record<string, unknown>, gateOptions: Parameters<typeof finalizeResearchBare>[1]) =>
   finalizeResearchBare({
+    lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
     full_text_search: { status: "not_needed", reason: "Synthetic fixtures isolate other completion checks." },
     intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
     ...((input.community_evidence === "researched" || input.not_relevant_basis === "no_real_world_outcome")
@@ -221,7 +222,7 @@ describe("finalize_research gate", () => {
   it("asks every answer with key studies for the whole-intervention declaration, compared or not (owner question 47)", () => {
     const base = {
       community_evidence: "researched" as const, research_target: TARGET, research_depth: "deep" as const,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }],
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }],
       receipts: [survey, emptySearch, repeatScout, videoA, study], intervention_identity: undefined
     };
     for (const treatment_choice of ["not_compared", "compared"] as const) {
@@ -237,7 +238,7 @@ describe("finalize_research gate", () => {
       community_evidence: "researched" as const,
       research_target: target,
       research_depth: "deep" as const,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }]
     };
     const ready = [survey, emptySearch, repeatScout, videoA, study];
     const coverage = (boundary: string, at: string, forTarget = target, broad = true) => issueResearchReceipt(
@@ -377,7 +378,7 @@ describe("finalize_research gate", () => {
       community_evidence: "researched" as const,
       treatment_choice: "compared" as const,
       research_target: TARGET,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }],
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }],
       community_findings: findingsFor(["aaaaaaaaaaa"])
     };
     const draftWith = (input: Record<string, unknown>, sentence: string) =>
@@ -420,7 +421,7 @@ describe("finalize_research gate", () => {
       community_evidence: "researched",
       treatment_choice: "not_compared",
       research_target: TARGET,
-      key_sources: [{ id: "https://doi.org/10.1002/ART.41142", status: "validated" }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "https://doi.org/10.1002/ART.41142", status: "validated" }]
     }, options);
     expect(result.status).toBe("ready_with_limits");
     expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
@@ -453,7 +454,7 @@ describe("finalize_research gate", () => {
       community_evidence: "researched",
       treatment_choice: "not_compared",
       research_target: TARGET,
-      key_sources: [{ id: "https://doi.org/10.1002/ART.41142", status: "validated" }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "https://doi.org/10.1002/ART.41142", status: "validated" }]
     };
     const communities = [
       { name: "r/trt", platform: "reddit" },
@@ -756,7 +757,7 @@ describe("finalize_research gate", () => {
       community_evidence: "researched",
       treatment_choice: "not_compared",
       research_target: TARGET,
-      key_sources: [{ id: "https://doi.org/10.1002/ART.41142", status: "validated" }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "https://doi.org/10.1002/ART.41142", status: "validated" }]
     };
     const findings = {
       benefit_reports: "Most reported better recovery.",
@@ -930,7 +931,7 @@ describe("finalize_research gate", () => {
       community_evidence: "researched",
       treatment_choice: "not_compared",
       research_target: TARGET,
-      key_sources: [{ id: "https://doi.org/10.1002/ART.41142", status: "validated" }],
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "https://doi.org/10.1002/ART.41142", status: "validated" }],
       principal_communities: [{ name: "r/trt", platform: "reddit" }, { name: "r/Testosterone", platform: "reddit" }]
     };
     const findings = {
@@ -957,6 +958,7 @@ describe("finalize_research gate", () => {
       ["xyz789", trt], ["def456", found("testosterone", "Ten years on TRT")]
     ]);
     const gate = (trt: RedditThreadCheck, trtTitle?: string, draft?: string) => finalizeResearchBare({
+      lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
       full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates Reddit thread verification." },
       ...base, commercial_review_applicability: NONCOMMERCIAL_EXERCISE,
       intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." },
@@ -1046,6 +1048,7 @@ describe("finalize_research gate", () => {
       }
     });
     const result = finalizeResearchBare({
+      lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
       full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates community coverage checks." },
       research_depth: "deep",
       receipts: [study],
@@ -1054,7 +1057,7 @@ describe("finalize_research gate", () => {
       treatment_choice: "not_compared",
       research_target: TARGET,
       intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient study product is involved." },
-      key_sources: [{ id: "https://doi.org/10.1002/ART.41142", status: "validated" }],
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "https://doi.org/10.1002/ART.41142", status: "validated" }],
       principal_communities: forums,
       community_searches: [
         read("r/trt", "reddit", "https://www.reddit.com/r/trt/comments/abc/x/"),
@@ -1110,6 +1113,7 @@ describe("finalize_research gate", () => {
       }
     };
     const request = (corpora?: unknown, searches?: unknown[]) => ({
+      lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
       full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates review corpus checks." },
       intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient study product is involved." },
       shopping: { status: "not_requested" },
@@ -1119,7 +1123,7 @@ describe("finalize_research gate", () => {
       commercial_review_applicability: { status: "required", products: ["Humic Drops 2 oz"] },
       treatment_choice: "not_compared",
       research_target: TARGET,
-      key_sources: [{ id: "https://doi.org/10.1002/ART.41142", status: "validated" }],
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "https://doi.org/10.1002/ART.41142", status: "validated" }],
       principal_communities: [
         { name: "Amazon", platform: "review_site" },
         { name: "ADHD Parents Forum", platform: "forum" }
@@ -1196,7 +1200,7 @@ describe("finalize_research gate", () => {
       community_evidence: "researched",
       treatment_choice: "not_compared",
       research_target: TARGET,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" }],
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" }],
       community_findings: findingsFor(["aaaaaaaaaaa"]),
       answer_draft: `${CLEAN_DRAFT} Under COINotAutomaticDisqualification the funded trial still counts, and ` +
         "NNTAndNNH puts the benefit at about 1 in 8."
@@ -1215,7 +1219,7 @@ describe("finalize_research gate", () => {
       community_evidence: "researched" as const,
       treatment_choice: "not_compared" as const,
       research_target: TARGET,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }],
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }],
       community_findings: findingsFor(["aaaaaaaaaaa"])
     };
     // Everything else passes, so the gate asks for the answer itself.
@@ -1348,8 +1352,8 @@ describe("finalize_research gate", () => {
       treatment_choice: "not_compared",
       research_target: TARGET,
       key_sources: [
-        { id: "10.1002/art.41142", status: "validated" },
-        { id: "10.1016/j.joca.2020.01.001", status: "lead_only" }
+        { read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" },
+        { read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1016/j.joca.2020.01.001", status: "lead_only" }
       ],
       another_pass_estimate: PASS_ESTIMATE,
       community_findings: {
@@ -1461,7 +1465,7 @@ describe("finalize_research gate", () => {
     const base = {
       research_depth: "deep", community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome",
       not_relevant_reason: "Isolates the absence checks.", treatment_choice: "not_compared", research_target: TARGET,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" }]
     };
     const notFound = "I did not locate a study of inhaled humic acid for neuroinflammation.";
     const answer = `Purified geosmin changed EEG readings in one small study. ${notFound}`;
@@ -1521,7 +1525,7 @@ describe("finalize_research gate", () => {
       treatment_choice: "not_compared",
       research_target: TARGET,
       material_video_ids: ["bbbbbbbbbbb"],
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" }]
     }, options);
     const steps = result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ");
     expect(steps).not.toMatch(/Find community videos/u);
@@ -1534,7 +1538,7 @@ describe("finalize_research gate", () => {
       community_evidence: "researched",
       treatment_choice: "not_compared",
       research_target: TARGET,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" }]
     }, options);
     expect(noSurvey.status).toBe("not_ready");
     expect(noSurvey.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toMatch(/scout_gemini_youtube_candidates .*survey_youtube_community only if the scout is unavailable.*rediscovery_leads/u);
@@ -1546,7 +1550,7 @@ describe("finalize_research gate", () => {
       treatment_choice: "not_compared",
       research_target: TARGET,
       material_video_ids: ["aaaaaaaaaaa", "ccccccccccc"],
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" }]
     }, options);
     expect(missingVideo.status).toBe("not_ready");
     expect(missingVideo.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
@@ -1565,7 +1569,7 @@ describe("finalize_research gate", () => {
       treatment_choice: "not_compared" as const,
       research_target: TARGET,
       material_video_ids: ["aaaaaaaaaaa"],
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }]
     };
     const communityOnly = finalizeResearch({
       ...request,
@@ -1600,7 +1604,7 @@ describe("finalize_research gate", () => {
       treatment_choice: "not_compared" as const,
       research_target: TARGET,
       no_material_video_reason: "The comments were read in the one-call audit and add no approach worth a full audit.",
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }]
     };
     const silent = finalizeResearchGate(request, options);
     expect(silent.status).toBe("not_ready");
@@ -1646,7 +1650,7 @@ describe("finalize_research gate", () => {
       treatment_choice: "not_compared" as const,
       research_target: TARGET,
       material_video_ids: ["aaaaaaaaaaa", "bbbbbbbbbbb"],
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }]
     };
     const receipts = [survey, emptySearch, repeatScout, videoA, disabled, study];
     const onlyRead = finalizeResearchGate({
@@ -1732,8 +1736,8 @@ describe("finalize_research gate", () => {
       treatment_choice: "not_compared",
       research_target: TARGET,
       key_sources: [
-        { id: "10.1002/art.41142", status: "validated" },
-        { id: "10.1000/unattempted", status: "lead_only", reason: "paywalled" }
+        { read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" },
+        { read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1000/unattempted", status: "lead_only", reason: "paywalled" }
       ]
     }, options);
     expect(result.status).toBe("not_ready");
@@ -1754,7 +1758,7 @@ describe("finalize_research gate", () => {
     const receipt = sign("full_text_lead", { doi: id, state }, options);
     const result = finalizeResearch({ receipts: [survey, emptySearch, repeatScout, videoA, videoB, study, receipt],
       community_evidence: "researched", treatment_choice: "not_compared", research_target: TARGET,
-      key_sources: [{ id, status: "lead_only" }] }, options);
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id, status: "lead_only" }] }, options);
     expect(result.status).toBe("ready_with_limits");
     expect(result.limits).toContain(`Cite ${id} as a lead: ${limit}, so its methods were not audited.`);
   });
@@ -1767,9 +1771,9 @@ describe("finalize_research gate", () => {
       treatment_choice: "not_compared",
       research_target: TARGET,
       key_sources: [
-        { id: "10.1002/art.41142", status: "validated" },
-        { id: "10.1016/j.joca.2020.01.001", status: "validated" },
-        { id: "PMID: 31234567", status: "lead_only", reason: "abstract only; no DOI" }
+        { read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" },
+        { read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1016/j.joca.2020.01.001", status: "validated" },
+        { read_depth: "partial_text" as const, answer_marker: "Study", id: "PMID: 31234567", status: "lead_only", reason: "abstract only; no DOI" }
       ]
     }, options);
     expect(result.status).toBe("ready_with_limits");
@@ -1807,9 +1811,9 @@ describe("finalize_research gate", () => {
       research_target: TARGET,
       community_findings: findingsFor(["aaaaaaaaaaa", "bbbbbbbbbbb"]),
       key_sources: [
-        { id: "10.1002/art.41142", status: "validated" as const },
-        { id: "10.1016/j.joca.2020.01.001", status: "validated" as const },
-        { id: "PMID: 31234567", status: "lead_only" as const, reason: "abstract only; no DOI" }
+        { read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const },
+        { read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1016/j.joca.2020.01.001", status: "validated" as const },
+        { read_depth: "partial_text" as const, answer_marker: "Study", id: "PMID: 31234567", status: "lead_only" as const, reason: "abstract only; no DOI" }
       ]
     };
     const answerWith = (...sentences: string[]) =>
@@ -1833,7 +1837,7 @@ describe("finalize_research gate", () => {
     const parenthesizedRequest = {
       ...request,
       receipts: [...request.receipts, sign("full_text_lead", { doi: parenthesized }, options)],
-      key_sources: [{ id: parenthesized, status: "lead_only" as const }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: parenthesized, status: "lead_only" as const }]
     };
     const parenthesizedCaveat = "The full text of [this study](https://doi.org/10.1016/s0140-6736%2820%2930183-5) was " +
       "not openly available, so its methods were not checked.";
@@ -1854,7 +1858,7 @@ describe("finalize_research gate", () => {
       community_evidence: "researched" as const,
       treatment_choice: "not_compared" as const,
       research_target: TARGET,
-      key_sources: [{ id: "10.1016/j.joca.2020.01.001", status: "lead_only" as const, reason: "paywalled" }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1016/j.joca.2020.01.001", status: "lead_only" as const, reason: "paywalled" }]
     };
     // The lead receipt came from a DOI-only attempt; the open copy was never tried.
     const untried = finalizeResearch(base, options);
@@ -1865,7 +1869,7 @@ describe("finalize_research gate", () => {
         "attempt did not try: call acquire_open_full_text with DOI 10.1016/j.joca.2020.01.001 and pmcid PMC7654321, " +
         "then audit it, or pass the new research_receipt if it still finds no full text."
     ]);
-    const byPmid = finalizeResearch({ ...base, key_sources: [{ id: "PMID: 31234567", status: "lead_only" as const }] }, options);
+    const byPmid = finalizeResearch({ ...base, key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "PMID: 31234567", status: "lead_only" as const }] }, options);
     expect(byPmid.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       expect.stringMatching(/^PubMed lists an open copy of PMID: 31234567 in PubMed Central \(PMC7654321\)/u)
     ]);
@@ -1884,8 +1888,8 @@ describe("finalize_research gate", () => {
       treatment_choice: "not_compared",
       research_target: TARGET,
       key_sources: [
-        { id: "10.1002/art.41142", status: "validated" },
-        { id: "PMID: 31234567", status: "lead_only", reason: "no DOI" }
+        { read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" },
+        { read_depth: "partial_text" as const, answer_marker: "Study", id: "PMID: 31234567", status: "lead_only", reason: "no DOI" }
       ]
     }, options);
     expect(result.status).toBe("not_ready");
@@ -1904,7 +1908,7 @@ describe("finalize_research gate", () => {
       community_evidence: "researched",
       treatment_choice: "not_compared",
       research_target: TARGET,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" }]
     }, options);
     expect(unbound.status).toBe("not_ready");
     expect(unbound.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
@@ -1920,7 +1924,7 @@ describe("finalize_research gate", () => {
       community_evidence: "researched",
       treatment_choice: "not_compared",
       research_target: TARGET,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" }]
     }, options).status).toBe("ready_with_limits");
   });
 
@@ -1934,7 +1938,7 @@ describe("finalize_research gate", () => {
       community_evidence: "researched",
       treatment_choice: "not_compared",
       research_target: TARGET,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" }]
     }, options);
     expect(result.status).toBe("ready_with_limits");
     expect(result.limits).toEqual([
@@ -1952,10 +1956,10 @@ describe("finalize_research gate", () => {
       treatment_choice: "not_compared",
       research_target: TARGET,
       key_sources: [
-        { id: "PMC123", status: "lead_only", reason: "not retrieved" },
-        { id: "PMID 999", status: "lead_only", reason: "abstract only" },
-        { id: "4242", status: "lead_only" },
-        { id: "WHO guideline 2024", status: "lead_only", reason: "no identifier" }
+        { read_depth: "partial_text" as const, answer_marker: "Study", id: "PMC123", status: "lead_only", reason: "not retrieved" },
+        { read_depth: "partial_text" as const, answer_marker: "Study", id: "PMID 999", status: "lead_only", reason: "abstract only" },
+        { read_depth: "partial_text" as const, answer_marker: "Study", id: "4242", status: "lead_only" },
+        { read_depth: "partial_text" as const, answer_marker: "Study", id: "WHO guideline 2024", status: "lead_only", reason: "no identifier" }
       ]
     }, options);
     expect(result.status).toBe("not_ready");
@@ -1963,6 +1967,7 @@ describe("finalize_research gate", () => {
       "Try acquire_open_full_text for PMC123 with its DOI and this pmcid before treating it as lead_only; pass the research_receipt it returns.",
       "Fetch PMID 999 with fetch_pubmed_record and pass its research_receipt; if it has a DOI, try acquire_open_full_text.",
       "Try acquire_open_full_text for 4242 (DOI 10.1016/j.joca.2020.01.001) before treating it as lead_only; pass the research_receipt it returns.",
+      "Key source WHO guideline 2024 has no answer_marker on the same line as its link in answer_draft; put its answer_marker there.",
       "Identify WHO guideline 2024 by DOI, PMID or PMCID, or leave it out of key_sources and label it unverified in the answer."
     ]);
 
@@ -1972,7 +1977,7 @@ describe("finalize_research gate", () => {
       community_evidence: "researched",
       treatment_choice: "not_compared",
       research_target: TARGET,
-      key_sources: [{ id: "4242", status: "lead_only" }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "4242", status: "lead_only" }]
     }, options);
     expect(byDoi.sources.lead_only).toEqual(["4242"]);
   });
@@ -1981,7 +1986,7 @@ describe("finalize_research gate", () => {
     // Deep research runs to saturation; a first pass would stop at its cap.
     const base = {
       community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }], research_depth: "deep" as const
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }], research_depth: "deep" as const
     };
 
     const oneRound = finalizeResearch({ ...base, receipts: [survey, videoA, study] }, options);
@@ -2011,7 +2016,7 @@ describe("finalize_research gate", () => {
   it("does not count repeated searches or unverified scout candidates as saturation", () => {
     const base = {
       community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }], research_depth: "deep" as const
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }], research_depth: "deep" as const
     };
     // A later call repeating the same query (a byte-identical receipt would count once).
     const sameAngle = sign("youtube_search", { videos: ["zzzzzzzzzzz"], q: "b2b2b2b2b2b2" }, options);
@@ -2034,7 +2039,7 @@ describe("finalize_research gate", () => {
   it("lets a later page settle the page it continued", () => {
     const base = {
       community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }], research_depth: "deep" as const
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }], research_depth: "deep" as const
     };
     const next = pageKey("hip pain what worked", "CAoQAA");
     const pageOne = sign("youtube_search", { videos: [], open: 1, nx: next, q: "j0j0j0j0j0j0" }, options);
@@ -2050,7 +2055,7 @@ describe("finalize_research gate", () => {
   it("keeps discovery open while YouTube's limits stop searches: an open lead in a first pass, a blocker in deep research", () => {
     const base = {
       community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }]
     };
     // One search finished with no next page and the daily quota stopped the
     // other: nothing is unread, but the round is not settled.
@@ -2232,7 +2237,7 @@ describe("finalize_research gate", () => {
     const lateVideo = sign("youtube_video_audit", { video: "eeeeeeeeeee", state: "api_visible_complete", lock: "pass", records: 50 }, options);
     const request = {
       community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }],
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }],
       receipts: [partialSurvey, round("q2q2q2q2q2q2", []), round("q3q3q3q3q3q3", []), round("q4q4q4q4q4q4", ["eeeeeeeeeee"]),
         videoA, lateVideo, study],
       community_findings: findingsFor(["aaaaaaaaaaa", "eeeeeeeeeee"]),
@@ -2292,7 +2297,7 @@ describe("finalize_research gate", () => {
   });
 
   it("lets a first pass stop at its cap and hand back open leads instead of searching on", () => {
-    const base = { community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET, key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }] };
+    const base = { community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET, key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }] };
     // Two rounds, the last still finding a video worth auditing: not saturated, but the first pass is done.
     const round = (q: string, videos: string[]) => sign("youtube_search", { videos, q }, options);
     const lateVideo = sign("youtube_video_audit", { video: "eeeeeeeeeee", state: "api_visible_complete", lock: "pass", records: 50 }, options);
@@ -2335,7 +2340,7 @@ describe("finalize_research gate", () => {
       receipts: [study], community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome",
       not_relevant_reason: "A question about one lab value.",
       treatment_choice: "not_compared", research_target: TARGET,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }]
     }, options);
     expect(studiesOnly).toMatchObject({ status: "ready_with_limits", limits: [offerLimit(false)] });
     expect(studiesOnly.caveats).toEqual(STUDIES_OFFER_CAVEATS);
@@ -2362,7 +2367,7 @@ describe("finalize_research gate", () => {
   it("does not count a repeated receipt or a repeated query toward the first-pass cap", () => {
     const base = {
       community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }]
     };
     const round = sign("youtube_search", { videos: ["aaaaaaaaaaa"], q: "k1k1k1k1k1k1" }, options);
     const duplicated = finalizeResearch({ ...base, receipts: [round, round, round, round, videoA, study] }, options);
@@ -2382,7 +2387,7 @@ describe("finalize_research gate", () => {
   it("does not count a round whose searches failed toward the first-pass cap", () => {
     const base = {
       community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }]
     };
     const failed = (q: string) => sign("youtube_search", { videos: [], access: "error", rl: 0, inc: 1, open: 0, q }, options);
     const round = (q: string, videos: string[]) => sign("youtube_search", { videos, q }, options);
@@ -2409,7 +2414,7 @@ describe("finalize_research gate", () => {
   });
 
   it("does not let a first pass stop before it has audited or searched enough", () => {
-    const base = { community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET, key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }] };
+    const base = { community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET, key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }] };
     const lateFind = sign("youtube_scout", { videos: ["ddddddddddd"], open: 0, q: "g7g7g7g7g7g7" }, options);
     const videoD = sign("youtube_video_audit", { video: "ddddddddddd", state: "api_visible_complete", lock: "pass", records: 90 }, options);
     const early = finalizeResearch({ ...base, receipts: [lateFind, videoD, study] }, options);
@@ -2419,7 +2424,7 @@ describe("finalize_research gate", () => {
   });
 
   it("lets a niche topic finish with no video once discovery has saturated", () => {
-    const base = { community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET, key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }] };
+    const base = { community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET, key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }] };
     const emptySurvey = sign("youtube_survey", { access: "complete", searches: 6, videos: [], q: "j0j0j0j0j0j0" }, options);
     const nothing = finalizeResearch({ ...base, receipts: [emptySurvey, emptySearch, study] }, options);
     expect(nothing.status).toBe("ready_with_limits");
@@ -2460,7 +2465,7 @@ describe("finalize_research gate", () => {
     // judgment (review of 62cefa2: the scout told the model to audit them, and the gate then refused them).
     const base = {
       community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }]
     };
     const judgedScout = sign("youtube_scout", { videos: [], alt: ["fffffffffff", "hhhhhhhhhhh"], open: 0, q: "k1k1k1k1k1k1" }, options);
     const videoF = sign("youtube_video_audit", {
@@ -2490,7 +2495,7 @@ describe("finalize_research gate", () => {
     // "Check this video" (AskRigor#248): the person's own video is audited for comments like any material video.
     const base = {
       community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }]
     };
     const reading = sign("youtube_video_claims", { video: "ggggggggggg", mode: "claims", n: 4 }, options);
     const videoG = sign("youtube_video_audit", {
@@ -2533,7 +2538,7 @@ describe("finalize_research gate", () => {
     expect(finalizeResearch({
       receipts: [study], community_evidence: "not_relevant", treatment_choice: "not_compared", research_target: TARGET,
       not_relevant_reason: "The user asked about studies of smelling geosmin, not about experiences.",
-      key_sources: [{ id: "PMC10518852", status: "validated" }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "PMC10518852", status: "validated" }]
     }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(skipStep);
     const reasoned = finalizeResearch({
       receipts: [study],
@@ -2542,7 +2547,7 @@ describe("finalize_research gate", () => {
       treatment_choice: "not_compared",
       research_target: TARGET,
       not_relevant_reason: "Dose conversion question with no treatment choice.",
-      key_sources: [{ id: "PMC10518852", status: "validated" }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "PMC10518852", status: "validated" }]
     }, options);
     // Its only limit is the first pass's offer of a deeper study review.
     expect(reasoned).toMatchObject({ status: "ready_with_limits", limits: [offerLimit(false)] });
@@ -2550,7 +2555,7 @@ describe("finalize_research gate", () => {
       receipts: [study], community_evidence: "not_relevant", treatment_choice: "not_compared", research_target: TARGET,
       not_relevant_basis: "no_real_world_outcome",
       not_relevant_reason: "Dose conversion question with no treatment choice.", research_depth: "deep",
-      key_sources: [{ id: "PMC10518852", status: "validated" }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "PMC10518852", status: "validated" }]
     }, options).status).toBe("ready");
   });
 
@@ -2569,7 +2574,7 @@ describe("finalize_research gate", () => {
   it("counts only the discovery done for this research target", () => {
     const base = {
       community_evidence: "researched" as const, treatment_choice: "not_compared" as const,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }]
     };
     // Saturated rounds and an audit from an earlier question in the same chat.
     const migraine = researchTargetDigest("Adults with chronic migraine trying to cut attacks");
@@ -2605,7 +2610,7 @@ describe("finalize_research gate", () => {
   it("orders rounds by their signed issue order, not by the caller", () => {
     const base = {
       community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
-      key_sources: [{ id: "10.1002/art.41142", status: "validated" as const }], research_depth: "deep" as const
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }], research_depth: "deep" as const
     };
     // Three searches issued within one second; the last one found video F.
     const second = Date.parse("2026-09-26T11:59:59.000Z");
@@ -2650,7 +2655,7 @@ describe("findings card at the final gate", () => {
     community_evidence: "researched",
     treatment_choice: "not_compared",
     research_target: TARGET,
-    key_sources: [{ id: "https://doi.org/10.1002/ART.41142", status: "validated" }]
+    key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "https://doi.org/10.1002/ART.41142", status: "validated" }]
   };
   const CARD = {
     question: "Does exercise therapy help adults with hip osteoarthritis avoid a joint replacement?",
@@ -2729,7 +2734,7 @@ describe("findings card at the final gate", () => {
     const withLead = {
       ...READY,
       receipts: [...READY.receipts, lead, pubmed],
-      key_sources: [...READY.key_sources, { id: "10.1016/j.joca.2020.01.001", status: "lead_only" }]
+      key_sources: [...READY.key_sources, { read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1016/j.joca.2020.01.001", status: "lead_only" }]
     };
     expect(finalizeResearch({
       ...withLead, findings_card: withFinding({ sources: ["10.1016/J.JOCA.2020.01.001", "PMID: 31999999"], tags: ["full_text_read"] })
@@ -2748,7 +2753,7 @@ describe("findings card at the final gate", () => {
       treatment_choice: "not_compared",
       research_target: TARGET,
       research_depth: "deep",
-      key_sources: [{ id: "PMC10518852", status: "validated" }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "PMC10518852", status: "validated" }]
     };
     const quote = "Le foie élimine ce médicament en quelques heures.";
     const card = withFinding({ answer_quote: quote, sources: ["PMC10518852"], tags: ["full_text_read"] });
@@ -2823,7 +2828,7 @@ describe("findings card at the final gate", () => {
       treatment_choice: "not_compared",
       research_target: TARGET,
       research_depth: "deep",
-      key_sources: [{ id: "PMC10518852", status: "validated" }]
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "PMC10518852", status: "validated" }]
     };
     const offerOptions = { secret: SECRET, now, findings: "offer" as const };
     const quote = "Le foie élimine ce médicament en quelques heures.";

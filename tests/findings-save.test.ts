@@ -512,6 +512,7 @@ describe("finalize_research, save_research_findings and the findings library", (
   }
 
   const request = (overrides: Record<string, unknown> = {}) => ({
+    lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
     full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates findings save checks." },
     receipts: [issueResearchReceipt("study_audit", {
       id: "PMC10518852", doi: "10.1002/art.41142", status: "complete_no_unresolved_fields",
@@ -524,7 +525,7 @@ describe("finalize_research, save_research_findings and the findings library", (
     research_target: TARGET,
     research_depth: "deep",
     intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
-    key_sources: [{ id: "PMC10518852", status: "validated" }],
+    key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "PMC10518852", status: "validated" }],
     absence_claims: [], scale_results: [],
     findings_card: CHECKED_CARD,
     reported_model: "Example Model 2026-08-06",
