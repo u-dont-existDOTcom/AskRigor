@@ -9,7 +9,7 @@ import {
 import { XMLParser } from "fast-xml-parser";
 import { z } from "zod";
 
-import { fetchText, UpstreamHttpError } from "./http.js";
+import { fetchText, isTransientTransportError, UpstreamHttpError } from "./http.js";
 
 const EUROPE_PMC_FULL_TEXT_ROOT =
   "https://www.ebi.ac.uk/europepmc/webservices/rest";
@@ -131,6 +131,15 @@ export async function fetchEuropePmcFullText(
         code: "europe_pmc_full_text_rate_limited",
         message: "Europe PMC full-text rate limit was reached",
         httpStatus: status,
+        retryable: true
+      });
+    }
+
+    if (status === undefined && isTransientTransportError(error)) {
+      return fullTextErrorEnvelope(normalizedPmcid, canonicalUrl, {
+        accessStatus: "error",
+        code: "europe_pmc_full_text_unreachable",
+        message: "Europe PMC did not respond (a timeout or a dropped connection)",
         retryable: true
       });
     }

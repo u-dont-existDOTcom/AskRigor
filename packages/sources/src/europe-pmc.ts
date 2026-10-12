@@ -6,7 +6,7 @@ import {
 } from "@askrigor/contracts";
 import { z } from "zod";
 
-import { fetchJson } from "./http.js";
+import { fetchJson, isTransientTransportError } from "./http.js";
 
 const SEARCH_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/search";
 const DEFAULT_PAGE_SIZE = 20;
@@ -257,6 +257,10 @@ const europePmcErrorEnvelope = (
   } else if (status !== undefined && status >= 500) {
     code = "europe_pmc_upstream_unavailable";
     message = "Europe PMC upstream service unavailable";
+    retryable = true;
+  } else if (status === undefined && isTransientTransportError(error)) {
+    code = "europe_pmc_unreachable";
+    message = "Europe PMC did not respond (a timeout or a dropped connection)";
     retryable = true;
   }
 

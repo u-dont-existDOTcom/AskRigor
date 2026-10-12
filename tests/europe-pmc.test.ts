@@ -13,6 +13,53 @@ afterEach(() => {
 });
 
 describe("Europe PMC search", () => {
+  it.each([
+    new DOMException("request timed out", "TimeoutError"),
+    new TypeError("fetch failed")
+  ])("reports a transient transport failure as retryable: %s", async (error) => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(error));
+
+    const result = await searchEuropePmc({ query: "transport failure" });
+
+    expect(result.access_status).toBe("error");
+    expect(result.error).toEqual({
+      code: "europe_pmc_unreachable",
+      message: "Europe PMC did not respond (a timeout or a dropped connection)",
+      retryable: true
+    });
+    expect(result.error).not.toHaveProperty("http_status");
+  });
+
+  it("keeps a plain request error nonretryable", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("request failed")));
+
+    const result = await searchEuropePmc({ query: "generic failure" });
+
+    expect(result.error).toEqual({
+      code: "europe_pmc_request_failed",
+      message: "Europe PMC request failed",
+      retryable: false
+    });
+    expect(result.error).not.toHaveProperty("http_status");
+  });
+
+  it("keeps HTTP 503 mapped to an upstream service failure", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("provider-secret", { status: 503 })));
+
+    const pending = searchEuropePmc({ query: "upstream failure" });
+    await vi.runAllTimersAsync();
+    const result = await pending;
+
+    expect(result.error).toEqual({
+      code: "europe_pmc_upstream_unavailable",
+      message: "Europe PMC upstream service unavailable",
+      http_status: 503,
+      retryable: true
+    });
+    expect(JSON.stringify(result)).not.toContain("provider-secret");
+  });
+
   it("preserves a synthetic abstract carried by the existing DOI-search record", async () => {
     const query = 'DOI:"10.1234/synthetic.abstract"';
     const abstractText = "Synthetic abstract text supplied by the fixture, never a real paper.";
