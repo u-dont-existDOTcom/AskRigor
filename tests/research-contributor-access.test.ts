@@ -152,6 +152,44 @@ describe("research contributor access", () => {
     expect(store.allProposals()).toHaveLength(1);
   });
 
+  it.each(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS"] as const)(
+    "rejects sandbox identifier values in %s before persistence, regardless of scheme case or identifier label",
+    async (proposalKind) => {
+      const { store, service } = fixture();
+      await service.acceptFreeContributor(SUBJECT, agreement());
+      for (const value of ["sandbox:/mnt/data/report.json", "SaNdBoX:/mnt/data/report.json", "SANDBOX:report.json"]) {
+        for (const scheme of ["url", "other"] as const) {
+          const submission = service.submitProposal(SUBJECT, {
+            proposalKind,
+            privacyBoundary: PRIVACY_BOUNDARY,
+            payload: contributionWithIdentifier(proposalKind, scheme, value),
+          });
+          await expect(submission).rejects.toBeInstanceOf(ResearchAccessError);
+          await expect(submission).rejects.toMatchObject({
+            name: "Error",
+            code: "CONTRIBUTION_PRIVACY_REJECTED",
+            message: "A sandbox link points into another session and can never be opened.",
+          });
+        }
+      }
+      expect(store.allProposals()).toHaveLength(0);
+    },
+  );
+
+  it.each(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS"] as const)(
+    "accepts an ordinary HTTPS identifier in %s, even when sandbox: appears later in the URL",
+    async (proposalKind) => {
+      const { store, service } = fixture();
+      await service.acceptFreeContributor(SUBJECT, agreement());
+      await expect(service.submitProposal(SUBJECT, {
+        proposalKind,
+        privacyBoundary: PRIVACY_BOUNDARY,
+        payload: contributionWithIdentifier(proposalKind, "url", "https://example.org/study/sandbox:report.json"),
+      })).resolves.toMatchObject({ status: "inserted", record: { status: "PENDING_REVIEW", proposalKind } });
+      expect(store.allProposals()).toHaveLength(1);
+    },
+  );
+
   it("rejects prohibited keys and obvious contact details before persistence", async () => {
     const { store, service } = fixture();
     await service.acceptFreeContributor(SUBJECT, agreement());
@@ -369,6 +407,36 @@ function partialFrontier(): ResearchFrontierContribution {
       }],
     },
   };
+}
+
+function contributionWithIdentifier(
+  kind: "RESEARCH_FRONTIER" | "SOURCE_ANALYSIS",
+  scheme: "url" | "other",
+  value: string,
+): ResearchFrontierContribution | LivingEvidenceContribution {
+  if (kind === "SOURCE_ANALYSIS") {
+    const payload = completeSourceAnalysis();
+    payload.source!.identifiers.push({ scheme, value });
+    return payload;
+  }
+  const payload = partialFrontier();
+  payload.frontier.candidateVersions.push({
+    candidateId: deterministicUuid("synthetic:contributor-frontier:candidate"),
+    versionId: deterministicUuid("synthetic:contributor-frontier:candidate-version"),
+    observedInPassId: payload.frontier.passes[0]!.passId,
+    candidateKind: "study",
+    identifiers: [{ scheme: "doi", value: "10.0000/synthetic.1" }, { scheme, value }],
+    displayTitle: "Synthetic formal study",
+    publicationDate: null,
+    decision: "deferred",
+    decisionReason: "Full-text review remains open.",
+    relevanceSummary: "Synthetic candidate for source-linked analysis.",
+    sourceFamilyId: null,
+    previousVersionId: null,
+  });
+  payload.frontier.passes[0]!.retrievedCandidateCount = 1;
+  payload.frontier.passes[0]!.screenedCandidateCount = 1;
+  return payload;
 }
 
 function completeSourceAnalysis(): LivingEvidenceContribution {

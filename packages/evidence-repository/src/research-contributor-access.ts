@@ -711,6 +711,9 @@ export function prepareResearchContributionProposal(
 } {
   if (kind === "RESEARCH_FRONTIER") {
     const prepared = prepareFrontierContribution(payload);
+    for (const candidate of prepared.contribution.frontier.candidateVersions) {
+      assertNoSandboxIdentifiers(candidate.identifiers);
+    }
     return {
       payload: prepared.contribution,
       payloadSha256: prepared.payloadSha256,
@@ -721,6 +724,9 @@ export function prepareResearchContributionProposal(
   }
   const prepared = prepareContribution(payload);
   const contribution = prepared.contribution;
+  if (contribution.source !== null) {
+    assertNoSandboxIdentifiers(contribution.source.identifiers);
+  }
   if (
     contribution.source === null ||
     !["study_method_audit", "review_method_audit"].includes(
@@ -749,6 +755,15 @@ export function prepareResearchContributionProposal(
       contribution.analysis.captureStatus === "partial_historical_capture" ||
       contribution.source.accessStatus !== "complete",
   };
+}
+
+function assertNoSandboxIdentifiers(identifiers: ReadonlyArray<{ value: string }>): void {
+  if (identifiers.some(({ value }) => value.slice(0, 8).toLowerCase() === "sandbox:")) {
+    throw new ResearchAccessError(
+      "CONTRIBUTION_PRIVACY_REJECTED",
+      "A sandbox link points into another session and can never be opened.",
+    );
+  }
 }
 
 function assertNoObviousPrivateContactText(value: unknown): void {
