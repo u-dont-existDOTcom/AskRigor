@@ -22,7 +22,7 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   commercial_review_applicability: { status: "not_applicable", reason: "Synthetic fixture concerns no commercial product." },
   intervention_identity: { status: "not_applicable", reason: "Synthetic fixture contains no study intervention." },
   full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates lab preparation checks." },
-  key_sources: [{ id: DOI, status: "validated" }], absence_claims: [], scale_results: [],
+  key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: DOI, status: "validated" }], absence_claims: [], scale_results: [],
   answer_draft: `[Study](https://doi.org/${DOI}). ${QUOTE}`, ...overrides
 });
 const covered = (answer_quotes = [QUOTE]) => ({ status: "covered" as const, answer_quotes });

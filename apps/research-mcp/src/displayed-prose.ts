@@ -39,7 +39,8 @@ type OpenBlock =
   | { type: "indented" }
   | { type: "html"; kind: number };
 
-export function displayedProse(markdown: string): string[] {
+/** preserveLines retains physical paragraph lines for source-local marker checks. */
+export function displayedProse(markdown: string, preserveLines = false): string[] {
   const prose: string[] = [];
   const open: OpenBlock[] = [];
   const show = (text: string): void => {
@@ -49,7 +50,7 @@ export function displayedProse(markdown: string): string[] {
   const close = (from: number): void => {
     const tip = open.at(-1);
     if (open.length > from && tip?.type === "paragraph" && !tip.quoted) {
-      const text = tip.lines.join(" ");
+      const text = tip.lines.join(preserveLines ? "\n" : " ");
       if (!mayDefineLink(text)) show(text);
     }
     open.length = Math.min(open.length, from);

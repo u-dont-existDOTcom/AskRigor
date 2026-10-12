@@ -2437,7 +2437,7 @@ function registerOpenFullTextMcpTools(
     {
       description: "Retrieves the next contiguous page of an existing document_handle from its server-owned cursor. Coverage binds the handle and content hash; exhausted, expired, or invalid handles cannot advance. Pages preserve the exact document chain for source-linked audit.",
       inputSchema: continueOpenFullTextActionInputSchema,
-      outputSchema: availableOpenFullTextActionOutputSchema,
+      outputSchema: availableOpenFullTextActionOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (input) => invokeOpenFullTextMcp("continue_open_full_text", input)
@@ -2598,7 +2598,7 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
     requested_pmcid?: string;
     acquisition_state?: string;
     audit_receipt?: { audit_status?: string };
-    coverage_receipt?: { document_handle?: string };
+    coverage_receipt?: { document_handle?: string; exhausted?: boolean; source_content_sha256?: string };
   };
   if (operationId === "acquire_open_full_text" && output.status === "possibly_useful_lead") {
     // A lead receipt records completed attempts, not proof of paper
@@ -2610,30 +2610,36 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
       state: output.acquisition_state
     });
   }
-  const kind = output.status === "source_linked_study_audit_validated"
+  const readingComplete = (operationId === "acquire_open_full_text" || operationId === "continue_open_full_text") &&
+    output.coverage_receipt?.exhausted === true;
+  const kind = readingComplete
+    ? "full_text_read"
+    : output.status === "source_linked_study_audit_validated"
     ? "study_audit"
     : output.status === "source_linked_review_audit_validated"
       ? "review_audit"
       : undefined;
   const handle = output.coverage_receipt?.document_handle;
   if (kind === undefined || handle === undefined) return undefined;
-  let source: { primary_identifier: string; doi?: string; pmid?: string; pmcid?: string; provider: string; canonical_url: string } | undefined;
+  let source: { primary_identifier: string; doi?: string; pmid?: string; pmcid?: string; provider: string; canonical_url: string; content_sha256: string } | undefined;
   try {
     source = OPEN_FULL_TEXT_READER.readAuditMaterial?.(handle).source;
   } catch {
     return undefined;
   }
   if (source === undefined) return undefined;
+  if (kind === "full_text_read" && output.coverage_receipt?.source_content_sha256 !== source.content_sha256) return undefined;
   return researchReceipt(kind, {
     id: source.primary_identifier,
     doi: source.doi,
     pmid: source.pmid,
     pmcid: source.pmcid,
-    ...(source.provider === "client_supplied" ? {
+    ...(kind === "full_text_read" ? { content: source.content_sha256.slice(0, 16) } : {}),
+    ...(kind !== "full_text_read" && source.provider === "client_supplied" ? {
       retrieval_provider: "client_search_index",
       host: new URL(source.canonical_url).hostname
     } : {}),
-    status: output.audit_receipt?.audit_status ?? "validated"
+    ...(kind === "full_text_read" ? {} : { status: output.audit_receipt?.audit_status ?? "validated" })
   });
 }
 

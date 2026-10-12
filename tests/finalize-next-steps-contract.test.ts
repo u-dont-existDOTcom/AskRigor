@@ -29,11 +29,11 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   receipts: [study()], research_target: TARGET, research_depth: "deep", treatment_choice: "not_compared",
   community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome", not_relevant_reason: "Pure chemical mechanism with no real-world outcome.",
   commercial_review_applicability: declaration, intervention_identity: declaration,
-  key_sources: [{ id: DOI, status: "validated" }], absence_claims: [], scale_results: [],
+  key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: DOI, status: "validated" }], absence_claims: [], scale_results: [],
   answer_draft: `[Study](https://doi.org/${DOI}) describes ion exchange.`, ...overrides
 });
 const sourceInput = (id: string, answer: string, receipts = [study(id)]) => base({
-  receipts, key_sources: [{ id, status: "validated" }], answer_draft: answer
+  receipts, key_sources: [{ read_depth: "partial_text" as const, answer_marker: answer.startsWith("[Cette étude]") ? "Cette étude" : answer.startsWith("Study page:") ? "Study page" : "Study", id, status: "validated" }], answer_draft: answer
 });
 const discovery = (claims: Parameters<typeof issueResearchReceipt>[1] = {}) => sign("youtube_survey", {
   videos: [VIDEO], q: "angle1", t: Date.now() - 20_000, target: researchTargetDigest(TARGET), access: "complete", ...claims
@@ -52,7 +52,8 @@ describe("finalize next-step identifier contract", () => {
   it("derives allowed identifiers from all schema depths, enums, tool names and reviewed output fields", () => {
     expect(inventory.tools).toHaveLength(33);
     for (const identifier of ["registry_code", "other_variant_excluded", "outcome_search", "outcome_search_boundary",
-      "lab_preparation", "covered", "answer_quotes", "not_applicable", "full_text_search", "run", "not_needed", "ratings_shown", "no_text_search", "search_blocked", "benefit", "no_effect", "worse", "adverse", "stopped", "minimal_important_difference",
+      "read_depth", "answer_marker", "full_text_audited", "full_text_read", "partial_text", "abstract_only",
+      "conference_abstract", "secondary_only", "metadata_only", "inaccessible", "route_error", "lab_preparation", "covered", "answer_quotes", "not_applicable", "full_text_search", "run", "not_needed", "ratings_shown", "no_text_search", "search_blocked", "benefit", "no_effect", "worse", "adverse", "stopped", "minimal_important_difference",
       "none_established", "finalize_research", "research_receipt"]) expect(allowedNextStepIdentifiers.has(identifier)).toBe(true);
     expect(schemaIdentifiers({ properties: { array: { items: { anyOf: [
       { properties: { nested_field: { enum: ["enum_value"] } } }, { const: "literal_value" }
@@ -119,6 +120,10 @@ describe("finalize next-step identifier contract", () => {
     ["missing answer", { answer_draft: undefined }],
     ["missing scale", { scale_results: undefined }],
     ["missing absence claims", { absence_claims: undefined }],
+    ["missing read-depth declaration", { key_sources: [{ id: DOI, status: "validated", answer_marker: "Study" }] }],
+    ["missing marker declaration", { key_sources: [{ id: DOI, status: "validated", read_depth: "full_text_audited" }] }],
+    ["unsupported depth", { receipts: [], key_sources: [{ id: DOI, status: "validated", read_depth: "full_text_audited", answer_marker: "Study" }] }],
+    ["unshown marker", { key_sources: [{ id: DOI, status: "validated", read_depth: "full_text_audited", answer_marker: "Missing label" }] }],
     ["missing lab declaration", { lab_preparation: undefined }],
     ["unshown lab quote", { lab_preparation: { status: "covered", answer_quotes: ["This sentence is missing from the answer."] } }],
     ["lab quote without answer", { answer_draft: undefined, lab_preparation: { status: "covered", answer_quotes: ["This sentence needs an answer draft."] } }],
@@ -133,13 +138,13 @@ describe("finalize next-step identifier contract", () => {
     ["missing resolved identity", { intervention_identity: { status: "checked", interventions: [{ study_ids: [DOI], label: "Coded product", status: "resolved" }] } }],
     ["foreign intervention source", { intervention_identity: { status: "checked", interventions: [{ study_ids: ["10.1000/other"], label: "Coded product", status: "unresolved" }] } }],
     ["unresolved identity", { intervention_identity: { status: "checked", interventions: [{ study_ids: [DOI], label: "Coded product", status: "unresolved", identity: { registry_code: "C1", sponsor_or_maker: "Maker", current_product: "Product" } }] } }],
-    ["unknown key study", { key_sources: [{ id: "unidentified study", status: "validated" }] }],
-    ["PMID without receipt", { key_sources: [{ id: PMID, status: "validated" }] }],
-    ["PMID with DOI", { receipts: [sign("pubmed_record", { pmid: PMID, doi: DOI })], key_sources: [{ id: PMID, status: "validated" }] }],
-    ["PMID with open PMC but no DOI", { receipts: [sign("pubmed_record", { pmid: PMID, doi: "", pmcid: PMCID })], key_sources: [{ id: PMID, status: "lead_only" }] }],
-    ["untried open PMC", { receipts: [sign("pubmed_record", { pmid: PMID, doi: DOI, pmcid: PMCID }), sign("full_text_lead", { doi: DOI })], key_sources: [{ id: PMID, status: "lead_only" }] }],
-    ["unproven DOI lead", { receipts: [], key_sources: [{ id: DOI, status: "lead_only" }] }],
-    ["unproven PMCID lead", { receipts: [], key_sources: [{ id: PMCID, status: "lead_only" }] }],
+    ["unknown key study", { key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "unidentified study", status: "validated" }] }],
+    ["PMID without receipt", { key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: PMID, status: "validated" }] }],
+    ["PMID with DOI", { receipts: [sign("pubmed_record", { pmid: PMID, doi: DOI })], key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: PMID, status: "validated" }] }],
+    ["PMID with open PMC but no DOI", { receipts: [sign("pubmed_record", { pmid: PMID, doi: "", pmcid: PMCID })], key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: PMID, status: "lead_only" }] }],
+    ["untried open PMC", { receipts: [sign("pubmed_record", { pmid: PMID, doi: DOI, pmcid: PMCID }), sign("full_text_lead", { doi: DOI })], key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: PMID, status: "lead_only" }] }],
+    ["unproven DOI lead", { receipts: [], key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: DOI, status: "lead_only" }] }],
+    ["unproven PMCID lead", { receipts: [], key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: PMCID, status: "lead_only" }] }],
     ["first pass missing offers", { research_depth: "first_pass" }],
     ["first pass excessive focuses", { research_depth: "first_pass", open_leads: Array.from({ length: 4 }, (_, n) => ({ direction: "studies", topic: `Focus ${n}`, why: "Incomplete methods." })), another_pass_estimate: "some time" }],
     ["absent null sources", { absence_claims: [{ quote: "No effect.", state: "direct_null_evidence" }] }],
@@ -265,7 +270,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalizer contract, links and 
   });
   it("checks each key study, including a source acquired only as a lead", async () => {
     const input = base({ receipts: [study(), sign("full_text_lead", { doi: "10.1000/lead" })],
-      key_sources: [{ id: DOI, status: "validated" }, { id: "10.1000/lead", status: "lead_only" }] });
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: DOI, status: "validated" }, { read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1000/lead", status: "lead_only" }] });
     const result = await call(input);
     expect(result.next_steps.join(" ")).toContain("Key study 10.1000/lead has no link");
   });

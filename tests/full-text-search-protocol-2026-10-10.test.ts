@@ -1,3 +1,4 @@
+import { undoReadDepth } from "./helpers/undo-read-depth.js";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
@@ -26,6 +27,7 @@ const APPROVED = {
 } as const;
 
 async function undoLabPreparation(text: string): Promise<string> {
+  text = await undoReadDepth(text, "hrp");
   const { hrp: lab } = JSON.parse(await readFile(
     new URL("tests/fixtures/protocol-edits/2026-10-11-lab-preparation.json", ROOT), "utf8",
   )) as { hrp: RecordedEdits };
@@ -91,11 +93,11 @@ describe("owner-approved full-text search triggers, question 65: A (2026-10-10)"
     expect(prior).toContain('<Protocol name="HRP" version="20.6.14" revisionDate="2026-10-09"');
     expect(fixture.edits.reduce((text, [before, after]) => replaceOnce(text, before, after), prior)).toBe(onDisk);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: "20.6.16", revisionDate: "2026-10-11", sha256: sha256(current),
+      name: "HRP", version: "20.6.17", revisionDate: "2026-10-11", sha256: sha256(current),
     });
     await expect(getProtocolManifest("universal")).resolves.toEqual({
-      name: "AskRigor.com universal saved instructions", version: "20.5.37", revisionDate: "2026-10-09",
-      sha256: "342e32e1568954ed62a8b53d75d1ad0efe39cba8d9ad7d143658f02dded169bb",
+      name: "AskRigor.com universal saved instructions", version: "20.5.38", revisionDate: "2026-10-11",
+      sha256: "06e5ca6befb9dac648fd41996213394e793e17795087eee8fbc63cbcbbbd8174",
     });
   });
 
