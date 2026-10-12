@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
 import { getProtocolManifest } from "@askrigor/protocol";
-import { undoDiminishingReturns, undoReadDepth } from "./helpers/undo-read-depth.js";
+import { undoCorrectionReport, undoDiminishingReturns, undoReadDepth } from "./helpers/undo-read-depth.js";
 
 const ROOT = new URL("../", import.meta.url);
 const parser = new XMLParser({ parseTagValue: false });
@@ -87,9 +87,9 @@ describe("owner-approved proactive diminishing returns, question 73: 73a (2026-1
       name: "HRP", version: "20.6.18", revisionDate: "2026-10-11", sha256: hash(current),
     });
     const universal = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
-    expect(hash(universal)).toBe("06e5ca6befb9dac648fd41996213394e793e17795087eee8fbc63cbcbbbd8174");
+    expect(hash(await undoCorrectionReport(universal))).toBe("06e5ca6befb9dac648fd41996213394e793e17795087eee8fbc63cbcbbbd8174");
     await expect(getProtocolManifest("universal")).resolves.toEqual({
-      name: "AskRigor.com universal saved instructions", version: "20.5.38", revisionDate: "2026-10-11",
+      name: "AskRigor.com universal saved instructions", version: "20.5.39", revisionDate: "2026-10-12",
       sha256: hash(universal),
     });
   });

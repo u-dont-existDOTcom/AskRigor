@@ -1,3 +1,4 @@
+import { undoCorrectionReport } from "./helpers/undo-read-depth.js";
 import { XMLParser } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
 import { coreSectionNames, loadProtocolSnapshot } from "@askrigor/protocol";
@@ -10,8 +11,8 @@ import { coreSectionNames, loadProtocolSnapshot } from "@askrigor/protocol";
 describe("lesson offer after a validated correction", () => {
   it("is part of corrections_and_calibration and always loaded", async () => {
     const { text, manifest } = await loadProtocolSnapshot("universal");
-    expect(manifest).toMatchObject({ version: "20.5.38", revisionDate: "2026-10-11" });
-    const section = new XMLParser().parse(text).Protocol.corrections_and_calibration as string;
+    expect(manifest).toMatchObject({ version: "20.5.39", revisionDate: "2026-10-12" });
+    const section = new XMLParser().parse(await undoCorrectionReport(text)).Protocol.corrections_and_calibration as string;
     for (const obligation of [
       "rechecked and found valid",
       "say it is worth saving as an AskRigor lesson",
@@ -23,6 +24,7 @@ describe("lesson offer after a validated correction", () => {
     ]) {
       expect(section, obligation).toContain(obligation);
     }
+    expect(new XMLParser().parse(text).Protocol).toHaveProperty("corrections_and_calibration");
     expect(coreSectionNames("universal")).toContain("corrections_and_calibration");
   });
 });

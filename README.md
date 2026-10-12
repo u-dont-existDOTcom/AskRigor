@@ -25,8 +25,8 @@ AskRigor uses this order when sources disagree:
 
 The current canonical files identify HRP `20.6.18` (2026-10-11), SHA-256
 `48e0e80ab412a3bce84ed834159664975933c3446b28bfcb5fea2964075f268e`,
-and Universal Instructions `20.5.38` (2026-10-11), SHA-256
-`06e5ca6befb9dac648fd41996213394e793e17795087eee8fbc63cbcbbbd8174`.
+and Universal Instructions `20.5.39` (2026-10-12), SHA-256
+`09f2d6651b036512f98857925f181ef664f0b2bf4599158c5fe0800bcd0ef8bf`.
 Those values are descriptive receipts derived from the exact XML bytes, not
 substitutes for the files. A README, manifest, router, lesson, checkpoint,
 release record, generated excerpt, or remembered summary never silently

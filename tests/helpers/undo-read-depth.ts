@@ -18,11 +18,16 @@ async function undoRecordedEdits(text: string, protocol: "hrp" | "universal", fi
   return prior;
 }
 
+export async function undoCorrectionReport(text: string): Promise<string> {
+  return undoRecordedEdits(text, "universal", "2026-10-12-correction-report.json");
+}
+
 export async function undoDiminishingReturns(text: string): Promise<string> {
   return undoRecordedEdits(text, "hrp", "2026-10-11-diminishing-returns.json");
 }
 
 export async function undoReadDepth(text: string, protocol: "hrp" | "universal"): Promise<string> {
   if (protocol === "hrp") text = await undoDiminishingReturns(text);
+  else text = await undoCorrectionReport(text);
   return undoRecordedEdits(text, protocol, "2026-10-11-read-depth.json");
 }

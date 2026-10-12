@@ -2856,8 +2856,8 @@ describe("AskRigor MCP tools", () => {
         core_sections: string[];
       };
       expect(indexContent.manifest).toMatchObject({
-        version: "20.5.38",
-        sha256: "06e5ca6befb9dac648fd41996213394e793e17795087eee8fbc63cbcbbbd8174"
+        version: "20.5.39",
+        sha256: "09f2d6651b036512f98857925f181ef664f0b2bf4599158c5fe0800bcd0ef8bf"
       });
       expect(indexContent.index).toHaveLength(40);
       expect(indexContent.core_sections).toContain("epistemics");
@@ -3038,9 +3038,9 @@ describe("AskRigor Streamable HTTP server", () => {
           protocol: "universal",
           manifest: {
             name: "AskRigor.com universal saved instructions",
-            version: "20.5.38",
-            revisionDate: "2026-10-11",
-            sha256: "06e5ca6befb9dac648fd41996213394e793e17795087eee8fbc63cbcbbbd8174"
+            version: "20.5.39",
+            revisionDate: "2026-10-12",
+            sha256: "09f2d6651b036512f98857925f181ef664f0b2bf4599158c5fe0800bcd0ef8bf"
           }
         });
       } finally {
@@ -3089,8 +3089,8 @@ describe("AskRigor Streamable HTTP server", () => {
           ok: true,
           protocol: "universal",
           manifest: {
-            version: "20.5.38",
-            sha256: "06e5ca6befb9dac648fd41996213394e793e17795087eee8fbc63cbcbbbd8174"
+            version: "20.5.39",
+            sha256: "09f2d6651b036512f98857925f181ef664f0b2bf4599158c5fe0800bcd0ef8bf"
           }
         });
       } finally {

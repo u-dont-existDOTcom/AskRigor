@@ -59,5 +59,7 @@
 
 ## Owner items
 
+Question 78 answered "78a" on 2026-10-12; built on this branch.
+
 1. Question 78: this wording. A: as drafted; B: change a wording.
 2. The release question, after the build.

@@ -244,7 +244,7 @@ describe("owner protocol changes of 2026-10-03", () => {
       readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8"),
     ]);
     // Universal 20.5.37 (owner question 58), 20.5.36 (owner question 50) and 20.5.35 (consilience) are above it.
-    const newestUniversal = /^<revision_history>\n<revision version="20\.5\.38" priority="Critical">\n[^<]*<\/revision>\n<revision version="20\.5\.37" priority="Critical">\n[^<]*<\/revision>\n<revision version="20\.5\.36" priority="Critical">\n[^<]*<\/revision>\n<revision version="20\.5\.35" priority="Critical">\n[^<]*<\/revision>\n/mu;
+    const newestUniversal = /^<revision_history>\n<revision version="20\.5\.39" priority="Critical">\n[^<]*<\/revision>\n<revision version="20\.5\.38" priority="Critical">\n[^<]*<\/revision>\n<revision version="20\.5\.37" priority="Critical">\n[^<]*<\/revision>\n<revision version="20\.5\.36" priority="Critical">\n[^<]*<\/revision>\n<revision version="20\.5\.35" priority="Critical">\n[^<]*<\/revision>\n/mu;
     expect(universal.match(newestUniversal)?.[0]).toBeDefined();
     expect(universal).toContain(
       `${universal.match(newestUniversal)?.[0]}<revision version="20.5.34" priority="Critical">\nOwner-approved changes (owner questions 27 and 28, 2026-10-03).`,
