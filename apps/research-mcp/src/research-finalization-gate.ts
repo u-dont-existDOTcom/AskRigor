@@ -284,14 +284,18 @@ export const finalizeResearchInputSchema = z.object({
       "and the caveats (each as its own sentence, as written or as caveat_renderings gives it), and is not stored."),
   absence_claims: z.array(z.object({
     quote: answerQuote.describe("The sentence(s), copied from answer_draft."),
-    state: z.enum(["support_not_located", "direct_null_evidence", "bounded_exclusion"])
+    state: z.enum(["support_not_located", "direct_null_evidence", "not_established", "bounded_exclusion"])
       .describe("support_not_located: the searches did not find it; direct_null_evidence: studies found no effect; " +
+        "not_established: studies were found but do not establish the effect; " +
         "bounded_exclusion: precise studies rule out an effect above a stated size."),
     studies: z.array(z.string().trim().min(1).max(300)).max(20).optional()
-      .describe("For direct_null_evidence and bounded_exclusion: the key sources (DOI, PMID or PMCID) it rests on.")
+      .describe("For direct_null_evidence, not_established and bounded_exclusion: the key sources (DOI, PMID or " +
+        "PMCID) it rests on.")
   }).strict()).max(20).optional()
     .describe("With answer_draft: each place the answer says something was not found, not studied, has no evidence or " +
-      "has no effect (an empty list if none)."),
+      "has no effect, or calls an intervention's evidence unconvincing, weak, not demonstrated or showing no benefit " +
+      "(an empty list if none). Evidence-strength sentences are absence claims, declared with not_established and " +
+      "their key sources when studies were found, or support_not_located with search coverage when none were."),
   scale_results: z.array(z.object({
     quote: answerQuote.describe("Records the sentence(s) reporting and explaining the result, copied from answer_draft."),
     scale: z.string().trim().min(1).max(300).describe("Records the scale's name or abbreviation as the answer writes it."),
@@ -1118,20 +1122,28 @@ export function finalizeResearch(
   }
 
   // Absence claims. Where the answer says something was not found, not
-  // studied, or has no evidence or no effect, it says which it means: not
-  // located by the searches made here, a direct null result, or a bounded
-  // exclusion (HRP NonexistenceVersusNotFound, NoWeaselSafetySubstitution,
-  // HistoricalVocabularyAndCitationBackchain). The model names each such
-  // sentence, in whatever language it wrote it; the gate checks that the
-  // answer shows it, that a null result or an exclusion rests on studies whose
-  // methods were audited and gives its numbers, and that what the searches did
-  // not find is bounded to the searches made (owner report, 2026-09-30: "I
-  // found no evidence that smelling humic acid treats neuroinflammation").
+  // studied, or has no evidence or no effect, or calls an intervention's
+  // evidence unconvincing or not demonstrated, it says which it means: not
+  // located by the searches made here, studies that do not establish the
+  // effect, a direct null result, or a bounded exclusion (HRP
+  // NonexistenceVersusNotFound, NoWeaselSafetySubstitution,
+  // HistoricalVocabularyAndCitationBackchain, UserNamedInterventionSweep).
+  // The model names each such sentence, in whatever language it wrote it;
+  // the gate checks that the answer shows it, that a verdict resting on
+  // studies names studies whose methods were audited (a null result or an
+  // exclusion also gives its numbers), and that what the searches did not
+  // find is bounded to the searches made (owner reports, 2026-09-30: "I
+  // found no evidence that smelling humic acid treats neuroinflammation";
+  // 2026-10-12: an answer judged a remedy to have "no convincing benefit"
+  // before searching its exact route).
   const absenceClaims = input.absence_claims ?? [];
   if (input.answer_draft !== undefined && input.absence_claims === undefined) {
     requireDeclaration(
-      "Say whether the answer states that something was not found, not studied, has no evidence or has no effect: " +
-        "give absence_claims, each such sentence with its state (an empty list if the answer states none)."
+      "absence_claims is missing: it lists each sentence saying something was not found, not studied, has no " +
+        "evidence or has no effect, or calling an intervention's evidence unconvincing, weak, not demonstrated or " +
+        "showing no benefit (an empty list means none). Evidence-strength sentences are absence claims, declared " +
+        "with not_established and their key sources when studies were found, or support_not_located with search " +
+        "coverage when none were."
     );
   }
   if (input.answer_draft !== undefined && input.scale_results === undefined) {
@@ -1148,22 +1160,24 @@ export function finalizeResearch(
   };
   for (const [index, claim] of absenceClaims.entries()) {
     if (claim.state === "support_not_located") continue;
-    const stated = `absence_claims[${index}] states ` +
-      (claim.state === "direct_null_evidence" ? "a direct null result" : "a bounded exclusion");
+    const verdict = claim.state === "not_established";
+    const stated = `absence_claims[${index}] states ` + (claim.state === "direct_null_evidence"
+      ? "a direct null result"
+      : verdict ? "that studies do not establish the effect" : "a bounded exclusion");
     const studies = claim.studies ?? [];
     const unaudited = studies.filter((id) => !auditedStudy(id));
     if (studies.length === 0) {
-      requireDeclaration(
-        `${stated} without the studies it rests on: name them in studies, each read with a full-text method audit, ` +
-          "or state it as support_not_located."
-      );
+      requireDeclaration(`${stated} without the studies it rests on: ` + (verdict
+        ? "studies lists its key sources (DOI, PMID or PMCID), each covered by a full-text method audit."
+        : "name them in studies, each read with a full-text method audit, or state it as support_not_located."));
     } else if (unaudited.length > 0) {
-      nextSteps.push(
-        `${stated} on ${unaudited.join(", ")}, which no full-text method audit here covers: an abstract or a lead ` +
-          "cannot show a null result. Audit each, or state it as support_not_located."
-      );
+      nextSteps.push(`${stated} on ${unaudited.join(", ")}, which no full-text method audit here covers: ` + (verdict
+        ? "an abstract or a lead cannot establish this evidence-strength verdict. Each listed study needs a " +
+          "full-text method audit."
+        : "an abstract or a lead cannot show a null result. Audit each, or state it as support_not_located."));
     }
-    if (!/\p{Nd}/u.test(claim.quote)) {
+    // A verdict that studies do not establish an effect states no estimate.
+    if (!verdict && !/\p{Nd}/u.test(claim.quote)) {
       nextSteps.push(
         `${stated}: give the estimate and its interval in that sentence, so a reader sees how large an effect the ` +
           "studies could have missed."

@@ -83,6 +83,8 @@
 
 ## Owner items
 
+Question 77 answered "77a" on 2026-10-12; built on this branch.
+
 1. Question 77: the wording above and the `absence_claims` change. A: all; B: the `absence_claims` change only;
    C: change a wording.
 2. The release question, after the build. It stacks on question 73's HRP 20.6.18.

@@ -1026,7 +1026,8 @@ pending-proposal stores have their own strict contracts and authority boundaries
   `community_searches` entry) and the caveats, which an answer not in English
   gives in its own language (`caveat_renderings`, with the `answer_language`
   tag), and the sentences where it says something was not found, not studied
-  or has no effect (`absence_claims`, each with its state and the study IDs it
+  or has no effect, or calls an intervention's evidence unconvincing, weak, not
+  demonstrated or showing no benefit (`absence_claims`, each with its state and the study IDs it
   rests on, and `search_coverage`, the search classes covered beyond indexed
   databases), and reported scale or questionnaire results (`scale_results`,
   each with its quoted explanation, scale name, range, direction, values and
