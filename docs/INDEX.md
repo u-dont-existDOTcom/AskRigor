@@ -67,6 +67,9 @@ complete XML protocol.
   HRP 20.6.15, owner-library error codes, production acceptance and the Codex plugin refresh.
 - `audits/2026-10-11-maintenance-production-release.md`: release of #304, #305, #306 and #308: dependency updates,
   bundled pdf.js fonts and character maps, lesson-lane status, production acceptance and unchanged plugin receipts.
+- `audits/2026-10-12-read-depth-diminishing-returns-production-release.md`: release of #307, #315, #316, #314 and #317
+  (owner question 75): lab preparation, Europe PMC failure detail, per-study read depth, tool-list currency and
+  diminishing returns, with HRP 20.6.18, Universal 20.5.38, production acceptance and the Codex plugin refresh.
 - `audits/2026-10-09-product-identity-finalizer-production-release.md`: release of #288 and #290 (owner question 60):
   exact product identity, the final-check contract and HRP 20.6.13 / Universal 20.5.37, with the plugin refresh.
 - `audits/2026-10-09-offline-access-production-release.md`: release of #289 and #291 (owner question 56):
