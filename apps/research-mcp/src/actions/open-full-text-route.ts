@@ -101,7 +101,9 @@ const sourceSchema = z.object({
 const discoveryAttemptSchema = z.object({
   route: z.enum(["europe_pmc", "unpaywall", "candidate", "owner_library"]),
   result: z.enum(["indexed", "not_found", "inaccessible", "fetch_blocked", "error", "partial_text", "abstract_only", "identity_mismatch", "not_public"]),
-  identifier: z.string().optional()
+  identifier: z.string().optional(),
+  http_status: z.number().int().optional(),
+  retryable: z.boolean().optional()
 }).strict();
 const coverageSchema = z.object({
   document_handle: handleSchema,

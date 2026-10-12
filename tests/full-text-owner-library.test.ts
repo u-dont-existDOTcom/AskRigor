@@ -149,9 +149,28 @@ beforeEach(async () => {
     status: "ACTIVE", source: "OWNER_GRANTED", externalReferenceSha256: null, grantedAt: "2026-09-01T00:00:00.000Z", expiresAt: null, revokedAt: null });
   await service.activatePaidPrivate("paid");
 });
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 for (const surface of ["function", "mcp"] as const) describe(`owner library through ${surface}`, () => {
+  it.each([500, 429, 404])("preserves Europe PMC HTTP %s through the acquisition surface", async (status) => {
+    const pmcid = "PMC2840382";
+    const doi = "10.1097/gme.0b013e3180ca7cfa";
+    const fetch = vi.fn(async (_url: string | URL | Request) => new Response(JSON.stringify({ status, error: "Synthetic upstream failure" }), { status }));
+    vi.stubGlobal("fetch", fetch);
+    const result = await run(surface, { doi, pmcid }, "anonymous", {}, false);
+    expect(result.status).toBe("possibly_useful_lead");
+    expect(result.discovery_attempts[0]).toEqual({ route: "europe_pmc", result: status === 404 ? "not_found" : "error",
+      identifier: pmcid, http_status: status, retryable: status !== 404 });
+    const sentence = `Europe PMC's full-text service failed for ${pmcid} (HTTP ${status}); the article's PubMed Central page (https://pmc.ncbi.nlm.nih.gov/articles/${pmcid}/) may be readable by the AI's own browsing, and a copy read there can be passed back as candidate_texts with retrieved_via "client_search_index", which AskRigor checks for identity and completeness as usual.`;
+    if (status === 404) expect(result.access_boundary).not.toContain("PubMed Central");
+    else expect(result.access_boundary).toContain(sentence);
+    expect(fetch).toHaveBeenCalled();
+    for (const [url] of fetch.mock.calls) {
+      expect(String(url)).toBe(`https://www.ebi.ac.uk/europepmc/webservices/rest/${pmcid}/fullTextXML`);
+    }
+    expect(downloads).toBe(0);
+    expect(calls).toEqual([]);
+  }, 15_000);
   it.each(["structured", "resource", "text", "split"] as const)("admits the owner's library PDF from %s metadata", async (format) => {
     metadataFormat = format;
     const result = await run(surface);
