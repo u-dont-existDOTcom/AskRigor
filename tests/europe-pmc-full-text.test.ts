@@ -11,10 +11,58 @@ const fixture = () => readFile(
 );
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
 describe("Europe PMC reusable full-text retrieval", () => {
+  it.each([
+    new DOMException("request timed out", "TimeoutError"),
+    new TypeError("fetch failed")
+  ])("reports a transient transport failure as retryable: %s", async (error) => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(error));
+
+    const result = await fetchEuropePmcFullText("PMC1234567");
+
+    expect(result.access_status).toBe("error");
+    expect(result.error).toEqual({
+      code: "europe_pmc_full_text_unreachable",
+      message: "Europe PMC did not respond (a timeout or a dropped connection)",
+      retryable: true
+    });
+    expect(result.error).not.toHaveProperty("http_status");
+  });
+
+  it("keeps a plain request error nonretryable", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("request failed")));
+
+    const result = await fetchEuropePmcFullText("PMC1234567");
+
+    expect(result.error).toEqual({
+      code: "europe_pmc_full_text_request_failed",
+      message: "Europe PMC full-text request failed",
+      retryable: false
+    });
+    expect(result.error).not.toHaveProperty("http_status");
+  });
+
+  it("keeps HTTP 503 mapped to an upstream service failure", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("provider-secret", { status: 503 })));
+
+    const pending = fetchEuropePmcFullText("PMC1234567");
+    await vi.runAllTimersAsync();
+    const result = await pending;
+
+    expect(result.error).toEqual({
+      code: "europe_pmc_full_text_upstream_unavailable",
+      message: "Europe PMC full-text service was unavailable",
+      http_status: 503,
+      retryable: true
+    });
+    expect(JSON.stringify(result)).not.toContain("provider-secret");
+  });
+
   it("preserves exact XML, identity, completeness, and content hash", async () => {
     const xml = await fixture();
     const requests: Array<{ url: string; init?: RequestInit }> = [];
