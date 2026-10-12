@@ -136,7 +136,9 @@
     counted 33 tools and read live manifests, so they could not see this.
   - Its schema refused `read_depth` on key sources and has no `lab_preparation`. The final check therefore stayed
     `not_ready`, with the connector-refresh hint, which is the designed outcome for an outdated tool list.
-  - Refreshing the app is the owner's action in ChatGPT's settings.
+  - Refreshing the app is the owner's action in ChatGPT's settings. The owner refreshed it at about 03:40 UTC; Codex
+    still saw the old list at 03:42 and the current one at 03:54 (build `e6823000`, HRP 20.6.18, Universal 20.5.38,
+    with `lab_preparation`, `read_depth` and `answer_marker` in the schema).
 - **Case 1, a lab result (questions 70 and 71):** "prolactin about twice the upper limit, repeat next week; anything
   to do before it, and how likely is it to be normal?"
   - The research ran PubMed and Europe PMC searches and one section search of Methods and Results. Two studies were
@@ -159,6 +161,16 @@
   - Retried every 3 minutes, the probe passed at 03:37:04 UTC: the section search returned a receipt, all 14
     receipts verified, both studies were validated, no next step remained, and the final check answered
     `ready_with_limits` with the first-pass limit and its three caveat sentences.
+- **Case 1 again, through the refreshed app (03:55 to 04:04 UTC):** same question, same rules.
+  - The first tool named build `e6823000`. Four key studies were linked by DOI, each with its read depth beside it;
+    two were read to the end with validated audits.
+  - `finalize_research` verified all 12 receipts and accepted `lab_preparation`, all four `read_depth` values and
+    all four `answer_marker` values. The only remaining step was the findings card, which the brief withheld so
+    that no synthetic card entered the owner's findings library.
+  - The answer added a community pass (two public forums, reported as unverified and kept apart from the studies)
+    and declined to give a personal probability.
+  - Codex called `validate_review_method_audit`, a read-only research validator, reading the brief's "review tools"
+    as including it. No contribution, save, lesson or access change was made.
 - **Case 2, diminishing returns (question 73):** four passes on herbal treatments for irritable bowel symptoms, the
   last three adding only small maker-run trials and duplicates; the user writes "continue".
   - The reply said, unasked, that returns had diminished. It gave the scope and what each pass found, and kept the

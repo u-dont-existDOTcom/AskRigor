@@ -166,7 +166,7 @@ tool list was loaded before the release still answers manifest calls with
 the live versions, but it cannot send newer fields; on 2026-10-12 the
 ChatGPT app Codex reaches still listed build `27deb4a5` (HRP 20.6.10). Report
 a stale list as such, with the refresh as the owner's action in that app's
-settings.
+settings; the owner's refresh reached Codex about 15 minutes later.
 
 When the accepted-contribution promotion timer is active, every backend release
 must also bind `/opt/askrigor/living-evidence-image.env` to the exact deployed
