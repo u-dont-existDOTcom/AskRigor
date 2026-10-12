@@ -470,7 +470,7 @@ separately in `docs/custom-gpt-action-live-acceptance.md` and
 | Shared provenance | provider, record type, primary/provider IDs, retrieval timestamp, source URL/title/authors or channel, pagination, access status, limitations, and structured provider error | Makes source, time, coverage, and failure boundaries auditable. |
 | Shared nested response fields | `raw_metadata` provider counters/freshness fields; `error` code/message/optional HTTP status/retryability; `source_identity` canonical URL/title/authors or channel; pagination cursor/next cursor/page size/returned/exhausted; limitations | These nested fields disclose response coverage, provider context, and failure semantics without exposing a raw provider payload. |
 | Scholarly metadata | PMID, title, abstract when PubMed provides it, journal, dates, authors, DOI, PubMed Central ID, publication types; Europe PMC source/IDs/title/authors/journal/year; Crossref candidates and backward-compatible update/retraction evidence; internal-only rich Crossref event assertions and FORRT relationship metadata in Phase D1 | Scholarly retrieval and discovery; citation, abstract, publication-event, or provider-reported replication metadata is not a substitute for inspecting the study and linked source. The new rich records are not public or session-connected in Phase D1. |
-| Open publication full text and audit index | Requested DOI/optional PMCID; Europe PMC or Unpaywall discovery attempts; public source URL, title, manuscript version and format; exact document and block SHA-256 values; extracted public JATS or PDF text with section/page location; opaque document handle and cursor; source-linked study or review audit submissions and bounded validation receipts | Attempts a lawful, identity-checked full-text method audit. Retrieval, open availability, randomization, peer review, journal status, or guideline status is not treated as proof of reliability. If no complete copy passes access and identity checks, only a possibly useful lead is returned and unseen contents are not evidence. |
+| Open publication full text and audit index | Requested DOI/optional PMCID; Europe PMC or Unpaywall discovery attempts (optional `http_status` and `retryable` for Europe PMC full-text failures: public provider status and retryability, no user data); public source URL, title, manuscript version and format; exact document and block SHA-256 values; extracted public JATS or PDF text with section/page location; opaque document handle and cursor; source-linked study or review audit submissions and bounded validation receipts | Attempts a lawful, identity-checked full-text method audit. Retrieval, open availability, randomization, peer review, journal status, or guideline status is not treated as proof of reliability. If no complete copy passes access and identity checks, only a possibly useful lead is returned and unseen contents are not evidence. |
 | Public trial metadata | NCT ID, title, status, study type/phases, conditions, interventions, sponsors, enrollment, dates, results flag, references, and last update | ClinicalTrials.gov record lookup/search. |
 | Public YouTube video metadata | video ID, title, description, published time, channel title/ID, duration, privacy status, and API-visible counts where supplied | Video discovery and provenance. |
 | Public YouTube comment data | comment/reply IDs, parent/top-level IDs, public YouTube author/channel IDs, optional public display names, public comment text, likes, and publication/update timestamps | Requested API-visible comment and reply retrieval with completeness accounting. |
@@ -948,6 +948,14 @@ pending-proposal stores have their own strict contracts and authority boundaries
   problems, reporting requirements and caveats. Only the bounded receipt
   product claim described above is returned as a declared product name in a
   research receipt. Declarations do not cause external verification calls.
+- `full_text_read` research receipts sign known DOI, PMID or PMCID identifiers
+  and the first 16 hexadecimal characters of the document content SHA-256 after
+  coverage is exhausted. They carry no document text; finalization verifies them
+  with the same signature and expiry checks as study-audit receipts.
+  `key_sources.read_depth` records declared reading depth, and `answer_marker`
+  records the visible source label (3–80 characters), checked on the source
+  link's line without judging its meaning. These declarations are request-local
+  and are not logged or persisted.
 - MCP research receipts (`research_receipt`) are HMAC-SHA256 tokens under a
   domain-separated key derived from the finalization signing secret, or else the
   YouTube continuation secret. They carry only public identifiers (YouTube
@@ -1027,6 +1035,7 @@ pending-proposal stores have their own strict contracts and authority boundaries
   queries the model ran, or `not_needed` with a short reason) is request-local
   too: each query is compared by its 12-hex digest with a section-search
   receipt, and the reason is not judged.
+  Its `lab_preparation` declaration is request-local too: its quotes are compared with the answer for that call only, and nothing from it is stored.
   None of their text is returned: of the answer, the
   result names only the labels and public video IDs it found, and points to an
   absence claim or scale result by its position in the list; for a scale result,
