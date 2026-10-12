@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
 import { loadProtocolSectionSnapshot } from "@askrigor/protocol";
+import { undoAcceptedLessonsHrp, undoReviewProvenance } from "./helpers/undo-read-depth.js";
 
 const ROOT = new URL("../", import.meta.url);
 
@@ -75,7 +76,10 @@ describe("owner protocol changes of 2026-10-03", () => {
     // The owner's file as sent on 2026-09-30.
     expect(Buffer.byteLength(original, "utf8")).toBe(7_998);
     expect(sha256(original)).toBe("650ff6659d48c2158d7de6c2e104f4516084ae7448bf0b7ebdca372470fb0cb5");
-    const shopping = await sectionText("universal", "shopping_research");
+    // Preserve the v0.3 assertion on the exact bytes before question 82's edits.
+    const shopping = await undoReviewProvenance(await readFile(
+      new URL("protocols/Universal_Instructions.xml", ROOT), "utf8",
+    ));
     const module = shopping.slice(
       shopping.indexOf("<shopping_module><![CDATA["),
       shopping.indexOf("]]></shopping_module>") + "]]></shopping_module>".length,
@@ -239,12 +243,14 @@ describe("owner protocol changes of 2026-10-03", () => {
   });
 
   it("records both releases at the top of their revision histories", async () => {
-    const [hrp, universal] = await Promise.all([
+    const [currentHrp, currentUniversal] = await Promise.all([
       readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8"),
       readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8"),
     ]);
+    const universal = await undoReviewProvenance(currentUniversal);
+    const hrp = await undoAcceptedLessonsHrp(currentHrp);
     // Universal 20.5.37 (owner question 58), 20.5.36 (owner question 50) and 20.5.35 (consilience) are above it.
-    const newestUniversal = /^<revision_history>\n<revision version="20\.5\.38" priority="Critical">\n[^<]*<\/revision>\n<revision version="20\.5\.37" priority="Critical">\n[^<]*<\/revision>\n<revision version="20\.5\.36" priority="Critical">\n[^<]*<\/revision>\n<revision version="20\.5\.35" priority="Critical">\n[^<]*<\/revision>\n/mu;
+    const newestUniversal = /^<revision_history>\n<revision version="20\.5\.39" priority="Critical">\n[^<]*<\/revision>\n<revision version="20\.5\.38" priority="Critical">\n[^<]*<\/revision>\n<revision version="20\.5\.37" priority="Critical">\n[^<]*<\/revision>\n<revision version="20\.5\.36" priority="Critical">\n[^<]*<\/revision>\n<revision version="20\.5\.35" priority="Critical">\n[^<]*<\/revision>\n/mu;
     expect(universal.match(newestUniversal)?.[0]).toBeDefined();
     expect(universal).toContain(
       `${universal.match(newestUniversal)?.[0]}<revision version="20.5.34" priority="Critical">\nOwner-approved changes (owner questions 27 and 28, 2026-10-03).`,

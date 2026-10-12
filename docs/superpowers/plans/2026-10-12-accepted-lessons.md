@@ -101,3 +101,5 @@
 
 1. Question 84: this wording. A: all; B: only some, named; C: change a wording.
 2. Whether it joins the pending release (question 80: "80 b") or the next one.
+
+Question 84 answered "84a" on 2026-10-12; built on #319, at the top of the stack: HRP 20.6.21 and Universal 20.5.41.

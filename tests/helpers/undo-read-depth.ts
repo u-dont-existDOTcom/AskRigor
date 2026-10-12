@@ -18,7 +18,26 @@ async function undoRecordedEdits(text: string, protocol: "hrp" | "universal", fi
   return prior;
 }
 
+export async function undoAcceptedLessonsUniversal(text: string): Promise<string> {
+  return undoRecordedEdits(text, "universal", "2026-10-12-accepted-lessons-universal.json");
+}
+
+export async function undoAcceptedLessonsHrp(text: string): Promise<string> {
+  return undoRecordedEdits(text, "hrp", "2026-10-12-accepted-lessons-hrp.json");
+}
+
+export async function undoReviewProvenance(text: string): Promise<string> {
+  text = await undoAcceptedLessonsUniversal(text);
+  return undoRecordedEdits(text, "universal", "2026-10-12-review-provenance.json");
+}
+
+export async function undoCorrectionReport(text: string): Promise<string> {
+  text = await undoReviewProvenance(text);
+  return undoRecordedEdits(text, "universal", "2026-10-12-correction-report.json");
+}
+
 export async function undoHandoffTarget(text: string): Promise<string> {
+  text = await undoAcceptedLessonsHrp(text);
   return undoRecordedEdits(text, "hrp", "2026-10-12-handoff-target.json");
 }
 
@@ -34,5 +53,6 @@ export async function undoDiminishingReturns(text: string): Promise<string> {
 
 export async function undoReadDepth(text: string, protocol: "hrp" | "universal"): Promise<string> {
   if (protocol === "hrp") text = await undoDiminishingReturns(text);
+  else text = await undoCorrectionReport(text);
   return undoRecordedEdits(text, protocol, "2026-10-11-read-depth.json");
 }

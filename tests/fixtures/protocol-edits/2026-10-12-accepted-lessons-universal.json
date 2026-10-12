@@ -1,0 +1,35 @@
+{
+  "purpose": "Owner-approved question 84: \"84a\" (2026-10-12), accepted lessons #21, #11 and #17. Exact approved text apart from XML formatting; reversible edits chained from amended questions 82 and 83 Universal 20.5.40.",
+  "universal": {
+    "from": {
+      "version": "20.5.40",
+      "sha256": "cff12a57417fd3136d382d79300d08d04ff35644f83494e1c1093ceecfa059d8"
+    },
+    "to": {
+      "version": "20.5.41",
+      "sha256": "115b22a595b4cdcd663bb60986bd3dba0fb0d3f65f64bcc7bbb6d5a4bfd8a708"
+    },
+    "edits": [
+      [
+        "version=\"20.5.40\" revisionDate=\"2026-10-12\"",
+        "version=\"20.5.41\" revisionDate=\"2026-10-12\""
+      ],
+      [
+        "<revision_history>\n",
+        "<revision_history>\n<revision version=\"20.5.41\" priority=\"Critical\">\nOwner-approved, question 84 (2026-10-12), from accepted lessons #21, #11 and #17: \"Next step: none\" now needs no\nexecutable work left as well as no user action; the epistemic-phase router checks that an evaluation could detect an\neffect confined to a subgroup or state; and forum frequency labels need a sample not selected by outcome.\n</revision>\n"
+      ],
+      [
+        "best exact action first and minimize the work. If no user action remains, state: “Next step: none — this task is complete.”",
+        "best exact action first and minimize the work. If neither user action nor executable work remains, state: “Next step:\nnone — this task is complete.”"
+      ],
+      [
+        "11. Phase is determined by use, not by dataset prestige, chronology alone, or a label. An allegedly untouched set that influenced choices is DEVELOPMENT; a later independent set reserved until freeze can be VALIDATION.",
+        "11. Phase is determined by use, not by dataset prestige, chronology alone, or a label. An allegedly untouched set that influenced choices is DEVELOPMENT; a later independent set reserved until freeze can be VALIDATION.\n12. Before designing or running an evaluation of an effect that may be confined to a minority, an intermittent state or a condition, name at least one plausible way the effect could be real and check that the design would detect it, for example by a power calculation or a simulation. An average that could not detect that form of the effect does not test whether it exists."
+      ],
+      [
+        "classify the searched sample as common, mixed, minority, rare, absent, or indeterminate",
+        "classify the searched sample as common, mixed, minority, rare, absent, or indeterminate only when it was not selected by outcome (an outcome-keyword search shows that an experience exists, not how often)"
+      ]
+    ]
+  }
+}

@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
 import { getProtocolManifest } from "@askrigor/protocol";
-import { undoHandoffTarget, undoContestedEvidence, undoDiminishingReturns, undoReadDepth } from "./helpers/undo-read-depth.js";
+import { undoCorrectionReport, undoHandoffTarget, undoContestedEvidence, undoDiminishingReturns, undoReadDepth } from "./helpers/undo-read-depth.js";
 
 const ROOT = new URL("../", import.meta.url);
 const parser = new XMLParser({ parseTagValue: false });
@@ -94,12 +94,13 @@ describe("owner-approved contested intervention evidence, question 77: 77a (2026
     expect(hash(beforeReadDepth)).toBe(readDepth.from.sha256);
     await expect(undoReadDepth(await loadCurrent(), "hrp")).resolves.toBe(beforeReadDepth);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: "20.6.20", revisionDate: "2026-10-12", sha256: hash(await loadCurrent()),
+      name: "HRP", version: "20.6.21", revisionDate: "2026-10-12", sha256: hash(await loadCurrent()),
     });
     const universal = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
-    expect(hash(universal)).toBe("06e5ca6befb9dac648fd41996213394e793e17795087eee8fbc63cbcbbbd8174");
+    expect(hash(await undoCorrectionReport(universal))).toBe("06e5ca6befb9dac648fd41996213394e793e17795087eee8fbc63cbcbbbd8174");
+    expect(hash(universal)).toBe("115b22a595b4cdcd663bb60986bd3dba0fb0d3f65f64bcc7bbb6d5a4bfd8a708");
     await expect(getProtocolManifest("universal")).resolves.toEqual({
-      name: "AskRigor.com universal saved instructions", version: "20.5.38", revisionDate: "2026-10-11", sha256: hash(universal),
+      name: "AskRigor.com universal saved instructions", version: "20.5.41", revisionDate: "2026-10-12", sha256: hash(universal),
     });
   });
 
