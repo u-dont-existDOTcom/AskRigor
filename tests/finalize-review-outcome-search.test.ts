@@ -42,12 +42,13 @@ function packageFor(overrides: Partial<Corpus> = {}): FinalizeResearchInput {
     ...QUOTES, answer_quotes: { ...QUOTES }
   };
   return {
+    lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
     full_text_search: { status: "not_needed", reason: "Synthetic fixtures isolate review outcome searches." },
     receipts: [issueResearchReceipt("study_audit", { id: "10.1000/liver", status: "complete_no_unresolved_fields" }, { secret: SECRET })],
     research_target: TARGET, research_depth: "deep", treatment_choice: "not_compared", community_evidence: "researched",
     commercial_review_applicability: { status: "required", products: [PRODUCT] },
     intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient study intervention." },
-    shopping: { status: "not_requested" }, key_sources: [{ id: "10.1000/liver", status: "validated" }],
+    shopping: { status: "not_requested" }, key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1000/liver", status: "validated" }],
     principal_communities: [reviews, forum].map(({ community: name, platform }) => ({ name, platform })),
     community_searches: [reviews, forum], absence_claims: [], scale_results: [],
     answer_draft: "[Study](https://doi.org/10.1000/liver)\n\n" + [reviews, forum]

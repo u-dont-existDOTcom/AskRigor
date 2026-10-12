@@ -71,6 +71,7 @@ function packageFor(
       id: "PMC10518852", doi: "10.1002/art.41142", status: "complete_no_unresolved_fields"
     }, receiptOptions)],
     community_evidence: "researched",
+    lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
     full_text_search: { status: "not_needed", reason: "Synthetic fixtures isolate buyer review checks." },
     commercial_review_applicability: { ...REQUIRED, products: [...REQUIRED.products] },
     research_target: TARGET,
@@ -78,7 +79,7 @@ function packageFor(
     shopping: { status: "not_requested" },
     treatment_choice: "not_compared",
     intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
-    key_sources: [{ id: "10.1002/art.41142", status: "validated" }],
+    key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" }],
     principal_communities: [{ name: REDDIT.community, platform: REDDIT.platform }, { name: FORUM.community, platform: FORUM.platform }],
     community_searches: [REDDIT, FORUM],
     answer_draft: "[Study](https://doi.org/10.1002/art.41142)\n\n" + [paragraph(REDDIT), paragraph(FORUM), paragraph(REVIEWS)].join("\n\n"),

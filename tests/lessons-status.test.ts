@@ -8,6 +8,7 @@ import {
   runLessonsStatus,
   summarizeLessonIssues,
   type LessonStatusExecFile,
+  type LessonStatusDependencies,
 } from "../scripts/lessons-status.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -27,11 +28,26 @@ interface CommandResult {
   calls: Array<{ file: string; args: readonly string[]; shell: unknown }>;
 }
 
-async function runCommand(scenario: string, args: string[] = []): Promise<CommandResult> {
+const LANE_CALL = {
+  file: "gh",
+  args: ["api", "repos/u-dont-existDOTcom/universal-dev-architecture/contents/suggested-fixes/AskRigor"],
+  shell: false,
+};
+const EMPTY_LANE = { lane_status: "available", lane_unrecorded: 0, lane_unrecorded_items: [] };
+
+async function runCommand(scenario: string, args: string[] = [], lane: unknown = [], ledger: LessonStatusDependencies["readLedger"] = async () => ""): Promise<CommandResult> {
   const calls: CommandResult["calls"] = [];
   const execute: LessonStatusExecFile = (file, ghArgs, options, callback) => {
     calls.push({ file, args: ghArgs, shell: options.shell });
     queueMicrotask(() => {
+      if (ghArgs.includes(LANE_CALL.args[1])) {
+        if (typeof lane === "string") {
+          callback(Object.assign(new Error("ghp_PRIVATE_TOKEN"), { code: "EFAIL" }), "PRIVATE", lane);
+        } else {
+          callback(null, JSON.stringify(lane), "");
+        }
+        return;
+      }
       const isPrimary = ghArgs.includes("--slurp");
       if (scenario === "success") {
         callback(null, JSON.stringify([page1, page2]), "");
@@ -118,6 +134,7 @@ async function runCommand(scenario: string, args: string[] = []): Promise<Comman
   const stderr: string[] = [];
   const exitCode = await runLessonsStatus(args, {
     execute,
+    readLedger: ledger,
     now: () => NOW,
     stdout: (value) => stdout.push(value),
     stderr: (value) => stderr.push(value),
@@ -280,7 +297,7 @@ describe("lesson queue command", () => {
         "-f", "per_page=100",
       ],
       shell: false,
-    }]);
+    }, LANE_CALL]);
   });
 
   it("retries the fixed read-only request without slurp only for the local unsupported flag", async () => {
@@ -312,6 +329,7 @@ describe("lesson queue command", () => {
         ],
         shell: false,
       },
+      LANE_CALL,
     ]);
     expect(`${result.stdout}${result.stderr}`).not.toMatch(/PRIVATE|github\.com\//);
   });
@@ -327,12 +345,13 @@ describe("lesson queue command", () => {
 
     expect(result.exitCode).toBe(1);
     expect(JSON.parse(result.stdout)).toEqual({
+      ...EMPTY_LANE,
       status: "unavailable",
       checked_at: "2026-08-13T12:00:00.000Z",
       reason_code: "invalid_response",
     });
     expect(result.stderr).toBe("Lesson queue status unavailable: invalid_response\n");
-    expect(result.calls).toHaveLength(2);
+    expect(result.calls).toHaveLength(3);
     expect(`${result.stdout}${result.stderr}`).not.toContain("PRIVATE");
   });
 
@@ -348,6 +367,7 @@ describe("lesson queue command", () => {
 
     expect(result.exitCode).toBe(1);
     expect(output).toEqual({
+      ...EMPTY_LANE,
       status: "unavailable",
       checked_at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
       reason_code: reasonCode,
@@ -356,7 +376,7 @@ describe("lesson queue command", () => {
     expect(output).not.toHaveProperty("needs_review");
     expect(result.stderr).toBe(`Lesson queue status unavailable: ${reasonCode}\n`);
     expect(`${result.stdout}${result.stderr}`).not.toMatch(/PRIVATE|ghp_|github\.com\/|example\.invalid/);
-    expect(result.calls).toHaveLength(1);
+    expect(result.calls).toHaveLength(2);
   });
 
   it.each([
@@ -368,12 +388,13 @@ describe("lesson queue command", () => {
 
     expect(result.exitCode).toBe(1);
     expect(JSON.parse(result.stdout)).toEqual({
+      ...EMPTY_LANE,
       status: "unavailable",
       checked_at: "2026-08-13T12:00:00.000Z",
       reason_code: reasonCode,
     });
     expect(result.stderr).toBe(`Lesson queue status unavailable: ${reasonCode}\n`);
-    expect(result.calls).toHaveLength(1);
+    expect(result.calls).toHaveLength(2);
     expect(`${result.stdout}${result.stderr}`).not.toContain("PRIVATE");
   });
 
@@ -385,12 +406,13 @@ describe("lesson queue command", () => {
 
     expect(result.exitCode).toBe(1);
     expect(JSON.parse(result.stdout)).toEqual({
+      ...EMPTY_LANE,
       status: "unavailable",
       checked_at: "2026-08-13T12:00:00.000Z",
       reason_code: "invalid_response",
     });
     expect(result.stderr).toBe("Lesson queue status unavailable: invalid_response\n");
-    expect(result.calls).toHaveLength(callCount);
+    expect(result.calls).toHaveLength(callCount + 1);
     expect(`${result.stdout}${result.stderr}`).not.toContain("PRIVATE");
   });
 
@@ -403,6 +425,65 @@ describe("lesson queue command", () => {
       reason_code: "invalid_response",
     });
     expect(result.calls).toEqual([]);
+  });
+
+  it("returns zero when every lane item is recorded in a first table cell", async () => {
+    const result = await runCommand("success", [], [
+      { name: "fix-a.md", type: "file" }, { name: "fix-b.md", type: "file" },
+    ], async () => "| Item | Outcome |\n| fix-a | adopted |\n| fix-b | declined |\n");
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({
+      ...summarizeLessonIssues([...page1, ...page2], NOW), ...EMPTY_LANE,
+    });
+  });
+
+  it("lists sorted new names, ignoring README, directories and other extensions", async () => {
+    const result = await runCommand("success", [], [
+      { name: "z-new.md", type: "file", content: "PRIVATE" },
+      { name: "recorded.md", type: "file" },
+      { name: "a-new.md", type: "file" },
+      { name: "README.md", type: "file" },
+      { name: "folder.md", type: "dir" },
+      { name: "link.md", type: "symlink" },
+      { name: "notes.txt", type: "file" },
+    ], async () => "| recorded | deferred |\n| another | a-new |\nz-new\n");
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({
+      ...summarizeLessonIssues([...page1, ...page2], NOW),
+      lane_status: "available", lane_unrecorded: 2, lane_unrecorded_items: ["a-new", "z-new"],
+    });
+    expect(result.stdout).not.toContain("PRIVATE");
+  });
+
+  it.each([
+    ["HTTP 404 PRIVATE ghp_token", "repository_unavailable"],
+    ["HTTP 401 PRIVATE", "auth_unavailable"],
+    ["HTTP 429 PRIVATE", "github_rate_limited"],
+    ["network PRIVATE", "gh_unavailable"],
+    [{ private: "PRIVATE" }, "invalid_response"],
+    [[{ name: "bad.md" }], "invalid_response"],
+  ])("reports an unreadable lane without zero counts or dependency details", async (lane, reason) => {
+    const result = await runCommand("success", [], lane);
+    expect(result.exitCode).toBe(1);
+    const output = JSON.parse(result.stdout);
+    expect(output).toEqual({
+      ...summarizeLessonIssues([...page1, ...page2], NOW),
+      lane_status: "unavailable", lane_reason_code: reason,
+    });
+    expect(output).not.toHaveProperty("lane_unrecorded");
+    expect(output).not.toHaveProperty("lane_unrecorded_items");
+    expect(result.stderr).toBe(`Suggested fixes lane status unavailable: ${reason}\n`);
+    expect(`${result.stdout}${result.stderr}`).not.toMatch(/PRIVATE|ghp_/);
+  });
+
+  it("reports an unreadable ledger without inventing unrecorded counts", async () => {
+    const result = await runCommand("success", [], [], async () => { throw new Error("PRIVATE"); });
+    expect(result.exitCode).toBe(1);
+    expect(JSON.parse(result.stdout)).toEqual({
+      ...summarizeLessonIssues([...page1, ...page2], NOW),
+      lane_status: "unavailable", lane_reason_code: "ledger_unavailable",
+    });
+    expect(`${result.stdout}${result.stderr}`).not.toContain("PRIVATE");
   });
 
   it("is exposed through the package lessons:status command", async () => {
