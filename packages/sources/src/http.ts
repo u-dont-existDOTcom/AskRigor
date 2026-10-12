@@ -23,6 +23,11 @@ const MAX_RESPONSE_BYTES = 10 * 1024 * 1024;
 const MAX_DISCOVERED_DOCUMENT_BYTES = 30 * 1024 * 1024;
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 
+export function isTransientTransportError(error: unknown): boolean {
+  return error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError" ||
+    (error instanceof TypeError && /fetch failed|terminated|socket/iu.test(error.message)));
+}
+
 export class UpstreamHttpError extends Error {
   public readonly status: number;
   public readonly reason: string | undefined;
