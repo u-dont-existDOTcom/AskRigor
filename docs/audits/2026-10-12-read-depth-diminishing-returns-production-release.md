@@ -155,8 +155,10 @@
   - The remaining steps were first-pass items the draft had missed: a second study lead, an estimate in numbers,
     and the resulting caveat sentences. Once those were supplied, the only open step was the Europe PMC section
     search, whose own call failed while Europe PMC was unstable (HTTP 503 at 03:20 UTC; between 03:24 and 03:27 one
-    section query returned records with a receipt while others failed, and a laptop request timed out). The probe
-    is retried until Europe PMC answers; its result is added to this record before merge.
+    section query returned records with a receipt while others failed, and a laptop request timed out).
+  - Retried every 3 minutes, the probe passed at 03:37:04 UTC: the section search returned a receipt, all 14
+    receipts verified, both studies were validated, no next step remained, and the final check answered
+    `ready_with_limits` with the first-pass limit and its three caveat sentences.
 - **Case 2, diminishing returns (question 73):** four passes on herbal treatments for irritable bowel symptoms, the
   last three adding only small maker-run trials and duplicates; the user writes "continue".
   - The reply said, unasked, that returns had diminished. It gave the scope and what each pass found, and kept the
