@@ -1027,6 +1027,7 @@ pending-proposal stores have their own strict contracts and authority boundaries
   queries the model ran, or `not_needed` with a short reason) is request-local
   too: each query is compared by its 12-hex digest with a section-search
   receipt, and the reason is not judged.
+  Its `lab_preparation` declaration is request-local too: its quotes are compared with the answer for that call only, and nothing from it is stored.
   None of their text is returned: of the answer, the
   result names only the labels and public video IDs it found, and points to an
   absence claim or scale result by its position in the list; for a scale result,

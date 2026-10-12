@@ -15,7 +15,8 @@ function sha256(value: string): string {
 // HRP 20.6.6's recorded bytes, so nothing else changed.
 describe("HRP 20.6.7 small-result-set and exposure-decomposition rule", () => {
   it("adds only the approved rule, its routing and its revision", async () => {
-    // HRP 20.6.15 (owner question 65, 2026-10-10),
+    // HRP 20.6.16 (owner question 70, 2026-10-11),
+    // 20.6.15 (owner question 65, 2026-10-10),
     // 20.6.14 (owner question 46 reapplied, 2026-10-09),
     // 20.6.13 (owner question 58, 2026-10-09), 20.6.12 (owner question 50,
     // 2026-10-07), 20.6.11 (consilience candidate),
@@ -32,8 +33,11 @@ describe("HRP 20.6.7 small-result-set and exposure-decomposition rule", () => {
         expect(current.split(later), later.slice(0, 60)).toHaveLength(2);
         return current.replace(later, prior);
       }, text);
+    const lab = await recorded("2026-10-11-lab-preparation.json");
+    const hrp20615 = undo(onDisk, lab.edits);
+    expect(sha256(hrp20615)).toBe(lab.from.sha256);
     const search = await recorded("2026-10-10-full-text-search.json");
-    const hrp20614 = undo(onDisk, search.edits);
+    const hrp20614 = undo(hrp20615, search.edits);
     expect(sha256(hrp20614)).toBe(search.from.sha256);
     const fullText = await recorded("2026-10-07-full-text-candidate.json");
     const hrp20613 = undo(hrp20614, fullText.edits);
