@@ -33,6 +33,8 @@
      printed, so it is not used." The answer must not supply a corrected value of its own.
    - Which values to check stays the auditor's judgment. The arithmetic and its reason are recorded with the evidence
      block.
+   - `inconsistent_with_own_data` also covers a mismatch that numbers alone can't show, such as an abstract that
+     gives a table's value under the wrong treatment label (issue #332, a fixture). Its reason names both places.
 3. **Protocol wording** (draft below): one stress case and final check FS230, pointing to the existing
    `LogicArithmeticAndCitationIntegrity` and `NullEvidenceAndSafetyLanguage`.
 4. **Tests:** the new direction and caveat, the plausibility values and their caveat, the exact protocol text. #331

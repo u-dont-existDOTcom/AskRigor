@@ -123,7 +123,10 @@ any turn. A later turn that calls no research tool is covered by the protocol it
 ### 2b. A standing list of owner-reported regressions, measured in stages (#328)
 
 - `docs/owner-regressions.md` lists each owner-reported regression as a synthetic prompt with its pass criteria:
-  - today's #324, #325, #326 and #328;
+  - today's #324, #325, #326 and #328, and #329 to #332 (plans 87 to 89);
+  - #332 is a source-evaluation fixture rather than a runtime failure: an abstract that swaps a table's treatment
+    labels, a text-versus-table mismatch, a malformed uncertainty, and a methods step that is not reported (kept
+    as not reported, not as omitted);
   - the earlier contested-evidence, handoff and review cases.
 - Every release's acceptance runs them through the refreshed ChatGPT app in Codex, and the release record reports
   three stages separately for each:
