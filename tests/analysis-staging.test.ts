@@ -47,6 +47,7 @@ const {
 } = await import("../apps/research-mcp/src/index.js");
 const { registerTools } = await import("../apps/research-mcp/src/register-tools.js");
 const { finalizeResearchInputSchema } = await import("../apps/research-mcp/src/research-finalization-gate.js");
+const { verifyResearchReceipt } = await import("../apps/research-mcp/src/research-receipts.js");
 
 const DOI = "10.1002/art.41142";
 const NOW = new Date("2026-10-03T12:00:00.000Z");
@@ -138,6 +139,9 @@ function studyAudit(index: AuditableDocumentIndex) {
         evidence_block_ids: [],
       },
     ],
+    // Owner questions 87 and 89: an audit declares its headline figures; this synthetic source has none.
+    reported_figures: [],
+    reported_figures_none_reason: "The synthetic source reports no numeric result.",
   };
 }
 
@@ -388,9 +392,13 @@ describe("the server sends a free contributor's validated analyses when the fina
       intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
       key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: DOI, status: "validated" }],
       answer_draft: `The liver clears this drug within a few hours. [Study](https://doi.org/${DOI})`,
-      absence_claims: [], scale_results: [],
+      absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [],
     }), "auth0|free");
     const receipt = (validated.structuredContent as { research_receipt: string }).research_receipt;
+    // The audit's figures check rides in its receipt (owner questions 87 and 89).
+    expect(verifyResearchReceipt(receipt, { secret: SECRET })).toMatchObject({
+      ok: true, kind: "study_audit", claims: { fig: "none_reported" }
+    });
     const done = await finalize([receipt]);
     expect(done.structuredContent).toMatchObject({
       status: "ready",

@@ -859,7 +859,7 @@ describe("AskRigor MCP tools", () => {
         not_relevant_reason: "A dosing arithmetic question with no treatment choice.",
         intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
         key_sources: [],
-        absence_claims: [], scale_results: []
+        absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: []
       };
       // The answer must carry the limit before it is signed.
       const uncaveated = await client.callTool({
@@ -1016,6 +1016,11 @@ describe("AskRigor MCP tools", () => {
       }, {
         type: "text",
         text: `research_receipt: ${researchReceipt}`
+      }, {
+        // Owner question 86: every research result reminds the AI of the final check, in any turn.
+        type: "text",
+        text: "Answers that use this research are checked with finalize_research before they are given, in this " +
+          "turn or a later one."
       }]);
       // Only the completed audit carries a receipt; it binds the video and its terminal state.
       expect((first.structuredContent as { research_receipt?: string }).research_receipt).toBeUndefined();

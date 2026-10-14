@@ -411,6 +411,7 @@ function submissionFromReceipt(receipt: StudyMethodAuditReceipt): StudyMethodAud
     source_block_count: _sourceBlockCount,
     cited_source_block_count: _citedSourceBlockCount,
     audit_sha256: _auditSha256,
+    reported_figures_check: _reportedFiguresCheck,
     design_label_is_not_reliability_verdict: _labelBoundary,
     limitations: _limitations,
     ...submission

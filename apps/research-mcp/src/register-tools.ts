@@ -200,7 +200,9 @@ import {
   studyMethodAuditActionInputSchema,
   studyMethodAuditRouteOutputSchema
 } from "./actions/open-full-text-route.js";
+import type { ReportedFiguresCheck } from "./actions/study-method-audit.js";
 import {
+  FINALIZE_REMINDER,
   FINALIZE_RESEARCH_CONTRACT,
   finalizeResearch,
   protocolNamesFrom,
@@ -2431,9 +2433,15 @@ function withResearchReceipt(
   signsStoppedRound = false
 ): CallToolResult {
   if (receipt === undefined || (result.isError === true && !signsStoppedRound)) return result;
+  // The reminder reaches the AI whenever it researches, in any turn: a
+  // "continue" turn without a mention is still the same task (owner question 86).
   return {
     ...result,
-    content: [...result.content, { type: "text", text: `research_receipt: ${receipt}` }],
+    content: [
+      ...result.content,
+      { type: "text", text: `research_receipt: ${receipt}` },
+      { type: "text", text: FINALIZE_REMINDER }
+    ],
     structuredContent: { ...result.structuredContent, research_receipt: receipt }
   };
 }
@@ -2629,7 +2637,7 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
     requested_doi?: string;
     requested_pmcid?: string;
     acquisition_state?: string;
-    audit_receipt?: { audit_status?: string };
+    audit_receipt?: { audit_status?: string; reported_figures_check?: ReportedFiguresCheck };
     coverage_receipt?: { document_handle?: string; exhausted?: boolean; source_content_sha256?: string };
   };
   if (operationId === "acquire_open_full_text" && output.status === "possibly_useful_lead") {
@@ -2671,8 +2679,23 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
       retrieval_provider: "client_search_index",
       host: new URL(source.canonical_url).hostname
     } : {}),
-    ...(kind === "full_text_read" ? {} : { status: output.audit_receipt?.audit_status ?? "validated" })
+    ...(kind === "full_text_read" ? {} : { status: output.audit_receipt?.audit_status ?? "validated" }),
+    ...(kind === "study_audit" ? studyFigureClaims(output.audit_receipt?.reported_figures_check) : {})
   });
+}
+
+// What finalize_research needs from a study audit's figures check (owner
+// questions 87 and 89), kept small enough for a receipt: the status, the
+// printed values for comparing key studies, and up to three impossible values.
+function studyFigureClaims(check: ReportedFiguresCheck | undefined): ResearchReceiptClaims {
+  if (check === undefined) return {};
+  return {
+    fig: check.status,
+    ...(check.values.length === 0 ? {} : { figv: check.values.slice(0, 20).map(String) }),
+    ...(check.impossible_as_printed.length === 0 ? {} : {
+      imp: check.impossible_as_printed.slice(0, 3).map((value) => value.slice(0, 40))
+    })
+  };
 }
 
 export const RESEARCH_OPERATIONS = Object.freeze(collectResearchOperations());
