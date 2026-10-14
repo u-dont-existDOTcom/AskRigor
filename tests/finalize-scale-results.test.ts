@@ -43,7 +43,7 @@ const packageFor = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeRes
   treatment_choice: "not_compared", key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" }],
   intervention_identity: { status: "not_applicable", reason: "This synthetic key study does not concern a coded or multi-ingredient product." },
   answer_draft: GOOD, absence_claims: [], scale_results: [declaration()],
-  safety_claims: [], key_terms: [], mechanism_claims: [], ...overrides
+  safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [], ...overrides
 });
 
 describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_results through the %s", (surface) => {
@@ -110,7 +110,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
     ]);
     // A chat whose tool list predates scale_results is told the way out once.
     expect(missing.next_steps.filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
-    ready(await call({ answer_draft: "This answer reports no scale scores.", scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [] }));
+    ready(await call({ answer_draft: "This answer reports no scale scores.", scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [] }));
   });
 
   it("does not require the declaration without answer_draft", async () => {

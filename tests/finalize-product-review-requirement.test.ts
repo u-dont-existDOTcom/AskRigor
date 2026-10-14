@@ -48,6 +48,7 @@ const QUOTES = {
 };
 const search = (community: string, platform: Search["platform"], url: string): Search => ({
   community, platform, queries: ["EGCG fast COMT experiences"], threads_read: [{ url }],
+  ...(platform === "review_site" ? {} : { thread_selection: "all_found" as const }),
   ...QUOTES, answer_quotes: { ...QUOTES }
 });
 const REDDIT = search("r/Supplements", "reddit", "https://www.reddit.com/r/Supplements/comments/abc123/egcg/");
@@ -83,7 +84,7 @@ function packageFor(
     principal_communities: [{ name: REDDIT.community, platform: REDDIT.platform }, { name: FORUM.community, platform: FORUM.platform }],
     community_searches: [REDDIT, FORUM],
     answer_draft: "[Study](https://doi.org/10.1002/art.41142)\n\n" + [paragraph(REDDIT), paragraph(FORUM), paragraph(REVIEWS)].join("\n\n"),
-    absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [],
+    absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
     ...overrides
   };
 }
@@ -140,7 +141,7 @@ describe("finalize_research product review requirement", () => {
   });
 
   it("does not let another platform satisfy a mapped review site", () => {
-    const result = checked(packageFor(withReviews({ platform: "forum", review_corpora: undefined })));
+    const result = checked(packageFor(withReviews({ platform: "forum", review_corpora: undefined, thread_selection: "all_found" })));
     expect(result.status).toBe("not_ready");
     expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([SEARCH_STEP]);
   });

@@ -28,7 +28,7 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
     { id: DOI, status: "validated", read_depth: "full_text_audited", answer_marker: "Trial" },
     { id: RAT, status: "validated", read_depth: "full_text_audited", answer_marker: "Rat study" }
   ],
-  absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [],
+  absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
   answer_draft: LINKS, ...overrides
 });
 const check = (overrides: Partial<FinalizeResearchInput> = {}) =>
@@ -180,9 +180,13 @@ describe("finalize_research key_terms (owner question 86, issue #328)", () => {
 
 describe("finalize_research mechanism_claims (owner question 88, issue #330)", () => {
   const QUOTE = "The gum did not suppress acid secretion.";
-  const CAVEAT = "This finding comes from injection into the abdomen in Rat study; use by mouth was not tested for it.";
+  const CAVEAT = "This finding comes from injection into the abdomen in animals in Rat study; use by mouth in people " +
+    "was not tested for it.";
   it("asks for the route caveat when the use and the evidence used different routes", () => {
-    const mechanism = { quote: QUOTE, use_route: "oral" as const, evidence_route: "intraperitoneal" as const, studies: [RAT] };
+    const mechanism = {
+      quote: QUOTE, use_route: "oral" as const, evidence_route: "intraperitoneal" as const, evidence_in: "animals" as const,
+      studies: [RAT]
+    };
     const missing = check({ answer_draft: `${LINKS}\n\n${QUOTE}`, mechanism_claims: [mechanism] });
     expect(missing.status).toBe("not_ready");
     expect(missing.caveats).toEqual([CAVEAT]);
@@ -193,15 +197,19 @@ describe("finalize_research mechanism_claims (owner question 88, issue #330)", (
   it("needs no caveat when the routes match, and binds the studies to key sources", () => {
     expect(check({
       answer_draft: `${LINKS}\n\n${QUOTE}`,
-      mechanism_claims: [{ quote: QUOTE, use_route: "oral", evidence_route: "oral", studies: [RAT] }]
+      mechanism_claims: [{ quote: QUOTE, use_route: "oral", evidence_route: "oral", evidence_in: "people", studies: [RAT] }]
     }).status).toBe("ready");
     expect(steps({
       answer_draft: `${LINKS}\n\n${QUOTE}`,
-      mechanism_claims: [{ quote: QUOTE, use_route: "oral", evidence_route: "oral", studies: ["10.1000/unlisted"] }]
+      mechanism_claims: [{
+        quote: QUOTE, use_route: "oral", evidence_route: "oral", evidence_in: "people", studies: ["10.1000/unlisted"]
+      }]
     })).toEqual(["mechanism_claims[0] rests on 10.1000/unlisted, which key_sources does not list: add each to " +
       "key_sources with its read depth and link, so its reading is checked like any key study."]);
     expect(finalizeResearchInputSchema.safeParse({
-      ...base(), mechanism_claims: [{ quote: QUOTE, use_route: "by mouth", evidence_route: "oral", studies: [RAT] }]
+      ...base(), mechanism_claims: [{
+        quote: QUOTE, use_route: "by mouth", evidence_route: "oral", evidence_in: "people", studies: [RAT]
+      }]
     }).success).toBe(false);
   });
 });

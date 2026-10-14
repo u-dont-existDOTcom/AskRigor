@@ -95,3 +95,8 @@ Two things no rule names, which the draft rule `DurationMatchedBenefitAndHarm` a
 
 1. Question 90: A, all of it, built with 86 to 89; B, the server declaration only; C, change a wording first (or make
    the stress case less specific, or add the part left out).
+
+Question 90 answered "90 a" on 2026-10-14, with a note from the owner (safest options to try first) that became its own
+question 93; built on #333 with question 92: HRP 20.6.23 and the `recommendations` declaration. As built, the caveat
+for shorter evidence names the intervention ("The evidence on {intervention} followed people for {longest_follow_up},
+…"), since not all evidence is trials, and a missing follow-up field gets its own next step.

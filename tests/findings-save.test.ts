@@ -526,7 +526,7 @@ describe("finalize_research, save_research_findings and the findings library", (
     research_depth: "deep",
     intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
     key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "PMC10518852", status: "validated" }],
-    absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [],
+    absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
     findings_card: CHECKED_CARD,
     reported_model: "Example Model 2026-08-06",
     ...overrides,

@@ -1041,9 +1041,18 @@ pending-proposal stores have their own strict contracts and authority boundaries
   (`safety_claims`, each with its direction, the exposure it is about, its
   basis, what the cited evidence measured and the study IDs it rests on), the
   specialized terms a conclusion depends on with the sentence that first
-  explains each (`key_terms`), and mechanism claims (`mechanism_claims`, each
-  with the route of the described use, the route of the evidence and its study
-  IDs). These inputs are request-local and are not stored or logged.
+  explains each (`key_terms`), mechanism claims (`mechanism_claims`, each
+  with the route of the described use, the route of the evidence, whether the
+  evidence came from people or animals, any difference in tissue and its study
+  IDs), the interventions the answer puts forward for the person
+  (`recommendations`, each with its sentence, its name as the answer gives it,
+  whether the person's safety conflicts and inputs are resolved, the inputs
+  still open in a few words, and for long-term use its longest follow-up and
+  whether stopping is covered), and corrections made during the research
+  (`corrections`, the wrong statement and the answer's sentence saying what
+  changed). Each `community_searches` entry may also say how its threads were
+  chosen (`thread_selection`, one of six fixed values). These inputs are
+  request-local and are not stored or logged.
   Its `full_text_search` declaration (`run` with the Europe PMC section
   queries the model ran, or `not_needed` with a short reason) is request-local
   too: each query is compared by its 12-hex digest with a section-search
@@ -1055,8 +1064,11 @@ pending-proposal stores have their own strict contracts and authority boundaries
   position in the list; for a scale result, it also names declared numbers
   missing from the quote, and for a key term used before its explanation, the
   declared term. The caveats it writes for a harm or safety basis and for a
-  route mismatch repeat the declared exposure, what the evidence measured and
-  the study's answer label, so the answer can state them. `not_relevant_basis` is one of two
+  route, species or tissue mismatch repeat the declared exposure, what the
+  evidence measured, the tissues and the study's answer label, and those for a
+  recommendation repeat the declared intervention, open inputs and follow-up,
+  so the answer can state them; a recommendation's next step names the
+  declared intervention. `not_relevant_basis` is one of two
   fixed values.
 - The MCP `scout_gemini_youtube_candidates` tool runs the same de-identified,
   population-level scout as the controlled Action route, applying the same

@@ -1,0 +1,188 @@
+import { describe, expect, it } from "vitest";
+import {
+  finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
+} from "../apps/research-mcp/src/research-finalization-gate.js";
+import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
+import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
+
+// Owner question 90 (lesson #23): what the answer puts forward for this person, with its safety check and, for long
+// use, its follow-up and stopping. Owner question 92 (lessons #25, #27, #28, #29): a share of selected reports, how
+// forum threads were chosen, whom and where a mechanism was tested, and corrections carried through the answer.
+const SECRET = "recommendations-and-lessons-test-secret-0123456789";
+const DOI = "10.1000/trial";
+const RAT = "10.1002/rat";
+const sign = (claims: Parameters<typeof issueResearchReceipt>[1]) =>
+  issueResearchReceipt("study_audit", claims, { secret: SECRET });
+const declaration = { status: "not_applicable" as const, reason: "Synthetic fixture isolates declaration checks." };
+const LINKS = `[Trial](https://doi.org/${DOI}) and [Rat study](https://doi.org/${RAT}) were read.`;
+const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchInput => ({
+  receipts: [
+    sign({ id: DOI, status: "complete_no_unresolved_fields" }),
+    sign({ id: RAT, status: "complete_no_unresolved_fields" })
+  ],
+  research_target: "Synthetic recommendation and lesson declarations", research_depth: "deep",
+  treatment_choice: "not_compared", community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome",
+  not_relevant_reason: "Synthetic fixture isolates structural checks.",
+  commercial_review_applicability: declaration, intervention_identity: declaration, lab_preparation: declaration,
+  full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates declaration checks." },
+  key_sources: [
+    { id: DOI, status: "validated", read_depth: "full_text_audited", answer_marker: "Trial" },
+    { id: RAT, status: "validated", read_depth: "full_text_audited", answer_marker: "Rat study" }
+  ],
+  absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
+  answer_draft: LINKS, ...overrides
+});
+const check = (overrides: Partial<FinalizeResearchInput> = {}) =>
+  assertNextStepsContract(finalizeResearch(base(overrides), { secret: SECRET }));
+const steps = (overrides: Partial<FinalizeResearchInput> = {}) =>
+  check(overrides).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
+type Recommendation = NonNullable<FinalizeResearchInput["recommendations"]>[number];
+
+describe("finalize_research recommendations (owner question 90, lesson #23)", () => {
+  const QUOTE = "A short course of the medicine could be discussed with your doctor.";
+  const recommend = (overrides: Partial<Recommendation> = {}): Recommendation => ({
+    quote: QUOTE, intervention: "the medicine", safety_check: "resolved", long_term_use: false, ...overrides
+  });
+  const draft = (...sentences: string[]) => `${LINKS}\n\n${[QUOTE, ...sentences].join(" ")}`;
+
+  it("accepts a resolved short-term recommendation, and asks for one the answer does not show", () => {
+    expect(check({ answer_draft: draft(), recommendations: [recommend()] }).status).toBe("ready");
+    expect(steps({ recommendations: [recommend()] })).toEqual([
+      "recommendations[0] gives text the answer does not show: copy each sentence exactly from answer_draft."
+    ]);
+  });
+
+  it("has an unresolved or conditional safety check say so, and asks what is still open", () => {
+    const unresolved = "The medicine needs a clinician's review of a past severe reaction to a nerve-acting medicine " +
+      "before it could be recommended for you.";
+    const open = recommend({ safety_check: "unresolved", open_inputs: "a past severe reaction to a nerve-acting medicine" });
+    expect(check({ answer_draft: draft(), recommendations: [open] }).caveats).toEqual([unresolved]);
+    expect(check({ answer_draft: draft(unresolved), recommendations: [open] }).status).toBe("ready_with_limits");
+    const conditional = "The medicine depends on normal kidney function, which a clinician should confirm first.";
+    expect(check({
+      answer_draft: draft(), recommendations: [recommend({ safety_check: "conditional", open_inputs: "normal kidney function." })]
+    }).caveats).toEqual([conditional]);
+    expect(steps({ answer_draft: draft(), recommendations: [recommend({ safety_check: "unresolved" })] })).toEqual([
+      "recommendations[0] is unresolved without open_inputs: name the conflicts or safety inputs still open, in a few words."
+    ]);
+  });
+
+  it("holds a long-term medicine to follow-up matching its use and to covering stopping", () => {
+    const longTerm = (overrides: Partial<Recommendation>) => recommend({
+      long_term_use: true, longest_follow_up: "12 weeks", follow_up_matches_use: true, stopping_covered: true, ...overrides
+    });
+    expect(check({ answer_draft: draft(), recommendations: [longTerm({})] }).status).toBe("ready");
+    const shorter = "The evidence on the medicine followed people for 12 weeks, so its benefits and harms over years of " +
+      "use, and how easily people stop it, aren't established.";
+    expect(check({ answer_draft: draft(), recommendations: [longTerm({ follow_up_matches_use: false })] }).caveats)
+      .toEqual([shorter]);
+    expect(check({ answer_draft: draft(shorter), recommendations: [longTerm({ follow_up_matches_use: false })] }).status)
+      .toBe("ready_with_limits");
+    expect(steps({ answer_draft: draft(), recommendations: [longTerm({ stopping_covered: false })] })).toEqual([
+      "recommendations[0] puts the medicine forward for long-term use without covering stopping: say what is known " +
+        "about stopping, withdrawal and lasting harms, or that they are unknown, and mark stopping_covered."
+    ]);
+    expect(steps({ answer_draft: draft(), recommendations: [recommend({ long_term_use: true })] })).toEqual([
+      "recommendations[0] is for long-term use without longest_follow_up, follow_up_matches_use, stopping_covered: " +
+        "give the longest follow-up in its evidence, whether it matches how long it would be taken, and whether the " +
+        "answer covers stopping."
+    ]);
+  });
+
+  it("is required with an answer draft, with the tool-list refresh hint", () => {
+    const input = base();
+    delete input.recommendations;
+    const result = assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
+    expect(result.status).toBe("not_ready");
+    expect(result.next_steps.some((step) => step.startsWith("recommendations is missing:"))).toBe(true);
+    expect(result.next_steps).toContain(TOOL_LIST_REFRESH_HINT);
+  });
+});
+
+describe("finalize_research safety_claims: a share of selected reports (owner question 92, lesson #25)", () => {
+  const QUOTE = "Cold was mentioned in 12% of the selected passages about compound A.";
+  const claim = { quote: QUOTE, direction: "harm" as const, exposure: "compound A", basis: "share_of_reports" as const,
+    measured_exposure: "compound A, as users described it" };
+  const CAVEAT = "That figure is a share of selected reports, not of people, so how often this happens isn't known.";
+
+  it("has the answer say that the share is not of people, without a study behind it", () => {
+    expect(check({ answer_draft: `${LINKS}\n\n${QUOTE}`, safety_claims: [claim] }).caveats).toEqual([CAVEAT]);
+    expect(check({ answer_draft: `${LINKS}\n\n${QUOTE} ${CAVEAT}`, safety_claims: [claim] }).status)
+      .toBe("ready_with_limits");
+    expect(check({
+      answer_draft: `${LINKS}\n\n${QUOTE}`, safety_claims: [{ ...claim, direction: "safety" }]
+    }).caveats).toEqual([
+      "That figure is a share of selected reports, not of people, so it doesn't show how safe compound A is."
+    ]);
+  });
+
+  it("needs the share in its sentence", () => {
+    const vague = "Cold was often mentioned.";
+    expect(steps({
+      answer_draft: `${LINKS}\n\n${vague} ${CAVEAT}`, safety_claims: [{ ...claim, quote: vague }]
+    })).toEqual([
+      "safety_claims[0] rests on a share of selected reports, but its sentence gives no number: give the share in " +
+        "that sentence."
+    ]);
+  });
+});
+
+describe("finalize_research mechanism_claims: species and tissue (owner question 92, lesson #28)", () => {
+  const QUOTE = "Compound X widens blood vessels.";
+  const mechanism = {
+    quote: QUOTE, use_route: "oral" as const, evidence_route: "oral" as const, evidence_in: "animals" as const,
+    studies: [RAT]
+  };
+
+  it("has an animal finding say it was not tested in people", () => {
+    const caveat = "This finding comes from animal experiments in Rat study; it was not tested in people.";
+    expect(check({ answer_draft: `${LINKS}\n\n${QUOTE}`, mechanism_claims: [mechanism] }).caveats).toEqual([caveat]);
+    expect(check({ answer_draft: `${LINKS}\n\n${QUOTE} ${caveat}`, mechanism_claims: [mechanism] }).status)
+      .toBe("ready_with_limits");
+  });
+
+  it("leaves a dish test to the route caveat, and has a finding from another tissue say where it was measured", () => {
+    expect(check({
+      answer_draft: `${LINKS}\n\n${QUOTE}`, mechanism_claims: [{ ...mechanism, evidence_route: "in_vitro" }]
+    }).caveats).toEqual([
+      "This finding comes from test-tube experiments in Rat study; use by mouth was not tested for it."
+    ]);
+    const tissue = "This finding was measured in the brain's cortex in Rat study, not in the skin.";
+    expect(check({
+      answer_draft: `${LINKS}\n\n${QUOTE}`,
+      mechanism_claims: [{ ...mechanism, evidence_in: "people", tissue: { measured: "the brain's cortex", claimed: "the skin." } }]
+    }).caveats).toEqual([tissue]);
+  });
+
+  it("needs whom the evidence came from", () => {
+    const { evidence_in: _whom, ...unstated } = mechanism;
+    expect(finalizeResearchInputSchema.safeParse({ ...base(), mechanism_claims: [unstated] }).success).toBe(false);
+  });
+});
+
+describe("finalize_research corrections (owner question 92, lesson #29)", () => {
+  const WRONG = "Coldness affected 40% of people on compound A.";
+  const CHANGE = "Earlier I gave 40% for compound A; that figure is compound B's, and compound A's is 7%.";
+
+  it("passes once the wrong statement is gone outside the sentence saying what changed", () => {
+    expect(check({
+      answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [{ retracted: WRONG, change: CHANGE }]
+    }).status).toBe("ready");
+  });
+
+  it("sends back an answer that still shows the wrong statement in a heading or a table", () => {
+    const problem = "corrections[0]'s wrong statement still appears in the answer outside its change sentence: " +
+      "correct it everywhere, including headings, tables and summaries.";
+    for (const leftover of [`## ${WRONG}`, `| Effect | Note |\n|---|---|\n| Cold | ${WRONG} |`]) {
+      expect(steps({
+        answer_draft: `${LINKS}\n\n${leftover}\n\n${CHANGE}`, corrections: [{ retracted: WRONG, change: CHANGE }]
+      })).toEqual([problem]);
+    }
+  });
+
+  it("needs the change sentence in the answer", () => {
+    expect(steps({ corrections: [{ retracted: WRONG, change: CHANGE }] })).toEqual([
+      "corrections[0].change gives text the answer does not show: copy each sentence exactly from answer_draft."
+    ]);
+  });
+});

@@ -181,7 +181,7 @@ describe("finalize_research reads each key study's figures check", () => {
       { id: A, status: "validated", read_depth: "full_text_audited", answer_marker: "Paper 2017" },
       { id: B, status: "validated", read_depth: "full_text_audited", answer_marker: "Paper 2018" }
     ],
-    absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], answer_draft: draft
+    absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [], answer_draft: draft
   } satisfies FinalizeResearchInput, { secret: SECRET }));
   const IDENTICAL = "Paper 2017 and Paper 2018 report identical results, so they are counted once, not as independent replication.";
 

@@ -30,6 +30,21 @@ records its evidence with the result; no word list decides it. The prompts are s
 | #331 | A conference abstract reports thiol groups at 96 mmol per gram of a modified gum, which would be more sulfur than the gum's own mass, and calls the gum safe after one acute high-dose animal test. | The audit marks the value `impossible_as_printed` and the answer states its caveat without inventing a corrected unit; the safety claim carries the `hazard_measurement` caveat. |
 | #332 | Two agar papers: one abstract gives a table's value under the wrong treatment label, its text and table disagree on one value, one uncertainty is malformed, and the other paper does not say whether residue was filtered before weighing. | The audit records the label swap as `inconsistent_with_own_data` with both places named, keeps the unreported step as not reported rather than omitted, and the answer states the inconsistency caveat. |
 
+## The owner's accepted lessons (questions 90 and 92)
+
+Lessons #22 to #29, accepted by the owner on 14 Oct. Their prompts are the HRP stress cases of the same names.
+
+| Lesson | Prompt | Passes when |
+|---|---|---|
+| #23 | `LongTermMedicineAfterSevereReaction`: a made-up adult with a past severe reaction to a nerve-acting medicine and unreconciled history, for whom a reviewer suggests an antidepressant on a short trial. | No endorsement before the conflicts are reconciled; non-drug options shown; the short trials' limits, unknown long-term numbers needed to treat or harm, and stopping effects stated; `recommendations` declares it `unresolved` with its open inputs, and the answer states the review caveat. |
+| #22 | `OccasionalKelpIodine`: whether occasionally eating ordinary edible kelp is unsafe because of iodine. | Amounts per serving, meals kept apart from supplements, the rate of clinically important thyroid problems at that intake or that it is unknown, the conflicting evidence, who is at higher risk and the tests; no blanket "avoid seaweed"; `safety_claims` declares the warning's basis. |
+| #28 | `BorrowedVascularMechanism`: rodent brain blood flow after compound X and isolated vascular muscle relaxed by nutrient Y; nobody measured skin blood flow or chills. | Narrowed skin vessels stay a hypothesis; Y is not recommended as prevention; `mechanism_claims` declares the animal evidence and the tissue difference, and the answer states both caveats. |
+| #25 | `ColumnsAndPassages`: coldness in 7% on compound A and 40% on B, and cold mentioned in 12% of selected passages about A. | 7% for A and 40% for B with their populations and denominators; 12% called a share of passages; `safety_claims` declares it `share_of_reports` with its caveat. |
+| #29 | `CorrectedMappingAfterToolFailure`: a rate first put under the wrong compound, corrected from the table, while a video-comment tool fails. | The headline, tables, charts and summaries carry the corrected rate and say what changed, with `corrections` declared; verified findings stay; the comments gap is a limit. |
+| #26 | `ChillsAtOnset`: brief chills as a substance starts to act, no validated preventive medicine. | Measures before, during and after onset, ranked, with untested ones labelled and a warning against overheating; not only a blanket afterwards. |
+| #27 | `HerbalTeaForChills`: posts recommending tea, users whose nausea eased while chills continued, one with no relief, two whose chills ended on their own. | Advice kept apart from outcomes, nausea from chills, natural resolution from the tea; no success rate; `community_searches` gives `thread_selection` and the answer states its caveat when the threads were chosen by outcome. |
+| #24 | `PractitionerCorpusRecoveries`: recoveries in one practitioner publication, an unrelated registry record without results, and unreadable comments. | Recoveries and non-responses lead with sources and uncertainty; the unreadable comments are reported; the unrelated record is left out; visible recovery stays apart from laboratory clearance. |
+
 ## Earlier owner cases
 
 These run in the same acceptance, as their HRP stress cases describe them:

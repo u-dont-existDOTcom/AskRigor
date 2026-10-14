@@ -21,7 +21,7 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   lab_preparation: declaration,
   full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates absence checks." },
   key_sources: [{ id: DOI, status: "validated", read_depth: "full_text_audited", answer_marker: "Study" }],
-  absence_claims: [{ quote, state: "not_established", studies: [DOI] }], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [],
+  absence_claims: [{ quote, state: "not_established", studies: [DOI] }], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
   answer_draft: `[Study](https://doi.org/${DOI}) was read. ${quote}`, ...overrides
 });
 const check = (overrides: Partial<FinalizeResearchInput> = {}) =>

@@ -39,6 +39,7 @@ function packageFor(overrides: Partial<Corpus> = {}): FinalizeResearchInput {
   const forum: Search = {
     community: "Liver Forum", platform: "forum", queries: [TARGET],
     threads_read: [{ url: "https://forum.example/liver-supplement/" }],
+    thread_selection: "all_found" as const,
     ...QUOTES, answer_quotes: { ...QUOTES }
   };
   return {
@@ -50,7 +51,7 @@ function packageFor(overrides: Partial<Corpus> = {}): FinalizeResearchInput {
     intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient study intervention." },
     shopping: { status: "not_requested" }, key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1000/liver", status: "validated" }],
     principal_communities: [reviews, forum].map(({ community: name, platform }) => ({ name, platform })),
-    community_searches: [reviews, forum], absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [],
+    community_searches: [reviews, forum], absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
     answer_draft: "[Study](https://doi.org/10.1000/liver)\n\n" + [reviews, forum]
       .map((lane) => `On [${lane.community}](${lane.threads_read[0]!.url}): ${Object.values(QUOTES).join(" ")}`).join("\n\n")
   };
