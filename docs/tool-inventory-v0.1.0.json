@@ -2672,6 +2672,22 @@
                       "other",
                       "not_described"
                     ]
+                  },
+                  "route": {
+                    "type": "string",
+                    "enum": [
+                      "oral",
+                      "topical_skin",
+                      "topical_mucosal",
+                      "inhaled",
+                      "nasal",
+                      "intravenous",
+                      "intraperitoneal",
+                      "intramuscular",
+                      "subcutaneous",
+                      "in_vitro",
+                      "other"
+                    ]
                   }
                 },
                 "required": [
@@ -2748,6 +2764,22 @@
                       "preventive",
                       "other",
                       "not_described"
+                    ]
+                  },
+                  "route": {
+                    "type": "string",
+                    "enum": [
+                      "oral",
+                      "topical_skin",
+                      "topical_mucosal",
+                      "inhaled",
+                      "nasal",
+                      "intravenous",
+                      "intraperitoneal",
+                      "intramuscular",
+                      "subcutaneous",
+                      "in_vitro",
+                      "other"
                     ]
                   }
                 },
@@ -2878,6 +2910,63 @@
                   ],
                   "additionalProperties": false
                 }
+              },
+              "reported_figures": {
+                "maxItems": 30,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    },
+                    "evidence_block_id": {
+                      "type": "string",
+                      "pattern": "^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$"
+                    },
+                    "reported": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80
+                    },
+                    "recomputed": {
+                      "type": "number"
+                    },
+                    "recomputation": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000
+                    },
+                    "plausibility": {
+                      "type": "string",
+                      "enum": [
+                        "consistent",
+                        "inconsistent_with_own_data",
+                        "impossible_as_printed"
+                      ]
+                    },
+                    "plausibility_reason": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500
+                    }
+                  },
+                  "required": [
+                    "label",
+                    "evidence_block_id",
+                    "reported",
+                    "recomputation",
+                    "plausibility"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "reported_figures_none_reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
               }
             },
             "required": [
@@ -3005,6 +3094,22 @@
                       "other",
                       "not_described"
                     ]
+                  },
+                  "route": {
+                    "type": "string",
+                    "enum": [
+                      "oral",
+                      "topical_skin",
+                      "topical_mucosal",
+                      "inhaled",
+                      "nasal",
+                      "intravenous",
+                      "intraperitoneal",
+                      "intramuscular",
+                      "subcutaneous",
+                      "in_vitro",
+                      "other"
+                    ]
                   }
                 },
                 "required": [
@@ -3081,6 +3186,22 @@
                       "preventive",
                       "other",
                       "not_described"
+                    ]
+                  },
+                  "route": {
+                    "type": "string",
+                    "enum": [
+                      "oral",
+                      "topical_skin",
+                      "topical_mucosal",
+                      "inhaled",
+                      "nasal",
+                      "intravenous",
+                      "intraperitoneal",
+                      "intramuscular",
+                      "subcutaneous",
+                      "in_vitro",
+                      "other"
                     ]
                   }
                 },
@@ -3212,6 +3333,63 @@
                   "additionalProperties": false
                 }
               },
+              "reported_figures": {
+                "maxItems": 30,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    },
+                    "evidence_block_id": {
+                      "type": "string",
+                      "pattern": "^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$"
+                    },
+                    "reported": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80
+                    },
+                    "recomputed": {
+                      "type": "number"
+                    },
+                    "recomputation": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000
+                    },
+                    "plausibility": {
+                      "type": "string",
+                      "enum": [
+                        "consistent",
+                        "inconsistent_with_own_data",
+                        "impossible_as_printed"
+                      ]
+                    },
+                    "plausibility_reason": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500
+                    }
+                  },
+                  "required": [
+                    "label",
+                    "evidence_block_id",
+                    "reported",
+                    "recomputation",
+                    "plausibility"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "reported_figures_none_reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
               "receipt_name": {
                 "type": "string",
                 "const": "askrigor_study_method_audit"
@@ -3240,6 +3418,48 @@
               "audit_sha256": {
                 "type": "string",
                 "pattern": "^[a-f0-9]{64}$"
+              },
+              "reported_figures_check": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "not_declared",
+                      "none_reported",
+                      "consistent",
+                      "internally_inconsistent"
+                    ]
+                  },
+                  "mismatched": {
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "impossible_as_printed": {
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "values": {
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "mismatched",
+                  "impossible_as_printed",
+                  "values"
+                ],
+                "additionalProperties": false
               },
               "design_label_is_not_reliability_verdict": {
                 "type": "boolean",
@@ -14520,6 +14740,162 @@
                 "better",
                 "values",
                 "benchmark"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "safety_claims": {
+            "description": "Records each sentence of the answer that warns that something can cause harm, is unsafe, toxic or risky, or should be avoided because of a possible harm, or that calls something safe or harmless, with what it is about, its basis and the sources it rests on (an empty list if none).",
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "quote": {
+                  "type": "string",
+                  "maxLength": 1000,
+                  "description": "The sentence(s), copied from answer_draft."
+                },
+                "direction": {
+                  "type": "string",
+                  "enum": [
+                    "harm",
+                    "safety"
+                  ],
+                  "description": "harm: warns that something can cause harm, is unsafe, toxic or risky, or should be avoided; safety: calls something safe or harmless."
+                },
+                "exposure": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300,
+                  "description": "What the sentence is about: the substance, form, dose and route, as the answer means it."
+                },
+                "basis": {
+                  "type": "string",
+                  "enum": [
+                    "comparative_rates",
+                    "observed_rates",
+                    "case_reports",
+                    "hazard_measurement",
+                    "not_quantified"
+                  ],
+                  "description": "comparative_rates: a controlled comparison reports it in each group; observed_rates: a rate without a comparator; case_reports: reports without a denominator; hazard_measurement: a laboratory, animal or composition measurement, not observed outcomes in people; not_quantified: no source found gives a rate."
+                },
+                "measured_exposure": {
+                  "description": "What the cited evidence actually measured; needed for every basis except not_quantified.",
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "studies": {
+                  "description": "The key sources (DOI, PMID or PMCID) it rests on; needed for every basis except not_quantified.",
+                  "maxItems": 20,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  }
+                }
+              },
+              "required": [
+                "quote",
+                "direction",
+                "exposure",
+                "basis"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "key_terms": {
+            "description": "Records each specialized term that the answer's conclusions depend on, such as a chemical species, a test or a statistical measure, with the sentence that first explains it in plain words (an empty list if none).",
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "term": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120,
+                  "description": "The term as the answer writes it."
+                },
+                "explanation": {
+                  "type": "string",
+                  "maxLength": 1000,
+                  "description": "The sentence that first explains it in plain words, copied from answer_draft."
+                }
+              },
+              "required": [
+                "term",
+                "explanation"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "mechanism_claims": {
+            "description": "Records each sentence of the answer that says how an intervention works, or that it does not act through a mechanism, with the route of the use it describes, the route of the experiment it rests on, and those studies (an empty list if none).",
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "quote": {
+                  "type": "string",
+                  "maxLength": 1000,
+                  "description": "The sentence(s), copied from answer_draft."
+                },
+                "use_route": {
+                  "type": "string",
+                  "enum": [
+                    "oral",
+                    "topical_skin",
+                    "topical_mucosal",
+                    "inhaled",
+                    "nasal",
+                    "intravenous",
+                    "intraperitoneal",
+                    "intramuscular",
+                    "subcutaneous",
+                    "in_vitro",
+                    "other"
+                  ],
+                  "description": "The route of the use the answer describes."
+                },
+                "evidence_route": {
+                  "type": "string",
+                  "enum": [
+                    "oral",
+                    "topical_skin",
+                    "topical_mucosal",
+                    "inhaled",
+                    "nasal",
+                    "intravenous",
+                    "intraperitoneal",
+                    "intramuscular",
+                    "subcutaneous",
+                    "in_vitro",
+                    "other"
+                  ],
+                  "description": "The route of the experiment the claim rests on."
+                },
+                "studies": {
+                  "minItems": 1,
+                  "maxItems": 20,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "description": "The key sources (DOI, PMID or PMCID) it rests on."
+                }
+              },
+              "required": [
+                "quote",
+                "use_route",
+                "evidence_route",
+                "studies"
               ],
               "additionalProperties": false
             }

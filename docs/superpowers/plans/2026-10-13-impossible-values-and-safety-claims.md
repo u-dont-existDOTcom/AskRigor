@@ -58,3 +58,5 @@
 
 1. Question 89: the additions (sections 1 and 2) and the wording above, built with 86 to 88. A: all; B: the server
    additions only; C: change a wording.
+
+Question 89 answered "89a" on 2026-10-14; built on #333 with 86 to 88: HRP 20.6.22, safety_claims in both directions with the safety caveat, and reported_figures plausibility with the impossible-value caveat.

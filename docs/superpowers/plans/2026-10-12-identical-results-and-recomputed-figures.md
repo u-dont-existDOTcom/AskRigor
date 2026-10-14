@@ -86,3 +86,5 @@
 1. Question 87: the server changes (sections 1 to 3) and the wording above. A: all; B: the server changes only;
    C: change a wording.
 2. With question 86, one build and one release question.
+
+Question 87 answered "87a" on 2026-10-14; built on #333 with 86, 88 and 89: HRP 20.6.22, study-audit reported_figures (optional, so older tool lists still validate; the final check asks a new audit without them to declare them), and the two caveats.

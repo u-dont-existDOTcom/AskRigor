@@ -66,3 +66,5 @@
 1. Question 88: the server changes (sections 1 and 2) and the wording above. A: all; B: the server changes only;
    C: change a wording.
 2. With questions 86 and 87, one build and one release question.
+
+Question 88 answered "88a" on 2026-10-14; built on #333 with 86, 87 and 89: HRP 20.6.22, finalize_research mechanism_claims with the route caveat, and an optional route on each study-audit program.

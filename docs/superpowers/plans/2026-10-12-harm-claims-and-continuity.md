@@ -204,3 +204,5 @@ any turn. A later turn that calls no research tool is covered by the protocol it
 1. Question 86: the server changes (sections 1, 1b and 2), the regression list (2b) and the wording above. A: all;
    B: the server changes and the regression list only; C: change a wording.
 2. The release question, after the build.
+
+Question 86 answered "86a" on 2026-10-14; built on #333 with 87 to 89: HRP 20.6.22, Universal 20.5.42, and the server's safety_claims (89 widened harm_claims to both directions), key_terms and research-result reminder sentence. docs/owner-regressions.md holds the regression list.
