@@ -2124,12 +2124,14 @@ const MCP_YOUTUBE_AUDIT_MAX_BYTES = 40_000;
 
 /**
  * Bytes a result adds around its structured view: the text, and the receipt,
- * which appears in both the text and the structured content. The view is cut
- * to what remains, so the whole result stays within the response budget.
+ * which appears in both the text and the structured content, with the
+ * reminder line that follows it. The view is cut to what remains, so the
+ * whole result stays within the response budget.
  */
 function reservedResultBytes(text: string, receipt: string | undefined): number {
   const receiptBytes = receipt === undefined ? 0 : Buffer.byteLength(receipt, "utf8");
-  return Buffer.byteLength(text, "utf8") + 2 * receiptBytes + 200;
+  const reminderBytes = receipt === undefined ? 0 : Buffer.byteLength(FINALIZE_REMINDER, "utf8") + 32;
+  return Buffer.byteLength(text, "utf8") + 2 * receiptBytes + reminderBytes + 200;
 }
 // A pass lock says the comments were retrieved, not that they reached the answer.
 const MCP_COMMENT_FINDINGS_HANDOFF =

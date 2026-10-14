@@ -1164,10 +1164,12 @@ export function finalizeResearch(
   for (const [index, first] of keyFigures.entries()) {
     for (const second of keyFigures.slice(index + 1)) {
       const shared = new Set(first.figures.values.filter((value) => second.figures.values.includes(value)));
-      if (shared.size >= 2 && first.marker !== second.marker) {
+      if (shared.size >= 2) {
+        // Two studies the answer labels alike are named by their identifiers instead.
+        const [a, b] = first.marker === second.marker
+          ? [first.source.id, second.source.id] : [first.marker, second.marker];
         caveatOnce("Two key studies report identical results: count them once, as the caveat does.",
-          `${first.marker} and ${second.marker} report identical results, so they are counted once, not as ` +
-            "independent replication.");
+          `${a} and ${b} report identical results, so they are counted once, not as independent replication.`);
       }
     }
   }
