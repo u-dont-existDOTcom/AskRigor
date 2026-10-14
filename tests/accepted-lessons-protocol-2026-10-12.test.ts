@@ -4,15 +4,20 @@ import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
 import { getProtocolManifest } from "@askrigor/protocol";
 import {
-  undoAcceptedLessonsHrp, undoAcceptedLessonsUniversal, undoHandoffTarget, undoReviewProvenance,
+  undoAcceptedLessonsHrp, undoAcceptedLessonsUniversal, undoHandoffTarget, undoOwnerQuestions86To89Hrp,
+  undoOwnerQuestions86To89Universal, undoReviewProvenance,
 } from "./helpers/undo-read-depth.js";
 
 const ROOT = new URL("../", import.meta.url);
 const parser = new XMLParser({ parseTagValue: false });
 const hash = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
-const load = (protocol: "hrp" | "universal") => readFile(new URL(
+const loadCurrent = (protocol: "hrp" | "universal") => readFile(new URL(
   `protocols/${protocol === "hrp" ? "HRP_Full.xml" : "Universal_Instructions.xml"}`, ROOT,
 ), "utf8");
+// The state right after question 84's edits: the newer questions 86 to 89 are undone first.
+const load = async (protocol: "hrp" | "universal") => (
+  protocol === "hrp" ? undoOwnerQuestions86To89Hrp : undoOwnerQuestions86To89Universal
+)(await loadCurrent(protocol));
 interface Edits {
   from: { version: string; sha256: string }; to: { version: string; sha256: string };
   edits: Array<[string, string]>;
@@ -109,13 +114,14 @@ describe("owner-approved question 84: accepted lessons, 84a (2026-10-12)", () =>
       expect(prior).toContain(`version="${fixture.from.version}" revisionDate="2026-10-12"`);
       expect(hash(prior)).toBe(fixture.from.sha256);
       expect(fixture.edits.reduce((text, [before, after]) => replaceOnce(text, before, after), prior)).toBe(current);
-      await expect((protocol === "hrp" ? undoAcceptedLessonsHrp : undoAcceptedLessonsUniversal)(current)).resolves.toBe(prior);
+      await expect((protocol === "hrp" ? undoAcceptedLessonsHrp : undoAcceptedLessonsUniversal)(await loadCurrent(protocol))).resolves.toBe(prior);
       const beforePrevious = [...previous.edits].reverse().reduce((text, [before, after]) => replaceOnce(text, after, before), prior);
       expect(hash(beforePrevious)).toBe(previous.from.sha256);
-      await expect((protocol === "hrp" ? undoHandoffTarget : undoReviewProvenance)(current)).resolves.toBe(beforePrevious);
+      await expect((protocol === "hrp" ? undoHandoffTarget : undoReviewProvenance)(await loadCurrent(protocol))).resolves.toBe(beforePrevious);
       await expect(getProtocolManifest(protocol)).resolves.toEqual({
         name: protocol === "hrp" ? "HRP" : "AskRigor.com universal saved instructions",
-        version: fixture.to.version, revisionDate: "2026-10-12", sha256: fixture.to.sha256,
+        version: protocol === "hrp" ? "20.6.22" : "20.5.42", revisionDate: "2026-10-14",
+        sha256: hash(await loadCurrent(protocol)),
       });
     });
   }
@@ -123,7 +129,7 @@ describe("owner-approved question 84: accepted lessons, 84a (2026-10-12)", () =>
   it("puts the exact Critical revisions first, preserving both older histories", async () => {
     for (const protocol of ["hrp", "universal"] as const) {
       const text = await load(protocol);
-      const prior = await (protocol === "hrp" ? undoAcceptedLessonsHrp : undoAcceptedLessonsUniversal)(text);
+      const prior = await (protocol === "hrp" ? undoAcceptedLessonsHrp : undoAcceptedLessonsUniversal)(await loadCurrent(protocol));
       const tag = protocol === "hrp" ? "Revision" : "revision";
       const history = protocol === "hrp" ? "RevisionHistory" : "revision_history";
       const indent = protocol === "hrp" ? "  " : "";
@@ -138,7 +144,7 @@ describe("owner-approved question 84: accepted lessons, 84a (2026-10-12)", () =>
 
   it("changes only the approved self-resolution phrase, retaining the remainder of rule 9", async () => {
     const text = await load("universal");
-    const prior = await undoAcceptedLessonsUniversal(text);
+    const prior = await undoAcceptedLessonsUniversal(await loadCurrent("universal"));
     const tag = "self_resolution_and_user_effort_minimization_gate";
     const oldLine = section(prior, tag).split("\n").filter((line) => line.startsWith("best exact action first and minimize the work."));
     expect(oldLine).toHaveLength(1);
@@ -149,7 +155,7 @@ describe("owner-approved question 84: accepted lessons, 84a (2026-10-12)", () =>
 
   it("adds only the exact one-line epistemic-phase rule 12 directly after rule 11", async () => {
     const text = await load("universal");
-    const prior = await undoAcceptedLessonsUniversal(text);
+    const prior = await undoAcceptedLessonsUniversal(await loadCurrent("universal"));
     const old = section(section(prior, "epistemic_phase_router"), "rules");
     const rule11 = old.split("\n").filter((line) => line.startsWith("11. "));
     expect(rule11).toHaveLength(1);
@@ -159,7 +165,7 @@ describe("owner-approved question 84: accepted lessons, 84a (2026-10-12)", () =>
 
   it("qualifies only the forum-signal classification, keeping the paragraph on one line", async () => {
     const text = await load("universal");
-    const prior = await undoAcceptedLessonsUniversal(text);
+    const prior = await undoAcceptedLessonsUniversal(await loadCurrent("universal"));
     const old = prior.split("\n").filter((line) => line.startsWith("For forum-signal checks,"));
     const current = text.split("\n").filter((line) => line.startsWith("For forum-signal checks,"));
     expect(old).toHaveLength(1);
@@ -195,7 +201,7 @@ describe("owner-approved question 84: accepted lessons, 84a (2026-10-12)", () =>
 
   it("puts only the exact single-line checks FS224 and FS225 immediately after FS223", async () => {
     const text = await load("hrp");
-    const prior = await undoAcceptedLessonsHrp(text);
+    const prior = await undoAcceptedLessonsHrp(await loadCurrent("hrp"));
     const old = prior.split("\n").filter((line) => line.startsWith('  <Check id="FS223">'));
     expect(old).toHaveLength(1);
     const added = APPROVED.checks.map((item) => `  <Check id="${item.id}">${item.text}</Check>`).join("\n");
