@@ -73,7 +73,7 @@ export async function submitConnectorLessonCandidate(raw: unknown): Promise<Less
   } catch {
     return { status: "github_unavailable", retryable: false, reason_code: "github_auth_unavailable" };
   }
-  return await service.submit(raw);
+  return await service.submit(raw, "connector");
 }
 
 function assertLessonActionTransportConfigured(): void {

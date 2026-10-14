@@ -12,6 +12,7 @@ import {
   publicCandidateId,
   type GitHubLessonQueue,
   type GitHubLessonQueueResult,
+  type LessonSource,
 } from "./github-lessons.js";
 import type { LessonAnonymizer } from "./openai-anonymizer.js";
 import {
@@ -104,7 +105,7 @@ export class LessonSubmissionService {
     this.pipeline = options.pipeline ?? defaultPipeline;
   }
 
-  async submit(raw: unknown): Promise<LessonSubmissionResult> {
+  async submit(raw: unknown, source: LessonSource = "custom-gpt"): Promise<LessonSubmissionResult> {
     try {
       const parsedLimit = lessonAttemptLimitDecisionSchema.safeParse(
         this.options.limiter.consume(),
@@ -174,6 +175,7 @@ export class LessonSubmissionService {
         rawQueueResult = await this.options.queue.submit({
           candidate: postScreen.candidate,
           fingerprint,
+          source,
         });
       } catch (error) {
         return githubUnavailable(error);

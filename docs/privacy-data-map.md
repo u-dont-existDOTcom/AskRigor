@@ -693,7 +693,8 @@ exhaustion fails closed before GitHub. The OpenAI check generalizes privacy risk
 but does not determine whether the lesson is scientifically correct.
 
 If both screens pass, the private GitHub issue stores the category in its title
-and labels; general lesson; expected behavior; failure reason; synthetic
+and labels; a label naming the AskRigor surface that sent it (`source-custom-gpt`
+for the Custom GPT's Action, `source-connector` for the MCP connector); general lesson; expected behavior; failure reason; synthetic
 regression example; evidence basis; optional AskRigor version and protocol
 identities; the privacy-gate marker; optional prior public candidate ID; an
 initial anonymous occurrence count; first-seen timestamp; and a hidden

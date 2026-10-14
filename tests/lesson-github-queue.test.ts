@@ -380,6 +380,15 @@ describe("private GitHub lesson queue", () => {
     expect(create.headers.get("user-agent")).toBe("AskRigor-Lesson-Queue/0.1");
   });
 
+  it("labels a lesson sent through the connector with its surface", async () => {
+    const github = new FakeGitHub();
+
+    await queue(github).submit({ candidate, fingerprint, source: "connector" });
+    expect(requestCalls(github, "POST")[0]!.body).toMatchObject({
+      labels: ["lesson-candidate", "needs-review", "source-connector", "category:missing_sources"],
+    });
+  });
+
   it("bounds a maximum-length lesson to one deterministic 256-character title while retaining the full body", async () => {
     const github = new FakeGitHub();
     const longCandidate: GeneralizedLesson = { ...candidate, general_lesson: "x".repeat(600) };

@@ -121,7 +121,7 @@ describe("lesson submission pipeline", () => {
     });
     submit.mockImplementation(async (input) => {
       order.push("github queue");
-      expect(input).toEqual({ candidate, fingerprint: "f".repeat(64) });
+      expect(input).toEqual({ candidate, fingerprint: "f".repeat(64), source: "custom-gpt" });
       return { kind: "created", issueNumber: 42, occurrenceCount: 1, possibleRegression: false };
     });
 
@@ -143,6 +143,14 @@ describe("lesson submission pipeline", () => {
       "github queue",
       "public receipt",
     ]);
+  });
+
+  it("tells the queue which surface sent the lesson: the Custom GPT unless the connector is named", async () => {
+    const { service, submit } = createSubject();
+    await service.submit(candidate);
+    await service.submit(candidate, "connector");
+    expect(submit.mock.calls.map(([input]) => (input as { source?: string }).source))
+      .toEqual(["custom-gpt", "connector"]);
   });
 
   it("maps an active duplicate to the same public-safe candidate shape", async () => {
