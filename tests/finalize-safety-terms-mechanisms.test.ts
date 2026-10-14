@@ -155,6 +155,27 @@ describe("finalize_research key_terms (owner question 86, issue #328)", () => {
     })).toEqual(["The answer uses \"無機ヒ素\" before key_terms[0]'s explanation: explain it in plain words where the " +
       "answer first uses it."]);
   });
+
+  it("matches a term in any case, as at the start of a sentence", () => {
+    const explanation = "Inorganic arsenic, the form hijiki carries, is the one linked to cancer.";
+    expect(check({
+      answer_draft: `${LINKS}\n\n${explanation} Later, inorganic arsenic comes up again.`,
+      key_terms: [{ term: "inorganic arsenic", explanation }]
+    }).status).toBe("ready");
+  });
+
+  it("keeps the case of a term written in capitals, so the words its letters spell are not uses of it", () => {
+    const explanation = "An odds ratio (OR) compares the odds of an outcome in two groups; 1 means no difference.";
+    expect(check({
+      answer_draft: `${LINKS}\n\nDiet or exercise may matter. ${explanation}`,
+      key_terms: [{ term: "OR", explanation }]
+    }).status).toBe("ready");
+    expect(steps({
+      answer_draft: `${LINKS}\n\nThe OR was 2.1.\n\n${explanation}`,
+      key_terms: [{ term: "OR", explanation }]
+    })).toEqual(["The answer uses \"OR\" before key_terms[0]'s explanation: explain it in plain words where the " +
+      "answer first uses it."]);
+  });
 });
 
 describe("finalize_research mechanism_claims (owner question 88, issue #330)", () => {

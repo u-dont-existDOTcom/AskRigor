@@ -48,6 +48,8 @@
      reconciled."
    - **Two key studies whose audits share two or more identical reported figures:** the answer includes "{marker A}
      and {marker B} report identical results, so they are counted once, not as independent replication."
+     Only non-integer values count (as built, 14 Oct): whole numbers such as doses and group sizes coincide between
+     independent studies too often, and a number whose separators can group thousands ("1,234") is read both ways.
    - Both checks are exact: the gate compares the declared numbers and finds the sentences. Which study is right, and
      why, stay the model's to say.
 4. **Protocol wording** (draft below): HRP rule `IdenticalResultsAcrossPublications` after

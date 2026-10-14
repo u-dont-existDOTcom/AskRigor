@@ -2688,7 +2688,8 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
 
 // What finalize_research needs from a study audit's figures check (owner
 // questions 87 and 89), kept small enough for a receipt: the status, the
-// printed values for comparing key studies, and up to three impossible values.
+// non-integer printed values for comparing key studies, and up to three
+// impossible values.
 function studyFigureClaims(check: ReportedFiguresCheck | undefined): ResearchReceiptClaims {
   if (check === undefined) return {};
   return {

@@ -14,7 +14,7 @@ import {
 import { z } from "zod";
 
 import { ADMINISTRATION_ROUTES } from "../administration-routes.js";
-import { extractUnsignedNumbers, includesAbsoluteNumber } from "../unicode-numbers.js";
+import { extractUnsignedNumbers, firstNumberReadings, includesAbsoluteNumber } from "../unicode-numbers.js";
 import {
   computeStudyExternalEvidenceBundleHash,
   studyExternalEvidenceAuditOutputSchema,
@@ -582,8 +582,12 @@ function normalizeDocumentIndex(
  * each printed value is in its cited block, and a recomputed value that differs
  * from it beyond rounding (the larger of 0.5 units and 1%) marks the audit
  * internally inconsistent, as the auditor's own inconsistent_with_own_data
- * call does. Whether the recomputation is right stays the auditor's declared
- * work; an impossible value is kept exactly as printed.
+ * call does. A printed number whose separators can group thousands ("1,234")
+ * differs only if the recomputation matches neither reading. Whether the
+ * recomputation is right stays the auditor's declared work; an impossible
+ * value is kept exactly as printed. The values kept for spotting identical
+ * results across papers are the non-integer ones: whole numbers such as doses
+ * and group sizes coincide between independent studies too often to count.
  */
 function checkReportedFigures(
   index: AuditableDocumentIndex,
@@ -608,10 +612,11 @@ function checkReportedFigures(
     if (!printed.every((value) => includesAbsoluteNumber(inBlock, value))) {
       throw new Error(`Study audit reported figure "${figure.label}" is not in its cited source block`);
     }
-    const value = printed[0]!;
-    values.push(value);
-    const differs = figure.recomputed !== undefined &&
-      Math.abs(Math.abs(figure.recomputed) - value) > Math.max(0.5, value * 0.01);
+    const readings = firstNumberReadings(figure.reported);
+    if (readings.every((reading) => !Number.isInteger(reading))) values.push(readings[0]!);
+    const recomputed = figure.recomputed;
+    const differs = recomputed !== undefined && readings.every((reading) =>
+      Math.abs(Math.abs(recomputed) - reading) > Math.max(0.5, reading * 0.01));
     if (differs || figure.plausibility === "inconsistent_with_own_data") mismatched.push(figure.label);
   }
   return {

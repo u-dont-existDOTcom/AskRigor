@@ -19,8 +19,9 @@ import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.
 
 // Owner questions 87 to 89 (issues #329 to #331): a study audit's headline figures, recomputed from the paper's own
 // tables, with a plausibility call and each program's route; the final check turns them into the answer's caveats.
-async function sourceIndex() {
-  const xml = await readFile(new URL("fixtures/europe-pmc/full-text.xml", import.meta.url), "utf8");
+async function sourceIndex(cells = "<td>100</td>") {
+  const xml = (await readFile(new URL("fixtures/europe-pmc/full-text.xml", import.meta.url), "utf8"))
+    .replace("<td>100</td>", cells);
   const article: EuropePmcFullTextArticle = {
     pmcid: "PMC1234567", pmid: "40123456", doi: "10.1234/recorded.example", title: "Recorded full-text study",
     format: "jats_xml", document_completeness: "full_text_with_body",
@@ -36,10 +37,10 @@ const program = (name: string) => ({
   adherence: "recorded separately", co_interventions: [], care_stage: "nonsurgical" as const
 });
 
-async function submission(overrides: Partial<StudyMethodAuditSubmission> = {}) {
-  const index = await sourceIndex();
+async function submission(overrides: Partial<StudyMethodAuditSubmission> = {}, cells?: string) {
+  const index = await sourceIndex(cells);
   const block = (section: string) => index.blocks.find(({ section_path }) => section_path.includes(section))!.block_id;
-  const table = index.blocks.find(({ text }) => text.includes("100"))!.block_id;
+  const table = index.blocks.find(({ text }) => /Assigned\D*\d/u.test(text))!.block_id;
   const audit: StudyMethodAuditSubmission = {
     source_primary_identifier: index.source.pmcid,
     source_content_sha256: index.source.content_sha256,
@@ -73,8 +74,34 @@ describe("study audit reported_figures", () => {
   it("records consistent figures, and a recomputation within rounding, with their printed values", async () => {
     const { index, audit } = await submission();
     expect(validateStudyMethodAudit(index, audit).reported_figures_check).toEqual({
-      status: "consistent", mismatched: [], impossible_as_printed: [], values: [100]
+      status: "consistent", mismatched: [], impossible_as_printed: [], values: []
     });
+  });
+
+  it("reads a number whose separators can group thousands both ways", async () => {
+    const { index, table, audit } = await submission({}, "<td>1,234</td><td>1.234.567,8</td>");
+    const figure = (reported: string, recomputed: number) => ({
+      label: "participants assigned", evidence_block_id: table, reported, recomputed,
+      recomputation: "Sum of the arms in Table 1.", plausibility: "consistent" as const
+    });
+    const status = (reported: string, recomputed: number) =>
+      validateStudyMethodAudit(index, { ...audit, reported_figures: [figure(reported, recomputed)] })
+        .reported_figures_check?.status;
+    expect(status("1,234", 1234)).toBe("consistent");
+    expect(status("1,234", 1.234)).toBe("consistent");
+    expect(status("1,234", 2000)).toBe("internally_inconsistent");
+    expect(status("1.234.567,8", 1234567.8)).toBe("consistent");
+  });
+
+  it("keeps only non-integer values for spotting identical results across papers", async () => {
+    const { index, table, audit } = await submission({}, "<td>100</td><td>74.25</td><td>1,500</td>");
+    const figure = (reported: string) => ({
+      label: `figure ${reported}`, evidence_block_id: table, reported,
+      recomputation: "Printed in Table 1.", plausibility: "consistent" as const
+    });
+    expect(validateStudyMethodAudit(index, {
+      ...audit, reported_figures: ["100", "74.25", "1,500"].map(figure)
+    }).reported_figures_check?.values).toEqual([74.25]);
   });
 
   it("marks the audit internally inconsistent when a recomputation differs beyond rounding or the auditor says so", async () => {
@@ -163,9 +190,9 @@ describe("finalize_research reads each key study's figures check", () => {
     expect(missing.status).toBe("not_ready");
     expect(missing.next_steps).toEqual([
       `The study audit of ${A} lists no reported_figures: validate it again with reported_figures, each headline ` +
-        "figure as the paper prints it with its source block, recomputed from the paper's own tables or with why " +
-        "that isn't possible, or with an empty list and reported_figures_none_reason when it reports no numeric " +
-        "result; pass the research_receipt it returns.",
+        "result (not a dose or group size) as the paper prints it with its source block, recomputed from the " +
+        "paper's own tables or with why that isn't possible, or with an empty list and reported_figures_none_reason " +
+        "when it reports no numeric result; pass the research_receipt it returns.",
       TOOL_LIST_REFRESH_HINT
     ]);
     expect(check([sign({ id: A }), sign({ id: B })]).status).toBe("ready");

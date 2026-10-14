@@ -1146,9 +1146,9 @@ export function finalizeResearch(
   for (const { source, figures, marker } of keyFigures) {
     if (figures.status === "not_declared") {
       requireDeclaration(`The study audit of ${source.id} lists no reported_figures: validate it again with ` +
-        "reported_figures, each headline figure as the paper prints it with its source block, recomputed from the " +
-        "paper's own tables or with why that isn't possible, or with an empty list and reported_figures_none_reason " +
-        "when it reports no numeric result; pass the research_receipt it returns.");
+        "reported_figures, each headline result (not a dose or group size) as the paper prints it with its source " +
+        "block, recomputed from the paper's own tables or with why that isn't possible, or with an empty list and " +
+        "reported_figures_none_reason when it reports no numeric result; pass the research_receipt it returns.");
       continue;
     }
     if (figures.status === "internally_inconsistent") {
@@ -1784,13 +1784,20 @@ function answerDraftProblems(
   // AudienceAccessibleTerminologyGate, FS227). Which terms count and whether
   // the explanation is good stay the model's judgment; the gate checks that
   // the declared explanation is shown, contains the term, and holds its first
-  // use, compared as quotes are.
+  // use, compared as quotes are. A term written in capitals only, such as OR
+  // for odds ratio or NO for nitric oxide, keeps its case, so the everyday
+  // words its letters spell are not uses of it.
   if (context.keyTerms.length > 0) {
-    const shownText = shownBlocks.map((block) => caveatText(visibleText(block))).join("\n");
+    const shownIn = (fold: (text: string) => string) =>
+      shownBlocks.map((block) => fold(visibleText(block))).join("\n");
+    const shown = { folded: shownIn(caveatText), cased: shownIn(casedCaveatText) };
     for (const [index, { term, explanation }] of context.keyTerms.entries()) {
       const at = `key_terms[${index}]`;
-      const termForm = caveatText(term);
-      const explanationForm = quoteForm(explanation.replace(MARKDOWN_LINK_TEXT, "$1"));
+      const capitals = /\p{Lu}/u.test(term) && !/\p{Ll}/u.test(term);
+      const fold = capitals ? casedCaveatText : caveatText;
+      const shownText = capitals ? shown.cased : shown.folded;
+      const termForm = fold(term);
+      const explanationForm = quoteForm(explanation.replace(MARKDOWN_LINK_TEXT, "$1"), fold);
       const start = explanationForm === "" ? -1 : shownText.indexOf(explanationForm);
       if (start < 0) {
         problems.push(`${at} gives an explanation the answer does not show: copy the sentence exactly from answer_draft.`);
@@ -1995,8 +2002,8 @@ const SENTENCE_MARK = /\p{STerm}/u;
  * quotation marks around it or its closing sentence mark. It is read from
  * each end, so its length bounds the work.
  */
-function quoteForm(quote: string): string {
-  const text = caveatText(quote);
+function quoteForm(quote: string, fold: (text: string) => string = caveatText): string {
+  const text = fold(quote);
   let start = 0;
   let end = text.length;
   while (start < end && QUOTE_MARK.test(text.charAt(start))) start += 1;
@@ -2011,6 +2018,11 @@ const linksIn = (text: string): Set<string> =>
 
 /** Text as the caveat check compares it: Unicode composition, quotes, dashes, emphasis, spacing and case ignored. */
 function caveatText(text: string): string {
+  return casedCaveatText(text).toLowerCase();
+}
+
+/** caveatText with case kept, for a term written in capitals. */
+function casedCaveatText(text: string): string {
   return text
     .normalize("NFC")
     .replace(/[\u2018\u2019\u02BC]/gu, "'")
@@ -2018,8 +2030,7 @@ function caveatText(text: string): string {
     .replace(/[\u2013\u2014]/gu, "-")
     .replace(/[*_`]/gu, "")
     .replace(/\s+/gu, " ")
-    .trim()
-    .toLowerCase();
+    .trim();
 }
 
 /**

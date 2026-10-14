@@ -988,8 +988,8 @@ pending-proposal stores have their own strict contracts and authority boundaries
   one-call community audit receipt the IDs of the videos whose comments its
   response returned, and a per-video audit receipt how many comments its final
   view returned. A study audit receipt also carries its figures check: the
-  status (`fig`), up to 20 of the headline values as the paper prints them
-  (`figv`) and up to three values the audit marked impossible as printed
+  status (`fig`), up to 20 of the headline values as the paper prints them,
+  non-integer ones only (`figv`), and up to three values the audit marked impossible as printed
   (`imp`), all numbers from the published paper. Survey, search and one-call community audit receipts also
   count their searches that ended incomplete and those stopped by a rate limit
   or the daily quota, so the checks can state that limit themselves; a round a
