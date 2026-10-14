@@ -8,8 +8,10 @@ import { protocolSections, type ProtocolSection } from "./sections.js";
 export {
   coreSectionNames,
   PROTOCOL_PAGE_MAX_BYTES,
+  protocolNamedElements,
   protocolSections,
   protocolTextPage,
+  type ProtocolElement,
   type ProtocolSection,
   type ProtocolTextPage
 } from "./sections.js";

@@ -18,8 +18,10 @@ import {
   getProtocolManifest,
   loadProtocol,
   loadProtocolSectionSnapshot,
+  protocolNamedElements,
   protocolTextPage,
   verifyProtocolIntegrity,
+  type ProtocolElement,
   type ProtocolName
 } from "@askrigor/protocol";
 import {
@@ -244,6 +246,16 @@ const manifestSchema = z.object({
   sha256: z.string()
 });
 const PROTOCOL_INDEX_SECTION = "index";
+const PROTOCOL_ELEMENTS_LISTED = 8;
+
+/** "Rule in section A, Case in section B", for load_protocol's name matches. */
+function describeProtocolElements(elements: readonly ProtocolElement[]): string {
+  const listed = elements.slice(0, PROTOCOL_ELEMENTS_LISTED)
+    .map(({ tag, section }) => `${tag} in section ${section}`);
+  const more = elements.length - listed.length;
+  return listed.join(", ") + (more > 0 ? ` and ${more} more` : "");
+}
+
 const protocolSectionIndexSchema = z.object({
   name: z.string(),
   bytes: z.number().int(),
@@ -730,7 +742,7 @@ function defineResearchOperations(
       // this description and the parameters carry no descriptions.
       description:
         'Canonical protocol text in 40,000-byte pages. section "index" lists sections; ' +
-        "section <name> loads one; page N continues.",
+        "section <name> loads one, or a rule, case or other element by its name or id; page N continues.",
       inputSchema: {
         protocol: protocolSchema,
         section: z.string().optional(),
@@ -798,16 +810,33 @@ function defineResearchOperations(
         const target = section === undefined
           ? undefined
           : sections.find(({ name }) => name === section);
+        let element: ProtocolElement | undefined;
+        let alsoNamed: ProtocolElement[] = [];
         if (section !== undefined && target === undefined) {
-          return protocolRequestError(
-            protocol,
-            "protocol_section_not_found",
-            `${manifest.name} has no top-level section named ${section}. Call load_protocol with section "index" for exact names.`
-          );
+          const named = protocolNamedElements(snapshot.text, section);
+          const rules = named.filter(({ tag }) => tag === "Rule" || tag === "rule");
+          element = named.length === 1 ? named[0] : rules.length === 1 ? rules[0] : undefined;
+          if (element === undefined) {
+            return named.length === 0
+              ? protocolRequestError(
+                protocol,
+                "protocol_section_not_found",
+                `${manifest.name} has no section, and no rule, case or other element, named ${section}. ` +
+                  'Call load_protocol with section "index" for section names.'
+              )
+              : protocolRequestError(
+                protocol,
+                "protocol_section_ambiguous",
+                `${manifest.name} has ${named.length} elements named ${section}: ${describeProtocolElements(named)}. ` +
+                  "Load the section that holds the one you need."
+              );
+          }
+          alsoNamed = named.filter((candidate) => candidate !== element);
         }
-        const scope = target === undefined
+        const span = target ?? element;
+        const scope = span === undefined
           ? bytes
-          : bytes.subarray(target.byte_start, target.byte_end_exclusive);
+          : bytes.subarray(span.byte_start, span.byte_end_exclusive);
         const requestedPage = page ?? 1;
         const pageCount = target?.pages ?? protocolTextPage(scope, 1).page_count;
         if (requestedPage > pageCount) {
@@ -818,19 +847,22 @@ function defineResearchOperations(
           );
         }
         const textPage = protocolTextPage(scope, requestedPage);
-        const offset = target?.byte_start ?? 0;
-        const label = target === undefined
-          ? `complete canonical ${manifest.name} text`
-          : `${manifest.name} section ${target.name}`;
+        const offset = span?.byte_start ?? 0;
+        const label = target !== undefined
+          ? `${manifest.name} section ${target.name}`
+          : element !== undefined
+            ? `${manifest.name} ${element.tag} ${section} in section ${element.section}`
+            : `complete canonical ${manifest.name} text`;
         return successfulToolResult(
           `Loaded ${label}, page ${textPage.page} of ${textPage.page_count} (exact canonical bytes).` +
-            (textPage.complete ? "" : ` Call load_protocol again with page ${textPage.page + 1} to continue.`),
+            (textPage.complete ? "" : ` Call load_protocol again with page ${textPage.page + 1} to continue.`) +
+            (alsoNamed.length === 0 ? "" : ` Also named ${section}: ${describeProtocolElements(alsoNamed)}.`),
           {
             ok: true,
             protocol,
             manifest,
-            scope: target === undefined ? "full" : "section",
-            ...(target === undefined ? {} : { section: target.name }),
+            scope: span === undefined ? "full" : "section",
+            ...(span === undefined ? {} : { section: target?.name ?? section }),
             page: textPage.page,
             page_count: textPage.page_count,
             ...(textPage.complete ? {} : { next_page: textPage.page + 1 }),

@@ -68,6 +68,11 @@ export const FINALIZE_RESEARCH_CONTRACT = "2026-10-07";
 export const TOOL_LIST_REFRESH_HINT = "If this chat's AskRigor tool has no such field, its tool list is outdated: " +
   "refreshing the AskRigor connector in the app's settings and starting a new chat loads the current list.";
 
+// acquire_open_full_text signs a lead receipt only when the exact public-copy searches are recorded with it
+// (canSignFullTextLead), so a step that sends the AI there for one says so, or a retry without them loops.
+export const LEAD_RECEIPT_SEARCH = "A lead receipt needs the public-copy search recorded: search for the exact DOI " +
+  "and the exact title, then pass those searches as public_copy_search and any public copy found as candidate_urls.";
+
 export const READ_DEPTH_VALUES = [
   "full_text_audited", "full_text_read", "partial_text", "abstract_only", "conference_abstract",
   "secondary_only", "metadata_only", "inaccessible", "route_error"
@@ -993,7 +998,7 @@ export function finalizeResearch(
         nextSteps.push(
           `PubMed lists an open copy of ${source.id} in PubMed Central (${openCopy}) that the full-text attempt did not ` +
             `try: call acquire_open_full_text with DOI ${doi} and pmcid ${openCopy}, then audit it, or pass the new ` +
-            "research_receipt if it still finds no full text."
+            `research_receipt if it still finds no full text. ${LEAD_RECEIPT_SEARCH}`
         );
         continue;
       }
@@ -1048,9 +1053,9 @@ export function finalizeResearch(
     nextSteps.push(source.status === "validated"
       ? `For ${source.id}: acquire_open_full_text${target === source.id ? "" : ` (DOI ${target})`}, continue_open_full_text until exhausted, ` +
           "then validate_study_method_audit (or validate_review_method_audit) and pass its research_receipt. If no open full text exists, " +
-          "the acquisition receipt lets you list it as lead_only."
+          `the acquisition receipt lets you list it as lead_only. ${LEAD_RECEIPT_SEARCH}`
       : `Try acquire_open_full_text for ${source.id}${target === source.id ? "" : ` (DOI ${target})`}${isPmcid(id) ? " with its DOI and this pmcid" : ""} ` +
-          "before treating it as lead_only; pass the research_receipt it returns.");
+          `before treating it as lead_only; pass the research_receipt it returns. ${LEAD_RECEIPT_SEARCH}`);
   }
   if (unreadStudies.size > 0) caveats.push(unreadStudiesCaveat([...unreadStudies]));
   if (input.key_sources.length === 0) {

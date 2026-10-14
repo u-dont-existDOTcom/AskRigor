@@ -24,6 +24,9 @@ import {
 
 import { assertNextStepsContract, fixtureStudyLinks } from "./helpers/finalize-next-steps-contract.js";
 
+// Pinned word for word: a lead receipt is signed only with the exact searches recorded.
+const LEAD_RECEIPT_SEARCH_TEXT = "A lead receipt needs the public-copy search recorded: search for the exact DOI and the exact title, then pass those searches as public_copy_search and any public copy found as candidate_urls.";
+
 const finalizeResearchBare = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
   assertNextStepsContract(finalizeResearchUnwrapped(...args));
 
@@ -1870,7 +1873,8 @@ describe("finalize_research gate", () => {
     expect(untried.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "PubMed lists an open copy of 10.1016/j.joca.2020.01.001 in PubMed Central (PMC7654321) that the full-text " +
         "attempt did not try: call acquire_open_full_text with DOI 10.1016/j.joca.2020.01.001 and pmcid PMC7654321, " +
-        "then audit it, or pass the new research_receipt if it still finds no full text."
+        "then audit it, or pass the new research_receipt if it still finds no full text. " +
+        LEAD_RECEIPT_SEARCH_TEXT
     ]);
     const byPmid = finalizeResearch({ ...base, key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "PMID: 31234567", status: "lead_only" as const }] }, options);
     expect(byPmid.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
@@ -1967,9 +1971,11 @@ describe("finalize_research gate", () => {
     }, options);
     expect(result.status).toBe("not_ready");
     expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
-      "Try acquire_open_full_text for PMC123 with its DOI and this pmcid before treating it as lead_only; pass the research_receipt it returns.",
+      "Try acquire_open_full_text for PMC123 with its DOI and this pmcid before treating it as lead_only; pass the research_receipt it returns. " +
+        LEAD_RECEIPT_SEARCH_TEXT,
       "Fetch PMID 999 with fetch_pubmed_record and pass its research_receipt; if it has a DOI, try acquire_open_full_text.",
-      "Try acquire_open_full_text for 4242 (DOI 10.1016/j.joca.2020.01.001) before treating it as lead_only; pass the research_receipt it returns.",
+      "Try acquire_open_full_text for 4242 (DOI 10.1016/j.joca.2020.01.001) before treating it as lead_only; pass the research_receipt it returns. " +
+        LEAD_RECEIPT_SEARCH_TEXT,
       "Key source WHO guideline 2024 has no answer_marker on the same line as its link in answer_draft; put its answer_marker there.",
       "Identify WHO guideline 2024 by DOI, PMID or PMCID, or leave it out of key_sources and label it unverified in the answer."
     ]);

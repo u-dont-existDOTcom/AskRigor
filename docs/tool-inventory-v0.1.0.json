@@ -168,7 +168,7 @@
     },
     {
       "name": "load_protocol",
-      "description": "Canonical protocol text in 40,000-byte pages. section \"index\" lists sections; section <name> loads one; page N continues.",
+      "description": "Canonical protocol text in 40,000-byte pages. section \"index\" lists sections; section <name> loads one, or a rule, case or other element by its name or id; page N continues.",
       "inputSchema": {
         "type": "object",
         "properties": {

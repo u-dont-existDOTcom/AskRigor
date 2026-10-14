@@ -77,6 +77,15 @@ export interface ProtocolTextPage {
   complete: boolean;
 }
 
+/** One element inside a top-level section, such as an HRP Rule, Case or Template. */
+export interface ProtocolElement {
+  tag: string;
+  /** Top-level section that holds the element. */
+  section: string;
+  byte_start: number;
+  byte_end_exclusive: number;
+}
+
 interface SectionSpan {
   name: string;
   start: number;
@@ -109,6 +118,84 @@ export function protocolSections(
       summary: sectionSummary(text.slice(span.start, span.end))
     };
   });
+}
+
+/**
+ * Elements below the root whose `name` or `id` attribute is exactly `name`,
+ * plus elements nested inside a section whose own tag is `name`, as exact byte
+ * ranges of the file in document order. Rules, cases, checks and templates
+ * are named this way, so one can be loaded without its whole section.
+ */
+export function protocolNamedElements(text: string, name: string): ProtocolElement[] {
+  const found: Array<{ tag: string; section: string; start: number; end: number }> = [];
+  const open: Array<{ tag: string; start: number; match: boolean }> = [];
+  let section = "";
+  let index = 0;
+
+  while (index < text.length) {
+    const lessThan = text.indexOf("<", index);
+    if (lessThan < 0) {
+      break;
+    }
+    if (text.startsWith("<!--", lessThan)) {
+      index = requiredIndex(text, "-->", lessThan) + 3;
+      continue;
+    }
+    if (text.startsWith("<![CDATA[", lessThan)) {
+      index = requiredIndex(text, "]]>", lessThan) + 3;
+      continue;
+    }
+    if (text.startsWith("<?", lessThan) || text.startsWith("<!", lessThan)) {
+      index = requiredIndex(text, ">", lessThan) + 1;
+      continue;
+    }
+    const close = tagEnd(text, lessThan);
+    const tag = text.slice(lessThan, close);
+    if (tag.startsWith("</")) {
+      const element = open.pop();
+      if (element === undefined) {
+        throw new Error("Protocol sections are not balanced");
+      }
+      if (element.match) {
+        found.push({ tag: element.tag, section, start: element.start, end: close });
+      }
+    } else {
+      const tagName = /^<([^\s/>]+)/u.exec(tag)?.[1];
+      if (tagName === undefined) {
+        throw new Error("Protocol tag has no name");
+      }
+      // Depth 0 is the root, 1 a top-level section, 2 or more inside one.
+      const depth = open.length;
+      if (depth === 1) {
+        section = tagName;
+      }
+      const match = depth >= 1 &&
+        (namingAttributeValues(tag).includes(name) || (depth >= 2 && tagName === name));
+      if (tag.endsWith("/>")) {
+        if (match) {
+          found.push({ tag: tagName, section, start: lessThan, end: close });
+        }
+      } else {
+        open.push({ tag: tagName, start: lessThan, match });
+      }
+    }
+    index = close;
+  }
+
+  if (open.length !== 0) {
+    throw new Error("Protocol sections are not balanced");
+  }
+  return found
+    .sort((left, right) => left.start - right.start)
+    .map(({ tag, section: holder, start, end }) => {
+      const byteStart = Buffer.byteLength(text.slice(0, start), "utf8");
+      return {
+        tag,
+        section: holder,
+        byte_start: byteStart,
+        byte_end_exclusive: byteStart + Buffer.byteLength(text.slice(start, end), "utf8")
+      };
+    });
 }
 
 /** Names of the sections every research run loads first. */
@@ -248,6 +335,17 @@ function requiredIndex(text: string, token: string, from: number): number {
     throw new Error("Protocol markup is not closed");
   }
   return index;
+}
+
+/**
+ * Values of a start tag's `name` and `id` attributes, entities decoded. Every
+ * attribute is matched in turn, so text inside another attribute's quoted
+ * value is never read as an attribute.
+ */
+function namingAttributeValues(tag: string): string[] {
+  return [...tag.matchAll(/\s([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/gu)]
+    .filter(([, attribute]) => attribute === "name" || attribute === "id")
+    .map((match) => decodeEntities(match[2] ?? match[3] ?? ""));
 }
 
 function sectionSummary(sectionText: string): string {

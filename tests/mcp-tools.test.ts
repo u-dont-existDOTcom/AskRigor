@@ -2893,8 +2893,63 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
+  it("loads a nested rule by name, and names the other elements that share it", async () => {
+    const { client, server } = await createInMemoryClient();
+    const canonicalBytes = await readFile(new URL("../protocols/HRP_Full.xml", import.meta.url));
+    const exact = (content: { byte_start: number; byte_end_exclusive: number }) =>
+      canonicalBytes.subarray(content.byte_start, content.byte_end_exclusive).toString("utf8");
+
+    try {
+      const rule = await client.callTool({
+        name: "load_protocol",
+        arguments: { protocol: "hrp", section: "ResolveConflictsBeforeRecommendationOrRanking" }
+      });
+      expect(rule.isError).not.toBe(true);
+      const ruleContent = rule.structuredContent as {
+        scope: string;
+        section: string;
+        complete: boolean;
+        byte_start: number;
+        byte_end_exclusive: number;
+        scope_bytes: number;
+        text: string;
+      };
+      expect(ruleContent).toMatchObject({
+        scope: "section",
+        section: "ResolveConflictsBeforeRecommendationOrRanking",
+        complete: true
+      });
+      expect(ruleContent.text).toBe(exact(ruleContent));
+      expect(ruleContent.scope_bytes).toBe(Buffer.byteLength(ruleContent.text, "utf8"));
+      expect(ruleContent.text).toMatch(/^<Rule name="ResolveConflictsBeforeRecommendationOrRanking"[^>]*>[\s\S]*<\/Rule>$/u);
+      expect((rule.content as Array<{ text: string }>)[0]!.text).toMatch(
+        /^Loaded HRP Rule ResolveConflictsBeforeRecommendationOrRanking in section \w+, page 1 of 1 \(exact canonical bytes\)\.$/u
+      );
+
+      // A rule and a template share this name: the rule loads, and the template is named.
+      const shared = await client.callTool({
+        name: "load_protocol",
+        arguments: { protocol: "hrp", section: "WholeReportAudit" }
+      });
+      expect(shared.isError).not.toBe(true);
+      const sharedContent = shared.structuredContent as {
+        byte_start: number;
+        byte_end_exclusive: number;
+        text: string;
+      };
+      expect(sharedContent.text).toBe(exact(sharedContent));
+      expect(sharedContent.text.startsWith('<Rule name="WholeReportAudit"')).toBe(true);
+      expect((shared.content as Array<{ text: string }>)[0]!.text).toContain(
+        "Also named WholeReportAudit: Template in section ResearchAuditTemplates."
+      );
+    } finally {
+      await server.close();
+    }
+  });
+
   it.each([
     [{ protocol: "hrp", section: "NoSuchSection" }, "protocol_section_not_found"],
+    [{ protocol: "hrp", section: "FoundationBeforeOptimization" }, "protocol_section_ambiguous"],
     [{ protocol: "hrp", page: 999 }, "protocol_page_out_of_range"],
     [{ protocol: "hrp", page: 0 }, "protocol_page_out_of_range"],
     [{ protocol: "hrp", page: 1.5 }, "protocol_page_out_of_range"],
