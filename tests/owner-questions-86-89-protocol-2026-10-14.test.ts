@@ -5,14 +5,19 @@ import { describe, expect, it } from "vitest";
 import { getProtocolManifest } from "@askrigor/protocol";
 import {
   undoAcceptedLessonsHrp, undoAcceptedLessonsUniversal, undoOwnerQuestions86To89Hrp, undoOwnerQuestions86To89Universal,
+  undoOwnerQuestions90To92Hrp,
 } from "./helpers/undo-read-depth.js";
 
 const ROOT = new URL("../", import.meta.url);
 const parser = new XMLParser({ parseTagValue: false });
 const hash = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
-const load = (protocol: "hrp" | "universal") => readFile(new URL(
+const loadCurrent = (protocol: "hrp" | "universal") => readFile(new URL(
   `protocols/${protocol === "hrp" ? "HRP_Full.xml" : "Universal_Instructions.xml"}`, ROOT,
 ), "utf8");
+// The state right after questions 86 to 89: the newer HRP edits of questions 90 and 92 are undone first.
+const load = async (protocol: "hrp" | "universal") => (
+  protocol === "hrp" ? undoOwnerQuestions90To92Hrp(await loadCurrent(protocol)) : loadCurrent(protocol)
+);
 const undoOwnerQuestions = (protocol: "hrp" | "universal", text: string) => (
   protocol === "hrp" ? undoOwnerQuestions86To89Hrp : undoOwnerQuestions86To89Universal
 )(text);
@@ -140,13 +145,14 @@ describe("owner-approved questions 86 to 89: 89a 88a 87a 86a (2026-10-14)", () =
       expect(prior).toContain(`version="${fixture.from.version}" revisionDate="2026-10-12"`);
       expect(hash(prior)).toBe(fixture.from.sha256);
       expect(fixture.edits.reduce((text, [before, after]) => replaceOnce(text, before, after), prior)).toBe(current);
-      await expect(undoOwnerQuestions(protocol, current)).resolves.toBe(prior);
+      await expect(undoOwnerQuestions(protocol, await loadCurrent(protocol))).resolves.toBe(prior);
       const beforePrevious = [...previous.edits].reverse().reduce((text, [before, after]) => replaceOnce(text, after, before), prior);
       expect(hash(beforePrevious)).toBe(previous.from.sha256);
-      await expect((protocol === "hrp" ? undoAcceptedLessonsHrp : undoAcceptedLessonsUniversal)(current)).resolves.toBe(beforePrevious);
+      await expect((protocol === "hrp" ? undoAcceptedLessonsHrp : undoAcceptedLessonsUniversal)(await loadCurrent(protocol))).resolves.toBe(beforePrevious);
       await expect(getProtocolManifest(protocol)).resolves.toEqual({
         name: protocol === "hrp" ? "HRP" : "AskRigor.com universal saved instructions",
-        version: fixture.to.version, revisionDate: "2026-10-14", sha256: fixture.to.sha256,
+        version: protocol === "hrp" ? "20.6.23" : "20.5.42", revisionDate: "2026-10-14",
+        sha256: hash(await loadCurrent(protocol)),
       });
     });
   }
@@ -154,7 +160,7 @@ describe("owner-approved questions 86 to 89: 89a 88a 87a 86a (2026-10-14)", () =
   it("puts the exact Critical revisions first, preserving every older history", async () => {
     for (const protocol of ["hrp", "universal"] as const) {
       const text = await load(protocol);
-      const prior = await undoOwnerQuestions(protocol, text);
+      const prior = await undoOwnerQuestions(protocol, await loadCurrent(protocol));
       const tag = protocol === "hrp" ? "Revision" : "revision";
       const history = protocol === "hrp" ? "RevisionHistory" : "revision_history";
       const indent = protocol === "hrp" ? "  " : "";
@@ -211,7 +217,7 @@ describe("owner-approved questions 86 to 89: 89a 88a 87a 86a (2026-10-14)", () =
 
   it("puts only the exact single-line checks FS226 to FS230 immediately after FS225", async () => {
     const text = await load("hrp");
-    const prior = await undoOwnerQuestions86To89Hrp(text);
+    const prior = await undoOwnerQuestions86To89Hrp(await loadCurrent("hrp"));
     const old = prior.split("\n").filter((line) => line.startsWith('  <Check id="FS225">'));
     expect(old).toHaveLength(1);
     const added = APPROVED.checks.map((item) => `  <Check id="${item.id}">${item.text}</Check>`).join("\n");

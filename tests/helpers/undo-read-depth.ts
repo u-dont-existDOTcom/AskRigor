@@ -18,11 +18,16 @@ async function undoRecordedEdits(text: string, protocol: "hrp" | "universal", fi
   return prior;
 }
 
+export async function undoOwnerQuestions90To92Hrp(text: string): Promise<string> {
+  return undoRecordedEdits(text, "hrp", "2026-10-14-owner-questions-90-92-hrp.json");
+}
+
 export async function undoOwnerQuestions86To89Universal(text: string): Promise<string> {
   return undoRecordedEdits(text, "universal", "2026-10-14-owner-questions-86-89-universal.json");
 }
 
 export async function undoOwnerQuestions86To89Hrp(text: string): Promise<string> {
+  text = await undoOwnerQuestions90To92Hrp(text);
   return undoRecordedEdits(text, "hrp", "2026-10-14-owner-questions-86-89-hrp.json");
 }
 
