@@ -1,0 +1,27 @@
+{
+  "purpose": "Owner-approved question 86, answered \"86a\", from issue #326. Exact approved text apart from XML formatting; reversible edits chained from question 84 Universal 20.5.41.",
+  "universal": {
+    "from": {
+      "version": "20.5.41",
+      "sha256": "115b22a595b4cdcd663bb60986bd3dba0fb0d3f65f64bcc7bbb6d5a4bfd8a708"
+    },
+    "to": {
+      "version": "20.5.42",
+      "sha256": "0401335ed4b1f0ec44d4d7351ecb369828dd1c7f362b5c4e0234df22c7f10173"
+    },
+    "edits": [
+      [
+        "version=\"20.5.41\" revisionDate=\"2026-10-12\"",
+        "version=\"20.5.42\" revisionDate=\"2026-10-14\""
+      ],
+      [
+        "<revision_history>\n",
+        "<revision_history>\n<revision version=\"20.5.42\" priority=\"Critical\">\nOwner-approved, question 86 (2026-10-12), from issue #326: a research task started under AskRigor stays under it in\nlater turns, including \"continue\" without a mention, and each research answer is checked with finalize_research.\n</revision>\n"
+      ],
+      [
+        "6. Higher reasoning mode does not substitute for loading the required protocol sections, internal version verification, module execution, or the completion audit. Tool or source failure does not authorize simulated compliance.",
+        "6. Higher reasoning mode does not substitute for loading the required protocol sections, internal version verification, module execution, or the completion audit. Tool or source failure does not authorize simulated compliance.\n7. A research task that started under AskRigor stays under it in every later turn of the conversation, including \"continue\" or a revised target without a mention: reload the current protocol identities when they may have changed or left the context, carry the open leads and sources forward, and check each research answer with `finalize_research` before giving it. A conversation boundary or a summary of earlier turns does not end the task."
+      ]
+    ]
+  }
+}
