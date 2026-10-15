@@ -70,6 +70,10 @@ complete XML protocol.
 - `audits/2026-10-12-read-depth-diminishing-returns-production-release.md`: release of #307, #315, #316, #314 and #317
   (owner question 75): lab preparation, Europe PMC failure detail, per-study read depth, tool-list currency and
   diminishing returns, with HRP 20.6.18, Universal 20.5.38, production acceptance and the Codex plugin refresh.
+- `audits/2026-10-12-contested-evidence-production-release.md`: release of #321, #322, #312, #313, #318, #320
+  and #319 (owner question 85): contested-intervention evidence, the bug-report question, research handoffs,
+  review provenance and the accepted lessons, with HRP 20.6.21, Universal 20.5.41, production acceptance and the
+  Codex plugin refresh.
 - `audits/2026-10-09-product-identity-finalizer-production-release.md`: release of #288 and #290 (owner question 60):
   exact product identity, the final-check contract and HRP 20.6.13 / Universal 20.5.37, with the plugin refresh.
 - `audits/2026-10-09-offline-access-production-release.md`: release of #289 and #291 (owner question 56):
