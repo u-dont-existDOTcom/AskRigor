@@ -55,7 +55,9 @@ Lessons #22 to #29, accepted by the owner on 14 Oct. Their prompts are the HRP s
 
 ## Proposing the discriminating test (issue #336)
 
-Status on intake (15 October): not run.
+Status on intake (15 October): not run. The same day's baseline, against the live version before any fix: two of the
+five pass criteria met, one in part and late, two not met, no hard fail
+(`docs/audits/2026-10-15-issue-336-baseline.md`).
 
 A four-turn thread, its prompts in this order:
 
