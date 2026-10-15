@@ -150,11 +150,15 @@ the host before running it.
    ```bash
    ASKRIGOR_RESEARCH_IMAGE="askrigor-research:$M" /usr/libexec/docker/cli-plugins/docker-compose \
      --project-name askrigor --file /opt/askrigor/compose.yaml --file /opt/askrigor/compose.living-evidence.yaml \
-     --profile living-evidence-admin run --rm --no-deps --pull never living-evidence-admin migrate
+     --profile living-evidence-admin run --rm --no-deps --pull never living-evidence-admin migrate </dev/null
    ```
 
    Expect `"operation":"migrate","status":"complete"`. Each migration's SHA-256
-   is checked against `schema_migrations`; a mismatch stops it.
+   is checked against `schema_migrations`; a mismatch stops it. `docker compose
+   run` keeps stdin open. When the host steps ran as one script piped through
+   `ssh host 'bash -s' < script` (2026-10-15), this step read the rest of that
+   script, and the later steps never ran, with no error shown. Close its stdin
+   as above, and run the host steps from a file copied to the host.
 9. Configuration in `runtime.env` (root `0600`): set
    `ASKRIGOR_BUILD_COMMIT=$M`. Only after the owner's key step, set
    `ASKRIGOR_GEMINI_BILLING=none`, with `ASKRIGOR_AI_BUDGET_LEDGER=/var/lib/askrigor-actions/ai-budget.json`
