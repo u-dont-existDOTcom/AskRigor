@@ -1,4 +1,4 @@
-import { undoContestedEvidence, undoReadDepth } from "./helpers/undo-read-depth.js";
+import { undoContestedEvidence, undoOwnerQuestions90To92Hrp, undoReadDepth } from "./helpers/undo-read-depth.js";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
@@ -179,7 +179,9 @@ describe("owner-approved lane wording, question 58: A (2026-10-09)", () => {
   });
 
   it("places FS216 and FS217 directly after FS215 with exact sentences", async () => {
-    const checks = await sectionText("hrp", "FinalSelfCheck");
+    // Question 92 rewords FS215 and FS217; check these sentences on the bytes before it.
+    const prior = await undoOwnerQuestions90To92Hrp(await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8"));
+    const checks = element(prior, "FinalSelfCheck", "priority", "Critical");
     expect(checks).toMatch(/<Check id="FS215">[^<]+<\/Check>\s*<Check id="FS216">[^<]+<\/Check>\s*<Check id="FS217">/u);
     for (const [id, sentence] of Object.entries(APPROVED.checks)) {
       expect(plain(element(checks, "Check", "id", id))).toBe(sentence);

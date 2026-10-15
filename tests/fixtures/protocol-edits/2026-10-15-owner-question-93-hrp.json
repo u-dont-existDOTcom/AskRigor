@@ -1,0 +1,31 @@
+{
+  "purpose": "Owner-approved question 93, from the owner's answer \"93a\" (2026-10-15), from the owner's note on lesson #23. Exact approved text apart from XML formatting; reversible edits chained from questions 90 and 92 HRP 20.6.23.",
+  "hrp": {
+    "from": {
+      "version": "20.6.23",
+      "sha256": "6623056eab84a60a0a82ac33a5aa0145cb84725d1be60aedfa77faf3d69899bd"
+    },
+    "to": {
+      "version": "20.6.24",
+      "sha256": "04bf76e20ebab9ab5cd6138ca45adbce79dccdd91a505df5ada14366bc0b0589"
+    },
+    "edits": [
+      [
+        "version=\"20.6.23\" revisionDate=\"2026-10-14\"",
+        "version=\"20.6.24\" revisionDate=\"2026-10-15\""
+      ],
+      [
+        " <RevisionHistory>\n",
+        " <RevisionHistory>\n  <Revision version=\"20.6.24\" priority=\"Critical\">\n   Owner-approved, question 93 (2026-10-14), from the owner's note on lesson #23: added SafestOptionsFirst and final\n   check FS233.\n  </Revision>\n"
+      ],
+      [
+        "  <Rule name=\"AlternativesRemainVisible\" priority=\"Critical\">When a conflict limits a candidate, preserve materially relevant nonconflicting alternatives and the option of nonaction when applicable. Do not let the safety review collapse the option space to the conflicted candidate or to an unsupported universal prohibition.</Rule>",
+        "  <Rule name=\"AlternativesRemainVisible\" priority=\"Critical\">When a conflict limits a candidate, preserve materially relevant nonconflicting alternatives and the option of nonaction when applicable. Do not let the safety review collapse the option space to the conflicted candidate or to an unsupported universal prohibition.</Rule>\n\n  <Rule name=\"SafestOptionsFirst\" priority=\"Critical\">When several options could reasonably help a person, put first the safest ones that could work, which are usually reversible, low-burden measures, and riskier ones, such as a medicine taken for months or years, after them, unless the safer ones are unsuitable, have already failed, or would delay urgent or time-sensitive treatment. Say why when a riskier option comes first.</Rule>"
+      ],
+      [
+        "  <Check id=\"FS232\">A question about preventing or easing a brief symptom got measures before, during and after onset, ranked, with untested ones labelled as untested and each measure's own risks and stop points given (BriefSymptomMeasures).</Check>",
+        "  <Check id=\"FS232\">A question about preventing or easing a brief symptom got measures before, during and after onset, ranked, with untested ones labelled as untested and each measure's own risks and stop points given (BriefSymptomMeasures).</Check>\n  <Check id=\"FS233\">When several options could help a person, the safest ones that could work came first, or the answer said why a riskier one came first (SafestOptionsFirst).</Check>"
+      ]
+    ]
+  }
+}

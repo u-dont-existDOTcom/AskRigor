@@ -351,6 +351,8 @@ complete XML protocol.
   SELECT-only reader, curated stdin import, activation, acceptance, and rollback
   runbook for production study-audit read-through
 - `privacy-data-map.md`: data classes, flows, exclusions, and handling
+- `owner-regressions.md`: the owner's reported regressions as synthetic prompts with pass criteria, run at
+  every release and reported in three stages (loaded, executed, finalized)
 - `audits/2026-09-08-google-youtube-api-compliance-review.md`: source,
   production, and Google Cloud evidence for YouTube authentication, collection,
   transient/persistent storage, expiry, deletion, logging, and backups

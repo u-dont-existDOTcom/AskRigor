@@ -859,7 +859,7 @@ describe("AskRigor MCP tools", () => {
         not_relevant_reason: "A dosing arithmetic question with no treatment choice.",
         intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
         key_sources: [],
-        absence_claims: [], scale_results: []
+        absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: []
       };
       // The answer must carry the limit before it is signed.
       const uncaveated = await client.callTool({
@@ -1016,6 +1016,11 @@ describe("AskRigor MCP tools", () => {
       }, {
         type: "text",
         text: `research_receipt: ${researchReceipt}`
+      }, {
+        // Owner question 86: every research result reminds the AI of the final check, in any turn.
+        type: "text",
+        text: "Answers that use this research are checked with finalize_research before they are given, in this " +
+          "turn or a later one."
       }]);
       // Only the completed audit carries a receipt; it binds the video and its terminal state.
       expect((first.structuredContent as { research_receipt?: string }).research_receipt).toBeUndefined();
@@ -2805,15 +2810,15 @@ describe("AskRigor MCP tools", () => {
         protocol: "hrp",
         manifest: {
           name: "HRP",
-          version: "20.6.21",
-          revisionDate: "2026-10-12",
-          sha256: "e43fcb2174645f30fc7d8e7f143e2d17403c69d39d5824efc1d6a0d764bf68d7"
+          version: "20.6.24",
+          revisionDate: "2026-10-15",
+          sha256: "04bf76e20ebab9ab5cd6138ca45adbce79dccdd91a505df5ada14366bc0b0589"
         },
         scope: "full",
         page: 1,
         next_page: 2,
         complete: false,
-        scope_sha256: "e43fcb2174645f30fc7d8e7f143e2d17403c69d39d5824efc1d6a0d764bf68d7"
+        scope_sha256: "04bf76e20ebab9ab5cd6138ca45adbce79dccdd91a505df5ada14366bc0b0589"
       });
       const pageCount = (first.structuredContent as { page_count: number }).page_count;
       expect(first.content).toEqual([
@@ -2856,8 +2861,8 @@ describe("AskRigor MCP tools", () => {
         core_sections: string[];
       };
       expect(indexContent.manifest).toMatchObject({
-        version: "20.5.41",
-        sha256: "115b22a595b4cdcd663bb60986bd3dba0fb0d3f65f64bcc7bbb6d5a4bfd8a708"
+        version: "20.5.42",
+        sha256: "0401335ed4b1f0ec44d4d7351ecb369828dd1c7f362b5c4e0234df22c7f10173"
       });
       expect(indexContent.index).toHaveLength(40);
       expect(indexContent.core_sections).toContain("epistemics");
@@ -2893,8 +2898,63 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
+  it("loads a nested rule by name, and names the other elements that share it", async () => {
+    const { client, server } = await createInMemoryClient();
+    const canonicalBytes = await readFile(new URL("../protocols/HRP_Full.xml", import.meta.url));
+    const exact = (content: { byte_start: number; byte_end_exclusive: number }) =>
+      canonicalBytes.subarray(content.byte_start, content.byte_end_exclusive).toString("utf8");
+
+    try {
+      const rule = await client.callTool({
+        name: "load_protocol",
+        arguments: { protocol: "hrp", section: "ResolveConflictsBeforeRecommendationOrRanking" }
+      });
+      expect(rule.isError).not.toBe(true);
+      const ruleContent = rule.structuredContent as {
+        scope: string;
+        section: string;
+        complete: boolean;
+        byte_start: number;
+        byte_end_exclusive: number;
+        scope_bytes: number;
+        text: string;
+      };
+      expect(ruleContent).toMatchObject({
+        scope: "section",
+        section: "ResolveConflictsBeforeRecommendationOrRanking",
+        complete: true
+      });
+      expect(ruleContent.text).toBe(exact(ruleContent));
+      expect(ruleContent.scope_bytes).toBe(Buffer.byteLength(ruleContent.text, "utf8"));
+      expect(ruleContent.text).toMatch(/^<Rule name="ResolveConflictsBeforeRecommendationOrRanking"[^>]*>[\s\S]*<\/Rule>$/u);
+      expect((rule.content as Array<{ text: string }>)[0]!.text).toMatch(
+        /^Loaded HRP Rule ResolveConflictsBeforeRecommendationOrRanking in section \w+, page 1 of 1 \(exact canonical bytes\)\.$/u
+      );
+
+      // A rule and a template share this name: the rule loads, and the template is named.
+      const shared = await client.callTool({
+        name: "load_protocol",
+        arguments: { protocol: "hrp", section: "WholeReportAudit" }
+      });
+      expect(shared.isError).not.toBe(true);
+      const sharedContent = shared.structuredContent as {
+        byte_start: number;
+        byte_end_exclusive: number;
+        text: string;
+      };
+      expect(sharedContent.text).toBe(exact(sharedContent));
+      expect(sharedContent.text.startsWith('<Rule name="WholeReportAudit"')).toBe(true);
+      expect((shared.content as Array<{ text: string }>)[0]!.text).toContain(
+        "Also named WholeReportAudit: Template in section ResearchAuditTemplates."
+      );
+    } finally {
+      await server.close();
+    }
+  });
+
   it.each([
     [{ protocol: "hrp", section: "NoSuchSection" }, "protocol_section_not_found"],
+    [{ protocol: "hrp", section: "FoundationBeforeOptimization" }, "protocol_section_ambiguous"],
     [{ protocol: "hrp", page: 999 }, "protocol_page_out_of_range"],
     [{ protocol: "hrp", page: 0 }, "protocol_page_out_of_range"],
     [{ protocol: "hrp", page: 1.5 }, "protocol_page_out_of_range"],
@@ -3038,9 +3098,9 @@ describe("AskRigor Streamable HTTP server", () => {
           protocol: "universal",
           manifest: {
             name: "AskRigor.com universal saved instructions",
-            version: "20.5.41",
-            revisionDate: "2026-10-12",
-            sha256: "115b22a595b4cdcd663bb60986bd3dba0fb0d3f65f64bcc7bbb6d5a4bfd8a708"
+            version: "20.5.42",
+            revisionDate: "2026-10-14",
+            sha256: "0401335ed4b1f0ec44d4d7351ecb369828dd1c7f362b5c4e0234df22c7f10173"
           }
         });
       } finally {
@@ -3089,8 +3149,8 @@ describe("AskRigor Streamable HTTP server", () => {
           ok: true,
           protocol: "universal",
           manifest: {
-            version: "20.5.41",
-            sha256: "115b22a595b4cdcd663bb60986bd3dba0fb0d3f65f64bcc7bbb6d5a4bfd8a708"
+            version: "20.5.42",
+            sha256: "0401335ed4b1f0ec44d4d7351ecb369828dd1c7f362b5c4e0234df22c7f10173"
           }
         });
       } finally {

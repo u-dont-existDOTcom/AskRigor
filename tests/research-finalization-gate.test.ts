@@ -24,6 +24,9 @@ import {
 
 import { assertNextStepsContract, fixtureStudyLinks } from "./helpers/finalize-next-steps-contract.js";
 
+// Pinned word for word: a lead receipt is signed only with the exact searches recorded.
+const LEAD_RECEIPT_SEARCH_TEXT = "A lead receipt needs the public-copy search recorded: search for the exact DOI and the exact title, then pass those searches as public_copy_search and any public copy found as candidate_urls.";
+
 const finalizeResearchBare = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
   assertNextStepsContract(finalizeResearchUnwrapped(...args));
 
@@ -153,7 +156,20 @@ const leftOut = (...caveats: string[]) =>
 const absenceDefaults = (input: Record<string, unknown>) =>
   "absence_claims" in input || !("answer_draft" in input) ? {} : { absence_claims: [] };
 const scaleDefaults = (input: Record<string, unknown>) =>
-  "scale_results" in input || !("answer_draft" in input) ? {} : { scale_results: [] };
+  "scale_results" in input || !("answer_draft" in input) ? {} : { scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [] };
+// The same for harm and safety sentences, key terms and mechanism claims (owner questions 86, 88 and 89).
+const claimDefaults = (input: Record<string, unknown>) => !("answer_draft" in input) ? {} : {
+  ...("safety_claims" in input ? {} : { safety_claims: [] }),
+  ...("key_terms" in input ? {} : { key_terms: [] }),
+  ...("mechanism_claims" in input ? {} : { mechanism_claims: [] }),
+  ...("recommendations" in input ? {} : { recommendations: [] })
+};
+// Threads read outside review sites say how they were chosen; tests of other
+// checks read every relevant thread their searches found.
+const threadSelectionDefaults = (input: Record<string, unknown>) => !Array.isArray(input.community_searches) ? {} : {
+  community_searches: (input.community_searches as Array<Record<string, unknown>>).map((search) =>
+    search.platform === "review_site" || "thread_selection" in search ? search : { thread_selection: "all_found", ...search })
+};
 // Every call gets the community, offer, absence and scale defaults unless it passes its own.
 const finalizeResearchRaw = (input: Record<string, unknown>, gateOptions: Parameters<typeof finalizeResearchBare>[1]) =>
   finalizeResearchBare({
@@ -162,7 +178,8 @@ const finalizeResearchRaw = (input: Record<string, unknown>, gateOptions: Parame
     intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
     ...((input.community_evidence === "researched" || input.not_relevant_basis === "no_real_world_outcome")
       ? { commercial_review_applicability: NONCOMMERCIAL_EXERCISE } : {}),
-    ...communityDefaults(input), ...offerDefaults(input), ...absenceDefaults(input), ...scaleDefaults(input), ...input,
+    ...communityDefaults(input), ...offerDefaults(input), ...absenceDefaults(input), ...scaleDefaults(input), ...claimDefaults(input), ...input,
+    ...threadSelectionDefaults({ ...communityDefaults(input), ...input }),
     ...(typeof input.answer_draft === "string"
       ? { answer_draft: `${fixtureStudyLinks(input)}\n\n${input.answer_draft}` } : {})
   }, gateOptions);
@@ -413,6 +430,29 @@ describe("finalize_research gate", () => {
     );
     expect(draftWith(deep("ledger_consistent_for_synthesis"), "Physiotherapy is your best bet.").caveats)
       .not.toContain(expect.stringMatching(/does not rank/u));
+  });
+
+  it("has forum threads say how they were chosen, and what threads chosen by outcome can show (lesson #27)", () => {
+    const run = (thread_selection: unknown) => finalizeResearch({
+      receipts: [survey, emptySearch, repeatScout, videoA, study],
+      community_evidence: "researched",
+      treatment_choice: "not_compared",
+      research_target: TARGET,
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "https://doi.org/10.1002/ART.41142", status: "validated" }],
+      community_searches: [{ ...REDDIT_SEARCH, thread_selection }]
+    }, options);
+    const missing = run(undefined);
+    expect(missing.status).toBe("not_ready");
+    expect(missing.next_steps).toEqual([
+      "community_searches for r/HipOA reads threads without thread_selection: say how they were chosen, such as " +
+        "every relevant one the searches found, the ones ranked first, or ones found by searching for outcomes.",
+      TOOL_LIST_REFRESH_HINT
+    ]);
+    expect(run("all_found").status).toBe("ready_with_limits");
+    const chosen = run("outcome_keyword");
+    expect(chosen.status).toBe("ready_with_limits");
+    expect(chosen.caveats).toContain("The r/HipOA threads that I read were found by searching for outcomes, so they " +
+      "show which experiences people report, not how common each one is.");
   });
 
   it("is ready when community and key studies are backed by receipts", () => {
@@ -949,9 +989,11 @@ describe("finalize_research gate", () => {
     const searches = (trtTitle?: string) => [
       { community: "r/trt", platform: "reddit", queries: ["hgh vs trt"], ...findings,
         answer_quotes: quotesOf("most reported better recovery; some saw no difference"),
-        threads_read: [{ url: trtThread, ...(trtTitle === undefined ? {} : { title: trtTitle }) }] },
+        threads_read: [{ url: trtThread, ...(trtTitle === undefined ? {} : { title: trtTitle }) }],
+        thread_selection: "all_found" },
       { community: "r/Testosterone", platform: "reddit", queries: ["hgh vs trt"], ...findings,
-        answer_quotes: quotesOf("most reported better recovery too"), threads_read: [{ url: testosteroneThread }] }
+        answer_quotes: quotesOf("most reported better recovery too"), threads_read: [{ url: testosteroneThread }],
+        thread_selection: "all_found" }
     ];
     const found = (subreddit: string, title: string) => ({ state: "found" as const, subreddit, title });
     const reddit = (trt: RedditThreadCheck) => new Map<string, RedditThreadCheck>([
@@ -963,7 +1005,7 @@ describe("finalize_research gate", () => {
       ...base, commercial_review_applicability: NONCOMMERCIAL_EXERCISE,
       intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." },
       community_findings: findingsFor(["aaaaaaaaaaa"]), community_searches: searches(trtTitle),
-      ...(draft === undefined ? {} : { answer_draft: draft, absence_claims: [], scale_results: [] })
+      ...(draft === undefined ? {} : { answer_draft: draft, absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [] })
     }, { ...options, redditThreads: reddit(trt) });
 
     // Both confirmed: the answer says Reddit confirmed the threads, not their content.
@@ -1036,6 +1078,7 @@ describe("finalize_research gate", () => {
       platform,
       queries: ["growth hormone versus testosterone long term"],
       threads_read: [{ url }],
+      thread_selection: "all_found",
       benefit_reports: "Better recovery for most.",
       no_effect_reports: "Some saw no difference.",
       adverse_reports: "Joint pain on growth hormone.",
@@ -1067,7 +1110,7 @@ describe("finalize_research gate", () => {
         "[MESO-Rx](https://thinksteroids.com/community/threads/2/), most users reported better recovery, some saw no " +
         "difference, and several reported joint pain as a side effect of growth hormone, consistent with the trials. " +
         "The reports from r/trt and MESO-Rx come from my own web search, which AskRigor could not verify.",
-      absence_claims: [], scale_results: []
+      absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: []
     }, options);
     expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(result.status).toBe("ready_with_limits");
@@ -1101,6 +1144,7 @@ describe("finalize_research gate", () => {
       platform: "forum",
       queries: ["humic acid ADHD"],
       threads_read: [{ url: forumThread }],
+      thread_selection: "all_found",
       benefit_reports: "One parent saw better sleep.",
       no_effect_reports: "Most saw no change.",
       adverse_reports: "None reported.",
@@ -1129,7 +1173,7 @@ describe("finalize_research gate", () => {
         { name: "ADHD Parents Forum", platform: "forum" }
       ],
       community_searches: searches ?? [amazon(corpora), forum],
-      absence_claims: [], scale_results: []
+      absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: []
     });
     const lanes = `[Study](https://doi.org/10.1002/art.41142) reports study outcomes.\n\nIn [the drops' reviews on Amazon](${reviewsPage}), several parents saw calmer evenings, some saw ` +
       "no difference, and two reported stomach upset; these show the range of experiences only. On the " +
@@ -1870,7 +1914,8 @@ describe("finalize_research gate", () => {
     expect(untried.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "PubMed lists an open copy of 10.1016/j.joca.2020.01.001 in PubMed Central (PMC7654321) that the full-text " +
         "attempt did not try: call acquire_open_full_text with DOI 10.1016/j.joca.2020.01.001 and pmcid PMC7654321, " +
-        "then audit it, or pass the new research_receipt if it still finds no full text."
+        "then audit it, or pass the new research_receipt if it still finds no full text. " +
+        LEAD_RECEIPT_SEARCH_TEXT
     ]);
     const byPmid = finalizeResearch({ ...base, key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "PMID: 31234567", status: "lead_only" as const }] }, options);
     expect(byPmid.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
@@ -1967,9 +2012,11 @@ describe("finalize_research gate", () => {
     }, options);
     expect(result.status).toBe("not_ready");
     expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
-      "Try acquire_open_full_text for PMC123 with its DOI and this pmcid before treating it as lead_only; pass the research_receipt it returns.",
+      "Try acquire_open_full_text for PMC123 with its DOI and this pmcid before treating it as lead_only; pass the research_receipt it returns. " +
+        LEAD_RECEIPT_SEARCH_TEXT,
       "Fetch PMID 999 with fetch_pubmed_record and pass its research_receipt; if it has a DOI, try acquire_open_full_text.",
-      "Try acquire_open_full_text for 4242 (DOI 10.1016/j.joca.2020.01.001) before treating it as lead_only; pass the research_receipt it returns.",
+      "Try acquire_open_full_text for 4242 (DOI 10.1016/j.joca.2020.01.001) before treating it as lead_only; pass the research_receipt it returns. " +
+        LEAD_RECEIPT_SEARCH_TEXT,
       "Key source WHO guideline 2024 has no answer_marker on the same line as its link in answer_draft; put its answer_marker there.",
       "Identify WHO guideline 2024 by DOI, PMID or PMCID, or leave it out of key_sources and label it unverified in the answer."
     ]);

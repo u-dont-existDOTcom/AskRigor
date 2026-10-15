@@ -13,6 +13,8 @@ import {
 } from "@askrigor/sources";
 import { z } from "zod";
 
+import { ADMINISTRATION_ROUTES } from "../administration-routes.js";
+import { extractUnsignedNumbers, firstNumberReadings, includesAbsoluteNumber } from "../unicode-numbers.js";
 import {
   computeStudyExternalEvidenceBundleHash,
   studyExternalEvidenceAuditOutputSchema,
@@ -57,7 +59,9 @@ const programSchema = z.object({
     "preventive",
     "other",
     "not_described"
-  ])
+  ]),
+  // Owner question 88: audits record each program's route at the source.
+  route: z.enum(ADMINISTRATION_ROUTES).optional()
 }).strict().superRefine((program, context) => {
   if (isGenericProgramName(program.name) && !program.components.includes("program not described")) {
     context.addIssue({
@@ -146,6 +150,43 @@ const externalDomainFindingSchema = z.object({
   }
 });
 
+// Owner questions 87 and 89: the paper's headline figures, each as printed, in
+// its source block, and recomputed from the paper's own tables with its stated
+// method (or why that is not possible), with the auditor's plausibility call.
+const reportedFigureSchema = z.object({
+  label: boundedPlainText(300),
+  evidence_block_id: blockIdSchema,
+  reported: boundedPlainText(80),
+  recomputed: z.number().optional(),
+  recomputation: boundedPlainText(1_000),
+  plausibility: z.enum(["consistent", "inconsistent_with_own_data", "impossible_as_printed"]),
+  plausibility_reason: boundedPlainText(500).optional()
+}).strict().superRefine((figure, context) => {
+  if (figure.plausibility !== "consistent" && figure.plausibility_reason === undefined) {
+    context.addIssue({
+      code: "custom",
+      path: ["plausibility_reason"],
+      message: "an inconsistent or impossible figure requires its reason"
+    });
+  }
+  if (extractUnsignedNumbers(figure.reported).length === 0) {
+    context.addIssue({
+      code: "custom",
+      path: ["reported"],
+      message: "a reported figure gives its number as the paper prints it"
+    });
+  }
+});
+
+export const reportedFiguresCheckSchema = z.object({
+  status: z.enum(["not_declared", "none_reported", "consistent", "internally_inconsistent"]),
+  mismatched: z.array(z.string()).max(30),
+  impossible_as_printed: z.array(z.string()).max(30),
+  values: z.array(z.number()).max(30)
+}).strict();
+
+export type ReportedFiguresCheck = z.output<typeof reportedFiguresCheckSchema>;
+
 const claimCapabilitySchema = z.object({
   claim: boundedPlainText(2_000),
   capability: z.enum(["can_support", "cannot_support", "uncertain"]),
@@ -171,7 +212,9 @@ const submissionShape = {
   comparator_program: programSchema,
   outcome_and_horizon: boundedPlainText(1_000),
   domain_findings: z.array(domainFindingSchema).length(STUDY_METHOD_AUDIT_DOMAINS.length),
-  claim_capabilities: z.array(claimCapabilitySchema).min(2).max(50)
+  claim_capabilities: z.array(claimCapabilitySchema).min(2).max(50),
+  reported_figures: z.array(reportedFigureSchema).max(30).optional(),
+  reported_figures_none_reason: boundedPlainText(500).optional()
 } as const;
 
 export const studyMethodAuditSubmissionSchema = z.object(submissionShape).strict().superRefine((audit, context) => {
@@ -196,9 +239,25 @@ function validateSubmissionCoverage(
   audit: {
     domain_findings: Array<{ domain: typeof STUDY_METHOD_AUDIT_DOMAINS[number] }>;
     claim_capabilities: Array<{ capability: "can_support" | "cannot_support" | "uncertain" }>;
+    reported_figures?: unknown[] | undefined;
+    reported_figures_none_reason?: string | undefined;
   },
   context: z.RefinementCtx
 ): void {
+  if (audit.reported_figures?.length === 0 && audit.reported_figures_none_reason === undefined) {
+    context.addIssue({
+      code: "custom",
+      path: ["reported_figures"],
+      message: "an empty reported_figures needs reported_figures_none_reason: why the study reports no numeric result"
+    });
+  }
+  if ((audit.reported_figures?.length ?? 0) > 0 && audit.reported_figures_none_reason !== undefined) {
+    context.addIssue({
+      code: "custom",
+      path: ["reported_figures_none_reason"],
+      message: "reported_figures_none_reason is only for a study that reports no numeric result"
+    });
+  }
   const domainCounts = new Map<string, number>();
   for (const finding of audit.domain_findings) {
     domainCounts.set(finding.domain, (domainCounts.get(finding.domain) ?? 0) + 1);
@@ -242,6 +301,8 @@ export const studyMethodAuditReceiptSchema = studyMethodAuditSubmissionSchema.ex
   source_block_count: z.number().int().nonnegative(),
   cited_source_block_count: z.number().int().nonnegative(),
   audit_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  // Optional: audits stored before figures were checked lack it.
+  reported_figures_check: reportedFiguresCheckSchema.optional(),
   design_label_is_not_reliability_verdict: z.literal(true),
   limitations: z.array(z.enum([
     "This receipt proves source linkage and checklist coverage, not that every interpretation is semantically correct.",
@@ -261,6 +322,7 @@ export const studyMethodAuditExternalReceiptSchema =
     cited_source_block_count: z.number().int().nonnegative(),
     cited_external_reference_count: z.number().int().positive().max(100),
     audit_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+    reported_figures_check: reportedFiguresCheckSchema.optional(),
     external_audit_binding_validated: z.literal(true),
     design_label_is_not_reliability_verdict: z.literal(true),
     limitations: z.array(z.enum([
@@ -297,6 +359,7 @@ export function validateStudyMethodAudit(
   for (const capability of submission.claim_capabilities) {
     verifyBlocks(capability.evidence_block_ids, knownBlockIds, citedBlockIds);
   }
+  const figuresCheck = checkReportedFigures(index, submission, knownBlockIds, citedBlockIds);
 
   const unresolved = submission.domain_findings.some((finding) =>
     finding.status === "unclear" || finding.unresolved_fields.length > 0
@@ -312,6 +375,7 @@ export function validateStudyMethodAudit(
     source_block_count: index.blocks.length,
     cited_source_block_count: citedBlockIds.size,
     audit_sha256: createHash("sha256").update(canonicalSubmission, "utf8").digest("hex"),
+    reported_figures_check: figuresCheck,
     design_label_is_not_reliability_verdict: true,
     limitations: [
       "This receipt proves source linkage and checklist coverage, not that every interpretation is semantically correct.",
@@ -378,6 +442,7 @@ export function validateStudyMethodAuditWithExternalEvidence(
   for (const capability of submission.claim_capabilities) {
     verifyBlocks(capability.evidence_block_ids, knownBlockIds, citedBlockIds);
   }
+  const figuresCheck = checkReportedFigures(index, submission, knownBlockIds, citedBlockIds);
   if (citedExternalItems.size === 0) {
     throw new Error("External-evidence-bound study audit requires a verified external reference");
   }
@@ -398,6 +463,7 @@ export function validateStudyMethodAuditWithExternalEvidence(
     audit_sha256: createHash("sha256")
       .update(JSON.stringify(submission), "utf8")
       .digest("hex"),
+    reported_figures_check: figuresCheck,
     external_audit_binding_validated: true,
     design_label_is_not_reliability_verdict: true,
     limitations: [
@@ -509,6 +575,57 @@ function normalizeDocumentIndex(
   const auditable = auditableDocumentIndexSchema.safeParse(rawIndex);
   if (auditable.success) return auditable.data;
   return toAuditableDocumentIndex(jatsStudyIndexSchema.parse(rawIndex));
+}
+
+/**
+ * Exact checks on the declared headline figures (owner questions 87 and 89):
+ * each printed value is in its cited block, and a recomputed value that differs
+ * from it beyond rounding (the larger of 0.5 units and 1%) marks the audit
+ * internally inconsistent, as the auditor's own inconsistent_with_own_data
+ * call does. A printed number whose separators can group thousands ("1,234")
+ * differs only if the recomputation matches neither reading. Whether the
+ * recomputation is right stays the auditor's declared work; an impossible
+ * value is kept exactly as printed. The values kept for spotting identical
+ * results across papers are the non-integer ones: whole numbers such as doses
+ * and group sizes coincide between independent studies too often to count.
+ */
+function checkReportedFigures(
+  index: AuditableDocumentIndex,
+  submission: Pick<StudyMethodAuditSubmission, "reported_figures" | "reported_figures_none_reason">,
+  knownBlockIds: ReadonlySet<string>,
+  citedBlockIds: Set<string>
+): ReportedFiguresCheck {
+  const figures = submission.reported_figures;
+  if (figures === undefined) {
+    return { status: "not_declared", mismatched: [], impossible_as_printed: [], values: [] };
+  }
+  if (figures.length === 0) {
+    return { status: "none_reported", mismatched: [], impossible_as_printed: [], values: [] };
+  }
+  const blockText = new Map(index.blocks.map(({ block_id, text }) => [block_id, text]));
+  const mismatched: string[] = [];
+  const values: number[] = [];
+  for (const figure of figures) {
+    verifyBlocks([figure.evidence_block_id], knownBlockIds, citedBlockIds);
+    const printed = extractUnsignedNumbers(figure.reported);
+    const inBlock = extractUnsignedNumbers(blockText.get(figure.evidence_block_id) ?? "");
+    if (!printed.every((value) => includesAbsoluteNumber(inBlock, value))) {
+      throw new Error(`Study audit reported figure "${figure.label}" is not in its cited source block`);
+    }
+    const readings = firstNumberReadings(figure.reported);
+    if (readings.every((reading) => !Number.isInteger(reading))) values.push(readings[0]!);
+    const recomputed = figure.recomputed;
+    const differs = recomputed !== undefined && readings.every((reading) =>
+      Math.abs(Math.abs(recomputed) - reading) > Math.max(0.5, reading * 0.01));
+    if (differs || figure.plausibility === "inconsistent_with_own_data") mismatched.push(figure.label);
+  }
+  return {
+    status: mismatched.length > 0 ? "internally_inconsistent" : "consistent",
+    mismatched,
+    impossible_as_printed: figures.filter(({ plausibility }) => plausibility === "impossible_as_printed")
+      .map(({ reported }) => reported),
+    values
+  };
 }
 
 function verifyBlocks(

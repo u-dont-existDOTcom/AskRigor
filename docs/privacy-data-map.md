@@ -636,10 +636,10 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 | Disabled Phase J n8n control plane | AskRigor-side ephemeral state: opaque n8n execution ID, opaque AskRigor session ID, current digest/directive, bounded retry/no-progress counters, safe timestamps/reason codes, and after authorization only the output boundary and permit payload hash. n8n receives only the opaque n8n execution ID and safe projection; it does not receive the inner session ID or research content. | Process-memory AskRigor store only. The disposable pinned n8n runtime disables saving successful, failed, progress, and manual execution data and deletes its temporary database after validation. No durable database, backup, external notifier, production service, or new retention is approved. |
 | Non-production external-evidence artifact store | Strict normalized Crossref/FORRT envelopes and, only when a server executor is supplied, Retraction Watch/PubPeer/Epistemonikos envelopes for one public DOI; content-derived artifact ID; provider/source identity; media type; byte count; content and descriptor hashes | Phase G deliberately keeps this store in process memory only, with default bounds of 128 entries, 10 MiB per artifact, and 32 MiB total. Bytes are cloned, exact artifacts deduplicated, and entries explicitly revocable; process loss discards them. There is no disk, database, object store, backup, production singleton, or public route. An interrupted audit reruns rather than retaining raw artifacts. |
 | Retraction Watch public snapshot mirror | Fixed official source commit/path/file hash; normalized public publication-integrity fields; DOI/PMID indexes; manifest/file hashes; source-check and activation timestamps; current/previous pointer | Separate mode-`0700` host directory. A fixed daily one-shot container writes the mirror without receiving AskRigor runtime secrets; the application mount is read-only. Only active and previous verified generations are retained; abandoned staging and older generations are removed after verified activation. No backup. A pre-activation sync failure preserves the prior active pointer; post-activation cleanup failure remains visible and may temporarily leave an extra immutable generation. Older than 72 hours is stale/partial. The source-only implementation and deployment template are approved in Phase G, with final live activation evidence deferred to the release phase. |
-| Curated production living-evidence study audit | Exact public DOI/PMID/PMCID identifiers and source-version hash; source locator/access state; complete AskRigor-authored validated 13-domain study-method audit and claim-capability findings; unresolved/future-analysis items; canonical protocol, freshness, impact, and validator receipts | A one-shot administrator process receives the exact public document index transiently over bounded stdin and writes only the source-free strict contribution to a private PostgreSQL service on the AskRigor VPS. The public MCP canonical-lookup component uses a SELECT-only role, performs one 1.5-second lookup at acquisition and one at requested reuse, and writes no public-user request, chat, tool call, health narrative, article block, provider body, transcript, comment, reply, or identity to canonical tables. No database port is published and no automatic off-host backup is added in this phase. |
+| Curated production living-evidence study audit | Exact public DOI/PMID/PMCID identifiers and source-version hash; source locator/access state; complete AskRigor-authored validated 13-domain study-method audit and claim-capability findings, with the audit's declared headline figures (as printed, recomputed, its plausibility call and source block) and each program's route; unresolved/future-analysis items; canonical protocol, freshness, impact, and validator receipts | A one-shot administrator process receives the exact public document index transiently over bounded stdin and writes only the source-free strict contribution to a private PostgreSQL service on the AskRigor VPS. The public MCP canonical-lookup component uses a SELECT-only role, performs one 1.5-second lookup at acquisition and one at requested reuse, and writes no public-user request, chat, tool call, health narrative, article block, provider body, transcript, comment, reply, or identity to canonical tables. No database port is published and no automatic off-host backup is added in this phase. |
 | Curated formal research frontier | Exact current protocol manifests; de-identified formal-source query/hash; provider and formal source class; requested and confirmed half-open publication/index windows; access/exhaustion/count receipt; public formal identifiers/title/date; append-only candidate decision/reason; unresolved, blocked, coverage-gap, discriminator, and delta trails with next capability or terminal reason. Read-only catalog search accepts transient free text and returns only stored topic/question metadata, exact selectors, lexical match fields, and descriptive coverage counts. | One strict writer-only `import-frontier` transaction in the same private PostgreSQL service. The contribution requires explicit false raw-source/raw-provider/personal/community persistence markers. Source/provider/candidate/trail scope and lineage are database-checked; update/delete fails. The canonical lookup role remains SELECT-only; catalog lookup runs in a read-only transaction. The distinct proposal role can insert only pending strict proposals, not canonical rows. YouTube/community classes and locators are rejected. Deterministic Obsidian/Mermaid exports are derived, non-authoritative views. |
 | Connected research-use account and pending contribution proposal | HMAC-SHA-256 account key; active/revoked state; free-contributor or paid-private mode; exact notice/agreement fields and timestamps; verified-entitlement status; strict deidentified formal-frontier or source-analysis proposal, proposal hash/kind/partial state, eight privacy false markers, and review timestamps/reason | A distinct least-privilege PostgreSQL role can select/insert/update access accounts, read entitlements, select/insert proposals, and execute one security-definer function that changes only pending proposals for a supplied HMAC account key to `WITHDRAWN`. It cannot grant entitlements, change proposal review dispositions, or write canonical evidence/frontier tables. The service, not the client, derives the key from the authenticated OAuth subject. Proposal payloads exclude raw chat/prompts, identity/contact data, private health narratives, uploads, raw source/provider bodies, credentials, and community/YouTube data. Pending rows have no automatic expiry in this slice and no automatic off-host backup. |
-| Held validated analysis (free contributor) | HMAC-SHA-256 account key; the study or review audit's SHA-256; the living-evidence contribution built from one validated method audit: source identifiers, title, content hash and locator, structured domain findings and claim capabilities, the audit receipt, the protocol identities, and a Crossref integrity-check hash | Process memory only, between a free contributor's successful `validate_study_method_audit` or `validate_review_method_audit` on MCP and a passing `finalize_research`. The final check then files it as a pending `SOURCE_ANALYSIS` proposal through the same intake and privacy checks as `submit_research_contribution`, so the AI no longer has to send it. Held only for active free contributor accounts, never paid private, and only for a source with a DOI and a clean Crossref integrity check; repository reuse is not held. No source text, chat, prompt or person's details; entries drop after 24 hours, past 500 entries, or on restart. The contribution itself is the same data a pending proposal already stores. |
+| Held validated analysis (free contributor) | HMAC-SHA-256 account key; the study or review audit's SHA-256; the living-evidence contribution built from one validated method audit: source identifiers, title, content hash and locator, structured domain findings and claim capabilities, a study audit's declared headline figures and program routes, the audit receipt, the protocol identities, and a Crossref integrity-check hash | Process memory only, between a free contributor's successful `validate_study_method_audit` or `validate_review_method_audit` on MCP and a passing `finalize_research`. The final check then files it as a pending `SOURCE_ANALYSIS` proposal through the same intake and privacy checks as `submit_research_contribution`, so the AI no longer has to send it. Held only for active free contributor accounts, never paid private, and only for a source with a DOI and a clean Crossref integrity check; repository reuse is not held. No source text, chat, prompt or person's details; entries drop after 24 hours, past 500 entries, or on restart. The contribution itself is the same data a pending proposal already stores. |
 | Owner-accepted contribution promotion | Proposal UUID, strict kind and SHA-256; explicit owner decision/reason and timestamps; pending/claimed/completed/failed promotion state; bounded attempt metadata; canonical identifiers; stable receipt and receipt SHA-256 | The public runtime cannot write this state or canonical evidence. One function-only owner-review call atomically creates the exact intent only on acceptance. A separate root-scheduled short-lived admin container receives only the existing canonical writer environment and processes one accepted intent per activation. The static unit accepts no user input and logs only the bounded operation receipt; it receives no raw chat, account key, private health narrative, upload, raw source/provider content, or community data. Disabling the timer preserves all rows. |
 
 Contribution intake rejects frontier candidate and source-analysis identifier values beginning with `sandbox:` (case-insensitive), because a sandbox link points into another session and can never be opened.
@@ -693,7 +693,8 @@ exhaustion fails closed before GitHub. The OpenAI check generalizes privacy risk
 but does not determine whether the lesson is scientifically correct.
 
 If both screens pass, the private GitHub issue stores the category in its title
-and labels; general lesson; expected behavior; failure reason; synthetic
+and labels; a label naming the AskRigor surface that sent it (`source-custom-gpt`
+for the Custom GPT's Action, `source-connector` for the MCP connector); general lesson; expected behavior; failure reason; synthetic
 regression example; evidence basis; optional AskRigor version and protocol
 identities; the privacy-gate marker; optional prior public candidate ID; an
 initial anonymous occurrence count; first-seen timestamp; and a hidden
@@ -986,7 +987,10 @@ pending-proposal stores have their own strict contracts and authority boundaries
   `METHODS` or `TABLE`), a search receipt its access status, and a
   one-call community audit receipt the IDs of the videos whose comments its
   response returned, and a per-video audit receipt how many comments its final
-  view returned. Survey, search and one-call community audit receipts also
+  view returned. A study audit receipt also carries its figures check: the
+  status (`fig`), up to 20 of the headline values as the paper prints them,
+  non-integer ones only (`figv`), and up to three values the audit marked impossible as printed
+  (`imp`), all numbers from the published paper. Survey, search and one-call community audit receipts also
   count their searches that ended incomplete and those stopped by a rate limit
   or the daily quota, so the checks can state that limit themselves; a round a
   limit stopped is signed too. They also carry `pg` and `nx`, the results
@@ -1033,7 +1037,22 @@ pending-proposal stores have their own strict contracts and authority boundaries
   rests on, and `search_coverage`, the search classes covered beyond indexed
   databases), and reported scale or questionnaire results (`scale_results`,
   each with its quoted explanation, scale name, range, direction, values and
-  benchmark). These inputs are request-local and are not stored or logged.
+  benchmark), the sentences that warn of a harm or call something safe
+  (`safety_claims`, each with its direction, the exposure it is about, its
+  basis, what the cited evidence measured and the study IDs it rests on), the
+  specialized terms a conclusion depends on with the sentence that first
+  explains each (`key_terms`), mechanism claims (`mechanism_claims`, each
+  with the route of the described use, the route of the evidence, whether the
+  evidence came from people or animals, any difference in tissue and its study
+  IDs), the interventions the answer puts forward for the person
+  (`recommendations`, each with its sentence, its name as the answer gives it,
+  whether the person's safety conflicts and inputs are resolved, the inputs
+  still open in a few words, and for long-term use its longest follow-up and
+  whether stopping is covered), and corrections made during the research
+  (`corrections`, the wrong statement and the answer's sentence saying what
+  changed). Each `community_searches` entry may also say how its threads were
+  chosen (`thread_selection`, one of six fixed values). These inputs are
+  request-local and are not stored or logged.
   Its `full_text_search` declaration (`run` with the Europe PMC section
   queries the model ran, or `not_needed` with a short reason) is request-local
   too: each query is compared by its 12-hex digest with a section-search
@@ -1041,8 +1060,15 @@ pending-proposal stores have their own strict contracts and authority boundaries
   Its `lab_preparation` declaration is request-local too: its quotes are compared with the answer for that call only, and nothing from it is stored.
   None of their text is returned: of the answer, the
   result names only the labels and public video IDs it found, and points to an
-  absence claim or scale result by its position in the list; for a scale result,
-  it also names declared numbers missing from the quote. `not_relevant_basis` is one of two
+  absence claim, scale result, safety claim, key term or mechanism claim by its
+  position in the list; for a scale result, it also names declared numbers
+  missing from the quote, and for a key term used before its explanation, the
+  declared term. The caveats it writes for a harm or safety basis and for a
+  route, species or tissue mismatch repeat the declared exposure, what the
+  evidence measured, the tissues and the study's answer label, and those for a
+  recommendation repeat the declared intervention, open inputs and follow-up,
+  so the answer can state them; a recommendation's next step names the
+  declared intervention. `not_relevant_basis` is one of two
   fixed values.
 - The MCP `scout_gemini_youtube_candidates` tool runs the same de-identified,
   population-level scout as the controlled Action route, applying the same

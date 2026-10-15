@@ -7,6 +7,7 @@ import {
   coreSectionNames,
   loadProtocolSectionSnapshot,
   PROTOCOL_PAGE_MAX_BYTES,
+  protocolNamedElements,
   protocolSections,
   protocolTextPage
 } from "../packages/protocol/src/index.js";
@@ -104,6 +105,60 @@ describe("protocol sections", () => {
 
     expect(first.text + second.text).toBe(text);
     expect(first.text.endsWith("é")).toBe(false);
+  });
+
+  it("finds a nested rule by name as its exact canonical bytes", async () => {
+    const bytes = await readFile(new URL("../protocols/HRP_Full.xml", import.meta.url));
+    const { sections, text } = await loadProtocolSectionSnapshot("hrp");
+    const [rule, ...others] = protocolNamedElements(text, "ResolveConflictsBeforeRecommendationOrRanking");
+
+    expect(others).toEqual([]);
+    expect(rule).toMatchObject({ tag: "Rule" });
+    const slice = bytes.subarray(rule!.byte_start, rule!.byte_end_exclusive).toString("utf8");
+    expect(slice.startsWith('<Rule name="ResolveConflictsBeforeRecommendationOrRanking"')).toBe(true);
+    expect(slice.endsWith("</Rule>")).toBe(true);
+    const holder = sections.find(({ byte_start, byte_end_exclusive }) =>
+      byte_start <= rule!.byte_start && rule!.byte_end_exclusive <= byte_end_exclusive
+    );
+    expect(rule!.section).toBe(holder?.name);
+  });
+
+  it("returns every element that shares a name, in document order", async () => {
+    const { text } = await loadProtocolSectionSnapshot("hrp");
+
+    const sharedByRules = protocolNamedElements(text, "FoundationBeforeOptimization");
+    expect(sharedByRules.map(({ tag }) => tag)).toEqual(["Rule", "Rule"]);
+    expect(sharedByRules[0]!.section).not.toBe(sharedByRules[1]!.section);
+    expect(protocolNamedElements(text, "WholeReportAudit").map(({ tag }) => tag)).toEqual(["Rule", "Template"]);
+    expect(protocolNamedElements(text, "NoSuchRuleAnywhere")).toEqual([]);
+  });
+
+  it("matches name and id attributes and nested tags, not the root or quoted text", () => {
+    const xml = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<Protocol name="Target" version="1" revisionDate="2026-01-01">',
+      "  <!-- <Rule name=\"Target\">commented out</Rule> -->",
+      '  <Alpha note="see name=\'Target\'"><Rule name="Target">é first</Rule></Alpha>',
+      "  <Beta><![CDATA[ <Rule name=\"Target\">inside CDATA</Rule> ]]><Case id='Target'/></Beta>",
+      "  <Gamma><Target>a nested tag</Target></Gamma>",
+      "  <Target>a top-level section is not matched by its tag here</Target>",
+      "</Protocol>"
+    ].join("\n");
+    const bytes = Buffer.from(xml, "utf8");
+    const found = protocolNamedElements(xml, "Target");
+
+    expect(found.map(({ tag, section }) => [tag, section])).toEqual([
+      ["Rule", "Alpha"],
+      ["Case", "Beta"],
+      ["Target", "Gamma"]
+    ]);
+    expect(found.map(({ byte_start, byte_end_exclusive }) =>
+      bytes.subarray(byte_start, byte_end_exclusive).toString("utf8")
+    )).toEqual([
+      '<Rule name="Target">é first</Rule>',
+      "<Case id='Target'/>",
+      "<Target>a nested tag</Target>"
+    ]);
   });
 
   it("scans comments, CDATA, quoted '>' and self-closing sections", () => {

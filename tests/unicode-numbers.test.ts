@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { extractUnsignedNumbers, includesAbsoluteNumber } from "../apps/research-mcp/src/unicode-numbers.js";
+import {
+  extractUnsignedNumbers, firstNumberReadings, includesAbsoluteNumber
+} from "../apps/research-mcp/src/unicode-numbers.js";
 
 describe("Unicode unsigned numbers", () => {
   it.each([
@@ -25,6 +27,14 @@ describe("Unicode unsigned numbers", () => {
     expect(extractUnsignedNumbers("Ⅵ and ² and twenty-eight")).toEqual([]);
     expect(includesAbsoluteNumber(extractUnsignedNumbers("128 and 2.9"), 28)).toBe(false);
     expect(includesAbsoluteNumber(extractUnsignedNumbers("128 and 2.9"), 9)).toBe(false);
+  });
+
+  it.each([
+    ["74.25 ± 1.2", [74.25]], ["12,5 mg", [12.5]], ["n = 1,234", [1.234, 1234]], ["1.234.567,8", [1.234, 1234567.8]],
+    ["1,234,567.89 units", [1.234, 1234567.89]], ["1 234 people", [1, 1234]], ["1'500", [1, 1500]],
+    ["0,125", [0.125]], ["1,2345", [1.2345]], ["18% of 1,234", [18]], ["١٬٢٣٤", [1, 1234]], ["none", []]
+  ])("reads the first number in %s every way its separators allow", (text, readings) => {
+    expect(firstNumberReadings(text)).toEqual(readings);
   });
 
   it("compares absolute values with a 1e-9 tolerance", () => {

@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { normalizeProductName, productNameOccurs } from "@askrigor/sources";
 
+import {
+  ADMINISTRATION_ROUTES,
+  EVIDENCE_ROUTE_WORDS,
+  USE_ROUTE_WORDS
+} from "./administration-routes.js";
 import { analysesSavedSchema } from "./analysis-staging.js";
 import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
@@ -54,6 +59,17 @@ const PARTIAL_REVIEW_SELECTIONS: ReadonlyMap<string, string> = new Map([
   ["outcome_keyword", "found by searching for outcomes"],
   ["other_partial", "a partial set"]
 ]);
+// How the threads read in a community were chosen (HRP
+// DirectionLabelsNeedOutcomeNeutralSelection; lesson #27 by owner question 92),
+// with the same partial frames and words as reviews.
+export const THREAD_SELECTIONS = [
+  "all_found", "most_recent", "random", "top_ranked", "outcome_keyword", "other_partial"
+] as const;
+const PARTIAL_THREAD_SELECTIONS: ReadonlyMap<string, string> = new Map([
+  ["top_ranked", "the ones ranked first"],
+  ["outcome_keyword", "found by searching for outcomes"],
+  ["other_partial", "a partial set"]
+]);
 // The answer's own words for a finding, copied from answer_draft: the gate
 // checks that the answer shows them, which works in any language, and leaves
 // whether they report the finding to the model that wrote both.
@@ -67,6 +83,23 @@ export const FINALIZE_RESEARCH_CONTRACT = "2026-10-07";
 // 2026-10-07-finalizer-must-not-require-unexposed-schema-fields).
 export const TOOL_LIST_REFRESH_HINT = "If this chat's AskRigor tool has no such field, its tool list is outdated: " +
   "refreshing the AskRigor connector in the app's settings and starting a new chat loads the current list.";
+
+// acquire_open_full_text signs a lead receipt only when the exact public-copy searches are recorded with it
+// (canSignFullTextLead), so a step that sends the AI there for one says so, or a retry without them loops.
+export const LEAD_RECEIPT_SEARCH = "A lead receipt needs the public-copy search recorded: search for the exact DOI " +
+  "and the exact title, then pass those searches as public_copy_search and any public copy found as candidate_urls.";
+
+// What a harm or safety sentence rests on (owner questions 86 and 89; a share of
+// selected reports, lesson #25 by owner question 92).
+export const SAFETY_BASES = [
+  "comparative_rates", "observed_rates", "share_of_reports", "case_reports", "hazard_measurement", "not_quantified"
+] as const;
+
+// Research results remind the AI, in the turn it researches, that answers using
+// the research are checked at the end, in that turn or a later one (owner
+// question 86: a "continue" turn dropped AskRigor's final check).
+export const FINALIZE_REMINDER = "Answers that use this research are checked with finalize_research before they " +
+  "are given, in this turn or a later one.";
 
 export const READ_DEPTH_VALUES = [
   "full_text_audited", "full_text_read", "partial_text", "abstract_only", "conference_abstract",
@@ -191,6 +224,10 @@ export const finalizeResearchInputSchema = z.object({
         "on a review site, the product's reviews page"),
       title: z.string().trim().min(1).max(300).optional()
     }).strict()).max(30).default([]),
+    thread_selection: z.enum(THREAD_SELECTIONS).optional()
+      .describe("How you chose the threads you read, outside review sites: every relevant one the searches found; the " +
+        "most recent; a random sample; the ones ranked first; ones found by searching for outcomes; or another " +
+        "partial set. The last three show which experiences exist, not how common they are."),
     access_boundary: z.enum(["no_web_search", "login_required", "blocked", "no_relevant_results"]).optional(),
     url: z.string().trim().url().max(2_048).optional()
       .describe("The community's own address (its forum, group or site link). Needed when no thread was read outside " +
@@ -317,6 +354,79 @@ export const finalizeResearchInputSchema = z.object({
       "answer_draft this declaration is required. The quote contains the scale name, both range endpoints, each " +
       "value and any benchmark value as numbers; digits in any script and a decimal dot or comma count, compared " +
       "by absolute value. Direction and magnitude interpretation remain the model's declarations."),
+  safety_claims: z.array(z.object({
+    quote: answerQuote.describe("The sentence(s), copied from answer_draft."),
+    direction: z.enum(["harm", "safety"])
+      .describe("harm: warns that something can cause harm, is unsafe, toxic or risky, or should be avoided; " +
+        "safety: calls something safe or harmless."),
+    exposure: z.string().trim().min(1).max(300)
+      .describe("What the sentence is about: the substance, form, dose and route, as the answer means it."),
+    basis: z.enum(SAFETY_BASES)
+      .describe("comparative_rates: a controlled comparison reports it in each group; observed_rates: a rate " +
+        "without a comparator; share_of_reports: a share of selected reports, posts or passages, not of people; " +
+        "case_reports: reports without a denominator; hazard_measurement: a laboratory, animal or composition " +
+        "measurement, not observed outcomes in people; not_quantified: no source found gives a rate."),
+    measured_exposure: z.string().trim().min(1).max(300).optional()
+      .describe("What the cited evidence actually measured; needed for every basis except not_quantified."),
+    studies: z.array(z.string().trim().min(1).max(300)).max(20).optional()
+      .describe("The key sources (DOI, PMID or PMCID) it rests on; needed for every basis except not_quantified, " +
+        "and for share_of_reports when the reports come from a study.")
+  }).strict()).max(20).optional()
+    .describe("Records each sentence of the answer that warns that something can cause harm, is unsafe, toxic or " +
+      "risky, or should be avoided because of a possible harm, or that calls something safe or harmless, with what " +
+      "it is about, its basis and the sources it rests on (an empty list if none)."),
+  key_terms: z.array(z.object({
+    term: z.string().trim().min(1).max(120).describe("The term as the answer writes it."),
+    explanation: answerQuote.describe("The sentence that first explains it in plain words, copied from answer_draft.")
+  }).strict()).max(20).optional()
+    .describe("Records each specialized term that the answer's conclusions depend on, such as a chemical species, a " +
+      "test or a statistical measure, with the sentence that first explains it in plain words (an empty list if none)."),
+  mechanism_claims: z.array(z.object({
+    quote: answerQuote.describe("The sentence(s), copied from answer_draft."),
+    use_route: z.enum(ADMINISTRATION_ROUTES).describe("The route of the use the answer describes."),
+    evidence_route: z.enum(ADMINISTRATION_ROUTES).describe("The route of the experiment the claim rests on."),
+    evidence_in: z.enum(["people", "animals"])
+      .describe("Whom the experiment the claim rests on was done in; a test on cells or tissue in a dish is the " +
+        "in_vitro route."),
+    tissue: z.object({
+      measured: z.string().trim().min(1).max(120).describe("Where the response was measured, such as the brain's cortex."),
+      claimed: z.string().trim().min(1).max(120).describe("Where the answer applies it, such as the skin.")
+    }).strict().optional()
+      .describe("Only when the response was measured in a different tissue from the one the answer applies it to."),
+    studies: z.array(z.string().trim().min(1).max(300)).min(1).max(20)
+      .describe("The key sources (DOI, PMID or PMCID) it rests on.")
+  }).strict()).max(20).optional()
+    .describe("Records each sentence of the answer that says how an intervention works, or that it does not act " +
+      "through a mechanism, with the route of the use it describes, the route of the experiment it rests on, whom " +
+      "it was done in, any difference in tissue, and those studies (an empty list if none)."),
+  recommendations: z.array(z.object({
+    quote: answerQuote.describe("The sentence that puts it forward, copied from answer_draft."),
+    intervention: z.string().trim().min(1).max(200).describe("What it is, as the answer names it."),
+    safety_check: z.enum(["resolved", "conditional", "unresolved"])
+      .describe("Whether this person's safety conflicts and missing safety inputs for it are resolved, resolved on " +
+        "a condition a clinician should confirm, or still open."),
+    open_inputs: z.string().trim().min(1).max(300).optional()
+      .describe("For conditional and unresolved: the conflicts or inputs still open, in a few words."),
+    long_term_use: z.boolean().describe("Whether it would likely be taken for months or years."),
+    longest_follow_up: z.string().trim().min(1).max(120).optional()
+      .describe("For long-term use: the longest follow-up in its evidence, as the sources state it, such as 12 weeks."),
+    follow_up_matches_use: z.boolean().optional()
+      .describe("For long-term use: whether that follow-up matches how long it would be taken."),
+    stopping_covered: z.boolean().optional()
+      .describe("For long-term use: whether the answer covers stopping, withdrawal and lasting harms, or says they " +
+        "are unknown.")
+  }).strict()).max(20).optional()
+    .describe("Records each intervention the answer recommends or puts forward for this person, with the sentence " +
+      "that does so, whether this person's safety conflicts and inputs are resolved, and, for long-term use, the " +
+      "longest follow-up in its evidence and whether stopping is covered (an empty list if none)."),
+  corrections: z.array(z.object({
+    retracted: z.string().trim().min(1).max(1_000)
+      .describe("The wrong statement as it read before the correction, such as a rate given under the wrong compound."),
+    change: answerQuote.describe("The answer's sentence saying what changed, copied from answer_draft.")
+  }).strict()).max(10).optional()
+    .describe("Records each material correction made during this research: the wrong statement as it read, and the " +
+      "answer's sentence saying what changed. The wrong statement must appear nowhere else in the answer, including " +
+      "its headings, tables and summaries."),
   search_coverage: z.array(z.enum(["historical_terms", "citation_chains", "grey_literature"])).max(3).optional()
     .describe("What the searches covered beyond the indexed databases."),
   answer_language: z.string().trim().regex(/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{1,8}){0,3}$/u).optional()
@@ -506,6 +616,9 @@ export function finalizeResearch(
   const requireLimit = (text: string, ...sentences: string[]): void => {
     limits.push(text);
     caveats.push(...sentences);
+  };
+  const caveatOnce = (limit: string, caveat: string): void => {
+    if (!caveats.includes(caveat)) requireLimit(limit, caveat);
   };
   // What the communities outside YouTube showed, reported after the YouTube lane.
   const communityLanes: string[] = [];
@@ -890,6 +1003,9 @@ export function finalizeResearch(
   const leadAttempts = new Map<string, Set<string>>();
   const readIds = new Set<string>();
   const searchCopyCaveats = new Set<string>();
+  // Identifier -> the figures check its latest study audit signed (owner questions 87 and 89). Receipts
+  // signed before audits checked figures carry none; every newer audit signs one, "not_declared" included.
+  const studyFigures = new Map<string, { status: string; values: number[]; impossible: string[]; order: number }>();
   for (const { kind, claims } of verified) {
     if (kind === "pubmed_record" && typeof claims.pmid === "string") {
       pubmedDois.set(normalizeIdentifier(claims.pmid), typeof claims.doi === "string" ? normalizeIdentifier(claims.doi) : "");
@@ -911,6 +1027,21 @@ export function finalizeResearch(
       for (const key of ["id", "doi", "pmid", "pmcid"]) {
         const value = claims[key];
         if (typeof value === "string" && value.length > 0) validatedIds.add(normalizeIdentifier(value));
+      }
+    }
+    if (kind === "study_audit" && typeof claims.fig === "string") {
+      const figures = {
+        status: claims.fig,
+        values: Array.isArray(claims.figv) ? claims.figv.map(Number).filter(Number.isFinite) : [],
+        impossible: Array.isArray(claims.imp) ? [...claims.imp] : [],
+        order: typeof claims.t === "number" ? claims.t : 0
+      };
+      for (const key of ["id", "doi", "pmid", "pmcid"]) {
+        const value = claims[key];
+        if (typeof value !== "string" || value.length === 0) continue;
+        const id = normalizeIdentifier(value);
+        const earlier = studyFigures.get(id);
+        if (earlier === undefined || earlier.order <= figures.order) studyFigures.set(id, figures);
       }
     }
     if (kind === "full_text_lead") {
@@ -993,7 +1124,7 @@ export function finalizeResearch(
         nextSteps.push(
           `PubMed lists an open copy of ${source.id} in PubMed Central (${openCopy}) that the full-text attempt did not ` +
             `try: call acquire_open_full_text with DOI ${doi} and pmcid ${openCopy}, then audit it, or pass the new ` +
-            "research_receipt if it still finds no full text."
+            `research_receipt if it still finds no full text. ${LEAD_RECEIPT_SEARCH}`
         );
         continue;
       }
@@ -1048,11 +1179,53 @@ export function finalizeResearch(
     nextSteps.push(source.status === "validated"
       ? `For ${source.id}: acquire_open_full_text${target === source.id ? "" : ` (DOI ${target})`}, continue_open_full_text until exhausted, ` +
           "then validate_study_method_audit (or validate_review_method_audit) and pass its research_receipt. If no open full text exists, " +
-          "the acquisition receipt lets you list it as lead_only."
+          `the acquisition receipt lets you list it as lead_only. ${LEAD_RECEIPT_SEARCH}`
       : `Try acquire_open_full_text for ${source.id}${target === source.id ? "" : ` (DOI ${target})`}${isPmcid(id) ? " with its DOI and this pmcid" : ""} ` +
-          "before treating it as lead_only; pass the research_receipt it returns.");
+          `before treating it as lead_only; pass the research_receipt it returns. ${LEAD_RECEIPT_SEARCH}`);
   }
   if (unreadStudies.size > 0) caveats.push(unreadStudiesCaveat([...unreadStudies]));
+  // A key study's headline figures, as its audit recomputed them (owner
+  // questions 87 and 89, issues #329 and #331): a study whose own data
+  // contradict its figures, a value impossible as printed, and two studies
+  // sharing identical results each reach the answer as the server's caveat.
+  // Which study is right, and why, stay the model's to say.
+  const keyFigures = input.key_sources.flatMap((source) => {
+    const own = normalizeIdentifier(source.id);
+    const doi = isPmid(own) ? pubmedDois.get(own) : undefined;
+    const figures = [own, ...(doi === undefined || doi === "" ? [] : [doi])]
+      .map((id) => studyFigures.get(id)).find((entry) => entry !== undefined);
+    return figures === undefined ? [] : [{ source, figures, marker: source.answer_marker ?? source.id }];
+  });
+  for (const { source, figures, marker } of keyFigures) {
+    if (figures.status === "not_declared") {
+      requireDeclaration(`The study audit of ${source.id} lists no reported_figures: validate it again with ` +
+        "reported_figures, each headline result (not a dose or group size) as the paper prints it with its source " +
+        "block, recomputed from the paper's own tables or with why that isn't possible, or with an empty list and " +
+        "reported_figures_none_reason when it reports no numeric result; pass the research_receipt it returns.");
+      continue;
+    }
+    if (figures.status === "internally_inconsistent") {
+      caveatOnce("A key study's figures don't match its own data: say so, as the caveat does.",
+        `The reported figures in ${marker} don't match the study's own data, so its results stay unreliable until ` +
+          "they are reconciled.");
+    }
+    for (const value of figures.impossible) {
+      caveatOnce("A key study reports a value that is impossible as printed: say so, as the caveat does.",
+        `The value ${value} in ${marker} is physically impossible as printed, so it is not used.`);
+    }
+  }
+  for (const [index, first] of keyFigures.entries()) {
+    for (const second of keyFigures.slice(index + 1)) {
+      const shared = new Set(first.figures.values.filter((value) => second.figures.values.includes(value)));
+      if (shared.size >= 2) {
+        // Two studies the answer labels alike are named by their identifiers instead.
+        const [a, b] = first.marker === second.marker
+          ? [first.source.id, second.source.id] : [first.marker, second.marker];
+        caveatOnce("Two key studies report identical results: count them once, as the caveat does.",
+          `${a} and ${b} report identical results, so they are counted once, not as independent replication.`);
+      }
+    }
+  }
   if (input.key_sources.length === 0) {
     requireLimit(
       "No study was declared decision-critical; say that no study's methods were checked in full text.",
@@ -1151,6 +1324,196 @@ export function finalizeResearch(
       "scale_results is missing: with answer_draft, the declaration lists each scale or questionnaire result " +
         "reported in the answer (an empty list means none)."
     );
+  }
+  // Harm and safety sentences, the terms a conclusion depends on, and
+  // mechanism claims (owner questions 86, 88 and 89). HRP and Universal
+  // already require rates against a comparator, scoped hazards, plain-language
+  // terms and route-matched mechanisms; these declarations are where the final
+  // check enforces them. The model names each sentence, in whatever language it
+  // wrote it, and the gate checks exactly what it declares: the quote is shown,
+  // a rate has its numbers, the studies are key sources, a term is explained at
+  // its first use, and each basis or route mismatch carries its caveat.
+  // Undeclared sentences are invisible to it, as with absence_claims.
+  if (input.answer_draft !== undefined && input.safety_claims === undefined) {
+    requireDeclaration(
+      "safety_claims is missing: with answer_draft, it lists each sentence warning that something can cause harm, " +
+        "is unsafe, toxic or risky, or should be avoided, and each sentence calling something safe or harmless, " +
+        "with its exposure, basis, what the evidence measured and its studies (an empty list means none)."
+    );
+  }
+  if (input.answer_draft !== undefined && input.key_terms === undefined) {
+    requireDeclaration(
+      "key_terms is missing: with answer_draft, it lists each specialized term the answer's conclusions depend on, " +
+        "with the sentence that first explains it in plain words (an empty list means none)."
+    );
+  }
+  if (input.answer_draft !== undefined && input.mechanism_claims === undefined) {
+    requireDeclaration(
+      "mechanism_claims is missing: with answer_draft, it lists each sentence saying how an intervention works or " +
+        "that it does not act through a mechanism, with the route of the use it describes, the route of the " +
+        "experiment it rests on and its studies (an empty list means none)."
+    );
+  }
+  if (input.answer_draft !== undefined && input.recommendations === undefined) {
+    requireDeclaration(
+      "recommendations is missing: with answer_draft, it lists each intervention the answer recommends or puts " +
+        "forward for this person, with the sentence that does so, whether this person's safety conflicts and inputs " +
+        "are resolved, and for long-term use its longest follow-up and whether stopping is covered (an empty list " +
+        "means none)."
+    );
+  }
+  // The key source a declared study names, by its own identifier or its PubMed record's DOI.
+  const keySourceFor = (id: string): FinalizeResearchInput["key_sources"][number] | undefined => {
+    const wanted = normalizeIdentifier(id);
+    return input.key_sources.find((source) => {
+      const own = normalizeIdentifier(source.id);
+      const doi = isPmid(own) ? pubmedDois.get(own) : undefined;
+      return own === wanted || (doi !== undefined && doi !== "" && doi === wanted);
+    });
+  };
+  const markerFor = (id: string): string => {
+    const source = keySourceFor(id);
+    return source?.answer_marker ?? source?.id ?? id;
+  };
+  const undeclaredStudies = (at: string, studies: readonly string[]): void => {
+    const missing = studies.filter((id) => keySourceFor(id) === undefined);
+    if (missing.length > 0) {
+      nextSteps.push(`${at} rests on ${missing.join(", ")}, which key_sources does not list: add each to key_sources ` +
+        "with its read depth and link, so its reading is checked like any key study.");
+    }
+  };
+  const plainPhrase = (text: string): string => text.trim().replace(/[\s.;:!?]+$/u, "");
+  for (const [index, claim] of (input.safety_claims ?? []).entries()) {
+    const at = `safety_claims[${index}]`;
+    const exposure = plainPhrase(claim.exposure);
+    if (claim.basis !== "not_quantified") {
+      // A share of selected reports may come from posts rather than a study.
+      const studiesNeeded = claim.basis !== "share_of_reports";
+      if (claim.measured_exposure === undefined || (studiesNeeded && (claim.studies ?? []).length === 0)) {
+        requireDeclaration(`${at} has basis ${claim.basis} without ${claim.measured_exposure === undefined
+          ? "measured_exposure" : "studies"}: give what the cited evidence measured and the key sources it rests on, ` +
+          "or declare basis not_quantified.");
+      }
+      undeclaredStudies(at, claim.studies ?? []);
+    }
+    const numbers = extractUnsignedNumbers(claim.quote);
+    if (claim.basis === "comparative_rates" && numbers.length < 2) {
+      nextSteps.push(`${at} rests on rates against a comparator, but its sentence gives fewer than two numbers: ` +
+        "give the rate in each group in that sentence.");
+    }
+    if (claim.basis === "observed_rates" && numbers.length < 1) {
+      nextSteps.push(`${at} rests on an observed rate, but its sentence gives no number: give the rate in that sentence.`);
+    }
+    if (claim.basis === "share_of_reports" && numbers.length < 1) {
+      nextSteps.push(`${at} rests on a share of selected reports, but its sentence gives no number: give the share ` +
+        "in that sentence.");
+    }
+    const measured = claim.measured_exposure === undefined ? undefined : plainPhrase(claim.measured_exposure);
+    if (claim.basis === "share_of_reports") {
+      // A share of selected reports, posts or passages is not a share of people
+      // (HRP QA3 and QA6; lesson #25 by owner question 92).
+      caveatOnce("A figure is a share of selected reports, not of people: say so, as the caveat does.",
+        claim.direction === "harm"
+          ? "That figure is a share of selected reports, not of people, so how often this happens isn't known."
+          : `That figure is a share of selected reports, not of people, so it doesn't show how safe ${exposure} is.`);
+    } else if (claim.direction === "harm") {
+      if (claim.basis === "case_reports") {
+        caveatOnce("A harm warning rests on case reports: say what they show, as the caveat does.",
+          "Case reports show that this harm can happen, not how often it happens.");
+      } else if (claim.basis === "hazard_measurement" && measured !== undefined) {
+        caveatOnce("A harm warning rests on a measurement, not on harm observed in people: say so, as the caveat does.",
+          `This warning rests on measurements of ${measured}, not on harm observed in people using ${exposure}, so ` +
+            "how often it would cause harm wasn't measured.");
+      } else if (claim.basis === "not_quantified") {
+        caveatOnce("A harm warning has no rate: say so, as the caveat does.",
+          "How often this happens wasn't quantified in the sources found here.");
+      }
+    } else if (claim.basis === "hazard_measurement" && measured !== undefined) {
+      caveatOnce("A safety claim rests on a measurement or an animal test, not on observed safety in people: say so, " +
+        "as the caveat does.",
+        `This rests on ${measured}, not on observed safety in people using ${exposure}, so long-term or rare harms ` +
+          "are unmeasured.");
+    } else if (claim.basis === "case_reports") {
+      caveatOnce("A safety claim rests on case reports: say what they cannot show, as the caveat does.",
+        `Case reports can show that a harm happens, but not that ${exposure} is safe.`);
+    } else if (claim.basis === "not_quantified") {
+      caveatOnce("A safety claim has no rate of harms behind it: say so, as the caveat does.",
+        `How often harms occur with ${exposure} wasn't quantified in the sources found here.`);
+    }
+  }
+  // A mechanism rests on evidence from its route, species and tissue, or the
+  // answer says where the evidence came from (FS229; owner questions 88 and
+  // 92). Whom an experiment was done in and where it measured stay the
+  // model's declarations; the caveats are checked exactly.
+  for (const [index, claim] of (input.mechanism_claims ?? []).entries()) {
+    const at = `mechanism_claims[${index}]`;
+    undeclaredStudies(at, claim.studies);
+    const marker = markerFor(claim.studies[0]!);
+    const inAnimals = claim.evidence_in === "animals" && claim.evidence_route !== "in_vitro";
+    if (claim.use_route !== claim.evidence_route) {
+      caveatOnce("A mechanism claim rests on evidence from another route: say which, as the caveat does.",
+        inAnimals
+          ? `This finding comes from ${EVIDENCE_ROUTE_WORDS[claim.evidence_route]} in animals in ${marker}; ` +
+            `${USE_ROUTE_WORDS[claim.use_route]} in people was not tested for it.`
+          : `This finding comes from ${EVIDENCE_ROUTE_WORDS[claim.evidence_route]} in ${marker}; ` +
+            `${USE_ROUTE_WORDS[claim.use_route]} was not tested for it.`);
+    } else if (inAnimals) {
+      caveatOnce("A mechanism claim rests on animal experiments: say so, as the caveat does.",
+        `This finding comes from animal experiments in ${marker}; it was not tested in people.`);
+    }
+    if (claim.tissue !== undefined) {
+      caveatOnce("A mechanism claim applies a finding to another tissue: say where it was measured, as the caveat does.",
+        `This finding was measured in ${plainPhrase(claim.tissue.measured)} in ${marker}, not in ` +
+          `${plainPhrase(claim.tissue.claimed)}.`);
+    }
+  }
+  // Question 90 (lesson #23): what the answer puts forward for this person
+  // carries its safety check, and a medicine taken long term its follow-up and
+  // stopping. Whether a sentence recommends something and whether an input is
+  // open stay the model's declarations; the checks and caveats are exact.
+  const sentenceStart = (text: string): string => {
+    const phrase = plainPhrase(text);
+    return phrase.charAt(0).toUpperCase() + phrase.slice(1);
+  };
+  for (const [index, recommendation] of (input.recommendations ?? []).entries()) {
+    const at = `recommendations[${index}]`;
+    const intervention = sentenceStart(recommendation.intervention);
+    if (recommendation.safety_check !== "resolved") {
+      if (recommendation.open_inputs === undefined) {
+        nextSteps.push(`${at} is ${recommendation.safety_check} without open_inputs: name the conflicts or safety ` +
+          "inputs still open, in a few words.");
+      } else {
+        const open = plainPhrase(recommendation.open_inputs);
+        caveatOnce(recommendation.safety_check === "unresolved"
+          ? "A recommendation's safety check is unresolved: say it needs a clinician's review first, as the caveat does."
+          : "A recommendation depends on a condition a clinician should confirm: say so, as the caveat does.",
+        recommendation.safety_check === "unresolved"
+          ? `${intervention} needs a clinician's review of ${open} before it could be recommended for you.`
+          : `${intervention} depends on ${open}, which a clinician should confirm first.`);
+      }
+    }
+    if (!recommendation.long_term_use) continue;
+    const missing = [
+      ...(recommendation.longest_follow_up === undefined ? ["longest_follow_up"] : []),
+      ...(recommendation.follow_up_matches_use === undefined ? ["follow_up_matches_use"] : []),
+      ...(recommendation.stopping_covered === undefined ? ["stopping_covered"] : [])
+    ];
+    if (missing.length > 0) {
+      nextSteps.push(`${at} is for long-term use without ${missing.join(", ")}: give the longest follow-up in its ` +
+        "evidence, whether it matches how long it would be taken, and whether the answer covers stopping.");
+      continue;
+    }
+    if (recommendation.stopping_covered === false) {
+      nextSteps.push(`${at} puts ${plainPhrase(recommendation.intervention)} forward for long-term use without ` +
+        "covering stopping: say what is known about stopping, withdrawal and lasting harms, or that they are " +
+        "unknown, and mark stopping_covered.");
+    }
+    if (recommendation.follow_up_matches_use === false) {
+      caveatOnce("A medicine for long-term use rests on shorter evidence: say so, as the caveat does.",
+        `The evidence on ${plainPhrase(recommendation.intervention)} followed people for ` +
+          `${plainPhrase(recommendation.longest_follow_up!)}, so its benefits and harms over years of use, and how ` +
+          "easily people stop it, aren't established.");
+    }
   }
   // A study is audited when a study or review audit receipt names it, or the DOI its PubMed record gives.
   const auditedStudy = (id: string): boolean => {
@@ -1296,6 +1659,14 @@ export function finalizeResearch(
       lanes,
       absenceQuotes: absenceClaims.map(({ quote }) => quote),
       scaleResults: input.scale_results ?? [],
+      declaredQuotes: [
+        ...(input.safety_claims ?? []).map(({ quote }, index) => ({ at: `safety_claims[${index}]`, quote })),
+        ...(input.mechanism_claims ?? []).map(({ quote }, index) => ({ at: `mechanism_claims[${index}]`, quote })),
+        ...(input.recommendations ?? []).map(({ quote }, index) => ({ at: `recommendations[${index}]`, quote })),
+        ...(input.corrections ?? []).map(({ change }, index) => ({ at: `corrections[${index}].change`, quote: change }))
+      ],
+      corrections: input.corrections ?? [],
+      keyTerms: input.key_terms ?? [],
       labPreparationQuotes: input.lab_preparation?.status === "covered" ? input.lab_preparation.answer_quotes : [],
       missingDeclaration: () => { missingDeclaration = true; },
       ...(input.answer_language === undefined ? {} : { answerLanguage: input.answer_language }),
@@ -1423,6 +1794,9 @@ function answerDraftProblems(
     lanes: readonly AnswerLane[];
     absenceQuotes: readonly string[];
     scaleResults: NonNullable<FinalizeResearchInput["scale_results"]>;
+    declaredQuotes: ReadonlyArray<{ at: string; quote: string }>;
+    corrections: NonNullable<FinalizeResearchInput["corrections"]>;
+    keyTerms: NonNullable<FinalizeResearchInput["key_terms"]>;
     labPreparationQuotes: readonly string[];
     missingDeclaration: () => void;
     answerLanguage?: string;
@@ -1542,6 +1916,71 @@ function answerDraftProblems(
       problems.push(`${at} quotes no benchmark: the quote does not contain ${result.benchmark.value}.`);
     }
   }
+  const unshownDeclared = context.declaredQuotes.filter(({ quote }) => showing(quote).length === 0).map(({ at }) => at);
+  if (unshownDeclared.length > 0) {
+    problems.push(
+      `${unshownDeclared.join(", ")} ${unshownDeclared.length === 1 ? "gives" : "give"} text the answer does not show: ` +
+        "copy each sentence exactly from answer_draft."
+    );
+  }
+  // A corrected statement is gone from the whole answer, its headings, tables
+  // and summaries included, except inside the sentence saying what changed
+  // (HRP CorrectionPropagationIsMandatory; lesson #29 by owner question 92).
+  // Which statement was wrong stays the model's declaration; this is exact.
+  if (context.corrections.length > 0) {
+    const shownText = shownBlocks.map((block) => caveatText(visibleText(block))).join("\n");
+    const occurrences = (text: string): number[] => {
+      const found: number[] = [];
+      if (text === "") return found;
+      for (let at = shownText.indexOf(text); at >= 0; at = shownText.indexOf(text, at + 1)) found.push(at);
+      return found;
+    };
+    for (const [index, { retracted, change }] of context.corrections.entries()) {
+      const wrong = quoteForm(retracted.replace(MARKDOWN_LINK_TEXT, "$1"));
+      if (!/[\p{L}\p{N}]/u.test(wrong)) continue;
+      const changed = quoteForm(change.replace(MARKDOWN_LINK_TEXT, "$1"));
+      const inChange = occurrences(changed).map((start) => [start, start + changed.length] as const);
+      const elsewhere = occurrences(wrong).some((start) =>
+        !inChange.some(([from, to]) => start >= from && start + wrong.length <= to));
+      if (elsewhere) {
+        problems.push(`corrections[${index}]'s wrong statement still appears in the answer outside its change ` +
+          "sentence: correct it everywhere, including headings, tables and summaries.");
+      }
+    }
+  }
+  // A term is explained where a reader first meets it (HRP
+  // AudienceAccessibleTerminologyGate, FS227). Which terms count and whether
+  // the explanation is good stay the model's judgment; the gate checks that
+  // the declared explanation is shown, contains the term, and holds its first
+  // use, compared as quotes are. A term written in capitals only, such as OR
+  // for odds ratio or NO for nitric oxide, keeps its case, so the everyday
+  // words its letters spell are not uses of it.
+  if (context.keyTerms.length > 0) {
+    const shownIn = (fold: (text: string) => string) =>
+      shownBlocks.map((block) => fold(visibleText(block))).join("\n");
+    const shown = { folded: shownIn(caveatText), cased: shownIn(casedCaveatText) };
+    for (const [index, { term, explanation }] of context.keyTerms.entries()) {
+      const at = `key_terms[${index}]`;
+      const capitals = /\p{Lu}/u.test(term) && !/\p{Ll}/u.test(term);
+      const fold = capitals ? casedCaveatText : caveatText;
+      const shownText = capitals ? shown.cased : shown.folded;
+      const termForm = fold(term);
+      const explanationForm = quoteForm(explanation.replace(MARKDOWN_LINK_TEXT, "$1"), fold);
+      const start = explanationForm === "" ? -1 : shownText.indexOf(explanationForm);
+      if (start < 0) {
+        problems.push(`${at} gives an explanation the answer does not show: copy the sentence exactly from answer_draft.`);
+      } else if (termOccurrences(explanationForm, termForm).length === 0) {
+        problems.push(`${at}'s explanation does not contain its term "${term}": give the sentence that explains it ` +
+          "where the answer uses it.");
+      } else {
+        const first = termOccurrences(shownText, termForm)[0]!;
+        if (first < start || first >= start + explanationForm.length) {
+          problems.push(`The answer uses "${term}" before ${at}'s explanation: explain it in plain words where the ` +
+            "answer first uses it.");
+        }
+      }
+    }
+  }
   // Each caveat the server wrote must reach the answer as a sentence of its
   // own. Only prose a reader sees counts: not code, comments, quotations or
   // image descriptions. An answer in another language states each in that
@@ -1587,6 +2026,30 @@ function answerDraftProblems(
     );
   }
   return problems;
+}
+
+/**
+ * Where a term occurs in normalized text. In scripts with letter case, which
+ * separate words with spaces, an occurrence is a whole word, so "alt" is not
+ * found inside "although"; elsewhere, an exact match anywhere counts.
+ */
+function termOccurrences(text: string, term: string): number[] {
+  const characters = Array.from(term);
+  const cased = (character: string | undefined): boolean =>
+    character !== undefined && character.toLowerCase() !== character.toUpperCase();
+  const wordCharacter = /[\p{L}\p{N}\p{M}]/u;
+  const boundedStart = cased(characters[0]);
+  const boundedEnd = cased(characters.at(-1));
+  const found: number[] = [];
+  if (term === "") return found;
+  for (let index = text.indexOf(term); index >= 0; index = text.indexOf(term, index + 1)) {
+    const before = /.$/su.exec(text.slice(Math.max(0, index - 2), index))?.[0];
+    const after = /^./su.exec(text.slice(index + term.length, index + term.length + 2))?.[0];
+    if (boundedStart && before !== undefined && wordCharacter.test(before)) continue;
+    if (boundedEnd && after !== undefined && wordCharacter.test(after)) continue;
+    found.push(index);
+  }
+  return found;
 }
 
 /**
@@ -1707,8 +2170,8 @@ const SENTENCE_MARK = /\p{STerm}/u;
  * quotation marks around it or its closing sentence mark. It is read from
  * each end, so its length bounds the work.
  */
-function quoteForm(quote: string): string {
-  const text = caveatText(quote);
+function quoteForm(quote: string, fold: (text: string) => string = caveatText): string {
+  const text = fold(quote);
   let start = 0;
   let end = text.length;
   while (start < end && QUOTE_MARK.test(text.charAt(start))) start += 1;
@@ -1723,6 +2186,11 @@ const linksIn = (text: string): Set<string> =>
 
 /** Text as the caveat check compares it: Unicode composition, quotes, dashes, emphasis, spacing and case ignored. */
 function caveatText(text: string): string {
+  return casedCaveatText(text).toLowerCase();
+}
+
+/** caveatText with case kept, for a term written in capitals. */
+function casedCaveatText(text: string): string {
   return text
     .normalize("NFC")
     .replace(/[\u2018\u2019\u02BC]/gu, "'")
@@ -1730,8 +2198,7 @@ function caveatText(text: string): string {
     .replace(/[\u2013\u2014]/gu, "-")
     .replace(/[*_`]/gu, "")
     .replace(/\s+/gu, " ")
-    .trim()
-    .toLowerCase();
+    .trim();
 }
 
 /**
@@ -2484,6 +2951,24 @@ function communityCoverage(
       );
     }
     if (search.threads_read.length === 0) continue;
+    if (search.platform !== "review_site") {
+      const chosen = search.thread_selection === undefined
+        ? undefined
+        : PARTIAL_THREAD_SELECTIONS.get(search.thread_selection);
+      if (search.thread_selection === undefined) {
+        out.requireDeclaration(
+          `community_searches for ${name} reads threads without thread_selection: say how they were chosen, such as ` +
+            "every relevant one the searches found, the ones ranked first, or ones found by searching for outcomes."
+        );
+      } else if (chosen !== undefined) {
+        out.requireLimit(
+          `The ${name} threads you read were ${chosen}; say they show which experiences people report, not how ` +
+            "common each is.",
+          `The ${name} threads that I read were ${chosen}, so they show which experiences people report, not how ` +
+            "common each one is."
+        );
+      }
+    }
     for (const { product, reviews_shown: shown, reviews_read: read, selection } of corpora) {
       const chosen = PARTIAL_REVIEW_SELECTIONS.get(selection);
       if (chosen === undefined) continue;

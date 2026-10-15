@@ -10,8 +10,16 @@ const GEMINI_DESCRIPTION_MIN_CHARACTERS = 64;
 
 // Inputs that only bind research receipts for finalize_research, which this
 // catalog does not offer; leaving them out keeps it inside its size budget.
+// A study audit's headline figures and its programs' routes are read only by
+// finalize_research (owner questions 87 to 89). A dotted name is nested.
 const FINALIZATION_ONLY_INPUTS: Readonly<Record<string, readonly string[]>> = {
-  search_youtube: ["research_target"]
+  search_youtube: ["research_target"],
+  validate_study_method_audit: [
+    "audit.reported_figures",
+    "audit.reported_figures_none_reason",
+    "audit.intervention_program.route",
+    "audit.comparator_program.route"
+  ]
 };
 
 const GEMINI_FUNCTION_SCHEMA_KEYS = new Set([
@@ -82,9 +90,22 @@ function withoutInputs(
 ): Record<string, unknown> {
   if (names.length === 0) return schema;
   const properties = { ...(schema.properties as Record<string, unknown> | undefined) };
-  for (const name of names) delete properties[name];
+  const own = names.filter((name) => !name.includes("."));
+  for (const name of own) delete properties[name];
+  // Nested names ("audit.reported_figures") are removed inside that input.
+  const nested = new Map<string, string[]>();
+  for (const name of names.filter((candidate) => candidate.includes("."))) {
+    const [head, ...rest] = name.split(".");
+    nested.set(head!, [...(nested.get(head!) ?? []), rest.join(".")]);
+  }
+  for (const [head, rest] of nested) {
+    const child = properties[head];
+    if (child !== null && typeof child === "object" && "properties" in child) {
+      properties[head] = withoutInputs(child as Record<string, unknown>, rest);
+    }
+  }
   const required = Array.isArray(schema.required)
-    ? schema.required.filter((name) => !names.includes(String(name)))
+    ? schema.required.filter((name) => !own.includes(String(name)))
     : undefined;
   return { ...schema, properties, ...(required === undefined ? {} : { required }) };
 }

@@ -10,9 +10,14 @@ import {
   type GitHubTokenProvider,
 } from "./github-app.js";
 
+/** The AskRigor surface a lesson came through: the Custom GPT's Action or the MCP connector. */
+export type LessonSource = "custom-gpt" | "connector";
+
 export interface GitHubLessonSubmission {
   candidate: GeneralizedLesson;
   fingerprint: string;
+  /** Labels a new issue; a repeat leaves the existing issue's labels alone. */
+  source?: LessonSource;
 }
 
 export interface GitHubLessonQueueResult {
@@ -251,7 +256,7 @@ export class GitHubLessonQueue {
     const labels = [
       "lesson-candidate",
       possibleRegression ? "possible-regression" : "needs-review",
-      "source-custom-gpt",
+      `source-${input.source ?? "custom-gpt"}`,
       `category:${input.candidate.category}`,
     ];
     const response = await this.request(ISSUES_PATH, {

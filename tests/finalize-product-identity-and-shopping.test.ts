@@ -29,7 +29,8 @@ function packageFor(overrides: Partial<FinalizeResearchInput> = {}): FinalizeRes
       item_identity: { exact_product: 2, variant_unresolved: 0, other_variant_excluded: 1 } }]
   };
   const forum = { community: "Herbs Forum", platform: "forum" as const, queries: [TARGET],
-    threads_read: [{ url: "https://forum.example/nan-bao" }], ...QUOTES, answer_quotes: { ...QUOTES } };
+    threads_read: [{ url: "https://forum.example/nan-bao" }], thread_selection: "all_found" as const, ...QUOTES,
+    answer_quotes: { ...QUOTES } };
   return {
     lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
     full_text_search: { status: "not_needed", reason: "Synthetic fixtures isolate product identity checks." },
@@ -39,7 +40,7 @@ function packageFor(overrides: Partial<FinalizeResearchInput> = {}): FinalizeRes
     principal_communities: [{ name: reviews.community, platform: reviews.platform }, { name: forum.community, platform: forum.platform }],
     community_searches: [reviews, forum], key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: STUDY, status: "validated" }],
     intervention_identity: { status: "not_applicable", reason: "This study does not test a coded or multi-ingredient product." },
-    shopping: { status: "not_requested" }, absence_claims: [], scale_results: [],
+    shopping: { status: "not_requested" }, absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
     answer_draft: `[Study](https://doi.org/${STUDY})\n\n` + [reviews, forum].map((lane) => `On [${lane.community}](${lane.threads_read[0]!.url}): ${Object.values(QUOTES).join(" ")}`).join("\n\n"),
     ...overrides
   };

@@ -18,8 +18,10 @@ import {
   getProtocolManifest,
   loadProtocol,
   loadProtocolSectionSnapshot,
+  protocolNamedElements,
   protocolTextPage,
   verifyProtocolIntegrity,
+  type ProtocolElement,
   type ProtocolName
 } from "@askrigor/protocol";
 import {
@@ -198,7 +200,9 @@ import {
   studyMethodAuditActionInputSchema,
   studyMethodAuditRouteOutputSchema
 } from "./actions/open-full-text-route.js";
+import type { ReportedFiguresCheck } from "./actions/study-method-audit.js";
 import {
+  FINALIZE_REMINDER,
   FINALIZE_RESEARCH_CONTRACT,
   finalizeResearch,
   protocolNamesFrom,
@@ -244,6 +248,16 @@ const manifestSchema = z.object({
   sha256: z.string()
 });
 const PROTOCOL_INDEX_SECTION = "index";
+const PROTOCOL_ELEMENTS_LISTED = 8;
+
+/** "Rule in section A, Case in section B", for load_protocol's name matches. */
+function describeProtocolElements(elements: readonly ProtocolElement[]): string {
+  const listed = elements.slice(0, PROTOCOL_ELEMENTS_LISTED)
+    .map(({ tag, section }) => `${tag} in section ${section}`);
+  const more = elements.length - listed.length;
+  return listed.join(", ") + (more > 0 ? ` and ${more} more` : "");
+}
+
 const protocolSectionIndexSchema = z.object({
   name: z.string(),
   bytes: z.number().int(),
@@ -730,7 +744,7 @@ function defineResearchOperations(
       // this description and the parameters carry no descriptions.
       description:
         'Canonical protocol text in 40,000-byte pages. section "index" lists sections; ' +
-        "section <name> loads one; page N continues.",
+        "section <name> loads one, or a rule, case or other element by its name or id; page N continues.",
       inputSchema: {
         protocol: protocolSchema,
         section: z.string().optional(),
@@ -798,16 +812,33 @@ function defineResearchOperations(
         const target = section === undefined
           ? undefined
           : sections.find(({ name }) => name === section);
+        let element: ProtocolElement | undefined;
+        let alsoNamed: ProtocolElement[] = [];
         if (section !== undefined && target === undefined) {
-          return protocolRequestError(
-            protocol,
-            "protocol_section_not_found",
-            `${manifest.name} has no top-level section named ${section}. Call load_protocol with section "index" for exact names.`
-          );
+          const named = protocolNamedElements(snapshot.text, section);
+          const rules = named.filter(({ tag }) => tag === "Rule" || tag === "rule");
+          element = named.length === 1 ? named[0] : rules.length === 1 ? rules[0] : undefined;
+          if (element === undefined) {
+            return named.length === 0
+              ? protocolRequestError(
+                protocol,
+                "protocol_section_not_found",
+                `${manifest.name} has no section, and no rule, case or other element, named ${section}. ` +
+                  'Call load_protocol with section "index" for section names.'
+              )
+              : protocolRequestError(
+                protocol,
+                "protocol_section_ambiguous",
+                `${manifest.name} has ${named.length} elements named ${section}: ${describeProtocolElements(named)}. ` +
+                  "Load the section that holds the one you need."
+              );
+          }
+          alsoNamed = named.filter((candidate) => candidate !== element);
         }
-        const scope = target === undefined
+        const span = target ?? element;
+        const scope = span === undefined
           ? bytes
-          : bytes.subarray(target.byte_start, target.byte_end_exclusive);
+          : bytes.subarray(span.byte_start, span.byte_end_exclusive);
         const requestedPage = page ?? 1;
         const pageCount = target?.pages ?? protocolTextPage(scope, 1).page_count;
         if (requestedPage > pageCount) {
@@ -818,19 +849,22 @@ function defineResearchOperations(
           );
         }
         const textPage = protocolTextPage(scope, requestedPage);
-        const offset = target?.byte_start ?? 0;
-        const label = target === undefined
-          ? `complete canonical ${manifest.name} text`
-          : `${manifest.name} section ${target.name}`;
+        const offset = span?.byte_start ?? 0;
+        const label = target !== undefined
+          ? `${manifest.name} section ${target.name}`
+          : element !== undefined
+            ? `${manifest.name} ${element.tag} ${section} in section ${element.section}`
+            : `complete canonical ${manifest.name} text`;
         return successfulToolResult(
           `Loaded ${label}, page ${textPage.page} of ${textPage.page_count} (exact canonical bytes).` +
-            (textPage.complete ? "" : ` Call load_protocol again with page ${textPage.page + 1} to continue.`),
+            (textPage.complete ? "" : ` Call load_protocol again with page ${textPage.page + 1} to continue.`) +
+            (alsoNamed.length === 0 ? "" : ` Also named ${section}: ${describeProtocolElements(alsoNamed)}.`),
           {
             ok: true,
             protocol,
             manifest,
-            scope: target === undefined ? "full" : "section",
-            ...(target === undefined ? {} : { section: target.name }),
+            scope: span === undefined ? "full" : "section",
+            ...(span === undefined ? {} : { section: target?.name ?? section }),
             page: textPage.page,
             page_count: textPage.page_count,
             ...(textPage.complete ? {} : { next_page: textPage.page + 1 }),
@@ -2090,12 +2124,14 @@ const MCP_YOUTUBE_AUDIT_MAX_BYTES = 40_000;
 
 /**
  * Bytes a result adds around its structured view: the text, and the receipt,
- * which appears in both the text and the structured content. The view is cut
- * to what remains, so the whole result stays within the response budget.
+ * which appears in both the text and the structured content, with the
+ * reminder line that follows it. The view is cut to what remains, so the
+ * whole result stays within the response budget.
  */
 function reservedResultBytes(text: string, receipt: string | undefined): number {
   const receiptBytes = receipt === undefined ? 0 : Buffer.byteLength(receipt, "utf8");
-  return Buffer.byteLength(text, "utf8") + 2 * receiptBytes + 200;
+  const reminderBytes = receipt === undefined ? 0 : Buffer.byteLength(FINALIZE_REMINDER, "utf8") + 32;
+  return Buffer.byteLength(text, "utf8") + 2 * receiptBytes + reminderBytes + 200;
 }
 // A pass lock says the comments were retrieved, not that they reached the answer.
 const MCP_COMMENT_FINDINGS_HANDOFF =
@@ -2399,9 +2435,15 @@ function withResearchReceipt(
   signsStoppedRound = false
 ): CallToolResult {
   if (receipt === undefined || (result.isError === true && !signsStoppedRound)) return result;
+  // The reminder reaches the AI whenever it researches, in any turn: a
+  // "continue" turn without a mention is still the same task (owner question 86).
   return {
     ...result,
-    content: [...result.content, { type: "text", text: `research_receipt: ${receipt}` }],
+    content: [
+      ...result.content,
+      { type: "text", text: `research_receipt: ${receipt}` },
+      { type: "text", text: FINALIZE_REMINDER }
+    ],
     structuredContent: { ...result.structuredContent, research_receipt: receipt }
   };
 }
@@ -2597,7 +2639,7 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
     requested_doi?: string;
     requested_pmcid?: string;
     acquisition_state?: string;
-    audit_receipt?: { audit_status?: string };
+    audit_receipt?: { audit_status?: string; reported_figures_check?: ReportedFiguresCheck };
     coverage_receipt?: { document_handle?: string; exhausted?: boolean; source_content_sha256?: string };
   };
   if (operationId === "acquire_open_full_text" && output.status === "possibly_useful_lead") {
@@ -2639,8 +2681,24 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
       retrieval_provider: "client_search_index",
       host: new URL(source.canonical_url).hostname
     } : {}),
-    ...(kind === "full_text_read" ? {} : { status: output.audit_receipt?.audit_status ?? "validated" })
+    ...(kind === "full_text_read" ? {} : { status: output.audit_receipt?.audit_status ?? "validated" }),
+    ...(kind === "study_audit" ? studyFigureClaims(output.audit_receipt?.reported_figures_check) : {})
   });
+}
+
+// What finalize_research needs from a study audit's figures check (owner
+// questions 87 and 89), kept small enough for a receipt: the status, the
+// non-integer printed values for comparing key studies, and up to three
+// impossible values.
+function studyFigureClaims(check: ReportedFiguresCheck | undefined): ResearchReceiptClaims {
+  if (check === undefined) return {};
+  return {
+    fig: check.status,
+    ...(check.values.length === 0 ? {} : { figv: check.values.slice(0, 20).map(String) }),
+    ...(check.impossible_as_printed.length === 0 ? {} : {
+      imp: check.impossible_as_printed.slice(0, 3).map((value) => value.slice(0, 40))
+    })
+  };
 }
 
 export const RESEARCH_OPERATIONS = Object.freeze(collectResearchOperations());
