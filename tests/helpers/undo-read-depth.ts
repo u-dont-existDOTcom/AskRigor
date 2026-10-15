@@ -27,7 +27,12 @@ export async function undoOwnerQuestions90To92Hrp(text: string): Promise<string>
   return undoRecordedEdits(text, "hrp", "2026-10-14-owner-questions-90-92-hrp.json");
 }
 
+export async function undoMobileNoticeUniversal(text: string): Promise<string> {
+  return undoRecordedEdits(text, "universal", "2026-10-15-mobile-notice-universal.json");
+}
+
 export async function undoOwnerQuestions86To89Universal(text: string): Promise<string> {
+  text = await undoMobileNoticeUniversal(text);
   return undoRecordedEdits(text, "universal", "2026-10-14-owner-questions-86-89-universal.json");
 }
 

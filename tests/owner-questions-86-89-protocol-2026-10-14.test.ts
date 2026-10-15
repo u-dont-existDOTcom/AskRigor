@@ -4,8 +4,8 @@ import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
 import { getProtocolManifest } from "@askrigor/protocol";
 import {
-  undoAcceptedLessonsHrp, undoAcceptedLessonsUniversal, undoOwnerQuestions86To89Hrp, undoOwnerQuestions86To89Universal,
-  undoOwnerQuestions90To92Hrp,
+  undoAcceptedLessonsHrp, undoAcceptedLessonsUniversal, undoMobileNoticeUniversal, undoOwnerQuestions86To89Hrp,
+  undoOwnerQuestions86To89Universal, undoOwnerQuestions90To92Hrp,
 } from "./helpers/undo-read-depth.js";
 
 const ROOT = new URL("../", import.meta.url);
@@ -14,10 +14,11 @@ const hash = (text: string) => createHash("sha256").update(text, "utf8").digest(
 const loadCurrent = (protocol: "hrp" | "universal") => readFile(new URL(
   `protocols/${protocol === "hrp" ? "HRP_Full.xml" : "Universal_Instructions.xml"}`, ROOT,
 ), "utf8");
-// The state right after questions 86 to 89: the newer HRP edits of questions 90 and 92 are undone first.
+// The state right after questions 86 to 89: the newer HRP edits of questions 90 and 92 and the newer Universal
+// edits of the mobile notice are undone first.
 const load = async (protocol: "hrp" | "universal") => (
-  protocol === "hrp" ? undoOwnerQuestions90To92Hrp(await loadCurrent(protocol)) : loadCurrent(protocol)
-);
+  protocol === "hrp" ? undoOwnerQuestions90To92Hrp : undoMobileNoticeUniversal
+)(await loadCurrent(protocol));
 const undoOwnerQuestions = (protocol: "hrp" | "universal", text: string) => (
   protocol === "hrp" ? undoOwnerQuestions86To89Hrp : undoOwnerQuestions86To89Universal
 )(text);
@@ -151,8 +152,8 @@ describe("owner-approved questions 86 to 89: 89a 88a 87a 86a (2026-10-14)", () =
       await expect((protocol === "hrp" ? undoAcceptedLessonsHrp : undoAcceptedLessonsUniversal)(await loadCurrent(protocol))).resolves.toBe(beforePrevious);
       await expect(getProtocolManifest(protocol)).resolves.toEqual({
         name: protocol === "hrp" ? "HRP" : "AskRigor.com universal saved instructions",
-        version: protocol === "hrp" ? "20.6.24" : "20.5.42",
-        revisionDate: protocol === "hrp" ? "2026-10-15" : "2026-10-14", sha256: hash(await loadCurrent(protocol)),
+        version: protocol === "hrp" ? "20.6.24" : "20.5.43", revisionDate: "2026-10-15",
+        sha256: hash(await loadCurrent(protocol)),
       });
     });
   }
@@ -228,7 +229,7 @@ describe("owner-approved questions 86 to 89: 89a 88a 87a 86a (2026-10-14)", () =
 
   it("adds only the exact one-line item 7 directly after item 6 of the protocol-execution gate", async () => {
     const text = await load("universal");
-    const prior = await undoOwnerQuestions86To89Universal(text);
+    const prior = await undoOwnerQuestions86To89Universal(await loadCurrent("universal"));
     const tag = "canonical_protocol_execution_gate";
     const item6 = prior.split("\n").filter((line) => line.startsWith("6. Higher reasoning mode does not substitute"));
     expect(item6).toHaveLength(1);
