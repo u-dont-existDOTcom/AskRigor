@@ -527,7 +527,16 @@ export interface FinalizeResearchOptions {
   // waits for the user's yes; "private" for a caller with no research
   // account, whose card is neither checked nor saved.
   findings?: "closed" | "save" | "offer" | "private";
+  // The client's own hint that the answer will be read on a phone or tablet:
+  // the answer then carries the owner's mobile notice (owner request,
+  // 2026-10-15), as Universal's output_style asks wherever a phone shows.
+  mobileClient?: boolean;
 }
+
+// The owner's words (2026-10-15), many users' reports and the owner's own
+// comparison of the same question asked on a phone and on desktop web.
+export const MOBILE_NOTICE = "Mobile responses may be shorter and less intelligent than desktop web/app, even with " +
+  "the same model and thinking level selected.";
 
 export type RedditThreadCheck =
   | { state: "found"; subreddit: string; title: string }
@@ -618,7 +627,7 @@ export function finalizeResearch(
   const limits: string[] = [];
   // Each limit's sentences for the user, written here so the answer carries
   // them as they are: a caveat cannot be dropped, garbled or negated.
-  const caveats: string[] = [];
+  const caveats: string[] = options.mobileClient === true ? [MOBILE_NOTICE] : [];
   const requireLimit = (text: string, ...sentences: string[]): void => {
     limits.push(text);
     caveats.push(...sentences);

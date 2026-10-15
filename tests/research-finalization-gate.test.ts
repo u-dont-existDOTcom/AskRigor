@@ -9,6 +9,7 @@ import {
 } from "../apps/research-mcp/src/findings/card.js";
 import {
   finalizeResearch as finalizeResearchUnwrapped,
+  MOBILE_NOTICE,
   TOOL_LIST_REFRESH_HINT,
   type RedditThreadCheck,
   normalizeIdentifier,
@@ -2762,6 +2763,22 @@ describe("findings card at the final gate", () => {
     // A study whose method audit ran here can be cited, even when it is not a key source.
     const auditedOnly = finalizeResearch({ ...READY, receipts: [study], key_sources: [] }, options);
     expect(auditedOnly.next_steps.some((step) => step.startsWith("Give findings_card"))).toBe(true);
+  });
+
+  it("leads a phone's caveats with the owner's mobile notice, without changing the result (2026-10-15)", () => {
+    const desktop = finalizeResearch(READY, closedOptions);
+    const phoneOptions = { ...closedOptions, mobileClient: true };
+    const phone = finalizeResearch(READY, phoneOptions);
+    expect(desktop.status).toBe("ready_with_limits");
+    expect(phone.caveats).toEqual([MOBILE_NOTICE, ...desktop.caveats]);
+    expect(phone).toMatchObject({ status: desktop.status, limits: desktop.limits, next_steps: [] });
+    // The answer carries the notice like any caveat: without it, the check sends the answer back.
+    const draft = [CLEAN_DRAFT, ...desktop.caveats].join(" ");
+    const missing = finalizeResearch({ ...READY, answer_draft: draft }, phoneOptions);
+    expect(missing.status).toBe("not_ready");
+    expect(missing.next_steps.join(" ")).toContain(MOBILE_NOTICE);
+    expect(finalizeResearch({ ...READY, answer_draft: `${MOBILE_NOTICE}\n\n${draft}` }, phoneOptions).status)
+      .toBe(desktop.status);
   });
 
   it("needs a card with a free contributor's answer", () => {

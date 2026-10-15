@@ -249,6 +249,15 @@ const manifestSchema = z.object({
   sha256: z.string()
 });
 const PROTOCOL_INDEX_SECTION = "index";
+// ChatGPT's optional, best-effort hint of the reader's browser or app, which
+// names a phone or tablet the way a user agent does. It is read for the one
+// call and never logged or stored (docs/privacy-data-map.md); without it, or
+// on another client, the answer's own context decides the mobile notice.
+const MOBILE_USER_AGENT = /\b(?:iPhone|iPad|iPod|Android|Mobile)\b/u;
+function readsOnMobile(meta: unknown): boolean {
+  const agent = meta !== null && typeof meta === "object" ? (meta as Record<string, unknown>)["openai/userAgent"] : undefined;
+  return typeof agent === "string" && MOBILE_USER_AGENT.test(agent);
+}
 // Loads every core section in one result. Loading them one call at a time took up to 31 calls before any research
 // in the 2026-10-15 owner regressions; no section or named element is called "core".
 const PROTOCOL_CORE_SECTION = "core";
@@ -2058,6 +2067,7 @@ function defineResearchOperations(
         findings: !library
           ? "closed"
           : account === undefined ? "private" : account.mode === "FREE_CONTRIBUTOR" ? "save" : "offer",
+        ...(readsOnMobile(extra._meta) ? { mobileClient: true } : {}),
         ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) })
       });
       if (
