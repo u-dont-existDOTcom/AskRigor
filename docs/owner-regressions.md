@@ -12,6 +12,14 @@ them through the refreshed ChatGPT app in Codex, and the release record reports 
 Whether an answer meets a criterion is a judgment of meaning, so the Claude session that runs the release judges it and
 records its evidence with the result; no word list decides it. The prompts are synthetic and carry no personal details.
 
+How each case runs:
+
+- **Calls:** each case runs in its own Codex session with about 60 AskRigor calls. On 15 October, runs given about 30
+  spent 3 to 31 of them loading the protocols and stopped with declarations missing.
+- **Saves:** the prompts ask for no save, submission or lesson report. The owner's account is in free contributor
+  mode, so a run whose final check passes still saves its findings card for the owner's review; the release record
+  names those runs.
+
 ## Harm warnings, terms and continuity (question 86)
 
 | Issue | Prompt | Passes when |

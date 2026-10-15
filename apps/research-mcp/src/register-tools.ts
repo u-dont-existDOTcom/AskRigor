@@ -22,7 +22,8 @@ import {
   protocolTextPage,
   verifyProtocolIntegrity,
   type ProtocolElement,
-  type ProtocolName
+  type ProtocolName,
+  type ProtocolSection
 } from "@askrigor/protocol";
 import {
   acquireOpenFullText,
@@ -248,7 +249,80 @@ const manifestSchema = z.object({
   sha256: z.string()
 });
 const PROTOCOL_INDEX_SECTION = "index";
+// Loads every core section in one result. Loading them one call at a time took up to 31 calls before any research
+// in the 2026-10-15 owner regressions; no section or named element is called "core".
+const PROTOCOL_CORE_SECTION = "core";
+const PROTOCOL_PART_SEPARATOR = Buffer.from("\n\n", "utf8");
 const PROTOCOL_ELEMENTS_LISTED = 8;
+
+interface ProtocolPart {
+  label: string;
+  byte_start: number;
+  byte_end_exclusive: number;
+}
+
+/**
+ * The spans one load_protocol call serves for "core" or for names separated by
+ * commas, in the order asked, without a span already inside another one; or
+ * undefined when the request names one section or element, which keeps its
+ * own result shape. A name that matches exactly is never split.
+ */
+function protocolParts(
+  protocolName: string,
+  text: string,
+  sections: readonly ProtocolSection[],
+  request: string
+): undefined | { parts: ProtocolPart[] } | { code: string; message: string } {
+  if (request !== PROTOCOL_CORE_SECTION && (!request.includes(",") || sections.some(({ name }) => name === request) ||
+      protocolNamedElements(text, request).length > 0)) return undefined;
+  const names = new Set(request.split(",").map((entry) => entry.trim()).filter((entry) => entry !== ""));
+  if (names.size === 0) return { code: "protocol_request_invalid", message: "Give one or more section names." };
+  const parts: ProtocolPart[] = [];
+  const missing: string[] = [];
+  const ambiguous: string[] = [];
+  for (const name of names) {
+    if (name === PROTOCOL_INDEX_SECTION) {
+      missing.push('"index", which loads on its own');
+      continue;
+    }
+    if (name === PROTOCOL_CORE_SECTION) {
+      parts.push(...sections.filter(({ core }) => core).map(({ name: label, byte_start, byte_end_exclusive }) =>
+        ({ label, byte_start, byte_end_exclusive })));
+      continue;
+    }
+    const target = sections.find((entry) => entry.name === name);
+    if (target !== undefined) {
+      parts.push({ label: name, byte_start: target.byte_start, byte_end_exclusive: target.byte_end_exclusive });
+      continue;
+    }
+    const named = protocolNamedElements(text, name);
+    const rules = named.filter(({ tag }) => tag === "Rule" || tag === "rule");
+    const element = named.length === 1 ? named[0] : rules.length === 1 ? rules[0] : undefined;
+    if (element !== undefined) {
+      parts.push({ label: `${element.tag} ${name}`, byte_start: element.byte_start, byte_end_exclusive: element.byte_end_exclusive });
+    } else if (named.length === 0) {
+      missing.push(name);
+    } else {
+      ambiguous.push(`${name} (${describeProtocolElements(named)})`);
+    }
+  }
+  if (missing.length > 0 || ambiguous.length > 0) {
+    return {
+      code: missing.length > 0 ? "protocol_section_not_found" : "protocol_section_ambiguous",
+      message: [
+        missing.length === 0 ? "" : `${protocolName} has no section or named element ${missing.join(", ")}.`,
+        ambiguous.length === 0 ? "" : `${protocolName} has several elements named ${ambiguous.join("; ")}; load the ` +
+          "section that holds the one you need."
+      ].filter((sentence) => sentence !== "").join(" ") + ' Call load_protocol with section "index" for section names.'
+    };
+  }
+  const inside = (part: ProtocolPart, other: ProtocolPart) =>
+    other.byte_start <= part.byte_start && part.byte_end_exclusive <= other.byte_end_exclusive;
+  return {
+    parts: parts.filter((part, index) => !parts.some((other, otherIndex) => otherIndex !== index && inside(part, other) &&
+      (!inside(other, part) || otherIndex < index)))
+  };
+}
 
 /** "Rule in section A, Case in section B", for load_protocol's name matches. */
 function describeProtocolElements(elements: readonly ProtocolElement[]): string {
@@ -743,8 +817,8 @@ function defineResearchOperations(
       // The compact Gemini catalog has a 25,000-byte budget, so usage lives in
       // this description and the parameters carry no descriptions.
       description:
-        'Canonical protocol text in 40,000-byte pages. section "index" lists sections; ' +
-        "section <name> loads one, or a rule, case or other element by its name or id; page N continues.",
+        'Canonical protocol text, 40,000-byte pages. section: "index" lists sections, "core" loads the core ones, ' +
+        "names or ids (comma-separated) load sections, rules or cases; page N continues.",
       inputSchema: {
         protocol: protocolSchema,
         section: z.string().optional(),
@@ -789,8 +863,9 @@ function defineResearchOperations(
           const core = sections.filter((entry) => entry.core).map(({ name }) => name);
           return successfulToolResult(
             `${manifest.name} ${manifest.version} index: ${sections.length} sections. ` +
-              `Load the core sections first (${core.join(", ")}), then each runtime section your question needs, ` +
-              "before the step that uses it. Sections marked runtime: false are maintainer material.",
+              `Load the core sections first: section "core" loads all of them (${core.join(", ")}) in one call. ` +
+              "Then load each runtime section your question needs before the step that uses it; names separated by " +
+              "commas load several in one call. Sections marked runtime: false are maintainer material.",
             {
               ok: true,
               protocol,
@@ -809,6 +884,43 @@ function defineResearchOperations(
           );
         }
         const bytes = Buffer.from(snapshot.text, "utf8");
+        const several = section === undefined ? undefined : protocolParts(manifest.name, snapshot.text, sections, section);
+        if (several !== undefined) {
+          if (!("parts" in several)) return protocolRequestError(protocol, several.code, several.message);
+          // Each part's exact canonical bytes, in the order asked, a blank line between two parts.
+          const joined = Buffer.concat(several.parts.flatMap(({ byte_start, byte_end_exclusive }, index) => [
+            ...(index === 0 ? [] : [PROTOCOL_PART_SEPARATOR]),
+            bytes.subarray(byte_start, byte_end_exclusive)
+          ]));
+          const pageCount = protocolTextPage(joined, 1).page_count;
+          if ((page ?? 1) > pageCount) {
+            return protocolRequestError(
+              protocol,
+              "protocol_page_out_of_range",
+              `Page ${page} does not exist; this text has ${pageCount} page${pageCount === 1 ? "" : "s"}.`
+            );
+          }
+          const textPage = protocolTextPage(joined, page ?? 1);
+          return successfulToolResult(
+            `Loaded ${manifest.name} ${several.parts.map(({ label }) => label).join(", ")}, page ${textPage.page} of ` +
+              `${textPage.page_count} (exact canonical bytes of each, in this order, a blank line between two).` +
+              (textPage.complete ? "" : ` Call load_protocol again with the same section and page ${textPage.page + 1} to continue.`),
+            {
+              ok: true,
+              protocol,
+              manifest,
+              scope: "section",
+              section,
+              page: textPage.page,
+              page_count: textPage.page_count,
+              ...(textPage.complete ? {} : { next_page: textPage.page + 1 }),
+              complete: textPage.complete,
+              scope_bytes: textPage.scope_bytes,
+              scope_sha256: textPage.scope_sha256,
+              text: textPage.text
+            }
+          );
+        }
         const target = section === undefined
           ? undefined
           : sections.find(({ name }) => name === section);

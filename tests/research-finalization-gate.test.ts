@@ -618,6 +618,11 @@ describe("finalize_research gate", () => {
     const bounded = gate({ principal_communities: facebook, community_searches: [gated] });
     expect(bounded.status).toBe("ready_with_limits");
     expect(bounded.caveats).toContain("TRT Facebook group needs a login to read, so reports there are not included.");
+    // A failed fetch is not a site's refusal, and its caveat says what happened (the 2026-10-15 owner regressions).
+    const failed = gate({ principal_communities: facebook, community_searches: [{ ...gated, access_boundary: "retrieval_failed" }] });
+    expect(failed.status).toBe("ready_with_limits");
+    expect(failed.caveats).toContain("Pages from TRT Facebook group could not be retrieved, so reports there are not included.");
+    expect(failed.caveats.join(" ")).not.toContain("blocked access");
     // One site is one discussion pool, whatever each entry is called.
     const { platform: _reddit, threads_read: _threads, ...trtFindings } = trt;
     const meso = {
@@ -1793,14 +1798,23 @@ describe("finalize_research gate", () => {
     expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)[1]).toMatch(/^Try acquire_open_full_text for 10\.1000\/unattempted/u);
   });
 
+  // The caveat says what stopped the reading: a public copy read only in part
+  // was not unavailable (the 2026-10-15 owner regressions).
+  const LEAD_LINK = "[this study](https://doi.org/10.1016/j.joca.2020.01.001)";
   it.each([
-    ["NO_COPY_FOUND_AFTER_EXPANDED_SEARCH", "no public full text was found after an exact search"],
-    ["PAYWALL_OR_LOGIN_REQUIRED", "its full text needs a login or a subscription"],
-    ["CANDIDATE_FOUND_FETCH_BLOCKED", "a possible public copy was found, but AskRigor could not fetch it to check it"],
-    ["ABSTRACT_ONLY", "only its abstract was readable"],
-    ["PARTIAL_TEXT_READABLE", "only part of its text was readable"],
-    ["IDENTITY_MISMATCH", "no copy found could be verified as the same paper"]
-  ])("prints the signed lead boundary for %s", (state, limit) => {
+    ["NO_COPY_FOUND_AFTER_EXPANDED_SEARCH", "no public full text was found after an exact search",
+      `The full text of ${LEAD_LINK} was not openly available, so its methods were not checked.`],
+    ["PAYWALL_OR_LOGIN_REQUIRED", "its full text needs a login or a subscription",
+      `The full text of ${LEAD_LINK} was not openly available, so its methods were not checked.`],
+    ["CANDIDATE_FOUND_FETCH_BLOCKED", "a possible public copy was found, but AskRigor could not fetch it to check it",
+      `A public copy of ${LEAD_LINK} was found, but AskRigor could not fetch it, so its methods were not checked.`],
+    ["ABSTRACT_ONLY", "only its abstract was readable",
+      `Only the abstract of ${LEAD_LINK} was readable, so its methods were not checked.`],
+    ["PARTIAL_TEXT_READABLE", "only part of its text was readable",
+      `AskRigor could read only part of ${LEAD_LINK}, so its methods were not checked.`],
+    ["IDENTITY_MISMATCH", "no copy found could be verified as the same paper",
+      `No copy of ${LEAD_LINK} could be verified as the same paper, so its methods were not checked.`]
+  ])("prints the signed lead boundary for %s", (state, limit, caveat) => {
     const id = "10.1016/j.joca.2020.01.001";
     const receipt = sign("full_text_lead", { doi: id, state }, options);
     const result = finalizeResearch({ receipts: [survey, emptySearch, repeatScout, videoA, videoB, study, receipt],
@@ -1808,6 +1822,7 @@ describe("finalize_research gate", () => {
       key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id, status: "lead_only" }] }, options);
     expect(result.status).toBe("ready_with_limits");
     expect(result.limits).toContain(`Cite ${id} as a lead: ${limit}, so its methods were not audited.`);
+    expect(result.caveats).toContain(caveat);
   });
 
   it("turns bounded audits and server-proven leads into limits", () => {
@@ -2738,6 +2753,15 @@ describe("findings card at the final gate", () => {
     expect(carded.caveats).toEqual(plain.caveats);
     expect(findingsClaim(carded.finalization_receipt)).toBe(findingsCardDigest(findingsCardSchema.parse(CARD)));
     expect(findingsClaim(plain.finalization_receipt)).toBeUndefined();
+  });
+
+  it("does not ask for a card when the answer cites no study or audited video (2026-10-15 owner regressions)", () => {
+    const sourceFree = finalizeResearch({ ...READY, receipts: [], key_sources: [] }, options);
+    expect(sourceFree.next_steps.some((step) => step.startsWith("Give findings_card"))).toBe(false);
+    expect(sourceFree.findings_card).toEqual({ status: "absent", problems: [] });
+    // A study whose method audit ran here can be cited, even when it is not a key source.
+    const auditedOnly = finalizeResearch({ ...READY, receipts: [study], key_sources: [] }, options);
+    expect(auditedOnly.next_steps.some((step) => step.startsWith("Give findings_card"))).toBe(true);
   });
 
   it("needs a card with a free contributor's answer", () => {

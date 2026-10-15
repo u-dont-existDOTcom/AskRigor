@@ -168,7 +168,7 @@
     },
     {
       "name": "load_protocol",
-      "description": "Canonical protocol text in 40,000-byte pages. section \"index\" lists sections; section <name> loads one, or a rule, case or other element by its name or id; page N continues.",
+      "description": "Canonical protocol text, 40,000-byte pages. section: \"index\" lists sections, \"core\" loads the core ones, names or ids (comma-separated) load sections, rules or cases; page N continues.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -14195,11 +14195,13 @@
                   ]
                 },
                 "access_boundary": {
+                  "description": "What stopped the search: this app has no web search; the site needs a login; the site refused access, such as a block page; a search or page fetch failed, such as an error or a timeout; or the searches found nothing relevant.",
                   "type": "string",
                   "enum": [
                     "no_web_search",
                     "login_required",
                     "blocked",
+                    "retrieval_failed",
                     "no_relevant_results"
                   ]
                 },
@@ -15078,7 +15080,7 @@
             }
           },
           "findings_card": {
-            "description": "With answer_draft: the answer's best findings for AskRigor's findings library, never claims the user corrected and no personal details, checked against the answer and this call's verified sources. In free contributor mode a checked card is saved for the owner's review; in paid private mode it adds a caveat offering the save. A rejected card is not saved or offered and does not hold back the answer.",
+            "description": "With answer_draft, when the answer cites a study or video verified here: the answer's best findings for AskRigor's findings library, never claims the user corrected and no personal details, checked against the answer and this call's verified sources. Leave it out when the answer cites none. In free contributor mode a checked card is saved for the owner's review; in paid private mode it adds a caveat offering the save. A rejected card is not saved or offered and does not hold back the answer.",
             "type": "object",
             "properties": {
               "question": {

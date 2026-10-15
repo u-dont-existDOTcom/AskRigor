@@ -186,3 +186,22 @@ describe("finalize_research corrections (owner question 92, lesson #29)", () => 
     ]);
   });
 });
+
+describe("finalize_research key-source links (the 2026-10-15 owner regressions)", () => {
+  const PMID = "25959135";
+  const pubmed = issueResearchReceipt("pubmed_record", { pmid: PMID, doi: DOI }, { secret: SECRET });
+  const VIA_PUBMED = `[Trial](https://pubmed.ncbi.nlm.nih.gov/${PMID}/) and [Rat study](https://doi.org/${RAT}) were read.`;
+  const linkSteps = (receipts: string[]) => steps({ answer_draft: VIA_PUBMED, receipts })
+    .filter((step) => step.startsWith(`Key study ${DOI} has no link`) || step.startsWith(`Key source ${DOI} has no answer_marker`));
+
+  it("accepts a DOI key source's PubMed page once a PubMed receipt matched the two", () => {
+    expect(linkSteps([...base().receipts, pubmed])).toEqual([]);
+  });
+
+  it("still asks for the DOI page when nothing matched the PubMed record to the DOI", () => {
+    expect(linkSteps(base().receipts)).toEqual([
+      `Key source ${DOI} has no answer_marker on the same line as its link in answer_draft; put its answer_marker there.`,
+      `Key study ${DOI} has no link in the answer; link it to the page AskRigor's tools returned, such as https://doi.org/${DOI}.`
+    ]);
+  });
+});
