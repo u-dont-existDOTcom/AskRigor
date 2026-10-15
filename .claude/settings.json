@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "mcp__Desktop_Commander__start_process",
+      "mcp__Desktop_Commander__read_process_output",
+      "mcp__Desktop_Commander__interact_with_process",
+      "mcp__Desktop_Commander__force_terminate",
+      "mcp__Desktop_Commander__list_sessions",
+      "mcp__Desktop_Commander__list_processes",
+      "mcp__Desktop_Commander__read_file",
+      "mcp__Desktop_Commander__read_multiple_files",
+      "mcp__Desktop_Commander__write_file",
+      "mcp__Desktop_Commander__edit_block",
+      "mcp__Desktop_Commander__create_directory",
+      "mcp__Desktop_Commander__list_directory",
+      "mcp__Desktop_Commander__get_file_info",
+      "mcp__Desktop_Commander__move_file",
+      "mcp__Desktop_Commander__start_search",
+      "mcp__Desktop_Commander__get_more_search_results",
+      "mcp__Desktop_Commander__stop_search",
+      "mcp__Desktop_Commander__list_searches",
+      "mcp__Desktop_Commander__list_devices",
+      "mcp__Desktop_Commander__ping",
+      "mcp__Desktop_Commander__who_am_i",
+      "mcp__Desktop_Commander__get_config",
+      "mcp__Desktop_Commander__get_usage_stats",
+      "mcp__Desktop_Commander__get_recent_tool_calls",
+      "mcp__Desktop_Commander__list_remote_tool_calls",
+      "mcp__Desktop_Commander__get_tool_result"
+    ]
+  }
+}
