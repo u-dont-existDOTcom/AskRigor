@@ -160,9 +160,70 @@
 
   No migration or site change needs reversal. Rollback was not executed.
 
-## Product acceptance (owner regressions)
+## Product acceptance (owner regressions, 16:19 to 17:14 UTC)
 
-Pending. The regression list in `docs/owner-regressions.md` runs through Codex once the owner refreshes the AskRigor
-app in ChatGPT.
+- **Route:** Codex, through the AskRigor app in the owner's ChatGPT account, after the owner's refresh. At 14:29 UTC
+  the app named build `85edacfa`, HRP 20.6.24 and Universal 20.5.42, and its final check had `recommendations` and
+  `corrections`.
+- **Method:**
+  - The 19 cases of `docs/owner-regressions.md` ran with one `codex exec --json` each, four at a time. #326 took two
+    turns, the second being "continue".
+  - Each prompt asked for about 30 AskRigor calls and for no save, submission or bug report.
+  - Each case is judged from its answer and its tool-call log, not from what the answer says about itself.
+- **Overall:**
+  - **loaded:** every run loaded the protocols through `load_protocol`. 14 answers named HRP 20.6.24 and Universal
+    20.5.42. The lesson #25 answer named only Universal 20.5.42, the only protocol it loaded. Four answers named no
+    version: lesson #23, question 81, #326 (both turns) and #329.
+  - **executed:** 14 answers met their case's criteria, and 5 met them in part.
+  - **finalized:** `finalize_research` passed (`ready_with_limits`) in two cases, lesson #22 and question 81. It did not
+    pass in the other 17.
+
+| Case | Loaded | Executed | Finalized | Note |
+|---|---|---|---|---|
+| #324 Bacopa side effects | yes | yes | no | Nausea 18.4% vs 2.0% on placebo and three other rows, with extract, 300 mg/day and 12 weeks; `safety_claims` not declared |
+| #325 alginate metals | yes | part | no | No blanket warning, and the extract kept apart from whole seaweed; basis declared `not_quantified`, not `hazard_measurement` |
+| #326 continuation | not named | yes | no | Turn 2 kept AskRigor's tools and declared `safety_claims` (`case_reports`); the check stayed `not_ready` (access wording, below) |
+| #328 arsenic terms | yes | part | no | Inorganic arsenic called the more toxic form, but neither term explained; `key_terms` not declared |
+| #329 identical results | not named | yes | no | The paired results counted once, the 2018 arithmetic recomputed (23.78% vs 53.25%), no misconduct claim; no DOI, so no audit |
+| #330 route | yes | part | no | Not called acid-sparing, with the injection route stated; only the oral finding declared; key link given as PubMed |
+| #331 impossible value | yes | yes | no | 96 mmol/g shown impossible (3.08 g sulfur per g), no corrected unit invented, safety not established; abstract only |
+| #332 table vs abstract | yes | part | no | The 16.6% acid/crude swap and 482 vs 375 g/cm² named in both places; the ±9.4 pH and the unreported filtration step not mentioned |
+| Lesson #23 long-term medicine | not named | yes | no | No endorsement; both conflicts reviewed first; options other than medicines; 12-week limits; relapse 40/51 after stopping; `recommendations` `unresolved` |
+| Lesson #22 kelp iodine | yes | yes | yes | Iodine per gram and the upper limit, a measured-trial caveat, no blanket avoid; caveats copied |
+| Lesson #28 borrowed mechanism | yes | yes | no | Hypothesis only; rodent cortex and isolated muscle don't show human skin; Y not recommended |
+| Lesson #25 columns and passages | Universal only | yes | no | 7% for A, 40% for B; 12% called a share of passages, not of people |
+| Lesson #29 correction | yes | yes | no | Headline, table and chart corrected, the change stated and recomputed, comments gap a limit; `corrections` declared |
+| Lesson #26 brief chills | yes | yes | no | Before, during and after measures; untested measures labelled; no overheating |
+| Lesson #27 herbal tea | yes | yes | no | Advice kept apart from outcomes, nausea apart from chills, and natural resolution apart from the tea; no success rate |
+| Lesson #24 practitioner corpus | yes | part | no | Recoveries and non-responses lead; unreadable comments reported; the unrelated registry record mentioned, not left out |
+| Question 81 nebulizer | not named | yes | yes | Evidence by route; not called absent; two `not_established` absence claims accepted |
+| Question 79 handoff | yes | yes | no | The prompt's first sentence states the target and asks for it to be restated; says what will be checked on return |
+| Questions 82 and 83 seller page | yes | yes | no | Testimonials unreliable, with signs; Reddit reports the stronger signal; neither scam nor proof that it works |
+
+- **Why the check did not pass,** from the server's replies:
+  1. **No research source:** lessons #24, #25, #28 and #29, and questions 79 and 82. The connector's schema requires a
+     findings card with at least one finding and one source, so no call could pass.
+  2. **The call budget:** the runs used 3 to 31 calls loading protocol pages. They stopped near 30 calls with
+     declarations still missing: `full_text_search`, `lab_preparation`, `intervention_identity`,
+     `commercial_review_applicability` and community threads. Cases: #324, #325, #328, #331 and #332, and lessons
+     #23 and #26.
+  3. **Sources AskRigor cannot acquire:** a paper without a DOI (#329), a conference abstract (#331) and a copy admitted
+     only in part (#332). No method audit could declare their `reported_figures`.
+  4. **Link matching:** #330's answer linked its key source's PubMed record. The check asked for the link the tools
+     returned (doi.org).
+  5. **Access wording:** in #326's second turn, the check required two sentences the run judged inaccurate:
+     - "not openly available", for a paper whose public copy AskRigor's reader admitted only in part;
+     - "blocked access", for a community whose retrieval failed.
+
+     #332 made the same complaint.
+- **Side effect:** the account is in free contributor mode. The two runs whose check passed saved their findings card
+  and analyses to the owner's review queue, as their answers say. The prompts' no-save instruction covered only the
+  save, submission and lesson tools. Saved cards stay pending review like any proposal.
+- **Proposed next work:**
+  - accept a research answer that rests on no research receipt without a findings card;
+  - word the full-text and access caveats for what happened;
+  - accept a PubMed link to the same record as a key source's link;
+  - give regression cases about 60 calls, or shorten protocol loading.
 
 Evidence: build, stage, probe, plugin and Codex outputs in `/home/joel/askrigor-releases/20261015/` on the laptop.
+Each case's answer is in `regress/out/`, its tool-call log in `regress/logs/`, and the summaries are `regress/summary2.txt`.

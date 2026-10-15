@@ -76,8 +76,8 @@ complete XML protocol.
   Codex plugin refresh.
 - `audits/2026-10-15-claim-declarations-production-release.md`: release of #323 and #333 (owner questions 86 to 94):
   harm warnings, terms, reported figures, routes, recommendations, safest options first and lessons #22 to #29, with
-  HRP 20.6.24, Universal 20.5.42, production acceptance, the Codex plugin refresh and the stdin finding in the host
-  procedure.
+  HRP 20.6.24, Universal 20.5.42, production acceptance, the Codex plugin refresh, the owner regressions (the final
+  check passed in 2 of 19 cases, with the causes) and the stdin finding in the host procedure.
 - `audits/2026-10-09-product-identity-finalizer-production-release.md`: release of #288 and #290 (owner question 60):
   exact product identity, the final-check contract and HRP 20.6.13 / Universal 20.5.37, with the plugin refresh.
 - `audits/2026-10-09-offline-access-production-release.md`: release of #289 and #291 (owner question 56):
