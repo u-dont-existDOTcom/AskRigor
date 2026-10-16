@@ -136,6 +136,12 @@
     key. The promotion timer ran at 19:35:10 UTC (`complete`, `no_pending_promotion`, `success`).
   - **Product interface:** the Claude connector returned HRP 20.6.25, `sign_in: accepted`, `research_access: ready`.
     Whether ChatGPT and Claude draw the panel is checked after the owner's app refresh, with the owner regressions.
+  - **Reference host (laptop, 19:52 UTC):** the released panel HTML (338,851 bytes, from the merged source) ran in a
+    sandboxed frame with an opaque origin inside a minimal host that answered the MCP Apps handshake. The panel sent
+    `ui/initialize` (protocol `2026-01-26`) and `ui/notifications/initialized`, received a sample `ready_with_limits`
+    result through `ui/notifications/tool-result`, sent `ui/notifications/size-changed`, and drew the verdict, the
+    check line, the caveats (a sample containing `<script>` shown as text), the counts, the studies and the
+    communities. Whether ChatGPT and Claude draw it is the owner's check after the app refresh.
   - **Plugin:** before `0.1.0+codex.20261016184428.hrp.20.6.25.universal.20.5.43` (receipts `058f5f4f…`); rollback
     copy `/home/joel/plugins/askrigor.rollback-20261016T193407Z`; reinstalled as
     `0.1.0+codex.20261016193407.hrp.20.6.25.universal.20.5.43`, source and installed receipts both
