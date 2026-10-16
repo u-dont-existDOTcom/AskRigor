@@ -4,17 +4,19 @@ import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
 import { getProtocolManifest, loadProtocolSectionSnapshot, protocolNamedElements } from "@askrigor/protocol";
 import {
-  undoOwnerQuestion93Hrp, undoOwnerQuestions86To89Hrp, undoOwnerQuestions90To92Hrp,
+  undoOwnerQuestion93Hrp, undoOwnerQuestions86To89Hrp, undoOwnerQuestions90To92Hrp, undoOwnerQuestions97And99Hrp,
 } from "./helpers/undo-read-depth.js";
 
 const ROOT = new URL("../", import.meta.url);
 const parser = new XMLParser({ parseTagValue: false });
 const hash = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
-const load = (file: "HRP_Full.xml" | "Universal_Instructions.xml" = "HRP_Full.xml") => readFile(
+const loadCurrent = (file: "HRP_Full.xml" | "Universal_Instructions.xml" = "HRP_Full.xml") => readFile(
   new URL(`protocols/${file}`, ROOT), "utf8",
 );
+// The state right after question 93: the newer HRP edits of questions 97 and 99 are undone first.
+const load = async () => undoOwnerQuestions97And99Hrp(await loadCurrent());
 // HRP 20.6.23, the state the owner's wording for question 93 was added to.
-const loadPrior = async () => undoOwnerQuestion93Hrp(await load());
+const loadPrior = async () => undoOwnerQuestion93Hrp(await loadCurrent());
 interface Edits {
   from: { version: string; sha256: string }; to: { version: string; sha256: string };
   edits: Array<[string, string]>;
@@ -97,15 +99,15 @@ describe("owner-approved question 93: 93a (2026-10-15)", () => {
     expect(prior).toContain(`<Protocol name="HRP" version="${PINS.from.version}" revisionDate="2026-10-14"`);
     expect(hash(prior)).toBe(PINS.from.sha256);
     expect(fixture.edits.reduce((text, [before, after]) => replaceOnce(text, before, after), prior)).toBe(current);
-    await expect(undoOwnerQuestion93Hrp(current)).resolves.toBe(prior);
+    await expect(undoOwnerQuestion93Hrp(await loadCurrent())).resolves.toBe(prior);
     const beforePrevious = [...previous.edits].reverse().reduce((text, [before, after]) => replaceOnce(text, after, before), prior);
     expect(hash(beforePrevious)).toBe(PINS.hrp20622);
-    await expect(undoOwnerQuestions90To92Hrp(current)).resolves.toBe(beforePrevious);
-    expect(hash(await undoOwnerQuestions86To89Hrp(current))).toBe(PINS.hrp20621);
+    await expect(undoOwnerQuestions90To92Hrp(await loadCurrent())).resolves.toBe(beforePrevious);
+    expect(hash(await undoOwnerQuestions86To89Hrp(await loadCurrent()))).toBe(PINS.hrp20621);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: PINS.to.version, revisionDate: "2026-10-15", sha256: hash(current),
+      name: "HRP", version: "20.6.25", revisionDate: "2026-10-16", sha256: hash(await loadCurrent()),
     });
-    const universal = await load("Universal_Instructions.xml");
+    const universal = await loadCurrent("Universal_Instructions.xml");
     expect(hash(universal)).toBe(PINS.universal.sha256);
     await expect(getProtocolManifest("universal")).resolves.toEqual({
       name: "AskRigor.com universal saved instructions", version: PINS.universal.version, revisionDate: "2026-10-15",
@@ -148,7 +150,7 @@ describe("owner-approved question 93: 93a (2026-10-15)", () => {
     const bytes = await readFile(new URL("protocols/HRP_Full.xml", ROOT));
     const { manifest, sections, text } = await loadProtocolSectionSnapshot("hrp");
     expect(text).toBe(bytes.toString("utf8"));
-    expect(manifest).toEqual({ name: "HRP", version: PINS.to.version, revisionDate: "2026-10-15", sha256: PINS.to.sha256 });
+    expect(manifest).toEqual({ name: "HRP", version: "20.6.25", revisionDate: "2026-10-16", sha256: hash(text) });
     const [rule, ...others] = protocolNamedElements(text, "SafestOptionsFirst");
     expect(others).toEqual([]);
     expect(rule).toMatchObject({ tag: "Rule", section: GATE });
