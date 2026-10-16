@@ -77,18 +77,15 @@
    (`86a6b9c9`), with one reversible edit fixture chained from 97-99, the approved text and the move tested in place,
    and every current pin moved. The same correction goes into `docs/owner-regressions.md`'s lesson #30 row.
 
-7. **The owner's first look at the panel in ChatGPT** (16 October, 21:29 UTC; added at the parent session's request):
-   - the lane lines carried instructions meant for the model ("Then copy the sentences that report it into the
-     entry's answer_quotes"): `must_report` keeps them for the model, and the tool result's `_meta` carries the
-     panel's copy without them (`mustReportFindings`, which removes only the gate's own instruction sentences).
-     OpenAI's Apps SDK reference says a result's `_meta` reaches the component and is hidden from the model; MCP
-     Apps passes the whole result to the panel;
-   - the findings card shows only when it was checked or rejected, in plain words;
-   - a not-ready panel says "This answer was given before AskRigor's final check passed.";
-   - the "CSP off" badge: its meaning is unverified. The panel's resource declares ChatGPT's dedicated origin under
-     OpenAI's own key, `openai/widgetDomain`, from the configured resource URL. `ui.domain` stays unset: Claude
-     accepts only its hashed `claudemcpcontent.com` form there and shows an error instead of the panel otherwise
-     (Claude's MCP Apps troubleshooting guide). The owner checks after release whether the badge goes.
+7. **The panel is one line** (owner question 108, A, after the owner's first look at it in ChatGPT on 16 October: a
+   big box that read like internal instructions). It shows only whether AskRigor's final check passed on this answer,
+   in AskRigor's own words: "✓ Checked by AskRigor's final check." (with "The answer states its N limits." when there
+   are limits) or "⚠ Not checked: this answer was given before AskRigor's final check passed."; no lists, so nothing
+   meant for the model reaches the reader, and the text line at the end of the answer stays for apps without panels.
+   The "CSP off" badge: its meaning is unverified. The panel's resource declares ChatGPT's dedicated origin under
+   OpenAI's own key, `openai/widgetDomain`, from the configured resource URL. `ui.domain` stays unset: Claude accepts
+   only its hashed `claudemcpcontent.com` form there and shows an error instead of the panel otherwise (Claude's MCP
+   Apps troubleshooting guide). The owner checks after release whether the badge goes.
 8. **Universal's correction-report rule** (owner question 78; the 16 October lemon conversation said "You're right"
    and offered no report): `corrections[].by_user` declares whether the user pointed the error out, and after such a
    correction the answer must carry the question `CORRECTION_REPORT_OFFER`, a fixed sentence checked like the other

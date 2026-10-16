@@ -3,12 +3,12 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  FINAL_CHECK_PANEL_META, FINAL_CHECK_PANEL_URI, FINAL_CHECK_PANEL_RENDER_SOURCE, FINAL_CHECK_PANEL_BOOTSTRAP_SOURCE,
+  FINAL_CHECK_PANEL_URI, FINAL_CHECK_PANEL_RENDER_SOURCE, FINAL_CHECK_PANEL_BOOTSTRAP_SOURCE,
   finalCheckPanelHtml, finalCheckPanelWidgetDomain, inlineFinalCheckAppBundle,
 } from "../apps/research-mcp/src/final-check-panel.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import {
-  finalizeResearch, mustReportFindings, type FinalizeResearchInput,
+  finalizeResearch, type FinalizeResearchInput,
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 
@@ -75,7 +75,8 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
         next_steps: [], limits: [], sources: { validated: ["10.1000/depth"], lead_only: [] },
       });
       expect(result.content).toEqual([{ type: "text", text: expect.stringContaining("Research finalization: ready; 0 next step(s), 0 limit(s) to state;") }]);
-      expect(result._meta).toEqual({ [FINAL_CHECK_PANEL_META]: { must_report: [] } });
+      // The panel draws one line from the structured result; nothing is sent only for it.
+      expect(result._meta).toBeUndefined();
     } finally { await client.close(); await server.close(); }
   });
 });
@@ -103,25 +104,6 @@ describe("panel origin", () => {
       const { contents } = await client.readResource({ uri: FINAL_CHECK_PANEL_URI });
       expect(contents[0]!._meta).toEqual({ ui: { prefersBorder: true, csp: { connectDomains: [], resourceDomains: [] } } });
     } finally { await client.close(); await server.close(); }
-  });
-});
-
-// The owner's first look at the panel in ChatGPT (2026-10-16): its lanes carried instructions meant for the model.
-describe("panel lanes without the model's instructions", () => {
-  const youtube = "YouTube comments (2 video(s) read): Benefits: Some. No effect: None. Adverse: None. Creators " +
-    "versus commenters: Same. Effect on the answer: Small.";
-  const forum = "Mineral Forum (1 thread(s) read): Benefits: One. No effect: One. Adverse: None. Effect on the answer: Small.";
-  const lines = [
-    `${youtube} Report this lane in the answer even if later sources dominate; if its signal is weak, say so. Then ` +
-      "copy the sentences that report it into community_findings.answer_quotes.",
-    `${forum} Report this lane in the answer, naming Mineral Forum and linking a thread you read, even if its signal ` +
-      "is weak. Then copy the sentences that report it into the entry's answer_quotes.",
-    "Mineral Forum, form A: 4 report(s) read; 1 firsthand report(s) of exactly this."
-  ];
-  it("removes only the server's own instruction sentences", () => {
-    expect(mustReportFindings(lines, ["Mineral Forum"])).toEqual([youtube, forum, lines[2]]);
-    // Another community's instruction is not this line's, so the line stays whole.
-    expect(mustReportFindings([lines[1]!], ["Other Forum"])).toEqual([lines[1]]);
   });
 });
 
@@ -198,88 +180,37 @@ function render(result: unknown, doc = documentShim()) {
   return doc.root;
 }
 
+// Owner question 108 (2026-10-16): the panel is one line for the reader, whether the final check passed on this answer.
 describe("rendered final check result", () => {
   it.each([
-    [{ status: "ready" }, "Checked by AskRigor's final check"],
-    [{ status: "ready_with_limits", limits: ["a", "b"] }, "Checked by AskRigor's final check, with 2 limit(s)"],
-    [{ status: "not_ready", next_steps: ["a", "b", "c"] }, "Not checked yet: 3 step(s) left"],
-    [{ status: "receipts_unavailable" }, "AskRigor's final check could not run here"],
-    [{ status: "unknown" }, "AskRigor's final check could not run here"],
-    [undefined, "AskRigor's final check could not run here"],
-  ])("shows the heading for %j", (result, heading) => {
-    expect(render(result).all("h1").map((element) => element.textContent)).toEqual([heading]);
+    [{ status: "ready" }, "\u2713 Checked by AskRigor's final check."],
+    [{ status: "ready_with_limits", limits: ["a", "b", "c"] }, "\u2713 Checked by AskRigor's final check. The answer states its 3 limits."],
+    [{ status: "ready_with_limits", limits: ["a"] }, "\u2713 Checked by AskRigor's final check. The answer states its 1 limit."],
+    [{ status: "not_ready", next_steps: ["a", "b", "c"] }, "\u26a0 Not checked: this answer was given before AskRigor's final check passed."],
+    [{ status: "receipts_unavailable" }, "AskRigor's final check could not run here."],
+    [{ status: "unknown" }, "AskRigor's final check could not run here."],
+    [undefined, "AskRigor's final check could not run here."],
+  ])("shows one line for %j", (result, line) => {
+    const root = render(result);
+    expect(root.children.map((element) => [element.tagName, element.textContent])).toEqual([["p", line]]);
   });
 
-  it("shows the check line, exact caveats and lanes, source identifiers and communities as text", () => {
-    const caveat = "<script>alert(1)</script> 日本語، caveat " + "x".repeat(12_000);
+  it("shows only the verdict, never the check's lists or text, and never as HTML", () => {
     const root = render({
-      status: "ready", check_line: "The exact check line.", caveats: [caveat], must_report: ["No benefit was reported."],
-      sources: { validated: ["10.1000/one"], lead_only: ["PMID 42"] },
-      community: { communities_searched: ["مجتمع", "Community two"] }, findings_card: { status: "checked", problems: [] },
+      status: "ready_with_limits", limits: ["one", "two"], check_line: "The exact check line.",
+      caveats: ["<script>alert(1)</script> caveat"], must_report: ["Lane. Then copy it into answer_quotes."],
+      next_steps: ["A step for the model."], sources: { validated: ["10.1000/one"], lead_only: ["PMID 42"] },
+      community: { communities_searched: ["Community"] }, findings_card: { status: "checked", problems: [] },
     });
-    expect(root.all("h2").map((element) => element.textContent)).toEqual([
-      "What the answer must say", "What the answer reports", "Studies checked", "Communities searched", "Findings card",
-    ]);
-    expect(root.all("li").map((element) => element.textContent)).toEqual([
-      caveat, "No benefit was reported.", "10.1000/one", "PMID 42", "مجتمع", "Community two",
-    ]);
-    expect(root.all("p").map((element) => element.textContent)).toEqual([
-      "The exact check line.", "Checked against the answer and its sources."
-    ]);
+    expect(root.textContent).toBe("\u2713 Checked by AskRigor's final check. The answer states its 2 limits.");
     expect(root.all("script")).toEqual([]);
   });
 
-  it.each([
-    [{ status: "checked", saved: { status: "saved", card_id: "ARF-0026" } }, "Checked, and saved for review as ARF-0026."],
-    [{ status: "checked", saved: { status: "already_saved", card_id: "ARF-0026" } }, "Checked; it was already saved for review."],
-    [{ status: "checked", saved: { status: "not_saved", reason: "queue_service_unavailable" } }, "Checked, but it could not be saved."],
-    [{ status: "checked", saved: { status: "unconfirmed" } }, "Checked; its save had not finished."],
-    [{ status: "checked" }, "Checked against the answer and its sources."],
-    [{ status: "rejected", problems: ["findings[0].answer_quote gives text the answer does not show."] }, "Not accepted, so it was not saved."],
-  ])("says what happened to findings card %j in plain words", (card, text) => {
-    const root = render({ findings_card: card });
-    expect(root.all("h2").map((element) => element.textContent)).toEqual(["Findings card"]);
-    expect(root.all("p").map((element) => element.textContent)).toEqual([text]);
-  });
-
-  it.each(["absent", "closed", "private"])("leaves out a findings card that is %s", (status) => {
-    expect(render({ status: "ready", findings_card: { status, problems: [] } }).children.map((element) => element.textContent))
-      .toEqual(["Checked by AskRigor's final check"]);
-  });
-
-  it("says under a not-ready heading that the answer came before the check passed", () => {
-    expect(render({ status: "not_ready", next_steps: ["a"] }).children.map((element) => element.textContent)).toEqual([
-      "Not checked yet: 1 step(s) left", "This answer was given before AskRigor's final check passed."
-    ]);
-    expect(render({ status: "ready_with_limits", limits: ["a"] }).all("p")).toEqual([]);
-  });
-
-  it("shows the panel's own lanes when the result carries them, and the result's otherwise", () => {
-    const result = { must_report: ["Lane. Then copy the sentences that report it into the entry's answer_quotes."] };
+  it("replaces a prior result", () => {
     const doc = documentShim();
-    runInNewContext(`${FINAL_CHECK_PANEL_RENDER_SOURCE}\nrenderFinalCheck(document, result, display);`,
-      { document: doc, result, display: { must_report: ["Lane."] } });
-    expect(doc.root.all("li").map((element) => element.textContent)).toEqual(["Lane."]);
-    expect(render(result).all("li").map((element) => element.textContent)).toEqual(result.must_report);
-  });
-
-  it("caps each list independently at 40 whole items and gives the remaining count", () => {
-    const entries = Array.from({ length: 43 }, (_, i) => `Item ${i + 1}`);
-    const root = render({
-      caveats: entries, must_report: entries, sources: { validated: entries, lead_only: entries },
-      community: { communities_searched: entries },
-    });
-    expect(root.all("ul")).toHaveLength(5);
-    for (const ul of root.all("ul")) {
-      expect(ul.children.map((element) => element.textContent)).toEqual([...entries.slice(0, 40), "and 3 more"]);
-    }
-  });
-
-  it("replaces prior results and omits fields that are not present", () => {
-    const doc = documentShim();
-    render({ caveats: ["Earlier caveat"] }, doc);
+    render({ status: "not_ready" }, doc);
     render({ status: "ready" }, doc);
-    expect(doc.root.children.map((element) => element.textContent)).toEqual(["Checked by AskRigor's final check"]);
+    expect(doc.root.children.map((element) => element.textContent)).toEqual(["\u2713 Checked by AskRigor's final check."]);
   });
 
   it("waits for the bridge result and renders only its structured content", async () => {
@@ -294,12 +225,7 @@ describe("rendered final check result", () => {
     await runInNewContext(FINAL_CHECK_PANEL_RENDER_SOURCE + FINAL_CHECK_PANEL_BOOTSTRAP_SOURCE, { document: doc, App: TestApp });
     expect(doc.root.textContent).toBe("Waiting for AskRigor's final check");
     app!.ontoolresult!({ structuredContent: { status: "ready" }, content: [{ type: "text", text: "Ignored prose" }] });
-    expect(doc.root.textContent).toBe("Checked by AskRigor's final check");
-    app!.ontoolresult!({
-      structuredContent: { status: "ready", must_report: ["Lane. Then copy it."] },
-      _meta: { [FINAL_CHECK_PANEL_META]: { must_report: ["Lane."] } }
-    });
-    expect(doc.root.all("li").map((element) => element.textContent)).toEqual(["Lane."]);
+    expect(doc.root.textContent).toBe("\u2713 Checked by AskRigor's final check.");
   });
 
   it("shows the specified message when the bridge cannot connect", async () => {

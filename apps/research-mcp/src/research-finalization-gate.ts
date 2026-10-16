@@ -2641,25 +2641,12 @@ function comparableUrl(url: string): string {
   }
 }
 
-// What the answer does with a community lane. must_report ends with it, for the model; the final-check panel shows
-// the lane without it (mustReportFindings).
+// What the answer does with a community lane; must_report ends with it.
 const YOUTUBE_LANE_INSTRUCTION = "Report this lane in the answer even if later sources dominate; if its signal is " +
   "weak, say so. Then copy the sentences that report it into community_findings.answer_quotes.";
 const forumLaneInstruction = (community: string): string => `Report this lane in the answer, naming ${community} ` +
   "and linking a thread you read, even if its signal is weak. Then copy the sentences that report it into the " +
   "entry's answer_quotes.";
-
-/**
- * must_report without the server's own instructions to the answer, for the person reading the final-check panel:
- * each line loses the exact instruction this gate appended to it, and other lines stay as they are.
- */
-export function mustReportFindings(lines: readonly string[], communities: readonly string[]): string[] {
-  const instructions = [YOUTUBE_LANE_INSTRUCTION, ...communities.map(forumLaneInstruction)].map((text) => ` ${text}`);
-  return lines.map((line) => {
-    const instruction = instructions.find((text) => line.endsWith(text));
-    return instruction === undefined ? line : line.slice(0, -instruction.length);
-  });
-}
 
 function communityLane(
   findings: NonNullable<FinalizeResearchInput["community_findings"]>,

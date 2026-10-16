@@ -2,10 +2,6 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 
 export const FINAL_CHECK_PANEL_URI = "ui://askrigor/final-check.html";
-// The tool result's _meta key for what only the panel shows. ChatGPT delivers a result's _meta to the panel and hides
-// it from the model (OpenAI's Apps SDK reference); MCP Apps hosts pass the whole result to the panel.
-export const FINAL_CHECK_PANEL_META = "askrigor/panel";
-
 /**
  * ChatGPT's dedicated origin for the panel: the public MCP server's own origin, under OpenAI's own key. ui.domain would
  * carry it for every host, but Claude accepts only its hashed claudemcpcontent.com form there and shows an error
@@ -30,66 +26,30 @@ export function inlineFinalCheckAppBundle(bundle: string): string {
 }
 
 // Plain JavaScript shared verbatim by the page and DOM tests, with no bundle dependencies.
+// One line for the reader (owner question 108): whether AskRigor's final check passed on this answer, in AskRigor's own
+// words. The limits are in the answer itself, which the check made sure of.
 export const FINAL_CHECK_PANEL_RENDER_SOURCE = String.raw`
-function renderFinalCheck(doc, structuredContent, display) {
+function renderFinalCheck(doc, structuredContent) {
   const root = doc.getElementById("final-check-panel");
   const result = structuredContent && typeof structuredContent === "object" ? structuredContent : {};
-  const shown = display && typeof display === "object" ? display : {};
   root.replaceChildren();
-  function add(parent, tag, text) {
-    const element = doc.createElement(tag);
-    if (text !== undefined) element.textContent = text;
-    parent.appendChild(element);
-    return element;
+  const limits = Array.isArray(result.limits) ? result.limits.length : 0;
+  let line = "AskRigor's final check could not run here.";
+  if (result.status === "ready") line = "\u2713 Checked by AskRigor's final check.";
+  if (result.status === "ready_with_limits") {
+    line = "\u2713 Checked by AskRigor's final check. The answer states its " + limits + (limits === 1 ? " limit." : " limits.");
   }
-  function items(value) { return Array.isArray(value) ? value : []; }
-  function list(parent, title, value, heading = "h2") {
-    const entries = items(value);
-    if (entries.length === 0) return;
-    add(parent, heading, title);
-    const ul = add(parent, "ul");
-    entries.slice(0, 40).forEach((entry) => add(ul, "li", String(entry)));
-    if (entries.length > 40) add(ul, "li", "and " + (entries.length - 40) + " more");
-  }
-  let heading = "AskRigor's final check could not run here";
-  if (result.status === "ready") heading = "Checked by AskRigor's final check";
-  if (result.status === "ready_with_limits") heading = "Checked by AskRigor's final check, with " + items(result.limits).length + " limit(s)";
-  if (result.status === "not_ready") heading = "Not checked yet: " + items(result.next_steps).length + " step(s) left";
-  add(root, "h1", heading);
-  if (result.status === "not_ready") add(root, "p", "This answer was given before AskRigor's final check passed.");
-  if (typeof result.check_line === "string") add(root, "p", result.check_line);
-  list(root, "What the answer must say", result.caveats);
-  list(root, "What the answer reports", Array.isArray(shown.must_report) ? shown.must_report : result.must_report);
-  if (items(result.sources?.validated).length || items(result.sources?.lead_only).length) {
-    const studies = add(root, "section");
-    add(studies, "h2", "Studies checked");
-    list(studies, "Validated", result.sources.validated, "h3");
-    list(studies, "Leads only", result.sources.lead_only, "h3");
-  }
-  list(root, "Communities searched", result.community?.communities_searched);
-  const card = result.findings_card && typeof result.findings_card === "object" ? result.findings_card : {};
-  if (card.status === "checked" || card.status === "rejected") {
-    add(root, "h2", "Findings card");
-    add(root, "p", findingsCardText(card));
-  }
-  function findingsCardText(card) {
-    if (card.status === "rejected") return "Not accepted, so it was not saved.";
-    const saved = card.saved && typeof card.saved === "object" ? card.saved : {};
-    if (saved.status === "saved") {
-      return "Checked, and saved for review" + (typeof saved.card_id === "string" ? " as " + saved.card_id : "") + ".";
-    }
-    if (saved.status === "already_saved") return "Checked; it was already saved for review.";
-    if (saved.status === "not_saved") return "Checked, but it could not be saved.";
-    if (saved.status === "unconfirmed") return "Checked; its save had not finished.";
-    return "Checked against the answer and its sources.";
-  }
+  if (result.status === "not_ready") line = "\u26a0 Not checked: this answer was given before AskRigor's final check passed.";
+  const paragraph = doc.createElement("p");
+  paragraph.textContent = line;
+  root.appendChild(paragraph);
 }
 `;
 
 export const FINAL_CHECK_PANEL_BOOTSTRAP_SOURCE = String.raw`
-const render = (structuredContent, display) => renderFinalCheck(document, structuredContent, display);
+const render = (structuredContent) => renderFinalCheck(document, structuredContent);
 const app = new App({ name: "AskRigor final check", version: "1" });
-app.ontoolresult = (r) => render(r?.structuredContent, r?._meta?.[${JSON.stringify(FINAL_CHECK_PANEL_META)}]);
+app.ontoolresult = (r) => render(r?.structuredContent);
 app.connect().catch(() => {
   const root = document.getElementById("final-check-panel");
   root.textContent = "AskRigor's final check result is not available here";
@@ -113,14 +73,9 @@ export function finalCheckPanelHtml(): string {
 <title>AskRigor final check</title>
 <style>
 :root { color-scheme: light dark; font: 14px/1.45 system-ui, sans-serif; color: #20242a; background: #fff; }
-body { margin: 0; padding: 16px; }
+body { margin: 0; padding: 10px 16px; }
 main { max-width: 72ch; margin: auto; overflow-wrap: anywhere; }
-h1 { font-size: 1.15rem; margin: 0 0 12px; }
-h2 { font-size: 1rem; margin: 16px 0 6px; }
-h3 { font-size: .95rem; margin: 10px 0 4px; }
-p { margin: 6px 0; white-space: pre-wrap; }
-ul { margin: 4px 0; padding-left: 22px; }
-li { margin: 4px 0; white-space: pre-wrap; }
+p { margin: 0; white-space: pre-wrap; }
 @media (prefers-color-scheme: dark) { :root { color: #e7e9ed; background: #191b20; } }
 </style>
 </head>
