@@ -1,0 +1,27 @@
+{
+  "purpose": "Owner request (2026-10-15) for a notice in mobile responses: \"Mobile responses may be shorter and less intelligent than desktop web/app, even with the same model and thinking level selected.\" Exact requested text apart from XML formatting; reversible edits chained from questions 86 to 89 Universal 20.5.42.",
+  "universal": {
+    "from": {
+      "version": "20.5.42",
+      "sha256": "0401335ed4b1f0ec44d4d7351ecb369828dd1c7f362b5c4e0234df22c7f10173"
+    },
+    "to": {
+      "version": "20.5.43",
+      "sha256": "7f03ddbd280a9906860f5a34b022b95931f61da87377b3c6e33afcdbaf9a1bdd"
+    },
+    "edits": [
+      [
+        "version=\"20.5.42\" revisionDate=\"2026-10-14\"",
+        "version=\"20.5.43\" revisionDate=\"2026-10-15\""
+      ],
+      [
+        "<revision_history>\n",
+        "<revision_history>\n<revision version=\"20.5.43\" priority=\"Critical\">\nOwner request (2026-10-15): when the context or the person shows a phone, each substantive response starts with the\nowner's notice that mobile responses may be shorter and less intelligent than desktop web/app, even with the same\nmodel and thinking level selected.\n</revision>\n"
+      ],
+      [
+        "For every substantive response, finish with an explicit “Next step:” stating the minimum exact user action required. If no user action remains, write “Next step: none — this task is complete.” When a materially lower-effort route exists, include it instead of leaving the user with a repetitive manual workflow.",
+        "When the context or the person shows that the response will be read in a mobile app or a phone's browser, start each substantive response with this notice, as its own sentence and in the response's language: “Mobile responses may be shorter and less intelligent than desktop web/app, even with the same model and thinking level selected.” When nothing shows a phone, leave it out.\n\nFor every substantive response, finish with an explicit “Next step:” stating the minimum exact user action required. If no user action remains, write “Next step: none — this task is complete.” When a materially lower-effort route exists, include it instead of leaving the user with a repetitive manual workflow."
+      ]
+    ]
+  }
+}

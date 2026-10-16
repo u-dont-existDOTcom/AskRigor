@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import type { IncomingMessage } from "node:http";
@@ -25,7 +25,7 @@ import {
 } from
   "../apps/research-mcp/src/youtube-audit-continuation.js";
 import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
-import { getProtocolManifest } from "../packages/protocol/src/index.js";
+import { getProtocolManifest, protocolNamedElements, protocolSections } from "../packages/protocol/src/index.js";
 import { pageKey, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 
 const TOOL_NAMES = [
@@ -2861,8 +2861,8 @@ describe("AskRigor MCP tools", () => {
         core_sections: string[];
       };
       expect(indexContent.manifest).toMatchObject({
-        version: "20.5.42",
-        sha256: "0401335ed4b1f0ec44d4d7351ecb369828dd1c7f362b5c4e0234df22c7f10173"
+        version: "20.5.43",
+        sha256: "7f03ddbd280a9906860f5a34b022b95931f61da87377b3c6e33afcdbaf9a1bdd"
       });
       expect(indexContent.index).toHaveLength(40);
       expect(indexContent.core_sections).toContain("epistemics");
@@ -2952,9 +2952,103 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
+  it.each(["hrp", "universal"] as const)("loads every %s core section in one call, each as its exact bytes", async (protocol) => {
+    const { client, server } = await createInMemoryClient();
+    const file = protocol === "hrp" ? "HRP_Full.xml" : "Universal_Instructions.xml";
+    const canonicalBytes = await readFile(new URL(`../protocols/${file}`, import.meta.url));
+
+    try {
+      // No section or named element is called "core", so the name loads nothing else.
+      const text = canonicalBytes.toString("utf8");
+      expect(protocolNamedElements(text, "core")).toEqual([]);
+      const index = await client.callTool({ name: "load_protocol", arguments: { protocol, section: "index" } });
+      const indexContent = index.structuredContent as {
+        index: Array<{ name: string; core: boolean }>;
+        core_sections: string[];
+      };
+      expect(indexContent.index.map(({ name }) => name)).not.toContain("core");
+      expect((index.content as Array<{ text: string }>)[0]!.text).toContain(
+        `Load the core sections first: section "core" loads all of them (${indexContent.core_sections.join(", ")}) in one call.`
+      );
+
+      const core = await client.callTool({ name: "load_protocol", arguments: { protocol, section: "core" } });
+      expect(core.isError).not.toBe(true);
+      const sections = protocolSections(protocol, text).filter(({ core: isCore }) => isCore);
+      expect(sections.map(({ name }) => name).sort()).toEqual([...indexContent.core_sections].sort());
+      const expected = sections
+        .map(({ byte_start, byte_end_exclusive }) => canonicalBytes.subarray(byte_start, byte_end_exclusive).toString("utf8"))
+        .join("\n\n");
+      expect(core.structuredContent).toMatchObject({
+        ok: true, protocol, scope: "section", section: "core", page: 1, page_count: 1, complete: true,
+        scope_bytes: Buffer.byteLength(expected, "utf8"),
+        scope_sha256: createHash("sha256").update(expected, "utf8").digest("hex"),
+        text: expected
+      });
+      expect(core.structuredContent).not.toHaveProperty("byte_start");
+      const { manifest } = core.structuredContent as { manifest: { name: string } };
+      expect((core.content as Array<{ text: string }>)[0]!.text).toBe(
+        `Loaded ${manifest.name} ${sections.map(({ name }) => name).join(", ")}, page 1 of 1 ` +
+          "(exact canonical bytes of each, in this order, a blank line between two)."
+      );
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("loads several named sections and rules in one call, without one already inside another", async () => {
+    const { client, server } = await createInMemoryClient();
+    const canonicalBytes = await readFile(new URL("../protocols/HRP_Full.xml", import.meta.url));
+    const text = canonicalBytes.toString("utf8");
+    const exact = (name: string) => {
+      const section = protocolSections("hrp", text).find((entry) => entry.name === name);
+      const span = section ?? protocolNamedElements(text, name).find(({ tag }) => tag === "Rule")!;
+      return canonicalBytes.subarray(span.byte_start, span.byte_end_exclusive).toString("utf8");
+    };
+
+    try {
+      // FS233 is a check inside FinalSelfCheck, and a name given twice loads once.
+      const several = await client.callTool({
+        name: "load_protocol",
+        arguments: {
+          protocol: "hrp",
+          section: "FinalSelfCheck, FS233,ResolveConflictsBeforeRecommendationOrRanking , FinalSelfCheck"
+        }
+      });
+      expect(several.isError).not.toBe(true);
+      const expected = [exact("FinalSelfCheck"), exact("ResolveConflictsBeforeRecommendationOrRanking")].join("\n\n");
+      expect(several.structuredContent).toMatchObject({ scope: "section", complete: true, page_count: 1, text: expected });
+      expect((several.content as Array<{ text: string }>)[0]!.text).toMatch(
+        /^Loaded HRP FinalSelfCheck, Rule ResolveConflictsBeforeRecommendationOrRanking, page 1 of 1 /u
+      );
+
+      // A list longer than one page continues with the same section and the next page.
+      const section = "CrowdSourcedAndClinicalSignalAudit, ResearchOrchestrationAndModeSelectionGate";
+      const first = await client.callTool({ name: "load_protocol", arguments: { protocol: "hrp", section } });
+      const firstContent = first.structuredContent as { page_count: number; next_page: number; scope_sha256: string; text: string };
+      expect(firstContent).toMatchObject({ page: 1, page_count: 2, next_page: 2, complete: false });
+      expect((first.content as Array<{ text: string }>)[0]!.text).toContain(
+        "Call load_protocol again with the same section and page 2 to continue."
+      );
+      const second = await client.callTool({ name: "load_protocol", arguments: { protocol: "hrp", section, page: 2 } });
+      const secondContent = second.structuredContent as { scope_sha256: string; text: string; complete: boolean };
+      expect(secondContent).toMatchObject({ complete: true, scope_sha256: firstContent.scope_sha256 });
+      expect(firstContent.text + secondContent.text).toBe(
+        [exact("CrowdSourcedAndClinicalSignalAudit"), exact("ResearchOrchestrationAndModeSelectionGate")].join("\n\n")
+      );
+      for (const result of [first, second]) expect(Buffer.byteLength(JSON.stringify(result), "utf8")).toBeLessThan(60_000);
+    } finally {
+      await server.close();
+    }
+  });
+
   it.each([
     [{ protocol: "hrp", section: "NoSuchSection" }, "protocol_section_not_found"],
     [{ protocol: "hrp", section: "FoundationBeforeOptimization" }, "protocol_section_ambiguous"],
+    [{ protocol: "hrp", section: "Purpose, NoSuchSection" }, "protocol_section_not_found"],
+    [{ protocol: "hrp", section: "Purpose, FoundationBeforeOptimization" }, "protocol_section_ambiguous"],
+    [{ protocol: "hrp", section: "index, core" }, "protocol_section_not_found"],
+    [{ protocol: "hrp", section: " , " }, "protocol_request_invalid"],
+    [{ protocol: "hrp", section: "core", page: 2 }, "protocol_page_out_of_range"],
     [{ protocol: "hrp", page: 999 }, "protocol_page_out_of_range"],
     [{ protocol: "hrp", page: 0 }, "protocol_page_out_of_range"],
     [{ protocol: "hrp", page: 1.5 }, "protocol_page_out_of_range"],
@@ -3098,9 +3192,9 @@ describe("AskRigor Streamable HTTP server", () => {
           protocol: "universal",
           manifest: {
             name: "AskRigor.com universal saved instructions",
-            version: "20.5.42",
-            revisionDate: "2026-10-14",
-            sha256: "0401335ed4b1f0ec44d4d7351ecb369828dd1c7f362b5c4e0234df22c7f10173"
+            version: "20.5.43",
+            revisionDate: "2026-10-15",
+            sha256: "7f03ddbd280a9906860f5a34b022b95931f61da87377b3c6e33afcdbaf9a1bdd"
           }
         });
       } finally {
@@ -3149,8 +3243,8 @@ describe("AskRigor Streamable HTTP server", () => {
           ok: true,
           protocol: "universal",
           manifest: {
-            version: "20.5.42",
-            sha256: "0401335ed4b1f0ec44d4d7351ecb369828dd1c7f362b5c4e0234df22c7f10173"
+            version: "20.5.43",
+            sha256: "7f03ddbd280a9906860f5a34b022b95931f61da87377b3c6e33afcdbaf9a1bdd"
           }
         });
       } finally {

@@ -90,7 +90,7 @@ describe("owner-approved proactive diminishing returns, question 73: 73a (2026-1
     const universal = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
     expect(hash(await undoCorrectionReport(universal))).toBe("06e5ca6befb9dac648fd41996213394e793e17795087eee8fbc63cbcbbbd8174");
     await expect(getProtocolManifest("universal")).resolves.toEqual({
-      name: "AskRigor.com universal saved instructions", version: "20.5.42", revisionDate: "2026-10-14",
+      name: "AskRigor.com universal saved instructions", version: "20.5.43", revisionDate: "2026-10-15",
       sha256: hash(universal),
     });
   });

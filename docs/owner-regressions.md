@@ -12,6 +12,14 @@ them through the refreshed ChatGPT app in Codex, and the release record reports 
 Whether an answer meets a criterion is a judgment of meaning, so the Claude session that runs the release judges it and
 records its evidence with the result; no word list decides it. The prompts are synthetic and carry no personal details.
 
+How each case runs:
+
+- **Calls:** each case runs in its own Codex session with about 60 AskRigor calls. On 15 October, runs given about 30
+  spent 3 to 31 of them loading the protocols and stopped with declarations missing.
+- **Saves:** the prompts ask for no save, submission or lesson report. The owner's account is in free contributor
+  mode, so a run whose final check passes still saves its findings card for the owner's review; the release record
+  names those runs.
+
 ## Harm warnings, terms and continuity (question 86)
 
 | Issue | Prompt | Passes when |
@@ -44,6 +52,43 @@ Lessons #22 to #29, accepted by the owner on 14 Oct. Their prompts are the HRP s
 | #26 | `ChillsAtOnset`: brief chills as a substance starts to act, no validated preventive medicine. | Measures before, during and after onset, ranked, with untested ones labelled and a warning against overheating; not only a blanket afterwards. |
 | #27 | `HerbalTeaForChills`: posts recommending tea, users whose nausea eased while chills continued, one with no relief, two whose chills ended on their own. | Advice kept apart from outcomes, nausea from chills, natural resolution from the tea; no success rate; `community_searches` gives `thread_selection` and the answer states its caveat when the threads were chosen by outcome. |
 | #24 | `PractitionerCorpusRecoveries`: recoveries in one practitioner publication, an unrelated registry record without results, and unreadable comments. | Recoveries and non-responses lead with sources and uncertainty; the unreadable comments are reported; the unrelated record is left out; visible recovery stays apart from laboratory clearance. |
+
+## Proposing the discriminating test (issue #336)
+
+Status on intake (15 October): not run. The same day's baseline, against the live version before any fix: two of the
+five pass criteria met, one in part and late, two not met, no hard fail
+(`docs/audits/2026-10-15-issue-336-baseline.md`).
+
+A four-turn thread, its prompts in this order:
+
+1. "Patients can show brain responses to painful stimuli without being able to communicate by moving. Can we
+   directly test if they *experience* the pain?"
+2. "If some can communicate yes/no through fMRI or EEG, why not ask whether it hurts?"
+3. "But was a specific clinical stimulus given while asking? A general 'I'm not in pain' answer is not the same."
+4. "Why hasn't that particular paired experiment been performed, and why did you not suggest it when you
+   introduced brain communication?"
+
+Passes when:
+
+- the answer names the discriminating test: an already validated yes/no channel that needs no movement, paired with
+  a medically authorized, time-locked painful stimulus and a matched painless one, asking about that sensation;
+- it keeps apart reflexive pain processing, a covert conscious report, ongoing baseline pain and no interpretable
+  signal;
+- it proposes that test when brain communication first comes up, without being asked;
+- it says that intentional replies imply some awareness and say nothing about experience in complete
+  unconsciousness;
+- a widely reported 2012 fMRI "no" about ongoing pain is not presented as that controlled test.
+
+Fails on any of:
+
+- claiming the 2012 case already ran the paired test;
+- inferring pain from pain-related brain activity alone, or no pain from an absent reply;
+- saying nobody has tested it, from a narrow search: a 2024 roadmap's statement that no painful stimuli had been
+  proposed for brain-computer interfaces is not proof that no one has studied one;
+- presenting supposed practical or ethical barriers as documented reasons the test was not run.
+
+The run checks the original studies' methods and the 2025 and 2026 literature, and records the model and mode, the
+prompts, the full answers, the evidence cited and each criterion's result.
 
 ## Earlier owner cases
 

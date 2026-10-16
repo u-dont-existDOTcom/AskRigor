@@ -228,7 +228,12 @@ export const finalizeResearchInputSchema = z.object({
       .describe("How you chose the threads you read, outside review sites: every relevant one the searches found; the " +
         "most recent; a random sample; the ones ranked first; ones found by searching for outcomes; or another " +
         "partial set. The last three show which experiences exist, not how common they are."),
-    access_boundary: z.enum(["no_web_search", "login_required", "blocked", "no_relevant_results"]).optional(),
+    access_boundary: z.enum([
+      "no_web_search", "login_required", "blocked", "retrieval_failed", "no_relevant_results"
+    ]).optional()
+      .describe("What stopped the search: this app has no web search; the site needs a login; the site refused " +
+        "access, such as a block page; a search or page fetch failed, such as an error or a timeout; or the " +
+        "searches found nothing relevant."),
     url: z.string().trim().url().max(2_048).optional()
       .describe("The community's own address (its forum, group or site link). Needed when no thread was read outside " +
         "Reddit, so the community is known by its site rather than its name."),
@@ -437,8 +442,9 @@ export const finalizeResearchInputSchema = z.object({
   }).strict()).max(40).optional()
     .describe("In an answer not in English: each caveat in the answer's language."),
   findings_card: findingsCardSchema.optional()
-    .describe("With answer_draft: the answer's best findings for AskRigor's findings library, never claims the user " +
-      "corrected and no personal details, checked against the answer and this call's verified sources. In free " +
+    .describe("With answer_draft, when the answer cites a study or video verified here: the answer's best findings " +
+      "for AskRigor's findings library, never claims the user corrected and no personal details, checked against the " +
+      "answer and this call's verified sources. Leave it out when the answer cites none. In free " +
       "contributor mode a checked card is saved for the owner's review; in paid private mode it adds a caveat " +
       "offering the save. A rejected card is not saved or offered and does not hold back the answer."),
   reported_model: z.string().trim().min(1).max(80).optional()
@@ -521,7 +527,16 @@ export interface FinalizeResearchOptions {
   // waits for the user's yes; "private" for a caller with no research
   // account, whose card is neither checked nor saved.
   findings?: "closed" | "save" | "offer" | "private";
+  // The client's own hint that the answer will be read on a phone or tablet:
+  // the answer then carries the owner's mobile notice (owner request,
+  // 2026-10-15), as Universal's output_style asks wherever a phone shows.
+  mobileClient?: boolean;
 }
+
+// The owner's words (2026-10-15), many users' reports and the owner's own
+// comparison of the same question asked on a phone and on desktop web.
+export const MOBILE_NOTICE = "Mobile responses may be shorter and less intelligent than desktop web/app, even with " +
+  "the same model and thinking level selected.";
 
 export type RedditThreadCheck =
   | { state: "found"; subreddit: string; title: string }
@@ -612,7 +627,7 @@ export function finalizeResearch(
   const limits: string[] = [];
   // Each limit's sentences for the user, written here so the answer carries
   // them as they are: a caveat cannot be dropped, garbled or negated.
-  const caveats: string[] = [];
+  const caveats: string[] = options.mobileClient === true ? [MOBILE_NOTICE] : [];
   const requireLimit = (text: string, ...sentences: string[]): void => {
     limits.push(text);
     caveats.push(...sentences);
@@ -1080,13 +1095,19 @@ export function finalizeResearch(
   const studyLines = input.answer_draft === undefined ? [] : displayedProse(input.answer_draft, true)
     .flatMap((block) => block.split("\n"));
   const studyLinkPaths = studyLines.flatMap(pathsFor);
-  // Studies read only as leads: one limit each, one caveat for all of them.
-  const unreadStudies = new Set<string>();
+  // Studies read only as leads: one limit each, and one caveat per reason that
+  // stopped the reading, from the state each full-text lead receipt signed.
+  const unreadStudies = new Map<string, string | undefined>();
   for (const source of input.key_sources) {
     const id = normalizeIdentifier(source.id);
     // A PMID's DOI (from its PubMed record receipt) also identifies the study.
     const pubmedDoi = isPmid(id) ? pubmedDois.get(id) : undefined;
     const ids = pubmedDoi === undefined || pubmedDoi === "" ? [id] : [id, pubmedDoi];
+    // A DOI's PubMed record links the same study once a PubMed receipt matched the two
+    // (the 2026-10-15 owner regressions linked a study's PubMed page).
+    const linkIds = isDoi(id)
+      ? [...ids, ...[...pubmedDois].filter(([, doi]) => doi === id).map(([pmid]) => pmid)]
+      : ids;
     const audited = ids.some((candidate) => validatedIds.has(candidate));
     const read = audited || ids.some((candidate) => readIds.has(candidate));
     if (source.read_depth === undefined) {
@@ -1100,13 +1121,13 @@ export function finalizeResearch(
     if (input.answer_draft !== undefined) {
       if (source.answer_marker === undefined) {
         requireDeclaration(`Give key_sources.answer_marker for ${source.id}: the visible label, 3 to 80 characters, on the same line as its link in answer_draft.`);
-      } else if (!studyLines.some((line) => keyStudyLinked(pathsFor(line), ids) && caveatText(source.answer_marker!) !== "" &&
+      } else if (!studyLines.some((line) => keyStudyLinked(pathsFor(line), linkIds) && caveatText(source.answer_marker!) !== "" &&
           caveatText(visibleText(line)).includes(caveatText(source.answer_marker!)))) {
         nextSteps.push(`Key source ${source.id} has no answer_marker on the same line as its link in answer_draft; put its answer_marker there.`);
       }
     }
     if (input.answer_draft !== undefined && (isPmid(id) || isDoi(id) || isPmcid(id)) &&
-        !keyStudyLinked(studyLinkPaths, ids)) {
+        !keyStudyLinked(studyLinkPaths, linkIds)) {
       const page = isPmid(id) ? `https://pubmed.ncbi.nlm.nih.gov/${id}/`
         : isPmcid(id) ? `https://pmc.ncbi.nlm.nih.gov/articles/${id}/`
         : `https://doi.org/${id}`;
@@ -1140,7 +1161,7 @@ export function finalizeResearch(
       const state = ids.map((candidate) => leadStates.get(candidate)).find((state) => state !== undefined);
       const limit = state === undefined ? "no open full text was available" : limits[state] ?? "no open full text was available";
       requireLimit(`Cite ${source.id} as a lead: ${limit}, so its methods were not audited.`);
-      unreadStudies.add(id);
+      unreadStudies.set(id, state);
       continue;
     }
     if (!isDoi(id) && !isPmid(id) && !isPmcid(id)) {
@@ -1172,7 +1193,7 @@ export function finalizeResearch(
       requireLimit(
         `Cite ${source.id} as a lead: PubMed lists no DOI, so no open full text could be acquired and its methods were not audited.`
       );
-      unreadStudies.add(id);
+      unreadStudies.set(id, undefined);
       continue;
     }
     const target = pubmedDoi ?? source.id;
@@ -1183,7 +1204,7 @@ export function finalizeResearch(
       : `Try acquire_open_full_text for ${source.id}${target === source.id ? "" : ` (DOI ${target})`}${isPmcid(id) ? " with its DOI and this pmcid" : ""} ` +
           `before treating it as lead_only; pass the research_receipt it returns. ${LEAD_RECEIPT_SEARCH}`);
   }
-  if (unreadStudies.size > 0) caveats.push(unreadStudiesCaveat([...unreadStudies]));
+  if (unreadStudies.size > 0) caveats.push(...unreadStudiesCaveats(unreadStudies));
   // A key study's headline figures, as its audit recomputed them (owner
   // questions 87 and 89, issues #329 and #331): a study whose own data
   // contradict its figures, a value impossible as printed, and two studies
@@ -1605,7 +1626,13 @@ export function finalizeResearch(
       "Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final check reads it."
     );
   } else {
-    if (findingsOpen(options) && input.findings_card === undefined) {
+    // A card's findings each cite a study audited or read as a lead here, or a
+    // video audited here, so an answer resting on none of them (a handoff, a
+    // correction, a question about given figures) has nothing a card can hold
+    // and is not asked for one (the 2026-10-15 owner regressions).
+    const citable = validatedIds.size > 0 || leadSources.length > 0 || auditedAtAll.size > 0 ||
+      materialVideos.length > 0;
+    if (findingsOpen(options) && input.findings_card === undefined && citable) {
       requireDeclaration(
         (options.findings === "save"
           ? "Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library for " +
@@ -2230,16 +2257,43 @@ const videoLink = (video: string, text: string): string => `[${text}](https://ww
  * identifier, so several leads read as one sentence rather than a run of
  * identical ones.
  */
-function unreadStudiesCaveat(ids: readonly string[]): string {
+function unreadStudiesCaveats(studies: ReadonlyMap<string, string | undefined>): string[] {
   // A DOI may contain parentheses, which would end a Markdown link.
-  const links = ids.map((id) => `[this study](${isDoi(id)
+  const link = (id: string) => `[this study](${isDoi(id)
     ? `https://doi.org/${id.replace(/\(/gu, "%28").replace(/\)/gu, "%29")}`
-    : isPmid(id) ? `https://pubmed.ncbi.nlm.nih.gov/${id}/` : `https://www.ncbi.nlm.nih.gov/pmc/articles/${id}/`})`);
-  return links.length === 1
-    ? `The full text of ${links[0]} was not openly available, so its methods were not checked.`
-    : `The full texts of ${links.slice(0, -1).join(", ")} and ${links.at(-1)} were not openly available, so their ` +
-      "methods were not checked.";
+    : isPmid(id) ? `https://pubmed.ncbi.nlm.nih.gov/${id}/` : `https://www.ncbi.nlm.nih.gov/pmc/articles/${id}/`})`;
+  // Studies whose lead receipt signed the same reason share one sentence, which
+  // says what stopped the reading: a public copy read only in part is not one
+  // that was unavailable (the 2026-10-15 owner regressions).
+  const groups = new Map<string, string[]>();
+  for (const [id, state] of studies) {
+    const reason = state !== undefined && Object.hasOwn(UNREAD_STUDY_REASONS, state) ? state : "UNAVAILABLE";
+    groups.set(reason, [...groups.get(reason) ?? [], link(id)]);
+  }
+  return [...groups].map(([reason, links]) => {
+    const [one, several] = UNREAD_STUDY_REASONS[reason]!;
+    const listed = links.length === 1 ? links[0]! : `${links.slice(0, -1).join(", ")} and ${links.at(-1)}`;
+    return links.length === 1
+      ? `${one.replace("{links}", () => listed)}, so its methods were not checked.`
+      : `${several.replace("{links}", () => listed)}, so their methods were not checked.`;
+  });
 }
+
+// What stopped a key study's full text from being read, as its lead receipt
+// signed it, for one study and for several.
+const UNREAD_STUDY_REASONS: Readonly<Record<string, readonly [string, string]>> = {
+  UNAVAILABLE: ["The full text of {links} was not openly available", "The full texts of {links} were not openly available"],
+  ABSTRACT_ONLY: ["Only the abstract of {links} was readable", "Only the abstracts of {links} were readable"],
+  PARTIAL_TEXT_READABLE: ["AskRigor could read only part of {links}", "AskRigor could read only part of {links}"],
+  CANDIDATE_FOUND_FETCH_BLOCKED: [
+    "A public copy of {links} was found, but AskRigor could not fetch it",
+    "Public copies of {links} were found, but AskRigor could not fetch them"
+  ],
+  IDENTITY_MISMATCH: [
+    "No copy of {links} could be verified as the same paper",
+    "No copies of {links} could be verified as the same papers"
+  ]
+};
 
 /** Text without surrounding spaces or a closing sentence mark or semicolon, spaces made single. */
 function withoutEndPunctuation(text: string): string {
@@ -2719,6 +2773,7 @@ function boundaryCaveat(name: string, boundary: NonNullable<CommunitySearch["acc
     case "no_web_search": return `I could not search ${name} from this app, so reports there are not included.`;
     case "login_required": return `${name} needs a login to read, so reports there are not included.`;
     case "blocked": return `${name} blocked access, so reports there are not included.`;
+    case "retrieval_failed": return `Pages from ${name} could not be retrieved, so reports there are not included.`;
     case "no_relevant_results": return `A search of ${name} turned up no relevant reports.`;
   }
 }

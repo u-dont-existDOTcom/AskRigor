@@ -4,10 +4,12 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
-  FINALIZE_RESEARCH_CONTRACT, TOOL_LIST_REFRESH_HINT, finalizeResearch,
+  FINALIZE_RESEARCH_CONTRACT, MOBILE_NOTICE, TOOL_LIST_REFRESH_HINT, finalizeResearch,
   type FinalizeResearchInput, type FinalizeResearchOutput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt, researchTargetDigest } from "../apps/research-mcp/src/research-receipts.js";
+import { PUBLIC_RATE_LIMIT } from "../apps/research-mcp/src/config.js";
+import { createTokenBucketLimiter } from "../apps/research-mcp/src/rate-limit.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 import {
   allowedNextStepIdentifiers, assertNextStepsContract, inventory, schemaIdentifiers, unknownNextStepIdentifiers
@@ -185,7 +187,9 @@ describe.each(["gate", "MCP endpoint"] as const)("finalizer contract, links and 
     if (surface === "gate") return;
     vi.stubEnv("ASKRIGOR_FINALIZATION_SIGNING_SECRET", SECRET);
     vi.stubEnv("ASKRIGOR_FINDINGS_LIBRARY", "false");
-    server = createAskRigorHttpServer({ publicServerEnabled: true, actionsEnabled: false, researchActionsEnabled: false, privateOrchestrationEnabled: false });
+    // These tests call the endpoint more often than the public 60-a-minute limit allows one address.
+    server = createAskRigorHttpServer({ publicServerEnabled: true, actionsEnabled: false, researchActionsEnabled: false, privateOrchestrationEnabled: false,
+      rateLimiter: createTokenBucketLimiter({ ...PUBLIC_RATE_LIMIT, capacity: 1_000 }) });
     await new Promise<void>((resolve, reject) => { server!.once("error", reject); server!.listen(0, "127.0.0.1", resolve); });
     client = new Client({ name: "finalizer-contract-test", version: "0.1.0" });
     await client.connect(new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${(server.address() as AddressInfo).port}/mcp`)));
@@ -205,6 +209,21 @@ describe.each(["gate", "MCP endpoint"] as const)("finalizer contract, links and 
     const first = await call(input);
     return call({ ...input, answer_draft: `${input.answer_draft}\n\n${first.caveats.join(" ")}` });
   };
+
+  it("asks a phone's answer for the owner's mobile notice, from ChatGPT's user-agent hint (2026-10-15)", async () => {
+    const phone = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148";
+    const desktop = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36";
+    const caveats = async (agent: string | undefined): Promise<string[]> => {
+      if (surface === "gate") return finalizeResearch(base(), { secret: SECRET, mobileClient: agent === phone }).caveats;
+      const result = await client!.callTool({
+        name: "finalize_research", arguments: { ...base() }, ...(agent === undefined ? {} : { _meta: { "openai/userAgent": agent } })
+      });
+      expect(result.isError).not.toBe(true);
+      return (result.structuredContent as FinalizeResearchOutput).caveats;
+    };
+    expect((await caveats(phone))[0]).toBe(MOBILE_NOTICE);
+    for (const agent of [desktop, undefined]) expect(await caveats(agent)).not.toContain(MOBILE_NOTICE);
+  });
 
   it("names missing declarations and appends the exact refresh hint once for version skew", async () => {
     const old = base({ community_evidence: "researched", commercial_review_applicability: undefined, intervention_identity: undefined, scale_results: undefined });

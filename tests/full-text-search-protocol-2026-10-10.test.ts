@@ -96,8 +96,8 @@ describe("owner-approved full-text search triggers, question 65: A (2026-10-10)"
       name: "HRP", version: "20.6.24", revisionDate: "2026-10-15", sha256: sha256(current),
     });
     await expect(getProtocolManifest("universal")).resolves.toEqual({
-      name: "AskRigor.com universal saved instructions", version: "20.5.42", revisionDate: "2026-10-14",
-      sha256: "0401335ed4b1f0ec44d4d7351ecb369828dd1c7f362b5c4e0234df22c7f10173",
+      name: "AskRigor.com universal saved instructions", version: "20.5.43", revisionDate: "2026-10-15",
+      sha256: "7f03ddbd280a9906860f5a34b022b95931f61da87377b3c6e33afcdbaf9a1bdd",
     });
   });
 
