@@ -1,4 +1,4 @@
-# Production release, 2026-10-16 (final-check fixes, the mobile notice, owner questions 97 and 99)
+# Production release, 2026-10-16 (final-check fixes, the mobile notice, owner questions 97, 99 and 100)
 
 - **Owner decision:** "100a 101a", typed in the Claude session at 18:31 UTC: option A of owner question 101, merge
   #337 then #338 and deploy. Earlier answers:
@@ -105,6 +105,44 @@
   - `npm run lessons:status` before the release (18:31 UTC): 14 open, 0 needing review, 2 accepted but not
     incorporated (#30 and #31, now incorporated), 17 incorporated or closed, 0 deletion eligible; no unrecorded UDA
     lane item.
+- **Second deploy, the check panel (#340, owner question 100):**
+  - **Owner decision:** "102: A, merge 340 and deploy now, then I refresh once", typed in the Claude session at 19:28
+    UTC (owner question 102: release the panel before the app refresh, so one refresh covers both deploys). Earlier:
+    "100a" (18:31 UTC).
+  - **Contents:** `finalize_research` declares the UI resource `ui://askrigor/final-check.html` (MCP Apps:
+    `_meta.ui.resourceUri`, the legacy `ui/resourceUri` and the alias `openai/outputTemplate`), registered on the ChatGPT
+    and Claude catalogs with MIME type `text/html;profile=mcp-app`: a self-contained page (the pinned
+    `@modelcontextprotocol/ext-apps` 1.7.5 view bundle inlined, a `textContent`-only render script, CSP
+    `default-src 'none'`) that shows the final check's verdict, check line, caveats, lanes, studies and communities.
+  - **Source:** #340 passed all seven checks on `8f58e6bc` ("Deterministic verification" run 38952442508: 3,421 tests
+    passed, 6 skipped), was up to date with main, and merged at 19:29:35 UTC as
+    `5c4fc9331e102af13b5e378529e02b41423fb067`; the merge tree equals the PR head tree.
+  - **Image:** tag `askrigor-research:5c4fc9331e102af13b5e378529e02b41423fb067`; ID
+    `sha256:645f4a3ef27b6f60c59e8629417d44b268648969b6675562c17eec221ae5998a`, user `node`, workdir `/app`; source
+    archive SHA-256 `5121ea13e3da12da0a4195beb73d414a2ae7acc59246761f4bcd8f50b0590e49`; image archive 109,656,846 bytes,
+    SHA-256 `5bcf0d3e302f1bf47ebe77cccc255e9999b623eeddb9f5e8024ff6af6698861e`; the no-secret gate passed as above.
+  - **Production:** prior image `13c26d8f…`, up 49 minutes, healthy; prior selector `6c79ea21d6a9d6f1`, `runtime.env`
+    `bb75139fd00383b5`. The host step ran from a file to the end: checksum verified, loaded ID equals the build ID, timer
+    stopped and disabled, rollback names `askrigor-research:rollback-pre-5c4fc9331e10` and
+    `/opt/askrigor/rollbacks/pre-5c4fc9331e102af13b5e378529e02b41423fb067`, schema dump 726,578 bytes (`3e1597e3d67d3ddf`),
+    migrate complete, `runtime.env` 64 names (`d4c1f691f0454539`), selector `b13265fd93981362`; `research-mcp` started at
+    19:32:28 UTC, healthy, with the same runtime envelope, mounts, networks and one log line.
+  - **Acceptance (19:32 to 19:35 UTC):** the same public, host, standard-probe, full-text and promotion checks as above,
+    all passing on build `5c4fc933`. In addition: `finalize_research` lists all three panel keys with the same URI;
+    `resources/list` shows `ui://askrigor/final-check.html` (`text/html;profile=mcp-app`); reading it returns 338,851
+    bytes with one script, the CSP and `prefersBorder`; the Gemini catalog's `finalize_research` has no panel key. The
+    promotion timer ran at 19:35:10 UTC (`complete`, `no_pending_promotion`, `success`).
+  - **Product interface:** the Claude connector returned HRP 20.6.25, `sign_in: accepted`, `research_access: ready`.
+    Whether ChatGPT and Claude draw the panel is checked after the owner's app refresh, with the owner regressions.
+  - **Plugin:** before `0.1.0+codex.20261016184428.hrp.20.6.25.universal.20.5.43` (receipts `058f5f4f…`); rollback copy
+    `/home/joel/plugins/askrigor.rollback-20261016T193407Z`; reinstalled as
+    `0.1.0+codex.20261016193407.hrp.20.6.25.universal.20.5.43`, source and installed receipts both
+    `77862d5c6b9b922f404b645c5a4227f8d9228a3fe8d86ed8dc20d66f32e599d0` (8 files, equal to the release commit's apart
+    from the manifest version).
+  - **Lessons:** `npm run lessons:status` before this deploy (19:29 UTC): 14 open, 0 needing review, 0 accepted but not
+    incorporated, 19 incorporated or closed, 0 deletion eligible; no unrecorded lane item.
+  - **Rollback:** as above, with the `pre-5c4fc9331e10` names (restores build `13c26d8f`); the plugin from
+    `/home/joel/plugins/askrigor.rollback-20261016T193407Z`.
 - **Product acceptance (owner regressions):** pending the owner's refresh of the ChatGPT app; the regression list runs
   then through Codex, about 60 calls per case, reported in three stages.
 - **Rollback:**

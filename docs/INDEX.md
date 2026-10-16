@@ -78,11 +78,12 @@ complete XML protocol.
   harm warnings, terms, reported figures, routes, recommendations, safest options first and lessons #22 to #29, with
   HRP 20.6.24, Universal 20.5.42, production acceptance, the Codex plugin refresh, the owner regressions (the final
   check passed in 2 of 19 cases, with the causes) and the stdin finding in the host procedure.
-- `audits/2026-10-16-report-identity-production-release.md`: release of #337 and #338 (owner questions 96 to 101):
-  the final-check fixes from the 15 Oct regressions, protocol loading in one call, the owner's mobile notice
-  (Universal 20.5.43), and HRP 20.6.25 with `ProposeDiscriminatingTest` and lessons #30 and #31 (forum report
-  identity, dosed comparisons, named communities, the check line), with production acceptance and the Codex
-  plugin refresh; the owner regressions follow the owner's app refresh.
+- `audits/2026-10-16-report-identity-production-release.md`: release of #337 and #338 (owner questions 96 to 101)
+  and #340 (questions 100 and 102): the final-check fixes from the 15 Oct regressions, protocol loading in one
+  call, the owner's mobile notice (Universal 20.5.43), HRP 20.6.25 with `ProposeDiscriminatingTest` and lessons
+  #30 and #31 (forum report identity, dosed comparisons, named communities, the check line), and the final
+  check's MCP Apps panel, with production acceptance and two Codex plugin refreshes; the owner regressions
+  follow the owner's app refresh.
 - `audits/2026-10-09-product-identity-finalizer-production-release.md`: release of #288 and #290 (owner question 60):
   exact product identity, the final-check contract and HRP 20.6.13 / Universal 20.5.37, with the plugin refresh.
 - `audits/2026-10-09-offline-access-production-release.md`: release of #289 and #291 (owner question 56):
