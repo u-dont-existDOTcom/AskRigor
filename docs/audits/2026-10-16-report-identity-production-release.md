@@ -61,8 +61,8 @@
 - **Acceptance (18:42 to 18:45 UTC):**
   - Public `/healthz` reported `ok`. `/version` reported build `13c26d8f4e938b8f2994b2fb63b7579872061d02`, HRP 20.6.25
     (`f3f1d9d2…`) and Universal 20.5.43 (`7f03ddbd…`).
-  - Protected-resource scopes were `research:use` and `cases:review`; an unauthenticated POST to `/mcp/claude` answered
-    401.
+  - Protected-resource scopes were `research:use` and `cases:review`; an unauthenticated POST to `/mcp/claude`
+    answered 401.
   - Anonymous `/mcp` listed 33 tools; the first tool's description names HRP 20.6.25, Universal 20.5.43 and the build.
   - The in-container standard probe:
     - 33 unique standard tools and 22 Gemini tools; the server title and the first tool's description named the
