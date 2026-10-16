@@ -76,6 +76,7 @@ const CLEAN_DRAFT = "[Study](https://doi.org/10.1002/art.41142) reports exercise
 const FORUM_LIMIT = "The reports from r/HipOA come from your own web search, which AskRigor could not verify; say so, " +
   "and link the threads you read.";
 const FORUM_CAVEAT = "The reports from r/HipOA come from my own web search, which AskRigor could not verify.";
+const FORUM_REPORT_LINE = "r/HipOA, exercise: 1 report(s) read; 1 firsthand report(s) of exactly this, 0 with a measurement after the change; 0 that don't say which form or product, 0 about something else and 0 advice or hearsay, not counted.";
 // It also carries every caveat the gate writes, as the answer would, so tests
 // of other checks pass the caveat check; its own tests pass drafts.
 const PASS_ESTIMATE = "about 20 minutes and 15 YouTube searches";
@@ -89,6 +90,7 @@ const caveatedDraft = (input: Record<string, unknown>, gateOptions: typeof optio
 // map with YouTube and a subreddit, and a read of the subreddit.
 const REDDIT_SEARCH = {
   community: "r/HipOA",
+  report_identity: [{ exposure: "exercise", reports_read: 1, firsthand_exact: 1, exposure_unclear: 0, other_exposure: 0, not_firsthand: 0, measured_after: 0 }],
   platform: "reddit",
   queries: ["hip osteoarthritis avoided replacement"],
   threads_read: [{ url: "https://www.reddit.com/r/HipOA/comments/abc123/avoided_surgery/" }],
@@ -169,7 +171,9 @@ const claimDefaults = (input: Record<string, unknown>) => !("answer_draft" in in
 // checks read every relevant thread their searches found.
 const threadSelectionDefaults = (input: Record<string, unknown>) => !Array.isArray(input.community_searches) ? {} : {
   community_searches: (input.community_searches as Array<Record<string, unknown>>).map((search) =>
-    search.platform === "review_site" || "thread_selection" in search ? search : { thread_selection: "all_found", ...search })
+    search.platform === "review_site" ? search : {
+      report_identity: REDDIT_SEARCH.report_identity, thread_selection: "all_found", ...search
+    })
 };
 // Every call gets the community, offer, absence and scale defaults unless it passes its own.
 const finalizeResearchRaw = (input: Record<string, unknown>, gateOptions: Parameters<typeof finalizeResearchBare>[1]) =>
@@ -179,6 +183,7 @@ const finalizeResearchRaw = (input: Record<string, unknown>, gateOptions: Parame
     intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
     ...((input.community_evidence === "researched" || input.not_relevant_basis === "no_real_world_outcome")
       ? { commercial_review_applicability: NONCOMMERCIAL_EXERCISE } : {}),
+    comparison_claims: [],
     ...communityDefaults(input), ...offerDefaults(input), ...absenceDefaults(input), ...scaleDefaults(input), ...claimDefaults(input), ...input,
     ...threadSelectionDefaults({ ...communityDefaults(input), ...input }),
     ...(typeof input.answer_draft === "string"
@@ -504,6 +509,7 @@ describe("finalize_research gate", () => {
     ];
     const trt = {
       community: "r/trt",
+      report_identity: [{ ...REDDIT_SEARCH.report_identity[0]!, exposure: "growth hormone" }],
       platform: "reddit",
       queries: ["hgh vs trt long term side effects"],
       threads_read: [{ url: "https://old.reddit.com/r/trt/comments/xyz789/hgh_and_trt_five_years/" }],
@@ -572,6 +578,7 @@ describe("finalize_research gate", () => {
     });
     expect(searched.must_report).toEqual([
       expect.stringMatching(/^YouTube comments \(1 video\(s\) read\): /u),
+      "r/trt, growth hormone: 1 report(s) read; 1 firsthand report(s) of exactly this, 0 with a measurement after the change; 0 that don't say which form or product, 0 about something else and 0 advice or hearsay, not counted.",
       expect.stringMatching(/^r\/trt \(1 thread\(s\) read\): Benefits: Most of about 30 long-term users/u)
     ]);
     // The answer must report it: the model copies the sentences that report each finding, the answer must show
@@ -994,10 +1001,12 @@ describe("finalize_research gate", () => {
     });
     const searches = (trtTitle?: string) => [
       { community: "r/trt", platform: "reddit", queries: ["hgh vs trt"], ...findings,
+        report_identity: [{ ...REDDIT_SEARCH.report_identity[0]!, exposure: "growth hormone" }],
         answer_quotes: quotesOf("most reported better recovery; some saw no difference"),
         threads_read: [{ url: trtThread, ...(trtTitle === undefined ? {} : { title: trtTitle }) }],
         thread_selection: "all_found" },
       { community: "r/Testosterone", platform: "reddit", queries: ["hgh vs trt"], ...findings,
+        report_identity: [{ ...REDDIT_SEARCH.report_identity[0]!, exposure: "testosterone" }],
         answer_quotes: quotesOf("most reported better recovery too"), threads_read: [{ url: testosteroneThread }],
         thread_selection: "all_found" }
     ];
@@ -1081,6 +1090,7 @@ describe("finalize_research gate", () => {
     ];
     const read = (community: string, platform: string, url: string) => ({
       community,
+      report_identity: [{ ...REDDIT_SEARCH.report_identity[0]!, exposure: "growth hormone" }],
       platform,
       queries: ["growth hormone versus testosterone long term"],
       threads_read: [{ url }],
@@ -1147,6 +1157,7 @@ describe("finalize_research gate", () => {
     });
     const forum = {
       community: "ADHD Parents Forum",
+      report_identity: [{ ...REDDIT_SEARCH.report_identity[0]!, exposure: "humic acid" }],
       platform: "forum",
       queries: ["humic acid ADHD"],
       threads_read: [{ url: forumThread }],
@@ -1666,7 +1677,7 @@ describe("finalize_research gate", () => {
         "creators versus independent commenters, and the effect on the answer), even if the signal is weak or neutral."
     ]);
     // Only the subreddit's lane: the YouTube findings are still missing.
-    expect(silent.must_report).toEqual([expect.stringMatching(/^r\/HipOA \(1 thread\(s\) read\): /u)]);
+    expect(silent.must_report).toEqual([FORUM_REPORT_LINE, expect.stringMatching(/^r\/HipOA \(1 thread\(s\) read\): /u)]);
 
     const partial = finalizeResearchGate({
       ...request,
@@ -1690,7 +1701,7 @@ describe("finalize_research gate", () => {
     expect(weak.status).not.toBe("not_ready");
     expect(weak.must_report).toEqual([expect.stringMatching(
       /^YouTube comments \(3 video\(s\) read\): Benefits: Two commenters reported deeper sleep\. .*Effect on the answer: Adds no strong independent signal; the answer rests on the studies\. Report this lane in the answer even if later sources dominate; if its signal is weak, say so\. Then copy the sentences that report it into community_findings\.answer_quotes\.$/u
-    ), expect.stringMatching(/^r\/HipOA \(1 thread\(s\) read\): /u)]);
+    ), FORUM_REPORT_LINE, expect.stringMatching(/^r\/HipOA \(1 thread\(s\) read\): /u)]);
   });
 
   it("needs findings only for videos whose comments were read", () => {
@@ -1712,6 +1723,7 @@ describe("finalize_research gate", () => {
     expect(onlyRead.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(onlyRead.must_report).toEqual([
       expect.stringMatching(/^YouTube comments \(1 video\(s\) read\): /u),
+      FORUM_REPORT_LINE,
       expect.stringMatching(/^r\/HipOA \(1 thread\(s\) read\): /u)
     ]);
     // Listing the disabled video is allowed, and it is not counted as read.
@@ -1721,6 +1733,7 @@ describe("finalize_research gate", () => {
     expect(both.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(both.must_report).toEqual([
       expect.stringMatching(/^YouTube comments \(1 video\(s\) read\): /u),
+      FORUM_REPORT_LINE,
       expect.stringMatching(/^r\/HipOA \(1 thread\(s\) read\): /u)
     ]);
 
@@ -1741,7 +1754,8 @@ describe("finalize_research gate", () => {
     ]);
     const covered = finalizeResearchGate({ ...oneCallRequest, community_findings: findingsFor(["ddddddddddd"]) }, options);
     expect(covered.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
-    expect(covered.must_report).toHaveLength(2);
+    expect(covered.must_report).toHaveLength(3);
+    expect(covered.must_report).toContain(FORUM_REPORT_LINE);
 
     // Findings cover the comments the audit's final view returned: a comment
     // too large for any view was retrieved but never shown.

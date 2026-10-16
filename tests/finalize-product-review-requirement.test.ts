@@ -48,7 +48,8 @@ const QUOTES = {
 };
 const search = (community: string, platform: Search["platform"], url: string): Search => ({
   community, platform, queries: ["EGCG fast COMT experiences"], threads_read: [{ url }],
-  ...(platform === "review_site" ? {} : { thread_selection: "all_found" as const }),
+  ...(platform === "review_site" ? {} : { thread_selection: "all_found" as const,
+    report_identity: [{ exposure: "EGCG", reports_read: 1, firsthand_exact: 1, exposure_unclear: 0, other_exposure: 0, not_firsthand: 0, measured_after: 0 }] }),
   ...QUOTES, answer_quotes: { ...QUOTES }
 });
 const REDDIT = search("r/Supplements", "reddit", "https://www.reddit.com/r/Supplements/comments/abc123/egcg/");
@@ -141,7 +142,8 @@ describe("finalize_research product review requirement", () => {
   });
 
   it("does not let another platform satisfy a mapped review site", () => {
-    const result = checked(packageFor(withReviews({ platform: "forum", review_corpora: undefined, thread_selection: "all_found" })));
+    const result = checked(packageFor(withReviews({ platform: "forum", review_corpora: undefined, thread_selection: "all_found",
+      report_identity: FORUM.report_identity })));
     expect(result.status).toBe("not_ready");
     expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([SEARCH_STEP]);
   });

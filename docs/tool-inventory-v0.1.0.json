@@ -13709,7 +13709,7 @@
     },
     {
       "name": "finalize_research",
-      "description": "Final check of a research answer before it is given. Input: the research_receipt values that AskRigor's tools returned in this session; the research_target as given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits (discovery for another target does not count); whether community evidence was researched and whether the answer compares treatment options; where the topic is discussed and what each community searched outside YouTube showed (principal_communities, community_searches); what the YouTube comments read showed (community_findings); the studies the conclusions rest on (key_sources), whole-intervention identity (intervention_identity), item-level product identity (product_corpora and item_identity), and destination-bound offers or search routes (shopping); after a first pass, the focuses for going deeper (open_leads, another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results (scale_results: quoted explanations with the scale name, range, values and benchmark), visible links to each key study, and the caveats, and is not stored. Result: contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh hint when a required declaration is missing; ready_with_limits with the limits, the caveat sentences for the answer (each as its own sentence and as written, in the answer's language when answer_language and caveat_renderings are given) and must_report, what the answer reports from each lane researched; or receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the owner's review; in paid private mode the caveats offer its save.",
+      "description": "Final check of a research answer before it is given. Input: the research_receipt values that AskRigor's tools returned in this session; the research_target as given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits (discovery for another target does not count); whether community evidence was researched and whether the answer compares treatment options; where the topic is discussed and what each community searched outside YouTube showed (principal_communities, community_searches); what the YouTube comments read showed (community_findings); the studies the conclusions rest on (key_sources), whole-intervention identity (intervention_identity), item-level product identity (product_corpora and item_identity), and destination-bound offers or search routes (shopping); after a first pass, the focuses for going deeper (open_leads, another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results (scale_results: quoted explanations with the scale name, range, values and benchmark), visible links to each key study, and the caveats, and is not stored. Result: contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh hint when a required declaration is missing; ready_with_limits with the limits, the caveat sentences for the answer (each as its own sentence and as written, in the answer's language when answer_language and caveat_renderings are given) and must_report, what the answer reports from each lane researched; when ready, check_line, the line the answer ends with; or receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the owner's review; in paid private mode the caveats offer its save.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -14106,6 +14106,10 @@
                     "review_site",
                     "other"
                   ]
+                },
+                "named_by_user": {
+                  "description": "true when the user asked for this community to be searched; each such community is searched, or its access boundary recorded (HRP PrincipalPlatformMapping).",
+                  "type": "boolean"
                 }
               },
               "required": [
@@ -14193,6 +14197,69 @@
                     "outcome_keyword",
                     "other_partial"
                   ]
+                },
+                "report_identity": {
+                  "description": "Outside review sites, for each exposure the answer draws on from this community's threads: how the reports you read divide. The four classes add up to reports_read (HRP ScopeAxesBeforeSampling, ObjectiveSubjectiveSeparation).",
+                  "minItems": 1,
+                  "maxItems": 4,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "exposure": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200,
+                        "description": "The exact exposure the answer draws on, as reports name it: a form, product, dose or program."
+                      },
+                      "reports_read": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991,
+                        "description": "Reports about it in this community's threads you read: firsthand accounts, advice, hearsay and questions."
+                      },
+                      "firsthand_exact": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991,
+                        "description": "People describing their own use of exactly that exposure."
+                      },
+                      "exposure_unclear": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991,
+                        "description": "Firsthand reports that don't say which form or product was used."
+                      },
+                      "other_exposure": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991,
+                        "description": "Firsthand reports of something else (another form, a food, another product); not counted for the exposure."
+                      },
+                      "not_firsthand": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991,
+                        "description": "Advice, hearsay, questions and speculation; not counted as experiences."
+                      },
+                      "measured_after": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991,
+                        "description": "Of the firsthand_exact reports, those giving a measurement after the change (a laboratory value or test), not only how the person felt."
+                      }
+                    },
+                    "required": [
+                      "exposure",
+                      "reports_read",
+                      "firsthand_exact",
+                      "exposure_unclear",
+                      "other_exposure",
+                      "not_firsthand",
+                      "measured_after"
+                    ],
+                    "additionalProperties": false
+                  }
                 },
                 "access_boundary": {
                   "description": "What stopped the search: this app has no web search; the site needs a login; the site refused access, such as a block page; a search or page fetch failed, such as an error or a timeout; or the searches found nothing relevant.",
@@ -14392,6 +14459,76 @@
                 "community",
                 "platform",
                 "queries"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "comparison_claims": {
+            "description": "With answer_draft, when treatment_choice is compared and forum threads were read: each comparison the answer draws from community reports, with both sides' doses as numbers; an empty list means the answer draws none from them (HRP ScopeAxesBeforeSampling).",
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "quote": {
+                  "type": "string",
+                  "maxLength": 1000,
+                  "description": "The answer's sentence drawing the comparison, copied from answer_draft."
+                },
+                "arms": {
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "exposure": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "dose": {
+                        "anyOf": [
+                          {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "unit": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "exposure",
+                      "dose",
+                      "unit"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "description": "Each side as the reports give it: the exposure, its daily dose as a number, and the unit; null when a report gives none."
+                },
+                "same_people": {
+                  "type": "boolean",
+                  "description": "true when the reports behind it come from people who used both sides."
+                }
+              },
+              "required": [
+                "quote",
+                "arms",
+                "same_people"
               ],
               "additionalProperties": false
             }
@@ -15256,6 +15393,9 @@
               "type": "string"
             },
             "description": "What the answer must report from each evidence lane researched, even when weak or neutral."
+          },
+          "check_line": {
+            "type": "string"
           },
           "receipts_verified": {
             "type": "integer",
