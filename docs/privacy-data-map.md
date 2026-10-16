@@ -1060,6 +1060,7 @@ pending-proposal stores have their own strict contracts and authority boundaries
   and other declarations are request-local and are not stored or logged.
   The output's `check_line` is a fixed server sentence for the answer to end with;
   it is not part of the signed finalization receipt.
+  The panel resource renders the same result in the client's sandboxed frame; nothing new is collected, stored, logged or sent.
   Its `full_text_search` declaration (`run` with the Europe PMC section
   queries the model ran, or `not_needed` with a short reason) is request-local
   too: each query is compared by its 12-hex digest with a section-search

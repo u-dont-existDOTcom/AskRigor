@@ -30,6 +30,7 @@ import {
   allowedChatGptClientIds,
   type AskRigorOAuthResourceServer,
 } from "../apps/research-mcp/src/oauth-resource-server.js";
+import { FINAL_CHECK_PANEL_URI } from "../apps/research-mcp/src/final-check-panel.js";
 import { createAskRigorHttpServer } from
   "../apps/research-mcp/src/server.js";
 
@@ -245,15 +246,23 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
     expect(contributionReview?._meta).toEqual({
       securitySchemes: [{ type: "oauth2", scopes: [CASE_REVIEW_SCOPE] }],
     });
-    expect(tools.filter(({ name }) =>
+    for (const { name, _meta } of tools.filter(({ name }) =>
       ![
         "review_evidence_gap_submissions",
         "review_research_contribution",
         "get_protocol_manifest",
       ].includes(name)
-    ).every(({ _meta }) => JSON.stringify(_meta) === JSON.stringify({
-      securitySchemes: [{ type: "oauth2", scopes: [RESEARCH_USE_SCOPE] }],
-    }))).toBe(true);
+    )) {
+      expect(_meta, name).toEqual({
+        securitySchemes: [{ type: "oauth2", scopes: [RESEARCH_USE_SCOPE] }],
+        // The final check alone declares its panel (owner question 100).
+        ...(name === "finalize_research" ? {
+          ui: { resourceUri: FINAL_CHECK_PANEL_URI },
+          "ui/resourceUri": FINAL_CHECK_PANEL_URI,
+          "openai/outputTemplate": FINAL_CHECK_PANEL_URI,
+        } : {}),
+      });
+    }
   });
 
   it("publishes resource metadata and emits the tool-level linking challenge", async () => {
