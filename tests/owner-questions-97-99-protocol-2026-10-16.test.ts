@@ -4,7 +4,7 @@ import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
 import { getProtocolManifest, loadProtocolSectionSnapshot, protocolNamedElements } from "@askrigor/protocol";
 import {
-  undoOwnerQuestion93Hrp, undoOwnerQuestion103Hrp, undoOwnerQuestions86To89Hrp,
+  undoOwnerQuestion93Hrp, undoOwnerQuestions103And104Hrp, undoOwnerQuestions86To89Hrp,
   undoOwnerQuestions90To92Hrp, undoOwnerQuestions97And99Hrp,
 } from "./helpers/undo-read-depth.js";
 
@@ -14,8 +14,8 @@ const hash = (text: string) => createHash("sha256").update(text, "utf8").digest(
 const loadCurrent = (file: "HRP_Full.xml" | "Universal_Instructions.xml" = "HRP_Full.xml") => readFile(
   new URL(`protocols/${file}`, ROOT), "utf8",
 );
-// The state right after questions 97 and 99: question 103's newer HRP edits are undone first.
-const load = async () => undoOwnerQuestion103Hrp(await loadCurrent());
+// The state right after questions 97 and 99: questions 103 and 104's newer HRP edits are undone first.
+const load = async () => undoOwnerQuestions103And104Hrp(await loadCurrent());
 const loadPrior = async () => undoOwnerQuestions97And99Hrp(await loadCurrent());
 interface Edits {
   from: { version: string; sha256: string }; to: { version: string; sha256: string };
@@ -215,7 +215,7 @@ describe("owner-approved questions 97 and 99: 97a98b99a (2026-10-16)", () => {
     expect(text).toBe(bytes.toString("utf8"));
     expect(manifest).toEqual({ name: "HRP", version: "20.6.26", revisionDate: "2026-10-16", sha256: hash(text) });
     const names = [
-      ["ProposeDiscriminatingTest", "Rule", "name", "HighValueSignalShowcase"],
+      ["ProposeDiscriminatingTest", "Rule", "name", "HeterodoxEpistemology"],
       ...CASES.map(([name]) => [name, "Case", "id", "StressTestExpectations"]),
     ];
     for (const [name, tag, attr, containingSection] of names) {

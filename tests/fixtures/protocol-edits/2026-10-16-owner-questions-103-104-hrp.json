@@ -1,0 +1,35 @@
+{
+  "purpose": "Owner-approved questions 103 and 104, from the owner's answers \"103 a\" and \"104a\" (2026-10-16): the corrected stress case from the 16 October regression run and ProposeDiscriminatingTest moved unchanged into core HeterodoxEpistemology. Exact approved text apart from XML formatting; one reversible HRP 20.6.26 fixture chained from questions 97 and 99 HRP 20.6.25.",
+  "hrp": {
+    "from": {
+      "version": "20.6.25",
+      "sha256": "f3f1d9d2f60eb0dd376d93a09910a7a26e3543b4cdb8f540298a977315d4beb5"
+    },
+    "to": {
+      "version": "20.6.26",
+      "sha256": "e681ed981471a38ac93c1eb6c13fb86e70fc6e8cb55e07d517bfc715d97c6cfa"
+    },
+    "edits": [
+      [
+        "version=\"20.6.25\" revisionDate=\"2026-10-16\"",
+        "version=\"20.6.26\" revisionDate=\"2026-10-16\""
+      ],
+      [
+        " <RevisionHistory>\n",
+        " <RevisionHistory>\n  <Revision version=\"20.6.26\" priority=\"Critical\">\n   Owner-approved, question 103 (2026-10-16), from the 16 October regression run: stress case\n   FormSpecificForumReports now places the liver-supplement report in a second thread, so its prompt no longer\n   contradicts itself. Owner-approved, question 104 (2026-10-16): ProposeDiscriminatingTest moved, its text\n   unchanged, from HighValueSignalShowcase into the core section HeterodoxEpistemology, directly after\n   NoFavoredExplanationPrivilege, so every research answer loads it.\n  </Revision>\n"
+      ],
+      [
+        "  <Case id=\"FormSpecificForumReports\">\n   <Prompt>\n    Asked whether form A of a mineral supplement raises a low blood marker better than form B, a forum thread\n    discusses low values of the marker, but no one in it says they took form A; one person says form A worked better\n    for them than a liver supplement.\n   </Prompt>\n   <ExpectedBehavior>\n    Report that no one in the thread took form A; keep the marker values in the thread apart from any effect of form\n    A; don't present the liver-supplement comparison as form A against form B.\n   </ExpectedBehavior>\n  </Case>",
+        "  <Case id=\"FormSpecificForumReports\">\n   <Prompt>\n    Asked whether form A of a mineral supplement raises a low blood marker better than form B, a forum thread\n    discusses low values of the marker, but no one in it says they took form A; in another thread, one person says\n    form A worked better for them than a liver supplement.\n   </Prompt>\n   <ExpectedBehavior>\n    Report that no one in the first thread took form A, and keep its marker values apart from any effect of form A;\n    count the second thread's report as one person's use of form A against a liver supplement, not as form A against\n    form B.\n   </ExpectedBehavior>\n  </Case>"
+      ],
+      [
+        "  <Rule name=\"DocumentSignal\" priority=\"High\">\n   Propose prospective documentation: baseline, timing, formulation, dose or exposure, co-interventions, objective outcomes,\n   nonresponses, adverse effects, withdrawal, rechallenge, and follow-up.\n  </Rule>\n\n  <Rule name=\"ProposeDiscriminatingTest\" priority=\"Critical\">\n   When the evidence found cannot answer the question but methods that exist could, describe the test that would\n   answer it as soon as those methods come up, without being asked: what is compared, the control condition, and what\n   each result would show. Say it appears not to have been done only after an adequate search; a narrow search does\n   not show that nobody has done it, and supposed barriers are not documented reasons.\n  </Rule>\n\n  <Rule name=\"HighValueLowActionability\" priority=\"High\">\n   A signal can be important for research while remaining unsuitable for self-treatment.\n  </Rule>",
+        "  <Rule name=\"DocumentSignal\" priority=\"High\">\n   Propose prospective documentation: baseline, timing, formulation, dose or exposure, co-interventions, objective outcomes,\n   nonresponses, adverse effects, withdrawal, rechallenge, and follow-up.\n  </Rule>\n\n  <Rule name=\"HighValueLowActionability\" priority=\"High\">\n   A signal can be important for research while remaining unsuitable for self-treatment.\n  </Rule>"
+      ],
+      [
+        "  <Rule name=\"NoFavoredExplanationPrivilege\" priority=\"Critical\">\n   Give familiar deflationary explanations the same scrutiny. Sensory, expectancy, placebo, anti-inflammatory, and\n   pharmacokinetic accounts are competing hypotheses, not defaults: each must fit every constraint and pass\n   discriminating tests, such as unrelated tastes and smells, other routes, touch, skin sensitivity, odorless materials,\n   other brands or batches, and pharmacological state. Skepticism discriminates hypotheses; it does not replace\n   investigation.\n  </Rule>\n\n  <Rule name=\"ConsensusAsEvidenceNotClosure\" priority=\"High\">\n   State mainstream consensus when relevant, then evaluate the evidence, scope, assumptions, implementation context,\n   and known limitations. Consensus is neither irrelevant nor self-proving.\n  </Rule>",
+        "  <Rule name=\"NoFavoredExplanationPrivilege\" priority=\"Critical\">\n   Give familiar deflationary explanations the same scrutiny. Sensory, expectancy, placebo, anti-inflammatory, and\n   pharmacokinetic accounts are competing hypotheses, not defaults: each must fit every constraint and pass\n   discriminating tests, such as unrelated tastes and smells, other routes, touch, skin sensitivity, odorless materials,\n   other brands or batches, and pharmacological state. Skepticism discriminates hypotheses; it does not replace\n   investigation.\n  </Rule>\n\n  <Rule name=\"ProposeDiscriminatingTest\" priority=\"Critical\">\n   When the evidence found cannot answer the question but methods that exist could, describe the test that would\n   answer it as soon as those methods come up, without being asked: what is compared, the control condition, and what\n   each result would show. Say it appears not to have been done only after an adequate search; a narrow search does\n   not show that nobody has done it, and supposed barriers are not documented reasons.\n  </Rule>\n\n  <Rule name=\"ConsensusAsEvidenceNotClosure\" priority=\"High\">\n   State mainstream consensus when relevant, then evaluate the evidence, scope, assumptions, implementation context,\n   and known limitations. Consensus is neither irrelevant nor self-proving.\n  </Rule>"
+      ]
+    ]
+  }
+}

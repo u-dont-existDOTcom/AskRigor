@@ -7,7 +7,9 @@
   fixes it points to under "Coming up" (server only, no protocol wording; default: built as their own pull request,
   then a release question).
 - The server changes need no protocol wording. Owner question 103 (the corrected FormSpecificForumReports stress
-  case) was answered "103 a" while this was built, so HRP 20.6.26 joins it; Universal stays 20.5.43.
+  case) was answered "103 a" while this was built, so HRP 20.6.26 joins it; then "106b 104a": release later, with
+  question 104's move of ProposeDiscriminatingTest into the core section in the same HRP 20.6.26. Universal stays
+  20.5.43.
 
 ## Evidence
 
@@ -69,10 +71,11 @@
 5. Documentation: the privacy data map (the landing page and its receipt; the copy's URL in full-text receipts), the
    tool inventory, and this plan.
 6. HRP 20.6.26: stress case FormSpecificForumReports replaced word for word with owner question 103's text (its first
-   version said both that no one in the thread took form A and that one person did), with one revision entry and
-   nothing else changed; built like 20.6.25 (`86a6b9c9`), with a reversible edit fixture chained from 97-99, the
-   approved text tested word for word and in place, and every current pin moved. The same correction goes into
-   `docs/owner-regressions.md`'s lesson #30 row.
+   version said both that no one in the thread took form A and that one person did), and ProposeDiscriminatingTest
+   moved, its text unchanged, from HighValueSignalShowcase into the core section HeterodoxEpistemology directly after
+   NoFavoredExplanationPrivilege (question 104), with one revision entry and nothing else changed; built like 20.6.25
+   (`86a6b9c9`), with one reversible edit fixture chained from 97-99, the approved text and the move tested in place,
+   and every current pin moved. The same correction goes into `docs/owner-regressions.md`'s lesson #30 row.
 
 7. **The owner's first look at the panel in ChatGPT** (16 October, 21:29 UTC; added at the parent session's request):
    - the lane lines carried instructions meant for the model ("Then copy the sentences that report it into the
@@ -107,8 +110,8 @@
 
 ## Not changed
 
-- `SERVER_INSTRUCTIONS`, Universal, HRP apart from the one stress case, and the Gemini catalog (it omits
-  `finalize_research`; `resolve_doi`'s inputs and description are unchanged).
+- `SERVER_INSTRUCTIONS`, Universal, HRP apart from the stress case and the moved rule, and the Gemini catalog (it
+  omits `finalize_research`; `resolve_doi`'s inputs and description are unchanged).
 - A declaration the model leaves out is still invisible to the check, and sources without a DOI, PMID or PMCID
   (ResearchGate pages, conference abstracts) still cannot be checked.
 

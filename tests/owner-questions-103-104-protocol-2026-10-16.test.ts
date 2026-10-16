@@ -2,9 +2,11 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
-import { getProtocolManifest, loadProtocolSectionSnapshot, protocolNamedElements } from "@askrigor/protocol";
 import {
-  undoOwnerQuestion93Hrp, undoOwnerQuestion103Hrp, undoOwnerQuestions86To89Hrp,
+  coreSectionNames, getProtocolManifest, loadProtocolSectionSnapshot, protocolNamedElements,
+} from "@askrigor/protocol";
+import {
+  undoOwnerQuestion93Hrp, undoOwnerQuestions103And104Hrp, undoOwnerQuestions86To89Hrp,
   undoOwnerQuestions90To92Hrp, undoOwnerQuestions97And99Hrp, undoReadDepth,
 } from "./helpers/undo-read-depth.js";
 
@@ -12,22 +14,25 @@ const ROOT = new URL("../", import.meta.url);
 const parser = new XMLParser({ parseTagValue: false });
 const hash = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
 const load = () => readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
-const loadPrior = async () => undoOwnerQuestion103Hrp(await load());
+const loadPrior = async () => undoOwnerQuestions103And104Hrp(await load());
 interface Edits {
   from: { version: string; sha256: string }; to: { version: string; sha256: string };
   edits: Array<[string, string]>;
 }
 
-// Independent of the edit fixture: the owner's exact approved wording, question 103,
-// answer "103 a" (2026-10-16), from the 16 October regression run.
+// Independent of the edit fixture: the owner's exact approved wording, questions 103 and 104,
+// answers "103 a" and "104a" (2026-10-16).
 const APPROVED = {
   prompt: "Asked whether form A of a mineral supplement raises a low blood marker better than form B, a forum thread discusses low values of the marker, but no one in it says they took form A; in another thread, one person says form A worked better for them than a liver supplement.",
   expected: "Report that no one in the first thread took form A, and keep its marker values apart from any effect of form A; count the second thread's report as one person's use of form A against a liver supplement, not as form A against form B.",
-  revision: "Owner-approved, question 103 (2026-10-16), from the 16 October regression run: stress case FormSpecificForumReports now places the liver-supplement report in a second thread, so its prompt no longer contradicts itself.",
+  revision: "Owner-approved, question 103 (2026-10-16), from the 16 October regression run: stress case FormSpecificForumReports now places the liver-supplement report in a second thread, so its prompt no longer contradicts itself. Owner-approved, question 104 (2026-10-16): ProposeDiscriminatingTest moved, its text unchanged, from HighValueSignalShowcase into the core section HeterodoxEpistemology, directly after NoFavoredExplanationPrivilege, so every research answer loads it.",
 } as const;
+// This rule already existed in 20.6.25; its wording is locked independently of the fixture and prior bytes.
+const RULE_ID = "ProposeDiscriminatingTest";
+const APPROVED_RULE = "When the evidence found cannot answer the question but methods that exist could, describe the test that would answer it as soon as those methods come up, without being asked: what is compared, the control condition, and what each result would show. Say it appears not to have been done only after an adequate search; a narrow search does not show that nobody has done it, and supposed barriers are not documented reasons.";
 const PINS = {
   from: { version: "20.6.25", sha256: "f3f1d9d2f60eb0dd376d93a09910a7a26e3543b4cdb8f540298a977315d4beb5" },
-  to: { version: "20.6.26", sha256: "8906a8c66da50281e066bb73505ab3d023e219faa57ef04fe0edc5a5c8c6bf39" },
+  to: { version: "20.6.26", sha256: "e681ed981471a38ac93c1eb6c13fb86e70fc6e8cb55e07d517bfc715d97c6cfa" },
   hrp20624: "04bf76e20ebab9ab5cd6138ca45adbce79dccdd91a505df5ada14366bc0b0589",
   hrp20623: "6623056eab84a60a0a82ac33a5aa0145cb84725d1be60aedfa77faf3d69899bd",
   hrp20622: "da82943f56614783d9316bd9a7d87a3233bf8c03255f20c88cc7bfefa39d73e9",
@@ -50,7 +55,9 @@ const CASE_XML = `  <Case id="FormSpecificForumReports">
 const REVISION_XML = `  <Revision version="20.6.26" priority="Critical">
    Owner-approved, question 103 (2026-10-16), from the 16 October regression run: stress case
    FormSpecificForumReports now places the liver-supplement report in a second thread, so its prompt no longer
-   contradicts itself.
+   contradicts itself. Owner-approved, question 104 (2026-10-16): ProposeDiscriminatingTest moved, its text
+   unchanged, from HighValueSignalShowcase into the core section HeterodoxEpistemology, directly after
+   NoFavoredExplanationPrivilege, so every research answer loads it.
   </Revision>`;
 const WIDTH = 118;
 const normalize = (text: string) => text.replace(/\s+/gu, " ");
@@ -65,6 +72,9 @@ function element(text: string, tag: string, attr: string, id: string): string {
   expect(matches, id).toHaveLength(1);
   return matches[0]![1]!;
 }
+function rule(text: string, name: string, priority = "Critical"): string {
+  return `  <Rule name="${name}" priority="${priority}">${element(text, "Rule", "name", name)}</Rule>`;
+}
 function replaceOnce(text: string, before: string, after: string): string {
   expect(text.split(before), before.slice(0, 80)).toHaveLength(2);
   const result = text.replace(before, () => after);
@@ -72,13 +82,13 @@ function replaceOnce(text: string, before: string, after: string): string {
   return result;
 }
 
-describe("owner-approved question 103: 103 a (2026-10-16)", () => {
-  it("chains three exact edits from questions 97 and 99, validates XML, derives the manifest and reverses the HRP chain", async () => {
+describe("owner-approved questions 103 and 104: 103 a, 104a (2026-10-16)", () => {
+  it("chains five exact edits from questions 97 and 99, validates XML, derives the manifest and reverses the HRP chain", async () => {
     const recorded = JSON.parse(await readFile(new URL(
-      "tests/fixtures/protocol-edits/2026-10-16-owner-question-103-hrp.json", ROOT,
+      "tests/fixtures/protocol-edits/2026-10-16-owner-questions-103-104-hrp.json", ROOT,
     ), "utf8")) as { purpose: string; hrp: Edits };
     expect(Object.keys(recorded)).toEqual(["purpose", "hrp"]);
-    expect(recorded.purpose).toContain('Owner-approved question 103, from the owner\'s answer "103 a" (2026-10-16)');
+    expect(recorded.purpose).toContain('Owner-approved questions 103 and 104, from the owner\'s answers "103 a" and "104a" (2026-10-16)');
     expect(recorded.purpose).toContain("from the 16 October regression run");
     const fixture = recorded.hrp;
     const previous = JSON.parse(await readFile(new URL(
@@ -87,7 +97,7 @@ describe("owner-approved question 103: 103 a (2026-10-16)", () => {
     expect(fixture.from).toEqual(previous.to);
     expect(fixture.from).toEqual(PINS.from);
     expect(fixture.to).toEqual(PINS.to);
-    expect(fixture.edits).toHaveLength(3);
+    expect(fixture.edits).toHaveLength(5);
     const current = await load();
     expect(XMLValidator.validate(current)).toBe(true);
     expect(current).toContain(`<Protocol name="HRP" version="${PINS.to.version}" revisionDate="2026-10-16"`);
@@ -97,7 +107,7 @@ describe("owner-approved question 103: 103 a (2026-10-16)", () => {
     expect(prior).toContain(`<Protocol name="HRP" version="${PINS.from.version}" revisionDate="2026-10-16"`);
     expect(hash(prior)).toBe(PINS.from.sha256);
     expect(fixture.edits.reduce((text, [before, after]) => replaceOnce(text, before, after), prior)).toBe(current);
-    await expect(undoOwnerQuestion103Hrp(current)).resolves.toBe(prior);
+    await expect(undoOwnerQuestions103And104Hrp(current)).resolves.toBe(prior);
     const beforePrevious = [...previous.edits].reverse().reduce((text, [before, after]) => replaceOnce(text, after, before), prior);
     expect(hash(beforePrevious)).toBe(PINS.hrp20624);
     await expect(undoOwnerQuestions97And99Hrp(current)).resolves.toBe(beforePrevious);
@@ -162,7 +172,58 @@ describe("owner-approved question 103: 103 a (2026-10-16)", () => {
     expect(containing.map(({ name }) => name)).toEqual(["StressTestExpectations"]);
   });
 
-  it("equals 20.6.25 plus only the approved root, revision and case edits, normalized and byte for byte", async () => {
+  it("moves the one unchanged Critical rule between the approved neighbours, preserving both sections byte for byte", async () => {
+    const [text, prior] = await Promise.all([load(), loadPrior()]);
+    const before = rule(prior, RULE_ID);
+    const moved = rule(text, RULE_ID);
+    expect(plain(element(prior, "Rule", "name", RULE_ID))).toBe(APPROVED_RULE);
+    expect(plain(element(text, "Rule", "name", RULE_ID))).toBe(APPROVED_RULE);
+    expect(Buffer.from(moved, "utf8")).toEqual(Buffer.from(before, "utf8"));
+    expect(text.split(`<Rule name="${RULE_ID}"`)).toHaveLength(2);
+    const favored = rule(prior, "NoFavoredExplanationPrivilege");
+    const consensus = rule(prior, "ConsensusAsEvidenceNotClosure", "High");
+    const document = rule(prior, "DocumentSignal", "High");
+    const low = rule(prior, "HighValueLowActionability", "High");
+    expect(section(prior, "HighValueSignalShowcase")).toContain(`${document}\n\n${before}\n\n${low}`);
+    expect(section(prior, "HeterodoxEpistemology")).not.toContain(`<Rule name="${RULE_ID}"`);
+    expect(section(text, "HeterodoxEpistemology")).toBe(replaceOnce(
+      section(prior, "HeterodoxEpistemology"),
+      `${favored}\n\n${consensus}`, `${favored}\n\n${before}\n\n${consensus}`,
+    ));
+    expect(section(text, "HighValueSignalShowcase")).toBe(replaceOnce(
+      section(prior, "HighValueSignalShowcase"),
+      `${document}\n\n${before}\n\n${low}`, `${document}\n\n${low}`,
+    ));
+    expect(section(text, "HighValueSignalShowcase")).not.toContain(`<Rule name="${RULE_ID}"`);
+  });
+
+  it("loads the unchanged rule by name in HeterodoxEpistemology and includes it in the repository's core sections", async () => {
+    const bytes = await readFile(new URL("protocols/HRP_Full.xml", ROOT));
+    const { sections, text } = await loadProtocolSectionSnapshot("hrp");
+    expect(text).toBe(bytes.toString("utf8"));
+    const [found, ...others] = protocolNamedElements(text, RULE_ID);
+    expect(others).toEqual([]);
+    expect(found).toMatchObject({ tag: "Rule", section: "HeterodoxEpistemology" });
+    const canonical = bytes.subarray(found!.byte_start, found!.byte_end_exclusive).toString("utf8");
+    expect(canonical).toBe(rule(await loadPrior(), RULE_ID).trimStart());
+    expect(plain(element(canonical, "Rule", "name", RULE_ID))).toBe(APPROVED_RULE);
+    const containing = sections.filter(({ byte_start, byte_end_exclusive }) =>
+      byte_start <= found!.byte_start && found!.byte_end_exclusive <= byte_end_exclusive
+    );
+    expect(containing.map(({ name }) => name)).toEqual(["HeterodoxEpistemology"]);
+    expect(containing[0]).toMatchObject({ core: true, runtime: true });
+    const coreNames = coreSectionNames("hrp");
+    expect(coreNames).toContain("HeterodoxEpistemology");
+    expect(coreNames).not.toContain("HighValueSignalShowcase");
+    const core = sections.filter(({ name }) => coreNames.includes(name))
+      .map(({ byte_start, byte_end_exclusive }) => bytes.subarray(byte_start, byte_end_exclusive).toString("utf8"))
+      .join("\n\n");
+    expect(core).toContain(canonical);
+    expect(protocolNamedElements(`<Protocol>${core}</Protocol>`, RULE_ID))
+      .toEqual([expect.objectContaining({ tag: "Rule", section: "HeterodoxEpistemology" })]);
+  });
+
+  it("equals 20.6.25 plus only the approved root, revision, case and move edits, normalized and byte for byte", async () => {
     const [text, prior] = await Promise.all([load(), loadPrior()]);
     for (const phrase of Object.values(APPROVED)) {
       expect(phrase).toMatch(/^[\x20-\x7e]+$/u);
@@ -171,10 +232,17 @@ describe("owner-approved question 103: 103 a (2026-10-16)", () => {
       expect(normalize(prior)).not.toContain(phrase);
     }
     const oldCase = `  <Case id="${CASE_ID}">${element(prior, "Case", "id", CASE_ID)}</Case>`;
+    const moved = rule(prior, RULE_ID);
+    const document = rule(prior, "DocumentSignal", "High");
+    const low = rule(prior, "HighValueLowActionability", "High");
+    const favored = rule(prior, "NoFavoredExplanationPrivilege");
+    const consensus = rule(prior, "ConsensusAsEvidenceNotClosure", "High");
     const edits = [
       [`version="${PINS.from.version}" revisionDate="2026-10-16"`, `version="${PINS.to.version}" revisionDate="2026-10-16"`],
       [" <RevisionHistory>\n", ` <RevisionHistory>\n${REVISION_XML}\n`],
       [oldCase, CASE_XML],
+      [`${document}\n\n${moved}\n\n${low}`, `${document}\n\n${low}`],
+      [`${favored}\n\n${consensus}`, `${favored}\n\n${moved}\n\n${consensus}`],
     ];
     let exact = prior;
     let normalized = normalize(prior);

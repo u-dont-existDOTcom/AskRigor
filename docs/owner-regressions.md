@@ -67,6 +67,8 @@ person in it did.
 ## Proposing the discriminating test (issue #336)
 
 HRP 20.6.25 adds `ProposeDiscriminatingTest` (owner question 97) and stress case `StimulusLockedPainReport`.
+HRP 20.6.26 moves the rule, its text unchanged, into the core section `HeterodoxEpistemology` (owner question 104), so
+every research answer loads it.
 
 The same test reached UDA's AskRigor lane from ChatGPT at the owner's request
 (`2026-10-15-stimulus-locked-pain-bci-research-test`, UDA #382); its two extra criteria and the 2022 review are folded
