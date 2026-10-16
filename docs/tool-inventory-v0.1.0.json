@@ -15668,6 +15668,11 @@
         "taskSupport": "forbidden"
       },
       "_meta": {
+        "ui": {
+          "resourceUri": "ui://askrigor/final-check.html"
+        },
+        "ui/resourceUri": "ui://askrigor/final-check.html",
+        "openai/outputTemplate": "ui://askrigor/final-check.html",
         "securitySchemes": [
           {
             "type": "oauth2",

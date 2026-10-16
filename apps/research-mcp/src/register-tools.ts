@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { FINAL_CHECK_PANEL_URI } from "./final-check-panel.js";
 import type {
   CallToolResult,
   ToolAnnotations
@@ -2048,6 +2049,13 @@ function defineResearchOperations(
         "the caveats offer its save.",
       inputSchema: finalizeResearchInputSchema,
       outputSchema: finalizeResearchOutputSchema,
+      ...(options.mcpSurface === "/mcp/gemini" ? {} : {
+        _meta: {
+          ui: { resourceUri: FINAL_CHECK_PANEL_URI },
+          "ui/resourceUri": FINAL_CHECK_PANEL_URI,
+          "openai/outputTemplate": FINAL_CHECK_PANEL_URI,
+        },
+      }),
       // It writes: a free contributor's checked findings card is saved.
       annotations: MUTATING_ANNOTATIONS
     },
