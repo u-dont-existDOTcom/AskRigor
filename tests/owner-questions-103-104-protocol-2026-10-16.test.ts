@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
 import {
-  coreSectionNames, getProtocolManifest, loadProtocolSectionSnapshot, protocolNamedElements,
+  coreSectionNames, getProtocolManifest, loadProtocolSectionSnapshot, protocolNamedElements, protocolSections,
 } from "@askrigor/protocol";
 import {
   undoOwnerQuestion93Hrp, undoOwnerQuestions103And104Hrp, undoOwnerQuestions86To89Hrp,
@@ -221,6 +221,25 @@ describe("owner-approved questions 103 and 104: 103 a, 104a (2026-10-16)", () =>
     expect(core).toContain(canonical);
     expect(protocolNamedElements(`<Protocol>${core}</Protocol>`, RULE_ID))
       .toEqual([expect.objectContaining({ tag: "Rule", section: "HeterodoxEpistemology" })]);
+  });
+
+  // Question 104 estimated "about 450 bytes" for the core load; the move adds exactly the rule and its blank line.
+  it("grows HeterodoxEpistemology and the core load by exactly the moved rule, and shrinks the showcase by as much", async () => {
+    const [text, prior] = await Promise.all([load(), loadPrior()]);
+    const sizes = (source: string) => new Map(protocolSections("hrp", source).map(({ name, bytes }) => [name, bytes]));
+    const [now, before] = [sizes(text), sizes(prior)];
+    // The rule element with its indentation, and the blank line that separates it from the next rule.
+    const moved = Buffer.byteLength(`${rule(prior, RULE_ID)}\n\n`, "utf8");
+    const core = (map: Map<string, number>) =>
+      coreSectionNames("hrp").reduce((sum, name) => sum + map.get(name)!, 0);
+    expect(moved).toBe(507);
+    expect([before.get("HeterodoxEpistemology"), now.get("HeterodoxEpistemology")]).toEqual([1_999, 2_506]);
+    expect([before.get("HighValueSignalShowcase"), now.get("HighValueSignalShowcase")]).toEqual([1_909, 1_402]);
+    expect([core(before), core(now)]).toEqual([28_978, 29_485]);
+    for (const [name, bytes] of now) {
+      const change = name === "HeterodoxEpistemology" ? moved : name === "HighValueSignalShowcase" ? -moved : 0;
+      if (!["RevisionHistory", "StressTestExpectations"].includes(name)) expect(bytes - before.get(name)!, name).toBe(change);
+    }
   });
 
   it("equals 20.6.25 plus only the approved root, revision, case and move edits, normalized and byte for byte", async () => {
