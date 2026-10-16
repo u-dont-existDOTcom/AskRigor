@@ -6,6 +6,8 @@ import {
 } from "node:http";
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
+import { FINAL_CHECK_PANEL_URI, finalCheckPanelHtml } from "./final-check-panel.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isJsonContentType } from "@modelcontextprotocol/sdk/shared/mediaType.js";
 import type { PublicEvidenceGapIntakeService } from
@@ -155,7 +157,22 @@ export function createAskRigorServer(
     },
     { instructions: SERVER_INSTRUCTIONS }
   );
-  registerTools(server, options);
+  registerTools(server, profile === "gemini" ? { ...options, mcpSurface: GEMINI_COMPATIBLE_MCP_PATH } : options);
+  if (profile !== "gemini") {
+    // Build at registration so a changed bundle fails before serving the catalog.
+    const html = finalCheckPanelHtml();
+    server.registerResource("AskRigor final check", FINAL_CHECK_PANEL_URI, {
+      mimeType: RESOURCE_MIME_TYPE,
+      description: "Displays AskRigor's final check result in the client's sandboxed frame.",
+    }, async () => ({
+      contents: [{
+        uri: FINAL_CHECK_PANEL_URI,
+        mimeType: RESOURCE_MIME_TYPE,
+        text: html,
+        _meta: { ui: { prefersBorder: true, csp: { connectDomains: [], resourceDomains: [] } } },
+      }],
+    }));
+  }
   if (profile === "gemini") {
     installGeminiCompatibleToolCatalog(server);
   }

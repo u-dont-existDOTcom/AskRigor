@@ -6,6 +6,7 @@ import { loadProtocolSnapshot } from "@askrigor/protocol";
 
 import { YOUTUBE_COMMUNITY_AUDIT_SCOPE } from "../apps/research-mcp/src/youtube-mcp-sample.js";
 import { createToolInventory } from "../scripts/generate-tool-inventory.mts";
+import { FINAL_CHECK_PANEL_URI } from "../apps/research-mcp/src/final-check-panel.js";
 
 const rootFile = (path: string) => new URL(`../${path}`, import.meta.url);
 
@@ -647,7 +648,7 @@ describe("AskRigor public-review packet", () => {
         execution: { taskSupport: "forbidden" }
       });
       expect(tool.title).toBeUndefined();
-      expect(tool._meta).toEqual([
+      const security = [
         "review_evidence_gap_submissions",
         "review_research_contribution",
       ].includes(tool.name)
@@ -656,7 +657,15 @@ describe("AskRigor public-review packet", () => {
         // token too, so the manifest can report whether research calls will be accepted.
         : tool.name === "get_protocol_manifest"
           ? { securitySchemes: [{ type: "noauth" }, { type: "oauth2", scopes: ["research:use"] }] }
-          : { securitySchemes: [{ type: "oauth2", scopes: ["research:use"] }] });
+          : { securitySchemes: [{ type: "oauth2", scopes: ["research:use"] }] };
+      expect(tool._meta).toEqual({
+        ...security,
+        ...(tool.name === "finalize_research" ? {
+          ui: { resourceUri: FINAL_CHECK_PANEL_URI },
+          "ui/resourceUri": FINAL_CHECK_PANEL_URI,
+          "openai/outputTemplate": FINAL_CHECK_PANEL_URI,
+        } : {}),
+      });
       expect(Object.keys(tool).filter((key) => tool[key] !== undefined).sort()).toEqual([
         "_meta", "annotations", "description", "execution", "inputSchema", "name", "outputSchema"
       ]);
