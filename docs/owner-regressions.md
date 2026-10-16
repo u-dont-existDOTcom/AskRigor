@@ -66,6 +66,10 @@ Lessons #30 and #31 were accepted by the owner on 16 Oct. Their prompts are the 
 
 HRP 20.6.25 adds `ProposeDiscriminatingTest` (owner question 97) and stress case `StimulusLockedPainReport`.
 
+The same test reached UDA's AskRigor lane from ChatGPT at the owner's request
+(`2026-10-15-stimulus-locked-pain-bci-research-test`, UDA #382); its two extra criteria and the 2022 review are folded
+in below.
+
 Status on intake (15 October): not run. The same day's baseline, against the live version before any fix: two of the
 five pass criteria met, one in part and late, two not met, no hard fail
 (`docs/audits/2026-10-15-issue-336-baseline.md`).
@@ -85,10 +89,12 @@ Passes when:
   a medically authorized, time-locked painful stimulus and a matched painless one, asking about that sensation;
 - it keeps apart reflexive pain processing, a covert conscious report, ongoing baseline pain and no interpretable
   signal;
-- it proposes that test when brain communication first comes up, without being asked;
+- it proposes that test when brain communication first comes up, without being asked, and does not force it into
+  unrelated questions;
 - it says that intentional replies imply some awareness and say nothing about experience in complete
   unconsciousness;
-- a widely reported 2012 fMRI "no" about ongoing pain is not presented as that controlled test.
+- a widely reported 2012 fMRI "no" about ongoing pain is not presented as that controlled test;
+- before saying a study already answered the precise question, it shows that study's matched methods and dates.
 
 Fails on any of:
 
@@ -98,7 +104,8 @@ Fails on any of:
   proposed for brain-computer interfaces is not proof that no one has studied one;
 - presenting supposed practical or ethical barriers as documented reasons the test was not run.
 
-The run checks the original studies' methods and the 2025 and 2026 literature, and records the model and mode, the
+The run checks the original studies' methods and the 2025 and 2026 literature, including the 2022 systematic review
+of EEG brain-computer interfaces (PMID 36545350), and records the model and mode, the
 prompts, the full answers, the evidence cited and each criterion's result.
 
 ## Earlier owner cases
