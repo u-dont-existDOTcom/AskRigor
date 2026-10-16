@@ -2,6 +2,23 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 
 export const FINAL_CHECK_PANEL_URI = "ui://askrigor/final-check.html";
+// The tool result's _meta key for what only the panel shows. ChatGPT delivers a result's _meta to the panel and hides
+// it from the model (OpenAI's Apps SDK reference); MCP Apps hosts pass the whole result to the panel.
+export const FINAL_CHECK_PANEL_META = "askrigor/panel";
+
+/**
+ * ChatGPT's dedicated origin for the panel: the public MCP server's own origin, under OpenAI's own key. ui.domain would
+ * carry it for every host, but Claude accepts only its hashed claudemcpcontent.com form there and shows an error
+ * instead of the panel otherwise (Claude's MCP Apps troubleshooting guide), so ui.domain stays unset.
+ */
+export function finalCheckPanelWidgetDomain(env: NodeJS.ProcessEnv = process.env): string | undefined {
+  try {
+    const url = new URL(env.ASKRIGOR_OAUTH_RESOURCE_URL ?? "");
+    return url.protocol === "https:" ? url.origin : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 /** Convert only the bundle's final export list; package changes must fail visibly. */
 export function inlineFinalCheckAppBundle(bundle: string): string {
@@ -14,9 +31,10 @@ export function inlineFinalCheckAppBundle(bundle: string): string {
 
 // Plain JavaScript shared verbatim by the page and DOM tests, with no bundle dependencies.
 export const FINAL_CHECK_PANEL_RENDER_SOURCE = String.raw`
-function renderFinalCheck(doc, structuredContent) {
+function renderFinalCheck(doc, structuredContent, display) {
   const root = doc.getElementById("final-check-panel");
   const result = structuredContent && typeof structuredContent === "object" ? structuredContent : {};
+  const shown = display && typeof display === "object" ? display : {};
   root.replaceChildren();
   function add(parent, tag, text) {
     const element = doc.createElement(tag);
@@ -38,9 +56,10 @@ function renderFinalCheck(doc, structuredContent) {
   if (result.status === "ready_with_limits") heading = "Checked by AskRigor's final check, with " + items(result.limits).length + " limit(s)";
   if (result.status === "not_ready") heading = "Not checked yet: " + items(result.next_steps).length + " step(s) left";
   add(root, "h1", heading);
+  if (result.status === "not_ready") add(root, "p", "This answer was given before AskRigor's final check passed.");
   if (typeof result.check_line === "string") add(root, "p", result.check_line);
   list(root, "What the answer must say", result.caveats);
-  list(root, "What the answer reports", result.must_report);
+  list(root, "What the answer reports", Array.isArray(shown.must_report) ? shown.must_report : result.must_report);
   if (items(result.sources?.validated).length || items(result.sources?.lead_only).length) {
     const studies = add(root, "section");
     add(studies, "h2", "Studies checked");
@@ -48,17 +67,29 @@ function renderFinalCheck(doc, structuredContent) {
     list(studies, "Leads only", result.sources.lead_only, "h3");
   }
   list(root, "Communities searched", result.community?.communities_searched);
-  if (typeof result.findings_card?.status === "string") {
+  const card = result.findings_card && typeof result.findings_card === "object" ? result.findings_card : {};
+  if (card.status === "checked" || card.status === "rejected") {
     add(root, "h2", "Findings card");
-    add(root, "p", result.findings_card.status);
+    add(root, "p", findingsCardText(card));
+  }
+  function findingsCardText(card) {
+    if (card.status === "rejected") return "Not accepted, so it was not saved.";
+    const saved = card.saved && typeof card.saved === "object" ? card.saved : {};
+    if (saved.status === "saved") {
+      return "Checked, and saved for review" + (typeof saved.card_id === "string" ? " as " + saved.card_id : "") + ".";
+    }
+    if (saved.status === "already_saved") return "Checked; it was already saved for review.";
+    if (saved.status === "not_saved") return "Checked, but it could not be saved.";
+    if (saved.status === "unconfirmed") return "Checked; its save had not finished.";
+    return "Checked against the answer and its sources.";
   }
 }
 `;
 
 export const FINAL_CHECK_PANEL_BOOTSTRAP_SOURCE = String.raw`
-const render = (structuredContent) => renderFinalCheck(document, structuredContent);
+const render = (structuredContent, display) => renderFinalCheck(document, structuredContent, display);
 const app = new App({ name: "AskRigor final check", version: "1" });
-app.ontoolresult = (r) => render(r?.structuredContent);
+app.ontoolresult = (r) => render(r?.structuredContent, r?._meta?.[${JSON.stringify(FINAL_CHECK_PANEL_META)}]);
 app.connect().catch(() => {
   const root = document.getElementById("final-check-panel");
   root.textContent = "AskRigor's final check result is not available here";

@@ -1062,8 +1062,8 @@ pending-proposal stores have their own strict contracts and authority boundaries
   whether the person's safety conflicts and inputs are resolved, the inputs
   still open in a few words, and for long-term use its longest follow-up and
   whether stopping is covered), and corrections made during the research
-  (`corrections`, the wrong statement and the answer's sentence saying what
-  changed). Each `community_searches` entry may also say how its threads were
+  (`corrections`, the wrong statement, the answer's sentence saying what
+  changed, and whether the user pointed the error out, `by_user`). Each `community_searches` entry may also say how its threads were
   chosen (`thread_selection`, one of six fixed values), and `report_identity`
   declares counts by exposure and how many gave a measurement after the change.
   `comparison_claims` declares each comparison's quote, both exposures' doses

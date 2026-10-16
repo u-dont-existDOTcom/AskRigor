@@ -6,6 +6,7 @@ import {
   type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
+import { FINAL_CHECK_PANEL_META } from "../apps/research-mcp/src/final-check-panel.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
@@ -269,6 +270,16 @@ describe("communities named by the user and the visible check line", () => {
       expect(text).toContain(`\n${ending}`);
       expect(text.indexOf(ending)).toBeGreaterThan(text.lastIndexOf("The answer must report:"));
       expect(text.indexOf(ending)).toBeGreaterThan(text.lastIndexOf("The answer must contain, as written:"));
+      // The model keeps each lane's instruction; the panel's own copy, which ChatGPT hides from the model, drops it.
+      const instruction = "Then copy the sentences that report it into the entry's answer_quotes.";
+      const lines = (result.structuredContent as { must_report: string[] }).must_report;
+      const shown = (result._meta as Record<string, { must_report: string[] }>)[FINAL_CHECK_PANEL_META]!.must_report;
+      expect(lines.filter((line) => line.endsWith(instruction))).toHaveLength(2);
+      expect(text).toContain(instruction);
+      expect(shown).toHaveLength(lines.length);
+      expect(shown.filter((line) => line.includes("answer_quotes") || line.includes("Report this lane"))).toEqual([]);
+      expect(shown).toEqual(lines.map((line) => line.endsWith(instruction)
+        ? line.slice(0, line.indexOf(" Report this lane in the answer, naming ")) : line));
     } finally {
       await client.close();
       await server.close();

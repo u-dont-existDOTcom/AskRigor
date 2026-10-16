@@ -461,11 +461,15 @@ export const finalizeResearchInputSchema = z.object({
   corrections: z.array(z.object({
     retracted: z.string().trim().min(1).max(1_000)
       .describe("The wrong statement as it read before the correction, such as a rate given under the wrong compound."),
-    change: answerQuote.describe("The answer's sentence saying what changed, copied from answer_draft.")
+    change: answerQuote.describe("The answer's sentence saying what changed, copied from answer_draft."),
+    by_user: z.boolean().optional()
+      .describe("true when the user pointed out the error and a recheck showed the user was right; false when the " +
+        "research found it.")
   }).strict()).max(10).optional()
-    .describe("Records each material correction made during this research: the wrong statement as it read, and the " +
-      "answer's sentence saying what changed. The wrong statement must appear nowhere else in the answer, including " +
-      "its headings, tables and summaries."),
+    .describe("Records each material correction made during this research: the wrong statement as it read, the " +
+      "answer's sentence saying what changed, and whether the user pointed it out. The wrong statement must appear " +
+      "nowhere else in the answer, including its headings, tables and summaries; after a correction the user pointed " +
+      "out, the answer asks whether AskRigor may send a bug report about it."),
   search_coverage: z.array(z.enum(["historical_terms", "citation_chains", "grey_literature"])).max(3).optional()
     .describe("What the searches covered beyond the indexed databases."),
   answer_language: z.string().trim().regex(/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{1,8}){0,3}$/u).optional()
@@ -631,6 +635,11 @@ export interface FinalizeResearchOptions {
 
 // The owner's words (2026-10-15), many users' reports and the owner's own
 // comparison of the same question asked on a phone and on desktop web.
+// Universal's correction-report question (owner question 78: after a correction the user pointed out and a recheck
+// confirmed, ask whether AskRigor may send a bug report about it, or whether the user wants to clarify first).
+export const CORRECTION_REPORT_OFFER = "May AskRigor send a bug report about this correction, or would you like to " +
+  "clarify something first?";
+
 export const MOBILE_NOTICE = "Mobile responses may be shorter and less intelligent than desktop web/app, even with " +
   "the same model and thinking level selected.";
 
@@ -753,6 +762,17 @@ export function finalizeResearch(
         `The reports comparing ${a.exposure} with ${b.exposure} did not come from people who used both, so they are not a direct comparison of the two.`
       );
     }
+  }
+  // The correction-report question rests on the model's declaration of who pointed the error out.
+  for (const [index, { by_user }] of (input.corrections ?? []).entries()) {
+    if (by_user === undefined) {
+      requireDeclaration(`Give corrections[${index}].by_user: true when the user pointed out the error and a recheck ` +
+        "showed the user was right, false when the research found it.");
+    }
+  }
+  if ((input.corrections ?? []).some(({ by_user }) => by_user === true)) {
+    requireLimit("The user's correction was right: ask, as the caveat does, whether AskRigor may send a bug report " +
+      "about it or the user wants to clarify first, and show the report it would send.", CORRECTION_REPORT_OFFER);
   }
   // What the communities outside YouTube showed, reported after the YouTube lane.
   const communityLanes: string[] = [];
@@ -2621,15 +2641,33 @@ function comparableUrl(url: string): string {
   }
 }
 
+// What the answer does with a community lane. must_report ends with it, for the model; the final-check panel shows
+// the lane without it (mustReportFindings).
+const YOUTUBE_LANE_INSTRUCTION = "Report this lane in the answer even if later sources dominate; if its signal is " +
+  "weak, say so. Then copy the sentences that report it into community_findings.answer_quotes.";
+const forumLaneInstruction = (community: string): string => `Report this lane in the answer, naming ${community} ` +
+  "and linking a thread you read, even if its signal is weak. Then copy the sentences that report it into the " +
+  "entry's answer_quotes.";
+
+/**
+ * must_report without the server's own instructions to the answer, for the person reading the final-check panel:
+ * each line loses the exact instruction this gate appended to it, and other lines stay as they are.
+ */
+export function mustReportFindings(lines: readonly string[], communities: readonly string[]): string[] {
+  const instructions = [YOUTUBE_LANE_INSTRUCTION, ...communities.map(forumLaneInstruction)].map((text) => ` ${text}`);
+  return lines.map((line) => {
+    const instruction = instructions.find((text) => line.endsWith(text));
+    return instruction === undefined ? line : line.slice(0, -instruction.length);
+  });
+}
+
 function communityLane(
   findings: NonNullable<FinalizeResearchInput["community_findings"]>,
   videosRead: number
 ): string {
   return `YouTube comments (${videosRead} video(s) read): Benefits: ${findings.benefit_reports} ` +
     `No effect: ${findings.no_effect_reports} Adverse: ${findings.adverse_reports} Creators versus commenters: ` +
-    `${findings.creators_versus_commenters} Effect on the answer: ${findings.effect_on_answer} Report this lane in ` +
-    "the answer even if later sources dominate; if its signal is weak, say so. Then copy the sentences that report " +
-    "it into community_findings.answer_quotes.";
+    `${findings.creators_versus_commenters} Effect on the answer: ${findings.effect_on_answer} ${YOUTUBE_LANE_INSTRUCTION}`;
 }
 
 const COMMUNITY_FINDINGS = ["benefit_reports", "no_effect_reports", "adverse_reports", "effect_on_answer"] as const;
@@ -3027,8 +3065,7 @@ function forumLane(search: CommunitySearch): string {
     : search.review_corpora.map(({ product, reviews_read }) => `${reviews_read} review(s) of ${product} read`).join("; ");
   return `${search.community} (${read}): Benefits: ${search.benefit_reports} ` +
     `No effect: ${search.no_effect_reports} Adverse: ${search.adverse_reports} Effect on the answer: ` +
-    `${search.effect_on_answer} Report this lane in the answer, naming ${search.community} and linking a thread you ` +
-    "read, even if its signal is weak. Then copy the sentences that report it into the entry's answer_quotes.";
+    `${search.effect_on_answer} ${forumLaneInstruction(search.community)}`;
 }
 
 function comparableDoses(

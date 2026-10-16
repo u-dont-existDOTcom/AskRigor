@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
+  CORRECTION_REPORT_OFFER, finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
@@ -164,26 +164,50 @@ describe("finalize_research corrections (owner question 92, lesson #29)", () => 
   const WRONG = "Coldness affected 40% of people on compound A.";
   const CHANGE = "Earlier I gave 40% for compound A; that figure is compound B's, and compound A's is 7%.";
 
+  const found = { retracted: WRONG, change: CHANGE, by_user: false };
+
   it("passes once the wrong statement is gone outside the sentence saying what changed", () => {
-    expect(check({
-      answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [{ retracted: WRONG, change: CHANGE }]
-    }).status).toBe("ready");
+    expect(check({ answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [found] }).status).toBe("ready");
   });
 
   it("sends back an answer that still shows the wrong statement in a heading or a table", () => {
     const problem = "corrections[0]'s wrong statement still appears in the answer outside its change sentence: " +
       "correct it everywhere, including headings, tables and summaries.";
     for (const leftover of [`## ${WRONG}`, `| Effect | Note |\n|---|---|\n| Cold | ${WRONG} |`]) {
-      expect(steps({
-        answer_draft: `${LINKS}\n\n${leftover}\n\n${CHANGE}`, corrections: [{ retracted: WRONG, change: CHANGE }]
-      })).toEqual([problem]);
+      expect(steps({ answer_draft: `${LINKS}\n\n${leftover}\n\n${CHANGE}`, corrections: [found] })).toEqual([problem]);
     }
   });
 
   it("needs the change sentence in the answer", () => {
-    expect(steps({ corrections: [{ retracted: WRONG, change: CHANGE }] })).toEqual([
+    expect(steps({ corrections: [found] })).toEqual([
       "corrections[0].change gives text the answer does not show: copy each sentence exactly from answer_draft."
     ]);
+  });
+
+  // Universal's correction-report rule (owner question 78; the owner's 16 Oct lemon conversation said "You're right"
+  // and offered no report): after a correction the user pointed out, the answer asks whether to send a bug report.
+  it("asks who pointed the error out, once", () => {
+    expect(check({ answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [{ retracted: WRONG, change: CHANGE }] }).next_steps)
+      .toEqual([
+        "Give corrections[0].by_user: true when the user pointed out the error and a recheck showed the user was " +
+          "right, false when the research found it.",
+        TOOL_LIST_REFRESH_HINT
+      ]);
+  });
+
+  it("requires the bug-report question after the user's correction, in the answer's language too", () => {
+    const byUser = { ...found, by_user: true };
+    const asked = check({ answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [byUser] });
+    expect(asked.status).toBe("not_ready");
+    expect(asked.caveats).toEqual([CORRECTION_REPORT_OFFER]);
+    expect(check({ answer_draft: `${LINKS}\n\n${CHANGE}\n\n${CORRECTION_REPORT_OFFER}`, corrections: [byUser] }).status)
+      .toBe("ready_with_limits");
+    const rendering = "AskRigor peut-il envoyer un rapport de bogue sur cette correction, ou voulez-vous d'abord préciser quelque chose ?";
+    expect(check({
+      answer_draft: `${LINKS}\n\n${CHANGE}\n\n${rendering}`, corrections: [byUser], answer_language: "fr",
+      caveat_renderings: [{ caveat: CORRECTION_REPORT_OFFER, text: rendering }]
+    }).status).toBe("ready_with_limits");
+    expect(check({ answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [found] }).caveats).toEqual([]);
   });
 });
 

@@ -15187,7 +15187,7 @@
             }
           },
           "corrections": {
-            "description": "Records each material correction made during this research: the wrong statement as it read, and the answer's sentence saying what changed. The wrong statement must appear nowhere else in the answer, including its headings, tables and summaries.",
+            "description": "Records each material correction made during this research: the wrong statement as it read, the answer's sentence saying what changed, and whether the user pointed it out. The wrong statement must appear nowhere else in the answer, including its headings, tables and summaries; after a correction the user pointed out, the answer asks whether AskRigor may send a bug report about it.",
             "maxItems": 10,
             "type": "array",
             "items": {
@@ -15203,6 +15203,10 @@
                   "type": "string",
                   "maxLength": 1000,
                   "description": "The answer's sentence saying what changed, copied from answer_draft."
+                },
+                "by_user": {
+                  "description": "true when the user pointed out the error and a recheck showed the user was right; false when the research found it.",
+                  "type": "boolean"
                 }
               },
               "required": [

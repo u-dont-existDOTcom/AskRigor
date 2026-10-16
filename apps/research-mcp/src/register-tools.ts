@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { FINAL_CHECK_PANEL_URI } from "./final-check-panel.js";
+import { FINAL_CHECK_PANEL_META, FINAL_CHECK_PANEL_URI } from "./final-check-panel.js";
 import type {
   CallToolResult,
   ToolAnnotations
@@ -208,6 +208,7 @@ import {
   FINALIZE_RESEARCH_CONTRACT,
   FINALIZE_RESEARCH_SHAPES_DESCRIPTION,
   finalizeResearch,
+  mustReportFindings,
   protocolNamesFrom,
   finalizeResearchInputSchema,
   finalizeResearchOutputSchema,
@@ -2125,7 +2126,7 @@ function defineResearchOperations(
       }
       const card = result.findings_card;
       const analyses = result.analyses_saved;
-      return successfulToolResult(
+      const toolResult = successfulToolResult(
         `Research finalization: ${result.status}; ${result.next_steps.length} next step(s), ` +
           `${result.limits.length} limit(s) to state; ${result.receipts_verified} receipt(s) verified.` +
           result.caveats.map((caveat) => `\nThe answer must contain, as written: ${caveat}`).join("") +
@@ -2154,6 +2155,13 @@ function defineResearchOperations(
               "."),
         result as unknown as Record<string, unknown>
       );
+      // The panel's own view, which ChatGPT hides from the model: the lanes without the instructions meant for it.
+      return options.mcpSurface === "/mcp/gemini" ? toolResult : {
+        ...toolResult,
+        _meta: { [FINAL_CHECK_PANEL_META]: { must_report: mustReportFindings(
+          result.must_report, (input.community_searches ?? []).map(({ community }) => community)
+        ) } }
+      };
     }
   );
 
