@@ -48,7 +48,7 @@ describe("Universal whole-argument reconstruction integration", () => {
     );
     expect(universal).toContain("Accuracy outranks agreement");
     expect(sha256(hrp)).toBe(
-      "f3f1d9d2f60eb0dd376d93a09910a7a26e3543b4cdb8f540298a977315d4beb5"
+      "8906a8c66da50281e066bb73505ab3d023e219faa57ef04fe0edc5a5c8c6bf39"
     );
   });
 });

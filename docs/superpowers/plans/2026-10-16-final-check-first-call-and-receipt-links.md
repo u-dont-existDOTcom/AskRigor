@@ -6,28 +6,29 @@
   with the refreshed ChatGPT app; its record is release-record pull request #339. The owner questions page lists the
   fixes it points to under "Coming up" (server only, no protocol wording; default: built as their own pull request,
   then a release question).
-- No HRP or Universal text changes here. Owner question 103 (the corrected FormSpecificForumReports stress case, HRP
-  20.6.26) was unanswered when this was built, so it is not part of this plan.
+- The server changes need no protocol wording. Owner question 103 (the corrected FormSpecificForumReports stress
+  case) was answered "103 a" while this was built, so HRP 20.6.26 joins it; Universal stays 20.5.43.
 
 ## Evidence
 
-1. **Connector rejections.** Of 97 `finalize_research` calls in the 20 answers and 17 in the four-turn #336 test,
-   38 and 3 were rejected by ChatGPT's connector schema validation before reaching AskRigor, including 19 of the 20
-   first calls in the regression list. The rejection text shows the model the first three errors and a count of the
-   rest, so `full_text_search` came first in 12 first calls. The complete error lists show the first calls rejected
-   for `findings_card` (13), `intervention_identity` (13), `full_text_search` (12), `community_searches` (11),
-   `comparison_claims`, `absence_claims`, `another_pass_estimate` and `key_sources` (2 each) and four others once; only
-   one first call failed on `full_text_search` alone. Eight of the nine runs whose check did not pass stopped at the
-   budget of about 60 calls.
-2. **What the model sees.** Three read-only Codex probes (16 October, 21:50 to 21:58 UTC, no AskRigor call) asked the
-   model to copy its definition of `finalize_research`. It sees the tool's own description in full and a
-   TypeScript-like type with no parameter description at any level. The two-branch `oneOf` of `full_text_search` is
-   `unknown`, and so is every object or array nested below the second level: `intervention_identity.interventions`
-   items, `findings_card.findings` items, and a community search's `queries`, `threads_read`, `report_identity` and
-   `review_corpora`. Every rejected field lies in such a hidden part (`studies` lists, comparison `arms`, a scale's
-   `range`, `values` and `benchmark`, a mechanism's `tissue`) or breaks a limit the type does not show
-   (`answer_marker` up to 80 characters, `another_pass_estimate` up to 200, `answer_language`'s tag pattern). The
-   invented `coverage` copies `search_europe_pmc`'s `full_text_scope.coverage` output.
+1. **Connector rejections.** Of 101 `finalize_research` calls in the 21 answers (with the r324 rerun) and 17 in the
+   four-turn #336 test, 39 and 3 were rejected by ChatGPT's connector schema validation before reaching AskRigor,
+   including 20 of the 21 first calls in the regression list (all but q79's). The rejection text shows the model the
+   first three errors and a count of the rest, so `full_text_search` came first in most of them. The complete error
+   lists show the first calls rejected for `findings_card` (15), `intervention_identity` (14), `full_text_search`
+   (13), `community_searches` (12), five fields twice each and three once; only one first call failed on
+   `full_text_search` alone. Most runs whose check did not pass stopped at the budget of about 60 calls (8 of 9 in the
+   first 17 judged).
+2. **What the model sees.** Read-only Codex probes (16 October, 21:50 to 21:58 UTC, no AskRigor call) asked the model
+   to copy its definition of `finalize_research` once the AskRigor skill had loaded the app's tools. It sees the
+   tool's own description in full and a TypeScript-like type with no parameter description at any level. The
+   two-branch `oneOf` of `full_text_search` is `unknown`, and so is every object or array nested below the second
+   level: `intervention_identity.interventions` items, `findings_card.findings` items, and a community search's
+   `queries`, `threads_read`, `report_identity` and `review_corpora`. Every rejected field lies in such a hidden part
+   (`studies` lists, comparison `arms`, a scale's `range`, `values` and `benchmark`, a mechanism's `tissue`) or breaks
+   a limit the type does not show (`answer_marker` up to 80 characters, `another_pass_estimate` up to 200,
+   `answer_language`'s tag pattern). The invented `coverage` copies `search_europe_pmc`'s `full_text_scope.coverage`
+   output.
 3. **Key-study links (#336, turn 4).** Two key studies were audited from Europe PMC copies, whose receipts tie each
    DOI to its PMID and PMCID. The answer linked both studies' publisher pages from the AI's own web search, and those
    are exactly the pages the DOIs are registered to (Crossref's `resource.primary.URL`, which is also the DOI handle's
@@ -67,6 +68,11 @@
      the pages that count, and offers `resolve_doi` for the publisher page.
 5. Documentation: the privacy data map (the landing page and its receipt; the copy's URL in full-text receipts), the
    tool inventory, and this plan.
+6. HRP 20.6.26: stress case FormSpecificForumReports replaced word for word with owner question 103's text (its first
+   version said both that no one in the thread took form A and that one person did), with one revision entry and
+   nothing else changed; built like 20.6.25 (`86a6b9c9`), with a reversible edit fixture chained from 97-99, the
+   approved text tested word for word and in place, and every current pin moved. The same correction goes into
+   `docs/owner-regressions.md`'s lesson #30 row.
 
 ## Tests
 
@@ -83,8 +89,8 @@
 
 ## Not changed
 
-- `SERVER_INSTRUCTIONS`, the protocols and the Gemini catalog (it omits `finalize_research`; `resolve_doi`'s inputs and
-  description are unchanged).
+- `SERVER_INSTRUCTIONS`, Universal, HRP apart from the one stress case, and the Gemini catalog (it omits
+  `finalize_research`; `resolve_doi`'s inputs and description are unchanged).
 - A declaration the model leaves out is still invisible to the check, and sources without a DOI, PMID or PMCID
   (ResearchGate pages, conference abstracts) still cannot be checked.
 
