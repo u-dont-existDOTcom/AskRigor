@@ -151,8 +151,47 @@
     not incorporated, 19 incorporated or closed, 0 deletion eligible; no unrecorded lane item.
   - **Rollback:** as above, with the `pre-5c4fc9331e10` names (restores build `13c26d8f`); the plugin from
     `/home/joel/plugins/askrigor.rollback-20261016T193407Z`.
-- **Product acceptance (owner regressions):** pending the owner's refresh of the ChatGPT app; the regression list runs
-  then through Codex, about 60 calls per case, reported in three stages.
+- **Product acceptance (owner regressions, 19:47 to 22:04 UTC):**
+  - **Setup:** the owner refreshed the ChatGPT app at 19:42 UTC ("refreshed"); Codex's copy of the app's tool list
+    updated at 19:44, and a probe at 19:46 saw build `5c4fc933`, HRP 20.6.25, Universal 20.5.43 and
+    `comparison_claims`, with every call working. The regression list (22 cases, `docs/owner-regressions.md`) and the
+    four-turn #336 test then ran through Codex with that app, about 60 AskRigor calls per case, four cases at a time.
+    The Claude session judged each case's criteria (a judgment of meaning; evidence and quotes in the run folder's
+    `judgment.md`).
+  - **Environment:** the laptop's network dropped Codex's connection at 19:47, 20:22 and 21:14; three cases lost their
+    AskRigor tools or sign-in that way and two hit the 25-minute limit, so those were rerun (40-minute limit); one of
+    them needed a second rerun.
+  - **Loaded:** every completed run named or loaded HRP 20.6.25 and Universal 20.5.43, most through `load_protocol`
+    section `"core"`; a few runs still loaded many runtime sections one by one (up to 49 calls).
+  - **Executed:** of 21 completed cases, 5 met every criterion (l29, q79, r326's second turn, q82, r324) and 16 met
+    them in part; none failed. The l30 prompt contradicts itself ("nobody says they took copper(I)" and "one person
+    says copper(I) worked better for them"): the answer read it correctly, so that criterion was voided. The same
+    contradiction is in the HRP stress case `FormSpecificForumReports` (a drafting error in owner question 99's text);
+    the owner approved its correction ("103 a") for HRP 20.6.26. Issue #336: no hard fail; the discriminating test was
+    proposed at the first mention of brain communication, though not yet stimulus-locked (15 Oct: only when pushed, in
+    turns 3 and 4).
+  - **Finalized:** the final check passed in 11 of 21 completed cases (15 Oct: 2 of 19) and in #336's turns 1 to 3,
+    and the check line appeared in exactly the answers whose check passed. The new declarations worked where used:
+    `report_identity` produced "In Longecity, no one described their own use of the unnamed brand, so its reports are
+    not evidence about it." (q82), and `comparison_claims` carried both doses (l31: 6 mg against 0.9 mg).
+  - **Findings for the next build:** (1) 38 of 97 final-check calls, and 19 of 20 first calls, were rejected by the
+    connector's schema validation before reaching AskRigor; 41 of the 45 rejected fields were in `full_text_search`
+    (invented `coverage`, `provider`, `query`), and 8 of the 9 runs whose check did not pass stopped at the call
+    budget (59 to 63 calls). (2) Studies linked by their publisher pages (#336, turn 4) or known only by ResearchGate
+    or conference pages without a DOI (r329, r331) still block the check. (3) `report_identity` was left out (l23,
+    l27) or sent as one object instead of a list (l30). (4) The check passed with empty declarations (`safety_claims:
+    []` in l25, `mechanism_claims: []` in l28) where the answers' content was right: declarations catch inconsistency,
+    not omission. (5) Codex's automatic approval reviewer refused one final check (l22) because free contributor mode
+    may save findings. (6) Codex cannot draw MCP Apps panels. The owner's own ChatGPT showed the panel at 21:29 UTC
+    ("Not checked yet: 3 step(s) left", matching an answer given before its check passed), with three flaws:
+    instructions meant for the AI in its lane lines, the label "Findings card: absent", and a "CSP off" badge whose
+    meaning is unconfirmed. Those fixes, and a check that a declared correction comes with the bug-report offer, go
+    into the follow-up pull request; whether Claude draws the panel is still to be seen.
+  - **Saves:** in free contributor mode, passing runs saved findings cards for the owner's review (ARF-0023 to
+    ARF-0026 among them) and some analyses, as on 15 Oct.
+  - **Bacopa (r324):** passed after two reruns (a timeout, then a dropped connection): both rates for the extract,
+    dose and duration (nausea 18.4% against 2.0% on placebo, 300 mg daily for 12 weeks), `safety_claims` with basis
+    `comparative_rates`, the check passed.
 - **Rollback:**
   1. Stop and disable `askrigor-research-promotion.timer`.
   2. Restore the selector (`/opt/askrigor/living-evidence-image.env`) and `runtime.env` from
