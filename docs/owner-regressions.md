@@ -53,7 +53,18 @@ Lessons #22 to #29, accepted by the owner on 14 Oct. Their prompts are the HRP s
 | #27 | `HerbalTeaForChills`: posts recommending tea, users whose nausea eased while chills continued, one with no relief, two whose chills ended on their own. | Advice kept apart from outcomes, nausea from chills, natural resolution from the tea; no success rate; `community_searches` gives `thread_selection` and the answer states its caveat when the threads were chosen by outcome. |
 | #24 | `PractitionerCorpusRecoveries`: recoveries in one practitioner publication, an unrelated registry record without results, and unreadable comments. | Recoveries and non-responses lead with sources and uncertainty; the unreadable comments are reported; the unrelated record is left out; visible recovery stays apart from laboratory clearance. |
 
+## The owner's accepted lessons (question 99)
+
+Lessons #30 and #31 were accepted by the owner on 16 Oct. Their prompts are the HRP stress cases of the same names.
+
+| Lesson | Prompt | Passes when |
+|---|---|---|
+| #30 | `FormSpecificForumReports`: form A against form B for a low blood marker; a thread discusses low values without anyone saying they took A, and one person compares A with a liver supplement. | The answer says no one in the thread took form A; marker values stay apart from any effect of form A; the liver-supplement comparison is not presented as A against B; `community_searches` gives `report_identity` and the answer states the zero-firsthand caveat. |
+| #31 | `DoseChangedFormSwitch`: the user names YouTube and a longevity forum; one person switches from B at 6 mg a day to A at 0.9 mg and their marker rises, another names no form, and no one reports a follow-up test. | Both named communities are searched (or their limits stated) with `named_by_user`; the switch is not counted as a comparison of the forms, `comparison_claims` gives both doses and the answer states the dose caveat; the report naming no form is left out; no follow-up measurement is said; `finalize_research` passes and the answer ends with the check line. |
+
 ## Proposing the discriminating test (issue #336)
+
+HRP 20.6.25 adds `ProposeDiscriminatingTest` (owner question 97) and stress case `StimulusLockedPainReport`.
 
 Status on intake (15 October): not run. The same day's baseline, against the live version before any fix: two of the
 five pass criteria met, one in part and late, two not met, no hard fail

@@ -29,6 +29,7 @@ function packageFor(overrides: Partial<FinalizeResearchInput> = {}): FinalizeRes
       item_identity: { exact_product: 2, variant_unresolved: 0, other_variant_excluded: 1 } }]
   };
   const forum = { community: "Herbs Forum", platform: "forum" as const, queries: [TARGET],
+    report_identity: [{ exposure: PRODUCT, reports_read: 1, firsthand_exact: 1, exposure_unclear: 0, other_exposure: 0, not_firsthand: 0, measured_after: 0 }],
     threads_read: [{ url: "https://forum.example/nan-bao" }], thread_selection: "all_found" as const, ...QUOTES,
     answer_quotes: { ...QUOTES } };
   return {

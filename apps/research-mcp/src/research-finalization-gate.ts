@@ -207,7 +207,8 @@ export const finalizeResearchInputSchema = z.object({
       "must report it (must_report)."),
   principal_communities: z.array(z.object({
     name: z.string().trim().min(1).max(120).describe("As its users know it, such as r/trt, MESO-Rx or YouTube."),
-    platform: communityPlatformSchema
+    platform: communityPlatformSchema,
+    named_by_user: z.boolean().optional().describe("true when the user asked for this community to be searched; each such community is searched, or its access boundary recorded (HRP PrincipalPlatformMapping).")
   }).strict()).min(1).max(8).optional()
     .describe("Where people discussing this actually talk, the dominant first: subreddits, specialist forums, " +
       "Facebook groups, patient organizations, YouTube, and for a product people buy, the sites where buyers review " +
@@ -228,6 +229,23 @@ export const finalizeResearchInputSchema = z.object({
       .describe("How you chose the threads you read, outside review sites: every relevant one the searches found; the " +
         "most recent; a random sample; the ones ranked first; ones found by searching for outcomes; or another " +
         "partial set. The last three show which experiences exist, not how common they are."),
+    report_identity: z.array(z.object({
+      exposure: z.string().trim().min(1).max(200)
+        .describe("The exact exposure the answer draws on, as reports name it: a form, product, dose or program."),
+      reports_read: z.number().int().nonnegative()
+        .describe("Reports about it in this community's threads you read: firsthand accounts, advice, hearsay and questions."),
+      firsthand_exact: z.number().int().nonnegative()
+        .describe("People describing their own use of exactly that exposure."),
+      exposure_unclear: z.number().int().nonnegative()
+        .describe("Firsthand reports that don't say which form or product was used."),
+      other_exposure: z.number().int().nonnegative()
+        .describe("Firsthand reports of something else (another form, a food, another product); not counted for the exposure."),
+      not_firsthand: z.number().int().nonnegative()
+        .describe("Advice, hearsay, questions and speculation; not counted as experiences."),
+      measured_after: z.number().int().nonnegative()
+        .describe("Of the firsthand_exact reports, those giving a measurement after the change (a laboratory value or test), not only how the person felt.")
+    }).strict()).min(1).max(4).optional()
+      .describe("Outside review sites, for each exposure the answer draws on from this community's threads: how the reports you read divide. The four classes add up to reports_read (HRP ScopeAxesBeforeSampling, ObjectiveSubjectiveSeparation)."),
     access_boundary: z.enum([
       "no_web_search", "login_required", "blocked", "retrieval_failed", "no_relevant_results"
     ]).optional()
@@ -282,6 +300,18 @@ export const finalizeResearchInputSchema = z.object({
       "the answer), or the access boundary that stopped the search. Records summaries without quotations or poster names. " +
       "AskRigor cannot see these searches, so the answer links the threads you read and says they were not verified. " +
       "YouTube goes through its own tools."),
+  comparison_claims: z.array(z.object({
+    quote: answerQuote.describe("The answer's sentence drawing the comparison, copied from answer_draft."),
+    arms: z.array(z.object({
+      exposure: z.string().trim().min(1).max(200),
+      dose: z.number().nonnegative().nullable(),
+      unit: z.string().trim().min(1).max(40).nullable()
+    }).strict()).length(2)
+      .describe("Each side as the reports give it: the exposure, its daily dose as a number, and the unit; null when a report gives none."),
+    same_people: z.boolean()
+      .describe("true when the reports behind it come from people who used both sides.")
+  }).strict()).max(12).optional()
+    .describe("With answer_draft, when treatment_choice is compared and forum threads were read: each comparison the answer draws from community reports, with both sides' doses as numbers; an empty list means the answer draws none from them (HRP ScopeAxesBeforeSampling)."),
   key_sources: z.array(z.object({
     id: z.string().trim().min(1).max(300).describe("DOI, PMID or PMCID."),
     status: z.enum(["validated", "lead_only"]),
@@ -469,6 +499,7 @@ export const finalizeResearchOutputSchema = z.object({
     .describe("Sentences the answer must contain, each as its own sentence and as written; a link's text may change."),
   must_report: z.array(z.string())
     .describe("What the answer must report from each evidence lane researched, even when weak or neutral."),
+  check_line: z.string().optional(),
   receipts_verified: z.number().int().nonnegative(),
   receipts_rejected: z.array(z.object({
     index: z.number().int().nonnegative(),
@@ -635,6 +666,29 @@ export function finalizeResearch(
   const caveatOnce = (limit: string, caveat: string): void => {
     if (!caveats.includes(caveat)) requireLimit(limit, caveat);
   };
+  if (input.answer_draft !== undefined && input.treatment_choice === "compared" &&
+      (input.community_searches ?? []).some(({ platform, threads_read }) =>
+        platform !== "review_site" && threads_read.length > 0) && input.comparison_claims === undefined) {
+    requireDeclaration("Give comparison_claims: each comparison the answer draws from forum reports, with both sides' daily doses as numbers, or an empty list if it draws none.");
+  }
+  for (const claim of input.comparison_claims ?? []) {
+    const a = claim.arms[0]!;
+    const b = claim.arms[1]!;
+    if (!comparableDoses(a, b)) {
+      caveatOnce(
+        `The comparison of ${a.exposure} with ${b.exposure} rests on reports whose doses differ or were not given; say it cannot show which works better.`,
+        a.dose !== null && b.dose !== null && a.unit !== null && b.unit !== null
+          ? `The reports comparing ${a.exposure} with ${b.exposure} changed the dose as well (${a.dose} ${a.unit} against ${b.dose} ${b.unit}), so they cannot show which works better.`
+          : `The reports comparing ${a.exposure} with ${b.exposure} did not give both doses, so they cannot show which works better at the same dose.`
+      );
+    }
+    if (!claim.same_people) {
+      caveatOnce(
+        `The comparison of ${a.exposure} with ${b.exposure} rests on reports from people who did not use both; say so.`,
+        `The reports comparing ${a.exposure} with ${b.exposure} did not come from people who used both, so they are not a direct comparison of the two.`
+      );
+    }
+  }
   // What the communities outside YouTube showed, reported after the YouTube lane.
   const communityLanes: string[] = [];
   let communitiesSearched: string[] = [];
@@ -774,9 +828,10 @@ export function finalizeResearch(
     const youtubeResearched = rounds.length > 0 || audited.size > 0 || communityAudited.size > 0;
     // YouTube is one of the places people talk, not the whole community lane:
     // its checks run when it is the dominant community, when it was researched
-    // anyway, or when there is no map yet. Otherwise it is optional, like any
+    // anyway, when the user named it, or when there is no map yet. Otherwise it is optional, like any
     // other community beyond the dominant one and an independent one.
-    if (communities === undefined || youtubeResearched || communities[0]!.platform === "youtube") {
+    if (communities === undefined || youtubeResearched || communities[0]!.platform === "youtube" ||
+        communities.some(({ platform, named_by_user }) => platform === "youtube" && named_by_user === true)) {
       // Any discovery round counts: the Gemini scout is the primary route, and
       // YouTube's own search is capped at 100 calls a day per project.
       if (rounds.length === 0) {
@@ -1687,6 +1742,7 @@ export function finalizeResearch(
       absenceQuotes: absenceClaims.map(({ quote }) => quote),
       scaleResults: input.scale_results ?? [],
       declaredQuotes: [
+        ...(input.comparison_claims ?? []).map(({ quote }, index) => ({ at: `comparison_claims[${index}]`, quote })),
         ...(input.safety_claims ?? []).map(({ quote }, index) => ({ at: `safety_claims[${index}]`, quote })),
         ...(input.mechanism_claims ?? []).map(({ quote }, index) => ({ at: `mechanism_claims[${index}]`, quote })),
         ...(input.recommendations ?? []).map(({ quote }, index) => ({ at: `recommendations[${index}]`, quote })),
@@ -1734,6 +1790,10 @@ export function finalizeResearch(
     answer_checked: draft !== undefined,
     findings_card: findingsCard
   };
+  if (status === "ready") output.check_line = "Checked with AskRigor's final check.";
+  else if (status === "ready_with_limits") {
+    output.check_line = "Checked with AskRigor's final check, with the limits above.";
+  }
   if (status !== "not_ready") {
     output.finalization_receipt = issueResearchReceipt("finalization", {
       status,
@@ -2788,6 +2848,26 @@ function forumLane(search: CommunitySearch): string {
     "read, even if its signal is weak. Then copy the sentences that report it into the entry's answer_quotes.";
 }
 
+function comparableDoses(
+  a: { dose: number | null; unit: string | null },
+  b: { dose: number | null; unit: string | null }
+): boolean {
+  if (a.dose === null || b.dose === null || a.unit === null || b.unit === null) return false;
+  const unitA = a.unit.trim().toLowerCase();
+  const unitB = b.unit.trim().toLowerCase();
+  if (unitA === unitB && a.dose === b.dose) return true;
+  const milligrams = new Map([["g", 1_000], ["mg", 1], ["mcg", 0.001], ["µg", 0.001], ["μg", 0.001], ["ug", 0.001]]);
+  const factorA = milligrams.get(unitA);
+  const factorB = milligrams.get(unitB);
+  if (factorA === undefined || factorB === undefined) return false;
+  // Scale first so conversion to milligrams cannot overflow for a finite dose.
+  const scale = Math.max(a.dose, b.dose);
+  if (scale === 0) return true;
+  const mgA = a.dose / scale * factorA;
+  const mgB = b.dose / scale * factorB;
+  return Math.abs(mgA - mgB) / Math.max(mgA, mgB) < 1e-9;
+}
+
 /**
  * The community lane beyond YouTube (HRP PrincipalPlatformMapping,
  * MultipleIndependentCommunities, ActualSearchRequired). A YouTube receipt
@@ -2827,6 +2907,11 @@ function communityCoverage(
   }
   for (const search of input.community_searches ?? []) {
     const name = search.community;
+    if (search.platform === "review_site" && search.report_identity !== undefined) {
+      out.nextSteps.push(
+        `community_searches for ${name} gives report_identity, which is for threads outside review sites: review sites use review_corpora.`
+      );
+    }
     // Thread links and the community's own address are checked alike.
     const links = [...search.threads_read.map(({ url }) => url), ...(search.url === undefined ? [] : [search.url])];
     const hosts = links.map(hostOf);
@@ -3007,6 +3092,30 @@ function communityCoverage(
     }
     if (search.threads_read.length === 0) continue;
     if (search.platform !== "review_site") {
+      if (search.report_identity === undefined) {
+        out.requireDeclaration(
+          `community_searches for ${name} reads threads without report_identity: for each exposure the answer draws on, count the reports you read: firsthand use of exactly it, form not stated, something else, and advice or hearsay, with how many gave a measurement after the change.`
+        );
+      }
+      for (const report of search.report_identity ?? []) {
+        const { exposure, reports_read, firsthand_exact, exposure_unclear, other_exposure, not_firsthand, measured_after } = report;
+        if (firsthand_exact + exposure_unclear + other_exposure + not_firsthand !== reports_read ||
+            measured_after > firsthand_exact) {
+          out.nextSteps.push(
+            `report_identity for ${exposure} in ${name} does not add up: the four classes must add up to reports_read, and measured_after cannot exceed firsthand_exact.`
+          );
+          continue;
+        }
+        out.lanes.push(
+          `${name}, ${exposure}: ${reports_read} report(s) read; ${firsthand_exact} firsthand report(s) of exactly this, ${measured_after} with a measurement after the change; ${exposure_unclear} that don't say which form or product, ${other_exposure} about something else and ${not_firsthand} advice or hearsay, not counted.`
+        );
+        if (firsthand_exact === 0) {
+          out.requireLimit(
+            `No one in ${name} described their own use of ${exposure}; say so.`,
+            `In ${name}, no one described their own use of ${exposure}, so its reports are not evidence about it.`
+          );
+        }
+      }
       const chosen = search.thread_selection === undefined
         ? undefined
         : PARTIAL_THREAD_SELECTIONS.get(search.thread_selection);
@@ -3080,6 +3189,16 @@ function communityCoverage(
     );
   }
   const dominant = communities[0]!;
+  const named = new Set<string>();
+  for (const { name, platform, named_by_user } of communities) {
+    const key = communityKey(name, platform);
+    if (named_by_user === true && platform !== "youtube" && !searched.has(key) && !named.has(key)) {
+      named.add(key);
+      out.requireDeclaration(
+        `The user named ${name}: search it with your web search and record it in community_searches, or the access boundary that stops you.`
+      );
+    }
+  }
   if (dominant.platform !== "youtube" && !searched.has(communityKey(dominant.name, dominant.platform))) {
     out.requireDeclaration(
       `Search ${dominant.name}, the community listed first, with your web search and record it in ` +

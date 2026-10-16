@@ -1052,8 +1052,14 @@ pending-proposal stores have their own strict contracts and authority boundaries
   whether stopping is covered), and corrections made during the research
   (`corrections`, the wrong statement and the answer's sentence saying what
   changed). Each `community_searches` entry may also say how its threads were
-  chosen (`thread_selection`, one of six fixed values). These inputs are
-  request-local and are not stored or logged.
+  chosen (`thread_selection`, one of six fixed values), and `report_identity`
+  declares counts by exposure and how many gave a measurement after the change.
+  `comparison_claims` declares each comparison's quote, both exposures' doses
+  and units, and whether the same people used both; `named_by_user` marks
+  principal communities the user requested. These counts, doses, short labels
+  and other declarations are request-local and are not stored or logged.
+  The output's `check_line` is a fixed server sentence for the answer to end with;
+  it is not part of the signed finalization receipt.
   Its `full_text_search` declaration (`run` with the Europe PMC section
   queries the model ran, or `not_needed` with a short reason) is request-local
   too: each query is compared by its 12-hex digest with a section-search

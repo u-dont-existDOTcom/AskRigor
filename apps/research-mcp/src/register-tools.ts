@@ -2041,7 +2041,8 @@ function defineResearchOperations(
         "contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh " +
         "hint when a required declaration is missing; ready_with_limits with the limits, the caveat sentences for the answer " +
         "(each as its own sentence and as written, in the answer's language when answer_language and " +
-        "caveat_renderings are given) and must_report, what the answer reports from each lane researched; or " +
+        "caveat_renderings are given) and must_report, what the answer reports from each lane researched; " +
+        "when ready, check_line, the line the answer ends with; or " +
         "receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked " +
         "findings_card is saved to AskRigor's private findings library for the owner's review; in paid private mode " +
         "the caveats offer its save.",
@@ -2108,6 +2109,8 @@ function defineResearchOperations(
           `${result.limits.length} limit(s) to state; ${result.receipts_verified} receipt(s) verified.` +
           result.caveats.map((caveat) => `\nThe answer must contain, as written: ${caveat}`).join("") +
           result.must_report.map((lane) => `\nThe answer must report: ${lane}`).join("") +
+          (result.check_line === undefined ? "" :
+            `\nEnd the answer with this line, as written (in the answer's language when the answer is not in English): ${result.check_line}`) +
           (card.status === "absent" || card.status === "private"
             ? ""
             : `\nFindings card: ${card.status}` +

@@ -15,9 +15,9 @@
     several-fold was counted as a comparison of the forms; a report that never named the form was included; the two
     communities the user named were not searched; unreadable pages and missing follow-up measurements were not
     reported.
-- **Owner decision pending:** owner question 99 (owner questions page, 2026-10-16) proposes the HRP wording below,
-  the server checks, and the visible final-check line. The lessons stay `needs-review` and nothing here is built until
-  the owner answers (AGENTS.md: unreviewed lessons do not silently expand scope).
+- **Owner decision:** owner question 99 (owner questions page, 2026-10-16) proposed the HRP wording below, the server
+  checks, and the visible final-check line. The owner approved all three ("97a98b99a", 2026-10-16), and lessons #30
+  and #31 are labeled accepted. Question 97's rule ships in the same HRP version.
 
 ## What already covered them
 
@@ -143,4 +143,4 @@ caveat, which the protocols already require answers to carry, so it needs no pro
 The new inputs are counts, doses and short labels the model declares for one call; they are request-local and not
 stored or logged. `docs/privacy-data-map.md` records them with the other `finalize_research` declarations.
 
-Status: planned 2026-10-16; waiting for owner question 99.
+Status: approved "97a98b99a" on 2026-10-16; built on this branch (HRP 20.6.25 and the finalize_research changes).
