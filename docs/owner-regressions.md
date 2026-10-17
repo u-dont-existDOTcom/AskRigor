@@ -19,6 +19,13 @@ How each case runs:
 - **Saves:** the prompts ask for no save, submission or lesson report. The owner's account is in free contributor
   mode, so a run whose final check passes still saves its findings card for the owner's review; the release record
   names those runs.
+- **Questions to the user:** a run asks what AskRigor would ask a real user and sends nothing. After a correction the
+  user made, the final check waits for the bug-report question (question 78's rule), so the prompts must let the run
+  ask it; on 17 October they forbade the report itself, and the runs that showed it instead of asking stayed
+  `not_ready` for that alone.
+- **Other tools:** a run uses only AskRigor's tools and its own web search. Codex's app list also offers other apps,
+  such as a Bright Data scraper that three 17 October runs called unasked; a run that calls another app's tool is
+  discarded and rerun, so the result measures AskRigor and nothing gets past a site's bot checks.
 
 ## Harm warnings, terms and continuity (question 86)
 
