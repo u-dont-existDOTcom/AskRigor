@@ -392,7 +392,7 @@ describe("the server sends a free contributor's validated analyses when the fina
       intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
       key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: DOI, status: "validated" }],
       answer_draft: `The liver clears this drug within a few hours. [Study](https://doi.org/${DOI})`,
-      absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
+      absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
     }), "auth0|free");
     const receipt = (validated.structuredContent as { research_receipt: string }).research_receipt;
     // The audit's figures check rides in its receipt (owner questions 87 and 89).

@@ -209,7 +209,8 @@ import {
   FINALIZE_RESEARCH_SHAPES_DESCRIPTION,
   finalizeResearch,
   protocolNamesFrom,
-  finalizeResearchInputSchema,
+  finalizeResearchConnectorInputSchema,
+  parseFinalizeResearchInput,
   finalizeResearchOutputSchema,
   type FinalizeResearchOutput
 } from "./research-finalization-gate.js";
@@ -2048,8 +2049,8 @@ function defineResearchOperations(
         "not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results " +
         "(scale_results: quoted explanations with the scale name, range, values and benchmark), visible links to " +
         "each key study, and the caveats, " +
-        "and is not stored. Result: " +
-        "contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh " +
+        "and is not stored; in a later turn, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened. Result: " +
+        "carry_forward, the conversation's state to pass back next turn; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh " +
         "hint when a required declaration is missing; ready_with_limits with the limits, the caveat sentences for the answer " +
         "(each as its own sentence and as written, in the answer's language when answer_language and " +
         "caveat_renderings are given) and must_report, what the answer reports from each lane researched; " +
@@ -2060,7 +2061,7 @@ function defineResearchOperations(
         // The only text ChatGPT's app shows the model for this tool (Codex probes, 2026-10-16): the JSON of the
         // inputs its type hides, from which the regression's first calls invented fields.
         FINALIZE_RESEARCH_SHAPES_DESCRIPTION,
-      inputSchema: finalizeResearchInputSchema,
+      inputSchema: finalizeResearchConnectorInputSchema(options.mcpSurface !== "/mcp/claude"),
       outputSchema: finalizeResearchOutputSchema,
       ...(options.mcpSurface === "/mcp/gemini" ? {} : {
         _meta: {
@@ -2075,7 +2076,10 @@ function defineResearchOperations(
     async (input, extra) => {
       // Reddit's public embed endpoint confirms each cited Reddit thread's
       // subreddit and title; only the links are sent.
-      const redditLinks = (input.community_searches ?? []).filter(({ platform }) => platform === "reddit")
+      const parsed = parseFinalizeResearchInput(input);
+      const checkedInput = parsed.success ? parsed.data : undefined;
+      const secret = researchReceiptSecretFromEnv();
+      const redditLinks = (checkedInput?.community_searches ?? []).filter(({ platform }) => platform === "reddit")
         .flatMap(({ threads_read }) => (threads_read ?? []).map(({ url }) => url));
       // Owner decision Q11 (2026-09-30): the free tier's findings are saved by
       // the agreement its user accepted; a paid-private answer offers the save,
@@ -2084,7 +2088,7 @@ function defineResearchOperations(
       const researcher = await researchUseAccount(extra, options.researchContributorAccessService);
       const account = library ? researcher : undefined;
       const result = finalizeResearch(input, {
-        secret: researchReceiptSecretFromEnv(),
+        secret,
         protocolNames: await protocolNames(),
         findings: !library
           ? "closed"
@@ -2093,14 +2097,14 @@ function defineResearchOperations(
         ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) })
       });
       if (
-        account?.mode === "FREE_CONTRIBUTOR" && input.findings_card !== undefined &&
+        account?.mode === "FREE_CONTRIBUTOR" && checkedInput?.findings_card !== undefined &&
         result.findings_card.status === "checked" && result.finalization_receipt !== undefined
       ) {
         const save = (options.findingsSave ?? saveResearchFindings)({
-          findings_card: input.findings_card,
+          findings_card: checkedInput.findings_card,
           finalization_receipt: result.finalization_receipt,
           contributor: account.accountKey,
-          ...(input.reported_model === undefined ? {} : { reported_model: input.reported_model })
+          ...(checkedInput.reported_model === undefined ? {} : { reported_model: checkedInput.reported_model })
         }, {
           surface: options.mcpSurface ?? "unknown",
           toolCatalogSha256: toolCatalogSha256(),
@@ -2151,7 +2155,10 @@ function defineResearchOperations(
               (analyses.not_saved.length === 0
                 ? ""
                 : `; not saved: ${analyses.not_saved.map(({ reason, count }) => `${count} (${reason})`).join(", ")}`) +
-              "."),
+              ".") +
+          (result.carry_forward === undefined
+            ? (result.carry_forward_note === undefined ? "" : `\n${result.carry_forward_note}`)
+            : `\nPass this as carried_state in this conversation's next finalize_research call: ${result.carry_forward}`),
         result as unknown as Record<string, unknown>
       );
       return toolResult;

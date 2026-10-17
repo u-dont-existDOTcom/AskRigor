@@ -6,6 +6,9 @@ import {
   EVIDENCE_ROUTE_WORDS,
   USE_ROUTE_WORDS
 } from "./administration-routes.js";
+import {
+  CARRIED_STATE_TOO_LARGE, carriedStateSchema, issueCarriedState, userObservationSchema, verifyCarriedState, type CarriedState
+} from "./carried-state.js";
 import { analysesSavedSchema } from "./analysis-staging.js";
 import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
@@ -458,10 +461,30 @@ export const finalizeResearchInputSchema = z.object({
     .describe("Records each intervention the answer recommends or puts forward for this person, with the sentence " +
       "that does so, whether this person's safety conflicts and inputs are resolved, and, for long-term use, the " +
       "longest follow-up in its evidence and whether stopping is covered (an empty list if none)."),
+  user_observations: z.array(userObservationSchema).max(30).optional()
+    .describe("With answer_draft: each observation the user reported, about themselves or others, that the answer relies on or rules out, including attempts where nothing happened and reports withdrawn or called uncertain (HRP UserObservationLedger); an empty list if the user reported none."),
+  proposed_tests: z.array(z.object({
+    quote: answerQuote.describe("The answer's sentence proposing the test, copied from answer_draft."),
+    repeats: z.number().int().nonnegative().optional().describe("The index in user_observations of the attempt this test repeats, when the user already made it; left out otherwise."),
+    difference: answerQuote.optional().describe("With repeats: the answer's sentence saying how this test differs in a way that could change the result, copied from answer_draft."),
+    blinded: z.boolean().describe("true when the person would not know which condition they are in.")
+  }).strict()).max(10).optional()
+    .describe("With answer_draft: each test or self-measurement the answer proposes to the user, whether it repeats an attempt in user_observations, and whether it is blinded (HRP UserObservationLedger, MeasurementIsNotAttribution); an empty list if none."),
+  carried_state: z.string().max(48_000).optional()
+    .describe("The carry_forward value the last final check in this conversation returned, passed back exactly; left out in a conversation's first research answer."),
+  primary_outcome: z.string().trim().min(1).max(300).optional()
+    .describe("The user's main goal for this research, in their words (HRP PrimaryOutcomeContinuity)."),
+  primary_outcome_changed: z.boolean().optional()
+    .describe("true when the user changed their main goal since the last final check."),
+  rejected_options: z.array(z.string().trim().min(1).max(120)).max(12).optional()
+    .describe("Every option the user has rejected, earlier ones included, named as the answer names them."),
+  reopened: z.array(z.string().trim().min(1).max(120)).max(12).optional()
+    .describe("Options from an earlier rejected list that the user has reopened."),
   corrections: z.array(z.object({
     retracted: z.string().trim().min(1).max(1_000)
       .describe("The wrong statement as it read before the correction, such as a rate given under the wrong compound."),
     change: answerQuote.describe("The answer's sentence saying what changed, copied from answer_draft."),
+    report: answerQuote.optional().describe("With by_user true: the bug report the answer shows the user, a short general sentence with no personal details, copied from answer_draft."),
     by_user: z.boolean().optional()
       .describe("true when the user pointed out the error and a recheck showed the user was right; false when the " +
         "research found it.")
@@ -469,7 +492,7 @@ export const finalizeResearchInputSchema = z.object({
     .describe("Records each material correction made during this research: the wrong statement as it read, the " +
       "answer's sentence saying what changed, and whether the user pointed it out. The wrong statement must appear " +
       "nowhere else in the answer, including its headings, tables and summaries; after a correction the user pointed " +
-      "out, the answer asks whether AskRigor may send a bug report about it."),
+      "out, the answer shows the bug report it would send and asks whether AskRigor may send it."),
   search_coverage: z.array(z.enum(["historical_terms", "citation_chains", "grey_literature"])).max(3).optional()
     .describe("What the searches covered beyond the indexed databases."),
   answer_language: z.string().trim().regex(/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{1,8}){0,3}$/u).optional()
@@ -552,6 +575,228 @@ export const FINALIZE_RESEARCH_SHAPES_DESCRIPTION = "Nested inputs, as JSON: " +
       (note === undefined ? "" : ` (${note})`)).join("; ") +
   `. ${FINALIZE_RESEARCH_HIDDEN_LIMITS}`;
 
+interface FinalizeJsonSchema {
+  [key: string]: unknown;
+  type?: string | string[];
+  description?: string;
+  properties?: Record<string, FinalizeJsonSchema>;
+  items?: FinalizeJsonSchema;
+  anyOf?: FinalizeJsonSchema[];
+  oneOf?: FinalizeJsonSchema[];
+  required?: string[];
+}
+
+/** The SDK uses draft-7 and input mode for tools/list (zod-json-schema-compat). */
+export function finalizeResearchPublishedInputSchema({ relaxed }: { relaxed: boolean }): FinalizeJsonSchema {
+  const strict = z.toJSONSchema(finalizeResearchInputSchema, { target: "draft-7", io: "input" }) as FinalizeJsonSchema;
+  if (!relaxed) return strict;
+  const removed = new Set(["minItems", "maxItems", "minLength", "maxLength", "pattern", "format", "minimum",
+    "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "uniqueItems", "additionalProperties"]);
+  const walk = (node: FinalizeJsonSchema, depth: number): FinalizeJsonSchema => {
+    const container = node.properties !== undefined || node.items !== undefined || node.type === "object" || node.type === "array";
+    if (node.anyOf !== undefined || node.oneOf !== undefined || (container && depth >= 3)) {
+      return node.description === undefined ? {} : { description: node.description };
+    }
+    const result: FinalizeJsonSchema = {};
+    for (const [key, value] of Object.entries(node)) {
+      if (removed.has(key)) continue;
+      if (key === "properties") result.properties = Object.fromEntries(
+        Object.entries(node.properties!).map(([name, child]) => [name, walk(child, depth + 1)]));
+      else if (key === "items") result.items = walk(node.items!, depth + 1);
+      else result[key] = value;
+    }
+    return result;
+  };
+  return walk(strict, 0);
+}
+
+/** Runtime acceptance is permissive on both surfaces; only the published schema differs. */
+export function finalizeResearchConnectorInputSchema(relaxed: boolean) {
+  const published = finalizeResearchPublishedInputSchema({ relaxed });
+  return z.looseObject(Object.fromEntries(Object.entries(published.properties!).map(([key, fragment]) =>
+    [key, z.unknown().optional().meta(fragment)]))).meta({
+      ...published,
+      // Override looseObject's generated additionalProperties too, including its absence on /mcp.
+      additionalProperties: published.additionalProperties
+    });
+}
+
+/** Optional empty lists mean none. Clone only the affected containers, preserving the raw call. */
+export function parseFinalizeResearchInput(rawInput: unknown) {
+  const object = (value: unknown): value is Record<string, unknown> =>
+    value !== null && typeof value === "object" && !Array.isArray(value);
+  const empty = (value: unknown) => Array.isArray(value) && value.length === 0;
+  if (!object(rawInput)) return finalizeResearchInputSchema.safeParse(rawInput);
+  const input = { ...rawInput };
+  if (empty(input.principal_communities)) delete input.principal_communities;
+  if (object(input.intervention_identity)) {
+    input.intervention_identity = { ...input.intervention_identity };
+    if (empty((input.intervention_identity as Record<string, unknown>).interventions)) {
+      delete (input.intervention_identity as Record<string, unknown>).interventions;
+    }
+  }
+  if (Array.isArray(input.community_searches)) input.community_searches = input.community_searches.map((entry: unknown) => {
+    if (!object(entry)) return entry;
+    const copy = { ...entry };
+    if (empty(copy.review_corpora)) delete copy.review_corpora;
+    if (empty(copy.report_identity)) delete copy.report_identity;
+    return copy;
+  });
+  if (object(input.findings_card) && empty(input.findings_card.findings)) delete input.findings_card;
+  return finalizeResearchInputSchema.safeParse(input);
+}
+
+function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResearchOptions): FinalizeResearchOutput {
+  const pathOf = (path: readonly PropertyKey[]) => path.reduce<string>((text, part) =>
+    typeof part === "number" ? `${text}[${part}]` : `${text}${text === "" ? "" : "."}${String(part)}`, "") || "inputs";
+  const nextSteps = ["The call's inputs have problems, so the final check did not run. Fix each one and call again:"];
+  const messageOf = (issue: z.core.$ZodIssue, prefix: readonly PropertyKey[] = []): string => {
+    if (issue.code === "invalid_value") return `Expected one of ${issue.values.join(", ")}.`;
+    if (issue.code === "invalid_union") return issue.errors.map((branch) => branch.map((child) =>
+      `${pathOf([...prefix, ...issue.path, ...child.path])}: ${messageOf(child, [...prefix, ...issue.path])}`).join("; ")).join(" or ");
+    return issue.message;
+  };
+  for (const issue of error.issues.slice(0, 30)) {
+    nextSteps.push(`${pathOf(issue.path)}: ${messageOf(issue)}`);
+  }
+  if (error.issues.length > 30) nextSteps.push(`and ${error.issues.length - 30} more.`);
+  const shapes = FINALIZE_RESEARCH_HIDDEN_SHAPES.flatMap((shape) => shape.paths.map((path) => ({ path, shape })));
+  const given = new Set<string>();
+  for (const issue of error.issues) {
+    const path = pathOf(issue.path).replace(/\[\d+\]/gu, "[]");
+    const match = shapes.filter(({ path: prefix }) => path === prefix || path.startsWith(`${prefix}.`) || path.startsWith(`${prefix}[`))
+      .sort((a, b) => b.path.length - a.path.length)[0];
+    if (match !== undefined && !given.has(match.path)) {
+      given.add(match.path);
+      nextSteps.push(`${match.path} as JSON: ${match.shape.examples.map((example) => JSON.stringify(example)).join(" or ")}`);
+    }
+  }
+  return {
+    contract: FINALIZE_RESEARCH_CONTRACT, status: "not_ready", next_steps: nextSteps,
+    limits: [], caveats: [], must_report: [], receipts_verified: 0, receipts_rejected: [], answer_checked: false,
+    sources: { validated: [], lead_only: [] },
+    community: { decision: "not_relevant", surveys: 0, discovery_rounds: 0, saturated: false, depth: "first_pass",
+      first_pass_complete: false, open_leads: [], audited_videos: [], material_videos: [], principal_communities: [], communities_searched: [] },
+    findings_card: options.findings === "private" ? privateFindings() : options.findings === "closed" ? closedFindingsLibrary() : noFindingsCard()
+  };
+}
+
+function retractedStatementShown(draft: string, statement: string, changes: readonly string[]): boolean {
+  const shownText = displayedProse(draft).map((block) => caveatText(visibleText(block))).join("\n");
+  const occurrences = (text: string): number[] => {
+    const found: number[] = [];
+    if (text === "") return found;
+    for (let at = shownText.indexOf(text); at >= 0; at = shownText.indexOf(text, at + 1)) found.push(at);
+    return found;
+  };
+  const form = (text: string) => quoteForm(text.replace(MARKDOWN_LINK_TEXT, "$1"));
+  const wrong = form(statement);
+  if (!/[\p{L}\p{N}]/u.test(wrong)) return false;
+  const inChange = changes.flatMap((change) => {
+    const changed = form(change);
+    return occurrences(changed).map((start) => [start, start + changed.length] as const);
+  });
+  return occurrences(wrong).some((start) => !inChange.some(([from, to]) => start >= from && start + wrong.length <= to));
+}
+
+const optionKey = (text: string) => text.trim().toLowerCase();
+
+// The ledger and the rejected list hold at most this many entries; at that size the model chooses which to keep.
+const MAX_CARRIED_OBSERVATIONS = 30;
+const MAX_CARRIED_REJECTED = 12;
+
+function checkCarriedState(input: FinalizeResearchInput, secret: string, nextSteps: string[]):
+  { carried?: CarriedState; invalid: boolean } {
+  let carried: CarriedState | undefined;
+  let invalid = false;
+  if (input.carried_state !== undefined) {
+    const verified = verifyCarriedState(input.carried_state, { secret });
+    if (verified.ok) carried = verified.state;
+    else {
+      invalid = true;
+      nextSteps.push("carried_state does not verify: pass exactly the carry_forward value from the last final check " +
+        "in this conversation that gave one, or leave carried_state out if none has.");
+    }
+  }
+  const rejected = new Set((input.rejected_options ?? []).map(optionKey));
+  const reopened = new Set((input.reopened ?? []).map(optionKey));
+  if (carried !== undefined) {
+    const declared = input.user_observations ?? [];
+    const observations = new Set(declared.map(({ observation }) => observation));
+    const dropped = declared.length >= MAX_CARRIED_OBSERVATIONS
+      ? []
+      : carried.observations.filter(({ observation }) => !observations.has(observation));
+    for (const { observation } of dropped.slice(0, 10)) nextSteps.push(`user_observations leaves out ${JSON.stringify(observation)} from an earlier turn: keep it, marked withdrawn or uncertain if its source took it back.`);
+    if (dropped.length > 10) nextSteps.push(`and ${dropped.length - 10} more earlier observations.`);
+    for (const statement of carried.retracted) {
+      if (input.answer_draft !== undefined && retractedStatementShown(input.answer_draft, statement, (input.corrections ?? []).map(({ change }) => change))) {
+        nextSteps.push(`The answer repeats a statement taken back in an earlier turn: ${JSON.stringify(statement)}. Leave it out.`);
+      }
+    }
+    if ((input.rejected_options ?? []).length < MAX_CARRIED_REJECTED) {
+      for (const option of carried.rejected) {
+        if (!rejected.has(optionKey(option)) && !reopened.has(optionKey(option))) nextSteps.push(`rejected_options leaves out ${option}, which the user rejected in an earlier turn: keep it, or list it in reopened if the user reopened it.`);
+      }
+    }
+    if (carried.primary_outcome !== undefined) {
+      const goal = carried.primary_outcome;
+      if (input.primary_outcome === undefined) nextSteps.push(`Give primary_outcome: the user's main goal carried from an earlier turn is ${JSON.stringify(goal)}.`);
+      else if (input.primary_outcome.trim() !== goal.trim() && input.primary_outcome_changed !== true) nextSteps.push(`primary_outcome differs from the main goal carried from an earlier turn (${JSON.stringify(goal)}): keep it, or set primary_outcome_changed if the user changed it.`);
+    }
+    if (input.principal_communities !== undefined) {
+      const named = new Set(input.principal_communities.filter(({ named_by_user }) => named_by_user === true).map(({ name }) => name));
+      for (const name of carried.named_communities) if (!named.has(name)) nextSteps.push(`principal_communities leaves out ${name}, which the user named in an earlier turn: keep it with named_by_user, or record why it is not searched.`);
+    }
+  }
+  for (const [i, { intervention }] of (input.recommendations ?? []).entries()) {
+    if (rejected.has(optionKey(intervention)) && !reopened.has(optionKey(intervention))) nextSteps.push(`recommendations[${i}] puts forward ${intervention}, which the user rejected: leave it out, or list it in reopened if the user reopened it.`);
+  }
+  return carried === undefined ? { invalid } : { carried, invalid };
+}
+
+/**
+ * The state only grows or changes by declaration: what a call leaves out is carried on (and the check says so), so a
+ * later call cannot shed it by passing this call's token. A withdrawn mark, a reopened option or a changed goal
+ * changes it.
+ */
+function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState | undefined, options: FinalizeResearchOptions):
+  { carry_forward: string; carried: CarriedState } | "too_large" | undefined {
+  if (options.secret === undefined) return undefined;
+  const reopened = new Set((input.reopened ?? []).map(optionKey));
+  const retracted = [...(carried?.retracted ?? []), ...(input.corrections ?? []).map(({ retracted }) => retracted)]
+    .map((text) => text.slice(0, 200));
+  // Keep the latest occurrence of each statement, then the latest twelve statements.
+  const latest = [...new Set([...retracted].reverse())].reverse().slice(-12);
+  const declared = input.user_observations ?? [];
+  const kept = new Set(declared.map(({ observation }) => observation));
+  const observations = [...declared, ...(carried?.observations ?? []).filter(({ observation }) => !kept.has(observation))]
+    .slice(0, MAX_CARRIED_OBSERVATIONS);
+  const rejectedKeys = new Set<string>();
+  const rejected = [...(input.rejected_options ?? []), ...(carried?.rejected ?? [])].filter((option) => {
+    const key = optionKey(option);
+    if (reopened.has(key) || rejectedKeys.has(key)) return false;
+    rejectedKeys.add(key);
+    return true;
+  }).slice(0, MAX_CARRIED_REJECTED);
+  const carriedGoal = carried?.primary_outcome;
+  const goal = input.primary_outcome === undefined || (carriedGoal !== undefined &&
+      input.primary_outcome.trim() !== carriedGoal.trim() && input.primary_outcome_changed !== true)
+    ? carriedGoal ?? input.primary_outcome
+    : input.primary_outcome;
+  const state: CarriedState = {
+    v: 1, issued_at: (options.now?.() ?? new Date()).toISOString(),
+    observations, retracted: latest,
+    ...(goal === undefined ? {} : { primary_outcome: goal }),
+    rejected,
+    named_communities: [...new Set([...(carried?.named_communities ?? []),
+      ...(input.principal_communities ?? []).filter(({ named_by_user }) => named_by_user === true).map(({ name }) => name)])].slice(0, 8)
+  };
+  const token = issueCarriedState(state, { secret: options.secret });
+  if (token === undefined) return "too_large";
+  const checked = verifyCarriedState(token, { secret: options.secret });
+  return checked.ok ? { carry_forward: token, carried: checked.state } : undefined;
+}
+
 const finalizationStatusSchema = z.enum([
   "ready",
   "ready_with_limits",
@@ -603,6 +848,9 @@ export const finalizeResearchOutputSchema = z.object({
   }).strict().describe("Whether findings_card checked, and for a free contributor account whether it was saved; for " +
     "a paid private account a checked card's caveats offer the save. closed: the findings library is not open; " +
     "private: no research account, so nothing is saved."),
+  carry_forward: z.string().optional(),
+  carried: carriedStateSchema.optional(),
+  carry_forward_note: z.string().optional(),
   finalization_receipt: z.string().optional(),
   analyses_saved: analysesSavedSchema.optional().describe("For a free contributor account whose research passed: the " +
     "study and review analyses validated in it, which the server sent to the owner's review inbox.")
@@ -665,7 +913,9 @@ export function finalizeResearch(
   rawInput: unknown,
   options: FinalizeResearchOptions
 ): FinalizeResearchOutput {
-  const input = finalizeResearchInputSchema.parse(rawInput);
+  const parsed = parseFinalizeResearchInput(rawInput);
+  if (!parsed.success) return invalidFinalizeResearchInput(parsed.error, options);
+  const input = parsed.data;
   if (options.secret === undefined) {
     return {
       contract: FINALIZE_RESEARCH_CONTRACT,
@@ -763,8 +1013,36 @@ export function finalizeResearch(
       );
     }
   }
+  if (input.answer_draft !== undefined && input.user_observations === undefined) {
+    requireDeclaration("user_observations is missing: with answer_draft, it lists each observation the user reported, about themselves or others, that the answer relies on or rules out, marked effect, no_effect, uncertain or withdrawn (an empty list means none).");
+  }
+  if (input.answer_draft !== undefined && input.proposed_tests === undefined) {
+    requireDeclaration("proposed_tests is missing: with answer_draft, it lists each test or self-measurement the answer proposes, whether it repeats an attempt in user_observations, and whether it is blinded (an empty list means none).");
+  }
+  for (const { observation, response } of input.user_observations ?? []) {
+    if (response === "uncertain") caveatOnce(
+      `The report of ${observation} is uncertain; say it counts neither for nor against an effect.`,
+      `A report its source is no longer sure of counts neither for nor against an effect (${observation}).`);
+    if (response === "withdrawn") caveatOnce(
+      `The report of ${observation} was withdrawn; say it counts neither for nor against an effect.`,
+      `A report its source has taken back counts neither for nor against an effect (${observation}).`);
+  }
+  for (const [index, test] of (input.proposed_tests ?? []).entries()) {
+    if (test.repeats !== undefined) {
+      const observation = input.user_observations?.[test.repeats]?.observation;
+      if (observation === undefined) nextSteps.push(`proposed_tests[${index}].repeats names user_observations[${test.repeats}], which this call does not give.`);
+      else if (test.difference === undefined) nextSteps.push(`proposed_tests[${index}] repeats what the user already tried (${observation}): leave it out of the answer, or give the answer's sentence saying how it differs in a way that could change the result as difference.`);
+    }
+    if (!test.blinded) caveatOnce(
+      "A test the answer proposes is not blinded; say it can show how the person did, not what caused a change.",
+      "A test done without blinding can show how the person did, not what caused a change, because expectation, effort and practice can move it too.");
+  }
+  const { carried, invalid: carriedInvalid } = checkCarriedState(input, options.secret, nextSteps);
   // The correction-report question rests on the model's declaration of who pointed the error out.
-  for (const [index, { by_user }] of (input.corrections ?? []).entries()) {
+  for (const [index, { by_user, report }] of (input.corrections ?? []).entries()) {
+    if (by_user === true && report === undefined) {
+      requireDeclaration(`Give corrections[${index}].report: the bug report the answer shows the user, copied from answer_draft.`);
+    }
     if (by_user === undefined) {
       requireDeclaration(`Give corrections[${index}].by_user: true when the user pointed out the error and a recheck ` +
         "showed the user was right, false when the research found it.");
@@ -1857,9 +2135,17 @@ export function finalizeResearch(
         ...(input.safety_claims ?? []).map(({ quote }, index) => ({ at: `safety_claims[${index}]`, quote })),
         ...(input.mechanism_claims ?? []).map(({ quote }, index) => ({ at: `mechanism_claims[${index}]`, quote })),
         ...(input.recommendations ?? []).map(({ quote }, index) => ({ at: `recommendations[${index}]`, quote })),
+        ...(input.proposed_tests ?? []).flatMap(({ quote, difference }, index) => [
+          { at: `proposed_tests[${index}]`, quote },
+          ...(difference === undefined ? [] : [{ at: `proposed_tests[${index}].difference`, quote: difference }])
+        ]),
+        ...(input.corrections ?? []).flatMap(({ report }, index) => report === undefined ? [] :
+          [{ at: `corrections[${index}].report`, quote: report }]),
         ...(input.corrections ?? []).map(({ change }, index) => ({ at: `corrections[${index}].change`, quote: change }))
       ],
       corrections: input.corrections ?? [],
+      communityNames: [...(input.community_searches ?? []).map(({ community }) => community),
+        ...(input.principal_communities ?? []).map(({ name }) => name)],
       keyTerms: input.key_terms ?? [],
       labPreparationQuotes: input.lab_preparation?.status === "covered" ? input.lab_preparation.answer_quotes ?? [] : [],
       missingDeclaration: () => { missingDeclaration = true; },
@@ -1928,6 +2214,10 @@ export function finalizeResearch(
       ...(options.now === undefined ? {} : { now: options.now })
     });
   }
+  // A carried state that does not verify gets no replacement: the model passes the last good one again.
+  const carry = carriedInvalid ? undefined : buildCarriedState(input, carried, options);
+  if (carry === "too_large") output.carry_forward_note = CARRIED_STATE_TOO_LARGE;
+  else if (carry !== undefined) Object.assign(output, carry);
   return finalizeResearchOutputSchema.parse(output);
 }
 
@@ -1994,6 +2284,7 @@ function answerDraftProblems(
     scaleResults: NonNullable<FinalizeResearchInput["scale_results"]>;
     declaredQuotes: ReadonlyArray<{ at: string; quote: string }>;
     corrections: NonNullable<FinalizeResearchInput["corrections"]>;
+    communityNames: readonly string[];
     keyTerms: NonNullable<FinalizeResearchInput["key_terms"]>;
     labPreparationQuotes: readonly string[];
     missingDeclaration: () => void;
@@ -2007,7 +2298,12 @@ function answerDraftProblems(
   // What the answer must say is read from the prose a reader sees; what it must not show, from the whole draft.
   const shownBlocks = displayedProse(draft);
   const labels = [...new Set([
-    ...[...prose.matchAll(SNAKE_CASE_LABEL)].map(([label]) => label).filter((label) => !looksLikeVideoId(label)),
+    ...[...prose.matchAll(SNAKE_CASE_LABEL)].filter((match) => {
+      const prefix = prose.slice(Math.max(0, match.index - 2), match.index);
+      return prefix !== "r/" && prefix !== "u/" && !looksLikeVideoId(match[0]) &&
+        ![...context.caveats, ...context.communityNames].some((text) =>
+          [...text.matchAll(SNAKE_CASE_LABEL)].some(([token]) => token === match[0]));
+    }).map(([label]) => label),
     ...[...prose.matchAll(CAPITALIZED_TOKEN)].map(([name]) => name).filter((name) => context.protocolNames.has(name)),
     ...[...prose.matchAll(INTERNAL_PHRASE)].map(([label]) => label.toLowerCase())
   ])];
@@ -2126,21 +2422,8 @@ function answerDraftProblems(
   // (HRP CorrectionPropagationIsMandatory; lesson #29 by owner question 92).
   // Which statement was wrong stays the model's declaration; this is exact.
   if (context.corrections.length > 0) {
-    const shownText = shownBlocks.map((block) => caveatText(visibleText(block))).join("\n");
-    const occurrences = (text: string): number[] => {
-      const found: number[] = [];
-      if (text === "") return found;
-      for (let at = shownText.indexOf(text); at >= 0; at = shownText.indexOf(text, at + 1)) found.push(at);
-      return found;
-    };
     for (const [index, { retracted, change }] of context.corrections.entries()) {
-      const wrong = quoteForm(retracted.replace(MARKDOWN_LINK_TEXT, "$1"));
-      if (!/[\p{L}\p{N}]/u.test(wrong)) continue;
-      const changed = quoteForm(change.replace(MARKDOWN_LINK_TEXT, "$1"));
-      const inChange = occurrences(changed).map((start) => [start, start + changed.length] as const);
-      const elsewhere = occurrences(wrong).some((start) =>
-        !inChange.some(([from, to]) => start >= from && start + wrong.length <= to));
-      if (elsewhere) {
+      if (retractedStatementShown(draft, retracted, [change])) {
         problems.push(`corrections[${index}]'s wrong statement still appears in the answer outside its change ` +
           "sentence: correct it everywhere, including headings, tables and summaries.");
       }

@@ -859,7 +859,7 @@ describe("AskRigor MCP tools", () => {
         not_relevant_reason: "A dosing arithmetic question with no treatment choice.",
         intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
         key_sources: [],
-        absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: []
+        absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: []
       };
       // The answer must carry the limit before it is signed.
       const uncaveated = await client.callTool({
@@ -3229,7 +3229,9 @@ describe("AskRigor Streamable HTTP server", () => {
         expect(tools.every((tool) => !("outputSchema" in tool))).toBe(true);
         expect(tools.every((tool) => !("execution" in tool))).toBe(true);
         expect(unsupportedGeminiSchemaKeys(tools)).toEqual([]);
-        expect(Buffer.byteLength(JSON.stringify({ tools }), "utf8")).toBeLessThan(25_000);
+        const catalogBytes = Buffer.byteLength(JSON.stringify({ tools }), "utf8");
+        console.info(`Gemini compact catalog bytes: ${catalogBytes}`);
+        expect(catalogBytes).toBeLessThan(25_000);
         const searchSchema = tools.find(({ name }) => name === "search_youtube")!.inputSchema;
         expect(searchSchema.properties).toHaveProperty("product_identity");
         const identity = searchSchema.properties!.product_identity as { properties: Record<string, { items?: { description?: string }; description?: string }> };

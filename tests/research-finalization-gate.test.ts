@@ -159,7 +159,7 @@ const leftOut = (...caveats: string[]) =>
 const absenceDefaults = (input: Record<string, unknown>) =>
   "absence_claims" in input || !("answer_draft" in input) ? {} : { absence_claims: [] };
 const scaleDefaults = (input: Record<string, unknown>) =>
-  "scale_results" in input || !("answer_draft" in input) ? {} : { scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [] };
+  "scale_results" in input || !("answer_draft" in input) ? {} : { scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [] };
 // The same for harm and safety sentences, key terms and mechanism claims (owner questions 86, 88 and 89).
 const claimDefaults = (input: Record<string, unknown>) => !("answer_draft" in input) ? {} : {
   ...("safety_claims" in input ? {} : { safety_claims: [] }),
@@ -373,11 +373,14 @@ describe("finalize_research gate", () => {
     expect(otherTarget.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toContain("was made for this research_target");
     // The research target is required, so a check can always be matched.
     const { research_target: _target, ...withoutTarget } = base;
-    expect(() => finalizeResearch({
+    const missingTarget = finalizeResearch({
       ...withoutTarget,
       receipts: [...ready, coverage("ledger_consistent_for_synthesis", "2026-09-26T11:30:00.000Z")],
       treatment_choice: "compared"
-    }, options)).toThrow();
+    }, options);
+    expect(missingTarget.status).toBe("not_ready");
+    expect(missingTarget.receipts_verified).toBe(0);
+    expect(missingTarget.next_steps.join("\n")).toContain("research_target:");
 
     // A check made for another question judged videos this research never found.
     const judged = (videos: string[]) => issueResearchReceipt(
@@ -1020,7 +1023,7 @@ describe("finalize_research gate", () => {
       ...base, commercial_review_applicability: NONCOMMERCIAL_EXERCISE,
       intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." },
       community_findings: findingsFor(["aaaaaaaaaaa"]), community_searches: searches(trtTitle),
-      ...(draft === undefined ? {} : { answer_draft: draft, absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [] })
+      ...(draft === undefined ? {} : { answer_draft: draft, absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [] })
     }, { ...options, redditThreads: reddit(trt) });
 
     // Both confirmed: the answer says Reddit confirmed the threads, not their content.
@@ -1126,7 +1129,7 @@ describe("finalize_research gate", () => {
         "[MESO-Rx](https://thinksteroids.com/community/threads/2/), most users reported better recovery, some saw no " +
         "difference, and several reported joint pain as a side effect of growth hormone, consistent with the trials. " +
         "The reports from r/trt and MESO-Rx come from my own web search, which AskRigor could not verify.",
-      absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: []
+      absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: []
     }, options);
     expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(result.status).toBe("ready_with_limits");
@@ -1190,7 +1193,7 @@ describe("finalize_research gate", () => {
         { name: "ADHD Parents Forum", platform: "forum" }
       ],
       community_searches: searches ?? [amazon(corpora), forum],
-      absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: []
+      absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: []
     });
     const lanes = `[Study](https://doi.org/10.1002/art.41142) reports study outcomes.\n\nIn [the drops' reviews on Amazon](${reviewsPage}), several parents saw calmer evenings, some saw ` +
       "no difference, and two reported stomach upset; these show the range of experiences only. On the " +

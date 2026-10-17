@@ -1070,6 +1070,17 @@ pending-proposal stores have their own strict contracts and authority boundaries
   and units, and whether the same people used both; `named_by_user` marks
   principal communities the user requested. These counts, doses, short labels
   and other declarations are request-local and are not stored or logged.
+  `user_observations` adds short descriptions of what the user or others observed,
+  which may be health details; `proposed_tests`, `corrections[].report`,
+  `primary_outcome`, `rejected_options` and `reopened` are also request-local
+  declarations: checked in the call, not stored or logged, not in the
+  finalization receipt, and never saved with a findings card.
+  `carry_forward` holds the user's observations and goals, statements taken
+  back, options rejected and communities named as a signed, compressed token
+  returned in the tool result, alongside the readable `carried` state. The client
+  passes the token back as `carried_state`; AskRigor verifies and rebuilds it
+  in memory and never stores or logs it. It has no expiry and is readable by
+  anyone who can read the conversation. It is not a research receipt.
   The output's `check_line` is a fixed server sentence for the answer to end with;
   it is not part of the signed finalization receipt.
   The panel resource renders the same result in the client's sandboxed frame; nothing new is collected, stored, logged or sent.

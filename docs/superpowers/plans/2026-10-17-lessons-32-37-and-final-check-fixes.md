@@ -87,6 +87,7 @@ All three are the model's declarations; the server checks only presence, indexes
    handler validates them with the strict schema and, when they fail, answers `not_ready` with every problem: its
    path, what is wrong, the allowed values, and the JSON example for that part. An empty list where an optional list
    means none is read as none.
+   Both surfaces use a permissive SDK registration carrying the derived published schema, with strict server validation after copying and normalizing optional empty lists.
 2. **Internal labels:** a token directly after `r/` or `u/`, or one that appears in a caveat the check itself requires
    or in a community name the call declares, is not an internal label.
 3. **Failed acquisitions:** see the investigation notes; the design is added here before it is built.
@@ -105,10 +106,11 @@ conversation, like the research receipts.
   earlier ones included); `reopened` (rejected options the user reopened). `user_observations` (109),
   `corrections[].retracted` and `principal_communities[].named_by_user` feed it too.
 - **Token:** `cs1~<payload>~<mac>`: the state as JSON, deflated and base64url-encoded, with an HMAC-SHA256 under a key
-  derived from the research receipt secret with its own domain; no expiry; at most 12,000 characters (the oldest
-  retracted statements go first). Not a research receipt and not counted as research work.
+  derived from the research receipt secret with its own domain; no expiry; at most 48,000 characters, which holds the
+  largest allowed state (observations up to 200 characters, 12 rejected options of 120, the latest 12 retracted
+  statements as their first 200 characters). Not a research receipt and not counted as research work.
 - **State:** the observations (this call's list), the statements taken back (earlier ones and this call's, the latest
-  20), the primary outcome, the rejected options (minus those reopened) and the communities the user named.
+  12), the primary outcome, the rejected options (minus those reopened) and the communities the user named.
 - **Checks, each exact:** an earlier observation missing from `user_observations` (keep it, or mark it withdrawn or
   uncertain); an earlier retracted statement shown in the answer; an earlier rejected option missing from
   `rejected_options` and `reopened`; a recommendation (`recommendations[].intervention`) equal to a rejected option and

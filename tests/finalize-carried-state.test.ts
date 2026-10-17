@@ -1,0 +1,167 @@
+import { createHmac } from "node:crypto";
+import { deflateRawSync } from "node:zlib";
+import { describe, expect, it } from "vitest";
+import { issueCarriedState, verifyCarriedState, type CarriedState } from "../apps/research-mcp/src/carried-state.js";
+import { CORRECTION_REPORT_OFFER, finalizeResearch, finalizeResearchInputSchema, type FinalizeResearchInput } from "../apps/research-mcp/src/research-finalization-gate.js";
+import { verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
+const SECRET = "carried-state-fixture-secret-01234567890123456789";
+const NOW = () => new Date("2026-10-17T12:00:00.000Z");
+const observation = { observation: "a friend's drowsiness after the same product", response: "effect" as const, source: "someone_else" as const };
+const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchInput => ({
+  receipts: [], research_target: "Synthetic continuity test", research_depth: "deep", treatment_choice: "not_compared",
+  community_evidence: "not_relevant", not_relevant_basis: "emergency_before_triage", not_relevant_reason: "Synthetic emergency fixture",
+  key_sources: [], answer_draft: "Synthetic answer.", absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
+  user_observations: [], proposed_tests: [], ...overrides
+});
+const check = (overrides: Partial<FinalizeResearchInput> = {}) => finalizeResearch(base(overrides), { secret: SECRET, now: NOW });
+const carriedSteps = (overrides: Partial<FinalizeResearchInput>) => check(overrides).next_steps.filter((step) => /earlier|carried_state|primary_outcome|rejected/.test(step));
+
+describe("conversation state carried between final checks", () => {
+  it("returns signed, readable declarations, including on not_ready calls, and accepts the same observations next turn", () => {
+    const first = check({ user_observations: [observation], primary_outcome: "Explain the effect", rejected_options: ["Option A"], principal_communities: [{ name: "r/Example", platform: "reddit", named_by_user: true }] });
+    expect(first.carry_forward).toBeDefined(); expect(verifyCarriedState(first.carry_forward!, { secret: SECRET })).toEqual({ ok: true, state: first.carried });
+    expect(first.carried).toMatchObject({ observations: [observation], primary_outcome: "Explain the effect", rejected: ["Option A"], named_communities: ["r/Example"] });
+    expect(carriedSteps({ carried_state: first.carry_forward, user_observations: [observation], primary_outcome: "Explain the effect", rejected_options: ["Option A"] })).toEqual([]);
+    expect(check({ user_observations: [observation], proposed_tests: [{ quote: "Try it.", repeats: 9, blinded: true }] }).status).toBe("not_ready");
+    expect(check({ proposed_tests: [{ quote: "Try it.", repeats: 9, blinded: true }] }).carry_forward).toBeDefined();
+  });
+  it("names a dropped observation, caps those steps at ten, and accepts a withdrawn observation with its caveat", () => {
+    const token = check({ user_observations: [observation] }).carry_forward;
+    expect(carriedSteps({ carried_state: token })).toContain(`user_observations leaves out ${JSON.stringify(observation.observation)} from an earlier turn: keep it, marked withdrawn or uncertain if its source took it back.`);
+    const withdrawn = check({ carried_state: token, user_observations: [{ ...observation, response: "withdrawn" }] });
+    expect(withdrawn.next_steps.join("\n")).not.toContain("user_observations leaves out");
+    expect(withdrawn.caveats).toContain(`A report its source has taken back counts neither for nor against an effect (${observation.observation}).`);
+    // The call that left it out still carries it, so its token cannot shed it.
+    expect(check({ carried_state: token }).carried!.observations).toEqual([observation]);
+    const added = { ...observation, observation: "a new observation" };
+    expect(check({ carried_state: token, user_observations: [added] }).carried!.observations).toEqual([added, observation]);
+    const many = check({ user_observations: Array.from({ length: 13 }, (_, i) => ({ ...observation, observation: `Observation ${i}` })) }).carry_forward;
+    const missing = carriedSteps({ carried_state: many }); expect(missing).toHaveLength(11); expect(missing.at(-1)).toBe("and 3 more earlier observations.");
+  });
+  it("rejects tampering and still runs the other checks, without inheriting its contents", () => {
+    const token = check({ user_observations: [observation], rejected_options: ["Old option"] }).carry_forward!;
+    const tampered = token.slice(0, -3) + (token.at(-3) === "a" ? "b" : "a") + token.slice(-2);
+    const result = check({ carried_state: tampered, rejected_options: ["Option A"], recommendations: [{ quote: "Try A.", intervention: "Option A", safety_check: "resolved", long_term_use: false }] });
+    expect(result.next_steps).toContain("carried_state does not verify: pass exactly the carry_forward value from the last final check in this conversation that gave one, or leave carried_state out if none has.");
+    expect(result.next_steps.join("\n")).toContain("recommendations[0] puts forward Option A");
+    // No replacement token, so the model cannot pass on a state that lost the earlier one.
+    expect(result.carry_forward).toBeUndefined(); expect(result.carried).toBeUndefined();
+  });
+  it("rejects an earlier retracted statement except inside this call's own change sentence", () => {
+    const wrong = "The rate was 40%.";
+    const token = check({ corrections: [{ retracted: wrong, change: "The rate is corrected.", by_user: false }] }).carry_forward;
+    expect(carriedSteps({ carried_state: token, answer_draft: `## ${wrong}` })).toContain(`The answer repeats a statement taken back in an earlier turn: ${JSON.stringify(wrong)}. Leave it out.`);
+    const change = `Earlier I said ${wrong} That is taken back.`;
+    expect(carriedSteps({ carried_state: token, answer_draft: change, corrections: [{ retracted: wrong, change, by_user: false }] })).toEqual([]);
+    expect(carriedSteps({ carried_state: token, answer_draft: `${change}\n\n${wrong}`, corrections: [{ retracted: wrong, change, by_user: false }] }).join("\n")).toContain("repeats a statement");
+  });
+  it("keeps the latest twelve distinct retracted statements truncated to 200 characters", () => {
+    const first = check({ corrections: Array.from({ length: 10 }, (_, i) => ({ retracted: `${i} ${"甲".repeat(250)}`, change: "Changed.", by_user: false })) });
+    const next = check({ carried_state: first.carry_forward, corrections: Array.from({ length: 5 }, (_, i) => ({ retracted: `new ${i}`, change: "Changed.", by_user: false })) });
+    expect(next.carried!.retracted).toHaveLength(12); expect(next.carried!.retracted[0]).toHaveLength(200); expect(next.carried!.retracted.at(-1)).toBe("new 4");
+  });
+  it("requires earlier rejected options, accepts reopening case-insensitively, and prevents recommendations of a rejected option", () => {
+    const token = check({ rejected_options: ["Option A"] }).carry_forward;
+    expect(carriedSteps({ carried_state: token }).join("\n")).toContain("rejected_options leaves out Option A");
+    expect(check({ carried_state: token }).carried!.rejected).toEqual(["Option A"]);
+    expect(check({ carried_state: token, rejected_options: ["Option B"] }).carried!.rejected).toEqual(["Option B", "Option A"]);
+    const reopened = check({ carried_state: token, reopened: [" option a "] });
+    expect(reopened.next_steps.join("\n")).not.toContain("rejected_options leaves out"); expect(reopened.carried!.rejected).toEqual([]);
+    const rec = { quote: "Try A.", intervention: "OPTION A", safety_check: "resolved" as const, long_term_use: false };
+    expect(check({ rejected_options: ["option a"], recommendations: [rec] }).next_steps.join("\n")).toContain("recommendations[0] puts forward OPTION A, which the user rejected");
+    expect(check({ rejected_options: ["option a"], reopened: ["Option A"], recommendations: [rec] }).next_steps.join("\n")).not.toContain("which the user rejected");
+  });
+  it("requires the carried primary goal unless the user changed it, and keeps named communities", () => {
+    const token = check({ primary_outcome: "Explain why", principal_communities: [{ name: "r/Example", platform: "reddit", named_by_user: true }] }).carry_forward;
+    expect(carriedSteps({ carried_state: token }).join("\n")).toContain("Give primary_outcome:");
+    expect(carriedSteps({ carried_state: token, primary_outcome: "Another goal" }).join("\n")).toContain("primary_outcome differs");
+    expect(check({ carried_state: token, primary_outcome: "Another goal" }).carried!.primary_outcome).toBe("Explain why");
+    expect(check({ carried_state: token, primary_outcome: "Another goal", primary_outcome_changed: true }).carried!.primary_outcome).toBe("Another goal");
+    expect(carriedSteps({ carried_state: token, primary_outcome: "Another goal", primary_outcome_changed: true })).toEqual([]);
+    const result = check({ carried_state: token, primary_outcome: "Explain why", principal_communities: [{ name: "YouTube", platform: "youtube" }] });
+    expect(result.next_steps).toContain("principal_communities leaves out r/Example, which the user named in an earlier turn: keep it with named_by_user, or record why it is not searched."); expect(result.carried!.named_communities).toContain("r/Example");
+  });
+  it("returns no carry without the receipt secret and never puts it into the finalization receipt", () => {
+    expect(finalizeResearch(base(), { secret: undefined })).not.toHaveProperty("carry_forward");
+    const result = check({ answer_draft: "No study's methods were checked in full text for this answer." }); expect(result.finalization_receipt).toBeDefined();
+    const receipt = verifyResearchReceipt(result.finalization_receipt!, { secret: SECRET, now: NOW });
+    expect(receipt.ok).toBe(true); expect(JSON.stringify(receipt)).not.toMatch(/carry_forward|carried|observations|primary_outcome/); expect(result.finalization_receipt).not.toContain(result.carry_forward!);
+  });
+});
+
+function maximumState(text: (length: number) => string): CarriedState {
+  return { v: 1, issued_at: NOW().toISOString(), observations: Array.from({ length: 30 }, () => ({ ...observation, observation: text(200) })), retracted: Array.from({ length: 12 }, () => text(200)), primary_outcome: text(300), rejected: Array.from({ length: 12 }, () => text(120)), named_communities: Array.from({ length: 8 }, () => text(120)) };
+}
+describe("carried-state ledger at its size limit", () => {
+  it("lets a full ledger choose which observations and rejected options to keep", () => {
+    const thirty = Array.from({ length: 30 }, (_, i) => ({ ...observation, observation: `Observation ${i}` }));
+    const token = check({ user_observations: thirty, rejected_options: Array.from({ length: 12 }, (_, i) => `Option ${i}`) }).carry_forward;
+    const replaced = [...thirty.slice(1), { ...observation, observation: "Observation 30" }];
+    const result = check({ carried_state: token, user_observations: replaced, rejected_options: Array.from({ length: 12 }, (_, i) => `Option ${i + 1}`) });
+    expect(result.next_steps.join("\n")).not.toMatch(/(?:user_observations|rejected_options) leaves out/u);
+    expect(result.carried!.observations).toEqual(replaced); expect(result.carried!.rejected).toHaveLength(12);
+  });
+});
+
+describe("carried-state token bounds and authentication", () => {
+  it("round-trips every field at its limit in varied three-byte UTF-8 characters within 48000 characters", () => {
+    let seed = 17;
+    const text = (length: number) => Array.from({ length }, () => { seed = (seed * 1664525 + 1013904223) >>> 0; return String.fromCharCode(0x4e00 + seed % 20000); }).join("");
+    const state = maximumState(text); const token = issueCarriedState(state, { secret: SECRET })!;
+    expect(token.length).toBeLessThanOrEqual(48_000); expect(verifyCarriedState(token, { secret: SECRET })).toEqual({ ok: true, state });
+  });
+  it("round-trips every field at its limit in characters JSON escapes, even with a fully escaped payload above 64 KB", () => {
+    const state = maximumState((length) => "\u0001".repeat(length));
+    const token = issueCarriedState(state, { secret: SECRET })!;
+    expect(verifyCarriedState(token, { secret: SECRET })).toEqual({ ok: true, state });
+    const escaped = JSON.stringify(state).replace(/[\s\S]/gu, (c) => c.charCodeAt(0) > 127 ? `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}` : c);
+    expect(Buffer.byteLength(escaped)).toBeGreaterThan(64 * 1024);
+    const payload = deflateRawSync(Buffer.from(escaped)).toString("base64url"); const body = `cs1~${payload}`;
+    const key = createHmac("sha256", SECRET).update("askrigor carried state v1").digest();
+    const signed = `${body}~${createHmac("sha256", key).update(body).digest().subarray(0, 16).toString("base64url")}`;
+    expect(verifyCarriedState(signed, { secret: SECRET })).toEqual({ ok: true, state });
+  });
+  it("rejects malformed, unsupported, wrongly signed and oversized inflated tokens without expiry", () => {
+    const state = maximumState(() => "甲"); const token = issueCarriedState(state, { secret: SECRET })!;
+    expect(verifyCarriedState("invalid", { secret: SECRET })).toEqual({ ok: false, reason: "malformed" });
+    expect(verifyCarriedState(token.replace(/^cs1/u, "cs2"), { secret: SECRET })).toEqual({ ok: false, reason: "unsupported_version" });
+    expect(verifyCarriedState(token, { secret: "other" })).toEqual({ ok: false, reason: "bad_signature" });
+    expect(verifyCarriedState(issueCarriedState({ ...state, issued_at: "2000-01-01T00:00:00.000Z" }, { secret: SECRET })!, { secret: SECRET }).ok).toBe(true);
+    const payload = deflateRawSync(Buffer.from(" ".repeat(300_000))).toString("base64url"); const body = `cs1~${payload}`;
+    const key = createHmac("sha256", SECRET).update("askrigor carried state v1").digest();
+    expect(verifyCarriedState(`${body}~${createHmac("sha256", key).update(body).digest().subarray(0, 16).toString("base64url")}`, { secret: SECRET })).toEqual({ ok: false, reason: "malformed" });
+  });
+});
+
+describe("observation, test and correction declarations (109)", () => {
+  it("requires both declarations with a draft and keeps their limits strict", () => {
+    const input = base(); delete input.user_observations; delete input.proposed_tests;
+    expect(finalizeResearch(input, { secret: SECRET }).next_steps.join("\n")).toContain("user_observations is missing:");
+    expect(finalizeResearch(input, { secret: SECRET }).next_steps.join("\n")).toContain("proposed_tests is missing:");
+    expect(finalizeResearchInputSchema.safeParse(base({ proposed_tests: [{ quote: "Test.", repeats: null as never, blinded: true }] })).success).toBe(false);
+    expect(finalizeResearchInputSchema.safeParse(base({ user_observations: [{ ...observation, observation: "甲".repeat(201) }] })).success).toBe(false);
+  });
+  it("requires uncertainty and unblinded caveats, checks repetition indexes and exact difference quotes", () => {
+    const result = check({ user_observations: [{ ...observation, response: "uncertain" }], proposed_tests: [{ quote: "Try again.", repeats: 0, blinded: false }, { quote: "Different test.", repeats: 5, difference: "Different timing.", blinded: true }] });
+    expect(result.caveats).toContain(`A report its source is no longer sure of counts neither for nor against an effect (${observation.observation}).`);
+    expect(result.caveats).toContain("A test done without blinding can show how the person did, not what caused a change, because expectation, effort and practice can move it too.");
+    expect(result.next_steps.join("\n")).toContain("proposed_tests[0] repeats what the user already tried"); expect(result.next_steps.join("\n")).toContain("proposed_tests[1].repeats names user_observations[5]"); expect(result.next_steps.join("\n")).toContain("proposed_tests[1].difference");
+    expect(check({ answer_draft: "Try again. Different timing.", user_observations: [observation], proposed_tests: [{ quote: "Try again.", repeats: 0, difference: "Different timing.", blinded: true }] }).next_steps.join("\n")).not.toContain("proposed_tests");
+  });
+  it("requires a user correction's shown report", () => {
+    const correction = { retracted: "Wrong.", change: "Corrected.", by_user: true };
+    expect(check({ corrections: [correction] }).next_steps).toContain("Give corrections[0].report: the bug report the answer shows the user, copied from answer_draft.");
+    const report = "When a comparison is ruled out, AskRigor should keep it because it constrains explanations.";
+    expect(check({ corrections: [{ ...correction, report }] }).next_steps.join("\n")).toContain("corrections[0].report");
+    expect(check({ answer_draft: `Corrected. ${report} ${CORRECTION_REPORT_OFFER}`, corrections: [{ ...correction, report }] }).next_steps.join("\n")).not.toContain("corrections[0].report");
+  });
+  it("allows Reddit names and labels required by a caveat or a declared community, and still rejects internal labels", () => {
+    for (const text of ["r/Copper_deficiency", "u/Copper_deficiency"]) expect(check({ answer_draft: text }).next_steps.join("\n")).not.toContain("internal labels");
+    expect(check({ answer_draft: "Copper_deficiency" }).next_steps.join("\n")).toContain("internal labels (Copper_deficiency)");
+    expect(check({ answer_draft: "REQUIRED_NOW finalize_research" }).next_steps.join("\n")).toContain("internal labels (REQUIRED_NOW, finalize_research)");
+    const named = check({ answer_draft: "Copper_deficiency", principal_communities: [{ name: "r/Copper_deficiency", platform: "reddit" }] }); expect(named.next_steps.join("\n")).not.toContain("internal labels");
+    const uncertain = { ...observation, observation: "r/Copper_deficiency report", response: "uncertain" as const };
+    const first = check({ user_observations: [uncertain] });
+    expect(check({ answer_draft: `Copper_deficiency. ${first.caveats.join(" ")}`, user_observations: [uncertain] }).next_steps.join("\n")).not.toContain("internal labels");
+  });
+});

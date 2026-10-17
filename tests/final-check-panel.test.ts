@@ -27,7 +27,7 @@ function fixture(): FinalizeResearchInput {
     full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates reading-depth checks." },
     lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
     key_sources: [{ id: "10.1000/depth", status: "validated", read_depth: "full_text_audited", answer_marker: "[Texte lu]" }],
-    absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
+    absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
     answer_draft: "[Texte lu] [Étude](https://doi.org/10.1000/depth).",
   };
 }
