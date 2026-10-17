@@ -23,6 +23,9 @@ complete XML protocol.
 
 ## Validation and release
 
+- `askrigor-strict-runner.md`: personal local Codex runner enforcing a passing
+  AskRigor final check against the exact displayed draft, bounded fixes,
+  restricted tools, and private continuation state
 - `audits/2026-08-14-codex-github-compliance.md`: repository compliance report,
   exact gates, hosted evidence, residual risk, and lesson closeout
 - `audits/2026-08-18-gemini-youtube-discovery-evaluation.md`: isolated Gemini
