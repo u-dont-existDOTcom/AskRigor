@@ -44,6 +44,13 @@ terminal's error stream: the time, the number of AskRigor calls (every ten), eac
 sends the AI back or runs the second reading. Progress lines never contain the question or the answer; the answer
 itself comes at the end, on standard output.
 
+## The runner's own messages
+
+When the runner sends the AI back (a check that has not passed, a final message that is not the checked draft,
+a missing carried state, or the second reading's findings), its message is marked as automated and not from the
+user, and asks the AI not to treat it as the user's correction, not to offer a bug report for it, and not to mention
+it in the answer. Without the mark, the AI took a second-reading message for the user's correction.
+
 ## What the gate checks
 
 The runner reads local MCP server names and enabled flags at runtime and disables
