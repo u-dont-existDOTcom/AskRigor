@@ -1078,6 +1078,15 @@ pending-proposal stores have their own strict contracts and authority boundaries
   `primary_outcome`, `rejected_options` and `reopened` are also request-local
   declarations: checked in the call, not stored or logged, not in the
   finalization receipt, and never saved with a findings card.
+  When enabled, and only after the other final checks pass, a second reading sends
+  the answer draft (which can contain health details) and its `safety_claims`,
+  `key_terms` and `scale_results` declarations to the configured provider. This
+  request is not stored or logged. The reading has a one-hour in-memory cache
+  of at most 500 entries and a daily usage-based budget; nothing is written to disk.
+  `reader_dismissed` is request-local like the other declarations, not stored or
+  logged, added to the finalization receipt or saved with a findings card.
+  The public privacy notice must describe the provider before the reader is enabled
+  in production (owner questions 118 and 119).
   `carry_forward` holds the user's observations and goals, statements taken
   back, options rejected and communities named as a signed, compressed token
   returned in the tool result, alongside the readable `carried` state. The client

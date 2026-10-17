@@ -11,6 +11,7 @@ import {
 } from "./carried-state.js";
 import { analysesSavedSchema } from "./analysis-staging.js";
 import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
+import type { SecondReaderFinding } from "./second-reader.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
 import {
   FINDINGS_SAVE_OFFER,
@@ -361,6 +362,11 @@ export const finalizeResearchInputSchema = z.object({
     .describe("The answer you are about to give, exactly as the user will see it. Needed before the gate reports ready; " +
       "it is checked for internal labels, bare video IDs, a pasted long prompt, the sentences answer_quotes copies " +
       "and the caveats (each as its own sentence, as written or as caveat_renderings gives it), and is not stored."),
+  reader_dismissed: z.array(z.object({
+    quote: answerQuote,
+    reason: z.string().trim().min(1).max(200)
+  }).strict()).max(20).optional().describe("Sentences a second reading flagged that you judge are not what it says, each " +
+    "with a one-line reason; each quote copied from answer_draft."),
   absence_claims: z.array(z.object({
     quote: answerQuote.describe("The sentence(s), copied from answer_draft."),
     state: z.enum(["support_not_located", "direct_null_evidence", "not_established", "bounded_exclusion"])
@@ -673,6 +679,9 @@ function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResear
   }
   return {
     contract: FINALIZE_RESEARCH_CONTRACT, status: "not_ready", next_steps: nextSteps,
+    ...(options.secondReading === undefined ? {} : {
+      second_reading: checkSecondReading(undefined, options.secondReading, nextSteps)
+    }),
     limits: [], caveats: [], must_report: [], receipts_verified: 0, receipts_rejected: [], answer_checked: false,
     sources: { validated: [], lead_only: [] },
     community: { decision: "not_relevant", surveys: 0, discovery_rounds: 0, saturated: false, depth: "first_pass",
@@ -837,6 +846,13 @@ export const finalizeResearchOutputSchema = z.object({
     lead_only: z.array(z.string())
   }).strict(),
   answer_checked: z.boolean().describe("Whether answer_draft was read in this call."),
+  second_reading: z.object({
+    status: z.enum(["ran", "skipped"]),
+    reason: z.string().optional(),
+    findings: z.number().int().nonnegative(),
+    open: z.number().int().nonnegative(),
+    dismissed: z.number().int().nonnegative()
+  }).strict().optional(),
   findings_card: z.object({
     status: z.enum(["checked", "rejected", "absent", "closed", "private"]),
     problems: z.array(z.string()),
@@ -861,6 +877,7 @@ export type FinalizeResearchOutput = z.output<typeof finalizeResearchOutputSchem
 
 export interface FinalizeResearchOptions {
   secret: string | undefined;
+  secondReading?: { status: "ran"; findings: SecondReaderFinding[] } | { status: "skipped"; reason: string };
   now?: () => Date;
   // Rule, module and case names from the canonical protocols, which the answer
   // must not show (the rerun's answer headed its prompt with one).
@@ -918,10 +935,13 @@ export function finalizeResearch(
   if (!parsed.success) return invalidFinalizeResearchInput(parsed.error, options);
   const input = parsed.data;
   if (options.secret === undefined) {
+    const nextSteps: string[] = [];
+    const secondReading = checkSecondReading(input, options.secondReading, nextSteps);
     return {
       contract: FINALIZE_RESEARCH_CONTRACT,
       status: "receipts_unavailable",
-      next_steps: [],
+      next_steps: nextSteps,
+      ...(secondReading === undefined ? {} : { second_reading: secondReading }),
       limits: [
         "This AskRigor server cannot verify research receipts. The research steps still apply, and the answer says that research completion was not server-verified."
       ],
@@ -2162,6 +2182,7 @@ export function finalizeResearch(
       absenceQuotes: absenceClaims.map(({ quote }) => quote),
       scaleResults: input.scale_results ?? [],
       declaredQuotes: [
+        ...(input.reader_dismissed ?? []).map(({ quote }, index) => ({ at: `reader_dismissed[${index}]`, quote })),
         ...(input.comparison_claims ?? []).map(({ quote }, index) => ({ at: `comparison_claims[${index}]`, quote })),
         ...(input.safety_claims ?? []).map(({ quote }, index) => ({ at: `safety_claims[${index}]`, quote })),
         ...(input.mechanism_claims ?? []).map(({ quote }, index) => ({ at: `mechanism_claims[${index}]`, quote })),
@@ -2186,6 +2207,8 @@ export function finalizeResearch(
   }
 
   if (missingDeclaration) nextSteps.push(TOOL_LIST_REFRESH_HINT);
+
+  const secondReading = checkSecondReading(input, options.secondReading, nextSteps);
 
   const status = nextSteps.length > 0
     ? "not_ready"
@@ -2216,6 +2239,7 @@ export function finalizeResearch(
     },
     sources: { validated: validatedSources, lead_only: leadSources },
     answer_checked: draft !== undefined,
+    ...(secondReading === undefined ? {} : { second_reading: secondReading }),
     findings_card: findingsCard
   };
   if (status === "ready") output.check_line = "Checked with AskRigor's final check.";
@@ -2581,6 +2605,41 @@ function quoteLocator(shownBlocks: readonly string[]): (quote: string) => number
     return quoteBlocks.flatMap(({ targets, text }, index) =>
       targets.includes(byTarget) || text.includes(byText) ? [index] : []);
   };
+}
+
+/** Meaning belongs to the reader; this gate compares only shown and declared text. */
+function checkSecondReading(input: FinalizeResearchInput | undefined, reading: FinalizeResearchOptions["secondReading"],
+  nextSteps: string[]): FinalizeResearchOutput["second_reading"] {
+  if (reading === undefined) return undefined;
+  if (reading.status === "skipped") return { status: "skipped", reason: reading.reason, findings: 0, open: 0, dismissed: 0 };
+  const labels = {
+    safety_claims: "a harm or safety statement",
+    key_terms: "a specialized term the answer relies on",
+    scale_results: "a scale or questionnaire result"
+  };
+  const showing = quoteLocator(displayedProse(input?.answer_draft ?? ""));
+  const findings = reading.findings.filter(({ kind, quote }) => Object.hasOwn(labels, kind) && showing(quote).length > 0);
+  const forms = (quote: string) => [quoteForm(quote.replace(MARKDOWN_LINK, "$1")),
+    quoteForm(quote.replace(MARKDOWN_LINK_TEXT, "$1"))];
+  const dismissedQuotes = (input?.reader_dismissed ?? []).map(({ quote }) => forms(quote));
+  let open = 0;
+  let dismissed = 0;
+  for (const { kind, quote } of findings) {
+    const normalized = forms(quote);
+    if (dismissedQuotes.some((other) => normalized.some((text, i) => text === other[i]))) {
+      dismissed += 1;
+      continue;
+    }
+    const covered = kind === "key_terms"
+      ? (input?.key_terms ?? []).some(({ term }) => normalized.some((text, i) =>
+        termOccurrences(text, forms(term)[i]!).length > 0))
+      : (input?.[kind] ?? []).some((declared) => forms(declared.quote).some((text, i) =>
+        text.length > 0 && (text.includes(normalized[i]!) || normalized[i]!.includes(text))));
+    if (covered) continue;
+    open += 1;
+    nextSteps.push(`A second reading found a sentence that looks like ${labels[kind]} not in the declarations: ${JSON.stringify(quote)}. Declare it in ${kind}, or list it in reader_dismissed with a one-line reason.`);
+  }
+  return { status: "ran", findings: findings.length, open, dismissed };
 }
 
 type FindingsCardCheck = FinalizeResearchOutput["findings_card"];

@@ -13731,7 +13731,7 @@
     },
     {
       "name": "finalize_research",
-      "description": "Final check of a research answer before it is given. Input: the research_receipt values that AskRigor's tools returned in this session; the research_target as given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits (discovery for another target does not count); whether community evidence was researched and whether the answer compares treatment options; where the topic is discussed and what each community searched outside YouTube showed (principal_communities, community_searches); what the YouTube comments read showed (community_findings); the studies the conclusions rest on (key_sources), whole-intervention identity (intervention_identity), item-level product identity (product_corpora and item_identity), and destination-bound offers or search routes (shopping); after a first pass, the focuses for going deeper (open_leads, another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results (scale_results: quoted explanations with the scale name, range, values and benchmark), visible links to each key study, and the caveats, and is not stored; in a later turn, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened. Result: carry_forward, the conversation's state to pass back next turn; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh hint when a required declaration is missing; ready_with_limits with the limits, the caveat sentences for the answer (each as its own sentence and as written, in the answer's language when answer_language and caveat_renderings are given) and must_report, what the answer reports from each lane researched; when ready, check_line, the line the answer ends with; or receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the owner's review; in paid private mode the caveats offer its save. Nested inputs, as JSON: intervention_identity.interventions [{\"study_ids\":[\"10.1000/example\"],\"label\":\"…\",\"status\":\"resolved\",\"identity\":{\"registry_code\":\"…\",\"sponsor_or_maker\":\"…\",\"current_product\":\"…\"}}] (an unresolved item has no identity); findings_card.findings [{\"claim\":\"…\",\"certainty\":\"moderate\",\"applies_to\":\"…\",\"answer_quote\":\"…\",\"sources\":[\"10.1000/example\"],\"why_not_usual\":\"…\",\"what_would_change_it\":\"…\"}]; community_searches[].queries [\"…\"]; community_searches[].threads_read [{\"url\":\"https://example.org/t/1\",\"title\":\"…\"}]; community_searches[].report_identity [{\"exposure\":\"…\",\"reports_read\":5,\"firsthand_exact\":2,\"exposure_unclear\":1,\"other_exposure\":1,\"not_firsthand\":1,\"measured_after\":0}] (or one such object); community_searches[].review_corpora [{\"product\":\"…\",\"reviews_read\":20,\"selection\":\"most_recent\",\"outcome_search\":{\"queries\":[\"…\"],\"directions\":[\"benefit\",\"no_effect\",\"adverse\"]},\"item_identity\":{\"exact_product\":18,\"variant_unresolved\":2,\"other_variant_excluded\":0}}]; community_searches[].answer_quotes {\"benefit_reports\":\"…\",\"no_effect_reports\":\"…\",\"adverse_reports\":\"…\",\"effect_on_answer\":\"…\"}; community_findings.product_corpora [{\"product\":\"…\",\"video_ids\":[\"abcdefghijk\"],\"exact_product_signal\":\"…\"}]; comparison_claims[].arms [{\"exposure\":\"…\",\"dose\":6,\"unit\":\"mg\"},{\"exposure\":\"…\",\"dose\":null,\"unit\":null}]; shopping.offers [{\"product\":\"…\",\"url\":\"https://example.org/p/1\",\"offer_state\":\"live_destination_orderable\",\"role\":\"buy_option\"}]; scale_results[].range {\"min\":0,\"max\":10}; scale_results[].values [4.5,2]; scale_results[].benchmark {\"value\":1,\"kind\":\"minimal_important_difference\"} or \"none_established\"; mechanism_claims[].tissue {\"measured\":\"…\",\"claimed\":\"…\"}; absence_claims[].studies, safety_claims[].studies, mechanism_claims[].studies [\"10.1000/example\"]. key_sources[].answer_marker is the visible label, 3 to 80 characters, not a link; another_pass_estimate has at most 200 characters; answer_language is a language tag such as en or pt-BR.",
+      "description": "Final check of a research answer before it is given. Input: the research_receipt values that AskRigor's tools returned in this session; the research_target as given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits (discovery for another target does not count); whether community evidence was researched and whether the answer compares treatment options; where the topic is discussed and what each community searched outside YouTube showed (principal_communities, community_searches); what the YouTube comments read showed (community_findings); the studies the conclusions rest on (key_sources), whole-intervention identity (intervention_identity), item-level product identity (product_corpora and item_identity), and destination-bound offers or search routes (shopping); after a first pass, the focuses for going deeper (open_leads, another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results (scale_results: quoted explanations with the scale name, range, values and benchmark), visible links to each key study, and the caveats, and is not stored; once the other checks pass, a second model may read the answer for harm statements, specialized terms and scale results the declarations leave out (reader_dismissed answers them); in a later turn, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened. Result: second_reading, whether it ran; carry_forward, the conversation's state to pass back next turn; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh hint when a required declaration is missing; ready_with_limits with the limits, the caveat sentences for the answer (each as its own sentence and as written, in the answer's language when answer_language and caveat_renderings are given) and must_report, what the answer reports from each lane researched; when ready, check_line, the line the answer ends with; or receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the owner's review; in paid private mode the caveats offer its save. Nested inputs, as JSON: intervention_identity.interventions [{\"study_ids\":[\"10.1000/example\"],\"label\":\"…\",\"status\":\"resolved\",\"identity\":{\"registry_code\":\"…\",\"sponsor_or_maker\":\"…\",\"current_product\":\"…\"}}] (an unresolved item has no identity); findings_card.findings [{\"claim\":\"…\",\"certainty\":\"moderate\",\"applies_to\":\"…\",\"answer_quote\":\"…\",\"sources\":[\"10.1000/example\"],\"why_not_usual\":\"…\",\"what_would_change_it\":\"…\"}]; community_searches[].queries [\"…\"]; community_searches[].threads_read [{\"url\":\"https://example.org/t/1\",\"title\":\"…\"}]; community_searches[].report_identity [{\"exposure\":\"…\",\"reports_read\":5,\"firsthand_exact\":2,\"exposure_unclear\":1,\"other_exposure\":1,\"not_firsthand\":1,\"measured_after\":0}] (or one such object); community_searches[].review_corpora [{\"product\":\"…\",\"reviews_read\":20,\"selection\":\"most_recent\",\"outcome_search\":{\"queries\":[\"…\"],\"directions\":[\"benefit\",\"no_effect\",\"adverse\"]},\"item_identity\":{\"exact_product\":18,\"variant_unresolved\":2,\"other_variant_excluded\":0}}]; community_searches[].answer_quotes {\"benefit_reports\":\"…\",\"no_effect_reports\":\"…\",\"adverse_reports\":\"…\",\"effect_on_answer\":\"…\"}; community_findings.product_corpora [{\"product\":\"…\",\"video_ids\":[\"abcdefghijk\"],\"exact_product_signal\":\"…\"}]; comparison_claims[].arms [{\"exposure\":\"…\",\"dose\":6,\"unit\":\"mg\"},{\"exposure\":\"…\",\"dose\":null,\"unit\":null}]; shopping.offers [{\"product\":\"…\",\"url\":\"https://example.org/p/1\",\"offer_state\":\"live_destination_orderable\",\"role\":\"buy_option\"}]; scale_results[].range {\"min\":0,\"max\":10}; scale_results[].values [4.5,2]; scale_results[].benchmark {\"value\":1,\"kind\":\"minimal_important_difference\"} or \"none_established\"; mechanism_claims[].tissue {\"measured\":\"…\",\"claimed\":\"…\"}; absence_claims[].studies, safety_claims[].studies, mechanism_claims[].studies [\"10.1000/example\"]. key_sources[].answer_marker is the visible label, 3 to 80 characters, not a link; another_pass_estimate has at most 200 characters; answer_language is a language tag such as en or pt-BR.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -14230,6 +14230,25 @@
           "answer_draft": {
             "description": "The answer you are about to give, exactly as the user will see it. Needed before the gate reports ready; it is checked for internal labels, bare video IDs, a pasted long prompt, the sentences answer_quotes copies and the caveats (each as its own sentence, as written or as caveat_renderings gives it), and is not stored.",
             "type": "string"
+          },
+          "reader_dismissed": {
+            "description": "Sentences a second reading flagged that you judge are not what it says, each with a one-line reason; each quote copied from answer_draft.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "quote": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "quote",
+                "reason"
+              ]
+            }
           },
           "absence_claims": {
             "description": "With answer_draft: each place the answer says something was not found, not studied, has no evidence or has no effect, or calls an intervention's evidence unconvincing, weak, not demonstrated or showing no benefit (an empty list if none). Evidence-strength sentences are absence claims, declared with not_established and their key sources when studies were found, or support_not_located with search coverage when none were.",
@@ -14871,6 +14890,43 @@
           "answer_checked": {
             "type": "boolean",
             "description": "Whether answer_draft was read in this call."
+          },
+          "second_reading": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ran",
+                  "skipped"
+                ]
+              },
+              "reason": {
+                "type": "string"
+              },
+              "findings": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "open": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "dismissed": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "status",
+              "findings",
+              "open",
+              "dismissed"
+            ],
+            "additionalProperties": false
           },
           "findings_card": {
             "type": "object",

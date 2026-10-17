@@ -68,7 +68,10 @@ describe("finalize next-step identifier contract", () => {
   it("pins descriptive catalog wording for the changed contract and link fields", () => {
     const tool = inventory.tools.find(({ name }) => name === "finalize_research")!;
     expect(tool.description).toContain(
-      "visible links to each key study, and the caveats, and is not stored; in a later turn, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened. Result: " +
+      "visible links to each key study, and the caveats, and is not stored; once the other checks pass, a second model may read the answer for harm " +
+      "statements, specialized terms and scale results the declarations leave out (reader_dismissed answers them); " +
+      "in a later turn, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened. Result: " +
+      "second_reading, whether it ran; " +
       "carry_forward, the conversation's state to pass back next turn; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh " +
       "hint when a required declaration is missing;"
     );

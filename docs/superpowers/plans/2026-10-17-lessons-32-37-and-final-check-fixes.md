@@ -145,4 +145,29 @@ saved with a findings card. The carried state holds the user's observations and 
 result and passed back by the client, and AskRigor verifies it without storing or logging it.
 `docs/privacy-data-map.md` says so.
 
-Status: approved "109a 110a 111a", "112a" and "113a" on 2026-10-17; built on this branch.
+## The second reader (117)
+
+Owner answer "117b" covers all accounts. Once the other final checks pass, an optional
+OpenAI-compatible second model reads the answer and its harm/safety, specialized-term
+and scale-result declarations. The server checks the findings' exact quotes and asks
+for a declaration or a request-local `reader_dismissed` reason for each open finding.
+Configuration is read once; the reader stays off until configured. A 30-second timeout,
+daily usage budget and one-hour bounded in-memory cache limit calls; drafts and readings
+are never logged or written to disk. Provider failures leave the existing check's result.
+Enabling it waits for owner questions 118 (provider) and 119 (privacy notice).
+
+Implementation lane: iteration under the owner's bounded server-change brief; no commits,
+pushes, deployment or provider calls. Required acceptance: fake-reader/fetch tests, regenerated
+tool inventory and `npm run verify`. The lesson queue is unavailable in this session because
+the owner's network restriction permits only read-only bootstrap reads; no counts are inferred.
+
+Acceptance for 117b: `npm run verify` passed (251 files passed, 1 skipped;
+3,642 tests passed, 6 skipped; typecheck and build passed). The inventory was regenerated
+with `npx tsx scripts/generate-tool-inventory.mts --write`: 33 tools, only
+`finalize_research` changed. Direct comparison with `reader.py` confirmed the rubric's
+only change is the authorized three-kind restriction. `git diff --check` passed.
+The bounded implementation outcome is satisfied; no implementation step remains.
+Production enabling remains with the owner after questions 118 and 119. No commit,
+push, deployment or real provider call was performed.
+
+Status: approved "109a 110a 111a", "112a" and "113a" and 117b on 2026-10-17; built on this branch.

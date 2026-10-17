@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readAnswer, secondReaderEnabled, type SecondReader } from "./second-reader.js";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { FINAL_CHECK_PANEL_URI } from "./final-check-panel.js";
@@ -752,6 +753,8 @@ const CONNECTOR_ONLY_OPERATION_NAMES = new Set([
 export type McpSurface = "/mcp" | "/mcp/gemini" | "/mcp/claude";
 
 export interface RegisterToolsOptions {
+  /** Replaces the configured second reader for deterministic tests. */
+  secondReader?: SecondReader;
   infoAccess?: InfoAccessClient;
   publicEvidenceGapReviewService?: PublicEvidenceGapIntakeService;
   oauthResourceMetadataUrl?: URL;
@@ -2051,7 +2054,10 @@ function defineResearchOperations(
         "not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results " +
         "(scale_results: quoted explanations with the scale name, range, values and benchmark), visible links to " +
         "each key study, and the caveats, " +
-        "and is not stored; in a later turn, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened. Result: " +
+        "and is not stored; once the other checks pass, a second model may read the answer for harm " +
+        "statements, specialized terms and scale results the declarations leave out (reader_dismissed answers them); " +
+        "in a later turn, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened. Result: " +
+        "second_reading, whether it ran; " +
         "carry_forward, the conversation's state to pass back next turn; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh " +
         "hint when a required declaration is missing; ready_with_limits with the limits, the caveat sentences for the answer " +
         "(each as its own sentence and as written, in the answer's language when answer_language and " +
@@ -2089,15 +2095,26 @@ function defineResearchOperations(
       const library = options.findingsLibrary ?? findingsLibraryEnabledFromEnv();
       const researcher = await researchUseAccount(extra, options.researchContributorAccessService);
       const account = library ? researcher : undefined;
-      const result = finalizeResearch(input, {
+      const finalizeOptions = {
         secret,
         protocolNames: await protocolNames(),
         findings: !library
-          ? "closed"
-          : account === undefined ? "private" : account.mode === "FREE_CONTRIBUTOR" ? "save" : "offer",
+          ? "closed" as const
+          : account === undefined ? "private" as const : account.mode === "FREE_CONTRIBUTOR" ? "save" as const : "offer" as const,
         ...(readsOnMobile(extra._meta) ? { mobileClient: true } : {}),
         ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) })
-      });
+      };
+      let result = finalizeResearch(input, finalizeOptions);
+      const reader = options.secondReader ?? { enabled: secondReaderEnabled, readAnswer };
+      if (reader.enabled && checkedInput?.answer_draft !== undefined &&
+        (result.status === "ready" || result.status === "ready_with_limits")) {
+        const secondReading = await reader.readAnswer(checkedInput.answer_draft, {
+          safety_claims: checkedInput.safety_claims ?? [],
+          key_terms: checkedInput.key_terms ?? [],
+          scale_results: checkedInput.scale_results ?? []
+        });
+        result = finalizeResearch(input, { ...finalizeOptions, secondReading });
+      }
       if (
         account?.mode === "FREE_CONTRIBUTOR" && checkedInput?.findings_card !== undefined &&
         result.findings_card.status === "checked" && result.finalization_receipt !== undefined
