@@ -72,8 +72,11 @@
     with the selector naming the new image; it ran at 00:15:13 UTC (`complete`, `no_pending_promotion`, result
     `success`), next due 00:20:13.
 - **Product interface:** this session's AskRigor connector (Claude) returned HRP 20.6.26 (`e681ed98…`), `sign_in:
-  accepted` and `research_access: ready`; its tool list was loaded before the release. The ChatGPT app's tool list
-  waits for the owner's refresh.
+  accepted` and `research_access: ready`; its tool list was loaded before the release. The owner refreshed the
+  ChatGPT app at 00:22 UTC ("refreshed"); at 00:23 the app's tool list in Codex showed 33 AskRigor tools, the first
+  tool's description began "Versions when this tool list was loaded: HRP 20.6.26, Universal 20.5.43, build
+  141c229f787081585e8a9de65ec61a7a285c4727", both manifests returned those versions (`e681ed981471a38a`,
+  `7f03ddbd280a9906`), and `finalize_research` was listed with `recommendations` and `comparison_claims`.
 - **Custom GPT:** no Custom GPT file changed between `1a6e6946` and `141c229f`, so no editor installation was needed.
 - **Plugin:**
   - Before: `0.1.0+codex.20261016193407.hrp.20.6.25.universal.20.5.43`, receipts
@@ -85,8 +88,40 @@
     commit's apart from the manifest version.
 - **Lessons:** `npm run lessons:status` before the release (00:05 UTC): 14 open, 0 needing review, 0 accepted but not
   incorporated, 19 incorporated or closed, 0 deletion eligible; no unrecorded UDA lane item.
-- **Product acceptance (owner regressions):** pending the owner's refresh of the ChatGPT app; then the regression list
-  runs through Codex, about 60 calls per case, three stages, with the first-call rejection rate compared with 16 Oct.
+- **Product acceptance (owner regressions, 00:23 to 01:51 UTC):**
+  - **Setup:** after the owner's refresh and the probe above, the regression list (21 cases in 22 runs, #326 having
+    two turns; `docs/owner-regressions.md`) and the four-turn #336 test ran through Codex with the refreshed app, about
+    60 AskRigor calls per case, three cases at a time. The Claude session judged each case's criteria as on 16 Oct (a
+    judgment of meaning; evidence and quotes in the run folder's `judgment.md`).
+  - **Loaded:** every answer named HRP 20.6.26 and Universal 20.5.43.
+  - **Executed:** 5 cases met every criterion (l29, q79, q82, r324, r330) and 16 met them in part; none failed (16 Oct:
+    5 and 16). r330 gained a pass (its route mismatch is now declared); r326 lost one (its second turn's check,
+    below). l30, judged against its corrected prompt (question 103), met all five criteria. Issue #336: no hard fail;
+    the stimulus-locked test came in the first reply without being asked (question 104 working); five of its six
+    criteria were met and one in part.
+  - **Finalized:** the final check passed in 12 of 21 cases (16 Oct: 11 of 21), and in #336's first turn, and the
+    check line appeared in every answer whose check passed except r325's. Rejections by the connector's schema
+    validation fell to 16 of 96 final-check calls (16 Oct: 38 of 97), but the first call was still rejected in 11 of
+    22 runs (16 Oct: 19 of 20): empty lists where one item is required, missing nested fields, free text for a fixed
+    choice, invented field names and wrong types. #336's ten calls had none.
+  - **Test harness:** the prompts told each run not to send a bug report. Since this build, a correction the user made
+    (`corrections[].by_user`) holds the check until the answer asks "May AskRigor send a bug report about this
+    correction, or would you like to clarify something first?", so l29 and #336's turns 2 to 4 showed the report
+    instead of asking and stayed `not_ready` for that alone. Later runs may ask and send nothing.
+  - **Findings for the next build:**
+    1. The internal-label check flagged `Copper_deficiency`, the name of the subreddit r/Copper_deficiency, which the
+       check's own caveat required (l30's only open step).
+    2. Failed acquisitions (Europe PMC answered HTTP 500 for two papers) left the check asking for receipts the run
+       could never get (l23, r326's second turn); sources without a DOI still block it (r329, r331).
+    3. l26 and l27 were asked for caveats the runs showed to be false (YouTube "thin", "not openly available").
+    4. The check still passes with empty declarations (l25 `safety_claims: []`, l28 `mechanism_claims: []`); r325's
+       answer left out its check line, and l27's delivered answer dropped findings its checked draft had.
+    5. 17 of 22 runs used 58 or more calls; the four cases with no research spent 50 or 51 calls loading protocols.
+    6. Three runs called a Bright Data scraping tool that Codex's app list offers (q81 and r325, 4 calls; q82's one
+       call failed). Nothing asked for it, and it is not part of AskRigor. Later runs are told to use only AskRigor's
+       tools and their own web search, and a run that calls another app's tool is discarded.
+  - **Saves:** in free contributor mode, passing runs saved findings cards for the owner's review, as before; l28 and
+    q79 reported saves without a validated source.
 - **Rollback:**
   1. Stop and disable `askrigor-research-promotion.timer`.
   2. Restore the selector (`/opt/askrigor/living-evidence-image.env`) and `runtime.env` from
