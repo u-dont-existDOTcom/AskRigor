@@ -126,14 +126,25 @@ describe("full_text_search declaration gate", () => {
     expect(check(base({ full_text_search: { status: "not_needed", reason: "The question is answered by the audited abstracts." } })).status).toBe("ready");
   });
   it.each([
-    { status: "not_needed" }, { status: "not_needed", reason: "short" },
+    { status: "not_needed", reason: "short" },
     { status: "not_needed", reason: " ".repeat(10) }, { status: "not_needed", reason: "x".repeat(301) },
-    { status: "not_needed", reason: "A valid reason here.", queries: [QUERY] },
     { status: "run", queries: [] }, { status: "run", queries: Array(11).fill(QUERY) },
     { status: "run", queries: [""] }, { status: "run", queries: ["x".repeat(501)] },
-    { status: "run", queries: [QUERY], reason: "Not a published run field." }
-  ])("rejects invalid strict union input %j", (full_text_search) => {
+    { status: "searched", queries: [QUERY] }, { status: "run", queries: [QUERY], coverage: "Europe PMC full texts" }
+  ])("rejects invalid input %j", (full_text_search) => {
     expect(finalizeResearchInputSchema.safeParse({ ...base(), full_text_search }).success).toBe(false);
+  });
+  // One object, not two alternatives (ChatGPT's app showed the union as "unknown", 2026-10-16): a status without its
+  // field gets the declaration step, and a field the status does not use is left unused.
+  it.each([{ status: "run" as const }, { status: "not_needed" as const }])("asks for the field %j needs", (full_text_search) => {
+    expect(check(base({ full_text_search })).next_steps).toContain(
+      "Give full_text_search: status run with queries searched in Europe PMC article sections, or status not_needed with reason.");
+  });
+  it("leaves the field a status does not use unused", () => {
+    expect(check(base({ full_text_search: { status: "not_needed", reason: "A valid reason here.", queries: [QUERY] } }))
+      .status).toBe("ready");
+    expect(check(base({ full_text_search: { status: "run", queries: [QUERY], reason: "Not used with run." } })).next_steps
+      .join(" ")).toContain(`full_text_search query ${JSON.stringify(QUERY)} has no verified Europe PMC section-search receipt`);
   });
   it("requires the coverage caveat, including its translated rendering", () => {
     const quote = "The searches did not locate support.";

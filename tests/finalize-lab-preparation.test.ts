@@ -64,6 +64,21 @@ describe.each(["gate", "MCP endpoint"] as const)("lab_preparation through the %s
     ]);
     expect(result.finalization_receipt).toBeUndefined();
   });
+  // One object, not two alternatives (ChatGPT's app showed the union as "unknown", 2026-10-16): a status without its
+  // field gets the declaration step, and a field the status does not use is left unused.
+  it.each([{ status: "covered" as const }, { status: "not_applicable" as const }])(
+    "asks for the field %j needs", async (lab_preparation) => {
+      expect((await call({ lab_preparation })).next_steps).toEqual([
+        "Give lab_preparation: status covered with answer_quotes from answer_draft giving collection " +
+          "conditions or preparation advice, or status not_applicable with reason.",
+        TOOL_LIST_REFRESH_HINT
+      ]);
+    });
+  it("leaves the field a status does not use unused", async () => {
+    expect((await call({ lab_preparation: { ...notApplicable, answer_quotes: ["This sentence is missing from the answer."] } }))
+      .status).toBe("ready");
+    expect((await call({ lab_preparation: { ...covered(), reason: notApplicable.reason } })).status).toBe("ready");
+  });
   it("does not require it without key sources", async () => {
     const result = await call({ key_sources: [],
       answer_draft: "No study's methods were checked in full text for this answer." });
@@ -118,15 +133,14 @@ describe.each(["gate", "MCP endpoint"] as const)("lab_preparation through the %s
   });
 });
 
-describe("lab_preparation strict union bounds", () => {
+describe("lab_preparation strict bounds", () => {
   it.each([
-    { status: "not_applicable" }, { status: "not_applicable", reason: "short" },
+    { status: "not_applicable", reason: "short" },
     { status: "not_applicable", reason: " ".repeat(10) },
     { status: "not_applicable", reason: "x".repeat(301) },
-    { ...notApplicable, answer_quotes: [QUOTE] },
-    { status: "covered" }, covered([]), covered(Array(6).fill(QUOTE)),
+    covered([]), covered(Array(6).fill(QUOTE)),
     covered(["x".repeat(9)]), covered([" ".repeat(10)]), covered(["x".repeat(501)]),
-    { ...covered(), reason: notApplicable.reason }, { status: "unknown", reason: notApplicable.reason }
+    { status: "unknown", reason: notApplicable.reason }, { ...notApplicable, coverage: "unpublished field" }
   ])("rejects invalid input %j", (lab_preparation) => {
     expect(finalizeResearchInputSchema.safeParse({ ...base(), lab_preparation }).success).toBe(false);
   });

@@ -206,6 +206,7 @@ import type { ReportedFiguresCheck } from "./actions/study-method-audit.js";
 import {
   FINALIZE_REMINDER,
   FINALIZE_RESEARCH_CONTRACT,
+  FINALIZE_RESEARCH_SHAPES_DESCRIPTION,
   finalizeResearch,
   protocolNamesFrom,
   finalizeResearchInputSchema,
@@ -552,7 +553,8 @@ const crossrefCandidateSchema = z.object({
   doi: z.string(),
   title: z.string().optional(),
   first_author: z.string().optional(),
-  year: z.string().optional()
+  year: z.string().optional(),
+  landing_url: z.string().url().max(2_048).optional()
 }).strict();
 const doiResolutionEnvelopeSchema = z.object({
   provider: z.literal("crossref"),
@@ -1220,16 +1222,24 @@ function defineResearchOperations(
           "DOI URL, doi: identifier, bare DOI, or bibliographic citation."
         )
       }).strict(),
-      outputSchema: doiResolutionEnvelopeSchema,
+      outputSchema: doiResolutionEnvelopeSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
     async ({ doi_or_citation }) => {
       try {
         const result = await resolveDoi(doi_or_citation, crossrefConfig());
-        return crossrefToolResult(
+        const resolvedDoi = result.data.resolved_doi;
+        const candidate = typeof resolvedDoi === "string"
+          ? result.data.candidates.find(({ doi }) => doi.toLowerCase() === resolvedDoi.toLowerCase())
+          : undefined;
+        // Tie the page the DOI is registered to, so finalize_research can
+        // accept a key study linked by that page.
+        return withResearchReceipt(crossrefToolResult(
           `Crossref DOI resolution finished with access status ${result.access_status}.`,
           result
-        );
+        ), typeof resolvedDoi === "string" && candidate?.landing_url !== undefined
+          ? researchReceipt("doi_resolution", { doi: resolvedDoi.toLowerCase(), url: candidate.landing_url })
+          : undefined);
       } catch (_error) {
         return crossrefToolResult(
           "Crossref DOI resolution failed; access status error.",
@@ -2046,7 +2056,10 @@ function defineResearchOperations(
         "when ready, check_line, the line the answer ends with; or " +
         "receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked " +
         "findings_card is saved to AskRigor's private findings library for the owner's review; in paid private mode " +
-        "the caveats offer its save.",
+        "the caveats offer its save. " +
+        // The only text ChatGPT's app shows the model for this tool (Codex probes, 2026-10-16): the JSON of the
+        // inputs its type hides, from which the regression's first calls invented fields.
+        FINALIZE_RESEARCH_SHAPES_DESCRIPTION,
       inputSchema: finalizeResearchInputSchema,
       outputSchema: finalizeResearchOutputSchema,
       ...(options.mcpSurface === "/mcp/gemini" ? {} : {
@@ -2112,7 +2125,7 @@ function defineResearchOperations(
       }
       const card = result.findings_card;
       const analyses = result.analyses_saved;
-      return successfulToolResult(
+      const toolResult = successfulToolResult(
         `Research finalization: ${result.status}; ${result.next_steps.length} next step(s), ` +
           `${result.limits.length} limit(s) to state; ${result.receipts_verified} receipt(s) verified.` +
           result.caveats.map((caveat) => `\nThe answer must contain, as written: ${caveat}`).join("") +
@@ -2141,6 +2154,7 @@ function defineResearchOperations(
               "."),
         result as unknown as Record<string, unknown>
       );
+      return toolResult;
     }
   );
 
@@ -2779,6 +2793,7 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
     // A lead receipt records completed attempts, not proof of paper
     // inaccessibility. Exact expanded search and no technical failures are required.
     if (!canSignFullTextLead(body as Parameters<typeof canSignFullTextLead>[0])) return undefined;
+    // Lead candidate URLs were never read, so their identity is unverified.
     return researchReceipt("full_text_lead", {
       doi: output.requested_doi,
       pmcid: output.requested_pmcid,
@@ -2804,7 +2819,7 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
   }
   if (source === undefined) return undefined;
   if (kind === "full_text_read" && output.coverage_receipt?.source_content_sha256 !== source.content_sha256) return undefined;
-  return researchReceipt(kind, {
+  const claims: ResearchReceiptClaims = {
     id: source.primary_identifier,
     doi: source.doi,
     pmid: source.pmid,
@@ -2816,7 +2831,22 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
     } : {}),
     ...(kind === "full_text_read" ? {} : { status: output.audit_receipt?.audit_status ?? "validated" }),
     ...(kind === "study_audit" ? studyFigureClaims(output.audit_receipt?.reported_figures_check) : {})
-  });
+  };
+  let url: string | undefined;
+  if (source.provider !== "client_supplied" && source.canonical_url.length <= 500) {
+    try {
+      if (new URL(source.canonical_url).protocol === "https:") url = source.canonical_url;
+    } catch {
+      // An invalid canonical URL cannot establish a page's identity.
+    }
+  }
+  if (url === undefined) return researchReceipt(kind, claims);
+  try {
+    return researchReceipt(kind, { ...claims, url });
+  } catch (error) {
+    if (!(error instanceof Error) || error.message !== "Research receipt exceeds its size limit") throw error;
+    return researchReceipt(kind, claims);
+  }
 }
 
 // What finalize_research needs from a study audit's figures check (owner

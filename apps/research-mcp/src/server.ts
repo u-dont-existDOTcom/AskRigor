@@ -7,7 +7,7 @@ import {
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
-import { FINAL_CHECK_PANEL_URI, finalCheckPanelHtml } from "./final-check-panel.js";
+import { FINAL_CHECK_PANEL_URI, finalCheckPanelHtml, finalCheckPanelWidgetDomain } from "./final-check-panel.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isJsonContentType } from "@modelcontextprotocol/sdk/shared/mediaType.js";
 import type { PublicEvidenceGapIntakeService } from
@@ -161,6 +161,7 @@ export function createAskRigorServer(
   if (profile !== "gemini") {
     // Build at registration so a changed bundle fails before serving the catalog.
     const html = finalCheckPanelHtml();
+    const widgetDomain = finalCheckPanelWidgetDomain();
     server.registerResource("AskRigor final check", FINAL_CHECK_PANEL_URI, {
       mimeType: RESOURCE_MIME_TYPE,
       description: "Displays AskRigor's final check result in the client's sandboxed frame.",
@@ -169,7 +170,10 @@ export function createAskRigorServer(
         uri: FINAL_CHECK_PANEL_URI,
         mimeType: RESOURCE_MIME_TYPE,
         text: html,
-        _meta: { ui: { prefersBorder: true, csp: { connectDomains: [], resourceDomains: [] } } },
+        _meta: {
+          ui: { prefersBorder: true, csp: { connectDomains: [], resourceDomains: [] } },
+          ...(widgetDomain === undefined ? {} : { "openai/widgetDomain": widgetDomain }),
+        },
       }],
     }));
   }

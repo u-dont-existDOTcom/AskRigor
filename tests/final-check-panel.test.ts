@@ -4,7 +4,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   FINAL_CHECK_PANEL_URI, FINAL_CHECK_PANEL_RENDER_SOURCE, FINAL_CHECK_PANEL_BOOTSTRAP_SOURCE,
-  finalCheckPanelHtml, inlineFinalCheckAppBundle,
+  finalCheckPanelHtml, finalCheckPanelWidgetDomain, inlineFinalCheckAppBundle,
 } from "../apps/research-mcp/src/final-check-panel.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import {
@@ -39,6 +39,7 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-16T12:00:00Z"));
     vi.stubEnv("ASKRIGOR_FINALIZATION_SIGNING_SECRET", SECRET);
+    vi.stubEnv("ASKRIGOR_OAUTH_RESOURCE_URL", "https://mcp.example.org/mcp");
     const server = createAskRigorServer("standard", { mcpSurface, researchAccessRequired: false, findingsLibrary: false });
     const client = new Client({ name: "final-check-panel-test", version: "1" });
     const [a, b] = InMemoryTransport.createLinkedPair();
@@ -52,7 +53,10 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
       const { contents } = await client.readResource({ uri: FINAL_CHECK_PANEL_URI });
       expect(contents).toEqual([{
         uri: FINAL_CHECK_PANEL_URI, mimeType: MIME, text: finalCheckPanelHtml(),
-        _meta: { ui: { prefersBorder: true, csp: { connectDomains: [], resourceDomains: [] } } },
+        _meta: {
+          ui: { prefersBorder: true, csp: { connectDomains: [], resourceDomains: [] } },
+          "openai/widgetDomain": "https://mcp.example.org",
+        },
       }]);
       const { tools } = await client.listTools();
       expect(tools).toHaveLength(33);
@@ -71,6 +75,34 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
         next_steps: [], limits: [], sources: { validated: ["10.1000/depth"], lead_only: [] },
       });
       expect(result.content).toEqual([{ type: "text", text: expect.stringContaining("Research finalization: ready; 0 next step(s), 0 limit(s) to state;") }]);
+      // The panel draws one line from the structured result; nothing is sent only for it.
+      expect(result._meta).toBeUndefined();
+    } finally { await client.close(); await server.close(); }
+  });
+});
+
+// ChatGPT reads the panel's origin from OpenAI's own key; Claude would refuse to draw the panel for any ui.domain other
+// than its hashed claudemcpcontent.com form, so that field is never set (2026-10-16 "CSP off" badge, unverified).
+describe("panel origin", () => {
+  it.each([
+    ["https://mcp.askrigor.com/mcp", "https://mcp.askrigor.com"],
+    ["https://mcp.example.org:8443/mcp/claude", "https://mcp.example.org:8443"],
+    ["http://localhost:3000/mcp", undefined],
+    ["not a url", undefined],
+    [undefined, undefined],
+  ])("derives %s as %s", (resourceUrl, origin) => {
+    expect(finalCheckPanelWidgetDomain(resourceUrl === undefined ? {} : { ASKRIGOR_OAUTH_RESOURCE_URL: resourceUrl }))
+      .toBe(origin);
+  });
+  it("omits the origin, and never sets ui.domain, without a configured resource URL", async () => {
+    vi.stubEnv("ASKRIGOR_OAUTH_RESOURCE_URL", "");
+    const server = createAskRigorServer("standard", { researchAccessRequired: false, findingsLibrary: false });
+    const client = new Client({ name: "final-check-panel-origin-test", version: "1" });
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    try {
+      await server.connect(b); await client.connect(a);
+      const { contents } = await client.readResource({ uri: FINAL_CHECK_PANEL_URI });
+      expect(contents[0]!._meta).toEqual({ ui: { prefersBorder: true, csp: { connectDomains: [], resourceDomains: [] } } });
     } finally { await client.close(); await server.close(); }
   });
 });
@@ -148,56 +180,37 @@ function render(result: unknown, doc = documentShim()) {
   return doc.root;
 }
 
+// Owner question 108 (2026-10-16): the panel is one line for the reader, whether the final check passed on this answer.
 describe("rendered final check result", () => {
   it.each([
-    [{ status: "ready" }, "Checked by AskRigor's final check"],
-    [{ status: "ready_with_limits", limits: ["a", "b"] }, "Checked by AskRigor's final check, with 2 limit(s)"],
-    [{ status: "not_ready", next_steps: ["a", "b", "c"] }, "Not checked yet: 3 step(s) left"],
-    [{ status: "receipts_unavailable" }, "AskRigor's final check could not run here"],
-    [{ status: "unknown" }, "AskRigor's final check could not run here"],
-    [undefined, "AskRigor's final check could not run here"],
-  ])("shows the heading for %j", (result, heading) => {
-    expect(render(result).all("h1").map((element) => element.textContent)).toEqual([heading]);
+    [{ status: "ready" }, "\u2713 Checked by AskRigor's final check."],
+    [{ status: "ready_with_limits", limits: ["a", "b", "c"] }, "\u2713 Checked by AskRigor's final check. The answer states its 3 limits."],
+    [{ status: "ready_with_limits", limits: ["a"] }, "\u2713 Checked by AskRigor's final check. The answer states its 1 limit."],
+    [{ status: "not_ready", next_steps: ["a", "b", "c"] }, "\u26a0 Not checked: this answer was given before AskRigor's final check passed."],
+    [{ status: "receipts_unavailable" }, "AskRigor's final check could not run here."],
+    [{ status: "unknown" }, "AskRigor's final check could not run here."],
+    [undefined, "AskRigor's final check could not run here."],
+  ])("shows one line for %j", (result, line) => {
+    const root = render(result);
+    expect(root.children.map((element) => [element.tagName, element.textContent])).toEqual([["p", line]]);
   });
 
-  it("shows the check line, exact caveats and lanes, source identifiers and communities as text", () => {
-    const caveat = "<script>alert(1)</script> 日本語، caveat " + "x".repeat(12_000);
+  it("shows only the verdict, never the check's lists or text, and never as HTML", () => {
     const root = render({
-      status: "ready", check_line: "The exact check line.", caveats: [caveat], must_report: ["No benefit was reported."],
-      sources: { validated: ["10.1000/one"], lead_only: ["PMID 42"] },
-      community: { communities_searched: ["مجتمع", "Community two"] }, findings_card: { status: "checked" },
+      status: "ready_with_limits", limits: ["one", "two"], check_line: "The exact check line.",
+      caveats: ["<script>alert(1)</script> caveat"], must_report: ["Lane. Then copy it into answer_quotes."],
+      next_steps: ["A step for the model."], sources: { validated: ["10.1000/one"], lead_only: ["PMID 42"] },
+      community: { communities_searched: ["Community"] }, findings_card: { status: "checked", problems: [] },
     });
-    expect(root.all("h2").map((element) => element.textContent)).toEqual([
-      "What the answer must say", "What the answer reports", "Studies checked", "Communities searched", "Findings card",
-    ]);
-    expect(root.all("li").map((element) => element.textContent)).toEqual([
-      caveat, "No benefit was reported.", "10.1000/one", "PMID 42", "مجتمع", "Community two",
-    ]);
-    expect(root.all("p").map((element) => element.textContent)).toEqual(["The exact check line.", "checked"]);
+    expect(root.textContent).toBe("\u2713 Checked by AskRigor's final check. The answer states its 2 limits.");
     expect(root.all("script")).toEqual([]);
   });
 
-  it.each(["checked", "rejected", "absent", "closed", "private"])("shows findings card status %s without interpretation", (status) => {
-    expect(render({ findings_card: { status } }).all("p")[0]!.textContent).toBe(status);
-  });
-
-  it("caps each list independently at 40 whole items and gives the remaining count", () => {
-    const entries = Array.from({ length: 43 }, (_, i) => `Item ${i + 1}`);
-    const root = render({
-      caveats: entries, must_report: entries, sources: { validated: entries, lead_only: entries },
-      community: { communities_searched: entries },
-    });
-    expect(root.all("ul")).toHaveLength(5);
-    for (const ul of root.all("ul")) {
-      expect(ul.children.map((element) => element.textContent)).toEqual([...entries.slice(0, 40), "and 3 more"]);
-    }
-  });
-
-  it("replaces prior results and omits fields that are not present", () => {
+  it("replaces a prior result", () => {
     const doc = documentShim();
-    render({ caveats: ["Earlier caveat"] }, doc);
+    render({ status: "not_ready" }, doc);
     render({ status: "ready" }, doc);
-    expect(doc.root.children.map((element) => element.textContent)).toEqual(["Checked by AskRigor's final check"]);
+    expect(doc.root.children.map((element) => element.textContent)).toEqual(["\u2713 Checked by AskRigor's final check."]);
   });
 
   it("waits for the bridge result and renders only its structured content", async () => {
@@ -212,7 +225,7 @@ describe("rendered final check result", () => {
     await runInNewContext(FINAL_CHECK_PANEL_RENDER_SOURCE + FINAL_CHECK_PANEL_BOOTSTRAP_SOURCE, { document: doc, App: TestApp });
     expect(doc.root.textContent).toBe("Waiting for AskRigor's final check");
     app!.ontoolresult!({ structuredContent: { status: "ready" }, content: [{ type: "text", text: "Ignored prose" }] });
-    expect(doc.root.textContent).toBe("Checked by AskRigor's final check");
+    expect(doc.root.textContent).toBe("\u2713 Checked by AskRigor's final check.");
   });
 
   it("shows the specified message when the bridge cannot connect", async () => {

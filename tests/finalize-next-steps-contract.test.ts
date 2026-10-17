@@ -76,7 +76,8 @@ describe("finalize next-step identifier contract", () => {
     expect(input.properties.key_sources!.description).toBe(
       "Lists each study the conclusions depend on: validated after a full-text method audit, or lead_only " +
       "when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text. " +
-      "With answer_draft, each study has a visible link containing its identifier or its PubMed-receipt DOI."
+      "With answer_draft, each study has a visible link with its DOI, PMID or PMCID, or to a page AskRigor's receipts " +
+      "tie to it: a copy read here, or the page resolve_doi found the DOI registered to."
     );
     expect(input.properties.commercial_review_applicability!.description).toContain(
       "Records a required declaration when community evidence is researched, or when no_real_world_outcome is declared with key studies."
@@ -284,11 +285,16 @@ describe.each(["gate", "MCP endpoint"] as const)("finalizer contract, links and 
   it.each([
     `\`https://doi.org/${DOI}\``, `\n\n\`\`\`\nhttps://doi.org/${DOI}\n\`\`\``,
     `\n\n> [Study](https://doi.org/${DOI})`, `<!-- https://doi.org/${DOI} -->`,
-    `![Study](https://doi.org/${DOI})`, `[Study](https://example.test "https://doi.org/${DOI}")`,
-    `[https://doi.org/${DOI}](https://example.test)`
+    `![Study](https://doi.org/${DOI})`
   ])("ignores study links outside visible prose or outside the target (%s)", async (hidden) => {
     expect((await complete(sourceInput(DOI, `Study ${DOI}. ${hidden}`))).next_steps.join(" ")).toContain("has no link in the answer");
   });
+  // A DOI in a link's title or text is not its target: the step names the target no receipt ties to the study.
+  it.each([`[Study](https://example.test "https://doi.org/${DOI}")`, `[https://doi.org/${DOI}](https://example.test)`])(
+    "names a target outside the study's identifiers (%s)", async (hidden) => {
+      expect((await complete(sourceInput(DOI, `Study ${DOI}. ${hidden}`))).next_steps.join(" "))
+        .toContain(`Key study ${DOI} is linked by https://example.test, which no receipt passed here ties to it`);
+    });
   it("checks each key study, including a source acquired only as a lead", async () => {
     const input = base({ receipts: [study(), sign("full_text_lead", { doi: "10.1000/lead" })],
       key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: DOI, status: "validated" }, { read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1000/lead", status: "lead_only" }] });

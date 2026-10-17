@@ -52,10 +52,11 @@ function checkReceipt(page: Awaited<ReturnType<typeof call>>, index: AuditableDo
   expect(page.coverage_receipt.exhausted).toBe(true);
   const verified = verifyResearchReceipt(page.research_receipt!, { secret: SECRET });
   expect(verified).toMatchObject({ ok: true, kind: "full_text_read", claims: {
-    id: DOI, doi: DOI, pmid: "9876543", pmcid: "PMC9876543", content: index.source.content_sha256.slice(0, 16)
+    id: DOI, doi: DOI, pmid: "9876543", pmcid: "PMC9876543", content: index.source.content_sha256.slice(0, 16),
+    url: index.source.canonical_url
   } });
   if (!verified.ok) throw new Error("Receipt not verified");
-  expect(Object.keys(verified.claims).sort()).toEqual(["content", "doi", "id", "pmcid", "pmid", "t"]);
+  expect(Object.keys(verified.claims).sort()).toEqual(["content", "doi", "id", "pmcid", "pmid", "t", "url"]);
   expect(JSON.stringify(verified)).not.toContain(index.blocks[0]!.text);
   expect(verifyResearchReceipt(page.research_receipt!, { secret: `${SECRET}other` })).toEqual({ ok: false, reason: "signature_invalid" });
 }

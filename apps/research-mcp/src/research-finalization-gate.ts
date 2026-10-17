@@ -106,31 +106,46 @@ export const READ_DEPTH_VALUES = [
   "secondary_only", "metadata_only", "inaccessible", "route_error"
 ] as const;
 
+// One forum report count; a community's report_identity lists one per exposure.
+const reportIdentitySchema = z.object({
+  exposure: z.string().trim().min(1).max(200)
+    .describe("The exact exposure the answer draws on, as reports name it: a form, product, dose or program."),
+  reports_read: z.number().int().nonnegative()
+    .describe("Reports about it in this community's threads you read: firsthand accounts, advice, hearsay and questions."),
+  firsthand_exact: z.number().int().nonnegative()
+    .describe("People describing their own use of exactly that exposure."),
+  exposure_unclear: z.number().int().nonnegative()
+    .describe("Firsthand reports that don't say which form or product was used."),
+  other_exposure: z.number().int().nonnegative()
+    .describe("Firsthand reports of something else (another form, a food, another product); not counted for the exposure."),
+  not_firsthand: z.number().int().nonnegative()
+    .describe("Advice, hearsay, questions and speculation; not counted as experiences."),
+  measured_after: z.number().int().nonnegative()
+    .describe("Of the firsthand_exact reports, those giving a measurement after the change (a laboratory value or test), not only how the person felt.")
+}).strict();
+
+// full_text_search and lab_preparation are one object each, not two alternatives: ChatGPT's app shows the model a
+// two-branch union only as "unknown" (read-only Codex probes, 2026-10-16), so the model invented their fields and
+// the connector rejected the call. The status names the field it needs, which the final check asks for.
 export const finalizeResearchInputSchema = z.object({
   receipts: z.array(z.string().max(RESEARCH_RECEIPT_MAX_CHARACTERS)).max(300)
     .describe("Every research_receipt AskRigor tools returned during this research, copied exactly."),
-  full_text_search: z.discriminatedUnion("status", [
-    z.object({
-      status: z.literal("run"),
-      queries: z.array(z.string().min(1).max(500)).min(1).max(10)
-    }).strict(),
-    z.object({
-      status: z.literal("not_needed"),
-      reason: z.string().trim().min(10).max(300)
-    }).strict()
-  ]).optional().describe("Records the model's declaration of full-text search: run with the Europe PMC section queries " +
+  full_text_search: z.object({
+    status: z.enum(["run", "not_needed"]),
+    queries: z.array(z.string().min(1).max(500)).min(1).max(10).optional()
+      .describe("With status run: the Europe PMC section queries searched."),
+    reason: z.string().trim().min(10).max(300).optional()
+      .describe("With status not_needed: why no full-text search was needed.")
+  }).strict().optional().describe("Records the model's declaration of full-text search: run with the Europe PMC section queries " +
     "searched, or not_needed with its reason. Required when key_sources is non-empty; each run query matches a " +
     "verified Europe PMC section-search receipt."),
-  lab_preparation: z.discriminatedUnion("status", [
-    z.object({
-      status: z.literal("covered"),
-      answer_quotes: z.array(z.string().trim().min(10).max(500)).min(1).max(5)
-    }).strict(),
-    z.object({
-      status: z.literal("not_applicable"),
-      reason: z.string().trim().min(10).max(300)
-    }).strict()
-  ]).optional().describe("Records the model's declaration of lab preparation: covered with one to five quotes from " +
+  lab_preparation: z.object({
+    status: z.enum(["covered", "not_applicable"]),
+    answer_quotes: z.array(z.string().trim().min(10).max(500)).min(1).max(5).optional()
+      .describe("With status covered: the quotes from answer_draft."),
+    reason: z.string().trim().min(10).max(300).optional()
+      .describe("With status not_applicable: why no lab result is interpreted and no test planned.")
+  }).strict().optional().describe("Records the model's declaration of lab preparation: covered with one to five quotes from " +
     "answer_draft giving collection conditions or preparation advice, or not_applicable with its reason when the " +
     "answer interprets no lab result and plans no test. Required when key_sources is non-empty; each covered quote " +
     "is compared with the answer for this call only. Applicability and advice quality remain the model's declaration."),
@@ -229,22 +244,10 @@ export const finalizeResearchInputSchema = z.object({
       .describe("How you chose the threads you read, outside review sites: every relevant one the searches found; the " +
         "most recent; a random sample; the ones ranked first; ones found by searching for outcomes; or another " +
         "partial set. The last three show which experiences exist, not how common they are."),
-    report_identity: z.array(z.object({
-      exposure: z.string().trim().min(1).max(200)
-        .describe("The exact exposure the answer draws on, as reports name it: a form, product, dose or program."),
-      reports_read: z.number().int().nonnegative()
-        .describe("Reports about it in this community's threads you read: firsthand accounts, advice, hearsay and questions."),
-      firsthand_exact: z.number().int().nonnegative()
-        .describe("People describing their own use of exactly that exposure."),
-      exposure_unclear: z.number().int().nonnegative()
-        .describe("Firsthand reports that don't say which form or product was used."),
-      other_exposure: z.number().int().nonnegative()
-        .describe("Firsthand reports of something else (another form, a food, another product); not counted for the exposure."),
-      not_firsthand: z.number().int().nonnegative()
-        .describe("Advice, hearsay, questions and speculation; not counted as experiences."),
-      measured_after: z.number().int().nonnegative()
-        .describe("Of the firsthand_exact reports, those giving a measurement after the change (a laboratory value or test), not only how the person felt.")
-    }).strict()).min(1).max(4).optional()
+    // One exposure may come as one object, which ChatGPT's app shows the model only as "unknown" (lesson #30's
+    // 2026-10-16 regression sent one); it counts as a list of one.
+    report_identity: z.union([reportIdentitySchema, z.array(reportIdentitySchema).min(1).max(4)])
+      .transform((identity) => Array.isArray(identity) ? identity : [identity]).optional()
       .describe("Outside review sites, for each exposure the answer draws on from this community's threads: how the reports you read divide. The four classes add up to reports_read (HRP ScopeAxesBeforeSampling, ObjectiveSubjectiveSeparation)."),
     access_boundary: z.enum([
       "no_web_search", "login_required", "blocked", "retrieval_failed", "no_relevant_results"
@@ -323,7 +326,8 @@ export const finalizeResearchInputSchema = z.object({
   }).strict()).max(60)
     .describe("Lists each study the conclusions depend on: validated after a full-text method audit, or lead_only " +
       "when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text. " +
-      "With answer_draft, each study has a visible link containing its identifier or its PubMed-receipt DOI."),
+      "With answer_draft, each study has a visible link with its DOI, PMID or PMCID, or to a page AskRigor's receipts " +
+      "tie to it: a copy read here, or the page resolve_doi found the DOI registered to."),
   intervention_identity: z.object({
     status: z.enum(["not_applicable", "checked"]),
     reason: z.string().trim().min(1).max(1_000).optional(),
@@ -457,11 +461,15 @@ export const finalizeResearchInputSchema = z.object({
   corrections: z.array(z.object({
     retracted: z.string().trim().min(1).max(1_000)
       .describe("The wrong statement as it read before the correction, such as a rate given under the wrong compound."),
-    change: answerQuote.describe("The answer's sentence saying what changed, copied from answer_draft.")
+    change: answerQuote.describe("The answer's sentence saying what changed, copied from answer_draft."),
+    by_user: z.boolean().optional()
+      .describe("true when the user pointed out the error and a recheck showed the user was right; false when the " +
+        "research found it.")
   }).strict()).max(10).optional()
-    .describe("Records each material correction made during this research: the wrong statement as it read, and the " +
-      "answer's sentence saying what changed. The wrong statement must appear nowhere else in the answer, including " +
-      "its headings, tables and summaries."),
+    .describe("Records each material correction made during this research: the wrong statement as it read, the " +
+      "answer's sentence saying what changed, and whether the user pointed it out. The wrong statement must appear " +
+      "nowhere else in the answer, including its headings, tables and summaries; after a correction the user pointed " +
+      "out, the answer asks whether AskRigor may send a bug report about it."),
   search_coverage: z.array(z.enum(["historical_terms", "citation_chains", "grey_literature"])).max(3).optional()
     .describe("What the searches covered beyond the indexed databases."),
   answer_language: z.string().trim().regex(/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{1,8}){0,3}$/u).optional()
@@ -482,6 +490,67 @@ export const finalizeResearchInputSchema = z.object({
 }).strict();
 
 export type FinalizeResearchInput = z.output<typeof finalizeResearchInputSchema>;
+
+/**
+ * The inputs ChatGPT's app shows the model only as "unknown": a two-branch union, and an object or array nested below
+ * the second level (read-only Codex probes, 2026-10-16). The model sees no parameter description there, only the
+ * tool's own, so their JSON goes into it. Tests parse every example with the schema and check that every hidden part
+ * of the published schema has one.
+ */
+export const FINALIZE_RESEARCH_HIDDEN_SHAPES: ReadonlyArray<{
+  paths: readonly string[];
+  examples: readonly unknown[];
+  note?: string;
+}> = [
+  { paths: ["intervention_identity.interventions"], note: "an unresolved item has no identity", examples: [[{
+    study_ids: ["10.1000/example"], label: "…", status: "resolved",
+    identity: { registry_code: "…", sponsor_or_maker: "…", current_product: "…" }
+  }]] },
+  { paths: ["findings_card.findings"], examples: [[{
+    claim: "…", certainty: "moderate", applies_to: "…", answer_quote: "…", sources: ["10.1000/example"],
+    why_not_usual: "…", what_would_change_it: "…"
+  }]] },
+  { paths: ["community_searches[].queries"], examples: [["…"]] },
+  { paths: ["community_searches[].threads_read"], examples: [[{ url: "https://example.org/t/1", title: "…" }]] },
+  { paths: ["community_searches[].report_identity"], note: "or one such object", examples: [[{
+    exposure: "…", reports_read: 5, firsthand_exact: 2, exposure_unclear: 1, other_exposure: 1, not_firsthand: 1,
+    measured_after: 0
+  }]] },
+  { paths: ["community_searches[].review_corpora"], examples: [[{
+    product: "…", reviews_read: 20, selection: "most_recent",
+    outcome_search: { queries: ["…"], directions: ["benefit", "no_effect", "adverse"] },
+    item_identity: { exact_product: 18, variant_unresolved: 2, other_variant_excluded: 0 }
+  }]] },
+  { paths: ["community_searches[].answer_quotes"], examples: [{
+    benefit_reports: "…", no_effect_reports: "…", adverse_reports: "…", effect_on_answer: "…"
+  }] },
+  { paths: ["community_findings.product_corpora"], examples: [[{
+    product: "…", video_ids: ["abcdefghijk"], exact_product_signal: "…"
+  }]] },
+  { paths: ["comparison_claims[].arms"], examples: [[
+    { exposure: "…", dose: 6, unit: "mg" }, { exposure: "…", dose: null, unit: null }
+  ]] },
+  { paths: ["shopping.offers"], examples: [[{
+    product: "…", url: "https://example.org/p/1", offer_state: "live_destination_orderable", role: "buy_option"
+  }]] },
+  { paths: ["scale_results[].range"], examples: [{ min: 0, max: 10 }] },
+  { paths: ["scale_results[].values"], examples: [[4.5, 2]] },
+  { paths: ["scale_results[].benchmark"], examples: [{ value: 1, kind: "minimal_important_difference" }, "none_established"] },
+  { paths: ["mechanism_claims[].tissue"], examples: [{ measured: "…", claimed: "…" }] },
+  { paths: ["absence_claims[].studies", "safety_claims[].studies", "mechanism_claims[].studies"],
+    examples: [["10.1000/example"]] }
+];
+
+// Limits the type does not show, which the 2026-10-16 regression's first calls broke.
+const FINALIZE_RESEARCH_HIDDEN_LIMITS = "key_sources[].answer_marker is the visible label, 3 to 80 characters, not a " +
+  "link; another_pass_estimate has at most 200 characters; answer_language is a language tag such as en or pt-BR.";
+
+/** The tool description's sentence carrying the hidden shapes and limits. */
+export const FINALIZE_RESEARCH_SHAPES_DESCRIPTION = "Nested inputs, as JSON: " +
+  FINALIZE_RESEARCH_HIDDEN_SHAPES.map(({ paths, examples, note }) =>
+    `${paths.join(", ")} ${examples.map((example) => JSON.stringify(example)).join(" or ")}` +
+      (note === undefined ? "" : ` (${note})`)).join("; ") +
+  `. ${FINALIZE_RESEARCH_HIDDEN_LIMITS}`;
 
 const finalizationStatusSchema = z.enum([
   "ready",
@@ -566,6 +635,11 @@ export interface FinalizeResearchOptions {
 
 // The owner's words (2026-10-15), many users' reports and the owner's own
 // comparison of the same question asked on a phone and on desktop web.
+// Universal's correction-report question (owner question 78: after a correction the user pointed out and a recheck
+// confirmed, ask whether AskRigor may send a bug report about it, or whether the user wants to clarify first).
+export const CORRECTION_REPORT_OFFER = "May AskRigor send a bug report about this correction, or would you like to " +
+  "clarify something first?";
+
 export const MOBILE_NOTICE = "Mobile responses may be shorter and less intelligent than desktop web/app, even with " +
   "the same model and thinking level selected.";
 
@@ -689,6 +763,17 @@ export function finalizeResearch(
       );
     }
   }
+  // The correction-report question rests on the model's declaration of who pointed the error out.
+  for (const [index, { by_user }] of (input.corrections ?? []).entries()) {
+    if (by_user === undefined) {
+      requireDeclaration(`Give corrections[${index}].by_user: true when the user pointed out the error and a recheck ` +
+        "showed the user was right, false when the research found it.");
+    }
+  }
+  if ((input.corrections ?? []).some(({ by_user }) => by_user === true)) {
+    requireLimit("The user's correction was right: ask, as the caveat does, whether AskRigor may send a bug report " +
+      "about it or the user wants to clarify first, and show the report it would send.", CORRECTION_REPORT_OFFER);
+  }
   // What the communities outside YouTube showed, reported after the YouTube lane.
   const communityLanes: string[] = [];
   let communitiesSearched: string[] = [];
@@ -700,11 +785,15 @@ export function finalizeResearch(
     );
   }
 
-  if (input.full_text_search === undefined && input.key_sources.length > 0) {
+  // Each status needs its own field; the other one, if given, is not used.
+  const fullTextSearch = input.full_text_search;
+  const fullTextQueries = fullTextSearch?.status === "run" ? fullTextSearch.queries : undefined;
+  if (fullTextSearch === undefined ? input.key_sources.length > 0
+    : fullTextSearch.status === "run" ? fullTextQueries === undefined : fullTextSearch.reason === undefined) {
     requireDeclaration("Give full_text_search: status run with queries searched in Europe PMC article sections, " +
       "or status not_needed with reason.");
-  } else if (input.full_text_search?.status === "run") {
-    for (const query of input.full_text_search.queries) {
+  } else if (fullTextQueries !== undefined) {
+    for (const query of fullTextQueries) {
       const matches = verified.filter(({ kind, claims }) => kind === "literature_search" &&
         claims.src === "europepmc" && claims.q === discoveryQueryDigest([query]));
       if (!matches.some(({ claims }) => Array.isArray(claims.ft) && claims.ft.length > 0)) {
@@ -715,7 +804,9 @@ export function finalizeResearch(
     }
   }
 
-  if (input.lab_preparation === undefined && input.key_sources.length > 0) {
+  const lab = input.lab_preparation;
+  if (lab === undefined ? input.key_sources.length > 0
+    : lab.status === "covered" ? lab.answer_quotes === undefined : lab.reason === undefined) {
     requireDeclaration("Give lab_preparation: status covered with answer_quotes from answer_draft giving collection " +
       "conditions or preparation advice, or status not_applicable with reason.");
   }
@@ -1076,7 +1167,13 @@ export function finalizeResearch(
   // Identifier -> the figures check its latest study audit signed (owner questions 87 and 89). Receipts
   // signed before audits checked figures carry none; every newer audit signs one, "not_declared" included.
   const studyFigures = new Map<string, { status: string; values: number[]; impossible: string[]; order: number }>();
+  // One paper's identifiers and pages, as AskRigor's own receipts tie them: a PubMed record names its PMID, DOI and
+  // PMC copy; a full-text reading or audit names the copy's identifiers and, when AskRigor fetched it, its URL; and
+  // resolve_doi names the page a DOI is registered to. A link to any of them links the paper (#336's publisher and
+  // Europe PMC pages). A lead receipt's PMCID is left out: no copy confirmed it.
+  const papers = new PaperLinks();
   for (const { kind, claims } of verified) {
+    if (PAPER_TIE_KINDS.has(kind)) papers.tie(claims);
     if (kind === "pubmed_record" && typeof claims.pmid === "string") {
       pubmedDois.set(normalizeIdentifier(claims.pmid), typeof claims.doi === "string" ? normalizeIdentifier(claims.doi) : "");
       if (typeof claims.pmcid === "string" && claims.pmcid !== "") {
@@ -1142,27 +1239,27 @@ export function finalizeResearch(
   const leadSources: string[] = [];
   // DOI paths may contain parentheses; displayedProse already resolves a
   // Markdown link's delimiters, so its complete target survives extraction.
-  const pathsFor = (block: string): string[] =>
-    [...linkTargets(block).matchAll(/https?:\/\/[^\s<>]+/giu)].flatMap(([target]) => {
-      try { return [decodeURIComponent(new globalThis.URL(target).pathname).toLowerCase()]; }
-      catch { return []; }
-    });
+  const linksFor = (block: string): string[] =>
+    [...linkTargets(block).matchAll(/https?:\/\/[^\s<>]+/giu)].map(([target]) => target);
   const studyLines = input.answer_draft === undefined ? [] : displayedProse(input.answer_draft, true)
     .flatMap((block) => block.split("\n"));
-  const studyLinkPaths = studyLines.flatMap(pathsFor);
+  const studyLinks = studyLines.flatMap(linksFor);
   // Studies read only as leads: one limit each, and one caveat per reason that
   // stopped the reading, from the state each full-text lead receipt signed.
   const unreadStudies = new Map<string, string | undefined>();
-  for (const source of input.key_sources) {
+  // Every identifier and page the receipts tie to a key study links it (a PubMed record's page since the
+  // 2026-10-15 owner regressions; its other copies and its publisher page since 16 October's).
+  const keyLinks = input.key_sources.map((source) => {
     const id = normalizeIdentifier(source.id);
     // A PMID's DOI (from its PubMed record receipt) also identifies the study.
     const pubmedDoi = isPmid(id) ? pubmedDois.get(id) : undefined;
     const ids = pubmedDoi === undefined || pubmedDoi === "" ? [id] : [id, pubmedDoi];
-    // A DOI's PubMed record links the same study once a PubMed receipt matched the two
-    // (the 2026-10-15 owner regressions linked a study's PubMed page).
-    const linkIds = isDoi(id)
-      ? [...ids, ...[...pubmedDois].filter(([, doi]) => doi === id).map(([pmid]) => pmid)]
-      : ids;
+    const linkIds = [...new Set([...ids, ...ids.flatMap((candidate) => papers.identifiers(candidate))])];
+    return { id, pubmedDoi, ids, linkIds, linkPages: papers.pages(linkIds) };
+  });
+  for (const [index, source] of input.key_sources.entries()) {
+    const { id, pubmedDoi, ids, linkIds, linkPages } = keyLinks[index]!;
+    const linked = (link: string): boolean => keyStudyLinked(link, linkIds, linkPages);
     const audited = ids.some((candidate) => validatedIds.has(candidate));
     const read = audited || ids.some((candidate) => readIds.has(candidate));
     if (source.read_depth === undefined) {
@@ -1174,19 +1271,33 @@ export function finalizeResearch(
         `or pass its matching research_receipt.`);
     }
     if (input.answer_draft !== undefined) {
+      const identified = isPmid(id) || isDoi(id) || isPmcid(id);
+      const marker = source.answer_marker === undefined ? "" : caveatText(source.answer_marker);
+      const markerLinks = marker === "" ? [] : studyLines
+        .filter((line) => caveatText(visibleText(line)).includes(marker)).map(linksFor);
+      // The label's line links a page no receipt ties to this study, and no line has both: one step names that link,
+      // instead of saying there is none (#336's fourth turn kept its publisher links through four such steps). A link
+      // naming a DOI, or tied to another key study, is another paper's.
+      const untied = identified && !markerLinks.some((links) => links.some(linked))
+        ? markerLinks.flat().find((link) => !linkNamesDoi(link) && !keyLinks.some((other, otherIndex) =>
+            otherIndex !== index && keyStudyLinked(link, other.linkIds, other.linkPages)))
+            ?.replace(/[.,;:!?)\]]+$/u, "")
+        : undefined;
+      const pages = keyStudyPages(id, linkIds, linkPages);
       if (source.answer_marker === undefined) {
         requireDeclaration(`Give key_sources.answer_marker for ${source.id}: the visible label, 3 to 80 characters, on the same line as its link in answer_draft.`);
-      } else if (!studyLines.some((line) => keyStudyLinked(pathsFor(line), linkIds) && caveatText(source.answer_marker!) !== "" &&
-          caveatText(visibleText(line)).includes(caveatText(source.answer_marker!)))) {
+      } else if (untied !== undefined) {
+        nextSteps.push(`Key study ${source.id} is linked by ${untied}, which no receipt passed here ties to it: ` +
+          `link ${listOf(pages, "or")} instead` + (isDoi(id)
+            ? `, or pass the research_receipt that ties that page: resolve_doi with ${id} ties the page the DOI is ` +
+              "registered to, and fetch_pubmed_record ties the study's PubMed page."
+            : "."));
+      } else if (!markerLinks.some((links) => links.some(linked))) {
         nextSteps.push(`Key source ${source.id} has no answer_marker on the same line as its link in answer_draft; put its answer_marker there.`);
       }
-    }
-    if (input.answer_draft !== undefined && (isPmid(id) || isDoi(id) || isPmcid(id)) &&
-        !keyStudyLinked(studyLinkPaths, linkIds)) {
-      const page = isPmid(id) ? `https://pubmed.ncbi.nlm.nih.gov/${id}/`
-        : isPmcid(id) ? `https://pmc.ncbi.nlm.nih.gov/articles/${id}/`
-        : `https://doi.org/${id}`;
-      nextSteps.push(`Key study ${source.id} has no link in the answer; link it to the page AskRigor's tools returned, such as ${page}.`);
+      if (identified && untied === undefined && !studyLinks.some(linked)) {
+        nextSteps.push(`Key study ${source.id} has no link in the answer; link it to the page AskRigor's tools returned, such as ${listOf(pages, "or")}.`);
+      }
     }
     if (ids.some((candidate) => validatedIds.has(candidate))) {
       validatedSources.push(source.id);
@@ -1624,7 +1735,7 @@ export function finalizeResearch(
     }
   }
   if (absenceClaims.some(({ state }) => state === "support_not_located")) {
-    if (input.full_text_search?.status === "run") {
+    if (fullTextQueries !== undefined) {
       requireLimit(
         "The answer says something was not found after full-text searches: bound that to their coverage, as the caveat does.",
         "Where it says something was not found, the full-text searches covered Europe PMC's full texts only, " +
@@ -1750,7 +1861,7 @@ export function finalizeResearch(
       ],
       corrections: input.corrections ?? [],
       keyTerms: input.key_terms ?? [],
-      labPreparationQuotes: input.lab_preparation?.status === "covered" ? input.lab_preparation.answer_quotes : [],
+      labPreparationQuotes: input.lab_preparation?.status === "covered" ? input.lab_preparation.answer_quotes ?? [] : [],
       missingDeclaration: () => { missingDeclaration = true; },
       ...(input.answer_language === undefined ? {} : { answerLanguage: input.answer_language }),
       renderings: input.caveat_renderings ?? []
@@ -2378,11 +2489,103 @@ const PASS_COST_NUMBER = /\p{Nd}/u;
 // Links as the answer shows them: a link's destination or a bare URL.
 const LINKED_URL = /https?:\/\/[^\s<>()]+/giu;
 
-/** Structural identifier check on the same displayed links used for community threads. */
-function keyStudyLinked(paths: readonly string[], identifiers: readonly string[]): boolean {
-  return paths.some((path) => identifiers.some((id) => isDoi(id)
+/**
+ * Structural check of one displayed link: its path contains the study's DOI or has its PMID or PMCID as a segment,
+ * or it is a page AskRigor's receipts tied to the study, compared as thread links are.
+ */
+function keyStudyLinked(link: string, identifiers: readonly string[], pages: ReadonlyMap<string, string>): boolean {
+  if (pages.has(comparableUrl(link))) return true;
+  let path: string;
+  try { path = decodeURIComponent(new globalThis.URL(link).pathname).toLowerCase(); }
+  catch { return false; }
+  return identifiers.some((id) => isDoi(id)
     ? path.includes(id.toLowerCase())
-    : path.split("/").some((part) => part.replace(/[.,;:!?]+$/u, "") === id.toLowerCase())));
+    : path.split("/").some((part) => part.replace(/[.,;:!?]+$/u, "") === id.toLowerCase()));
+}
+
+/** Whether a link's path or query names a DOI, so names its own paper. */
+function linkNamesDoi(link: string): boolean {
+  try {
+    const url = new globalThis.URL(link);
+    return /10\.\d{4,9}\//u.test(decodeURIComponent(`${url.pathname}${url.search}`));
+  } catch {
+    return false;
+  }
+}
+
+// Receipts that tie one paper's identifiers, and sometimes a page, together (see PaperLinks).
+const PAPER_TIE_KINDS: ReadonlySet<string> = new Set([
+  "pubmed_record", "doi_resolution", "full_text_read", "study_audit", "review_audit"
+]);
+
+/** One paper's identifiers and pages across receipts: each receipt joins the identifiers it names. */
+class PaperLinks {
+  private readonly parent = new Map<string, string>();
+  // Identifier -> the pages a receipt naming it signed, by their comparable form.
+  private readonly signedPages = new Map<string, Map<string, string>>();
+
+  tie(claims: Readonly<Record<string, string | string[]>>): void {
+    const ids = ["id", "doi", "pmid", "pmcid"].flatMap((key) => {
+      const value = claims[key];
+      if (typeof value !== "string" || value === "") return [];
+      const id = normalizeIdentifier(value);
+      return isDoi(id) || isPmid(id) || isPmcid(id) ? [id] : [];
+    });
+    if (ids.length === 0) return;
+    for (const id of ids.slice(1)) this.parent.set(this.root(id), this.root(ids[0]!));
+    const url = claims.url;
+    if (typeof url === "string" && /^https?:\/\//iu.test(url)) {
+      const pages = this.signedPages.get(ids[0]!) ?? new Map<string, string>();
+      pages.set(comparableUrl(url), url);
+      this.signedPages.set(ids[0]!, pages);
+    }
+  }
+
+  /** Every identifier tied to this one, itself included. */
+  identifiers(id: string): string[] {
+    const root = this.root(id);
+    return [id, ...[...this.parent.keys()].filter((other) => other !== id && this.root(other) === root)];
+  }
+
+  /** The pages receipts signed for any of these identifiers. */
+  pages(ids: readonly string[]): Map<string, string> {
+    return new Map(ids.flatMap((id) => [...(this.signedPages.get(id) ?? [])]));
+  }
+
+  private root(id: string): string {
+    let root = id;
+    while (this.parent.has(root) && this.parent.get(root) !== root) root = this.parent.get(root)!;
+    if (!this.parent.has(id)) this.parent.set(id, id);
+    return root;
+  }
+}
+
+/**
+ * The pages a next step offers for a key study: its own identifier's page, then the pages receipts tied to it,
+ * then its tied PMC and PubMed pages; at most three.
+ */
+function keyStudyPages(id: string, identifiers: readonly string[], pages: ReadonlyMap<string, string>): string[] {
+  const page = (identifier: string) => isPmid(identifier) ? `https://pubmed.ncbi.nlm.nih.gov/${identifier}/`
+    : isPmcid(identifier) ? `https://pmc.ncbi.nlm.nih.gov/articles/${identifier}/`
+    : `https://doi.org/${identifier}`;
+  const candidates = [
+    page(id),
+    ...pages.values(),
+    ...identifiers.filter((other) => other !== id && isPmcid(other)).map(page),
+    ...identifiers.filter((other) => other !== id && isPmid(other)).map(page)
+  ];
+  const seen = new Set<string>();
+  return candidates.filter((candidate) => {
+    const key = comparableUrl(candidate);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 3);
+}
+
+/** "a", "a or b", "a, b or c". */
+function listOf(items: readonly string[], conjunction: "and" | "or"): string {
+  return items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} ${conjunction} ${items.at(-1)}`;
 }
 
 const REDDIT_HOST = /(?:^|\.)(?:reddit\.com|redd\.it)$/u;
@@ -2438,15 +2641,20 @@ function comparableUrl(url: string): string {
   }
 }
 
+// What the answer does with a community lane; must_report ends with it.
+const YOUTUBE_LANE_INSTRUCTION = "Report this lane in the answer even if later sources dominate; if its signal is " +
+  "weak, say so. Then copy the sentences that report it into community_findings.answer_quotes.";
+const forumLaneInstruction = (community: string): string => `Report this lane in the answer, naming ${community} ` +
+  "and linking a thread you read, even if its signal is weak. Then copy the sentences that report it into the " +
+  "entry's answer_quotes.";
+
 function communityLane(
   findings: NonNullable<FinalizeResearchInput["community_findings"]>,
   videosRead: number
 ): string {
   return `YouTube comments (${videosRead} video(s) read): Benefits: ${findings.benefit_reports} ` +
     `No effect: ${findings.no_effect_reports} Adverse: ${findings.adverse_reports} Creators versus commenters: ` +
-    `${findings.creators_versus_commenters} Effect on the answer: ${findings.effect_on_answer} Report this lane in ` +
-    "the answer even if later sources dominate; if its signal is weak, say so. Then copy the sentences that report " +
-    "it into community_findings.answer_quotes.";
+    `${findings.creators_versus_commenters} Effect on the answer: ${findings.effect_on_answer} ${YOUTUBE_LANE_INSTRUCTION}`;
 }
 
 const COMMUNITY_FINDINGS = ["benefit_reports", "no_effect_reports", "adverse_reports", "effect_on_answer"] as const;
@@ -2844,8 +3052,7 @@ function forumLane(search: CommunitySearch): string {
     : search.review_corpora.map(({ product, reviews_read }) => `${reviews_read} review(s) of ${product} read`).join("; ");
   return `${search.community} (${read}): Benefits: ${search.benefit_reports} ` +
     `No effect: ${search.no_effect_reports} Adverse: ${search.adverse_reports} Effect on the answer: ` +
-    `${search.effect_on_answer} Report this lane in the answer, naming ${search.community} and linking a thread you ` +
-    "read, even if its signal is weak. Then copy the sentences that report it into the entry's answer_quotes.";
+    `${search.effect_on_answer} ${forumLaneInstruction(search.community)}`;
 }
 
 function comparableDoses(

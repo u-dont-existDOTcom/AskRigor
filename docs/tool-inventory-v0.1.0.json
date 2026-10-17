@@ -5076,6 +5076,11 @@
                     },
                     "year": {
                       "type": "string"
+                    },
+                    "landing_url": {
+                      "type": "string",
+                      "maxLength": 2048,
+                      "format": "uri"
                     }
                   },
                   "required": [
@@ -5090,6 +5095,9 @@
               "candidates"
             ],
             "additionalProperties": false
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
@@ -13709,7 +13717,7 @@
     },
     {
       "name": "finalize_research",
-      "description": "Final check of a research answer before it is given. Input: the research_receipt values that AskRigor's tools returned in this session; the research_target as given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits (discovery for another target does not count); whether community evidence was researched and whether the answer compares treatment options; where the topic is discussed and what each community searched outside YouTube showed (principal_communities, community_searches); what the YouTube comments read showed (community_findings); the studies the conclusions rest on (key_sources), whole-intervention identity (intervention_identity), item-level product identity (product_corpora and item_identity), and destination-bound offers or search routes (shopping); after a first pass, the focuses for going deeper (open_leads, another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results (scale_results: quoted explanations with the scale name, range, values and benchmark), visible links to each key study, and the caveats, and is not stored. Result: contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh hint when a required declaration is missing; ready_with_limits with the limits, the caveat sentences for the answer (each as its own sentence and as written, in the answer's language when answer_language and caveat_renderings are given) and must_report, what the answer reports from each lane researched; when ready, check_line, the line the answer ends with; or receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the owner's review; in paid private mode the caveats offer its save.",
+      "description": "Final check of a research answer before it is given. Input: the research_receipt values that AskRigor's tools returned in this session; the research_target as given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits (discovery for another target does not count); whether community evidence was researched and whether the answer compares treatment options; where the topic is discussed and what each community searched outside YouTube showed (principal_communities, community_searches); what the YouTube comments read showed (community_findings); the studies the conclusions rest on (key_sources), whole-intervention identity (intervention_identity), item-level product identity (product_corpora and item_identity), and destination-bound offers or search routes (shopping); after a first pass, the focuses for going deeper (open_leads, another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results (scale_results: quoted explanations with the scale name, range, values and benchmark), visible links to each key study, and the caveats, and is not stored. Result: contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh hint when a required declaration is missing; ready_with_limits with the limits, the caveat sentences for the answer (each as its own sentence and as written, in the answer's language when answer_language and caveat_renderings are given) and must_report, what the answer reports from each lane researched; when ready, check_line, the line the answer ends with; or receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the owner's review; in paid private mode the caveats offer its save. Nested inputs, as JSON: intervention_identity.interventions [{\"study_ids\":[\"10.1000/example\"],\"label\":\"…\",\"status\":\"resolved\",\"identity\":{\"registry_code\":\"…\",\"sponsor_or_maker\":\"…\",\"current_product\":\"…\"}}] (an unresolved item has no identity); findings_card.findings [{\"claim\":\"…\",\"certainty\":\"moderate\",\"applies_to\":\"…\",\"answer_quote\":\"…\",\"sources\":[\"10.1000/example\"],\"why_not_usual\":\"…\",\"what_would_change_it\":\"…\"}]; community_searches[].queries [\"…\"]; community_searches[].threads_read [{\"url\":\"https://example.org/t/1\",\"title\":\"…\"}]; community_searches[].report_identity [{\"exposure\":\"…\",\"reports_read\":5,\"firsthand_exact\":2,\"exposure_unclear\":1,\"other_exposure\":1,\"not_firsthand\":1,\"measured_after\":0}] (or one such object); community_searches[].review_corpora [{\"product\":\"…\",\"reviews_read\":20,\"selection\":\"most_recent\",\"outcome_search\":{\"queries\":[\"…\"],\"directions\":[\"benefit\",\"no_effect\",\"adverse\"]},\"item_identity\":{\"exact_product\":18,\"variant_unresolved\":2,\"other_variant_excluded\":0}}]; community_searches[].answer_quotes {\"benefit_reports\":\"…\",\"no_effect_reports\":\"…\",\"adverse_reports\":\"…\",\"effect_on_answer\":\"…\"}; community_findings.product_corpora [{\"product\":\"…\",\"video_ids\":[\"abcdefghijk\"],\"exact_product_signal\":\"…\"}]; comparison_claims[].arms [{\"exposure\":\"…\",\"dose\":6,\"unit\":\"mg\"},{\"exposure\":\"…\",\"dose\":null,\"unit\":null}]; shopping.offers [{\"product\":\"…\",\"url\":\"https://example.org/p/1\",\"offer_state\":\"live_destination_orderable\",\"role\":\"buy_option\"}]; scale_results[].range {\"min\":0,\"max\":10}; scale_results[].values [4.5,2]; scale_results[].benchmark {\"value\":1,\"kind\":\"minimal_important_difference\"} or \"none_established\"; mechanism_claims[].tissue {\"measured\":\"…\",\"claimed\":\"…\"}; absence_claims[].studies, safety_claims[].studies, mechanism_claims[].studies [\"10.1000/example\"]. key_sources[].answer_marker is the visible label, 3 to 80 characters, not a link; another_pass_estimate has at most 200 characters; answer_language is a language tag such as en or pt-BR.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -13724,99 +13732,71 @@
           },
           "full_text_search": {
             "description": "Records the model's declaration of full-text search: run with the Europe PMC section queries searched, or not_needed with its reason. Required when key_sources is non-empty; each run query matches a verified Europe PMC section-search receipt.",
-            "oneOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "status": {
-                    "type": "string",
-                    "const": "run"
-                  },
-                  "queries": {
-                    "minItems": 1,
-                    "maxItems": 10,
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 500
-                    }
-                  }
-                },
-                "required": [
-                  "status",
-                  "queries"
-                ],
-                "additionalProperties": false
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "run",
+                  "not_needed"
+                ]
               },
-              {
-                "type": "object",
-                "properties": {
-                  "status": {
-                    "type": "string",
-                    "const": "not_needed"
-                  },
-                  "reason": {
-                    "type": "string",
-                    "minLength": 10,
-                    "maxLength": 300
-                  }
-                },
-                "required": [
-                  "status",
-                  "reason"
-                ],
-                "additionalProperties": false
+              "queries": {
+                "description": "With status run: the Europe PMC section queries searched.",
+                "minItems": 1,
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                }
+              },
+              "reason": {
+                "description": "With status not_needed: why no full-text search was needed.",
+                "type": "string",
+                "minLength": 10,
+                "maxLength": 300
               }
-            ]
+            },
+            "required": [
+              "status"
+            ],
+            "additionalProperties": false
           },
           "lab_preparation": {
             "description": "Records the model's declaration of lab preparation: covered with one to five quotes from answer_draft giving collection conditions or preparation advice, or not_applicable with its reason when the answer interprets no lab result and plans no test. Required when key_sources is non-empty; each covered quote is compared with the answer for this call only. Applicability and advice quality remain the model's declaration.",
-            "oneOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "status": {
-                    "type": "string",
-                    "const": "covered"
-                  },
-                  "answer_quotes": {
-                    "minItems": 1,
-                    "maxItems": 5,
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "minLength": 10,
-                      "maxLength": 500
-                    }
-                  }
-                },
-                "required": [
-                  "status",
-                  "answer_quotes"
-                ],
-                "additionalProperties": false
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "covered",
+                  "not_applicable"
+                ]
               },
-              {
-                "type": "object",
-                "properties": {
-                  "status": {
-                    "type": "string",
-                    "const": "not_applicable"
-                  },
-                  "reason": {
-                    "type": "string",
-                    "minLength": 10,
-                    "maxLength": 300
-                  }
-                },
-                "required": [
-                  "status",
-                  "reason"
-                ],
-                "additionalProperties": false
+              "answer_quotes": {
+                "description": "With status covered: the quotes from answer_draft.",
+                "minItems": 1,
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 10,
+                  "maxLength": 500
+                }
+              },
+              "reason": {
+                "description": "With status not_applicable: why no lab result is interpreted and no test planned.",
+                "type": "string",
+                "minLength": 10,
+                "maxLength": 300
               }
-            ]
+            },
+            "required": [
+              "status"
+            ],
+            "additionalProperties": false
           },
           "community_evidence": {
             "type": "string",
@@ -14200,66 +14180,127 @@
                 },
                 "report_identity": {
                   "description": "Outside review sites, for each exposure the answer draws on from this community's threads: how the reports you read divide. The four classes add up to reports_read (HRP ScopeAxesBeforeSampling, ObjectiveSubjectiveSeparation).",
-                  "minItems": 1,
-                  "maxItems": 4,
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "exposure": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 200,
-                        "description": "The exact exposure the answer draws on, as reports name it: a form, product, dose or program."
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "exposure": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200,
+                          "description": "The exact exposure the answer draws on, as reports name it: a form, product, dose or program."
+                        },
+                        "reports_read": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Reports about it in this community's threads you read: firsthand accounts, advice, hearsay and questions."
+                        },
+                        "firsthand_exact": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "People describing their own use of exactly that exposure."
+                        },
+                        "exposure_unclear": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Firsthand reports that don't say which form or product was used."
+                        },
+                        "other_exposure": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Firsthand reports of something else (another form, a food, another product); not counted for the exposure."
+                        },
+                        "not_firsthand": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Advice, hearsay, questions and speculation; not counted as experiences."
+                        },
+                        "measured_after": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Of the firsthand_exact reports, those giving a measurement after the change (a laboratory value or test), not only how the person felt."
+                        }
                       },
-                      "reports_read": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 9007199254740991,
-                        "description": "Reports about it in this community's threads you read: firsthand accounts, advice, hearsay and questions."
-                      },
-                      "firsthand_exact": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 9007199254740991,
-                        "description": "People describing their own use of exactly that exposure."
-                      },
-                      "exposure_unclear": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 9007199254740991,
-                        "description": "Firsthand reports that don't say which form or product was used."
-                      },
-                      "other_exposure": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 9007199254740991,
-                        "description": "Firsthand reports of something else (another form, a food, another product); not counted for the exposure."
-                      },
-                      "not_firsthand": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 9007199254740991,
-                        "description": "Advice, hearsay, questions and speculation; not counted as experiences."
-                      },
-                      "measured_after": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 9007199254740991,
-                        "description": "Of the firsthand_exact reports, those giving a measurement after the change (a laboratory value or test), not only how the person felt."
-                      }
+                      "required": [
+                        "exposure",
+                        "reports_read",
+                        "firsthand_exact",
+                        "exposure_unclear",
+                        "other_exposure",
+                        "not_firsthand",
+                        "measured_after"
+                      ],
+                      "additionalProperties": false
                     },
-                    "required": [
-                      "exposure",
-                      "reports_read",
-                      "firsthand_exact",
-                      "exposure_unclear",
-                      "other_exposure",
-                      "not_firsthand",
-                      "measured_after"
-                    ],
-                    "additionalProperties": false
-                  }
+                    {
+                      "minItems": 1,
+                      "maxItems": 4,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "exposure": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200,
+                            "description": "The exact exposure the answer draws on, as reports name it: a form, product, dose or program."
+                          },
+                          "reports_read": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991,
+                            "description": "Reports about it in this community's threads you read: firsthand accounts, advice, hearsay and questions."
+                          },
+                          "firsthand_exact": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991,
+                            "description": "People describing their own use of exactly that exposure."
+                          },
+                          "exposure_unclear": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991,
+                            "description": "Firsthand reports that don't say which form or product was used."
+                          },
+                          "other_exposure": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991,
+                            "description": "Firsthand reports of something else (another form, a food, another product); not counted for the exposure."
+                          },
+                          "not_firsthand": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991,
+                            "description": "Advice, hearsay, questions and speculation; not counted as experiences."
+                          },
+                          "measured_after": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991,
+                            "description": "Of the firsthand_exact reports, those giving a measurement after the change (a laboratory value or test), not only how the person felt."
+                          }
+                        },
+                        "required": [
+                          "exposure",
+                          "reports_read",
+                          "firsthand_exact",
+                          "exposure_unclear",
+                          "other_exposure",
+                          "not_firsthand",
+                          "measured_after"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  ]
                 },
                 "access_boundary": {
                   "description": "What stopped the search: this app has no web search; the site needs a login; the site refused access, such as a block page; a search or page fetch failed, such as an error or a timeout; or the searches found nothing relevant.",
@@ -14585,7 +14626,7 @@
               ],
               "additionalProperties": false
             },
-            "description": "Lists each study the conclusions depend on: validated after a full-text method audit, or lead_only when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text. With answer_draft, each study has a visible link containing its identifier or its PubMed-receipt DOI."
+            "description": "Lists each study the conclusions depend on: validated after a full-text method audit, or lead_only when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text. With answer_draft, each study has a visible link with its DOI, PMID or PMCID, or to a page AskRigor's receipts tie to it: a copy read here, or the page resolve_doi found the DOI registered to."
           },
           "intervention_identity": {
             "description": "Records whether key studies tested coded, branded, combination or multi-ingredient interventions, including co-administered drugs (such as L-DOPA given with carbidopa), and their traced whole-intervention identity. Needed when key_sources is nonempty.",
@@ -15146,7 +15187,7 @@
             }
           },
           "corrections": {
-            "description": "Records each material correction made during this research: the wrong statement as it read, and the answer's sentence saying what changed. The wrong statement must appear nowhere else in the answer, including its headings, tables and summaries.",
+            "description": "Records each material correction made during this research: the wrong statement as it read, the answer's sentence saying what changed, and whether the user pointed it out. The wrong statement must appear nowhere else in the answer, including its headings, tables and summaries; after a correction the user pointed out, the answer asks whether AskRigor may send a bug report about it.",
             "maxItems": 10,
             "type": "array",
             "items": {
@@ -15162,6 +15203,10 @@
                   "type": "string",
                   "maxLength": 1000,
                   "description": "The answer's sentence saying what changed, copied from answer_draft."
+                },
+                "by_user": {
+                  "description": "true when the user pointed out the error and a recheck showed the user was right; false when the research found it.",
+                  "type": "boolean"
                 }
               },
               "required": [

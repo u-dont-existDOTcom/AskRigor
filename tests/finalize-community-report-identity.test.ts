@@ -269,6 +269,9 @@ describe("communities named by the user and the visible check line", () => {
       expect(text).toContain(`\n${ending}`);
       expect(text.indexOf(ending)).toBeGreaterThan(text.lastIndexOf("The answer must report:"));
       expect(text.indexOf(ending)).toBeGreaterThan(text.lastIndexOf("The answer must contain, as written:"));
+      // The lanes keep their instruction for the model; the one-line panel shows none of them (owner question 108).
+      expect(text).toContain("Then copy the sentences that report it into the entry's answer_quotes.");
+      expect(result._meta).toBeUndefined();
     } finally {
       await client.close();
       await server.close();
@@ -286,6 +289,44 @@ describe("strict declaration schemas", () => {
     const input = base();
     Object.assign(input.community_searches![0]!, overrides);
     expect(finalizeResearchInputSchema.safeParse(input).success).toBe(false);
+  });
+  // ChatGPT's app shows report_identity only as "unknown", and lesson #30's 2026-10-16 regression sent one object.
+  const single = (value: unknown): FinalizeResearchInput => {
+    const input = base();
+    (input.community_searches![0] as Record<string, unknown>).report_identity = value;
+    return input;
+  };
+  const shown = (input: FinalizeResearchInput) => ({ ...input, answer_draft: `${input.answer_draft}\n\n${run(base()).caveats.join(" ")}` });
+  const withoutReceipt = ({ finalization_receipt: _receipt, ...rest }: ReturnType<typeof finalizeResearch>) => rest;
+  it("accepts one report identity object and checks it as a list of one", () => {
+    expect(finalizeResearchInputSchema.parse(single(identity())).community_searches![0]!.report_identity).toEqual([identity()]);
+    expect(withoutReceipt(run(shown(single(identity()))))).toEqual(withoutReceipt(run(shown(base()))));
+    expect(run(shown(single(identity({ reports_read: 3 })))).next_steps).toEqual([sumStep]);
+  });
+  it.each([{ ...identity(), unexpected: true }, identity({ reports_read: -1 }), identity({ exposure: " " })])(
+    "rejects an invalid single report identity %j", (value) => {
+      expect(finalizeResearchInputSchema.safeParse(single(value)).success).toBe(false);
+    });
+  it("accepts one report identity object at the MCP endpoint, whose published schema allows it", async () => {
+    vi.stubEnv("ASKRIGOR_FINALIZATION_SIGNING_SECRET", SECRET);
+    vi.stubEnv("ASKRIGOR_FINDINGS_LIBRARY", "false");
+    const server = createAskRigorServer();
+    const client = new Client({ name: "community-report-identity-single-test", version: "0.1.0" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    try {
+      await server.connect(serverTransport);
+      await client.connect(clientTransport);
+      const tool = (await client.listTools()).tools.find(({ name }) => name === "finalize_research")!;
+      const published = (tool.inputSchema as { properties: { community_searches: { items: { properties: {
+        report_identity: { anyOf: Array<{ type: string }> } } } } } }).properties.community_searches.items.properties.report_identity;
+      expect(published.anyOf.map(({ type }) => type)).toEqual(["object", "array"]);
+      const result = await client.callTool({ name: "finalize_research", arguments: { ...shown(single(identity())) } });
+      expect(result.isError).not.toBe(true);
+      expect(result.structuredContent).toMatchObject({ status: "ready_with_limits" });
+    } finally {
+      await client.close();
+      await server.close();
+    }
   });
   it.each([
     { ...claim(), arms: [claim().arms[0]] }, { ...claim(), arms: [...claim().arms, claim().arms[0]] },

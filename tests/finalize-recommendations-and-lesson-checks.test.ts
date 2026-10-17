@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
+  CORRECTION_REPORT_OFFER, finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
@@ -164,26 +164,50 @@ describe("finalize_research corrections (owner question 92, lesson #29)", () => 
   const WRONG = "Coldness affected 40% of people on compound A.";
   const CHANGE = "Earlier I gave 40% for compound A; that figure is compound B's, and compound A's is 7%.";
 
+  const found = { retracted: WRONG, change: CHANGE, by_user: false };
+
   it("passes once the wrong statement is gone outside the sentence saying what changed", () => {
-    expect(check({
-      answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [{ retracted: WRONG, change: CHANGE }]
-    }).status).toBe("ready");
+    expect(check({ answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [found] }).status).toBe("ready");
   });
 
   it("sends back an answer that still shows the wrong statement in a heading or a table", () => {
     const problem = "corrections[0]'s wrong statement still appears in the answer outside its change sentence: " +
       "correct it everywhere, including headings, tables and summaries.";
     for (const leftover of [`## ${WRONG}`, `| Effect | Note |\n|---|---|\n| Cold | ${WRONG} |`]) {
-      expect(steps({
-        answer_draft: `${LINKS}\n\n${leftover}\n\n${CHANGE}`, corrections: [{ retracted: WRONG, change: CHANGE }]
-      })).toEqual([problem]);
+      expect(steps({ answer_draft: `${LINKS}\n\n${leftover}\n\n${CHANGE}`, corrections: [found] })).toEqual([problem]);
     }
   });
 
   it("needs the change sentence in the answer", () => {
-    expect(steps({ corrections: [{ retracted: WRONG, change: CHANGE }] })).toEqual([
+    expect(steps({ corrections: [found] })).toEqual([
       "corrections[0].change gives text the answer does not show: copy each sentence exactly from answer_draft."
     ]);
+  });
+
+  // Universal's correction-report rule (owner question 78; the owner's 16 Oct lemon conversation said "You're right"
+  // and offered no report): after a correction the user pointed out, the answer asks whether to send a bug report.
+  it("asks who pointed the error out, once", () => {
+    expect(check({ answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [{ retracted: WRONG, change: CHANGE }] }).next_steps)
+      .toEqual([
+        "Give corrections[0].by_user: true when the user pointed out the error and a recheck showed the user was " +
+          "right, false when the research found it.",
+        TOOL_LIST_REFRESH_HINT
+      ]);
+  });
+
+  it("requires the bug-report question after the user's correction, in the answer's language too", () => {
+    const byUser = { ...found, by_user: true };
+    const asked = check({ answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [byUser] });
+    expect(asked.status).toBe("not_ready");
+    expect(asked.caveats).toEqual([CORRECTION_REPORT_OFFER]);
+    expect(check({ answer_draft: `${LINKS}\n\n${CHANGE}\n\n${CORRECTION_REPORT_OFFER}`, corrections: [byUser] }).status)
+      .toBe("ready_with_limits");
+    const rendering = "AskRigor peut-il envoyer un rapport de bogue sur cette correction, ou voulez-vous d'abord préciser quelque chose ?";
+    expect(check({
+      answer_draft: `${LINKS}\n\n${CHANGE}\n\n${rendering}`, corrections: [byUser], answer_language: "fr",
+      caveat_renderings: [{ caveat: CORRECTION_REPORT_OFFER, text: rendering }]
+    }).status).toBe("ready_with_limits");
+    expect(check({ answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [found] }).caveats).toEqual([]);
   });
 });
 
@@ -192,16 +216,17 @@ describe("finalize_research key-source links (the 2026-10-15 owner regressions)"
   const pubmed = issueResearchReceipt("pubmed_record", { pmid: PMID, doi: DOI }, { secret: SECRET });
   const VIA_PUBMED = `[Trial](https://pubmed.ncbi.nlm.nih.gov/${PMID}/) and [Rat study](https://doi.org/${RAT}) were read.`;
   const linkSteps = (receipts: string[]) => steps({ answer_draft: VIA_PUBMED, receipts })
-    .filter((step) => step.startsWith(`Key study ${DOI} has no link`) || step.startsWith(`Key source ${DOI} has no answer_marker`));
+    .filter((step) => step.startsWith(`Key study ${DOI} `) || step.startsWith(`Key source ${DOI} has no answer_marker`));
 
   it("accepts a DOI key source's PubMed page once a PubMed receipt matched the two", () => {
     expect(linkSteps([...base().receipts, pubmed])).toEqual([]);
   });
 
-  it("still asks for the DOI page when nothing matched the PubMed record to the DOI", () => {
+  it("names the PubMed link and the ways to tie it when nothing matched the PubMed record to the DOI", () => {
     expect(linkSteps(base().receipts)).toEqual([
-      `Key source ${DOI} has no answer_marker on the same line as its link in answer_draft; put its answer_marker there.`,
-      `Key study ${DOI} has no link in the answer; link it to the page AskRigor's tools returned, such as https://doi.org/${DOI}.`
+      `Key study ${DOI} is linked by https://pubmed.ncbi.nlm.nih.gov/${PMID}/, which no receipt passed here ties to it: ` +
+        `link https://doi.org/${DOI} instead, or pass the research_receipt that ties that page: resolve_doi with ${DOI} ` +
+        "ties the page the DOI is registered to, and fetch_pubmed_record ties the study's PubMed page."
     ]);
   });
 });

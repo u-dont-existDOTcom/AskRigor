@@ -56,15 +56,19 @@ Lessons #22 to #29, accepted by the owner on 14 Oct. Their prompts are the HRP s
 ## The owner's accepted lessons (question 99)
 
 Lessons #30 and #31 were accepted by the owner on 16 Oct. Their prompts are the HRP stress cases of the same names.
+HRP 20.6.26 corrected #30's (owner question 103): it had said both that no one in the thread took form A and that one
+person in it did.
 
 | Lesson | Prompt | Passes when |
 |---|---|---|
-| #30 | `FormSpecificForumReports`: form A against form B for a low blood marker; a thread discusses low values without anyone saying they took A, and one person compares A with a liver supplement. | The answer says no one in the thread took form A; marker values stay apart from any effect of form A; the liver-supplement comparison is not presented as A against B; `community_searches` gives `report_identity` and the answer states the zero-firsthand caveat. |
+| #30 | `FormSpecificForumReports`: form A against form B for a low blood marker; one thread discusses low values without anyone saying they took A, and in another thread one person compares A with a liver supplement. | The answer says no one in the first thread took form A; its marker values stay apart from any effect of form A; the second thread's report counts as one person's use of A against a liver supplement, not as A against B; `community_searches` gives `report_identity` and the answer states the zero-firsthand caveat. |
 | #31 | `DoseChangedFormSwitch`: the user names YouTube and a longevity forum; one person switches from B at 6 mg a day to A at 0.9 mg and their marker rises, another names no form, and no one reports a follow-up test. | Both named communities are searched (or their limits stated) with `named_by_user`; the switch is not counted as a comparison of the forms, `comparison_claims` gives both doses and the answer states the dose caveat; the report naming no form is left out; no follow-up measurement is said; `finalize_research` passes and the answer ends with the check line. |
 
 ## Proposing the discriminating test (issue #336)
 
 HRP 20.6.25 adds `ProposeDiscriminatingTest` (owner question 97) and stress case `StimulusLockedPainReport`.
+HRP 20.6.26 moves the rule, its text unchanged, into the core section `HeterodoxEpistemology` (owner question 104), so
+every research answer loads it.
 
 The same test reached UDA's AskRigor lane from ChatGPT at the owner's request
 (`2026-10-15-stimulus-locked-pain-bci-research-test`, UDA #382); its two extra criteria and the 2022 review are folded

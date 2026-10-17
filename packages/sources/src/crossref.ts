@@ -35,6 +35,7 @@ const crossrefMessageSchema = z.object({
   "published-print": datePartsSchema.optional(),
   "published-online": datePartsSchema.optional(),
   issued: datePartsSchema.optional(),
+  resource: z.unknown().optional(),
   "update-to": z.unknown().optional(),
   "updated-by": z.unknown().optional(),
   relation: z.unknown().optional()
@@ -112,7 +113,7 @@ export type RetractionStatus =
   | "corrected_or_updated"
   | "no_retraction_record_found"
   | "unknown";
-export interface CrossrefCandidate { doi: string; title?: string; first_author?: string; year?: string; }
+export interface CrossrefCandidate { doi: string; title?: string; first_author?: string; year?: string; landing_url?: string; }
 export interface ResolveDoiData { resolved_doi: string | null; candidates: CrossrefCandidate[]; }
 export interface RetractionEvidence { type: MarkerType; doi: string | null; date: string | null; source: string | null; raw_label: string; }
 export interface RetractionStatusData { doi: string | null; status: RetractionStatus; evidence: RetractionEvidence[]; sources_checked: ["crossref"]; }
@@ -491,7 +492,23 @@ const candidateFromMessage = (message: Message): CrossrefCandidate => {
   const title = message.title?.find((value) => value.trim().length > 0)?.trim();
   const firstAuthor = message.author?.[0]?.family?.trim();
   const year = publicationYear(message);
-  return { doi, ...(title === undefined ? {} : { title }), ...(firstAuthor === undefined || firstAuthor.length === 0 ? {} : { first_author: firstAuthor }), ...(year === undefined ? {} : { year }) };
+  const landingUrl = landingUrlFromResource(message.resource);
+  return { doi, ...(title === undefined ? {} : { title }), ...(firstAuthor === undefined || firstAuthor.length === 0 ? {} : { first_author: firstAuthor }), ...(year === undefined ? {} : { year }), ...(landingUrl === undefined ? {} : { landing_url: landingUrl }) };
+};
+
+const landingUrlFromResource = (resource: unknown): string | undefined => {
+  if (resource === null || typeof resource !== "object" || Array.isArray(resource)) return undefined;
+  const primary = (resource as Record<string, unknown>).primary;
+  if (primary === null || typeof primary !== "object" || Array.isArray(primary)) return undefined;
+  const value = (primary as Record<string, unknown>).URL;
+  if (typeof value !== "string" || value.length > 500) return undefined;
+  try {
+    const url = new URL(value);
+    return (url.protocol === "https:" || url.protocol === "http:") &&
+      url.username === "" && url.password === "" ? value : undefined;
+  } catch {
+    return undefined;
+  }
 };
 
 const publicationYear = (message: Message): string | undefined => {
