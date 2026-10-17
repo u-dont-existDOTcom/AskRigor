@@ -137,3 +137,13 @@ Validation and closeout:
 Lesson closeout: existing exact-boundary and semantic-judgment rules are covered
 by fixtures; no new general lesson or remote write. Stop admission: the prescribed
 local implementation and verification are complete; no in-scope work remains.
+
+## Live acceptance of the second reading (2026-10-17, Claude session)
+
+One run on a made-up question (ashwagandha root extract for stress over a few months) against live AskRigor (build
+141c229f), with the reading on: the research turn's final check passed after four `not_ready` results; the reading (a
+separate Codex session, low effort, no tools) flagged eight harm statements the declarations left out; the runner sent
+them back once; the AI declared all eight in `safety_claims`, the final check then required their limits and caveats
+(two more `not_ready` results), and passed. The answer shown was the checked draft word for word, and the reading's
+line reported no undeclared statements left. 39 AskRigor calls, 1 shell command, three Codex sessions. Observation: the
+AI opened its revised answer with one sentence about the revision; it was part of the checked draft.
