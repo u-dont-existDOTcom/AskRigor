@@ -287,6 +287,29 @@ function fakeTransport(logs: string[], calls: { args: readonly string[]; input?:
   };
 }
 
+describe("CLI progress", () => {
+  it("reports progress on stderr with counts and statuses only, never the question or the answer", async () => {
+    const stateDir = join(await directory(), "state");
+    const calls: { args: readonly string[]; input?: string; cwd: string }[] = [];
+    let output = "";
+    let progress = "";
+    const tools = Array.from({ length: 10 }, () => mcp("codex_apps", "askrigor_app.search_pubmed"));
+    const code = await runCli(["--state-dir", stateDir, "--no-second-reading", "PRIVATE QUESTION"], {
+      transport: fakeTransport([log(...tools, check("not_ready"), check("ready"), final()).trimEnd()], calls),
+      stdout: (text) => { output += text; }, stderr: (text) => { progress += text; },
+    });
+    expect(code).toBe(0);
+    expect(progress).toContain("AskRigor strict runner: Codex is working with AskRigor.");
+    expect(progress).toMatch(/\d\d:\d\d:\d\d UTC {2}Started\./u);
+    expect(progress).toContain("AskRigor calls so far: 10");
+    expect(progress).toContain("Final check: not_ready");
+    expect(progress).toContain("Final check: ready");
+    expect(progress).not.toContain("PRIVATE QUESTION");
+    expect(progress).not.toContain(answer);
+    expect(output).toBe(`${answer}\n\n${footer}\n`);
+  });
+});
+
 describe("CLI server overrides", () => {
   it("drops an override Codex refuses (a server config.toml does not define) and keeps the feature switches", async () => {
     const stateDir = join(await directory(), "state");
