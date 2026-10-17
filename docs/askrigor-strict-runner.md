@@ -37,6 +37,13 @@ either case. Use separate state directories for separate conversation histories.
 Exit status is 0 for a checked or model-declared non-research answer, 1 for an
 unchecked answer or runtime failure, and 2 for invalid arguments.
 
+## While it runs
+
+A research answer usually takes 5 to 15 minutes. While Codex works, the runner prints progress to the
+terminal's error stream: the time, the number of AskRigor calls (every ten), each final-check status, and when it
+sends the AI back or runs the second reading. Progress lines never contain the question or the answer; the answer
+itself comes at the end, on standard output.
+
 ## What the gate checks
 
 The runner reads local MCP server names and enabled flags at runtime and disables

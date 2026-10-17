@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   codexArguments, emptyTurn, latestCarryForward, localReaderArguments, parseEventLine,
-  restrictedFlagsFromMcpList, runStrictTurn,
+  isAskRigorTool, restrictedFlagsFromMcpList, runStrictTurn,
 } from "./lib/askrigor-strict.mts";
 
 const USAGE = `Usage: npx tsx scripts/askrigor-strict.mts [options] "question"
@@ -183,6 +183,11 @@ export async function runCli(args: readonly string[], dependencies: CliDependenc
       flags.push(...pair);
     }
     if (options.keepLog) log = await open(join(options.stateDir, `events-${randomUUID()}.jsonl`), "wx", 0o600);
+    // Progress goes to stderr, so the answer on stdout stays clean; it holds counts and statuses only, never content.
+    const progress = (line: string) => stderr(`  ${new Date().toISOString().slice(11, 19)} UTC  ${line}\n`);
+    stderr("AskRigor strict runner: Codex is working with AskRigor. A research answer usually takes 5 to 15 minutes; " +
+      "progress shows below, and the answer comes at the end.\n");
+    let started = false;
 
     const outcome = await runStrictTurn({
       ownerText: options.ownerText, carriedState: state?.carry_forward,
@@ -193,6 +198,22 @@ export async function runCli(args: readonly string[], dependencies: CliDependenc
       // resume does not emit thread.started in every CLI version.
       turn.threadId = threadId;
       let pending = "";
+      if (secondReading) progress("Second reading: your Codex is reading the checked answer...");
+      else if (started) progress("Sending the AI back to finish what the check or the reading asked for...");
+      else progress(threadId ? "Continuing the conversation..." : "Started.");
+      started = true;
+      let askRigorCalls = 0;
+      let finalChecks = 0;
+      const report = () => {
+        const calls = turn.tools.filter((call) => isAskRigorTool(call.server, call.tool)).length;
+        if (Math.floor(calls / 10) > Math.floor(askRigorCalls / 10)) progress(`AskRigor calls so far: ${calls}`);
+        askRigorCalls = calls;
+        for (const check of turn.finalizations.slice(finalChecks)) {
+          progress(`Final check: ${check.failed ? "the call failed" : check.status}` +
+            (check.status === "not_ready" && check.nextSteps.length > 0 ? ` (${check.nextSteps.length} step(s) left)` : ""));
+        }
+        finalChecks = turn.finalizations.length;
+      };
       try {
         const args = secondReading ? localReaderArguments(workDir, flags) : codexArguments(workDir, flags, threadId);
         const code = await transport(args, prompt, workDir, async (chunk) => {
@@ -202,6 +223,7 @@ export async function runCli(args: readonly string[], dependencies: CliDependenc
           while ((newline = pending.indexOf("\n")) >= 0) {
             parseEventLine(turn, pending.slice(0, newline));
             pending = pending.slice(newline + 1);
+            if (!secondReading) report();
           }
         });
         if (pending) parseEventLine(turn, pending);
