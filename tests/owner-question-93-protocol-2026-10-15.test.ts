@@ -35,7 +35,7 @@ const PINS = {
   to: { version: "20.6.24", sha256: "04bf76e20ebab9ab5cd6138ca45adbce79dccdd91a505df5ada14366bc0b0589" },
   hrp20622: "da82943f56614783d9316bd9a7d87a3233bf8c03255f20c88cc7bfefa39d73e9",
   hrp20621: "e43fcb2174645f30fc7d8e7f143e2d17403c69d39d5824efc1d6a0d764bf68d7",
-  universal: { version: "20.5.43", sha256: "7f03ddbd280a9906860f5a34b022b95931f61da87377b3c6e33afcdbaf9a1bdd" },
+  universal: { version: "20.5.44", sha256: "fdd65bb109c256623b7c10f7c2c1dc6c4e9e8806d1ed1077d950d3ad267c6722" },
 } as const;
 const WIDTH = 118;
 const GATE = "PatientSpecificInterventionSafetyReconciliationGate";
@@ -105,12 +105,12 @@ describe("owner-approved question 93: 93a (2026-10-15)", () => {
     await expect(undoOwnerQuestions90To92Hrp(await loadCurrent())).resolves.toBe(beforePrevious);
     expect(hash(await undoOwnerQuestions86To89Hrp(await loadCurrent()))).toBe(PINS.hrp20621);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: "20.6.26", revisionDate: "2026-10-16", sha256: hash(await loadCurrent()),
+      name: "HRP", version: "20.6.27", revisionDate: "2026-10-17", sha256: hash(await loadCurrent()),
     });
     const universal = await loadCurrent("Universal_Instructions.xml");
     expect(hash(universal)).toBe(PINS.universal.sha256);
     await expect(getProtocolManifest("universal")).resolves.toEqual({
-      name: "AskRigor.com universal saved instructions", version: PINS.universal.version, revisionDate: "2026-10-15",
+      name: "AskRigor.com universal saved instructions", version: PINS.universal.version, revisionDate: "2026-10-17",
       sha256: PINS.universal.sha256,
     });
   });
@@ -150,7 +150,7 @@ describe("owner-approved question 93: 93a (2026-10-15)", () => {
     const bytes = await readFile(new URL("protocols/HRP_Full.xml", ROOT));
     const { manifest, sections, text } = await loadProtocolSectionSnapshot("hrp");
     expect(text).toBe(bytes.toString("utf8"));
-    expect(manifest).toEqual({ name: "HRP", version: "20.6.26", revisionDate: "2026-10-16", sha256: hash(text) });
+    expect(manifest).toEqual({ name: "HRP", version: "20.6.27", revisionDate: "2026-10-17", sha256: hash(text) });
     const [rule, ...others] = protocolNamedElements(text, "SafestOptionsFirst");
     expect(others).toEqual([]);
     expect(rule).toMatchObject({ tag: "Rule", section: GATE });

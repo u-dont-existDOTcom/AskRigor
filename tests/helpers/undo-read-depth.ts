@@ -18,7 +18,16 @@ async function undoRecordedEdits(text: string, protocol: "hrp" | "universal", fi
   return prior;
 }
 
+export async function undoOwnerQuestion109Hrp(text: string): Promise<string> {
+  return undoRecordedEdits(text, "hrp", "2026-10-17-owner-question-109-hrp.json");
+}
+
+export async function undoOwnerQuestion109Universal(text: string): Promise<string> {
+  return undoRecordedEdits(text, "universal", "2026-10-17-owner-question-109-universal.json");
+}
+
 export async function undoOwnerQuestions103And104Hrp(text: string): Promise<string> {
+  text = await undoOwnerQuestion109Hrp(text);
   return undoRecordedEdits(text, "hrp", "2026-10-16-owner-questions-103-104-hrp.json");
 }
 
@@ -38,6 +47,7 @@ export async function undoOwnerQuestions90To92Hrp(text: string): Promise<string>
 }
 
 export async function undoMobileNoticeUniversal(text: string): Promise<string> {
+  text = await undoOwnerQuestion109Universal(text);
   return undoRecordedEdits(text, "universal", "2026-10-15-mobile-notice-universal.json");
 }
 

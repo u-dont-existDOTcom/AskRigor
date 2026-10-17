@@ -1,6 +1,7 @@
+import { z } from "zod";
 import { expect } from "vitest";
 import { createToolInventory } from "../../scripts/generate-tool-inventory.mts";
-import { normalizeIdentifier, type FinalizeResearchOutput } from "../../apps/research-mcp/src/research-finalization-gate.js";
+import { finalizeResearchInputSchema, normalizeIdentifier, type FinalizeResearchOutput } from "../../apps/research-mcp/src/research-finalization-gate.js";
 
 // Receipt field returned by retrieval and audit tools, referenced by the final check.
 export const NEXT_STEP_OUTPUT_FIELDS = ["research_receipt"] as const;
@@ -28,7 +29,8 @@ export const inventory = await createToolInventory();
 // A next step may name any field or value the published contract exposes: finalize_research's own inputs, another
 // AskRigor tool's inputs (an explicitly named operation), or a value a tool returns that the caller has already seen.
 export const allowedNextStepIdentifiers = schemaIdentifiers(
-  inventory.tools.flatMap((tool) => [tool.inputSchema, (tool as { outputSchema?: unknown }).outputSchema]),
+  [...inventory.tools.flatMap((tool) => [tool.inputSchema, (tool as { outputSchema?: unknown }).outputSchema]),
+    z.toJSONSchema(finalizeResearchInputSchema, { target: "draft-7", io: "input" })],
   new Set([...inventory.tools.map(({ name }) => name), ...NEXT_STEP_OUTPUT_FIELDS])
 );
 

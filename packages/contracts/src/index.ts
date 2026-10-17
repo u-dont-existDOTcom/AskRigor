@@ -31,6 +31,7 @@ export interface ProviderError {
   code: string;
   message: string;
   http_status?: number;
+  failure_kind?: "timeout" | "network";
   retryable?: boolean;
 }
 
@@ -79,6 +80,7 @@ export interface ErrorEnvelopeInput<T> extends EnvelopeInput {
   code: string;
   message: string;
   httpStatus?: number;
+  failureKind?: "timeout" | "network";
   retryable?: boolean;
   data?: T;
 }
@@ -126,6 +128,7 @@ export function errorEnvelope<T = unknown[]>(
       code: input.code,
       message: input.message,
       ...(input.httpStatus === undefined ? {} : { http_status: input.httpStatus }),
+      ...(input.failureKind === undefined ? {} : { failure_kind: input.failureKind }),
       ...(input.retryable === undefined ? {} : { retryable: input.retryable }),
     },
     data: input.data ?? [],

@@ -16,6 +16,7 @@ import {
 } from "./auditable-document-index.js";
 import {
   fetchDiscoveredDocument,
+  upstreamFailureDetails,
   type DiscoveredDocumentFetchRuntime,
   type FetchedDiscoveredDocument
 } from "./http.js";
@@ -49,11 +50,14 @@ export interface AcquireUnpaywallFullTextRuntime {
 export interface UnpaywallFullTextData {
   public_basis?: PublicBasis;
   requested_doi: string;
+  discovery_failure?: { http_status?: number; failure_kind?: "timeout" | "network" };
   outcome: "full_text_indexed" | "possibly_useful_lead";
   discovery_status: string;
   attempted_locations: Array<{
     url: string;
     version?: string;
+    http_status?: number;
+    failure_kind?: "timeout" | "network";
     result: "indexed" | "fetch_failed" | "not_pdf" | "identity_not_verified" | "extraction_failed" | "partial_text" | "abstract_only";
   }>;
   document_index?: AuditableDocumentIndex;
@@ -78,8 +82,9 @@ export async function acquireUnpaywallFullText(
   const fetcher = runtime.fetchDocument ?? fetchDiscoveredDocument;
   const extractor = runtime.extractPdf ?? extractAuditablePdf;
   let resolution: Awaited<ReturnType<typeof resolver>>;
-  try { resolution = await resolver(doi, config); } catch {
-    return unavailable(doi, "error", [], "Unpaywall metadata retrieval failed.", "PROVIDER_UNAVAILABLE");
+  try { resolution = await resolver(doi, config); } catch (error) {
+    return unavailable(doi, "error", [], "Unpaywall metadata retrieval failed.", "PROVIDER_UNAVAILABLE",
+      undefined, undefined, upstreamFailureDetails(error));
   }
   if (
     resolution.access_status !== "metadata_only" ||
@@ -90,7 +95,8 @@ export async function acquireUnpaywallFullText(
       resolution.access_status,
       [],
       "Open-access resolution did not produce an auditable document location.",
-      resolution.access_status === "not_found" ? "PRIMARY_OA_ROUTES_EXHAUSTED" : "PROVIDER_UNAVAILABLE"
+      resolution.access_status === "not_found" ? "PRIMARY_OA_ROUTES_EXHAUSTED" : "PROVIDER_UNAVAILABLE",
+      undefined, undefined, resolution.error
     );
   }
 
@@ -125,8 +131,8 @@ export async function acquireUnpaywallFullText(
     let fetched: FetchedDiscoveredDocument;
     try {
       fetched = await fetcher(url, runtime.documentFetchRuntime);
-    } catch {
-      attempts.push(attempt(location, url, "fetch_failed"));
+    } catch (error) {
+      attempts.push({ ...attempt(location, url, "fetch_failed"), ...upstreamFailureDetails(error) });
       continue;
     }
     if (!looksLikePdf(fetched) || !hasPdfMagic(fetched.bytes)) {
@@ -376,7 +382,8 @@ function unavailable(
   boundary: string,
   state: AcquisitionState = "PRIMARY_OA_ROUTES_EXHAUSTED",
   identity?: FrozenArticleIdentity,
-  publicBasis?: PublicBasis
+  publicBasis?: PublicBasis,
+  discoveryFailure?: { http_status?: number; failure_kind?: "timeout" | "network" }
 ): ProvenanceEnvelope<UnpaywallFullTextData> {
   const envelope = errorEnvelope({
     provider: "unpaywall",
@@ -397,6 +404,10 @@ function unavailable(
       requested_doi: doi,
       outcome: "possibly_useful_lead",
       discovery_status: discoveryStatus,
+      ...(discoveryFailure === undefined ? {} : { discovery_failure: {
+        ...(discoveryFailure.http_status === undefined ? {} : { http_status: discoveryFailure.http_status }),
+        ...(discoveryFailure.failure_kind === undefined ? {} : { failure_kind: discoveryFailure.failure_kind })
+      } }),
       attempted_locations: attempts,
       access_boundary: boundary,
       acquisition_state: state,

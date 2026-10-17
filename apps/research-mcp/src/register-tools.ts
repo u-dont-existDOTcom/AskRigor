@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readAnswer, secondReaderEnabled, type SecondReader } from "./second-reader.js";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { FINAL_CHECK_PANEL_URI } from "./final-check-panel.js";
@@ -31,6 +32,7 @@ import {
   type AcquireOpenFullTextRuntime,
   hasFailedFullTextAcquisition,
   canSignFullTextLead,
+  failedPrimaryRoutes,
   fetchClinicalTrial,
   fetchPubmedRecord,
   checkRetractionStatus,
@@ -204,12 +206,14 @@ import {
 } from "./actions/open-full-text-route.js";
 import type { ReportedFiguresCheck } from "./actions/study-method-audit.js";
 import {
+  LEAD_RECEIPT_SEARCH,
   FINALIZE_REMINDER,
   FINALIZE_RESEARCH_CONTRACT,
   FINALIZE_RESEARCH_SHAPES_DESCRIPTION,
   finalizeResearch,
   protocolNamesFrom,
-  finalizeResearchInputSchema,
+  finalizeResearchConnectorInputSchema,
+  parseFinalizeResearchInput,
   finalizeResearchOutputSchema,
   type FinalizeResearchOutput
 } from "./research-finalization-gate.js";
@@ -749,6 +753,8 @@ const CONNECTOR_ONLY_OPERATION_NAMES = new Set([
 export type McpSurface = "/mcp" | "/mcp/gemini" | "/mcp/claude";
 
 export interface RegisterToolsOptions {
+  /** Replaces the configured second reader for deterministic tests. */
+  secondReader?: SecondReader;
   infoAccess?: InfoAccessClient;
   publicEvidenceGapReviewService?: PublicEvidenceGapIntakeService;
   oauthResourceMetadataUrl?: URL;
@@ -2048,8 +2054,11 @@ function defineResearchOperations(
         "not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results " +
         "(scale_results: quoted explanations with the scale name, range, values and benchmark), visible links to " +
         "each key study, and the caveats, " +
-        "and is not stored. Result: " +
-        "contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh " +
+        "and is not stored; once the other checks pass, a second model may read the answer for harm " +
+        "statements, specialized terms and scale results the declarations leave out (reader_dismissed answers them); " +
+        "in a later turn, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened. Result: " +
+        "second_reading, whether it ran; " +
+        "carry_forward, the conversation's state to pass back next turn; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh " +
         "hint when a required declaration is missing; ready_with_limits with the limits, the caveat sentences for the answer " +
         "(each as its own sentence and as written, in the answer's language when answer_language and " +
         "caveat_renderings are given) and must_report, what the answer reports from each lane researched; " +
@@ -2060,7 +2069,7 @@ function defineResearchOperations(
         // The only text ChatGPT's app shows the model for this tool (Codex probes, 2026-10-16): the JSON of the
         // inputs its type hides, from which the regression's first calls invented fields.
         FINALIZE_RESEARCH_SHAPES_DESCRIPTION,
-      inputSchema: finalizeResearchInputSchema,
+      inputSchema: finalizeResearchConnectorInputSchema(options.mcpSurface !== "/mcp/claude"),
       outputSchema: finalizeResearchOutputSchema,
       ...(options.mcpSurface === "/mcp/gemini" ? {} : {
         _meta: {
@@ -2075,7 +2084,10 @@ function defineResearchOperations(
     async (input, extra) => {
       // Reddit's public embed endpoint confirms each cited Reddit thread's
       // subreddit and title; only the links are sent.
-      const redditLinks = (input.community_searches ?? []).filter(({ platform }) => platform === "reddit")
+      const parsed = parseFinalizeResearchInput(input);
+      const checkedInput = parsed.success ? parsed.data : undefined;
+      const secret = researchReceiptSecretFromEnv();
+      const redditLinks = (checkedInput?.community_searches ?? []).filter(({ platform }) => platform === "reddit")
         .flatMap(({ threads_read }) => (threads_read ?? []).map(({ url }) => url));
       // Owner decision Q11 (2026-09-30): the free tier's findings are saved by
       // the agreement its user accepted; a paid-private answer offers the save,
@@ -2083,24 +2095,35 @@ function defineResearchOperations(
       const library = options.findingsLibrary ?? findingsLibraryEnabledFromEnv();
       const researcher = await researchUseAccount(extra, options.researchContributorAccessService);
       const account = library ? researcher : undefined;
-      const result = finalizeResearch(input, {
-        secret: researchReceiptSecretFromEnv(),
+      const finalizeOptions = {
+        secret,
         protocolNames: await protocolNames(),
         findings: !library
-          ? "closed"
-          : account === undefined ? "private" : account.mode === "FREE_CONTRIBUTOR" ? "save" : "offer",
+          ? "closed" as const
+          : account === undefined ? "private" as const : account.mode === "FREE_CONTRIBUTOR" ? "save" as const : "offer" as const,
         ...(readsOnMobile(extra._meta) ? { mobileClient: true } : {}),
         ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) })
-      });
+      };
+      let result = finalizeResearch(input, finalizeOptions);
+      const reader = options.secondReader ?? { enabled: secondReaderEnabled, readAnswer };
+      if (reader.enabled && checkedInput?.answer_draft !== undefined &&
+        (result.status === "ready" || result.status === "ready_with_limits")) {
+        const secondReading = await reader.readAnswer(checkedInput.answer_draft, {
+          safety_claims: checkedInput.safety_claims ?? [],
+          key_terms: checkedInput.key_terms ?? [],
+          scale_results: checkedInput.scale_results ?? []
+        });
+        result = finalizeResearch(input, { ...finalizeOptions, secondReading });
+      }
       if (
-        account?.mode === "FREE_CONTRIBUTOR" && input.findings_card !== undefined &&
+        account?.mode === "FREE_CONTRIBUTOR" && checkedInput?.findings_card !== undefined &&
         result.findings_card.status === "checked" && result.finalization_receipt !== undefined
       ) {
         const save = (options.findingsSave ?? saveResearchFindings)({
-          findings_card: input.findings_card,
+          findings_card: checkedInput.findings_card,
           finalization_receipt: result.finalization_receipt,
           contributor: account.accountKey,
-          ...(input.reported_model === undefined ? {} : { reported_model: input.reported_model })
+          ...(checkedInput.reported_model === undefined ? {} : { reported_model: checkedInput.reported_model })
         }, {
           surface: options.mcpSurface ?? "unknown",
           toolCatalogSha256: toolCatalogSha256(),
@@ -2111,8 +2134,8 @@ function defineResearchOperations(
           { status: "unconfirmed" }
         );
       }
-      // Analyses validated in a free contributor's research go to the review
-      // inbox once the final check passes, like the findings card.
+      // Analyses a free contributor's research validated, in this chat or another, go to the review inbox at the
+      // account's next passing final check (analysis-staging.ts).
       if (researcher?.mode === "FREE_CONTRIBUTOR" && result.finalization_receipt !== undefined) {
         const held = ANALYSIS_STAGING.take(researcher.accountKey);
         if (held.length > 0) {
@@ -2146,12 +2169,15 @@ function defineResearchOperations(
                 : card.problems.length === 0 ? "." : `: ${card.problems.join(" ")}`)) +
           (analyses === undefined
             ? ""
-            : `\nStudy and review analyses sent to the review inbox: ${analyses.saved + analyses.already_saved}` +
+            : `\nStudy and review analyses from this account's research, in this chat or another, sent to the review inbox: ${analyses.saved + analyses.already_saved}` +
               (analyses.unconfirmed === 0 ? "" : `, ${analyses.unconfirmed} still sending`) +
               (analyses.not_saved.length === 0
                 ? ""
                 : `; not saved: ${analyses.not_saved.map(({ reason, count }) => `${count} (${reason})`).join(", ")}`) +
-              "."),
+              ".") +
+          (result.carry_forward === undefined
+            ? (result.carry_forward_note === undefined ? "" : `\n${result.carry_forward_note}`)
+            : `\nPass this as carried_state in this conversation's next finalize_research call: ${result.carry_forward}`),
         result as unknown as Record<string, unknown>
       );
       return toolResult;
@@ -2761,17 +2787,34 @@ async function invokeOpenFullTextMcp(
   const failedLead = operationId === "acquire_open_full_text" &&
     (result.body as { status?: string }).status === "possibly_useful_lead" &&
     hasFailedFullTextSource(result.body);
+  const receipt = openFullTextResearchReceipt(operationId, result.body);
+  const output = result.body as Parameters<typeof canSignFullTextLead>[0] & Parameters<typeof failedPrimaryRoutes>[0];
+  const failed = failedPrimaryRoutes(output);
+  const routeList = [...new Set(failed.map((attempt) =>
+    `${attempt.route === "europe_pmc" ? "Europe PMC" : "Unpaywall"}: ${attempt.http_status === undefined
+      ? attempt.failure_kind : `HTTP ${attempt.http_status}`}`))].sort().join(", ");
+  const failureText = failed.length > 0 && output.public_copy_search?.status !== "declared"
+    ? ` ${LEAD_RECEIPT_SEARCH}`
+    : failed.length > 0 && receipt !== undefined
+      ? ` A full-text service failed (${routeList}), and the research_receipt records it. ` +
+        "Try acquire_open_full_text again at least a minute after this attempt; if the service fails again, pass both " +
+        "receipts to finalize_research and cite this study as a lead."
+      : output.discovery_attempts?.some(({ route, result }) => route === "candidate" && result === "error") &&
+          !output.discovery_attempts.some(({ route, result }) =>
+            (route === "europe_pmc" || route === "unpaywall") && result === "error")
+        ? " A supplied candidate failed; no AskRigor route failed. Pass a public copy read with your own search as " +
+          'candidate_texts with retrieved_via "client_search_index" for identity and completeness checks.'
+        : " A source failed (an outage or rate limit), so this is not yet a completed lead and has no receipt. " +
+          "A later acquire_open_full_text attempt can establish a completed boundary before the study is listed as lead_only.";
   return withResearchReceipt({
     content: [{
       type: "text",
       text: `${operationId.replaceAll("_", " ")} completed.` +
         ((result.body as { access_boundary?: string; acquisition_state?: string }).acquisition_state === undefined ? "" : ` ${(result.body as { access_boundary?: string }).access_boundary ?? ""}`) + (failedLead
-        ? " A source failed (an outage or rate limit), so this is not yet a completed lead and has no receipt. " +
-          "A later acquire_open_full_text attempt can establish a completed boundary before the study is listed as lead_only."
-        : "")
+        ? failureText : "")
     }],
     structuredContent: result.body as Record<string, unknown>
-  }, openFullTextResearchReceipt(operationId, result.body));
+  }, receipt);
 }
 
 const OPEN_FULL_TEXT_READER = createOpenFullTextExecutor();
@@ -2791,8 +2834,22 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
   };
   if (operationId === "acquire_open_full_text" && output.status === "possibly_useful_lead") {
     // A lead receipt records completed attempts, not proof of paper
-    // inaccessibility. Exact expanded search and no technical failures are required.
-    if (!canSignFullTextLead(body as Parameters<typeof canSignFullTextLead>[0])) return undefined;
+    // inaccessibility. A service failure gets its own receipt after the exact search;
+    // only a completed lead can bypass the final check's spaced-retry rule.
+    if (!canSignFullTextLead(body as Parameters<typeof canSignFullTextLead>[0])) {
+      const failed = failedPrimaryRoutes(body as Parameters<typeof failedPrimaryRoutes>[0]);
+      if (failed.length === 0 ||
+          (body as Parameters<typeof canSignFullTextLead>[0]).public_copy_search?.status !== "declared") return undefined;
+      return researchReceipt("full_text_route_failure", {
+        doi: output.requested_doi,
+        pmcid: failed.find(({ route, identifier }) => route === "europe_pmc" && identifier?.startsWith("PMC"))?.identifier
+          ?? output.requested_pmcid,
+        routes: [...new Set(failed.map(({ route }) => route!))].sort(),
+        http: [...new Set(failed.map(({ http_status, failure_kind }) =>
+          http_status === undefined ? failure_kind! : String(http_status)))].sort(),
+        state: output.acquisition_state
+      });
+    }
     // Lead candidate URLs were never read, so their identity is unverified.
     return researchReceipt("full_text_lead", {
       doi: output.requested_doi,

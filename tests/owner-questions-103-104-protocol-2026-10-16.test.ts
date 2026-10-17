@@ -6,15 +6,16 @@ import {
   coreSectionNames, getProtocolManifest, loadProtocolSectionSnapshot, protocolNamedElements, protocolSections,
 } from "@askrigor/protocol";
 import {
-  undoOwnerQuestion93Hrp, undoOwnerQuestions103And104Hrp, undoOwnerQuestions86To89Hrp,
+  undoOwnerQuestion109Hrp, undoOwnerQuestion93Hrp, undoOwnerQuestions103And104Hrp, undoOwnerQuestions86To89Hrp,
   undoOwnerQuestions90To92Hrp, undoOwnerQuestions97And99Hrp, undoReadDepth,
 } from "./helpers/undo-read-depth.js";
 
 const ROOT = new URL("../", import.meta.url);
 const parser = new XMLParser({ parseTagValue: false });
 const hash = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
-const load = () => readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
-const loadPrior = async () => undoOwnerQuestions103And104Hrp(await load());
+const loadCurrent = () => readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
+const load = async () => undoOwnerQuestion109Hrp(await loadCurrent());
+const loadPrior = async () => undoOwnerQuestions103And104Hrp(await loadCurrent());
 interface Edits {
   from: { version: string; sha256: string }; to: { version: string; sha256: string };
   edits: Array<[string, string]>;
@@ -30,6 +31,7 @@ const APPROVED = {
 // This rule already existed in 20.6.25; its wording is locked independently of the fixture and prior bytes.
 const RULE_ID = "ProposeDiscriminatingTest";
 const APPROVED_RULE = "When the evidence found cannot answer the question but methods that exist could, describe the test that would answer it as soon as those methods come up, without being asked: what is compared, the control condition, and what each result would show. Say it appears not to have been done only after an adequate search; a narrow search does not show that nobody has done it, and supposed barriers are not documented reasons.";
+const CURRENT_HRP = {"version": "20.6.27", "sha256": "f7aa8bfcd03abd3c4803359d7c12d7026f0e58d49f5ebad26403dca3443316aa"};
 const PINS = {
   from: { version: "20.6.25", sha256: "f3f1d9d2f60eb0dd376d93a09910a7a26e3543b4cdb8f540298a977315d4beb5" },
   to: { version: "20.6.26", sha256: "e681ed981471a38ac93c1eb6c13fb86e70fc6e8cb55e07d517bfc715d97c6cfa" },
@@ -37,7 +39,7 @@ const PINS = {
   hrp20623: "6623056eab84a60a0a82ac33a5aa0145cb84725d1be60aedfa77faf3d69899bd",
   hrp20622: "da82943f56614783d9316bd9a7d87a3233bf8c03255f20c88cc7bfefa39d73e9",
   hrp20621: "e43fcb2174645f30fc7d8e7f143e2d17403c69d39d5824efc1d6a0d764bf68d7",
-  universal: { version: "20.5.43", sha256: "7f03ddbd280a9906860f5a34b022b95931f61da87377b3c6e33afcdbaf9a1bdd" },
+  universal: { version: "20.5.44", sha256: "fdd65bb109c256623b7c10f7c2c1dc6c4e9e8806d1ed1077d950d3ad267c6722" },
 } as const;
 const CASE_ID = "FormSpecificForumReports";
 const CASE_XML = `  <Case id="FormSpecificForumReports">
@@ -107,24 +109,24 @@ describe("owner-approved questions 103 and 104: 103 a, 104a (2026-10-16)", () =>
     expect(prior).toContain(`<Protocol name="HRP" version="${PINS.from.version}" revisionDate="2026-10-16"`);
     expect(hash(prior)).toBe(PINS.from.sha256);
     expect(fixture.edits.reduce((text, [before, after]) => replaceOnce(text, before, after), prior)).toBe(current);
-    await expect(undoOwnerQuestions103And104Hrp(current)).resolves.toBe(prior);
+    await expect(undoOwnerQuestions103And104Hrp(await loadCurrent())).resolves.toBe(prior);
     const beforePrevious = [...previous.edits].reverse().reduce((text, [before, after]) => replaceOnce(text, after, before), prior);
     expect(hash(beforePrevious)).toBe(PINS.hrp20624);
-    await expect(undoOwnerQuestions97And99Hrp(current)).resolves.toBe(beforePrevious);
-    expect(hash(await undoOwnerQuestion93Hrp(current))).toBe(PINS.hrp20623);
-    expect(hash(await undoOwnerQuestions90To92Hrp(current))).toBe(PINS.hrp20622);
-    expect(hash(await undoOwnerQuestions86To89Hrp(current))).toBe(PINS.hrp20621);
+    await expect(undoOwnerQuestions97And99Hrp(await loadCurrent())).resolves.toBe(beforePrevious);
+    expect(hash(await undoOwnerQuestion93Hrp(await loadCurrent()))).toBe(PINS.hrp20623);
+    expect(hash(await undoOwnerQuestions90To92Hrp(await loadCurrent()))).toBe(PINS.hrp20622);
+    expect(hash(await undoOwnerQuestions86To89Hrp(await loadCurrent()))).toBe(PINS.hrp20621);
     const readDepth = JSON.parse(await readFile(new URL(
       "tests/fixtures/protocol-edits/2026-10-11-read-depth.json", ROOT,
     ), "utf8")).hrp as Edits;
-    expect(hash(await undoReadDepth(current, "hrp"))).toBe(readDepth.from.sha256);
+    expect(hash(await undoReadDepth(await loadCurrent(), "hrp"))).toBe(readDepth.from.sha256);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: PINS.to.version, revisionDate: "2026-10-16", sha256: PINS.to.sha256,
+      name: "HRP", version: CURRENT_HRP.version, revisionDate: "2026-10-17", sha256: CURRENT_HRP.sha256,
     });
     const universal = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
     expect(hash(universal)).toBe(PINS.universal.sha256);
     await expect(getProtocolManifest("universal")).resolves.toEqual({
-      name: "AskRigor.com universal saved instructions", version: PINS.universal.version, revisionDate: "2026-10-15",
+      name: "AskRigor.com universal saved instructions", version: PINS.universal.version, revisionDate: "2026-10-17",
       sha256: PINS.universal.sha256,
     });
   });
@@ -157,7 +159,7 @@ describe("owner-approved questions 103 and 104: 103 a, 104a (2026-10-16)", () =>
     const bytes = await readFile(new URL("protocols/HRP_Full.xml", ROOT));
     const { manifest, sections, text } = await loadProtocolSectionSnapshot("hrp");
     expect(text).toBe(bytes.toString("utf8"));
-    expect(manifest).toEqual({ name: "HRP", version: PINS.to.version, revisionDate: "2026-10-16", sha256: PINS.to.sha256 });
+    expect(manifest).toEqual({ name: "HRP", version: CURRENT_HRP.version, revisionDate: "2026-10-17", sha256: CURRENT_HRP.sha256 });
     const [found, ...others] = protocolNamedElements(text, CASE_ID);
     expect(others).toEqual([]);
     expect(found).toMatchObject({ tag: "Case", section: "StressTestExpectations" });

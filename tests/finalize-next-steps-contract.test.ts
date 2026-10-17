@@ -4,7 +4,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
-  FINALIZE_RESEARCH_CONTRACT, MOBILE_NOTICE, TOOL_LIST_REFRESH_HINT, finalizeResearch,
+  FINALIZE_RESEARCH_CONTRACT, MOBILE_NOTICE, TOOL_LIST_REFRESH_HINT, finalizeResearch, finalizeResearchPublishedInputSchema,
   type FinalizeResearchInput, type FinalizeResearchOutput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt, researchTargetDigest } from "../apps/research-mcp/src/research-receipts.js";
@@ -31,7 +31,7 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   receipts: [study()], research_target: TARGET, research_depth: "deep", treatment_choice: "not_compared",
   community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome", not_relevant_reason: "Pure chemical mechanism with no real-world outcome.",
   commercial_review_applicability: declaration, intervention_identity: declaration,
-  key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: DOI, status: "validated" }], absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
+  key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: DOI, status: "validated" }], absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
   answer_draft: `[Study](https://doi.org/${DOI}) describes ion exchange.`, ...overrides
 });
 const sourceInput = (id: string, answer: string, receipts = [study(id)]) => base({
@@ -68,8 +68,11 @@ describe("finalize next-step identifier contract", () => {
   it("pins descriptive catalog wording for the changed contract and link fields", () => {
     const tool = inventory.tools.find(({ name }) => name === "finalize_research")!;
     expect(tool.description).toContain(
-      "visible links to each key study, and the caveats, and is not stored. Result: " +
-      "contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh " +
+      "visible links to each key study, and the caveats, and is not stored; once the other checks pass, a second model may read the answer for harm " +
+      "statements, specialized terms and scale results the declarations leave out (reader_dismissed answers them); " +
+      "in a later turn, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened. Result: " +
+      "second_reading, whether it ran; " +
+      "carry_forward, the conversation's state to pass back next turn; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh " +
       "hint when a required declaration is missing;"
     );
     const input = tool.inputSchema as { properties: Record<string, { description: string }> };
@@ -88,7 +91,7 @@ describe("finalize next-step identifier contract", () => {
       "answer interprets no lab result and plans no test. Required when key_sources is non-empty; each covered quote " +
       "is compared with the answer for this call only. Applicability and advice quality remain the model's declaration."
     );
-    const searches = tool.inputSchema as { properties: { community_searches: { items: { properties: {
+    const searches = finalizeResearchPublishedInputSchema({ relaxed: false }) as { properties: { community_searches: { items: { properties: {
       review_corpora: { description: string; items: { properties: Record<string, {
         description: string; properties?: Record<string, { description: string }>
       }> } }

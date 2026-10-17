@@ -17,7 +17,7 @@ describe("portable task-mode integration source contract", () => {
   ];
   it.each(expected)("loads the %s obligation at the protocol consumer", async (name, phrase) => {
     const { text, manifest } = await loadProtocolSnapshot("universal");
-    expect(manifest).toMatchObject({ version: "20.5.43", revisionDate: "2026-10-15" });
+    expect(manifest).toMatchObject({ version: "20.5.44", revisionDate: "2026-10-17" });
     const gate = parser.parse(text).Protocol.reasoning_selection.task_mode_integration;
     expect(gate["@_ruleId"]).toBe("portable.task-mode-integration.v1");
     expect(gate.rule.filter((rule: Record<string, string>) => rule["@_name"] === name)).toHaveLength(1);

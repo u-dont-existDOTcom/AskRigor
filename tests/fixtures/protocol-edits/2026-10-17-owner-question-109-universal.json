@@ -1,0 +1,27 @@
+{
+  "purpose": "Owner-approved question 109, from the owner's answer \"109a 110a 111a\" (2026-10-17), from lessons #32 to #37. Exact approved text apart from XML formatting; reversible UNIVERSAL 20.5.44 edits chained from the mobile notice Universal 20.5.43.",
+  "universal": {
+    "from": {
+      "version": "20.5.43",
+      "sha256": "7f03ddbd280a9906860f5a34b022b95931f61da87377b3c6e33afcdbaf9a1bdd"
+    },
+    "to": {
+      "version": "20.5.44",
+      "sha256": "fdd65bb109c256623b7c10f7c2c1dc6c4e9e8806d1ed1077d950d3ad267c6722"
+    },
+    "edits": [
+      [
+        "version=\"20.5.43\" revisionDate=\"2026-10-15\"",
+        "version=\"20.5.44\" revisionDate=\"2026-10-17\""
+      ],
+      [
+        "<revision_history>\n",
+        "<revision_history>\n<revision version=\"20.5.44\" priority=\"Critical\">\nOwner-approved, question 109 (2026-10-17), from lesson #37: after sending a bug report, AskRigor says what the lesson\ntool returned (saved for review, already in review, or not saved and why) and never says it was sent without that\nresult.\n</revision>\n"
+      ],
+      [
+        "Send it only after the user says yes, and only through a lesson tool or Action this surface actually offers; if it offers none, say so and tell the user it can be sent through AskRigor's lesson Action. When the user clarifies,",
+        "Send it only after the user says yes, and only through a lesson tool or Action this surface actually offers; if it offers none, say so and tell the user it can be sent through AskRigor's lesson Action. After sending, say what the tool returned: saved for review, already in review, or not saved and why; without that result, do not say it was sent. When the user clarifies,"
+      ]
+    ]
+  }
+}

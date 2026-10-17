@@ -9,6 +9,7 @@ import { searchEuropePmc, type EuropePmcRecord } from "./europe-pmc.js";
 import { admitFullText, candidateUrlsSchema, candidateTextsSchema, checkPublicCopySearch, publicCopySearchSchema, titleVariants, hasFailedFullTextAcquisition, sourceClassRank, type AcquisitionState, type CandidateText, type CandidateUrl, type FrozenArticleIdentity, type FullTextCandidate, type PublicCopySearch, type PublicCopySearchResult, type PublicBasis, type FullTextAdmission } from "./full-text-admission.js";
 import { indexJatsStudyDocument } from "./jats-study-index.js";
 import { acquireUnpaywallFullText, type AcquireUnpaywallFullTextRuntime, extractAuditablePdf } from "./unpaywall-full-text.js";
+import { upstreamFailureDetails } from "./http.js";
 import type { UnpaywallConfig } from "./unpaywall.js";
 
 const DOI_PATTERN = /^10\.\d{4,9}\/[!#$%&'*+\-._;()/:a-z0-9]+$/iu;
@@ -47,6 +48,7 @@ export interface OpenFullTextAcquisitionData {
     result: "indexed" | "not_found" | "inaccessible" | "fetch_blocked" | "error" | "partial_text" | "abstract_only" | "identity_mismatch" | "not_public";
     identifier?: string;
     http_status?: number;
+    failure_kind?: "timeout" | "network";
     retryable?: boolean;
   }>;
   document_index?: AuditableDocumentIndex;
@@ -88,8 +90,9 @@ export async function acquireOpenFullText(
         resolvedPmcid ??= records[0]!.pmcid?.toUpperCase();
       }
       if (resolvedPmcid === undefined) attempts.push({ route: "europe_pmc", result: "not_found" });
-    } else attempts.push({ route: "europe_pmc", result: routeResult(result.access_status) });
-  } catch { attempts.push({ route: "europe_pmc", result: "error" }); }
+    } else attempts.push({ route: "europe_pmc", result: routeResult(result.access_status),
+      ...responseFailureDetails(result.error) });
+  } catch (error) { attempts.push({ route: "europe_pmc", result: "error", ...upstreamFailureDetails(error) }); }
   if (resolvedPmcid !== undefined) {
     try {
       const result = await (runtime.fetchEuropePmcFullText ?? fetchEuropePmcFullText)(resolvedPmcid);
@@ -109,9 +112,9 @@ export async function acquireOpenFullText(
           attempts.push({ route: "europe_pmc", result: admission.state === "ABSTRACT_ONLY" ? "abstract_only" : "partial_text", identifier: resolvedPmcid });
         }
       } else attempts.push({ route: "europe_pmc", result: routeResult(result.access_status), identifier: resolvedPmcid,
-        ...(result.error?.http_status === undefined ? {} : { http_status: result.error.http_status }),
+        ...responseFailureDetails(result.error),
         ...(result.error?.retryable === undefined ? {} : { retryable: result.error.retryable }) });
-    } catch { attempts.push({ route: "europe_pmc", result: "error", identifier: resolvedPmcid }); }
+    } catch (error) { attempts.push({ route: "europe_pmc", result: "error", identifier: resolvedPmcid, ...upstreamFailureDetails(error) }); }
   }
   if (unpaywallConfig === undefined) {
     attempts.push({ route: "unpaywall", result: "error", identifier: doi });
@@ -130,8 +133,13 @@ export async function acquireOpenFullText(
       const state = result.data.acquisition_state;
       const resultState = state === "PARTIAL_TEXT_READABLE" ? "partial_text" : state === "ABSTRACT_ONLY" ? "abstract_only"
         : state === "IDENTITY_MISMATCH" ? "identity_mismatch" : routeResult(result.access_status);
+      const failures = [result.data.discovery_failure, ...(result.data.attempted_locations ?? [])]
+        .filter((failure) => failure !== undefined &&
+          (failure.http_status !== undefined || failure.failure_kind !== undefined));
       attempts.push({ route: "unpaywall", result: resultState, identifier: doi });
-    } catch { attempts.push({ route: "unpaywall", result: "error", identifier: doi }); }
+      for (const failure of failures) attempts.push({ route: "unpaywall", result: "error", identifier: doi,
+        ...responseFailureDetails(failure) });
+    } catch (error) { attempts.push({ route: "unpaywall", result: "error", identifier: doi, ...upstreamFailureDetails(error) }); }
   }
   const frozenIdentity = Object.freeze({ ...identity, title_variants: Object.freeze(titleVariants(identity.title, ...(identity.title_variants ?? []))) });
   const publicCopySearch = checkPublicCopySearch(frozenIdentity, search);
@@ -235,6 +243,12 @@ function identityFromRecord(record: EuropePmcRecord, doi: string): FrozenArticle
   return { doi, ...(record.pmid === undefined ? {} : { pmid: record.pmid }), ...(record.title === undefined ? {} : { title: record.title, title_variants: [record.title] }),
     ...(record.authors?.[0] === undefined ? {} : { first_author: record.authors[0] }), ...(record.year === undefined ? {} : { year: record.year }),
     ...(record.journal === undefined ? {} : { journal: record.journal }), ...(record.pii === undefined ? {} : { pii: record.pii }) };
+}
+function responseFailureDetails(error?: { http_status?: number; failure_kind?: "timeout" | "network" }) {
+  return {
+    ...(error?.http_status === undefined ? {} : { http_status: error.http_status }),
+    ...(error?.failure_kind === undefined ? {} : { failure_kind: error.failure_kind })
+  };
 }
 function routeResult(status: string): "not_found" | "inaccessible" | "error" | "partial_text" | "abstract_only" {
   if (status === "not_found") return "not_found";

@@ -28,6 +28,7 @@ describe("Europe PMC reusable full-text retrieval", () => {
     expect(result.error).toEqual({
       code: "europe_pmc_full_text_unreachable",
       message: "Europe PMC did not respond (a timeout or a dropped connection)",
+      failure_kind: error.name === "TimeoutError" ? "timeout" : "network",
       retryable: true
     });
     expect(result.error).not.toHaveProperty("http_status");

@@ -159,7 +159,7 @@ const leftOut = (...caveats: string[]) =>
 const absenceDefaults = (input: Record<string, unknown>) =>
   "absence_claims" in input || !("answer_draft" in input) ? {} : { absence_claims: [] };
 const scaleDefaults = (input: Record<string, unknown>) =>
-  "scale_results" in input || !("answer_draft" in input) ? {} : { scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [] };
+  "scale_results" in input || !("answer_draft" in input) ? {} : { scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [] };
 // The same for harm and safety sentences, key terms and mechanism claims (owner questions 86, 88 and 89).
 const claimDefaults = (input: Record<string, unknown>) => !("answer_draft" in input) ? {} : {
   ...("safety_claims" in input ? {} : { safety_claims: [] }),
@@ -373,11 +373,14 @@ describe("finalize_research gate", () => {
     expect(otherTarget.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toContain("was made for this research_target");
     // The research target is required, so a check can always be matched.
     const { research_target: _target, ...withoutTarget } = base;
-    expect(() => finalizeResearch({
+    const missingTarget = finalizeResearch({
       ...withoutTarget,
       receipts: [...ready, coverage("ledger_consistent_for_synthesis", "2026-09-26T11:30:00.000Z")],
       treatment_choice: "compared"
-    }, options)).toThrow();
+    }, options);
+    expect(missingTarget.status).toBe("not_ready");
+    expect(missingTarget.receipts_verified).toBe(0);
+    expect(missingTarget.next_steps.join("\n")).toContain("research_target:");
 
     // A check made for another question judged videos this research never found.
     const judged = (videos: string[]) => issueResearchReceipt(
@@ -1020,7 +1023,7 @@ describe("finalize_research gate", () => {
       ...base, commercial_review_applicability: NONCOMMERCIAL_EXERCISE,
       intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." },
       community_findings: findingsFor(["aaaaaaaaaaa"]), community_searches: searches(trtTitle),
-      ...(draft === undefined ? {} : { answer_draft: draft, absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [] })
+      ...(draft === undefined ? {} : { answer_draft: draft, absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [] })
     }, { ...options, redditThreads: reddit(trt) });
 
     // Both confirmed: the answer says Reddit confirmed the threads, not their content.
@@ -1126,7 +1129,7 @@ describe("finalize_research gate", () => {
         "[MESO-Rx](https://thinksteroids.com/community/threads/2/), most users reported better recovery, some saw no " +
         "difference, and several reported joint pain as a side effect of growth hormone, consistent with the trials. " +
         "The reports from r/trt and MESO-Rx come from my own web search, which AskRigor could not verify.",
-      absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: []
+      absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: []
     }, options);
     expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(result.status).toBe("ready_with_limits");
@@ -1190,7 +1193,7 @@ describe("finalize_research gate", () => {
         { name: "ADHD Parents Forum", platform: "forum" }
       ],
       community_searches: searches ?? [amazon(corpora), forum],
-      absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: []
+      absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: []
     });
     const lanes = `[Study](https://doi.org/10.1002/art.41142) reports study outcomes.\n\nIn [the drops' reviews on Amazon](${reviewsPage}), several parents saw calmer evenings, some saw ` +
       "no difference, and two reported stomach upset; these show the range of experiences only. On the " +
@@ -1840,6 +1843,166 @@ describe("finalize_research gate", () => {
     expect(result.caveats).toContain(caveat);
   });
 
+  it("states that PubMed lists a key study without a DOI, without calling it unavailable", () => {
+    const noDoiRecord = sign("pubmed_record", { pmid: "31234567" }, options);
+    const result = finalizeResearch({
+      receipts: [survey, emptySearch, repeatScout, videoA, study, noDoiRecord],
+      community_evidence: "researched", treatment_choice: "not_compared", research_target: TARGET,
+      key_sources: [{ read_depth: "abstract_only", answer_marker: "Study", id: "PMID: 31234567", status: "lead_only" }]
+    }, options);
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.sources.lead_only).toEqual(["PMID: 31234567"]);
+    expect(result.caveats).toContain(
+      "AskRigor could not fetch the full text of [this study](https://pubmed.ncbi.nlm.nih.gov/31234567/), which PubMed " +
+        "lists without a DOI, so its methods were not checked."
+    );
+    expect(result.caveats.join(" ")).not.toContain("not openly available");
+  });
+
+  describe("owner question 113: repeated primary-service failures", () => {
+    const id = "10.1016/j.joca.2020.01.001";
+    const pmcid = "PMC9990001";
+    const caveat = `AskRigor could not fetch the full text of [this study](https://doi.org/${id}) because a ` +
+      "full-text service kept failing, so its methods were not checked.";
+    const retry = `A full-text service failed for ${id}: call acquire_open_full_text again at least a minute after ` +
+      "the first attempt; if it fails again, pass the research_receipt from each attempt and cite it as a lead.";
+    // Deliberately decouple the signed issue time from the ordering claim t.
+    const failure = (seconds: number, claims: Record<string, string | string[]> = {}) => issueResearchReceipt(
+      "full_text_route_failure", { doi: id, pmcid, routes: ["europe_pmc"], http: ["500"],
+        state: "PROVIDER_UNAVAILABLE", t: "1", ...claims },
+      { secret: SECRET, now: () => new Date(now().getTime() - 120_000 + seconds * 1000) }
+    );
+    const run = (receipts: string[], overrides: Record<string, unknown> = {}) => finalizeResearch({
+      receipts: [survey, emptySearch, repeatScout, videoA, videoB, study, ...receipts],
+      community_evidence: "researched", treatment_choice: "not_compared", research_target: TARGET,
+      key_sources: [{ id, read_depth: "partial_text", answer_marker: "Study", status: "lead_only" }], ...overrides
+    }, options);
+
+    it("accepts two signed issue times exactly 60 seconds apart, in either order", () => {
+      const receipts = [failure(0), failure(60)];
+      for (const ordered of [receipts, [...receipts].reverse()]) {
+        const result = run(ordered);
+        expect(result.status).toBe("ready_with_limits");
+        expect(result.sources.lead_only).toEqual([id]);
+        expect(result.limits).toContain(`Cite ${id} as a lead: a full-text service kept failing when AskRigor tried ` +
+          "to fetch it, so its methods were not audited.");
+        expect(result.caveats).toContain(caveat);
+        expect(result.next_steps).toEqual([]);
+      }
+    });
+
+    it.each([[0], [0, 30], [0, 59], [0, 0]])("asks for a retry for issue times %j", (...seconds) => {
+      const receipts = seconds.map((second, index) => failure(second, { t: String(index * 600_000) }));
+      const result = run(receipts);
+      expect(result.status).toBe("not_ready");
+      expect(result.sources.lead_only).toEqual([]);
+      expect(result.next_steps).toEqual([retry]);
+      expect(result.caveats).not.toContain(caveat);
+    });
+
+    it("another DOI's receipt does not make a second attempt", () => {
+      expect(run([failure(0), failure(60, { doi: "10.1000/other-study", pmcid: "PMC9990002" })]).next_steps)
+        .toEqual([retry]);
+      expect(run([failure(0, { doi: "10.1000/other-study", pmcid: "PMC9990002" }),
+        failure(60, { doi: "10.1000/other-study", pmcid: "PMC9990002" })]).next_steps)
+        .toEqual([`Try acquire_open_full_text for ${id} before treating it as lead_only; pass the research_receipt it ` +
+          `returns. ${LEAD_RECEIPT_SEARCH_TEXT}`]);
+    });
+
+    it("rejects a forged receipt, including a modified issue time", () => {
+      const token = failure(60).split("~");
+      token[3] = String(Number(token[3]) + 60);
+      const result = run([failure(0), token.join("~")]);
+      expect(result.status).toBe("not_ready");
+      expect(result.sources.lead_only).toEqual([]);
+      expect(result.next_steps).toContain(retry);
+      expect(result.receipts_rejected).toEqual([{ index: 7, reason: "signature_invalid" }]);
+    });
+
+    it("validated still needs an audit", () => {
+      const result = run([failure(0), failure(60)], {
+        key_sources: [{ id, read_depth: "partial_text", answer_marker: "Study", status: "validated" }]
+      });
+      expect(result.status).toBe("not_ready");
+      expect(result.sources.lead_only).toEqual([]);
+      expect(result.next_steps).toEqual([`For ${id}: acquire_open_full_text, continue_open_full_text until exhausted, ` +
+        "then validate_study_method_audit (or validate_review_method_audit) and pass its research_receipt. If no open " +
+        `full text exists, the acquisition receipt lets you list it as lead_only. ${LEAD_RECEIPT_SEARCH_TEXT}`]);
+    });
+
+    it("a completed lead takes precedence, even before the retry interval", () => {
+      const completed = sign("full_text_lead", { doi: id, state: "PARTIAL_TEXT_READABLE" }, options);
+      const result = run([failure(0), completed]);
+      expect(result.status).toBe("ready_with_limits");
+      expect(result.caveats).toContain(`AskRigor could read only part of [this study](https://doi.org/${id}), ` +
+        "so its methods were not checked.");
+      expect(result.caveats).not.toContain(caveat);
+      expect(result.next_steps).not.toContain(retry);
+    });
+
+    it("a full-text method audit takes precedence", () => {
+      const audited = sign("study_audit", { doi: id, status: "complete_no_unresolved_fields" }, options);
+      const result = run([failure(0), failure(60), audited]);
+      expect(result.status).toBe("ready_with_limits");
+      expect(result.sources.validated).toEqual([id]);
+      expect(result.sources.lead_only).toEqual([]);
+      expect(result.caveats).not.toContain(caveat);
+    });
+
+    it("groups several failed studies into one exact plural caveat", () => {
+      const other = "10.1000/other-study";
+      const result = run([failure(0), failure(60), failure(0, { doi: other, pmcid: "PMC9990002" }),
+        failure(60, { doi: other, pmcid: "PMC9990002" })], { key_sources: [
+        { id, read_depth: "partial_text", answer_marker: "Study", status: "lead_only" },
+        { id: other, read_depth: "partial_text", answer_marker: "Study", status: "lead_only" }
+      ] });
+      expect(result.status).toBe("ready_with_limits");
+      expect(result.sources.lead_only).toEqual([id, other]);
+      expect(result.caveats.filter((text) => text.includes("full-text services kept failing"))).toEqual([
+        `AskRigor could not fetch the full texts of [this study](https://doi.org/${id}) and ` +
+        `[this study](https://doi.org/${other}) because full-text services kept failing, so their methods were not checked.`
+      ]);
+    });
+
+    it("keeps the PubMed open-copy check and accepts the named PMCID once tried", () => {
+      const record = sign("pubmed_record", { doi: id, pmid: "99900001", pmcid }, options);
+      const result = run([failure(0, { pmcid: "PMC9990002" }), failure(60, { pmcid: "PMC9990002" }), record]);
+      expect(result.status).toBe("not_ready");
+      expect(result.next_steps).toEqual([
+        `PubMed lists an open copy of ${id} in PubMed Central (${pmcid}) that the full-text attempt did not ` +
+        `try: call acquire_open_full_text with DOI ${id} and pmcid ${pmcid}, then audit it, or pass the new ` +
+        `research_receipt if it still finds no full text. ${LEAD_RECEIPT_SEARCH_TEXT}`
+      ]);
+      expect(run([failure(0), failure(60), record]).status).toBe("ready_with_limits");
+      expect(run([failure(0), failure(60), record], { key_sources: [
+        { id: "PMID: 99900001", read_depth: "abstract_only", answer_marker: "Study", status: "lead_only" }
+      ] }).status).toBe("ready_with_limits");
+      expect(run([failure(0), failure(60)], { key_sources: [
+        { id: pmcid, read_depth: "partial_text", answer_marker: "Study", status: "lead_only" }
+      ] }).status).toBe("ready_with_limits");
+    });
+
+    it.each(["not_established", "direct_null_evidence"])("%s still needs a full-text audit", (state) => {
+      const quote = "The trial found no difference in pain (mean difference 0.1 points, 95% CI -0.4 to 0.6).";
+      const receipts = [failure(0), failure(60)];
+      const clean = run(receipts);
+      const result = run(receipts, {
+        answer_draft: `${CLEAN_DRAFT} ${clean.caveats.join(" ")} ${quote}`,
+        absence_claims: [{ quote, state, studies: [id] }]
+      });
+      expect(result.status).toBe("not_ready");
+      expect(result.next_steps.some((step) => step.includes("no full-text method audit here covers"))).toBe(true);
+    });
+
+    it("holds an answer that omits the exact service-failure caveat", () => {
+      const receipts = [failure(0), failure(60)];
+      const clean = run(receipts);
+      const result = run(receipts, { answer_draft: `${CLEAN_DRAFT} ${clean.caveats.filter((text) => text !== caveat).join(" ")}` });
+      expect(result.status).toBe("not_ready");
+      expect(result.next_steps).toContain(leftOut(caveat));
+    });
+  });
+
   it("turns bounded audits and server-proven leads into limits", () => {
     const noDoiRecord = sign("pubmed_record", { pmid: "31234567" }, options);
     const result = finalizeResearch({
@@ -1867,14 +2030,15 @@ describe("finalize_research gate", () => {
     ]);
     expect(result.finalization_receipt).toBeDefined();
 
-    // Lead-only studies share one caveat that links each, and the bounded video has its own.
+    // Lead-only studies with different reasons get separate caveats, and the bounded video has its own.
     expect(result.caveats).toEqual([
       "Some comments on [this video](https://www.youtube.com/watch?v=bbbbbbbbbbb) could not be read, so its comment " +
         "evidence is incomplete.",
       FORUM_CAVEAT,
-      "The full texts of [this study](https://doi.org/10.1016/j.joca.2020.01.001) and " +
-        "[this study](https://pubmed.ncbi.nlm.nih.gov/31234567/) were not openly available, so their methods were not " +
-        "checked.",
+      "The full text of [this study](https://doi.org/10.1016/j.joca.2020.01.001) was not openly available, so its " +
+        "methods were not checked.",
+      "AskRigor could not fetch the full text of [this study](https://pubmed.ncbi.nlm.nih.gov/31234567/), which PubMed " +
+        "lists without a DOI, so its methods were not checked.",
       ...OFFER_CAVEATS
     ]);
     // The subreddit's caveat is in CLEAN_DRAFT, and the drafts below are deep
@@ -1895,8 +2059,8 @@ describe("finalize_research gate", () => {
     };
     const answerWith = (...sentences: string[]) =>
       finalizeResearchRaw({ ...request, answer_draft: [CLEAN_DRAFT, ...sentences].join(" ") }, options);
-    // Qualifying one study does not stand for the caveat both share, and other words are not the caveat.
-    const studiesCaveat = caveats[1]!;
+    // Qualifying one study does not stand for the other study's caveat, and other words are not the caveat.
+    const studiesCaveat = caveats[2]!;
     const oneStudy = "The full text of [this study](https://doi.org/10.1016/j.joca.2020.01.001) was not openly " +
       "available, so its methods were not checked.";
     expect(answerWith(caveats[0]!, oneStudy, "The PubMed study was only an abstract.").next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
@@ -1905,8 +2069,9 @@ describe("finalize_research gate", () => {
     // A link's text may change, and formatting and line breaks do not matter.
     expect(answerWith(
       caveats[0]!.replace("[this video]", "[Hip exercises that helped me]"),
-      studiesCaveat.replace("[this study]", "[Smith and colleagues, 2019]").replace("were not", "**were not**")
-        .replace("so their methods", "so\ntheir methods").replace("were not checked", "were\u00a0not checked")
+      caveats[1]!,
+      studiesCaveat.replace("[this study]", "[Smith and colleagues, 2019]").replace("could not", "**could not**")
+        .replace("so its methods", "so\nits methods").replace("were not checked", "were\u00a0not checked")
     )).toMatchObject({ status: "ready_with_limits", next_steps: [] });
 
     // A DOI with parentheses keeps a working link, whose text may change too.
@@ -2286,7 +2451,7 @@ describe("finalize_research gate", () => {
     expect(finalizeResearch({ ...firstPass, receipts: [survey, failedSearch, videoA, study] }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toEqual([expect.stringMatching(rerun)]);
 
-    // The quota stopped the only round before any video turned up: community
+    // The quota stopped the only round before any video turned up: YouTube
     // evidence is unchecked, not thin.
     const stoppedSurvey = sign("youtube_survey", {
       access: "rate_limited", searches: 2, rl: 2, inc: 2, videos: [], open: 0, q: "m3m3m3m3m3m3"
@@ -2302,7 +2467,7 @@ describe("finalize_research gate", () => {
     }, options);
     expect(nothingYet.status).toBe("ready_with_limits");
     expect(nothingYet.limits).toContain(
-      "No video turned up before YouTube's rate limit or daily quota stopped discovery; say that community evidence " +
+      "No video turned up before YouTube's rate limit or daily quota stopped discovery; say that YouTube evidence " +
         "could not be checked yet, not that it is thin."
     );
     expect(nothingYet.limits.join(" ")).not.toContain("community evidence on this is thin");
@@ -2506,13 +2671,18 @@ describe("finalize_research gate", () => {
   it("lets a niche topic finish with no video once discovery has saturated", () => {
     const base = { community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET, key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }] };
     const emptySurvey = sign("youtube_survey", { access: "complete", searches: 6, videos: [], q: "j0j0j0j0j0j0" }, options);
-    const nothing = finalizeResearch({ ...base, receipts: [emptySurvey, emptySearch, study] }, options);
+    const nothing = finalizeResearch({
+      ...base, receipts: [emptySurvey, emptySearch, study], community_searches: [REDDIT_SEARCH]
+    }, options);
     expect(nothing.status).toBe("ready_with_limits");
     expect(nothing.limits).toEqual([
-      "No video turned up in 2 discovery rounds; say that community evidence on this is thin.", FORUM_LIMIT, OFFER_LIMIT
+      "No video turned up in 2 discovery rounds; say that YouTube evidence on this is thin.", FORUM_LIMIT, OFFER_LIMIT
     ]);
-    const thinCaveat = "No relevant video turned up in 2 rounds of searching, so community evidence on this is thin.";
+    const thinCaveat = "No relevant video turned up in 2 rounds of searching, so YouTube evidence on this is thin.";
     expect(nothing.caveats).toEqual([thinCaveat, FORUM_CAVEAT, ...OFFER_CAVEATS]);
+    expect(nothing.must_report).toContain(FORUM_REPORT_LINE);
+    expect(nothing.caveats.join(" ")).toContain("YouTube evidence on this is thin");
+    expect(nothing.caveats.join(" ")).not.toContain("community evidence on this is thin");
     const thinDraft = (text: string) => finalizeResearchRaw({
       ...base, receipts: [emptySurvey, emptySearch, study], another_pass_estimate: PASS_ESTIMATE,
       answer_draft: `${CLEAN_DRAFT} ${text} ${OFFER_CAVEATS.join(" ")}`
@@ -2533,7 +2703,7 @@ describe("finalize_research gate", () => {
     }, options);
     expect(explained.status).toBe("ready_with_limits");
     expect(explained.limits).toEqual([
-      "None of the 3 video(s) found in 3 discovery rounds was worth auditing; say that community evidence on this is thin.",
+      "None of the 3 video(s) found in 3 discovery rounds was worth auditing; say that YouTube evidence on this is thin.",
       FORUM_LIMIT,
       OFFER_LIMIT
     ]);

@@ -26,7 +26,7 @@ identity and contact data, private health narratives, uploads, raw source and
 provider bodies, credentials, and all community/YouTube content. It is not an
 automatic evidence-authority path.
 
-The September 30 source candidate (not deployed) adds a findings library for
+Since 2026-10-01 (opened at 20:19 UTC; `docs/audits/2026-10-01-pr246-production-release.md`), a findings library serves
 free contributor mode (owner decisions Q9 to Q11): when `finalize_research`
 checks a free contributor's answer, the server saves that answer's checked
 findings card to a private GitHub review queue; a paid-private answer offers the
@@ -274,7 +274,7 @@ AskRigor has deliberately separate processing paths:
   described below is legacy configuration that the production lesson path does
   not call.
 - **Findings library path:** for a free contributor account,
-  `finalize_research` (behind the research-access guard; not deployed) needs a
+  `finalize_research` (behind the research-access guard; live since 2026-10-01) needs a
   findings card with the answer, checks it, and saves the checked card and a
   server-written version stamp in a private GitHub review queue; the answer is
   never stored, and nothing asks the user. For a paid-private account the
@@ -563,7 +563,10 @@ request memory for the exact DOI and a known title variant; they are never
 stored, logged, echoed, checkpointed, or included in receipts. Only search
 status, missing identifier kinds, and a query count are returned and may enter
 the compact checkpoint. A lead receipt includes the acquisition state, not
-the queries. After the primary OA routes yield no admitted document,
+the queries. A route-failure receipt includes the requested DOI, the failing Europe PMC
+PMCID (or the requested PMCID, when present), the failed primary routes, their HTTP
+statuses or timeout/network failure kinds, and the acquisition state; it includes no
+queries. After the primary OA routes yield no admitted document,
 the server sends a direct GET to each supplied URL. This is a new data flow:
 the model supplies the destination, rather than Unpaywall alone choosing it.
 The URL path and query are sent to that host; redirects send their resulting
@@ -765,10 +768,10 @@ findings card to a private review queue, with nothing asked of the user. A
 paid-private answer ends by offering the save, and its card is saved only when
 the user accepts saving it for that answer, through the connector's
 `save_research_findings`. The owner reviews every card before it is accepted.
-The code is built but not deployed. The owner approved the wording of the
+It is live since 2026-10-01 (20:19 UTC). The owner approved the wording of the
 in-app free contributor notice (in the code), `https://askrigor.com/privacy`
-and `/terms` on 2026-09-30; the two pages take it, with that day's effective
-date, when the library goes live (the text is in the plan).
+and `/terms` on 2026-09-30; the two pages took it, with that day's effective
+date, when the library went live (2026-10-01, 20:18 UTC).
 
 The free contributor notice is now version `free-contributor-v2-2026-09-30`,
 which says each finished research answer's findings card is saved. A free
@@ -1070,6 +1073,26 @@ pending-proposal stores have their own strict contracts and authority boundaries
   and units, and whether the same people used both; `named_by_user` marks
   principal communities the user requested. These counts, doses, short labels
   and other declarations are request-local and are not stored or logged.
+  `user_observations` adds short descriptions of what the user or others observed,
+  which may be health details; `proposed_tests`, `corrections[].report`,
+  `primary_outcome`, `rejected_options` and `reopened` are also request-local
+  declarations: checked in the call, not stored or logged, not in the
+  finalization receipt, and never saved with a findings card.
+  When enabled, and only after the other final checks pass, a second reading sends
+  the answer draft (which can contain health details) and its `safety_claims`,
+  `key_terms` and `scale_results` declarations to the configured provider. This
+  request is not stored or logged. The reading has a one-hour in-memory cache
+  of at most 500 entries and a daily usage-based budget; nothing is written to disk.
+  `reader_dismissed` is request-local like the other declarations, not stored or
+  logged, added to the finalization receipt or saved with a findings card.
+  The public privacy notice must describe the provider before the reader is enabled
+  in production (owner questions 118 and 119).
+  `carry_forward` holds the user's observations and goals, statements taken
+  back, options rejected and communities named as a signed, compressed token
+  returned in the tool result, alongside the readable `carried` state. The client
+  passes the token back as `carried_state`; AskRigor verifies and rebuilds it
+  in memory and never stores or logs it. It has no expiry and is readable by
+  anyone who can read the conversation. It is not a research receipt.
   The output's `check_line` is a fixed server sentence for the answer to end with;
   it is not part of the signed finalization receipt.
   The panel resource renders the same result in the client's sandboxed frame; nothing new is collected, stored, logged or sent.
