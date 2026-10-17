@@ -170,4 +170,24 @@ The bounded implementation outcome is satisfied; no implementation step remains.
 Production enabling remains with the owner after questions 118 and 119. No commit,
 push, deployment or real provider call was performed.
 
-Status: approved "109a 110a 111a", "112a" and "113a" and 117b on 2026-10-17; built on this branch.
+## Owner questions 120 and 121 (17 Oct, about 23:20 UTC)
+
+Owner answer "120 a 121a 122a", typed in the AskRigor Claude session. Both join this branch's unreleased layer, as 113
+did: HRP 20.6.27 and Universal 20.5.44 keep their versions, and their fixtures, fingerprints and the layer's test
+(`tests/owner-question-109-protocol-2026-10-17.test.ts`) cover the new text.
+
+- **120a:** new rule ConditionsThatDecideTheChoice in the core section HeterodoxEpistemology, after
+  MeasurementIsNotAttribution, word for word as approved on the owner questions page (with option a's sentence: ask
+  first, research once the user replies); final check FS239 after FS238; stress cases ConditionsDecideTheChoice and
+  ConditionsGiven after ConfirmedCorrectionReport; HRP revision note. The source: the owner's sleep test and the first
+  run of the owner's sleep and mosquito-net cases on the live build (release folder `20261017c/regress`). The
+  mosquito example is kept out of the wording so the mosquito case stays a test of finding the problem unaided.
+- **121a:** Universal's output_style gains the approved short-answer paragraph between the mobile notice and the
+  Next step paragraph; Universal revision note.
+- **Regression list:** the sleep case (two turns) and the mosquito-net case (`docs/owner-regressions.md`).
+- **122a** (a sweep for rules every answer needs that sit outside the core) is analysis, not a change on this branch;
+  its list goes to the owner as question 123.
+
+The core grows by the new rule's 1,382 bytes (HRP core 32,995 bytes, still one page).
+
+Status: approved "109a 110a 111a", "112a", "113a", 117b and "120 a 121a 122a" on 2026-10-17; built on this branch.

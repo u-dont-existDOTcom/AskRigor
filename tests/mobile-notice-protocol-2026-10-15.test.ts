@@ -27,12 +27,12 @@ const REQUESTED = {
   paragraph: "When the context or the person shows that the response will be read in a mobile app or a phone's browser, start each substantive response with this notice, as its own sentence and in the response's language: “Mobile responses may be shorter and less intelligent than desktop web/app, even with the same model and thinking level selected.” When nothing shows a phone, leave it out.",
   revision: "Owner request (2026-10-15): when the context or the person shows a phone, each substantive response starts with the owner's notice that mobile responses may be shorter and less intelligent than desktop web/app, even with the same model and thinking level selected.",
 } as const;
-const CURRENT_UNIVERSAL = {"version": "20.5.44", "sha256": "fdd65bb109c256623b7c10f7c2c1dc6c4e9e8806d1ed1077d950d3ad267c6722"};
+const CURRENT_UNIVERSAL = {"version": "20.5.44", "sha256": "946fac7e5e6ce5cb08811d4c533371e3032e1ce46f5c217990dc326808b55135"};
 const PINS = {
   from: { version: "20.5.42", sha256: "0401335ed4b1f0ec44d4d7351ecb369828dd1c7f362b5c4e0234df22c7f10173" },
   to: { version: "20.5.43", sha256: "7f03ddbd280a9906860f5a34b022b95931f61da87377b3c6e33afcdbaf9a1bdd" },
   universal20541: "115b22a595b4cdcd663bb60986bd3dba0fb0d3f65f64bcc7bbb6d5a4bfd8a708",
-  hrp: { version: "20.6.27", sha256: "f7aa8bfcd03abd3c4803359d7c12d7026f0e58d49f5ebad26403dca3443316aa" },
+  hrp: { version: "20.6.27", sha256: "329b9308dec6f617d328cc84589b826146a9185151e7337b2a8d1ecb621e20dc" },
 } as const;
 const WIDTH = 118;
 const NEXT_STEP = "For every substantive response, finish with an explicit “Next step:”";
@@ -160,7 +160,10 @@ describe("owner request: the mobile notice (2026-10-15)", () => {
     const served = bytes.subarray(style[0]!.byte_start, style[0]!.byte_end_exclusive);
     expect(style[0]!.sha256).toBe(createHash("sha256").update(served).digest("hex"));
     expect(served.toString("utf8")).toBe(`<output_style>${section(text, "output_style")}</output_style>`);
-    expect(served.toString("utf8").split(`\n\n${REQUESTED.paragraph}\n\n${NEXT_STEP}`)).toHaveLength(2);
+    // Question 121 (2026-10-17) put its short-answer paragraph between this one and the Next step paragraph.
+    const styleText = served.toString("utf8");
+    expect(styleText.split(`\n\n${REQUESTED.paragraph}\n\n`)).toHaveLength(2);
+    expect(styleText.indexOf(NEXT_STEP)).toBeGreaterThan(styleText.indexOf(REQUESTED.paragraph));
   });
 
   it("holds the requested texts word for word, and nothing else changed", async () => {

@@ -35,7 +35,7 @@ const PINS = {
   to: { version: "20.6.24", sha256: "04bf76e20ebab9ab5cd6138ca45adbce79dccdd91a505df5ada14366bc0b0589" },
   hrp20622: "da82943f56614783d9316bd9a7d87a3233bf8c03255f20c88cc7bfefa39d73e9",
   hrp20621: "e43fcb2174645f30fc7d8e7f143e2d17403c69d39d5824efc1d6a0d764bf68d7",
-  universal: { version: "20.5.44", sha256: "fdd65bb109c256623b7c10f7c2c1dc6c4e9e8806d1ed1077d950d3ad267c6722" },
+  universal: { version: "20.5.44", sha256: "946fac7e5e6ce5cb08811d4c533371e3032e1ce46f5c217990dc326808b55135" },
 } as const;
 const WIDTH = 118;
 const GATE = "PatientSpecificInterventionSafetyReconciliationGate";

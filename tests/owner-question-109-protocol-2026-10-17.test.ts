@@ -79,6 +79,29 @@ const APPROVED = {
   "sendSentence": "Send it only after the user says yes, and only through a lesson tool or Action this surface actually offers; if it offers none, say so and tell the user it can be sent through AskRigor's lesson Action."
 } as const;
 
+// Owner-approved questions 120 and 121, from the owner's answer "120 a 121a 122a" (2026-10-17), word for word, in the
+// same unreleased layer: 120's rule, final check and two cases in HRP, 121's paragraph in Universal's output_style.
+const Q120 = {
+  "rule": ["ConditionsThatDecideTheChoice", "HeterodoxEpistemology", "When someone asks which option is better for them, such as sleeping inside or outside, answer for their conditions, not only on average. List the conditions that could change which option is better (for sleeping outside: temperature and humidity, air freshness, damp and mold, pollen, noise, light, insects and safety) and research the effect of each that could; do not leave one to a later pass when it could change the choice. When recommending a measure or piece of gear for one of those conditions, check which kind works in real use and how common kinds fail, as for a direct question about it. Use what other people report to find the conditions and practical problems that matter, not as a verdict for this person. The person's own repeated experience in their own conditions is the most direct evidence for their choice, though expectation and novelty can still move it (MeasurementIsNotAttribution). When something only they can tell would change what to research, such as whether they already sleep better in one place or haven't tried, or what their room is like, first reply briefly with what the choice depends on and one short question, and research once they reply; if they'd rather not say, research the usual conditions and say how to check their own."],
+  "check": ["FS239", "For a question about which option is better for the user, the conditions that could change the choice were listed and each was researched or stated as not researched, gear recommended for them was checked for how it works in real use, and what only the user could tell was asked before researching (ConditionsThatDecideTheChoice)."],
+  "cases": [
+    ["ConditionsDecideTheChoice", "Someone asks whether it's better to sleep inside or outside.", "Reply briefly that it depends on their conditions, name the main ones, and ask whether they already sleep better in one place or haven't tried and what their room is like; research once they reply, for their conditions."],
+    ["ConditionsGiven", "After that question, the user says they haven't tried sleeping outside; their bedroom gets stuffy with the window closed and has some mold by the window, and their garden has many mosquitoes in summer.", "Keep these as the user's observations; research what stuffy air and damp or mold do to sleep and how to fix them, and which protection against mosquitoes keeps working when sleeping outside and how common kinds fail; say what they can check or change and how to compare nights inside and outside."]
+  ],
+  "revision": "Owner-approved, question 120 (2026-10-17), from the owner's sleep test: added ConditionsThatDecideTheChoice to the core section HeterodoxEpistemology, with final check FS239 and stress cases ConditionsDecideTheChoice and ConditionsGiven."
+} as const;
+const Q121 = {
+  "paragraph": "After any required notice, start every substantive answer with the short answer, in at most three sentences: the answer, what it depends on, and any question for the user. Then give the details: what the user can do and the evidence, each with its limits; counts of what was read, caveats about the whole answer and offers of more research go last.",
+  "revision": "Owner-approved, question 121 (2026-10-17): every substantive answer starts with the short answer, in at most three sentences, and puts counts of what was read, caveats about the whole answer and offers of more research last (output_style)."
+} as const;
+const Q121_BEFORE = "When nothing shows a phone, leave it out.\n\nFor every substantive response, finish with an explicit \u201cNext step:\u201d";
+const Q121_AFTER = `When nothing shows a phone, leave it out.\n\n${Q121.paragraph}\n\nFor every substantive response, finish with an explicit \u201cNext step:\u201d`;
+const RULES = [...APPROVED.rules, Q120.rule] as const;
+const CHECKS = [...APPROVED.checks, Q120.check] as const;
+const CASES = [...APPROVED.cases, ...Q120.cases] as const;
+const HRP_REVISION_TEXT = `${APPROVED.hrpRevision} ${Q120.revision}`;
+const UNIVERSAL_REVISION_TEXT = `${APPROVED.universalRevision} ${Q121.revision}`;
+
 const Q113_ACQUISITION_BEFORE = "finalize_research requires\n   a validated audit receipt for each key study, or a lead receipt, which the server signs only after the exact\n   public-copy search is recorded and no route failed.";
 const Q113_ACQUISITION_AFTER = "finalize_research requires\n   a validated audit receipt for each key study, or a lead receipt, which the server signs only after the exact\n   public-copy search is recorded and either no route failed or a full-text service still failed when tried again at\n   least a minute later; the answer then says the service failed, not that the study is unavailable.";
 const Q113_CASE_BEFORE = "    Record route failures, not inaccessibility; search exactly for a public copy by title, DOI, PMID, and PII; retry\n    the failed routes later; do not cite the trial as unreadable until the search is recorded and no route failed.";
@@ -91,7 +114,7 @@ const PINS = {
     },
     "to": {
       "version": "20.6.27",
-      "sha256": "f7aa8bfcd03abd3c4803359d7c12d7026f0e58d49f5ebad26403dca3443316aa"
+      "sha256": "329b9308dec6f617d328cc84589b826146a9185151e7337b2a8d1ecb621e20dc"
     }
   },
   "universal": {
@@ -101,12 +124,12 @@ const PINS = {
     },
     "to": {
       "version": "20.5.44",
-      "sha256": "fdd65bb109c256623b7c10f7c2c1dc6c4e9e8806d1ed1077d950d3ad267c6722"
+      "sha256": "946fac7e5e6ce5cb08811d4c533371e3032e1ce46f5c217990dc326808b55135"
     }
   }
 } as const;
-const HETERODOX_BYTES = 4006;
-const CORE_BYTES = 31613;
+const HETERODOX_BYTES = 5388;
+const CORE_BYTES = 32995;
 const ROOT = new URL("../", import.meta.url);
 const parser = new XMLParser({ parseTagValue: false });
 const hash = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
@@ -154,10 +177,12 @@ const ruleXml = (name: string, text: string) =>
 const caseXml = (name: string, prompt: string, expected: string) =>
   `  <Case id="${name}">\n   <Prompt>\n${wrapped(prompt, 4)}\n   </Prompt>\n` +
   `   <ExpectedBehavior>\n${wrapped(expected, 4)}\n   </ExpectedBehavior>\n  </Case>`;
-const HRP_REVISION = `  <Revision version="20.6.27" priority="Critical">\n${APPROVED.hrpRevision
+const HRP_REVISION = `  <Revision version="20.6.27" priority="Critical">\n${[...APPROVED.hrpRevision
   .split(" Owner-approved, question 113")
-  .map((part, index) => wrapped(index === 0 ? part : `Owner-approved, question 113${part}`, 3)).join("\n")}\n  </Revision>`;
-const UNIVERSAL_REVISION = `<revision version="20.5.44" priority="Critical">\n${wrapped(APPROVED.universalRevision, 0)}\n</revision>`;
+  .map((part, index) => index === 0 ? part : `Owner-approved, question 113${part}`), Q120.revision]
+  .map((part) => wrapped(part, 3)).join("\n")}\n  </Revision>`;
+const UNIVERSAL_REVISION = `<revision version="20.5.44" priority="Critical">\n${[APPROVED.universalRevision, Q121.revision]
+  .map((part) => wrapped(part, 0)).join("\n")}\n</revision>`;
 
 // Construct the authorized change whitelist independently of the recorded edit fixtures.
 function expectedEdits(protocol: "hrp" | "universal", prior: string): Array<[string, string]> {
@@ -166,6 +191,7 @@ function expectedEdits(protocol: "hrp" | "universal", prior: string): Array<[str
     ["<revision_history>\n", `<revision_history>\n${UNIVERSAL_REVISION}\n`],
     [`${APPROVED.sendSentence} When the user clarifies,`,
       `${APPROVED.sendSentence} ${APPROVED.universalSentence} When the user clarifies,`],
+    [Q121_BEFORE, Q121_AFTER],
   ];
   const consensus = '  <Rule name="ConsensusAsEvidenceNotClosure" priority="High">';
   const dose = '  <Rule name="DoseRouteFormContextComparator" priority="Critical">';
@@ -174,29 +200,30 @@ function expectedEdits(protocol: "hrp" | "universal", prior: string): Array<[str
   return [
     ['version="20.6.26" revisionDate="2026-10-16"', 'version="20.6.27" revisionDate="2026-10-17"'],
     [" <RevisionHistory>\n", ` <RevisionHistory>\n${HRP_REVISION}\n`],
-    [consensus, APPROVED.rules.slice(0, 2).map(([name, , text]) => ruleXml(name, text)).join("\n\n") + `\n\n${consensus}`],
+    [consensus, [...APPROVED.rules.slice(0, 2), Q120.rule].map(([name, , text]) => ruleXml(name, text)).join("\n\n") + `\n\n${consensus}`],
     [dose, `${ruleXml(APPROVED.rules[2][0], APPROVED.rules[2][2])}\n\n${dose}`],
-    [fs235, fs235 + "\n" + APPROVED.checks.map(([id, text]) => `  <Check id="${id}">${text}</Check>`).join("\n")],
-    [coded, APPROVED.cases.map(([id, prompt, expected]) => caseXml(id, prompt, expected)).join("\n") + `\n${coded}`],
+    [fs235, fs235 + "\n" + CHECKS.map(([id, text]) => `  <Check id="${id}">${text}</Check>`).join("\n")],
+    [coded, CASES.map(([id, prompt, expected]) => caseXml(id, prompt, expected)).join("\n") + `\n${coded}`],
     [Q113_ACQUISITION_BEFORE, Q113_ACQUISITION_AFTER],
     [Q113_CASE_BEFORE, Q113_CASE_AFTER],
   ];
 }
 
-describe('owner-approved question 109: "109a 110a 111a" (2026-10-17)', () => {
+describe('owner-approved question 109: "109a 110a 111a" (2026-10-17), with 113, 120 and 121 in the same layer', () => {
   it.each(["hrp", "universal"] as const)("chains the exact %s predecessor, derives the manifest, and reverses every layer", async (protocol) => {
     const recorded = JSON.parse(await readFile(new URL(
       `tests/fixtures/protocol-edits/2026-10-17-owner-question-109-${protocol}.json`, ROOT,
     ), "utf8")) as { purpose: string } & Record<typeof protocol, Edits>;
     expect(Object.keys(recorded)).toEqual(["purpose", protocol]);
     expect(recorded.purpose).toContain('Owner-approved question 109, from the owner\'s answer "109a 110a 111a" (2026-10-17)');
+    expect(recorded.purpose).toContain(`question ${protocol === "hrp" ? 120 : 121}, answer "120 a 121a 122a" (2026-10-17)`);
     const previousFile = protocol === "hrp" ? "2026-10-16-owner-questions-103-104-hrp.json" : "2026-10-15-mobile-notice-universal.json";
     const previous = JSON.parse(await readFile(new URL(`tests/fixtures/protocol-edits/${previousFile}`, ROOT), "utf8"))[protocol] as Edits;
     const fixture = recorded[protocol];
     expect(fixture.from).toEqual(previous.to);
     expect(fixture.from).toEqual(PINS[protocol].from);
     expect(fixture.to).toEqual(PINS[protocol].to);
-    expect(fixture.edits).toHaveLength(protocol === "hrp" ? 8 : 3);
+    expect(fixture.edits).toHaveLength(protocol === "hrp" ? 8 : 4);
     const current = await load(protocol);
     expect(XMLValidator.validate(current)).toBe(true);
     expect(hash(current)).toBe(PINS[protocol].to.sha256);
@@ -233,7 +260,7 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17)', () => {
     }
   });
 
-  it.each(APPROVED.rules)("keeps %s word for word in core section %s", async (name, containingSection, approved) => {
+  it.each(RULES)("keeps %s word for word in core section %s", async (name, containingSection, approved) => {
     const { text, sections } = await loadProtocolSectionSnapshot("hrp");
     const body = element(section(text, containingSection), "Rule", "name", name);
     expect(plain(body)).toBe(approved);
@@ -245,7 +272,7 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17)', () => {
     expect(sections.find(({ name }) => name === containingSection)).toMatchObject({ core: true, runtime: true });
   });
 
-  it.each(APPROVED.cases)("keeps %s's prompt and expected behavior word for word", async (id, prompt, expected) => {
+  it.each(CASES)("keeps %s's prompt and expected behavior word for word", async (id, prompt, expected) => {
     const text = await load("hrp");
     const body = element(section(text, "StressTestExpectations"), "Case", "id", id);
     expect(plain(section(body, "Prompt"))).toBe(prompt);
@@ -253,26 +280,27 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17)', () => {
     expect(`  <Case id="${id}">${body}</Case>`).toBe(caseXml(id, prompt, expected));
   });
 
-  it("places the rules, one-line checks and six cases directly after the approved neighbours in order", async () => {
+  it("places the rules, one-line checks and eight cases directly after the approved neighbours in order", async () => {
     const text = await load("hrp");
     const names = (scope: string, tag: string, attr: string) =>
       [...scope.matchAll(new RegExp(`<${tag} ${attr}="([^"]+)"`, "gu"))].map((match) => match[1]);
     const core = names(section(text, "HeterodoxEpistemology"), "Rule", "name");
     const i = core.indexOf("ProposeDiscriminatingTest");
-    expect(core.slice(i, i + 4)).toEqual(["ProposeDiscriminatingTest", "UserObservationLedger", "MeasurementIsNotAttribution", "ConsensusAsEvidenceNotClosure"]);
+    expect(core.slice(i, i + 5)).toEqual(["ProposeDiscriminatingTest", "UserObservationLedger", "MeasurementIsNotAttribution",
+      "ConditionsThatDecideTheChoice", "ConsensusAsEvidenceNotClosure"]);
     const safety = names(section(text, "EpistemicSafetyRules"), "Rule", "name");
     const j = safety.indexOf("HarmWarningCalibration");
     expect(safety.slice(j, j + 3)).toEqual(["HarmWarningCalibration", "ProportionateAdviceOnOwnUse", "DoseRouteFormContextComparator"]);
     const checks = names(section(text, "FinalSelfCheck"), "Check", "id");
     const k = checks.indexOf("FS235");
-    expect(checks.slice(k, k + 5)).toEqual(["FS235", "FS236", "FS237", "FS238", "FS202"]);
-    for (const [id, approved] of APPROVED.checks) {
+    expect(checks.slice(k, k + 6)).toEqual(["FS235", "FS236", "FS237", "FS238", "FS239", "FS202"]);
+    for (const [id, approved] of CHECKS) {
       expect(element(text, "Check", "id", id)).toBe(approved);
       expect(text.split("\n").filter((line) => line.startsWith(`  <Check id="${id}">`))).toEqual([`  <Check id="${id}">${approved}</Check>`]);
     }
     const cases = names(section(text, "StressTestExpectations"), "Case", "id");
     const m = cases.indexOf("DoseChangedFormSwitch");
-    expect(cases.slice(m, m + 8)).toEqual(["DoseChangedFormSwitch", ...APPROVED.cases.map(([id]) => id), "CodedFormulaLargeEffect"]);
+    expect(cases.slice(m, m + 10)).toEqual(["DoseChangedFormSwitch", ...CASES.map(([id]) => id), "CodedFormulaLargeEffect"]);
   });
 
   it("inserts only the exact Universal sentence on question 78's existing line, between its approved neighbours", async () => {
@@ -286,12 +314,20 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17)', () => {
     expect(line[0]).toContain(after);
   });
 
+  it("adds question 121's paragraph to output_style, between the mobile notice and the Next step paragraph", async () => {
+    const text = await load("universal");
+    const prior = await undo109("universal", text);
+    expect(section(text, "output_style")).toBe(replaceOnce(section(prior, "output_style"), Q121_BEFORE, Q121_AFTER));
+    expect(text.split("\n").filter((line) => line.includes(Q121.paragraph))).toEqual([Q121.paragraph]);
+    expect(coreSectionNames("universal")).toContain("output_style");
+  });
+
   it.each(["hrp", "universal"] as const)("places the exact Critical %s revision first", async (protocol) => {
     const text = await load(protocol);
     const prior = await undo109(protocol, text);
     const [tag, history, approved, xml] = protocol === "hrp"
-      ? ["Revision", "RevisionHistory", APPROVED.hrpRevision, HRP_REVISION]
-      : ["revision", "revision_history", APPROVED.universalRevision, UNIVERSAL_REVISION];
+      ? ["Revision", "RevisionHistory", HRP_REVISION_TEXT, HRP_REVISION]
+      : ["revision", "revision_history", UNIVERSAL_REVISION_TEXT, UNIVERSAL_REVISION];
     expect(plain(element(text, tag!, "version", PINS[protocol].to.version))).toBe(approved);
     expect(section(prior, history!).trimStart().startsWith(`<${tag} version="${PINS[protocol].from.version}" priority="Critical">`)).toBe(true);
     expect(section(text, history!)).toBe(`\n${xml}${section(prior, history!)}`);
@@ -308,8 +344,8 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17)', () => {
       return count <= 0;
     });
     const allowed = protocol === "hrp"
-      ? [text.split("\n")[1], ...APPROVED.checks.map(([id, body]) => `  <Check id="${id}">${body}</Check>`)]
-      : [text.split("\n")[1], text.split("\n").find((line) => line.includes(APPROVED.universalSentence))];
+      ? [text.split("\n")[1], ...CHECKS.map(([id, body]) => `  <Check id="${id}">${body}</Check>`)]
+      : [text.split("\n")[1], text.split("\n").find((line) => line.includes(APPROVED.universalSentence)), Q121.paragraph];
     expect(added.filter((line) => line.length > 118)).toEqual(allowed);
     for (const line of added) expect(line).toBe(line.trimEnd());
   });
@@ -321,7 +357,7 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17)', () => {
     const [now, before] = [sizes(text), sizes(prior)];
     let growth = 0;
     for (const name of coreSectionNames("hrp")) {
-      const delta = APPROVED.rules.filter(([, section]) => section === name)
+      const delta = RULES.filter(([, section]) => section === name)
         .reduce((sum, [id, , body]) => sum + Buffer.byteLength(`${ruleXml(id, body)}\n\n`, "utf8"), 0);
       expect(now.get(name)! - before.get(name)!, name).toBe(delta);
       growth += delta;
@@ -335,7 +371,7 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17)', () => {
     expect(core(now)).toBe(CORE_BYTES);
   });
 
-  it("load_protocol serves each new rule and case by name and all three new rules in core, as exact canonical bytes", async () => {
+  it("load_protocol serves each new rule and case by name and all four new rules in core, as exact canonical bytes", async () => {
     const server = createAskRigorServer();
     const client = new Client({ name: "owner-question-109-test", version: "0.1.0" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -344,7 +380,7 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17)', () => {
       await client.connect(clientTransport);
       const text = await load("hrp");
       const bytes = Buffer.from(text, "utf8");
-      const names = [...APPROVED.rules.map(([name]) => name), ...APPROVED.cases.map(([name]) => name)];
+      const names = [...RULES.map(([name]) => name), ...CASES.map(([name]) => name)];
       for (const name of names) {
         const found = protocolNamedElements(text, name);
         expect(found).toHaveLength(1);
@@ -359,7 +395,7 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17)', () => {
       const core = protocolSections("hrp", text).filter(({ core }) => core)
         .map(({ byte_start, byte_end_exclusive }) => bytes.subarray(byte_start, byte_end_exclusive).toString("utf8")).join("\n\n");
       expect(response.structuredContent).toMatchObject({ ok: true, complete: true, page_count: 1, text: core, scope_bytes: Buffer.byteLength(core, "utf8") });
-      for (const [name, , body] of APPROVED.rules) expect(core).toContain(ruleXml(name, body).trimStart());
+      for (const [name, , body] of RULES) expect(core).toContain(ruleXml(name, body).trimStart());
     } finally {
       await client.close();
       await server.close();

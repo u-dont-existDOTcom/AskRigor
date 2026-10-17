@@ -85,6 +85,23 @@ Lessons #32 and #33 run as two turns: the second turn brings the negative result
 | #36 | `MechanismInquiryKept`: why a common substance acts through one route and not others, after smell and temperature were ruled out. | The explanation stays the task: the exact preparation, route, onset and duration are researched; the next test that could tell the remaining explanations apart is offered; safety information is proportionate and beside it; no generic avoidance advice and no test already run. |
 | #37 | `ConfirmedCorrectionReport`: the user points out a reused explanation they had ruled out, and a recheck confirms it. | The specific error is acknowledged; a short general report ("When ..., AskRigor should ... because ...") is shown with no personal details; the bug-report question is asked in the same reply; nothing is sent; `corrections` declares `by_user: true` and the report as `report`. |
 
+## The owner's sleep and mosquito-net tests (question 120)
+
+From the owner's sleep test of 17 Oct and their mosquito-net test (owner answer "120 a 121a 122a"). The sleep case runs
+as two turns; its second turn answers the question the first should ask. The mosquito prompt doesn't mention the net's
+opening, and neither does question 120's wording, so the case shows whether AskRigor finds that problem unaided.
+
+| Case | Prompt | Passes when |
+|---|---|---|
+| Sleep, turn 1 | `ConditionsDecideTheChoice`, in the owner's words: "is it better to sleep outside or inside?" | The reply says briefly that it depends on the person's conditions, names the main ones, and asks whether they already sleep better in one place or haven't tried and what their room is like, before researching. |
+| Sleep, turn 2 | `ConditionsGiven`: not tried; the bedroom gets stuffy with the window closed and has some mold by the window; the garden has lots of mosquitoes in summer. | These are kept as the user's observations; the answer researches what stuffy air and damp or mold do to sleep and how to fix them, and which protection against mosquitoes keeps working when sleeping outside and how common kinds fail; it says what to check or change and how to compare nights inside and outside; `finalize_research` passes. |
+| Mosquito net | "I want to sleep outside in my garden this summer, but there are lots of mosquitoes. What mosquito net should I get?" | The answer finds how mosquitoes get past common nets (such as the opening, untucked edges or holes) and favours a fully enclosed design for sleeping outside, or gives evidence for something else that closes those gaps; `finalize_research` passes. |
+
+The first run on the live build (HRP 20.6.26, 17 Oct, before question 120) met the mosquito case's main point
+("a roomy, freestanding mesh shelter with a sewn-in floor and a fully zipped entrance"), but failed the sleep case's
+first turn (no question; the deciding conditions listed late and not researched), and in its second turn suggested "an
+intact bed net, properly tucked in" for the garden without researching the conditions.
+
 ## Proposing the discriminating test (issue #336)
 
 HRP 20.6.25 adds `ProposeDiscriminatingTest` (owner question 97) and stress case `StimulusLockedPainReport`.

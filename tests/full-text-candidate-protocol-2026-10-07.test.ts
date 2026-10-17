@@ -81,7 +81,7 @@ describe("full-text candidate: exact public-copy discovery and truthful access s
     });
     await expect(getProtocolManifest("universal")).resolves.toEqual({
       name: "AskRigor.com universal saved instructions", version: "20.5.44", revisionDate: "2026-10-17",
-      sha256: "fdd65bb109c256623b7c10f7c2c1dc6c4e9e8806d1ed1077d950d3ad267c6722",
+      sha256: "946fac7e5e6ce5cb08811d4c533371e3032e1ce46f5c217990dc326808b55135",
     });
   });
 
