@@ -26,7 +26,7 @@ identity and contact data, private health narratives, uploads, raw source and
 provider bodies, credentials, and all community/YouTube content. It is not an
 automatic evidence-authority path.
 
-The September 30 source candidate (not deployed) adds a findings library for
+Since 2026-10-01 (opened at 20:19 UTC; `docs/audits/2026-10-01-pr246-production-release.md`), a findings library serves
 free contributor mode (owner decisions Q9 to Q11): when `finalize_research`
 checks a free contributor's answer, the server saves that answer's checked
 findings card to a private GitHub review queue; a paid-private answer offers the
@@ -274,7 +274,7 @@ AskRigor has deliberately separate processing paths:
   described below is legacy configuration that the production lesson path does
   not call.
 - **Findings library path:** for a free contributor account,
-  `finalize_research` (behind the research-access guard; not deployed) needs a
+  `finalize_research` (behind the research-access guard; live since 2026-10-01) needs a
   findings card with the answer, checks it, and saves the checked card and a
   server-written version stamp in a private GitHub review queue; the answer is
   never stored, and nothing asks the user. For a paid-private account the
@@ -765,10 +765,10 @@ findings card to a private review queue, with nothing asked of the user. A
 paid-private answer ends by offering the save, and its card is saved only when
 the user accepts saving it for that answer, through the connector's
 `save_research_findings`. The owner reviews every card before it is accepted.
-The code is built but not deployed. The owner approved the wording of the
+It is live since 2026-10-01 (20:19 UTC). The owner approved the wording of the
 in-app free contributor notice (in the code), `https://askrigor.com/privacy`
-and `/terms` on 2026-09-30; the two pages take it, with that day's effective
-date, when the library goes live (the text is in the plan).
+and `/terms` on 2026-09-30; the two pages took it, with that day's effective
+date, when the library went live (2026-10-01, 20:18 UTC).
 
 The free contributor notice is now version `free-contributor-v2-2026-09-30`,
 which says each finished research answer's findings card is saved. A free

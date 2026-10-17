@@ -60,11 +60,11 @@ const RESPONSE_PAGE_CHARACTERS = 34_000;
 const SEGMENT_METADATA_CHARACTERS = 200;
 const handleSchema = z.string().regex(/^aft1_[A-Za-z0-9_-]{32}$/u);
 const actionDoiSchema = z.string().trim().max(2_048).regex(
-  /^(?:https?:\/\/(?:dx\.)?doi\.org\/)?10\.\d{4,9}\/[!#$%&'*+\-._;()/:a-z0-9]+$/iu
+  /^(?:[Hh][Tt][Tt][Pp][Ss]?:\/\/(?:[Dd][Xx]\.)?[Dd][Oo][Ii]\.[Oo][Rr][Gg]\/)?10\.\d{4,9}\/[!#$%&'*+\-._;()/:A-Za-z0-9]+$/u
 );
 export const acquireOpenFullTextActionInputSchema = z.object({
   doi: actionDoiSchema,
-  pmcid: z.string().trim().regex(/^PMC[1-9]\d{0,15}$/iu).optional(),
+  pmcid: z.string().trim().regex(/^[Pp][Mm][Cc][1-9]\d{0,15}$/u).optional(),
   candidate_urls: candidateUrlsSchema.optional(),
   candidate_texts: candidateTextsSchema.optional(),
   public_copy_search: publicCopySearchSchema.optional()

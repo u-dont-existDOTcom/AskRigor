@@ -1843,6 +1843,22 @@ describe("finalize_research gate", () => {
     expect(result.caveats).toContain(caveat);
   });
 
+  it("states that PubMed lists a key study without a DOI, without calling it unavailable", () => {
+    const noDoiRecord = sign("pubmed_record", { pmid: "31234567" }, options);
+    const result = finalizeResearch({
+      receipts: [survey, emptySearch, repeatScout, videoA, study, noDoiRecord],
+      community_evidence: "researched", treatment_choice: "not_compared", research_target: TARGET,
+      key_sources: [{ read_depth: "abstract_only", answer_marker: "Study", id: "PMID: 31234567", status: "lead_only" }]
+    }, options);
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.sources.lead_only).toEqual(["PMID: 31234567"]);
+    expect(result.caveats).toContain(
+      "AskRigor could not fetch the full text of [this study](https://pubmed.ncbi.nlm.nih.gov/31234567/), which PubMed " +
+        "lists without a DOI, so its methods were not checked."
+    );
+    expect(result.caveats.join(" ")).not.toContain("not openly available");
+  });
+
   it("turns bounded audits and server-proven leads into limits", () => {
     const noDoiRecord = sign("pubmed_record", { pmid: "31234567" }, options);
     const result = finalizeResearch({
@@ -1870,14 +1886,15 @@ describe("finalize_research gate", () => {
     ]);
     expect(result.finalization_receipt).toBeDefined();
 
-    // Lead-only studies share one caveat that links each, and the bounded video has its own.
+    // Lead-only studies with different reasons get separate caveats, and the bounded video has its own.
     expect(result.caveats).toEqual([
       "Some comments on [this video](https://www.youtube.com/watch?v=bbbbbbbbbbb) could not be read, so its comment " +
         "evidence is incomplete.",
       FORUM_CAVEAT,
-      "The full texts of [this study](https://doi.org/10.1016/j.joca.2020.01.001) and " +
-        "[this study](https://pubmed.ncbi.nlm.nih.gov/31234567/) were not openly available, so their methods were not " +
-        "checked.",
+      "The full text of [this study](https://doi.org/10.1016/j.joca.2020.01.001) was not openly available, so its " +
+        "methods were not checked.",
+      "AskRigor could not fetch the full text of [this study](https://pubmed.ncbi.nlm.nih.gov/31234567/), which PubMed " +
+        "lists without a DOI, so its methods were not checked.",
       ...OFFER_CAVEATS
     ]);
     // The subreddit's caveat is in CLEAN_DRAFT, and the drafts below are deep
@@ -1898,8 +1915,8 @@ describe("finalize_research gate", () => {
     };
     const answerWith = (...sentences: string[]) =>
       finalizeResearchRaw({ ...request, answer_draft: [CLEAN_DRAFT, ...sentences].join(" ") }, options);
-    // Qualifying one study does not stand for the caveat both share, and other words are not the caveat.
-    const studiesCaveat = caveats[1]!;
+    // Qualifying one study does not stand for the other study's caveat, and other words are not the caveat.
+    const studiesCaveat = caveats[2]!;
     const oneStudy = "The full text of [this study](https://doi.org/10.1016/j.joca.2020.01.001) was not openly " +
       "available, so its methods were not checked.";
     expect(answerWith(caveats[0]!, oneStudy, "The PubMed study was only an abstract.").next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
@@ -1908,8 +1925,9 @@ describe("finalize_research gate", () => {
     // A link's text may change, and formatting and line breaks do not matter.
     expect(answerWith(
       caveats[0]!.replace("[this video]", "[Hip exercises that helped me]"),
-      studiesCaveat.replace("[this study]", "[Smith and colleagues, 2019]").replace("were not", "**were not**")
-        .replace("so their methods", "so\ntheir methods").replace("were not checked", "were\u00a0not checked")
+      caveats[1]!,
+      studiesCaveat.replace("[this study]", "[Smith and colleagues, 2019]").replace("could not", "**could not**")
+        .replace("so its methods", "so\nits methods").replace("were not checked", "were\u00a0not checked")
     )).toMatchObject({ status: "ready_with_limits", next_steps: [] });
 
     // A DOI with parentheses keeps a working link, whose text may change too.
@@ -2289,7 +2307,7 @@ describe("finalize_research gate", () => {
     expect(finalizeResearch({ ...firstPass, receipts: [survey, failedSearch, videoA, study] }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toEqual([expect.stringMatching(rerun)]);
 
-    // The quota stopped the only round before any video turned up: community
+    // The quota stopped the only round before any video turned up: YouTube
     // evidence is unchecked, not thin.
     const stoppedSurvey = sign("youtube_survey", {
       access: "rate_limited", searches: 2, rl: 2, inc: 2, videos: [], open: 0, q: "m3m3m3m3m3m3"
@@ -2305,7 +2323,7 @@ describe("finalize_research gate", () => {
     }, options);
     expect(nothingYet.status).toBe("ready_with_limits");
     expect(nothingYet.limits).toContain(
-      "No video turned up before YouTube's rate limit or daily quota stopped discovery; say that community evidence " +
+      "No video turned up before YouTube's rate limit or daily quota stopped discovery; say that YouTube evidence " +
         "could not be checked yet, not that it is thin."
     );
     expect(nothingYet.limits.join(" ")).not.toContain("community evidence on this is thin");
@@ -2509,13 +2527,18 @@ describe("finalize_research gate", () => {
   it("lets a niche topic finish with no video once discovery has saturated", () => {
     const base = { community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET, key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }] };
     const emptySurvey = sign("youtube_survey", { access: "complete", searches: 6, videos: [], q: "j0j0j0j0j0j0" }, options);
-    const nothing = finalizeResearch({ ...base, receipts: [emptySurvey, emptySearch, study] }, options);
+    const nothing = finalizeResearch({
+      ...base, receipts: [emptySurvey, emptySearch, study], community_searches: [REDDIT_SEARCH]
+    }, options);
     expect(nothing.status).toBe("ready_with_limits");
     expect(nothing.limits).toEqual([
-      "No video turned up in 2 discovery rounds; say that community evidence on this is thin.", FORUM_LIMIT, OFFER_LIMIT
+      "No video turned up in 2 discovery rounds; say that YouTube evidence on this is thin.", FORUM_LIMIT, OFFER_LIMIT
     ]);
-    const thinCaveat = "No relevant video turned up in 2 rounds of searching, so community evidence on this is thin.";
+    const thinCaveat = "No relevant video turned up in 2 rounds of searching, so YouTube evidence on this is thin.";
     expect(nothing.caveats).toEqual([thinCaveat, FORUM_CAVEAT, ...OFFER_CAVEATS]);
+    expect(nothing.must_report).toContain(FORUM_REPORT_LINE);
+    expect(nothing.caveats.join(" ")).toContain("YouTube evidence on this is thin");
+    expect(nothing.caveats.join(" ")).not.toContain("community evidence on this is thin");
     const thinDraft = (text: string) => finalizeResearchRaw({
       ...base, receipts: [emptySurvey, emptySearch, study], another_pass_estimate: PASS_ESTIMATE,
       answer_draft: `${CLEAN_DRAFT} ${text} ${OFFER_CAVEATS.join(" ")}`
@@ -2536,7 +2559,7 @@ describe("finalize_research gate", () => {
     }, options);
     expect(explained.status).toBe("ready_with_limits");
     expect(explained.limits).toEqual([
-      "None of the 3 video(s) found in 3 discovery rounds was worth auditing; say that community evidence on this is thin.",
+      "None of the 3 video(s) found in 3 discovery rounds was worth auditing; say that YouTube evidence on this is thin.",
       FORUM_LIMIT,
       OFFER_LIMIT
     ]);

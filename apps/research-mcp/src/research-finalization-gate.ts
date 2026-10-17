@@ -853,7 +853,8 @@ export const finalizeResearchOutputSchema = z.object({
   carry_forward_note: z.string().optional(),
   finalization_receipt: z.string().optional(),
   analyses_saved: analysesSavedSchema.optional().describe("For a free contributor account whose research passed: the " +
-    "study and review analyses validated in it, which the server sent to the owner's review inbox.")
+    "study and review analyses this account's research validated and had not yet filed, in this chat or another, " +
+    "which the server sent to the owner's review inbox.")
 }).strict();
 
 export type FinalizeResearchOutput = z.output<typeof finalizeResearchOutputSchema>;
@@ -1250,16 +1251,16 @@ export function finalizeResearch(
         if (discovered.size === 0) {
           if (saturation.rateLimited > 0) {
             requireLimit(
-              "No video turned up before YouTube's rate limit or daily quota stopped discovery; say that community " +
+              "No video turned up before YouTube's rate limit or daily quota stopped discovery; say that YouTube " +
                 "evidence could not be checked yet, not that it is thin.",
-              "YouTube's search limit stopped discovery before any video turned up, so community evidence could not be " +
+              "YouTube's search limit stopped discovery before any video turned up, so YouTube evidence could not be " +
                 "checked yet."
             );
           } else {
             requireLimit(
-              `No video turned up in ${rounds.length} discovery rounds; say that community evidence on this is thin.`,
+              `No video turned up in ${rounds.length} discovery rounds; say that YouTube evidence on this is thin.`,
               `No relevant video turned up in ${rounds.length === 1 ? "1 round" : `${rounds.length} rounds`} of ` +
-                "searching, so community evidence on this is thin."
+                "searching, so YouTube evidence on this is thin."
             );
           }
         } else if (input.no_material_video_reason === undefined) {
@@ -1270,10 +1271,10 @@ export function finalizeResearch(
         } else {
           requireLimit(
             `None of the ${discovered.size} video(s) found in ${rounds.length} discovery rounds was worth auditing; ` +
-              "say that community evidence on this is thin.",
+              "say that YouTube evidence on this is thin.",
             discovered.size === 1
-              ? "The only video found was not worth a close look, so community evidence on this is thin."
-              : `None of the ${discovered.size} videos found was worth a close look, so community evidence on this is thin.`
+              ? "The only video found was not worth a close look, so YouTube evidence on this is thin."
+              : `None of the ${discovered.size} videos found was worth a close look, so YouTube evidence on this is thin.`
           );
         }
       }
@@ -1637,7 +1638,7 @@ export function finalizeResearch(
       requireLimit(
         `Cite ${source.id} as a lead: PubMed lists no DOI, so no open full text could be acquired and its methods were not audited.`
       );
-      unreadStudies.set(id, undefined);
+      unreadStudies.set(id, "NO_DOI");
       continue;
     }
     const target = pubmedDoi ?? source.id;
@@ -2737,6 +2738,10 @@ function unreadStudiesCaveats(studies: ReadonlyMap<string, string | undefined>):
 // signed it, for one study and for several.
 const UNREAD_STUDY_REASONS: Readonly<Record<string, readonly [string, string]>> = {
   UNAVAILABLE: ["The full text of {links} was not openly available", "The full texts of {links} were not openly available"],
+  NO_DOI: [
+    "AskRigor could not fetch the full text of {links}, which PubMed lists without a DOI",
+    "AskRigor could not fetch the full texts of {links}, which PubMed lists without DOIs"
+  ],
   ABSTRACT_ONLY: ["Only the abstract of {links} was readable", "Only the abstracts of {links} were readable"],
   PARTIAL_TEXT_READABLE: ["AskRigor could read only part of {links}", "AskRigor could read only part of {links}"],
   CANDIDATE_FOUND_FETCH_BLOCKED: [

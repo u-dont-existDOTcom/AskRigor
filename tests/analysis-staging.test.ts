@@ -404,7 +404,7 @@ describe("the server sends a free contributor's validated analyses when the fina
       status: "ready",
       analyses_saved: { saved: 1, already_saved: 0, unconfirmed: 0, not_saved: [] },
     });
-    expect(JSON.stringify(done.content)).toContain("Study and review analyses sent to the review inbox: 1.");
+    expect(JSON.stringify(done.content)).toContain("Study and review analyses from this account's research, in this chat or another, sent to the review inbox: 1.");
     expect(store.inserted).toHaveLength(1);
     expect(store.inserted[0]).toMatchObject({
       proposalKind: "SOURCE_ANALYSIS",

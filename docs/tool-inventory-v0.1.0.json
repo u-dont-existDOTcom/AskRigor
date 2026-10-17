@@ -1313,11 +1313,11 @@
           "doi": {
             "type": "string",
             "maxLength": 2048,
-            "pattern": "^(?:https?:\\/\\/(?:dx\\.)?doi\\.org\\/)?10\\.\\d{4,9}\\/[!#$%&'*+\\-._;()/:a-z0-9]+$"
+            "pattern": "^(?:[Hh][Tt][Tt][Pp][Ss]?:\\/\\/(?:[Dd][Xx]\\.)?[Dd][Oo][Ii]\\.[Oo][Rr][Gg]\\/)?10\\.\\d{4,9}\\/[!#$%&'*+\\-._;()/:A-Za-z0-9]+$"
           },
           "pmcid": {
             "type": "string",
-            "pattern": "^PMC[1-9]\\d{0,15}$"
+            "pattern": "^[Pp][Mm][Cc][1-9]\\d{0,15}$"
           },
           "candidate_urls": {
             "minItems": 1,
@@ -15006,11 +15006,14 @@
             ],
             "additionalProperties": false
           },
+          "carry_forward_note": {
+            "type": "string"
+          },
           "finalization_receipt": {
             "type": "string"
           },
           "analyses_saved": {
-            "description": "For a free contributor account whose research passed: the study and review analyses validated in it, which the server sent to the owner's review inbox.",
+            "description": "For a free contributor account whose research passed: the study and review analyses this account's research validated and had not yet filed, in this chat or another, which the server sent to the owner's review inbox.",
             "type": "object",
             "properties": {
               "saved": {

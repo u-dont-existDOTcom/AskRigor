@@ -2115,8 +2115,8 @@ function defineResearchOperations(
           { status: "unconfirmed" }
         );
       }
-      // Analyses validated in a free contributor's research go to the review
-      // inbox once the final check passes, like the findings card.
+      // Analyses a free contributor's research validated, in this chat or another, go to the review inbox at the
+      // account's next passing final check (analysis-staging.ts).
       if (researcher?.mode === "FREE_CONTRIBUTOR" && result.finalization_receipt !== undefined) {
         const held = ANALYSIS_STAGING.take(researcher.accountKey);
         if (held.length > 0) {
@@ -2150,7 +2150,7 @@ function defineResearchOperations(
                 : card.problems.length === 0 ? "." : `: ${card.problems.join(" ")}`)) +
           (analyses === undefined
             ? ""
-            : `\nStudy and review analyses sent to the review inbox: ${analyses.saved + analyses.already_saved}` +
+            : `\nStudy and review analyses from this account's research, in this chat or another, sent to the review inbox: ${analyses.saved + analyses.already_saved}` +
               (analyses.unconfirmed === 0 ? "" : `, ${analyses.unconfirmed} still sending`) +
               (analyses.not_saved.length === 0
                 ? ""
