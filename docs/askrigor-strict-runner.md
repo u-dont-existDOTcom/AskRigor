@@ -27,6 +27,7 @@ npx tsx scripts/askrigor-strict.mts --continue "Your follow-up"
 | `--rounds N` | Allow N fix rounds after the initial attempt; default 3. Zero is allowed. |
 | `--show-unchecked` | Also print an answer that failed, under `Unchecked answer:`. |
 | `--keep-log` | Retain the raw Codex JSON event log in the state directory. |
+| `--no-second-reading` | Turn off the local second reading, which is on by default. |
 | `--state-dir DIR` | Use a different directory; default `~/.askrigor-strict`. |
 | `--help` | Print usage without running Codex. |
 
@@ -78,6 +79,28 @@ Checked answers end with this footer, with the returned status filled in:
 
 When checks fail, the runner prints `Not checked: <reason>.` and the open steps.
 The unchecked final answer is hidden unless `--show-unchecked` is set.
+
+## Second reading
+
+After the gate passes, a new Codex session reads the checked answer and the
+passing finalizer's `safety_claims`, `key_terms` and `scale_results` declarations.
+It looks for harm or safety statements, specialized terms and scale or
+questionnaire results that those declarations leave out. It runs on the owner's
+Codex subscription, with low reasoning effort, and is instructed to use only the
+supplied text. Any tool call, web search or command makes the reading unusable.
+
+Only quotes present in the answer count, after whitespace normalization, and
+quotes covered by a declaration are discarded. Open findings prompt one revision
+round on the main thread, within the existing `--rounds` budget, followed by the
+usual final gate. The reader does not run again in that owner turn. Findings are
+advisory after that revision: any still open appear after the footer, while the
+AI may keep its answer if it judges that a finding does not belong to that kind.
+If the budget is already exhausted, the findings appear without a revision.
+
+Use `--no-second-reading` to disable it. An unusable reading adds
+`Second reading: could not run (<reason>).` without changing the main gate's
+result. No findings are saved in `state.json`; with `--keep-log`, the reading's
+events join the same private event log as the main thread's events.
 
 ## Limits and privacy
 

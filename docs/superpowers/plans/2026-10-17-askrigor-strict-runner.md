@@ -100,3 +100,40 @@ changes and release are outside this owner's build authorization.
   (`not_ready` three times, then `ready_with_limits`); the final message equals the last checked draft exactly (5,185
   characters). Under fix 2 the runner shows it with the footer; state.json held only the thread id and the update
   time (the live build returns no carried state yet).
+
+## Local second reading (owner questions 117 and 118)
+
+Implemented the bounded owner brief in the five authorized files: default-on
+reading in a fresh subscription Codex session, identical restricted flags and
+low reasoning effort; only the checked answer and three declaration kinds enter
+its prompt. Exact quote/coverage checks select findings for one main-thread
+revision within the fix budget; unresolved findings remain advisory. Reader
+state is not merged or saved; events share the optional private log.
+
+Activation: live UDA default-branch bootstrap and relevant pattern sections,
+local inheritance/router, and graph dependency closure (no declared conflicts).
+The existing active contract applies: fixed sentences, structural comparisons,
+model-owned semantic judgments, fixture-only execution and zero API spend.
+Authority-policy validation passed. Lesson/queue and suggested-fix counts are
+unavailable because the owner restricted network to read-only bootstrap reads.
+
+Validation and closeout:
+
+- Fixture suite: 84 tests passed, covering the owner's full checklist, budgets,
+  gate failure, exact kinds and main-state/log isolation. Standalone strict
+  TypeScript check of CLI/library/tests passed.
+- Embedded rubric exactly matches rubric.txt: 2,099 UTF-8 bytes.
+- Final `npm run verify`: exit 0; typecheck/build passed; 247 files passed,
+  1 skipped (248 total); 3,592 tests passed, 6 skipped (3,598 total).
+- Initial fixture syntax error corrected. Final review tightened malformed-kind
+  handling to exact string equality; focused tests and the full gate reran.
+- Test telemetry at closeout: 382.00s elapsed; 156.59s testing (40.99%);
+  focused: 3 runs/2.94s/1 syntax failure; full: 2 runs/153.65s/0 failures.
+  No mutation or redundant-green runs; no skips or estimated time avoided.
+- Final diff/whitespace review: exactly five authorized paths; unchanged HEAD;
+  no generated drift. No design deviations, Codex process, commit, push or Git
+  configuration change. Live acceptance/publication were outside scope.
+
+Lesson closeout: existing exact-boundary and semantic-judgment rules are covered
+by fixtures; no new general lesson or remote write. Stop admission: the prescribed
+local implementation and verification are complete; no in-scope work remains.

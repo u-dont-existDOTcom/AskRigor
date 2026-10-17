@@ -5,7 +5,7 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  codexArguments, emptyTurn, latestCarryForward, parseEventLine,
+  codexArguments, emptyTurn, latestCarryForward, localReaderArguments, parseEventLine,
   restrictedFlagsFromMcpList, runStrictTurn,
 } from "./lib/askrigor-strict.mts";
 
@@ -16,6 +16,7 @@ Options:
   --rounds N        Fix rounds after the initial attempt (default: 3)
   --show-unchecked Also show an answer that did not pass, clearly labeled
   --keep-log       Keep the Codex JSON event log (contains private content)
+  --no-second-reading  Turn off the local second reading (default: on)
   --state-dir DIR  Private state directory (default: ~/.askrigor-strict)
   --help           Show this usage
 `;
@@ -26,13 +27,14 @@ export interface CliOptions {
   rounds: number;
   showUnchecked: boolean;
   keepLog: boolean;
+  secondReading: boolean;
   stateDir: string;
 }
 
 export function parseOptions(args: readonly string[]): CliOptions {
   const options: CliOptions = {
     ownerText: "", continue: false, rounds: 3, showUnchecked: false,
-    keepLog: false, stateDir: join(homedir(), ".askrigor-strict"),
+    keepLog: false, secondReading: true, stateDir: join(homedir(), ".askrigor-strict"),
   };
   const positional: string[] = [];
   for (let i = 0; i < args.length; i += 1) {
@@ -41,6 +43,7 @@ export function parseOptions(args: readonly string[]): CliOptions {
     if (arg === "--continue") options.continue = true;
     else if (arg === "--show-unchecked") options.showUnchecked = true;
     else if (arg === "--keep-log") options.keepLog = true;
+    else if (arg === "--no-second-reading") options.secondReading = false;
     else if (arg === "--rounds") {
       const value = args[++i];
       if (!value || !/^\d+$/.test(value) || !Number.isSafeInteger(Number(value))) {
@@ -184,14 +187,15 @@ export async function runCli(args: readonly string[], dependencies: CliDependenc
     const outcome = await runStrictTurn({
       ownerText: options.ownerText, carriedState: state?.carry_forward,
       threadId: options.continue ? state?.thread_id : undefined,
-      rounds: options.rounds, showUnchecked: options.showUnchecked,
-    }, async (prompt, threadId) => {
+      rounds: options.rounds, showUnchecked: options.showUnchecked, secondReading: options.secondReading,
+    }, async (prompt, threadId, secondReading) => {
       const turn = emptyTurn();
       // resume does not emit thread.started in every CLI version.
       turn.threadId = threadId;
       let pending = "";
       try {
-        const code = await transport(codexArguments(workDir, flags, threadId), prompt, workDir, async (chunk) => {
+        const args = secondReading ? localReaderArguments(workDir, flags) : codexArguments(workDir, flags, threadId);
+        const code = await transport(args, prompt, workDir, async (chunk) => {
           if (log) await log.writeFile(chunk, "utf8");
           pending += chunk;
           let newline: number;
