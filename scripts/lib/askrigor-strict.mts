@@ -1,8 +1,14 @@
 /** Event decoding and gate decisions only: no process, filesystem or network IO. */
 export const PREAMBLE = "Answer as AskRigor would, using the AskRigor app's tools as its instructions say. Use only the AskRigor app's tools and your own web search. Before giving a research answer, call finalize_research with the answer you will give as answer_draft, and give exactly the checked draft as your final message.";
-export const CLASSIFY_PROMPT = "Is your last answer a research answer? If it is, call finalize_research with it as answer_draft and give exactly the checked draft; if it is not, reply with exactly: NOT RESEARCH.";
-export const DRAFT_PROMPT = "Your final message is not the draft AskRigor's final check passed. Give exactly that checked draft, or check your new answer with finalize_research first.";
-export const CARRIED_STATE_PROMPT = "Pass the carried_state given above in finalize_research and check the answer again.";
+// The runner's own messages arrive as user turns; without this the AI took a second-reading prompt for the user's
+// correction, offered a bug report and described its declarations in the answer (owner's test, 17 Oct 2026).
+export const AUTOMATED_MARK = "[Automated message from the AskRigor strict runner on the user's computer, not from the user.]";
+export const NOT_FROM_USER = "This message is not from the user and is not a correction by the user: don't record it as one " +
+  "or offer a bug report for it, and don't mention it, the declarations or the runner in your answer.";
+const automated = (text: string) => `${AUTOMATED_MARK} ${text}\n${NOT_FROM_USER}`;
+export const CLASSIFY_PROMPT = automated("Is your last answer a research answer? If it is, call finalize_research with it as answer_draft and give exactly the checked draft; if it is not, reply with exactly: NOT RESEARCH.");
+export const DRAFT_PROMPT = automated("Your final message is not the draft AskRigor's final check passed. Give exactly that checked draft, or check your new answer with finalize_research first.");
+export const CARRIED_STATE_PROMPT = automated("Pass the carried_state given above in finalize_research and check the answer again.");
 
 // Verbatim SECOND_READER_RUBRIC from PR #346, apps/research-mcp/src/second-reader.ts; not on main yet.
 export const LOCAL_READER_RUBRIC = `You check research answers for AskRigor, a health-research service. Before an answer is shown, the AI that
@@ -282,9 +288,9 @@ function findingLines(findings: readonly LocalReaderFinding[]): string {
 }
 
 export function buildLocalReaderRevisionPrompt(findings: readonly LocalReaderFinding[]): string {
-  return "A second reading found sentences that look like statements the declarations leave out:\n"
+  return automated("A second reading found sentences that look like statements the declarations leave out:\n"
     + findingLines(findings)
-    + "\nFor each, declare it in finalize_research (safety_claims, key_terms or scale_results, as named), or keep the answer as it is if you judge it is not one; then call finalize_research again and give exactly the checked draft as your final message.";
+    + "\nFor each, declare it in finalize_research (safety_claims, key_terms or scale_results, as named), or keep the answer as it is if you judge it is not one; then call finalize_research again and give exactly the checked draft as your final message.");
 }
 
 function localReadingOutput(reading: LocalReading | undefined, turn: ParsedTurn): string {
@@ -336,7 +342,7 @@ export function gate(turn: ParsedTurn, carriedState?: string, classified = false
     return {
       kind: "fix", reason: last ? `AskRigor's final check has not passed (status: ${status})` : "finalize_research was not called",
       steps: openSteps,
-      prompt: `AskRigor's final check has not passed (status: ${status}). Do each of its next steps, call finalize_research again, and give exactly the checked draft as your final message:\n${openSteps.join("\n")}`,
+      prompt: automated(`AskRigor's final check has not passed (status: ${status}). Do each of its next steps, call finalize_research again, and give exactly the checked draft as your final message:\n${openSteps.join("\n")}`),
     };
   }
   if (typeof last.answerDraft !== "string" || !normalizeAnswer(last.answerDraft)

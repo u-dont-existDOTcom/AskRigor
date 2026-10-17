@@ -3,7 +3,7 @@ import { mkdtemp, readFile, readdir, rm, stat, writeFile, chmod } from "node:fs/
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseOptions, runCli, type CodexTransport } from "../scripts/askrigor-strict.mts";
-import {
+import { AUTOMATED_MARK, NOT_FROM_USER,
   CARRIED_STATE_PROMPT, CLASSIFY_PROMPT, DRAFT_PROMPT, LOCAL_READER_RUBRIC, PREAMBLE,
   buildLocalReaderPrompt, buildPrompt, codexArguments, gate, latestCarryForward, localReaderArguments, normalizeAnswer,
   parseEventLog, restrictedFlagsFromMcpList, runStrictTurn,
@@ -114,7 +114,7 @@ describe("strict runner gate and bounded fixes", () => {
       log(check(), final()),
     ]);
     expect(calls).toHaveLength(2);
-    expect(calls[1].prompt).toBe("AskRigor's final check has not passed (status: not_ready). Do each of its next steps, call finalize_research again, and give exactly the checked draft as your final message:\nRead the study.\nReport its limit.");
+    expect(calls[1].prompt).toBe(`${AUTOMATED_MARK} AskRigor's final check has not passed (status: not_ready). Do each of its next steps, call finalize_research again, and give exactly the checked draft as your final message:\nRead the study.\nReport its limit.\n${NOT_FROM_USER}`);
     expect(result.kind).toBe("passed");
   });
 
@@ -287,6 +287,17 @@ function fakeTransport(logs: string[], calls: { args: readonly string[]; input?:
   };
 }
 
+describe("automated runner messages", () => {
+  it("mark every message the runner sends as automated and not a correction by the user", async () => {
+    for (const prompt of [CLASSIFY_PROMPT, DRAFT_PROMPT, CARRIED_STATE_PROMPT, revisionPrompt]) {
+      expect(prompt.startsWith(AUTOMATED_MARK)).toBe(true);
+      expect(prompt.endsWith(NOT_FROM_USER)).toBe(true);
+    }
+    expect(NOT_FROM_USER).toContain("not a correction by the user");
+    expect(NOT_FROM_USER).toContain("offer a bug report");
+  });
+});
+
 describe("CLI progress", () => {
   it("reports progress on stderr with counts and statuses only, never the question or the answer", async () => {
     const stateDir = join(await directory(), "state");
@@ -448,9 +459,10 @@ const declaredFindings = {
 const advisoryLines = `- a harm or safety statement (safety_claims): "${harm}"\n`
   + `- a specialized term the answer relies on (key_terms): "${term}"\n`
   + `- a scale or questionnaire result (scale_results): "${scale}"`;
-const revisionPrompt = "A second reading found sentences that look like statements the declarations leave out:\n"
+const revisionPrompt = `${AUTOMATED_MARK} A second reading found sentences that look like statements the declarations leave out:\n`
   + advisoryLines
-  + "\nFor each, declare it in finalize_research (safety_claims, key_terms or scale_results, as named), or keep the answer as it is if you judge it is not one; then call finalize_research again and give exactly the checked draft as your final message.";
+  + "\nFor each, declare it in finalize_research (safety_claims, key_terms or scale_results, as named), or keep the answer as it is if you judge it is not one; then call finalize_research again and give exactly the checked draft as your final message."
+  + `\n${NOT_FROM_USER}`;
 const readingLog = (value: unknown = { findings }) => log(final(JSON.stringify(value)));
 const checkedReaderAnswer = (declarations?: Record<string, unknown>) =>
   log(check("ready", { draft: readerAnswer, declarations }), final(readerAnswer));
