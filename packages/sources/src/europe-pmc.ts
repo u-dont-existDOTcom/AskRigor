@@ -6,7 +6,7 @@ import {
 } from "@askrigor/contracts";
 import { z } from "zod";
 
-import { fetchJson, isTransientTransportError } from "./http.js";
+import { upstreamFailureDetails, fetchJson, isTransientTransportError } from "./http.js";
 
 const SEARCH_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/search";
 const DEFAULT_PAGE_SIZE = 20;
@@ -275,6 +275,7 @@ const europePmcErrorEnvelope = (
     message,
     ...(status === undefined ? {} : { httpStatus: status }),
     retryable,
+    failureKind: upstreamFailureDetails(error).failure_kind,
     data: []
   }) as ProvenanceEnvelope<EuropePmcRecord[]>;
 };

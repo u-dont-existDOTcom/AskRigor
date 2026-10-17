@@ -57,6 +57,9 @@
    section EpistemicSafetyRules, with final checks FS236 to FS238 and stress cases NegativeControlsConstrain,
    WithdrawnReportReclassified, UnblindedSelfTest, OwnUseBenefitNoHarm, MechanismInquiryKept and
    ConfirmedCorrectionReport.
+   Owner-approved, question 113 (2026-10-17): a full-text service that still fails when tried again at least a minute
+   later lets the server sign a lead, and the answer says the service failed (the full-text acquisition rule and
+   stress case OpenAccessRouteOutage).
   </Revision>
   <Revision version="20.6.26" priority="Critical">
    Owner-approved, question 103 (2026-10-16), from the 16 October regression run: stress case
@@ -3356,7 +3359,8 @@
    public_copy_search; continue_open_full_text until exhausted; then validate_study_method_audit or
    validate_review_method_audit, which refuse unless the full text was read to exhaustion. finalize_research requires
    a validated audit receipt for each key study, or a lead receipt, which the server signs only after the exact
-   public-copy search is recorded and no route failed.
+   public-copy search is recorded and either no route failed or a full-text service still failed when tried again at
+   least a minute later; the answer then says the service failed, not that the study is unavailable.
 
    If access still fails, record the exact studies in priority order, verified identifiers when available, why each may
    change the decision, the fields still unresolved, and the claim-local uncertainty. Offer a lawful user upload,
@@ -7578,7 +7582,8 @@ Final integrated synthesis rule:
    </Prompt>
    <ExpectedBehavior>
     Record route failures, not inaccessibility; search exactly for a public copy by title, DOI, PMID, and PII; retry
-    the failed routes later; do not cite the trial as unreadable until the search is recorded and no route failed.
+    the failed routes at least a minute later; if a service still fails, cite the trial as a lead whose full text a
+    service failed to deliver, never as unreadable or unavailable.
    </ExpectedBehavior>
   </Case>
   <Case id="RelatedPaperPublicCopy">

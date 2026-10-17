@@ -1,4 +1,4 @@
-# Lessons #32 to #37, the final-check fixes from the 17 October run, and the carried state (owner questions 109, 111 and 112)
+# Lessons #32 to #37, the final-check fixes from the 17 October run, and the carried state (owner questions 109, 111, 112 and 113)
 
 ## Authority and scope
 
@@ -8,6 +8,9 @@
   - **111 A:** fixes 1 to 3 below, and item 4 looked into first.
 - Owner answer "112a" (2026-10-17, about 11:00 UTC), to the owner's question "are there also other things which we
   should be saving from turn to turn?": the carried state below, in the same build and release.
+- Owner answer "113a" (2026-10-17, about 11:46 UTC): the HRP wording for a full-text service that keeps failing
+  (owner questions page, question 113), word for word, in the unreleased HRP 20.6.27, with the server behavior in
+  "Final-check fixes" item 3.
 - Lessons: [#32](https://github.com/u-dont-existDOTcom/AskRigor-lessons/issues/32) to
   [#37](https://github.com/u-dont-existDOTcom/AskRigor-lessons/issues/37), filed 2026-10-17 by the ChatGPT connector
   after the owner's lemon conversation, labeled accepted with the owner's words. The 17 October regression record is
@@ -90,10 +93,9 @@ All three are the model's declarations; the server checks only presence, indexes
    Both surfaces use a permissive SDK registration carrying the derived published schema, with strict server validation after copying and normalizing optional empty lists.
 2. **Internal labels:** a token directly after `r/` or `u/`, or one that appears in a caveat the check itself requires
    or in a community name the call declares, is not an internal label.
-3. **Failed acquisitions:** not built here. The investigation found that the fix contradicts HRP's own text (a lead
-   receipt only when "no route failed"; stress case OpenAccessRouteOutage), so it needs owner-approved wording:
-   owner question 113, open when this branch was opened. Europe PMC failed for the same papers on every try, so the
-   check could never pass for them.
+3. **Failed acquisitions (113a):** after an exact public-copy search, genuine primary-service failures earn signed
+   receipts. Two receipts at least 60 seconds apart admit a lead with the service-failure caveat; supplied-candidate
+   failures do not count. The unreleased HRP 20.6.27 acquisition rule and outage stress case carry the approved wording.
 4. **Looked into first, then fixed (wording only):** the YouTube caveats said "community evidence" when forums had
    been read (l26), and now say "YouTube evidence"; a PMID whose PubMed record lists no DOI was called "not openly
    available" (l27), and now has its own caveat; and no findings card was saved without a validated source: the
@@ -143,5 +145,4 @@ saved with a findings card. The carried state holds the user's observations and 
 result and passed back by the client, and AskRigor verifies it without storing or logging it.
 `docs/privacy-data-map.md` says so.
 
-Status: approved "109a 110a 111a" and "112a" on 2026-10-17; built on this branch, except 111 item 3 (owner
-question 113).
+Status: approved "109a 110a 111a", "112a" and "113a" on 2026-10-17; built on this branch.

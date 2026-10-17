@@ -73,11 +73,16 @@ const APPROVED = {
       "Acknowledge the specific error; show a short general report ('When ..., AskRigor should ... because ...') with no personal details; in the same reply, ask whether AskRigor may send it or the user wants to clarify first; send nothing before a yes."
     ]
   ],
-  "hrpRevision": "Owner-approved, question 109 (2026-10-17), from lessons #32 to #37: added UserObservationLedger and MeasurementIsNotAttribution to the core section HeterodoxEpistemology and ProportionateAdviceOnOwnUse to the core section EpistemicSafetyRules, with final checks FS236 to FS238 and stress cases NegativeControlsConstrain, WithdrawnReportReclassified, UnblindedSelfTest, OwnUseBenefitNoHarm, MechanismInquiryKept and ConfirmedCorrectionReport.",
+  "hrpRevision": "Owner-approved, question 109 (2026-10-17), from lessons #32 to #37: added UserObservationLedger and MeasurementIsNotAttribution to the core section HeterodoxEpistemology and ProportionateAdviceOnOwnUse to the core section EpistemicSafetyRules, with final checks FS236 to FS238 and stress cases NegativeControlsConstrain, WithdrawnReportReclassified, UnblindedSelfTest, OwnUseBenefitNoHarm, MechanismInquiryKept and ConfirmedCorrectionReport. Owner-approved, question 113 (2026-10-17): a full-text service that still fails when tried again at least a minute later lets the server sign a lead, and the answer says the service failed (the full-text acquisition rule and stress case OpenAccessRouteOutage).",
   "universalSentence": "After sending, say what the tool returned: saved for review, already in review, or not saved and why; without that result, do not say it was sent.",
   "universalRevision": "Owner-approved, question 109 (2026-10-17), from lesson #37: after sending a bug report, AskRigor says what the lesson tool returned (saved for review, already in review, or not saved and why) and never says it was sent without that result.",
   "sendSentence": "Send it only after the user says yes, and only through a lesson tool or Action this surface actually offers; if it offers none, say so and tell the user it can be sent through AskRigor's lesson Action."
 } as const;
+
+const Q113_ACQUISITION_BEFORE = "finalize_research requires\n   a validated audit receipt for each key study, or a lead receipt, which the server signs only after the exact\n   public-copy search is recorded and no route failed.";
+const Q113_ACQUISITION_AFTER = "finalize_research requires\n   a validated audit receipt for each key study, or a lead receipt, which the server signs only after the exact\n   public-copy search is recorded and either no route failed or a full-text service still failed when tried again at\n   least a minute later; the answer then says the service failed, not that the study is unavailable.";
+const Q113_CASE_BEFORE = "    Record route failures, not inaccessibility; search exactly for a public copy by title, DOI, PMID, and PII; retry\n    the failed routes later; do not cite the trial as unreadable until the search is recorded and no route failed.";
+const Q113_CASE_AFTER = "    Record route failures, not inaccessibility; search exactly for a public copy by title, DOI, PMID, and PII; retry\n    the failed routes at least a minute later; if a service still fails, cite the trial as a lead whose full text a\n    service failed to deliver, never as unreadable or unavailable.";
 const PINS = {
   "hrp": {
     "from": {
@@ -86,7 +91,7 @@ const PINS = {
     },
     "to": {
       "version": "20.6.27",
-      "sha256": "6bafe01de57bbc3d49e4214404ad82f22165684f9501e47986dec5f13956384a"
+      "sha256": "f7aa8bfcd03abd3c4803359d7c12d7026f0e58d49f5ebad26403dca3443316aa"
     }
   },
   "universal": {
@@ -149,7 +154,9 @@ const ruleXml = (name: string, text: string) =>
 const caseXml = (name: string, prompt: string, expected: string) =>
   `  <Case id="${name}">\n   <Prompt>\n${wrapped(prompt, 4)}\n   </Prompt>\n` +
   `   <ExpectedBehavior>\n${wrapped(expected, 4)}\n   </ExpectedBehavior>\n  </Case>`;
-const HRP_REVISION = `  <Revision version="20.6.27" priority="Critical">\n${wrapped(APPROVED.hrpRevision, 3)}\n  </Revision>`;
+const HRP_REVISION = `  <Revision version="20.6.27" priority="Critical">\n${APPROVED.hrpRevision
+  .split(" Owner-approved, question 113")
+  .map((part, index) => wrapped(index === 0 ? part : `Owner-approved, question 113${part}`, 3)).join("\n")}\n  </Revision>`;
 const UNIVERSAL_REVISION = `<revision version="20.5.44" priority="Critical">\n${wrapped(APPROVED.universalRevision, 0)}\n</revision>`;
 
 // Construct the authorized change whitelist independently of the recorded edit fixtures.
@@ -171,6 +178,8 @@ function expectedEdits(protocol: "hrp" | "universal", prior: string): Array<[str
     [dose, `${ruleXml(APPROVED.rules[2][0], APPROVED.rules[2][2])}\n\n${dose}`],
     [fs235, fs235 + "\n" + APPROVED.checks.map(([id, text]) => `  <Check id="${id}">${text}</Check>`).join("\n")],
     [coded, APPROVED.cases.map(([id, prompt, expected]) => caseXml(id, prompt, expected)).join("\n") + `\n${coded}`],
+    [Q113_ACQUISITION_BEFORE, Q113_ACQUISITION_AFTER],
+    [Q113_CASE_BEFORE, Q113_CASE_AFTER],
   ];
 }
 
@@ -187,7 +196,7 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17)', () => {
     expect(fixture.from).toEqual(previous.to);
     expect(fixture.from).toEqual(PINS[protocol].from);
     expect(fixture.to).toEqual(PINS[protocol].to);
-    expect(fixture.edits).toHaveLength(protocol === "hrp" ? 6 : 3);
+    expect(fixture.edits).toHaveLength(protocol === "hrp" ? 8 : 3);
     const current = await load(protocol);
     expect(XMLValidator.validate(current)).toBe(true);
     expect(hash(current)).toBe(PINS[protocol].to.sha256);
@@ -208,6 +217,20 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17)', () => {
       name: protocol === "hrp" ? "HRP" : "AskRigor.com universal saved instructions",
       version: PINS[protocol].to.version, revisionDate: "2026-10-17", sha256: hash(current),
     });
+  });
+
+  it("keeps question 113's approved acquisition and outage texts word for word in place", async () => {
+    const text = await load("hrp");
+    const rule = element(text, "Rule", "name", "MandatoryProviderNeutralFullTextEscalation");
+    expect(rule).toContain(Q113_ACQUISITION_AFTER);
+    const outage = element(section(text, "StressTestExpectations"), "Case", "id", "OpenAccessRouteOutage");
+    expect(section(outage, "ExpectedBehavior")).toBe(`\n${Q113_CASE_AFTER}\n   `);
+    expect(plain(section(outage, "Prompt"))).toBe(
+      "Europe PMC is rate-limited and Unpaywall times out while acquiring a decision-critical trial's full text."
+    );
+    for (const line of [...Q113_ACQUISITION_AFTER.split("\n"), ...Q113_CASE_AFTER.split("\n")]) {
+      expect(line.length).toBeLessThanOrEqual(118);
+    }
   });
 
   it.each(APPROVED.rules)("keeps %s word for word in core section %s", async (name, containingSection, approved) => {

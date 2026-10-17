@@ -6,7 +6,7 @@ import {
 } from "@askrigor/contracts";
 import { z } from "zod";
 
-import { fetchJson, UpstreamHttpError } from "./http.js";
+import { upstreamFailureDetails, fetchJson, UpstreamHttpError } from "./http.js";
 
 const UNPAYWALL_API_ROOT = "https://api.unpaywall.org/v2";
 const DOI_PATTERN = /^10\.\d{4,9}\/[!#$%&'*+\-._;()/:a-z0-9]+$/iu;
@@ -203,6 +203,7 @@ export async function resolveUnpaywallOpenAccess(
         ? "Unpaywall service was unavailable"
         : "Unpaywall request failed",
       ...(status === undefined ? {} : { httpStatus: status }),
+      failureKind: upstreamFailureDetails(error).failure_kind,
       retryable: status !== undefined && status >= 500
     });
   }
@@ -249,6 +250,7 @@ interface UnpaywallErrorDetails {
   code: string;
   message: string;
   httpStatus?: number;
+  failureKind?: "timeout" | "network";
   retryable: boolean;
 }
 
@@ -271,6 +273,7 @@ function unpaywallErrorEnvelope(
     message: details.message,
     ...(details.httpStatus === undefined ? {} : { httpStatus: details.httpStatus }),
     retryable: details.retryable,
+    failureKind: details.failureKind,
     data: {}
   }) as ProvenanceEnvelope<Record<string, never>>;
 }

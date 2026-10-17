@@ -7,7 +7,9 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
  * search or scout, even one that found nothing, a terminal per-video comment
  * audit, a PubMed record, a DOI's registered landing page,
  * an exhausted full-text reading, a validated full-text method audit, a failed full-text acquisition that
- * leaves only a lead, a treatment-coverage check, or Gemini's reading of a
+ * leaves only a lead,
+ * a recorded full-text service failure after public-copy search,
+ * a treatment-coverage check, or Gemini's reading of a
  * video the person gave) returns one short token. The
  * finalize_research gate verifies the tokens, so completion is checked by the
  * server instead of taken from the model's own report. Tokens are stateless:
@@ -31,6 +33,7 @@ export const RESEARCH_RECEIPT_KINDS = [
   "doi_resolution",
   "literature_search",
   "full_text_lead",
+  "full_text_route_failure",
   "full_text_read",
   "study_audit",
   "review_audit",

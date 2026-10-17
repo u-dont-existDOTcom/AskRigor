@@ -1435,6 +1435,8 @@ export function finalizeResearch(
   const validatedIds = new Set<string>();
   const leadIds = new Set<string>();
   const leadStates = new Map<string, string>();
+  // DOI -> observed service failures, retaining the named PMCID and signed issue time together.
+  const routeFailures = new Map<string, Array<{ pmcid: string; issued: number }>>();
   // PMID -> DOI ("" when the PubMed record has none), from fetch_pubmed_record receipts.
   const pubmedDois = new Map<string, string>();
   // PMID -> PMCID when PubMed lists an open copy in PubMed Central.
@@ -1451,7 +1453,7 @@ export function finalizeResearch(
   // resolve_doi names the page a DOI is registered to. A link to any of them links the paper (#336's publisher and
   // Europe PMC pages). A lead receipt's PMCID is left out: no copy confirmed it.
   const papers = new PaperLinks();
-  for (const { kind, claims } of verified) {
+  for (const { kind, claims, issuedAt } of verified) {
     if (PAPER_TIE_KINDS.has(kind)) papers.tie(claims);
     if (kind === "pubmed_record" && typeof claims.pmid === "string") {
       pubmedDois.set(normalizeIdentifier(claims.pmid), typeof claims.doi === "string" ? normalizeIdentifier(claims.doi) : "");
@@ -1490,6 +1492,13 @@ export function finalizeResearch(
         if (earlier === undefined || earlier.order <= figures.order) studyFigures.set(id, figures);
       }
     }
+    if (kind === "full_text_route_failure" && typeof claims.doi === "string" && claims.doi !== "") {
+      const doi = normalizeIdentifier(claims.doi);
+      const pmcid = typeof claims.pmcid === "string" ? claims.pmcid.toUpperCase() : "";
+      const failures = routeFailures.get(doi) ?? [];
+      failures.push({ pmcid, issued: Date.parse(issuedAt) });
+      routeFailures.set(doi, failures);
+    }
     if (kind === "full_text_lead") {
       for (const key of ["doi", "pmcid"]) {
         const value = claims[key];
@@ -1513,6 +1522,19 @@ export function finalizeResearch(
     if (isPmid(id)) return pubmedPmcids.get(id);
     const pmid = isDoi(id) ? [...pubmedDois].find(([candidate, doi]) => doi === id && pubmedPmcids.has(candidate))?.[0] : undefined;
     return pmid === undefined ? undefined : pubmedPmcids.get(pmid);
+  };
+  const needsPubmedCopyAttempt = (
+    sourceId: string, id: string, pubmedDoi: string | undefined, attempts: ReadonlyMap<string, ReadonlySet<string>>
+  ): boolean => {
+    const doi = isDoi(id) ? id : pubmedDoi !== undefined && pubmedDoi !== "" ? pubmedDoi : undefined;
+    const openCopy = pmcidFor(id);
+    if (doi === undefined || openCopy === undefined || attempts.get(doi)?.has(openCopy)) return false;
+    nextSteps.push(
+      `PubMed lists an open copy of ${sourceId} in PubMed Central (${openCopy}) that the full-text attempt did not ` +
+        `try: call acquire_open_full_text with DOI ${doi} and pmcid ${openCopy}, then audit it, or pass the new ` +
+        `research_receipt if it still finds no full text. ${LEAD_RECEIPT_SEARCH}`
+    );
+    return true;
   };
   const validatedSources: string[] = [];
   const leadSources: string[] = [];
@@ -1583,17 +1605,7 @@ export function finalizeResearch(
       continue;
     }
     if (ids.some((candidate) => leadIds.has(candidate))) {
-      // An open copy PubMed links to the study must be tried before it is a lead.
-      const doi = isDoi(id) ? id : pubmedDoi !== undefined && pubmedDoi !== "" ? pubmedDoi : undefined;
-      const openCopy = pmcidFor(id);
-      if (doi !== undefined && openCopy !== undefined && !(leadAttempts.get(doi)?.has(openCopy) ?? false)) {
-        nextSteps.push(
-          `PubMed lists an open copy of ${source.id} in PubMed Central (${openCopy}) that the full-text attempt did not ` +
-            `try: call acquire_open_full_text with DOI ${doi} and pmcid ${openCopy}, then audit it, or pass the new ` +
-            `research_receipt if it still finds no full text. ${LEAD_RECEIPT_SEARCH}`
-        );
-        continue;
-      }
+      if (needsPubmedCopyAttempt(source.id, id, pubmedDoi, leadAttempts)) continue;
       leadSources.push(source.id);
       const limits: Record<string, string> = {
         NO_COPY_FOUND_AFTER_EXPANDED_SEARCH: "no public full text was found after an exact search",
@@ -1607,6 +1619,24 @@ export function finalizeResearch(
       const limit = state === undefined ? "no open full text was available" : limits[state] ?? "no open full text was available";
       requireLimit(`Cite ${source.id} as a lead: ${limit}, so its methods were not audited.`);
       unreadStudies.set(id, state);
+      continue;
+    }
+    const failedForSource = [...routeFailures].flatMap(([doi, failures]) =>
+      ids.includes(doi) ? failures : failures.filter(({ pmcid }) => pmcid !== "" && ids.includes(normalizeIdentifier(pmcid))));
+    if (source.status === "lead_only" && failedForSource.length > 0) {
+      const times = failedForSource.map(({ issued }) => issued);
+      if (Math.max(...times) - Math.min(...times) < 60_000) {
+        nextSteps.push(`A full-text service failed for ${source.id}: call acquire_open_full_text again at least a minute ` +
+          "after the first attempt; if it fails again, pass the research_receipt from each attempt and cite it as a lead.");
+        continue;
+      }
+      const failedAttempts = new Map([...routeFailures].map(([doi, failures]) =>
+        [doi, new Set(failures.map(({ pmcid }) => pmcid))]));
+      if (needsPubmedCopyAttempt(source.id, id, pubmedDoi, failedAttempts)) continue;
+      leadSources.push(source.id);
+      requireLimit(`Cite ${source.id} as a lead: a full-text service kept failing when AskRigor tried to fetch it, ` +
+        "so its methods were not audited.");
+      unreadStudies.set(id, "ROUTE_FAILED");
       continue;
     }
     if (!isDoi(id) && !isPmid(id) && !isPmcid(id)) {
@@ -2737,6 +2767,10 @@ function unreadStudiesCaveats(studies: ReadonlyMap<string, string | undefined>):
 // What stopped a key study's full text from being read, as its lead receipt
 // signed it, for one study and for several.
 const UNREAD_STUDY_REASONS: Readonly<Record<string, readonly [string, string]>> = {
+  ROUTE_FAILED: [
+    "AskRigor could not fetch the full text of {links} because a full-text service kept failing",
+    "AskRigor could not fetch the full texts of {links} because full-text services kept failing"
+  ],
   UNAVAILABLE: ["The full text of {links} was not openly available", "The full texts of {links} were not openly available"],
   NO_DOI: [
     "AskRigor could not fetch the full text of {links}, which PubMed lists without a DOI",

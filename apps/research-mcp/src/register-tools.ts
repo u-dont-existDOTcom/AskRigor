@@ -31,6 +31,7 @@ import {
   type AcquireOpenFullTextRuntime,
   hasFailedFullTextAcquisition,
   canSignFullTextLead,
+  failedPrimaryRoutes,
   fetchClinicalTrial,
   fetchPubmedRecord,
   checkRetractionStatus,
@@ -204,6 +205,7 @@ import {
 } from "./actions/open-full-text-route.js";
 import type { ReportedFiguresCheck } from "./actions/study-method-audit.js";
 import {
+  LEAD_RECEIPT_SEARCH,
   FINALIZE_REMINDER,
   FINALIZE_RESEARCH_CONTRACT,
   FINALIZE_RESEARCH_SHAPES_DESCRIPTION,
@@ -2768,17 +2770,34 @@ async function invokeOpenFullTextMcp(
   const failedLead = operationId === "acquire_open_full_text" &&
     (result.body as { status?: string }).status === "possibly_useful_lead" &&
     hasFailedFullTextSource(result.body);
+  const receipt = openFullTextResearchReceipt(operationId, result.body);
+  const output = result.body as Parameters<typeof canSignFullTextLead>[0] & Parameters<typeof failedPrimaryRoutes>[0];
+  const failed = failedPrimaryRoutes(output);
+  const routeList = [...new Set(failed.map((attempt) =>
+    `${attempt.route === "europe_pmc" ? "Europe PMC" : "Unpaywall"}: ${attempt.http_status === undefined
+      ? attempt.failure_kind : `HTTP ${attempt.http_status}`}`))].sort().join(", ");
+  const failureText = failed.length > 0 && output.public_copy_search?.status !== "declared"
+    ? ` ${LEAD_RECEIPT_SEARCH}`
+    : failed.length > 0 && receipt !== undefined
+      ? ` A full-text service failed (${routeList}), and the research_receipt records it. ` +
+        "Try acquire_open_full_text again at least a minute after this attempt; if the service fails again, pass both " +
+        "receipts to finalize_research and cite this study as a lead."
+      : output.discovery_attempts?.some(({ route, result }) => route === "candidate" && result === "error") &&
+          !output.discovery_attempts.some(({ route, result }) =>
+            (route === "europe_pmc" || route === "unpaywall") && result === "error")
+        ? " A supplied candidate failed; no AskRigor route failed. Pass a public copy read with your own search as " +
+          'candidate_texts with retrieved_via "client_search_index" for identity and completeness checks.'
+        : " A source failed (an outage or rate limit), so this is not yet a completed lead and has no receipt. " +
+          "A later acquire_open_full_text attempt can establish a completed boundary before the study is listed as lead_only.";
   return withResearchReceipt({
     content: [{
       type: "text",
       text: `${operationId.replaceAll("_", " ")} completed.` +
         ((result.body as { access_boundary?: string; acquisition_state?: string }).acquisition_state === undefined ? "" : ` ${(result.body as { access_boundary?: string }).access_boundary ?? ""}`) + (failedLead
-        ? " A source failed (an outage or rate limit), so this is not yet a completed lead and has no receipt. " +
-          "A later acquire_open_full_text attempt can establish a completed boundary before the study is listed as lead_only."
-        : "")
+        ? failureText : "")
     }],
     structuredContent: result.body as Record<string, unknown>
-  }, openFullTextResearchReceipt(operationId, result.body));
+  }, receipt);
 }
 
 const OPEN_FULL_TEXT_READER = createOpenFullTextExecutor();
@@ -2798,8 +2817,22 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
   };
   if (operationId === "acquire_open_full_text" && output.status === "possibly_useful_lead") {
     // A lead receipt records completed attempts, not proof of paper
-    // inaccessibility. Exact expanded search and no technical failures are required.
-    if (!canSignFullTextLead(body as Parameters<typeof canSignFullTextLead>[0])) return undefined;
+    // inaccessibility. A service failure gets its own receipt after the exact search;
+    // only a completed lead can bypass the final check's spaced-retry rule.
+    if (!canSignFullTextLead(body as Parameters<typeof canSignFullTextLead>[0])) {
+      const failed = failedPrimaryRoutes(body as Parameters<typeof failedPrimaryRoutes>[0]);
+      if (failed.length === 0 ||
+          (body as Parameters<typeof canSignFullTextLead>[0]).public_copy_search?.status !== "declared") return undefined;
+      return researchReceipt("full_text_route_failure", {
+        doi: output.requested_doi,
+        pmcid: failed.find(({ route, identifier }) => route === "europe_pmc" && identifier?.startsWith("PMC"))?.identifier
+          ?? output.requested_pmcid,
+        routes: [...new Set(failed.map(({ route }) => route!))].sort(),
+        http: [...new Set(failed.map(({ http_status, failure_kind }) =>
+          http_status === undefined ? failure_kind! : String(http_status)))].sort(),
+        state: output.acquisition_state
+      });
+    }
     // Lead candidate URLs were never read, so their identity is unverified.
     return researchReceipt("full_text_lead", {
       doi: output.requested_doi,

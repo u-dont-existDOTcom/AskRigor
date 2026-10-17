@@ -103,6 +103,7 @@ const discoveryAttemptSchema = z.object({
   result: z.enum(["indexed", "not_found", "inaccessible", "fetch_blocked", "error", "partial_text", "abstract_only", "identity_mismatch", "not_public"]),
   identifier: z.string().optional(),
   http_status: z.number().int().optional(),
+  failure_kind: z.enum(["timeout", "network"]).optional(),
   retryable: z.boolean().optional()
 }).strict();
 const coverageSchema = z.object({

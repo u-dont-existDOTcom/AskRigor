@@ -229,10 +229,24 @@ export function classifySource(url: string, declared: SourceClass | undefined, p
 export function sourceClassRank(value: SourceClass): number {
   return { publisher: 4, repository: 4, author_copy: 3, researcher_upload: 2, other: 1 }[value];
 }
-export function hasFailedFullTextAcquisition(body: { discovery_attempts?: readonly { result?: string }[]; acquisition_state?: string; candidates?: readonly { state?: string }[] }): boolean {
+export function hasFailedFullTextAcquisition(body: { discovery_attempts?: readonly FullTextDiscoveryAttempt[]; acquisition_state?: string; candidates?: readonly { state?: string }[] }): boolean {
   return body.discovery_attempts?.some(({ result }) => result === "error") === true ||
     [body.acquisition_state, ...(body.candidates ?? []).map(({ state }) => state)]
       .some((state) => state === "PROVIDER_UNAVAILABLE");
+}
+export interface FullTextDiscoveryAttempt {
+  route?: string;
+  result?: string;
+  identifier?: string;
+  http_status?: number;
+  failure_kind?: "timeout" | "network";
+}
+/** Only server-chosen routes and genuine service failures can earn a retry receipt. */
+export function failedPrimaryRoutes(body: { discovery_attempts?: readonly FullTextDiscoveryAttempt[] }): FullTextDiscoveryAttempt[] {
+  return (body.discovery_attempts ?? []).filter(({ route, result, http_status, failure_kind }) =>
+    result === "error" && (route === "europe_pmc" || route === "unpaywall") &&
+      (http_status !== undefined ? http_status >= 500 && http_status < 600
+        : failure_kind === "timeout" || failure_kind === "network"));
 }
 export function canSignFullTextLead(body: Parameters<typeof hasFailedFullTextAcquisition>[0] & { public_copy_search?: { status?: string } }): boolean {
   return !hasFailedFullTextAcquisition(body) && body.public_copy_search?.status === "declared";

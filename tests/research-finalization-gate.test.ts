@@ -1859,6 +1859,150 @@ describe("finalize_research gate", () => {
     expect(result.caveats.join(" ")).not.toContain("not openly available");
   });
 
+  describe("owner question 113: repeated primary-service failures", () => {
+    const id = "10.1016/j.joca.2020.01.001";
+    const pmcid = "PMC9990001";
+    const caveat = `AskRigor could not fetch the full text of [this study](https://doi.org/${id}) because a ` +
+      "full-text service kept failing, so its methods were not checked.";
+    const retry = `A full-text service failed for ${id}: call acquire_open_full_text again at least a minute after ` +
+      "the first attempt; if it fails again, pass the research_receipt from each attempt and cite it as a lead.";
+    // Deliberately decouple the signed issue time from the ordering claim t.
+    const failure = (seconds: number, claims: Record<string, string | string[]> = {}) => issueResearchReceipt(
+      "full_text_route_failure", { doi: id, pmcid, routes: ["europe_pmc"], http: ["500"],
+        state: "PROVIDER_UNAVAILABLE", t: "1", ...claims },
+      { secret: SECRET, now: () => new Date(now().getTime() - 120_000 + seconds * 1000) }
+    );
+    const run = (receipts: string[], overrides: Record<string, unknown> = {}) => finalizeResearch({
+      receipts: [survey, emptySearch, repeatScout, videoA, videoB, study, ...receipts],
+      community_evidence: "researched", treatment_choice: "not_compared", research_target: TARGET,
+      key_sources: [{ id, read_depth: "partial_text", answer_marker: "Study", status: "lead_only" }], ...overrides
+    }, options);
+
+    it("accepts two signed issue times exactly 60 seconds apart, in either order", () => {
+      const receipts = [failure(0), failure(60)];
+      for (const ordered of [receipts, [...receipts].reverse()]) {
+        const result = run(ordered);
+        expect(result.status).toBe("ready_with_limits");
+        expect(result.sources.lead_only).toEqual([id]);
+        expect(result.limits).toContain(`Cite ${id} as a lead: a full-text service kept failing when AskRigor tried ` +
+          "to fetch it, so its methods were not audited.");
+        expect(result.caveats).toContain(caveat);
+        expect(result.next_steps).toEqual([]);
+      }
+    });
+
+    it.each([[0], [0, 30], [0, 59], [0, 0]])("asks for a retry for issue times %j", (...seconds) => {
+      const receipts = seconds.map((second, index) => failure(second, { t: String(index * 600_000) }));
+      const result = run(receipts);
+      expect(result.status).toBe("not_ready");
+      expect(result.sources.lead_only).toEqual([]);
+      expect(result.next_steps).toEqual([retry]);
+      expect(result.caveats).not.toContain(caveat);
+    });
+
+    it("another DOI's receipt does not make a second attempt", () => {
+      expect(run([failure(0), failure(60, { doi: "10.1000/other-study", pmcid: "PMC9990002" })]).next_steps)
+        .toEqual([retry]);
+      expect(run([failure(0, { doi: "10.1000/other-study", pmcid: "PMC9990002" }),
+        failure(60, { doi: "10.1000/other-study", pmcid: "PMC9990002" })]).next_steps)
+        .toEqual([`Try acquire_open_full_text for ${id} before treating it as lead_only; pass the research_receipt it ` +
+          `returns. ${LEAD_RECEIPT_SEARCH_TEXT}`]);
+    });
+
+    it("rejects a forged receipt, including a modified issue time", () => {
+      const token = failure(60).split("~");
+      token[3] = String(Number(token[3]) + 60);
+      const result = run([failure(0), token.join("~")]);
+      expect(result.status).toBe("not_ready");
+      expect(result.sources.lead_only).toEqual([]);
+      expect(result.next_steps).toContain(retry);
+      expect(result.receipts_rejected).toEqual([{ index: 7, reason: "signature_invalid" }]);
+    });
+
+    it("validated still needs an audit", () => {
+      const result = run([failure(0), failure(60)], {
+        key_sources: [{ id, read_depth: "partial_text", answer_marker: "Study", status: "validated" }]
+      });
+      expect(result.status).toBe("not_ready");
+      expect(result.sources.lead_only).toEqual([]);
+      expect(result.next_steps).toEqual([`For ${id}: acquire_open_full_text, continue_open_full_text until exhausted, ` +
+        "then validate_study_method_audit (or validate_review_method_audit) and pass its research_receipt. If no open " +
+        `full text exists, the acquisition receipt lets you list it as lead_only. ${LEAD_RECEIPT_SEARCH_TEXT}`]);
+    });
+
+    it("a completed lead takes precedence, even before the retry interval", () => {
+      const completed = sign("full_text_lead", { doi: id, state: "PARTIAL_TEXT_READABLE" }, options);
+      const result = run([failure(0), completed]);
+      expect(result.status).toBe("ready_with_limits");
+      expect(result.caveats).toContain(`AskRigor could read only part of [this study](https://doi.org/${id}), ` +
+        "so its methods were not checked.");
+      expect(result.caveats).not.toContain(caveat);
+      expect(result.next_steps).not.toContain(retry);
+    });
+
+    it("a full-text method audit takes precedence", () => {
+      const audited = sign("study_audit", { doi: id, status: "complete_no_unresolved_fields" }, options);
+      const result = run([failure(0), failure(60), audited]);
+      expect(result.status).toBe("ready_with_limits");
+      expect(result.sources.validated).toEqual([id]);
+      expect(result.sources.lead_only).toEqual([]);
+      expect(result.caveats).not.toContain(caveat);
+    });
+
+    it("groups several failed studies into one exact plural caveat", () => {
+      const other = "10.1000/other-study";
+      const result = run([failure(0), failure(60), failure(0, { doi: other, pmcid: "PMC9990002" }),
+        failure(60, { doi: other, pmcid: "PMC9990002" })], { key_sources: [
+        { id, read_depth: "partial_text", answer_marker: "Study", status: "lead_only" },
+        { id: other, read_depth: "partial_text", answer_marker: "Study", status: "lead_only" }
+      ] });
+      expect(result.status).toBe("ready_with_limits");
+      expect(result.sources.lead_only).toEqual([id, other]);
+      expect(result.caveats.filter((text) => text.includes("full-text services kept failing"))).toEqual([
+        `AskRigor could not fetch the full texts of [this study](https://doi.org/${id}) and ` +
+        `[this study](https://doi.org/${other}) because full-text services kept failing, so their methods were not checked.`
+      ]);
+    });
+
+    it("keeps the PubMed open-copy check and accepts the named PMCID once tried", () => {
+      const record = sign("pubmed_record", { doi: id, pmid: "99900001", pmcid }, options);
+      const result = run([failure(0, { pmcid: "PMC9990002" }), failure(60, { pmcid: "PMC9990002" }), record]);
+      expect(result.status).toBe("not_ready");
+      expect(result.next_steps).toEqual([
+        `PubMed lists an open copy of ${id} in PubMed Central (${pmcid}) that the full-text attempt did not ` +
+        `try: call acquire_open_full_text with DOI ${id} and pmcid ${pmcid}, then audit it, or pass the new ` +
+        `research_receipt if it still finds no full text. ${LEAD_RECEIPT_SEARCH_TEXT}`
+      ]);
+      expect(run([failure(0), failure(60), record]).status).toBe("ready_with_limits");
+      expect(run([failure(0), failure(60), record], { key_sources: [
+        { id: "PMID: 99900001", read_depth: "abstract_only", answer_marker: "Study", status: "lead_only" }
+      ] }).status).toBe("ready_with_limits");
+      expect(run([failure(0), failure(60)], { key_sources: [
+        { id: pmcid, read_depth: "partial_text", answer_marker: "Study", status: "lead_only" }
+      ] }).status).toBe("ready_with_limits");
+    });
+
+    it.each(["not_established", "direct_null_evidence"])("%s still needs a full-text audit", (state) => {
+      const quote = "The trial found no difference in pain (mean difference 0.1 points, 95% CI -0.4 to 0.6).";
+      const receipts = [failure(0), failure(60)];
+      const clean = run(receipts);
+      const result = run(receipts, {
+        answer_draft: `${CLEAN_DRAFT} ${clean.caveats.join(" ")} ${quote}`,
+        absence_claims: [{ quote, state, studies: [id] }]
+      });
+      expect(result.status).toBe("not_ready");
+      expect(result.next_steps.some((step) => step.includes("no full-text method audit here covers"))).toBe(true);
+    });
+
+    it("holds an answer that omits the exact service-failure caveat", () => {
+      const receipts = [failure(0), failure(60)];
+      const clean = run(receipts);
+      const result = run(receipts, { answer_draft: `${CLEAN_DRAFT} ${clean.caveats.filter((text) => text !== caveat).join(" ")}` });
+      expect(result.status).toBe("not_ready");
+      expect(result.next_steps).toContain(leftOut(caveat));
+    });
+  });
+
   it("turns bounded audits and server-proven leads into limits", () => {
     const noDoiRecord = sign("pubmed_record", { pmid: "31234567" }, options);
     const result = finalizeResearch({

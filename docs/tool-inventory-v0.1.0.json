@@ -1460,6 +1460,13 @@
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991
                 },
+                "failure_kind": {
+                  "type": "string",
+                  "enum": [
+                    "timeout",
+                    "network"
+                  ]
+                },
                 "retryable": {
                   "type": "boolean"
                 }
@@ -2050,6 +2057,13 @@
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991
+                },
+                "failure_kind": {
+                  "type": "string",
+                  "enum": [
+                    "timeout",
+                    "network"
+                  ]
                 },
                 "retryable": {
                   "type": "boolean"
