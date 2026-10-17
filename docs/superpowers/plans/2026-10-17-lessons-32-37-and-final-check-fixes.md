@@ -90,9 +90,18 @@ All three are the model's declarations; the server checks only presence, indexes
    Both surfaces use a permissive SDK registration carrying the derived published schema, with strict server validation after copying and normalizing optional empty lists.
 2. **Internal labels:** a token directly after `r/` or `u/`, or one that appears in a caveat the check itself requires
    or in a community name the call declares, is not an internal label.
-3. **Failed acquisitions:** see the investigation notes; the design is added here before it is built.
-4. **Looked into first:** the caveats l26 and l27 disputed, and findings cards saved without a validated source (l28,
-   q79).
+3. **Failed acquisitions:** not built here. The investigation found that the fix contradicts HRP's own text (a lead
+   receipt only when "no route failed"; stress case OpenAccessRouteOutage), so it needs owner-approved wording:
+   owner question 113, open when this branch was opened. Europe PMC failed for the same papers on every try, so the
+   check could never pass for them.
+4. **Looked into first, then fixed (wording only):** the YouTube caveats said "community evidence" when forums had
+   been read (l26), and now say "YouTube evidence"; a PMID whose PubMed record lists no DOI was called "not openly
+   available" (l27), and now has its own caveat; and no findings card was saved without a validated source: the
+   l28 and q79 saves were analyses from other runs on the same account, filed account-wide as analysis-staging.ts
+   does, so the result line, output description and skill now say so (l28, q79). The l26 forum caveat followed from
+   the model's declaration and is unchanged. Also fixed: the privacy data map now says the findings library is live
+   since 2026-10-01, and published input patterns no longer depend on regex flags (ChatGPT's connector had refused
+   DOIs and PMCIDs written in capitals).
 
 ## The carried state (112)
 
@@ -134,4 +143,5 @@ saved with a findings card. The carried state holds the user's observations and 
 result and passed back by the client, and AskRigor verifies it without storing or logging it.
 `docs/privacy-data-map.md` says so.
 
-Status: approved "109a 110a 111a" and "112a" on 2026-10-17; being built on this branch.
+Status: approved "109a 110a 111a" and "112a" on 2026-10-17; built on this branch, except 111 item 3 (owner
+question 113).
