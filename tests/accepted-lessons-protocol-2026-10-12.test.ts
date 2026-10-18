@@ -121,7 +121,7 @@ describe("owner-approved question 84: accepted lessons, 84a (2026-10-12)", () =>
       await expect(getProtocolManifest(protocol)).resolves.toEqual({
         name: protocol === "hrp" ? "HRP" : "AskRigor.com universal saved instructions",
         version: protocol === "hrp" ? "20.6.27" : "20.5.44",
-        revisionDate: protocol === "hrp" ? "2026-10-17" : "2026-10-17",
+        revisionDate: protocol === "hrp" ? "2026-10-18" : "2026-10-17",
         sha256: hash(await loadCurrent(protocol)),
       });
     });

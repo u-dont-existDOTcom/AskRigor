@@ -133,7 +133,7 @@ describe("owner-approved questions 97 and 99: 97a98b99a (2026-10-16)", () => {
     expect(hash(await undoOwnerQuestions90To92Hrp(await loadCurrent()))).toBe(PINS.hrp20622);
     expect(hash(await undoOwnerQuestions86To89Hrp(await loadCurrent()))).toBe(PINS.hrp20621);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: "20.6.27", revisionDate: "2026-10-17", sha256: hash(await loadCurrent()),
+      name: "HRP", version: "20.6.27", revisionDate: "2026-10-18", sha256: hash(await loadCurrent()),
     });
     expect(hash(await loadCurrent("Universal_Instructions.xml"))).toBe(PINS.universal.sha256);
     await expect(getProtocolManifest("universal")).resolves.toEqual({
@@ -213,7 +213,7 @@ describe("owner-approved questions 97 and 99: 97a98b99a (2026-10-16)", () => {
     const bytes = await readFile(new URL("protocols/HRP_Full.xml", ROOT));
     const { manifest, sections, text } = await loadProtocolSectionSnapshot("hrp");
     expect(text).toBe(bytes.toString("utf8"));
-    expect(manifest).toEqual({ name: "HRP", version: "20.6.27", revisionDate: "2026-10-17", sha256: hash(text) });
+    expect(manifest).toEqual({ name: "HRP", version: "20.6.27", revisionDate: "2026-10-18", sha256: hash(text) });
     const names = [
       ["ProposeDiscriminatingTest", "Rule", "name", "HeterodoxEpistemology"],
       ...CASES.map(([name]) => [name, "Case", "id", "StressTestExpectations"]),

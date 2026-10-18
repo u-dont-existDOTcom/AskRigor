@@ -205,7 +205,8 @@ describe("owner protocol changes of 2026-10-03", () => {
   it("adds lesson 17's three rules beside their nearest neighbors, with a case and a final check each", async () => {
     const placements = [
       ["CofactorAndMechanismAudit", "MechanismDoesNotUpgradeAssociation", "CouplingBeforeMechanism"],
-      ["StatisticalAndClinicalInterpretation", "Heterogeneity", "AverageNullDoesNotRuleOutConditionalEffect"],
+      // Owner question 123 (2026-10-18) moved this rule word for word into the core section EvidenceLayers.
+      ["EvidenceLayers", "NullAssociationLanguageCalibration", "AverageNullDoesNotRuleOutConditionalEffect"],
       ["CrowdSourcedAndClinicalSignalAudit", "RelativeForumSignal", "DirectionLabelsNeedOutcomeNeutralSelection"],
     ] as const;
     for (const [section, neighbor, rule] of placements) {
@@ -217,7 +218,7 @@ describe("owner protocol changes of 2026-10-03", () => {
     for (const test of ["(necessity)", "(specificity)", "(covariation)", "(mediation)", "(common cause)"]) {
       expect(coupling).toContain(test);
     }
-    const nulls = squash(await sectionText("hrp", "StatisticalAndClinicalInterpretation"));
+    const nulls = squash(await sectionText("hrp", "EvidenceLayers"));
     expect(nulls).toContain("say the null leaves that conditional effect untested");
     expect(nulls).toContain("(PostHocModelBecomesTestable), not evidence");
     const forum = squash(await sectionText("hrp", "CrowdSourcedAndClinicalSignalAudit"));

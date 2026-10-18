@@ -96,10 +96,41 @@ const Q121 = {
 } as const;
 const Q121_BEFORE = "When nothing shows a phone, leave it out.\n\nFor every substantive response, finish with an explicit \u201cNext step:\u201d";
 const Q121_AFTER = `When nothing shows a phone, leave it out.\n\n${Q121.paragraph}\n\nFor every substantive response, finish with an explicit \u201cNext step:\u201d`;
+// Owner-approved question 123, answer "123a" (2026-10-18), from the sweep of question 122: eleven rules moved word for
+// word into core sections in the same unreleased layer, as [rule, its section in HRP 20.6.26, its core section].
+const Q123_MOVES = [
+  ["DefineActualQuestion", "ResearchQuestionAndEstimandGate", "HeterodoxEpistemology"],
+  ["HealthFollowUpInformationGain", "PatientHistoryAndRecurrenceEvidenceGate", "HeterodoxEpistemology"],
+  ["PromptPremisesAreClaims", "PremiseIntegrityAndTruthPriorityGate", "HeterodoxEpistemology"],
+  ["NoFabricatedRepairsOrForcedConnections", "PremiseIntegrityAndTruthPriorityGate", "HeterodoxEpistemology"],
+  ["ClinicalMeaning", "StatisticalAndClinicalInterpretation", "EvidenceLayers"],
+  ["NullAssociationLanguageCalibration", "QuantitativeRiskAndResearchAudit", "EvidenceLayers"],
+  ["AverageNullDoesNotRuleOutConditionalEffect", "StatisticalAndClinicalInterpretation", "EvidenceLayers"],
+  ["SubstantiveRevisionRequired", "EvidenceUpdateAndCorrectionProtocol", "HeterodoxEpistemology"],
+  ["CorrectionPropagationIsMandatory", "EvidenceUpdateAndCorrectionProtocol", "HeterodoxEpistemology"],
+  ["SafestOptionsFirst", "PatientSpecificInterventionSafetyReconciliationGate", "EpistemicSafetyRules"],
+  ["ReaderFacingAnswer", "OutputFormatting", "Architecture"],
+] as const;
+// Where each move leaves its old section: the rules removed, the separator after each, and the rule that follows.
+const Q123_DELETIONS = [
+  [["DefineActualQuestion"], "\n\n", "AmbiguousDoseLabelDefinitionAndStratification"],
+  [["HealthFollowUpInformationGain"], "\n\n", "HealthCollectionMethodIntegrity"],
+  [["PromptPremisesAreClaims", "NoFabricatedRepairsOrForcedConnections"], "\n", "NonexistenceVersusNotFound"],
+  [["ClinicalMeaning"], "\n\n", "Multiplicity"],
+  [["NullAssociationLanguageCalibration"], "\n\n", "RiskWindowMultiplicityAndAggregation"],
+  [["AverageNullDoesNotRuleOutConditionalEffect"], "\n\n", "MetaAnalysisInputQuality"],
+  [["SubstantiveRevisionRequired"], "\n\n", "NoInverseOvercorrection"],
+  [["CorrectionPropagationIsMandatory"], "\n", "AlreadyPresentEvidenceIsNotNew"],
+  [["SafestOptionsFirst"], "\n\n", "DurationMatchedBenefitAndHarm"],
+  [["ReaderFacingAnswer"], "\n\n", "ClaimOrganizedSynthesis"],
+] as const;
+// Bytes each move adds to its core section besides the rule: the blank line before the next element, or one newline.
+const Q123_SEPARATOR_BYTES: Record<string, number> = { HeterodoxEpistemology: 2, EvidenceLayers: 2, EpistemicSafetyRules: 2, Architecture: 1 };
+const Q123_REVISION = "Owner-approved, question 123 (2026-10-18), from the sweep of question 122: moved word for word into core sections DefineActualQuestion, HealthFollowUpInformationGain, PromptPremisesAreClaims, NoFabricatedRepairsOrForcedConnections, SubstantiveRevisionRequired and CorrectionPropagationIsMandatory (HeterodoxEpistemology), ClinicalMeaning, NullAssociationLanguageCalibration and AverageNullDoesNotRuleOutConditionalEffect (EvidenceLayers), SafestOptionsFirst (EpistemicSafetyRules) and ReaderFacingAnswer (Architecture).";
 const RULES = [...APPROVED.rules, Q120.rule] as const;
 const CHECKS = [...APPROVED.checks, Q120.check] as const;
 const CASES = [...APPROVED.cases, ...Q120.cases] as const;
-const HRP_REVISION_TEXT = `${APPROVED.hrpRevision} ${Q120.revision}`;
+const HRP_REVISION_TEXT = `${APPROVED.hrpRevision} ${Q120.revision} ${Q123_REVISION}`;
 const UNIVERSAL_REVISION_TEXT = `${APPROVED.universalRevision} ${Q121.revision}`;
 
 const Q113_ACQUISITION_BEFORE = "finalize_research requires\n   a validated audit receipt for each key study, or a lead receipt, which the server signs only after the exact\n   public-copy search is recorded and no route failed.";
@@ -114,7 +145,7 @@ const PINS = {
     },
     "to": {
       "version": "20.6.27",
-      "sha256": "329b9308dec6f617d328cc84589b826146a9185151e7337b2a8d1ecb621e20dc"
+      "sha256": "e6db59c14c78f3d53b04b8d36ce514eecfcaaec1cf7f9d176d7b8ad665b2e2fe"
     }
   },
   "universal": {
@@ -128,8 +159,8 @@ const PINS = {
     }
   }
 } as const;
-const HETERODOX_BYTES = 5388;
-const CORE_BYTES = 32995;
+const HETERODOX_BYTES = 7737;
+const CORE_BYTES = 38208;
 const ROOT = new URL("../", import.meta.url);
 const parser = new XMLParser({ parseTagValue: false });
 const hash = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
@@ -153,6 +184,18 @@ function element(text: string, tag: string, attr: string, id: string): string {
   const matches = [...text.matchAll(new RegExp(`<${tag} ${attr}="${id}"[^>]*>([\\s\\S]*?)</${tag}>`, "gu"))];
   expect(matches, id).toHaveLength(1);
   return matches[0]![1]!;
+}
+// A rule's lines in `text`, from the start of its first line to its closing tag.
+function ruleLines(text: string, name: string): string {
+  const open = `<Rule name="${name}"`;
+  expect(text.split(open), name).toHaveLength(2);
+  const start = text.lastIndexOf("\n", text.indexOf(open)) + 1;
+  return text.slice(start, text.indexOf("</Rule>", start) + "</Rule>".length);
+}
+// A rule's first line up to the end of its opening tag.
+function openingLine(text: string, name: string): string {
+  const lines = ruleLines(text, name);
+  return lines.slice(0, lines.indexOf(">") + 1);
 }
 function replaceOnce(text: string, before: string, after: string): string {
   expect(text.split(before), before.slice(0, 80)).toHaveLength(2);
@@ -179,10 +222,15 @@ const caseXml = (name: string, prompt: string, expected: string) =>
   `   <ExpectedBehavior>\n${wrapped(expected, 4)}\n   </ExpectedBehavior>\n  </Case>`;
 const HRP_REVISION = `  <Revision version="20.6.27" priority="Critical">\n${[...APPROVED.hrpRevision
   .split(" Owner-approved, question 113")
-  .map((part, index) => index === 0 ? part : `Owner-approved, question 113${part}`), Q120.revision]
+  .map((part, index) => index === 0 ? part : `Owner-approved, question 113${part}`), Q120.revision, Q123_REVISION]
   .map((part) => wrapped(part, 3)).join("\n")}\n  </Revision>`;
 const UNIVERSAL_REVISION = `<revision version="20.5.44" priority="Critical">\n${[APPROVED.universalRevision, Q121.revision]
   .map((part) => wrapped(part, 0)).join("\n")}\n</revision>`;
+// A moved rule as it stands in its core section: its 20.6.26 lines unchanged, except CorrectionPropagationIsMandatory,
+// whose one-space indentation and column-zero closing tag take the section's layout, its words unchanged.
+const moved = (prior: string, name: string) => name === "CorrectionPropagationIsMandatory"
+  ? ruleXml(name, plain(element(prior, "Rule", "name", name)))
+  : ruleLines(prior, name);
 
 // Construct the authorized change whitelist independently of the recorded edit fixtures.
 function expectedEdits(protocol: "hrp" | "universal", prior: string): Array<[string, string]> {
@@ -197,19 +245,32 @@ function expectedEdits(protocol: "hrp" | "universal", prior: string): Array<[str
   const dose = '  <Rule name="DoseRouteFormContextComparator" priority="Critical">';
   const fs235 = `  <Check id="FS235">${element(prior, "Check", "id", "FS235")}</Check>`;
   const coded = '  <Case id="CodedFormulaLargeEffect">';
+  const [ledger, measurement, conditions] = [APPROVED.rules[0], APPROVED.rules[1], Q120.rule]
+    .map(([name, , text]) => ruleXml(name, text));
+  const heterodox = [ledger, measurement, moved(prior, "DefineActualQuestion"), conditions,
+    ...["HealthFollowUpInformationGain", "PromptPremisesAreClaims", "NoFabricatedRepairsOrForcedConnections",
+      "SubstantiveRevisionRequired", "CorrectionPropagationIsMandatory"].map((name) => moved(prior, name))].join("\n\n");
+  const results = ["ClinicalMeaning", "NullAssociationLanguageCalibration", "AverageNullDoesNotRuleOutConditionalEffect"]
+    .map((name) => moved(prior, name)).join("\n\n");
   return [
-    ['version="20.6.26" revisionDate="2026-10-16"', 'version="20.6.27" revisionDate="2026-10-17"'],
+    ['version="20.6.26" revisionDate="2026-10-16"', 'version="20.6.27" revisionDate="2026-10-18"'],
     [" <RevisionHistory>\n", ` <RevisionHistory>\n${HRP_REVISION}\n`],
-    [consensus, [...APPROVED.rules.slice(0, 2), Q120.rule].map(([name, , text]) => ruleXml(name, text)).join("\n\n") + `\n\n${consensus}`],
-    [dose, `${ruleXml(APPROVED.rules[2][0], APPROVED.rules[2][2])}\n\n${dose}`],
+    [consensus, `${heterodox}\n\n${consensus}`],
+    [dose, `${ruleXml(APPROVED.rules[2][0], APPROVED.rules[2][2])}\n\n${moved(prior, "SafestOptionsFirst")}\n\n${dose}`],
     [fs235, fs235 + "\n" + CHECKS.map(([id, text]) => `  <Check id="${id}">${text}</Check>`).join("\n")],
     [coded, CASES.map(([id, prompt, expected]) => caseXml(id, prompt, expected)).join("\n") + `\n${coded}`],
     [Q113_ACQUISITION_BEFORE, Q113_ACQUISITION_AFTER],
     [Q113_CASE_BEFORE, Q113_CASE_AFTER],
+    ["\n\n </EvidenceLayers>", `\n\n${results}\n\n </EvidenceLayers>`],
+    ["</Rule>\n </Architecture>", `</Rule>\n${moved(prior, "ReaderFacingAnswer")}\n </Architecture>`],
+    ...Q123_DELETIONS.map(([names, separator, next]): [string, string] => [
+      names.map((name) => ruleLines(prior, name)).join(separator) + separator + openingLine(prior, next),
+      openingLine(prior, next),
+    ]),
   ];
 }
 
-describe('owner-approved question 109: "109a 110a 111a" (2026-10-17), with 113, 120 and 121 in the same layer', () => {
+describe('owner-approved question 109: "109a 110a 111a" (2026-10-17), with 113, 120, 121 and 123 in the same layer', () => {
   it.each(["hrp", "universal"] as const)("chains the exact %s predecessor, derives the manifest, and reverses every layer", async (protocol) => {
     const recorded = JSON.parse(await readFile(new URL(
       `tests/fixtures/protocol-edits/2026-10-17-owner-question-109-${protocol}.json`, ROOT,
@@ -217,13 +278,14 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17), with 113, 
     expect(Object.keys(recorded)).toEqual(["purpose", protocol]);
     expect(recorded.purpose).toContain('Owner-approved question 109, from the owner\'s answer "109a 110a 111a" (2026-10-17)');
     expect(recorded.purpose).toContain(`question ${protocol === "hrp" ? 120 : 121}, answer "120 a 121a 122a" (2026-10-17)`);
+    if (protocol === "hrp") expect(recorded.purpose).toContain('question 123, answer "123a" (2026-10-18)');
     const previousFile = protocol === "hrp" ? "2026-10-16-owner-questions-103-104-hrp.json" : "2026-10-15-mobile-notice-universal.json";
     const previous = JSON.parse(await readFile(new URL(`tests/fixtures/protocol-edits/${previousFile}`, ROOT), "utf8"))[protocol] as Edits;
     const fixture = recorded[protocol];
     expect(fixture.from).toEqual(previous.to);
     expect(fixture.from).toEqual(PINS[protocol].from);
     expect(fixture.to).toEqual(PINS[protocol].to);
-    expect(fixture.edits).toHaveLength(protocol === "hrp" ? 8 : 4);
+    expect(fixture.edits).toHaveLength(protocol === "hrp" ? 20 : 4);
     const current = await load(protocol);
     expect(XMLValidator.validate(current)).toBe(true);
     expect(hash(current)).toBe(PINS[protocol].to.sha256);
@@ -242,7 +304,7 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17), with 113, 
     expect(hash(await undoReadDepth(current, protocol))).toBe(readDepth.from.sha256);
     await expect(getProtocolManifest(protocol)).resolves.toEqual({
       name: protocol === "hrp" ? "HRP" : "AskRigor.com universal saved instructions",
-      version: PINS[protocol].to.version, revisionDate: "2026-10-17", sha256: hash(current),
+      version: PINS[protocol].to.version, revisionDate: protocol === "hrp" ? "2026-10-18" : "2026-10-17", sha256: hash(current),
     });
   });
 
@@ -286,11 +348,18 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17), with 113, 
       [...scope.matchAll(new RegExp(`<${tag} ${attr}="([^"]+)"`, "gu"))].map((match) => match[1]);
     const core = names(section(text, "HeterodoxEpistemology"), "Rule", "name");
     const i = core.indexOf("ProposeDiscriminatingTest");
-    expect(core.slice(i, i + 5)).toEqual(["ProposeDiscriminatingTest", "UserObservationLedger", "MeasurementIsNotAttribution",
-      "ConditionsThatDecideTheChoice", "ConsensusAsEvidenceNotClosure"]);
+    expect(core.slice(i, i + 11)).toEqual(["ProposeDiscriminatingTest", "UserObservationLedger", "MeasurementIsNotAttribution",
+      "DefineActualQuestion", "ConditionsThatDecideTheChoice", "HealthFollowUpInformationGain", "PromptPremisesAreClaims",
+      "NoFabricatedRepairsOrForcedConnections", "SubstantiveRevisionRequired", "CorrectionPropagationIsMandatory",
+      "ConsensusAsEvidenceNotClosure"]);
     const safety = names(section(text, "EpistemicSafetyRules"), "Rule", "name");
     const j = safety.indexOf("HarmWarningCalibration");
-    expect(safety.slice(j, j + 3)).toEqual(["HarmWarningCalibration", "ProportionateAdviceOnOwnUse", "DoseRouteFormContextComparator"]);
+    expect(safety.slice(j, j + 4)).toEqual(["HarmWarningCalibration", "ProportionateAdviceOnOwnUse", "SafestOptionsFirst",
+      "DoseRouteFormContextComparator"]);
+    expect(names(section(text, "EvidenceLayers"), "Rule", "name").slice(-4)).toEqual(["ClaimSpecificEvidenceUtility",
+      "ClinicalMeaning", "NullAssociationLanguageCalibration", "AverageNullDoesNotRuleOutConditionalEffect"]);
+    expect(names(section(text, "Architecture"), "Rule", "name")).toEqual(["NotFlatMerge", "SingleSourceOfTruth",
+      "NoSilentOverride", "NoDumbingDown", "ReaderFacingAnswer"]);
     const checks = names(section(text, "FinalSelfCheck"), "Check", "id");
     const k = checks.indexOf("FS235");
     expect(checks.slice(k, k + 6)).toEqual(["FS235", "FS236", "FS237", "FS238", "FS239", "FS202"]);
@@ -312,6 +381,18 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17), with 113, 
     const line = text.split("\n").filter((line) => line.includes(APPROVED.universalSentence));
     expect(line).toHaveLength(1);
     expect(line[0]).toContain(after);
+  });
+
+  it.each(Q123_MOVES)("moves %s from %s into the core section %s, word for word and only once", async (name, from, to) => {
+    const text = await load("hrp");
+    const prior = await undo109("hrp", text);
+    expect(protocolNamedElements(prior, name)).toMatchObject([{ tag: "Rule", section: from }]);
+    expect(protocolNamedElements(text, name)).toMatchObject([{ tag: "Rule", section: to }]);
+    expect(coreSectionNames("hrp")).toContain(to);
+    expect(coreSectionNames("hrp")).not.toContain(from);
+    expect(plain(element(text, "Rule", "name", name))).toBe(plain(element(prior, "Rule", "name", name)));
+    expect(ruleLines(text, name)).toBe(moved(prior, name));
+    if (name !== "CorrectionPropagationIsMandatory") expect(ruleLines(text, name)).toBe(ruleLines(prior, name));
   });
 
   it("adds question 121's paragraph to output_style, between the mobile notice and the Next step paragraph", async () => {
@@ -350,7 +431,7 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17), with 113, 
     for (const line of added) expect(line).toBe(line.trimEnd());
   });
 
-  it("grows only the two affected HRP core sections by the exact new rule bytes", async () => {
+  it("grows only the four affected HRP core sections by the exact new and moved rule bytes", async () => {
     const text = await load("hrp");
     const prior = await undo109("hrp", text);
     const sizes = (source: string) => new Map(protocolSections("hrp", source).map(({ name, bytes }) => [name, bytes]));
@@ -358,7 +439,9 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17), with 113, 
     let growth = 0;
     for (const name of coreSectionNames("hrp")) {
       const delta = RULES.filter(([, section]) => section === name)
-        .reduce((sum, [id, , body]) => sum + Buffer.byteLength(`${ruleXml(id, body)}\n\n`, "utf8"), 0);
+        .reduce((sum, [id, , body]) => sum + Buffer.byteLength(`${ruleXml(id, body)}\n\n`, "utf8"), 0) +
+        Q123_MOVES.filter(([, , section]) => section === name)
+          .reduce((sum, [id]) => sum + Buffer.byteLength(moved(prior, id), "utf8") + Q123_SEPARATOR_BYTES[name]!, 0);
       expect(now.get(name)! - before.get(name)!, name).toBe(delta);
       growth += delta;
     }
@@ -371,7 +454,7 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17), with 113, 
     expect(core(now)).toBe(CORE_BYTES);
   });
 
-  it("load_protocol serves each new rule and case by name and all four new rules in core, as exact canonical bytes", async () => {
+  it("load_protocol serves each new or moved rule and case by name and all of them in core, as exact canonical bytes", async () => {
     const server = createAskRigorServer();
     const client = new Client({ name: "owner-question-109-test", version: "0.1.0" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -380,7 +463,7 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17), with 113, 
       await client.connect(clientTransport);
       const text = await load("hrp");
       const bytes = Buffer.from(text, "utf8");
-      const names = [...RULES.map(([name]) => name), ...CASES.map(([name]) => name)];
+      const names = [...RULES.map(([name]) => name), ...Q123_MOVES.map(([name]) => name), ...CASES.map(([name]) => name)];
       for (const name of names) {
         const found = protocolNamedElements(text, name);
         expect(found).toHaveLength(1);
@@ -396,6 +479,7 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17), with 113, 
         .map(({ byte_start, byte_end_exclusive }) => bytes.subarray(byte_start, byte_end_exclusive).toString("utf8")).join("\n\n");
       expect(response.structuredContent).toMatchObject({ ok: true, complete: true, page_count: 1, text: core, scope_bytes: Buffer.byteLength(core, "utf8") });
       for (const [name, , body] of RULES) expect(core).toContain(ruleXml(name, body).trimStart());
+      for (const [name] of Q123_MOVES) expect(core).toContain(ruleLines(text, name).trimStart());
     } finally {
       await client.close();
       await server.close();

@@ -36,7 +36,7 @@
 
 ## Protocol wording (approved word for word)
 
-HRP 20.6.27, revision date 2026-10-17:
+HRP 20.6.27, revision date 2026-10-17 (2026-10-18 after question 123):
 
 - New rule `UserObservationLedger`, priority Critical, in `HeterodoxEpistemology` directly after
   `ProposeDiscriminatingTest`:
@@ -190,4 +190,26 @@ did: HRP 20.6.27 and Universal 20.5.44 keep their versions, and their fixtures, 
 
 The core grows by the new rule's 1,382 bytes (HRP core 32,995 bytes, still one page).
 
-Status: approved "109a 110a 111a", "112a", "113a", 117b and "120 a 121a 122a" on 2026-10-17; built on this branch.
+## Owner question 123 (18 Oct, about 01:15 UTC)
+
+Owner answer "123a", typed in the AskRigor Claude session, to the list from question 122's sweep (six read-only
+readers over every runtime section outside the core; record in the release folder, `20261017c/rule-sweep-122.md`):
+
+- **Eleven rules moved word for word** into core sections, in this branch's unreleased HRP 20.6.27 (revision date now
+  2026-10-18): DefineActualQuestion, HealthFollowUpInformationGain, PromptPremisesAreClaims,
+  NoFabricatedRepairsOrForcedConnections, SubstantiveRevisionRequired and CorrectionPropagationIsMandatory into
+  HeterodoxEpistemology; ClinicalMeaning, NullAssociationLanguageCalibration and
+  AverageNullDoesNotRuleOutConditionalEffect into EvidenceLayers; SafestOptionsFirst into EpistemicSafetyRules;
+  ReaderFacingAnswer into Architecture. Each keeps its bytes, except CorrectionPropagationIsMandatory, whose one-space
+  indentation takes the section's layout with its words unchanged. Each now appears once. The layer's fixture records
+  every move as an insertion and an anchored deletion, both reversible, and the layer test rebuilds them from the
+  20.6.26 bytes. The HRP core grows to 38,208 bytes, still one page.
+- **Index lines** (`sectionSummary`, packages/protocol): a section's line comes from its own Purpose or Activation; a
+  nested block's no longer stands for the section; a section without one names its rules before its opening words.
+  No protocol wording. Two Universal sections without named rules (point_of_generation_checks, adaptive_workflow) still
+  show their opening words; a one-line purpose for each would be new wording.
+- Older tests that pinned two moved rules in their old sections (lesson 17's AverageNullDoesNotRuleOutConditionalEffect,
+  question 93's SafestOptionsFirst) now expect the core sections.
+
+Status: approved "109a 110a 111a", "112a", "113a", 117b, "120 a 121a 122a" (2026-10-17) and "123a" (2026-10-18); built
+on this branch.

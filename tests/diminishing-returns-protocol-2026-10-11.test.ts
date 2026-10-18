@@ -85,7 +85,7 @@ describe("owner-approved proactive diminishing returns, question 73: 73a (2026-1
     expect(hash(beforeReadDepth)).toBe(previous.from.sha256);
     await expect(undoReadDepth(await loadCurrent(), "hrp")).resolves.toBe(beforeReadDepth);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: "20.6.27", revisionDate: "2026-10-17", sha256: hash(await loadCurrent()),
+      name: "HRP", version: "20.6.27", revisionDate: "2026-10-18", sha256: hash(await loadCurrent()),
     });
     const universal = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
     expect(hash(await undoCorrectionReport(universal))).toBe("06e5ca6befb9dac648fd41996213394e793e17795087eee8fbc63cbcbbbd8174");

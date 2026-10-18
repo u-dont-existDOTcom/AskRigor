@@ -105,7 +105,7 @@ describe("owner-approved question 93: 93a (2026-10-15)", () => {
     await expect(undoOwnerQuestions90To92Hrp(await loadCurrent())).resolves.toBe(beforePrevious);
     expect(hash(await undoOwnerQuestions86To89Hrp(await loadCurrent()))).toBe(PINS.hrp20621);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: "20.6.27", revisionDate: "2026-10-17", sha256: hash(await loadCurrent()),
+      name: "HRP", version: "20.6.27", revisionDate: "2026-10-18", sha256: hash(await loadCurrent()),
     });
     const universal = await loadCurrent("Universal_Instructions.xml");
     expect(hash(universal)).toBe(PINS.universal.sha256);
@@ -146,19 +146,20 @@ describe("owner-approved question 93: 93a (2026-10-15)", () => {
     expect(plain(element(text, "Rule", "name", "SafestOptionsFirst"))).toBe(APPROVED.rule);
   });
 
-  it("loads SafestOptionsFirst by name as one element with its exact canonical bytes, in its section", async () => {
+  // Owner question 123 (2026-10-18) moved the rule word for word into the core section EpistemicSafetyRules.
+  it("loads SafestOptionsFirst by name as one element with its exact canonical bytes, in its core section", async () => {
     const bytes = await readFile(new URL("protocols/HRP_Full.xml", ROOT));
     const { manifest, sections, text } = await loadProtocolSectionSnapshot("hrp");
     expect(text).toBe(bytes.toString("utf8"));
-    expect(manifest).toEqual({ name: "HRP", version: "20.6.27", revisionDate: "2026-10-17", sha256: hash(text) });
+    expect(manifest).toEqual({ name: "HRP", version: "20.6.27", revisionDate: "2026-10-18", sha256: hash(text) });
     const [rule, ...others] = protocolNamedElements(text, "SafestOptionsFirst");
     expect(others).toEqual([]);
-    expect(rule).toMatchObject({ tag: "Rule", section: GATE });
+    expect(rule).toMatchObject({ tag: "Rule", section: "EpistemicSafetyRules" });
     expect(bytes.subarray(rule!.byte_start, rule!.byte_end_exclusive).toString("utf8")).toBe(RULE_LINE.trimStart());
     const containing = sections.filter(({ byte_start, byte_end_exclusive }) =>
       byte_start <= rule!.byte_start && rule!.byte_end_exclusive <= byte_end_exclusive
     );
-    expect(containing.map(({ name }) => name)).toEqual([GATE]);
+    expect(containing.map(({ name }) => name)).toEqual(["EpistemicSafetyRules"]);
   });
 
   it("adds only the one-line FS233 directly after FS232", async () => {
