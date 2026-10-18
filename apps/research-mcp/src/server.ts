@@ -172,6 +172,8 @@ export function createAskRigorServer(
         text: html,
         _meta: {
           ui: { prefersBorder: true, csp: { connectDomains: [], resourceDomains: [] } },
+          // The same empty policy under OpenAI's older key, which ChatGPT still reads (Apps SDK reference).
+          "openai/widgetCSP": { connect_domains: [], resource_domains: [] },
           ...(widgetDomain === undefined ? {} : { "openai/widgetDomain": widgetDomain }),
         },
       }],

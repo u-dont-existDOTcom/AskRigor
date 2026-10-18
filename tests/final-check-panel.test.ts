@@ -55,6 +55,7 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
         uri: FINAL_CHECK_PANEL_URI, mimeType: MIME, text: finalCheckPanelHtml(),
         _meta: {
           ui: { prefersBorder: true, csp: { connectDomains: [], resourceDomains: [] } },
+          "openai/widgetCSP": { connect_domains: [], resource_domains: [] },
           "openai/widgetDomain": "https://mcp.example.org",
         },
       }]);
@@ -82,7 +83,8 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
 });
 
 // ChatGPT reads the panel's origin from OpenAI's own key; Claude would refuse to draw the panel for any ui.domain other
-// than its hashed claudemcpcontent.com form, so that field is never set (2026-10-16 "CSP off" badge, unverified).
+// than its hashed claudemcpcontent.com form, so that field is never set (2026-10-16 "CSP off" badge, unverified; on
+// 2026-10-18 the owner found ChatGPT's "Enforce CSP for custom apps" developer setting switched off).
 describe("panel origin", () => {
   it.each([
     ["https://mcp.askrigor.com/mcp", "https://mcp.askrigor.com"],
@@ -102,7 +104,10 @@ describe("panel origin", () => {
     try {
       await server.connect(b); await client.connect(a);
       const { contents } = await client.readResource({ uri: FINAL_CHECK_PANEL_URI });
-      expect(contents[0]!._meta).toEqual({ ui: { prefersBorder: true, csp: { connectDomains: [], resourceDomains: [] } } });
+      expect(contents[0]!._meta).toEqual({
+        ui: { prefersBorder: true, csp: { connectDomains: [], resourceDomains: [] } },
+        "openai/widgetCSP": { connect_domains: [], resource_domains: [] },
+      });
     } finally { await client.close(); await server.close(); }
   });
 });
