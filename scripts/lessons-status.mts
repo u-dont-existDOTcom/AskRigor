@@ -8,6 +8,15 @@ import { z } from "zod";
 const REPOSITORY_ISSUES_PATH = "repos/u-dont-existDOTcom/AskRigor-lessons/issues";
 const LANE_PATH = "repos/u-dont-existDOTcom/universal-dev-architecture/contents/suggested-fixes/AskRigor";
 const LEDGER_PATH = new URL("../docs/suggested-fixes-ledger.md", import.meta.url);
+// Lane items can sit in open UDA pull requests for days before reaching the lane folder (20 Oct: twelve
+// items from 12 to 14 Oct had never been counted), so items those pull requests add are listed too.
+const PULLS_PATH = "repos/u-dont-existDOTcom/universal-dev-architecture/pulls";
+const LANE_PREFIX = "suggested-fixes/AskRigor/";
+const pullSchema = z.array(z.object({ number: z.number().int().positive() }));
+const pullFileSchema = z.array(z.object({
+  filename: z.string().min(1).max(1_024),
+  status: z.string().min(1).max(32),
+}));
 const laneSchema = z.array(z.object({
   name: z.string().min(1).max(255).regex(/^[^/\\\x00-\x1f\x7f]+$/),
   type: z.string().min(1),
@@ -44,6 +53,10 @@ export interface LessonQueueSummary {
   lane_unrecorded?: number;
   lane_unrecorded_items?: string[];
   lane_reason_code?: LessonQueueReasonCode;
+  lane_pull_status?: "available" | "unavailable";
+  lane_pull_unrecorded?: number;
+  lane_pull_unrecorded_items?: string[];
+  lane_pull_reason_code?: LessonQueueReasonCode;
   checked_at: string;
   reason_code?: LessonQueueReasonCode;
 }
@@ -256,7 +269,8 @@ function isUnsupportedSlurp(result: GhResult): boolean {
   return (
     (result.error?.code === 1 || result.error?.code === "1") &&
     result.stdout.length === 0 &&
-    /^unknown flag: --slurp(?:\r?\n|$)/.test(result.stderr)
+    // The GitHub CLI's message, or the one from the gh client built into Claude Code cloud sessions.
+    /^(?:unknown flag: --slurp|gh: --slurp is not supported by this built-in gh\.)(?:\r?\n|$)/.test(result.stderr)
   );
 }
 
@@ -279,6 +293,13 @@ function parseSlurpedPages(stdout: string): LessonIssue[] {
 }
 
 function parseSequentialPages(stdout: string): LessonIssue[] {
+  const parsed = paginatedResponseSchema.safeParse(splitJsonArrays(stdout));
+  if (!parsed.success) return invalidResponse();
+  return parsed.data.flat();
+}
+
+// Splits gh's --paginate output (JSON arrays written one after another) into its pages.
+function splitJsonArrays(stdout: string): unknown[] {
   if (Buffer.byteLength(stdout, "utf8") > MAX_GH_OUTPUT_BYTES) {
     return invalidResponse();
   }
@@ -329,9 +350,7 @@ function parseSequentialPages(stdout: string): LessonIssue[] {
   }
 
   if (pages.length === 0) return invalidResponse();
-  const parsed = paginatedResponseSchema.safeParse(pages);
-  if (!parsed.success) return invalidResponse();
-  return parsed.data.flat();
+  return pages;
 }
 
 async function fetchLessonIssues(
@@ -376,6 +395,16 @@ async function fetchLaneSummary(dependencies: LessonStatusDependencies): Promise
   const parsed = laneSchema.safeParse(raw);
   if (!parsed.success) return invalidResponse();
 
+  const recorded = await recordedItems(dependencies);
+  const items = parsed.data
+    .filter((entry) => entry.type === "file" && entry.name.endsWith(".md") && entry.name !== "README.md")
+    .map((entry) => entry.name.slice(0, -3))
+    .filter((name) => !recorded.has(name))
+    .sort();
+  return { lane_status: "available", lane_unrecorded: items.length, lane_unrecorded_items: items };
+}
+
+async function recordedItems(dependencies: LessonStatusDependencies): Promise<Set<string>> {
   let ledger: string;
   try {
     ledger = await (dependencies.readLedger?.() ?? readFile(LEDGER_PATH, "utf8"));
@@ -387,12 +416,44 @@ async function fetchLaneSummary(dependencies: LessonStatusDependencies): Promise
     const cell = /^\s*\|\s*([^|]+?)\s*\|/.exec(line)?.[1];
     if (cell !== undefined) recorded.add(cell.trim());
   }
-  const items = parsed.data
-    .filter((entry) => entry.type === "file" && entry.name.endsWith(".md") && entry.name !== "README.md")
-    .map((entry) => entry.name.slice(0, -3))
-    .filter((name) => !recorded.has(name))
-    .sort();
-  return { lane_status: "available", lane_unrecorded: items.length, lane_unrecorded_items: items };
+  return recorded;
+}
+
+async function readPages<T>(
+  execute: LessonStatusExecFile,
+  path: string,
+  query: readonly string[],
+  schema: z.ZodType<T[]>,
+): Promise<T[]> {
+  const result = await executeGh(execute, ["api", "--method", "GET", "--paginate", path, ...query, "-f", "per_page=100"]);
+  if (result.error !== null) {
+    throw new LessonStatusError(classifyGhFailure(result.error, result.stderr));
+  }
+  const records: T[] = [];
+  for (const page of splitJsonArrays(result.stdout)) {
+    const parsed = schema.safeParse(page);
+    if (!parsed.success) return invalidResponse();
+    records.push(...parsed.data);
+  }
+  return records;
+}
+
+// Items an open UDA pull request adds to the lane folder that the ledger does not record yet, as "#<pull> <item>".
+async function fetchLanePullSummary(dependencies: LessonStatusDependencies): Promise<Partial<LessonQueueSummary>> {
+  const execute = dependencies.execute ?? execFile as unknown as LessonStatusExecFile;
+  const pulls = await readPages(execute, PULLS_PATH, ["-f", "state=open"], pullSchema);
+  const recorded = await recordedItems(dependencies);
+  const items: string[] = [];
+  for (const number of [...new Set(pulls.map((pull) => pull.number))].sort((a, b) => a - b)) {
+    const files = await readPages(execute, `${PULLS_PATH}/${number}/files`, [], pullFileSchema);
+    for (const file of files) {
+      if ((file.status !== "added" && file.status !== "renamed") || !file.filename.startsWith(LANE_PREFIX)) continue;
+      const name = file.filename.slice(LANE_PREFIX.length);
+      if (!/^[^/\\\x00-\x1f\x7f]+\.md$/.test(name) || name === "README.md") continue;
+      if (!recorded.has(name.slice(0, -3))) items.push(`#${number} ${name.slice(0, -3)}`);
+    }
+  }
+  return { lane_pull_status: "available", lane_pull_unrecorded: items.length, lane_pull_unrecorded_items: items };
 }
 
 function parseCategory(args: readonly string[]): string | undefined {
@@ -441,6 +502,14 @@ export async function runLessonsStatus(
       const reasonCode = error instanceof LessonStatusError ? error.reasonCode : "gh_unavailable";
       Object.assign(summary, { lane_status: "unavailable", lane_reason_code: reasonCode });
       writeStderr(`Suggested fixes lane status unavailable: ${reasonCode}\n`);
+      exitCode = 1;
+    }
+    try {
+      Object.assign(summary, await fetchLanePullSummary(dependencies));
+    } catch (error) {
+      const reasonCode = error instanceof LessonStatusError ? error.reasonCode : "gh_unavailable";
+      Object.assign(summary, { lane_pull_status: "unavailable", lane_pull_reason_code: reasonCode });
+      writeStderr(`Suggested fixes lane pull requests unavailable: ${reasonCode}\n`);
       exitCode = 1;
     }
     writeStdout(`${JSON.stringify(summary)}\n`);

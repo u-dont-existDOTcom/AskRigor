@@ -202,7 +202,8 @@ Other projects and chats file AskRigor fixes in UDA's lane, `suggested-fixes/Ask
 yet, along with your other work: adopt it, adapt it, decline it with a reason, defer it until a named trigger, or ask
 the owner on the owner questions page. Record the outcome in the ledger. Items are advice, and this repository's
 authority decides; an item marked as an owner request goes to the owner before you decline or defer it. The method is
-UDA `patterns/suggested-fix-queue.md`. `npm run lessons:status` lists the lane items the ledger doesn't record yet.
+UDA `patterns/suggested-fix-queue.md`. `npm run lessons:status` lists the lane items the ledger doesn't record yet,
+including items still in open UDA pull requests.
 
 ## Branch roles
 
