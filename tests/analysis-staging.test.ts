@@ -392,7 +392,7 @@ describe("the server sends a free contributor's validated analyses when the fina
       intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
       key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: DOI, status: "validated" }],
       answer_draft: `The liver clears this drug within a few hours. [Study](https://doi.org/${DOI})`,
-      absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
+      absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
     }), "auth0|free");
     const receipt = (validated.structuredContent as { research_receipt: string }).research_receipt;
     // The audit's figures check rides in its receipt (owner questions 87 and 89).
@@ -404,7 +404,7 @@ describe("the server sends a free contributor's validated analyses when the fina
       status: "ready",
       analyses_saved: { saved: 1, already_saved: 0, unconfirmed: 0, not_saved: [] },
     });
-    expect(JSON.stringify(done.content)).toContain("Study and review analyses sent to the review inbox: 1.");
+    expect(JSON.stringify(done.content)).toContain("Study and review analyses from this account's research, in this chat or another, sent to the review inbox: 1.");
     expect(store.inserted).toHaveLength(1);
     expect(store.inserted[0]).toMatchObject({
       proposalKind: "SOURCE_ANALYSIS",

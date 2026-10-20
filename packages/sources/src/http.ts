@@ -42,11 +42,25 @@ export class UpstreamHttpError extends Error {
 export class DiscoveredDocumentError extends Error {
   constructor(
     readonly code: "transport" | "destination" | "redirect_limit" | "byte_limit" | "unsupported_content" | "undecodable_body" | "invalid_url" | "invalid_response",
-    message: string
+    message: string,
+    readonly failureKind?: "timeout" | "network"
   ) {
     super(message);
     this.name = "DiscoveredDocumentError";
   }
+}
+
+/** Preserve the response status, or the kind of a genuine transport failure. */
+export function upstreamFailureDetails(error: unknown): { http_status?: number; failure_kind?: "timeout" | "network" } {
+  if (error instanceof UpstreamHttpError) return { http_status: error.status };
+  if (error instanceof DiscoveredDocumentError && error.code === "transport") {
+    return { failure_kind: error.failureKind ?? "network" };
+  }
+  if (isTransientTransportError(error)) {
+    return { failure_kind: error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")
+      ? "timeout" : "network" };
+  }
+  return {};
 }
 
 export interface UpstreamFetchOptions
@@ -297,7 +311,8 @@ export async function fetchDiscoveredDocument(
         : await requestWithInjectedFetch(runtime.fetch, current, timeoutMs, maximumBytes, runtime.signal);
     } catch (error) {
       if (error instanceof DiscoveredDocumentError || error instanceof UpstreamHttpError) throw error;
-      throw new DiscoveredDocumentError("transport", "Discovered document transport failed");
+      throw new DiscoveredDocumentError("transport", "Discovered document transport failed",
+        error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError") ? "timeout" : "network");
     }
     if (response.bytes.byteLength > maximumBytes) {
       throw new DiscoveredDocumentError("byte_limit", "Discovered document exceeds byte limit");

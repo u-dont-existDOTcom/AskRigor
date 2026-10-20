@@ -177,4 +177,37 @@ describe("protocol sections", () => {
     expect(sections[0]!.summary).toBe("First & best");
     expect(sections[2]!.bytes).toBe(Buffer.byteLength('<Delta flag="1"/>'));
   });
+
+  it("summarizes a section by its own purpose, else by its rule names and opening words (owner question 123)", () => {
+    const xml = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<Protocol name="T" version="1" revisionDate="2026-01-01">',
+      '  <Alpha><Block><Purpose>A nested block</Purpose></Block><Rule name="Outer">Outer text.</Rule></Alpha>',
+      '  <Beta><Rule name="First">Do one.</Rule><Rule name="Second">Do two.</Rule></Beta>',
+      "  <Gamma>Plain words only.</Gamma>",
+      '  <Delta><Rule name="Inner">x</Rule><Activation>When it applies.</Activation></Delta>',
+      "</Protocol>"
+    ].join("\n");
+
+    expect(protocolSections("universal", xml).map(({ summary }) => summary)).toEqual([
+      "Rules: Outer. A nested block Outer text.",
+      "Rules: First, Second. Do one. Do two.",
+      "Plain words only.",
+      "When it applies."
+    ]);
+  });
+
+  it("names the rules of canonical sections that have no purpose of their own, and ignores nested ones", async () => {
+    const hrp = await loadProtocolSectionSnapshot("hrp");
+    const universal = await loadProtocolSectionSnapshot("universal");
+    const summary = (sections: typeof hrp.sections, name: string) =>
+      sections.find((section) => section.name === name)!.summary;
+
+    expect(summary(hrp.sections, "StatisticalAndClinicalInterpretation")).toMatch(/^Rules: HardOutcomesFirst, AbsoluteImpact, /u);
+    expect(summary(hrp.sections, "ResearchQuestionAndEstimandGate")).toMatch(/^Rules: OrchestrationHandoff, /u);
+    // Its first activation belongs to the nested task_mode_integration block.
+    expect(summary(universal.sections, "reasoning_selection"))
+      .toMatch(/^REASONING SELECTION Use the smallest sufficient combination of methods/u);
+    expect(summary(hrp.sections, "AnswerShapeController")).toMatch(/^Router: triage first/u);
+  });
 });

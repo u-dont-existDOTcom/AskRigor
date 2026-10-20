@@ -94,13 +94,13 @@ describe("owner-approved contested intervention evidence, question 77: 77a (2026
     expect(hash(beforeReadDepth)).toBe(readDepth.from.sha256);
     await expect(undoReadDepth(await loadCurrent(), "hrp")).resolves.toBe(beforeReadDepth);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: "20.6.26", revisionDate: "2026-10-16", sha256: hash(await loadCurrent()),
+      name: "HRP", version: "20.6.27", revisionDate: "2026-10-18", sha256: hash(await loadCurrent()),
     });
     const universal = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
     expect(hash(await undoCorrectionReport(universal))).toBe("06e5ca6befb9dac648fd41996213394e793e17795087eee8fbc63cbcbbbd8174");
-    expect(hash(universal)).toBe("7f03ddbd280a9906860f5a34b022b95931f61da87377b3c6e33afcdbaf9a1bdd");
+    expect(hash(universal)).toBe("946fac7e5e6ce5cb08811d4c533371e3032e1ce46f5c217990dc326808b55135");
     await expect(getProtocolManifest("universal")).resolves.toEqual({
-      name: "AskRigor.com universal saved instructions", version: "20.5.43", revisionDate: "2026-10-15", sha256: hash(universal),
+      name: "AskRigor.com universal saved instructions", version: "20.5.44", revisionDate: "2026-10-17", sha256: hash(universal),
     });
   });
 

@@ -85,7 +85,7 @@ function packageFor(
     principal_communities: [{ name: REDDIT.community, platform: REDDIT.platform }, { name: FORUM.community, platform: FORUM.platform }],
     community_searches: [REDDIT, FORUM],
     answer_draft: "[Study](https://doi.org/10.1002/art.41142)\n\n" + [paragraph(REDDIT), paragraph(FORUM), paragraph(REVIEWS)].join("\n\n"),
-    absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
+    absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
     ...overrides
   };
 }

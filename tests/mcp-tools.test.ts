@@ -859,7 +859,7 @@ describe("AskRigor MCP tools", () => {
         not_relevant_reason: "A dosing arithmetic question with no treatment choice.",
         intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
         key_sources: [],
-        absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: []
+        absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: []
       };
       // The answer must carry the limit before it is signed.
       const uncaveated = await client.callTool({
@@ -2810,15 +2810,15 @@ describe("AskRigor MCP tools", () => {
         protocol: "hrp",
         manifest: {
           name: "HRP",
-          version: "20.6.26",
-          revisionDate: "2026-10-16",
-          sha256: "e681ed981471a38ac93c1eb6c13fb86e70fc6e8cb55e07d517bfc715d97c6cfa"
+          version: "20.6.27",
+          revisionDate: "2026-10-18",
+          sha256: "e6db59c14c78f3d53b04b8d36ce514eecfcaaec1cf7f9d176d7b8ad665b2e2fe"
         },
         scope: "full",
         page: 1,
         next_page: 2,
         complete: false,
-        scope_sha256: "e681ed981471a38ac93c1eb6c13fb86e70fc6e8cb55e07d517bfc715d97c6cfa"
+        scope_sha256: "e6db59c14c78f3d53b04b8d36ce514eecfcaaec1cf7f9d176d7b8ad665b2e2fe"
       });
       const pageCount = (first.structuredContent as { page_count: number }).page_count;
       expect(first.content).toEqual([
@@ -2861,8 +2861,8 @@ describe("AskRigor MCP tools", () => {
         core_sections: string[];
       };
       expect(indexContent.manifest).toMatchObject({
-        version: "20.5.43",
-        sha256: "7f03ddbd280a9906860f5a34b022b95931f61da87377b3c6e33afcdbaf9a1bdd"
+        version: "20.5.44",
+        sha256: "946fac7e5e6ce5cb08811d4c533371e3032e1ce46f5c217990dc326808b55135"
       });
       expect(indexContent.index).toHaveLength(40);
       expect(indexContent.core_sections).toContain("epistemics");
@@ -3192,9 +3192,9 @@ describe("AskRigor Streamable HTTP server", () => {
           protocol: "universal",
           manifest: {
             name: "AskRigor.com universal saved instructions",
-            version: "20.5.43",
-            revisionDate: "2026-10-15",
-            sha256: "7f03ddbd280a9906860f5a34b022b95931f61da87377b3c6e33afcdbaf9a1bdd"
+            version: "20.5.44",
+            revisionDate: "2026-10-17",
+            sha256: "946fac7e5e6ce5cb08811d4c533371e3032e1ce46f5c217990dc326808b55135"
           }
         });
       } finally {
@@ -3229,7 +3229,9 @@ describe("AskRigor Streamable HTTP server", () => {
         expect(tools.every((tool) => !("outputSchema" in tool))).toBe(true);
         expect(tools.every((tool) => !("execution" in tool))).toBe(true);
         expect(unsupportedGeminiSchemaKeys(tools)).toEqual([]);
-        expect(Buffer.byteLength(JSON.stringify({ tools }), "utf8")).toBeLessThan(25_000);
+        const catalogBytes = Buffer.byteLength(JSON.stringify({ tools }), "utf8");
+        console.info(`Gemini compact catalog bytes: ${catalogBytes}`);
+        expect(catalogBytes).toBeLessThan(25_000);
         const searchSchema = tools.find(({ name }) => name === "search_youtube")!.inputSchema;
         expect(searchSchema.properties).toHaveProperty("product_identity");
         const identity = searchSchema.properties!.product_identity as { properties: Record<string, { items?: { description?: string }; description?: string }> };
@@ -3243,8 +3245,8 @@ describe("AskRigor Streamable HTTP server", () => {
           ok: true,
           protocol: "universal",
           manifest: {
-            version: "20.5.43",
-            sha256: "7f03ddbd280a9906860f5a34b022b95931f61da87377b3c6e33afcdbaf9a1bdd"
+            version: "20.5.44",
+            sha256: "946fac7e5e6ce5cb08811d4c533371e3032e1ce46f5c217990dc326808b55135"
           }
         });
       } finally {

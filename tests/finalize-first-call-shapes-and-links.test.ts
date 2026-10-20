@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { z } from "zod";
+import { z } from "zod";
 import {
   FINALIZE_RESEARCH_HIDDEN_SHAPES, FINALIZE_RESEARCH_SHAPES_DESCRIPTION, finalizeResearch, finalizeResearchInputSchema,
   TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
@@ -65,6 +65,7 @@ function schemaAt(path: string): z.ZodType {
 
 const finalizer = inventory.tools.find(({ name }) => name === "finalize_research")!;
 const published = finalizer.inputSchema as JsonSchemaNode;
+const strict = z.toJSONSchema(finalizeResearchInputSchema, { target: "draft-7", io: "input" }) as JsonSchemaNode;
 
 describe("finalize_research inputs ChatGPT's app hides (2026-10-16 probes)", () => {
   it("publishes full_text_search and lab_preparation as one object each, with their fields in sight", () => {
@@ -77,13 +78,13 @@ describe("finalize_research inputs ChatGPT's app hides (2026-10-16 probes)", () 
       expect(node.type).toBe("object");
       expect(Object.keys(node.properties!)).toEqual(fields);
       expect(node.properties!.status!.enum).toEqual(statuses);
-      expect(hiddenParts(published)).not.toContain(name);
+      expect(hiddenParts(strict)).not.toContain(name);
     }
   });
 
   it("gives every hidden part of the published schema its JSON in the tool description, and no other", () => {
     const covered = FINALIZE_RESEARCH_HIDDEN_SHAPES.flatMap(({ paths }) => paths);
-    const hidden = hiddenParts(published).map((path) => path.replace(/\[\]$/u, ""));
+    const hidden = hiddenParts(strict).map((path) => path.replace(/\[\]$/u, ""));
     expect([...covered].sort()).toEqual([...new Set(hidden)].sort());
     expect(finalizer.description).toContain(FINALIZE_RESEARCH_SHAPES_DESCRIPTION);
     for (const path of covered) {
@@ -125,7 +126,7 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   commercial_review_applicability: declaration, intervention_identity: declaration, lab_preparation: declaration,
   full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates link checks." },
   key_sources: [{ id: DOI, status: "validated", read_depth: "full_text_audited", answer_marker: "Trial" }],
-  absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
+  absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
   answer_draft: `[Trial](https://doi.org/${DOI}) was read.`, ...overrides
 });
 const check = (overrides: Partial<FinalizeResearchInput> = {}) =>

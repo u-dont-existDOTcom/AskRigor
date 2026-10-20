@@ -52,7 +52,7 @@ function packageFor(overrides: Partial<Corpus> = {}): FinalizeResearchInput {
     intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient study intervention." },
     shopping: { status: "not_requested" }, key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1000/liver", status: "validated" }],
     principal_communities: [reviews, forum].map(({ community: name, platform }) => ({ name, platform })),
-    community_searches: [reviews, forum], absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
+    community_searches: [reviews, forum], absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
     answer_draft: "[Study](https://doi.org/10.1000/liver)\n\n" + [reviews, forum]
       .map((lane) => `On [${lane.community}](${lane.threads_read[0]!.url}): ${Object.values(QUOTES).join(" ")}`).join("\n\n")
   };

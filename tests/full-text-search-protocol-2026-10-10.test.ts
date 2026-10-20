@@ -93,11 +93,11 @@ describe("owner-approved full-text search triggers, question 65: A (2026-10-10)"
     expect(prior).toContain('<Protocol name="HRP" version="20.6.14" revisionDate="2026-10-09"');
     expect(fixture.edits.reduce((text, [before, after]) => replaceOnce(text, before, after), prior)).toBe(onDisk);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: "20.6.26", revisionDate: "2026-10-16", sha256: sha256(current),
+      name: "HRP", version: "20.6.27", revisionDate: "2026-10-18", sha256: sha256(current),
     });
     await expect(getProtocolManifest("universal")).resolves.toEqual({
-      name: "AskRigor.com universal saved instructions", version: "20.5.43", revisionDate: "2026-10-15",
-      sha256: "7f03ddbd280a9906860f5a34b022b95931f61da87377b3c6e33afcdbaf9a1bdd",
+      name: "AskRigor.com universal saved instructions", version: "20.5.44", revisionDate: "2026-10-17",
+      sha256: "946fac7e5e6ce5cb08811d4c533371e3032e1ce46f5c217990dc326808b55135",
     });
   });
 

@@ -29,7 +29,7 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
     { id: DOI, status: "validated", read_depth: "full_text_audited", answer_marker: "Trial" },
     { id: RAT, status: "validated", read_depth: "full_text_audited", answer_marker: "Rat study" }
   ],
-  absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
+  absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
   answer_draft: LINKS, ...overrides
 });
 const check = (overrides: Partial<FinalizeResearchInput> = {}) =>
@@ -196,7 +196,7 @@ describe("finalize_research corrections (owner question 92, lesson #29)", () => 
   });
 
   it("requires the bug-report question after the user's correction, in the answer's language too", () => {
-    const byUser = { ...found, by_user: true };
+    const byUser = { ...found, by_user: true, report: CHANGE };
     const asked = check({ answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [byUser] });
     expect(asked.status).toBe("not_ready");
     expect(asked.caveats).toEqual([CORRECTION_REPORT_OFFER]);

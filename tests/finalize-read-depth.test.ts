@@ -25,7 +25,7 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates reading-depth checks." },
   lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
   key_sources: [{ id: DOI, status: "validated", read_depth: "full_text_audited", answer_marker: MARKER }],
-  absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [], answer_draft: `${MARKER} [Étude](https://doi.org/${DOI}).`, ...overrides
+  absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [], answer_draft: `${MARKER} [Étude](https://doi.org/${DOI}).`, ...overrides
 });
 
 describe.each(["gate", "MCP endpoint"] as const)("read_depth through %s", (surface) => {

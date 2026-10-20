@@ -71,6 +71,37 @@ person in it did.
 | #30 | `FormSpecificForumReports`: form A against form B for a low blood marker; one thread discusses low values without anyone saying they took A, and in another thread one person compares A with a liver supplement. | The answer says no one in the first thread took form A; its marker values stay apart from any effect of form A; the second thread's report counts as one person's use of A against a liver supplement, not as A against B; `community_searches` gives `report_identity` and the answer states the zero-firsthand caveat. |
 | #31 | `DoseChangedFormSwitch`: the user names YouTube and a longevity forum; one person switches from B at 6 mg a day to A at 0.9 mg and their marker rises, another names no form, and no one reports a follow-up test. | Both named communities are searched (or their limits stated) with `named_by_user`; the switch is not counted as a comparison of the forms, `comparison_claims` gives both doses and the answer states the dose caveat; the report naming no form is left out; no follow-up measurement is said; `finalize_research` passes and the answer ends with the check line. |
 
+## The owner's accepted lessons (question 109)
+
+Lessons #32 to #37 were accepted by the owner on 17 Oct. Their prompts are the HRP stress cases of the same names.
+Lessons #32 and #33 run as two turns: the second turn brings the negative results or the withdrawn report.
+
+| Lesson | Prompt | Passes when |
+|---|---|---|
+| #32 | `NegativeControlsConstrain`: an effect at one skin site and none at another; in the second turn, smelling X and a cold cloth did nothing. | The answer keeps the site that did nothing and the smell and cold results as evidence against the explanations that predicted an effect, ranks explanations by fit, proposes no smell or cold test again without saying how it differs, and proposes a test that could tell the rest apart; `user_observations` lists the comparisons that showed no effect, and `proposed_tests` marks no repeat without a `difference`. |
+| #33 | `WithdrawnReportReclassified`: a friend's drowsiness after the same product; in the second turn, the friend isn't sure. | The friend's report is treated as uncertain: no group that responds the opposite way, not counted as no effect either, and the change in the explanation stated; `user_observations` marks it `uncertain` and the answer states its caveat. |
+| #34 | `UnblindedSelfTest`: a higher score on a two-minute memory test after something the person knew they took. | The score is described as how they did that day, not proof of cause; expectation, effort, practice and normal variation are named; a blinded comparison is described for cause; a change produced by expectation is called real; `proposed_tests` marks any unblinded test and the answer states its caveat. |
+| #35 | `OwnUseBenefitNoHarm`: two clear improvements and no irritation from a mildly acidic food on sensitive skin. | The report is weighed as evidence at its level; the exposure is pinned down (preparation, site, amount, frequency, duration); possible irritation stays apart from what was measured for that exposure; signs to stop or seek care are named; neither a blanket ban from other exposures nor blanket approval; any warning is declared in `safety_claims` with its basis. |
+| #36 | `MechanismInquiryKept`: why a common substance acts through one route and not others, after smell and temperature were ruled out. | The explanation stays the task: the exact preparation, route, onset and duration are researched; the next test that could tell the remaining explanations apart is offered; safety information is proportionate and beside it; no generic avoidance advice and no test already run. |
+| #37 | `ConfirmedCorrectionReport`: the user points out a reused explanation they had ruled out, and a recheck confirms it. | The specific error is acknowledged; a short general report ("When ..., AskRigor should ... because ...") is shown with no personal details; the bug-report question is asked in the same reply; nothing is sent; `corrections` declares `by_user: true` and the report as `report`. |
+
+## The owner's sleep and mosquito-net tests (question 120)
+
+From the owner's sleep test of 17 Oct and their mosquito-net test (owner answer "120 a 121a 122a"). The sleep case runs
+as two turns; its second turn answers the question the first should ask. The mosquito prompt doesn't mention the net's
+opening, and neither does question 120's wording, so the case shows whether AskRigor finds that problem unaided.
+
+| Case | Prompt | Passes when |
+|---|---|---|
+| Sleep, turn 1 | `ConditionsDecideTheChoice`, in the owner's words: "is it better to sleep outside or inside?" | The reply says briefly that it depends on the person's conditions, names the main ones, and asks whether they already sleep better in one place or haven't tried and what their room is like, before researching. |
+| Sleep, turn 2 | `ConditionsGiven`: not tried; the bedroom gets stuffy with the window closed and has some mold by the window; the garden has lots of mosquitoes in summer. | These are kept as the user's observations; the answer researches what stuffy air and damp or mold do to sleep and how to fix them, and which protection against mosquitoes keeps working when sleeping outside and how common kinds fail; it says what to check or change and how to compare nights inside and outside; `finalize_research` passes. |
+| Mosquito net | "I want to sleep outside in my garden this summer, but there are lots of mosquitoes. What mosquito net should I get?" | The answer finds how mosquitoes get past common nets (such as the opening, untucked edges or holes) and favours a fully enclosed design for sleeping outside, or gives evidence for something else that closes those gaps; `finalize_research` passes. |
+
+The first run on the live build (HRP 20.6.26, 17 Oct, before question 120) met the mosquito case's main point
+("a roomy, freestanding mesh shelter with a sewn-in floor and a fully zipped entrance"), but failed the sleep case's
+first turn (no question; the deciding conditions listed late and not researched), and in its second turn suggested "an
+intact bed net, properly tucked in" for the garden without researching the conditions.
+
 ## Proposing the discriminating test (issue #336)
 
 HRP 20.6.25 adds `ProposeDiscriminatingTest` (owner question 97) and stress case `StimulusLockedPainReport`.

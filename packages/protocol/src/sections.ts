@@ -312,6 +312,67 @@ function topLevelSpans(text: string): SectionSpan[] {
   return spans;
 }
 
+interface ChildElement {
+  tag: string;
+  name?: string;
+  contentStart: number;
+  contentEnd: number;
+}
+
+/** The direct children of a section's own element, scanned like the sections themselves. */
+function sectionChildren(sectionText: string): ChildElement[] {
+  const children: ChildElement[] = [];
+  const open: Array<{ tag: string; name?: string; contentStart: number; child: boolean }> = [];
+  let index = 0;
+
+  while (index < sectionText.length) {
+    const lessThan = sectionText.indexOf("<", index);
+    if (lessThan < 0) {
+      break;
+    }
+    if (sectionText.startsWith("<!--", lessThan)) {
+      index = requiredIndex(sectionText, "-->", lessThan) + 3;
+      continue;
+    }
+    if (sectionText.startsWith("<![CDATA[", lessThan)) {
+      index = requiredIndex(sectionText, "]]>", lessThan) + 3;
+      continue;
+    }
+    if (sectionText.startsWith("<?", lessThan) || sectionText.startsWith("<!", lessThan)) {
+      index = requiredIndex(sectionText, ">", lessThan) + 1;
+      continue;
+    }
+    const close = tagEnd(sectionText, lessThan);
+    const tag = sectionText.slice(lessThan, close);
+    if (tag.startsWith("</")) {
+      const element = open.pop();
+      if (element?.child) {
+        children.push({ tag: element.tag, name: element.name, contentStart: element.contentStart, contentEnd: lessThan });
+      }
+    } else {
+      const tagName = /^<([^\s/>]+)/u.exec(tag)?.[1] ?? "";
+      // The section's own tag is the only open element when one of its children starts.
+      const child = open.length === 1;
+      const name = attributeValue(tag, "name");
+      if (tag.endsWith("/>")) {
+        if (child) {
+          children.push({ tag: tagName, name, contentStart: close, contentEnd: close });
+        }
+      } else {
+        open.push({ tag: tagName, name, contentStart: close, child });
+      }
+    }
+    index = close;
+  }
+  return children;
+}
+
+function attributeValue(tag: string, attribute: string): string | undefined {
+  const match = [...tag.matchAll(/\s([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/gu)]
+    .find(([, name]) => name === attribute);
+  return match === undefined ? undefined : decodeEntities(match[2] ?? match[3] ?? "");
+}
+
 function tagEnd(text: string, open: number): number {
   let quote: string | undefined;
   for (let index = open + 1; index < text.length; index += 1) {
@@ -348,9 +409,20 @@ function namingAttributeValues(tag: string): string[] {
     .map((match) => decodeEntities(match[2] ?? match[3] ?? ""));
 }
 
+const SUMMARY_TAGS = new Set(["Purpose", "purpose", "Activation", "activation"]);
+
+/**
+ * The section's own purpose or activation; a nested block's does not describe the section. A section without one
+ * names its rules before its opening words, so a rule that reaches beyond the first one's subject can still be found
+ * from the index (owner question 123).
+ */
 function sectionSummary(sectionText: string): string {
-  const lead = /<(Purpose|purpose|Activation|activation)\b[^>]*>([\s\S]*?)<\/\1>/u
-    .exec(sectionText)?.[2] ?? sectionText;
+  const children = sectionChildren(sectionText);
+  const own = children.find(({ tag }) => SUMMARY_TAGS.has(tag));
+  const rules = children.flatMap(({ tag, name }) => (tag === "Rule" || tag === "rule") && name !== undefined ? [name] : []);
+  const lead = own !== undefined
+    ? sectionText.slice(own.contentStart, own.contentEnd)
+    : rules.length > 0 ? `Rules: ${rules.join(", ")}. ${sectionText}` : sectionText;
   const plain = decodeEntities(lead.replace(/<[^>]*>/gu, " "))
     .replace(/\s+/gu, " ")
     .trim();

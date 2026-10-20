@@ -46,7 +46,7 @@ function base(overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
     intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient study intervention." },
     key_sources: [{ id: DOI, status: "validated", read_depth: "partial_text", answer_marker: "Study" }],
     principal_communities: searches.map(({ community: name, platform }) => ({ name, platform })),
-    community_searches: searches, absence_claims: [], scale_results: [], safety_claims: [], key_terms: [],
+    community_searches: searches, absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [],
     mechanism_claims: [], recommendations: [],
     answer_draft: `[Study](https://doi.org/${DOI}) describes the exposures. ${QUOTE}\n\n` + searches.map((s) =>
       `On [${s.community}](${s.threads_read[0]!.url}): ${Object.values(FINDINGS).join(" ")}`).join("\n\n"),
@@ -297,7 +297,10 @@ describe("strict declaration schemas", () => {
     return input;
   };
   const shown = (input: FinalizeResearchInput) => ({ ...input, answer_draft: `${input.answer_draft}\n\n${run(base()).caveats.join(" ")}` });
-  const withoutReceipt = ({ finalization_receipt: _receipt, ...rest }: ReturnType<typeof finalizeResearch>) => rest;
+  const withoutReceipt = ({ finalization_receipt: _receipt, carry_forward: _token, carried, ...rest }: ReturnType<typeof finalizeResearch>) => {
+    const { issued_at: _issued, ...state } = carried ?? {};
+    return { ...rest, carried: state };
+  };
   it("accepts one report identity object and checks it as a list of one", () => {
     expect(finalizeResearchInputSchema.parse(single(identity())).community_searches![0]!.report_identity).toEqual([identity()]);
     expect(withoutReceipt(run(shown(single(identity()))))).toEqual(withoutReceipt(run(shown(base()))));
@@ -318,8 +321,10 @@ describe("strict declaration schemas", () => {
       await client.connect(clientTransport);
       const tool = (await client.listTools()).tools.find(({ name }) => name === "finalize_research")!;
       const published = (tool.inputSchema as { properties: { community_searches: { items: { properties: {
-        report_identity: { anyOf: Array<{ type: string }> } } } } } }).properties.community_searches.items.properties.report_identity;
-      expect(published.anyOf.map(({ type }) => type)).toEqual(["object", "array"]);
+        report_identity: { anyOf?: unknown; type?: string; description?: string } } } } } }).properties.community_searches.items.properties.report_identity;
+      expect(published.anyOf).toBeUndefined();
+      expect(published.type).toBeUndefined();
+      expect(published.description).toContain("Outside review sites");
       const result = await client.callTool({ name: "finalize_research", arguments: { ...shown(single(identity())) } });
       expect(result.isError).not.toBe(true);
       expect(result.structuredContent).toMatchObject({ status: "ready_with_limits" });

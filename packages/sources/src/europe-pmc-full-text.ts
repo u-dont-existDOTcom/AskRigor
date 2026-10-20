@@ -9,7 +9,7 @@ import {
 import { XMLParser } from "fast-xml-parser";
 import { z } from "zod";
 
-import { fetchText, isTransientTransportError, UpstreamHttpError } from "./http.js";
+import { upstreamFailureDetails, fetchText, isTransientTransportError, UpstreamHttpError } from "./http.js";
 
 const EUROPE_PMC_FULL_TEXT_ROOT =
   "https://www.ebi.ac.uk/europepmc/webservices/rest";
@@ -139,6 +139,7 @@ export async function fetchEuropePmcFullText(
       return fullTextErrorEnvelope(normalizedPmcid, canonicalUrl, {
         accessStatus: "error",
         code: "europe_pmc_full_text_unreachable",
+        failureKind: upstreamFailureDetails(error).failure_kind,
         message: "Europe PMC did not respond (a timeout or a dropped connection)",
         retryable: true
       });
@@ -295,6 +296,7 @@ interface FullTextErrorDetails {
   code: string;
   message: string;
   httpStatus?: number;
+  failureKind?: "timeout" | "network";
   retryable: boolean;
 }
 
@@ -318,6 +320,7 @@ function fullTextErrorEnvelope(
     message: details.message,
     ...(details.httpStatus === undefined ? {} : { httpStatus: details.httpStatus }),
     retryable: details.retryable,
+    failureKind: details.failureKind,
     data: {}
   }) as ProvenanceEnvelope<Record<string, never>>;
 }
