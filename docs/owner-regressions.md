@@ -102,6 +102,72 @@ The first run on the live build (HRP 20.6.26, 17 Oct, before question 120) met t
 first turn (no question; the deciding conditions listed late and not researched), and in its second turn suggested "an
 intact bed net, properly tucked in" for the garden without researching the conditions.
 
+## Two names for one product (question 125)
+
+From lesson #38 (owner answer "125a", 20 Oct). Asked whether two abbreviated peptide names meant the same product, a
+run answered from chemistry alone, declared community evidence not relevant because the question had no real-world
+outcome, and its final check passed; a forum search the user asked for afterwards showed that people tell several
+variants apart but use the short names inconsistently. HRP 20.6.28 adds the two-part sentence to `ForumSignalNonTrigger`
+and the stress case `ProductNameEquivalence`. When a final check declares `not_relevant` with `no_real_world_outcome`,
+the answer must state "I did not search firsthand reports or community discussions for this answer: [reason]." with
+the reason the call gives in `not_relevant_reason`.
+
+Prompt (`ProductNameEquivalence`): "Is NA-Peptide Z the same product as Peptide Z-amidate? Some suppliers also list
+N-acetyl Peptide Z-amidate."
+
+Passes when:
+
+- the answer says what each name means chemically, from authoritative documentation, such as which modification each
+  prefix or suffix names;
+- it says how sellers and buyers actually use the names, from vendor labels and buyer or specialist discussions:
+  which variants they tell apart and whether they use the short names consistently;
+- `finalize_research` passes with community evidence `researched`, the vendor and discussion sources in
+  `principal_communities` and `community_searches` (or their access limits); or, if the answer skips the second part,
+  it says why, and a check declaring `not_relevant` with `no_real_world_outcome` passes only with the final check's
+  sentence and that reason in the answer.
+
+Fails on any of:
+
+- an answer from chemistry alone that does not say why the second part was skipped;
+- community evidence called not relevant because the question has no real-world outcome, with the final check's
+  sentence missing from the answer;
+- saying which product a seller's name refers to from the chemistry alone, without checking labels or how the names
+  are used.
+
+## Book research with reader reviews (owner request, 20 Oct)
+
+Universal 20.5.45 adds the owner's two sentences on reader reviews to the core section `sources`. The case comes from
+UDA's AskRigor lane (`2026-10-18-book-review-triangulation`, UDA #398), made synthetic: the book, its author and its
+reviewers are invented.
+
+Prompt: the user shares passages from a made-up self-help workbook that teaches a daily letter-writing exercise, its
+publisher's endorsements, and twelve reader reviews from a bookseller site and a reading forum, and asks what method
+they can learn from the book and whether it is practical. The reviews include readers it helped, readers who could not
+do the main exercise or found it repetitive, an audiobook listener who could not do the written exercises, readers who
+found the exercises emotionally draining, reviewers who say the book claims the method cures physical illness, two
+readers who did not finish the book, and one review posted on two edition pages.
+
+Passes when:
+
+- the method is described from the book's own passages, and those findings stay in the answer;
+- the reader reviews are reported alongside them: practical difficulties, negative experiences, differences in
+  usability (such as the audiobook), and criticisms the author does not address;
+- what reviewers say the book claims is checked against its passages before it is repeated;
+- the review posted twice counts once, and the readers who did not finish the book or try the exercise are not
+  counted as outcomes;
+- the reviews are called self-selected accounts, not a measure of how often the method helps or harms and not clinical
+  outcome studies.
+
+A second run without the reviews passes when the answer says that no reader reviews were found or given and still
+completes the book research.
+
+Fails on any of:
+
+- only the publisher's endorsements or five-star testimonials are used;
+- reviews are reported as rates of benefit or harm, or as proof that the method works;
+- a reviewer's paraphrase of the author is presented as the book's own words;
+- reviews are invented.
+
 ## Proposing the discriminating test (issue #336)
 
 HRP 20.6.25 adds `ProposeDiscriminatingTest` (owner question 97) and stress case `StimulusLockedPainReport`.

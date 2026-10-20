@@ -1,0 +1,31 @@
+{
+  "purpose": "Owner-approved question 125, from the owner's answer \"125a\" (2026-10-20), from lesson #38. Exact approved text apart from XML formatting; reversible HRP 20.6.28 edits chained from question 109's HRP 20.6.27.",
+  "hrp": {
+    "from": {
+      "version": "20.6.27",
+      "sha256": "e6db59c14c78f3d53b04b8d36ce514eecfcaaec1cf7f9d176d7b8ad665b2e2fe"
+    },
+    "to": {
+      "version": "20.6.28",
+      "sha256": "9dd5e5bf7b896011544731f1acc028befcf0a9d132189e63a50c41bf6197ea17"
+    },
+    "edits": [
+      [
+        "version=\"20.6.27\" revisionDate=\"2026-10-18\"",
+        "version=\"20.6.28\" revisionDate=\"2026-10-20\""
+      ],
+      [
+        " <RevisionHistory>\n",
+        " <RevisionHistory>\n  <Revision version=\"20.6.28\" priority=\"Critical\">\n   Owner-approved, question 125 (2026-10-20), from lesson #38: ForumSignalNonTrigger now says that a question whether\n   two product names or labels refer to the same thing has two parts, what the names mean chemically and how sellers\n   and buyers actually use them, and that the second is skipped only with a reason stated in the answer; with stress\n   case ProductNameEquivalence.\n  </Revision>\n"
+      ],
+      [
+        "   outcome claim, an acute emergency before triage is complete, or a topic with no meaningful user-experience corpus.\n   Nonactivation is an affirmative relevance decision, not a default; in structured or deep intervention research,",
+        "   outcome claim, an acute emergency before triage is complete, or a topic with no meaningful user-experience corpus.\n   When the question is whether two product names or labels refer to the same thing, answer both parts: what the names\n   mean chemically, from authoritative documentation, and how sellers and buyers actually use them, from vendor labels\n   and buyer or specialist discussions; skip the second part only with a reason stated in the answer.\n   Nonactivation is an affirmative relevance decision, not a default; in structured or deep intervention research,"
+      ],
+      [
+        "  <Case id=\"CodedFormulaLargeEffect\">",
+        "  <Case id=\"ProductNameEquivalence\">\n   <Prompt>\n    A user asks whether a peptide sold as “NA-Peptide Z” is the same product as “Peptide Z-amidate”, while suppliers\n    also list “N-acetyl Peptide Z-amidate”.\n   </Prompt>\n   <ExpectedBehavior>\n    Answer both parts: what each name means chemically, from authoritative documentation, and how sellers and buyers\n    actually use the names, from vendor labels and buyer or specialist discussions, including which variants they tell\n    apart and whether they use the short names consistently; a chemistry-only answer states why it skipped the second\n    part.\n   </ExpectedBehavior>\n  </Case>\n  <Case id=\"CodedFormulaLargeEffect\">"
+      ]
+    ]
+  }
+}

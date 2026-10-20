@@ -53,8 +53,8 @@ describe("question 78: correction bug report with clarification and consent", ()
     expect(fixture.edits.reduce((text, [before, after]) => replaceOnce(text, before, after), prior)).toBe(current);
     await expect(undoCorrectionReport(await loadCurrent())).resolves.toBe(prior);
     await expect(getProtocolManifest("universal")).resolves.toEqual({
-      name: "AskRigor.com universal saved instructions", version: "20.5.44",
-      revisionDate: "2026-10-17", sha256: hash(await loadCurrent()),
+      name: "AskRigor.com universal saved instructions", version: "20.5.45",
+      revisionDate: "2026-10-20", sha256: hash(await loadCurrent()),
     });
   });
 
