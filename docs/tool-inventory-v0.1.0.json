@@ -13877,7 +13877,7 @@
             ]
           },
           "open_leads": {
-            "description": "After a first pass: two or three focuses for each way to go deeper, studies and (when community evidence was researched) community, each with why it looks promising. When discovery has not saturated, the community focuses include the topics where more community signal is likely. Focuses deepen what the answer covers: a first pass still covers every plausible option class and the red flags briefly, never leaving them for later.",
+            "description": "After a first pass: two or three focuses for each way to go deeper, studies and (when community evidence was researched) community, each with what it could change in this answer (the conclusion, a ranking, the confidence, or only detail) and why it looks promising. When discovery has not saturated, the community focuses include the topics where more community signal is likely. Focuses deepen what the answer covers: a first pass still covers every plausible option class and the red flags briefly, never leaving them for later.",
             "type": "array",
             "items": {
               "type": "object",
@@ -13895,7 +13895,8 @@
                   "type": "string"
                 },
                 "why": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "What this focus could change in this answer (the conclusion, a ranking, the confidence, or only detail) and why it looks promising."
                 }
               },
               "required": [

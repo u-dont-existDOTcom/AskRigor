@@ -144,8 +144,8 @@ const offerLimit = (community = true, unsaturated = false) =>
   `${community ? "two ways" : "way"} to go deeper, a sentence or two each, in plain language for the user (no video ` +
   "IDs or internal codes): a deeper study review (Longer trials; Results in people over 70)" +
   (community ? " and deeper community research (Named walking programs; People who stopped)" : "") +
-  ". Say why each focus looks promising and roughly what another pass would take, and ask which the user wants and " +
-  "which focus.";
+  ". Say what each focus could change in this answer and why it looks promising, give roughly what another pass " +
+  "would take, and ask which the user wants and which focus.";
 const OFFER_LIMIT = offerLimit();
 const STUDY_FOCUS_CAVEATS = [
   "Study focus: Longer trials. The trials read lasted twelve weeks.",
@@ -2340,9 +2340,11 @@ describe("finalize_research gate", () => {
     const firstPass = { ...base, receipts, research_depth: "first_pass" as const };
     expect(finalizeResearch({ ...firstPass, open_leads: [] }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "List two or three open_leads with direction studies: studies whose methods were not audited in full text, or " +
-        "questions not yet searched, each with why it looks promising.",
+        "questions not yet searched, each with what it could change in this answer (the conclusion, a ranking, the " +
+        "confidence, or only detail) and why it looks promising.",
       "List two or three open_leads with direction community: communities, options or subgroups not yet reached, each " +
-        "with why it looks promising. Discovery has not saturated, so include the topics where more community signal " +
+        "with what it could change in this answer (the conclusion, a ranking, the confidence, or only detail) and why " +
+        "it looks promising. Discovery has not saturated, so include the topics where more community signal " +
         "is likely and the searches YouTube's rate limit or daily quota stopped."
     ]);
     // Two or three focuses each, not more.
@@ -2574,9 +2576,11 @@ describe("finalize_research gate", () => {
     expect(noLeads.community).toMatchObject({ saturated: false, first_pass_complete: true });
     expect(noLeads.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "List two or three open_leads with direction studies: studies whose methods were not audited in full text, or " +
-        "questions not yet searched, each with why it looks promising.",
+        "questions not yet searched, each with what it could change in this answer (the conclusion, a ranking, the " +
+        "confidence, or only detail) and why it looks promising.",
       "List two or three open_leads with direction community: communities, options or subgroups not yet reached, each " +
-        "with why it looks promising. Discovery has not saturated, so include the topics where more community signal " +
+        "with what it could change in this answer (the conclusion, a ranking, the confidence, or only detail) and why " +
+        "it looks promising. Discovery has not saturated, so include the topics where more community signal " +
         "is likely."
     ]);
 
@@ -2598,8 +2602,8 @@ describe("finalize_research gate", () => {
       "First pass only; discovery had not saturated. End the answer with the two ways to go deeper, a sentence or two " +
         "each, in plain language for the user (no video IDs or internal codes): a deeper study review (Longer trials; " +
         "Results in people over 70) and deeper community research (Gelatin and collagen for hip pain; Named " +
-        "physiotherapy programs). Say why each focus looks promising and roughly what another pass would take, and ask " +
-        "which the user wants and which focus."
+        "physiotherapy programs). Say what each focus could change in this answer and why it looks promising, give " +
+        "roughly what another pass would take, and ask which the user wants and which focus."
     ]);
     // Without community research, the answer offers the study review alone.
     const studiesOnly = finalizeResearch({

@@ -224,9 +224,12 @@ export const finalizeResearchInputSchema = z.object({
         "yet searched); community: deeper community research (communities, options or subgroups not yet reached)."),
     topic: z.string().trim().min(1).max(200),
     why: z.string().trim().min(1).max(500)
+      .describe("What this focus could change in this answer (the conclusion, a ranking, the confidence, or only " +
+        "detail) and why it looks promising.")
   }).strict()).max(12).optional()
     .describe("After a first pass: two or three focuses for each way to go deeper, studies and (when community evidence " +
-      "was researched) community, each with why it looks promising. When discovery has not saturated, the community " +
+      "was researched) community, each with what it could change in this answer (the conclusion, a ranking, the " +
+      "confidence, or only detail) and why it looks promising. When discovery has not saturated, the community " +
       "focuses include the topics where more community signal is likely. Focuses deepen what the answer covers: a " +
       "first pass still covers every plausible option class and the red flags briefly, never leaving them for later."),
   another_pass_estimate: z.string().trim().min(1).max(200).optional()
@@ -1811,7 +1814,8 @@ export function finalizeResearch(
       }
       if (count >= 2) return;
       requireDeclaration(
-        `List two or three open_leads with direction ${direction}: ${what}, each with why it looks promising.` +
+        `List two or three open_leads with direction ${direction}: ${what}, each with what it could change in this ` +
+          "answer (the conclusion, a ranking, the confidence, or only detail) and why it looks promising." +
           (direction === "community" && unsaturatedFirstPass
             ? " Discovery has not saturated, so include the topics where more community signal is likely" +
               (firstPassRateLimited > 0 ? " and the searches YouTube's rate limit or daily quota stopped." : ".")
@@ -1831,7 +1835,8 @@ export function finalizeResearch(
           "the user (no video IDs or internal codes): " +
           directions.map(({ label }, index) => `${label} (${focuses[index]!.map(({ topic }) => topic.trim()).join("; ")})`)
             .join(" and ") +
-          ". Say why each focus looks promising and roughly what another pass would take, and ask which the user " +
+          ". Say what each focus could change in this answer and why it looks promising, give roughly what another " +
+          "pass would take, and ask which the user " +
           "wants and which focus.",
         ...directions.flatMap(({ caption }, index) =>
           focuses[index]!.map(({ topic, why }) => `${caption}: ${topic.trim()}. ${asSentence(why)}`)),
