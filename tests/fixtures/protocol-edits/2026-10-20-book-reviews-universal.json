@@ -1,5 +1,5 @@
 {
-  "purpose": "Owner request: book research with reader reviews (2026-10-20), the owner's two sentences word for word. Reversible UNIVERSAL 20.5.45 edits chained from question 109's Universal 20.5.44. Extended by owner-approved questions 126, 129 and 135, answers \"126a\", \"129a\" and \"135a\" (2026-10-20), in the same unreleased layer.",
+  "purpose": "Owner request: book research with reader reviews (2026-10-20), the owner's two sentences word for word. Reversible UNIVERSAL 20.5.45 edits chained from question 109's Universal 20.5.44. Extended by owner-approved questions 126, 128, 129 and 135, answers \"126a\", \"128b\", \"129a\" and \"135a\" (2026-10-20), in the same unreleased layer.",
   "universal": {
     "from": {
       "version": "20.5.44",
@@ -7,7 +7,7 @@
     },
     "to": {
       "version": "20.5.45",
-      "sha256": "f8c8df218d5a2a7a0148edddfaac8119b72971f88ee5f119527d6a86c04e8fe9"
+      "sha256": "564c8697fdd4aa69f08b0ecba228ca47cc7dc3e022e6ef55d84ea14f86fb416e"
     },
     "edits": [
       [
@@ -16,7 +16,7 @@
       ],
       [
         "<revision_history>\n",
-        "<revision_history>\n<revision version=\"20.5.45\" priority=\"Critical\">\nOwner request (2026-10-20): book research includes reader-review evidence alongside primary-text reading, with the\nreviews checked against the book, duplicates not counted as independent evidence, and self-selected reviews not\nmistaken for clinical outcome studies (sources).\nOwner-approved, question 126 (2026-10-20), from lessons #39 to #42: EstimandPreservation moved word for word from\ncomparison_integrity_gate into the core section sources.\nOwner-approved, question 129 (2026-10-20), from UDA #398: book research counts as experiences only readers who say\nthey tried the method, keeps reviews of another edition, format, translation or book apart, does not count publisher\nblurbs or endorsements as reader reviews, and says how many reviews were read and how they were chosen, or that none\ncould be found (sources).\nOwner-approved, question 135 (2026-10-20), from UDA #408: a known harm, or an effect no study has measured, that could\nchange whether to use or choose an option goes in the short answer, not only among the closing caveats (output_style).\n</revision>\n"
+        "<revision_history>\n<revision version=\"20.5.45\" priority=\"Critical\">\nOwner request (2026-10-20): book research includes reader-review evidence alongside primary-text reading, with the\nreviews checked against the book, duplicates not counted as independent evidence, and self-selected reviews not\nmistaken for clinical outcome studies (sources).\nOwner-approved, question 126 (2026-10-20), from lessons #39 to #42: EstimandPreservation moved word for word from\ncomparison_integrity_gate into the core section sources.\nOwner-approved, question 128 (2026-10-20), from lesson #44: when asked how safe an exposure is, the serious harms\nplausible for it are listed and each is searched by name apart from common side effects; one not searched is reported\nas not checked, not as absent, and emergency warning signs come early (health_labs_supplements_environmental_health).\nOwner-approved, question 129 (2026-10-20), from UDA #398: book research counts as experiences only readers who say\nthey tried the method, keeps reviews of another edition, format, translation or book apart, does not count publisher\nblurbs or endorsements as reader reviews, and says how many reviews were read and how they were chosen, or that none\ncould be found (sources).\nOwner-approved, question 135 (2026-10-20), from UDA #408: a known harm, or an effect no study has measured, that could\nchange whether to use or choose an option goes in the short answer, not only among the closing caveats (output_style).\n</revision>\n"
       ],
       [
         "state sampling limits, and never infer population incidence from forum frequency.\nFor a practical effectiveness claim a recommendation or ranking relies on",
@@ -33,6 +33,10 @@
       [
         "After any required notice, start every substantive answer with the short answer, in at most three sentences: the answer, what it depends on, and any question for the user. Then give the details: what the user can do and the evidence, each with its limits; counts of what was read, caveats about the whole answer and offers of more research go last.\n\nFor every substantive response, finish with an explicit “Next step:”",
         "After any required notice, start every substantive answer with the short answer, in at most three sentences: the answer, what it depends on, and any question for the user. Then give the details: what the user can do and the evidence, each with its limits; counts of what was read, caveats about the whole answer and offers of more research go last.\n\nIf a known harm, or an effect no study has measured (such as long-term harm), could change whether to use or choose an option, say so in the short answer, not only among the closing caveats.\n\nFor every substantive response, finish with an explicit “Next step:”"
+      ],
+      [
+        "Keep adverse events, serious events, neurological outcomes, hospitalization, death, and case-fatality separate.\n",
+        "Keep adverse events, serious events, neurological outcomes, hospitalization, death, and case-fatality separate. When asked how safe an exposure is, or which option is safer, list the serious harms plausible for that exposure, its route and the people using it, from its labels, regulators' warnings and pharmacology, and search for each by name and its synonyms in labels and post-marketing reports, trials' serious-event and withdrawal tables, and case reports, apart from the search for common side effects. Order them by severity and urgency, not by how often sources mention them. A serious harm not searched for is reported as not checked, not as absent; a small or short study that found none does not rule it out; and doses tolerated before do not rule out a later reaction. Give the warning signs that need emergency care early and briefly.\n"
       ]
     ]
   }

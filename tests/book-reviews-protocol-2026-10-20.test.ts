@@ -34,6 +34,21 @@ const Q126 = {
   mapsStart: "Treat reviews, AI summaries, reports, and synthesized webpages as maps to the evidence",
   revision: "Owner-approved, question 126 (2026-10-20), from lessons #39 to #42: EstimandPreservation moved word for word from comparison_integrity_gate into the core section sources.",
 } as const;
+// Owner question 128, answer "128b" (2026-10-20), from lesson #44: the owner's paragraph of wording, word for word,
+// right after the sentence below in the core section health_labs_supplements_environmental_health, on its line.
+const Q128 = {
+  section: "health_labs_supplements_environmental_health",
+  after: "Keep adverse events, serious events, neurological outcomes, hospitalization, death, and case-fatality separate.",
+  lineStart: "Rank hypotheses by base rate, danger if missed, plausibility, testability,",
+  sentences: [
+    "When asked how safe an exposure is, or which option is safer, list the serious harms plausible for that exposure, its route and the people using it, from its labels, regulators' warnings and pharmacology, and search for each by name and its synonyms in labels and post-marketing reports, trials' serious-event and withdrawal tables, and case reports, apart from the search for common side effects.",
+    "Order them by severity and urgency, not by how often sources mention them.",
+    "A serious harm not searched for is reported as not checked, not as absent; a small or short study that found none does not rule it out; and doses tolerated before do not rule out a later reaction.",
+    "Give the warning signs that need emergency care early and briefly.",
+  ],
+  revision: "Owner-approved, question 128 (2026-10-20), from lesson #44: when asked how safe an exposure is, the serious harms plausible for it are listed and each is searched by name apart from common side effects; one not searched is reported as not checked, not as absent, and emergency warning signs come early (health_labs_supplements_environmental_health).",
+} as const;
+const Q128_TEXT = Q128.sentences.join(" ");
 // Owner question 135, answer "135a" (2026-10-20), from UDA #408: its own paragraph, right after question 121's
 // short-answer paragraph and before the Next step paragraph.
 const Q135 = {
@@ -42,7 +57,7 @@ const Q135 = {
   nextStep: "For every substantive response, finish with an explicit “Next step:”",
   revision: "Owner-approved, question 135 (2026-10-20), from UDA #408: a known harm, or an effect no study has measured, that could change whether to use or choose an option goes in the short answer, not only among the closing caveats (output_style).",
 } as const;
-const REVISIONS = [REQUESTED.revision, Q126.revision, Q129.revision, Q135.revision] as const;
+const REVISIONS = [REQUESTED.revision, Q126.revision, Q128.revision, Q129.revision, Q135.revision] as const;
 const LINE = [REQUESTED.first, REQUESTED.second, ...Q129.sentences].join(" ");
 // Between the forum-signal line and the consilience line, which holds the sentence the owner pointed to; question 50's
 // tested-identity paragraph stays directly after the consilience line.
@@ -52,10 +67,10 @@ const REVIEWS_AND_FORUMS = "Reviews and forums detect discrepancies; they are no
 const IDENTITY_START = "Exact tested identity applies to any study, test, or benchmark an answer relies on,";
 const PINS = {
   from: { version: "20.5.44", sha256: "946fac7e5e6ce5cb08811d4c533371e3032e1ce46f5c217990dc326808b55135" },
-  to: { version: "20.5.45", sha256: "f8c8df218d5a2a7a0148edddfaac8119b72971f88ee5f119527d6a86c04e8fe9" },
+  to: { version: "20.5.45", sha256: "564c8697fdd4aa69f08b0ecba228ca47cc7dc3e022e6ef55d84ea14f86fb416e" },
 } as const;
 // The Universal core (sum of its section bytes) before and after, both one page.
-const CORE_BYTES = { before: 22_890, after: 24_377 } as const;
+const CORE_BYTES = { before: 22_890, after: 25_114 } as const;
 const WIDTH = 118;
 const ROOT = new URL("../", import.meta.url);
 const parser = new XMLParser({ parseTagValue: false });
@@ -117,17 +132,18 @@ function expectedEdits(prior: string): Array<[string, string]> {
     [`${Q126.studiesEnd}\n\n${Q126.mapsStart}`, `${Q126.studiesEnd}\n\n${ruleLine(prior, moved)}\n\n${Q126.mapsStart}`],
     [`${ruleLine(prior, moved)}\n\n${openingTag(prior, Q126.next)}`, openingTag(prior, Q126.next)],
     [`${Q135.shortAnswer}\n\n${Q135.nextStep}`, `${Q135.shortAnswer}\n\n${Q135.paragraph}\n\n${Q135.nextStep}`],
+    [`${Q128.after}\n`, `${Q128.after} ${Q128_TEXT}\n`],
   ];
 }
 
-describe('owner request: book research with reader reviews (2026-10-20), with questions 126, 129 and 135 in the same layer', () => {
+describe('owner request: book research with reader reviews (2026-10-20), with questions 126, 128, 129 and 135 in the same layer', () => {
   it("chains the exact Universal predecessor, derives the manifest from the bytes, and reverses every layer", async () => {
     const recorded = JSON.parse(await readFile(new URL(
       "tests/fixtures/protocol-edits/2026-10-20-book-reviews-universal.json", ROOT,
     ), "utf8")) as { purpose: string; universal: Edits };
     expect(Object.keys(recorded)).toEqual(["purpose", "universal"]);
     expect(recorded.purpose).toContain("Owner request: book research with reader reviews (2026-10-20)");
-    expect(recorded.purpose).toContain('questions 126, 129 and 135, answers "126a", "129a" and "135a" (2026-10-20)');
+    expect(recorded.purpose).toContain('questions 126, 128, 129 and 135, answers "126a", "128b", "129a" and "135a" (2026-10-20)');
     const previous = JSON.parse(await readFile(new URL(
       "tests/fixtures/protocol-edits/2026-10-17-owner-question-109-universal.json", ROOT,
     ), "utf8")).universal as Edits;
@@ -218,6 +234,24 @@ describe('owner request: book research with reader reviews (2026-10-20), with qu
     expect(coreSectionNames("universal")).toContain("output_style");
   });
 
+  it("adds question 128's wording word for word, right after the sentence on keeping serious events separate", async () => {
+    const text = await load();
+    const prior = await undoBookReviewsUniversal(text);
+    expect(section(text, Q128.section)).toBe(replaceOnce(section(prior, Q128.section), `${Q128.after}\n`, `${Q128.after} ${Q128_TEXT}\n`));
+    // On the same line, which still starts with the ranking sentence and now ends with the owner's last sentence.
+    const lines = text.split("\n").filter((line) => line.includes(Q128.after));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.startsWith(Q128.lineStart)).toBe(true);
+    expect(lines[0]!.endsWith(`${Q128.after} ${Q128_TEXT}`)).toBe(true);
+    for (const [index, sentence] of Q128.sentences.entries()) {
+      expect(normalize(text).split(sentence)).toHaveLength(2);
+      expect(normalize(prior)).not.toContain(sentence);
+      expect(sentence).not.toMatch(/[&<>\n]/u);
+      if (index > 0) expect(lines[0]!.indexOf(sentence)).toBeGreaterThan(lines[0]!.indexOf(Q128.sentences[index - 1]!));
+    }
+    expect(coreSectionNames("universal")).toContain(Q128.section);
+  });
+
   it("places the exact Critical revision first, directly above 20.5.44's, wrapped like its neighbours", async () => {
     const text = await load();
     const prior = await undoBookReviewsUniversal(text);
@@ -242,7 +276,8 @@ describe('owner request: book research with reader reviews (2026-10-20), with qu
       remaining.set(line, count - 1);
       return count <= 0;
     });
-    expect(added.filter((line) => line.length > WIDTH)).toEqual([text.split("\n")[1], LINE, Q135.paragraph]);
+    const health = text.split("\n").find((line) => line.startsWith(Q128.lineStart));
+    expect(added.filter((line) => line.length > WIDTH)).toEqual([text.split("\n")[1], LINE, health, Q135.paragraph]);
     for (const line of added) expect(line, line.slice(0, 60)).toBe(line.trimEnd());
   });
 
@@ -253,7 +288,7 @@ describe('owner request: book research with reader reviews (2026-10-20), with qu
     expect(now.map(({ name }) => name)).toEqual(before.map(({ name }) => name));
     const changed = now.filter(({ name, sha256 }) => before.find((section) => section.name === name)!.sha256 !== sha256)
       .map(({ name }) => name);
-    expect(changed).toEqual(["revision_history", "comparison_integrity_gate", "sources", "output_style"]);
+    expect(changed).toEqual(["revision_history", "comparison_integrity_gate", "sources", Q128.section, "output_style"]);
     const bytes = (sections: typeof now, name: string) => sections.find((section) => section.name === name)!.bytes;
     const size = (value: string) => Buffer.byteLength(value, "utf8");
     const delta = (name: string) => bytes(now, name) - bytes(before, name);
@@ -261,14 +296,17 @@ describe('owner request: book research with reader reviews (2026-10-20), with qu
     expect(delta("comparison_integrity_gate")).toBe(-moved);
     expect(delta("sources")).toBe(size(`${LINE}\n`) + moved);
     expect(delta("output_style")).toBe(size(`${Q135.paragraph}\n\n`));
+    expect(delta(Q128.section)).toBe(size(` ${Q128_TEXT}`));
     const core = (sections: typeof now) => sections.filter(({ core }) => core).reduce((sum, { bytes }) => sum + bytes, 0);
     expect(core(before)).toBe(CORE_BYTES.before);
     expect(core(now)).toBe(CORE_BYTES.after);
-    expect(core(now) - core(before)).toBe(delta("sources") + delta("output_style"));
-    for (const name of ["sources", "output_style"]) expect(now.find((section) => section.name === name)).toMatchObject({ core: true, runtime: true, pages: 1 });
+    expect(core(now) - core(before)).toBe(delta("sources") + delta(Q128.section) + delta("output_style"));
+    for (const name of ["sources", Q128.section, "output_style"]) {
+      expect(now.find((section) => section.name === name)).toMatchObject({ core: true, runtime: true, pages: 1 });
+    }
   });
 
-  it("serves sources, output_style and the core with the new text, as exact canonical bytes on one page", async () => {
+  it("serves the changed core sections and the core with the new text, as exact canonical bytes on one page", async () => {
     const bytes = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT));
     const { sections, text } = await loadProtocolSectionSnapshot("universal");
     expect(text).toBe(bytes.toString("utf8"));
@@ -278,7 +316,7 @@ describe('owner request: book research with reader reviews (2026-10-20), with qu
     try {
       await server.connect(serverTransport);
       await client.connect(clientTransport);
-      for (const name of ["sources", "output_style"]) {
+      for (const name of ["sources", Q128.section, "output_style"]) {
         const found = sections.find((section) => section.name === name)!;
         const canonical = bytes.subarray(found.byte_start, found.byte_end_exclusive).toString("utf8");
         const served = await client.callTool({ name: "load_protocol", arguments: { protocol: "universal", section: name } });
@@ -296,6 +334,7 @@ describe('owner request: book research with reader reviews (2026-10-20), with qu
       expect(response.isError).not.toBe(true);
       expect(response.structuredContent).toMatchObject({ ok: true, complete: true, page_count: 1, text: core });
       for (const line of [LINE, ruleLine(text, Q126.move[0]), Q135.paragraph]) expect(core).toContain(`\n${line}\n`);
+      expect(core).toContain(` ${Q128.after} ${Q128_TEXT}\n`);
     } finally {
       await client.close();
       await server.close();

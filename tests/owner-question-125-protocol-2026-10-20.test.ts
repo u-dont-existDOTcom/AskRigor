@@ -44,6 +44,22 @@ const Q126 = {
   ],
   revision: "Owner-approved, question 126 (2026-10-20), from lessons #39 to #42: moved IndividualAttributionVsPopulationEffect word for word from AdverseEventAscertainmentAndActionabilityAudit into the core section EvidenceLayers; RelevanceBeforeWarning now ends by saying that an experience that can be a symptom of a disorder is not therefore a cause of it, nor is paying attention to it, and that a practice is warned against only for a risk shown for that practice; with stress cases UnmatchedReplicationNull, MindfulAuraObservation, QualifiedLateralityShorthand and GroupLateralityAverage.",
 } as const;
+// Owner question 128, answer "128b" (2026-10-20), from lesson #44: final check FS240 directly after FS239, in the markup
+// of FS236 to FS239, and two stress cases after question 126's; the Universal wording it names is in
+// health_labs_supplements_environmental_health.
+const Q128 = {
+  check: ["FS240", "For a question about how safe an exposure is, the serious harms plausible for it were listed and searched apart from its common side effects, and any not searched were named as not checked (Universal health_labs_supplements_environmental_health)."],
+  after: ["FS236", "FS237", "FS238", "FS239"],
+  cases: [
+    ["SeriousHarmBeyondCommonEffects",
+      "A user asks how dangerous a prescribed injected hormone is over several months compared with experimental injected peptides that raise it; the first searches cover swelling, blood sugar, joint pain and cancer.",
+      "List the serious harms plausible for these injections, including severe allergic reactions, and search each by name in the licensed product's label and post-marketing reports, trials' serious-event tables and case reports. Keep a label warning for the licensed product apart from uncertain reports about the experimental products; give no rate without a denominator and do not blame one ingredient of a combination. Say that earlier tolerated doses do not rule out a later reaction, give the emergency signs briefly, and keep the comparison provisional while the serious-harm search is incomplete."],
+    ["SeriousOrganHarmOralMedicine",
+      "A user compares the safety of two oral medicines; one has an uncommon but serious liver warning, and the short trials found report only mild side effects.",
+      "Find the liver warning through the label and post-marketing reports, say what the short trials could and could not detect, and add no warning that does not apply to these medicines."],
+  ],
+  revision: "Owner-approved, question 128 (2026-10-20), from lesson #44: added final check FS240, which asks whether, for a question about how safe an exposure is, the serious harms plausible for it were listed and searched apart from its common side effects and any not searched were named as not checked; with stress cases SeriousHarmBeyondCommonEffects and SeriousOrganHarmOralMedicine.",
+} as const;
 // Owner question 130, answer "130a" (2026-10-20), from UDA #372: the owner's sentence at the end of the rule.
 const Q130 = {
   rule: "StudyReadDepthDisclosure",
@@ -58,11 +74,12 @@ const Q132 = {
   clause: "including a symptom or abnormal test result for which the user names no candidate,",
   revision: "Owner-approved, question 132 (2026-10-20), from UDA #390: EvidenceLayersAreNotAFixedDiscoveryOrder now says that the real-world intervention questions given early bounded sampling include a symptom or abnormal test result for which the user names no candidate.",
 } as const;
-const REVISIONS = [REVISION, Q126.revision, Q130.revision, Q132.revision] as const;
-const CASES = [[CASE.id, CASE.prompt, CASE.expected], ...Q126.cases] as const;
+const REVISIONS = [REVISION, Q126.revision, Q128.revision, Q130.revision, Q132.revision] as const;
+const CASES = [[CASE.id, CASE.prompt, CASE.expected], ...Q126.cases, ...Q128.cases] as const;
+const checkXml = ([id, text]: readonly [string, string]) => `  <Check id="${id}">${text}</Check>`;
 const PINS = {
   from: { version: "20.6.27", sha256: "e6db59c14c78f3d53b04b8d36ce514eecfcaaec1cf7f9d176d7b8ad665b2e2fe" },
-  to: { version: "20.6.28", sha256: "b968c7a568a81e21ab6c24e54aa70da03422ffea9c307e05f6e1881d65efd404" },
+  to: { version: "20.6.28", sha256: "a38e3e76b0983f9d4545325a90c6e14b76d087750600ce99623b3ec4aa22cef4" },
 } as const;
 // The HRP core (sum of its section bytes) before and after this layer, both one page: the moved rule, the sentence at
 // the end of RelevanceBeforeWarning and question 132's clause are in it.
@@ -147,6 +164,8 @@ function expectedEdits(prior: string): Array<[string, string]> {
   const depthEnd = ruleLines(prior, Q130.rule).split("\n").slice(-3, -1).join("\n");
   const [sampling, withClause] = samplingLines(prior);
   const [moved] = Q126.move;
+  const fs239 = prior.split("\n").filter((line) => line.startsWith('  <Check id="FS239">'));
+  expect(fs239).toHaveLength(1);
   return [
     ['version="20.6.27" revisionDate="2026-10-18"', 'version="20.6.28" revisionDate="2026-10-20"'],
     [" <RevisionHistory>\n", ` <RevisionHistory>\n${REVISION_XML}\n`],
@@ -158,17 +177,18 @@ function expectedEdits(prior: string): Array<[string, string]> {
     ["\n\n </EvidenceLayers>", `\n\n${ruleLines(prior, moved)}\n\n </EvidenceLayers>`],
     [`${ruleLines(prior, moved)}\n\n${openingLine(prior, Q126.next)}`, openingLine(prior, Q126.next)],
     [`${depthEnd}\n  </Rule>`, `${depthEnd}\n${wrapped(Q130.sentence, 3)}\n  </Rule>`],
+    [fs239[0]!, `${fs239[0]!}\n${checkXml(Q128.check)}`],
   ];
 }
 
-describe('owner-approved question 125: "125a" (2026-10-20), with 126, 130 and 132 in the same layer', () => {
+describe('owner-approved question 125: "125a" (2026-10-20), with 126, 128, 130 and 132 in the same layer', () => {
   it("chains the exact HRP predecessor, derives the manifest from the bytes, and reverses every layer", async () => {
     const recorded = JSON.parse(await readFile(new URL(
       "tests/fixtures/protocol-edits/2026-10-20-owner-question-125-hrp.json", ROOT,
     ), "utf8")) as { purpose: string; hrp: Edits };
     expect(Object.keys(recorded)).toEqual(["purpose", "hrp"]);
     expect(recorded.purpose).toContain('Owner-approved question 125, from the owner\'s answer "125a" (2026-10-20)');
-    expect(recorded.purpose).toContain('questions 126, 130 and 132, answers "126a", "130a" and "132a" (2026-10-20)');
+    expect(recorded.purpose).toContain('questions 126, 128, 130 and 132, answers "126a", "128b", "130a" and "132a" (2026-10-20)');
     const previous = JSON.parse(await readFile(new URL(
       "tests/fixtures/protocol-edits/2026-10-17-owner-question-109-hrp.json", ROOT,
     ), "utf8")).hrp as Edits;
@@ -176,7 +196,7 @@ describe('owner-approved question 125: "125a" (2026-10-20), with 126, 130 and 13
     expect(fixture.from).toEqual(previous.to);
     expect(fixture.from).toEqual(PINS.from);
     expect(fixture.to).toEqual(PINS.to);
-    expect(fixture.edits).toHaveLength(9);
+    expect(fixture.edits).toHaveLength(10);
     const current = await load();
     expect(XMLValidator.validate(current)).toBe(true);
     expect(hash(current)).toBe(PINS.to.sha256);
@@ -285,6 +305,28 @@ describe('owner-approved question 125: "125a" (2026-10-20), with 126, 130 and 13
     expect(protocolNamedElements(text, Q132.rule)).toMatchObject([{ tag: "Rule", section: "EvidenceLayers" }]);
   });
 
+  it("adds question 128's final check FS240 word for word, directly after FS239 and in the markup of FS236 to FS239", async () => {
+    const text = await load();
+    const prior = await undoOwnerQuestion125Hrp(text);
+    const [id, body] = Q128.check;
+    expect(plain(element(text, "Check", "id", id))).toBe(body);
+    expect(protocolNamedElements(prior, id)).toEqual([]);
+    expect(protocolNamedElements(text, id)).toMatchObject([{ tag: "Check", section: "FinalSelfCheck" }]);
+    // One line, indented like its neighbours, with its text as approved: no markup, and only the rule it names.
+    const lines = text.split("\n");
+    const at = lines.indexOf(checkXml(Q128.check));
+    expect(at).toBeGreaterThan(0);
+    for (const [offset, neighbour] of Q128.after.entries()) {
+      const line = lines[at - Q128.after.length + offset]!;
+      expect(line).toMatch(new RegExp(`^  <Check id="${neighbour}">[^<\\n]+</Check>$`, "u"));
+      expect(prior.split("\n")).toContain(line);
+    }
+    expect(lines[at]).toMatch(/^ {2}<Check id="FS240">[^<\n]+<\/Check>$/u);
+    expect(lines[at + 1]!.startsWith('  <Check id="FS202">')).toBe(true);
+    expect(body).not.toMatch(/[&<>]/u);
+    expect(normalize(text).split(body)).toHaveLength(2);
+  });
+
   it("places the exact Critical revision first, wrapped like its neighbours", async () => {
     const text = await load();
     const prior = await undoOwnerQuestion125Hrp(text);
@@ -293,7 +335,7 @@ describe('owner-approved question 125: "125a" (2026-10-20), with 126, 130 and 13
     expect(section(text, "RevisionHistory")).toBe(`\n${REVISION_XML}${section(prior, "RevisionHistory")}`);
   });
 
-  it("wraps new lines at 118, apart from the root line", async () => {
+  it("wraps new lines at 118, apart from the root line and the one-line check, like its neighbours", async () => {
     const text = await load();
     const prior = await undoOwnerQuestion125Hrp(text);
     const remaining = new Map<string, number>();
@@ -303,7 +345,7 @@ describe('owner-approved question 125: "125a" (2026-10-20), with 126, 130 and 13
       remaining.set(line, count - 1);
       return count <= 0;
     });
-    expect(added.filter((line) => line.length > 118)).toEqual([text.split("\n")[1]]);
+    expect(added.filter((line) => line.length > 118)).toEqual([text.split("\n")[1], checkXml(Q128.check)]);
     for (const line of added) expect(line).toBe(line.trimEnd());
   });
 
@@ -315,7 +357,8 @@ describe('owner-approved question 125: "125a" (2026-10-20), with 126, 130 and 13
     const changed = now.filter(({ name, sha256 }) => before.find((section) => section.name === name)!.sha256 !== sha256)
       .map(({ name }) => name);
     expect(changed).toEqual(["RevisionHistory", "AnswerShapeController", "AdverseEventAscertainmentAndActionabilityAudit",
-      "EpistemicSafetyRules", "EvidenceLayers", "UniversalFullTextAcquisitionProtocol", "StressTestExpectations"]);
+      "EpistemicSafetyRules", "EvidenceLayers", "UniversalFullTextAcquisitionProtocol", "StressTestExpectations",
+      "FinalSelfCheck"]);
     const bytes = (sections: typeof now, name: string) => sections.find((section) => section.name === name)!.bytes;
     const size = (value: string) => Buffer.byteLength(value, "utf8");
     const delta = (name: string) => bytes(now, name) - bytes(before, name);
@@ -328,6 +371,7 @@ describe('owner-approved question 125: "125a" (2026-10-20), with 126, 130 and 13
     expect(delta("UniversalFullTextAcquisitionProtocol")).toBe(size(`${wrapped(Q130.sentence, 3)}\n`));
     expect(delta("StressTestExpectations"))
       .toBe(CASES.reduce((sum, [id, prompt, expected]) => sum + size(`${caseXml(id, prompt, expected)}\n`), 0));
+    expect(delta("FinalSelfCheck")).toBe(size(`\n${checkXml(Q128.check)}`));
     const core = (sections: typeof now) => sections.filter(({ core }) => core).reduce((sum, { bytes }) => sum + bytes, 0);
     expect(core(before)).toBe(CORE_BYTES.before);
     expect(core(now)).toBe(CORE_BYTES.after);
@@ -343,7 +387,7 @@ describe('owner-approved question 125: "125a" (2026-10-20), with 126, 130 and 13
       await client.connect(clientTransport);
       const text = await load();
       const bytes = Buffer.from(text, "utf8");
-      for (const name of [RULE, Q126.move[0], Q126.rule, Q130.rule, Q132.rule, ...CASES.map(([id]) => id)]) {
+      for (const name of [RULE, Q126.move[0], Q126.rule, Q130.rule, Q132.rule, Q128.check[0], ...CASES.map(([id]) => id)]) {
         const found = protocolNamedElements(text, name);
         expect(found).toHaveLength(1);
         const canonical = bytes.subarray(found[0]!.byte_start, found[0]!.byte_end_exclusive).toString("utf8");

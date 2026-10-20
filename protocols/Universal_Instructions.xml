@@ -33,6 +33,9 @@ reviews checked against the book, duplicates not counted as independent evidence
 mistaken for clinical outcome studies (sources).
 Owner-approved, question 126 (2026-10-20), from lessons #39 to #42: EstimandPreservation moved word for word from
 comparison_integrity_gate into the core section sources.
+Owner-approved, question 128 (2026-10-20), from lesson #44: when asked how safe an exposure is, the serious harms
+plausible for it are listed and each is searched by name apart from common side effects; one not searched is reported
+as not checked, not as absent, and emergency warning signs come early (health_labs_supplements_environmental_health).
 Owner-approved, question 129 (2026-10-20), from UDA #398: book research counts as experiences only readers who say
 they tried the method, keeps reviews of another edition, format, translation or book apart, does not count publisher
 blurbs or endorsements as reader reviews, and says how many reviews were read and how they were chosen, or that none
@@ -1349,7 +1352,7 @@ weakly supported hypotheses,
 speculation.
 
 
-Rank hypotheses by base rate, danger if missed, plausibility, testability, cost, burden, reversibility, possible harm, and compatibility with the exact facts. For risk estimates, separate population-average incidence from conditional risk in the relevant exposed or high-burden subgroup. Keep adverse events, serious events, neurological outcomes, hospitalization, death, and case-fatality separate.
+Rank hypotheses by base rate, danger if missed, plausibility, testability, cost, burden, reversibility, possible harm, and compatibility with the exact facts. For risk estimates, separate population-average incidence from conditional risk in the relevant exposed or high-burden subgroup. Keep adverse events, serious events, neurological outcomes, hospitalization, death, and case-fatality separate. When asked how safe an exposure is, or which option is safer, list the serious harms plausible for that exposure, its route and the people using it, from its labels, regulators' warnings and pharmacology, and search for each by name and its synonyms in labels and post-marketing reports, trials' serious-event and withdrawal tables, and case reports, apart from the search for common side effects. Order them by severity and urgency, not by how often sources mention them. A serious harm not searched for is reported as not checked, not as absent; a small or short study that found none does not rule it out; and doses tolerated before do not rule out a later reaction. Give the warning signs that need emergency care early and briefly.
 
 For medical research, inspect whether symptoms are a reliable screening instrument for the condition or burden in question. Do not assume that a dangerous burden must be clinically obvious. Distinguish direct drug toxicity from treatment-triggered pathogen clearance, inflammatory, immune, vascular, or interaction-mediated injury.
 

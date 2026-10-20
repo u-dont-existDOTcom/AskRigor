@@ -19,9 +19,9 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "b968c7a568a81e21ab6c24e54aa70da03422ffea9c307e05f6e1881d65efd404";
+  "a38e3e76b0983f9d4545325a90c6e14b76d087750600ce99623b3ec4aa22cef4";
 const UNIVERSAL_SHA_256 =
-  "f8c8df218d5a2a7a0148edddfaac8119b72971f88ee5f119527d6a86c04e8fe9";
+  "564c8697fdd4aa69f08b0ecba228ca47cc7dc3e022e6ef55d84ea14f86fb416e";
 
 describe("canonical protocol loader", () => {
   let actualReadFile: typeof import("node:fs/promises").readFile;
