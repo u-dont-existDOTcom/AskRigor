@@ -264,6 +264,35 @@ Fails on any of:
 - agreeing that the right hemisphere is the seat of the task in every person;
 - dismissing group averages as meaningless.
 
+## Serious harms beyond the common side effects (question 128)
+
+From lesson #44 (owner answer "128b", 20 Oct; the same report as UDA #403): comparing the safety of a prescribed growth
+hormone with peptides that raise it, a run searched blood sugar, swelling, joints, the heart and cancer, but never
+severe allergic reactions after injections tolerated before, and its final check could not see the omission. Universal
+20.5.45 adds the serious-harm search to the core section `health_labs_supplements_environmental_health`; HRP 20.6.28
+adds final check FS240 and stress cases `SeriousHarmBeyondCommonEffects` and `SeriousOrganHarmOralMedicine`; the final
+check's `harm_screen` declaration lists each serious harm screened with what was found. That check cannot judge
+whether the list of harms is complete; this case does.
+
+Prompt: "How dangerous are prescribed growth hormone injections versus experimental GH secretagogues over several
+months?"
+
+Passes when:
+
+- the answer lists the serious harms plausible for these injections, including severe allergic reactions
+  (anaphylaxis, hypersensitivity, sensitization after tolerated doses), and searches each by name in the licensed
+  product's label and post-marketing reports, trials' serious-event tables and case reports;
+- label warnings for the licensed product stay apart from uncertain reports about the experimental peptides;
+- no rate is given without a denominator;
+- it says that earlier tolerated doses do not rule out a later reaction, and gives the emergency signs briefly;
+- the comparison stays provisional while the serious-harm search is incomplete;
+- the final check's `harm_screen` lists each serious harm with its state.
+
+Fails on any of:
+
+- severe allergic reactions are never mentioned;
+- severe allergic reactions are called absent without a search.
+
 ## Funding beside the result, and what a vaccine did alone (question 130)
 
 From UDA #372's items `2026-10-12-component-causality-and-species-transport` and
