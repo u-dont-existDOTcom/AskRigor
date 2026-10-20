@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import { finalizeResearchInputSchema } from "../apps/research-mcp/src/research-finalization-gate.js";
+import { submitResearchContributionInputSchema } from "../apps/research-mcp/src/research-contributor-access-tool.js";
 
 const UPPERCASE_DOIS = ["10.1002/14651858.CD014682.pub2", "10.23736/S1128-9155.18.00455-7"];
 const DOI_SAMPLES = UPPERCASE_DOIS.flatMap((doi) => [
@@ -16,6 +17,7 @@ const SAMPLES = [
   ...DOI_SAMPLES,
   "", "invalid value", "é", "a", "en", "en-US", "zh-Hant-TW", "12345", "0",
   "2026-10-17", "2024-02-29", "2025-02-29", "2026-13-01",
+  "2026-10-17T12:00:00Z", "2026-10-17T12:00:00.5+02:00", "2026-10-17T12:00:00", "2025-02-29T12:00:00Z",
   "PMC12345", "pmc12345", "PmC12345", "PMC0", "PMC12345678901234567",
   "NCT12345678", "nct12345678", "NCT1234567",
   "a".repeat(64), "A".repeat(64), `aft1_${"a".repeat(32)}`, `aft1_${"a".repeat(31)}`,
@@ -91,6 +93,11 @@ describe("published MCP input patterns", () => {
           // Its connector wrapper publishes metadata from this schema; the
           // handler parses with it after accepting the permissive transport.
           patterns.set("finalize_research", inspectZod(finalizeResearchInputSchema, `${surface} finalize_research`));
+        }
+        if (inputs.has("submit_research_contribution")) {
+          // The same for the contribution (owner question 127): the intake checks every call with this contract.
+          patterns.set("submit_research_contribution",
+            inspectZod(submitResearchContributionInputSchema, `${surface} submit_research_contribution`));
         }
         let publishedPatterns = 0;
         let doiFields = 0;

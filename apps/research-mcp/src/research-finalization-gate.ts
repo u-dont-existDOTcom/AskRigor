@@ -10,6 +10,12 @@ import {
   CARRIED_STATE_TOO_LARGE, carriedStateSchema, issueCarriedState, userObservationSchema, verifyCarriedState, type CarriedState
 } from "./carried-state.js";
 import { analysesSavedSchema } from "./analysis-staging.js";
+import {
+  permissiveConnectorInputSchema,
+  relaxedConnectorInputSchema,
+  strictConnectorInputSchema,
+  type ConnectorJsonSchema
+} from "./connector-input-schema.js";
 import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
 import type { SecondReaderFinding } from "./second-reader.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
@@ -669,50 +675,15 @@ export const FINALIZE_RESEARCH_SHAPES_DESCRIPTION = "Nested inputs, as JSON: " +
       (note === undefined ? "" : ` (${note})`)).join("; ") +
   `. ${FINALIZE_RESEARCH_HIDDEN_LIMITS}`;
 
-interface FinalizeJsonSchema {
-  [key: string]: unknown;
-  type?: string | string[];
-  description?: string;
-  properties?: Record<string, FinalizeJsonSchema>;
-  items?: FinalizeJsonSchema;
-  anyOf?: FinalizeJsonSchema[];
-  oneOf?: FinalizeJsonSchema[];
-  required?: string[];
-}
-
 /** The SDK uses draft-7 and input mode for tools/list (zod-json-schema-compat). */
-export function finalizeResearchPublishedInputSchema({ relaxed }: { relaxed: boolean }): FinalizeJsonSchema {
-  const strict = z.toJSONSchema(finalizeResearchInputSchema, { target: "draft-7", io: "input" }) as FinalizeJsonSchema;
-  if (!relaxed) return strict;
-  const removed = new Set(["minItems", "maxItems", "minLength", "maxLength", "pattern", "format", "minimum",
-    "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "uniqueItems", "additionalProperties"]);
-  const walk = (node: FinalizeJsonSchema, depth: number): FinalizeJsonSchema => {
-    const container = node.properties !== undefined || node.items !== undefined || node.type === "object" || node.type === "array";
-    if (node.anyOf !== undefined || node.oneOf !== undefined || (container && depth >= 3)) {
-      return node.description === undefined ? {} : { description: node.description };
-    }
-    const result: FinalizeJsonSchema = {};
-    for (const [key, value] of Object.entries(node)) {
-      if (removed.has(key)) continue;
-      if (key === "properties") result.properties = Object.fromEntries(
-        Object.entries(node.properties!).map(([name, child]) => [name, walk(child, depth + 1)]));
-      else if (key === "items") result.items = walk(node.items!, depth + 1);
-      else result[key] = value;
-    }
-    return result;
-  };
-  return walk(strict, 0);
+export function finalizeResearchPublishedInputSchema({ relaxed }: { relaxed: boolean }): ConnectorJsonSchema {
+  const strict = strictConnectorInputSchema(finalizeResearchInputSchema);
+  return relaxed ? relaxedConnectorInputSchema(strict) : strict;
 }
 
 /** Runtime acceptance is permissive on both surfaces; only the published schema differs. */
 export function finalizeResearchConnectorInputSchema(relaxed: boolean) {
-  const published = finalizeResearchPublishedInputSchema({ relaxed });
-  return z.looseObject(Object.fromEntries(Object.entries(published.properties!).map(([key, fragment]) =>
-    [key, z.unknown().optional().meta(fragment)]))).meta({
-      ...published,
-      // Override looseObject's generated additionalProperties too, including its absence on /mcp.
-      additionalProperties: published.additionalProperties
-    });
+  return permissiveConnectorInputSchema(finalizeResearchPublishedInputSchema({ relaxed }));
 }
 
 /** Optional empty lists mean none. Clone only the affected containers, preserving the raw call. */

@@ -5,6 +5,7 @@ export {
   claimCapabilitySchema,
   futureAnalysisItemSchema,
   livingEvidenceContributionSchema,
+  PROHIBITED_PERSISTENT_KEY_NAMES,
   protocolManifestSchema,
   researchFrontierContributionSchema,
   type LivingEvidenceContribution,
@@ -90,6 +91,7 @@ export {
   RESEARCH_USE_NOTICE,
   RESEARCH_USE_NOTICE_VERSION,
   ResearchAccessError,
+  ResearchContributionRejectedError,
   ResearchContributorAccessService,
   prepareResearchContributionProposal,
   researchContributionProposalInputSchema,
@@ -109,6 +111,21 @@ export {
   type ResearchUseAccountRecord,
   type ResearchUseMode,
 } from "./research-contributor-access.js";
+export {
+  checkResearchContributionProposal,
+  CONTRIBUTION_EXAMPLES,
+  CONTRIBUTION_PATTERN_DESCRIPTIONS,
+  CONTRIBUTION_PRIVACY_BOUNDARY_EXAMPLE,
+  CONTRIBUTION_PRIVACY_RULES,
+  CONTRIBUTION_PROBLEM_LIMITS,
+  CONTRIBUTION_PROBLEM_RULES,
+  researchContributionContractKeys,
+  researchContributionNullableParts,
+  researchContributionShapeTemplate,
+  type ContributionProblem,
+  type ContributionProblemRule,
+  type ResearchContributionCheck,
+} from "./research-contribution-check.js";
 export {
   InMemoryResearchContributionReviewStore,
   PostgresResearchContributionPromotionRunner,

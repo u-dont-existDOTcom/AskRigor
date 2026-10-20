@@ -168,7 +168,8 @@ import {
   researchConnectionSchema,
   researchConnectionSummary,
   researchUseSecurityMetadata,
-  submitResearchContributionInputSchema,
+  SUBMIT_RESEARCH_CONTRIBUTION_DESCRIPTION,
+  submitResearchContributionConnectorInputSchema,
   submitResearchContributionOutputSchema,
   submitServerSourceAnalysis,
 } from "./research-contributor-access-tool.js";
@@ -1714,8 +1715,11 @@ function defineResearchOperations(
   registrar.registerTool(
     "submit_research_contribution",
     {
-      description: "Files one already-validated, deidentified formal research frontier in the pending review inbox. Study and review audits validated in free contributor research are filed by the server when finalize_research passes, so they are not submitted here. It accepts no raw chat, prompts, identity or contact details, private health narratives, uploads, raw source or provider bodies, or YouTube or community data. A proposal is not canonical evidence and does not gain scientific authority by submission. Paid-private mode cannot use this operation.",
-      inputSchema: submitResearchContributionInputSchema,
+      // Owner question 127: ChatGPT's app shows the model no part of payload's type, so the description carries
+      // both record shapes; Claude's surface also publishes the strict schema. Every call reaches the handler, which
+      // checks it and names every problem.
+      description: SUBMIT_RESEARCH_CONTRIBUTION_DESCRIPTION,
+      inputSchema: submitResearchContributionConnectorInputSchema(options.mcpSurface !== "/mcp/claude"),
       outputSchema: submitResearchContributionOutputSchema,
       annotations: MUTATING_ANNOTATIONS,
     },

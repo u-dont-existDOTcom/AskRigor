@@ -165,11 +165,21 @@ describe("research contributor access", () => {
             payload: contributionWithIdentifier(proposalKind, scheme, value),
           });
           await expect(submission).rejects.toBeInstanceOf(ResearchAccessError);
+          // Owner question 127: the rejection names the rule and the exact identifier, never the link.
           await expect(submission).rejects.toMatchObject({
             name: "Error",
             code: "CONTRIBUTION_PRIVACY_REJECTED",
-            message: "A sandbox link points into another session and can never be opened.",
+            total: 1,
+            problems: [{
+              path: proposalKind === "SOURCE_ANALYSIS"
+                ? "payload.source.identifiers[1].value"
+                : "payload.frontier.candidateVersions[0].identifiers[1].value",
+              rule: "sandbox_locator",
+              expected: expect.stringContaining("a sandbox: link points into another session and can never be opened"),
+            }],
           });
+          const rejection = await submission.catch((error: unknown) => error);
+          expect(`${(rejection as Error).message}${JSON.stringify(rejection)}`).not.toContain(value.slice(8));
         }
       }
       expect(store.allProposals()).toHaveLength(0);
@@ -196,11 +206,20 @@ describe("research contributor access", () => {
 
     const prohibited = partialFrontier() as unknown as Record<string, unknown>;
     prohibited.rawChat = "private conversation";
-    await expect(service.submitProposal(SUBJECT, {
+    const rejection = await service.submitProposal(SUBJECT, {
       proposalKind: "RESEARCH_FRONTIER",
       privacyBoundary: PRIVACY_BOUNDARY,
       payload: prohibited,
-    })).rejects.toThrow("PROHIBITED_PERSISTENT_KEY");
+    }).catch((error: unknown) => error);
+    // Owner question 127: every problem, the prohibited key first; the key and its value are not repeated.
+    expect(rejection).toMatchObject({
+      code: "CONTRIBUTION_PRIVACY_REJECTED",
+      problems: [
+        { path: "payload.*", rule: "prohibited_key" },
+        { path: "payload", rule: "unknown_keys" },
+      ],
+    });
+    expect(`${(rejection as Error).message}${JSON.stringify(rejection)}`).not.toMatch(/rawChat|private conversation/u);
 
     const contact = partialFrontier();
     contact.question.normalizedQuestion =

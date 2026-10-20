@@ -649,6 +649,14 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 
 Contribution intake rejects frontier candidate and source-analysis identifier values beginning with `sandbox:` (case-insensitive), because a sandbox link points into another session and can never be opened.
 
+A rejected `submit_research_contribution` call (owner question 127) returns, to the caller only, every problem the
+intake found: each problem's field path, rule name, what the contract expects there and a JSON example taken from
+AskRigor's own example records, at most 25 problems and about 16,000 characters, with the count of the rest. It never
+repeats a value sent: no text, number, identifier, link or matched contact pattern, and no key the contract does not
+define (such a key, and a free name under `receipts[].details`, is shown as `*`); a privacy rule is named with its path,
+never the text it matched. The rejection is not stored or logged, and refusals by account (sign-in, revoked or
+unchosen mode, paid private) come before the record is read. Nothing new is collected.
+
 Full application request bodies and response bodies are not logged or written
 to durable storage for either research transport. The Action adapter retains
 only the minimized signed discussion token, compact transcript chain metadata,

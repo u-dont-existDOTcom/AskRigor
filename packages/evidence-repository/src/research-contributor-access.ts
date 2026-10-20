@@ -15,6 +15,21 @@ import {
   prepareContribution,
   prepareFrontierContribution,
 } from "./prepare.js";
+import {
+  checkResearchContributionProposal,
+  contactPatternKind,
+  contributionPrivacyBoundarySchema,
+  isCommunityIdentifier,
+  isIdentifierValuePath,
+  isSandboxLocator,
+  researchContributionProposalInputSchema,
+  SHARED_ANALYSIS_KINDS,
+  SHARED_SOURCE_KINDS,
+  type ContributionProblem,
+  type ResearchContributionCheck,
+} from "./research-contribution-check.js";
+
+export { contributionPrivacyBoundarySchema, researchContributionProposalInputSchema };
 
 export const RESEARCH_USE_NOTICE_VERSION =
   "free-contributor-v2-2026-09-30" as const;
@@ -63,23 +78,6 @@ export const freeContributorAgreementSchema = z.object({
 /** An agreement as stored: accepted under the current notice or an earlier one. */
 const storedFreeContributorAgreementSchema = freeContributorAgreementSchema.extend({
   noticeVersion: researchUseNoticeVersionSchema,
-}).strict();
-
-export const contributionPrivacyBoundarySchema = z.object({
-  rawChatPersisted: z.literal(false),
-  promptPersisted: z.literal(false),
-  accountIdentityInPayload: z.literal(false),
-  privateHealthNarrativePersisted: z.literal(false),
-  uploadContentPersisted: z.literal(false),
-  rawSourceContentPersisted: z.literal(false),
-  rawProviderResponsePersisted: z.literal(false),
-  communityDataPersisted: z.literal(false),
-}).strict();
-
-export const researchContributionProposalInputSchema = z.object({
-  proposalKind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS"]),
-  privacyBoundary: contributionPrivacyBoundarySchema,
-  payload: z.unknown(),
 }).strict();
 
 export type ResearchUseMode = z.infer<typeof researchUseModeSchema>;
@@ -175,10 +173,36 @@ export class ResearchAccessError extends Error {
       | "PAID_PRIVATE_ENTITLEMENT_REQUIRED"
       | "PAID_PRIVATE_DOES_NOT_CONTRIBUTE"
       | "FREE_CONTRIBUTOR_REQUIRED"
-      | "CONTRIBUTION_PRIVACY_REJECTED",
+      | "CONTRIBUTION_PRIVACY_REJECTED"
+      | "INVALID_REQUEST",
     message: string,
   ) {
     super(message);
+  }
+}
+
+/**
+ * A proposal refused before storage, with every problem the intake found (owner question 127). Its code is
+ * CONTRIBUTION_PRIVACY_REJECTED when a privacy rule failed and INVALID_REQUEST otherwise; neither the problems nor the
+ * message hold any value from the proposal.
+ */
+export class ResearchContributionRejectedError extends ResearchAccessError {
+  readonly problems: readonly ContributionProblem[];
+  readonly total: number;
+  readonly crossFieldRulesPending: boolean;
+  readonly payloadCheck: ResearchContributionCheck["payloadCheck"];
+
+  constructor(check: ResearchContributionCheck) {
+    super(
+      check.privacyRuleFailed ? "CONTRIBUTION_PRIVACY_REJECTED" : "INVALID_REQUEST",
+      `The contribution was not filed: ${check.total} problem${check.total === 1 ? "" : "s"} (` +
+        check.problems.slice(0, 5).map(({ path, rule }) => `${path}: ${rule}`).join("; ") +
+        (check.total > 5 ? "; …" : "") + ").",
+    );
+    this.problems = check.problems;
+    this.total = check.total;
+    this.crossFieldRulesPending = check.crossFieldRulesPending;
+    this.payloadCheck = check.payloadCheck;
   }
 }
 
@@ -340,6 +364,10 @@ export class ResearchContributorAccessService {
         "A shared research proposal requires active free contributor mode.",
       );
     }
+    // Every problem at once, so the sender can repair the record; the checks
+    // below then run as they always have before anything is stored.
+    const check = checkResearchContributionProposal(input);
+    if (check.total > 0) throw new ResearchContributionRejectedError(check);
     const parsed = researchContributionProposalInputSchema.parse(input);
     assertNoProhibitedPersistentKeys(parsed.payload);
     assertNoObviousPrivateContactText(parsed.payload);
@@ -729,20 +757,15 @@ export function prepareResearchContributionProposal(
   }
   if (
     contribution.source === null ||
-    !["study_method_audit", "review_method_audit"].includes(
-      contribution.analysis.analysisKind,
-    ) ||
-    !["study", "review"].includes(contribution.source.sourceKind)
+    !SHARED_ANALYSIS_KINDS.includes(contribution.analysis.analysisKind) ||
+    !SHARED_SOURCE_KINDS.includes(contribution.source.sourceKind)
   ) {
     throw new ResearchAccessError(
       "CONTRIBUTION_PRIVACY_REJECTED",
       "Shared analysis proposals must be source-bound study or review analyses, not personal or topic-only narratives.",
     );
   }
-  if (contribution.source.identifiers.some(({ scheme, value }) =>
-    scheme === "url" &&
-    /(?:youtube\.com|youtu\.be|reddit\.com|\/forum(?:s)?(?:\/|$))/iu.test(value)
-  )) {
+  if (contribution.source.identifiers.some(({ scheme, value }) => isCommunityIdentifier(scheme, value))) {
     throw new ResearchAccessError(
       "CONTRIBUTION_PRIVACY_REJECTED",
       "YouTube and community sources are outside the shared proposal boundary.",
@@ -758,7 +781,7 @@ export function prepareResearchContributionProposal(
 }
 
 function assertNoSandboxIdentifiers(identifiers: ReadonlyArray<{ value: string }>): void {
-  if (identifiers.some(({ value }) => value.slice(0, 8).toLowerCase() === "sandbox:")) {
+  if (identifiers.some(({ value }) => isSandboxLocator(value))) {
     throw new ResearchAccessError(
       "CONTRIBUTION_PRIVACY_REJECTED",
       "A sandbox link points into another session and can never be opened.",
@@ -768,16 +791,8 @@ function assertNoSandboxIdentifiers(identifiers: ReadonlyArray<{ value: string }
 
 function assertNoObviousPrivateContactText(value: unknown): void {
   walkStrings(value, [], (text, path) => {
-    const identifierValue = path.at(-1) === "value" &&
-      /^\d+$/u.test(path.at(-2) ?? "") &&
-      path.at(-3) === "identifiers";
-    if (identifierValue) return;
-    if (
-      /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/iu.test(text) ||
-      /(?:\+\d{1,3}[ .()-]*|\(\d{2,4}\)[ .-]*)\d[\d .()-]{5,}\d/u.test(text) ||
-      /\b(?:sk-|ghp_|github_pat_|Bearer\s+)[A-Za-z0-9._-]{12,}\b/u.test(text) ||
-      /\b\d{1,6}\s+[A-Za-z0-9.'-]+(?:\s+[A-Za-z0-9.'-]+){0,4}\s+(?:street|st|avenue|ave|road|rd|boulevard|blvd|lane|ln|drive|dr)\b/iu.test(text)
-    ) {
+    if (isIdentifierValuePath(path)) return;
+    if (contactPatternKind(text) !== undefined) {
       throw new ResearchAccessError(
         "CONTRIBUTION_PRIVACY_REJECTED",
         "The proposal contains an obvious contact, address, or credential pattern.",

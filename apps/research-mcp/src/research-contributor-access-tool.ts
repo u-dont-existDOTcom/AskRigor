@@ -1,14 +1,27 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
+  CONTRIBUTION_PROBLEM_LIMITS,
+  CONTRIBUTION_PROBLEM_RULES,
   RESEARCH_USE_NOTICE,
   RESEARCH_USE_NOTICE_VERSION,
   ResearchAccessError,
+  ResearchContributionRejectedError,
   ResearchContributorAccessService,
   contributionPrivacyBoundarySchema,
   freeContributorAgreementSchema,
+  livingEvidenceContributionSchema,
+  researchContributionNullableParts,
+  researchContributionShapeTemplate,
+  researchFrontierContributionSchema,
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
+import {
+  permissiveConnectorInputSchema,
+  relaxedConnectorInputSchema,
+  strictConnectorInputSchema,
+  type ConnectorJsonSchema,
+} from "./connector-input-schema.js";
 import {
   RESEARCH_USE_SCOPE,
   SIGN_IN_REFUSALS,
@@ -69,10 +82,59 @@ export const manageResearchAccessOutputSchema = z.object({
   error: researchAccessErrorSchema.optional(),
 }).strict();
 
+/**
+ * The exact contract: the proposal envelope, with payload either record. Claude's surface publishes it as is; the
+ * handler checks every call against it itself (owner question 127), so a rejection can name every problem.
+ */
 export const submitResearchContributionInputSchema = z.object({
-  proposalKind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS"]),
-  privacyBoundary: contributionPrivacyBoundarySchema,
-  payload: z.record(z.string(), z.unknown()),
+  proposalKind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS"]).describe("Which record payload holds."),
+  privacyBoundary: contributionPrivacyBoundarySchema.describe("Eight markers, each exactly false."),
+  payload: z.union([researchFrontierContributionSchema, livingEvidenceContributionSchema])
+    .describe("The record proposalKind names, shaped as this tool's description shows."),
+}).strict();
+
+/** Claude's surface publishes the strict schema; ChatGPT's the relaxed one, whose hidden shapes the description carries. */
+export function submitResearchContributionPublishedInputSchema({ relaxed }: { relaxed: boolean }): ConnectorJsonSchema {
+  const strict = strictConnectorInputSchema(submitResearchContributionInputSchema);
+  return relaxed ? relaxedConnectorInputSchema(strict) : strict;
+}
+
+/** Runtime acceptance is permissive on both surfaces, so every call reaches AskRigor's own check. */
+export function submitResearchContributionConnectorInputSchema(relaxed: boolean) {
+  return permissiveConnectorInputSchema(submitResearchContributionPublishedInputSchema({ relaxed }));
+}
+
+const nullableParts = (kind: "RESEARCH_FRONTIER" | "SOURCE_ANALYSIS") => {
+  const parts = researchContributionNullableParts(kind);
+  return parts.length <= 1 ? parts.join("") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
+};
+
+/** The record shapes, for the tool description: ChatGPT's app shows the model no part of payload's type. */
+export const SUBMIT_RESEARCH_CONTRIBUTION_SHAPES_DESCRIPTION = "Record shapes, as JSON, where <uuid> stands for a " +
+  "UUID, <sha256> for 64 lowercase hexadecimal characters, <date-time> for an ISO 8601 date-time with a time zone, " +
+  "<date> for YYYY-MM-DD, … for deidentified text, a|b for one of the values and |null for a value that may be null. " +
+  `RESEARCH_FRONTIER payload ${researchContributionShapeTemplate("RESEARCH_FRONTIER")}; ` +
+  `${nullableParts("RESEARCH_FRONTIER")} may be null, and declaredQuerySha256 is the SHA-256 of the pass's ` +
+  "deidentifiedQuery. " +
+  `SOURCE_ANALYSIS payload ${researchContributionShapeTemplate("SOURCE_ANALYSIS")}; ${nullableParts("SOURCE_ANALYSIS")} ` +
+  "may be null; knowledge is optional (structured claims, evidence bindings, edges, an assessment and freshness " +
+  "records); receipts[].details holds names of your choice, each with text, a number, true, false or null; and " +
+  "declaredWholeTextSha256 is null or the SHA-256 of the sections' content joined in order.";
+
+export const SUBMIT_RESEARCH_CONTRIBUTION_DESCRIPTION = "Files one already-validated, deidentified formal research " +
+  "frontier in the pending review inbox. Study and review audits validated in free contributor research are filed by " +
+  "the server when finalize_research passes, so they are not submitted here. It accepts no raw chat, prompts, " +
+  "identity or contact details, private health narratives, uploads, raw source or provider bodies, or YouTube or " +
+  "community data. A proposal is not canonical evidence and does not gain scientific authority by submission. " +
+  "Paid-private mode cannot use this operation. A rejected record comes back with every problem found, each with its " +
+  "path, what was expected and an example; the values sent are not repeated. " +
+  SUBMIT_RESEARCH_CONTRIBUTION_SHAPES_DESCRIPTION;
+
+const contributionProblemSchema = z.object({
+  path: z.string().min(1).max(CONTRIBUTION_PROBLEM_LIMITS.pathCharacters),
+  rule: z.enum(CONTRIBUTION_PROBLEM_RULES),
+  expected: z.string().min(1).max(CONTRIBUTION_PROBLEM_LIMITS.expectedCharacters),
+  example: z.string().min(1).max(CONTRIBUTION_PROBLEM_LIMITS.exampleCharacters),
 }).strict();
 
 export const submitResearchContributionOutputSchema = z.object({
@@ -87,6 +149,9 @@ export const submitResearchContributionOutputSchema = z.object({
     canonicalEvidenceChanged: z.literal(false),
   }).strict().optional(),
   error: researchAccessErrorSchema.optional(),
+  // A rejected record: each problem's path, rule, what was expected and an example, never a value sent.
+  problems: z.array(contributionProblemSchema).min(1).max(CONTRIBUTION_PROBLEM_LIMITS.shown).optional(),
+  problemsNotShown: z.number().int().positive().optional(),
 }).strict();
 
 export interface ResearchContributorToolOptions {
@@ -278,8 +343,9 @@ export function createSubmitResearchContributionHandler(
       );
     }
     try {
-      const parsed = submitResearchContributionInputSchema.parse(input);
-      const result = await options.service.submitProposal(auth.subject, parsed);
+      // The service refuses by account first (paid private submits nothing),
+      // then checks the record and names every problem it finds.
+      const result = await options.service.submitProposal(auth.subject, input);
       const proposal = {
         proposalId: result.record.proposalId,
         proposalKind: result.record.proposalKind,
@@ -300,8 +366,46 @@ export function createSubmitResearchContributionHandler(
         }),
       };
     } catch (error) {
+      if (error instanceof ResearchContributionRejectedError) return rejectedProposal(error);
       return mappedProposalError(error);
     }
+  };
+}
+
+/**
+ * A rejected record (owner question 127): every problem found, each with its path, rule, what was expected and an
+ * example from AskRigor's own example record. Nothing from the values sent is in it, and nothing was stored.
+ */
+function rejectedProposal(error: ResearchContributionRejectedError): CallToolResult {
+  const notShown = error.total - error.problems.length;
+  const message = `The contribution was not filed: ${error.total === 1 ? "1 problem was" : `${error.total} problems were`} ` +
+    "found. Fix each one and call submit_research_contribution again; nothing was stored, and the values sent are " +
+    "not repeated here." +
+    (error.payloadCheck === "kind_invalid"
+      ? " The record in payload is checked once proposalKind is RESEARCH_FRONTIER or SOURCE_ANALYSIS."
+      : error.payloadCheck === "kind_mismatch"
+        ? " The record in payload is checked against the kind proposalKind names once the two agree."
+        : "") +
+    (error.crossFieldRulesPending ? " The rules that compare fields with each other run once these are fixed." : "");
+  const lines = [
+    message,
+    ...error.problems.map((problem, index) =>
+      `${index + 1}. ${problem.path} (${problem.rule}): expected ${problem.expected}. Example: ${problem.example}`),
+    ...(notShown > 0 ? [`And ${notShown} more.`] : []),
+    "This tool's description gives each record's whole shape; {…} and […] in an example stand for parts it shows.",
+  ];
+  return {
+    content: [{ type: "text", text: lines.join("\n") }],
+    structuredContent: submitResearchContributionOutputSchema.parse({
+      ok: false,
+      error: {
+        code: error.code === "CONTRIBUTION_PRIVACY_REJECTED" ? "contribution_privacy_rejected" : "invalid_request",
+        message,
+      },
+      problems: error.problems,
+      ...(notShown > 0 ? { problemsNotShown: notShown } : {}),
+    }),
+    isError: true,
   };
 }
 

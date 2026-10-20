@@ -10826,7 +10826,7 @@
     },
     {
       "name": "submit_research_contribution",
-      "description": "Files one already-validated, deidentified formal research frontier in the pending review inbox. Study and review audits validated in free contributor research are filed by the server when finalize_research passes, so they are not submitted here. It accepts no raw chat, prompts, identity or contact details, private health narratives, uploads, raw source or provider bodies, or YouTube or community data. A proposal is not canonical evidence and does not gain scientific authority by submission. Paid-private mode cannot use this operation.",
+      "description": "Files one already-validated, deidentified formal research frontier in the pending review inbox. Study and review audits validated in free contributor research are filed by the server when finalize_research passes, so they are not submitted here. It accepts no raw chat, prompts, identity or contact details, private health narratives, uploads, raw source or provider bodies, or YouTube or community data. A proposal is not canonical evidence and does not gain scientific authority by submission. Paid-private mode cannot use this operation. A rejected record comes back with every problem found, each with its path, what was expected and an example; the values sent are not repeated. Record shapes, as JSON, where <uuid> stands for a UUID, <sha256> for 64 lowercase hexadecimal characters, <date-time> for an ISO 8601 date-time with a time zone, <date> for YYYY-MM-DD, … for deidentified text, a|b for one of the values and |null for a value that may be null. RESEARCH_FRONTIER payload {\"schemaVersion\":1,\"idempotencyKey\":\"research-frontier-example-1\",\"contributionId\":\"<uuid>\",\"persistenceBoundary\":{\"rawSourceContentPersisted\":false,\"rawProviderResponsePersisted\":false,\"personalDataPersisted\":false,\"communityDataPersisted\":false},\"run\":{\"runId\":\"<uuid>\",\"runKind\":\"live_research|historical_import|clarification|correction|synthetic_fixture\",\"startedAt\":\"<date-time>\",\"completedAt\":\"<date-time>\",\"protocolManifests\":[{\"name\":\"HRP\",\"version\":\"…\",\"revisionDate\":\"<date>\",\"sha256\":\"<sha256>\"}],\"provenanceNote\":\"…\"},\"topic\":{\"topicId\":\"<uuid>\",\"canonicalKey\":\"example-topic\",\"label\":\"…\"},\"question\":{\"questionId\":\"<uuid>\",\"normalizedQuestion\":\"…\",\"dimensions\":{\"population\":\"…|null\",\"programOrExposure\":\"…|null\",\"comparator\":\"…|null\",\"outcome\":\"…|null\",\"horizon\":\"…|null\",\"setting\":\"…|null\"}},\"frontier\":{\"frontierId\":\"<uuid>\",\"lanes\":[{\"laneId\":\"<uuid>\",\"canonicalKey\":\"pubmed-formal\",\"sourceClass\":\"study|review|guideline|registry|book|grey_literature|other\",\"provider\":\"pubmed\",\"label\":\"…\"}],\"passes\":[{\"passId\":\"<uuid>\",\"laneId\":\"<uuid>\",\"deidentifiedQuery\":\"…\",\"declaredQuerySha256\":\"<sha256>\",\"executedAt\":\"<date-time>\",\"coverageBasis\":\"publication_date|index_date|provider_unspecified\",\"requestedWindow\":{\"start\":\"<date>\",\"endExclusive\":\"<date>\"},\"confirmedWindow\":{\"start\":\"<date>\",\"endExclusive\":\"<date>\"},\"coverageRelation\":\"initial|full_refresh|contiguous_delta|overlap_delta|gap_delta|unscoped\",\"deltaFromPassId\":\"<uuid>|null\",\"status\":\"complete|partial|blocked_retryable|blocked_terminal\",\"accessStatus\":\"complete|api_visible_complete|partial|abstract_only|metadata_only|inaccessible|rate_limited|not_found|error\",\"exhausted\":true,\"retrievedCandidateCount\":1,\"screenedCandidateCount\":1,\"selectedCandidateCount\":1,\"nextCapability\":\"…|null\",\"blockedReasonCode\":\"…|null\",\"receiptSha256\":\"<sha256>\",\"limitations\":[\"…\"]}],\"candidateVersions\":[{\"candidateId\":\"<uuid>\",\"versionId\":\"<uuid>\",\"observedInPassId\":\"<uuid>\",\"candidateKind\":\"study|review|guideline|registry|book|grey_literature|other\",\"identifiers\":[{\"scheme\":\"doi|pmid|pmcid|arxiv|nct|isbn|url|other\",\"value\":\"10.1000/example\"}],\"displayTitle\":\"…\",\"publicationDate\":\"<date>|null\",\"decision\":\"selected|excluded|deferred|unresolved\",\"decisionReason\":\"…\",\"relevanceSummary\":\"…\",\"sourceFamilyId\":\"<uuid>|null\",\"previousVersionId\":\"<uuid>|null\"}],\"trailVersions\":[{\"trailId\":\"<uuid>\",\"versionId\":\"<uuid>\",\"trailKind\":\"unresolved_question|unattempted_search|blocked_source|formal_followup|discriminator_search|coverage_gap|delta_search\",\"laneId\":\"<uuid>|null\",\"targetWindow\":{\"start\":\"<date>\",\"endExclusive\":\"<date>\"},\"description\":\"…\",\"rationale\":\"…\",\"priority\":\"low|medium|high|decision_critical\",\"state\":\"open|ready|blocked_retryable|blocked_terminal|resolved|cancelled\",\"nextCapability\":\"…|null\",\"blockedReasonCode\":\"…|null\",\"resolutionNote\":\"…|null\",\"previousVersionId\":\"<uuid>|null\"}]}}; frontier.passes[].requestedWindow, frontier.passes[].confirmedWindow and frontier.trailVersions[].targetWindow may be null, and declaredQuerySha256 is the SHA-256 of the pass's deidentifiedQuery. SOURCE_ANALYSIS payload {\"schemaVersion\":1,\"idempotencyKey\":\"source-analysis-example-1\",\"run\":{\"runId\":\"<uuid>\",\"runKind\":\"live_research|historical_import|clarification|correction|synthetic_fixture\",\"startedAt\":\"<date-time>\",\"completedAt\":\"<date-time>\",\"protocolManifests\":[{\"name\":\"HRP\",\"version\":\"…\",\"revisionDate\":\"<date>\",\"sha256\":\"<sha256>\"}],\"provenanceNote\":\"…\"},\"topic\":{\"topicId\":\"<uuid>\",\"canonicalKey\":\"example-topic\",\"label\":\"…\"},\"source\":{\"familyId\":\"<uuid>\",\"versionId\":\"<uuid>\",\"sourceKind\":\"study|review\",\"identityHash\":\"<sha256>\",\"displayTitle\":\"…\",\"identifiers\":[{\"scheme\":\"doi|pmid|pmcid|arxiv|nct|url|other\",\"value\":\"10.1000/example\"}],\"sourceContentSha256\":\"<sha256>|null\",\"accessStatus\":\"complete|partial|abstract_only|metadata_only|inaccessible|not_found\",\"retrievedAt\":\"<date-time>|null\",\"sourceLocator\":\"…|null\",\"rawContentPersisted\":false},\"analysis\":{\"analysisId\":\"<uuid>\",\"versionId\":\"<uuid>\",\"analysisKind\":\"study_method_audit|review_method_audit\",\"relationship\":\"initial|clarifies|corrects|supersedes|invalidates\",\"previousVersionId\":\"<uuid>|null\",\"captureStatus\":\"complete_performed_analysis|partial_historical_capture|clarification|correction|invalidation\",\"authoredAt\":\"<date-time>\",\"coverageStatement\":\"…\",\"declaredWholeTextSha256\":\"<sha256>|null\",\"sections\":[{\"ordinal\":0,\"sectionKey\":\"000-method-audit\",\"title\":\"…\",\"content\":\"…\"}],\"domains\":[{\"ordinal\":0,\"rubric\":\"study_method_v1|review_method_v1|general_analysis_v1\",\"domain\":\"randomization\",\"status\":\"adequate|limitation_identified|unclear|not_applicable\",\"finding\":\"…\",\"evidenceLocators\":[\"…\"],\"unresolvedFields\":[\"…\"],\"limitations\":[\"…\"]}],\"claimCapabilities\":[{\"ordinal\":0,\"claim\":\"…\",\"capability\":\"can_support|cannot_support|unclear\",\"reason\":\"…\",\"evidenceLocators\":[\"…\"]}],\"futureAnalysisItems\":[{\"itemId\":\"<uuid>\",\"question\":\"…\",\"rationale\":\"…\",\"priority\":\"low|medium|high|decision_critical\",\"status\":\"open|resolved|cancelled\",\"evidenceNeeded\":[\"…\"],\"resolvedByVersionId\":\"<uuid>|null\"}]},\"receipts\":[{\"receiptId\":\"<uuid>\",\"receiptKind\":\"…\",\"receiptSha256\":\"<sha256>\",\"locator\":\"…|null\",\"details\":{\"<name>\":\"…\"}}]}; topic may be null; knowledge is optional (structured claims, evidence bindings, edges, an assessment and freshness records); receipts[].details holds names of your choice, each with text, a number, true, false or null; and declaredWholeTextSha256 is null or the SHA-256 of the sections' content joined in order.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -10835,7 +10835,8 @@
             "enum": [
               "RESEARCH_FRONTIER",
               "SOURCE_ANALYSIS"
-            ]
+            ],
+            "description": "Which record payload holds."
           },
           "privacyBoundary": {
             "type": "object",
@@ -10883,14 +10884,10 @@
               "rawProviderResponsePersisted",
               "communityDataPersisted"
             ],
-            "additionalProperties": false
+            "description": "Eight markers, each exactly false."
           },
           "payload": {
-            "type": "object",
-            "propertyNames": {
-              "type": "string"
-            },
-            "additionalProperties": {}
+            "description": "The record proposalKind names, shaped as this tool's description shows."
           }
         },
         "required": [
@@ -10898,8 +10895,7 @@
           "privacyBoundary",
           "payload"
         ],
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "additionalProperties": false
+        "$schema": "http://json-schema.org/draft-07/schema#"
       },
       "outputSchema": {
         "type": "object",
@@ -10983,6 +10979,67 @@
               "message"
             ],
             "additionalProperties": false
+          },
+          "problems": {
+            "minItems": 1,
+            "maxItems": 25,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "rule": {
+                  "type": "string",
+                  "enum": [
+                    "missing",
+                    "wrong_type",
+                    "unknown_keys",
+                    "not_allowed",
+                    "too_long",
+                    "too_short",
+                    "too_many",
+                    "too_few",
+                    "too_large",
+                    "too_small",
+                    "format",
+                    "cross_field",
+                    "hash_mismatch",
+                    "kind_mismatch",
+                    "prohibited_key",
+                    "contact_pattern",
+                    "sandbox_locator",
+                    "community_source",
+                    "source_bound"
+                  ]
+                },
+                "expected": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 600
+                },
+                "example": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 900
+                }
+              },
+              "required": [
+                "path",
+                "rule",
+                "expected",
+                "example"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "problemsNotShown": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
