@@ -1,7 +1,8 @@
 # Owner question 125 (two names for one product) and book research with reader reviews
 
 Date: 2026-10-20. Status: **BUILT on local branch `build-125a-book-reviews`, for the owner's review.** Nothing is pushed,
-merged, released or deployed; release is a later owner decision.
+merged, released or deployed; release is a later owner decision. The owner's answers 126 to 137 and 128b extend the
+same unreleased layer on branch `build-protocol-20261020b`: `2026-10-20-owner-answers-126-to-137.md`.
 
 ## Authority and scope
 
@@ -43,7 +44,8 @@ Each protocol gets a Critical revision note. Reversible edit fixtures (`2026-10-
 approved sentence word for word and in place and both byte-exact reversals.
 
 Sizes: the HRP core stays 38,208 bytes (one page; the rule is outside the core). The Universal core grows from 22,890 to
-23,285 bytes (one page), `sources` from 5,847 to 6,242.
+23,285 bytes (one page), `sources` from 5,847 to 6,242. These are this plan's changes alone; the sizes and fingerprints
+of the whole layer, with the answers that extend it, are in `2026-10-20-owner-answers-126-to-137.md`.
 
 ## The final check (125, part 2)
 
