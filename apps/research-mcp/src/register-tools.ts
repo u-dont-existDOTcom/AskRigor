@@ -207,6 +207,7 @@ import {
 import type { ReportedFiguresCheck } from "./actions/study-method-audit.js";
 import {
   COMMUNITY_SKIP_CAVEAT_START,
+  HARM_NOT_CHECKED_CAVEAT_START,
   LEAD_RECEIPT_SEARCH,
   FINALIZE_REMINDER,
   FINALIZE_RESEARCH_CONTRACT,
@@ -2055,7 +2056,12 @@ function defineResearchOperations(
         "another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare " +
         "video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was " +
         "not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results " +
-        "(scale_results: quoted explanations with the scale name, range, values and benchmark), visible links to " +
+        "(scale_results: quoted explanations with the scale name, range, values and benchmark), with safety " +
+        "statements (safety_claims) or a safety question (safety_question) the serious harms plausible for the " +
+        "exposure, apart from its common side effects, each screened by name (harm_screen: label_warning or " +
+        "reported_signal with the answer's sentence reporting it, not_found with the exact query of a PubMed, Europe " +
+        "PMC or ClinicalTrials.gov search passed here, or not_checked, which the answer states in the caveat " +
+        `"${HARM_NOT_CHECKED_CAVEAT_START} [harm]."), visible links to ` +
         "each key study, and the caveats, " +
         "and is not stored; once the other checks pass, a second model may read the answer for harm " +
         "statements, specialized terms and scale results the declarations leave out (reader_dismissed answers them); " +

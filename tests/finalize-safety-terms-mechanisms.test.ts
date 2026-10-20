@@ -5,6 +5,7 @@ import {
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { communitySkipCaveat, withCommunitySkip } from "./helpers/community-skip.js";
 import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
+import { withHarmScreen } from "./helpers/harm-screen.js";
 
 // Owner questions 86, 88 and 89 (issues #324, #325, #328, #330 and #331): harm and safety sentences, the terms a
 // conclusion depends on, and mechanism claims, declared by the model and checked exactly by the final check.
@@ -33,10 +34,11 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   answer_draft: LINKS, ...overrides
 });
 // The answer carries the sentence its no_real_world_outcome declaration requires (owner question 125); it is the
-// first caveat, and its limit the only one when nothing else needs stating.
+// first caveat, and its limit the only one when nothing else needs stating. An answer with safety statements also
+// screens its serious harms (owner answer "128b"), here one found on the label, which adds no caveat.
 const SKIP = communitySkipCaveat("Synthetic fixture isolates structural checks.");
 const check = (overrides: Partial<FinalizeResearchInput> = {}) =>
-  assertNextStepsContract(finalizeResearch(withCommunitySkip(base(overrides)), { secret: SECRET }));
+  assertNextStepsContract(finalizeResearch(withHarmScreen(withCommunitySkip(base(overrides))), { secret: SECRET }));
 const steps = (overrides: Partial<FinalizeResearchInput> = {}) =>
   check(overrides).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
 type SafetyClaim = NonNullable<FinalizeResearchInput["safety_claims"]>[number];

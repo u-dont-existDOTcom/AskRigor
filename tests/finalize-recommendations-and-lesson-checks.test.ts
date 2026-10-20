@@ -5,6 +5,7 @@ import {
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { communitySkipCaveat, withCommunitySkip } from "./helpers/community-skip.js";
 import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
+import { withHarmScreen } from "./helpers/harm-screen.js";
 
 // Owner question 90 (lesson #23): what the answer puts forward for this person, with its safety check and, for long
 // use, its follow-up and stopping. Owner question 92 (lessons #25, #27, #28, #29): a share of selected reports, how
@@ -34,10 +35,11 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   answer_draft: LINKS, ...overrides
 });
 // The answer carries the sentence its no_real_world_outcome declaration requires (owner question 125); it follows the
-// correction caveats and precedes the others, and its limit is the only one when nothing else needs stating.
+// correction caveats and precedes the others, and its limit is the only one when nothing else needs stating. An
+// answer with safety statements also screens its serious harms (owner answer "128b"), which adds no caveat here.
 const SKIP = communitySkipCaveat("Synthetic fixture isolates structural checks.");
 const check = (overrides: Partial<FinalizeResearchInput> = {}) =>
-  assertNextStepsContract(finalizeResearch(withCommunitySkip(base(overrides)), { secret: SECRET }));
+  assertNextStepsContract(finalizeResearch(withHarmScreen(withCommunitySkip(base(overrides))), { secret: SECRET }));
 const steps = (overrides: Partial<FinalizeResearchInput> = {}) =>
   check(overrides).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
 type Recommendation = NonNullable<FinalizeResearchInput["recommendations"]>[number];

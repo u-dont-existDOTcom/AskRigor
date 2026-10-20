@@ -7,6 +7,7 @@ import { finalizeResearch, finalizeResearchInputSchema, finalizeResearchOutputSc
 import { verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createSecondReader, SECOND_READER_RUBRIC, type SecondReader, type SecondReaderFinding,
   type SecondReading } from "../apps/research-mcp/src/second-reader.js";
+import { withHarmScreen } from "./helpers/harm-screen.js";
 
 const SECRET = "second-reader-test-secret-01234567890123456789";
 const KEY = "private-provider-test-key-never-output";
@@ -91,7 +92,8 @@ describe("second reader in the final check", () => {
     const input = base({ answer_draft: `${quote}\n\nHow often this happens wasn't quantified in the sources found here.\n\n${LIMIT}`,
       safety_claims: [{ quote, direction: "harm", exposure: "the extract", basis: "not_quantified" }] });
     for (const found of [QUOTE, quote, "The extract can cause nausea. Another sentence. More text."]) {
-      const shown = base({ ...input, answer_draft: `${found}\n\n${input.answer_draft}` });
+      // An answer with safety statements screens its serious harms (owner answer "128b").
+      const shown = withHarmScreen(base({ ...input, answer_draft: `${found}\n\n${input.answer_draft}` }));
       const result = check(shown, { status: "ran", findings: [finding("safety_claims", found.toUpperCase())] });
       expect(result.status, result.next_steps.join("\n")).toBe("ready_with_limits");
       expect(result.second_reading).toEqual({ status: "ran", findings: 1, open: 0, dismissed: 0 });

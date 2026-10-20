@@ -130,6 +130,25 @@ export const SAFETY_BASES = [
   "comparative_rates", "observed_rates", "share_of_reports", "case_reports", "hazard_measurement", "not_quantified"
 ] as const;
 
+// The serious-harm screen (owner answer "128b", 2026-10-20, from lesson #44): what the screen found for each serious
+// harm plausible for the exposure, and the kinds of source searched for it.
+export const HARM_SCREEN_STATES = ["label_warning", "reported_signal", "not_found", "not_checked"] as const;
+export const HARM_SCREEN_SOURCES = [
+  "label", "regulator_warning", "post_marketing", "trial_serious_events", "case_reports", "community"
+] as const;
+const HARM_SCREEN_MAX_ENTRIES = 20;
+const HARM_TEXT_MAX_CHARACTERS = 150;
+const HARM_QUERY_MAX_CHARACTERS = 500;
+// A serious harm the screen did not search by name reaches the answer in this sentence, completed by the harm as the
+// call declares it (owner answer "128b": "This answer did not check [harm].").
+export const HARM_NOT_CHECKED_CAVEAT_START = "This answer did not check";
+
+/** The caveat for a harm not checked: the server's words and the declared harm, on one line, ending as a sentence. */
+export function harmNotCheckedCaveat(harm: string): string {
+  const stated = harm.replace(/\s+/gu, " ").trim();
+  return `${HARM_NOT_CHECKED_CAVEAT_START} ${stated}${/\p{STerm}$/u.test(stated) ? "" : "."}`;
+}
+
 // Research results remind the AI, in the turn it researches, that answers using
 // the research are checked at the end, in that turn or a later one (owner
 // question 86: a "continue" turn dropped AskRigor's final check).
@@ -461,6 +480,36 @@ export const finalizeResearchInputSchema = z.object({
     .describe("Records each sentence of the answer that warns that something can cause harm, is unsafe, toxic or " +
       "risky, or should be avoided because of a possible harm, or that calls something safe or harmless, with what " +
       "it is about, its basis and the sources it rests on (an empty list if none)."),
+  safety_question: z.boolean().optional()
+    .describe("true when the user asks whether something is safe, how risky it is or what harm it can do, or the " +
+      "answer compares options' safety. With answer_draft, harm_screen is then required, as it is whenever " +
+      "safety_claims lists a sentence."),
+  harm_screen: z.array(z.object({
+    harm: z.string().trim().min(1).max(HARM_TEXT_MAX_CHARACTERS)
+      .describe(`One serious harm plausible for this exposure, in at most ${HARM_TEXT_MAX_CHARACTERS} characters, ` +
+        `named as the answer would name it, so that "${HARM_NOT_CHECKED_CAVEAT_START} [harm]." reads as a sentence: ` +
+        "for example, severe allergic reactions after injections that were tolerated before."),
+    state: z.enum(HARM_SCREEN_STATES)
+      .describe("label_warning: an official label or a regulator's safety warning names it; reported_signal: " +
+        "post-marketing reports, trials' serious adverse events, case reports or community reports describe it, " +
+        "with no such warning; not_found: searched by name and not found; not_checked: not searched by name."),
+    sources_searched: z.array(z.enum(HARM_SCREEN_SOURCES)).max(HARM_SCREEN_SOURCES.length).optional()
+      .describe("The kinds of source searched for it: label, regulator_warning (a regulator's safety warnings), " +
+        "post_marketing (pharmacovigilance and post-marketing reports), trial_serious_events (trials' serious " +
+        "adverse events and withdrawals), case_reports and community (firsthand reports); needed for every state " +
+        "except not_checked."),
+    answer_quote: answerQuote.optional()
+      .describe("With label_warning or reported_signal: the answer's sentence reporting it, copied from answer_draft."),
+    search_query: z.string().trim().min(1).max(HARM_QUERY_MAX_CHARACTERS).optional()
+      .describe("With not_found: the exact query it was searched with in search_pubmed, search_europe_pmc or " +
+        "search_clinical_trials, whose research_receipt is passed in receipts.")
+  }).strict()).max(HARM_SCREEN_MAX_ENTRIES).optional()
+    .describe("With answer_draft, when safety_claims lists a sentence or safety_question is true: the serious harms " +
+      "plausible for this exposure, apart from its common side effects, each searched by name, with what the " +
+      `search found (at least one entry, at most ${HARM_SCREEN_MAX_ENTRIES}). Each state's own field is checked: ` +
+      "answer_quote is shown in the answer, search_query is the query of a literature search passed here, and a " +
+      `harm not_checked adds the caveat "${HARM_NOT_CHECKED_CAVEAT_START} [harm]." Whether the list is complete ` +
+      "stays the model's declaration."),
   key_terms: z.array(z.object({
     term: z.string().trim().min(1).max(120).describe("The term as the answer writes it."),
     explanation: answerQuote.describe("The sentence that first explains it in plain words, copied from answer_draft.")
@@ -604,6 +653,7 @@ export const FINALIZE_RESEARCH_HIDDEN_SHAPES: ReadonlyArray<{
   { paths: ["scale_results[].values"], examples: [[4.5, 2]] },
   { paths: ["scale_results[].benchmark"], examples: [{ value: 1, kind: "minimal_important_difference" }, "none_established"] },
   { paths: ["mechanism_claims[].tissue"], examples: [{ measured: "…", claimed: "…" }] },
+  { paths: ["harm_screen[].sources_searched"], examples: [["label", "case_reports"]] },
   { paths: ["absence_claims[].studies", "safety_claims[].studies", "mechanism_claims[].studies"],
     examples: [["10.1000/example"]] }
 ];
@@ -2004,6 +2054,75 @@ export function finalizeResearch(
         `How often harms occur with ${exposure} wasn't quantified in the sources found here.`);
     }
   }
+  // The serious harms a safety answer screened by name (owner answer "128b", 2026-10-20, from lesson #44: comparing
+  // the safety of a prescribed growth hormone with peptides that raise it, an answer searched blood sugar, swelling,
+  // joints, the heart and cancer, but never severe allergic reactions after injections tolerated before, and nothing
+  // showed the gap). The model lists each serious harm and what its screen found, and each state's own field is
+  // checked exactly: a label warning or a reported signal is shown in the answer by its sentence, a harm not found
+  // was searched with the query of a literature-search receipt passed here, and a harm not checked reaches the answer
+  // in the server's sentence. Which harms are plausible, and so whether the list is complete, stays the model's
+  // declaration: no word list reads the harms or the answer. The rule itself is the protocols' serious-harm screen.
+  const harmScreen = input.harm_screen ?? [];
+  const harmScreenTrigger = (input.safety_claims ?? []).length > 0
+    ? "the answer makes safety statements (safety_claims)"
+    : input.safety_question === true ? "the question is about safety (safety_question)" : undefined;
+  if (input.answer_draft !== undefined && harmScreenTrigger !== undefined && harmScreen.length === 0) {
+    (input.harm_screen === undefined ? requireDeclaration : (step: string) => { nextSteps.push(step); })(
+      `harm_screen ${input.harm_screen === undefined ? "is missing" : "lists no harm"}: ${harmScreenTrigger}, so ` +
+        "harm_screen lists the serious harms plausible for this exposure, apart from its common side effects, each " +
+        "searched by name, with what the search found: label_warning or reported_signal with the answer's sentence " +
+        "as answer_quote, not_found with the exact search_query of a literature search passed here, or not_checked " +
+        "(at least one entry)."
+    );
+  }
+  // Each entry's own field, as its state needs it; another state's field, if given, is not used.
+  const screenedHarms = new Map<string, number>();
+  for (const [index, entry] of harmScreen.entries()) {
+    const at = `harm_screen[${index}]`;
+    const harm = plainPhrase(entry.harm).replace(/\s+/gu, " ");
+    // One harm, one entry: names compared as caveats are, so a repeat adds no second caveat.
+    const first = screenedHarms.get(caveatText(harm));
+    if (first === undefined) screenedHarms.set(caveatText(harm), index);
+    else nextSteps.push(`${at} names the same harm as harm_screen[${first}]: give each harm one entry.`);
+    const sources = new Set(entry.sources_searched ?? []);
+    if (entry.state !== "not_checked" && sources.size === 0) {
+      nextSteps.push(`${at} is ${entry.state} without sources_searched: give the kinds of source searched for ${harm}.`);
+    }
+    if (entry.state === "label_warning" && sources.size > 0 && !sources.has("label") && !sources.has("regulator_warning")) {
+      nextSteps.push(`${at} is label_warning, but sources_searched lists neither label nor regulator_warning: add the ` +
+        `one whose warning names ${harm}, or declare it reported_signal.`);
+    }
+    if ((entry.state === "label_warning" || entry.state === "reported_signal") && entry.answer_quote === undefined) {
+      nextSteps.push(`${at} is ${entry.state} without answer_quote: report ${harm} in the answer, and copy that ` +
+        "sentence from answer_draft.");
+    }
+    if (entry.state === "not_found") {
+      // A harm not found was searched with a query a literature-search receipt in this call signed, compared by its
+      // digest as full_text_search queries are; nothing else shows that the search ran.
+      const query = entry.search_query === undefined ? undefined : discoveryQueryDigest([entry.search_query]);
+      if (query === undefined) {
+        nextSteps.push(`${at} is not_found without search_query: give the exact query ${harm} was searched with, and ` +
+          "pass that search's research_receipt, or declare it not_checked.");
+      } else if (!verified.some(({ kind, claims }) => kind === "literature_search" && text(claims.q) === query)) {
+        nextSteps.push(`${at}.search_query is not the query of any literature search passed here: search ${harm} by ` +
+          "name with search_pubmed, search_europe_pmc or search_clinical_trials, give that exact query, and pass its " +
+          "research_receipt, or declare it not_checked.");
+      }
+    }
+    if (entry.state === "not_checked") {
+      // The harm reaches the reader in the caveat, so it shows no internal labels, as not_relevant_reason does.
+      const labels = internalLabels(entry.harm, options.protocolNames ?? new Set());
+      if (labels.length > 0) {
+        nextSteps.push(`${at}.harm shows internal labels (${labels.slice(0, 8).join(", ")}` +
+          `${labels.length > 8 ? ", and more" : ""}): the answer names this harm in its caveat, so give it in plain ` +
+          "words.");
+      }
+      if (first === undefined) {
+        caveatOnce(`A serious harm, ${harm}, was not checked: say so in the answer, as the caveat does.`,
+          harmNotCheckedCaveat(entry.harm));
+      }
+    }
+  }
   // A mechanism rests on evidence from its route, species and tissue, or the
   // answer says where the evidence came from (FS229; owner questions 88 and
   // 92). Whom an experiment was done in and where it measured stay the
@@ -2110,7 +2229,10 @@ export function finalizeResearch(
       );
     }
   }
-  if (absenceClaims.some(({ state }) => state === "support_not_located")) {
+  // A serious harm the screen did not find is a claim that something was not found too, so the same caveats bound it
+  // to the searches made here; its own step above names a search receipt it lacks.
+  const notLocated = absenceClaims.some(({ state }) => state === "support_not_located");
+  if (notLocated || harmScreen.some(({ state }) => state === "not_found")) {
     if (fullTextQueries !== undefined) {
       requireLimit(
         "The answer says something was not found after full-text searches: bound that to their coverage, as the caveat does.",
@@ -2122,10 +2244,12 @@ export function finalizeResearch(
       .map(({ claims }) => text(claims.src)));
     const names = LITERATURE_SOURCES.filter(({ id }) => searched.has(id)).map(({ name }) => name);
     if (names.length === 0) {
-      nextSteps.push(
-        "The answer says something was not found, but no literature search receipt was passed: search with " +
-          "search_pubmed or search_europe_pmc (and search_clinical_trials for trials) and pass their research receipts."
-      );
+      if (notLocated) {
+        nextSteps.push(
+          "The answer says something was not found, but no literature search receipt was passed: search with " +
+            "search_pubmed or search_europe_pmc (and search_clinical_trials for trials) and pass their research receipts."
+        );
+      }
     } else {
       const covered = new Set(input.search_coverage ?? []);
       const uncovered = SEARCH_COVERAGE.filter(({ id }) => !covered.has(id)).map(({ phrase }) => phrase);
@@ -2232,6 +2356,10 @@ export function finalizeResearch(
         ...(input.reader_dismissed ?? []).map(({ quote }, index) => ({ at: `reader_dismissed[${index}]`, quote })),
         ...(input.comparison_claims ?? []).map(({ quote }, index) => ({ at: `comparison_claims[${index}]`, quote })),
         ...(input.safety_claims ?? []).map(({ quote }, index) => ({ at: `safety_claims[${index}]`, quote })),
+        // A harm the screen found is shown in the answer by the sentence the entry copies.
+        ...harmScreen.flatMap(({ state, answer_quote: quote }, index) =>
+          (state === "label_warning" || state === "reported_signal") && quote !== undefined
+            ? [{ at: `harm_screen[${index}].answer_quote`, quote }] : []),
         ...(input.mechanism_claims ?? []).map(({ quote }, index) => ({ at: `mechanism_claims[${index}]`, quote })),
         ...(input.recommendations ?? []).map(({ quote }, index) => ({ at: `recommendations[${index}]`, quote })),
         ...(input.proposed_tests ?? []).flatMap(({ quote, difference }, index) => [
