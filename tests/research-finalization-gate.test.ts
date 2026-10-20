@@ -28,6 +28,18 @@ import { assertNextStepsContract, fixtureStudyLinks } from "./helpers/finalize-n
 
 // Pinned word for word: a lead receipt is signed only with the exact searches recorded.
 const LEAD_RECEIPT_SEARCH_TEXT = "A lead receipt needs the public-copy search recorded: search for the exact DOI and the exact title, then pass those searches as public_copy_search and any public copy found as candidate_urls.";
+// Pinned word for word: the step for each receipt that failed verification, by the verifier's reason.
+const LEAVE_IT_OUT = "Leaving it out is allowed; work that rests only on it then needs its call again.";
+const REJECTED_RECEIPT_STEPS = {
+  signature_invalid: (index: number) => `receipts[${index}] does not verify, because it was changed in copying or ` +
+    `issued by another AskRigor server: copy it again exactly as the tool returned it. ${LEAVE_IT_OUT}`,
+  malformed: (index: number) => `receipts[${index}] is not a whole research receipt: copy the whole research_receipt ` +
+    `value exactly as the tool returned it. ${LEAVE_IT_OUT}`,
+  expired: (index: number) => `receipts[${index}] has expired, since a research receipt is valid for 24 hours: repeat ` +
+    `the call it came from and pass the research_receipt it returns. ${LEAVE_IT_OUT}`,
+  unknown_kind: (index: number) => `receipts[${index}] is a kind of receipt this AskRigor server does not know, perhaps ` +
+    `from another version of AskRigor: repeat the call it came from and pass the research_receipt it returns. ${LEAVE_IT_OUT}`
+} as const;
 
 const finalizeResearchBare = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
   assertNextStepsContract(finalizeResearchUnwrapped(...args));
@@ -2784,7 +2796,11 @@ describe("finalize_research gate", () => {
       { index: 0, reason: "signature_invalid" },
       { index: 1, reason: "malformed" }
     ]);
-    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toHaveLength(2);
+    // One step for each rejected receipt, with its own way out (UDA lane item
+    // 2026-10-12-finalizer-bounded-completion-and-receipt-diagnostics), then the declaration the skip needs.
+    const receiptSteps = result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
+    expect(receiptSteps).toHaveLength(3);
+    expect(receiptSteps.slice(0, 2)).toEqual([REJECTED_RECEIPT_STEPS.signature_invalid(0), REJECTED_RECEIPT_STEPS.malformed(1)]);
 
     // HRP ForumSignalNonTrigger: nonactivation is affirmative, for a question with no real-world outcome or an
     // emergency before triage. A question whether smelling geosmin helps is neither (owner report, 2026-09-30).
@@ -2817,6 +2833,45 @@ describe("finalize_research gate", () => {
       not_relevant_reason: "Dose conversion question with no treatment choice.", research_depth: "deep",
       key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "PMC10518852", status: "validated" }]
     }, options)).toMatchObject({ status: "ready_with_limits", limits: [COMMUNITY_SKIP_LIMIT] });
+  });
+
+  it("gives each receipt that fails verification its own reason and way out, without repeating it", () => {
+    const hours = (count: number) => () => new Date(now().getTime() - count * 60 * 60 * 1000);
+    const claims = { id: "PMC10518852", doi: "10.1002/art.41142", status: "complete_no_unresolved_fields" };
+    const cases = {
+      signature_invalid: `${study.slice(0, -2)}xx`,
+      malformed: study.split("~").slice(0, 3).join("~"),
+      expired: issueResearchReceipt("study_audit", claims, { secret: SECRET, now: hours(25) }),
+      // Signed here, but of a kind this server does not know, as from another version of AskRigor.
+      unknown_kind: issueResearchReceipt("retired_kind" as Parameters<typeof issueResearchReceipt>[0], claims, options)
+    } as const;
+    const deep = {
+      community_evidence: "not_relevant" as const, not_relevant_basis: "no_real_world_outcome" as const,
+      not_relevant_reason: "A question about one lab value.", treatment_choice: "not_compared" as const,
+      research_target: TARGET, research_depth: "deep" as const, key_sources: [],
+      answer_draft: "One lab value is explained. No study's methods were checked in full text for this answer."
+    };
+    for (const [reason, token] of Object.entries(cases) as Array<[keyof typeof cases, string]>) {
+      // The rejected receipt comes after a valid one, so its step names its own place in receipts.
+      const result = finalizeResearch({ ...deep, receipts: [study, token] }, options);
+      expect(result.status, reason).toBe("not_ready");
+      expect(result.receipts_rejected, reason).toEqual([{ index: 1, reason }]);
+      expect(result.receipts_verified, reason).toBe(1);
+      const steps = result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
+      expect(steps, reason).toEqual([REJECTED_RECEIPT_STEPS[reason](1)]);
+      // Nothing of the receipt or the signing secret is repeated.
+      for (const part of [token, ...token.split("~").filter((piece) => piece.length >= 8)]) {
+        expect(steps.join("\n"), reason).not.toContain(part);
+      }
+      expect(steps.join("\n"), reason).not.toContain(SECRET);
+    }
+    // Every rejected receipt gets its own step, in the order passed.
+    const all = finalizeResearch({ ...deep, receipts: Object.values(cases) }, options);
+    expect(all.receipts_rejected).toEqual(Object.keys(cases).map((reason, index) => ({ index, reason })));
+    expect(all.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
+      .toEqual((Object.keys(cases) as Array<keyof typeof cases>).map((reason, index) => REJECTED_RECEIPT_STEPS[reason](index)));
+    // Leaving the rejected receipts out is allowed: without them the answer passes.
+    expect(finalizeResearch({ ...deep, receipts: [study] }, options).next_steps).toEqual([]);
   });
 
   it("reports when receipts cannot be verified on this server", () => {

@@ -24,13 +24,15 @@ import {
 import {
   discoveryQueryDigest,
   issueResearchReceipt,
+  RESEARCH_RECEIPT_MAX_AGE_MS,
   RESEARCH_RECEIPT_MAX_CHARACTERS,
   readPages,
   receiptIssueOrder,
   researchTargetDigest,
   roundUnreadPages,
   verifyResearchReceipt,
-  type ResearchReceiptKind
+  type ResearchReceiptKind,
+  type ResearchReceiptRejection
 } from "./research-receipts.js";
 
 /**
@@ -105,6 +107,22 @@ export function communitySkipCaveat(reason: string): string {
   const stated = reason.replace(/\s+/gu, " ").trim();
   return `${COMMUNITY_SKIP_CAVEAT_START} ${stated}${/\p{STerm}$/u.test(stated) ? "" : "."}`;
 }
+
+// What a receipt that failed verification needs, by the verifier's reason (UDA lane item
+// 2026-10-12-finalizer-bounded-completion-and-receipt-diagnostics): each gets its own step and way out. A step names
+// the receipt by its place in receipts and never repeats its contents.
+const RECEIPT_REJECTION_STEPS: Readonly<Record<ResearchReceiptRejection, string>> = {
+  signature_invalid: "does not verify, because it was changed in copying or issued by another AskRigor server: copy " +
+    "it again exactly as the tool returned it",
+  malformed: "is not a whole research receipt: copy the whole research_receipt value exactly as the tool returned it",
+  expired: `has expired, since a research receipt is valid for ${RESEARCH_RECEIPT_MAX_AGE_MS / 3_600_000} hours: ` +
+    "repeat the call it came from and pass the research_receipt it returns",
+  unknown_kind: "is a kind of receipt this AskRigor server does not know, perhaps from another version of AskRigor: " +
+    "repeat the call it came from and pass the research_receipt it returns"
+};
+const rejectedReceiptStep = (index: number, reason: ResearchReceiptRejection): string =>
+  `receipts[${index}] ${RECEIPT_REJECTION_STEPS[reason]}. Leaving it out is allowed; work that rests only on it ` +
+  "then needs its call again.";
 
 // What a harm or safety sentence rests on (owner questions 86 and 89; a share of
 // selected reports, lesson #25 by owner question 92).
@@ -995,7 +1013,7 @@ export function finalizeResearch(
   }
 
   const verified: VerifiedReceipt[] = [];
-  const rejected: FinalizeResearchOutput["receipts_rejected"] = [];
+  const rejected: Array<{ index: number; reason: ResearchReceiptRejection }> = [];
   // The same receipt passed twice is one unit of work, never two rounds.
   const seen = new Set<string>();
   input.receipts.forEach((token, index) => {
@@ -1093,11 +1111,7 @@ export function finalizeResearch(
   let communitiesSearched: string[] = [];
   let communitiesRead: CommunityRead[] = [];
   let communitiesUnverified = 0;
-  if (rejected.length > 0) {
-    nextSteps.push(
-      `${rejected.length} receipt(s) failed verification; pass each research_receipt exactly as the tool returned it.`
-    );
-  }
+  for (const { index, reason } of rejected) nextSteps.push(rejectedReceiptStep(index, reason));
 
   // Each status needs its own field; the other one, if given, is not used.
   const fullTextSearch = input.full_text_search;
