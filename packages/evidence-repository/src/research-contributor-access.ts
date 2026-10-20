@@ -790,15 +790,32 @@ function assertNoSandboxIdentifiers(identifiers: ReadonlyArray<{ value: string }
 }
 
 function assertNoObviousPrivateContactText(value: unknown): void {
+  const reject = (): never => {
+    throw new ResearchAccessError(
+      "CONTRIBUTION_PRIVACY_REJECTED",
+      "The proposal contains an obvious contact, address, or credential pattern.",
+    );
+  };
   walkStrings(value, [], (text, path) => {
     if (isIdentifierValuePath(path)) return;
-    if (contactPatternKind(text) !== undefined) {
-      throw new ResearchAccessError(
-        "CONTRIBUTION_PRIVACY_REJECTED",
-        "The proposal contains an obvious contact, address, or credential pattern.",
-      );
-    }
+    if (contactPatternKind(text) !== undefined) reject();
   });
+  // Free-form names (receipts[].details) are stored too, so a name is screened like a value.
+  walkKeys(value, (key) => {
+    if (contactPatternKind(key) !== undefined) reject();
+  });
+}
+
+function walkKeys(value: unknown, inspect: (key: string) => void): void {
+  if (value === null || typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    value.forEach((child) => walkKeys(child, inspect));
+    return;
+  }
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    inspect(key);
+    walkKeys(child, inspect);
+  }
 }
 
 function walkStrings(

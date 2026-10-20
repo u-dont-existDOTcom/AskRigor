@@ -174,6 +174,27 @@ describe("one rejection class at a time: path, expectation, example, and no valu
     expect(everything(error)).not.toMatch(/Raw_Chat|SENTINEL-CHAT-TEXT/u);
   });
 
+  it("contact pattern in a free name under receipts[].details, never naming it", async () => {
+    const payload = sourceAnalysis();
+    payload.receipts[0].details = { "sentinel.person@example.com": "count 3" };
+    const { store, service } = await fixture();
+    const error = await service.submitProposal(SUBJECT, {
+      proposalKind: "SOURCE_ANALYSIS", privacyBoundary: boundary(), payload,
+    }).then(() => undefined, (caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ResearchContributionRejectedError);
+    const rejected = error as ResearchContributionRejectedError;
+    expect(rejected.code).toBe("CONTRIBUTION_PRIVACY_REJECTED");
+    expect(problemAt(rejected, "payload.receipts[0].details.*", "contact_pattern")).toEqual({
+      path: "payload.receipts[0].details.*",
+      rule: "contact_pattern",
+      expected: "a deidentified name: this name matches an email address. Contact details, street addresses and " +
+        "credentials are never stored; rename it",
+      example: JSON.stringify("…"),
+    });
+    expect(everything(rejected)).not.toContain("sentinel.person@example.com");
+    expect(store.allProposals()).toHaveLength(0);
+  });
+
   it.each([
     ["an email address", "Write to sentinel.person@example.com about it", "sentinel.person@example.com"],
     ["a phone number", "Call +1 (555) 010-9999 tomorrow", "010-9999"],

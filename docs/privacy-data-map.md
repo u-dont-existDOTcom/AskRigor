@@ -649,6 +649,9 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 
 Contribution intake rejects frontier candidate and source-analysis identifier values beginning with `sandbox:` (case-insensitive), because a sandbox link points into another session and can never be opened.
 
+The intake's contact, address and credential screen reads field names as well as values (20 Oct): a free name under
+`receipts[].details` that matches one of those patterns is refused like a value would be, so it is never stored.
+
 A rejected `submit_research_contribution` call (owner question 127) returns, to the caller only, every problem the
 intake found: each problem's field path, rule name, what the contract expects there and a JSON example taken from
 AskRigor's own example records, at most 25 problems and about 16,000 characters, with the count of the rest. It never
