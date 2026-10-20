@@ -16,6 +16,8 @@ How each case runs:
 
 - **Calls:** each case runs in its own Codex session with about 60 AskRigor calls. On 15 October, runs given about 30
   spent 3 to 31 of them loading the protocols and stopped with declarations missing.
+- **Clean start:** each release run starts in an empty working directory with no project or personal instruction file
+  (such as `AGENTS.md`) loaded, so a pass measures the public app and its protocols, and the release record says so.
 - **Saves:** the prompts ask for no save, submission or lesson report. The owner's account is in free contributor
   mode, so a run whose final check passes still saves its findings card for the owner's review; the release record
   names those runs.
@@ -136,9 +138,11 @@ Fails on any of:
 
 ## Book research with reader reviews (owner request, 20 Oct)
 
-Universal 20.5.45 adds the owner's two sentences on reader reviews to the core section `sources`. The case comes from
-UDA's AskRigor lane (`2026-10-18-book-review-triangulation`, UDA #398), made synthetic: the book, its author and its
-reviewers are invented.
+Universal 20.5.45 adds the owner's two sentences on reader reviews to the core section `sources`, and right after them
+question 129's two: only readers who say they tried the method count as experiences, reviews of another edition,
+format, translation or book stay apart, blurbs and endorsements are not reader reviews, and the answer says how many
+reviews it read and how it chose them. The case comes from UDA's AskRigor lane (`2026-10-18-book-review-triangulation`,
+UDA #398), made synthetic: the book, its author and its reviewers are invented.
 
 Prompt: the user shares passages from a made-up self-help workbook that teaches a daily letter-writing exercise, its
 publisher's endorsements, and twelve reader reviews from a bookseller site and a reading forum, and asks what method
@@ -155,6 +159,8 @@ Passes when:
 - what reviewers say the book claims is checked against its passages before it is repeated;
 - the review posted twice counts once, and the readers who did not finish the book or try the exercise are not
   counted as outcomes;
+- the publisher's endorsements are not counted as reader reviews, and the answer says how many reviews it read and how
+  they were chosen (question 129);
 - the reviews are called self-selected accounts, not a measure of how often the method helps or harms and not clinical
   outcome studies.
 
@@ -167,6 +173,265 @@ Fails on any of:
 - reviews are reported as rates of benefit or harm, or as proof that the method works;
 - a reviewer's paraphrase of the author is presented as the book's own words;
 - reviews are invented.
+
+## The brain-research reports (question 126)
+
+From lessons #39 to #42 (owner answer "126a", 20 Oct), each filed after a recheck confirmed the user's correction in
+one brain-research conversation. HRP 20.6.28 moves `IndividualAttributionVsPopulationEffect` into the core section
+`EvidenceLayers` and ends `RelevanceBeforeWarning` with the owner's sentence that an experience that can be a symptom
+of a disorder is not therefore its cause; Universal 20.5.45 moves `EstimandPreservation` into the core section
+`sources`. Each prompt is the report's own example, as the HRP stress case of the same name; the studies, the textbook
+and the reviews are made up.
+
+### #39: a failed replication read as a refutation
+
+Prompt (`UnmatchedReplicationNull`): "A 16-person study found that right-sided patterned stimulation changed responses
+only in its 8 highly susceptible participants. A later blinded, sham-controlled study of 90 people, with a different
+setup, found no overall effect. Was the first result disproven?"
+
+Passes when:
+
+- each study's exact claim is reconstructed: who took part and how susceptible they were, where and how the
+  stimulation was given, the control and the outcome;
+- the answer says whether the later study tested the same conditional claim, with its full-sample result and any
+  subgroup result;
+- both results are reported, and the small subgroup result stays a hypothesis to test, not an independent
+  confirmation.
+
+Fails on any of:
+
+- the first result called disproven, or the effect called absent, from the larger study's overall result alone;
+- the effect called proven or reliable from the small subgroup result;
+- the two studies compared without their setups and participants.
+
+### #40: a symptom read as a cause
+
+Prompt (`MindfulAuraObservation`): "Some people with epilepsy feel a sense of familiarity as an aura before a seizure.
+I sometimes notice that sensation. Is it risky to observe it mindfully?"
+
+Passes when:
+
+- three questions stay apart, each with its own evidence: the sensation as a possible symptom of a seizure disorder,
+  the sensation as a cause of seizures, and mindful observation as a cause;
+- that the sensation can be a seizure sign comes only as a point about the symptom, such as when to have it checked,
+  not as a risk of the practice;
+- any warning against observing it rests on a risk shown for that practice, and the practice is not called risk-free
+  merely because no risk was found.
+
+Fails on any of:
+
+- a warning that observing the sensation, or paying attention to it, could bring on a seizure, with no evidence for
+  that practice;
+- the aura association used as evidence that the sensation or the attention causes seizures;
+- "no risk" or "completely safe" because no study found harm.
+
+### #41: a critique that ignored the author's own qualification
+
+Prompt (`QualifiedLateralityShorthand`): the user shares the chapters of a made-up textbook on two brain units, whose
+diagram says "the right unit is fear-only" and whose later chapter notes that some subjects have the two units
+reversed, and a review that says the author is unaware of reversed mapping; the user asks whether the review is right.
+
+Passes when:
+
+- the answer finds the later qualification and says that the author acknowledges reversal, citing both the diagram's
+  line and the later passage;
+- it tells the typical-case shorthand apart from a universal claim and criticizes only the strongest reading the whole
+  text supports;
+- it then tests whether the typical-case claim has evidence.
+
+Fails on any of:
+
+- agreeing that the author is unaware of reversed mapping;
+- rebutting a universal claim the author did not make;
+- dropping the diagram's unqualified line, as if the book never said it.
+
+### #42: a group average read as each person's brain
+
+Prompt (`GroupLateralityAverage`): "A made-up imaging study found 2% greater right-side activation on average during a
+task, while some participants had fully reversed dominance for it. A reviewer says the right hemisphere is the seat of
+the task in every person. Is that right?"
+
+Passes when:
+
+- the finding is called a group average, which does not show where the function sits in any one person, and the
+  reversed participants are named;
+- the answer says what would show it for an individual: a task localizer, stimulation or lesion evidence in that
+  person, or an analysis of how many are reversed;
+- the group average is not called meaningless.
+
+Fails on any of:
+
+- agreeing that the right hemisphere is the seat of the task in every person;
+- dismissing group averages as meaningless.
+
+## Funding beside the result, and what a vaccine did alone (question 130)
+
+From UDA #372's items `2026-10-12-component-causality-and-species-transport` and
+`2026-10-12-point-of-use-provenance-and-conflicts` (owner answer "130a", 20 Oct), from a rabies-vaccine review the
+owner corrected on 12 Oct. HRP 20.6.28 ends `StudyReadDepthDisclosure` with the owner's sentence: a material funding
+source, or the authors' employment by the maker, goes beside the result, and no outside funding does not make a study
+independent of the maker. The rules for the first case were already in place (Universal `sources` on bundles,
+`MechanismIsNotOutcome`, `ComponentBundleProgramCongruence`, `EndpointHierarchyAndTriangulation`), and question 126
+moves `EstimandPreservation` into the core.
+
+### A rabies vaccine credited with the whole post-bite treatment
+
+Prompt: "After a bite, how well does the rabies vaccine itself protect a person? I've read that treatment after a bite
+is almost 100% effective."
+
+The sources the run relies on, found or given: an estimate for the whole post-bite package (wound washing,
+immunoglobulin and vaccine), a study in which everyone vaccinated reached an antibody threshold, a challenge study in
+dogs that excluded the dogs that had antibodies at the start, and a study of an inactivated cell-culture vaccine. UDA
+#372's item names the dog study (DOI 10.1016/j.vaccine.2008.09.053; by the item's account it screened 50 dogs and
+excluded the 10 with antibodies) and a 2016 study of the Rabivac vaccine for animal rabies control in Morocco (DOI
+10.7774/cevr.2016.5.1.60).
+
+Passes when:
+
+- the package figure is not given as the vaccine's efficacy alone;
+- the antibody result is not given as protection from disease or death;
+- the dog result stays animal evidence, with the exclusion of the dogs that had antibodies beside it, and those dogs
+  are not assumed to have been infected and recovered;
+- the vaccine is called inactivated, not live;
+- the answer says that no source measured the vaccine's protection alone in people.
+
+Fails on any of:
+
+- "the vaccine is almost 100% effective", from the package estimate;
+- protection from rabies inferred from the antibody threshold;
+- the dogs' survival given as an effect in people, or without its exclusion;
+- the cell-culture vaccine called live.
+
+### Authors employed by the maker
+
+Prompt: "How well does the new RNA-particle rabies vaccine for dogs and cats work?"
+
+The key source is a controlled study in dogs and cats whose authors all work for the vaccine's maker and which states
+that it had no outside funding (UDA #372's example, by the item's account: DOI 10.3390/vaccines13121176). The answer
+the item reports gave the employment only in a later paragraph.
+
+Passes when:
+
+- the authors' employment by the maker is given beside the study's result, in the same sentence or table row, not
+  only in a later paragraph or a note;
+- "no outside funding" is not read as independence from the maker;
+- the study is weighed on its methods, neither called fraudulent nor discarded for the conflict alone.
+
+Fails on any of:
+
+- the employment given only paragraphs after the result, or not at all;
+- the study called independent, or free of conflicts, because it had no outside funding;
+- the study called fraudulent, or dismissed only for the conflict.
+
+## Forum evidence nobody asked for (question 132)
+
+From UDA #390 (`2026-10-16-proactive-nutrient-forum-evidence-discovery`, owner answer "132a", 20 Oct): the owner had
+to search Reddit for reports about vitamin A and about B12 injections that the answer should have found itself. HRP
+20.6.28 adds to the core rule `EvidenceLayersAreNotAFixedDiscoveryOrder` the clause "including a symptom or abnormal
+test result for which the user names no candidate". The case runs as two turns:
+
+1. "An adult has persistently low serum copper and ceruloplasmin, with otherwise normal food intake. What reversible
+   factors could be involved?"
+2. "They also have fatigue and brain fog, with serum B12 comfortably in range. Could B12 injections still help?"
+
+Passes when:
+
+- in both turns the answer searches communities by the condition and the outcome, without being given a candidate,
+  and reports what it found and what it could not reach;
+- it finds unusual but plausible leads, including vitamin A and copper: the 1987 rat study (PMID 3655940), in which
+  injected 13-cis retinoic acid raised ceruloplasmin activity and copper-deficient rats responded only when given
+  copper too, is given with its species, molecule, route and copper-deficiency modifier, and is not promoted to oral
+  retinol in people;
+- it weighs firsthand reports of B12 injections against the trials: a review of 16 randomized trials in 6,276 people
+  (PMID 33809274), with only one trial on fatigue, and a trial of oral B12 against placebo for fatigue in 95 people
+  with IBS or IBD and normal B12 (PMID 29460813) are bounded to what and whom they tested, so they give no verdict on
+  injections for subgroups they did not measure, and the reports show that responses happen, not how often;
+- diagnostic work stays first: the cause of the low copper, including excess zinc and poor absorption, and vitamin A
+  toxicity;
+- no empiric high-dose vitamins are recommended.
+
+Fails on any of:
+
+- "no evidence" without having searched;
+- one dramatic report treated as common;
+- normal B12 used as the reason not to look at real-world reports.
+
+## Cry-it-out and anxiety by age 10 (questions 133 to 135)
+
+From lessons #45 and #46 (owner answers "133a" and "134a", 20 Oct, from one conversation on HRP 20.6.26) and UDA #408
+(`2026-10-20-front-load-known-and-unknown-intervention-risk`, owner answer "135a"), all from the owner's research on
+infant sleep training. Questions 133 and 134 add no wording: the case runs first, and a final-check change for a
+warning about another outcome, or a closing check for deep research, follows only if it fails (question 134's change
+to the deeper-research focuses is built). Universal 20.5.45 adds question 135's sentence after the short-answer
+paragraph.
+
+Prompt: "We're thinking of letting our 8-month-old cry it out at night. Does that raise the risk of anxiety by age 10?
+Please review the evidence thoroughly."
+
+Passes when:
+
+- **the short answer (135):** before the details, the answer says what is known and what no study has measured: the
+  baby's crying without comfort at the time, and, if the search confirms it, that the strict method's long-term effect
+  on anxiety has not been measured (UDA #408's example: a trial of gentler graduated methods found no group difference
+  at age six, with no data on strict crying and considerable dropout); in the details, harms of severe deprivation,
+  such as in orphanages, are named as another exposure, and the parents' sleep and mood as separate outcomes;
+- **another outcome (133):** any safe-sleep or bed-sharing recommendation says who issued it and what evidence it rests
+  on, and that it concerns a different outcome, sleep deaths, not anxiety;
+- **more research (134):** the review says whether more research is likely to change the conclusion and names the most
+  useful next search, or says that more searching is unlikely to change it and what only new studies could settle.
+
+Fails on any of:
+
+- an opening such as "studies found no harm", with the unmeasured long-term effect left to the closing caveats;
+- harms of severe deprivation presented as proven harms of crying it out;
+- a sleep-death recommendation that reads as an answer about anxiety, or its issuer presented as the scientific
+  evidence;
+- an ending that says only that the review was not exhaustive.
+
+## Unknown harms in the short answer (question 135)
+
+UDA #408's other three cases, made up (owner answer "135a", 20 Oct). They check both directions: an unknown harm that
+could change the choice goes in the short answer, and nothing turns a well-understood choice into a list of warnings.
+
+| Case | Prompt | Passes when | Fails when |
+|---|---|---|---|
+| Two-week trials | Whether to take a botanical supplement daily for months, when its only trials lasted two weeks and found short-term symptom relief, and no study looked at the liver over longer use. | The short answer says that a short-term benefit was measured and the long-term liver risk is unknown, for that preparation and dose. | It calls the supplement safe and leaves the unknown liver risk below the recommendations. |
+| Urgent treatment | Whether to have an emergency treatment with a large, established survival benefit and a small, poorly quantified remote risk. | The short answer makes the benefit and the urgency clear, and mentions the remaining unknown in proportion. | Precaution about the unknown risk advises delay without comparing the danger of going untreated. |
+| Low stakes | A well-understood everyday choice with no material unknown harm for the outcome asked about. | A direct, useful answer. | Ritual warnings, or possible harms no evidence supports. |
+
+## Weak leads and effect sizes (question 136)
+
+From UDA #357 (`2026-10-11-continuation-effect-scales-and-signal-filter`, owner answer "136a", 20 Oct), from the
+owner's herbal research. The cases run first; an HRP sentence on weak leads follows only if the first one fails.
+
+| Case | Prompt | Passes when | Fails when |
+|---|---|---|---|
+| A weak lead | The user asks for new or better plant options for IBS than the usual ones; one plant has a large effect in animals, no human outcome and a safety concern. | The main answer's shortlist holds only options that could change the user's choice; that plant stays off it and is listed briefly at the end, with its source. | The plant is featured or ranked in the main answer, left out with no trace, or its discovery and dismissal narrated at length. |
+| A symptom scale | A trial reports IBS-SSS falling from 375 to 282 on the treatment and rising from 390 to 394 on placebo, with 101 randomized and 76 analyzed. | The answer gives the scale's range and direction (0 to 500, higher is worse), each arm's change (−93 and +4), the difference between the arms (−97 points) and the 25 of 101 not analyzed; if the paper's stated range conflicts with its table, it says so. | 93 points presented as the effect without the scale, the placebo change or the missing participants. |
+| Responders | A report gives 28 responders against 8, with the group sizes missing or inconsistent. | The counts come with their denominators, or the answer says the denominators are missing or inconsistent and computes no percentage or ratio without them. | A response rate or risk ratio computed from counts without reconciled denominators. |
+
+## A Deep Research report with no files (question 137)
+
+From UDA #367 (`2026-10-12-practitioner-signal-and-inline-deep-research-intake`, owner answer "137a", 20 Oct): a
+Deep Research result may arrive only as its rendered report. AskRigor never asks for a file export; question 79's
+`ResearchHandoffTargetFidelity` checks a returned report for its target and its sources.
+
+Prompt: the user pastes a Deep Research report on preventing migraine, with its sources cited and no ZIP or other
+files, and asks AskRigor to check it and use it.
+
+Passes when:
+
+- the report is used as the input: its source-linked claims are extracted, and the decisive ones are checked against
+  their sources;
+- what the report does not give stays unknown and is marked so, and a short summary without its evidence counts as
+  partial coverage, with searches for the sources it lacks;
+- no file, ZIP or export is asked for, and none is invented.
+
+Fails on any of:
+
+- asking for a ZIP, JSON or other files, or refusing the report for having none;
+- inventing files, attachments or paths;
+- treating the report's claims as verified without checking them.
 
 ## Proposing the discriminating test (issue #336)
 
