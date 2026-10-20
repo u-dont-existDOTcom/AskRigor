@@ -187,6 +187,13 @@ contact/credential screen run before storage. These deterministic checks reduce
 risk but do not prove complete deidentification; this is one reason proposals
 remain pending review.
 
+The contact screen reads the free field names under `receipts[].details` as well
+as values. Its street-address pattern is an English street-suffix list, so it
+misses addresses written in other languages and also refuses some ordinary
+research text, such as "900 mg St. John's wort", "12 month ln ratio" or
+"2 patients seen by dr". The refusal names the pattern that matched, so the
+sender can reword.
+
 A proposal these checks refuse comes back with every problem found (owner
 question 127): each with its field path, its rule, what the contract expects
 there and an example from AskRigor's own example records, bounded and in a fixed
