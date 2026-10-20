@@ -27,13 +27,19 @@ before substantive reasoning. A familiar rule is not applicable merely because
 it is generally sound or prominent. Test its intended problem, current phase,
 evidence of applicability, useful work it would suppress, and any more-specific
 instruction or first-principles objective. A correct heuristic applied to the
-wrong phase is an error. If a failure class recurs after a fix, whether the
-user or a review, test or run finds it again, stop local fixes: name the class
-and diagnose the higher-level attractor or the mechanism's fit rather than add
-another local exception (UDA `patterns/reasoning-selection.md`, recurring-finding
-check). Pattern matching (regular expressions, word lists) decides exact,
-structural questions only; judgments about meaning go to the model or to an
-exact check of what it declares (same pattern, pattern-matching fit check).
+wrong phase is an error. For any substantive or iterative task, fit the method
+to what the task must decide before building it (a model judges meaning, code
+computes exact things, a test answers what can be observed), judge progress by
+the owner's outcome, and when the same kind of fix keeps being needed, say so
+and switch to a causally different approach (canonical Universal
+`forward_motion_and_turn_completion_gate` item 11). If a failure class recurs
+after a fix, whether the user or a review, test or run finds it again, stop
+local fixes: name the class and diagnose the higher-level attractor or the
+mechanism's fit rather than add another local exception (UDA
+`patterns/reasoning-selection.md`, recurring-finding check). Pattern matching
+(regular expressions, word lists) decides exact, structural questions only;
+judgments about meaning go to the model or to an exact check of what it
+declares (same pattern, pattern-matching fit check).
 
 Before using preregistration, freezing, untouched-holdout, leakage, retuning,
 multiple-testing, anti-overfitting, post-hoc, or confirmation restrictions,
