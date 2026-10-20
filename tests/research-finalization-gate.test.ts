@@ -23,6 +23,7 @@ import {
   verifyResearchReceipt
 } from "../apps/research-mcp/src/research-receipts.js";
 
+import { communitySkipCaveat, COMMUNITY_SKIP_LIMIT } from "./helpers/community-skip.js";
 import { assertNextStepsContract, fixtureStudyLinks } from "./helpers/finalize-next-steps-contract.js";
 
 // Pinned word for word: a lead receipt is signed only with the exact searches recorded.
@@ -187,8 +188,14 @@ const finalizeResearchRaw = (input: Record<string, unknown>, gateOptions: Parame
     ...communityDefaults(input), ...offerDefaults(input), ...absenceDefaults(input), ...scaleDefaults(input), ...claimDefaults(input), ...input,
     ...threadSelectionDefaults({ ...communityDefaults(input), ...input }),
     ...(typeof input.answer_draft === "string"
-      ? { answer_draft: `${fixtureStudyLinks(input)}\n\n${input.answer_draft}` } : {})
+      ? { answer_draft: `${fixtureStudyLinks(input)}\n\n${input.answer_draft}${skipParagraph(input)}` } : {})
   }, gateOptions);
+// An answer whose call declares community evidence not relevant for no real-world outcome states the server's sentence
+// with the declared reason (owner question 125); fixtures of other checks carry it as a paragraph of its own.
+function skipParagraph(input: Record<string, unknown>): string {
+  return input.community_evidence === "not_relevant" && input.not_relevant_basis === "no_real_world_outcome" &&
+    typeof input.not_relevant_reason === "string" ? `\n\n${communitySkipCaveat(input.not_relevant_reason)}` : "";
+}
 const finalizeResearchGate = (input: Record<string, unknown>, gateOptions: typeof options) => {
   const request = { another_pass_estimate: PASS_ESTIMATE, ...communityDefaults(input), ...input };
   return finalizeResearchRaw(
@@ -1541,12 +1548,14 @@ describe("finalize_research gate", () => {
     const bounded = "Where this answer says something was not found, it means the searches made here (PubMed and Europe " +
       "PMC) did not find it, and they did not cover older or variant terms, citation chains and grey literature; that " +
       "is not evidence that it does not exist.";
-    expect(check({}).caveats).toEqual([bounded]);
+    // The first caveat is the community search skipped for no real-world outcome (owner question 125).
+    const skip = communitySkipCaveat(base.not_relevant_reason);
+    expect(check({}).caveats).toEqual([skip, bounded]);
     expect(check({}).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([leftOut(bounded)]);
     expect(check({ answer_draft: `${answer} ${bounded}` })).toMatchObject({ status: "ready_with_limits", next_steps: [] });
     const covered = "Where this answer says something was not found, it means the searches made here (PubMed and Europe " +
       "PMC) did not find it; that is not evidence that it does not exist.";
-    expect(check({ search_coverage: ["historical_terms", "citation_chains", "grey_literature"] }).caveats).toEqual([covered]);
+    expect(check({ search_coverage: ["historical_terms", "citation_chains", "grey_literature"] }).caveats).toEqual([skip, covered]);
     expect(check({ receipts: [study] }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
       "The answer says something was not found, but no literature search receipt was passed: search with " +
         "search_pubmed or search_europe_pmc (and search_clinical_trials for trials) and pass their research receipts."
@@ -2587,8 +2596,8 @@ describe("finalize_research gate", () => {
       treatment_choice: "not_compared", research_target: TARGET,
       key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }]
     }, options);
-    expect(studiesOnly).toMatchObject({ status: "ready_with_limits", limits: [offerLimit(false)] });
-    expect(studiesOnly.caveats).toEqual(STUDIES_OFFER_CAVEATS);
+    expect(studiesOnly).toMatchObject({ status: "ready_with_limits", limits: [COMMUNITY_SKIP_LIMIT, offerLimit(false)] });
+    expect(studiesOnly.caveats).toEqual([communitySkipCaveat("A question about one lab value."), ...STUDIES_OFFER_CAVEATS]);
     // An answer that researched neither studies nor communities has nothing to offer.
     expect(finalizeResearch({
       receipts: [], community_evidence: "not_relevant", not_relevant_reason: "A dose arithmetic question.",
@@ -2799,14 +2808,15 @@ describe("finalize_research gate", () => {
       not_relevant_reason: "Dose conversion question with no treatment choice.",
       key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "PMC10518852", status: "validated" }]
     }, options);
-    // Its only limit is the first pass's offer of a deeper study review.
-    expect(reasoned).toMatchObject({ status: "ready_with_limits", limits: [offerLimit(false)] });
+    // Its limits are the skipped community search, which the answer states with the reason (owner question 125), and
+    // the first pass's offer of a deeper study review.
+    expect(reasoned).toMatchObject({ status: "ready_with_limits", limits: [COMMUNITY_SKIP_LIMIT, offerLimit(false)] });
     expect(finalizeResearch({
       receipts: [study], community_evidence: "not_relevant", treatment_choice: "not_compared", research_target: TARGET,
       not_relevant_basis: "no_real_world_outcome",
       not_relevant_reason: "Dose conversion question with no treatment choice.", research_depth: "deep",
       key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "PMC10518852", status: "validated" }]
-    }, options).status).toBe("ready");
+    }, options)).toMatchObject({ status: "ready_with_limits", limits: [COMMUNITY_SKIP_LIMIT] });
   });
 
   it("reports when receipts cannot be verified on this server", () => {
@@ -3033,8 +3043,10 @@ describe("findings card at the final gate", () => {
     const quote = "Le foie élimine ce médicament en quelques heures.";
     const card = withFinding({ answer_quote: quote, sources: ["PMC10518852"], tags: ["full_text_read"] });
     const french = finalizeResearch({ ...base, findings_card: card, answer_draft: quote, answer_language: "fr" }, options);
+    // Its one limit and caveat are the skipped community search, which the fixture states (owner question 125).
     expect(french).toMatchObject({
-      status: "ready", next_steps: [], limits: [], caveats: [], findings_card: { status: "checked" }
+      status: "ready_with_limits", next_steps: [], limits: [COMMUNITY_SKIP_LIMIT],
+      caveats: [communitySkipCaveat(base.not_relevant_reason)], findings_card: { status: "checked" }
     });
     expect(findingsClaim(french.finalization_receipt)).toBe(findingsCardDigest(findingsCardSchema.parse(card)));
   });
@@ -3115,7 +3127,8 @@ describe("findings card at the final gate", () => {
       caveat_renderings: [{ caveat: FINDINGS_SAVE_OFFER, text: offer }]
     }, offerOptions);
     expect(translated).toMatchObject({
-      status: "ready", next_steps: [], limits: [], caveats: [FINDINGS_SAVE_OFFER], findings_card: { status: "checked" }
+      status: "ready_with_limits", next_steps: [], limits: [COMMUNITY_SKIP_LIMIT],
+      caveats: [communitySkipCaveat(base.not_relevant_reason), FINDINGS_SAVE_OFFER], findings_card: { status: "checked" }
     });
     expect(finalizeResearch({ ...base, findings_card: card, answer_draft: quote, answer_language: "fr" }, offerOptions).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toEqual([leftOut(FINDINGS_SAVE_OFFER)]);

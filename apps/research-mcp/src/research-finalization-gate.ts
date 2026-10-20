@@ -93,6 +93,19 @@ export const TOOL_LIST_REFRESH_HINT = "If this chat's AskRigor tool has no such 
 export const LEAD_RECEIPT_SEARCH = "A lead receipt needs the public-copy search recorded: search for the exact DOI " +
   "and the exact title, then pass those searches as public_copy_search and any public copy found as candidate_urls.";
 
+// Community evidence declared not relevant because the question has no real-world outcome: the answer says so in this
+// sentence, completed by the reason the call declares (owner question 125, from lesson #38, where a question whether
+// two product names meant the same thing was answered from chemistry alone and nothing showed the skip).
+export const COMMUNITY_SKIP_CAVEAT_START = "I did not search firsthand reports or community discussions for this answer:";
+export const COMMUNITY_SKIP_LIMIT = "Firsthand reports and community discussions were not searched, for a question " +
+  "declared to have no real-world outcome: say so in the answer, with the reason, as the caveat does.";
+
+/** The skip's caveat: the server's words and the declared reason, on one line, ending as a sentence. */
+export function communitySkipCaveat(reason: string): string {
+  const stated = reason.replace(/\s+/gu, " ").trim();
+  return `${COMMUNITY_SKIP_CAVEAT_START} ${stated}${/\p{STerm}$/u.test(stated) ? "" : "."}`;
+}
+
 // What a harm or safety sentence rests on (owner questions 86 and 89; a share of
 // selected reports, lesson #25 by owner question 92).
 export const SAFETY_BASES = [
@@ -171,7 +184,9 @@ export const finalizeResearchInputSchema = z.object({
   not_relevant_basis: z.enum(["no_real_world_outcome", "emergency_before_triage"]).optional()
     .describe("Why firsthand reports cannot matter: no real-world outcome (a definition, calculation, or chemical or " +
       "mechanistic question), or an emergency before triage."),
-  not_relevant_reason: z.string().trim().min(1).max(1_000).optional(),
+  not_relevant_reason: z.string().trim().min(1).max(1_000).optional()
+    .describe("Needed with not_relevant: why firsthand reports cannot matter, in plain words. With " +
+      `no_real_world_outcome the answer states it in the caveat "${COMMUNITY_SKIP_CAVEAT_START} [reason]."`),
   material_video_ids: z.array(youtubeVideoIdSchema).max(60).optional()
     .describe("Videos worth auditing: each adds an approach or substantial firsthand experience. Defaults to every audited video."),
   no_material_video_reason: z.string().trim().min(1).max(1_000).optional()
@@ -1212,6 +1227,17 @@ export function finalizeResearch(
         );
       }
       if (input.key_sources.length > 0) commercialReviewCoverage(input, { nextSteps, requireDeclaration });
+      // The skip shows in the answer, with the reason this call declares (owner question 125). The reason reaches the
+      // reader, so it shows no internal labels; whether it is a good reason stays the model's declaration.
+      if (input.not_relevant_reason !== undefined) {
+        const labels = internalLabels(input.not_relevant_reason, options.protocolNames ?? new Set());
+        if (labels.length > 0) {
+          nextSteps.push(`not_relevant_reason shows internal labels (${labels.slice(0, 8).join(", ")}` +
+            `${labels.length > 8 ? ", and more" : ""}): the answer states this reason in its caveat, so give it in ` +
+            "plain words.");
+        }
+        requireLimit(COMMUNITY_SKIP_LIMIT, communitySkipCaveat(input.not_relevant_reason));
+      }
     }
   } else {
     const communities = input.principal_communities;
@@ -2310,6 +2336,25 @@ const looksLikeVideoId = (token: string) =>
 const PASTED_FORUM_TEMPLATE = /strict-core cohort and separately labeled adjacent cohorts/iu;
 const URL = /https?:\/\/\S+/gu;
 
+/**
+ * The internal labels a text would show a reader: snake-case tokens outside links (not a Reddit name after r/ or u/,
+ * not a video ID, nor one `exempt` accepts), protocol names, and internal phrases. Exact token checks, the same in any
+ * language; what the text means is not read.
+ */
+function internalLabels(text: string, protocolNames: ReadonlySet<string>,
+  exempt: (token: string) => boolean = () => false): string[] {
+  // Links may carry IDs and underscores legitimately; the words around them may not.
+  const prose = text.replace(URL, " ");
+  return [...new Set([
+    ...[...prose.matchAll(SNAKE_CASE_LABEL)].filter((match) => {
+      const prefix = prose.slice(Math.max(0, match.index - 2), match.index);
+      return prefix !== "r/" && prefix !== "u/" && !looksLikeVideoId(match[0]) && !exempt(match[0]);
+    }).map(([label]) => label),
+    ...[...prose.matchAll(CAPITALIZED_TOKEN)].map(([name]) => name).filter((name) => protocolNames.has(name)),
+    ...[...prose.matchAll(INTERNAL_PHRASE)].map(([label]) => label.toLowerCase())
+  ])];
+}
+
 /** A lane the answer must report, with the answer's sentences the model says report each finding. */
 interface AnswerLane {
   // As next steps name it: "the YouTube comments", or the community.
@@ -2352,16 +2397,9 @@ function answerDraftProblems(
   const prose = draft.replace(URL, " ");
   // What the answer must say is read from the prose a reader sees; what it must not show, from the whole draft.
   const shownBlocks = displayedProse(draft);
-  const labels = [...new Set([
-    ...[...prose.matchAll(SNAKE_CASE_LABEL)].filter((match) => {
-      const prefix = prose.slice(Math.max(0, match.index - 2), match.index);
-      return prefix !== "r/" && prefix !== "u/" && !looksLikeVideoId(match[0]) &&
-        ![...context.caveats, ...context.communityNames].some((text) =>
-          [...text.matchAll(SNAKE_CASE_LABEL)].some(([token]) => token === match[0]));
-    }).map(([label]) => label),
-    ...[...prose.matchAll(CAPITALIZED_TOKEN)].map(([name]) => name).filter((name) => context.protocolNames.has(name)),
-    ...[...prose.matchAll(INTERNAL_PHRASE)].map(([label]) => label.toLowerCase())
-  ])];
+  const labels = internalLabels(draft, context.protocolNames, (token) =>
+    [...context.caveats, ...context.communityNames].some((text) =>
+      [...text.matchAll(SNAKE_CASE_LABEL)].some(([caveatToken]) => caveatToken === token)));
   if (labels.length > 0) {
     problems.push(
       `The answer shows internal labels (${labels.slice(0, 8).join(", ")}${labels.length > 8 ? ", and more" : ""}): ` +

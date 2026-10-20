@@ -15,6 +15,7 @@ import {
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { indexJatsStudyDocument, type EuropePmcFullTextArticle } from "../packages/sources/src/index.js";
 
+import { communitySkipCaveat } from "./helpers/community-skip.js";
 import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
 // Owner questions 87 to 89 (issues #329 to #331): a study audit's headline figures, recomputed from the paper's own
@@ -171,6 +172,9 @@ describe("finalize_research reads each key study's figures check", () => {
     issueResearchReceipt("study_audit", { status: "complete_no_unresolved_fields", ...claims }, { secret: SECRET });
   const declaration = { status: "not_applicable" as const, reason: "Synthetic fixture isolates figure checks." };
   const LINKS = `[Paper 2017](https://doi.org/${A}) and [Paper 2018](https://doi.org/${B}) were read.`;
+  // The answer states the community search its no_real_world_outcome declaration skipped (owner question 125); it
+  // is the first caveat.
+  const SKIP = communitySkipCaveat("Synthetic fixture isolates structural checks.");
   const check = (receipts: string[], draft = LINKS) => assertNextStepsContract(finalizeResearch({
     receipts, research_target: "Synthetic reported-figure checks", research_depth: "deep", treatment_choice: "not_compared",
     community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome",
@@ -181,7 +185,7 @@ describe("finalize_research reads each key study's figures check", () => {
       { id: A, status: "validated", read_depth: "full_text_audited", answer_marker: "Paper 2017" },
       { id: B, status: "validated", read_depth: "full_text_audited", answer_marker: "Paper 2018" }
     ],
-    absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [], answer_draft: draft
+    absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [], answer_draft: `${draft}\n\n${SKIP}`
   } satisfies FinalizeResearchInput, { secret: SECRET }));
   const IDENTICAL = "Paper 2017 and Paper 2018 report identical results, so they are counted once, not as independent replication.";
 
@@ -195,10 +199,10 @@ describe("finalize_research reads each key study's figures check", () => {
         "when it reports no numeric result; pass the research_receipt it returns.",
       TOOL_LIST_REFRESH_HINT
     ]);
-    expect(check([sign({ id: A }), sign({ id: B })]).status).toBe("ready");
+    expect(check([sign({ id: A }), sign({ id: B })]).status).toBe("ready_with_limits");
     // The latest audit of a study is the one that counts.
     expect(check([sign({ id: A, fig: "not_declared", t: 1 }), sign({ id: A, fig: "consistent", figv: ["5"], t: 2 }),
-      sign({ id: B })]).status).toBe("ready");
+      sign({ id: B })]).status).toBe("ready_with_limits");
   });
 
   it("carries a study's inconsistency and its impossible values into the answer as caveats", () => {
@@ -207,16 +211,16 @@ describe("finalize_research reads each key study's figures check", () => {
     const impossible = "The value 96 mmol/g in Paper 2018 is physically impossible as printed, so it is not used.";
     const receipts = [sign({ id: A, fig: "internally_inconsistent", figv: ["64.51"] }),
       sign({ id: B, fig: "consistent", figv: ["96"], imp: ["96 mmol/g"] })];
-    expect(check(receipts).caveats).toEqual([inconsistent, impossible]);
+    expect(check(receipts).caveats).toEqual([SKIP, inconsistent, impossible]);
     expect(check(receipts, `${LINKS}\n\n${inconsistent} ${impossible}`).status).toBe("ready_with_limits");
   });
 
   it("counts two key studies with two or more identical figures once", () => {
     const swapped = [sign({ id: A, fig: "consistent", figv: ["74.25", "65.25", "53.25"] }),
       sign({ id: B, fig: "consistent", figv: ["53.25", "74.25", "65.25"] })];
-    expect(check(swapped).caveats).toEqual([IDENTICAL]);
+    expect(check(swapped).caveats).toEqual([SKIP, IDENTICAL]);
     expect(check(swapped, `${LINKS}\n\n${IDENTICAL}`).status).toBe("ready_with_limits");
     expect(check([sign({ id: A, fig: "consistent", figv: ["74.25", "12"] }),
-      sign({ id: B, fig: "consistent", figv: ["74.25", "13"] })]).caveats).toEqual([]);
+      sign({ id: B, fig: "consistent", figv: ["74.25", "13"] })]).caveats).toEqual([SKIP]);
   });
 });

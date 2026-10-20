@@ -1112,7 +1112,12 @@ pending-proposal stores have their own strict contracts and authority boundaries
   recommendation repeat the declared intervention, open inputs and follow-up,
   so the answer can state them; a recommendation's next step names the
   declared intervention. `not_relevant_basis` is one of two
-  fixed values.
+  fixed values. With `no_real_world_outcome`, the caveat the answer must state
+  repeats the declared `not_relevant_reason` ("I did not search firsthand
+  reports or community discussions for this answer: …"), and a reason showing
+  internal labels gets a next step naming them; like the other declarations,
+  the reason is request-local: not stored or logged, not in the finalization
+  receipt or the carried state, and never saved with a findings card.
 - The MCP `scout_gemini_youtube_candidates` tool runs the same de-identified,
   population-level scout as the controlled Action route, applying the same
   screen: a target with first-person words, contact details, links, keys or

@@ -8,14 +8,15 @@ import {
 } from "../apps/research-mcp/src/final-check-panel.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import {
-  finalizeResearch, type FinalizeResearchInput,
+  COMMUNITY_SKIP_LIMIT, communitySkipCaveat, finalizeResearch, type FinalizeResearchInput,
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 
 const MIME = "text/html;profile=mcp-app";
 const SECRET = "final-check-panel-test-secret-01234567890123456789";
 
-// Same validated, full-text-audited fixture and ready expectation as finalize-read-depth.test.ts.
+// Same validated, full-text-audited fixture as finalize-read-depth.test.ts; its one limit is the community search its
+// no_real_world_outcome declaration skipped, which the answer states (owner question 125).
 function fixture(): FinalizeResearchInput {
   return {
     receipts: [issueResearchReceipt("study_audit", { doi: "10.1000/depth", content: "a".repeat(16) }, { secret: SECRET })],
@@ -28,7 +29,8 @@ function fixture(): FinalizeResearchInput {
     lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
     key_sources: [{ id: "10.1000/depth", status: "validated", read_depth: "full_text_audited", answer_marker: "[Texte lu]" }],
     absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
-    answer_draft: "[Texte lu] [Étude](https://doi.org/10.1000/depth).",
+    answer_draft: "[Texte lu] [Étude](https://doi.org/10.1000/depth).\n\n" +
+      communitySkipCaveat("Synthetic fixture isolates structural reading-depth checks."),
   };
 }
 
@@ -72,10 +74,10 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
       expect(result.isError).not.toBe(true);
       expect(result.structuredContent).toEqual(finalizeResearch(input, { secret: SECRET, findings: "closed" }));
       expect(result.structuredContent).toMatchObject({
-        status: "ready", check_line: "Checked with AskRigor's final check.",
-        next_steps: [], limits: [], sources: { validated: ["10.1000/depth"], lead_only: [] },
+        status: "ready_with_limits", check_line: "Checked with AskRigor's final check, with the limits above.",
+        next_steps: [], limits: [COMMUNITY_SKIP_LIMIT], sources: { validated: ["10.1000/depth"], lead_only: [] },
       });
-      expect(result.content).toEqual([{ type: "text", text: expect.stringContaining("Research finalization: ready; 0 next step(s), 0 limit(s) to state;") }]);
+      expect(result.content).toEqual([{ type: "text", text: expect.stringContaining("Research finalization: ready_with_limits; 0 next step(s), 1 limit(s) to state;") }]);
       // The panel draws one line from the structured result; nothing is sent only for it.
       expect(result._meta).toBeUndefined();
     } finally { await client.close(); await server.close(); }

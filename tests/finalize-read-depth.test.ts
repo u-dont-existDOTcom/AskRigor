@@ -7,6 +7,7 @@ import {
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
+import { withCommunitySkip } from "./helpers/community-skip.js";
 import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
 const SECRET = "read-depth-test-secret-01234567890123456789";
@@ -42,7 +43,7 @@ describe.each(["gate", "MCP endpoint"] as const)("read_depth through %s", (surfa
   });
   afterAll(async () => { await client?.close(); await server?.close(); vi.unstubAllEnvs(); });
   const call = async (overrides: Partial<FinalizeResearchInput> = {}): Promise<FinalizeResearchOutput> => {
-    const input = base(overrides);
+    const input = withCommunitySkip(base(overrides));
     if (surface === "gate") return assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
     const result = await client!.callTool({ name: "finalize_research", arguments: { ...input } });
     expect(result.isError).not.toBe(true);
@@ -56,7 +57,7 @@ describe.each(["gate", "MCP endpoint"] as const)("read_depth through %s", (surfa
     expect(result.next_steps.filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
   });
   it.each(READ_DEPTH_VALUES)("accepts %s with an audit receipt", async (read_depth) => {
-    expect((await call({ key_sources: [{ id: DOI, status: "validated", read_depth, answer_marker: MARKER }] })).status).toBe("ready");
+    expect((await call({ key_sources: [{ id: DOI, status: "validated", read_depth, answer_marker: MARKER }] })).status).toBe("ready_with_limits");
   });
   it.each(READ_DEPTH_VALUES)("checks %s against no receipt, a reading receipt and both audit kinds", async (read_depth) => {
     for (const kind of [undefined, "full_text_read", "study_audit", "review_audit"] as const) {
@@ -111,11 +112,11 @@ describe.each(["gate", "MCP endpoint"] as const)("read_depth through %s", (surfa
     expect(result.next_steps.join(" ")).toContain("no answer_marker on the same line");
   });
   it("accepts a Markdown table row", async () => {
-    expect((await call({ answer_draft: `| Source | Reading |\n| --- | --- |\n| [Étude](https://doi.org/${DOI}) | ${MARKER} |` })).status).toBe("ready");
+    expect((await call({ answer_draft: `| Source | Reading |\n| --- | --- |\n| [Étude](https://doi.org/${DOI}) | ${MARKER} |` })).status).toBe("ready_with_limits");
   });
   it("normalizes visible emphasis and Unicode without judging the marker's meaning", async () => {
     expect((await call({ key_sources: [{ id: DOI, status: "validated", read_depth: "full_text_read", answer_marker: "Résumé lu" }],
-      answer_draft: `**Résumé** lu [Étude](https://doi.org/${DOI})` })).status).toBe("ready");
+      answer_draft: `**Résumé** lu [Étude](https://doi.org/${DOI})` })).status).toBe("ready_with_limits");
   });
   it("does not require a marker before an answer draft", async () => {
     const result = await call({ answer_draft: undefined,
@@ -124,7 +125,7 @@ describe.each(["gate", "MCP endpoint"] as const)("read_depth through %s", (surfa
   });
   it("matches a PMID's verified DOI alias", async () => {
     expect((await call({ receipts: [sign("study_audit"), issueResearchReceipt("pubmed_record", { pmid: "1234", doi: DOI }, { secret: SECRET })],
-      key_sources: [{ id: "1234", status: "validated", read_depth: "full_text_audited", answer_marker: MARKER }] })).status).toBe("ready");
+      key_sources: [{ id: "1234", status: "validated", read_depth: "full_text_audited", answer_marker: MARKER }] })).status).toBe("ready_with_limits");
   });
 });
 

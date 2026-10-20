@@ -46,7 +46,7 @@ const {
   validateStudyMethodAudit,
 } = await import("../apps/research-mcp/src/index.js");
 const { registerTools } = await import("../apps/research-mcp/src/register-tools.js");
-const { finalizeResearchInputSchema } = await import("../apps/research-mcp/src/research-finalization-gate.js");
+const { communitySkipCaveat, finalizeResearchInputSchema } = await import("../apps/research-mcp/src/research-finalization-gate.js");
 const { verifyResearchReceipt } = await import("../apps/research-mcp/src/research-receipts.js");
 
 const DOI = "10.1002/art.41142";
@@ -391,7 +391,9 @@ describe("the server sends a free contributor's validated analyses when the fina
       research_depth: "deep",
       intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
       key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: DOI, status: "validated" }],
-      answer_draft: `The liver clears this drug within a few hours. [Study](https://doi.org/${DOI})`,
+      // With the sentence its no_real_world_outcome declaration requires (owner question 125).
+      answer_draft: `The liver clears this drug within a few hours. [Study](https://doi.org/${DOI})\n\n` +
+        communitySkipCaveat("How the body clears a drug, with no real-world outcome."),
       absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
     }), "auth0|free");
     const receipt = (validated.structuredContent as { research_receipt: string }).research_receipt;
@@ -401,7 +403,7 @@ describe("the server sends a free contributor's validated analyses when the fina
     });
     const done = await finalize([receipt]);
     expect(done.structuredContent).toMatchObject({
-      status: "ready",
+      status: "ready_with_limits",
       analyses_saved: { saved: 1, already_saved: 0, unconfirmed: 0, not_saved: [] },
     });
     expect(JSON.stringify(done.content)).toContain("Study and review analyses from this account's research, in this chat or another, sent to the review inbox: 1.");

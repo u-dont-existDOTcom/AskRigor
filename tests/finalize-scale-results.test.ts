@@ -15,6 +15,7 @@ import {
 import { issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 
+import { COMMUNITY_SKIP_LIMIT, withCommunitySkip } from "./helpers/community-skip.js";
 import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
 const SECRET = "scale-results-test-secret-01234567890123456789";
@@ -73,18 +74,20 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
     vi.unstubAllEnvs();
   });
   const call = async (overrides: Partial<FinalizeResearchInput> = {}): Promise<FinalizeResearchOutput> => {
-    const input = packageFor(overrides);
+    const input = withCommunitySkip(packageFor(overrides));
     if (input.answer_draft !== undefined) input.answer_draft += "\n\n[Study](https://doi.org/10.1002/art.41142)";
     if (surface === "gate") return assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
     const result = await client!.callTool({ name: "finalize_research", arguments: { ...input } });
     expect(result.isError).not.toBe(true);
     return assertNextStepsContract(result.structuredContent as FinalizeResearchOutput);
   };
+  // Its one limit is the community search skipped for no real-world outcome (owner question 125).
   const ready = (result: FinalizeResearchOutput) => {
-    expect(result.status).toBe("ready");
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.limits).toEqual([COMMUNITY_SKIP_LIMIT]);
     expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(verifyResearchReceipt(result.finalization_receipt!, { secret: SECRET })).toMatchObject({
-      ok: true, kind: "finalization", claims: { status: "ready" }
+      ok: true, kind: "finalization", claims: { status: "ready_with_limits" }
     });
   };
   const blocked = (result: FinalizeResearchOutput, steps: string[]) => {

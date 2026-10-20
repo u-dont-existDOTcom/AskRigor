@@ -37,6 +37,7 @@ import type { LessonAttemptLimiter } from "../apps/research-mcp/src/lessons/rate
 import { RESEARCH_OPERATIONS, registerTools, type RegisterToolsOptions } from "../apps/research-mcp/src/register-tools.js";
 import { issueResearchReceipt, researchTargetDigest } from "../apps/research-mcp/src/research-receipts.js";
 import { TOOL_LIST_REFRESH_HINT } from "../apps/research-mcp/src/research-finalization-gate.js";
+import { communitySkipCaveat } from "./helpers/community-skip.js";
 import { CARD, parsedCard } from "./helpers/findings-fixtures.js";
 
 const SECRET = "findings-library-test-secret-0123456789";
@@ -459,6 +460,8 @@ describe("finalize_research, save_research_findings and the findings library", (
   const IDENTITY_SECRET = new TextEncoder().encode("synthetic-research-identity-secret-with-at-least-thirty-two-bytes");
   const TARGET = "How the body clears a drug in adults";
   const QUOTE = "The liver clears this drug within a few hours.";
+  // The answer states the community search its no_real_world_outcome declaration skipped (owner question 125).
+  const SKIP = communitySkipCaveat("How the body clears a drug, with no real-world outcome.");
   const CHECKED_CARD = {
     ...CARD,
     findings: [{ ...CARD.findings[0], answer_quote: QUOTE, sources: ["PMC10518852"], tags: ["full_text_read"] }],
@@ -530,7 +533,7 @@ describe("finalize_research, save_research_findings and the findings library", (
     findings_card: CHECKED_CARD,
     reported_model: "Example Model 2026-08-06",
     ...overrides,
-    answer_draft: `${overrides.answer_draft ?? QUOTE}\n\n[Study](https://pmc.ncbi.nlm.nih.gov/articles/PMC10518852/)`,
+    answer_draft: `${overrides.answer_draft ?? QUOTE}\n\n[Study](https://pmc.ncbi.nlm.nih.gov/articles/PMC10518852/)\n\n${SKIP}`,
   });
 
   function recorder(reply: FindingsSaveResult = {
@@ -554,8 +557,8 @@ describe("finalize_research, save_research_findings and the findings library", (
     const result = await finalize(request(), "auth0|free");
     expect(result.isError).not.toBe(true);
     expect(result.structuredContent).toMatchObject({
-      status: "ready",
-      caveats: [],
+      status: "ready_with_limits",
+      caveats: [SKIP],
       findings_card: { status: "checked", problems: [], saved: { status: "saved", card_id: "ARF-0042" } },
     });
     expect(JSON.stringify(result.content)).toContain("Findings card: checked; saved for review as ARF-0042.");
@@ -594,7 +597,7 @@ describe("finalize_research, save_research_findings and the findings library", (
     const finalize = connectorTool("finalize_research", { researchContributorAccessService: await accessService(), findingsLibrary: true, findingsSave });
     const result = await finalize(request(), "auth0|free");
     expect(result.structuredContent).toMatchObject({
-      status: "ready",
+      status: "ready_with_limits",
       findings_card: { status: "checked", saved: { status: "not_saved", reason: "hourly_limit" } },
     });
     expect(JSON.stringify(result.content)).toContain("Findings card: checked; not saved.");
@@ -610,7 +613,7 @@ describe("finalize_research, save_research_findings and the findings library", (
     });
     const result = await finalize(request(), "auth0|free");
     expect(result.structuredContent).toMatchObject({
-      status: "ready",
+      status: "ready_with_limits",
       findings_card: { status: "checked", saved: { status: "unconfirmed" } },
     });
     expect(JSON.stringify(result.content)).toContain("the save had not finished; it may still complete");
@@ -624,11 +627,11 @@ describe("finalize_research, save_research_findings and the findings library", (
     const finalize = connectorTool("finalize_research", options);
     // The answer must carry the offer before the card is signed; nothing is saved at the final check.
     expect((await finalize(request(), "auth0|paid")).structuredContent).toMatchObject({
-      status: "not_ready", caveats: [FINDINGS_SAVE_OFFER], findings_card: { status: "checked" },
+      status: "not_ready", caveats: [SKIP, FINDINGS_SAVE_OFFER], findings_card: { status: "checked" },
     });
     const offered = await finalize(request({ answer_draft: `${QUOTE} ${FINDINGS_SAVE_OFFER}` }), "auth0|paid");
     expect(offered.structuredContent).toMatchObject({
-      status: "ready", caveats: [FINDINGS_SAVE_OFFER], findings_card: { status: "checked", problems: [] },
+      status: "ready_with_limits", caveats: [SKIP, FINDINGS_SAVE_OFFER], findings_card: { status: "checked", problems: [] },
     });
     expect((offered.structuredContent as { findings_card: object }).findings_card).not.toHaveProperty("saved");
     expect(calls).toEqual([]);
@@ -674,16 +677,16 @@ describe("finalize_research, save_research_findings and the findings library", (
       researchContributorAccessService: service, researchAccessRequired: false, findingsLibrary: true, findingsSave,
     });
     const anonymous = await open(request());
-    expect(anonymous.structuredContent).toMatchObject({ status: "ready", findings_card: { status: "private", problems: [] } });
+    expect(anonymous.structuredContent).toMatchObject({ status: "ready_with_limits", findings_card: { status: "private", problems: [] } });
     expect(JSON.stringify(anonymous.content)).not.toContain("Findings card");
     const { findings_card: _card, ...withoutCard } = request();
-    expect((await open(withoutCard)).structuredContent).toMatchObject({ status: "ready" });
+    expect((await open(withoutCard)).structuredContent).toMatchObject({ status: "ready_with_limits" });
 
     const closed = connectorTool("finalize_research", { researchContributorAccessService: service, findingsLibrary: false, findingsSave });
     expect((await closed(request(), "auth0|free")).structuredContent).toMatchObject({
-      status: "ready", findings_card: { status: "closed" },
+      status: "ready_with_limits", findings_card: { status: "closed" },
     });
-    expect((await closed(withoutCard, "auth0|free")).structuredContent).toMatchObject({ status: "ready" });
+    expect((await closed(withoutCard, "auth0|free")).structuredContent).toMatchObject({ status: "ready_with_limits" });
     expect(calls).toEqual([]);
   });
 

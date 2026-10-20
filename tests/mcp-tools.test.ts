@@ -27,6 +27,7 @@ import {
 import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
 import { getProtocolManifest, protocolNamedElements, protocolSections } from "../packages/protocol/src/index.js";
 import { pageKey, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
+import { COMMUNITY_SKIP_LIMIT, communitySkipCaveat } from "../apps/research-mcp/src/research-finalization-gate.js";
 
 const TOOL_NAMES = [
   "get_protocol_manifest",
@@ -861,18 +862,23 @@ describe("AskRigor MCP tools", () => {
         key_sources: [],
         absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: []
       };
-      // The answer must carry the limit before it is signed.
+      // The answer must carry the limits before it is signed: no study read in full text, and the community search
+      // skipped for no real-world outcome, in the server's sentence with the declared reason (owner question 125).
+      const noStudy = "No study's methods were checked in full text for this answer.";
+      const skip = communitySkipCaveat(dosing.not_relevant_reason);
+      expect(skip).toBe("I did not search firsthand reports or community discussions for this answer: A dosing " +
+        "arithmetic question with no treatment choice.");
       const uncaveated = await client.callTool({
         name: "finalize_research",
         arguments: { ...dosing, answer_draft: "Multiply the dose per kilogram by the body weight: 5 mg/kg for 20 kg is 100 mg." }
       });
       expect(uncaveated.structuredContent).toMatchObject({
         status: "not_ready",
-        caveats: ["No study's methods were checked in full text for this answer."],
+        caveats: [skip, noStudy],
         next_steps: [
-          "The answer leaves out this caveat; include each as its own sentence, as written (a link's text may " +
+          "The answer leaves out these caveats; include each as its own sentence, as written (a link's text may " +
             "change), or, in an answer not in English, in the answer's language with the same links, given in " +
-            "caveat_renderings: \"No study's methods were checked in full text for this answer.\""
+            `caveat_renderings: "${skip}" "${noStudy}"`
         ]
       });
       expect((uncaveated.structuredContent as { finalization_receipt?: string }).finalization_receipt).toBeUndefined();
@@ -881,23 +887,29 @@ describe("AskRigor MCP tools", () => {
         arguments: {
           ...dosing,
           answer_draft: "Multiply the dose per kilogram by the body weight: 5 mg/kg for 20 kg is 100 mg. No study's " +
-            "methods were checked in full text for this answer."
+            `methods were checked in full text for this answer. ${skip}`
         }
       });
       expect(declined.structuredContent).toMatchObject({
         status: "ready_with_limits",
         answer_checked: true,
-        limits: ["No study was declared decision-critical; say that no study's methods were checked in full text."]
+        limits: [
+          COMMUNITY_SKIP_LIMIT,
+          "No study was declared decision-critical; say that no study's methods were checked in full text."
+        ]
       });
-      // An answer in another language states the caveat in that language and says which sentence it is.
+      // An answer in another language states each caveat in that language and says which sentence it is.
       const french = "Aucune étude n'a été vérifiée en texte intégral pour cette réponse.";
+      const frenchSkip = "Je n'ai pas cherché de témoignages directs ni de discussions de communautés pour cette " +
+        "réponse : c'est une question de calcul de dose, sans choix de traitement.";
       const inFrench = await client.callTool({
         name: "finalize_research",
         arguments: {
           ...dosing,
-          answer_draft: `Multipliez la dose par kilogramme par le poids : 5 mg/kg pour 20 kg font 100 mg. ${french}`,
+          answer_draft: `Multipliez la dose par kilogramme par le poids : 5 mg/kg pour 20 kg font 100 mg. ${french}\n\n` +
+            frenchSkip,
           answer_language: "fr",
-          caveat_renderings: [{ caveat: "No study's methods were checked in full text for this answer.", text: french }]
+          caveat_renderings: [{ caveat: noStudy, text: french }, { caveat: skip, text: frenchSkip }]
         }
       });
       expect(inFrench.structuredContent).toMatchObject({ status: "ready_with_limits", next_steps: [], answer_checked: true });
@@ -913,7 +925,7 @@ describe("AskRigor MCP tools", () => {
         arguments: {
           ...dosing,
           answer_draft: "5 mg/kg for 20 kg is 100 mg. No study's methods were checked in full text for this answer. " +
-            "DeepForumAuditActivationPrompt: none needed (LimitsNote)."
+            `DeepForumAuditActivationPrompt: none needed (LimitsNote). ${skip}`
         }
       });
       expect(leaky.structuredContent).toMatchObject({

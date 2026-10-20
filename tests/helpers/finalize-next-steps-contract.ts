@@ -37,8 +37,9 @@ export const allowedNextStepIdentifiers = schemaIdentifiers(
 export function unknownNextStepIdentifiers(steps: readonly string[]): string[] {
   return [...new Set(steps.flatMap((step) =>
     // URL path components and opaque video IDs are data, not schema identifiers.
-    // The internal-labels message quotes the answer's own text; those labels are data, not schema identifiers.
-    [...step.replace(/https?:\/\/\S+/giu, "").replace(/^The answer shows internal labels \([^)]*\)/u, "").matchAll(/(?<![\w-])[a-z][a-z0-9]*(?:_[a-z0-9]+)+(?![\w-])/gu)]
+    // The internal-labels messages quote the answer's own text or its declared reason; those labels are data, not
+    // schema identifiers.
+    [...step.replace(/https?:\/\/\S+/giu, "").replace(/^(?:The answer|not_relevant_reason) shows internal labels \([^)]*\)/u, "").matchAll(/(?<![\w-])[a-z][a-z0-9]*(?:_[a-z0-9]+)+(?![\w-])/gu)]
       .map(([identifier]) => identifier).filter((identifier) => !allowedNextStepIdentifiers.has(identifier))
   ))];
 }

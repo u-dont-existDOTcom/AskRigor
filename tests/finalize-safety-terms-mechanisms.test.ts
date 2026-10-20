@@ -3,6 +3,7 @@ import {
   FINALIZE_REMINDER, finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
+import { communitySkipCaveat, withCommunitySkip } from "./helpers/community-skip.js";
 import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
 // Owner questions 86, 88 and 89 (issues #324, #325, #328, #330 and #331): harm and safety sentences, the terms a
@@ -31,8 +32,11 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
   answer_draft: LINKS, ...overrides
 });
+// The answer carries the sentence its no_real_world_outcome declaration requires (owner question 125); it is the
+// first caveat, and its limit the only one when nothing else needs stating.
+const SKIP = communitySkipCaveat("Synthetic fixture isolates structural checks.");
 const check = (overrides: Partial<FinalizeResearchInput> = {}) =>
-  assertNextStepsContract(finalizeResearch(base(overrides), { secret: SECRET }));
+  assertNextStepsContract(finalizeResearch(withCommunitySkip(base(overrides)), { secret: SECRET }));
 const steps = (overrides: Partial<FinalizeResearchInput> = {}) =>
   check(overrides).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
 type SafetyClaim = NonNullable<FinalizeResearchInput["safety_claims"]>[number];
@@ -50,8 +54,8 @@ describe("finalize_research safety_claims (owner questions 86 and 89)", () => {
       "恶心发生率为提取物组18%，安慰剂组4%。"
     ]) {
       const result = check({ answer_draft: `${LINKS}\n\n${quote}`, safety_claims: [claim({ quote })] });
-      expect(result.status).toBe("ready");
-      expect(result.caveats).toEqual([]);
+      expect(result.status).toBe("ready_with_limits");
+      expect(result.caveats).toEqual([SKIP]);
     }
   });
 
@@ -84,7 +88,7 @@ describe("finalize_research safety_claims (owner questions 86 and 89)", () => {
     for (const [overrides, caveat] of cases) {
       const quote = "The sentence the model declared.";
       const result = check({ answer_draft: `${LINKS}\n\n${quote} ${caveat}`, safety_claims: [claim({ quote, ...overrides })] });
-      expect(result.caveats).toEqual([caveat]);
+      expect(result.caveats).toEqual([SKIP, caveat]);
       expect(result.status).toBe("ready_with_limits");
       const missing = check({ answer_draft: `${LINKS}\n\n${quote}`, safety_claims: [claim({ quote, ...overrides })] });
       expect(missing.status).toBe("not_ready");
@@ -119,7 +123,7 @@ describe("finalize_research key_terms (owner question 86, issue #328)", () => {
       answer_draft: `${LINKS}\n\n${EXPLANATION} Later, organic arsenic comes up again.`,
       key_terms: [{ term: "organic arsenic", explanation: EXPLANATION }, { term: "inorganic arsenic", explanation: EXPLANATION }]
     });
-    expect(result.status).toBe("ready");
+    expect(result.status).toBe("ready_with_limits");
   });
 
   it("refuses a term used before its explanation, a missing explanation, or one without the term", () => {
@@ -143,12 +147,12 @@ describe("finalize_research key_terms (owner question 86, issue #328)", () => {
     expect(check({
       answer_draft: `${LINKS}\n\nAlthough the trial was small, it measured liver tests. ${alt}`,
       key_terms: [{ term: "ALT", explanation: alt }]
-    }).status).toBe("ready");
+    }).status).toBe("ready_with_limits");
     const japanese = "無機ヒ素とは、ひじきに多く含まれ、がんとの関連が知られている毒性の強い形のヒ素です。";
     expect(check({
       answer_draft: `${LINKS}\n\n${japanese}`,
       key_terms: [{ term: "無機ヒ素", explanation: japanese }]
-    }).status).toBe("ready");
+    }).status).toBe("ready_with_limits");
     expect(steps({
       answer_draft: `${LINKS}\n\nひじきの無機ヒ素が問題です。\n\n${japanese}`,
       key_terms: [{ term: "無機ヒ素", explanation: japanese }]
@@ -161,7 +165,7 @@ describe("finalize_research key_terms (owner question 86, issue #328)", () => {
     expect(check({
       answer_draft: `${LINKS}\n\n${explanation} Later, inorganic arsenic comes up again.`,
       key_terms: [{ term: "inorganic arsenic", explanation }]
-    }).status).toBe("ready");
+    }).status).toBe("ready_with_limits");
   });
 
   it("keeps the case of a term written in capitals, so the words its letters spell are not uses of it", () => {
@@ -169,7 +173,7 @@ describe("finalize_research key_terms (owner question 86, issue #328)", () => {
     expect(check({
       answer_draft: `${LINKS}\n\nDiet or exercise may matter. ${explanation}`,
       key_terms: [{ term: "OR", explanation }]
-    }).status).toBe("ready");
+    }).status).toBe("ready_with_limits");
     expect(steps({
       answer_draft: `${LINKS}\n\nThe OR was 2.1.\n\n${explanation}`,
       key_terms: [{ term: "OR", explanation }]
@@ -189,7 +193,7 @@ describe("finalize_research mechanism_claims (owner question 88, issue #330)", (
     };
     const missing = check({ answer_draft: `${LINKS}\n\n${QUOTE}`, mechanism_claims: [mechanism] });
     expect(missing.status).toBe("not_ready");
-    expect(missing.caveats).toEqual([CAVEAT]);
+    expect(missing.caveats).toEqual([SKIP, CAVEAT]);
     const stated = check({ answer_draft: `${LINKS}\n\n${QUOTE} ${CAVEAT}`, mechanism_claims: [mechanism] });
     expect(stated.status).toBe("ready_with_limits");
   });
@@ -198,7 +202,7 @@ describe("finalize_research mechanism_claims (owner question 88, issue #330)", (
     expect(check({
       answer_draft: `${LINKS}\n\n${QUOTE}`,
       mechanism_claims: [{ quote: QUOTE, use_route: "oral", evidence_route: "oral", evidence_in: "people", studies: [RAT] }]
-    }).status).toBe("ready");
+    }).status).toBe("ready_with_limits");
     expect(steps({
       answer_draft: `${LINKS}\n\n${QUOTE}`,
       mechanism_claims: [{

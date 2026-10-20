@@ -3,6 +3,7 @@ import {
   CORRECTION_REPORT_OFFER, finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
+import { communitySkipCaveat, withCommunitySkip } from "./helpers/community-skip.js";
 import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
 // Owner question 90 (lesson #23): what the answer puts forward for this person, with its safety check and, for long
@@ -32,8 +33,11 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
   answer_draft: LINKS, ...overrides
 });
+// The answer carries the sentence its no_real_world_outcome declaration requires (owner question 125); it follows the
+// correction caveats and precedes the others, and its limit is the only one when nothing else needs stating.
+const SKIP = communitySkipCaveat("Synthetic fixture isolates structural checks.");
 const check = (overrides: Partial<FinalizeResearchInput> = {}) =>
-  assertNextStepsContract(finalizeResearch(base(overrides), { secret: SECRET }));
+  assertNextStepsContract(finalizeResearch(withCommunitySkip(base(overrides)), { secret: SECRET }));
 const steps = (overrides: Partial<FinalizeResearchInput> = {}) =>
   check(overrides).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
 type Recommendation = NonNullable<FinalizeResearchInput["recommendations"]>[number];
@@ -46,7 +50,7 @@ describe("finalize_research recommendations (owner question 90, lesson #23)", ()
   const draft = (...sentences: string[]) => `${LINKS}\n\n${[QUOTE, ...sentences].join(" ")}`;
 
   it("accepts a resolved short-term recommendation, and asks for one the answer does not show", () => {
-    expect(check({ answer_draft: draft(), recommendations: [recommend()] }).status).toBe("ready");
+    expect(check({ answer_draft: draft(), recommendations: [recommend()] }).status).toBe("ready_with_limits");
     expect(steps({ recommendations: [recommend()] })).toEqual([
       "recommendations[0] gives text the answer does not show: copy each sentence exactly from answer_draft."
     ]);
@@ -56,12 +60,12 @@ describe("finalize_research recommendations (owner question 90, lesson #23)", ()
     const unresolved = "The medicine needs a clinician's review of a past severe reaction to a nerve-acting medicine " +
       "before it could be recommended for you.";
     const open = recommend({ safety_check: "unresolved", open_inputs: "a past severe reaction to a nerve-acting medicine" });
-    expect(check({ answer_draft: draft(), recommendations: [open] }).caveats).toEqual([unresolved]);
+    expect(check({ answer_draft: draft(), recommendations: [open] }).caveats).toEqual([SKIP, unresolved]);
     expect(check({ answer_draft: draft(unresolved), recommendations: [open] }).status).toBe("ready_with_limits");
     const conditional = "The medicine depends on normal kidney function, which a clinician should confirm first.";
     expect(check({
       answer_draft: draft(), recommendations: [recommend({ safety_check: "conditional", open_inputs: "normal kidney function." })]
-    }).caveats).toEqual([conditional]);
+    }).caveats).toEqual([SKIP, conditional]);
     expect(steps({ answer_draft: draft(), recommendations: [recommend({ safety_check: "unresolved" })] })).toEqual([
       "recommendations[0] is unresolved without open_inputs: name the conflicts or safety inputs still open, in a few words."
     ]);
@@ -71,11 +75,11 @@ describe("finalize_research recommendations (owner question 90, lesson #23)", ()
     const longTerm = (overrides: Partial<Recommendation>) => recommend({
       long_term_use: true, longest_follow_up: "12 weeks", follow_up_matches_use: true, stopping_covered: true, ...overrides
     });
-    expect(check({ answer_draft: draft(), recommendations: [longTerm({})] }).status).toBe("ready");
+    expect(check({ answer_draft: draft(), recommendations: [longTerm({})] }).status).toBe("ready_with_limits");
     const shorter = "The evidence on the medicine followed people for 12 weeks, so its benefits and harms over years of " +
       "use, and how easily people stop it, aren't established.";
     expect(check({ answer_draft: draft(), recommendations: [longTerm({ follow_up_matches_use: false })] }).caveats)
-      .toEqual([shorter]);
+      .toEqual([SKIP, shorter]);
     expect(check({ answer_draft: draft(shorter), recommendations: [longTerm({ follow_up_matches_use: false })] }).status)
       .toBe("ready_with_limits");
     expect(steps({ answer_draft: draft(), recommendations: [longTerm({ stopping_covered: false })] })).toEqual([
@@ -106,13 +110,13 @@ describe("finalize_research safety_claims: a share of selected reports (owner qu
   const CAVEAT = "That figure is a share of selected reports, not of people, so how often this happens isn't known.";
 
   it("has the answer say that the share is not of people, without a study behind it", () => {
-    expect(check({ answer_draft: `${LINKS}\n\n${QUOTE}`, safety_claims: [claim] }).caveats).toEqual([CAVEAT]);
+    expect(check({ answer_draft: `${LINKS}\n\n${QUOTE}`, safety_claims: [claim] }).caveats).toEqual([SKIP, CAVEAT]);
     expect(check({ answer_draft: `${LINKS}\n\n${QUOTE} ${CAVEAT}`, safety_claims: [claim] }).status)
       .toBe("ready_with_limits");
     expect(check({
       answer_draft: `${LINKS}\n\n${QUOTE}`, safety_claims: [{ ...claim, direction: "safety" }]
     }).caveats).toEqual([
-      "That figure is a share of selected reports, not of people, so it doesn't show how safe compound A is."
+      SKIP, "That figure is a share of selected reports, not of people, so it doesn't show how safe compound A is."
     ]);
   });
 
@@ -136,7 +140,7 @@ describe("finalize_research mechanism_claims: species and tissue (owner question
 
   it("has an animal finding say it was not tested in people", () => {
     const caveat = "This finding comes from animal experiments in Rat study; it was not tested in people.";
-    expect(check({ answer_draft: `${LINKS}\n\n${QUOTE}`, mechanism_claims: [mechanism] }).caveats).toEqual([caveat]);
+    expect(check({ answer_draft: `${LINKS}\n\n${QUOTE}`, mechanism_claims: [mechanism] }).caveats).toEqual([SKIP, caveat]);
     expect(check({ answer_draft: `${LINKS}\n\n${QUOTE} ${caveat}`, mechanism_claims: [mechanism] }).status)
       .toBe("ready_with_limits");
   });
@@ -145,13 +149,13 @@ describe("finalize_research mechanism_claims: species and tissue (owner question
     expect(check({
       answer_draft: `${LINKS}\n\n${QUOTE}`, mechanism_claims: [{ ...mechanism, evidence_route: "in_vitro" }]
     }).caveats).toEqual([
-      "This finding comes from test-tube experiments in Rat study; use by mouth was not tested for it."
+      SKIP, "This finding comes from test-tube experiments in Rat study; use by mouth was not tested for it."
     ]);
     const tissue = "This finding was measured in the brain's cortex in Rat study, not in the skin.";
     expect(check({
       answer_draft: `${LINKS}\n\n${QUOTE}`,
       mechanism_claims: [{ ...mechanism, evidence_in: "people", tissue: { measured: "the brain's cortex", claimed: "the skin." } }]
-    }).caveats).toEqual([tissue]);
+    }).caveats).toEqual([SKIP, tissue]);
   });
 
   it("needs whom the evidence came from", () => {
@@ -167,7 +171,7 @@ describe("finalize_research corrections (owner question 92, lesson #29)", () => 
   const found = { retracted: WRONG, change: CHANGE, by_user: false };
 
   it("passes once the wrong statement is gone outside the sentence saying what changed", () => {
-    expect(check({ answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [found] }).status).toBe("ready");
+    expect(check({ answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [found] }).status).toBe("ready_with_limits");
   });
 
   it("sends back an answer that still shows the wrong statement in a heading or a table", () => {
@@ -199,7 +203,7 @@ describe("finalize_research corrections (owner question 92, lesson #29)", () => 
     const byUser = { ...found, by_user: true, report: CHANGE };
     const asked = check({ answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [byUser] });
     expect(asked.status).toBe("not_ready");
-    expect(asked.caveats).toEqual([CORRECTION_REPORT_OFFER]);
+    expect(asked.caveats).toEqual([CORRECTION_REPORT_OFFER, SKIP]);
     expect(check({ answer_draft: `${LINKS}\n\n${CHANGE}\n\n${CORRECTION_REPORT_OFFER}`, corrections: [byUser] }).status)
       .toBe("ready_with_limits");
     const rendering = "AskRigor peut-il envoyer un rapport de bogue sur cette correction, ou voulez-vous d'abord préciser quelque chose ?";
@@ -207,7 +211,7 @@ describe("finalize_research corrections (owner question 92, lesson #29)", () => 
       answer_draft: `${LINKS}\n\n${CHANGE}\n\n${rendering}`, corrections: [byUser], answer_language: "fr",
       caveat_renderings: [{ caveat: CORRECTION_REPORT_OFFER, text: rendering }]
     }).status).toBe("ready_with_limits");
-    expect(check({ answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [found] }).caveats).toEqual([]);
+    expect(check({ answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [found] }).caveats).toEqual([SKIP]);
   });
 });
 

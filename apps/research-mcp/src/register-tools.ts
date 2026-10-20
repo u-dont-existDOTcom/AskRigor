@@ -206,6 +206,7 @@ import {
 } from "./actions/open-full-text-route.js";
 import type { ReportedFiguresCheck } from "./actions/study-method-audit.js";
 import {
+  COMMUNITY_SKIP_CAVEAT_START,
   LEAD_RECEIPT_SEARCH,
   FINALIZE_REMINDER,
   FINALIZE_RESEARCH_CONTRACT,
@@ -2044,7 +2045,9 @@ function defineResearchOperations(
         "Final check of a research answer before it is given. Input: the research_receipt values that AskRigor's " +
         "tools returned in this session; the research_target as given to the scout, search_youtube and the coverage " +
         "check, and as research_question to surveys and community audits (discovery for another target does not " +
-        "count); whether community evidence was researched and whether the answer compares treatment options; where " +
+        "count); whether community evidence was researched, or not relevant with its basis and reason " +
+        "(not_relevant_basis, not_relevant_reason; with no_real_world_outcome, the answer states the reason in the " +
+        `caveat "${COMMUNITY_SKIP_CAVEAT_START} [reason]."), and whether the answer compares treatment options; where ` +
         "the topic is discussed and what each community searched outside YouTube showed (principal_communities, " +
         "community_searches); what the YouTube comments read showed (community_findings); the studies the " +
         "conclusions rest on (key_sources), whole-intervention identity (intervention_identity), item-level product " +

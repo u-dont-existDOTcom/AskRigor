@@ -14,6 +14,7 @@ import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 import {
   allowedNextStepIdentifiers, assertNextStepsContract, inventory, schemaIdentifiers, unknownNextStepIdentifiers
 } from "./helpers/finalize-next-steps-contract.js";
+import { withCommunitySkip } from "./helpers/community-skip.js";
 
 const SECRET = "finalizer-contract-links-test-secret-0123456789";
 const TARGET = "How clinoptilolite ion exchange works";
@@ -25,7 +26,8 @@ const sign = (kind: Parameters<typeof issueResearchReceipt>[0], claims: Paramete
   issueResearchReceipt(kind, claims, { secret: SECRET });
 const study = (id = DOI) => sign("study_audit", { id, status: "complete_no_unresolved_fields" });
 const declaration = { status: "not_applicable" as const, reason: "Pure ion-exchange mechanism involves no product or service people buy." };
-const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchInput => ({
+// The answer carries the sentence its no_real_world_outcome declaration requires (owner question 125).
+const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchInput => withCommunitySkip({
   lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
   full_text_search: { status: "not_needed", reason: "Synthetic fixtures isolate other completion checks." },
   receipts: [study()], research_target: TARGET, research_depth: "deep", treatment_choice: "not_compared",
@@ -33,7 +35,7 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   commercial_review_applicability: declaration, intervention_identity: declaration,
   key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: DOI, status: "validated" }], absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
   answer_draft: `[Study](https://doi.org/${DOI}) describes ion exchange.`, ...overrides
-});
+} satisfies FinalizeResearchInput);
 const sourceInput = (id: string, answer: string, receipts = [study(id)]) => base({
   receipts, key_sources: [{ read_depth: "partial_text" as const, answer_marker: answer.startsWith("[Cette étude]") ? "Cette étude" : answer.startsWith("Study page:") ? "Study page" : "Study", id, status: "validated" }], answer_draft: answer
 });
@@ -267,22 +269,22 @@ describe.each(["gate", "MCP endpoint"] as const)("finalizer contract, links and 
     [DOI, `https://doi.org/${DOI}`], [DOI, "https://publisher.example/articles/10.1000%2FX"],
     [PMCID, `https://pmc.ncbi.nlm.nih.gov/articles/${PMCID.toLowerCase()}/`], [PMCID, `https://europepmc.org/article/PMC/${PMCID}`]
   ])("accepts a visible identifier link for %s at %s", async (id, url) => {
-    expect((await call(sourceInput(id!, `[Study](${url}) describes the mechanism.`))).status).toBe("ready");
+    expect((await call(sourceInput(id!, `[Study](${url}) describes the mechanism.`))).status).toBe("ready_with_limits");
   });
   it("accepts a PMID's receipt DOI link, including an answer in French", async () => {
     const result = await call(sourceInput(PMID, `[Cette étude](https://doi.org/${DOI}) décrit le mécanisme.`, [
       study(), sign("pubmed_record", { pmid: PMID, doi: DOI })
     ]));
-    expect(result.status).toBe("ready");
+    expect(result.status).toBe("ready_with_limits");
   });
   it("accepts a bare URL and URL-decoded PMID in visible prose", async () => {
-    expect((await call(sourceInput(PMID, `Study page: https://pubmed.ncbi.nlm.nih.gov/${PMID}/`))).status).toBe("ready");
-    expect((await call(sourceInput(PMID, `Study page: https://pubmed.ncbi.nlm.nih.gov/${PMID}.`))).status).toBe("ready");
-    expect((await call(sourceInput(PMID, "[Study](https://europepmc.org/abstract/MED/%33%34%32%38%35%32%38%32)"))).status).toBe("ready");
+    expect((await call(sourceInput(PMID, `Study page: https://pubmed.ncbi.nlm.nih.gov/${PMID}/`))).status).toBe("ready_with_limits");
+    expect((await call(sourceInput(PMID, `Study page: https://pubmed.ncbi.nlm.nih.gov/${PMID}.`))).status).toBe("ready_with_limits");
+    expect((await call(sourceInput(PMID, "[Study](https://europepmc.org/abstract/MED/%33%34%32%38%35%32%38%32)"))).status).toBe("ready_with_limits");
   });
   it.each(["https://doi.org/10.1000/x(f(y))", "https://doi.org/10.1000%2Fx%28f%28y%29%29"])(
     "preserves a parenthesized DOI in %s", async (url) => {
-      expect((await call(sourceInput("10.1000/x(f(y))", `[Study](${url}) describes the mechanism.`))).status).toBe("ready");
+      expect((await call(sourceInput("10.1000/x(f(y))", `[Study](${url}) describes the mechanism.`))).status).toBe("ready_with_limits");
     }
   );
   it.each([
@@ -324,7 +326,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalizer contract, links and 
     expect(result.next_steps.join(" ")).toContain("community_evidence cannot be not_relevant");
   });
   it("accepts the noncommercial ion-exchange mechanism question", async () => {
-    expect((await call(base())).status).toBe("ready");
+    expect((await call(base())).status).toBe("ready_with_limits");
   });
   it("requires commercial applicability with key studies and no_real_world_outcome", async () => {
     const result = await call(base({ commercial_review_applicability: undefined }));
