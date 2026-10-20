@@ -81,6 +81,8 @@ describe("finalize next-step identifier contract", () => {
     expect(input.properties.key_sources!.description).toBe(
       "Lists each study the conclusions depend on: validated after a full-text method audit, or lead_only " +
       "when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text. " +
+      "The audit's validation checks that its findings cite the document's own blocks and that every domain is " +
+      "covered, not that each interpretation is right. " +
       "With answer_draft, each study has a visible link with its DOI, PMID or PMCID, or to a page AskRigor's receipts " +
       "tie to it: a copy read here, or the page resolve_doi found the DOI registered to."
     );
