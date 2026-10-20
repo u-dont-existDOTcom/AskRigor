@@ -1,5 +1,5 @@
 {
-  "purpose": "Owner-approved question 125, from the owner's answer \"125a\" (2026-10-20), from lesson #38. Exact approved text apart from XML formatting; reversible HRP 20.6.28 edits chained from question 109's HRP 20.6.27.",
+  "purpose": "Owner-approved question 125, from the owner's answer \"125a\" (2026-10-20), from lesson #38. Exact approved text apart from XML formatting; reversible HRP 20.6.28 edits chained from question 109's HRP 20.6.27. Extended by owner-approved questions 126, 130 and 132, answers \"126a\", \"130a\" and \"132a\" (2026-10-20), in the same unreleased layer.",
   "hrp": {
     "from": {
       "version": "20.6.27",
@@ -7,7 +7,7 @@
     },
     "to": {
       "version": "20.6.28",
-      "sha256": "9dd5e5bf7b896011544731f1acc028befcf0a9d132189e63a50c41bf6197ea17"
+      "sha256": "b968c7a568a81e21ab6c24e54aa70da03422ffea9c307e05f6e1881d65efd404"
     },
     "edits": [
       [
@@ -16,7 +16,7 @@
       ],
       [
         " <RevisionHistory>\n",
-        " <RevisionHistory>\n  <Revision version=\"20.6.28\" priority=\"Critical\">\n   Owner-approved, question 125 (2026-10-20), from lesson #38: ForumSignalNonTrigger now says that a question whether\n   two product names or labels refer to the same thing has two parts, what the names mean chemically and how sellers\n   and buyers actually use them, and that the second is skipped only with a reason stated in the answer; with stress\n   case ProductNameEquivalence.\n  </Revision>\n"
+        " <RevisionHistory>\n  <Revision version=\"20.6.28\" priority=\"Critical\">\n   Owner-approved, question 125 (2026-10-20), from lesson #38: ForumSignalNonTrigger now says that a question whether\n   two product names or labels refer to the same thing has two parts, what the names mean chemically and how sellers\n   and buyers actually use them, and that the second is skipped only with a reason stated in the answer; with stress\n   case ProductNameEquivalence.\n   Owner-approved, question 126 (2026-10-20), from lessons #39 to #42: moved IndividualAttributionVsPopulationEffect\n   word for word from AdverseEventAscertainmentAndActionabilityAudit into the core section EvidenceLayers;\n   RelevanceBeforeWarning now ends by saying that an experience that can be a symptom of a disorder is not therefore a\n   cause of it, nor is paying attention to it, and that a practice is warned against only for a risk shown for that\n   practice; with stress cases UnmatchedReplicationNull, MindfulAuraObservation, QualifiedLateralityShorthand and\n   GroupLateralityAverage.\n   Owner-approved, question 130 (2026-10-20), from UDA #372: StudyReadDepthDisclosure now puts a material funding\n   source, or the authors' employment by the maker, beside the result, and says that a statement of no outside funding\n   does not make a study independent of the maker.\n   Owner-approved, question 132 (2026-10-20), from UDA #390: EvidenceLayersAreNotAFixedDiscoveryOrder now says that\n   the real-world intervention questions given early bounded sampling include a symptom or abnormal test result for\n   which the user names no candidate.\n  </Revision>\n"
       ],
       [
         "   outcome claim, an acute emergency before triage is complete, or a topic with no meaningful user-experience corpus.\n   Nonactivation is an affirmative relevance decision, not a default; in structured or deep intervention research,",
@@ -24,7 +24,27 @@
       ],
       [
         "  <Case id=\"CodedFormulaLargeEffect\">",
-        "  <Case id=\"ProductNameEquivalence\">\n   <Prompt>\n    A user asks whether a peptide sold as “NA-Peptide Z” is the same product as “Peptide Z-amidate”, while suppliers\n    also list “N-acetyl Peptide Z-amidate”.\n   </Prompt>\n   <ExpectedBehavior>\n    Answer both parts: what each name means chemically, from authoritative documentation, and how sellers and buyers\n    actually use the names, from vendor labels and buyer or specialist discussions, including which variants they tell\n    apart and whether they use the short names consistently; a chemistry-only answer states why it skipped the second\n    part.\n   </ExpectedBehavior>\n  </Case>\n  <Case id=\"CodedFormulaLargeEffect\">"
+        "  <Case id=\"ProductNameEquivalence\">\n   <Prompt>\n    A user asks whether a peptide sold as “NA-Peptide Z” is the same product as “Peptide Z-amidate”, while suppliers\n    also list “N-acetyl Peptide Z-amidate”.\n   </Prompt>\n   <ExpectedBehavior>\n    Answer both parts: what each name means chemically, from authoritative documentation, and how sellers and buyers\n    actually use the names, from vendor labels and buyer or specialist discussions, including which variants they tell\n    apart and whether they use the short names consistently; a chemistry-only answer states why it skipped the second\n    part.\n   </ExpectedBehavior>\n  </Case>\n  <Case id=\"UnmatchedReplicationNull\">\n   <Prompt>\n    A 16-person study reports a response to right-sided patterned stimulation only in its 8 highly susceptible\n    participants; a later blinded, sham-controlled study of 90 people, with a different setup, finds no overall\n    effect, and the user asks whether the first result was disproven.\n   </Prompt>\n   <ExpectedBehavior>\n    Reconstruct each study's exact claim: who took part and how susceptible they were, where and how the stimulation\n    was given, the control and the outcome; say whether the later study tested the same conditional claim, with its\n    full-sample and any subgroup results; report both results, keep the small subgroup result a hypothesis, not\n    independent confirmation, and call the effect neither disproven nor established.\n   </ExpectedBehavior>\n  </Case>\n  <Case id=\"MindfulAuraObservation\">\n   <Prompt>\n    A sense of familiarity can be a seizure aura in some people with epilepsy; a user who sometimes notices that\n    sensation asks whether observing it mindfully is risky.\n   </Prompt>\n   <ExpectedBehavior>\n    Keep apart the sensation as a possible symptom of a seizure disorder, the sensation as a cause of seizures, and\n    mindful observation as a cause, and support each with its own evidence; mention that it can be a seizure sign only\n    as a point about the symptom, not as a risk of the practice; warn against the practice only for a risk shown for\n    it, and do not call it risk-free because no risk was found.\n   </ExpectedBehavior>\n  </Case>\n  <Case id=\"QualifiedLateralityShorthand\">\n   <Prompt>\n    A made-up textbook's diagram says “the right unit is fear-only”, and a later chapter notes that some subjects have\n    the two units reversed; a review says the author is unaware of reversed mapping.\n   </Prompt>\n   <ExpectedBehavior>\n    Read the whole text for the author's qualifications before judging the claim; say that the author acknowledges\n    reversal, citing both the diagram and the later passage; tell the typical-case shorthand apart from a universal\n    claim, criticize only the strongest reading the whole text supports, and test whether the typical-case claim has\n    evidence.\n   </ExpectedBehavior>\n  </Case>\n  <Case id=\"GroupLateralityAverage\">\n   <Prompt>\n    A made-up imaging study finds a mean 2% greater right-side activation during a task, while some participants have\n    fully reversed dominance for it; a reviewer calls the right hemisphere the seat of the task in every person.\n   </Prompt>\n   <ExpectedBehavior>\n    Call the finding a group average, which does not show where the function sits in any one person; name the reversed\n    participants; say what would show it for an individual, such as a task localizer, stimulation or lesion evidence\n    in that person, or an analysis of how many are reversed; do not call the average meaningless.\n   </ExpectedBehavior>\n  </Case>\n  <Case id=\"CodedFormulaLargeEffect\">"
+      ],
+      [
+        "   assuming the riskiest reading. An explicit call to withhold rescue treatment in an emergency still gets a warning.\n  </Rule>",
+        "   assuming the riskiest reading. An explicit call to withhold rescue treatment in an emergency still gets a warning.\n   That an experience can be a symptom of a disorder does not make it, or paying attention to it, a cause of that\n   disorder: support each direction with its own evidence, and warn against a practice only for a risk shown for that\n   practice.\n  </Rule>"
+      ],
+      [
+        "   before community evidence is inspected. For real-world intervention questions, use early bounded sampling across the",
+        "   before community evidence is inspected. For real-world intervention questions, including a symptom or abnormal test\n   result for which the user names no candidate, use early bounded sampling across the"
+      ],
+      [
+        "\n\n </EvidenceLayers>",
+        "\n\n  <Rule name=\"IndividualAttributionVsPopulationEffect\" priority=\"Critical\">\n   Population-level evidence can alter the prior probability of causation but may not resolve an individual case. A well-\n   documented individual case can establish possibility and phenotype but not population frequency. Keep these questions\n   separate and identify the additional evidence needed for each.\n  </Rule>\n\n </EvidenceLayers>"
+      ],
+      [
+        "  <Rule name=\"IndividualAttributionVsPopulationEffect\" priority=\"Critical\">\n   Population-level evidence can alter the prior probability of causation but may not resolve an individual case. A well-\n   documented individual case can establish possibility and phenotype but not population frequency. Keep these questions\n   separate and identify the additional evidence needed for each.\n  </Rule>\n\n  <Rule name=\"UnknownToolboxIsNotProof\" priority=\"Critical\">",
+        "  <Rule name=\"UnknownToolboxIsNotProof\" priority=\"Critical\">"
+      ],
+      [
+        "   does not make the studies it cites read. If the status is unknown, say so; never imply a fuller reading than\n   happened.\n  </Rule>",
+        "   does not make the studies it cites read. If the status is unknown, say so; never imply a fuller reading than\n   happened.\n   Give a material funding source, or the authors' employment by the maker, beside the result in the same way; a\n   statement that a study had no outside funding does not make it independent of the maker.\n  </Rule>"
       ]
     ]
   }

@@ -95,7 +95,7 @@ describe("owner-approved lab preparation, question 70: 70a (2026-10-11)", () => 
     });
     await expect(getProtocolManifest("universal")).resolves.toEqual({
       name: "AskRigor.com universal saved instructions", version: "20.5.45", revisionDate: "2026-10-20",
-      sha256: "24f410ed9d6d7abd644c962f5c7a46e9f1cbf2bee0ba193fc2ff22a82ba2962c",
+      sha256: "f8c8df218d5a2a7a0148edddfaac8119b72971f88ee5f119527d6a86c04e8fe9",
     });
   });
 

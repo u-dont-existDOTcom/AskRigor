@@ -31,7 +31,7 @@ const APPROVED = {
 // This rule already existed in 20.6.25; its wording is locked independently of the fixture and prior bytes.
 const RULE_ID = "ProposeDiscriminatingTest";
 const APPROVED_RULE = "When the evidence found cannot answer the question but methods that exist could, describe the test that would answer it as soon as those methods come up, without being asked: what is compared, the control condition, and what each result would show. Say it appears not to have been done only after an adequate search; a narrow search does not show that nobody has done it, and supposed barriers are not documented reasons.";
-const CURRENT_HRP = {"version": "20.6.28", "sha256": "9dd5e5bf7b896011544731f1acc028befcf0a9d132189e63a50c41bf6197ea17"};
+const CURRENT_HRP = {"version": "20.6.28", "sha256": "b968c7a568a81e21ab6c24e54aa70da03422ffea9c307e05f6e1881d65efd404"};
 const PINS = {
   from: { version: "20.6.25", sha256: "f3f1d9d2f60eb0dd376d93a09910a7a26e3543b4cdb8f540298a977315d4beb5" },
   to: { version: "20.6.26", sha256: "e681ed981471a38ac93c1eb6c13fb86e70fc6e8cb55e07d517bfc715d97c6cfa" },
@@ -39,7 +39,7 @@ const PINS = {
   hrp20623: "6623056eab84a60a0a82ac33a5aa0145cb84725d1be60aedfa77faf3d69899bd",
   hrp20622: "da82943f56614783d9316bd9a7d87a3233bf8c03255f20c88cc7bfefa39d73e9",
   hrp20621: "e43fcb2174645f30fc7d8e7f143e2d17403c69d39d5824efc1d6a0d764bf68d7",
-  universal: { version: "20.5.45", sha256: "24f410ed9d6d7abd644c962f5c7a46e9f1cbf2bee0ba193fc2ff22a82ba2962c" },
+  universal: { version: "20.5.45", sha256: "f8c8df218d5a2a7a0148edddfaac8119b72971f88ee5f119527d6a86c04e8fe9" },
 } as const;
 const CASE_ID = "FormSpecificForumReports";
 const CASE_XML = `  <Case id="FormSpecificForumReports">

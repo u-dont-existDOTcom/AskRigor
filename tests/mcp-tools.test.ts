@@ -2824,13 +2824,13 @@ describe("AskRigor MCP tools", () => {
           name: "HRP",
           version: "20.6.28",
           revisionDate: "2026-10-20",
-          sha256: "9dd5e5bf7b896011544731f1acc028befcf0a9d132189e63a50c41bf6197ea17"
+          sha256: "b968c7a568a81e21ab6c24e54aa70da03422ffea9c307e05f6e1881d65efd404"
         },
         scope: "full",
         page: 1,
         next_page: 2,
         complete: false,
-        scope_sha256: "9dd5e5bf7b896011544731f1acc028befcf0a9d132189e63a50c41bf6197ea17"
+        scope_sha256: "b968c7a568a81e21ab6c24e54aa70da03422ffea9c307e05f6e1881d65efd404"
       });
       const pageCount = (first.structuredContent as { page_count: number }).page_count;
       expect(first.content).toEqual([
@@ -2874,7 +2874,7 @@ describe("AskRigor MCP tools", () => {
       };
       expect(indexContent.manifest).toMatchObject({
         version: "20.5.45",
-        sha256: "24f410ed9d6d7abd644c962f5c7a46e9f1cbf2bee0ba193fc2ff22a82ba2962c"
+        sha256: "f8c8df218d5a2a7a0148edddfaac8119b72971f88ee5f119527d6a86c04e8fe9"
       });
       expect(indexContent.index).toHaveLength(40);
       expect(indexContent.core_sections).toContain("epistemics");
@@ -3206,7 +3206,7 @@ describe("AskRigor Streamable HTTP server", () => {
             name: "AskRigor.com universal saved instructions",
             version: "20.5.45",
             revisionDate: "2026-10-20",
-            sha256: "24f410ed9d6d7abd644c962f5c7a46e9f1cbf2bee0ba193fc2ff22a82ba2962c"
+            sha256: "f8c8df218d5a2a7a0148edddfaac8119b72971f88ee5f119527d6a86c04e8fe9"
           }
         });
       } finally {
@@ -3258,7 +3258,7 @@ describe("AskRigor Streamable HTTP server", () => {
           protocol: "universal",
           manifest: {
             version: "20.5.45",
-            sha256: "24f410ed9d6d7abd644c962f5c7a46e9f1cbf2bee0ba193fc2ff22a82ba2962c"
+            sha256: "f8c8df218d5a2a7a0148edddfaac8119b72971f88ee5f119527d6a86c04e8fe9"
           }
         });
       } finally {

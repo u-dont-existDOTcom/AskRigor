@@ -98,7 +98,7 @@ describe("owner-approved contested intervention evidence, question 77: 77a (2026
     });
     const universal = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
     expect(hash(await undoCorrectionReport(universal))).toBe("06e5ca6befb9dac648fd41996213394e793e17795087eee8fbc63cbcbbbd8174");
-    expect(hash(universal)).toBe("24f410ed9d6d7abd644c962f5c7a46e9f1cbf2bee0ba193fc2ff22a82ba2962c");
+    expect(hash(universal)).toBe("f8c8df218d5a2a7a0148edddfaac8119b72971f88ee5f119527d6a86c04e8fe9");
     await expect(getProtocolManifest("universal")).resolves.toEqual({
       name: "AskRigor.com universal saved instructions", version: "20.5.45", revisionDate: "2026-10-20", sha256: hash(universal),
     });

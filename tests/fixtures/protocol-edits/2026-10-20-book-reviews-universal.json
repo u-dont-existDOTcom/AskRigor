@@ -1,5 +1,5 @@
 {
-  "purpose": "Owner request: book research with reader reviews (2026-10-20), the owner's two sentences word for word. Reversible UNIVERSAL 20.5.45 edits chained from question 109's Universal 20.5.44.",
+  "purpose": "Owner request: book research with reader reviews (2026-10-20), the owner's two sentences word for word. Reversible UNIVERSAL 20.5.45 edits chained from question 109's Universal 20.5.44. Extended by owner-approved questions 126, 129 and 135, answers \"126a\", \"129a\" and \"135a\" (2026-10-20), in the same unreleased layer.",
   "universal": {
     "from": {
       "version": "20.5.44",
@@ -7,7 +7,7 @@
     },
     "to": {
       "version": "20.5.45",
-      "sha256": "24f410ed9d6d7abd644c962f5c7a46e9f1cbf2bee0ba193fc2ff22a82ba2962c"
+      "sha256": "f8c8df218d5a2a7a0148edddfaac8119b72971f88ee5f119527d6a86c04e8fe9"
     },
     "edits": [
       [
@@ -16,11 +16,23 @@
       ],
       [
         "<revision_history>\n",
-        "<revision_history>\n<revision version=\"20.5.45\" priority=\"Critical\">\nOwner request (2026-10-20): book research includes reader-review evidence alongside primary-text reading, with the\nreviews checked against the book, duplicates not counted as independent evidence, and self-selected reviews not\nmistaken for clinical outcome studies (sources).\n</revision>\n"
+        "<revision_history>\n<revision version=\"20.5.45\" priority=\"Critical\">\nOwner request (2026-10-20): book research includes reader-review evidence alongside primary-text reading, with the\nreviews checked against the book, duplicates not counted as independent evidence, and self-selected reviews not\nmistaken for clinical outcome studies (sources).\nOwner-approved, question 126 (2026-10-20), from lessons #39 to #42: EstimandPreservation moved word for word from\ncomparison_integrity_gate into the core section sources.\nOwner-approved, question 129 (2026-10-20), from UDA #398: book research counts as experiences only readers who say\nthey tried the method, keeps reviews of another edition, format, translation or book apart, does not count publisher\nblurbs or endorsements as reader reviews, and says how many reviews were read and how they were chosen, or that none\ncould be found (sources).\nOwner-approved, question 135 (2026-10-20), from UDA #408: a known harm, or an effect no study has measured, that could\nchange whether to use or choose an option goes in the short answer, not only among the closing caveats (output_style).\n</revision>\n"
       ],
       [
         "state sampling limits, and never infer population incidence from forum frequency.\nFor a practical effectiveness claim a recommendation or ranking relies on",
-        "state sampling limits, and never infer population incidence from forum frequency.\nBook research should include reader-review evidence alongside primary-text reading, identifying practical difficulties, negative experiences, differences in usability, and criticisms that the author might not address. Reviews must be checked against the book, duplicates should not be counted as independent evidence, and self-selected reviews must not be mistaken for clinical outcome studies.\nFor a practical effectiveness claim a recommendation or ranking relies on"
+        "state sampling limits, and never infer population incidence from forum frequency.\nBook research should include reader-review evidence alongside primary-text reading, identifying practical difficulties, negative experiences, differences in usability, and criticisms that the author might not address. Reviews must be checked against the book, duplicates should not be counted as independent evidence, and self-selected reviews must not be mistaken for clinical outcome studies. Count as experiences only readers who say they tried the method; keep reviews of another edition, format, translation or book apart; and do not count publisher blurbs or endorsements as reader reviews. Say how many reviews were read and how they were chosen, or that none could be found, and complete the book research either way.\nFor a practical effectiveness claim a recommendation or ranking relies on"
+      ],
+      [
+        "name which measure each finding addresses and report divergence.\n\nTreat reviews, AI summaries, reports, and synthesized webpages as maps to the evidence",
+        "name which measure each finding addresses and report divergence.\n\n<rule name=\"EstimandPreservation\" priority=\"Critical\">Identify what quantity each reported metric or experiment actually estimates and keep that estimand fixed through interpretation. Do not relabel response at one chosen dose as potency; maximum efficacy as dose efficiency; a surrogate or model-specific endpoint as a clinical outcome; association as intervention effect; or a mechanistic readout as whole-organism efficacy. If the requested target was not directly measured, say so and use only the closest justified proxy without renaming it as the target.</rule>\n\nTreat reviews, AI summaries, reports, and synthesized webpages as maps to the evidence"
+      ],
+      [
+        "<rule name=\"EstimandPreservation\" priority=\"Critical\">Identify what quantity each reported metric or experiment actually estimates and keep that estimand fixed through interpretation. Do not relabel response at one chosen dose as potency; maximum efficacy as dose efficiency; a surrogate or model-specific endpoint as a clinical outcome; association as intervention effect; or a mechanistic readout as whole-organism efficacy. If the requested target was not directly measured, say so and use only the closest justified proxy without renaming it as the target.</rule>\n\n<rule name=\"ComparabilityBeforeOrdering\" priority=\"Critical\">",
+        "<rule name=\"ComparabilityBeforeOrdering\" priority=\"Critical\">"
+      ],
+      [
+        "After any required notice, start every substantive answer with the short answer, in at most three sentences: the answer, what it depends on, and any question for the user. Then give the details: what the user can do and the evidence, each with its limits; counts of what was read, caveats about the whole answer and offers of more research go last.\n\nFor every substantive response, finish with an explicit “Next step:”",
+        "After any required notice, start every substantive answer with the short answer, in at most three sentences: the answer, what it depends on, and any question for the user. Then give the details: what the user can do and the evidence, each with its limits; counts of what was read, caveats about the whole answer and offers of more research go last.\n\nIf a known harm, or an effect no study has measured (such as long-term harm), could change whether to use or choose an option, say so in the short answer, not only among the closing caveats.\n\nFor every substantive response, finish with an explicit “Next step:”"
       ]
     ]
   }

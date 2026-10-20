@@ -27,12 +27,12 @@ const REQUESTED = {
   paragraph: "When the context or the person shows that the response will be read in a mobile app or a phone's browser, start each substantive response with this notice, as its own sentence and in the response's language: “Mobile responses may be shorter and less intelligent than desktop web/app, even with the same model and thinking level selected.” When nothing shows a phone, leave it out.",
   revision: "Owner request (2026-10-15): when the context or the person shows a phone, each substantive response starts with the owner's notice that mobile responses may be shorter and less intelligent than desktop web/app, even with the same model and thinking level selected.",
 } as const;
-const CURRENT_UNIVERSAL = {"version": "20.5.45", "sha256": "24f410ed9d6d7abd644c962f5c7a46e9f1cbf2bee0ba193fc2ff22a82ba2962c"};
+const CURRENT_UNIVERSAL = {"version": "20.5.45", "sha256": "f8c8df218d5a2a7a0148edddfaac8119b72971f88ee5f119527d6a86c04e8fe9"};
 const PINS = {
   from: { version: "20.5.42", sha256: "0401335ed4b1f0ec44d4d7351ecb369828dd1c7f362b5c4e0234df22c7f10173" },
   to: { version: "20.5.43", sha256: "7f03ddbd280a9906860f5a34b022b95931f61da87377b3c6e33afcdbaf9a1bdd" },
   universal20541: "115b22a595b4cdcd663bb60986bd3dba0fb0d3f65f64bcc7bbb6d5a4bfd8a708",
-  hrp: { version: "20.6.28", sha256: "9dd5e5bf7b896011544731f1acc028befcf0a9d132189e63a50c41bf6197ea17" },
+  hrp: { version: "20.6.28", sha256: "b968c7a568a81e21ab6c24e54aa70da03422ffea9c307e05f6e1881d65efd404" },
 } as const;
 const WIDTH = 118;
 const NEXT_STEP = "For every substantive response, finish with an explicit “Next step:”";
