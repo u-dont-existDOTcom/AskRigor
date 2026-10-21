@@ -10,7 +10,7 @@ const observation = { observation: "a friend's drowsiness after the same product
 const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchInput => ({
   receipts: [], research_target: "Synthetic continuity test", research_depth: "deep", treatment_choice: "not_compared",
   community_evidence: "not_relevant", not_relevant_basis: "emergency_before_triage", not_relevant_reason: "Synthetic emergency fixture",
-  key_sources: [], answer_draft: "Synthetic answer.", absence_claims: [], scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
+  key_sources: [], answer_draft: "Synthetic answer.", absence_claims: [], scale_results: [], binary_results: [], safety_claims: [], safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [],
   user_observations: [], proposed_tests: [], ...overrides
 });
 const check = (overrides: Partial<FinalizeResearchInput> = {}) => finalizeResearch(base(overrides), { secret: SECRET, now: NOW });

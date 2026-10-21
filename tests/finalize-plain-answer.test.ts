@@ -67,7 +67,7 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   commercial_review_applicability: declaration, intervention_identity: declaration, lab_preparation: declaration,
   full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates the plain answer." },
   key_sources: [{ id: DOI, status: "validated", read_depth: "full_text_audited", answer_marker: "Trial" }],
-  absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [],
+  absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [], safety_question: false, key_terms: [],
   mechanism_claims: [], recommendations: [],
   answer_draft: `${LINK}\n\n${CORRECTED} ${QUALIFIED}`,
   plain_answer_comparison: COMPARISON,

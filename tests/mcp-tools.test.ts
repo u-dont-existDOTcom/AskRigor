@@ -860,7 +860,7 @@ describe("AskRigor MCP tools", () => {
         not_relevant_reason: "A dosing arithmetic question with no treatment choice.",
         intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
         key_sources: [],
-        absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: []
+        absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [], safety_question: false, key_terms: [], mechanism_claims: [], recommendations: []
       };
       // The answer must carry the limits before it is signed: no study read in full text, and the community search
       // skipped for no real-world outcome, in the server's sentence with the declared reason (owner question 125).

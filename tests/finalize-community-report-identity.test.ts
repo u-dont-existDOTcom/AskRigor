@@ -46,7 +46,7 @@ function base(overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
     intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient study intervention." },
     key_sources: [{ id: DOI, status: "validated", read_depth: "partial_text", answer_marker: "Study" }],
     principal_communities: searches.map(({ community: name, platform }) => ({ name, platform })),
-    community_searches: searches, absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [],
+    community_searches: searches, absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [], safety_question: false, key_terms: [],
     mechanism_claims: [], recommendations: [],
     answer_draft: `[Study](https://doi.org/${DOI}) describes the exposures. ${QUOTE}\n\n` + searches.map((s) =>
       `On [${s.community}](${s.threads_read[0]!.url}): ${Object.values(FINDINGS).join(" ")}`).join("\n\n"),

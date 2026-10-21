@@ -1143,8 +1143,12 @@ pending-proposal stores have their own strict contracts and authority boundaries
   rests on, and `search_coverage`, the search classes covered beyond indexed
   databases), and reported scale or questionnaire results (`scale_results`,
   each with its quoted explanation, scale name, range, direction, values and
-  benchmark), the sentences that warn of a harm or call something safe
-  (`safety_claims`, each with its direction, the exposure it is about, its
+  benchmark), reported yes-or-no results (`binary_results`, each with its quoted
+  sentence, the outcome and which direction is better, both groups' names,
+  event counts and totals, the follow-up, and any number needed to treat or
+  harm; next steps name the groups and the outcome), whether the question is
+  about safety (`safety_question`), the sentences that warn of a harm or call
+  something safe (`safety_claims`, each with its direction, the exposure it is about, its
   basis, what the cited evidence measured and the study IDs it rests on), the
   specialized terms a conclusion depends on with the sentence that first
   explains each (`key_terms`), mechanism claims (`mechanism_claims`, each

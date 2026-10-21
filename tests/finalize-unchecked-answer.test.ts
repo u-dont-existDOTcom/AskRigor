@@ -26,8 +26,8 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   receipts: [], research_target: "Synthetic unchecked-answer fixture", research_depth: "deep",
   treatment_choice: "not_compared", community_evidence: "not_relevant", not_relevant_basis: "emergency_before_triage",
   not_relevant_reason: "Synthetic emergency fixture", key_sources: [], answer_draft: PASSING_DRAFT, absence_claims: [],
-  scale_results: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
-  user_observations: [], proposed_tests: [], ...overrides
+  scale_results: [], binary_results: [], safety_question: false, safety_claims: [], key_terms: [], mechanism_claims: [],
+  recommendations: [], user_observations: [], proposed_tests: [], ...overrides
 });
 const check = (input: unknown) => assertNextStepsContract(finalizeResearch(input, { secret: SECRET, now: NOW }));
 const kindsOf = (result: FinalizeResearchOutput) => result.next_steps.map((step, index) => [result.next_step_kinds[index], step]);

@@ -18,7 +18,7 @@ const finding = (kind: SecondReaderFinding["kind"] = "safety_claims", quote = QU
 const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchInput => ({
   receipts: [], research_target: "Synthetic second reader", research_depth: "deep", treatment_choice: "not_compared",
   community_evidence: "not_relevant", not_relevant_basis: "emergency_before_triage", not_relevant_reason: "Synthetic fixture",
-  key_sources: [], answer_draft: `${QUOTE}\n\n${LIMIT}`, absence_claims: [], scale_results: [], safety_claims: [],
+  key_sources: [], answer_draft: `${QUOTE}\n\n${LIMIT}`, absence_claims: [], scale_results: [], binary_results: [], safety_claims: [], safety_question: false,
   key_terms: [], mechanism_claims: [], recommendations: [], user_observations: [], proposed_tests: [], ...overrides
 });
 const check = (input = base(), secondReading?: FinalizeResearchOptions["secondReading"]) =>

@@ -22,7 +22,7 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   lab_preparation: declaration,
   full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates absence checks." },
   key_sources: [{ id: DOI, status: "validated", read_depth: "full_text_audited", answer_marker: "Study" }],
-  absence_claims: [{ quote, state: "not_established", studies: [DOI] }], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
+  absence_claims: [{ quote, state: "not_established", studies: [DOI] }], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [], safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [],
   answer_draft: `[Study](https://doi.org/${DOI}) was read. ${quote}`, ...overrides
 });
 // The answer carries the sentence its no_real_world_outcome declaration requires (owner question 125).
@@ -77,10 +77,11 @@ describe("declared contested intervention evidence-strength verdicts", () => {
     expect(missing.status).toBe("not_ready");
     expect(missing.next_steps).toContain(
       "absence_claims is missing: it lists each sentence saying something was not found, not studied, has no " +
-        "evidence or has no effect, or calling an intervention's evidence unconvincing, weak, not demonstrated or " +
-        "showing no benefit (an empty list means none). Evidence-strength sentences are absence claims, declared " +
-        "with not_established and their key sources when studies were found, or support_not_located with search " +
-        "coverage when none were."
+        "evidence or has no effect; that an option made no difference compared with another, worked as well as it, " +
+        "or did no better or no worse than it; or calling an intervention's evidence unconvincing, weak, not " +
+        "demonstrated or showing no benefit (an empty list means none). Evidence-strength sentences are absence " +
+        "claims, declared with not_established and their key sources when studies were found, or support_not_located " +
+        "with search coverage when none were."
     );
     expect(missing.next_steps.filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
     expect(check({ absence_claims: [] }).status).toBe("ready_with_limits");
@@ -120,11 +121,75 @@ describe("declared contested intervention evidence-strength verdicts", () => {
     ]);
     expect(absence.description).toBe(
       "With answer_draft: each place the answer says something was not found, not studied, has no evidence or " +
-        "has no effect, or calls an intervention's evidence unconvincing, weak, not demonstrated or showing no benefit " +
-        "(an empty list if none). Evidence-strength sentences are absence claims, declared with not_established and " +
-        "their key sources when studies were found, or support_not_located with search coverage when none were."
+        "has no effect; that an option made no difference compared with another, worked as well as it, or did no " +
+        "better or no worse than it; or calls an intervention's evidence unconvincing, weak, not demonstrated or " +
+        "showing no benefit (an empty list if none). Evidence-strength sentences are absence claims, declared with " +
+        "not_established and their key sources when studies were found, or support_not_located with search coverage " +
+        "when none were."
     );
     expect(absence.items.properties.studies.description).toContain("not_established");
     expect(finalizeResearchInputSchema.parse(base()).absence_claims?.[0]?.state).toBe("not_established");
+  });
+});
+
+// AskRigor#355: an answer called saffron "as effective as fluvoxamine" for OCD from a trial that found no significant
+// difference and set no equivalence margin. A sentence saying one option worked as well as another, made no difference
+// against it, or did no better or worse is an absence claim, so a null comparison gives its numbers like any null
+// result. The sentences are synthetic gate fixtures shaped like that answer's, not evidence about either treatment.
+describe("comparative null sentences are absence claims (AskRigor#355)", () => {
+  const NUMBERS = " Symptom scores fell by 13.2 and 14.1 points, a difference of 0.9 points (95% CI -2.6 to 4.4).";
+  const NO_NUMBERS = "absence_claims[0] states a direct null result: give the estimate and its interval in that " +
+    "sentence, so a reader sees how large an effect the studies could have missed.";
+  const declared = (text: string, state: "direct_null_evidence" | "bounded_exclusion" | "not_established") => ({
+    answer_draft: `[Study](https://doi.org/${DOI}) was read. ${text}`,
+    absence_claims: [{ quote: text, state, studies: [DOI] }]
+  });
+
+  it.each([
+    "Saffron was as effective as fluvoxamine for OCD.",
+    "Saffron made no difference compared with fluvoxamine.",
+    "Saffron did no better or worse than fluvoxamine.",
+    "Le safran a été aussi efficace que la fluvoxamine."
+  ])("asks a direct null comparison for its estimate and interval: %s", (text) => {
+    expect(steps(declared(text, "direct_null_evidence"))).toEqual([NO_NUMBERS]);
+  });
+
+  it("passes it with each arm's change and the difference with its interval", () => {
+    const text = `Saffron was as effective as fluvoxamine for OCD.${NUMBERS}`;
+    const result = check(declared(text, "direct_null_evidence"));
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+    const french = "Le safran a été aussi efficace que la fluvoxamine : les scores ont baissé de 13,2 et 14,1 points, " +
+      "soit 0,9 point d'écart (IC à 95 % de -2,6 à 4,4).";
+    expect(check(declared(french, "direct_null_evidence")).status).toBe("ready_with_limits");
+  });
+
+  it("checks a bounded exclusion between options the same way", () => {
+    const text = "Saffron did no worse than fluvoxamine by more than 4.4 points (difference 0.9, 95% CI -2.6 to 4.4).";
+    expect(check(declared(text, "bounded_exclusion")).status).toBe("ready_with_limits");
+    expect(steps(declared("Saffron did no worse than fluvoxamine.", "bounded_exclusion"))).toEqual([
+      "absence_claims[0] states a bounded exclusion: give the estimate and its interval in that sentence, so a " +
+        "reader sees how large an effect the studies could have missed."
+    ]);
+  });
+
+  it("needs no numbers for studies that do not establish whether the options differ", () => {
+    const text = "The studies do not establish whether saffron differs from fluvoxamine.";
+    const result = check(declared(text, "not_established"));
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+  });
+
+  it("describes the comparative states in the generated catalog", () => {
+    const tool = inventory.tools.find(({ name }) => name === "finalize_research")!;
+    const absence = (tool.inputSchema as { properties: Record<string, unknown> }).properties.absence_claims as {
+      items: { properties: { state: { description: string } } }
+    };
+    expect(absence.items.properties.state.description).toBe(
+      "support_not_located: the searches did not find it; direct_null_evidence: studies found no effect, or no " +
+        "difference between the options compared; not_established: studies were found but do not establish the " +
+        "effect; bounded_exclusion: precise studies rule out an effect, or a difference between options, above a " +
+        "stated size."
+    );
   });
 });
