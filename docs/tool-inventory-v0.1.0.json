@@ -10631,7 +10631,7 @@
     },
     {
       "name": "manage_research_access",
-      "description": "Shows or sets AskRigor's research-use mode. Inspecting it is the first step of research, and it shows why a research tool was refused. Free use requires explicit agreement to version free-contributor-v2-2026-09-30: what AskRigor learns from the research (deidentified structured research progress and each finished answer's findings card) is saved for non-authoritative review. Paid private mode saves an answer's findings card, files its research map or saves lesson feedback only when the user accepts that for that answer, and activates only for an existing verified entitlement; this release offers no price or checkout. For a paid private or dev account, inspect asks for a plain answer before research: register_plain_answer signs the short answer you would give without AskRigor's tools, which the final check compares with the checked answer in a note, and set_plain_answer_note turns that note off or on. Each call also returns accountReference, this account's reference, which the user can give AskRigor's owner (for example to be listed as a dev account); give it only when the user asks for it.",
+      "description": "Shows or sets AskRigor's research-use mode. Inspecting it is the first step of research, and it shows why a research tool was refused. Free use requires explicit agreement to version free-contributor-v2-2026-09-30: what AskRigor learns from the research (deidentified structured research progress and each finished answer's findings card) is saved for non-authoritative review. Paid private mode saves an answer's findings card, files its research map or saves lesson feedback only when the user accepts that for that answer, and activates only for an existing verified entitlement; this release offers no price or checkout. For a paid private or dev account, inspect asks for a plain answer before research: register_plain_answer signs the short answer you would give without AskRigor's tools, which the final check compares with the checked answer in a note, and set_plain_answer_note turns that note off or on. When the user asks, set_detailed_lesson_reports turns this account's detailed lesson reports on or off (off by default; inspect shows which): only with them on may a lesson carry a detailed report. Each call also returns accountReference, this account's reference, which the user can give AskRigor's owner (for example to be listed as a dev account); give it only when the user asks for it.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -10643,7 +10643,8 @@
               "activate_paid_private",
               "revoke",
               "register_plain_answer",
-              "set_plain_answer_note"
+              "set_plain_answer_note",
+              "set_detailed_lesson_reports"
             ]
           },
           "agreement": {
@@ -10717,6 +10718,10 @@
           },
           "plainAnswerNote": {
             "description": "With set_plain_answer_note: false turns off the note comparing a checked answer with its plain answer, true turns it back on.",
+            "type": "boolean"
+          },
+          "detailedLessonReports": {
+            "description": "With set_detailed_lesson_reports, when the user asks: true turns this account's detailed lesson reports on, false off.",
             "type": "boolean"
           }
         },
@@ -10834,6 +10839,10 @@
               "note"
             ],
             "additionalProperties": false
+          },
+          "detailedLessonReports": {
+            "description": "Whether this account's lessons may carry a detailed report: off unless the user turned detailed lesson reports on.",
+            "type": "boolean"
           },
           "research_receipt": {
             "type": "string"
@@ -16140,7 +16149,7 @@
     },
     {
       "name": "submit_lesson_candidate",
-      "description": "Save one validated AskRigor lesson to the owner's private review queue, only after the user says yes to the lesson as shown to them. Send only the generalized lesson: no identity, personal health story, quotation, chat text or unnecessary link. Returns a receipt, never the stored lesson.",
+      "description": "Save one validated AskRigor lesson to the owner's private review queue, only after the user says yes to the lesson as shown to them. Send only the generalized lesson: no identity, personal health story, quotation, chat text or unnecessary link. Returns a receipt, never the stored lesson. Include detailed_report, shown to the user with the lesson before asking, only when manage_research_access shows this account's detailed lesson reports on.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -16236,6 +16245,113 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 1000000
+          },
+          "detailed_report": {
+            "description": "Only when manage_research_access shows this account's detailed lesson reports on, and shown to the user with the lesson before asking: the failure in detail, with no real person's details, ≤10,000 characters in all. steps: 1-12, ≤300 each; observed, expected: what happened and what should have, ≤1,000 each; causes: 1-5 {cause ≤300, confidence: low|medium|high}; parts_to_change: 1-8 parts of AskRigor (a tool, a protocol rule, the final check), ≤120 each; proposed_change ≤1,500; test_cases: 0-5 invented {case ≤1,200, negative_control: boolean}; uncertain: what stays uncertain, ≤1,000.",
+            "type": "object",
+            "properties": {
+              "steps": {
+                "minItems": 1,
+                "maxItems": 12,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                }
+              },
+              "observed": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
+              "expected": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
+              "causes": {
+                "minItems": 1,
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "cause": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    },
+                    "confidence": {
+                      "type": "string",
+                      "enum": [
+                        "low",
+                        "medium",
+                        "high"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "cause",
+                    "confidence"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "parts_to_change": {
+                "minItems": 1,
+                "maxItems": 8,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                }
+              },
+              "proposed_change": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1500
+              },
+              "test_cases": {
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "case": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1200
+                    },
+                    "negative_control": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "case",
+                    "negative_control"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "uncertain": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              }
+            },
+            "required": [
+              "steps",
+              "observed",
+              "expected",
+              "causes",
+              "parts_to_change",
+              "proposed_change",
+              "test_cases",
+              "uncertain"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -16261,7 +16377,8 @@
               "privacy_rejected",
               "rate_limited",
               "anonymizer_unavailable",
-              "github_unavailable"
+              "github_unavailable",
+              "detailed_report_refused"
             ]
           },
           "retryable": {

@@ -182,6 +182,16 @@ one-shot admin `migrate` before the image that files such maps serves. An
 earlier image never files a paid private proposal, and the guard still admits
 free contributors as before, so a rollback needs no step.
 
+Owner question 154 (2026-10-21): an account's connector lessons carry a
+detailed report only when the user turned detailed lesson reports on. Migration
+`0015_research_detailed_lesson_reports` adds each account's setting
+(`detailed_lesson_reports`, off by default; never a report, which is stored only
+in the private lessons repository); the access role's existing table grant
+covers it. Apply it with the one-shot admin `migrate` before an image that
+reads it serves, since the access store reads that column on every research
+call. An earlier image does not read it and accepts no detailed report, so a
+rollback needs no step.
+
 When OAuth research access is active, the server omits legacy research Action
 routes so they cannot bypass the mode choice. The separately governed lesson
 Action is unaffected. Verify all 27 MCP operations: the mode, proposal, and

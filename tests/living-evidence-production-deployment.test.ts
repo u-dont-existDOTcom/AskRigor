@@ -185,6 +185,13 @@ describe("production living-evidence deployment", () => {
     expect(mapConsent).toContain("NEW.proposal_kind <> 'RESEARCH_FRONTIER' OR NEW.consent_receipt_sha256 IS NULL");
     expect(mapConsent).not.toMatch(/CREATE TABLE|GRANT/iu);
     expect(await read("packages/evidence-repository/src/postgres.ts")).toContain('"0014_research_map_consent"');
+    // Owner question 154 (2026-10-21): detailed lesson reports are a choice on the account row, off by default, which
+    // the role's table grant already covers; a report itself is stored only in the private lessons repository.
+    const lessonReports = await read("packages/evidence-repository/migrations/0015_research_detailed_lesson_reports.sql");
+    expect(lessonReports).toContain("ADD COLUMN IF NOT EXISTS detailed_lesson_reports boolean NOT NULL DEFAULT false");
+    expect(lessonReports).not.toMatch(/CREATE TABLE|GRANT|DROP|DELETE|UPDATE/iu);
+    expect(await read("packages/evidence-repository/src/postgres.ts"))
+      .toContain('"0014_research_map_consent",\n      "0015_research_detailed_lesson_reports",\n    ]');
     expect(provision).not.toMatch(
       /GRANT\s+(?:DELETE|TRUNCATE|CREATE)\b/iu,
     );

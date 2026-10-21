@@ -1,6 +1,8 @@
 import {
   PUBLIC_ASKRIGOR_REPOSITORY,
+  detailedLessonReportSchema,
   relatedIssueSchema,
+  type DetailedLessonReport,
   type GeneralizedLesson,
 } from "./contracts.js";
 import {
@@ -28,6 +30,12 @@ export interface GitHubLessonSubmission {
    * is in neither the fingerprint nor the hidden metadata.
    */
   relatedIssue?: number;
+  /**
+   * A connector lesson's detailed report, from an account that turned detailed lesson reports on (owner question
+   * 154). A new issue's body and a repeat's occurrence comment render it from its validated fields; it is in neither
+   * the fingerprint nor the hidden metadata.
+   */
+  detailedReport?: DetailedLessonReport;
 }
 
 export interface GitHubLessonQueueResult {
@@ -117,7 +125,8 @@ export class GitHubLessonQueue {
   private async submitSerialized(input: GitHubLessonSubmission): Promise<GitHubLessonQueueResult> {
     if (
       !FINGERPRINT_PATTERN.test(input.fingerprint) ||
-      (input.relatedIssue !== undefined && !relatedIssueSchema.safeParse(input.relatedIssue).success)
+      (input.relatedIssue !== undefined && !relatedIssueSchema.safeParse(input.relatedIssue).success) ||
+      (input.detailedReport !== undefined && !detailedLessonReportSchema.safeParse(input.detailedReport).success)
     ) {
       throw new GitHubApiError("github_service_unavailable", false);
     }
@@ -206,7 +215,7 @@ export class GitHubLessonQueue {
     };
     const created = await this.request(`${ISSUES_PATH}/${issue.number}/comments`, {
       method: "POST",
-      body: JSON.stringify({ body: buildOccurrenceComment(metadata, input.relatedIssue) }),
+      body: JSON.stringify({ body: buildOccurrenceComment(metadata, input.relatedIssue, input.detailedReport) }),
     });
     if (!isRecord(created) || !isPositiveInteger(created.id)) {
       throw new GitHubApiError("github_service_unavailable", true);
@@ -289,6 +298,7 @@ export class GitHubLessonQueue {
           },
           terminal?.number,
           input.relatedIssue,
+          input.detailedReport,
         ),
         labels,
       }),
@@ -343,6 +353,7 @@ function buildIssueBody(
   metadata: PrivateMetadata,
   priorIssueNumber: number | undefined,
   relatedIssue: number | undefined,
+  detailedReport: DetailedLessonReport | undefined,
 ): string {
   const versionContext = [
     `AskRigor: ${candidate.askrigor_version ? escapeMarkdown(candidate.askrigor_version) : "Not supplied"}`,
@@ -370,6 +381,7 @@ function buildIssueBody(
     ...(relatedIssue === undefined
       ? []
       : [section("Related AskRigor issue", relatedIssueReference(relatedIssue))]),
+    ...(detailedReport === undefined ? [] : [detailedReportSection(detailedReport)]),
     ...(metadata.incident_occurrences?.length
       ? [section(
           "Opaque incident provenance",
@@ -391,7 +403,11 @@ function buildIssueBody(
   return `${sections.join("\n\n")}\n\n${metadataMarker(metadata)}`;
 }
 
-function buildOccurrenceComment(metadata: OccurrenceMetadata, relatedIssue: number | undefined): string {
+function buildOccurrenceComment(
+  metadata: OccurrenceMetadata,
+  relatedIssue: number | undefined,
+  detailedReport: DetailedLessonReport | undefined,
+): string {
   return [
     "## Anonymous lesson occurrence",
     "",
@@ -403,9 +419,30 @@ function buildOccurrenceComment(metadata: OccurrenceMetadata, relatedIssue: numb
     ...(metadata.incident_occurrence === undefined
       ? []
       : ["", "Opaque incident provenance:", formatIncidentOccurrence(metadata.incident_occurrence)]),
+    ...(detailedReport === undefined ? [] : ["", detailedReportSection(detailedReport)]),
     "",
     occurrenceMetadataMarker(metadata),
   ].join("\n");
+}
+
+// Owner question 154: rendered from the validated fields only, each text escaped as the lesson's are. The privacy
+// screen admits no line break in any of them, so none can start a heading, a list item or a marker of its own.
+function detailedReportSection(report: DetailedLessonReport): string {
+  const numbered = (values: readonly string[]) => values.map((value, index) => `${index + 1}. ${value}`).join("\n");
+  return section("Detailed report", [
+    subsection("Steps", numbered(report.steps.map(escapeMarkdown))),
+    subsection("What happened", escapeMarkdown(report.observed)),
+    subsection("What was expected", escapeMarkdown(report.expected)),
+    subsection("Causes", report.causes.map(({ cause, confidence }) =>
+      `- ${escapeMarkdown(cause)} \\(confidence: ${escapeMarkdown(confidence)}\\)`).join("\n")),
+    subsection("Parts to change", report.parts_to_change.map((part) => `- ${escapeMarkdown(part)}`).join("\n")),
+    subsection("Proposed change", escapeMarkdown(report.proposed_change)),
+    subsection("Invented test cases", report.test_cases.length === 0
+      ? "None supplied"
+      : numbered(report.test_cases.map((testCase) =>
+          `${testCase.negative_control ? "Negative control: " : ""}${escapeMarkdown(testCase.case)}`))),
+    subsection("What stays uncertain", escapeMarkdown(report.uncertain)),
+  ].join("\n\n"));
 }
 
 // Built only from the server's repository name and an integer the queue has
@@ -548,6 +585,10 @@ function newestIssue(issues: ListedIssue[]): ListedIssue | undefined {
 
 function section(heading: string, value: string): string {
   return `## ${heading}\n\n${value}`;
+}
+
+function subsection(heading: string, value: string): string {
+  return `### ${heading}\n\n${value}`;
 }
 
 function escapeMarkdown(value: string): string {

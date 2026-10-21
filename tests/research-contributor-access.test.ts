@@ -360,9 +360,13 @@ describe("research contributor access", () => {
     await expect(service.setPlainAnswerNote(SUBJECT, false)).rejects.toMatchObject({ code: "RESEARCH_ACCESS_REQUIRED" });
     expect(store.allAccounts()).toEqual([]);
     await service.acceptFreeContributor(SUBJECT, agreement());
-    await expect(service.activeAccount(SUBJECT)).resolves.toEqual({ mode: "FREE_CONTRIBUTOR", plainAnswerNote: true });
+    await expect(service.activeAccount(SUBJECT)).resolves.toEqual({
+      mode: "FREE_CONTRIBUTOR", plainAnswerNote: true, detailedLessonReports: false,
+    });
     await expect(service.setPlainAnswerNote(SUBJECT, false)).resolves.toBe(false);
-    await expect(service.activeAccount(SUBJECT)).resolves.toEqual({ mode: "FREE_CONTRIBUTOR", plainAnswerNote: false });
+    await expect(service.activeAccount(SUBJECT)).resolves.toEqual({
+      mode: "FREE_CONTRIBUTOR", plainAnswerNote: false, detailedLessonReports: false,
+    });
     // Accepting again saves the account row anew; the choice is the account's, not the agreement's.
     await service.acceptFreeContributor(SUBJECT, agreement());
     await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ plainAnswerNote: false });
@@ -376,6 +380,36 @@ describe("research contributor access", () => {
     expect(Object.keys(store.allAccounts()[0]!).sort()).toEqual([
       "accountKey", "activatedAt", "agreement", "createdAt", "mode", "noticeVersion", "plainAnswerNote", "revokedAt",
       "status", "updatedAt"
+    ]);
+  });
+
+  // Owner question 154 (2026-10-21): detailed lesson reports are a stored choice, off by default, that the user turns on.
+  it("stores the detailed lesson reports setting, off by default, which saving or revoking the account leaves as it is", async () => {
+    const { store, service } = fixture();
+    await expect(service.setDetailedLessonReports(SUBJECT, true)).rejects.toMatchObject({ code: "RESEARCH_ACCESS_REQUIRED" });
+    expect(store.allAccounts()).toEqual([]);
+    await service.acceptFreeContributor(SUBJECT, agreement());
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ detailedLessonReports: false });
+    await expect(service.setDetailedLessonReports(SUBJECT, true)).resolves.toBe(true);
+    await expect(service.activeAccount(SUBJECT)).resolves.toEqual({
+      mode: "FREE_CONTRIBUTOR", plainAnswerNote: true, detailedLessonReports: true,
+    });
+    // Each setting changes only itself.
+    await service.setPlainAnswerNote(SUBJECT, false);
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ plainAnswerNote: false, detailedLessonReports: true });
+    // Accepting again saves the account row anew; the choice is the account's, not the agreement's.
+    await service.acceptFreeContributor(SUBJECT, agreement());
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ detailedLessonReports: true });
+    await service.revoke(SUBJECT);
+    await expect(service.setDetailedLessonReports(SUBJECT, false)).rejects.toMatchObject({ code: "RESEARCH_ACCESS_REVOKED" });
+    await service.acceptFreeContributor(SUBJECT, agreement());
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ detailedLessonReports: true });
+    await expect(service.setDetailedLessonReports(SUBJECT, false)).resolves.toBe(false);
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ plainAnswerNote: false, detailedLessonReports: false });
+    // Only the choice is kept: no report or text field joins the account row.
+    expect(Object.keys(store.allAccounts()[0]!).sort()).toEqual([
+      "accountKey", "activatedAt", "agreement", "createdAt", "detailedLessonReports", "mode", "noticeVersion",
+      "plainAnswerNote", "revokedAt", "status", "updatedAt"
     ]);
   });
 

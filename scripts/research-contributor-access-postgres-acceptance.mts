@@ -61,7 +61,7 @@ async function main(): Promise<void> {
       status: "PASS",
       phase: "migrate",
       schema: SCHEMA,
-      migration: "0014_research_map_consent",
+      migration: "0015_research_detailed_lesson_reports",
     })}\n`);
     return;
   }
@@ -257,6 +257,39 @@ async function verify(
     await service.setPlainAnswerNote(PAID_SUBJECT, true);
     assert((await service.activeAccount(PAID_SUBJECT)).plainAnswerNote, "PLAIN_ANSWER_NOTE_NOT_TURNED_ON");
     checks.push("plain_answer_note_stored_on_by_default_and_kept_by_save");
+
+    // Owner question 154: detailed lesson reports are a stored choice on the account row, off by default, which the
+    // restricted role turns on and off, which saving the account again leaves as it is, and which holds no report.
+    const reportsMigrationRows = await admin.query<{ migration_id: string }>(
+      `SELECT migration_id FROM ${SCHEMA}.schema_migrations
+       WHERE migration_id = '0015_research_detailed_lesson_reports'`,
+    );
+    assert(reportsMigrationRows.rowCount === 1, "MIGRATION_0015_NOT_APPLIED");
+    const reportsColumn = await admin.query<{ data_type: string; is_nullable: string; column_default: string }>(
+      `SELECT data_type, is_nullable, column_default FROM information_schema.columns
+        WHERE table_schema = $1 AND table_name = 'research_use_accounts' AND column_name = 'detailed_lesson_reports'`,
+      [SCHEMA],
+    );
+    assert(
+      reportsColumn.rows[0]?.data_type === "boolean" && reportsColumn.rows[0]?.is_nullable === "NO" &&
+        reportsColumn.rows[0]?.column_default === "false",
+      "DETAILED_LESSON_REPORTS_COLUMN_MISMATCH",
+    );
+    assert(!(await service.activeAccount(PAID_SUBJECT)).detailedLessonReports, "DETAILED_LESSON_REPORTS_NOT_OFF_BY_DEFAULT");
+    await service.setDetailedLessonReports(PAID_SUBJECT, true);
+    assert((await service.activeAccount(PAID_SUBJECT)).detailedLessonReports, "DETAILED_LESSON_REPORTS_NOT_TURNED_ON");
+    assert((await service.activeAccount(PAID_SUBJECT)).plainAnswerNote, "PLAIN_ANSWER_NOTE_CHANGED_BY_REPORTS");
+    await service.activatePaidPrivate(PAID_SUBJECT);
+    assert((await service.activeAccount(PAID_SUBJECT)).detailedLessonReports, "DETAILED_LESSON_REPORTS_CHANGED_BY_SAVE");
+    await service.setDetailedLessonReports(PAID_SUBJECT, false);
+    assert(!(await service.activeAccount(PAID_SUBJECT)).detailedLessonReports, "DETAILED_LESSON_REPORTS_NOT_TURNED_OFF");
+    await expectCode(() => service.setDetailedLessonReports(FREE_SUBJECT, true), "RESEARCH_ACCESS_REVOKED");
+    const freeReports = await admin.query<{ detailed_lesson_reports: boolean }>(
+      `SELECT detailed_lesson_reports FROM ${SCHEMA}.research_use_accounts WHERE account_key = $1`,
+      [service.accountKeyForSubject(FREE_SUBJECT)],
+    );
+    assert(freeReports.rows[0]?.detailed_lesson_reports === false, "REVOKED_ACCOUNT_DETAILED_LESSON_REPORTS_CHANGED");
+    checks.push("detailed_lesson_reports_stored_off_by_default_and_kept_by_save");
 
     // Owner answer 143a: a paid private account files only this research's map, and only under the user's yes to the
     // answer's offer. The database stores that finalization receipt's SHA-256, never the receipt, and takes it once;

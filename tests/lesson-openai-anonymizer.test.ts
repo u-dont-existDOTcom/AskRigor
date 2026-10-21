@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   generalizedLessonSchema,
   lessonCandidateSchema,
+  type DetailedLessonReport,
   type LessonCandidate,
 } from "../apps/research-mcp/src/lessons/contracts.js";
 import type { AiBudget, BudgetReservation } from "../apps/research-mcp/src/lessons/ai-budget.js";
@@ -239,6 +240,54 @@ describe("fixed-model OpenAI lesson anonymizer", () => {
       fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/u),
       source: "connector",
       relatedIssue: 357,
+    }]);
+  });
+
+  // Owner question 154: a connector lesson's detailed report never reaches a model. The service screens it itself,
+  // keeps it out of the anonymizer's input, and hands the exact report to the private queue.
+  it("keeps a connector lesson's detailed report out of the model request, and the service still queues it", async () => {
+    const { askrigor_version: _version, ...lesson } = candidate;
+    const report: DetailedLessonReport = {
+      steps: ["The assistant searched one database and found three trials."],
+      observed: "The answer called the evidence strong although no trial was read in full.",
+      expected: "The answer should read the decisive trials in full before rating the evidence.",
+      causes: [{ cause: "The final check accepted an answer with no key studies.", confidence: "high" }],
+      parts_to_change: ["finalize_research"],
+      proposed_change: "Refuse a strength rating unless a key study was read in full.",
+      test_cases: [{ case: "An invented answer rates three abstracts as strong; the check refuses it.", negative_control: false }],
+      uncertain: "Whether the model would still rate the evidence once the rule names the full-text read.",
+    };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(responseFor({
+      safe: true,
+      risk_codes: [],
+      generalized: { ...lesson, askrigor_version: null },
+    }));
+    const { anonymizer } = createSubject(fetchMock);
+    const submit = vi.fn(async (_input: unknown) => ({
+      kind: "created" as const,
+      issueNumber: 42,
+      occurrenceCount: 1,
+      possibleRegression: false,
+    }));
+    const service = new LessonSubmissionService({
+      limiter: { consume: () => ({ allowed: true }), lastBlockingReason: () => "hourly_limit" },
+      anonymizer,
+      queue: { submit },
+    });
+
+    await expect(service.submit({ ...lesson, detailed_report: report }, "connector", { detailedReports: true }))
+      .resolves.toEqual({ status: "submitted", candidate_id: "ARL-0042", occurrence_count: 1, retryable: false });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const requestBody = String(fetchMock.mock.calls[0]![1]?.body);
+    expect(JSON.parse(JSON.parse(requestBody).input[1].content[0].text)).toEqual(lesson);
+    for (const text of ["detailed_report", "three trials", "finalize_research", "invented answer"]) {
+      expect(requestBody).not.toContain(text);
+    }
+    expect(submit.mock.calls.map(([input]) => input)).toEqual([{
+      candidate: lesson,
+      fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/u),
+      source: "connector",
+      detailedReport: report,
     }]);
   });
 
