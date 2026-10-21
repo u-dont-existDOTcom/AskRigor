@@ -1191,9 +1191,10 @@ pending-proposal stores have their own strict contracts and authority boundaries
   `unchecked_line` is a fixed server sentence, worded from those kinds, that an
   answer given before a pass ends with; `previous_check` repeats the kinds the
   carried state holds from a check that did not pass (AskRigor#354). The
-  finalization receipt signs the SHA-256 of the answer draft the check read
-  (`answer`), so whoever holds the receipt and the answer the user saw can tell
-  whether that answer is the checked one. The receipt goes only to the caller;
+  finalization receipt signs the SHA-256 of the answer draft the check read,
+  without leading and trailing white space (`answer`), so whoever holds the
+  receipt and the answer the user saw can tell whether that answer is the
+  checked one. The receipt goes only to the caller;
   a saved findings card and a filed research map store only the receipt's own
   SHA-256, never the receipt.
   The panel resource renders the same result in the client's sandboxed frame; nothing new is collected, stored, logged or sent.

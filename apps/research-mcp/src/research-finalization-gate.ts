@@ -2740,8 +2740,8 @@ export function finalizeResearch(
       leads: leadSources.length,
       limits: limits.length,
       unverified: communitiesUnverified,
-      // The SHA-256 of the answer draft this check read (AskRigor#354): whoever holds the receipt and the answer the
-      // user saw can tell whether that answer is the checked one.
+      // The SHA-256 of the answer draft this check read, without leading and trailing white space (AskRigor#354):
+      // whoever holds the receipt and the answer the user saw can tell whether that answer is the checked one.
       ...(draft === undefined ? {} : { answer: createHash("sha256").update(draft, "utf8").digest("hex") }),
       // The findings library saves only the card whose digest this signs, and stamps each finding's bases with it.
       ...(findingsCard.status === "checked" && input.findings_card !== undefined
