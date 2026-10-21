@@ -6,6 +6,7 @@ import {
   PostgresResearchContributionPromotionRunner,
   PostgresResearchContributionReviewStore,
   RESEARCH_USE_NOTICE_VERSION,
+  ResearchContributionRejectedError,
   ResearchContributionReviewService,
   ResearchContributorAccessService,
   deterministicUuid,
@@ -373,6 +374,7 @@ async function verify(
     });
     await verifyExactContinuation({ adminUrl, readerUrl, service, reviewService, writer, checks });
     await verifyTwoAuditsOfOneStudy({ adminUrl, readerUrl, admin, service, reviewService, writer, checks });
+    await verifySupersession({ admin, reviewRestricted, service, reviewService, checks });
 
     const racePayload = researchFrontierFixture("research-review-withdraw-race");
     const raceProposal = await service.submitProposal(REVIEW_SUBJECT, {
@@ -797,6 +799,70 @@ async function verifyTwoAuditsOfOneStudy(context: {
   } finally {
     await Promise.allSettled([reader.close(), runner.close()]);
   }
+}
+
+/**
+ * Owner answer 138b: a finished version names the account's own pending draft; the database refuses any other target
+ * with one answer, and accepting the finished version rejects the draft, "superseded by <id>", in the same decision.
+ */
+async function verifySupersession(context: {
+  admin: Pool;
+  reviewRestricted: Pool;
+  service: ResearchContributorAccessService;
+  reviewService: ResearchContributionReviewService;
+  checks: string[];
+}): Promise<void> {
+  const { admin, reviewRestricted, service, reviewService, checks } = context;
+  const otherSubject = "auth0|synthetic-postgres-other-contributor";
+  await service.acceptFreeContributor(otherSubject, FREE_AGREEMENT);
+  const submit = (subject: string, namespace: string, supersedesProposalId?: string) => service.submitProposal(subject, {
+    proposalKind: "RESEARCH_FRONTIER",
+    privacyBoundary: PRIVACY_BOUNDARY,
+    payload: researchFrontierFixture(namespace),
+    ...(supersedesProposalId === undefined ? {} : { supersedesProposalId }),
+  });
+  const draft = await submit(PROMOTION_SUBJECT, "supersession-draft");
+  const others = await submit(otherSubject, "supersession-other-account");
+  const finished = await submit(PROMOTION_SUBJECT, "supersession-finished", draft.record.proposalId);
+  assert(finished.record.supersedesProposalId === draft.record.proposalId, "SUPERSEDES_LINK_NOT_STORED");
+  const refusals = [];
+  for (const target of [others.record.proposalId, deterministicUuid("supersession-missing")]) {
+    const error = await submit(PROMOTION_SUBJECT, `supersession-refused-${target}`, target)
+      .catch((caught: unknown) => caught);
+    assert(
+      error instanceof ResearchContributionRejectedError && error.problems[0]?.rule === "superseded_proposal",
+      "SUPERSEDES_OTHER_ACCOUNT_NOT_REFUSED",
+    );
+    refusals.push(JSON.stringify(error.problems));
+  }
+  assert(new Set(refusals).size === 1, "SUPERSEDES_REFUSAL_DIFFERS_BY_TARGET");
+  const linked = await reviewRestricted.query<{ context: { supersedes_proposal_id: string; superseded_by_proposal_ids: string[] } }>(
+    `SELECT ${SCHEMA}.inspect_research_contribution_context($1::uuid) AS context`,
+    [draft.record.proposalId],
+  );
+  assert(
+    linked.rows[0]?.context.superseded_by_proposal_ids.join(",") === finished.record.proposalId,
+    "SUPERSEDED_BY_LINK_NOT_VISIBLE_TO_REVIEW",
+  );
+  await reviewService.decide({
+    proposalId: finished.record.proposalId,
+    expectedPayloadSha256: finished.record.payloadSha256,
+    decision: "ACCEPT",
+    reason: "Synthetic finished version replacing its draft.",
+  });
+  const states = await admin.query<{ proposal_id: string; status: string; review_reason: string | null }>(
+    `SELECT proposal_id, status, review_reason FROM ${SCHEMA}.research_contribution_proposals
+      WHERE proposal_id = ANY($1::uuid[])`,
+    [[draft.record.proposalId, others.record.proposalId]],
+  );
+  const byId = new Map(states.rows.map((row) => [row.proposal_id, row]));
+  assert(
+    byId.get(draft.record.proposalId)?.status === "REJECTED" &&
+    byId.get(draft.record.proposalId)?.review_reason === `superseded by ${finished.record.proposalId}` &&
+    byId.get(others.record.proposalId)?.status === "PENDING_REVIEW",
+    "DRAFT_NOT_SUPERSEDED_IN_THE_SAME_DECISION",
+  );
+  checks.push("finished_version_supersedes_only_the_accounts_own_pending_draft_in_the_same_decision");
 }
 
 async function expectPgCode(action: () => Promise<unknown>, code: string): Promise<void> {

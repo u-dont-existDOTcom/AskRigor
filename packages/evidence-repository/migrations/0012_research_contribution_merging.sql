@@ -119,8 +119,189 @@ BEGIN
 END
 $$;
 
+-- Owner answer 138b: "a finished version replaces the same account's draft". A proposal may name the same account's
+-- own pending proposal of the same kind that it supersedes; accepting it rejects that draft, "superseded by <id>", in
+-- the same transaction (owner question 48's manual flow). Rejecting it leaves the draft as it is.
+ALTER TABLE research_contribution_proposals
+  ADD COLUMN IF NOT EXISTS supersedes_proposal_id uuid;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'research_contribution_proposals'::regclass
+      AND conname = 'research_contribution_proposals_v2_supersedes_fkey'
+  ) THEN
+    ALTER TABLE research_contribution_proposals
+      ADD CONSTRAINT research_contribution_proposals_v2_supersedes_fkey
+      FOREIGN KEY (supersedes_proposal_id) REFERENCES research_contribution_proposals (proposal_id);
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'research_contribution_proposals'::regclass
+      AND conname = 'research_contribution_proposals_v2_supersedes_check'
+  ) THEN
+    ALTER TABLE research_contribution_proposals
+      ADD CONSTRAINT research_contribution_proposals_v2_supersedes_check
+      CHECK (supersedes_proposal_id IS NULL OR supersedes_proposal_id <> proposal_id);
+  END IF;
+END
+$$;
+
+CREATE INDEX IF NOT EXISTS research_contribution_proposals_supersedes_idx
+  ON research_contribution_proposals (supersedes_proposal_id)
+  WHERE supersedes_proposal_id IS NOT NULL;
+
+-- Only the account's own pending proposal of the same kind can be superseded; anything else is refused with one
+-- message, which says nothing about whether the UUID names another account's proposal.
+CREATE OR REPLACE FUNCTION enforce_research_contribution_supersession()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = __SCHEMA__, pg_catalog
+AS $function$
+BEGIN
+  IF NEW.supersedes_proposal_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+  PERFORM 1
+    FROM research_contribution_proposals superseded
+   WHERE superseded.proposal_id = NEW.supersedes_proposal_id
+     AND superseded.account_key = NEW.account_key
+     AND superseded.proposal_kind = NEW.proposal_kind
+     AND superseded.status = 'PENDING_REVIEW';
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'RESEARCH_PROPOSAL_SUPERSEDES_NOT_OWN_PENDING';
+  END IF;
+  RETURN NEW;
+END
+$function$;
+
+DROP TRIGGER IF EXISTS research_contribution_proposal_supersession_guard
+  ON research_contribution_proposals;
+CREATE TRIGGER research_contribution_proposal_supersession_guard
+BEFORE INSERT ON research_contribution_proposals
+FOR EACH ROW EXECUTE FUNCTION enforce_research_contribution_supersession();
+
+REVOKE ALL ON FUNCTION enforce_research_contribution_supersession() FROM PUBLIC;
+
+-- 0010's decision, with the supersession step: the same signature and result, so 0010 still applies over itself.
+CREATE OR REPLACE FUNCTION decide_research_contribution_proposal(
+  target_proposal_id uuid,
+  expected_payload_sha256 text,
+  review_decision text,
+  supplied_review_reason text,
+  review_time timestamptz,
+  requested_promotion_id uuid DEFAULT NULL
+)
+RETURNS TABLE (
+  proposal_id uuid,
+  proposal_kind text,
+  payload_sha256 text,
+  payload_json jsonb,
+  privacy_boundary_json jsonb,
+  partial boolean,
+  proposal_status text,
+  created_at timestamptz,
+  reviewed_at timestamptz,
+  review_reason text,
+  promotion_id uuid,
+  promotion_status text,
+  promotion_created_at timestamptz,
+  promotion_completed_at timestamptz,
+  promotion_receipt_json jsonb,
+  promotion_receipt_sha256 text
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog
+AS $function$
+DECLARE
+  current_proposal research_contribution_proposals%ROWTYPE;
+  desired_status text;
+BEGIN
+  IF target_proposal_id IS NULL
+     OR expected_payload_sha256 !~ '^[a-f0-9]{64}$'
+     OR review_decision NOT IN ('ACCEPT', 'REJECT')
+     OR supplied_review_reason IS NULL
+     OR supplied_review_reason <> btrim(supplied_review_reason)
+     OR length(supplied_review_reason) < 1
+     OR length(supplied_review_reason) > 2000
+     OR review_time IS NULL
+     OR (review_decision = 'ACCEPT' AND requested_promotion_id IS NULL)
+     OR (review_decision = 'REJECT' AND requested_promotion_id IS NOT NULL)
+  THEN
+    RAISE EXCEPTION 'RESEARCH_CONTRIBUTION_REVIEW_INPUT_INVALID';
+  END IF;
+
+  SELECT *
+    INTO current_proposal
+    FROM research_contribution_proposals
+   WHERE research_contribution_proposals.proposal_id = target_proposal_id
+   FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'RESEARCH_CONTRIBUTION_PROPOSAL_NOT_FOUND';
+  END IF;
+  IF current_proposal.payload_sha256::text <> expected_payload_sha256 THEN
+    RAISE EXCEPTION 'RESEARCH_CONTRIBUTION_REVIEW_PAYLOAD_MISMATCH';
+  END IF;
+
+  desired_status := CASE review_decision
+    WHEN 'ACCEPT' THEN 'ACCEPTED'
+    ELSE 'REJECTED'
+  END;
+
+  IF current_proposal.status = 'PENDING_REVIEW' THEN
+    UPDATE research_contribution_proposals
+       SET status = desired_status,
+           reviewed_at = review_time,
+           review_reason = supplied_review_reason
+     WHERE research_contribution_proposals.proposal_id = target_proposal_id;
+    IF review_decision = 'ACCEPT' THEN
+      INSERT INTO research_contribution_promotions
+        (promotion_id, proposal_id, proposal_kind, reviewed_payload_sha256,
+         status, created_at, completed_at, receipt_json, receipt_sha256)
+      VALUES
+        (requested_promotion_id, current_proposal.proposal_id,
+         current_proposal.proposal_kind, current_proposal.payload_sha256,
+         'PENDING', review_time, NULL, NULL, NULL);
+      IF current_proposal.supersedes_proposal_id IS NOT NULL THEN
+        UPDATE research_contribution_proposals
+           SET status = 'REJECTED',
+               reviewed_at = review_time,
+               review_reason = 'superseded by ' || current_proposal.proposal_id::text
+         WHERE research_contribution_proposals.proposal_id = current_proposal.supersedes_proposal_id
+           AND research_contribution_proposals.status = 'PENDING_REVIEW'
+           AND research_contribution_proposals.account_key = current_proposal.account_key
+           AND research_contribution_proposals.proposal_kind = current_proposal.proposal_kind;
+      END IF;
+    END IF;
+  ELSIF current_proposal.status <> desired_status
+     OR current_proposal.review_reason <> supplied_review_reason
+  THEN
+    RAISE EXCEPTION 'RESEARCH_CONTRIBUTION_REVIEW_CONFLICT';
+  ELSIF review_decision = 'ACCEPT' AND NOT EXISTS (
+    SELECT 1
+      FROM research_contribution_promotions promotion
+     WHERE promotion.proposal_id = target_proposal_id
+       AND promotion.proposal_kind = current_proposal.proposal_kind
+       AND promotion.reviewed_payload_sha256 = current_proposal.payload_sha256
+  ) THEN
+    RAISE EXCEPTION 'RESEARCH_CONTRIBUTION_PROMOTION_INTENT_MISSING';
+  END IF;
+
+  RETURN QUERY
+  SELECT inspected.*
+    FROM inspect_research_contribution_proposal(target_proposal_id) inspected;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION decide_research_contribution_proposal(
+  uuid, text, text, text, timestamptz, uuid
+) FROM PUBLIC;
+
 -- What the review role reads beyond 0010's inspect projection, as one JSON object so later fields need no new
--- function: the promotion's failure. Never an account key.
+-- function: the promotion's failure, and the supersession links in both directions (proposal IDs only). Never an
+-- account key.
 CREATE OR REPLACE FUNCTION inspect_research_contribution_context(
   target_proposal_id uuid
 )
@@ -139,7 +320,14 @@ AS $function$
         FROM research_contribution_promotions promotion
        WHERE promotion.proposal_id = proposal.proposal_id
          AND promotion.status = 'FAILED'
-    )
+    ),
+    'supersedes_proposal_id', proposal.supersedes_proposal_id,
+    'superseded_by_proposal_ids', COALESCE((
+      SELECT jsonb_agg(replacement.proposal_id ORDER BY replacement.created_at, replacement.proposal_id)
+        FROM research_contribution_proposals replacement
+       WHERE replacement.supersedes_proposal_id = proposal.proposal_id
+         AND replacement.status IN ('PENDING_REVIEW', 'ACCEPTED')
+    ), '[]'::jsonb)
   )
     FROM research_contribution_proposals proposal
    WHERE proposal.proposal_id = target_proposal_id

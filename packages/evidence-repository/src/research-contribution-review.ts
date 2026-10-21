@@ -163,6 +163,12 @@ export interface ResearchContributionReviewView {
   reviewedAt: string | null;
   reviewReason: string | null;
   promotion: ResearchContributionPromotionView | null;
+  /**
+   * Owner answer 138b: the draft this proposal replaces, and the proposals pending or accepted that replace this one.
+   * Proposal IDs only; such a link is always between one account's own proposals.
+   */
+  supersedesProposalId: string | null;
+  supersededByProposalIds: string[];
 }
 
 export interface ResearchContributionReviewStore {
@@ -258,6 +264,13 @@ implements ResearchContributionReviewStore {
     return proposal === undefined ? null : reviewView(
       proposal,
       this.promotions.get(proposal.proposalId) ?? null,
+      [...this.proposals.values()]
+        .filter((other) =>
+          other.supersedesProposalId === proposal.proposalId &&
+          (other.status === "PENDING_REVIEW" || other.status === "ACCEPTED"))
+        .sort((left, right) =>
+          left.createdAt.localeCompare(right.createdAt) || left.proposalId.localeCompare(right.proposalId))
+        .map(({ proposalId: id }) => id),
     );
   }
 
@@ -308,6 +321,19 @@ implements ResearchContributionReviewStore {
           failureCode: null,
           failedAt: null,
         });
+        const supersededId = proposal.supersedesProposalId ?? null;
+        const superseded = supersededId === null ? undefined : this.proposals.get(supersededId);
+        if (
+          superseded !== undefined && superseded.status === "PENDING_REVIEW" &&
+          superseded.accountKey === proposal.accountKey && superseded.proposalKind === proposal.proposalKind
+        ) {
+          this.proposals.set(superseded.proposalId, {
+            ...superseded,
+            status: "REJECTED",
+            reviewedAt: input.reviewedAt,
+            reviewReason: `superseded by ${proposal.proposalId}`,
+          });
+        }
       }
     } else if (
       proposal.status !== desiredStatus ||
@@ -654,6 +680,8 @@ const reviewContextSchema = z.object({
     failure_code: z.enum(RESEARCH_CONTRIBUTION_PROMOTION_FAILURE_CODES),
     failed_at: z.iso.datetime({ offset: true }),
   }).strict().nullable().optional(),
+  supersedes_proposal_id: z.string().uuid().nullable().optional(),
+  superseded_by_proposal_ids: z.array(z.string().uuid()).optional(),
 }).strict();
 
 type ResearchContributionReviewContext = z.infer<typeof reviewContextSchema>;
@@ -669,9 +697,15 @@ interface PromotionCandidateRow {
 function reviewView(
   proposal: ResearchContributionProposalRecord,
   promotion: ResearchContributionPromotionView | null,
+  supersededByProposalIds: string[],
 ): ResearchContributionReviewView {
-  const { accountKey: _accountKey, ...publicProposal } = proposal;
-  return structuredClone({ ...publicProposal, promotion });
+  const { accountKey: _accountKey, supersedesProposalId, ...publicProposal } = proposal;
+  return structuredClone({
+    ...publicProposal,
+    promotion,
+    supersedesProposalId: supersedesProposalId ?? null,
+    supersededByProposalIds,
+  });
 }
 
 function reviewViewFromRow(
@@ -721,6 +755,8 @@ function reviewViewFromRow(
     reviewedAt: nullableTimestamp(row.reviewed_at),
     reviewReason: row.review_reason,
     promotion,
+    supersedesProposalId: context.supersedes_proposal_id ?? null,
+    supersededByProposalIds: context.superseded_by_proposal_ids ?? [],
   };
 }
 

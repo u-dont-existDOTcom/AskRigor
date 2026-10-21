@@ -67,6 +67,8 @@ const proposalSchema = z.object({
   reviewedAt: z.string().nullable(),
   reviewReason: z.string().nullable(),
   promotion: promotionSchema.nullable(),
+  supersedesProposalId: z.string().uuid().nullable(),
+  supersededByProposalIds: z.array(z.string().uuid()),
 }).strict();
 
 const reviewErrorSchema = z.object({

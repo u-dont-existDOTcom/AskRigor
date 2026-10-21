@@ -92,6 +92,8 @@ export const submitResearchContributionInputSchema = z.object({
   privacyBoundary: contributionPrivacyBoundarySchema.describe("Eight markers, each exactly false."),
   payload: z.union([researchFrontierContributionSchema, livingEvidenceContributionSchema])
     .describe("The record proposalKind names, shaped as this tool's description shows."),
+  supersedesProposalId: z.uuid().optional()
+    .describe("Optional: the proposalId of this account's own pending proposal of the same kind that this one replaces; accepting this one rejects it as superseded."),
 }).strict();
 
 /** Claude's surface publishes the strict schema; ChatGPT's the relaxed one, whose hidden shapes the description carries. */
@@ -148,7 +150,8 @@ export const submitResearchContributionOutputSchema = z.object({
     partial: z.boolean(),
     writeStatus: z.enum(["inserted", "idempotent_replay"]),
     canonicalEvidenceChanged: z.literal(false),
-    // Owner answer 138b: the canonical records the stored record continues by exact identity, IDs only.
+    // Owner answer 138b: the draft it replaces, and the canonical records it continues by exact identity, IDs only.
+    supersedesProposalId: z.string().uuid().nullable(),
     canonicalCheck: z.enum(["checked", "unavailable"]).optional(),
     reconciled: z.array(z.object({
       path: z.string().min(1).max(CONTRIBUTION_PROBLEM_LIMITS.pathCharacters),
@@ -364,6 +367,7 @@ export function createSubmitResearchContributionHandler(
         partial: result.record.partial,
         writeStatus: result.status,
         canonicalEvidenceChanged: false,
+        supersedesProposalId: result.record.supersedesProposalId ?? null,
         ...(result.canonicalCheck === undefined ? {} : { canonicalCheck: result.canonicalCheck }),
         ...(result.reconciled.length === 0 ? {} : { reconciled: result.reconciled }),
       } as const;

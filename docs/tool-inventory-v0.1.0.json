@@ -10888,6 +10888,10 @@
           },
           "payload": {
             "description": "The record proposalKind names, shaped as this tool's description shows."
+          },
+          "supersedesProposalId": {
+            "description": "Optional: the proposalId of this account's own pending proposal of the same kind that this one replaces; accepting this one rejects it as superseded.",
+            "type": "string"
           }
         },
         "required": [
@@ -10939,6 +10943,18 @@
               "canonicalEvidenceChanged": {
                 "type": "boolean",
                 "const": false
+              },
+              "supersedesProposalId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "canonicalCheck": {
                 "type": "string",
@@ -10992,7 +11008,8 @@
               "status",
               "partial",
               "writeStatus",
-              "canonicalEvidenceChanged"
+              "canonicalEvidenceChanged",
+              "supersedesProposalId"
             ],
             "additionalProperties": false
           },
@@ -11386,6 +11403,26 @@
                     "type": "null"
                   }
                 ]
+              },
+              "supersedesProposalId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "supersededByProposalIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
               }
             },
             "required": [
@@ -11399,7 +11436,9 @@
               "createdAt",
               "reviewedAt",
               "reviewReason",
-              "promotion"
+              "promotion",
+              "supersedesProposalId",
+              "supersededByProposalIds"
             ],
             "additionalProperties": false
           },

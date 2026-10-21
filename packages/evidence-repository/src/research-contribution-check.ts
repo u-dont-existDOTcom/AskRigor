@@ -32,6 +32,8 @@ export const researchContributionProposalInputSchema = z.object({
   proposalKind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS"]),
   privacyBoundary: contributionPrivacyBoundarySchema,
   payload: z.unknown(),
+  // Owner answer 138b: this account's own pending proposal of the same kind that this one replaces.
+  supersedesProposalId: z.uuid().optional(),
 }).strict();
 
 type ProposalKind = "RESEARCH_FRONTIER" | "SOURCE_ANALYSIS";
@@ -941,6 +943,7 @@ function envelopeExample(kind: ProposalKind | undefined): Record<string, unknown
     proposalKind: kind ?? "RESEARCH_FRONTIER",
     privacyBoundary: CONTRIBUTION_PRIVACY_BOUNDARY_EXAMPLE,
     payload: kind === undefined ? {} : CONTRIBUTION_EXAMPLES[kind],
+    supersedesProposalId: uuid(50),
   };
 }
 

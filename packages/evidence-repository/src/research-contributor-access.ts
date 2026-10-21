@@ -136,7 +136,12 @@ export interface ResearchContributionProposalRecord {
   createdAt: string;
   reviewedAt: string | null;
   reviewReason: string | null;
+  /** This account's own pending proposal of the same kind that this one replaces, when the submitter named one. */
+  supersedesProposalId?: string | null;
 }
+
+/** The superseded proposal named is not this account's own pending proposal of the same kind. */
+const SUPERSEDES_NOT_OWN_PENDING = "RESEARCH_PROPOSAL_SUPERSEDES_NOT_OWN_PENDING";
 
 export interface ProposalInsertResult {
   status: "inserted" | "idempotent_replay";
@@ -453,9 +458,23 @@ export class ResearchContributorAccessService {
       createdAt: at,
       reviewedAt: null,
       reviewReason: null,
+      supersedesProposalId: parsed.supersedesProposalId ?? null,
     };
+    let inserted: ProposalInsertResult;
+    try {
+      inserted = await this.store.insertProposal(record);
+    } catch (error) {
+      // One answer whatever the UUID names, so nothing is learnt about another account's proposals.
+      if (!(error instanceof Error) || !error.message.includes(SUPERSEDES_NOT_OWN_PENDING)) throw error;
+      throw new ResearchContributionRejectedError(contributionCheckFromFindings(parsed.proposalKind, [{
+        path: ["supersedesProposalId"],
+        rule: "superseded_proposal",
+        expected: "the UUID of one of this account's own proposals of the same kind that is still pending review, " +
+          "or no supersedesProposalId: only such a draft can be replaced",
+      }]));
+    }
     return {
-      ...await this.store.insertProposal(record),
+      ...inserted,
       ...(canonicalCheck === undefined ? {} : { canonicalCheck }),
       reconciled,
     };
@@ -512,6 +531,16 @@ implements ResearchContributorAccessStore {
     );
     if (replay !== undefined) {
       return { status: "idempotent_replay", record: structuredClone(replay) };
+    }
+    if (record.supersedesProposalId !== undefined && record.supersedesProposalId !== null) {
+      const superseded = this.proposals.get(record.supersedesProposalId);
+      if (
+        superseded === undefined || superseded.accountKey !== record.accountKey ||
+        superseded.proposalKind !== record.proposalKind || superseded.status !== "PENDING_REVIEW" ||
+        superseded.proposalId === record.proposalId
+      ) {
+        throw new Error(SUPERSEDES_NOT_OWN_PENDING);
+      }
     }
     this.proposals.set(record.proposalId, structuredClone(record));
     return { status: "inserted", record: structuredClone(record) };
@@ -648,16 +677,26 @@ implements ResearchContributorAccessStore {
   async insertProposal(
     record: ResearchContributionProposalRecord,
   ): Promise<ProposalInsertResult> {
+    const replay = async () => this.pool.query<ResearchContributionProposalRow>(
+      `SELECT ${PROPOSAL_COLUMNS}
+         FROM ${this.schema}.research_contribution_proposals
+        WHERE account_key = $1 AND proposal_kind = $2 AND payload_sha256 = $3`,
+      [record.accountKey, record.proposalKind, record.payloadSha256],
+    );
+    // The same record again is a replay before its supersession is checked, as it is without one.
+    const supersedes = record.supersedesProposalId ?? null;
+    if (supersedes !== null) {
+      const prior = await replay();
+      if (prior.rowCount !== 0) return { status: "idempotent_replay", record: proposalFromRow(prior.rows[0]!) };
+    }
     const result = await this.pool.query<ResearchContributionProposalRow>(
       `INSERT INTO ${this.schema}.research_contribution_proposals
         (proposal_id, account_key, proposal_kind, payload_sha256, payload_json,
          privacy_boundary_json, partial, status, created_at, reviewed_at,
-         review_reason)
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, NULL, NULL)
+         review_reason, supersedes_proposal_id)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, NULL, NULL, $10::uuid)
        ON CONFLICT (account_key, proposal_kind, payload_sha256) DO NOTHING
-       RETURNING proposal_id, account_key, proposal_kind, payload_sha256,
-                 payload_json, privacy_boundary_json, partial, status,
-                 created_at, reviewed_at, review_reason`,
+       RETURNING ${PROPOSAL_COLUMNS}`,
       [
         record.proposalId,
         record.accountKey,
@@ -668,23 +707,17 @@ implements ResearchContributorAccessStore {
         record.partial,
         record.status,
         record.createdAt,
+        supersedes,
       ],
     );
     if (result.rowCount !== 0) {
       return { status: "inserted", record: proposalFromRow(result.rows[0]!) };
     }
-    const replay = await this.pool.query<ResearchContributionProposalRow>(
-      `SELECT proposal_id, account_key, proposal_kind, payload_sha256,
-              payload_json, privacy_boundary_json, partial, status,
-              created_at, reviewed_at, review_reason
-         FROM ${this.schema}.research_contribution_proposals
-        WHERE account_key = $1 AND proposal_kind = $2 AND payload_sha256 = $3`,
-      [record.accountKey, record.proposalKind, record.payloadSha256],
-    );
-    if (replay.rowCount === 0) throw new Error("PROPOSAL_REPLAY_LOOKUP_FAILED");
+    const stored = await replay();
+    if (stored.rowCount === 0) throw new Error("PROPOSAL_REPLAY_LOOKUP_FAILED");
     return {
       status: "idempotent_replay",
-      record: proposalFromRow(replay.rows[0]!),
+      record: proposalFromRow(stored.rows[0]!),
     };
   }
 
@@ -694,9 +727,7 @@ implements ResearchContributorAccessStore {
     idempotencyKey: string,
   ): Promise<ResearchContributionProposalRecord | null> {
     const result = await this.pool.query<ResearchContributionProposalRow>(
-      `SELECT proposal_id, account_key, proposal_kind, payload_sha256,
-              payload_json, privacy_boundary_json, partial, status,
-              created_at, reviewed_at, review_reason
+      `SELECT ${PROPOSAL_COLUMNS}
          FROM ${this.schema}.research_contribution_proposals
         WHERE account_key = $1 AND proposal_kind = $2
           AND payload_json ->> 'idempotencyKey' = $3
@@ -770,6 +801,10 @@ interface ResearchUseAccountRow {
   updated_at: Date | string;
 }
 
+const PROPOSAL_COLUMNS = `proposal_id, account_key, proposal_kind, payload_sha256,
+              payload_json, privacy_boundary_json, partial, status,
+              created_at, reviewed_at, review_reason, supersedes_proposal_id`;
+
 interface ResearchContributionProposalRow {
   proposal_id: string;
   account_key: string;
@@ -782,6 +817,7 @@ interface ResearchContributionProposalRow {
   created_at: Date | string;
   reviewed_at: Date | string | null;
   review_reason: string | null;
+  supersedes_proposal_id: string | null;
 }
 
 function accountFromRow(row: ResearchUseAccountRow): ResearchUseAccountRecord {
@@ -828,6 +864,7 @@ function proposalFromRow(
     createdAt: timestamp(row.created_at),
     reviewedAt: nullableTimestamp(row.reviewed_at),
     reviewReason: row.review_reason,
+    supersedesProposalId: row.supersedes_proposal_id,
   };
 }
 
