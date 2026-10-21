@@ -5,18 +5,25 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  CONTRIBUTION_EXAMPLES,
+  CONTRIBUTION_PRIVACY_BOUNDARY_EXAMPLE,
   InMemoryResearchContributorAccessStore,
+  PAID_PRIVATE_MAP_ONLY,
   RESEARCH_USE_NOTICE_VERSION,
   ResearchContributorAccessService,
-} from "../packages/evidence-repository/src/index.js";
+// The package the tools import, so a refusal it throws is the class the tools recognize.
+} from "@askrigor/evidence-repository";
 
 import { askrigorBuildCommitFromEnv } from "../apps/research-mcp/src/config.js";
 import {
+  FINDINGS_AND_MAP_SAVE_OFFER,
   FINDINGS_SAVE_OFFER,
+  findingsAndMapSaveOffer,
   findingsCardDigest,
   findingsCardSchema,
   findingsSavedLine,
   findingsSaveOffer,
+  researchMapSavedLine,
   withoutYouTubeData,
 } from "../apps/research-mcp/src/findings/card.js";
 import {
@@ -38,7 +45,11 @@ import {
 import type { LessonAttemptLimiter } from "../apps/research-mcp/src/lessons/rate-limit.js";
 import { RESEARCH_OPERATIONS, registerTools, type RegisterToolsOptions } from "../apps/research-mcp/src/register-tools.js";
 import { issueResearchReceipt, researchTargetDigest } from "../apps/research-mcp/src/research-receipts.js";
-import { TOOL_LIST_REFRESH_HINT } from "../apps/research-mcp/src/research-finalization-gate.js";
+import {
+  RESEARCH_MAP_OFFERED,
+  researchMapReminder,
+  TOOL_LIST_REFRESH_HINT,
+} from "../apps/research-mcp/src/research-finalization-gate.js";
 import { communitySkipCaveat } from "./helpers/community-skip.js";
 import { CARD, parsedCard } from "./helpers/findings-fixtures.js";
 
@@ -546,7 +557,10 @@ describe("finalize_research, save_research_findings and the findings library", (
   }
 
   /** A tool as the connector registers it, called with the caller's OAuth identity. */
-  function connectorTool(name: "finalize_research" | "save_research_findings", options: RegisterToolsOptions) {
+  function connectorTool(
+    name: "finalize_research" | "save_research_findings" | "submit_research_contribution" | "manage_research_access",
+    options: RegisterToolsOptions,
+  ) {
     let handler: ((input: unknown, extra?: unknown) => Promise<CallToolResult>) | undefined;
     registerTools({
       registerTool: (registered: string, _config: unknown, execute: typeof handler) => {
@@ -555,8 +569,11 @@ describe("finalize_research, save_research_findings and the findings library", (
     } as unknown as McpServer, { researchAccessRequired: true, mcpSurface: "/mcp/claude", ...options });
     return async (input: Record<string, unknown>, subject?: string) => {
       const { finalizeResearchInputSchema } = await import("../apps/research-mcp/src/research-finalization-gate.js");
-      const schema = name === "finalize_research" ? finalizeResearchInputSchema : saveResearchFindingsInputSchema;
-      return await handler!(schema.parse(input), subject === undefined ? {} : {
+      // The contribution tool accepts any call and checks it itself; the access tool's input is plain.
+      const parsed = name === "finalize_research"
+        ? finalizeResearchInputSchema.parse(input)
+        : name === "save_research_findings" ? saveResearchFindingsInputSchema.parse(input) : input;
+      return await handler!(parsed, subject === undefined ? {} : {
         authInfo: {
           token: "synthetic-token",
           clientId: "synthetic-client",
@@ -694,9 +711,13 @@ describe("finalize_research, save_research_findings and the findings library", (
     const { calls, findingsSave } = recorder();
     const options = { researchContributorAccessService: service, findingsLibrary: true, findingsSave };
     const finalize = connectorTool("finalize_research", options);
-    // The card's finding rests on the study audited in full text, so the offer names that work (owner answer 139c).
-    const offer = findingsSaveOffer({ studies: 1, videos: 0, absences: 0, corrections: 0 });
-    expect(offer).toBe(`These findings rest on a full-text audit of 1 study, work a quick answer does not do. ${FINDINGS_SAVE_OFFER}`);
+    // The card's finding rests on the study audited in full text, so the offer names that work (owner answer 139c),
+    // and on the connector its one sentence also asks to file this research's map (owner answer 143a).
+    const offer = findingsAndMapSaveOffer({ studies: 1, videos: 0, absences: 0, corrections: 0 });
+    expect(offer).toBe(`These findings rest on a full-text audit of 1 study, work a quick answer does not do. ${FINDINGS_AND_MAP_SAVE_OFFER}`);
+    expect(FINDINGS_AND_MAP_SAVE_OFFER).toBe("If you want them saved to AskRigor's findings library for review, and " +
+      "this research's map (the searches, the studies found and the leads left open, never this chat) filed to " +
+      "AskRigor's shared research repository for review, say yes; nothing is saved or filed otherwise.");
     // The answer must carry the offer before the card is signed; nothing is saved at the final check.
     expect((await finalize(request(), "auth0|paid")).structuredContent).toMatchObject({
       status: "not_ready", caveats: [SKIP, offer], findings_card: { status: "checked", beyond_quick_answer: 1 },
@@ -704,7 +725,12 @@ describe("finalize_research, save_research_findings and the findings library", (
     const offered = await finalize(request({ answer_draft: `${QUOTE} ${offer}` }), "auth0|paid");
     expect(offered.structuredContent).toMatchObject({
       status: "ready_with_limits", caveats: [SKIP, offer], findings_card: { status: "checked", problems: [] },
+      research_map: { status: "offered", note: RESEARCH_MAP_OFFERED },
     });
+    expect((offered.content as Array<{ text: string }>).map(({ text }) => text).join("\n"))
+      .toContain(`Research map: ${RESEARCH_MAP_OFFERED}`);
+    // The receipt signs the offer of the map and the account it was made to.
+    expect((offered.structuredContent as { finalization_receipt: string }).finalization_receipt).toContain("map=offered");
     expect(offered.structuredContent).not.toHaveProperty("saved_line");
     expect((offered.structuredContent as { findings_card: object }).findings_card).not.toHaveProperty("saved");
     expect(calls).toEqual([]);
@@ -740,6 +766,86 @@ describe("finalize_research, save_research_findings and the findings library", (
     }, "auth0|paid");
     expect(JSON.stringify(closedSave.content)).toContain("Not saved: AskRigor's findings library is not open yet.");
     expect(calls).toHaveLength(1);
+
+    // The same yes files this research's map (owner answer 143a), with the receipt of the check that offered it.
+    const submit = connectorTool("submit_research_contribution", options);
+    const map = {
+      proposalKind: "RESEARCH_FRONTIER",
+      privacyBoundary: CONTRIBUTION_PRIVACY_BOUNDARY_EXAMPLE,
+      payload: CONTRIBUTION_EXAMPLES.RESEARCH_FRONTIER,
+    };
+    // Without the yes and the receipt, a paid private account files nothing.
+    const unasked = await submit(map, "auth0|paid");
+    expect(unasked.isError).toBe(true);
+    expect(unasked.structuredContent).toMatchObject({
+      ok: false, error: { code: "paid_private_does_not_contribute", message: PAID_PRIVATE_MAP_ONLY },
+    });
+    const filed = await submit({ ...map, userConsent: "yes_to_this_save", finalizationReceipt: receipt }, "auth0|paid");
+    expect(filed.isError).not.toBe(true);
+    expect(filed.structuredContent).toMatchObject({
+      ok: true, proposal: { proposalKind: "RESEARCH_FRONTIER", status: "PENDING_REVIEW", writeStatus: "inserted" },
+    });
+    const mapReceipt = (filed.structuredContent as { research_receipt: string }).research_receipt;
+    expect(mapReceipt).toMatch(/^rr1~research_map~/u);
+    // Sending the same map again is the same filing; another map needs a new offer and a new yes.
+    const again = await submit({ ...map, userConsent: "yes_to_this_save", finalizationReceipt: receipt }, "auth0|paid");
+    expect(again.structuredContent).toMatchObject({ ok: true, proposal: { writeStatus: "idempotent_replay" } });
+    const another = await submit({
+      ...map,
+      payload: { ...CONTRIBUTION_EXAMPLES.RESEARCH_FRONTIER, idempotencyKey: "research-frontier-example-2" },
+      userConsent: "yes_to_this_save",
+      finalizationReceipt: receipt,
+    }, "auth0|paid");
+    expect(another.isError).toBe(true);
+    expect(JSON.stringify(another.content)).toContain("has already filed this research's map");
+    // A receipt whose check offered no map, or was made to another account, does not count.
+    const unoffered = await submit({
+      ...map,
+      payload: { ...CONTRIBUTION_EXAMPLES.RESEARCH_FRONTIER, idempotencyKey: "research-frontier-example-3" },
+      userConsent: "yes_to_this_save",
+      finalizationReceipt: issueResearchReceipt("finalization", { status: "ready" }, { secret: SECRET }),
+    }, "auth0|paid");
+    expect(unoffered.isError).toBe(true);
+    expect(JSON.stringify(unoffered.content)).toContain("The finalizationReceipt sent does not count: it is not a " +
+      "final check of this account whose offer included this research's map.");
+  });
+
+  it("reminds a free contributor to file the research map, and ends the answer with what was saved", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const { findingsSave } = recorder();
+    const options = { researchContributorAccessService: await accessService(), findingsLibrary: true, findingsSave };
+    const finalize = connectorTool("finalize_research", options);
+    // Its research audited a study in full text and no map of it was filed: the check reminds, holding nothing back.
+    const first = await finalize(request(), "auth0|free");
+    const reminder = researchMapReminder({ studies: 1, videos: 0, absences: 0, corrections: 0 });
+    expect(first.structuredContent).toMatchObject({
+      status: "ready_with_limits",
+      research_map: { status: "not_filed", note: reminder },
+      saved_line: findingsSavedLine("ARF-0042"),
+    });
+    expect(reminder).toContain("the free contributor agreement covers it, so the user is not asked");
+    // Filing the map returns a receipt; with it, the check says the map was filed and the last line says so.
+    const filed = await connectorTool("submit_research_contribution", options)({
+      proposalKind: "RESEARCH_FRONTIER",
+      privacyBoundary: CONTRIBUTION_PRIVACY_BOUNDARY_EXAMPLE,
+      payload: CONTRIBUTION_EXAMPLES.RESEARCH_FRONTIER,
+    }, "auth0|free");
+    const mapReceipt = (filed.structuredContent as { research_receipt: string }).research_receipt;
+    expect(mapReceipt).toMatch(/^rr1~research_map~/u);
+    const second = await finalize(request({ receipts: [...request().receipts, mapReceipt] }), "auth0|free");
+    expect(second.structuredContent).toMatchObject({
+      status: "ready_with_limits",
+      research_map: { status: "filed" },
+      saved_line: researchMapSavedLine("ARF-0042"),
+    });
+    expect(researchMapSavedLine("ARF-0042")).toBe("Saved to AskRigor's findings library for review as ARF-0042; " +
+      "this research's map (the searches, the studies found and the leads left open, never this chat) was filed to " +
+      "AskRigor's shared research repository for review.");
+    // The map is not research: the receipt count a saved card's stamp carries is unchanged.
+    expect((second.structuredContent as { receipts_verified: number }).receipts_verified).toBe(2);
+    // Another account's map is not this research's.
+    const paidMap = await finalize(request({ receipts: [...request().receipts, mapReceipt] }), "auth0|paid");
+    expect(paidMap.structuredContent).toMatchObject({ research_map: { status: "offered" } });
   });
 
   it("offers no paid-private save when no finding rests on work a quick answer can't do, and still saves on request", async () => {
@@ -811,7 +917,7 @@ describe("finalize_research, save_research_findings and the findings library", (
     expect(finalize?.description).toContain(
       "In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the " +
         "owner's review, and saved_line says so at the end of the answer; in paid private mode, when a finding rests " +
-        "on work a quick answer cannot do, the caveats offer its save."
+        "on work a quick answer cannot do, the caveats offer its save, which also asks to file this research's map."
     );
     expect(save?.description).toContain(
       "when the user said yes to saving it: after the answer offered the save, or when the user asked for it"

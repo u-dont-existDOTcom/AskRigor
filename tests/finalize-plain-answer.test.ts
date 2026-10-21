@@ -4,10 +4,14 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  InMemoryResearchContributorAccessStore, RESEARCH_USE_NOTICE_VERSION, ResearchContributorAccessService
+  InMemoryResearchContributorAccessStore,
+  RESEARCH_ACCOUNT_REFERENCE_CHARACTERS,
+  RESEARCH_USE_NOTICE_VERSION,
+  ResearchContributorAccessService,
+  researchAccountReference,
 } from "@askrigor/evidence-repository";
 
-import { devAccountKeysFromEnv } from "../apps/research-mcp/src/config.js";
+import { DEV_ACCOUNT_REFERENCE_CHARACTERS, devAccountKeysFromEnv } from "../apps/research-mcp/src/config.js";
 import { findingsCardSchema } from "../apps/research-mcp/src/findings/card.js";
 import type { FindingsSaveResult } from "../apps/research-mcp/src/findings/contracts.js";
 import type { FindingsSaveContext } from "../apps/research-mcp/src/findings/service.js";
@@ -303,8 +307,10 @@ describe("manage_research_access and finalize_research through the connector (ow
       grantedAt: "2026-09-01T00:00:00.000Z", expiresAt: null, revokedAt: null
     });
     await service.activatePaidPrivate("auth0|paid");
-    // The owner's account is marked dev in the server's settings, as a comma-separated list of account keys.
-    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", ` ${"f".repeat(64)}, ${service.accountKeyForSubject("auth0|dev").toUpperCase()} ,not-a-key`);
+    // The owner's account is marked dev in the server's settings, as a comma-separated list of the account references
+    // manage_research_access shows (or of whole account keys).
+    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS",
+      ` ${"f".repeat(64)}, ${researchAccountReference(service.accountKeyForSubject("auth0|dev")).toUpperCase()} ,not-a-key`);
     vi.stubEnv("ASKRIGOR_FINALIZATION_SIGNING_SECRET", SECRET);
     return { store, service };
   }
@@ -333,10 +339,24 @@ describe("manage_research_access and finalize_research through the connector (ow
   const request = (receipts: string[], overrides: Record<string, unknown> = {}) => ({ ...base({ receipts }), ...overrides });
   const laterAudit = () => audit(Date.now() + 60_000);
 
-  it("reads the dev accounts from the server's settings, ignoring entries that are not account keys", () => {
-    expect([...devAccountKeysFromEnv(` ${"A".repeat(64)},${"b".repeat(64)} , ${"c".repeat(63)},`)])
-      .toEqual(["a".repeat(64), "b".repeat(64)]);
+  it("reads the dev accounts from the server's settings, ignoring entries that are not references or keys", () => {
+    // A whole key counts as its reference; an entry of another length is ignored.
+    expect([...devAccountKeysFromEnv(` ${"A".repeat(64)},${"b".repeat(12)} , ${"c".repeat(63)},${"d".repeat(13)},`)])
+      .toEqual(["a".repeat(12), "b".repeat(12)]);
     expect(devAccountKeysFromEnv(undefined).size).toBe(0);
+    expect(DEV_ACCOUNT_REFERENCE_CHARACTERS).toBe(RESEARCH_ACCOUNT_REFERENCE_CHARACTERS);
+  });
+
+  it("shows each account its reference, the one the dev list takes", async () => {
+    const { service } = await accounts();
+    const manage = tool("manage_research_access", { researchContributorAccessService: service });
+    for (const subject of ["auth0|free", "auth0|paid", "auth0|dev", "auth0|new"]) {
+      const inspected = await manage({ action: "inspect" }, subject);
+      const reference = researchAccountReference(service.accountKeyForSubject(subject));
+      expect(reference).toMatch(/^[a-f0-9]{12}$/u);
+      expect(inspected.structuredContent).toMatchObject({ ok: true, accountReference: reference });
+      expect(text(inspected)).toContain(`This account's reference, to give the user only when they ask for it: ${reference}.`);
+    }
   });
 
   it("asks paid private and dev accounts, and only them, for a plain answer before research", async () => {

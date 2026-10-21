@@ -58,6 +58,21 @@ export const FINDINGS_SAVE_OFFER =
   "If you want them saved to AskRigor's findings library for review, say yes; nothing is saved otherwise.";
 
 /**
+ * This research's map as the answer names it (owner answer 143a, 2026-10-21, in the words of question 143): the
+ * RESEARCH_FRONTIER proposal of its searches, the studies they found and the leads left open, never the chat.
+ */
+export const RESEARCH_MAP = "this research's map (the searches, the studies found and the leads left open, never " +
+  "this chat)";
+
+/**
+ * The offer's sentence when it also asks to file this research's map (owner answer 143a: "ask on paid private
+ * accounts, in the same sentence as the save offer, so one yes saves the findings card and files the map").
+ */
+export const FINDINGS_AND_MAP_SAVE_OFFER = "If you want them saved to AskRigor's findings library for review, and " +
+  `${RESEARCH_MAP} filed to AskRigor's shared research repository for review, say yes; nothing is saved or filed ` +
+  "otherwise.";
+
+/**
  * Work a quick answer cannot do, which finalize_research derives for each finding of a checked card from that call's
  * receipts and declarations (owner answer 139c, 2026-10-20): a source audited in full text, a video whose comments
  * were read, a sentence that is a checked absence claim, or a correction the research itself found. It shows depth,
@@ -101,9 +116,26 @@ export function findingsSaveOffer(work: VerifiedWork): string {
   return `These findings rest on ${verifiedWorkPhrase(work)}, work a quick answer does not do. ${FINDINGS_SAVE_OFFER}`;
 }
 
+/** The same caveat when its one sentence also asks to file this research's map (owner answer 143a). */
+export function findingsAndMapSaveOffer(work: VerifiedWork): string {
+  return `These findings rest on ${verifiedWorkPhrase(work)}, work a quick answer does not do. ` +
+    FINDINGS_AND_MAP_SAVE_OFFER;
+}
+
 /** The line a free answer ends with, just before the check line, once the server's save of its card confirms (139c). */
 export function findingsSavedLine(cardId: string): string {
   return `Saved to AskRigor's findings library for review as ${cardId}.`;
+}
+
+/**
+ * The line a free answer ends with when a map of this research was filed in it (owner answer 143a: "the free answer's
+ * last line says what was saved"): with the card's id when its save confirmed, or the map alone.
+ */
+export function researchMapSavedLine(cardId: string | undefined): string {
+  const map = `${RESEARCH_MAP} was filed to AskRigor's shared research repository for review.`;
+  return cardId === undefined
+    ? `${map.charAt(0).toUpperCase()}${map.slice(1)}`
+    : `Saved to AskRigor's findings library for review as ${cardId}; ${map}`;
 }
 
 /**

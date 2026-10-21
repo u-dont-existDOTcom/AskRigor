@@ -4,6 +4,8 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
   CONTRIBUTION_PROBLEM_LIMITS,
   CONTRIBUTION_PROBLEM_RULES,
+  RESEARCH_ACCOUNT_REFERENCE_CHARACTERS,
+  RESEARCH_MAP_CONSENT,
   RESEARCH_USE_NOTICE,
   RESEARCH_USE_NOTICE_VERSION,
   ResearchAccessError,
@@ -12,6 +14,7 @@ import {
   contributionPrivacyBoundarySchema,
   freeContributorAgreementSchema,
   livingEvidenceContributionSchema,
+  researchAccountReference,
   researchContributionNullableParts,
   researchContributionShapeTemplate,
   researchFrontierContributionSchema,
@@ -40,7 +43,11 @@ import {
   sentencesOf,
 } from "./research-finalization-gate.js";
 import type { ResearchOperationExtra } from "./research-operation.js";
-import { researchTargetDigest, type ResearchReceiptClaims } from "./research-receipts.js";
+import {
+  RESEARCH_RECEIPT_MAX_CHARACTERS,
+  researchTargetDigest,
+  type ResearchReceiptClaims,
+} from "./research-receipts.js";
 
 // A notice version as a pattern, not the current value: clients keep a tool's
 // schema for as long as a chat or connector lives, so a constant here would let
@@ -119,6 +126,10 @@ export const manageResearchAccessOutputSchema = z.object({
       .describe("With register_plain_answer: how many claims were signed."),
   }).strict().optional(),
   research_receipt: z.string().optional(),
+  accountReference: z.string().regex(new RegExp(`^[a-f0-9]{${RESEARCH_ACCOUNT_REFERENCE_CHARACTERS}}$`, "u")).optional()
+    .describe("This account's reference, the first characters of its pseudonymous key: the user can give it to " +
+      "AskRigor's owner, for example to be listed as a dev account. It names no one. Give it only when the user asks " +
+      "for it."),
   problems: z.array(z.string()).optional(),
   error: researchAccessErrorSchema.optional(),
 }).strict();
@@ -134,6 +145,12 @@ export const submitResearchContributionInputSchema = z.object({
     .describe("The record proposalKind names, shaped as this tool's description shows."),
   supersedesProposalId: z.uuid().optional()
     .describe("Optional: the proposalId of this account's own pending proposal of the same kind that this one replaces; accepting this one rejects it as superseded."),
+  userConsent: z.literal(RESEARCH_MAP_CONSENT).optional()
+    .describe(`Paid private accounts only, for this research's map: "${RESEARCH_MAP_CONSENT}", after the user said ` +
+      "yes to the answer's offer to save its findings and file the map."),
+  finalizationReceipt: z.string().trim().min(1).max(RESEARCH_RECEIPT_MAX_CHARACTERS).optional()
+    .describe("Paid private accounts only, with userConsent: the finalization_receipt of the final check whose offer " +
+      "the user said yes to."),
 }).strict();
 
 /** Claude's surface publishes the strict schema; ChatGPT's the relaxed one, whose hidden shapes the description carries. */
@@ -204,6 +221,8 @@ export const submitResearchContributionOutputSchema = z.object({
       to: z.string().uuid(),
     }).strict()).max(1_000).optional(),
   }).strict().optional(),
+  // Owner answer 143a: a filed research map's receipt, which finalize_research takes with the research receipts.
+  research_receipt: z.string().optional(),
   error: researchAccessErrorSchema.optional(),
   // A rejected record: each problem's path, rule, what was expected and an example, never a value sent.
   problems: z.array(contributionProblemSchema).min(1).max(CONTRIBUTION_PROBLEM_LIMITS.shown).optional(),
@@ -219,10 +238,27 @@ export interface ResearchContributorToolOptions {
   canonical?: CanonicalIdentityReader;
   /** The plain answer before research, on the MCP connector only (owner answer 140b); undefined elsewhere. */
   plainAnswer?: PlainAnswerOptions;
+  /** This research's map on the MCP connector (owner answer 143a): the offer a paid private map needs, and its receipt. */
+  researchMap?: ResearchMapOptions;
+}
+
+export interface ResearchMapOptions {
+  /**
+   * Checks the finalizationReceipt a paid private account's map is filed with: signed by this server, unexpired, made
+   * to this account and offering to file the map. When it is, the SHA-256 of the receipt as sent, trimmed; else why
+   * it is not.
+   */
+  checkOffer: (receipt: string, accountKey: string) =>
+    { ok: true; receiptSha256: string } | { ok: false; reason: string };
+  /** Signs the research_map receipt of a map this account filed, or undefined when this server cannot sign receipts. */
+  sign: (accountKey: string) => string | undefined;
 }
 
 export interface PlainAnswerOptions {
-  /** The research account keys the server's settings mark as dev accounts (ASKRIGOR_DEV_ACCOUNT_KEYS). */
+  /**
+   * The account references of the accounts the server's settings mark as dev accounts (ASKRIGOR_DEV_ACCOUNT_KEYS,
+   * references or whole keys).
+   */
   devAccountKeys: () => ReadonlySet<string>;
   /**
    * Signs a plain-answer research receipt bound to the account (plainAnswerAccountBinding), or undefined when this
@@ -240,7 +276,7 @@ export function plainAnswerRequested(
   accountKey: string,
   devAccountKeys: ReadonlySet<string>,
 ): boolean {
-  return mode === "PAID_PRIVATE" || devAccountKeys.has(accountKey);
+  return mode === "PAID_PRIVATE" || devAccountKeys.has(researchAccountReference(accountKey));
 }
 
 const PLAIN_ANSWER_NOT_REQUESTED = "AskRigor asks paid private accounts and the dev accounts its settings list for a " +
@@ -426,6 +462,8 @@ export function createManageResearchAccessHandler(
           : parsed.action === "activate_paid_private"
             ? await options.service.activatePaidPrivate(auth.subject)
             : await options.service.revoke(auth.subject);
+      // The account's reference, which the user can give the owner (for example to mark a dev account).
+      const accountReference = researchAccountReference(options.service.accountKeyForSubject(auth.subject));
       // An active paid private or dev account is asked for its plain answer before research (owner answer 140b).
       const plain = access.status === "ACTIVE" && access.mode !== null
         ? await plainAnswerAccount(options.service, auth.subject, options.plainAnswer, access.mode)
@@ -439,12 +477,14 @@ export function createManageResearchAccessHandler(
             : access.status === "REVOKED"
               ? "AskRigor research access is revoked."
               : "Choose free contributor mode or activate an existing paid private entitlement before research use.") +
-            (plain === undefined ? "" : ` ${plainAnswerRequest(plain.note)}`),
+            (plain === undefined ? "" : ` ${plainAnswerRequest(plain.note)}`) +
+            ` This account's reference, to give the user only when they ask for it: ${accountReference}.`,
         }],
         structuredContent: manageResearchAccessOutputSchema.parse({
           ok: true,
           access,
           ...(plain === undefined ? {} : { plainAnswer: { requested: true, note: plain.note } }),
+          accountReference,
         }),
       };
     } catch (error) {
@@ -586,10 +626,20 @@ export function createSubmitResearchContributionHandler(
         "Research contribution intake is not configured.",
       );
     }
+    const accountKey = options.service.accountKeyForSubject(auth.subject);
+    // Owner answer 143a: a paid private account files this research's map only with the user's yes to the offer a
+    // final check made to it, which the finalizationReceipt shows; the service decides by the account's mode.
+    const receipt = typeof input.finalizationReceipt === "string" ? input.finalizationReceipt : undefined;
+    const offer = receipt === undefined || options.researchMap === undefined
+      ? undefined
+      : options.researchMap.checkOffer(receipt, accountKey);
     try {
-      // The service refuses by account first (paid private submits nothing),
-      // then checks the record and names every problem it finds.
-      const result = await options.service.submitProposal(auth.subject, input, { canonical: options.canonical });
+      // The service refuses by account first (a paid private account files only a map with the user's yes), then
+      // checks the record and names every problem it finds.
+      const result = await options.service.submitProposal(auth.subject, input, {
+        canonical: options.canonical,
+        ...(offer?.ok === true ? { paidPrivateConsent: { receiptSha256: offer.receiptSha256 } } : {}),
+      });
       const proposal = {
         proposalId: result.record.proposalId,
         proposalKind: result.record.proposalKind,
@@ -607,18 +657,35 @@ export function createSubmitResearchContributionHandler(
         : ` It continues the canonical records it names by exact identity: ${result.reconciled.length} ID` +
           `${result.reconciled.length === 1 ? " was" : "s were"} set to the canonical one${result.reconciled.length === 1 ? "" : "s"} ` +
           "(proposal.reconciled), so the stored record and its hash differ from the one sent.";
+      // Owner answer 143a: a filed research map returns a receipt, so the final check sees this research's map filed.
+      const mapReceipt = proposal.proposalKind === "RESEARCH_FRONTIER" ? options.researchMap?.sign(accountKey) : undefined;
       return {
-        content: [{
-          type: "text",
-          text: `${proposal.proposalKind === "RESEARCH_FRONTIER" ? "Research frontier" : proposal.proposalKind === "TOPIC_LINK" ? "Topic link" : "Source analysis"} proposal ${proposal.writeStatus === "inserted" ? "entered" : "was already present in"} the review inbox. Canonical evidence was not changed.${continued}`,
-        }],
+        content: [
+          {
+            type: "text",
+            text: `${proposal.proposalKind === "RESEARCH_FRONTIER" ? "Research frontier" : proposal.proposalKind === "TOPIC_LINK" ? "Topic link" : "Source analysis"} proposal ${proposal.writeStatus === "inserted" ? "entered" : "was already present in"} the review inbox. Canonical evidence was not changed.${continued}`,
+          },
+          ...(mapReceipt === undefined ? [] : [
+            { type: "text" as const, text: `research_receipt: ${mapReceipt}` },
+            { type: "text" as const, text: "Give finalize_research this research_receipt with the research receipts." },
+          ]),
+        ],
         structuredContent: submitResearchContributionOutputSchema.parse({
           ok: true,
           proposal,
+          ...(mapReceipt === undefined ? {} : { research_receipt: mapReceipt }),
         }),
       };
     } catch (error) {
       if (error instanceof ResearchContributionRejectedError) return rejectedProposal(error);
+      // A paid private map refused because its receipt did not show the offer: say why the receipt did not count.
+      if (
+        offer !== undefined && !offer.ok && error instanceof ResearchAccessError &&
+        error.code === "PAID_PRIVATE_DOES_NOT_CONTRIBUTE"
+      ) {
+        return proposalError("paid_private_does_not_contribute", `${error.message} The finalizationReceipt sent ` +
+          `does not count: ${offer.reason}`);
+      }
       return mappedProposalError(error);
     }
   };

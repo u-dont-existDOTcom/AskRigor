@@ -369,17 +369,22 @@ export function findingsLibraryEnabledFromEnv(
 }
 
 /**
- * The research account keys of dev accounts (owner answer 140b, 2026-10-20): ASKRIGOR_DEV_ACCOUNT_KEYS, a
- * comma-separated list of the 64-character keys research_use_accounts stores. Like a paid private account, a dev
- * account registers a plain answer before research and its checked answer ends with the note comparing the two. The
- * keys are pseudonymous HMACs, not secrets; an entry that is not one is ignored.
+ * The dev accounts (owner answer 140b, 2026-10-20): ASKRIGOR_DEV_ACCOUNT_KEYS, a comma-separated list of account
+ * references, the 12 characters manage_research_access shows a signed-in user (owner question, 2026-10-21), or of the
+ * 64-character keys research_use_accounts stores. Like a paid private account, a dev account registers a plain answer
+ * before research and its checked answer ends with the note comparing the two. Each entry is kept as its reference;
+ * references and keys are pseudonymous, not secrets, and an entry that is neither is ignored.
  */
 export function devAccountKeysFromEnv(
   value = process.env.ASKRIGOR_DEV_ACCOUNT_KEYS
 ): ReadonlySet<string> {
   return new Set((value ?? "").split(",").map((key) => key.trim().toLowerCase())
-    .filter((key) => /^[a-f0-9]{64}$/u.test(key)));
+    .filter((key) => /^(?:[a-f0-9]{12}|[a-f0-9]{64})$/u.test(key))
+    .map((key) => key.slice(0, DEV_ACCOUNT_REFERENCE_CHARACTERS)));
 }
+
+// RESEARCH_ACCOUNT_REFERENCE_CHARACTERS in @askrigor/evidence-repository; a test holds the two equal.
+export const DEV_ACCOUNT_REFERENCE_CHARACTERS = 12;
 
 export function parseTrustedClientIpHeader(
   value = process.env.ASKRIGOR_TRUSTED_CLIENT_IP_HEADER
@@ -388,7 +393,7 @@ export function parseTrustedClientIpHeader(
 }
 
 export const SERVER_INSTRUCTIONS =
-  "Before research, call manage_research_access with action inspect. If unregistered or revoked, show the exact notice and let the user explicitly accept free contributor mode or use an entitled paid-private account; never infer consent or claim checkout exists. Free contributor proposals hold only eligible deidentified structured formal research, never raw chat, identity, private health narratives, uploads, raw provider bodies, or YouTube/community data. After eligible free research, submit the strict frontier with submit_research_contribution; the server files validated audits; a pending proposal is not canonical evidence. Paid-private mode submits nothing. Before the final answer, call finalize_research with every research_receipt, your answer draft and a findings_card of its best findings; on not_ready do its next steps, else copy its caveats. If they offer a save, call save_research_findings only after the user's yes. If firsthand community evidence could plausibly matter, search the dominant community and an independent one: forums and Reddit by web search, YouTube by scout_gemini_youtube_candidates (else survey_youtube_community) and audit_youtube_video_community. An excellent RCT does not remove this requirement. Automatically continue while continuation_recommended is true; widen discovery until finalize_research accepts it. Retrieve unfiltered YouTube comments and replies; search_youtube_comments is query-bounded discovery only. For each decision-important full-text chain, call acquire_open_full_text once with exactly one doi and an optional pmcid; bind coverage_receipt.document_handle and coverage_receipt.source_content_sha256; call continue_open_full_text only while exhausted is false; then call one matching method-audit validator with the same bound document_handle. Its returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 must match the acquisition byte-for-byte; any mismatch blocks synthesis. If the handle expires, discard that chain and reacquire; never combine chains.";
+  "Before research, call manage_research_access with action inspect. If unregistered or revoked, show the exact notice and let the user explicitly accept free contributor mode or use an entitled paid-private account; never infer consent or claim checkout exists. Free contributor proposals hold only eligible deidentified formal research, never raw chat, identity, private health narratives, uploads, raw provider bodies, or YouTube/community data. After eligible free research, submit the strict frontier with submit_research_contribution; the server files validated audits; a pending proposal is not canonical evidence. Paid-private mode submits nothing unasked. Before the final answer, call finalize_research with every research_receipt, your answer draft and a findings_card of its best findings; on not_ready do its next steps, else copy its caveats. If they offer a save, call save_research_findings only after the user's yes. If firsthand community evidence could plausibly matter, search the dominant community and an independent one: forums and Reddit by web search, YouTube by scout_gemini_youtube_candidates (else survey_youtube_community) and audit_youtube_video_community. An excellent RCT does not remove this requirement. Automatically continue while continuation_recommended is true; widen discovery until finalize_research accepts it. Retrieve unfiltered YouTube comments and replies; search_youtube_comments is query-bounded discovery only. For each decision-important full-text chain, call acquire_open_full_text once with exactly one doi and an optional pmcid; bind coverage_receipt.document_handle and coverage_receipt.source_content_sha256; call continue_open_full_text only while exhausted is false; then call one matching method-audit validator with the same bound document_handle. Its returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 must match the acquisition byte-for-byte; any mismatch blocks synthesis. If the handle expires, discard that chain and reacquire; never combine chains.";
 
 export const HEALTH_PAYLOAD = {
   status: "ok",
