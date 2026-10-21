@@ -105,6 +105,10 @@ same cap before provider execution. One scout can use one grounded-search
 interaction and, only if its packet fails strict validation, one no-search
 correction interaction under the same reservation. A scout whose reported usage costs more
 than its reservation is refused (`gemini_scout_request_over_budget`) and charged the full $1.
+A scout that finishes on a later call (controlled research and the MCP tool run it in the
+background) keeps its $1 charged as a hold until then; the call that completes it settles its
+real cost and returns the rest to the same UTC month's cap once. A boundary, failure, or
+stopped or abandoned scout keeps the whole $1 charged.
 The server accepts only the fixed privacy model
 `gpt-5.4-nano-2026-03-17`; no moving alias is allowed.
 The lesson privacy check and the low-level Gemini route use provider storage-disabled modes. Controlled Gemini scouting uses temporary provider storage for background execution and requests deletion after each interaction. Budget exhaustion, ledger failure,
