@@ -88,6 +88,12 @@ describe("accepted-contribution promotion scheduler", () => {
       "Do not delete",
       "one accepted intent per activation",
       "no scientific decision",
+      // Owner answer 138b: a conflict ends its intent FAILED and the queue moves on; a transient error stays pending.
+      "ends `FAILED` with one fixed `failure_code`",
+      "the same activation moves on to the next accepted intent",
+      "a `FAILED` intent is never retried",
+      "The durable intent stays\n  `PENDING`",
+      "as instants",
     ]) {
       expect(runbook).toContain(expected);
     }

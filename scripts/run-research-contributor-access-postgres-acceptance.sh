@@ -15,9 +15,11 @@ umask 077
 openssl rand -hex 32 >"$temporary_dir/migrator-password"
 openssl rand -hex 32 >"$temporary_dir/access-password"
 openssl rand -hex 32 >"$temporary_dir/review-password"
+openssl rand -hex 32 >"$temporary_dir/reader-password"
 migrator_password="$(tr -d '\r\n' <"$temporary_dir/migrator-password")"
 access_password="$(tr -d '\r\n' <"$temporary_dir/access-password")"
 review_password="$(tr -d '\r\n' <"$temporary_dir/review-password")"
+reader_password="$(tr -d '\r\n' <"$temporary_dir/reader-password")"
 
 docker run --detach --name "$container_name" \
   --env POSTGRES_DB=askrigor_living_evidence \
@@ -49,6 +51,15 @@ if [[ ! "$host_port" =~ ^[0-9]+$ ]]; then
 fi
 admin_url="postgresql://askrigor_migrator:${migrator_password}@127.0.0.1:${host_port}/askrigor_living_evidence"
 
+# The public runtime's read-only canonical reader, as production's init script creates it before the first migration.
+docker cp infra/living-evidence-production/init-reader.sh "$container_name:/tmp/init-reader"
+docker cp "$temporary_dir/reader-password" "$container_name:/tmp/reader-password"
+docker exec \
+  --env POSTGRES_USER=askrigor_migrator \
+  --env POSTGRES_DB=askrigor_living_evidence \
+  --env ASKRIGOR_READER_PASSWORD_FILE=/tmp/reader-password \
+  "$container_name" sh /tmp/init-reader
+
 DATABASE_URL="$admin_url" npx tsx \
   scripts/research-contributor-access-postgres-acceptance.mts migrate
 
@@ -75,7 +86,9 @@ docker exec \
 
 access_url="postgresql://askrigor_research_access:${access_password}@127.0.0.1:${host_port}/askrigor_living_evidence"
 review_url="postgresql://askrigor_research_review:${review_password}@127.0.0.1:${host_port}/askrigor_living_evidence"
+reader_url="postgresql://askrigor_reader:${reader_password}@127.0.0.1:${host_port}/askrigor_living_evidence"
 DATABASE_URL="$admin_url" \
 ASKRIGOR_RESEARCH_ACCESS_DATABASE_URL="$access_url" \
 ASKRIGOR_RESEARCH_REVIEW_DATABASE_URL="$review_url" \
+ASKRIGOR_LIVING_EVIDENCE_READER_DATABASE_URL="$reader_url" \
   npx tsx scripts/research-contributor-access-postgres-acceptance.mts verify

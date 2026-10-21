@@ -98,6 +98,118 @@ describe("persistent lesson AI budget", {
     });
   });
 
+  it("keeps a held reservation fully charged and ends it", async () => {
+    const { ledgerPath } = await temporaryLedger();
+    const budget = createFileAiBudget({
+      ledgerPath,
+      monthlyLimitNanoUsd: 50_000_000_000,
+      expectedUid: process.getuid?.(),
+      now: () => new Date("2026-10-17T10:00:00.000Z"),
+    });
+    const reservation = await budget.reserve("gemini_youtube_candidate_scout", 1_000_000_000);
+
+    const hold = await reservation!.hold();
+
+    expect(hold).toEqual({
+      hold_id: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u),
+      held_nano_usd: 1_000_000_000,
+      utc_month: "2026-10",
+    });
+    await expect(reservation!.hold()).rejects.toThrow();
+    await expect(reservation!.commit(0)).rejects.toThrow();
+    await expect(reservation!.forfeit()).rejects.toThrow();
+    expect(JSON.parse(await readFile(ledgerPath, "utf8"))).toMatchObject({
+      charged_nano_usd: 1_000_000_000,
+    });
+  });
+
+  it("settles a hold once with its real cost, also after a restart", async () => {
+    const { ledgerPath } = await temporaryLedger();
+    const options = {
+      ledgerPath,
+      monthlyLimitNanoUsd: 50_000_000_000 as const,
+      expectedUid: process.getuid?.(),
+      now: () => new Date("2026-10-17T10:00:00.000Z"),
+    };
+    const startingBudget = createFileAiBudget(options);
+    const finished = await (await startingBudget.reserve("gemini_youtube_candidate_scout", 1_000_000_000))!.hold();
+    const stillRunning = await (await startingBudget.reserve("gemini_youtube_candidate_scout", 1_000_000_000))!.hold();
+    expect(stillRunning.hold_id).not.toBe(finished.hold_id);
+
+    // The process restarted between the start and the completion: the hold
+    // travels with the job, so the new process settles it.
+    const restartedBudget = createFileAiBudget(options);
+    await restartedBudget.settle(finished, 250_000_000);
+    expect(JSON.parse(await readFile(ledgerPath, "utf8"))).toMatchObject({
+      charged_nano_usd: 1_250_000_000,
+    });
+
+    // A retried completion refunds nothing more, at any cost it reports.
+    await restartedBudget.settle(finished, 250_000_000);
+    await restartedBudget.settle(finished, 0);
+    expect(JSON.parse(await readFile(ledgerPath, "utf8"))).toMatchObject({
+      charged_nano_usd: 1_250_000_000,
+    });
+
+    await restartedBudget.settle(stillRunning, 1_000_000_000);
+    expect(JSON.parse(await readFile(ledgerPath, "utf8"))).toMatchObject({
+      charged_nano_usd: 1_250_000_000,
+    });
+  });
+
+  it("settles a hold from an ended month without refunding the new month", async () => {
+    const { ledgerPath } = await temporaryLedger();
+    let now = new Date("2026-10-31T23:59:00.000Z");
+    const budget = createFileAiBudget({
+      ledgerPath,
+      monthlyLimitNanoUsd: 50_000_000_000,
+      expectedUid: process.getuid?.(),
+      now: () => now,
+    });
+    const october = await (await budget.reserve("gemini_youtube_candidate_scout", 1_000_000_000))!.hold();
+
+    now = new Date("2026-11-01T00:01:00.000Z");
+    await expect(budget.settle(october, 200_000_000)).resolves.toBeUndefined();
+
+    expect(JSON.parse(await readFile(ledgerPath, "utf8"))).toMatchObject({
+      utc_month: "2026-11",
+      charged_nano_usd: 0,
+    });
+  });
+
+  it("refuses to settle more than the hold, a malformed hold, or a hold from a later month", async () => {
+    const { ledgerPath } = await temporaryLedger();
+    const budget = createFileAiBudget({
+      ledgerPath,
+      monthlyLimitNanoUsd: 50_000_000_000,
+      expectedUid: process.getuid?.(),
+      now: () => new Date("2026-10-17T10:00:00.000Z"),
+    });
+    const hold = await (await budget.reserve("gemini_youtube_candidate_scout", 1_000_000_000))!.hold();
+
+    for (const [settledHold, actualNanoUsd] of [
+      [hold, 1_000_000_001],
+      [hold, -1],
+      [hold, 0.5],
+      [{ ...hold, hold_id: "not-a-hold" }, 0],
+      [{ ...hold, held_nano_usd: 50_000_000_001 }, 0],
+      [{ ...hold, memo: "extra field" }, 0],
+      [{ ...hold, utc_month: "2026-11" }, 0],
+    ] as const) {
+      await expect(budget.settle(settledHold, actualNanoUsd)).rejects.toThrow("AI budget ledger unavailable");
+    }
+    expect(JSON.parse(await readFile(ledgerPath, "utf8"))).toMatchObject({
+      utc_month: "2026-10",
+      charged_nano_usd: 1_000_000_000,
+    });
+
+    // None of those refusals settled the hold.
+    await budget.settle(hold, 300_000_000);
+    expect(JSON.parse(await readFile(ledgerPath, "utf8"))).toMatchObject({
+      charged_nano_usd: 300_000_000,
+    });
+  });
+
   it("atomically replaces a 0600 ledger and preserves aggregate charges after restart", async () => {
     const { directory, ledgerPath } = await temporaryLedger();
     const options = {

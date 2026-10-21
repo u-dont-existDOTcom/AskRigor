@@ -108,6 +108,26 @@ describe("production living-evidence deployment", () => {
     expect(migration).toContain("RESEARCH_CONTRIBUTION_REVIEW_CONFLICT");
   });
 
+  it("adds the FAILED promotion state and one review context function, still function-only (owner answer 138b)", async () => {
+    const provision = await read(
+      "infra/living-evidence-production/provision-research-review-role.sh",
+    );
+    const migration = await read(
+      "packages/evidence-repository/migrations/0012_research_contribution_merging.sql",
+    );
+
+    expect(await read("packages/evidence-repository/src/postgres.ts")).toContain('"0012_research_contribution_merging"');
+    expect(provision).toContain(
+      "GRANT EXECUTE ON FUNCTION living_evidence.inspect_research_contribution_context(uuid)\n  TO askrigor_research_review;",
+    );
+    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(3);
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS failure_code text");
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS failed_at timestamptz");
+    expect(migration).toContain("(status = 'FAILED' AND completed_at IS NULL");
+    expect(migration).toContain("SECURITY DEFINER");
+    expect(migration).toContain("REVOKE ALL ON FUNCTION inspect_research_contribution_context(uuid) FROM PUBLIC;");
+  });
+
   it("provisions a proposal-only reciprocal research role without canonical writer authority", async () => {
     const compose = await read("infra/living-evidence-production/compose.yaml");
     const provision = await read(
@@ -150,6 +170,21 @@ describe("production living-evidence deployment", () => {
     );
     expect(notice).toContain("IF NOT EXISTS");
     expect(await read("packages/evidence-repository/src/postgres.ts")).toContain('"0011_research_use_notice_v2"');
+    // Owner answer 140b (2026-10-20): the plain-answer note is a choice on the account row, on by default, which the
+    // role's table grant already covers; the plain answer itself is never stored.
+    const noteSetting = await read("packages/evidence-repository/migrations/0013_research_plain_answer_note.sql");
+    expect(noteSetting).toContain("ADD COLUMN IF NOT EXISTS plain_answer_note boolean NOT NULL DEFAULT true");
+    expect(noteSetting).not.toMatch(/CREATE TABLE|GRANT/iu);
+    expect(await read("packages/evidence-repository/src/postgres.ts")).toContain('"0013_research_plain_answer_note"');
+    // Owner answer 143a (2026-10-21): a paid private account's research map is filed only with the user's yes, whose
+    // finalization receipt's digest it carries; one yes files one map, and the receipt itself is never stored.
+    const mapConsent = await read("packages/evidence-repository/migrations/0014_research_map_consent.sql");
+    expect(mapConsent).toContain("ADD COLUMN IF NOT EXISTS consent_receipt_sha256 char(64)");
+    expect(mapConsent).toContain("consent_receipt_sha256 IS NULL\n        OR (consent_receipt_sha256 ~ '^[a-f0-9]{64}$' AND proposal_kind = 'RESEARCH_FRONTIER')");
+    expect(mapConsent).toContain("CREATE UNIQUE INDEX IF NOT EXISTS research_contribution_proposals_consent_idx");
+    expect(mapConsent).toContain("NEW.proposal_kind <> 'RESEARCH_FRONTIER' OR NEW.consent_receipt_sha256 IS NULL");
+    expect(mapConsent).not.toMatch(/CREATE TABLE|GRANT/iu);
+    expect(await read("packages/evidence-repository/src/postgres.ts")).toContain('"0014_research_map_consent"');
     expect(provision).not.toMatch(
       /GRANT\s+(?:DELETE|TRUNCATE|CREATE)\b/iu,
     );

@@ -145,7 +145,7 @@ describe("AskRigor MCP tools", () => {
       const description = tools.find(({ name }) => name === "manage_research_access")?.description ?? "";
 
       expect(description).toContain(
-        "Paid private mode saves an answer's findings card or lesson feedback only when the user accepts saving it for that answer"
+        "Paid private mode saves an answer's findings card, files its research map or saves lesson feedback only when the user accepts that for that answer"
       );
       expect(description).not.toContain("saves nothing");
     } finally {

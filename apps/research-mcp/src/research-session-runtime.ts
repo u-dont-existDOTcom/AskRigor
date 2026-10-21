@@ -358,6 +358,7 @@ async function executeBudgetedScout(
 ): Promise<ResearchSessionState> {
   if (options.scout === undefined || options.backgroundScout !== undefined) {
     const checkpoint = state.scout.background_job;
+    const budgetHold = state.scout.budget_hold;
     const execution = await executeResumableAutomatedGeminiScout({
       research_target: state.research_target,
       diagnosis_status: state.diagnosis_status
@@ -365,13 +366,15 @@ async function executeBudgetedScout(
       ? undefined
       : {
           checkpoint,
-          accountedNanoUsd: state.scout.accounted_nano_usd!
+          accountedNanoUsd: state.scout.accounted_nano_usd!,
+          ...(budgetHold === undefined ? {} : { budgetHold })
         }, options);
     if ("controller_progress" in execution) {
       return recordAutomatedScoutProgress(
         state,
         execution.controller_progress.checkpoint,
-        execution.controller_progress.accounted_nano_usd
+        execution.controller_progress.accounted_nano_usd,
+        execution.controller_progress.budget_hold
       );
     }
     if ("controller_completion" in execution) {

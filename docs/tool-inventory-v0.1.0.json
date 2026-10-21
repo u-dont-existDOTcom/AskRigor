@@ -10631,7 +10631,7 @@
     },
     {
       "name": "manage_research_access",
-      "description": "Shows or sets AskRigor's research-use mode. Inspecting it is the first step of research, and it shows why a research tool was refused. Free use requires explicit agreement to version free-contributor-v2-2026-09-30: what AskRigor learns from the research (deidentified structured research progress and each finished answer's findings card) is saved for non-authoritative review. Paid private mode saves an answer's findings card or lesson feedback only when the user accepts saving it for that answer, and activates only for an existing verified entitlement; this release offers no price or checkout.",
+      "description": "Shows or sets AskRigor's research-use mode. Inspecting it is the first step of research, and it shows why a research tool was refused. Free use requires explicit agreement to version free-contributor-v2-2026-09-30: what AskRigor learns from the research (deidentified structured research progress and each finished answer's findings card) is saved for non-authoritative review. Paid private mode saves an answer's findings card, files its research map or saves lesson feedback only when the user accepts that for that answer, and activates only for an existing verified entitlement; this release offers no price or checkout. For a paid private or dev account, inspect asks for a plain answer before research: register_plain_answer signs the short answer you would give without AskRigor's tools, which the final check compares with the checked answer in a note, and set_plain_answer_note turns that note off or on. Each call also returns accountReference, this account's reference, which the user can give AskRigor's owner (for example to be listed as a dev account); give it only when the user asks for it.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -10641,7 +10641,9 @@
               "inspect",
               "accept_free_contributor",
               "activate_paid_private",
-              "revoke"
+              "revoke",
+              "register_plain_answer",
+              "set_plain_answer_note"
             ]
           },
           "agreement": {
@@ -10677,6 +10679,45 @@
               "paidPrivateAlternativeAcknowledged"
             ],
             "additionalProperties": false
+          },
+          "plainAnswer": {
+            "description": "With register_plain_answer, before any research call: the plain answer and its claims.",
+            "type": "object",
+            "properties": {
+              "researchTarget": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 5000,
+                "description": "The research target, exactly as you will give it to finalize_research and the discovery tools."
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1500,
+                "description": "The short answer you would give without AskRigor's tools, written before any research call."
+              },
+              "claims": {
+                "minItems": 1,
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 250
+                },
+                "description": "Its main claims, each one or more whole sentences copied exactly from text."
+              }
+            },
+            "required": [
+              "researchTarget",
+              "text",
+              "claims"
+            ],
+            "additionalProperties": false
+          },
+          "plainAnswerNote": {
+            "description": "With set_plain_answer_note: false turns off the note comparing a checked answer with its plain answer, true turns it back on.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -10769,6 +10810,45 @@
             ],
             "additionalProperties": false
           },
+          "plainAnswer": {
+            "type": "object",
+            "properties": {
+              "requested": {
+                "type": "boolean",
+                "const": true,
+                "description": "This account registers a plain answer before research: a paid private or dev account."
+              },
+              "note": {
+                "type": "boolean",
+                "description": "Whether its checked answers end with the note comparing them with the plain answer."
+              },
+              "claims": {
+                "description": "With register_plain_answer: how many claims were signed.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5
+              }
+            },
+            "required": [
+              "requested",
+              "note"
+            ],
+            "additionalProperties": false
+          },
+          "research_receipt": {
+            "type": "string"
+          },
+          "accountReference": {
+            "description": "This account's reference, the first characters of its pseudonymous key: the user can give it to AskRigor's owner, for example to be listed as a dev account. It names no one. Give it only when the user asks for it.",
+            "type": "string",
+            "pattern": "^[a-f0-9]{12}$"
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "error": {
             "type": "object",
             "properties": {
@@ -10784,6 +10864,8 @@
                   "paid_private_does_not_contribute",
                   "free_contributor_required",
                   "contribution_privacy_rejected",
+                  "plain_answer_not_requested",
+                  "receipts_unavailable",
                   "invalid_request"
                 ]
               },
@@ -10826,7 +10908,7 @@
     },
     {
       "name": "submit_research_contribution",
-      "description": "Files one already-validated, deidentified formal research frontier in the pending review inbox. Study and review audits validated in free contributor research are filed by the server when finalize_research passes, so they are not submitted here. It accepts no raw chat, prompts, identity or contact details, private health narratives, uploads, raw source or provider bodies, or YouTube or community data. A proposal is not canonical evidence and does not gain scientific authority by submission. Paid-private mode cannot use this operation. A rejected record comes back with every problem found, each with its path, what was expected and an example; the values sent are not repeated. Record shapes, as JSON, where <uuid> stands for a UUID, <sha256> for 64 lowercase hexadecimal characters, <date-time> for an ISO 8601 date-time with a time zone, <date> for YYYY-MM-DD, … for deidentified text, a|b for one of the values and |null for a value that may be null. RESEARCH_FRONTIER payload {\"schemaVersion\":1,\"idempotencyKey\":\"research-frontier-example-1\",\"contributionId\":\"<uuid>\",\"persistenceBoundary\":{\"rawSourceContentPersisted\":false,\"rawProviderResponsePersisted\":false,\"personalDataPersisted\":false,\"communityDataPersisted\":false},\"run\":{\"runId\":\"<uuid>\",\"runKind\":\"live_research|historical_import|clarification|correction|synthetic_fixture\",\"startedAt\":\"<date-time>\",\"completedAt\":\"<date-time>\",\"protocolManifests\":[{\"name\":\"HRP\",\"version\":\"…\",\"revisionDate\":\"<date>\",\"sha256\":\"<sha256>\"}],\"provenanceNote\":\"…\"},\"topic\":{\"topicId\":\"<uuid>\",\"canonicalKey\":\"example-topic\",\"label\":\"…\"},\"question\":{\"questionId\":\"<uuid>\",\"normalizedQuestion\":\"…\",\"dimensions\":{\"population\":\"…|null\",\"programOrExposure\":\"…|null\",\"comparator\":\"…|null\",\"outcome\":\"…|null\",\"horizon\":\"…|null\",\"setting\":\"…|null\"}},\"frontier\":{\"frontierId\":\"<uuid>\",\"lanes\":[{\"laneId\":\"<uuid>\",\"canonicalKey\":\"pubmed-formal\",\"sourceClass\":\"study|review|guideline|registry|book|grey_literature|other\",\"provider\":\"pubmed\",\"label\":\"…\"}],\"passes\":[{\"passId\":\"<uuid>\",\"laneId\":\"<uuid>\",\"deidentifiedQuery\":\"…\",\"declaredQuerySha256\":\"<sha256>\",\"executedAt\":\"<date-time>\",\"coverageBasis\":\"publication_date|index_date|provider_unspecified\",\"requestedWindow\":{\"start\":\"<date>\",\"endExclusive\":\"<date>\"},\"confirmedWindow\":{\"start\":\"<date>\",\"endExclusive\":\"<date>\"},\"coverageRelation\":\"initial|full_refresh|contiguous_delta|overlap_delta|gap_delta|unscoped\",\"deltaFromPassId\":\"<uuid>|null\",\"status\":\"complete|partial|blocked_retryable|blocked_terminal\",\"accessStatus\":\"complete|api_visible_complete|partial|abstract_only|metadata_only|inaccessible|rate_limited|not_found|error\",\"exhausted\":true,\"retrievedCandidateCount\":1,\"screenedCandidateCount\":1,\"selectedCandidateCount\":1,\"nextCapability\":\"…|null\",\"blockedReasonCode\":\"…|null\",\"receiptSha256\":\"<sha256>\",\"limitations\":[\"…\"]}],\"candidateVersions\":[{\"candidateId\":\"<uuid>\",\"versionId\":\"<uuid>\",\"observedInPassId\":\"<uuid>\",\"candidateKind\":\"study|review|guideline|registry|book|grey_literature|other\",\"identifiers\":[{\"scheme\":\"doi|pmid|pmcid|arxiv|nct|isbn|url|other\",\"value\":\"10.1000/example\"}],\"displayTitle\":\"…\",\"publicationDate\":\"<date>|null\",\"decision\":\"selected|excluded|deferred|unresolved\",\"decisionReason\":\"…\",\"relevanceSummary\":\"…\",\"sourceFamilyId\":\"<uuid>|null\",\"previousVersionId\":\"<uuid>|null\"}],\"trailVersions\":[{\"trailId\":\"<uuid>\",\"versionId\":\"<uuid>\",\"trailKind\":\"unresolved_question|unattempted_search|blocked_source|formal_followup|discriminator_search|coverage_gap|delta_search\",\"laneId\":\"<uuid>|null\",\"targetWindow\":{\"start\":\"<date>\",\"endExclusive\":\"<date>\"},\"description\":\"…\",\"rationale\":\"…\",\"priority\":\"low|medium|high|decision_critical\",\"state\":\"open|ready|blocked_retryable|blocked_terminal|resolved|cancelled\",\"nextCapability\":\"…|null\",\"blockedReasonCode\":\"…|null\",\"resolutionNote\":\"…|null\",\"previousVersionId\":\"<uuid>|null\"}]}}; frontier.passes[].requestedWindow, frontier.passes[].confirmedWindow and frontier.trailVersions[].targetWindow may be null, and declaredQuerySha256 is the SHA-256 of the pass's deidentifiedQuery. SOURCE_ANALYSIS payload {\"schemaVersion\":1,\"idempotencyKey\":\"source-analysis-example-1\",\"run\":{\"runId\":\"<uuid>\",\"runKind\":\"live_research|historical_import|clarification|correction|synthetic_fixture\",\"startedAt\":\"<date-time>\",\"completedAt\":\"<date-time>\",\"protocolManifests\":[{\"name\":\"HRP\",\"version\":\"…\",\"revisionDate\":\"<date>\",\"sha256\":\"<sha256>\"}],\"provenanceNote\":\"…\"},\"topic\":{\"topicId\":\"<uuid>\",\"canonicalKey\":\"example-topic\",\"label\":\"…\"},\"source\":{\"familyId\":\"<uuid>\",\"versionId\":\"<uuid>\",\"sourceKind\":\"study|review\",\"identityHash\":\"<sha256>\",\"displayTitle\":\"…\",\"identifiers\":[{\"scheme\":\"doi|pmid|pmcid|arxiv|nct|url|other\",\"value\":\"10.1000/example\"}],\"sourceContentSha256\":\"<sha256>|null\",\"accessStatus\":\"complete|partial|abstract_only|metadata_only|inaccessible|not_found\",\"retrievedAt\":\"<date-time>|null\",\"sourceLocator\":\"…|null\",\"rawContentPersisted\":false},\"analysis\":{\"analysisId\":\"<uuid>\",\"versionId\":\"<uuid>\",\"analysisKind\":\"study_method_audit|review_method_audit\",\"relationship\":\"initial|clarifies|corrects|supersedes|invalidates\",\"previousVersionId\":\"<uuid>|null\",\"captureStatus\":\"complete_performed_analysis|partial_historical_capture|clarification|correction|invalidation\",\"authoredAt\":\"<date-time>\",\"coverageStatement\":\"…\",\"declaredWholeTextSha256\":\"<sha256>|null\",\"sections\":[{\"ordinal\":0,\"sectionKey\":\"000-method-audit\",\"title\":\"…\",\"content\":\"…\"}],\"domains\":[{\"ordinal\":0,\"rubric\":\"study_method_v1|review_method_v1|general_analysis_v1\",\"domain\":\"randomization\",\"status\":\"adequate|limitation_identified|unclear|not_applicable\",\"finding\":\"…\",\"evidenceLocators\":[\"…\"],\"unresolvedFields\":[\"…\"],\"limitations\":[\"…\"]}],\"claimCapabilities\":[{\"ordinal\":0,\"claim\":\"…\",\"capability\":\"can_support|cannot_support|unclear\",\"reason\":\"…\",\"evidenceLocators\":[\"…\"]}],\"futureAnalysisItems\":[{\"itemId\":\"<uuid>\",\"question\":\"…\",\"rationale\":\"…\",\"priority\":\"low|medium|high|decision_critical\",\"status\":\"open|resolved|cancelled\",\"evidenceNeeded\":[\"…\"],\"resolvedByVersionId\":\"<uuid>|null\"}]},\"receipts\":[{\"receiptId\":\"<uuid>\",\"receiptKind\":\"…\",\"receiptSha256\":\"<sha256>\",\"locator\":\"…|null\",\"details\":{\"<name>\":\"…\"}}]}; topic may be null; knowledge is optional (structured claims, evidence bindings, edges, an assessment and freshness records); receipts[].details holds names of your choice, each with text, a number, true, false or null; and declaredWholeTextSha256 is null or the SHA-256 of the sections' content joined in order.",
+      "description": "Files one already-validated, deidentified formal research frontier in the pending review inbox, or a topic link: your declaration that two differently worded canonical topics name the same topic, or that one is narrower than, broader than or related to the other, which the owner's acceptance links without moving or deleting anything. Study and review audits validated in free contributor research are filed by the server when finalize_research passes, so they are not submitted here. It accepts no raw chat, prompts, identity or contact details, private health narratives, uploads, raw source or provider bodies, or YouTube or community data. A proposal is not canonical evidence and does not gain scientific authority by submission. Paid-private mode cannot use this operation. A rejected record comes back with every problem found, each with its path, what was expected and an example; the values sent are not repeated. Record shapes, as JSON, where <uuid> stands for a UUID, <sha256> for 64 lowercase hexadecimal characters, <date-time> for an ISO 8601 date-time with a time zone, <date> for YYYY-MM-DD, … for deidentified text, a|b for one of the values and |null for a value that may be null. RESEARCH_FRONTIER payload {\"schemaVersion\":1,\"idempotencyKey\":\"research-frontier-example-1\",\"contributionId\":\"<uuid>\",\"persistenceBoundary\":{\"rawSourceContentPersisted\":false,\"rawProviderResponsePersisted\":false,\"personalDataPersisted\":false,\"communityDataPersisted\":false},\"run\":{\"runId\":\"<uuid>\",\"runKind\":\"live_research|historical_import|clarification|correction|synthetic_fixture\",\"startedAt\":\"<date-time>\",\"completedAt\":\"<date-time>\",\"protocolManifests\":[{\"name\":\"HRP\",\"version\":\"…\",\"revisionDate\":\"<date>\",\"sha256\":\"<sha256>\"}],\"provenanceNote\":\"…\"},\"topic\":{\"topicId\":\"<uuid>\",\"canonicalKey\":\"example-topic\",\"label\":\"…\"},\"question\":{\"questionId\":\"<uuid>\",\"normalizedQuestion\":\"…\",\"dimensions\":{\"population\":\"…|null\",\"programOrExposure\":\"…|null\",\"comparator\":\"…|null\",\"outcome\":\"…|null\",\"horizon\":\"…|null\",\"setting\":\"…|null\"}},\"frontier\":{\"frontierId\":\"<uuid>\",\"lanes\":[{\"laneId\":\"<uuid>\",\"canonicalKey\":\"pubmed-formal\",\"sourceClass\":\"study|review|guideline|registry|book|grey_literature|other\",\"provider\":\"pubmed\",\"label\":\"…\"}],\"passes\":[{\"passId\":\"<uuid>\",\"laneId\":\"<uuid>\",\"deidentifiedQuery\":\"…\",\"declaredQuerySha256\":\"<sha256>\",\"executedAt\":\"<date-time>\",\"coverageBasis\":\"publication_date|index_date|provider_unspecified\",\"requestedWindow\":{\"start\":\"<date>\",\"endExclusive\":\"<date>\"},\"confirmedWindow\":{\"start\":\"<date>\",\"endExclusive\":\"<date>\"},\"coverageRelation\":\"initial|full_refresh|contiguous_delta|overlap_delta|gap_delta|unscoped\",\"deltaFromPassId\":\"<uuid>|null\",\"status\":\"complete|partial|blocked_retryable|blocked_terminal\",\"accessStatus\":\"complete|api_visible_complete|partial|abstract_only|metadata_only|inaccessible|rate_limited|not_found|error\",\"exhausted\":true,\"retrievedCandidateCount\":1,\"screenedCandidateCount\":1,\"selectedCandidateCount\":1,\"nextCapability\":\"…|null\",\"blockedReasonCode\":\"…|null\",\"receiptSha256\":\"<sha256>\",\"limitations\":[\"…\"]}],\"candidateVersions\":[{\"candidateId\":\"<uuid>\",\"versionId\":\"<uuid>\",\"observedInPassId\":\"<uuid>\",\"candidateKind\":\"study|review|guideline|registry|book|grey_literature|other\",\"identifiers\":[{\"scheme\":\"doi|pmid|pmcid|arxiv|nct|isbn|url|other\",\"value\":\"10.1000/example\"}],\"displayTitle\":\"…\",\"publicationDate\":\"<date>|null\",\"decision\":\"selected|excluded|deferred|unresolved\",\"decisionReason\":\"…\",\"relevanceSummary\":\"…\",\"sourceFamilyId\":\"<uuid>|null\",\"previousVersionId\":\"<uuid>|null\"}],\"trailVersions\":[{\"trailId\":\"<uuid>\",\"versionId\":\"<uuid>\",\"trailKind\":\"unresolved_question|unattempted_search|blocked_source|formal_followup|discriminator_search|coverage_gap|delta_search\",\"laneId\":\"<uuid>|null\",\"targetWindow\":{\"start\":\"<date>\",\"endExclusive\":\"<date>\"},\"description\":\"…\",\"rationale\":\"…\",\"priority\":\"low|medium|high|decision_critical\",\"state\":\"open|ready|blocked_retryable|blocked_terminal|resolved|cancelled\",\"nextCapability\":\"…|null\",\"blockedReasonCode\":\"…|null\",\"resolutionNote\":\"…|null\",\"previousVersionId\":\"<uuid>|null\"}]}}; frontier.passes[].requestedWindow, frontier.passes[].confirmedWindow and frontier.trailVersions[].targetWindow may be null, and declaredQuerySha256 is the SHA-256 of the pass's deidentifiedQuery. SOURCE_ANALYSIS payload {\"schemaVersion\":1,\"idempotencyKey\":\"source-analysis-example-1\",\"run\":{\"runId\":\"<uuid>\",\"runKind\":\"live_research|historical_import|clarification|correction|synthetic_fixture\",\"startedAt\":\"<date-time>\",\"completedAt\":\"<date-time>\",\"protocolManifests\":[{\"name\":\"HRP\",\"version\":\"…\",\"revisionDate\":\"<date>\",\"sha256\":\"<sha256>\"}],\"provenanceNote\":\"…\"},\"topic\":{\"topicId\":\"<uuid>\",\"canonicalKey\":\"example-topic\",\"label\":\"…\"},\"source\":{\"familyId\":\"<uuid>\",\"versionId\":\"<uuid>\",\"sourceKind\":\"study|review\",\"identityHash\":\"<sha256>\",\"displayTitle\":\"…\",\"identifiers\":[{\"scheme\":\"doi|pmid|pmcid|arxiv|nct|url|other\",\"value\":\"10.1000/example\"}],\"sourceContentSha256\":\"<sha256>|null\",\"accessStatus\":\"complete|partial|abstract_only|metadata_only|inaccessible|not_found\",\"retrievedAt\":\"<date-time>|null\",\"sourceLocator\":\"…|null\",\"rawContentPersisted\":false},\"analysis\":{\"analysisId\":\"<uuid>\",\"versionId\":\"<uuid>\",\"analysisKind\":\"study_method_audit|review_method_audit\",\"relationship\":\"initial|clarifies|corrects|supersedes|invalidates\",\"previousVersionId\":\"<uuid>|null\",\"captureStatus\":\"complete_performed_analysis|partial_historical_capture|clarification|correction|invalidation\",\"authoredAt\":\"<date-time>\",\"coverageStatement\":\"…\",\"declaredWholeTextSha256\":\"<sha256>|null\",\"sections\":[{\"ordinal\":0,\"sectionKey\":\"000-method-audit\",\"title\":\"…\",\"content\":\"…\"}],\"domains\":[{\"ordinal\":0,\"rubric\":\"study_method_v1|review_method_v1|general_analysis_v1\",\"domain\":\"randomization\",\"status\":\"adequate|limitation_identified|unclear|not_applicable\",\"finding\":\"…\",\"evidenceLocators\":[\"…\"],\"unresolvedFields\":[\"…\"],\"limitations\":[\"…\"]}],\"claimCapabilities\":[{\"ordinal\":0,\"claim\":\"…\",\"capability\":\"can_support|cannot_support|unclear\",\"reason\":\"…\",\"evidenceLocators\":[\"…\"]}],\"futureAnalysisItems\":[{\"itemId\":\"<uuid>\",\"question\":\"…\",\"rationale\":\"…\",\"priority\":\"low|medium|high|decision_critical\",\"status\":\"open|resolved|cancelled\",\"evidenceNeeded\":[\"…\"],\"resolvedByVersionId\":\"<uuid>|null\"}]},\"receipts\":[{\"receiptId\":\"<uuid>\",\"receiptKind\":\"…\",\"receiptSha256\":\"<sha256>\",\"locator\":\"…|null\",\"details\":{\"<name>\":\"…\"}}]}; topic may be null; knowledge is optional (structured claims, evidence bindings, edges, an assessment and freshness records); receipts[].details holds names of your choice, each with text, a number, true, false or null; and declaredWholeTextSha256 is null or the SHA-256 of the sections' content joined in order. TOPIC_LINK payload {\"schemaVersion\":1,\"idempotencyKey\":\"topic-link-example-1\",\"linkId\":\"<uuid>\",\"run\":{\"runId\":\"<uuid>\",\"runKind\":\"live_research|historical_import|clarification|correction|synthetic_fixture\",\"startedAt\":\"<date-time>\",\"completedAt\":\"<date-time>\",\"protocolManifests\":[{\"name\":\"HRP\",\"version\":\"…\",\"revisionDate\":\"<date>\",\"sha256\":\"<sha256>\"}],\"provenanceNote\":\"…\"},\"fromTopic\":{\"topicId\":\"<uuid>\",\"canonicalKey\":\"example-topic\"},\"relation\":\"same|narrower|broader|related\",\"toTopic\":{\"topicId\":\"<uuid>\",\"canonicalKey\":\"example-topic-other-wording\"},\"rationale\":\"…\"}: fromTopic is the same topic as toTopic, narrower than it, broader than it or related to it; each holds the topic's topic_id and canonical_key as search_research_frontiers or get_research_frontier returns them, and rationale says why in deidentified text.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -10834,7 +10916,8 @@
             "type": "string",
             "enum": [
               "RESEARCH_FRONTIER",
-              "SOURCE_ANALYSIS"
+              "SOURCE_ANALYSIS",
+              "TOPIC_LINK"
             ],
             "description": "Which record payload holds."
           },
@@ -10888,6 +10971,19 @@
           },
           "payload": {
             "description": "The record proposalKind names, shaped as this tool's description shows."
+          },
+          "supersedesProposalId": {
+            "description": "Optional: the proposalId of this account's own pending proposal of the same kind that this one replaces; accepting this one rejects it as superseded.",
+            "type": "string"
+          },
+          "userConsent": {
+            "description": "Paid private accounts only, for this research's map: \"yes_to_this_save\", after the user said yes to the answer's offer to save its findings and file the map.",
+            "type": "string",
+            "const": "yes_to_this_save"
+          },
+          "finalizationReceipt": {
+            "description": "Paid private accounts only, with userConsent: the finalization_receipt of the final check whose offer the user said yes to.",
+            "type": "string"
           }
         },
         "required": [
@@ -10915,7 +11011,8 @@
                 "type": "string",
                 "enum": [
                   "RESEARCH_FRONTIER",
-                  "SOURCE_ANALYSIS"
+                  "SOURCE_ANALYSIS",
+                  "TOPIC_LINK"
                 ]
               },
               "payloadSha256": {
@@ -10939,6 +11036,62 @@
               "canonicalEvidenceChanged": {
                 "type": "boolean",
                 "const": false
+              },
+              "supersedesProposalId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "canonicalCheck": {
+                "type": "string",
+                "enum": [
+                  "checked",
+                  "unavailable"
+                ]
+              },
+              "reconciled": {
+                "maxItems": 1000,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    },
+                    "from": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "to": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "from",
+                    "to"
+                  ],
+                  "additionalProperties": false
+                }
               }
             },
             "required": [
@@ -10948,9 +11101,13 @@
               "status",
               "partial",
               "writeStatus",
-              "canonicalEvidenceChanged"
+              "canonicalEvidenceChanged",
+              "supersedesProposalId"
             ],
             "additionalProperties": false
+          },
+          "research_receipt": {
+            "type": "string"
           },
           "error": {
             "type": "object",
@@ -10967,6 +11124,8 @@
                   "paid_private_does_not_contribute",
                   "free_contributor_required",
                   "contribution_privacy_rejected",
+                  "plain_answer_not_requested",
+                  "receipts_unavailable",
                   "invalid_request"
                 ]
               },
@@ -11009,6 +11168,9 @@
                     "cross_field",
                     "hash_mismatch",
                     "kind_mismatch",
+                    "canonical_conflict",
+                    "canonical_missing",
+                    "superseded_proposal",
                     "prohibited_key",
                     "contact_pattern",
                     "sandbox_locator",
@@ -11070,7 +11232,7 @@
     },
     {
       "name": "review_research_contribution",
-      "description": "Owner-only review of one deidentified pending research contribution. Inspect the exact payload and hash, then accept or reject with a reason. Acceptance creates a hash-bound pending promotion intent but this public-runtime call never writes canonical evidence; a separate one-shot administrator completes promotion.",
+      "description": "Owner-only review of one deidentified pending research contribution. Inspect the exact payload and hash, then accept or reject with a reason. Inspect also shows, by ID only, the other pending proposals and the canonical records that share its topic, question, frontier or identifiers, and a promotion preflight naming any conflict by its code. Acceptance creates a hash-bound pending promotion intent but this public-runtime call never writes canonical evidence; a separate one-shot administrator completes promotion.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -11116,6 +11278,7 @@
               "pending_review",
               "accepted_pending_promotion",
               "accepted_promoted",
+              "accepted_promotion_failed",
               "rejected",
               "withdrawn",
               "no_pending_proposal"
@@ -11133,7 +11296,8 @@
                 "type": "string",
                 "enum": [
                   "RESEARCH_FRONTIER",
-                  "SOURCE_ANALYSIS"
+                  "SOURCE_ANALYSIS",
+                  "TOPIC_LINK"
                 ]
               },
               "payloadSha256": {
@@ -11205,7 +11369,8 @@
                         "type": "string",
                         "enum": [
                           "PENDING",
-                          "COMPLETED"
+                          "COMPLETED",
+                          "FAILED"
                         ]
                       },
                       "createdAt": {
@@ -11245,6 +11410,85 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "failureCode": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "IDEMPOTENCY_KEY_PAYLOAD_MISMATCH",
+                              "FRONTIER_IDEMPOTENCY_KEY_PAYLOAD_MISMATCH",
+                              "PROTOCOL_MANIFEST_CONFLICT",
+                              "RESEARCH_RUN_CONFLICT",
+                              "TOPIC_ID_CONFLICT",
+                              "TOPIC_KEY_CONFLICT",
+                              "QUESTION_ID_CONFLICT",
+                              "RESEARCH_FRONTIER_ID_CONFLICT",
+                              "RESEARCH_FRONTIER_QUESTION_CONFLICT",
+                              "FRONTIER_LANE_ID_CONFLICT",
+                              "FRONTIER_LANE_KEY_CONFLICT",
+                              "FRONTIER_CANDIDATE_INITIAL_VERSION_REQUIRED",
+                              "FRONTIER_CANDIDATE_ALREADY_HAS_INITIAL_VERSION",
+                              "FRONTIER_CANDIDATE_ID_CONFLICT",
+                              "FRONTIER_CANDIDATE_IDENTITY_CONFLICT",
+                              "FRONTIER_TRAIL_INITIAL_VERSION_REQUIRED",
+                              "FRONTIER_TRAIL_ALREADY_HAS_INITIAL_VERSION",
+                              "FRONTIER_TRAIL_ID_CONFLICT",
+                              "SOURCE_FAMILY_ID_CONFLICT",
+                              "SOURCE_FAMILY_IDENTITY_CONFLICT",
+                              "SOURCE_IDENTIFIER_CONFLICT",
+                              "SOURCE_VERSION_ID_CONFLICT",
+                              "SOURCE_VERSION_IDENTITY_CONFLICT",
+                              "ANALYSIS_INITIAL_VERSION_REQUIRED",
+                              "ANALYSIS_ALREADY_HAS_INITIAL_VERSION",
+                              "ANALYSIS_TARGET_MISMATCH",
+                              "CLAIM_INITIAL_VERSION_REQUIRED",
+                              "CLAIM_ALREADY_HAS_INITIAL_VERSION",
+                              "CLAIM_ID_CONFLICT",
+                              "FRESHNESS_POLICY_ID_CONFLICT",
+                              "TOPIC_LINK_IDEMPOTENCY_KEY_PAYLOAD_MISMATCH",
+                              "TOPIC_LINK_TOPIC_MISSING",
+                              "TOPIC_LINK_CONFLICT",
+                              "TOPIC_ALIAS_CONFLICT",
+                              "TOPIC_LINK_ID_CONFLICT",
+                              "ANALYSIS_LINEAGE_MISMATCH",
+                              "CLAIM_DEPENDENCY_CYCLE",
+                              "EVIDENCE_BINDING_RECEIPT_SOURCE_MISMATCH",
+                              "FRONTIER_CANDIDATE_LINEAGE_MISMATCH",
+                              "FRONTIER_CANDIDATE_SCOPE_MISMATCH",
+                              "FRONTIER_CANDIDATE_SOURCE_IDENTITY_MISMATCH",
+                              "FRONTIER_DELTA_PRIOR_COVERAGE_INVALID",
+                              "FRONTIER_DELTA_RELATION_MISMATCH",
+                              "FRONTIER_GAP_TRAIL_REQUIRED",
+                              "FRONTIER_LANE_COVERAGE_BASIS_MISMATCH",
+                              "FRONTIER_PASS_CANDIDATE_COUNT_MISMATCH",
+                              "FRONTIER_PASS_SCOPE_MISMATCH",
+                              "FRONTIER_TRAIL_LINEAGE_MISMATCH",
+                              "FRONTIER_TRAIL_SCOPE_MISMATCH",
+                              "FUTURE_ANALYSIS_RESOLUTION_LINEAGE_MISMATCH",
+                              "FUTURE_ANALYSIS_RESOLUTION_WITHOUT_OPEN_ITEM",
+                              "SOURCE_LINEAGE_CYCLE",
+                              "TOPIC_HIERARCHY_CYCLE",
+                              "CANONICAL_UNIQUE_CONFLICT",
+                              "CANONICAL_REFERENCE_MISSING",
+                              "CANONICAL_CHECK_VIOLATION",
+                              "CANONICAL_VALUE_INVALID"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "failedAt": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
                     "required": [
@@ -11253,7 +11497,279 @@
                       "createdAt",
                       "completedAt",
                       "receipt",
-                      "receiptSha256"
+                      "receiptSha256",
+                      "failureCode",
+                      "failedAt"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "supersedesProposalId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "supersededByProposalIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "related": {
+                "type": "object",
+                "properties": {
+                  "proposals": {
+                    "maxItems": 25,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "proposalId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "proposalKind": {
+                          "type": "string",
+                          "enum": [
+                            "RESEARCH_FRONTIER",
+                            "SOURCE_ANALYSIS",
+                            "TOPIC_LINK"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "PENDING_REVIEW",
+                            "ACCEPTED"
+                          ]
+                        },
+                        "promotionStatus": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "const": "PENDING"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "shared": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "topic_key",
+                              "topic_id",
+                              "frontier_id",
+                              "question_id",
+                              "source_family_id",
+                              "identifier"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "proposalId",
+                        "proposalKind",
+                        "status",
+                        "promotionStatus",
+                        "shared"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "proposalsNotShown": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "canonical": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "records": {
+                            "maxItems": 25,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "record": {
+                                  "type": "string",
+                                  "enum": [
+                                    "topic",
+                                    "question",
+                                    "frontier",
+                                    "frontier_candidate",
+                                    "source_family"
+                                  ]
+                                },
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "frontierId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "shared": {
+                                  "type": "string",
+                                  "enum": [
+                                    "topic_key",
+                                    "question_text_and_dimensions",
+                                    "question_id",
+                                    "frontier_id",
+                                    "identifier"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "record",
+                                "id",
+                                "shared"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "notShown": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "records",
+                          "notShown"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "proposals",
+                  "proposalsNotShown",
+                  "canonical"
+                ],
+                "additionalProperties": false
+              },
+              "preflight": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "clear",
+                          "conflicts",
+                          "replay",
+                          "unavailable"
+                        ]
+                      },
+                      "conflicts": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "IDEMPOTENCY_KEY_PAYLOAD_MISMATCH",
+                                "FRONTIER_IDEMPOTENCY_KEY_PAYLOAD_MISMATCH",
+                                "PROTOCOL_MANIFEST_CONFLICT",
+                                "RESEARCH_RUN_CONFLICT",
+                                "TOPIC_ID_CONFLICT",
+                                "TOPIC_KEY_CONFLICT",
+                                "QUESTION_ID_CONFLICT",
+                                "RESEARCH_FRONTIER_ID_CONFLICT",
+                                "RESEARCH_FRONTIER_QUESTION_CONFLICT",
+                                "FRONTIER_LANE_ID_CONFLICT",
+                                "FRONTIER_LANE_KEY_CONFLICT",
+                                "FRONTIER_CANDIDATE_INITIAL_VERSION_REQUIRED",
+                                "FRONTIER_CANDIDATE_ALREADY_HAS_INITIAL_VERSION",
+                                "FRONTIER_CANDIDATE_ID_CONFLICT",
+                                "FRONTIER_CANDIDATE_IDENTITY_CONFLICT",
+                                "FRONTIER_TRAIL_INITIAL_VERSION_REQUIRED",
+                                "FRONTIER_TRAIL_ALREADY_HAS_INITIAL_VERSION",
+                                "FRONTIER_TRAIL_ID_CONFLICT",
+                                "SOURCE_FAMILY_ID_CONFLICT",
+                                "SOURCE_FAMILY_IDENTITY_CONFLICT",
+                                "SOURCE_IDENTIFIER_CONFLICT",
+                                "SOURCE_VERSION_ID_CONFLICT",
+                                "SOURCE_VERSION_IDENTITY_CONFLICT",
+                                "ANALYSIS_INITIAL_VERSION_REQUIRED",
+                                "ANALYSIS_ALREADY_HAS_INITIAL_VERSION",
+                                "ANALYSIS_TARGET_MISMATCH",
+                                "CLAIM_INITIAL_VERSION_REQUIRED",
+                                "CLAIM_ALREADY_HAS_INITIAL_VERSION",
+                                "CLAIM_ID_CONFLICT",
+                                "FRESHNESS_POLICY_ID_CONFLICT",
+                                "TOPIC_LINK_IDEMPOTENCY_KEY_PAYLOAD_MISMATCH",
+                                "TOPIC_LINK_TOPIC_MISSING",
+                                "TOPIC_LINK_CONFLICT",
+                                "TOPIC_ALIAS_CONFLICT",
+                                "TOPIC_LINK_ID_CONFLICT",
+                                "ANALYSIS_LINEAGE_MISMATCH",
+                                "CLAIM_DEPENDENCY_CYCLE",
+                                "EVIDENCE_BINDING_RECEIPT_SOURCE_MISMATCH",
+                                "FRONTIER_CANDIDATE_LINEAGE_MISMATCH",
+                                "FRONTIER_CANDIDATE_SCOPE_MISMATCH",
+                                "FRONTIER_CANDIDATE_SOURCE_IDENTITY_MISMATCH",
+                                "FRONTIER_DELTA_PRIOR_COVERAGE_INVALID",
+                                "FRONTIER_DELTA_RELATION_MISMATCH",
+                                "FRONTIER_GAP_TRAIL_REQUIRED",
+                                "FRONTIER_LANE_COVERAGE_BASIS_MISMATCH",
+                                "FRONTIER_PASS_CANDIDATE_COUNT_MISMATCH",
+                                "FRONTIER_PASS_SCOPE_MISMATCH",
+                                "FRONTIER_TRAIL_LINEAGE_MISMATCH",
+                                "FRONTIER_TRAIL_SCOPE_MISMATCH",
+                                "FUTURE_ANALYSIS_RESOLUTION_LINEAGE_MISMATCH",
+                                "FUTURE_ANALYSIS_RESOLUTION_WITHOUT_OPEN_ITEM",
+                                "SOURCE_LINEAGE_CYCLE",
+                                "TOPIC_HIERARCHY_CYCLE",
+                                "CANONICAL_UNIQUE_CONFLICT",
+                                "CANONICAL_REFERENCE_MISSING",
+                                "CANONICAL_CHECK_VIOLATION",
+                                "CANONICAL_VALUE_INVALID"
+                              ]
+                            },
+                            "path": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "path"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "status"
                     ],
                     "additionalProperties": false
                   },
@@ -11274,7 +11790,11 @@
               "createdAt",
               "reviewedAt",
               "reviewReason",
-              "promotion"
+              "promotion",
+              "supersedesProposalId",
+              "supersededByProposalIds",
+              "related",
+              "preflight"
             ],
             "additionalProperties": false
           },
@@ -13311,6 +13831,15 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 12000
+          },
+          "model_trial": {
+            "description": "Dev accounts only, for the owner's model trial: current, gemini-4-low or gemini-4-high. Leave it out otherwise.",
+            "type": "string",
+            "enum": [
+              "current",
+              "gemini-4-low",
+              "gemini-4-high"
+            ]
           }
         },
         "$schema": "http://json-schema.org/draft-07/schema#",
@@ -13486,6 +14015,35 @@
               "TEMPORARY_BACKGROUND_DELETE_REQUESTED"
             ]
           },
+          "model_trial": {
+            "type": "object",
+            "properties": {
+              "arm": {
+                "type": "string",
+                "enum": [
+                  "current",
+                  "gemini-4-low",
+                  "gemini-4-high"
+                ]
+              },
+              "model": {
+                "type": "string"
+              },
+              "thinking": {
+                "type": "string"
+              },
+              "cost_usd": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "arm",
+              "model",
+              "thinking"
+            ],
+            "additionalProperties": false
+          },
           "research_receipt": {
             "type": "string"
           }
@@ -13540,6 +14098,15 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 4000
+          },
+          "model_trial": {
+            "description": "Dev accounts only, for the owner's model trial: current, gemini-4-low or gemini-4-high. Leave it out otherwise.",
+            "type": "string",
+            "enum": [
+              "current",
+              "gemini-4-low",
+              "gemini-4-high"
+            ]
           }
         },
         "$schema": "http://json-schema.org/draft-07/schema#",
@@ -13548,6 +14115,35 @@
       "outputSchema": {
         "type": "object",
         "properties": {
+          "model_trial": {
+            "type": "object",
+            "properties": {
+              "arm": {
+                "type": "string",
+                "enum": [
+                  "current",
+                  "gemini-4-low",
+                  "gemini-4-high"
+                ]
+              },
+              "model": {
+                "type": "string"
+              },
+              "thinking": {
+                "type": "string"
+              },
+              "cost_usd": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "arm",
+              "model",
+              "thinking"
+            ],
+            "additionalProperties": false
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -13788,7 +14384,7 @@
     },
     {
       "name": "finalize_research",
-      "description": "Final check of a research answer before it is given. Input: the research_receipt values that AskRigor's tools returned in this session; the research_target as given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits (discovery for another target does not count); whether community evidence was researched, or not relevant with its basis and reason (not_relevant_basis, not_relevant_reason; with no_real_world_outcome, the answer states the reason in the caveat \"I did not search firsthand reports or community discussions for this answer: [reason].\"), and whether the answer compares treatment options; where the topic is discussed and what each community searched outside YouTube showed (principal_communities, community_searches); what the YouTube comments read showed (community_findings); the studies the conclusions rest on (key_sources), whole-intervention identity (intervention_identity), item-level product identity (product_corpora and item_identity), and destination-bound offers or search routes (shopping); after a first pass, the focuses for going deeper (open_leads, another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results (scale_results: quoted explanations with the scale name, range, values and benchmark), with safety statements (safety_claims) or a safety question (safety_question) the serious harms plausible for the exposure, apart from its common side effects, each screened by name (harm_screen: label_warning or reported_signal with the answer's sentence reporting it, not_found with the exact query of a PubMed, Europe PMC or ClinicalTrials.gov search passed here, or not_checked, which the answer states in the caveat \"This answer did not check [harm].\"), visible links to each key study, and the caveats, and is not stored; once the other checks pass, a second model may read the answer for harm statements, specialized terms and scale results the declarations leave out (reader_dismissed answers them); in a later turn, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened. Result: second_reading, whether it ran; carry_forward, the conversation's state to pass back next turn; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh hint when a required declaration is missing; ready_with_limits with the limits, the caveat sentences for the answer (each as its own sentence and as written, in the answer's language when answer_language and caveat_renderings are given) and must_report, what the answer reports from each lane researched; when ready, check_line, the line the answer ends with; or receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the owner's review; in paid private mode the caveats offer its save. Nested inputs, as JSON: intervention_identity.interventions [{\"study_ids\":[\"10.1000/example\"],\"label\":\"…\",\"status\":\"resolved\",\"identity\":{\"registry_code\":\"…\",\"sponsor_or_maker\":\"…\",\"current_product\":\"…\"}}] (an unresolved item has no identity); findings_card.findings [{\"claim\":\"…\",\"certainty\":\"moderate\",\"applies_to\":\"…\",\"answer_quote\":\"…\",\"sources\":[\"10.1000/example\"],\"why_not_usual\":\"…\",\"what_would_change_it\":\"…\"}]; community_searches[].queries [\"…\"]; community_searches[].threads_read [{\"url\":\"https://example.org/t/1\",\"title\":\"…\"}]; community_searches[].report_identity [{\"exposure\":\"…\",\"reports_read\":5,\"firsthand_exact\":2,\"exposure_unclear\":1,\"other_exposure\":1,\"not_firsthand\":1,\"measured_after\":0}] (or one such object); community_searches[].review_corpora [{\"product\":\"…\",\"reviews_read\":20,\"selection\":\"most_recent\",\"outcome_search\":{\"queries\":[\"…\"],\"directions\":[\"benefit\",\"no_effect\",\"adverse\"]},\"item_identity\":{\"exact_product\":18,\"variant_unresolved\":2,\"other_variant_excluded\":0}}]; community_searches[].answer_quotes {\"benefit_reports\":\"…\",\"no_effect_reports\":\"…\",\"adverse_reports\":\"…\",\"effect_on_answer\":\"…\"}; community_findings.product_corpora [{\"product\":\"…\",\"video_ids\":[\"abcdefghijk\"],\"exact_product_signal\":\"…\"}]; comparison_claims[].arms [{\"exposure\":\"…\",\"dose\":6,\"unit\":\"mg\"},{\"exposure\":\"…\",\"dose\":null,\"unit\":null}]; shopping.offers [{\"product\":\"…\",\"url\":\"https://example.org/p/1\",\"offer_state\":\"live_destination_orderable\",\"role\":\"buy_option\"}]; scale_results[].range {\"min\":0,\"max\":10}; scale_results[].values [4.5,2]; scale_results[].benchmark {\"value\":1,\"kind\":\"minimal_important_difference\"} or \"none_established\"; mechanism_claims[].tissue {\"measured\":\"…\",\"claimed\":\"…\"}; harm_screen[].sources_searched [\"label\",\"case_reports\"]; absence_claims[].studies, safety_claims[].studies, mechanism_claims[].studies [\"10.1000/example\"]. key_sources[].answer_marker is the visible label, 3 to 80 characters, not a link; another_pass_estimate has at most 200 characters; answer_language is a language tag such as en or pt-BR.",
+      "description": "Final check of a research answer before it is given. Input: the research_receipt values that AskRigor's tools returned in this session; the research_target as given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits (discovery for another target does not count); whether community evidence was researched, or not relevant with its basis and reason (not_relevant_basis, not_relevant_reason; with no_real_world_outcome, the answer states the reason in the caveat \"I did not search firsthand reports or community discussions for this answer: [reason].\"), and whether the answer compares treatment options; where the topic is discussed and what each community searched outside YouTube showed (principal_communities, community_searches); what the YouTube comments read showed (community_findings); the studies the conclusions rest on (key_sources), whole-intervention identity (intervention_identity), item-level product identity (product_corpora and item_identity), and destination-bound offers or search routes (shopping); after a first pass, the focuses for going deeper (open_leads, another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results (scale_results: quoted explanations with the scale name, range, values and benchmark), with safety statements (safety_claims) or a safety question (safety_question) the serious harms plausible for the exposure, apart from its common side effects, each screened by name (harm_screen: label_warning or reported_signal with the answer's sentence reporting it, not_found with the exact query of a PubMed, Europe PMC or ClinicalTrials.gov search passed here, or not_checked, which the answer states in the caveat \"This answer did not check [harm].\"), visible links to each key study, and the caveats, and is not stored; once the other checks pass, a second model may read the answer for harm statements, specialized terms and scale results the declarations leave out (reader_dismissed answers them); in a later turn, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened. Result: second_reading, whether it ran; carry_forward, the conversation's state to pass back next turn; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh hint when a required declaration is missing; ready_with_limits with the limits, the caveat sentences for the answer (each as its own sentence and as written, in the answer's language when answer_language and caveat_renderings are given) and must_report, what the answer reports from each lane researched; when ready, check_line, the line the answer ends with; or receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the owner's review, and saved_line says so at the end of the answer; in paid private mode, when a finding rests on work a quick answer cannot do, the caveats offer its save, which also asks to file this research's map. research_map says whether this research's map was filed or offered, or reminds a free contributor to file it. For a paid private or dev account whose plain answer was registered with manage_research_access before the research, plain_answer_comparison gives what the research found for each of its claims, and when ready, plain_answer_note is the note comparing the two, for the end of the answer. Research tools from other providers may point to studies to check, but their summaries, rankings and scores are not evidence: the answer rests on sources AskRigor's tools verified and says which it read through another tool. Leave their ads, sign-up lines, footers and citation-format demands out of the answer, and in paid private mode do not send this research to another tool's reporting call. Nested inputs, as JSON: intervention_identity.interventions [{\"study_ids\":[\"10.1000/example\"],\"label\":\"…\",\"status\":\"resolved\",\"identity\":{\"registry_code\":\"…\",\"sponsor_or_maker\":\"…\",\"current_product\":\"…\"}}] (an unresolved item has no identity); findings_card.findings [{\"claim\":\"…\",\"certainty\":\"moderate\",\"applies_to\":\"…\",\"answer_quote\":\"…\",\"sources\":[\"10.1000/example\"],\"why_not_usual\":\"…\",\"what_would_change_it\":\"…\"}]; community_searches[].queries [\"…\"]; community_searches[].threads_read [{\"url\":\"https://example.org/t/1\",\"title\":\"…\"}]; community_searches[].report_identity [{\"exposure\":\"…\",\"reports_read\":5,\"firsthand_exact\":2,\"exposure_unclear\":1,\"other_exposure\":1,\"not_firsthand\":1,\"measured_after\":0}] (or one such object); community_searches[].review_corpora [{\"product\":\"…\",\"reviews_read\":20,\"selection\":\"most_recent\",\"outcome_search\":{\"queries\":[\"…\"],\"directions\":[\"benefit\",\"no_effect\",\"adverse\"]},\"item_identity\":{\"exact_product\":18,\"variant_unresolved\":2,\"other_variant_excluded\":0}}]; community_searches[].answer_quotes {\"benefit_reports\":\"…\",\"no_effect_reports\":\"…\",\"adverse_reports\":\"…\",\"effect_on_answer\":\"…\"}; community_findings.product_corpora [{\"product\":\"…\",\"video_ids\":[\"abcdefghijk\"],\"exact_product_signal\":\"…\"}]; comparison_claims[].arms [{\"exposure\":\"…\",\"dose\":6,\"unit\":\"mg\"},{\"exposure\":\"…\",\"dose\":null,\"unit\":null}]; shopping.offers [{\"product\":\"…\",\"url\":\"https://example.org/p/1\",\"offer_state\":\"live_destination_orderable\",\"role\":\"buy_option\"}]; scale_results[].range {\"min\":0,\"max\":10}; scale_results[].values [4.5,2]; scale_results[].benchmark {\"value\":1,\"kind\":\"minimal_important_difference\"} or \"none_established\"; mechanism_claims[].tissue {\"measured\":\"…\",\"claimed\":\"…\"}; harm_screen[].sources_searched [\"label\",\"case_reports\"]; absence_claims[].studies, safety_claims[].studies, mechanism_claims[].studies, plain_answer_comparison[].sources [\"10.1000/example\"]. key_sources[].answer_marker is the visible label, 3 to 80 characters, not a link; another_pass_estimate has at most 200 characters; answer_language is a language tag such as en or pt-BR.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -14217,6 +14813,16 @@
                 },
                 "reason": {
                   "type": "string"
+                },
+                "other_route": {
+                  "description": "For a lead_only study, as you know it (AskRigor cannot see this app's other tools): read, its text was read through another full-text tool connected here; unavailable, one was tried without access; cost, one was not used because it costs the user credits; none, no such tool is connected. A study read that way is reported as read through another tool, not audited by AskRigor.",
+                  "type": "string",
+                  "enum": [
+                    "read",
+                    "unavailable",
+                    "cost",
+                    "none"
+                  ]
                 }
               },
               "required": [
@@ -14771,8 +15377,42 @@
               ]
             }
           },
+          "plain_answer_comparison": {
+            "description": "With answer_draft, when a plain answer registered with manage_research_access before this research is passed in receipts: for each of its claims, copied exactly, whether the research confirmed, corrected or qualified it, or did not check it. A correction or a qualification gives the answer's sentence stating it and what backs it, checked against this call's receipts and declarations. From it the final check writes plain_answer_note, for the end of the answer.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "claim": {
+                  "type": "string",
+                  "description": "One claim of the plain answer registered before this research, copied exactly as manage_research_access listed it."
+                },
+                "outcome": {
+                  "type": "string",
+                  "enum": [
+                    "confirmed",
+                    "corrected",
+                    "qualified",
+                    "not_checked"
+                  ],
+                  "description": "confirmed: the research supports it; corrected: the research shows it is wrong; qualified: it holds only in part or under conditions; not_checked: the research did not test it."
+                },
+                "answer_quote": {
+                  "description": "With corrected or qualified, and optionally with confirmed: the answer's sentence that states it, copied from answer_draft.",
+                  "type": "string"
+                },
+                "sources": {
+                  "description": "What backs it: studies audited in full text here (DOI, PMID or PMCID) or videos whose comments were read here (video ID); left out when its sentence is one absence_claims or a correction the research found also declares."
+                }
+              },
+              "required": [
+                "claim",
+                "outcome"
+              ]
+            }
+          },
           "findings_card": {
-            "description": "With answer_draft, when the answer cites a study or video verified here: the answer's best findings for AskRigor's findings library, never claims the user corrected and no personal details, checked against the answer and this call's verified sources. Leave it out when the answer cites none. In free contributor mode a checked card is saved for the owner's review; in paid private mode it adds a caveat offering the save. A rejected card is not saved or offered and does not hold back the answer.",
+            "description": "With answer_draft, when the answer cites a study or video verified here: the answer's best findings for AskRigor's findings library, never claims the user corrected and no personal details, checked against the answer and this call's verified sources. Leave it out when the answer cites none. In free contributor mode a checked card is saved for the owner's review; in paid private mode, when a finding rests on work a quick answer cannot do, it adds a caveat offering the save, which also asks to file this research's map. A rejected card is not saved or offered and does not hold back the answer.",
             "type": "object",
             "properties": {
               "question": {
@@ -15048,6 +15688,12 @@
                   "type": "string"
                 }
               },
+              "beyond_quick_answer": {
+                "description": "For a checked card: how many of its findings rest on work a quick answer cannot do (a full-text audit, audited comments, a checked absence claim or a correction the research found), as this call's receipts show.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
               "saved": {
                 "type": "object",
                 "properties": {
@@ -15079,7 +15725,65 @@
               "problems"
             ],
             "additionalProperties": false,
-            "description": "Whether findings_card checked, and for a free contributor account whether it was saved; for a paid private account a checked card's caveats offer the save. closed: the findings library is not open; private: no research account, so nothing is saved."
+            "description": "Whether findings_card checked, and for a free contributor account whether it was saved; for a paid private account, a checked card with a finding beyond a quick answer adds the caveat offering the save (and the filing of this research's map; see research_map). closed: the findings library is not open; private: no research account, so nothing is saved."
+          },
+          "saved_line": {
+            "description": "When a free contributor's card was saved, or a map of this research was filed: the line the answer ends with, just before check_line, saying what was saved.",
+            "type": "string"
+          },
+          "research_map": {
+            "description": "This research's map, a RESEARCH_FRONTIER proposal of its searches, the studies found and the leads left open for the owner's review: filed, a map was filed after this research began; offered, a paid private answer's save offer also asks to file it, which submit_research_contribution does only after the user's yes; not_filed, a free contributor's research did work a quick answer cannot do and no map of it was filed, which note says to do. It holds nothing back.",
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "filed",
+                  "offered",
+                  "not_filed"
+                ]
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "additionalProperties": false
+          },
+          "plain_answer": {
+            "description": "For a paid private or dev account: registered, a plain answer signed for this research target before the research, which plain_answer_comparison compares with the answer; note_off, the same with the account's note turned off; or why there is none to compare (no_receipt, other_account, other_target, after_research), which holds nothing back.",
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "registered",
+                  "note_off",
+                  "no_receipt",
+                  "other_account",
+                  "other_target",
+                  "after_research"
+                ]
+              },
+              "claims": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "additionalProperties": false
+          },
+          "plain_answer_note": {
+            "description": "When ready, for a registered plain answer: the note the answer ends with, before saved_line and check_line, quoting each of its claims exactly and saying what the research found, and what backs each change.",
+            "type": "string"
           },
           "carry_forward": {
             "type": "string"
@@ -15452,7 +16156,7 @@
     },
     {
       "name": "save_research_findings",
-      "description": "In paid private mode, save the findings card of the final checked answer to AskRigor's private findings library, for the owner's review, when the answer offered the save and the user said yes to it. Send the card exactly as the last finalize_research call checked it, with its finalization_receipt; never include claims the user corrected, and no personal details. (Free contributor findings are saved by finalize_research.) Returns a receipt, never the stored card.",
+      "description": "In paid private mode, save the findings card of the final checked answer to AskRigor's private findings library, for the owner's review, when the user said yes to saving it: after the answer offered the save, or when the user asked for it. Send the card exactly as the last finalize_research call checked it, with its finalization_receipt; never include claims the user corrected, and no personal details. (Free contributor findings are saved by finalize_research.) Returns a receipt, never the stored card.",
       "inputSchema": {
         "type": "object",
         "properties": {

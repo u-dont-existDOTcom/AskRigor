@@ -14,12 +14,44 @@ export const MONTHLY_AI_BUDGET_NANO_USD = 50_000_000_000 as const;
 
 export interface AiBudget {
   reserve(category: string, maximumNanoUsd: number): Promise<BudgetReservation | undefined>;
+  /**
+   * Settles a hold with its real cost: refunds the unused part to the hold's
+   * UTC month once, and nothing once that month has ended or the hold was
+   * already settled.
+   */
+  settle(hold: BudgetHold, actualNanoUsd: number): Promise<void>;
 }
 
 export interface BudgetReservation {
   commit(actualNanoUsd: number): Promise<void>;
   forfeit(): Promise<void>;
+  /**
+   * Ends the reservation with its whole amount charged, as forfeit does, for
+   * work that finishes after this call; a later call settles the hold.
+   */
+  hold(): Promise<BudgetHold>;
 }
+
+/**
+ * A reservation still charged after the call that made it. It travels with
+ * the work's own signed or encrypted state, never in the ledger, so a later
+ * call or a restarted process can settle it.
+ */
+export interface BudgetHold {
+  hold_id: string;
+  held_nano_usd: number;
+  utc_month: string;
+}
+
+export const budgetHoldSchema = z.strictObject({
+  hold_id: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u),
+  held_nano_usd: z.number().int().positive().max(MONTHLY_AI_BUDGET_NANO_USD),
+  utc_month: z.string().regex(/^\d{4}-(?:0[1-9]|1[0-2])$/u),
+});
+
+// Bounds the settled holds remembered for one month; a hold past it is
+// refused and stays charged.
+const MAXIMUM_SETTLED_HOLDS_PER_MONTH = 4_096;
 
 export interface FileAiBudgetOptions {
   ledgerPath: string;
@@ -52,6 +84,12 @@ class FileAiBudget implements AiBudget {
   private mutex: Promise<void> = Promise.resolve();
   private readonly parentDirectory: string;
   private readonly expectedUid: number;
+  // The holds settled in the current UTC month, kept by this process only:
+  // the ledger file keeps one aggregate number. Work that carries a hold must
+  // not finish twice across a restart (a Gemini scout's stored interaction is
+  // deleted before the scout reports completion).
+  private settledHoldMonth: string | undefined;
+  private readonly settledHoldIds = new Set<string>();
 
   constructor(private readonly options: FileAiBudgetOptions) {
     if (options.monthlyLimitNanoUsd !== MONTHLY_AI_BUDGET_NANO_USD) {
@@ -87,6 +125,47 @@ class FileAiBudget implements AiBudget {
         } satisfies AiBudgetLedger;
         await this.writeLedger(chargedLedger);
         return this.createReservation(maximumNanoUsd, ledger.utc_month);
+      } catch {
+        throw new Error(LEDGER_UNAVAILABLE_MESSAGE);
+      }
+    });
+  }
+
+  settle(hold: BudgetHold, actualNanoUsd: number): Promise<void> {
+    const parsed = budgetHoldSchema.safeParse(hold);
+    if (!parsed.success || !isSafeNanoUsd(actualNanoUsd) || actualNanoUsd > parsed.data.held_nano_usd) {
+      return Promise.reject(new Error(LEDGER_UNAVAILABLE_MESSAGE));
+    }
+    const { hold_id: holdId, held_nano_usd: heldNanoUsd, utc_month: holdMonth } = parsed.data;
+
+    return this.serialized(async () => {
+      try {
+        await this.assertSafeParentDirectory();
+        const now = this.safeNow();
+        const { ledger, needsWrite } = await this.loadLedger(now);
+        if (ledger.utc_month < holdMonth) throw new Error(LEDGER_UNAVAILABLE_MESSAGE);
+        if (ledger.utc_month > holdMonth) {
+          if (needsWrite) await this.writeLedger(ledger);
+          return;
+        }
+        if (this.settledHoldMonth !== holdMonth) {
+          this.settledHoldIds.clear();
+          this.settledHoldMonth = holdMonth;
+        }
+        if (this.settledHoldIds.has(holdId)) return;
+        if (this.settledHoldIds.size >= MAXIMUM_SETTLED_HOLDS_PER_MONTH) {
+          throw new Error(LEDGER_UNAVAILABLE_MESSAGE);
+        }
+        // Recorded before the refund is written: a write that fails part-way
+        // leaves the hold charged rather than refundable twice.
+        this.settledHoldIds.add(holdId);
+        const unused = heldNanoUsd - actualNanoUsd;
+        if (ledger.charged_nano_usd < unused) throw new Error(LEDGER_UNAVAILABLE_MESSAGE);
+        await this.writeLedger({
+          ...ledger,
+          charged_nano_usd: ledger.charged_nano_usd - unused,
+          updated_at: now.toISOString(),
+        });
       } catch {
         throw new Error(LEDGER_UNAVAILABLE_MESSAGE);
       }
@@ -130,6 +209,15 @@ class FileAiBudget implements AiBudget {
       forfeit: async () => {
         if (terminal) throw new Error(LEDGER_UNAVAILABLE_MESSAGE);
         terminal = true;
+      },
+      hold: async () => {
+        if (terminal) throw new Error(LEDGER_UNAVAILABLE_MESSAGE);
+        terminal = true;
+        return {
+          hold_id: randomUUID(),
+          held_nano_usd: maximumNanoUsd,
+          utc_month: reservationMonth,
+        };
       },
     };
   }

@@ -42,6 +42,11 @@ const TARGET = {
   research_target: "Adults trying to avoid a hip replacement: what they tried and what happened",
   diagnosis_status: "diagnosis_not_specified" as const
 };
+const BUDGET_HOLD = {
+  hold_id: "00000000-0000-4000-8000-000000000004",
+  held_nano_usd: 1_000_000_000,
+  utc_month: "2026-10"
+};
 
 describe("MCP Gemini scout continuation", () => {
   const previous = {
@@ -91,6 +96,57 @@ describe("MCP Gemini scout continuation", () => {
     expect(() => encodeScoutContinuation({
       ...TARGET, language: "French", checkpoint: CHECKPOINT, accounted_nano_usd: 1_000, expires_at_ms: 2_000
     }, SECRET)).toThrow();
+    // A budget hold travels only in its exact form.
+    expect(() => encodeScoutContinuation({
+      ...TARGET, checkpoint: CHECKPOINT, accounted_nano_usd: 1_000,
+      budget_hold: { ...BUDGET_HOLD, hold_id: "not-a-hold" }, expires_at_ms: 2_000
+    }, SECRET)).toThrow();
+  });
+
+  it("carries the scout's budget hold in the signed token to the call that completes it", async () => {
+    execute.mockResolvedValueOnce({
+      controller_progress: { checkpoint: CHECKPOINT, accounted_nano_usd: 1_000_000_000, budget_hold: BUDGET_HOLD }
+    });
+    const client = await connect();
+    const first = await client.callTool({ name: "scout_gemini_youtube_candidates", arguments: TARGET });
+    const pending = first.structuredContent as Record<string, unknown> & { continuation_token: string };
+    expect(decodeScoutContinuation(pending.continuation_token, SECRET, Date.now()).budget_hold).toEqual(BUDGET_HOLD);
+    // Only the signed token carries it, never the tool's visible output.
+    expect(pending).not.toHaveProperty("budget_hold");
+
+    // A held scout hands its hold back in the next token.
+    const resumed = { checkpoint: CHECKPOINT, accountedNanoUsd: 1_000_000_000, budgetHold: BUDGET_HOLD };
+    execute.mockResolvedValueOnce({
+      controller_progress: {
+        checkpoint: CHECKPOINT,
+        accounted_nano_usd: 1_000_000_000,
+        budget_hold: BUDGET_HOLD,
+        held_by: "youtube_provider_not_configured"
+      }
+    });
+    const held = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { continuation_token: pending.continuation_token }
+    });
+    expect(execute).toHaveBeenLastCalledWith(TARGET, resumed, { deadlineMs: expect.any(Number) }, []);
+    const heldToken = (held.structuredContent as { continuation_token: string }).continuation_token;
+    expect(decodeScoutContinuation(heldToken, SECRET, Date.now()).budget_hold).toEqual(BUDGET_HOLD);
+
+    execute.mockResolvedValueOnce({
+      controller_completion: {
+        provider_response_id: "response-hold",
+        packet: { discovery_queries: [], search_gaps: [], candidates: [] },
+        validation: validationReceipt(),
+        provider_storage_mode: "TEMPORARY_BACKGROUND_DELETE_REQUESTED",
+        accounted_nano_usd: 120_625_000
+      }
+    });
+    const done = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { continuation_token: heldToken }
+    });
+    expect(done.isError).not.toBe(true);
+    expect(execute).toHaveBeenLastCalledWith(TARGET, resumed, { deadlineMs: expect.any(Number) }, []);
   });
 
   it("keeps the person's language through the continuation, and a later call cannot switch it", async () => {

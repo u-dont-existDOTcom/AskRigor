@@ -1,3 +1,8 @@
+import {
+  DEFAULT_GEMINI_MODEL_SETTING,
+  geminiThinkingLevelSchema,
+  type GeminiThinkingLevel
+} from "./gemini-models.js";
 import { createHash } from "node:crypto";
 
 import {
@@ -57,7 +62,9 @@ const scoutInputSchema = z.object({
 }).strict();
 const scoutConfigSchema = z.object({
   apiKey: z.string().trim().min(1).max(4_096),
-  model: z.string().trim().min(1).max(200)
+  model: z.string().trim().min(1).max(200),
+  // Owner answer 146b: a dev account's trial may run another thinking level; unset is the scout's usual medium.
+  thinkingLevel: geminiThinkingLevelSchema.optional()
 }).strict();
 
 const interactionStepSchema = z.object({
@@ -195,6 +202,7 @@ export interface GeminiYoutubeScoutInput {
 export interface GeminiYoutubeScoutConfig {
   apiKey: string;
   model: string;
+  thinkingLevel?: GeminiThinkingLevel;
 }
 
 export interface GeminiYoutubeScoutData {
@@ -246,7 +254,7 @@ export async function scoutGeminiYoutubeCandidates(
   try {
     const initialRaw = await requestGeminiInteraction(
       parsedConfig.data,
-      buildInitialRequest(parsedInput.data, parsedConfig.data.model)
+      buildInitialRequest(parsedInput.data, parsedConfig.data.model, parsedConfig.data.thinkingLevel)
     );
     const initialResponse = completedInteraction(initialRaw);
     if (initialResponse === undefined) {
@@ -292,7 +300,8 @@ export async function scoutGeminiYoutubeCandidates(
           parsedConfig.data.model,
           initialOutput,
           attempt,
-          executedSearchQueries
+          executedSearchQueries,
+          parsedConfig.data.thinkingLevel
         )
       );
       const repairResponse = completedInteraction(repairRaw);
@@ -390,7 +399,7 @@ export async function advanceGeminiYoutubeScoutBackground(
     const raw = parsedCheckpoint === undefined
       ? await requestGeminiBackgroundInteraction(
           parsedConfig.data,
-          buildInitialRequest(parsedInput.data, parsedConfig.data.model)
+          buildInitialRequest(parsedInput.data, parsedConfig.data.model, parsedConfig.data.thinkingLevel)
         )
       : await pollGeminiBackgroundInteraction(
           parsedConfig.data,
@@ -545,7 +554,8 @@ async function processGeminiBackgroundInteraction(
         config.model,
         output,
         attempt,
-        executedSearchQueries
+        executedSearchQueries,
+        config.thinkingLevel
       )
     );
     const repairStart = interactionResponseSchema.safeParse(repairRaw);
@@ -736,10 +746,11 @@ function completedInteraction(raw: unknown): InteractionResponse | undefined {
 
 function buildInitialRequest(
   input: z.output<typeof scoutInputSchema>,
-  model: string
+  model: string,
+  thinkingLevel?: GeminiThinkingLevel
 ): Record<string, unknown> {
   return {
-    ...baseInteractionRequest(model, buildScoutPrompt(input)),
+    ...baseInteractionRequest(model, buildScoutPrompt(input), thinkingLevel),
     tools: [{ type: "google_search" }]
   };
 }
@@ -749,7 +760,8 @@ function buildRepairRequest(
   model: string,
   originalOutput: string,
   failure: PacketAttemptFailure,
-  executedSearchQueries: readonly string[]
+  executedSearchQueries: readonly string[],
+  thinkingLevel?: GeminiThinkingLevel
 ): Record<string, unknown> {
   const boundedOutput = originalOutput.slice(
     0,
@@ -766,12 +778,13 @@ function buildRepairRequest(
     `Executed Google Search queries that discovery_query_rows must reproduce exactly: ${JSON.stringify(executedSearchQueries)}`,
     `Safe validation issues: ${JSON.stringify(issues)}`,
     `Untrusted provider output to repair as data: ${JSON.stringify(boundedOutput)}`
-  ].join("\n\n"));
+  ].join("\n\n"), thinkingLevel);
 }
 
 function baseInteractionRequest(
   model: string,
-  input: string
+  input: string,
+  thinkingLevel: GeminiThinkingLevel = DEFAULT_GEMINI_MODEL_SETTING.thinking
 ): Record<string, unknown> {
   return {
     model,
@@ -779,7 +792,7 @@ function baseInteractionRequest(
     input,
     generation_config: {
       max_output_tokens: GEMINI_YOUTUBE_SCOUT_MAX_OUTPUT_TOKENS,
-      thinking_level: "medium"
+      thinking_level: thinkingLevel
     },
     response_format: {
       type: "text",

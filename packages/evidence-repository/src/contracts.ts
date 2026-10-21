@@ -619,6 +619,40 @@ function validateInContributionDelta(
 
 export type ResearchFrontierContribution = z.infer<typeof researchFrontierContributionSchema>;
 
+/**
+ * Owner answer 138b (2026-10-20): "merging by meaning (the AI may declare two differently worded topics the same,
+ * linked on your acceptance, nothing moved or deleted)". fromTopic is <relation> toTopic: the same topic, narrower
+ * than it, broader than it, or related to it. Whether two wordings mean the same is the model's declaration, in any
+ * language, and the owner's judgment at review; the intake checks only what is exact: both topics are canonical, named
+ * by their ID and key, they differ, and no stored link contradicts this one.
+ */
+export const TOPIC_LINK_RELATIONS = ["same", "narrower", "broader", "related"] as const;
+
+const topicReferenceSchema = z.object({
+  topicId: uuidSchema,
+  canonicalKey: z.string().regex(/^[a-z0-9][a-z0-9._-]{0,199}$/u),
+}).strict();
+
+export const topicLinkContributionSchema = z.object({
+  schemaVersion: z.literal(1),
+  idempotencyKey: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$/u),
+  linkId: uuidSchema,
+  run: researchRunSchema,
+  fromTopic: topicReferenceSchema,
+  relation: z.enum(TOPIC_LINK_RELATIONS),
+  toTopic: topicReferenceSchema,
+  rationale: z.string().trim().min(1).max(2_000),
+}).strict().superRefine((value, context) => {
+  if (Date.parse(value.run.completedAt) < Date.parse(value.run.startedAt)) {
+    context.addIssue({ code: "custom", path: ["run", "completedAt"], message: "topic link run completion precedes its start" });
+  }
+  if (value.fromTopic.topicId === value.toTopic.topicId || value.fromTopic.canonicalKey === value.toTopic.canonicalKey) {
+    context.addIssue({ code: "custom", path: ["toTopic"], message: "a topic link joins two different canonical topics" });
+  }
+});
+
+export type TopicLinkContribution = z.infer<typeof topicLinkContributionSchema>;
+
 const PROHIBITED_PERSISTENT_KEYS = new Set([
   "authorization",
   "authorizationheader",

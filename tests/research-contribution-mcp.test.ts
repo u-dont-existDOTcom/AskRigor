@@ -12,6 +12,7 @@ import {
   ResearchContributorAccessService,
   livingEvidenceContributionSchema,
   researchFrontierContributionSchema,
+  topicLinkContributionSchema,
 } from "@askrigor/evidence-repository";
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type JWK } from "jose";
 import { afterEach, describe, expect, it } from "vitest";
@@ -96,7 +97,7 @@ async function start() {
 const SURFACES = ["/mcp", "/mcp/claude"] as const;
 
 describe("submit_research_contribution's published input", () => {
-  it.each(SURFACES)("publishes the derived schema exactly on %s, and the description gives both record shapes", async (surface) => {
+  it.each(SURFACES)("publishes the derived schema exactly on %s, and the description gives every record shape", async (surface) => {
     const server = createAskRigorServer("standard", { mcpSurface: surface });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const client = new Client({ name: "contribution-schema-test", version: "1" });
@@ -117,6 +118,7 @@ describe("submit_research_contribution's published input", () => {
         expect(payload.anyOf).toEqual([
           z.toJSONSchema(researchFrontierContributionSchema, { target: "draft-7", io: "input" }),
           z.toJSONSchema(livingEvidenceContributionSchema, { target: "draft-7", io: "input" }),
+          z.toJSONSchema(topicLinkContributionSchema, { target: "draft-7", io: "input" }),
         ].map(({ $schema: _schema, ...rest }) => rest));
       }
     } finally {
@@ -125,9 +127,13 @@ describe("submit_research_contribution's published input", () => {
     }
   });
 
-  it("names every key and allowed value of both records in the description, descriptively", () => {
+  it("names every key and allowed value of every record in the description, descriptively", () => {
     const text = SUBMIT_RESEARCH_CONTRIBUTION_SHAPES_DESCRIPTION;
-    for (const [kind, schema] of [["RESEARCH_FRONTIER", researchFrontierContributionSchema], ["SOURCE_ANALYSIS", livingEvidenceContributionSchema]] as const) {
+    for (const [kind, schema] of [
+      ["RESEARCH_FRONTIER", researchFrontierContributionSchema],
+      ["SOURCE_ANALYSIS", livingEvidenceContributionSchema],
+      ["TOPIC_LINK", topicLinkContributionSchema],
+    ] as const) {
       const walk = (node: unknown, path: string): void => {
         if (node === null || typeof node !== "object") return;
         const object = node as { properties?: Record<string, unknown>; enum?: unknown[] };
@@ -146,6 +152,7 @@ describe("submit_research_contribution's published input", () => {
     }
     expect(text).toContain('"analysisKind":"study_method_audit|review_method_audit"');
     expect(text).toContain('"sourceKind":"study|review"');
+    expect(text).toContain('"relation":"same|narrower|broader|related"');
     expect(text).not.toMatch(/\b(?:call|must|always|never|do not|don't)\b/iu);
   });
 });
@@ -211,6 +218,28 @@ describe("submit_research_contribution through MCP on both surfaces", () => {
       "privacyBoundary missing",
     ]);
     expect(JSON.stringify(result)).not.toMatch(/SENTINEL|sentinelExtra/u);
+  });
+
+  it.each(SURFACES)("on %s, checks a topic link's own fields, and files none without the canonical store", async (surface) => {
+    const { store, connect } = await start();
+    const client = await connect(surface);
+    const self = structuredClone(CONTRIBUTION_EXAMPLES.TOPIC_LINK) as Record<string, unknown>;
+    self.toTopic = self.fromTopic;
+    const refused = await client.callTool({
+      name: "submit_research_contribution",
+      arguments: { proposalKind: "TOPIC_LINK", privacyBoundary: CONTRIBUTION_PRIVACY_BOUNDARY_EXAMPLE, payload: self },
+    });
+    expect(refused.isError).toBe(true);
+    expect((refused.structuredContent as { problems: Array<{ path: string; rule: string }> }).problems
+      .map(({ path, rule }) => `${path} ${rule}`)).toEqual(["payload.toTopic cross_field"]);
+    // This server has no canonical reader, so the topics a valid link names cannot be checked.
+    const unchecked = await client.callTool({
+      name: "submit_research_contribution",
+      arguments: { proposalKind: "TOPIC_LINK", privacyBoundary: CONTRIBUTION_PRIVACY_BOUNDARY_EXAMPLE, payload: CONTRIBUTION_EXAMPLES.TOPIC_LINK },
+    });
+    expect(unchecked.isError).toBe(true);
+    expect(unchecked.structuredContent).toMatchObject({ ok: false, error: { code: "research_access_service_unavailable" } });
+    expect(store.allProposals()).toHaveLength(0);
   });
 
   it.each(SURFACES)("on %s, files a valid record", async (surface) => {

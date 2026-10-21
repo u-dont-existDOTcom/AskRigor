@@ -2,11 +2,23 @@ import { readFile } from "node:fs/promises";
 
 import { Pool, type PoolClient, type PoolConfig } from "pg";
 
-import type { LivingEvidenceContribution, ResearchFrontierContribution } from "./contracts.js";
+import {
+  frontierCandidateIdentityHash,
+  topicLinkFindings,
+  type CanonicalIdentityRequest,
+  type CanonicalIdentityState,
+  type TopicLinkState,
+} from "./contribution-identity.js";
+import type {
+  LivingEvidenceContribution,
+  ResearchFrontierContribution,
+  TopicLinkContribution,
+} from "./contracts.js";
 import { deterministicUuid, sha256, stableJson } from "./hash.js";
 import {
   prepareContribution,
   prepareFrontierContribution,
+  prepareTopicLinkContribution,
   type PreparedContribution,
   type PreparedFrontierContribution,
 } from "./prepare.js";
@@ -41,6 +53,25 @@ export interface FrontierContributionReceipt {
   passCount: number;
   candidateVersionCount: number;
   trailVersionCount: number;
+}
+
+export interface TopicLinkContributionReceipt {
+  status: "inserted" | "idempotent_replay";
+  linkId: string;
+  relation: TopicLinkContribution["relation"];
+  payloadSha256: string;
+  aliasesWritten: number;
+  edgesWritten: number;
+}
+
+function topicLinkReceipt(
+  status: TopicLinkContributionReceipt["status"],
+  payloadSha256: string,
+  link: TopicLinkContribution,
+  aliasesWritten: number,
+  edgesWritten: number,
+): TopicLinkContributionReceipt {
+  return { status, linkId: link.linkId, relation: link.relation, payloadSha256, aliasesWritten, edgesWritten };
 }
 
 export interface ResearchFrontierLookupInput {
@@ -98,6 +129,18 @@ export interface AnalysisReuseCandidate {
   completedImpactJobs: number;
   pendingImpactJobs: number;
   payload: LivingEvidenceContribution;
+}
+
+interface QuestionRow {
+  question_id: string;
+  topic_id: string;
+  normalized_question: string;
+  population: string | null;
+  program_or_exposure: string | null;
+  comparator: string | null;
+  outcome: string | null;
+  horizon: string | null;
+  setting: string | null;
 }
 
 interface ExportedVersion {
@@ -161,6 +204,9 @@ export class PostgresEvidenceRepository {
       "0009_research_contributor_access",
       "0010_research_contribution_review",
       "0011_research_use_notice_v2",
+      "0012_research_contribution_merging",
+      "0013_research_plain_answer_note",
+      "0014_research_map_consent",
     ].map(async (migrationId) => ({
       migrationId,
       sql: await readFile(new URL(`../migrations/${migrationId}.sql`, import.meta.url), "utf8"),
@@ -330,6 +376,102 @@ export class PostgresEvidenceRepository {
       );
       await client.query("COMMIT");
       return this.frontierReceipt("inserted", prepared);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Writes one owner-accepted topic link (owner answer 138b): it appends a topic_link_contributions row and, for "same",
+   * each topic's label as the other's alias, or for narrower, broader and related one topic_edges row. It never moves,
+   * changes or deletes either topic or anything filed under it. The exact checks are the intake's own, repeated
+   * against the store as it is at promotion.
+   */
+  async contributeTopicLink(input: unknown): Promise<TopicLinkContributionReceipt> {
+    const prepared = prepareTopicLinkContribution(input);
+    const link = prepared.contribution;
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN ISOLATION LEVEL SERIALIZABLE");
+      await this.setSearchPath(client);
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended('askrigor:living-evidence-writer', 0))");
+      const replay = await client.query<{ link_id: string; payload_sha256: string; aliases_written: number; edges_written: number }>(
+        "SELECT link_id, payload_sha256, aliases_written, edges_written FROM topic_link_contributions WHERE idempotency_key = $1",
+        [link.idempotencyKey],
+      );
+      if (replay.rowCount !== 0) {
+        const row = replay.rows[0]!;
+        if (row.payload_sha256 !== prepared.payloadSha256 || row.link_id !== link.linkId) {
+          throw new Error("TOPIC_LINK_IDEMPOTENCY_KEY_PAYLOAD_MISMATCH");
+        }
+        await client.query("COMMIT");
+        return topicLinkReceipt("idempotent_replay", prepared.payloadSha256, link, row.aliases_written, row.edges_written);
+      }
+      await this.insertProtocolsAndRun(client, link);
+      const topics = await client.query<{ topic_id: string; canonical_key: string; label: string }>(
+        "SELECT topic_id, canonical_key, label FROM topics WHERE topic_id = ANY($1::uuid[])",
+        [[link.fromTopic.topicId, link.toTopic.topicId]],
+      );
+      const state = {
+        topics: topics.rows.map((row) => ({ topicId: row.topic_id, canonicalKey: row.canonical_key, label: row.label })),
+        topicLink: await this.readTopicLinkState(client, {
+          linkId: link.linkId, fromTopicId: link.fromTopic.topicId, toTopicId: link.toTopic.topicId,
+        }),
+      };
+      const finding = topicLinkFindings(link, state)[0];
+      if (finding !== undefined) throw new Error(finding.code);
+      const from = state.topics.find(({ topicId }) => topicId === link.fromTopic.topicId)!;
+      const to = state.topics.find(({ topicId }) => topicId === link.toTopic.topicId)!;
+      let aliasesWritten = 0;
+      let edgesWritten = 0;
+      if (link.relation === "same") {
+        for (const [topic, other] of [[from, to], [to, from]] as const) {
+          if (other.label === topic.label) continue;
+          const written = await client.query(
+            "INSERT INTO topic_aliases (topic_id, alias) VALUES ($1, $2) ON CONFLICT (topic_id, alias) DO NOTHING",
+            [topic.topicId, other.label],
+          );
+          aliasesWritten += written.rowCount ?? 0;
+        }
+      } else {
+        await client.query(
+          `INSERT INTO topic_edges (edge_id, from_topic_id, to_topic_id, relation, run_id)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [
+            link.linkId, link.fromTopic.topicId, link.toTopic.topicId,
+            link.relation === "narrower" ? "narrower_than" : link.relation === "broader" ? "broader_than" : "related_to",
+            link.run.runId,
+          ],
+        );
+        edgesWritten = 1;
+      }
+      await client.query(
+        `INSERT INTO topic_link_contributions
+          (link_id, idempotency_key, run_id, from_topic_id, to_topic_id, relation, aliases_written, edges_written,
+           payload_sha256, payload_json)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)`,
+        [
+          link.linkId, link.idempotencyKey, link.run.runId, link.fromTopic.topicId, link.toTopic.topicId,
+          link.relation, aliasesWritten, edgesWritten, prepared.payloadSha256, JSON.stringify(link),
+        ],
+      );
+      await client.query(
+        `INSERT INTO repository_events
+          (event_id, event_kind, run_id, analysis_id, version_id, payload_sha256, event_at, details)
+         VALUES ($1, 'topic_link_contributed', $2, NULL, NULL, $3, $4, $5::jsonb)`,
+        [
+          deterministicUuid(`askrigor:topic-link-event:${prepared.payloadSha256}`),
+          link.run.runId,
+          prepared.payloadSha256,
+          link.run.completedAt,
+          JSON.stringify({ link_id: link.linkId, relation: link.relation, aliases_written: aliasesWritten, edges_written: edgesWritten }),
+        ],
+      );
+      await client.query("COMMIT");
+      return topicLinkReceipt("inserted", prepared.payloadSha256, link, aliasesWritten, edgesWritten);
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;
@@ -668,6 +810,371 @@ export class PostgresEvidenceRepository {
         result_count: matches.length,
         has_more: hasMore,
         matches,
+      };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * What the canonical store holds under a payload's identities (owner answer 138b): read-only, in one repeatable-read
+   * snapshot, by exact IDs, keys, identity hashes and identifiers. Stored times are compared with the payload's in SQL.
+   */
+  async readCanonicalIdentity(request: CanonicalIdentityRequest): Promise<CanonicalIdentityState> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+      await this.setSearchPath(client);
+      const exactTime = (column: string) => `to_char(${column} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
+      const idempotency = await client.query<{ record_id: string; payload_sha256: string }>(
+        request.kind === "RESEARCH_FRONTIER"
+          ? "SELECT contribution_id AS record_id, payload_sha256 FROM frontier_contributions WHERE idempotency_key = $1"
+          : request.kind === "TOPIC_LINK"
+            ? "SELECT link_id AS record_id, payload_sha256 FROM topic_link_contributions WHERE idempotency_key = $1"
+            : "SELECT version_id AS record_id, payload_sha256 FROM analysis_versions WHERE idempotency_key = $1",
+        [request.idempotencyKey],
+      );
+      const manifests = await client.query<{ sha256: string; name: string; version: string; revision_date_matches: boolean }>(
+        `SELECT manifest.sha256, manifest.name, manifest.version,
+                manifest.revision_date = requested.revision_date::date AS revision_date_matches
+           FROM protocol_manifests manifest
+           JOIN unnest($1::text[], $2::text[]) AS requested(sha256, revision_date)
+             ON requested.sha256 = manifest.sha256`,
+        [request.manifests.map(({ sha256: digest }) => digest), request.manifests.map(({ revisionDate }) => revisionDate)],
+      );
+      const run = await client.query<{
+        run_id: string;
+        run_kind: string;
+        started_at_matches: boolean;
+        completed_at_matches: boolean;
+        protocol_manifest_sha256s: string[];
+        provenance_note: string;
+      }>(
+        `SELECT run_id, run_kind, started_at = $2::timestamptz AS started_at_matches,
+                completed_at = $3::timestamptz AS completed_at_matches, protocol_manifest_sha256s, provenance_note
+           FROM research_runs WHERE run_id = $1`,
+        [request.run.runId, request.run.startedAt, request.run.completedAt],
+      );
+      const topics = await client.query<{ topic_id: string; canonical_key: string; label: string }>(
+        "SELECT topic_id, canonical_key, label FROM topics WHERE topic_id = ANY($1::uuid[]) OR canonical_key = ANY($2::text[])",
+        [request.topicIds, request.topicKeys],
+      );
+      const topicIds = [...new Set([...request.topicIds, ...topics.rows.map(({ topic_id: id }) => id)])];
+      const questionRows = await client.query<QuestionRow>(
+        `SELECT question_id, topic_id, normalized_question, population, program_or_exposure,
+                comparator, outcome, horizon, setting
+           FROM questions WHERE question_id = ANY($1::uuid[])`,
+        [request.questionIds],
+      );
+      for (const tuple of request.questionTuples) {
+        const exact = await client.query<QuestionRow>(
+          `SELECT question_id, topic_id, normalized_question, population, program_or_exposure,
+                  comparator, outcome, horizon, setting
+             FROM questions
+            WHERE topic_id = ANY($1::uuid[]) AND normalized_question = $2
+              AND population IS NOT DISTINCT FROM $3 AND program_or_exposure IS NOT DISTINCT FROM $4
+              AND comparator IS NOT DISTINCT FROM $5 AND outcome IS NOT DISTINCT FROM $6
+              AND horizon IS NOT DISTINCT FROM $7 AND setting IS NOT DISTINCT FROM $8
+            ORDER BY question_id`,
+          [
+            topicIds, tuple.normalizedQuestion, tuple.dimensions.population, tuple.dimensions.programOrExposure,
+            tuple.dimensions.comparator, tuple.dimensions.outcome, tuple.dimensions.horizon, tuple.dimensions.setting,
+          ],
+        );
+        questionRows.rows.push(...exact.rows);
+      }
+      const questions = [...new Map(questionRows.rows.map((row) => [row.question_id, row])).values()];
+      const frontiers = await client.query<{ frontier_id: string; question_id: string }>(
+        "SELECT frontier_id, question_id FROM research_frontiers WHERE frontier_id = ANY($1::uuid[]) OR question_id = ANY($2::uuid[])",
+        [request.frontierIds, [...new Set([...request.questionIds, ...questions.map(({ question_id: id }) => id)])]],
+      );
+      const frontierIds = [...new Set([...request.frontierIds, ...frontiers.rows.map(({ frontier_id: id }) => id)])];
+      const lanes = await client.query<{
+        lane_id: string;
+        frontier_id: string;
+        canonical_key: string;
+        source_class: string;
+        provider: string;
+        label: string;
+        coverage_basis: string | null;
+      }>(
+        `SELECT lane.lane_id, lane.frontier_id, lane.canonical_key, lane.source_class, lane.provider, lane.label,
+                (SELECT pass.coverage_basis FROM discovery_passes pass WHERE pass.lane_id = lane.lane_id LIMIT 1)
+                  AS coverage_basis
+           FROM frontier_lanes lane
+          WHERE lane.lane_id = ANY($1::uuid[])
+             OR (lane.frontier_id = ANY($2::uuid[]) AND lane.canonical_key = ANY($3::text[]))`,
+        [request.laneIds, frontierIds, request.laneKeys],
+      );
+      const contributions = await client.query<{ contribution_id: string }>(
+        "SELECT contribution_id FROM frontier_contributions WHERE contribution_id = ANY($1::uuid[])",
+        [request.contributionIds],
+      );
+      const passes = await client.query<{ pass_id: string }>(
+        "SELECT pass_id FROM discovery_passes WHERE pass_id = ANY($1::uuid[])",
+        [request.passIds],
+      );
+      const head = (table: string, key: string, alias: string) =>
+        `(SELECT head.version_id FROM ${table} head
+           WHERE head.${key} = ${alias}.${key}
+             AND NOT EXISTS (SELECT 1 FROM ${table} child WHERE child.previous_version_id = head.version_id)
+           ORDER BY head.inserted_at DESC, head.version_id DESC LIMIT 1)`;
+      const candidates = await client.query<{
+        candidate_id: string;
+        frontier_id: string;
+        candidate_kind: string;
+        identity_hash: string;
+        head_version_id: string | null;
+      }>(
+        `SELECT candidate.candidate_id, candidate.frontier_id, candidate.candidate_kind,
+                candidate.identity_hash::text, ${head("frontier_candidate_versions", "candidate_id", "candidate")}
+                  AS head_version_id
+           FROM frontier_candidates candidate
+          WHERE candidate.candidate_id = ANY($1::uuid[])
+             OR (candidate.frontier_id = ANY($2::uuid[]) AND candidate.identity_hash = ANY($3::text[]))`,
+        [request.candidateIds, frontierIds, request.candidateIdentityHashes],
+      );
+      const candidateVersions = await client.query<{ version_id: string; candidate_id: string }>(
+        "SELECT version_id, candidate_id FROM frontier_candidate_versions WHERE version_id = ANY($1::uuid[])",
+        [request.candidateVersionIds],
+      );
+      const trails = await client.query<{
+        trail_id: string;
+        frontier_id: string;
+        trail_kind: string;
+        head_version_id: string | null;
+      }>(
+        `SELECT trail.trail_id, trail.frontier_id, trail.trail_kind,
+                ${head("frontier_trail_versions", "trail_id", "trail")} AS head_version_id
+           FROM frontier_trails trail WHERE trail.trail_id = ANY($1::uuid[])`,
+        [request.trailIds],
+      );
+      const trailVersions = await client.query<{ version_id: string; trail_id: string }>(
+        "SELECT version_id, trail_id FROM frontier_trail_versions WHERE version_id = ANY($1::uuid[])",
+        [request.trailVersionIds],
+      );
+      const schemes = request.identifiers.map(({ scheme }) => scheme);
+      const values = request.identifiers.map(({ value }) => value);
+      const identifierCandidates = await client.query<{
+        candidate_id: string;
+        frontier_id: string;
+        scheme: string;
+        canonical_value: string;
+      }>(
+        `SELECT identifier.candidate_id, candidate.frontier_id, identifier.scheme, identifier.canonical_value
+           FROM frontier_candidate_identifiers identifier
+           JOIN frontier_candidates candidate ON candidate.candidate_id = identifier.candidate_id
+           JOIN unnest($1::text[], $2::text[]) AS requested(scheme, canonical_value)
+             ON requested.scheme = identifier.scheme AND requested.canonical_value = identifier.canonical_value
+          ORDER BY identifier.candidate_id, identifier.scheme, identifier.canonical_value
+          LIMIT 200`,
+        [schemes, values],
+      );
+      const families = await client.query<{
+        family_id: string;
+        source_kind: string;
+        identity_hash: string;
+        display_title: string;
+        identifiers: Array<{ scheme: string; value: string }>;
+      }>(
+        `SELECT family.family_id, family.source_kind, family.identity_hash::text, family.display_title,
+                COALESCE((
+                  SELECT jsonb_agg(jsonb_build_object('scheme', identifier.scheme, 'value', identifier.canonical_value)
+                    ORDER BY identifier.scheme, identifier.canonical_value)
+                  FROM source_identifiers identifier WHERE identifier.family_id = family.family_id
+                ), '[]'::jsonb) AS identifiers
+           FROM source_families family
+          WHERE family.family_id = ANY($1::uuid[]) OR family.identity_hash = ANY($2::text[])
+             OR family.family_id IN (
+               SELECT identifier.family_id FROM source_identifiers identifier
+                 JOIN unnest($3::text[], $4::text[]) AS requested(scheme, canonical_value)
+                   ON requested.scheme = identifier.scheme AND requested.canonical_value = identifier.canonical_value
+             )
+          ORDER BY family.family_id`,
+        [request.sourceFamilyIds, request.sourceIdentityHashes, schemes, values],
+      );
+      const familyIds = families.rows.map(({ family_id: id }) => id);
+      const versions = await client.query<{
+        version_id: string;
+        family_id: string;
+        source_content_sha256: string | null;
+        access_status: string;
+        retrieved_at: string | null;
+        retrieved_at_matches: boolean;
+        source_locator: string | null;
+      }>(
+        `SELECT version_id, family_id, source_content_sha256::text, access_status,
+                ${exactTime("retrieved_at")} AS retrieved_at,
+                retrieved_at IS NOT DISTINCT FROM $3::timestamptz AS retrieved_at_matches, source_locator
+           FROM source_versions
+          WHERE version_id = $1::uuid
+             OR (family_id = ANY($2::uuid[]) AND source_content_sha256 IS NOT DISTINCT FROM $4::text)
+          ORDER BY retrieved_at NULLS FIRST, version_id`,
+        [
+          request.sourceVersion?.versionId ?? null, familyIds, request.sourceVersion?.retrievedAt ?? null,
+          request.sourceVersion?.contentSha256 ?? null,
+        ],
+      );
+      const policies = await client.query<{
+        policy_id: string;
+        source_family_id: string;
+        source_class: string;
+        cadence_days: number;
+        maximum_age_days: number;
+        owner_role: string;
+        required_checks: string[];
+        failure_behavior: string;
+      }>(
+        `SELECT policy_id, source_family_id, source_class, cadence_days, maximum_age_days, owner_role,
+                required_checks, failure_behavior
+           FROM freshness_policies WHERE policy_id = ANY($1::uuid[]) OR source_family_id = ANY($2::uuid[])`,
+        [request.freshnessPolicyIds, [...new Set([...request.sourceFamilyIds, ...familyIds])]],
+      );
+      const analyses = await client.query<{
+        analysis_id: string;
+        analysis_kind: string;
+        topic_id: string | null;
+        source_family_id: string | null;
+      }>(
+        "SELECT analysis_id, analysis_kind, topic_id, source_family_id FROM analyses WHERE analysis_id = ANY($1::uuid[])",
+        [request.analysisIds],
+      );
+      const analysisVersions = await client.query<{ version_id: string }>(
+        "SELECT version_id FROM analysis_versions WHERE version_id = ANY($1::uuid[])",
+        [request.analysisVersionIds],
+      );
+      const claims = await client.query<{ claim_id: string; question_id: string; claim_type: string }>(
+        "SELECT claim_id, question_id, claim_type FROM claims WHERE claim_id = ANY($1::uuid[])",
+        [request.claimIds],
+      );
+      const receiptVersions = await client.query<{
+        version_id: string;
+        source_family_id: string | null;
+        receipt_kind: string;
+        receipt_sha256: string;
+        protocol_manifest_sha256s: string[];
+      }>(
+        `SELECT receipt.version_id, analysis.source_family_id, receipt.receipt_kind, receipt.receipt_sha256::text,
+                run.protocol_manifest_sha256s
+           FROM analysis_receipts receipt
+           JOIN analysis_versions version ON version.version_id = receipt.version_id
+           JOIN analyses analysis ON analysis.analysis_id = version.analysis_id
+           JOIN research_runs run ON run.run_id = version.run_id
+          WHERE receipt.receipt_sha256 = ANY($1::text[])
+          ORDER BY receipt.version_id`,
+        [request.receiptSha256s],
+      );
+      const topicLink = request.topicLink === null ? null : await this.readTopicLinkState(client, request.topicLink);
+      await client.query("COMMIT");
+      return {
+        topicLink,
+        idempotency: idempotency.rows[0] === undefined
+          ? null
+          : { recordId: idempotency.rows[0].record_id, payloadSha256: idempotency.rows[0].payload_sha256 },
+        manifests: manifests.rows.map((row) => ({
+          sha256: row.sha256, name: row.name, version: row.version, revisionDateMatches: row.revision_date_matches,
+        })),
+        run: run.rows[0] === undefined
+          ? null
+          : {
+              runId: run.rows[0].run_id,
+              runKind: run.rows[0].run_kind,
+              startedAtMatches: run.rows[0].started_at_matches,
+              completedAtMatches: run.rows[0].completed_at_matches,
+              protocolManifestSha256s: run.rows[0].protocol_manifest_sha256s,
+              provenanceNote: run.rows[0].provenance_note,
+            },
+        topics: topics.rows.map((row) => ({ topicId: row.topic_id, canonicalKey: row.canonical_key, label: row.label })),
+        questions: questions.map((row) => ({
+          questionId: row.question_id,
+          topicId: row.topic_id,
+          normalizedQuestion: row.normalized_question,
+          dimensions: {
+            population: row.population,
+            programOrExposure: row.program_or_exposure,
+            comparator: row.comparator,
+            outcome: row.outcome,
+            horizon: row.horizon,
+            setting: row.setting,
+          },
+        })),
+        frontiers: frontiers.rows.map((row) => ({ frontierId: row.frontier_id, questionId: row.question_id })),
+        lanes: lanes.rows.map((row) => ({
+          laneId: row.lane_id,
+          frontierId: row.frontier_id,
+          canonicalKey: row.canonical_key,
+          sourceClass: row.source_class,
+          provider: row.provider,
+          label: row.label,
+          coverageBasis: row.coverage_basis,
+        })),
+        contributionIds: contributions.rows.map(({ contribution_id: id }) => id),
+        passIds: passes.rows.map(({ pass_id: id }) => id),
+        candidates: candidates.rows.map((row) => ({
+          candidateId: row.candidate_id,
+          frontierId: row.frontier_id,
+          candidateKind: row.candidate_kind,
+          identityHash: row.identity_hash,
+          headVersionId: row.head_version_id,
+        })),
+        candidateVersions: candidateVersions.rows.map((row) => ({ versionId: row.version_id, candidateId: row.candidate_id })),
+        trails: trails.rows.map((row) => ({
+          trailId: row.trail_id,
+          frontierId: row.frontier_id,
+          trailKind: row.trail_kind,
+          headVersionId: row.head_version_id,
+        })),
+        trailVersions: trailVersions.rows.map((row) => ({ versionId: row.version_id, trailId: row.trail_id })),
+        identifierCandidates: identifierCandidates.rows.map((row) => ({
+          candidateId: row.candidate_id,
+          frontierId: row.frontier_id,
+          scheme: row.scheme,
+          value: row.canonical_value,
+        })),
+        sourceFamilies: families.rows.map((row) => ({
+          familyId: row.family_id,
+          sourceKind: row.source_kind,
+          identityHash: row.identity_hash,
+          displayTitle: row.display_title,
+          identifiers: row.identifiers,
+        })),
+        sourceVersions: versions.rows.map((row) => ({
+          versionId: row.version_id,
+          familyId: row.family_id,
+          sourceContentSha256: row.source_content_sha256,
+          accessStatus: row.access_status,
+          retrievedAt: row.retrieved_at,
+          retrievedAtMatches: row.retrieved_at_matches,
+          sourceLocator: row.source_locator,
+        })),
+        freshnessPolicies: policies.rows.map((row) => ({
+          policyId: row.policy_id,
+          sourceFamilyId: row.source_family_id,
+          sourceClass: row.source_class,
+          cadenceDays: row.cadence_days,
+          maximumAgeDays: row.maximum_age_days,
+          ownerRole: row.owner_role,
+          requiredChecks: row.required_checks,
+          failureBehavior: row.failure_behavior,
+        })),
+        analyses: analyses.rows.map((row) => ({
+          analysisId: row.analysis_id,
+          analysisKind: row.analysis_kind,
+          topicId: row.topic_id,
+          sourceFamilyId: row.source_family_id,
+        })),
+        analysisVersionIds: analysisVersions.rows.map(({ version_id: id }) => id),
+        claims: claims.rows.map((row) => ({ claimId: row.claim_id, questionId: row.question_id, claimType: row.claim_type })),
+        receiptVersions: receiptVersions.rows.map((row) => ({
+          versionId: row.version_id,
+          sourceFamilyId: row.source_family_id,
+          receiptKind: row.receipt_kind,
+          receiptSha256: row.receipt_sha256,
+          protocolManifestSha256s: row.protocol_manifest_sha256s,
+        })),
       };
     } catch (error) {
       await client.query("ROLLBACK");
@@ -1073,7 +1580,7 @@ export class PostgresEvidenceRepository {
       "evidence_bindings", "freshness_policies", "freshness_checks", "repository_events", "impact_jobs",
       "research_frontiers", "frontier_lanes", "frontier_contributions", "discovery_passes",
       "frontier_candidates", "frontier_candidate_identifiers", "frontier_candidate_versions",
-      "frontier_trails", "frontier_trail_versions",
+      "frontier_trails", "frontier_trail_versions", "topic_link_contributions",
     ] as const;
     const client = await this.pool.connect();
     try {
@@ -1149,6 +1656,69 @@ export class PostgresEvidenceRepository {
     await this.pool.end();
   }
 
+  /** What the store holds between two topics, inside the caller's transaction (the reader's or the writer's). */
+  private async readTopicLinkState(
+    client: PoolClient,
+    link: { linkId: string; fromTopicId: string; toTopicId: string },
+  ): Promise<TopicLinkState> {
+    const pair = [link.fromTopicId, link.toTopicId];
+    const links = await client.query<{ link_id: string; from_topic_id: string; to_topic_id: string; relation: string }>(
+      `SELECT link_id, from_topic_id, to_topic_id, relation FROM topic_link_contributions
+        WHERE from_topic_id = ANY($1::uuid[]) AND to_topic_id = ANY($1::uuid[])
+        ORDER BY link_id`,
+      [pair],
+    );
+    const edges = await client.query<{ from_topic_id: string; to_topic_id: string; relation: string }>(
+      `SELECT from_topic_id, to_topic_id, relation FROM topic_edges
+        WHERE from_topic_id = ANY($1::uuid[]) AND to_topic_id = ANY($1::uuid[])`,
+      [pair],
+    );
+    // A chain of hierarchy edges from the first topic down to the second, as the cycle trigger walks it.
+    const descends = async (ancestor: string, descendant: string) => (await client.query<{ found: boolean }>(
+      `WITH RECURSIVE descendants(node_id) AS (
+         SELECT CASE WHEN edge.relation = 'broader_than' THEN edge.to_topic_id ELSE edge.from_topic_id END
+           FROM topic_edges edge
+          WHERE edge.relation IN ('broader_than', 'narrower_than')
+            AND (CASE WHEN edge.relation = 'broader_than' THEN edge.from_topic_id ELSE edge.to_topic_id END) = $1
+         UNION
+         SELECT CASE WHEN edge.relation = 'broader_than' THEN edge.to_topic_id ELSE edge.from_topic_id END
+           FROM descendants prior
+           JOIN topic_edges edge
+             ON edge.relation IN ('broader_than', 'narrower_than')
+            AND (CASE WHEN edge.relation = 'broader_than' THEN edge.from_topic_id ELSE edge.to_topic_id END) = prior.node_id
+       )
+       SELECT EXISTS (SELECT 1 FROM descendants WHERE node_id = $2) AS found`,
+      [ancestor, descendant],
+    )).rows[0]?.found === true;
+    const aliases = await client.query<{ topic_id: string; alias: string }>(
+      `SELECT alias.topic_id, alias.alias FROM topic_aliases alias
+        WHERE alias.topic_id = ANY($1::uuid[])
+           OR alias.alias IN (SELECT topic.label FROM topics topic WHERE topic.topic_id = ANY($1::uuid[]))
+        ORDER BY alias.topic_id, alias.alias`,
+      [pair],
+    );
+    const taken = await client.query<{ taken: boolean }>(
+      `SELECT EXISTS (SELECT 1 FROM topic_link_contributions WHERE link_id = $1)
+           OR EXISTS (SELECT 1 FROM topic_edges WHERE edge_id = $1) AS taken`,
+      [link.linkId],
+    );
+    return {
+      links: links.rows.map((row) => ({
+        linkId: row.link_id, fromTopicId: row.from_topic_id, toTopicId: row.to_topic_id, relation: row.relation,
+      })),
+      parentEdges: edges.rows
+        .filter(({ relation }) => relation === "broader_than" || relation === "narrower_than")
+        .map((row) => row.relation === "broader_than"
+          ? { parentTopicId: row.from_topic_id, childTopicId: row.to_topic_id }
+          : { parentTopicId: row.to_topic_id, childTopicId: row.from_topic_id }),
+      relatedEdges: edges.rows.filter(({ relation }) => relation === "related_to").length,
+      fromIsAncestorOfTo: await descends(link.fromTopicId, link.toTopicId),
+      toIsAncestorOfFrom: await descends(link.toTopicId, link.fromTopicId),
+      aliases: aliases.rows.map((row) => ({ topicId: row.topic_id, alias: row.alias })),
+      linkIdTaken: taken.rows[0]?.taken === true,
+    };
+  }
+
   private async setSearchPath(client: PoolClient): Promise<void> {
     await client.query(`SET search_path TO ${this.schema}, public`);
     await client.query("SET TIME ZONE 'UTC'");
@@ -1191,12 +1761,14 @@ export class PostgresEvidenceRepository {
          VALUES ($1, $2, $3, $4) ON CONFLICT (sha256) DO NOTHING`,
         [manifest.sha256, manifest.name, manifest.version, manifest.revisionDate],
       );
-      const stored = await client.query<{ name: string; version: string; revision_date: string }>(
-        "SELECT name, version, revision_date::text FROM protocol_manifests WHERE sha256 = $1",
-        [manifest.sha256],
+      // Stored dates and times are compared with the payload's as values in SQL, never as text: any valid way of
+      // writing one value is the same value (owner answer 138b, 2026-10-20).
+      const stored = await client.query<{ name: string; version: string; revision_date_matches: boolean }>(
+        "SELECT name, version, revision_date = $2::date AS revision_date_matches FROM protocol_manifests WHERE sha256 = $1",
+        [manifest.sha256, manifest.revisionDate],
       );
       const row = stored.rows[0];
-      if (!row || row.name !== manifest.name || row.version !== manifest.version || row.revision_date !== manifest.revisionDate) {
+      if (!row || row.name !== manifest.name || row.version !== manifest.version || !row.revision_date_matches) {
         throw new Error("PROTOCOL_MANIFEST_CONFLICT");
       }
     }
@@ -1213,23 +1785,26 @@ export class PostgresEvidenceRepository {
         contribution.run.provenanceNote,
       ],
     );
+    // As instants: a time without milliseconds, with an offset or with microseconds is the time it names.
     const storedRun = await client.query<{
       run_kind: string;
-      started_at: Date;
-      completed_at: Date;
+      started_at_matches: boolean;
+      completed_at_matches: boolean;
       protocol_manifest_sha256s: string[];
       provenance_note: string;
     }>(
-      `SELECT run_kind, started_at, completed_at, protocol_manifest_sha256s, provenance_note
+      `SELECT run_kind, started_at = $2::timestamptz AS started_at_matches,
+              completed_at = $3::timestamptz AS completed_at_matches,
+              protocol_manifest_sha256s, provenance_note
        FROM research_runs WHERE run_id = $1`,
-      [contribution.run.runId],
+      [contribution.run.runId, contribution.run.startedAt, contribution.run.completedAt],
     );
     const run = storedRun.rows[0];
     if (
       !run ||
       run.run_kind !== contribution.run.runKind ||
-      run.started_at.toISOString() !== contribution.run.startedAt ||
-      run.completed_at.toISOString() !== contribution.run.completedAt ||
+      !run.started_at_matches ||
+      !run.completed_at_matches ||
       JSON.stringify(run.protocol_manifest_sha256s) !== JSON.stringify(contribution.run.protocolManifests.map(({ sha256: digest }) => digest)) ||
       run.provenance_note !== contribution.run.provenanceNote
     ) {
@@ -1237,24 +1812,33 @@ export class PostgresEvidenceRepository {
     }
   }
 
+  /**
+   * Inserts a topic or confirms the stored one. A key that already names another topic is TOPIC_KEY_CONFLICT, and an
+   * ID stored with another key or label TOPIC_ID_CONFLICT: named conflicts rather than a raw constraint error.
+   */
+  private async insertTopic(
+    client: PoolClient,
+    topic: { topicId: string; canonicalKey: string; label: string },
+  ): Promise<void> {
+    await client.query(
+      "INSERT INTO topics (topic_id, canonical_key, label) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
+      [topic.topicId, topic.canonicalKey, topic.label],
+    );
+    const storedTopic = await client.query<{ canonical_key: string; label: string }>(
+      "SELECT canonical_key, label FROM topics WHERE topic_id = $1",
+      [topic.topicId],
+    );
+    if (storedTopic.rowCount === 0) throw new Error("TOPIC_KEY_CONFLICT");
+    if (storedTopic.rows[0]!.canonical_key !== topic.canonicalKey || storedTopic.rows[0]!.label !== topic.label) {
+      throw new Error("TOPIC_ID_CONFLICT");
+    }
+  }
+
   private async insertFrontierTopicAndQuestion(
     client: PoolClient,
     contribution: ResearchFrontierContribution,
   ): Promise<void> {
-    await client.query(
-      "INSERT INTO topics (topic_id, canonical_key, label) VALUES ($1, $2, $3) ON CONFLICT (topic_id) DO NOTHING",
-      [contribution.topic.topicId, contribution.topic.canonicalKey, contribution.topic.label],
-    );
-    const storedTopic = await client.query<{ canonical_key: string; label: string }>(
-      "SELECT canonical_key, label FROM topics WHERE topic_id = $1",
-      [contribution.topic.topicId],
-    );
-    if (
-      storedTopic.rows[0]?.canonical_key !== contribution.topic.canonicalKey ||
-      storedTopic.rows[0]?.label !== contribution.topic.label
-    ) {
-      throw new Error("TOPIC_ID_CONFLICT");
-    }
+    await this.insertTopic(client, contribution.topic);
     const dimensions = contribution.question.dimensions;
     await client.query(
       `INSERT INTO questions
@@ -1309,23 +1893,25 @@ export class PostgresEvidenceRepository {
     client: PoolClient,
     contribution: ResearchFrontierContribution,
   ): Promise<void> {
+    // One frontier per question, and one lane per key in a frontier: a second one is a named conflict.
     await client.query(
       `INSERT INTO research_frontiers (frontier_id, question_id, created_by_run_id)
-       VALUES ($1, $2, $3) ON CONFLICT (frontier_id) DO NOTHING`,
+       VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
       [contribution.frontier.frontierId, contribution.question.questionId, contribution.run.runId],
     );
     const storedFrontier = await client.query<{ question_id: string }>(
       "SELECT question_id FROM research_frontiers WHERE frontier_id = $1",
       [contribution.frontier.frontierId],
     );
-    if (storedFrontier.rows[0]?.question_id !== contribution.question.questionId) {
+    if (storedFrontier.rowCount === 0) throw new Error("RESEARCH_FRONTIER_QUESTION_CONFLICT");
+    if (storedFrontier.rows[0]!.question_id !== contribution.question.questionId) {
       throw new Error("RESEARCH_FRONTIER_ID_CONFLICT");
     }
     for (const lane of contribution.frontier.lanes) {
       await client.query(
         `INSERT INTO frontier_lanes
           (lane_id, frontier_id, canonical_key, source_class, provider, label, created_by_run_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (lane_id) DO NOTHING`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING`,
         [lane.laneId, contribution.frontier.frontierId, lane.canonicalKey, lane.sourceClass, lane.provider, lane.label, contribution.run.runId],
       );
       const stored = await client.query<{
@@ -1339,8 +1925,9 @@ export class PostgresEvidenceRepository {
         [lane.laneId],
       );
       const row = stored.rows[0];
+      if (row === undefined) throw new Error("FRONTIER_LANE_KEY_CONFLICT");
       if (
-        row?.frontier_id !== contribution.frontier.frontierId ||
+        row.frontier_id !== contribution.frontier.frontierId ||
         row.canonical_key !== lane.canonicalKey || row.source_class !== lane.sourceClass ||
         row.provider !== lane.provider || row.label !== lane.label
       ) {
@@ -1386,19 +1973,21 @@ export class PostgresEvidenceRepository {
       const identifiers = [...candidate.identifiers]
         .map(({ scheme, value }) => ({ scheme, value }))
         .sort((left, right) => stableJson(left).localeCompare(stableJson(right)));
-      const identityHash = sha256(stableJson(identifiers));
+      const identityHash = frontierCandidateIdentityHash(identifiers);
       const existing = await client.query<{ frontier_id: string; candidate_kind: string; identity_hash: string }>(
         "SELECT frontier_id, candidate_kind, identity_hash FROM frontier_candidates WHERE candidate_id = $1",
         [candidate.candidateId],
       );
       if (existing.rowCount === 0) {
         if (candidate.previousVersionId !== null) throw new Error("FRONTIER_CANDIDATE_INITIAL_VERSION_REQUIRED");
-        await client.query(
+        const inserted = await client.query(
           `INSERT INTO frontier_candidates
             (candidate_id, frontier_id, candidate_kind, identity_hash, created_by_run_id)
-           VALUES ($1, $2, $3, $4, $5)`,
+           VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING`,
           [candidate.candidateId, contribution.frontier.frontierId, candidate.candidateKind, identityHash, contribution.run.runId],
         );
+        // The same identifiers already name another candidate of this frontier.
+        if (inserted.rowCount === 0) throw new Error("FRONTIER_CANDIDATE_IDENTITY_CONFLICT");
       } else {
         const row = existing.rows[0]!;
         if (candidate.previousVersionId === null) throw new Error("FRONTIER_CANDIDATE_ALREADY_HAS_INITIAL_VERSION");
@@ -1473,24 +2062,12 @@ export class PostgresEvidenceRepository {
   }
 
   private async insertTargets(client: PoolClient, contribution: LivingEvidenceContribution): Promise<{ topicId: string | null; sourceFamilyId: string | null; sourceVersionId: string | null }> {
-    if (contribution.topic !== null) {
-      await client.query(
-        "INSERT INTO topics (topic_id, canonical_key, label) VALUES ($1, $2, $3) ON CONFLICT (topic_id) DO NOTHING",
-        [contribution.topic.topicId, contribution.topic.canonicalKey, contribution.topic.label],
-      );
-      const storedTopic = await client.query<{ canonical_key: string; label: string }>(
-        "SELECT canonical_key, label FROM topics WHERE topic_id = $1",
-        [contribution.topic.topicId],
-      );
-      if (storedTopic.rows[0]?.canonical_key !== contribution.topic.canonicalKey || storedTopic.rows[0]?.label !== contribution.topic.label) {
-        throw new Error("TOPIC_ID_CONFLICT");
-      }
-    }
+    if (contribution.topic !== null) await this.insertTopic(client, contribution.topic);
     if (contribution.source !== null) {
       const source = contribution.source;
       await client.query(
         `INSERT INTO source_families (family_id, source_kind, identity_hash, display_title)
-         VALUES ($1, $2, $3, $4) ON CONFLICT (family_id) DO NOTHING`,
+         VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
         [source.familyId, source.sourceKind, source.identityHash, source.displayTitle],
       );
       const storedFamily = await client.query<{ source_kind: string; identity_hash: string; display_title: string }>(
@@ -1498,7 +2075,9 @@ export class PostgresEvidenceRepository {
         [source.familyId],
       );
       const family = storedFamily.rows[0];
-      if (!family || family.source_kind !== source.sourceKind || family.identity_hash !== source.identityHash || family.display_title !== source.displayTitle) {
+      // The same identity hash already names another source family.
+      if (!family) throw new Error("SOURCE_FAMILY_IDENTITY_CONFLICT");
+      if (family.source_kind !== source.sourceKind || family.identity_hash !== source.identityHash || family.display_title !== source.displayTitle) {
         throw new Error("SOURCE_FAMILY_ID_CONFLICT");
       }
       for (const identifier of source.identifiers) {
@@ -1518,28 +2097,31 @@ export class PostgresEvidenceRepository {
       await client.query(
         `INSERT INTO source_versions
           (version_id, family_id, source_content_sha256, access_status, retrieved_at, source_locator, raw_content_persisted)
-         VALUES ($1, $2, $3, $4, $5, $6, false) ON CONFLICT (version_id) DO NOTHING`,
+         VALUES ($1, $2, $3, $4, $5, $6, false) ON CONFLICT DO NOTHING`,
         [source.versionId, source.familyId, source.sourceContentSha256, source.accessStatus, source.retrievedAt, source.sourceLocator],
       );
       const storedVersion = await client.query<{
         family_id: string;
         source_content_sha256: string | null;
         access_status: string;
-        retrieved_at: Date | null;
+        retrieved_at_matches: boolean;
         source_locator: string | null;
         raw_content_persisted: boolean;
       }>(
-        `SELECT family_id, source_content_sha256, access_status, retrieved_at, source_locator, raw_content_persisted
+        `SELECT family_id, source_content_sha256, access_status,
+                retrieved_at IS NOT DISTINCT FROM $2::timestamptz AS retrieved_at_matches,
+                source_locator, raw_content_persisted
          FROM source_versions WHERE version_id = $1`,
-        [source.versionId],
+        [source.versionId, source.retrievedAt],
       );
       const version = storedVersion.rows[0];
+      // Another version of this family already records the same bytes, access and retrieval time.
+      if (!version) throw new Error("SOURCE_VERSION_IDENTITY_CONFLICT");
       if (
-        !version ||
         version.family_id !== source.familyId ||
         version.source_content_sha256 !== source.sourceContentSha256 ||
         version.access_status !== source.accessStatus ||
-        (version.retrieved_at?.toISOString() ?? null) !== source.retrievedAt ||
+        !version.retrieved_at_matches ||
         version.source_locator !== source.sourceLocator ||
         version.raw_content_persisted
       ) {

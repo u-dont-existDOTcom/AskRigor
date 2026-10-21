@@ -3,8 +3,11 @@ import { isAbsolute, normalize } from "node:path";
 
 import { ACCESS_STATUSES } from "@askrigor/contracts";
 import {
+  DEFAULT_GEMINI_MODEL_SETTING,
   GEMINI_YOUTUBE_BACKGROUND_REQUEST_TIMEOUT_MS,
   GEMINI_YOUTUBE_SCOUT_MODEL,
+  geminiTokenPrices,
+  type GeminiModelSetting,
   GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES,
   advanceGeminiYoutubeScoutBackground,
   deleteGeminiYoutubeScoutInteraction,
@@ -25,7 +28,8 @@ import { RESEARCH_ACTION_RESPONSE_MAX_BYTES } from "../config.js";
 import {
   createSharedFileAiBudget,
   MONTHLY_AI_BUDGET_NANO_USD,
-  type AiBudget
+  type AiBudget,
+  type BudgetHold
 } from "../lessons/ai-budget.js";
 import type { ActionRequestContext, ActionResult, ActionRoute } from "./types.js";
 
@@ -149,6 +153,8 @@ export interface CreateAutomatedGeminiScoutActionRouteOptions {
   deadlineMs?: number;
   validate?: typeof validateGeminiYoutubeCandidateHandoff;
   loadScoutInstructions?: () => Promise<string>;
+  // Owner answer 146b: a dev account's trial arm on the MCP connector; unset is today's model and thinking level.
+  modelSetting?: GeminiModelSetting;
 }
 
 export interface AutomatedGeminiScoutExecution {
@@ -167,6 +173,9 @@ export type ResumableAutomatedGeminiScoutExecution =
       controller_progress: {
         checkpoint: GeminiYoutubeScoutBackgroundCheckpoint;
         accounted_nano_usd: number;
+        // The budget hold charged when the scout started, which the call that
+        // completes it settles; the caller carries it with the checkpoint.
+        budget_hold?: BudgetHold;
         // Why a resumed scout is held without advancing: it was stopped and
         // its stored interaction is not deleted yet, or a provider it needs is
         // not configured here. A later call deletes or resumes it.
@@ -420,18 +429,26 @@ export async function executeAutomatedGeminiScout(
 /**
  * Controller-only Gemini executor. The first transition starts one budgeted
  * background Interaction; later transitions poll the exact server-owned
- * checkpoint without reserving or charging the budget again.
+ * checkpoint without reserving again. A scout unfinished after its first call
+ * keeps its whole reservation charged as a hold, and the call that completes
+ * it settles the real cost against that hold, as a one-call scout commits it.
  */
 export async function executeResumableAutomatedGeminiScout(
   input: z.output<typeof automatedScoutInputSchema>,
   resume: {
     checkpoint: GeminiYoutubeScoutBackgroundCheckpoint;
     accountedNanoUsd: number;
+    budgetHold?: BudgetHold;
+    // The trial arm's model and thinking level the scout started with (owner answer 146b).
+    modelSetting?: GeminiModelSetting;
   } | undefined,
   options: CreateAutomatedGeminiScoutActionRouteOptions = {},
   rediscoveryLeads: readonly string[] = []
 ): Promise<ResumableAutomatedGeminiScoutExecution> {
   const parsed = automatedScoutInputSchema.parse(input);
+  // Owner answer 146b: the model and thinking level, and the reservation and prices that go with them.
+  const setting = resume?.modelSetting ?? options.modelSetting ?? DEFAULT_GEMINI_MODEL_SETTING;
+  const maximumNanoUsd = geminiScoutReservationNanoUsd(setting);
   // Resumed scouts too: a session saved before this screen existed could
   // otherwise send its target again in a repair request. A resumed scout's
   // stored provider copy is deleted without another poll; until that
@@ -478,7 +495,7 @@ export async function executeResumableAutomatedGeminiScout(
     (
       !Number.isSafeInteger(resume.accountedNanoUsd) ||
       resume.accountedNanoUsd < 0 ||
-      resume.accountedNanoUsd > GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
+      resume.accountedNanoUsd > maximumNanoUsd
     )
   ) {
     return controllerBoundary("gemini_scout_budget_unavailable", false);
@@ -491,7 +508,7 @@ export async function executeResumableAutomatedGeminiScout(
       budget = options.budget ?? productionAiBudget();
       reservation = await budget.reserve(
         "gemini_youtube_candidate_scout",
-        GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
+        maximumNanoUsd
       );
     } catch {
       return controllerBoundary("gemini_scout_budget_unavailable", false);
@@ -512,7 +529,8 @@ export async function executeResumableAutomatedGeminiScout(
     };
     const scoutConfig = {
       apiKey: geminiApiKey,
-      model: GEMINI_YOUTUBE_SCOUT_MODEL
+      model: setting.model,
+      ...(setting.thinking === DEFAULT_GEMINI_MODEL_SETTING.thinking ? {} : { thinkingLevel: setting.thinking })
     };
     let activeCheckpoint = resume?.checkpoint;
     const maximumAdvances = options.deadlineMs !== undefined
@@ -543,9 +561,10 @@ export async function executeResumableAutomatedGeminiScout(
   }
 
   if (advance.kind === "progress") {
+    let budgetHold = resume?.budgetHold;
     if (reservation !== undefined) {
       try {
-        await reservation.forfeit();
+        budgetHold = await reservation.hold();
       } catch {
         return controllerBoundary("gemini_scout_budget_unavailable", false);
       }
@@ -553,8 +572,8 @@ export async function executeResumableAutomatedGeminiScout(
     return {
       controller_progress: {
         checkpoint: advance.checkpoint,
-        accounted_nano_usd: resume?.accountedNanoUsd ??
-          GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
+        accounted_nano_usd: resume?.accountedNanoUsd ?? maximumNanoUsd,
+        ...(budgetHold === undefined ? {} : { budget_hold: budgetHold })
       }
     };
   }
@@ -567,17 +586,23 @@ export async function executeResumableAutomatedGeminiScout(
   }
 
   const scoutData = advance.frontier.data;
-  if (costsMoreThanReservation(scoutData.usage)) {
+  if (costsMoreThanReservation(scoutData.usage, setting, maximumNanoUsd)) {
     if (reservation !== undefined) await reservation.forfeit();
     return controllerBoundary("gemini_scout_request_over_budget", false);
   }
   let accountedNanoUsd = resume?.accountedNanoUsd;
   if (reservation !== undefined) {
-    accountedNanoUsd = calculateGeminiScoutNanoUsd(scoutData.usage);
+    accountedNanoUsd = calculateGeminiScoutNanoUsd(scoutData.usage, setting, maximumNanoUsd);
     try {
       await reservation.commit(accountedNanoUsd);
     } catch {
       return controllerBoundary("gemini_scout_budget_unavailable", false);
+    }
+  } else if (resume?.budgetHold !== undefined) {
+    // Started on an earlier call: its real cost settles the hold charged then.
+    const actualNanoUsd = calculateGeminiScoutNanoUsd(scoutData.usage, setting, maximumNanoUsd);
+    if (await settleBudgetHold(resume.budgetHold, actualNanoUsd, options, maximumNanoUsd)) {
+      accountedNanoUsd = actualNanoUsd;
     }
   }
   if (accountedNanoUsd === undefined) {
@@ -619,16 +644,43 @@ function controllerBoundary(
 }
 
 function heldResume(
-  resume: { checkpoint: GeminiYoutubeScoutBackgroundCheckpoint; accountedNanoUsd: number },
+  resume: {
+    checkpoint: GeminiYoutubeScoutBackgroundCheckpoint;
+    accountedNanoUsd: number;
+    budgetHold?: BudgetHold;
+  },
   code: z.output<typeof automatedScoutBoundarySchema>["code"]
 ): ResumableAutomatedGeminiScoutExecution {
   return {
     controller_progress: {
       checkpoint: resume.checkpoint,
       accounted_nano_usd: resume.accountedNanoUsd,
+      ...(resume.budgetHold === undefined ? {} : { budget_hold: resume.budgetHold }),
       held_by: code
     }
   };
+}
+
+/**
+ * Settles a resumed scout's hold with its real cost. False when no budget is
+ * configured here, the hold is larger than one scout's reservation, or the
+ * ledger cannot record it: the whole hold then stays charged, as for a scout
+ * that never settles.
+ */
+async function settleBudgetHold(
+  hold: BudgetHold,
+  actualNanoUsd: number,
+  options: CreateAutomatedGeminiScoutActionRouteOptions,
+  maximumNanoUsd: number
+): Promise<boolean> {
+  if (!(hold.held_nano_usd <= maximumNanoUsd)) return false;
+  try {
+    const budget = options.budget ?? productionAiBudget();
+    await budget.settle(hold, actualNanoUsd);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -806,33 +858,66 @@ export function isDeidentifiedResearchTarget(value: string): boolean {
  * rather than accepted at the clamped maximum. Unreported token counts count as
  * zero here; calculateGeminiScoutNanoUsd charges the full reservation for them.
  */
-function costsMoreThanReservation(usage: GeminiYoutubeScoutData["usage"]): boolean {
-  const reportedNanoUsd = (usage.total_input_tokens ?? 0) * GEMINI_INPUT_TOKEN_NANO_USD +
-    ((usage.total_output_tokens ?? 0) + (usage.total_thought_tokens ?? 0)) *
-      GEMINI_OUTPUT_OR_THOUGHT_TOKEN_NANO_USD +
+function costsMoreThanReservation(
+  usage: GeminiYoutubeScoutData["usage"],
+  setting: GeminiModelSetting = DEFAULT_GEMINI_MODEL_SETTING,
+  maximumNanoUsd: number = geminiScoutReservationNanoUsd(setting)
+): boolean {
+  const { inputNanoUsd, outputNanoUsd } = scoutTokenPrices(setting);
+  const reportedNanoUsd = (usage.total_input_tokens ?? 0) * inputNanoUsd +
+    ((usage.total_output_tokens ?? 0) + (usage.total_thought_tokens ?? 0)) * outputNanoUsd +
     usage.google_search_queries * GEMINI_SEARCH_QUERY_NANO_USD;
-  return !Number.isSafeInteger(reportedNanoUsd) ||
-    reportedNanoUsd > GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD;
+  return !Number.isSafeInteger(reportedNanoUsd) || reportedNanoUsd > maximumNanoUsd;
 }
 
+/**
+ * A completed scout's real cost at its model's prices; the whole reservation when a token count is missing or the
+ * cost is out of range. Today's model and its $1 reservation are the defaults.
+ */
 export function calculateGeminiScoutNanoUsd(
-  usage: GeminiYoutubeScoutData["usage"]
+  usage: GeminiYoutubeScoutData["usage"],
+  setting: GeminiModelSetting = DEFAULT_GEMINI_MODEL_SETTING,
+  maximumNanoUsd: number = geminiScoutReservationNanoUsd(setting)
 ): number {
   if (
     usage.total_input_tokens === undefined ||
     usage.total_output_tokens === undefined ||
     usage.total_thought_tokens === undefined
   ) {
-    return GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD;
+    return maximumNanoUsd;
   }
-  const actual = usage.total_input_tokens * GEMINI_INPUT_TOKEN_NANO_USD +
-    (usage.total_output_tokens + usage.total_thought_tokens) *
-      GEMINI_OUTPUT_OR_THOUGHT_TOKEN_NANO_USD +
+  const { inputNanoUsd, outputNanoUsd } = scoutTokenPrices(setting);
+  const actual = usage.total_input_tokens * inputNanoUsd +
+    (usage.total_output_tokens + usage.total_thought_tokens) * outputNanoUsd +
     usage.google_search_queries * GEMINI_SEARCH_QUERY_NANO_USD;
-  if (!Number.isSafeInteger(actual) || actual < 0 || actual > GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD) {
-    return GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD;
+  if (!Number.isSafeInteger(actual) || actual < 0 || actual > maximumNanoUsd) {
+    return maximumNanoUsd;
   }
   return actual;
+}
+
+/**
+ * Today's model keeps the prices its $1 reservation was set for; another model's are its own on the current day
+ * (owner answer 146b).
+ */
+function scoutTokenPrices(setting: GeminiModelSetting): { inputNanoUsd: number; outputNanoUsd: number } {
+  return setting.model === GEMINI_YOUTUBE_SCOUT_MODEL
+    ? { inputNanoUsd: GEMINI_INPUT_TOKEN_NANO_USD, outputNanoUsd: GEMINI_OUTPUT_OR_THOUGHT_TOKEN_NANO_USD }
+    : geminiTokenPrices(setting.model, new Date());
+}
+
+/**
+ * One scout's reservation for a model (owner answer 146b): $1 for today's model, as before; for another, the same
+ * maximum searches plus the token share of that $1 scaled by the model's higher price, so the same scout fits.
+ */
+export function geminiScoutReservationNanoUsd(
+  setting: GeminiModelSetting = DEFAULT_GEMINI_MODEL_SETTING
+): number {
+  if (setting.model === GEMINI_YOUTUBE_SCOUT_MODEL) return GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD;
+  const searches = GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES * GEMINI_SEARCH_QUERY_NANO_USD;
+  const { inputNanoUsd, outputNanoUsd } = scoutTokenPrices(setting);
+  const ratio = Math.max(inputNanoUsd / GEMINI_INPUT_TOKEN_NANO_USD, outputNanoUsd / GEMINI_OUTPUT_OR_THOUGHT_TOKEN_NANO_USD, 1);
+  return Math.ceil(searches + (GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD - searches) * ratio);
 }
 
 function productionAiBudget(): AiBudget {

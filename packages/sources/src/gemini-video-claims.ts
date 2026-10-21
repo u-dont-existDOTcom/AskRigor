@@ -1,3 +1,10 @@
+import {
+  DEFAULT_GEMINI_MODEL_SETTING,
+  geminiModelIdSchema,
+  geminiThinkingLevelSchema,
+  type GeminiModelId,
+  type GeminiThinkingLevel
+} from "./gemini-models.js";
 import { z } from "zod";
 
 import { fetchJson, fetchText, UpstreamHttpError } from "./http.js";
@@ -57,8 +64,15 @@ export type GeminiVideoCheckpoint = z.output<typeof geminiVideoCheckpointSchema>
 
 export interface GeminiVideoConfig {
   apiKey: string;
+  /** Owner answer 146b: a dev account's trial may run another model and thinking level; unset is the usual one. */
+  model?: GeminiModelId;
+  thinkingLevel?: GeminiThinkingLevel;
 }
-const configSchema = z.object({ apiKey: z.string().trim().min(1).max(4_096) }).strict();
+const configSchema = z.object({
+  apiKey: z.string().trim().min(1).max(4_096),
+  model: geminiModelIdSchema.optional(),
+  thinkingLevel: geminiThinkingLevelSchema.optional()
+}).strict();
 
 /**
  * A time in a video as Gemini writes it: MM:SS, or H:MM:SS past an hour.
@@ -180,17 +194,20 @@ export function formatVideoTime(seconds: number): string {
  * person: the URL is rebuilt from a checked video ID, the prompts are fixed,
  * and a follow-up adds only a time formatted here.
  */
-export function buildGeminiVideoRequest(request: GeminiVideoRequest): Record<string, unknown> {
+export function buildGeminiVideoRequest(
+  request: GeminiVideoRequest,
+  setting: { model?: GeminiModelId; thinkingLevel?: GeminiThinkingLevel } = {}
+): Record<string, unknown> {
   const parsed = geminiVideoRequestSchema.parse(request);
   return {
-    model: GEMINI_VIDEO_MODEL,
+    model: setting.model ?? GEMINI_VIDEO_MODEL,
     input: [
       { type: "video", uri: geminiVideoWatchUrl(parsed.video_id), processing: "agentic" },
       { type: "text", text: parsed.mode === "claims" ? CLAIMS_PROMPT : momentPrompt(parsed.at_seconds) }
     ],
     generation_config: {
       max_output_tokens: GEMINI_VIDEO_MAX_OUTPUT_TOKENS,
-      thinking_level: "medium"
+      thinking_level: setting.thinkingLevel ?? DEFAULT_GEMINI_MODEL_SETTING.thinking
     },
     response_format: {
       type: "text",
@@ -330,7 +347,7 @@ export async function advanceGeminiVideoPass(
             "Api-Revision": GEMINI_API_REVISION,
             "x-goog-api-key": parsedConfig.data.apiKey
           },
-          body: JSON.stringify(buildGeminiVideoRequest(parsedRequest)),
+          body: JSON.stringify(buildGeminiVideoRequest(parsedRequest, parsedConfig.data)),
           maxRetries: 0,
           timeoutMs: GEMINI_VIDEO_REQUEST_TIMEOUT_MS
         })

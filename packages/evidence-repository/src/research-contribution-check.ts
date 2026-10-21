@@ -9,6 +9,7 @@ import {
   livingEvidenceContributionSchema,
   PROHIBITED_PERSISTENT_KEY_NAMES,
   researchFrontierContributionSchema,
+  topicLinkContributionSchema,
 } from "./contracts.js";
 import { sha256 } from "./hash.js";
 
@@ -28,13 +29,29 @@ export const contributionPrivacyBoundarySchema = z.object({
   communityDataPersisted: z.literal(false),
 }).strict();
 
+/**
+ * The consent a paid private account's research map is filed with (owner answer 143a, 2026-10-21): the user's yes to
+ * the answer's offer, which saves its findings card and files this research's map, the literal save_research_findings
+ * takes for the same yes.
+ */
+export const RESEARCH_MAP_CONSENT = "yes_to_this_save" as const;
+
+// The research receipt's size limit (RESEARCH_RECEIPT_MAX_CHARACTERS in the research server).
+const FINALIZATION_RECEIPT_MAX_CHARACTERS = 2_048;
+
 export const researchContributionProposalInputSchema = z.object({
-  proposalKind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS"]),
+  proposalKind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS", "TOPIC_LINK"]),
   privacyBoundary: contributionPrivacyBoundarySchema,
   payload: z.unknown(),
+  // Owner answer 138b: this account's own pending proposal of the same kind that this one replaces.
+  supersedesProposalId: z.uuid().optional(),
+  // Owner answer 143a: a paid private account's research map, filed after the user's yes to the answer's offer, with
+  // the finalization receipt of the final check that made it. A free contributor's map needs neither.
+  userConsent: z.literal(RESEARCH_MAP_CONSENT).optional(),
+  finalizationReceipt: z.string().trim().min(1).max(FINALIZATION_RECEIPT_MAX_CHARACTERS).optional(),
 }).strict();
 
-type ProposalKind = "RESEARCH_FRONTIER" | "SOURCE_ANALYSIS";
+type ProposalKind = "RESEARCH_FRONTIER" | "SOURCE_ANALYSIS" | "TOPIC_LINK";
 
 /** A shared SOURCE_ANALYSIS proposal is a source-bound study or review audit. */
 export const SHARED_ANALYSIS_KINDS: readonly string[] = ["study_method_audit", "review_method_audit"];
@@ -83,6 +100,12 @@ export const CONTRIBUTION_PROBLEM_RULES = [
   "cross_field",
   "hash_mismatch",
   "kind_mismatch",
+  // Checks against stored records (owner answer 138b): an ID the canonical store holds with other content, a canonical
+  // record the proposal names that does not exist, and a supersedesProposalId that is not this account's own pending
+  // proposal of the same kind.
+  "canonical_conflict",
+  "canonical_missing",
+  "superseded_proposal",
   "prohibited_key",
   "contact_pattern",
   "sandbox_locator",
@@ -387,6 +410,16 @@ export const CONTRIBUTION_EXAMPLES: Readonly<Record<ProposalKind, Record<string,
       }],
     },
   },
+  TOPIC_LINK: {
+    schemaVersion: 1,
+    idempotencyKey: "topic-link-example-1",
+    linkId: uuid(51),
+    run: exampleRun(52),
+    fromTopic: { topicId: uuid(53), canonicalKey: "example-topic" },
+    relation: "same",
+    toTopic: { topicId: uuid(54), canonicalKey: "example-topic-other-wording" },
+    rationale: TEXT,
+  },
 });
 
 // In a shared SOURCE_ANALYSIS proposal, these accept less than the contribution schema does.
@@ -447,6 +480,7 @@ function contractJson() {
   const kinds = {
     RESEARCH_FRONTIER: toJson(researchFrontierContributionSchema),
     SOURCE_ANALYSIS: toJson(livingEvidenceContributionSchema),
+    TOPIC_LINK: toJson(topicLinkContributionSchema),
   };
   const known = new Set<string>();
   const collect = (node: unknown): void => {
@@ -461,7 +495,7 @@ function contractJson() {
     if (Array.isArray(node.anyOf)) node.anyOf.forEach(collect);
     collect(node.additionalProperties);
   };
-  for (const node of [envelope, kinds.RESEARCH_FRONTIER, kinds.SOURCE_ANALYSIS]) collect(node);
+  for (const node of [envelope, kinds.RESEARCH_FRONTIER, kinds.SOURCE_ANALYSIS, kinds.TOPIC_LINK]) collect(node);
   contract = { envelope, kinds, known };
   return contract;
 }
@@ -491,8 +525,9 @@ export function checkResearchContributionProposal(input: unknown): ResearchContr
   let payloadCheck: ResearchContributionCheck["payloadCheck"] = kind === undefined ? "kind_invalid" : "checked";
   if (kind !== undefined) {
     const parsed = contributionSchema(kind).safeParse(payload);
-    const other: ProposalKind = kind === "SOURCE_ANALYSIS" ? "RESEARCH_FRONTIER" : "SOURCE_ANALYSIS";
-    if (!parsed.success && contributionSchema(other).safeParse(payload).success) {
+    const other = (["RESEARCH_FRONTIER", "SOURCE_ANALYSIS", "TOPIC_LINK"] as const)
+      .find((candidate) => candidate !== kind && contributionSchema(candidate).safeParse(payload).success);
+    if (!parsed.success && other !== undefined) {
       payloadCheck = "kind_mismatch";
       found.push({
         segments: ["proposalKind"],
@@ -516,8 +551,33 @@ export function checkResearchContributionProposal(input: unknown): ResearchContr
   return bounded(found, kind, { crossFieldRulesPending, payloadCheck });
 }
 
+/** One problem found by a check against stored records, at its path from the call's root. */
+export interface ContributionFinding {
+  path: ReadonlyArray<string | number>;
+  rule: ContributionProblemRule;
+  expected: string;
+}
+
+/**
+ * The problems a check against stored records found (the canonical store, or the account's own pending proposals),
+ * bounded and ordered like the intake's own, each with its example. Run on a record that passed the intake, so its
+ * cross-field rules have run.
+ */
+export function contributionCheckFromFindings(
+  kind: ProposalKind,
+  findings: readonly ContributionFinding[],
+): ResearchContributionCheck {
+  return bounded(
+    findings.map(({ path, rule, expected }) => ({ segments: sanitize(path), rule, expected })),
+    kind,
+    { crossFieldRulesPending: false, payloadCheck: "checked" },
+  );
+}
+
 function contributionSchema(kind: ProposalKind): z.ZodType {
-  return kind === "SOURCE_ANALYSIS" ? livingEvidenceContributionSchema : researchFrontierContributionSchema;
+  return kind === "SOURCE_ANALYSIS"
+    ? livingEvidenceContributionSchema
+    : kind === "TOPIC_LINK" ? topicLinkContributionSchema : researchFrontierContributionSchema;
 }
 
 function fromIssue(
@@ -669,6 +729,8 @@ function recordRuleFindings(kind: ProposalKind, payload: unknown): Found[] {
     if (isPlainObject(source)) identifiers(source.identifiers, ["source", "identifiers"], true);
     return found;
   }
+  // A topic link names canonical topics only; the canonical checks run once it is otherwise valid.
+  if (kind === "TOPIC_LINK") return found;
   const frontier = payload.frontier;
   if (!isPlainObject(frontier)) return found;
   if (Array.isArray(frontier.lanes)) {
@@ -693,6 +755,7 @@ function recordRuleFindings(kind: ProposalKind, payload: unknown): Found[] {
 }
 
 function hashFindings(kind: ProposalKind, record: unknown): Found[] {
+  if (kind === "TOPIC_LINK") return [];
   if (kind === "SOURCE_ANALYSIS") {
     const { analysis } = record as { analysis: { declaredWholeTextSha256: string | null; sections: { content: string }[] } };
     const whole = sha256(analysis.sections.map(({ content }) => content).join(""));
@@ -912,6 +975,9 @@ function envelopeExample(kind: ProposalKind | undefined): Record<string, unknown
     proposalKind: kind ?? "RESEARCH_FRONTIER",
     privacyBoundary: CONTRIBUTION_PRIVACY_BOUNDARY_EXAMPLE,
     payload: kind === undefined ? {} : CONTRIBUTION_EXAMPLES[kind],
+    supersedesProposalId: uuid(50),
+    userConsent: RESEARCH_MAP_CONSENT,
+    finalizationReceipt: "rr1~finalization~…",
   };
 }
 

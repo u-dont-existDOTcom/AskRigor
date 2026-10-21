@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { z } from "zod";
 import { normalizeProductName, productNameOccurs } from "@askrigor/sources";
 
@@ -20,12 +22,17 @@ import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
 import type { SecondReaderFinding } from "./second-reader.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
 import {
-  FINDINGS_SAVE_OFFER,
+  findingsAndMapSaveOffer,
   findingsCardDigest,
   findingsCardSchema,
+  findingsSaveOffer,
   screenFindingsCard,
+  signedFindingBases,
+  verifiedWorkPhrase,
   type FindingsCard,
-  type FindingsPrivacyReason
+  type FindingsPrivacyReason,
+  type VerifiedBasis,
+  type VerifiedWork
 } from "./findings/card.js";
 import {
   discoveryQueryDigest,
@@ -161,6 +168,12 @@ export function harmNotCheckedCaveat(harm: string): string {
 export const FINALIZE_REMINDER = "Answers that use this research are checked with finalize_research before they " +
   "are given, in this turn or a later one.";
 
+// The plain answer a paid private or dev account registers before research (owner answer 140b, 2026-10-20), and how
+// the checked answer compares with each of its claims.
+export const PLAIN_ANSWER_LIMITS = { textCharacters: 1_500, claims: 5, claimCharacters: 250 } as const;
+export const PLAIN_ANSWER_OUTCOMES = ["confirmed", "corrected", "qualified", "not_checked"] as const;
+type PlainAnswerOutcome = typeof PLAIN_ANSWER_OUTCOMES[number];
+
 export const READ_DEPTH_VALUES = [
   "full_text_audited", "full_text_read", "partial_text", "abstract_only", "conference_abstract",
   "secondary_only", "metadata_only", "inaccessible", "route_error"
@@ -187,6 +200,9 @@ const reportIdentitySchema = z.object({
 // full_text_search and lab_preparation are one object each, not two alternatives: ChatGPT's app shows the model a
 // two-branch union only as "unknown" (read-only Codex probes, 2026-10-16), so the model invented their fields and
 // the connector rejected the call. The status names the field it needs, which the final check asks for.
+/** How a lead_only study was handled with this app's other full-text tools (owner answer 147a). */
+export const OTHER_ROUTE_VALUES = ["read", "unavailable", "cost", "none"] as const;
+
 export const finalizeResearchInputSchema = z.object({
   receipts: z.array(z.string().max(RESEARCH_RECEIPT_MAX_CHARACTERS)).max(300)
     .describe("Every research_receipt AskRigor tools returned during this research, copied exactly."),
@@ -387,7 +403,14 @@ export const finalizeResearchInputSchema = z.object({
       .describe("Records each source's required reading depth; full_text_audited needs a verified method audit, full_text_read a completed-reading or audit receipt."),
     answer_marker: z.string().trim().min(3).max(80).optional()
       .describe("Required with answer_draft: the visible label for this source, 3–80 characters, on the same line as its link."),
-    reason: z.string().trim().min(1).max(1_000).optional()
+    reason: z.string().trim().min(1).max(1_000).optional(),
+    // Owner answer 147a (2026-10-21, from UDA #411): AskRigor cannot see the app's other tools, so the model declares
+    // whether a lead was read through one.
+    other_route: z.enum(OTHER_ROUTE_VALUES).optional()
+      .describe("For a lead_only study, as you know it (AskRigor cannot see this app's other tools): read, its text " +
+        "was read through another full-text tool connected here; unavailable, one was tried without access; cost, " +
+        "one was not used because it costs the user credits; none, no such tool is connected. A study read that way " +
+        "is reported as read through another tool, not audited by AskRigor.")
   }).strict()).max(60)
     .describe("Lists each study the conclusions depend on: validated after a full-text method audit, or lead_only " +
       "when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text. " +
@@ -601,12 +624,33 @@ export const finalizeResearchInputSchema = z.object({
     text: z.string().trim().min(1).max(4_000).describe("As the answer states it, with the caveat's links.")
   }).strict()).max(40).optional()
     .describe("In an answer not in English: each caveat in the answer's language."),
+  plain_answer_comparison: z.array(z.object({
+    claim: z.string().trim().min(1).max(PLAIN_ANSWER_LIMITS.claimCharacters)
+      .describe("One claim of the plain answer registered before this research, copied exactly as " +
+        "manage_research_access listed it."),
+    outcome: z.enum(PLAIN_ANSWER_OUTCOMES)
+      .describe("confirmed: the research supports it; corrected: the research shows it is wrong; qualified: it holds " +
+        "only in part or under conditions; not_checked: the research did not test it."),
+    answer_quote: answerQuote.optional()
+      .describe("With corrected or qualified, and optionally with confirmed: the answer's sentence that states it, " +
+        "copied from answer_draft."),
+    sources: z.array(z.string().trim().min(1).max(300)).max(10).optional()
+      .describe("What backs it: studies audited in full text here (DOI, PMID or PMCID) or videos whose comments were " +
+        "read here (video ID); left out when its sentence is one absence_claims or a correction the research found " +
+        "also declares.")
+  }).strict()).max(PLAIN_ANSWER_LIMITS.claims).optional()
+    .describe("With answer_draft, when a plain answer registered with manage_research_access before this research is " +
+      "passed in receipts: for each of its claims, copied exactly, whether the research confirmed, corrected or " +
+      "qualified it, or did not check it. A correction or a qualification gives the answer's sentence stating it and " +
+      "what backs it, checked against this call's receipts and declarations. From it the final check writes " +
+      "plain_answer_note, for the end of the answer."),
   findings_card: findingsCardSchema.optional()
     .describe("With answer_draft, when the answer cites a study or video verified here: the answer's best findings " +
       "for AskRigor's findings library, never claims the user corrected and no personal details, checked against the " +
       "answer and this call's verified sources. Leave it out when the answer cites none. In free " +
-      "contributor mode a checked card is saved for the owner's review; in paid private mode it adds a caveat " +
-      "offering the save. A rejected card is not saved or offered and does not hold back the answer."),
+      "contributor mode a checked card is saved for the owner's review; in paid private mode, when a finding rests " +
+      "on work a quick answer cannot do, it adds a caveat offering the save, which also asks to file this research's " +
+      "map. A rejected card is not saved or offered and does not hold back the answer."),
   reported_model: z.string().trim().min(1).max(80).optional()
     .describe("Your model's name as your app reports it; kept, unverified, with a saved findings card.")
 }).strict();
@@ -660,8 +704,8 @@ export const FINALIZE_RESEARCH_HIDDEN_SHAPES: ReadonlyArray<{
   { paths: ["scale_results[].benchmark"], examples: [{ value: 1, kind: "minimal_important_difference" }, "none_established"] },
   { paths: ["mechanism_claims[].tissue"], examples: [{ measured: "…", claimed: "…" }] },
   { paths: ["harm_screen[].sources_searched"], examples: [["label", "case_reports"]] },
-  { paths: ["absence_claims[].studies", "safety_claims[].studies", "mechanism_claims[].studies"],
-    examples: [["10.1000/example"]] }
+  { paths: ["absence_claims[].studies", "safety_claims[].studies", "mechanism_claims[].studies",
+    "plain_answer_comparison[].sources"], examples: [["10.1000/example"]] }
 ];
 
 // Limits the type does not show, which the 2026-10-16 regression's first calls broke.
@@ -915,14 +959,43 @@ export const finalizeResearchOutputSchema = z.object({
   findings_card: z.object({
     status: z.enum(["checked", "rejected", "absent", "closed", "private"]),
     problems: z.array(z.string()),
+    beyond_quick_answer: z.number().int().nonnegative().optional()
+      .describe("For a checked card: how many of its findings rest on work a quick answer cannot do (a full-text " +
+        "audit, audited comments, a checked absence claim or a correction the research found), as this call's " +
+        "receipts show."),
     saved: z.object({
       status: z.enum(["saved", "already_saved", "not_saved", "unconfirmed"]),
       card_id: z.string().regex(/^ARF-[0-9]{4,}$/u).optional(),
       reason: z.string().optional()
     }).strict().optional()
   }).strict().describe("Whether findings_card checked, and for a free contributor account whether it was saved; for " +
-    "a paid private account a checked card's caveats offer the save. closed: the findings library is not open; " +
-    "private: no research account, so nothing is saved."),
+    "a paid private account, a checked card with a finding beyond a quick answer adds the caveat offering the save " +
+    "(and the filing of this research's map; see research_map). closed: the findings library is not open; private: " +
+    "no research account, so nothing is saved."),
+  saved_line: z.string().optional()
+    .describe("When a free contributor's card was saved, or a map of this research was filed: the line the answer " +
+      "ends with, just before check_line, saying what was saved."),
+  research_map: z.object({
+    status: z.enum(["filed", "offered", "not_filed"]),
+    note: z.string().optional()
+  }).strict().optional()
+    .describe("This research's map, a RESEARCH_FRONTIER proposal of its searches, the studies found and the leads " +
+      "left open for the owner's review: filed, a map was filed after this research began; offered, a paid private " +
+      "answer's save offer also asks to file it, which submit_research_contribution does only after the user's yes; " +
+      "not_filed, a free contributor's research did work a quick answer cannot do and no map of it was filed, which " +
+      "note says to do. It holds nothing back."),
+  plain_answer: z.object({
+    status: z.enum(["registered", "note_off", "no_receipt", "other_account", "other_target", "after_research"]),
+    claims: z.number().int().positive().optional(),
+    reason: z.string().optional()
+  }).strict().optional()
+    .describe("For a paid private or dev account: registered, a plain answer signed for this research target before " +
+      "the research, which plain_answer_comparison compares with the answer; note_off, the same with the account's " +
+      "note turned off; or why there is none to compare (no_receipt, other_account, other_target, after_research), " +
+      "which holds nothing back."),
+  plain_answer_note: z.string().optional()
+    .describe("When ready, for a registered plain answer: the note the answer ends with, before saved_line and " +
+      "check_line, quoting each of its claims exactly and saying what the research found, and what backs each change."),
   carry_forward: z.string().optional(),
   carried: carriedStateSchema.optional(),
   carry_forward_note: z.string().optional(),
@@ -952,6 +1025,16 @@ export interface FinalizeResearchOptions {
   // waits for the user's yes; "private" for a caller with no research
   // account, whose card is neither checked nor saved.
   findings?: "closed" | "save" | "offer" | "private";
+  // A paid private or dev account on the connector (owner answer 140b): a plain answer it registered before research
+  // is compared with the answer, and the note doing so is written unless the account turned it off. `account` is the
+  // binding its plain-answer receipts sign (plainAnswerAccountBinding). Other callers' receipts count for nothing.
+  plainAnswer?: { note: boolean; account: string };
+  // This research's map on the connector (owner answer 143a, 2026-10-21). "offer": a paid private account, whose save
+  // offer also asks, in the same sentence, to file the map, so one yes saves the card and files it; the finalization
+  // receipt then signs the offer and this account. "remind": a free contributor account, whose map is filed without
+  // asking, reminded when the research did work a quick answer cannot do and no map of it was filed. `account` is the
+  // binding its research_map receipts sign (researchMapAccountBinding); another account's map counts for nothing.
+  researchMap?: { mode: "offer" | "remind"; account: string };
   // The client's own hint that the answer will be read on a phone or tablet:
   // the answer then carries the owner's mobile notice (owner request,
   // 2026-10-15), as Universal's output_style asks wherever a phone shows.
@@ -1634,6 +1717,11 @@ export function finalizeResearch(
   // Studies read only as leads: one limit each, and one caveat per reason that
   // stopped the reading, from the state each full-text lead receipt signed.
   const unreadStudies = new Map<string, string | undefined>();
+  // Owner answer 147a: a lead the model declares it read through another of this app's tools.
+  const readThroughOtherTool = (sourceId: string, id: string): void => {
+    requireLimit(`Cite ${sourceId} as read through another tool, not audited by AskRigor.`);
+    unreadStudies.set(id, "OTHER_TOOL");
+  };
   // Every identifier and page the receipts tie to a key study links it (a PubMed record's page since the
   // 2026-10-15 owner regressions; its other copies and its publisher page since 16 October's).
   const keyLinks = input.key_sources.map((source) => {
@@ -1701,6 +1789,10 @@ export function finalizeResearch(
         PARTIAL_TEXT_READABLE: "only part of its text was readable",
         IDENTITY_MISMATCH: "no copy found could be verified as the same paper"
       };
+      if (source.other_route === "read") {
+        readThroughOtherTool(source.id, id);
+        continue;
+      }
       const state = ids.map((candidate) => leadStates.get(candidate)).find((state) => state !== undefined);
       const limit = state === undefined ? "no open full text was available" : limits[state] ?? "no open full text was available";
       requireLimit(`Cite ${source.id} as a lead: ${limit}, so its methods were not audited.`);
@@ -1720,6 +1812,10 @@ export function finalizeResearch(
         [doi, new Set(failures.map(({ pmcid }) => pmcid))]));
       if (needsPubmedCopyAttempt(source.id, id, pubmedDoi, failedAttempts)) continue;
       leadSources.push(source.id);
+      if (source.other_route === "read") {
+        readThroughOtherTool(source.id, id);
+        continue;
+      }
       requireLimit(`Cite ${source.id} as a lead: a full-text service kept failing when AskRigor tried to fetch it, ` +
         "so its methods were not audited.");
       unreadStudies.set(id, "ROUTE_FAILED");
@@ -1751,6 +1847,10 @@ export function finalizeResearch(
     if (isPmid(id) && pubmedDoi === "") {
       // PubMed lists no DOI and no PMC copy, so the open full-text chain cannot run; the lead is proven.
       leadSources.push(source.id);
+      if (source.other_route === "read") {
+        readThroughOtherTool(source.id, id);
+        continue;
+      }
       requireLimit(
         `Cite ${source.id} as a lead: PubMed lists no DOI, so no open full text could be acquired and its methods were not audited.`
       );
@@ -2174,6 +2274,8 @@ export function finalizeResearch(
     const doi = isPmid(normalized) ? pubmedDois.get(normalized) : undefined;
     return validatedIds.has(normalized) || (doi !== undefined && doi !== "" && validatedIds.has(doi));
   };
+  // The absence claims these checks accept, on which a finding's verified basis may rest (owner answer 139c).
+  const acceptedAbsences = new Set<number>();
   for (const [index, claim] of absenceClaims.entries()) {
     if (claim.state === "support_not_located") continue;
     const verdict = claim.state === "not_established";
@@ -2182,11 +2284,14 @@ export function finalizeResearch(
       : verdict ? "that studies do not establish the effect" : "a bounded exclusion");
     const studies = claim.studies ?? [];
     const unaudited = studies.filter((id) => !auditedStudy(id));
+    let accepted = true;
     if (studies.length === 0) {
+      accepted = false;
       requireDeclaration(`${stated} without the studies it rests on: ` + (verdict
         ? "studies lists its key sources (DOI, PMID or PMCID), each covered by a full-text method audit."
         : "name them in studies, each read with a full-text method audit, or state it as support_not_located."));
     } else if (unaudited.length > 0) {
+      accepted = false;
       nextSteps.push(`${stated} on ${unaudited.join(", ")}, which no full-text method audit here covers: ` + (verdict
         ? "an abstract or a lead cannot establish this evidence-strength verdict. Each listed study needs a " +
           "full-text method audit."
@@ -2194,11 +2299,13 @@ export function finalizeResearch(
     }
     // A verdict that studies do not establish an effect states no estimate.
     if (!verdict && !/\p{Nd}/u.test(claim.quote)) {
+      accepted = false;
       nextSteps.push(
         `${stated}: give the estimate and its interval in that sentence, so a reader sees how large an effect the ` +
           "studies could have missed."
       );
     }
+    if (accepted) acceptedAbsences.add(index);
   }
   // A serious harm the screen did not find is a claim that something was not found too, so the same caveats bound it
   // to the searches made here; its own step above names a search receipt it lacks.
@@ -2214,6 +2321,12 @@ export function finalizeResearch(
     const searched = new Set(verified.filter(({ kind }) => kind === "literature_search")
       .map(({ claims }) => text(claims.src)));
     const names = LITERATURE_SOURCES.filter(({ id }) => searched.has(id)).map(({ name }) => name);
+    // What the searches did not find is accepted once it is bounded to searches passed here.
+    if (names.length > 0) {
+      absenceClaims.forEach(({ state }, index) => {
+        if (state === "support_not_located") acceptedAbsences.add(index);
+      });
+    }
     if (names.length === 0) {
       if (notLocated) {
         nextSteps.push(
@@ -2258,6 +2371,59 @@ export function finalizeResearch(
             status: "rejected",
             problems: ["A findings card is checked against the answer: pass answer_draft with it."]
           };
+  // Work a quick answer cannot do behind a finding (owner answer 139c), from this call's receipts and declarations
+  // only, compared exactly and the same in any language: a source audited in full text (each paper once, whichever
+  // identifier cites it), a video whose comments were read, a sentence that is an accepted absence claim, or one that
+  // states a correction the research found. Whether the finding is better than a quick answer stays the model's
+  // why_not_usual, for the owner's review.
+  const paperKey = (id: string): string => papers.identifiers(normalizeIdentifier(id)).sort()[0]!;
+  const verifiedWork = (sources: readonly string[], quote: string | undefined) => ({
+    studies: new Set(sources.filter(auditedStudy).map(paperKey)),
+    videos: new Set(sources.filter((source) => commentVideos.has(source))),
+    absences: new Set(quote === undefined ? [] : absenceClaims.flatMap(({ quote: claimed }, index) =>
+      acceptedAbsences.has(index) && sameQuote(quote, claimed) ? [index] : [])),
+    corrections: new Set(quote === undefined ? [] : (input.corrections ?? []).flatMap(({ change, by_user }, index) =>
+      by_user === false && sameQuote(quote, change) ? [index] : []))
+  });
+  type Work = ReturnType<typeof verifiedWork>;
+  const basesOf = (work: Work): VerifiedBasis[] => [
+    ...(work.studies.size > 0 ? ["full_text_audit" as const] : []),
+    ...(work.videos.size > 0 ? ["comment_audit" as const] : []),
+    ...(work.absences.size > 0 ? ["bounded_absence" as const] : []),
+    ...(work.corrections.size > 0 ? ["research_correction" as const] : [])
+  ];
+  const countWork = (works: readonly Work[]) => ({
+    studies: new Set(works.flatMap(({ studies }) => [...studies])).size,
+    videos: new Set(works.flatMap(({ videos }) => [...videos])).size,
+    absences: new Set(works.flatMap(({ absences }) => [...absences])).size,
+    corrections: new Set(works.flatMap(({ corrections }) => [...corrections])).size
+  });
+  let cardBases: VerifiedBasis[][] | undefined;
+  // This research's map (owner answer 143a, 2026-10-21): a map this account filed after the research began, by the
+  // binding and issue order its research_map receipt signs, is this research's; one filed before it, or by another
+  // account, is not. With no research receipt there is no research to have mapped.
+  const researchBegan = Math.min(...verified.filter(({ kind }) => !NOT_RESEARCH_KINDS.has(kind)).map(receiptOrder));
+  const mapAccount = options.researchMap?.account;
+  const mapFiled = mapAccount !== undefined && verified.some((receipt) => receipt.kind === "research_map" &&
+    text(receipt.claims.acct) === mapAccount && receiptOrder(receipt) > researchBegan);
+  // Whether the paid private offer also asks to file it, which the finalization receipt then signs.
+  let mapOffered = false;
+  // What this research did that a quick answer cannot, counted as a card's work is, for the free reminder.
+  const researchWork: VerifiedWork = {
+    studies: new Set([...validatedIds].map(paperKey)).size,
+    videos: commentVideos.size,
+    absences: acceptedAbsences.size,
+    corrections: (input.corrections ?? []).filter(({ by_user }) => by_user === false).length
+  };
+  // Owner answer 140b (2026-10-20): a paid private or dev account registers, before research, the short answer it
+  // would give without AskRigor's tools. The latest one signed for this research target before every research receipt
+  // here is compared with the answer; one signed later or for another target, or none, gives no note and holds
+  // nothing back.
+  const plainAnswer = options.plainAnswer === undefined
+    ? undefined
+    : registeredPlainAnswer(verified, options.plainAnswer.account, targetDigest);
+  // Each registered claim with what the research found, for the note.
+  let compared: ComparedClaim[] | undefined;
   if (draft === undefined) {
     requireDeclaration(
       "Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final check reads it."
@@ -2299,7 +2465,90 @@ export function finalizeResearch(
           materialVideos.includes(id),
         videoAudited
       });
-      if (findingsCard.status === "checked" && options.findings === "offer") caveats.push(FINDINGS_SAVE_OFFER);
+      if (findingsCard.status === "checked") {
+        const work = input.findings_card.findings.map(({ sources, answer_quote: quote }) => verifiedWork(sources, quote));
+        cardBases = work.map(basesOf);
+        const beyond = cardBases.filter((bases) => bases.length > 0).length;
+        findingsCard = { ...findingsCard, beyond_quick_answer: beyond };
+        // A paid private answer offers the save only when a finding rests on such work, which the offer names with
+        // this call's counts; without one there is no offer line, and the receipt still signs the card, so the user
+        // can still ask for the save.
+        if (options.findings === "offer" && beyond > 0) {
+          // Owner answer 143a: on the connector the offer's one sentence also asks to file this research's map, unless
+          // one was filed already, so one yes saves the card and files the map.
+          mapOffered = options.researchMap?.mode === "offer" && !mapFiled;
+          caveats.push(mapOffered ? findingsAndMapSaveOffer(countWork(work)) : findingsSaveOffer(countWork(work)));
+        }
+      }
+    }
+    // Whether the research confirmed, corrected or qualified each claim, or did not check it, is the model's
+    // declaration, in any language. What is checked exactly: every claim has one entry, a change quotes the answer's
+    // sentence stating it, and what backs it is work this call's receipts and declarations show, as for a findings card.
+    if (plainAnswer?.status === "registered") {
+      const registered = plainAnswer.claims;
+      const count = registered.length === 1 ? "1 claim" : `${registered.length} claims`;
+      const comparison = input.plain_answer_comparison;
+      if (comparison === undefined) {
+        requireDeclaration(`Give plain_answer_comparison: for each of the ${count} of the plain answer registered ` +
+          "before this research, copied exactly as manage_research_access listed it, whether the research confirmed, " +
+          "corrected or qualified it, or did not check it (outcome); a correction or a qualification also gives the " +
+          "answer's sentence stating it (answer_quote) and what backs it (sources). Without that field, leave the " +
+          "plain answer's research_receipt out of receipts: the answer then ends without the note.");
+      } else {
+        // Registered claim number -> the entry giving it, and what the research found for it.
+        const entryFor = new Map<number, number>();
+        const found = new Map<number, ComparedClaim>();
+        for (const [index, entry] of comparison.entries()) {
+          const at = `plain_answer_comparison[${index}]`;
+          const number = registered.indexOf(plainAnswerClaimDigest(entry.claim));
+          if (number < 0) {
+            nextSteps.push(`${at}.claim is not one of the ${count} of the plain answer registered before this ` +
+              "research: copy it exactly as manage_research_access listed it.");
+            continue;
+          }
+          const earlier = entryFor.get(number);
+          if (earlier !== undefined) {
+            nextSteps.push(`${at} gives the same claim as plain_answer_comparison[${earlier}]: give each claim one entry.`);
+            continue;
+          }
+          entryFor.set(number, index);
+          if (entry.outcome === "not_checked") {
+            found.set(number, { claim: entry.claim, outcome: entry.outcome });
+            continue;
+          }
+          const sources = entry.sources ?? [];
+          const unbacked = sources.filter((source) => !auditedStudy(source) && !commentVideos.has(source));
+          if (unbacked.length > 0) {
+            nextSteps.push(`${at}.sources lists ${unbacked.join(", ")}, which no full-text method audit or comment ` +
+              "audit passed here covers: list studies audited in full text here (DOI, PMID or PMCID) and videos whose " +
+              "comments were read here (video ID), or leave sources out.");
+          }
+          const work = verifiedWork(sources, entry.answer_quote);
+          const backed = basesOf(work).length > 0;
+          if (entry.outcome !== "confirmed" && entry.answer_quote === undefined) {
+            nextSteps.push(`${at} is ${entry.outcome} without answer_quote: copy the answer's sentence that states the ` +
+              "change from answer_draft.");
+          } else if (entry.outcome !== "confirmed" && !backed) {
+            nextSteps.push(`${at} is ${entry.outcome} with nothing behind it that a quick answer could not have: give ` +
+              "in sources a study audited in full text here or a video whose comments were read here, or quote as " +
+              "answer_quote a sentence that absence_claims or corrections (with by_user false) also declare.");
+          }
+          found.set(number, {
+            claim: entry.claim, outcome: entry.outcome,
+            ...(entry.answer_quote === undefined ? {} : { quote: entry.answer_quote }),
+            ...(backed ? { work: countWork([work]) } : {})
+          });
+        }
+        const left = registered.flatMap((_, number) => entryFor.has(number) ? [] : [number]);
+        if (left.length > 0) {
+          nextSteps.push(`plain_answer_comparison leaves out ${left.length === 1 ? "claim" : "claims"} ` +
+            `${joinNames(left.map(String))} of the plain answer registered before this research, as ` +
+            "manage_research_access numbered them: give each, copied exactly, with whether the research confirmed, " +
+            "corrected or qualified it, or did not check it.");
+        } else {
+          compared = registered.map((_, number) => found.get(number)!);
+        }
+      }
     }
     const lanes: AnswerLane[] = [
       ...(findings === undefined || commentVideos.size === 0 ? [] : [{
@@ -2339,7 +2588,10 @@ export function finalizeResearch(
         ]),
         ...(input.corrections ?? []).flatMap(({ report }, index) => report === undefined ? [] :
           [{ at: `corrections[${index}].report`, quote: report }]),
-        ...(input.corrections ?? []).map(({ change }, index) => ({ at: `corrections[${index}].change`, quote: change }))
+        ...(input.corrections ?? []).map(({ change }, index) => ({ at: `corrections[${index}].change`, quote: change })),
+        ...(plainAnswer?.status === "registered" ? input.plain_answer_comparison ?? [] : [])
+          .flatMap(({ outcome, answer_quote: quote }, index) => outcome === "not_checked" || quote === undefined ? [] :
+            [{ at: `plain_answer_comparison[${index}].answer_quote`, quote }])
       ],
       corrections: input.corrections ?? [],
       communityNames: [...(input.community_searches ?? []).map(({ community }) => community),
@@ -2392,11 +2644,32 @@ export function finalizeResearch(
   else if (status === "ready_with_limits") {
     output.check_line = "Checked with AskRigor's final check, with the limits above.";
   }
+  if (plainAnswer !== undefined) {
+    const note = options.plainAnswer?.note !== false;
+    output.plain_answer = plainAnswer.status !== "registered"
+      ? { status: plainAnswer.status, reason: PLAIN_ANSWER_REASONS[plainAnswer.status] }
+      : note
+        ? { status: "registered", claims: plainAnswer.claims.length }
+        : { status: "note_off", claims: plainAnswer.claims.length, reason: PLAIN_ANSWER_REASONS.note_off };
+    // The account's setting removes the note only: the plain answer is still compared with the answer.
+    if (status !== "not_ready" && note && compared !== undefined) output.plain_answer_note = plainAnswerNote(compared);
+  }
+  // This research's map (owner answer 143a): filed here; offered with the save, for submit_research_contribution after
+  // the user's yes; or, for a free contributor whose research did such work, not filed, which the note says to do.
+  // None of them holds back the answer.
+  if (options.researchMap !== undefined) {
+    if (mapFiled) output.research_map = { status: "filed" };
+    else if (mapOffered) output.research_map = { status: "offered", note: RESEARCH_MAP_OFFERED };
+    else if (options.researchMap.mode === "remind" && verifiedWorkPhrase(researchWork) !== "") {
+      output.research_map = { status: "not_filed", note: researchMapReminder(researchWork) };
+    }
+  }
   if (status !== "not_ready") {
     output.finalization_receipt = issueResearchReceipt("finalization", {
       status,
       community: input.community_evidence,
-      receipts: verified.length,
+      // Research receipts, which a saved card's stamp counts; a plain answer or a filed map is not research.
+      receipts: verified.filter(({ kind }) => kind !== "plain_answer" && kind !== "research_map").length,
       videos: materialVideos.length,
       depth: input.research_depth,
       target: targetDigest,
@@ -2406,10 +2679,16 @@ export function finalizeResearch(
       leads: leadSources.length,
       limits: limits.length,
       unverified: communitiesUnverified,
-      // The findings library saves only the card whose digest this signs.
+      // The findings library saves only the card whose digest this signs, and stamps each finding's bases with it.
       ...(findingsCard.status === "checked" && input.findings_card !== undefined
-        ? { findings: findingsCardDigest(input.findings_card) }
-        : {})
+        ? {
+            findings: findingsCardDigest(input.findings_card),
+            ...(cardBases === undefined ? {} : { bases: cardBases.map(signedFindingBases) })
+          }
+        : {}),
+      // An offer that asks to file this research's map, made to this account: a paid private map is filed only with
+      // this receipt and the user's yes to it (owner answer 143a).
+      ...(mapOffered && mapAccount !== undefined ? { map: "offered", acct: mapAccount } : {})
     }, {
       secret: options.secret,
       ...(options.now === undefined ? {} : { now: options.now })
@@ -2777,21 +3056,19 @@ function checkSecondReading(input: FinalizeResearchInput | undefined, reading: F
   };
   const showing = quoteLocator(displayedProse(input?.answer_draft ?? ""));
   const findings = reading.findings.filter(({ kind, quote }) => Object.hasOwn(labels, kind) && showing(quote).length > 0);
-  const forms = (quote: string) => [quoteForm(quote.replace(MARKDOWN_LINK, "$1")),
-    quoteForm(quote.replace(MARKDOWN_LINK_TEXT, "$1"))];
-  const dismissedQuotes = (input?.reader_dismissed ?? []).map(({ quote }) => forms(quote));
+  const dismissedQuotes = (input?.reader_dismissed ?? []).map(({ quote }) => quoteForms(quote));
   let open = 0;
   let dismissed = 0;
   for (const { kind, quote } of findings) {
-    const normalized = forms(quote);
+    const normalized = quoteForms(quote);
     if (dismissedQuotes.some((other) => normalized.some((text, i) => text === other[i]))) {
       dismissed += 1;
       continue;
     }
     const covered = kind === "key_terms"
       ? (input?.key_terms ?? []).some(({ term }) => normalized.some((text, i) =>
-        termOccurrences(text, forms(term)[i]!).length > 0))
-      : (input?.[kind] ?? []).some((declared) => forms(declared.quote).some((text, i) =>
+        termOccurrences(text, quoteForms(term)[i]!).length > 0))
+      : (input?.[kind] ?? []).some((declared) => quoteForms(declared.quote).some((text, i) =>
         text.length > 0 && (text.includes(normalized[i]!) || normalized[i]!.includes(text))));
     if (covered) continue;
     open += 1;
@@ -2882,6 +3159,127 @@ function findingsCardCheck(
   return problems.length === 0 ? { status: "checked", problems: [] } : { status: "rejected", problems };
 }
 
+/** A plain answer's claim with what the research found and, for a change, what backs it. */
+interface ComparedClaim {
+  claim: string;
+  outcome: PlainAnswerOutcome;
+  quote?: string;
+  work?: VerifiedWork;
+}
+
+type RegisteredPlainAnswer =
+  | { status: "registered"; claims: string[] }
+  | { status: "no_receipt" | "other_account" | "other_target" | "after_research" };
+
+/**
+ * The plain answer this call compares with the answer: of the plain-answer receipts this account signed for this
+ * research target, the latest one issued before every research receipt passed here, by the signed issue order. Its
+ * claims are their digests (plainAnswerClaimDigest), in the order registered.
+ */
+function registeredPlainAnswer(
+  verified: readonly VerifiedReceipt[],
+  account: string,
+  target: string
+): RegisteredPlainAnswer {
+  const plain = verified.filter(({ kind }) => kind === "plain_answer");
+  if (plain.length === 0) return { status: "no_receipt" };
+  const own = plain.filter(({ claims }) => text(claims.acct) === account);
+  if (own.length === 0) return { status: "other_account" };
+  const forTarget = own.filter(({ claims }) => text(claims.target) === target && list(claims.claims).length > 0);
+  if (forTarget.length === 0) return { status: "other_target" };
+  // Research began with the earliest receipt passed here, whatever it was made for: a plain answer written after it,
+  // even for a later question, could draw on that research.
+  const began = Math.min(...verified.filter(({ kind }) => kind !== "plain_answer" && kind !== "finalization")
+    .map(receiptOrder));
+  const latest = forTarget.filter((receipt) => receiptOrder(receipt) < began)
+    .sort((left, right) => receiptOrder(left) - receiptOrder(right) || left.index - right.index)
+    .at(-1);
+  return latest === undefined ? { status: "after_research" } : { status: "registered", claims: list(latest.claims.claims) };
+}
+
+// Receipts that are no part of the research a map maps (owner answer 143a): a plain answer written before it, a final
+// check of it and a map filed after it.
+const NOT_RESEARCH_KINDS: ReadonlySet<ResearchReceiptKind> = new Set(["plain_answer", "finalization", "research_map"]);
+
+// What filing this research's map asks of the model, in the words of the tool that files it.
+const RESEARCH_MAP_FILING = "submit_research_contribution, a RESEARCH_FRONTIER proposal of its searches, the studies " +
+  "found and the leads left open, deidentified as that tool's description shows, never the chat";
+
+/** A paid private answer whose save offer also asks to file this research's map (owner answer 143a). */
+export const RESEARCH_MAP_OFFERED = "The offer also asks to file this research's map. Only after the user's yes to " +
+  `it, save the card with save_research_findings and file the map with ${RESEARCH_MAP_FILING}, with userConsent ` +
+  '"yes_to_this_save" and finalizationReceipt, the finalization_receipt of this check. If the user accepts only one ' +
+  "of the two, do only that one; without a yes, file nothing.";
+
+/**
+ * The reminder a free contributor's final check gives when its research did work a quick answer cannot do and no map
+ * of it was filed (owner answer 143a: "Free accounts aren't asked: the final check reminds the AI to file the map").
+ */
+export function researchMapReminder(work: VerifiedWork): string {
+  return `This research includes ${verifiedWorkPhrase(work)}, work a quick answer does not do, and no map of it was ` +
+    `filed after it began. File it with ${RESEARCH_MAP_FILING}; the free contributor agreement covers it, so the user ` +
+    "is not asked. Then call finalize_research again with the research_receipt that returns among the receipts, so " +
+    "the answer's last line says the map was filed. Nothing here holds back the answer.";
+}
+
+// Why a paid private or dev account's answer ends without the plain-answer note; nothing is held back for it.
+const NEXT_PLAIN_ANSWER = " For a later question, register its plain answer before researching it.";
+const PLAIN_ANSWER_REASONS = {
+  no_receipt: "No plain answer registered with manage_research_access before this research was passed in receipts, " +
+    `so the answer ends without the note comparing it with one.${NEXT_PLAIN_ANSWER}`,
+  other_account: "The plain answer passed was registered by another account, so the answer ends without the note " +
+    `comparing it with one.${NEXT_PLAIN_ANSWER}`,
+  other_target: "The plain answer passed was registered for another research target, so the answer ends without the " +
+    `note comparing it with this research.${NEXT_PLAIN_ANSWER}`,
+  after_research: "The plain answer passed was registered after a research receipt passed here was issued, so it " +
+    "cannot show what a quick answer would have said, and the answer ends without the note. For a later question, " +
+    "register its plain answer before researching it, and pass only receipts issued after it.",
+  note_off: "This account has turned off the note comparing the answer with its plain answer, so the answer ends " +
+    "without it; manage_research_access with action set_plain_answer_note turns it back on."
+} as const;
+
+/**
+ * What a plain-answer receipt signs for each claim: 16 hex characters of its SHA-256, compared as quotes are, so the
+ * receipt holds no text of the plain answer and its size is the same in any language. finalize_research finds each
+ * claim the comparison copies by it.
+ */
+export function plainAnswerClaimDigest(claim: string): string {
+  return createHash("sha256").update(`askrigor:plain-answer-claim:v1\0${quoteForms(claim)[1]}`, "utf8")
+    .digest("hex").slice(0, 16);
+}
+
+/**
+ * Whether a claim stands as a sentence of a text, as the answer check reads a caveat: it begins a paragraph or list
+ * item or follows a sentence's end, and ends its sentence, by Unicode's sentence-ending punctuation, so "。" and "?"
+ * end one too; in a script that ends sentences without punctuation, only a whole paragraph or list item stands alone.
+ * Compared as quotes are, so exact and the same in any language.
+ */
+export function sentencesOf(text: string): (claim: string) => boolean {
+  const blocks = displayedProse(text).map((block) => caveatText(linkTargets(block)));
+  return (claim) => statesCaveat(blocks, claim);
+}
+
+/** Text in quotation marks, exactly as given, ending its sentence. */
+function quotation(text: string): string {
+  const quoted = text.trim();
+  return `\u201C${quoted}\u201D${/\p{STerm}[\p{Pe}\p{Pf}"']*$/u.test(quoted) ? "" : "."}`;
+}
+
+/**
+ * The note a checked answer ends with (owner answer 140b): each registered claim quoted exactly, in order, then what
+ * the research found, with the answer's own sentence and what backs a change, for example "Without AskRigor, a quick
+ * answer would have said: “X.” This research corrected that, from full-text audits of 2 studies: “Y.”"
+ */
+function plainAnswerNote(compared: readonly ComparedClaim[]): string {
+  return compared.map(({ claim, outcome, quote, work }, index) => {
+    const said = `${index === 0 ? "Without AskRigor, a quick answer would have said:" : "It would also have said:"} ` +
+      quotation(claim);
+    if (outcome === "not_checked") return `${said} This research did not check that.`;
+    const from = work === undefined ? "" : `, from ${verifiedWorkPhrase(work)}`;
+    return `${said} This research ${outcome} that${from}${quote === undefined ? "." : `: ${quotation(quote)}`}`;
+  }).join(" ");
+}
+
 // Bounded and closed to brackets and parentheses, so a long draft is read in linear time.
 const MARKDOWN_LINK = /\[[^[\]\n]{0,500}\]\(([^\s()[\]]{1,2048})\)/gu;
 // The same link, by its text.
@@ -2907,6 +3305,17 @@ function quoteForm(quote: string, fold: (text: string) => string = caveatText): 
   while (end > start && (QUOTE_MARK.test(text.charAt(end - 1)) || SENTENCE_MARK.test(text.charAt(end - 1)) ||
     text.charAt(end - 1) === " ")) end -= 1;
   return text.slice(start, end).trim();
+}
+
+/** A quote's two forms as the answer check compares them: each link by its target, and by its text. */
+function quoteForms(quote: string): [string, string] {
+  return [quoteForm(quote.replace(MARKDOWN_LINK, "$1")), quoteForm(quote.replace(MARKDOWN_LINK_TEXT, "$1"))];
+}
+
+/** Whether two declared quotes are one sentence, compared as the answer check compares a quote: by link target or text. */
+export function sameQuote(left: string, right: string): boolean {
+  const [ours, theirs] = [quoteForms(left), quoteForms(right)];
+  return ours.some((form, index) => /[\p{L}\p{N}]/u.test(form) && form === theirs[index]);
 }
 
 /** The pages a text links to, compared as two links to one page are. */
@@ -2975,6 +3384,8 @@ function unreadStudiesCaveats(studies: ReadonlyMap<string, string | undefined>):
   return [...groups].map(([reason, links]) => {
     const [one, several] = UNREAD_STUDY_REASONS[reason]!;
     const listed = links.length === 1 ? links[0]! : `${links.slice(0, -1).join(", ")} and ${links.at(-1)}`;
+    // A study read through another tool was read: the sentence says by what, and that AskRigor did not audit it.
+    if (reason === "OTHER_TOOL") return `${(links.length === 1 ? one : several).replace("{links}", () => listed)}.`;
     return links.length === 1
       ? `${one.replace("{links}", () => listed)}, so its methods were not checked.`
       : `${several.replace("{links}", () => listed)}, so their methods were not checked.`;
@@ -2989,6 +3400,10 @@ const UNREAD_STUDY_REASONS: Readonly<Record<string, readonly [string, string]>> 
     "AskRigor could not fetch the full texts of {links} because full-text services kept failing"
   ],
   UNAVAILABLE: ["The full text of {links} was not openly available", "The full texts of {links} were not openly available"],
+  OTHER_TOOL: [
+    "One key study, {links}, was read through another tool, not audited by AskRigor",
+    "Key studies {links} were read through another tool, not audited by AskRigor"
+  ],
   NO_DOI: [
     "AskRigor could not fetch the full text of {links}, which PubMed lists without a DOI",
     "AskRigor could not fetch the full texts of {links}, which PubMed lists without DOIs"

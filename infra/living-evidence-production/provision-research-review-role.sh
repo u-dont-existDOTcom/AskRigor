@@ -55,6 +55,8 @@ GRANT EXECUTE ON FUNCTION living_evidence.inspect_research_contribution_proposal
 GRANT EXECUTE ON FUNCTION living_evidence.decide_research_contribution_proposal(
   uuid, text, text, text, timestamptz, uuid
 ) TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.inspect_research_contribution_context(uuid)
+  TO askrigor_research_review;
 ALTER ROLE askrigor_research_review SET statement_timeout = '5s';
 ALTER ROLE askrigor_research_review SET idle_in_transaction_session_timeout = '5s';
 ALTER ROLE askrigor_research_review SET search_path = living_evidence, pg_catalog;

@@ -7,21 +7,33 @@ import { Pool, type PoolConfig } from "pg";
 import { z } from "zod";
 
 import {
+  canonicalIdentityRequest,
+  reconcileResearchFrontier,
+  topicLinkFindings,
+  type CanonicalIdentityReader,
+  type ReconciledIdentity,
+} from "./contribution-identity.js";
+import {
   assertNoProhibitedPersistentKeys,
   type LivingEvidenceContribution,
   type ResearchFrontierContribution,
+  type TopicLinkContribution,
 } from "./contracts.js";
+import { sha256 } from "./hash.js";
 import {
   prepareContribution,
   prepareFrontierContribution,
+  prepareTopicLinkContribution,
 } from "./prepare.js";
 import {
   checkResearchContributionProposal,
   contactPatternKind,
+  contributionCheckFromFindings,
   contributionPrivacyBoundarySchema,
   isCommunityIdentifier,
   isIdentifierValuePath,
   isSandboxLocator,
+  RESEARCH_MAP_CONSENT,
   researchContributionProposalInputSchema,
   SHARED_ANALYSIS_KINDS,
   SHARED_SOURCE_KINDS,
@@ -62,6 +74,18 @@ export const RESEARCH_USE_NOTICE = [
   "Paid private access saves research findings or lesson feedback only when you accept saving them for that answer, and requires an active verified entitlement.",
 ].join(" ");
 
+/**
+ * How many characters of an account key make its account reference (owner question, 2026-10-21: "how can i mark
+ * accounts as dev?"): manage_research_access shows a signed-in user this much of their pseudonymous key, so the owner
+ * can list the account in the server's settings without anyone seeing the key or anything about the person.
+ */
+export const RESEARCH_ACCOUNT_REFERENCE_CHARACTERS = 12;
+
+/** An account's reference: the first 12 hexadecimal characters of its account key. It is derived, never stored. */
+export function researchAccountReference(accountKey: string): string {
+  return accountKey.slice(0, RESEARCH_ACCOUNT_REFERENCE_CHARACTERS);
+}
+
 export const researchUseModeSchema = z.enum([
   "FREE_CONTRIBUTOR",
   "PAID_PRIVATE",
@@ -92,7 +116,8 @@ export type ContributionPrivacyBoundary = z.infer<
 >;
 export type ResearchContributionProposalKind =
   | "RESEARCH_FRONTIER"
-  | "SOURCE_ANALYSIS";
+  | "SOURCE_ANALYSIS"
+  | "TOPIC_LINK";
 
 export interface ResearchUseAccountRecord {
   accountKey: string;
@@ -104,6 +129,12 @@ export interface ResearchUseAccountRecord {
   revokedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Whether a checked answer ends with the note comparing it with the plain answer the account registered before
+   * research (owner answer 140b); absent means the default, on. saveAccount and revokeAccount never change it;
+   * setPlainAnswerNote does.
+   */
+  plainAnswerNote?: boolean;
 }
 
 export interface ResearchPrivateEntitlementRecord {
@@ -122,18 +153,69 @@ export interface ResearchContributionProposalRecord {
   accountKey: string;
   proposalKind: ResearchContributionProposalKind;
   payloadSha256: string;
-  payload: LivingEvidenceContribution | ResearchFrontierContribution;
+  payload: LivingEvidenceContribution | ResearchFrontierContribution | TopicLinkContribution;
   privacyBoundary: ContributionPrivacyBoundary;
   partial: boolean;
   status: "PENDING_REVIEW" | "ACCEPTED" | "REJECTED" | "WITHDRAWN";
   createdAt: string;
   reviewedAt: string | null;
   reviewReason: string | null;
+  /** This account's own pending proposal of the same kind that this one replaces, when the submitter named one. */
+  supersedesProposalId?: string | null;
+  /**
+   * A paid private account's research map only (owner answer 143a): the SHA-256 of the finalization receipt whose offer
+   * to file it the user said yes to. One yes files one map; a free contributor's proposal has none.
+   */
+  consentReceiptSha256?: string | null;
 }
+
+/** The superseded proposal named is not this account's own pending proposal of the same kind. */
+const SUPERSEDES_NOT_OWN_PENDING = "RESEARCH_PROPOSAL_SUPERSEDES_NOT_OWN_PENDING";
+/** A paid private account's proposal that is not a research map filed with the user's yes. */
+const PAID_PRIVATE_CONSENT_REQUIRED = "RESEARCH_PROPOSAL_PAID_PRIVATE_CONSENT_REQUIRED";
+/** A consent on a proposal that is not a paid private account's. */
+const CONSENT_NOT_PAID_PRIVATE = "RESEARCH_PROPOSAL_CONSENT_NOT_PAID_PRIVATE";
+/** The user's yes named by this finalization receipt already filed a map. */
+const CONSENT_ALREADY_USED = "RESEARCH_PROPOSAL_CONSENT_ALREADY_USED";
+
+/** Why a paid private account's proposal is refused before anything is read or stored (owner answer 143a). */
+export const PAID_PRIVATE_MAP_ONLY = "Paid private mode files nothing without the user's yes. It files only this " +
+  "research's map (a RESEARCH_FRONTIER proposal), after the answer's final check offered to file it and the user " +
+  `said yes: send userConsent "${RESEARCH_MAP_CONSENT}" and that check's finalization_receipt as ` +
+  "finalizationReceipt. Nothing was stored.";
+const CONSENT_SPENT = "The user's yes to that offer has already filed this research's map, so nothing more was " +
+  "stored: another map needs a new final check, its offer and the user's yes.";
 
 export interface ProposalInsertResult {
   status: "inserted" | "idempotent_replay";
   record: ResearchContributionProposalRecord;
+}
+
+export interface SubmitProposalOptions {
+  /**
+   * The canonical store's read-only identity view (owner answer 138b): a frontier then continues the exact canonical
+   * records it names before it is stored. Without it, or when it cannot be read, the record is filed as sent. A topic
+   * link names canonical topics only, so it is not filed without this check.
+   */
+  canonical?: CanonicalIdentityReader;
+  /**
+   * The server built this analysis itself (analysis-staging.ts): one this account already filed under the same
+   * idempotency key, pending, accepted or rejected, is the same audit and is not filed again, whatever clock staged it.
+   */
+  serverBuilt?: boolean;
+  /**
+   * For a paid private account (owner answer 143a): the input's finalizationReceipt as the caller checked it, a
+   * finalization receipt this server signed for this account, unexpired, whose offer included this research's map.
+   * The service files the map only when it names the input's receipt and the input carries the user's consent.
+   */
+  paidPrivateConsent?: { receiptSha256: string };
+}
+
+export interface ProposalSubmission extends ProposalInsertResult {
+  /** Whether the record was checked against the canonical store, when a view was given. */
+  canonicalCheck?: "checked" | "unavailable";
+  /** The canonical IDs the stored record continues instead of the ones sent (IDs only). */
+  reconciled: ReconciledIdentity[];
 }
 
 export interface ResearchContributorAccessStore {
@@ -143,7 +225,15 @@ export interface ResearchContributorAccessStore {
   insertProposal(
     record: ResearchContributionProposalRecord,
   ): Promise<ProposalInsertResult>;
+  /** This account's own proposal of the kind under an idempotency key, pending, accepted or rejected. */
+  findOwnProposalByIdempotencyKey(
+    accountKey: string,
+    proposalKind: ResearchContributionProposalKind,
+    idempotencyKey: string,
+  ): Promise<ResearchContributionProposalRecord | null>;
   revokeAccount(record: ResearchUseAccountRecord): Promise<number>;
+  /** Sets the account's plain-answer note; false when the account has no row. */
+  setPlainAnswerNote(accountKey: string, enabled: boolean): Promise<boolean>;
 }
 
 export interface ResearchContributorAccessServiceOptions {
@@ -174,6 +264,7 @@ export class ResearchAccessError extends Error {
       | "PAID_PRIVATE_DOES_NOT_CONTRIBUTE"
       | "FREE_CONTRIBUTOR_REQUIRED"
       | "CONTRIBUTION_PRIVACY_REJECTED"
+      | "RESEARCH_ACCESS_SERVICE_UNAVAILABLE"
       | "INVALID_REQUEST",
     message: string,
   ) {
@@ -314,6 +405,14 @@ export class ResearchContributorAccessService {
   }
 
   async requireActive(subject: string): Promise<ResearchUseMode> {
+    return (await this.activeAccount(subject)).mode;
+  }
+
+  /**
+   * The active account's mode and its plain-answer note setting (owner answer 140b), with the checks requireActive
+   * makes.
+   */
+  async activeAccount(subject: string): Promise<{ mode: ResearchUseMode; plainAnswerNote: boolean }> {
     const account = await this.store.getAccount(
       this.accountKeyForSubject(subject),
     );
@@ -344,21 +443,38 @@ export class ResearchContributorAccessService {
         "The paid private entitlement is no longer active.",
       );
     }
-    return account.mode;
+    return { mode: account.mode, plainAnswerNote: account.plainAnswerNote ?? true };
+  }
+
+  /**
+   * Turns the note comparing a checked answer with its plain answer off or on for an active account (owner answer
+   * 140b). Only the choice is stored; the plain answer still guides the research either way.
+   */
+  async setPlainAnswerNote(subject: string, enabled: boolean): Promise<boolean> {
+    await this.requireActive(subject);
+    if (!await this.store.setPlainAnswerNote(this.accountKeyForSubject(subject), enabled)) {
+      throw new ResearchAccessError(
+        "RESEARCH_ACCESS_REQUIRED",
+        "Choose free contributor mode or activate an existing paid private entitlement before using AskRigor research tools.",
+      );
+    }
+    return enabled;
   }
 
   async submitProposal(
     subject: string,
     input: unknown,
-  ): Promise<ProposalInsertResult> {
+    options: SubmitProposalOptions = {},
+  ): Promise<ProposalSubmission> {
     const mode = await this.requireActive(subject);
-    if (mode === "PAID_PRIVATE") {
-      throw new ResearchAccessError(
-        "PAID_PRIVATE_DOES_NOT_CONTRIBUTE",
-        "Paid private mode does not submit shared research contributions.",
-      );
+    // Owner answer 143a (2026-10-21): a paid private account files only this research's map, and only with the user's
+    // yes to the answer's offer to file it, shown by the finalization receipt the input names and the caller checked.
+    // Anything else is refused before the record is read.
+    const consent = mode === "PAID_PRIVATE" ? paidPrivateMapConsent(input, options.paidPrivateConsent) : undefined;
+    if (mode === "PAID_PRIVATE" && consent === undefined) {
+      throw new ResearchAccessError("PAID_PRIVATE_DOES_NOT_CONTRIBUTE", PAID_PRIVATE_MAP_ONLY);
     }
-    if (mode !== "FREE_CONTRIBUTOR") {
+    if (mode !== "FREE_CONTRIBUTOR" && mode !== "PAID_PRIVATE") {
       throw new ResearchAccessError(
         "FREE_CONTRIBUTOR_REQUIRED",
         "A shared research proposal requires active free contributor mode.",
@@ -371,14 +487,66 @@ export class ResearchContributorAccessService {
     const parsed = researchContributionProposalInputSchema.parse(input);
     assertNoProhibitedPersistentKeys(parsed.payload);
     assertNoObviousPrivateContactText(parsed.payload);
+    let payload = parsed.payload;
+    let reconciled: ReconciledIdentity[] = [];
+    let canonicalCheck: ProposalSubmission["canonicalCheck"];
+    if (options.canonical !== undefined && parsed.proposalKind === "RESEARCH_FRONTIER") {
+      const frontier = prepareFrontierContribution(parsed.payload).contribution;
+      const state = await options.canonical
+        .readCanonicalIdentity(canonicalIdentityRequest("RESEARCH_FRONTIER", frontier))
+        .catch(() => undefined);
+      if (state === undefined) {
+        canonicalCheck = "unavailable";
+      } else {
+        const reconciliation = reconcileResearchFrontier(frontier, state);
+        if (reconciliation.findings.length > 0) {
+          throw new ResearchContributionRejectedError(
+            contributionCheckFromFindings("RESEARCH_FRONTIER", reconciliation.findings),
+          );
+        }
+        payload = reconciliation.payload;
+        reconciled = reconciliation.reconciled;
+        canonicalCheck = "checked";
+      }
+    }
+    if (parsed.proposalKind === "TOPIC_LINK") {
+      // Both topics, and every stored link between them, are checked exactly before the link is filed.
+      const link = prepareTopicLinkContribution(parsed.payload).contribution;
+      const state = options.canonical === undefined
+        ? undefined
+        : await options.canonical
+          .readCanonicalIdentity(canonicalIdentityRequest("TOPIC_LINK", link))
+          .catch(() => undefined);
+      if (state === undefined) {
+        throw new ResearchAccessError(
+          "RESEARCH_ACCESS_SERVICE_UNAVAILABLE",
+          "A topic link is checked against the canonical topics it names, which cannot be read just now. Nothing " +
+            "was stored; try again shortly.",
+        );
+      }
+      const findings = topicLinkFindings(link, state);
+      if (findings.length > 0) {
+        throw new ResearchContributionRejectedError(contributionCheckFromFindings("TOPIC_LINK", findings));
+      }
+      canonicalCheck = "checked";
+    }
     const prepared = prepareResearchContributionProposal(
       parsed.proposalKind,
-      parsed.payload,
+      payload,
     );
+    const accountKey = this.accountKeyForSubject(subject);
+    if (options.serverBuilt === true) {
+      const filed = await this.store.findOwnProposalByIdempotencyKey(
+        accountKey,
+        parsed.proposalKind,
+        prepared.payload.idempotencyKey,
+      );
+      if (filed !== null) return { status: "idempotent_replay", record: filed, reconciled };
+    }
     const at = this.now();
     const record: ResearchContributionProposalRecord = {
       proposalId: this.createUuid(),
-      accountKey: this.accountKeyForSubject(subject),
+      accountKey,
       proposalKind: parsed.proposalKind,
       payloadSha256: prepared.payloadSha256,
       payload: prepared.payload,
@@ -388,8 +556,34 @@ export class ResearchContributorAccessService {
       createdAt: at,
       reviewedAt: null,
       reviewReason: null,
+      supersedesProposalId: parsed.supersedesProposalId ?? null,
+      // A free contributor's map is filed under the agreement; only a paid private map carries the user's yes.
+      consentReceiptSha256: consent ?? null,
     };
-    return this.store.insertProposal(record);
+    let inserted: ProposalInsertResult;
+    try {
+      inserted = await this.store.insertProposal(record);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes(CONSENT_ALREADY_USED)) {
+        throw new ResearchAccessError("PAID_PRIVATE_DOES_NOT_CONTRIBUTE", CONSENT_SPENT);
+      }
+      if (error instanceof Error && error.message.includes(PAID_PRIVATE_CONSENT_REQUIRED)) {
+        throw new ResearchAccessError("PAID_PRIVATE_DOES_NOT_CONTRIBUTE", PAID_PRIVATE_MAP_ONLY);
+      }
+      // One answer whatever the UUID names, so nothing is learnt about another account's proposals.
+      if (!(error instanceof Error) || !error.message.includes(SUPERSEDES_NOT_OWN_PENDING)) throw error;
+      throw new ResearchContributionRejectedError(contributionCheckFromFindings(parsed.proposalKind, [{
+        path: ["supersedesProposalId"],
+        rule: "superseded_proposal",
+        expected: "the UUID of one of this account's own proposals of the same kind that is still pending review, " +
+          "or no supersedesProposalId: only such a draft can be replaced",
+      }]));
+    }
+    return {
+      ...inserted,
+      ...(canonicalCheck === undefined ? {} : { canonicalCheck }),
+      reconciled,
+    };
   }
 }
 
@@ -411,7 +605,21 @@ implements ResearchContributorAccessStore {
   }
 
   async saveAccount(record: ResearchUseAccountRecord): Promise<void> {
-    this.accounts.set(record.accountKey, structuredClone(record));
+    this.accounts.set(record.accountKey, this.keepingNote(record));
+  }
+
+  async setPlainAnswerNote(accountKey: string, enabled: boolean): Promise<boolean> {
+    const account = this.accounts.get(accountKey);
+    if (account === undefined) return false;
+    this.accounts.set(accountKey, { ...account, plainAnswerNote: enabled });
+    return true;
+  }
+
+  /** The record as saved: with the account's note setting, which only setPlainAnswerNote changes. */
+  private keepingNote(record: ResearchUseAccountRecord): ResearchUseAccountRecord {
+    const { plainAnswerNote: _ignored, ...saved } = structuredClone(record);
+    const note = this.accounts.get(record.accountKey)?.plainAnswerNote;
+    return note === undefined ? saved : { ...saved, plainAnswerNote: note };
   }
 
   async hasActivePrivateEntitlement(
@@ -430,11 +638,17 @@ implements ResearchContributorAccessStore {
     record: ResearchContributionProposalRecord,
   ): Promise<ProposalInsertResult> {
     const account = this.accounts.get(record.accountKey);
-    if (
-      account === undefined || account.status !== "ACTIVE" ||
-      account.mode !== "FREE_CONTRIBUTOR"
-    ) {
+    if (account === undefined || account.status !== "ACTIVE" || account.mode === null) {
       throw new Error("RESEARCH_PROPOSAL_ACCOUNT_NOT_FREE_ACTIVE");
+    }
+    // As the database trigger: a free contributor's proposal carries no consent, and a paid private account's is a
+    // research map filed with the user's yes (owner answer 143a).
+    const consent = record.consentReceiptSha256 ?? null;
+    if (account.mode === "FREE_CONTRIBUTOR" && consent !== null) {
+      throw new Error(CONSENT_NOT_PAID_PRIVATE);
+    }
+    if (account.mode === "PAID_PRIVATE" && (record.proposalKind !== "RESEARCH_FRONTIER" || consent === null)) {
+      throw new Error(PAID_PRIVATE_CONSENT_REQUIRED);
     }
     const replay = [...this.proposals.values()].find((candidate) =>
       candidate.accountKey === record.accountKey &&
@@ -444,8 +658,35 @@ implements ResearchContributorAccessStore {
     if (replay !== undefined) {
       return { status: "idempotent_replay", record: structuredClone(replay) };
     }
+    // One yes files one map, as the database's unique index on the consent holds it.
+    if (consent !== null && [...this.proposals.values()].some(({ consentReceiptSha256 }) => consentReceiptSha256 === consent)) {
+      throw new Error(CONSENT_ALREADY_USED);
+    }
+    if (record.supersedesProposalId !== undefined && record.supersedesProposalId !== null) {
+      const superseded = this.proposals.get(record.supersedesProposalId);
+      if (
+        superseded === undefined || superseded.accountKey !== record.accountKey ||
+        superseded.proposalKind !== record.proposalKind || superseded.status !== "PENDING_REVIEW" ||
+        superseded.proposalId === record.proposalId
+      ) {
+        throw new Error(SUPERSEDES_NOT_OWN_PENDING);
+      }
+    }
     this.proposals.set(record.proposalId, structuredClone(record));
     return { status: "inserted", record: structuredClone(record) };
+  }
+
+  async findOwnProposalByIdempotencyKey(
+    accountKey: string,
+    proposalKind: ResearchContributionProposalKind,
+    idempotencyKey: string,
+  ): Promise<ResearchContributionProposalRecord | null> {
+    const filed = [...this.proposals.values()]
+      .filter((proposal) =>
+        proposal.accountKey === accountKey && proposal.proposalKind === proposalKind &&
+        proposal.payload.idempotencyKey === idempotencyKey && proposal.status !== "WITHDRAWN")
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt))[0];
+    return filed === undefined ? null : structuredClone(filed);
   }
 
   async revokeAccount(accountRecord: ResearchUseAccountRecord): Promise<number> {
@@ -465,7 +706,7 @@ implements ResearchContributorAccessStore {
       });
       withdrawn += 1;
     }
-    this.accounts.set(accountRecord.accountKey, structuredClone(accountRecord));
+    this.accounts.set(accountRecord.accountKey, this.keepingNote(accountRecord));
     return withdrawn;
   }
 
@@ -510,12 +751,24 @@ implements ResearchContributorAccessStore {
   async getAccount(accountKey: string): Promise<ResearchUseAccountRecord | null> {
     const result = await this.pool.query<ResearchUseAccountRow>(
       `SELECT account_key, status, mode, notice_version, agreement_json,
-              activated_at, revoked_at, created_at, updated_at
+              activated_at, revoked_at, created_at, updated_at,
+              plain_answer_note
          FROM ${this.schema}.research_use_accounts
         WHERE account_key = $1`,
       [accountKey],
     );
     return result.rowCount === 0 ? null : accountFromRow(result.rows[0]!);
+  }
+
+  // saveAccount and revokeAccount leave plain_answer_note as it is: a new row takes the column's default, on.
+  async setPlainAnswerNote(accountKey: string, enabled: boolean): Promise<boolean> {
+    const result = await this.pool.query(
+      `UPDATE ${this.schema}.research_use_accounts
+          SET plain_answer_note = $2
+        WHERE account_key = $1`,
+      [accountKey, enabled],
+    );
+    return result.rowCount !== 0;
   }
 
   async saveAccount(record: ResearchUseAccountRecord): Promise<void> {
@@ -566,44 +819,74 @@ implements ResearchContributorAccessStore {
   async insertProposal(
     record: ResearchContributionProposalRecord,
   ): Promise<ProposalInsertResult> {
-    const result = await this.pool.query<ResearchContributionProposalRow>(
-      `INSERT INTO ${this.schema}.research_contribution_proposals
-        (proposal_id, account_key, proposal_kind, payload_sha256, payload_json,
-         privacy_boundary_json, partial, status, created_at, reviewed_at,
-         review_reason)
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, NULL, NULL)
-       ON CONFLICT (account_key, proposal_kind, payload_sha256) DO NOTHING
-       RETURNING proposal_id, account_key, proposal_kind, payload_sha256,
-                 payload_json, privacy_boundary_json, partial, status,
-                 created_at, reviewed_at, review_reason`,
-      [
-        record.proposalId,
-        record.accountKey,
-        record.proposalKind,
-        record.payloadSha256,
-        JSON.stringify(record.payload),
-        JSON.stringify(record.privacyBoundary),
-        record.partial,
-        record.status,
-        record.createdAt,
-      ],
-    );
-    if (result.rowCount !== 0) {
-      return { status: "inserted", record: proposalFromRow(result.rows[0]!) };
-    }
-    const replay = await this.pool.query<ResearchContributionProposalRow>(
-      `SELECT proposal_id, account_key, proposal_kind, payload_sha256,
-              payload_json, privacy_boundary_json, partial, status,
-              created_at, reviewed_at, review_reason
+    const replay = async () => this.pool.query<ResearchContributionProposalRow>(
+      `SELECT ${PROPOSAL_COLUMNS}
          FROM ${this.schema}.research_contribution_proposals
         WHERE account_key = $1 AND proposal_kind = $2 AND payload_sha256 = $3`,
       [record.accountKey, record.proposalKind, record.payloadSha256],
     );
-    if (replay.rowCount === 0) throw new Error("PROPOSAL_REPLAY_LOOKUP_FAILED");
+    // The same record again is a replay before its supersession is checked, as it is without one.
+    const supersedes = record.supersedesProposalId ?? null;
+    if (supersedes !== null) {
+      const prior = await replay();
+      if (prior.rowCount !== 0) return { status: "idempotent_replay", record: proposalFromRow(prior.rows[0]!) };
+    }
+    let result: Awaited<ReturnType<typeof replay>>;
+    try {
+      result = await this.pool.query<ResearchContributionProposalRow>(
+        `INSERT INTO ${this.schema}.research_contribution_proposals
+          (proposal_id, account_key, proposal_kind, payload_sha256, payload_json,
+           privacy_boundary_json, partial, status, created_at, reviewed_at,
+           review_reason, supersedes_proposal_id, consent_receipt_sha256)
+         VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, NULL, NULL, $10::uuid, $11)
+         ON CONFLICT (account_key, proposal_kind, payload_sha256) DO NOTHING
+         RETURNING ${PROPOSAL_COLUMNS}`,
+        [
+          record.proposalId,
+          record.accountKey,
+          record.proposalKind,
+          record.payloadSha256,
+          JSON.stringify(record.payload),
+          JSON.stringify(record.privacyBoundary),
+          record.partial,
+          record.status,
+          record.createdAt,
+          supersedes,
+          record.consentReceiptSha256 ?? null,
+        ],
+      );
+    } catch (error) {
+      // One yes files one map (migration 0014): another record under the same consent meets its unique index.
+      if (uniqueViolation(error, CONSENT_INDEX)) throw new Error(CONSENT_ALREADY_USED);
+      throw error;
+    }
+    if (result.rowCount !== 0) {
+      return { status: "inserted", record: proposalFromRow(result.rows[0]!) };
+    }
+    const stored = await replay();
+    if (stored.rowCount === 0) throw new Error("PROPOSAL_REPLAY_LOOKUP_FAILED");
     return {
       status: "idempotent_replay",
-      record: proposalFromRow(replay.rows[0]!),
+      record: proposalFromRow(stored.rows[0]!),
     };
+  }
+
+  async findOwnProposalByIdempotencyKey(
+    accountKey: string,
+    proposalKind: ResearchContributionProposalKind,
+    idempotencyKey: string,
+  ): Promise<ResearchContributionProposalRecord | null> {
+    const result = await this.pool.query<ResearchContributionProposalRow>(
+      `SELECT ${PROPOSAL_COLUMNS}
+         FROM ${this.schema}.research_contribution_proposals
+        WHERE account_key = $1 AND proposal_kind = $2
+          AND payload_json ->> 'idempotencyKey' = $3
+          AND status IN ('PENDING_REVIEW', 'ACCEPTED', 'REJECTED')
+        ORDER BY created_at, proposal_id
+        LIMIT 1`,
+      [accountKey, proposalKind, idempotencyKey],
+    );
+    return result.rowCount === 0 ? null : proposalFromRow(result.rows[0]!);
   }
 
   async revokeAccount(record: ResearchUseAccountRecord): Promise<number> {
@@ -666,6 +949,20 @@ interface ResearchUseAccountRow {
   revoked_at: Date | string | null;
   created_at: Date | string;
   updated_at: Date | string;
+  plain_answer_note: boolean;
+}
+
+const PROPOSAL_COLUMNS = `proposal_id, account_key, proposal_kind, payload_sha256,
+              payload_json, privacy_boundary_json, partial, status,
+              created_at, reviewed_at, review_reason, supersedes_proposal_id,
+              consent_receipt_sha256`;
+
+/** Migration 0014's unique index: one research map per paid private yes. */
+const CONSENT_INDEX = "research_contribution_proposals_consent_idx";
+
+function uniqueViolation(error: unknown, index: string): boolean {
+  return typeof error === "object" && error !== null &&
+    (error as { code?: unknown }).code === "23505" && (error as { constraint?: unknown }).constraint === index;
 }
 
 interface ResearchContributionProposalRow {
@@ -680,6 +977,8 @@ interface ResearchContributionProposalRow {
   created_at: Date | string;
   reviewed_at: Date | string | null;
   review_reason: string | null;
+  supersedes_proposal_id: string | null;
+  consent_receipt_sha256: string | null;
 }
 
 function accountFromRow(row: ResearchUseAccountRow): ResearchUseAccountRecord {
@@ -699,6 +998,7 @@ function accountFromRow(row: ResearchUseAccountRow): ResearchUseAccountRecord {
     revokedAt: nullableTimestamp(row.revoked_at),
     createdAt: timestamp(row.created_at),
     updatedAt: timestamp(row.updated_at),
+    plainAnswerNote: row.plain_answer_note !== false,
   };
 }
 
@@ -726,6 +1026,8 @@ function proposalFromRow(
     createdAt: timestamp(row.created_at),
     reviewedAt: nullableTimestamp(row.reviewed_at),
     reviewReason: row.review_reason,
+    supersedesProposalId: row.supersedes_proposal_id,
+    consentReceiptSha256: row.consent_receipt_sha256,
   };
 }
 
@@ -733,10 +1035,14 @@ export function prepareResearchContributionProposal(
   kind: ResearchContributionProposalKind,
   payload: unknown,
 ): {
-  payload: LivingEvidenceContribution | ResearchFrontierContribution;
+  payload: LivingEvidenceContribution | ResearchFrontierContribution | TopicLinkContribution;
   payloadSha256: string;
   partial: boolean;
 } {
+  if (kind === "TOPIC_LINK") {
+    const prepared = prepareTopicLinkContribution(payload);
+    return { payload: prepared.contribution, payloadSha256: prepared.payloadSha256, partial: false };
+  }
   if (kind === "RESEARCH_FRONTIER") {
     const prepared = prepareFrontierContribution(payload);
     for (const candidate of prepared.contribution.frontier.candidateVersions) {
@@ -787,6 +1093,27 @@ function assertNoSandboxIdentifiers(identifiers: ReadonlyArray<{ value: string }
       "A sandbox link points into another session and can never be opened.",
     );
   }
+}
+
+/**
+ * The consent a paid private account's input carries for this research's map (owner answer 143a): the SHA-256 of its
+ * finalizationReceipt, when the input is a RESEARCH_FRONTIER proposal with the user's consent and the caller checked
+ * that same receipt; otherwise undefined, and nothing is filed.
+ */
+function paidPrivateMapConsent(
+  input: unknown,
+  checked: { receiptSha256: string } | undefined,
+): string | undefined {
+  if (checked === undefined || input === null || typeof input !== "object" || Array.isArray(input)) return undefined;
+  const { proposalKind, userConsent, finalizationReceipt } = input as Record<string, unknown>;
+  if (
+    proposalKind !== "RESEARCH_FRONTIER" || userConsent !== RESEARCH_MAP_CONSENT ||
+    typeof finalizationReceipt !== "string"
+  ) {
+    return undefined;
+  }
+  const receiptSha256 = sha256(finalizationReceipt.trim());
+  return receiptSha256 === checked.receiptSha256 ? receiptSha256 : undefined;
 }
 
 function assertNoObviousPrivateContactText(value: unknown): void {
