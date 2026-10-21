@@ -704,14 +704,15 @@ URL, GitHub issue number, candidate text, or fingerprint.
 
 ## Lesson screening, recipients, and storage
 
-The server applies deterministic screening before and after the fixed OpenAI
-privacy check. Only already-derived fields are sent to
-`gpt-5.4-nano-2026-03-17`; the Responses API request uses `store:false` and strict
-structured output. Model uncertainty, failure, invalid output, or budget
-exhaustion fails closed before GitHub. The OpenAI check generalizes privacy risk
-but does not determine whether the lesson is scientifically correct.
+The server applies a deterministic screen and a local schema check; production
+makes no model or API call on this path (`apps/research-mcp/src/lessons/runtime.ts`).
+The legacy OpenAI privacy check is no longer called: a complete legacy
+configuration (key, ledger path and the fixed $50 budget) is still validated if
+present, but nothing consumes it, so no lesson field reaches OpenAI. The screen
+checks privacy risk; it does not determine whether the lesson is scientifically
+correct.
 
-If both screens pass, the private GitHub issue stores the category in its title
+If the screen passes, the private GitHub issue stores the category in its title
 and labels; a label naming the AskRigor surface that sent it (`source-custom-gpt`
 for the Custom GPT's Action, `source-connector` for the MCP connector); general lesson; expected behavior; failure reason; synthetic
 regression example; evidence basis; optional AskRigor version and protocol
@@ -733,7 +734,8 @@ Recipients and provider boundaries are therefore distinct:
 
 - the AskRigor server receives and validates the generalized structured lesson
   candidate;
-- OpenAI receives those derived fields for the fixed privacy check;
+- no AI provider receives the lesson candidate (the legacy OpenAI privacy check
+  is not called);
 - Google Gemini first receives only a deterministically screened,
   de-identified population-level research target, any BCP 47 language tag
   with its English language name, and the public

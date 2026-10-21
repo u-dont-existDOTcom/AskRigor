@@ -340,7 +340,7 @@ describe("private GitHub lesson queue", () => {
         "",
         "## Privacy gate",
         "",
-        "Passed before and after model generalization\\.",
+        "Passed the server's privacy screen\\.",
         "",
         "## Anonymous occurrence count",
         "",

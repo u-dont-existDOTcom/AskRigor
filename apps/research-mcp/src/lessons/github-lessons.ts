@@ -348,7 +348,7 @@ function buildIssueBody(
     section("Synthetic regression", escapeMarkdown(candidate.synthetic_regression_example)),
     section("Evidence basis", escapeMarkdown(candidate.evidence_basis)),
     section("Version context", versionContext),
-    section("Privacy gate", escapeMarkdown("Passed before and after model generalization.")),
+    section("Privacy gate", escapeMarkdown("Passed the server's privacy screen.")),
     ...(priorIssueNumber === undefined
       ? []
       : [section("Prior candidate", escapeMarkdown(publicCandidateId(priorIssueNumber)))]),
