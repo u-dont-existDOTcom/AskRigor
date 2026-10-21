@@ -18,9 +18,14 @@ How each case runs:
   spent 3 to 31 of them loading the protocols and stopped with declarations missing.
 - **Clean start:** each release run starts in an empty working directory with no project or personal instruction file
   (such as `AGENTS.md`) loaded, so a pass measures the public app and its protocols, and the release record says so.
+  While the runs go, a one-line `~/.codex/AGENTS.override.md` ("No personal instructions apply in this session.")
+  stands in for the owner's personal Codex file, and it is removed when they end (owner answer 144a); on 21 October no
+  run ran a shell command or fetched the owner's development repository, against 38 of 39 runs on 20 October.
 - **Saves:** the prompts ask for no save, submission or lesson report. The owner's account is in free contributor
   mode, so a run whose final check passes still saves its findings card for the owner's review; the release record
-  names those runs.
+  names those runs. The prompts say to give `finalize_research` the findings card it asks for, and to write no notes
+  about the test: on 20 and 21 October, "send nothing" led runs to withhold the card, which held their checks
+  `not_ready` for that alone (r325, r331, l36), and several answers added a "release-test note".
 - **Questions to the user:** a run asks what AskRigor would ask a real user and sends nothing. After a correction the
   user made, the final check waits for the bug-report question (question 78's rule), so the prompts must let the run
   ask it; on 17 October they forbade the report itself, and the runs that showed it instead of asking stayed
