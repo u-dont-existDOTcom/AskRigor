@@ -156,6 +156,9 @@ describe("AskRigor public site", () => {
       "before GitHub",
       "private review candidate",
       "anonymous occurrence count",
+      // Owner question 154 (2026-10-21): a detailed report only when the person turned detailed lesson reports on.
+      "a deduplication marker, plus a detailed report of the failure when the person has turned on detailed lesson " +
+        "reports in AskRigor’s settings.",
       "No user account, conversation ID, medical history, upload, or raw quotation",
       "temporarily enables provider storage",
       "requests deletion immediately after consuming each interaction",

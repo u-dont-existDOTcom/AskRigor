@@ -135,6 +135,11 @@ export interface ResearchUseAccountRecord {
    * setPlainAnswerNote does.
    */
   plainAnswerNote?: boolean;
+  /**
+   * Whether this account's connector lessons may carry a detailed report (owner question 154); absent means the
+   * default, off. saveAccount and revokeAccount never change it; setDetailedLessonReports does.
+   */
+  detailedLessonReports?: boolean;
 }
 
 export interface ResearchPrivateEntitlementRecord {
@@ -234,6 +239,8 @@ export interface ResearchContributorAccessStore {
   revokeAccount(record: ResearchUseAccountRecord): Promise<number>;
   /** Sets the account's plain-answer note; false when the account has no row. */
   setPlainAnswerNote(accountKey: string, enabled: boolean): Promise<boolean>;
+  /** Sets the account's detailed lesson reports; false when the account has no row. */
+  setDetailedLessonReports(accountKey: string, enabled: boolean): Promise<boolean>;
 }
 
 export interface ResearchContributorAccessServiceOptions {
@@ -409,10 +416,12 @@ export class ResearchContributorAccessService {
   }
 
   /**
-   * The active account's mode and its plain-answer note setting (owner answer 140b), with the checks requireActive
-   * makes.
+   * The active account's mode and its settings, with the checks requireActive makes: its plain-answer note (owner
+   * answer 140b) and its detailed lesson reports (owner question 154).
    */
-  async activeAccount(subject: string): Promise<{ mode: ResearchUseMode; plainAnswerNote: boolean }> {
+  async activeAccount(
+    subject: string,
+  ): Promise<{ mode: ResearchUseMode; plainAnswerNote: boolean; detailedLessonReports: boolean }> {
     const account = await this.store.getAccount(
       this.accountKeyForSubject(subject),
     );
@@ -443,7 +452,11 @@ export class ResearchContributorAccessService {
         "The paid private entitlement is no longer active.",
       );
     }
-    return { mode: account.mode, plainAnswerNote: account.plainAnswerNote ?? true };
+    return {
+      mode: account.mode,
+      plainAnswerNote: account.plainAnswerNote ?? true,
+      detailedLessonReports: account.detailedLessonReports === true,
+    };
   }
 
   /**
@@ -453,6 +466,21 @@ export class ResearchContributorAccessService {
   async setPlainAnswerNote(subject: string, enabled: boolean): Promise<boolean> {
     await this.requireActive(subject);
     if (!await this.store.setPlainAnswerNote(this.accountKeyForSubject(subject), enabled)) {
+      throw new ResearchAccessError(
+        "RESEARCH_ACCESS_REQUIRED",
+        "Choose free contributor mode or activate an existing paid private entitlement before using AskRigor research tools.",
+      );
+    }
+    return enabled;
+  }
+
+  /**
+   * Turns detailed lesson reports on or off for an active account (owner question 154): only then may its connector
+   * lessons carry a detailed report. Off by default; only the choice is stored, never a report.
+   */
+  async setDetailedLessonReports(subject: string, enabled: boolean): Promise<boolean> {
+    await this.requireActive(subject);
+    if (!await this.store.setDetailedLessonReports(this.accountKeyForSubject(subject), enabled)) {
       throw new ResearchAccessError(
         "RESEARCH_ACCESS_REQUIRED",
         "Choose free contributor mode or activate an existing paid private entitlement before using AskRigor research tools.",
@@ -605,7 +633,7 @@ implements ResearchContributorAccessStore {
   }
 
   async saveAccount(record: ResearchUseAccountRecord): Promise<void> {
-    this.accounts.set(record.accountKey, this.keepingNote(record));
+    this.accounts.set(record.accountKey, this.keepingSettings(record));
   }
 
   async setPlainAnswerNote(accountKey: string, enabled: boolean): Promise<boolean> {
@@ -615,11 +643,29 @@ implements ResearchContributorAccessStore {
     return true;
   }
 
-  /** The record as saved: with the account's note setting, which only setPlainAnswerNote changes. */
-  private keepingNote(record: ResearchUseAccountRecord): ResearchUseAccountRecord {
-    const { plainAnswerNote: _ignored, ...saved } = structuredClone(record);
-    const note = this.accounts.get(record.accountKey)?.plainAnswerNote;
-    return note === undefined ? saved : { ...saved, plainAnswerNote: note };
+  async setDetailedLessonReports(accountKey: string, enabled: boolean): Promise<boolean> {
+    const account = this.accounts.get(accountKey);
+    if (account === undefined) return false;
+    this.accounts.set(accountKey, { ...account, detailedLessonReports: enabled });
+    return true;
+  }
+
+  /**
+   * The record as saved: with the account's settings, which only their setters change (setPlainAnswerNote and
+   * setDetailedLessonReports).
+   */
+  private keepingSettings(record: ResearchUseAccountRecord): ResearchUseAccountRecord {
+    const {
+      plainAnswerNote: _ignoredNote,
+      detailedLessonReports: _ignoredReports,
+      ...saved
+    } = structuredClone(record);
+    const prior = this.accounts.get(record.accountKey);
+    return {
+      ...saved,
+      ...(prior?.plainAnswerNote === undefined ? {} : { plainAnswerNote: prior.plainAnswerNote }),
+      ...(prior?.detailedLessonReports === undefined ? {} : { detailedLessonReports: prior.detailedLessonReports }),
+    };
   }
 
   async hasActivePrivateEntitlement(
@@ -706,7 +752,7 @@ implements ResearchContributorAccessStore {
       });
       withdrawn += 1;
     }
-    this.accounts.set(accountRecord.accountKey, this.keepingNote(accountRecord));
+    this.accounts.set(accountRecord.accountKey, this.keepingSettings(accountRecord));
     return withdrawn;
   }
 
@@ -752,7 +798,7 @@ implements ResearchContributorAccessStore {
     const result = await this.pool.query<ResearchUseAccountRow>(
       `SELECT account_key, status, mode, notice_version, agreement_json,
               activated_at, revoked_at, created_at, updated_at,
-              plain_answer_note
+              plain_answer_note, detailed_lesson_reports
          FROM ${this.schema}.research_use_accounts
         WHERE account_key = $1`,
       [accountKey],
@@ -765,6 +811,17 @@ implements ResearchContributorAccessStore {
     const result = await this.pool.query(
       `UPDATE ${this.schema}.research_use_accounts
           SET plain_answer_note = $2
+        WHERE account_key = $1`,
+      [accountKey, enabled],
+    );
+    return result.rowCount !== 0;
+  }
+
+  // saveAccount and revokeAccount leave detailed_lesson_reports as it is: a new row takes the column's default, off.
+  async setDetailedLessonReports(accountKey: string, enabled: boolean): Promise<boolean> {
+    const result = await this.pool.query(
+      `UPDATE ${this.schema}.research_use_accounts
+          SET detailed_lesson_reports = $2
         WHERE account_key = $1`,
       [accountKey, enabled],
     );
@@ -950,6 +1007,7 @@ interface ResearchUseAccountRow {
   created_at: Date | string;
   updated_at: Date | string;
   plain_answer_note: boolean;
+  detailed_lesson_reports: boolean;
 }
 
 const PROPOSAL_COLUMNS = `proposal_id, account_key, proposal_kind, payload_sha256,
@@ -999,6 +1057,8 @@ function accountFromRow(row: ResearchUseAccountRow): ResearchUseAccountRecord {
     createdAt: timestamp(row.created_at),
     updatedAt: timestamp(row.updated_at),
     plainAnswerNote: row.plain_answer_note !== false,
+    // Only an explicit true turns detailed lesson reports on.
+    detailedLessonReports: row.detailed_lesson_reports === true,
   };
 }
 

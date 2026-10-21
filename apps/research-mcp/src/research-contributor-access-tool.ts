@@ -76,6 +76,7 @@ export const manageResearchAccessInputSchema = z.object({
     "revoke",
     "register_plain_answer",
     "set_plain_answer_note",
+    "set_detailed_lesson_reports",
   ]),
   agreement: freeContributorAgreementSchema.extend({ noticeVersion: noticeVersionSchema }).strict().optional(),
   plainAnswer: plainAnswerInputSchema.optional()
@@ -83,6 +84,9 @@ export const manageResearchAccessInputSchema = z.object({
   plainAnswerNote: z.boolean().optional()
     .describe("With set_plain_answer_note: false turns off the note comparing a checked answer with its plain " +
       "answer, true turns it back on."),
+  detailedLessonReports: z.boolean().optional()
+    .describe("With set_detailed_lesson_reports, when the user asks: true turns this account's detailed lesson " +
+      "reports on, false off."),
 }).strict();
 
 const researchAccessViewSchema = z.object({
@@ -125,6 +129,9 @@ export const manageResearchAccessOutputSchema = z.object({
     claims: z.number().int().min(1).max(PLAIN_ANSWER_LIMITS.claims).optional()
       .describe("With register_plain_answer: how many claims were signed."),
   }).strict().optional(),
+  detailedLessonReports: z.boolean().optional()
+    .describe("Whether this account's lessons may carry a detailed report: off unless the user turned detailed " +
+      "lesson reports on."),
   research_receipt: z.string().optional(),
   accountReference: z.string().regex(new RegExp(`^[a-f0-9]{${RESEARCH_ACCOUNT_REFERENCE_CHARACTERS}}$`, "u")).optional()
     .describe("This account's reference, the first characters of its pseudonymous key: the user can give it to " +
@@ -291,6 +298,12 @@ const NOTE_ON = "The final check then writes a short note comparing the checked 
 const NOTE_OFF = "This account has turned off the note comparing the checked answer with the plain answer; the plain " +
   "answer still guides the research, and set_plain_answer_note turns the note back on.";
 
+// Owner question 154 (2026-10-21): detailed lesson reports, off unless the user turns them on in AskRigor's settings.
+export const DETAILED_REPORTS_ON = "Detailed lesson reports are on for this account: a lesson may carry a detailed " +
+  "report, shown to the user with the lesson before asking.";
+export const DETAILED_REPORTS_OFF = "Detailed lesson reports are off for this account, so a lesson carries no " +
+  "detailed report.";
+
 /** What inspect asks of an account that registers a plain answer, before any research call. */
 export function plainAnswerRequest(note: boolean): string {
   const { textCharacters, claims, claimCharacters } = PLAIN_ANSWER_LIMITS;
@@ -439,11 +452,20 @@ export function createManageResearchAccessHandler(
           "plainAnswerNote goes only with action set_plain_answer_note, which needs it.",
         );
       }
+      if ((parsed.action === "set_detailed_lesson_reports") !== (parsed.detailedLessonReports !== undefined)) {
+        return accessError(
+          "invalid_request",
+          "detailedLessonReports goes only with action set_detailed_lesson_reports, which needs it.",
+        );
+      }
       if (parsed.action === "register_plain_answer") {
         return await registerPlainAnswer(options.service, auth.subject, parsed.plainAnswer!, options.plainAnswer);
       }
       if (parsed.action === "set_plain_answer_note") {
         return await setPlainAnswerNote(options.service, auth.subject, parsed.plainAnswerNote!, options.plainAnswer);
+      }
+      if (parsed.action === "set_detailed_lesson_reports") {
+        return await setDetailedLessonReports(options.service, auth.subject, parsed.detailedLessonReports!);
       }
       // Consent counts only for the notice the user was shown: an earlier
       // version's terms differ, so it is refused, never upgraded.
@@ -468,11 +490,17 @@ export function createManageResearchAccessHandler(
             ? await options.service.activatePaidPrivate(auth.subject)
             : await options.service.revoke(auth.subject);
       // The account's reference, which the user can give the owner (for example to mark a dev account).
-      const accountReference = researchAccountReference(options.service.accountKeyForSubject(auth.subject));
-      // An active paid private or dev account is asked for its plain answer before research (owner answer 140b).
-      const plain = access.status === "ACTIVE" && access.mode !== null
-        ? await plainAnswerAccount(options.service, auth.subject, options.plainAnswer, access.mode)
-          .catch(() => undefined)
+      const accountKey = options.service.accountKeyForSubject(auth.subject);
+      const accountReference = researchAccountReference(accountKey);
+      // An active account's settings, read once: an active paid private or dev account is asked for its plain answer
+      // before research (owner answer 140b), and any active account's lessons carry a detailed report only when it
+      // turned detailed lesson reports on (owner question 154).
+      const settings = access.status === "ACTIVE" && access.mode !== null
+        ? await options.service.activeAccount(auth.subject).catch(() => undefined)
+        : undefined;
+      const plain = settings !== undefined && options.plainAnswer !== undefined &&
+          plainAnswerRequested(settings.mode, accountKey, options.plainAnswer.devAccountKeys())
+        ? { note: settings.plainAnswerNote }
         : undefined;
       return {
         content: [{
@@ -483,12 +511,16 @@ export function createManageResearchAccessHandler(
               ? "AskRigor research access is revoked."
               : "Choose free contributor mode or activate an existing paid private entitlement before research use.") +
             (plain === undefined ? "" : ` ${plainAnswerRequest(plain.note)}`) +
+            (settings === undefined
+              ? ""
+              : ` ${settings.detailedLessonReports ? DETAILED_REPORTS_ON : DETAILED_REPORTS_OFF}`) +
             ` This account's reference, to give the user only when they ask for it: ${accountReference}.`,
         }],
         structuredContent: manageResearchAccessOutputSchema.parse({
           ok: true,
           access,
           ...(plain === undefined ? {} : { plainAnswer: { requested: true, note: plain.note } }),
+          ...(settings === undefined ? {} : { detailedLessonReports: settings.detailedLessonReports }),
           accountReference,
         }),
       };
@@ -500,18 +532,15 @@ export function createManageResearchAccessHandler(
 
 /**
  * The active account asked for a plain answer (owner answer 140b), with its key and note setting; undefined for any
- * other account, or on a surface without the plain answer. A mode already known settles most accounts without another
- * read. Throws as activeAccount does for an inactive account.
+ * other account, or on a surface without the plain answer. Throws as activeAccount does for an inactive account.
  */
 async function plainAnswerAccount(
   service: ResearchContributorAccessService,
   subject: string,
   plain: PlainAnswerOptions | undefined,
-  knownMode?: "FREE_CONTRIBUTOR" | "PAID_PRIVATE",
 ): Promise<{ accountKey: string; note: boolean } | undefined> {
   if (plain === undefined) return undefined;
   const accountKey = service.accountKeyForSubject(subject);
-  if (knownMode !== undefined && !plainAnswerRequested(knownMode, accountKey, plain.devAccountKeys())) return undefined;
   const account = await service.activeAccount(subject);
   return plainAnswerRequested(account.mode, accountKey, plain.devAccountKeys())
     ? { accountKey, note: account.plainAnswerNote }
@@ -598,6 +627,28 @@ async function setPlainAnswerNote(
       ok: true,
       plainAnswer: { requested: true, note: enabled },
     }),
+  };
+}
+
+/**
+ * Turns detailed lesson reports on or off for an active account, when the user asks (owner question 154); only the
+ * choice is stored. Throws as the service does for an inactive account.
+ */
+async function setDetailedLessonReports(
+  service: ResearchContributorAccessService,
+  subject: string,
+  enabled: boolean,
+): Promise<CallToolResult> {
+  await service.setDetailedLessonReports(subject, enabled);
+  return {
+    content: [{
+      type: "text",
+      text: enabled
+        ? "Detailed lesson reports are now on for this account: a lesson may carry a detailed report, shown to the " +
+          "user with the lesson before asking and stored only in AskRigor's private lessons repository."
+        : "Detailed lesson reports are now off for this account, so a lesson carries no detailed report.",
+    }],
+    structuredContent: manageResearchAccessOutputSchema.parse({ ok: true, detailedLessonReports: enabled }),
   };
 }
 
@@ -770,19 +821,25 @@ export function createResearchAccessGuard(
 /**
  * The caller's active research-use mode and pseudonymous account key, which
  * decide what the findings library does with its research: saved (free
- * contributor) or offered for a yes (paid private); and its plain-answer note
- * setting (owner answer 140b). Undefined for an inactive account, a call
+ * contributor) or offered for a yes (paid private); its plain-answer note
+ * setting (owner answer 140b); and whether its lessons may carry a detailed
+ * report (owner question 154). Undefined for an inactive account, a call
  * without a valid research:use token, or no access service. Never throws.
  */
 export async function researchUseAccount(
   extra: ResearchOperationExtra | undefined,
   service: ResearchContributorAccessService | undefined,
-): Promise<{ mode: "FREE_CONTRIBUTOR" | "PAID_PRIVATE"; accountKey: string; plainAnswerNote: boolean } | undefined> {
+): Promise<{
+  mode: "FREE_CONTRIBUTOR" | "PAID_PRIVATE";
+  accountKey: string;
+  plainAnswerNote: boolean;
+  detailedLessonReports: boolean;
+} | undefined> {
   const auth = authorizedSubject(extra, undefined);
   if ("error" in auth || service === undefined) return undefined;
   try {
-    const { mode, plainAnswerNote } = await service.activeAccount(auth.subject);
-    return { mode, accountKey: service.accountKeyForSubject(auth.subject), plainAnswerNote };
+    const { mode, plainAnswerNote, detailedLessonReports } = await service.activeAccount(auth.subject);
+    return { mode, accountKey: service.accountKeyForSubject(auth.subject), plainAnswerNote, detailedLessonReports };
   } catch {
     return undefined;
   }

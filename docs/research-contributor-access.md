@@ -37,7 +37,8 @@ hold either version; the one-shot admin `migrate` applies it at release.
 
 `manage_research_access` is the OAuth-scoped operation for `inspect`,
 `accept_free_contributor`, `activate_paid_private`, `revoke`,
-`register_plain_answer`, and `set_plain_answer_note`. It is declared
+`register_plain_answer`, `set_plain_answer_note`, and
+`set_detailed_lesson_reports`. It is declared
 as a write to MCP clients. Revocation blocks later research calls and withdraws
 every still-pending proposal from that account. It does not silently rewrite an
 already accepted deidentified canonical record.
@@ -66,6 +67,27 @@ turns the note off or on; migration `0013_research_plain_answer_note` stores the
 choice in `research_use_accounts.plain_answer_note`, on by default. The note
 setting removes only the note: the plain answer still guides the research. Only
 the MCP connector (`/mcp` and `/mcp/claude`) has this; Custom GPT Actions do not.
+
+## Detailed lesson reports
+
+Owner question 154 (2026-10-21): "i would not give everyone a long report like
+that in chat unless they turn that on in askrigor settings". Detailed lesson
+reports are off by default for every account. When the user asks,
+`set_detailed_lesson_reports` with `detailedLessonReports` true turns them on
+for an active account and false turns them off; migration
+`0015_research_detailed_lesson_reports` stores only that choice, in
+`research_use_accounts.detailed_lesson_reports`, and saving or revoking the
+account leaves it as it is, as with the plain-answer note. `inspect` shows it
+for an active account (`detailedLessonReports`). Only with it on does the
+connector's `submit_lesson_candidate` accept a lesson's optional
+`detailed_report` (steps, what happened and what was expected, causes with
+confidence, the parts of AskRigor to change, a proposed change, up to five
+invented test cases and what stays uncertain, at most 10,000 characters in
+all), which passes the lesson's privacy screen and is stored only in the private
+lessons repository. A lesson carrying one without a research account, or with
+the setting off, is refused with `detailed_report_refused`
+(`detailed_reports_off`) and nothing is stored; the model sends the lesson again
+without it. The data flow is in `docs/privacy-data-map.md`.
 
 ## Identity boundary
 

@@ -75,12 +75,14 @@ import {
 } from "./config.js";
 import { createConcurrencyLimiter } from "./rate-limit.js";
 import {
+  DETAILED_REPORT_RULE,
   connectorLessonInputSchema,
   connectorLessonOutputSchema,
   connectorLessonToolResult,
 } from "./lessons/connector-tool.js";
-import type { LessonSubmissionResult } from "./lessons/contracts.js";
+import type { ConnectorLessonSubmissionResult } from "./lessons/contracts.js";
 import { submitConnectorLessonCandidate } from "./lessons/runtime.js";
+import type { LessonSubmissionContext } from "./lessons/service.js";
 import { findingsSavedLine, researchMapSavedLine } from "./findings/card.js";
 import {
   findingsSaveToolResult,
@@ -776,7 +778,7 @@ export interface RegisterToolsOptions {
   researchContributionReviewService?: ResearchContributionReviewService;
   researchAccessRequired?: boolean;
   /** Replaces the production lesson queue, for tests. */
-  lessonSubmission?: (raw: unknown) => Promise<LessonSubmissionResult>;
+  lessonSubmission?: (raw: unknown, context: LessonSubmissionContext) => Promise<ConnectorLessonSubmissionResult>;
   /** Replaces the production findings library, for tests. */
   findingsSave?: (raw: unknown, context: FindingsSaveContext) => Promise<FindingsSaveResult>;
   /** Whether the findings library is open; defaults to ASKRIGOR_FINDINGS_LIBRARY. */
@@ -1713,7 +1715,10 @@ function defineResearchOperations(
       description: `Shows or sets AskRigor's research-use mode. Inspecting it is the first step of research, and it shows why a research tool was refused. Free use requires explicit agreement to version ${RESEARCH_USE_NOTICE_VERSION}: what AskRigor learns from the research (deidentified structured research progress and each finished answer's findings card) is saved for non-authoritative review. Paid private mode saves an answer's findings card, files its research map or saves lesson feedback only when the user accepts that for that answer, and activates only for an existing verified entitlement; this release offers no price or checkout. ` +
         "For a paid private or dev account, inspect asks for a plain answer before research: register_plain_answer " +
         "signs the short answer you would give without AskRigor's tools, which the final check compares with the " +
-        "checked answer in a note, and set_plain_answer_note turns that note off or on. Each call also returns " +
+        "checked answer in a note, and set_plain_answer_note turns that note off or on. " +
+        // Owner question 154 (2026-10-21): detailed lesson reports, off unless the user turns them on.
+        "When the user asks, set_detailed_lesson_reports turns this account's detailed lesson reports on or off (off " +
+        "by default; inspect shows which): only with them on may a lesson carry a detailed report. Each call also returns " +
         "accountReference, this account's reference, which the user can give AskRigor's owner (for example to be " +
         "listed as a dev account); give it only when the user asks for it.",
       inputSchema: manageResearchAccessInputSchema,
@@ -2337,14 +2342,22 @@ function defineResearchOperations(
   registrar.registerTool(
     "submit_lesson_candidate",
     {
-      description: "Save one validated AskRigor lesson to the owner's private review queue, only after the user says yes to the lesson as shown to them. Send only the generalized lesson: no identity, personal health story, quotation, chat text or unnecessary link. Returns a receipt, never the stored lesson.",
+      description: "Save one validated AskRigor lesson to the owner's private review queue, only after the user says yes to the lesson as shown to them. Send only the generalized lesson: no identity, personal health story, quotation, chat text or unnecessary link. Returns a receipt, never the stored lesson. " +
+        DETAILED_REPORT_RULE,
       inputSchema: connectorLessonInputSchema,
       outputSchema: connectorLessonOutputSchema,
       annotations: MUTATING_ANNOTATIONS,
     },
-    async (input) => connectorLessonToolResult(
-      await (options.lessonSubmission ?? submitConnectorLessonCandidate)(input),
-    ),
+    async (input, extra) => {
+      // Owner question 154 (2026-10-21): a lesson carries a detailed report only from a research account that turned
+      // detailed lesson reports on. The account is read only for a lesson that carries one, and the lesson service
+      // refuses it, storing nothing, unless this says the account allows it.
+      const detailedReports = input.detailed_report !== undefined &&
+        (await researchUseAccount(extra, options.researchContributorAccessService))?.detailedLessonReports === true;
+      return connectorLessonToolResult(
+        await (options.lessonSubmission ?? submitConnectorLessonCandidate)(input, { detailedReports }),
+      );
+    },
   );
 
   registerFindingsSave(registrar, options);

@@ -269,7 +269,10 @@ AskRigor has deliberately separate processing paths:
   API call on this path; see `apps/research-mcp/src/lessons/runtime.ts`), shared
   rate limits, and a private GitHub review candidate plus anonymous occurrence
   metadata. The connector tool takes no incident provenance; raw incident
-  capture stays with the private incident Action. Neither can change code,
+  capture stays with the private incident Action. A connector lesson includes a
+  detailed report of the failure only when the account turned on detailed
+  lesson reports (owner question 154; see "Optional lesson request and result
+  contract" below). Neither can change code,
   protocols, instructions, providers, or releases. The fixed OpenAI privacy check
   described below is legacy configuration that the production lesson path does
   not call.
@@ -647,7 +650,7 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 | Curated production living-evidence study audit | Exact public DOI/PMID/PMCID identifiers and source-version hash; source locator/access state; complete AskRigor-authored validated 13-domain study-method audit and claim-capability findings, with the audit's declared headline figures (as printed, recomputed, its plausibility call and source block) and each program's route; unresolved/future-analysis items; canonical protocol, freshness, impact, and validator receipts | A one-shot administrator process receives the exact public document index transiently over bounded stdin and writes only the source-free strict contribution to a private PostgreSQL service on the AskRigor VPS. The public MCP canonical-lookup component uses a SELECT-only role, performs one 1.5-second lookup at acquisition and one at requested reuse, and writes no public-user request, chat, tool call, health narrative, article block, provider body, transcript, comment, reply, or identity to canonical tables. No database port is published and no automatic off-host backup is added in this phase. |
 | Curated formal research frontier | Exact current protocol manifests; de-identified formal-source query/hash; provider and formal source class; requested and confirmed half-open publication/index windows; access/exhaustion/count receipt; public formal identifiers/title/date; append-only candidate decision/reason; unresolved, blocked, coverage-gap, discriminator, and delta trails with next capability or terminal reason. Read-only catalog search accepts transient free text and returns only stored topic/question metadata, exact selectors, lexical match fields, and descriptive coverage counts. | One strict writer-only `import-frontier` transaction in the same private PostgreSQL service. The contribution requires explicit false raw-source/raw-provider/personal/community persistence markers. Source/provider/candidate/trail scope and lineage are database-checked; update/delete fails. The canonical lookup role remains SELECT-only; catalog lookup runs in a read-only transaction. The distinct proposal role can insert only pending strict proposals, not canonical rows. YouTube/community classes and locators are rejected. Deterministic Obsidian/Mermaid exports are derived, non-authoritative views. |
 | Owner-accepted topic link | Link UUID and idempotency key; the run's protocol manifests, times and provenance note; the two canonical topics' IDs and keys; one relation (`same`, `narrower`, `broader` or `related`); the model's deidentified rationale (at most 2,000 characters); the payload as reviewed and its SHA-256; how many aliases and edges it wrote. For `same`, each topic's label written as the other's alias; otherwise one topic edge under the link's UUID (owner answer 138b, 2026-10-20) | Written only by the canonical writer, under its lock, from the exact TOPIC_LINK proposal the owner accepted; the writer repeats the intake's exact checks (both topics exist under the IDs and keys named, no stored link contradicts or repeats it, no third topic holds the alias, the UUID is new) and otherwise ends the promotion `FAILED` with its code. It never moves, changes or deletes either topic, its aliases, edges or anything filed under it; update and delete fail. Whether two wordings name one topic is the model's declaration and the owner's judgment, not a server check. The canonical lookup role reads it SELECT-only, the catalog search reads the aliases, and the repository export includes the rows. No account key, chat, prompt, person's details or source content. |
-| Connected research-use account and pending contribution proposal | HMAC-SHA-256 account key; active/revoked state; free-contributor or paid-private mode; exact notice/agreement fields and timestamps; the plain-answer note setting (`plain_answer_note`, a boolean, on by default; owner answer 140b, migration `0013_research_plain_answer_note`); verified-entitlement status; strict deidentified formal-frontier, source-analysis or topic-link proposal, proposal hash/kind/partial state, eight privacy false markers, and review timestamps/reason; optionally the UUID of the same account's own pending proposal of the same kind that the proposal supersedes (owner answer 138b, 2026-10-20); for a paid-private account's research map only, the SHA-256 of the finalization receipt whose offer the user said yes to (`consent_receipt_sha256`, owner answer 143a, migration `0014_research_map_consent`), never the receipt | A distinct least-privilege PostgreSQL role can select/insert/update access accounts, read entitlements, select/insert proposals, and execute one security-definer function that changes only pending proposals for a supplied HMAC account key to `WITHDRAWN`. It cannot grant entitlements, change proposal review dispositions, or write canonical evidence/frontier tables. The service, not the client, derives the key from the authenticated OAuth subject. Proposal payloads exclude raw chat/prompts, identity/contact data, private health narratives, uploads, raw source/provider bodies, credentials, and community/YouTube data. Pending rows have no automatic expiry in this slice and no automatic off-host backup. A database trigger accepts a supersedes link only to the same account's own pending proposal of the same kind, and refuses any other UUID with one answer, so a submitter learns nothing about another account's proposals; accepting the proposal rejects that draft, "superseded by <id>", in the same transaction. The same trigger admits a paid-private account's proposal only as a research map carrying that consent digest, and a free contributor's never carries one; a unique index lets one yes file one map, and the owner's review shows neither the account key nor the digest. The owner's review sees the link in both directions by proposal ID only, which shows that the two proposals come from one account, never the account key. Before storage, a frontier is reconciled with the canonical store by exact identity through the read-only canonical reader, so the stored payload may hold canonical IDs and labels in place of the ones sent; the submitter is told which IDs, all of them already public through the catalog tools. A topic link names two canonical topics by ID and key, one of four relations and a deidentified rationale; it is stored only after the same reader confirms both topics and that no stored link contradicts it, and when the reader cannot be read nothing is stored. |
+| Connected research-use account and pending contribution proposal | HMAC-SHA-256 account key; active/revoked state; free-contributor or paid-private mode; exact notice/agreement fields and timestamps; the plain-answer note setting (`plain_answer_note`, a boolean, on by default; owner answer 140b, migration `0013_research_plain_answer_note`); the detailed lesson reports setting (`detailed_lesson_reports`, a boolean, off by default, which only the user's `set_detailed_lesson_reports` turns on; owner question 154, migration `0015_research_detailed_lesson_reports`), never a report; verified-entitlement status; strict deidentified formal-frontier, source-analysis or topic-link proposal, proposal hash/kind/partial state, eight privacy false markers, and review timestamps/reason; optionally the UUID of the same account's own pending proposal of the same kind that the proposal supersedes (owner answer 138b, 2026-10-20); for a paid-private account's research map only, the SHA-256 of the finalization receipt whose offer the user said yes to (`consent_receipt_sha256`, owner answer 143a, migration `0014_research_map_consent`), never the receipt | A distinct least-privilege PostgreSQL role can select/insert/update access accounts, read entitlements, select/insert proposals, and execute one security-definer function that changes only pending proposals for a supplied HMAC account key to `WITHDRAWN`. It cannot grant entitlements, change proposal review dispositions, or write canonical evidence/frontier tables. The service, not the client, derives the key from the authenticated OAuth subject. Proposal payloads exclude raw chat/prompts, identity/contact data, private health narratives, uploads, raw source/provider bodies, credentials, and community/YouTube data. Pending rows have no automatic expiry in this slice and no automatic off-host backup. A database trigger accepts a supersedes link only to the same account's own pending proposal of the same kind, and refuses any other UUID with one answer, so a submitter learns nothing about another account's proposals; accepting the proposal rejects that draft, "superseded by <id>", in the same transaction. The same trigger admits a paid-private account's proposal only as a research map carrying that consent digest, and a free contributor's never carries one; a unique index lets one yes file one map, and the owner's review shows neither the account key nor the digest. The owner's review sees the link in both directions by proposal ID only, which shows that the two proposals come from one account, never the account key. Before storage, a frontier is reconciled with the canonical store by exact identity through the read-only canonical reader, so the stored payload may hold canonical IDs and labels in place of the ones sent; the submitter is told which IDs, all of them already public through the catalog tools. A topic link names two canonical topics by ID and key, one of four relations and a deidentified rationale; it is stored only after the same reader confirms both topics and that no stored link contradicts it, and when the reader cannot be read nothing is stored. |
 | Held validated analysis (free contributor) | HMAC-SHA-256 account key; the study or review audit's SHA-256; the living-evidence contribution built from one validated method audit: source identifiers, title, content hash and locator, structured domain findings and claim capabilities, a study audit's declared headline figures and program routes, the audit receipt, the protocol identities, and a Crossref integrity-check hash | Process memory only, between a free contributor's successful `validate_study_method_audit` or `validate_review_method_audit` on MCP and a passing `finalize_research`. The final check then files it as a pending `SOURCE_ANALYSIS` proposal through the same intake and privacy checks as `submit_research_contribution`, so the AI no longer has to send it. Held only for active free contributor accounts, never paid private, and only for a source with a DOI and a clean Crossref integrity check; repository reuse is not held. No source text, chat, prompt or person's details; entries drop after 24 hours, past 500 entries, or on restart. The contribution itself is the same data a pending proposal already stores. Owner answer 138b (2026-10-20): each audit is its own analysis, keyed by the audit and its protocols; when the source's identifiers name one canonical source family with no conflicting identifier, the public runtime's read-only canonical reader supplies that family's ID, title, version of the same bytes and freshness policy, which the contribution then carries instead of the document's; a new source version records no retrieval time. An audit the canonical store already holds under the same protocols, or one this account already filed (pending, accepted or rejected), is not filed again. |
 | Owner-accepted contribution promotion | Promotion UUID; proposal UUID, strict kind and reviewed payload SHA-256; creation time; `PENDING`, `COMPLETED` or `FAILED` state; for `COMPLETED`, the completion time and the stable receipt (canonical identifiers and the writer's receipt) with its SHA-256; for `FAILED`, one failure code from a closed list of canonical conflict codes (never free text or payload content) and the failure time. The owner's decision, reason and review time stay on the proposal row. No claim, attempt count or error text is stored. | The public runtime cannot write this state or canonical evidence. One function-only owner-review call atomically creates the exact intent only on acceptance; the review role reads a failed intent's code through one more security-definer function, which returns no account key. That function also gives the owner's review the supersession links and the other proposals pending review or queued for promotion that share one of the proposal's identities (topic key or ID, frontier, question, source family, or a candidate or source identifier), by proposal ID, kind, state and the kinds of identity shared only: never an account key or another proposal's content. The review also reads the canonical store through the public runtime's read-only reader for the canonical records sharing those identities (IDs only) and a promotion preflight, a dry run of the writer's identity checks that stores nothing and names each conflict by its fixed code and payload path; neither is stored or sent anywhere but to the owner. A separate root-scheduled short-lived admin container receives only the existing canonical writer environment and promotes at most one accepted intent per activation; an intent whose canonical write conflicts deterministically ends `FAILED` with its code and the activation moves to the next (at most 20 per activation), while a transient error leaves it `PENDING` (owner answer 138b, 2026-10-20). The static unit accepts no user input and logs only the bounded operation receipt, including each failed intent's UUIDs, kind and code; it receives no raw chat, account key, private health narrative, upload, raw source/provider content, or community data. Disabling the timer preserves all rows. |
 
@@ -695,13 +698,43 @@ assistant messages, a user or conversation identifier, an account, email,
 location, medical history, upload, or raw quotation. The complete decoded JSON
 body is limited to 8,192 UTF-8 bytes.
 
+The connector's `submit_lesson_candidate` takes the same fields without
+`incident_provenance`, plus an optional `related_issue` (described below) and,
+only from an account that turned on detailed lesson reports, an optional
+`detailed_report` (owner question 154, 2026-10-21). Detailed lesson reports are
+off by default; the user turns them on or off with `manage_research_access`
+action `set_detailed_lesson_reports`, which stores only that choice, in
+`research_use_accounts.detailed_lesson_reports`. The report's fields are:
+
+| Report field | Meaning and implemented bound |
+| --- | --- |
+| `steps` | The steps that led to the failure, 1–12, each at most 300 characters. |
+| `observed` | What happened, at most 1,000 characters. |
+| `expected` | What should have happened, at most 1,000 characters. |
+| `causes` | 1–5 causes, each at most 300 characters with a confidence of `low`, `medium` or `high`. |
+| `parts_to_change` | 1–8 parts of AskRigor to change (a tool, a protocol rule, the final check), each at most 120 characters. |
+| `proposed_change` | The proposed change, at most 1,500 characters. |
+| `test_cases` | 0–5 invented test cases, each at most 1,200 characters and marked as a negative control or not. |
+| `uncertain` | What stays uncertain, at most 1,000 characters. |
+
+All the report's texts together hold at most 10,000 characters, and unknown
+fields are rejected. Every text passes the same deterministic screen as the
+lesson's own fields, and any failure refuses the whole submission. On the
+submission path the report never reaches a model: it stays out of the legacy
+anonymizer's input, as incident provenance and `related_issue` do. A lesson carrying a report from an
+account whose detailed lesson reports are off, or without a research account,
+is refused before the screen, with the reason code below, and nothing is
+stored.
+
 The public result is one strict status shape: `submitted` or
 `existing_candidate` returns only `candidate_id`, `occurrence_count`, and
 `retryable:false`; `rate_limited` returns `retry_after_seconds`, an allowlisted
 `reason_code`, and `retryable:true`; `privacy_rejected`,
 `anonymizer_unavailable`, and `github_unavailable` return only their status,
-retryability, and an allowlisted reason code. Results do not expose a private
-URL, GitHub issue number, candidate text, or fingerprint.
+retryability, and an allowlisted reason code. On the connector only,
+`detailed_report_refused` returns only its status, `retryable:false` and the
+reason code `detailed_reports_off`. Results do not expose a private
+URL, GitHub issue number, candidate text, report text, or fingerprint.
 
 ## Lesson screening, recipients, and storage
 
@@ -719,12 +752,18 @@ for the Custom GPT's Action, `source-connector` for the MCP connector); general 
 regression example; evidence basis; optional AskRigor version and protocol
 identities; the privacy-gate marker; optional prior public candidate ID;
 for a connector lesson, an optional number of a public `u-dont-existDOTcom/AskRigor`
-issue, rendered by the server as a reference with no free text; an
+issue, rendered by the server as a reference with no free text; for a connector
+lesson from an account that turned on detailed lesson reports, its detailed
+report as a "Detailed report" section rendered by the server from the validated
+fields with the same escaping; an
 initial anonymous occurrence count; first-seen timestamp; and a hidden
 deduplication fingerprint marker. Later duplicates leave that body unchanged
 and append private generated comments containing only the anonymous count,
 observation timestamp, the related issue reference when that repeat names one,
-and canonical fingerprint marker. Neither the issue nor
+the repeat's detailed report when it carries one, and canonical fingerprint
+marker. A detailed report is part of neither the fingerprint nor the hidden
+metadata, and it is stored only there, in the private lessons repository.
+Neither the issue nor
 the generated comments store `consent_scope`, user identity, network identity,
 conversation identifier, raw chat, raw quotation, medical history, or upload.
 
@@ -737,9 +776,10 @@ aggregate ledger.
 Recipients and provider boundaries are therefore distinct:
 
 - the AskRigor server receives and validates the generalized structured lesson
-  candidate;
-- no AI provider receives the lesson candidate (the legacy OpenAI privacy check
-  is not called);
+  candidate and, from an account that turned on detailed lesson reports, its
+  detailed report;
+- no AI provider receives the lesson candidate or a detailed report (the legacy
+  OpenAI privacy check is not called, and a report is never in its input);
 - Google Gemini first receives only a deterministically screened,
   de-identified population-level research target, any BCP 47 language tag
   with its English language name, and the public
@@ -986,8 +1026,9 @@ save answers that the library is unavailable and stores nothing.
 - Full article text, server-side transcript copies, private/deleted/held-for-review content, cookies, private communities, or generic scraped web pages.
 
 The optional lesson path is one narrow durable-storage exception. It stores
-only the screened private candidate and anonymous recurrence metadata listed
-above; it does not create a transcript store or user profile. The free
+only the screened private candidate (with its screened detailed report, only
+when the account turned on detailed lesson reports) and anonymous recurrence
+metadata listed above; it does not create a transcript store or user profile. The free
 contributor findings library, when deployed, is another: it stores only the
 checked, screened cards, stamps and thread keys listed above, with no user
 profile. The independently
@@ -997,7 +1038,7 @@ pending-proposal stores have their own strict contracts and authority boundaries
 ## Response minimization and security controls
 
 - Of 33 MCP operations, 27 are annotated `readOnlyHint: true`. The six
-  explicit writes (research-access mode and plain-answer note setting, pending proposal, owner review, lesson
+  explicit writes (research-access mode, plain-answer note and detailed lesson reports settings, pending proposal, owner review, lesson
   candidate, `finalize_research`, which saves a free contributor's checked
   findings card, and `save_research_findings`, a paid-private card saved after
   the user's yes) are declared with `destructiveHint: false` and
