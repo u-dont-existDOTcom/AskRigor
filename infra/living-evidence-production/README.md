@@ -158,14 +158,29 @@ function, and cannot read tables directly.
 Owner answer 140b (2026-10-20): paid private accounts and dev accounts register
 a plain answer before research, and their checked answers end with a note
 comparing the two. Mark an account dev with `ASKRIGOR_DEV_ACCOUNT_KEYS` in the
-same runtime environment: a comma-separated list of the 64-character
-`account_key` values `research_use_accounts` stores (pseudonymous HMACs, not
-secrets; an entry that is not one is ignored). Migration
+same runtime environment: a comma-separated list of account references, the
+12 hexadecimal characters AskRigor shows a signed-in user who asks for their
+account reference, which are the first 12 of the account's `account_key` in
+`research_use_accounts` (a full 64-character key also works; neither is a
+secret; an entry that is neither is ignored). Migration
 `0013_research_plain_answer_note` adds each account's note setting
 (`plain_answer_note`, on by default); the access role's existing table grant
 covers it. Apply it with the one-shot admin `migrate` before an image that
 reads it serves, since the access store reads that column on every research
 call. An earlier image does not read it, so a rollback needs no step.
+
+Owner answer 143a (2026-10-21): a paid private account files a research map
+only with the user's yes to the answer's offer. Migration
+`0014_research_map_consent` adds `consent_receipt_sha256` to
+`research_contribution_proposals` (the SHA-256 of the finalization receipt
+whose offer the user accepted, never the receipt), a check that only a
+`RESEARCH_FRONTIER` proposal carries one, a unique index so one yes files one
+map, and a new body for the proposal account guard that admits an active paid
+private account's map with its digest and nothing else from that account. The
+access role's existing table grant covers the column. Apply it with the
+one-shot admin `migrate` before the image that files such maps serves. An
+earlier image never files a paid private proposal, and the guard still admits
+free contributors as before, so a rollback needs no step.
 
 When OAuth research access is active, the server omits legacy research Action
 routes so they cannot bypass the mode choice. The separately governed lesson

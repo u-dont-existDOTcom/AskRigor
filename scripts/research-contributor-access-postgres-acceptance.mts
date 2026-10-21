@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { Pool } from "pg";
 
 import {
@@ -5,6 +7,7 @@ import {
   PostgresResearchContributorAccessStore,
   PostgresResearchContributionPromotionRunner,
   PostgresResearchContributionReviewStore,
+  RESEARCH_MAP_CONSENT,
   RESEARCH_USE_NOTICE_VERSION,
   ResearchContributionRejectedError,
   ResearchContributionReviewService,
@@ -58,7 +61,7 @@ async function main(): Promise<void> {
       status: "PASS",
       phase: "migrate",
       schema: SCHEMA,
-      migration: "0013_research_plain_answer_note",
+      migration: "0014_research_map_consent",
     })}\n`);
     return;
   }
@@ -254,6 +257,81 @@ async function verify(
     await service.setPlainAnswerNote(PAID_SUBJECT, true);
     assert((await service.activeAccount(PAID_SUBJECT)).plainAnswerNote, "PLAIN_ANSWER_NOTE_NOT_TURNED_ON");
     checks.push("plain_answer_note_stored_on_by_default_and_kept_by_save");
+
+    // Owner answer 143a: a paid private account files only this research's map, and only under the user's yes to the
+    // answer's offer. The database stores that finalization receipt's SHA-256, never the receipt, and takes it once;
+    // its own guard refuses a paid private row without it and anything but a map with it.
+    const consentMigrationRows = await admin.query<{ migration_id: string }>(
+      `SELECT migration_id FROM ${SCHEMA}.schema_migrations
+       WHERE migration_id = '0014_research_map_consent'`,
+    );
+    assert(consentMigrationRows.rowCount === 1, "MIGRATION_0014_NOT_APPLIED");
+    const consentReceipt = "synthetic-postgres-finalization-receipt";
+    const consentSha256 = createHash("sha256").update(consentReceipt).digest("hex");
+    const mapInput = {
+      proposalKind: "RESEARCH_FRONTIER",
+      privacyBoundary: PRIVACY_BOUNDARY,
+      payload: frontier,
+      userConsent: RESEARCH_MAP_CONSENT,
+      finalizationReceipt: consentReceipt,
+    };
+    await expectCode(() => service.submitProposal(PAID_SUBJECT, mapInput), "PAID_PRIVATE_DOES_NOT_CONTRIBUTE");
+    await expectCode(
+      () => service.submitProposal(PAID_SUBJECT, mapInput, { paidPrivateConsent: { receiptSha256: "0".repeat(64) } }),
+      "PAID_PRIVATE_DOES_NOT_CONTRIBUTE",
+    );
+    const map = await service.submitProposal(PAID_SUBJECT, mapInput, {
+      paidPrivateConsent: { receiptSha256: consentSha256 },
+    });
+    const mapReplay = await service.submitProposal(PAID_SUBJECT, mapInput, {
+      paidPrivateConsent: { receiptSha256: consentSha256 },
+    });
+    assert(mapReplay.record.proposalId === map.record.proposalId, "PAID_MAP_REPLAY_NOT_IDEMPOTENT");
+    const storedMap = await admin.query<{ consent_receipt_sha256: string; proposal_kind: string; status: string }>(
+      `SELECT consent_receipt_sha256, proposal_kind, status
+         FROM ${SCHEMA}.research_contribution_proposals
+        WHERE proposal_id = $1`,
+      [map.record.proposalId],
+    );
+    assert(
+      storedMap.rows[0]?.consent_receipt_sha256 === consentSha256 &&
+        storedMap.rows[0]?.proposal_kind === "RESEARCH_FRONTIER" &&
+        storedMap.rows[0]?.status === "PENDING_REVIEW",
+      "PAID_MAP_NOT_STORED_WITH_ITS_CONSENT",
+    );
+    const copyMap = (proposalId: string, payloadSha256: string, consent: string | null, kind: string) =>
+      restricted.query(
+        `INSERT INTO ${SCHEMA}.research_contribution_proposals
+          (proposal_id, account_key, proposal_kind, payload_sha256, payload_json,
+           privacy_boundary_json, partial, status, created_at, reviewed_at,
+           review_reason, consent_receipt_sha256)
+         SELECT $2, account_key, $5, $3, payload_json,
+                privacy_boundary_json, partial, 'PENDING_REVIEW', $6, NULL, NULL, $4
+           FROM ${SCHEMA}.research_contribution_proposals
+          WHERE proposal_id = $1`,
+        [map.record.proposalId, proposalId, payloadSha256, consent, kind, NOW],
+      );
+    await expectPgErrorMessage(
+      () => copyMap(deterministicUuid("paid-map-without-consent"), "b".repeat(64), null, "RESEARCH_FRONTIER"),
+      "RESEARCH_PROPOSAL_PAID_PRIVATE_CONSENT_REQUIRED",
+    );
+    await expectPgErrorMessage(
+      () => copyMap(deterministicUuid("paid-analysis-with-consent"), "c".repeat(64), "d".repeat(64), "SOURCE_ANALYSIS"),
+      "RESEARCH_PROPOSAL_PAID_PRIVATE_CONSENT_REQUIRED",
+    );
+    await expectPgCode(
+      () => copyMap(deterministicUuid("paid-map-same-consent"), "e".repeat(64), consentSha256, "RESEARCH_FRONTIER"),
+      "23505",
+    );
+    assertEqualCounts(await canonicalCounts(admin), canonicalBefore, "PAID_MAP_CHANGED_CANONICAL_TABLES");
+    // Revoking the paid account withdraws its pending map like any other pending proposal.
+    await service.revoke(PAID_SUBJECT);
+    const withdrawnMap = await admin.query<{ status: string }>(
+      `SELECT status FROM ${SCHEMA}.research_contribution_proposals WHERE proposal_id = $1`,
+      [map.record.proposalId],
+    );
+    assert(withdrawnMap.rows[0]?.status === "WITHDRAWN", "PAID_MAP_NOT_WITHDRAWN_ON_REVOKE");
+    checks.push("paid_private_map_filed_once_only_under_the_users_yes");
 
     const identityRows = await admin.query<{ account_key: string; body: string }>(
       `SELECT account_key, row_to_json(a)::text AS body

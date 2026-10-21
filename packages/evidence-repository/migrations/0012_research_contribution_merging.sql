@@ -14,12 +14,13 @@ DECLARE
   stale record;
 BEGIN
   -- 0010's unnamed status and state checks admit only PENDING and COMPLETED; the named checks below replace them.
+  -- Named checks (v2 here, and any later version) are never touched, since every migration runs again on each start.
   FOR stale IN
     SELECT conname
     FROM pg_constraint
     WHERE conrelid = 'research_contribution_promotions'::regclass
       AND contype = 'c'
-      AND conname NOT LIKE 'research_contribution_promotions_v2_%'
+      AND conname NOT LIKE 'research_contribution_promotions_v%'
       AND pg_get_constraintdef(oid) LIKE '%status%'
   LOOP
     EXECUTE format('ALTER TABLE research_contribution_promotions DROP CONSTRAINT %I', stale.conname);
@@ -197,13 +198,15 @@ DECLARE
   stale record;
 BEGIN
   -- 0009's and 0010's unnamed kind checks admit only RESEARCH_FRONTIER and SOURCE_ANALYSIS; the named checks below
-  -- replace them.
+  -- replace them. Named checks are never touched: 0014's consent check names proposal_kind too, and every migration
+  -- runs again on each start.
   FOR stale IN
     SELECT conrelid::regclass AS table_name, conname
     FROM pg_constraint
     WHERE conrelid IN ('research_contribution_proposals'::regclass, 'research_contribution_promotions'::regclass)
       AND contype = 'c'
-      AND conname NOT IN ('research_contribution_proposals_v2_kind_check', 'research_contribution_promotions_v2_kind_check')
+      AND conname NOT LIKE 'research_contribution_proposals_v%'
+      AND conname NOT LIKE 'research_contribution_promotions_v%'
       AND pg_get_constraintdef(oid) LIKE '%proposal_kind%'
   LOOP
     EXECUTE format('ALTER TABLE %s DROP CONSTRAINT %I', stale.table_name, stale.conname);

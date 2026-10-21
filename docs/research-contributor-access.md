@@ -45,8 +45,9 @@ already accepted deidentified canonical record.
 ## The plain answer first
 
 Owner answer 140b (2026-10-20): a paid private account, or an account the
-server's settings list in `ASKRIGOR_DEV_ACCOUNT_KEYS` (comma-separated research
-account keys), is asked by `inspect` to register, before any research call, the
+server's settings list in `ASKRIGOR_DEV_ACCOUNT_KEYS` (comma-separated account
+references, the 12 characters `manage_research_access` shows the signed-in
+user, or whole research account keys), is asked by `inspect` to register, before any research call, the
 short answer it would give without AskRigor's tools. `register_plain_answer`
 takes that text (at most 1,500 characters), one to five claims, each one or
 more whole sentences copied exactly from the text (at most 250 characters), and
