@@ -73,11 +73,11 @@
     ],
     "protocols/Universal_Instructions.xml": [
       "ruleId=\"portable.obligation-boundary.v1\"",
-      "version=\"20.5.45\""
+      "version=\"20.5.46\""
     ],
     "protocols/HRP_Full.xml": [
       "ruleId=\"portable.obligation-boundary.v1\"",
-      "version=\"20.6.28\""
+      "version=\"20.6.29\""
     ],
     "skills/askrigor/SKILL.md": [
       "complete",

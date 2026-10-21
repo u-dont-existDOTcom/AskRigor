@@ -59,14 +59,14 @@ describe("questions 82 and 83: review provenance versus product efficacy", () =>
     expect(hash(beforeCorrectionReport)).toBe(previous.from.sha256);
     await expect(undoCorrectionReport(await loadCurrent())).resolves.toBe(beforeCorrectionReport);
     await expect(getProtocolManifest("universal")).resolves.toEqual({
-      name: "AskRigor.com universal saved instructions", version: "20.5.45",
-      revisionDate: "2026-10-20", sha256: hash(await loadCurrent()),
+      name: "AskRigor.com universal saved instructions", version: "20.5.46",
+      revisionDate: "2026-10-21", sha256: hash(await loadCurrent()),
     });
     const hrp = await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
     expect(hash(await undoContestedEvidence(hrp))).toBe("48e0e80ab412a3bce84ed834159664975933c3446b28bfcb5fea2964075f268e");
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: "20.6.28", revisionDate: "2026-10-20",
-      sha256: "a38e3e76b0983f9d4545325a90c6e14b76d087750600ce99623b3ec4aa22cef4",
+      name: "HRP", version: "20.6.29", revisionDate: "2026-10-21",
+      sha256: "a72aed35746b86b084398cdb92fa1d36dac2d2941b31feea34e242678cf49b79",
     });
   });
 

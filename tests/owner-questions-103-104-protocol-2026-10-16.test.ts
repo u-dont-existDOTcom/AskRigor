@@ -31,7 +31,7 @@ const APPROVED = {
 // This rule already existed in 20.6.25; its wording is locked independently of the fixture and prior bytes.
 const RULE_ID = "ProposeDiscriminatingTest";
 const APPROVED_RULE = "When the evidence found cannot answer the question but methods that exist could, describe the test that would answer it as soon as those methods come up, without being asked: what is compared, the control condition, and what each result would show. Say it appears not to have been done only after an adequate search; a narrow search does not show that nobody has done it, and supposed barriers are not documented reasons.";
-const CURRENT_HRP = {"version": "20.6.28", "sha256": "a38e3e76b0983f9d4545325a90c6e14b76d087750600ce99623b3ec4aa22cef4"};
+const CURRENT_HRP = {"version": "20.6.29", "sha256": "a72aed35746b86b084398cdb92fa1d36dac2d2941b31feea34e242678cf49b79"};
 const PINS = {
   from: { version: "20.6.25", sha256: "f3f1d9d2f60eb0dd376d93a09910a7a26e3543b4cdb8f540298a977315d4beb5" },
   to: { version: "20.6.26", sha256: "e681ed981471a38ac93c1eb6c13fb86e70fc6e8cb55e07d517bfc715d97c6cfa" },
@@ -39,7 +39,7 @@ const PINS = {
   hrp20623: "6623056eab84a60a0a82ac33a5aa0145cb84725d1be60aedfa77faf3d69899bd",
   hrp20622: "da82943f56614783d9316bd9a7d87a3233bf8c03255f20c88cc7bfefa39d73e9",
   hrp20621: "e43fcb2174645f30fc7d8e7f143e2d17403c69d39d5824efc1d6a0d764bf68d7",
-  universal: { version: "20.5.45", sha256: "564c8697fdd4aa69f08b0ecba228ca47cc7dc3e022e6ef55d84ea14f86fb416e" },
+  universal: { version: "20.5.46", sha256: "e313306b09da7e359ea326a44c3850af020acbb2550c30bb2cddf46dc6074d9e" },
 } as const;
 const CASE_ID = "FormSpecificForumReports";
 const CASE_XML = `  <Case id="FormSpecificForumReports">
@@ -121,12 +121,12 @@ describe("owner-approved questions 103 and 104: 103 a, 104a (2026-10-16)", () =>
     ), "utf8")).hrp as Edits;
     expect(hash(await undoReadDepth(await loadCurrent(), "hrp"))).toBe(readDepth.from.sha256);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: CURRENT_HRP.version, revisionDate: "2026-10-20", sha256: CURRENT_HRP.sha256,
+      name: "HRP", version: CURRENT_HRP.version, revisionDate: "2026-10-21", sha256: CURRENT_HRP.sha256,
     });
     const universal = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
     expect(hash(universal)).toBe(PINS.universal.sha256);
     await expect(getProtocolManifest("universal")).resolves.toEqual({
-      name: "AskRigor.com universal saved instructions", version: PINS.universal.version, revisionDate: "2026-10-20",
+      name: "AskRigor.com universal saved instructions", version: PINS.universal.version, revisionDate: "2026-10-21",
       sha256: PINS.universal.sha256,
     });
   });
@@ -159,7 +159,7 @@ describe("owner-approved questions 103 and 104: 103 a, 104a (2026-10-16)", () =>
     const bytes = await readFile(new URL("protocols/HRP_Full.xml", ROOT));
     const { manifest, sections, text } = await loadProtocolSectionSnapshot("hrp");
     expect(text).toBe(bytes.toString("utf8"));
-    expect(manifest).toEqual({ name: "HRP", version: CURRENT_HRP.version, revisionDate: "2026-10-20", sha256: CURRENT_HRP.sha256 });
+    expect(manifest).toEqual({ name: "HRP", version: CURRENT_HRP.version, revisionDate: "2026-10-21", sha256: CURRENT_HRP.sha256 });
     const [found, ...others] = protocolNamedElements(text, CASE_ID);
     expect(others).toEqual([]);
     expect(found).toMatchObject({ tag: "Case", section: "StressTestExpectations" });

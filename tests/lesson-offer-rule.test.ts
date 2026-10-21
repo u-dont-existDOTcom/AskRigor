@@ -11,7 +11,7 @@ import { coreSectionNames, loadProtocolSnapshot } from "@askrigor/protocol";
 describe("lesson offer after a validated correction", () => {
   it("is part of corrections_and_calibration and always loaded", async () => {
     const { text, manifest } = await loadProtocolSnapshot("universal");
-    expect(manifest).toMatchObject({ version: "20.5.45", revisionDate: "2026-10-20" });
+    expect(manifest).toMatchObject({ version: "20.5.46", revisionDate: "2026-10-21" });
     const section = new XMLParser().parse(await undoCorrectionReport(text)).Protocol.corrections_and_calibration as string;
     for (const obligation of [
       "rechecked and found valid",
