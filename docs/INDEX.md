@@ -90,6 +90,11 @@ complete XML protocol.
   123, released on 124a): lessons #32 to #37 and carried state, with HRP 20.6.27, Universal 20.5.44, production
   acceptance and the Codex plugin refresh, and the owner regressions (13 of 30 cases met every criterion, none failed;
   the final check passed in 29 of 32); the case-by-case judgment is `audits/2026-10-20-owner-regressions-judgment.md`.
+- `audits/2026-10-21-planted-error-test.md`: the planted-error test (owner answer 131c, UDA#371 method 6): 16
+  runs through the owner's Codex with no paid model API, eleven invented study reports with one planted error each
+  or none (tables, flattened tables, a supplement, a figure image, an embedded instruction), two with a table in
+  AskRigor's own one-line form, and three real papers whose published correction names a table error; blinded
+  two-reader scoring; fixtures, keys and held-out cases in `evaluation/planted-errors/`.
 - `audits/2026-10-21-owner-answers-125-137-production-release.md`: release of #350 (owner answers 125 to 137 and
   128b, the book-review item): HRP 20.6.28, Universal 20.5.45, the final check's serious-harm screen, the October
   ledger reset (145a), production acceptance and the plugin reinstall, and the owner regressions run with the

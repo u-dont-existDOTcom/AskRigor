@@ -1,0 +1,40 @@
+{
+ "u01": {
+  "planted": "The one-line table gives dawnroot 24.6 to 19.8 (-4.8) and placebo 24.9 to 15.3 (-9.6): the abstract and discussion swap the groups, so placebo improved twice as much.",
+  "location": "one-line flattened table (AskRigor's extraction form) against the abstract",
+  "centrality": "central",
+  "caught_if": "The answer says the table shows the bigger improvement on placebo (-9.6) than on dawnroot (-4.8).",
+  "partial_if": null
+ },
+ "u02": {
+  "planted": "In the one-line table, eye irritation was 9 of 40 (23%) on the high dose, against 3 (8%) and 2 (5%), and 5 (13%) on the high dose stopped because of side effects: the abstract's 'similar in all three groups (5% to 8%)' and the discussion's 'both were well tolerated' are contradicted. The efficacy figures are reported correctly.",
+  "location": "one-line flattened three-column table (AskRigor's extraction form) against the abstract (harms)",
+  "centrality": "central",
+  "caught_if": "The answer says eye irritation was 23% (9 of 40) on the high dose, so the claim that irritation was similar (5% to 8%) is wrong.",
+  "partial_if": "The answer flags the high dose's stopping for side effects or its irritation without saying the abstract's claim is contradicted."
+ },
+ "n01": {
+  "doi": "10.1371/journal.pone.0179185",
+  "planted": "Table 4's Placebo and Treatment columns are swapped: as printed, WOMAC pain is lower (better) on placebo at every follow-up (4 weeks: 20.0 against 45.0), while the Results text says the treated group scored lower and the abstract says ozone worked better.",
+  "correction": "10.1371/journal.pone.0314494 (PMC11581196): 'The data in the Placebo and Treatment groups are swapped in Table 4.'",
+  "location": "table in the published paper",
+  "centrality": "central",
+  "caught_if": "The answer says Table 4 conflicts with the text (or that, as printed, it favours placebo), or reports the correction that its columns are swapped."
+ },
+ "n02": {
+  "doi": "10.1371/journal.pone.0177177",
+  "planted": "Table 3's baseline and end z-scores are switched between the arms: the Results text gives the baseline composite as -0.86 (telerehabilitation) and -0.77 (control), the reverse of the table, and end minus baseline from the table (+0.09 and +0.26) contradicts its own change column (0.25 and 0.09).",
+  "correction": "10.1371/journal.pone.0192317 (PMC5790288): 'In Table 3, the mean baseline and end z-scores are incorrectly switched between treatment conditions.'",
+  "location": "table in the published paper",
+  "centrality": "central",
+  "caught_if": "The answer says Table 3 conflicts with the text or with its own change column, or reports the correction."
+ },
+ "n03": {
+  "doi": "10.1371/journal.pone.0309657",
+  "planted": "Table 3's cardiovascular-death row prints 3 (1.9%) deaths without denosumab instead of 32 (19.8%): as printed, 8 of 52 (15.4%) with denosumab against 3 of 162 (1.9%) contradicts the hazard ratios favouring denosumab (0.54 unadjusted, 0.33 adjusted) and the abstract's headline that it lowers cardiovascular mortality.",
+  "correction": "10.1371/journal.pone.0320569 (PMC11927874): 'the number of CVD cases in the non-denosumab group should be corrected from \"3 (1.9)\" to \"32 (19.8)\".'",
+  "location": "table in the published paper",
+  "centrality": "central",
+  "caught_if": "The answer says the printed cardiovascular-death counts contradict the hazard ratio or the conclusion, or reports the correction (32, 19.8%)."
+ }
+}
