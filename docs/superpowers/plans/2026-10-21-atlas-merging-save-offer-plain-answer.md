@@ -283,6 +283,12 @@ connectors, checked 21 Oct: Wiley Scholar Gateway's `render_contract` asks for a
 to the new Wiley Scholar Gateway connector...", and its passages lose the dash in ranges ("18–60 years" came back as
 "1860 years"), which the reported-figures plausibility check should catch if such a figure is copied.
 
+**Built (21 Oct):** `OTHER_TOOLS_SENTENCE` in `finalize_research`'s description, the step every answer passes through
+just before it is given. The server instructions (2,044 of 2,048 characters) and the skill (1,198 of 1,200 words) have
+no room for another sentence; the skill's paid sentence now says "submits nothing unasked". The Wiley footer and the
+lost range dash stay test material for a later check: the server cannot see another tool's output, and a check that
+looked for one vendor's wording would be the brittle pattern matching AGENTS.md rules out.
+
 ## Order and release
 
 1. Part 1 (the promotion fix), then part 2, on one branch: they share migration `0012`.
