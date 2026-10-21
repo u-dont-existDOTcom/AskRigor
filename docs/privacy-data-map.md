@@ -716,11 +716,14 @@ If the screen passes, the private GitHub issue stores the category in its title
 and labels; a label naming the AskRigor surface that sent it (`source-custom-gpt`
 for the Custom GPT's Action, `source-connector` for the MCP connector); general lesson; expected behavior; failure reason; synthetic
 regression example; evidence basis; optional AskRigor version and protocol
-identities; the privacy-gate marker; optional prior public candidate ID; an
+identities; the privacy-gate marker; optional prior public candidate ID;
+for a connector lesson, an optional number of a public `u-dont-existDOTcom/AskRigor`
+issue, rendered by the server as a reference with no free text; an
 initial anonymous occurrence count; first-seen timestamp; and a hidden
 deduplication fingerprint marker. Later duplicates leave that body unchanged
 and append private generated comments containing only the anonymous count,
-observation timestamp, and canonical fingerprint marker. Neither the issue nor
+observation timestamp, the related issue reference when that repeat names one,
+and canonical fingerprint marker. Neither the issue nor
 the generated comments store `consent_scope`, user identity, network identity,
 conversation identifier, raw chat, raw quotation, medical history, or upload.
 

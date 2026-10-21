@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  connectorLessonCandidateSchema,
   generalizedLessonSchema,
   lessonCandidateSchema,
   lessonSubmissionResultSchema,
@@ -69,6 +70,50 @@ describe("lesson candidate contract", () => {
     "upload",
   ])("rejects forbidden and unknown request field %s", (field) => {
     expect(lessonCandidateSchema.safeParse({ ...validCandidate, [field]: "not permitted" }).success).toBe(false);
+  });
+});
+
+// Issue #357: a connector lesson may point to the public AskRigor issue that
+// reports the failure in detail, by number only.
+describe("connector lesson candidate contract", () => {
+  const withRelatedIssue = { ...validCandidate, related_issue: 357 };
+
+  it("accepts an optional related issue number on the connector only", () => {
+    expect(connectorLessonCandidateSchema.parse(validCandidate)).toEqual(validCandidate);
+    expect(connectorLessonCandidateSchema.parse(withRelatedIssue)).toEqual(withRelatedIssue);
+    for (const related_issue of [1, 1_000_000]) {
+      expect(connectorLessonCandidateSchema.parse({ ...validCandidate, related_issue })).toEqual({
+        ...validCandidate,
+        related_issue,
+      });
+    }
+    // The Action's request shape and the generalized shape are unchanged.
+    expect(lessonCandidateSchema.safeParse(withRelatedIssue).success).toBe(false);
+    expect(generalizedLessonSchema.safeParse(withRelatedIssue).success).toBe(false);
+  });
+
+  it.each([
+    ["zero", 0],
+    ["negative", -357],
+    ["not an integer", 357.5],
+    ["a numeric string", "357"],
+    ["a link", "https://github.com/u-dont-existDOTcom/AskRigor/issues/357"],
+    ["over the bound", 1_000_001],
+    ["not a number", Number.NaN],
+    ["null", null],
+  ])("rejects a related issue that is %s", (_name, related_issue) => {
+    expect(connectorLessonCandidateSchema.safeParse({ ...validCandidate, related_issue }).success).toBe(false);
+  });
+
+  it("takes no incident provenance", () => {
+    expect(connectorLessonCandidateSchema.safeParse({
+      ...validCandidate,
+      incident_provenance: {
+        incident_id: "ali_originalincident0001",
+        incident_sha256: "b".repeat(64),
+        preservation_status: "EXACT_TRANSCRIPT_PRESERVED",
+      },
+    }).success).toBe(false);
   });
 });
 

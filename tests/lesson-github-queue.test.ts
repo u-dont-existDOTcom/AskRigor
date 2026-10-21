@@ -5,6 +5,9 @@ import {
   GitHubLessonQueue,
   publicCandidateId,
 } from "../apps/research-mcp/src/lessons/github-lessons.js";
+import { createLocalLessonGeneralizer } from "../apps/research-mcp/src/lessons/local-generalizer.js";
+import { canonicalizeLesson, lessonFingerprint } from "../apps/research-mcp/src/lessons/privacy-screen.js";
+import { LessonSubmissionService } from "../apps/research-mcp/src/lessons/service.js";
 
 const fingerprint = "f".repeat(64);
 const observedAt = "2026-08-13T12:00:00.000Z";
@@ -387,6 +390,97 @@ describe("private GitHub lesson queue", () => {
     expect(requestCalls(github, "POST")[0]!.body).toMatchObject({
       labels: ["lesson-candidate", "needs-review", "source-connector", "category:missing_sources"],
     });
+  });
+
+  // Issue #357: a connector lesson may name the public AskRigor issue that
+  // reports the failure; the body shows it as one reference built from the number.
+  it("shows a connector lesson's related public issue as one reference and changes nothing else", async () => {
+    const plain = new FakeGitHub();
+    const related = new FakeGitHub();
+
+    await queue(plain).submit({ candidate, fingerprint, source: "connector" });
+    await queue(related).submit({ candidate, fingerprint, source: "connector", relatedIssue: 357 });
+
+    const plainCreate = requestCalls(plain, "POST")[0]!.body as { title: string; body: string; labels: string[] };
+    const relatedCreate = requestCalls(related, "POST")[0]!.body as { title: string; body: string; labels: string[] };
+    const reference = "## Related AskRigor issue\n\nu-dont-existDOTcom/AskRigor#357";
+    expect(relatedCreate.body).toContain(
+      `## Privacy gate\n\nPassed the server's privacy screen\\.\n\n${reference}\n\n## Anonymous occurrence count`,
+    );
+    expect(relatedCreate.body.replace(`${reference}\n\n`, "")).toBe(plainCreate.body);
+    expect(relatedCreate.title).toBe(plainCreate.title);
+    expect(relatedCreate.labels).toEqual(plainCreate.labels);
+    expect(parseFinalMetadata(relatedCreate.body)).toEqual({
+      fingerprint,
+      occurrence_count: 1,
+      first_seen: observedAt,
+      last_seen: observedAt,
+    });
+    expect(plainCreate.body).not.toContain("Related AskRigor issue");
+  });
+
+  it.each([
+    ["zero", 0],
+    ["negative", -357],
+    ["not an integer", 357.5],
+    ["over the bound", 1_000_001],
+    ["not a number", Number.NaN],
+    ["a numeric string", "357"],
+    ["a reference string", "u-dont-existDOTcom/AskRigor#357"],
+  ])(
+    "fails closed before any GitHub request when the related issue is %s",
+    async (_name, relatedIssue) => {
+      const github = new FakeGitHub();
+
+      await expect(queue(github).submit({
+        candidate,
+        fingerprint,
+        source: "connector",
+        relatedIssue: relatedIssue as number,
+      })).rejects.toMatchObject({ code: "github_service_unavailable", retryable: false });
+      expect(github.calls).toHaveLength(0);
+    },
+  );
+
+  it("treats the same lesson with or without a related issue as one candidate, and a repeat's comment names the issue", async () => {
+    const github = new FakeGitHub();
+    const repeatAt = "2026-08-13T13:00:00.000Z";
+    let now = new Date(observedAt);
+    const service = new LessonSubmissionService({
+      limiter: { consume: () => ({ allowed: true }), lastBlockingReason: () => "hourly_limit" },
+      anonymizer: createLocalLessonGeneralizer(),
+      queue: queue(github, () => now),
+    });
+
+    await expect(service.submit(candidate, "connector")).resolves.toEqual({
+      status: "submitted",
+      candidate_id: "ARL-0001",
+      occurrence_count: 1,
+      retryable: false,
+    });
+    now = new Date(repeatAt);
+    const repeat = await service.submit({ ...candidate, related_issue: 357 }, "connector");
+
+    expect(repeat).toEqual({
+      status: "existing_candidate",
+      candidate_id: "ARL-0001",
+      occurrence_count: 2,
+      retryable: false,
+    });
+    expect(JSON.stringify(repeat)).not.toContain("357");
+    const lessonFingerprintValue = lessonFingerprint(canonicalizeLesson(candidate));
+    expect(github.issues).toHaveLength(1);
+    expect(parseFinalMetadata(github.issues[0]!.body)).toMatchObject({ fingerprint: lessonFingerprintValue });
+    expect(github.issues[0]!.body).not.toContain("Related AskRigor issue");
+    expect(github.comments.get(1)?.map(({ body }) => body)).toEqual([[
+      "## Anonymous lesson occurrence",
+      "",
+      "Occurrence count: 2",
+      `Observed at: ${repeatAt}`,
+      "Related AskRigor issue: u-dont-existDOTcom/AskRigor#357",
+      "",
+      occurrenceMarker({ fingerprint: lessonFingerprintValue, occurrence_count: 2, observed_at: repeatAt }),
+    ].join("\n")]);
   });
 
   it("bounds a maximum-length lesson to one deterministic 256-character title while retaining the full body", async () => {

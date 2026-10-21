@@ -2,18 +2,19 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
 import {
+  connectorLessonCandidateSchema,
   lessonCandidateSchema,
   lessonSubmissionResultSchema,
+  PUBLIC_ASKRIGOR_REPOSITORY,
   type LessonSubmissionResult,
 } from "./contracts.js";
 
 /**
  * The lesson Action's candidate without its incident provenance: the
  * connector has no incident vault, and raw incident text never reaches a
- * connector tool.
+ * connector tool. Only the connector may name a related public AskRigor issue.
  */
-export const connectorLessonInputSchema = lessonCandidateSchema
-  .omit({ incident_provenance: true })
+export const connectorLessonInputSchema = connectorLessonCandidateSchema
   .extend({
     general_lesson: lessonCandidateSchema.shape.general_lesson.describe(
       '"When [general situation], AskRigor should [correct behavior] because [reason]."',
@@ -23,6 +24,9 @@ export const connectorLessonInputSchema = lessonCandidateSchema
     ),
     consent_scope: lessonCandidateSchema.shape.consent_scope.describe(
       '"conversation" only after the user said yes for the whole chat.',
+    ),
+    related_issue: connectorLessonCandidateSchema.shape.related_issue.describe(
+      `The number of an issue in ${PUBLIC_ASKRIGOR_REPOSITORY} that reports this failure in detail, when the user filed one.`,
     ),
   });
 
