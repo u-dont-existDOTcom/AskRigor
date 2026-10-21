@@ -22,6 +22,7 @@ import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
 import type { SecondReaderFinding } from "./second-reader.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
 import {
+  findingsAndMapSaveOffer,
   findingsCardDigest,
   findingsCardSchema,
   findingsSaveOffer,
@@ -638,8 +639,8 @@ export const finalizeResearchInputSchema = z.object({
       "for AskRigor's findings library, never claims the user corrected and no personal details, checked against the " +
       "answer and this call's verified sources. Leave it out when the answer cites none. In free " +
       "contributor mode a checked card is saved for the owner's review; in paid private mode, when a finding rests " +
-      "on work a quick answer cannot do, it adds a caveat offering the save. A rejected card is not saved or offered " +
-      "and does not hold back the answer."),
+      "on work a quick answer cannot do, it adds a caveat offering the save, which also asks to file this research's " +
+      "map. A rejected card is not saved or offered and does not hold back the answer."),
   reported_model: z.string().trim().min(1).max(80).optional()
     .describe("Your model's name as your app reports it; kept, unverified, with a saved findings card.")
 }).strict();
@@ -958,10 +959,21 @@ export const finalizeResearchOutputSchema = z.object({
       reason: z.string().optional()
     }).strict().optional()
   }).strict().describe("Whether findings_card checked, and for a free contributor account whether it was saved; for " +
-    "a paid private account, a checked card with a finding beyond a quick answer adds the caveat offering the save. " +
-    "closed: the findings library is not open; private: no research account, so nothing is saved."),
+    "a paid private account, a checked card with a finding beyond a quick answer adds the caveat offering the save " +
+    "(and the filing of this research's map; see research_map). closed: the findings library is not open; private: " +
+    "no research account, so nothing is saved."),
   saved_line: z.string().optional()
-    .describe("When a free contributor's card was saved: the line the answer ends with, just before check_line."),
+    .describe("When a free contributor's card was saved, or a map of this research was filed: the line the answer " +
+      "ends with, just before check_line, saying what was saved."),
+  research_map: z.object({
+    status: z.enum(["filed", "offered", "not_filed"]),
+    note: z.string().optional()
+  }).strict().optional()
+    .describe("This research's map, a RESEARCH_FRONTIER proposal of its searches, the studies found and the leads " +
+      "left open for the owner's review: filed, a map was filed after this research began; offered, a paid private " +
+      "answer's save offer also asks to file it, which submit_research_contribution does only after the user's yes; " +
+      "not_filed, a free contributor's research did work a quick answer cannot do and no map of it was filed, which " +
+      "note says to do. It holds nothing back."),
   plain_answer: z.object({
     status: z.enum(["registered", "note_off", "no_receipt", "other_account", "other_target", "after_research"]),
     claims: z.number().int().positive().optional(),
@@ -1007,6 +1019,12 @@ export interface FinalizeResearchOptions {
   // is compared with the answer, and the note doing so is written unless the account turned it off. `account` is the
   // binding its plain-answer receipts sign (plainAnswerAccountBinding). Other callers' receipts count for nothing.
   plainAnswer?: { note: boolean; account: string };
+  // This research's map on the connector (owner answer 143a, 2026-10-21). "offer": a paid private account, whose save
+  // offer also asks, in the same sentence, to file the map, so one yes saves the card and files it; the finalization
+  // receipt then signs the offer and this account. "remind": a free contributor account, whose map is filed without
+  // asking, reminded when the research did work a quick answer cannot do and no map of it was filed. `account` is the
+  // binding its research_map receipts sign (researchMapAccountBinding); another account's map counts for nothing.
+  researchMap?: { mode: "offer" | "remind"; account: string };
   // The client's own hint that the answer will be read on a phone or tablet:
   // the answer then carries the owner's mobile notice (owner request,
   // 2026-10-15), as Universal's output_style asks wherever a phone shows.
@@ -2354,6 +2372,22 @@ export function finalizeResearch(
     corrections: new Set(works.flatMap(({ corrections }) => [...corrections])).size
   });
   let cardBases: VerifiedBasis[][] | undefined;
+  // This research's map (owner answer 143a, 2026-10-21): a map this account filed after the research began, by the
+  // binding and issue order its research_map receipt signs, is this research's; one filed before it, or by another
+  // account, is not. With no research receipt there is no research to have mapped.
+  const researchBegan = Math.min(...verified.filter(({ kind }) => !NOT_RESEARCH_KINDS.has(kind)).map(receiptOrder));
+  const mapAccount = options.researchMap?.account;
+  const mapFiled = mapAccount !== undefined && verified.some((receipt) => receipt.kind === "research_map" &&
+    text(receipt.claims.acct) === mapAccount && receiptOrder(receipt) > researchBegan);
+  // Whether the paid private offer also asks to file it, which the finalization receipt then signs.
+  let mapOffered = false;
+  // What this research did that a quick answer cannot, counted as a card's work is, for the free reminder.
+  const researchWork: VerifiedWork = {
+    studies: new Set([...validatedIds].map(paperKey)).size,
+    videos: commentVideos.size,
+    absences: acceptedAbsences.size,
+    corrections: (input.corrections ?? []).filter(({ by_user }) => by_user === false).length
+  };
   // Owner answer 140b (2026-10-20): a paid private or dev account registers, before research, the short answer it
   // would give without AskRigor's tools. The latest one signed for this research target before every research receipt
   // here is compared with the answer; one signed later or for another target, or none, gives no note and holds
@@ -2412,7 +2446,12 @@ export function finalizeResearch(
         // A paid private answer offers the save only when a finding rests on such work, which the offer names with
         // this call's counts; without one there is no offer line, and the receipt still signs the card, so the user
         // can still ask for the save.
-        if (options.findings === "offer" && beyond > 0) caveats.push(findingsSaveOffer(countWork(work)));
+        if (options.findings === "offer" && beyond > 0) {
+          // Owner answer 143a: on the connector the offer's one sentence also asks to file this research's map, unless
+          // one was filed already, so one yes saves the card and files the map.
+          mapOffered = options.researchMap?.mode === "offer" && !mapFiled;
+          caveats.push(mapOffered ? findingsAndMapSaveOffer(countWork(work)) : findingsSaveOffer(countWork(work)));
+        }
       }
     }
     // Whether the research confirmed, corrected or qualified each claim, or did not check it, is the model's
@@ -2588,12 +2627,22 @@ export function finalizeResearch(
     // The account's setting removes the note only: the plain answer is still compared with the answer.
     if (status !== "not_ready" && note && compared !== undefined) output.plain_answer_note = plainAnswerNote(compared);
   }
+  // This research's map (owner answer 143a): filed here; offered with the save, for submit_research_contribution after
+  // the user's yes; or, for a free contributor whose research did such work, not filed, which the note says to do.
+  // None of them holds back the answer.
+  if (options.researchMap !== undefined) {
+    if (mapFiled) output.research_map = { status: "filed" };
+    else if (mapOffered) output.research_map = { status: "offered", note: RESEARCH_MAP_OFFERED };
+    else if (options.researchMap.mode === "remind" && verifiedWorkPhrase(researchWork) !== "") {
+      output.research_map = { status: "not_filed", note: researchMapReminder(researchWork) };
+    }
+  }
   if (status !== "not_ready") {
     output.finalization_receipt = issueResearchReceipt("finalization", {
       status,
       community: input.community_evidence,
-      // Research receipts, which a saved card's stamp counts; a plain answer is not research.
-      receipts: verified.filter(({ kind }) => kind !== "plain_answer").length,
+      // Research receipts, which a saved card's stamp counts; a plain answer or a filed map is not research.
+      receipts: verified.filter(({ kind }) => kind !== "plain_answer" && kind !== "research_map").length,
       videos: materialVideos.length,
       depth: input.research_depth,
       target: targetDigest,
@@ -2609,7 +2658,10 @@ export function finalizeResearch(
             findings: findingsCardDigest(input.findings_card),
             ...(cardBases === undefined ? {} : { bases: cardBases.map(signedFindingBases) })
           }
-        : {})
+        : {}),
+      // An offer that asks to file this research's map, made to this account: a paid private map is filed only with
+      // this receipt and the user's yes to it (owner answer 143a).
+      ...(mapOffered && mapAccount !== undefined ? { map: "offered", acct: mapAccount } : {})
     }, {
       secret: options.secret,
       ...(options.now === undefined ? {} : { now: options.now })
@@ -3116,6 +3168,31 @@ function registeredPlainAnswer(
     .sort((left, right) => receiptOrder(left) - receiptOrder(right) || left.index - right.index)
     .at(-1);
   return latest === undefined ? { status: "after_research" } : { status: "registered", claims: list(latest.claims.claims) };
+}
+
+// Receipts that are no part of the research a map maps (owner answer 143a): a plain answer written before it, a final
+// check of it and a map filed after it.
+const NOT_RESEARCH_KINDS: ReadonlySet<ResearchReceiptKind> = new Set(["plain_answer", "finalization", "research_map"]);
+
+// What filing this research's map asks of the model, in the words of the tool that files it.
+const RESEARCH_MAP_FILING = "submit_research_contribution, a RESEARCH_FRONTIER proposal of its searches, the studies " +
+  "found and the leads left open, deidentified as that tool's description shows, never the chat";
+
+/** A paid private answer whose save offer also asks to file this research's map (owner answer 143a). */
+export const RESEARCH_MAP_OFFERED = "The offer also asks to file this research's map. Only after the user's yes to " +
+  `it, save the card with save_research_findings and file the map with ${RESEARCH_MAP_FILING}, with userConsent ` +
+  '"yes_to_this_save" and finalizationReceipt, the finalization_receipt of this check. If the user accepts only one ' +
+  "of the two, do only that one; without a yes, file nothing.";
+
+/**
+ * The reminder a free contributor's final check gives when its research did work a quick answer cannot do and no map
+ * of it was filed (owner answer 143a: "Free accounts aren't asked: the final check reminds the AI to file the map").
+ */
+export function researchMapReminder(work: VerifiedWork): string {
+  return `This research includes ${verifiedWorkPhrase(work)}, work a quick answer does not do, and no map of it was ` +
+    `filed after it began. File it with ${RESEARCH_MAP_FILING}; the free contributor agreement covers it, so the user ` +
+    "is not asked. Then call finalize_research again with the research_receipt that returns among the receipts, so " +
+    "the answer's last line says the map was filed. Nothing here holds back the answer.";
 }
 
 // Why a paid private or dev account's answer ends without the plain-answer note; nothing is held back for it.

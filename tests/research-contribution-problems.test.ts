@@ -355,7 +355,7 @@ describe("the intake's other rules, reported the same way", () => {
 
     const notObject = checkResearchContributionProposal("SENTINEL-TEXT");
     expect(notObject.problems).toEqual([expect.objectContaining({ path: "input", rule: "wrong_type" })]);
-    expect(notObject.problems[0]!.expected).toBe("an object with proposalKind, privacyBoundary, payload, supersedesProposalId, not text");
+    expect(notObject.problems[0]!.expected).toBe("an object with proposalKind, privacyBoundary, payload, supersedesProposalId, userConsent, finalizationReceipt, not text");
     expect(JSON.stringify(notObject)).not.toContain("SENTINEL-TEXT");
   });
 

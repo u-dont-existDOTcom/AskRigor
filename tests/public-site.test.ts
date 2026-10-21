@@ -181,7 +181,7 @@ describe("AskRigor public site", () => {
       "Findings cards are saved automatically, pass the same screening as lesson feedback",
       "Cards are not linked to the account, so revoking access does not withdraw them",
       "To request deletion of a findings card, send its <code>ARF-####</code> id to the same address.",
-      "Paid private mode submits no research progress, and saves an answer’s findings card or lesson feedback only when the person accepts saving it for that answer",
+      "Paid private mode submits no research progress except, when the person accepts it for that answer, that research’s map (its searches, the studies found and the leads left open, never the chat) for review; it saves an answer’s findings card or lesson feedback only when the person accepts saving it for that answer",
       "a short language code (such as es or pt-BR)",
     ]) expect(privacy).toContain(fragment);
     const terms = await pageHtml("site/terms/index.html");

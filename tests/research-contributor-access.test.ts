@@ -8,6 +8,8 @@ import {
   RESEARCH_USE_NOTICE_VERSION,
   ResearchAccessError,
   ResearchContributorAccessService,
+  PAID_PRIVATE_MAP_ONLY,
+  RESEARCH_MAP_CONSENT,
   sha256,
   type ContributionPrivacyBoundary,
   type LivingEvidenceContribution,
@@ -261,8 +263,36 @@ describe("research contributor access", () => {
       proposalKind: "RESEARCH_FRONTIER",
       privacyBoundary: PRIVACY_BOUNDARY,
       payload: partialFrontier(),
+    })).rejects.toMatchObject({ code: "PAID_PRIVATE_DOES_NOT_CONTRIBUTE", message: PAID_PRIVATE_MAP_ONLY });
+    expect(store.allProposals()).toHaveLength(0);
+
+    // Owner answer 143a: only this research's map, with the user's yes and the receipt of the check that offered it,
+    // which the caller checked; the consent alone, or a receipt the caller did not check, files nothing.
+    const receipt = "rr1~finalization~map=offered~1~synthetic";
+    const consented = {
+      proposalKind: "RESEARCH_FRONTIER",
+      privacyBoundary: PRIVACY_BOUNDARY,
+      payload: partialFrontier(),
+      userConsent: RESEARCH_MAP_CONSENT,
+      finalizationReceipt: receipt,
+    };
+    await expect(service.submitProposal(SUBJECT, consented)).rejects.toMatchObject({
+      code: "PAID_PRIVATE_DOES_NOT_CONTRIBUTE",
+    });
+    await expect(service.submitProposal(SUBJECT, consented, {
+      paidPrivateConsent: { receiptSha256: sha256("another receipt") },
+    })).rejects.toMatchObject({ code: "PAID_PRIVATE_DOES_NOT_CONTRIBUTE" });
+    // A paid private account files a map, never an analysis or a topic link, even with a checked consent.
+    await expect(service.submitProposal(SUBJECT, { ...consented, proposalKind: "SOURCE_ANALYSIS" }, {
+      paidPrivateConsent: { receiptSha256: sha256(receipt) },
     })).rejects.toMatchObject({ code: "PAID_PRIVATE_DOES_NOT_CONTRIBUTE" });
     expect(store.allProposals()).toHaveLength(0);
+    const filed = await service.submitProposal(SUBJECT, consented, {
+      paidPrivateConsent: { receiptSha256: sha256(receipt) },
+    });
+    expect(filed.status).toBe("inserted");
+    expect(filed.record.consentReceiptSha256).toBe(sha256(receipt));
+    expect(store.allProposals()).toHaveLength(1);
   });
 
   // Owner decision Q11 (2026-09-30): free use saves each finished answer's findings card, so the notice changed.

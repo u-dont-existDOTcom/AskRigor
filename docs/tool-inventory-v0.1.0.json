@@ -10631,7 +10631,7 @@
     },
     {
       "name": "manage_research_access",
-      "description": "Shows or sets AskRigor's research-use mode. Inspecting it is the first step of research, and it shows why a research tool was refused. Free use requires explicit agreement to version free-contributor-v2-2026-09-30: what AskRigor learns from the research (deidentified structured research progress and each finished answer's findings card) is saved for non-authoritative review. Paid private mode saves an answer's findings card or lesson feedback only when the user accepts saving it for that answer, and activates only for an existing verified entitlement; this release offers no price or checkout. For a paid private or dev account, inspect asks for a plain answer before research: register_plain_answer signs the short answer you would give without AskRigor's tools, which the final check compares with the checked answer in a note, and set_plain_answer_note turns that note off or on.",
+      "description": "Shows or sets AskRigor's research-use mode. Inspecting it is the first step of research, and it shows why a research tool was refused. Free use requires explicit agreement to version free-contributor-v2-2026-09-30: what AskRigor learns from the research (deidentified structured research progress and each finished answer's findings card) is saved for non-authoritative review. Paid private mode saves an answer's findings card, files its research map or saves lesson feedback only when the user accepts that for that answer, and activates only for an existing verified entitlement; this release offers no price or checkout. For a paid private or dev account, inspect asks for a plain answer before research: register_plain_answer signs the short answer you would give without AskRigor's tools, which the final check compares with the checked answer in a note, and set_plain_answer_note turns that note off or on. Each call also returns accountReference, this account's reference, which the user can give AskRigor's owner (for example to be listed as a dev account); give it only when the user asks for it.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -10838,6 +10838,11 @@
           "research_receipt": {
             "type": "string"
           },
+          "accountReference": {
+            "description": "This account's reference, the first characters of its pseudonymous key: the user can give it to AskRigor's owner, for example to be listed as a dev account. It names no one. Give it only when the user asks for it.",
+            "type": "string",
+            "pattern": "^[a-f0-9]{12}$"
+          },
           "problems": {
             "type": "array",
             "items": {
@@ -10970,6 +10975,15 @@
           "supersedesProposalId": {
             "description": "Optional: the proposalId of this account's own pending proposal of the same kind that this one replaces; accepting this one rejects it as superseded.",
             "type": "string"
+          },
+          "userConsent": {
+            "description": "Paid private accounts only, for this research's map: \"yes_to_this_save\", after the user said yes to the answer's offer to save its findings and file the map.",
+            "type": "string",
+            "const": "yes_to_this_save"
+          },
+          "finalizationReceipt": {
+            "description": "Paid private accounts only, with userConsent: the finalization_receipt of the final check whose offer the user said yes to.",
+            "type": "string"
           }
         },
         "required": [
@@ -11091,6 +11105,9 @@
               "supersedesProposalId"
             ],
             "additionalProperties": false
+          },
+          "research_receipt": {
+            "type": "string"
           },
           "error": {
             "type": "object",
@@ -14291,7 +14308,7 @@
     },
     {
       "name": "finalize_research",
-      "description": "Final check of a research answer before it is given. Input: the research_receipt values that AskRigor's tools returned in this session; the research_target as given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits (discovery for another target does not count); whether community evidence was researched, or not relevant with its basis and reason (not_relevant_basis, not_relevant_reason; with no_real_world_outcome, the answer states the reason in the caveat \"I did not search firsthand reports or community discussions for this answer: [reason].\"), and whether the answer compares treatment options; where the topic is discussed and what each community searched outside YouTube showed (principal_communities, community_searches); what the YouTube comments read showed (community_findings); the studies the conclusions rest on (key_sources), whole-intervention identity (intervention_identity), item-level product identity (product_corpora and item_identity), and destination-bound offers or search routes (shopping); after a first pass, the focuses for going deeper (open_leads, another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results (scale_results: quoted explanations with the scale name, range, values and benchmark), with safety statements (safety_claims) or a safety question (safety_question) the serious harms plausible for the exposure, apart from its common side effects, each screened by name (harm_screen: label_warning or reported_signal with the answer's sentence reporting it, not_found with the exact query of a PubMed, Europe PMC or ClinicalTrials.gov search passed here, or not_checked, which the answer states in the caveat \"This answer did not check [harm].\"), visible links to each key study, and the caveats, and is not stored; once the other checks pass, a second model may read the answer for harm statements, specialized terms and scale results the declarations leave out (reader_dismissed answers them); in a later turn, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened. Result: second_reading, whether it ran; carry_forward, the conversation's state to pass back next turn; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh hint when a required declaration is missing; ready_with_limits with the limits, the caveat sentences for the answer (each as its own sentence and as written, in the answer's language when answer_language and caveat_renderings are given) and must_report, what the answer reports from each lane researched; when ready, check_line, the line the answer ends with; or receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the owner's review, and saved_line says so at the end of the answer; in paid private mode, when a finding rests on work a quick answer cannot do, the caveats offer its save. For a paid private or dev account whose plain answer was registered with manage_research_access before the research, plain_answer_comparison gives what the research found for each of its claims, and when ready, plain_answer_note is the note comparing the two, for the end of the answer. Nested inputs, as JSON: intervention_identity.interventions [{\"study_ids\":[\"10.1000/example\"],\"label\":\"…\",\"status\":\"resolved\",\"identity\":{\"registry_code\":\"…\",\"sponsor_or_maker\":\"…\",\"current_product\":\"…\"}}] (an unresolved item has no identity); findings_card.findings [{\"claim\":\"…\",\"certainty\":\"moderate\",\"applies_to\":\"…\",\"answer_quote\":\"…\",\"sources\":[\"10.1000/example\"],\"why_not_usual\":\"…\",\"what_would_change_it\":\"…\"}]; community_searches[].queries [\"…\"]; community_searches[].threads_read [{\"url\":\"https://example.org/t/1\",\"title\":\"…\"}]; community_searches[].report_identity [{\"exposure\":\"…\",\"reports_read\":5,\"firsthand_exact\":2,\"exposure_unclear\":1,\"other_exposure\":1,\"not_firsthand\":1,\"measured_after\":0}] (or one such object); community_searches[].review_corpora [{\"product\":\"…\",\"reviews_read\":20,\"selection\":\"most_recent\",\"outcome_search\":{\"queries\":[\"…\"],\"directions\":[\"benefit\",\"no_effect\",\"adverse\"]},\"item_identity\":{\"exact_product\":18,\"variant_unresolved\":2,\"other_variant_excluded\":0}}]; community_searches[].answer_quotes {\"benefit_reports\":\"…\",\"no_effect_reports\":\"…\",\"adverse_reports\":\"…\",\"effect_on_answer\":\"…\"}; community_findings.product_corpora [{\"product\":\"…\",\"video_ids\":[\"abcdefghijk\"],\"exact_product_signal\":\"…\"}]; comparison_claims[].arms [{\"exposure\":\"…\",\"dose\":6,\"unit\":\"mg\"},{\"exposure\":\"…\",\"dose\":null,\"unit\":null}]; shopping.offers [{\"product\":\"…\",\"url\":\"https://example.org/p/1\",\"offer_state\":\"live_destination_orderable\",\"role\":\"buy_option\"}]; scale_results[].range {\"min\":0,\"max\":10}; scale_results[].values [4.5,2]; scale_results[].benchmark {\"value\":1,\"kind\":\"minimal_important_difference\"} or \"none_established\"; mechanism_claims[].tissue {\"measured\":\"…\",\"claimed\":\"…\"}; harm_screen[].sources_searched [\"label\",\"case_reports\"]; absence_claims[].studies, safety_claims[].studies, mechanism_claims[].studies, plain_answer_comparison[].sources [\"10.1000/example\"]. key_sources[].answer_marker is the visible label, 3 to 80 characters, not a link; another_pass_estimate has at most 200 characters; answer_language is a language tag such as en or pt-BR.",
+      "description": "Final check of a research answer before it is given. Input: the research_receipt values that AskRigor's tools returned in this session; the research_target as given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits (discovery for another target does not count); whether community evidence was researched, or not relevant with its basis and reason (not_relevant_basis, not_relevant_reason; with no_real_world_outcome, the answer states the reason in the caveat \"I did not search firsthand reports or community discussions for this answer: [reason].\"), and whether the answer compares treatment options; where the topic is discussed and what each community searched outside YouTube showed (principal_communities, community_searches); what the YouTube comments read showed (community_findings); the studies the conclusions rest on (key_sources), whole-intervention identity (intervention_identity), item-level product identity (product_corpora and item_identity), and destination-bound offers or search routes (shopping); after a first pass, the focuses for going deeper (open_leads, another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results (scale_results: quoted explanations with the scale name, range, values and benchmark), with safety statements (safety_claims) or a safety question (safety_question) the serious harms plausible for the exposure, apart from its common side effects, each screened by name (harm_screen: label_warning or reported_signal with the answer's sentence reporting it, not_found with the exact query of a PubMed, Europe PMC or ClinicalTrials.gov search passed here, or not_checked, which the answer states in the caveat \"This answer did not check [harm].\"), visible links to each key study, and the caveats, and is not stored; once the other checks pass, a second model may read the answer for harm statements, specialized terms and scale results the declarations leave out (reader_dismissed answers them); in a later turn, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened. Result: second_reading, whether it ran; carry_forward, the conversation's state to pass back next turn; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh hint when a required declaration is missing; ready_with_limits with the limits, the caveat sentences for the answer (each as its own sentence and as written, in the answer's language when answer_language and caveat_renderings are given) and must_report, what the answer reports from each lane researched; when ready, check_line, the line the answer ends with; or receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the owner's review, and saved_line says so at the end of the answer; in paid private mode, when a finding rests on work a quick answer cannot do, the caveats offer its save, which also asks to file this research's map. research_map says whether this research's map was filed or offered, or reminds a free contributor to file it. For a paid private or dev account whose plain answer was registered with manage_research_access before the research, plain_answer_comparison gives what the research found for each of its claims, and when ready, plain_answer_note is the note comparing the two, for the end of the answer. Nested inputs, as JSON: intervention_identity.interventions [{\"study_ids\":[\"10.1000/example\"],\"label\":\"…\",\"status\":\"resolved\",\"identity\":{\"registry_code\":\"…\",\"sponsor_or_maker\":\"…\",\"current_product\":\"…\"}}] (an unresolved item has no identity); findings_card.findings [{\"claim\":\"…\",\"certainty\":\"moderate\",\"applies_to\":\"…\",\"answer_quote\":\"…\",\"sources\":[\"10.1000/example\"],\"why_not_usual\":\"…\",\"what_would_change_it\":\"…\"}]; community_searches[].queries [\"…\"]; community_searches[].threads_read [{\"url\":\"https://example.org/t/1\",\"title\":\"…\"}]; community_searches[].report_identity [{\"exposure\":\"…\",\"reports_read\":5,\"firsthand_exact\":2,\"exposure_unclear\":1,\"other_exposure\":1,\"not_firsthand\":1,\"measured_after\":0}] (or one such object); community_searches[].review_corpora [{\"product\":\"…\",\"reviews_read\":20,\"selection\":\"most_recent\",\"outcome_search\":{\"queries\":[\"…\"],\"directions\":[\"benefit\",\"no_effect\",\"adverse\"]},\"item_identity\":{\"exact_product\":18,\"variant_unresolved\":2,\"other_variant_excluded\":0}}]; community_searches[].answer_quotes {\"benefit_reports\":\"…\",\"no_effect_reports\":\"…\",\"adverse_reports\":\"…\",\"effect_on_answer\":\"…\"}; community_findings.product_corpora [{\"product\":\"…\",\"video_ids\":[\"abcdefghijk\"],\"exact_product_signal\":\"…\"}]; comparison_claims[].arms [{\"exposure\":\"…\",\"dose\":6,\"unit\":\"mg\"},{\"exposure\":\"…\",\"dose\":null,\"unit\":null}]; shopping.offers [{\"product\":\"…\",\"url\":\"https://example.org/p/1\",\"offer_state\":\"live_destination_orderable\",\"role\":\"buy_option\"}]; scale_results[].range {\"min\":0,\"max\":10}; scale_results[].values [4.5,2]; scale_results[].benchmark {\"value\":1,\"kind\":\"minimal_important_difference\"} or \"none_established\"; mechanism_claims[].tissue {\"measured\":\"…\",\"claimed\":\"…\"}; harm_screen[].sources_searched [\"label\",\"case_reports\"]; absence_claims[].studies, safety_claims[].studies, mechanism_claims[].studies, plain_answer_comparison[].sources [\"10.1000/example\"]. key_sources[].answer_marker is the visible label, 3 to 80 characters, not a link; another_pass_estimate has at most 200 characters; answer_language is a language tag such as en or pt-BR.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -15309,7 +15326,7 @@
             }
           },
           "findings_card": {
-            "description": "With answer_draft, when the answer cites a study or video verified here: the answer's best findings for AskRigor's findings library, never claims the user corrected and no personal details, checked against the answer and this call's verified sources. Leave it out when the answer cites none. In free contributor mode a checked card is saved for the owner's review; in paid private mode, when a finding rests on work a quick answer cannot do, it adds a caveat offering the save. A rejected card is not saved or offered and does not hold back the answer.",
+            "description": "With answer_draft, when the answer cites a study or video verified here: the answer's best findings for AskRigor's findings library, never claims the user corrected and no personal details, checked against the answer and this call's verified sources. Leave it out when the answer cites none. In free contributor mode a checked card is saved for the owner's review; in paid private mode, when a finding rests on work a quick answer cannot do, it adds a caveat offering the save, which also asks to file this research's map. A rejected card is not saved or offered and does not hold back the answer.",
             "type": "object",
             "properties": {
               "question": {
@@ -15622,11 +15639,32 @@
               "problems"
             ],
             "additionalProperties": false,
-            "description": "Whether findings_card checked, and for a free contributor account whether it was saved; for a paid private account, a checked card with a finding beyond a quick answer adds the caveat offering the save. closed: the findings library is not open; private: no research account, so nothing is saved."
+            "description": "Whether findings_card checked, and for a free contributor account whether it was saved; for a paid private account, a checked card with a finding beyond a quick answer adds the caveat offering the save (and the filing of this research's map; see research_map). closed: the findings library is not open; private: no research account, so nothing is saved."
           },
           "saved_line": {
-            "description": "When a free contributor's card was saved: the line the answer ends with, just before check_line.",
+            "description": "When a free contributor's card was saved, or a map of this research was filed: the line the answer ends with, just before check_line, saying what was saved.",
             "type": "string"
+          },
+          "research_map": {
+            "description": "This research's map, a RESEARCH_FRONTIER proposal of its searches, the studies found and the leads left open for the owner's review: filed, a map was filed after this research began; offered, a paid private answer's save offer also asks to file it, which submit_research_contribution does only after the user's yes; not_filed, a free contributor's research did work a quick answer cannot do and no map of it was filed, which note says to do. It holds nothing back.",
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "filed",
+                  "offered",
+                  "not_filed"
+                ]
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "additionalProperties": false
           },
           "plain_answer": {
             "description": "For a paid private or dev account: registered, a plain answer signed for this research target before the research, which plain_answer_comparison compares with the answer; note_off, the same with the account's note turned off; or why there is none to compare (no_receipt, other_account, other_target, after_research), which holds nothing back.",

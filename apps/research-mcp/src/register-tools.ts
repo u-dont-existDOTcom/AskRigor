@@ -78,7 +78,7 @@ import {
 } from "./lessons/connector-tool.js";
 import type { LessonSubmissionResult } from "./lessons/contracts.js";
 import { submitConnectorLessonCandidate } from "./lessons/runtime.js";
-import { findingsSavedLine } from "./findings/card.js";
+import { findingsSavedLine, researchMapSavedLine } from "./findings/card.js";
 import {
   findingsSaveToolResult,
   SAVE_RESEARCH_FINDINGS_DESCRIPTION,
@@ -174,6 +174,7 @@ import {
   submitResearchContributionConnectorInputSchema,
   submitResearchContributionOutputSchema,
   submitServerSourceAnalysis,
+  type ResearchMapOptions,
 } from "./research-contributor-access-tool.js";
 import {
   AnalysisStaging,
@@ -232,8 +233,10 @@ import {
   issueResearchReceipt,
   pageKey,
   plainAnswerAccountBinding,
+  researchMapAccountBinding,
   researchReceiptSecretFromEnv,
   researchTargetDigest,
+  verifyResearchReceipt,
   type ResearchReceiptClaims,
   type ResearchReceiptKind
 } from "./research-receipts.js";
@@ -1703,10 +1706,12 @@ function defineResearchOperations(
   registrar.registerTool(
     "manage_research_access",
     {
-      description: `Shows or sets AskRigor's research-use mode. Inspecting it is the first step of research, and it shows why a research tool was refused. Free use requires explicit agreement to version ${RESEARCH_USE_NOTICE_VERSION}: what AskRigor learns from the research (deidentified structured research progress and each finished answer's findings card) is saved for non-authoritative review. Paid private mode saves an answer's findings card or lesson feedback only when the user accepts saving it for that answer, and activates only for an existing verified entitlement; this release offers no price or checkout. ` +
+      description: `Shows or sets AskRigor's research-use mode. Inspecting it is the first step of research, and it shows why a research tool was refused. Free use requires explicit agreement to version ${RESEARCH_USE_NOTICE_VERSION}: what AskRigor learns from the research (deidentified structured research progress and each finished answer's findings card) is saved for non-authoritative review. Paid private mode saves an answer's findings card, files its research map or saves lesson feedback only when the user accepts that for that answer, and activates only for an existing verified entitlement; this release offers no price or checkout. ` +
         "For a paid private or dev account, inspect asks for a plain answer before research: register_plain_answer " +
         "signs the short answer you would give without AskRigor's tools, which the final check compares with the " +
-        "checked answer in a note, and set_plain_answer_note turns that note off or on.",
+        "checked answer in a note, and set_plain_answer_note turns that note off or on. Each call also returns " +
+        "accountReference, this account's reference, which the user can give AskRigor's owner (for example to be " +
+        "listed as a dev account); give it only when the user asks for it.",
       inputSchema: manageResearchAccessInputSchema,
       outputSchema: manageResearchAccessOutputSchema,
       annotations: MUTATING_ANNOTATIONS,
@@ -1747,6 +1752,8 @@ function defineResearchOperations(
       resourceMetadataUrl: options.oauthResourceMetadataUrl,
       signIn: options.signIn,
       canonical: RESEARCH_FRONTIER_READER,
+      // Owner answer 143a: this research's map, on the MCP connector (Gemini's catalog does not list this tool).
+      ...(options.mcpSurface === "/mcp/gemini" ? {} : { researchMap: RESEARCH_MAP_RECEIPTS }),
     }),
   );
 
@@ -2106,7 +2113,9 @@ function defineResearchOperations(
         "receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked " +
         "findings_card is saved to AskRigor's private findings library for the owner's review, and saved_line says " +
         "so at the end of the answer; in paid private mode, when a finding rests on work a quick answer cannot do, " +
-        "the caveats offer its save. For a paid private or dev account whose plain answer was registered with " +
+        "the caveats offer its save, which also asks to file this research's map. research_map says whether this " +
+        "research's map was filed or offered, or reminds a free contributor to file it. For a paid private or dev " +
+        "account whose plain answer was registered with " +
         "manage_research_access before the research, plain_answer_comparison gives what the research found for each " +
         "of its claims, and when ready, plain_answer_note is the note comparing the two, for the end of the answer. " +
         // The only text ChatGPT's app shows the model for this tool (Codex probes, 2026-10-16): the JSON of the
@@ -2151,6 +2160,16 @@ function defineResearchOperations(
         ...(researcher !== undefined && secret !== undefined && options.mcpSurface !== "/mcp/gemini" &&
             plainAnswerRequested(researcher.mode, researcher.accountKey, devAccountKeysFromEnv())
           ? { plainAnswer: { note: researcher.plainAnswerNote, account: plainAnswerAccountBinding(secret, researcher.accountKey) } }
+          : {}),
+        // Owner answer 143a: this research's map, on the MCP connector. A paid private answer's save offer also asks,
+        // in the same sentence, to file it; a free contributor's final check reminds the model to file it.
+        ...(researcher !== undefined && secret !== undefined && options.mcpSurface !== "/mcp/gemini"
+          ? {
+              researchMap: {
+                mode: researcher.mode === "PAID_PRIVATE" ? "offer" as const : "remind" as const,
+                account: researchMapAccountBinding(secret, researcher.accountKey)
+              }
+            }
           : {})
       };
       let result = finalizeResearch(input, finalizeOptions);
@@ -2187,6 +2206,11 @@ function defineResearchOperations(
         const cardId = result.findings_card.saved.card_id;
         if (cardId !== undefined) result.saved_line = findingsSavedLine(cardId);
       }
+      // Owner answer 143a: a free answer whose research map was filed ends by saying what was saved, the card's id
+      // included when its save confirmed.
+      if (researcher?.mode === "FREE_CONTRIBUTOR" && result.research_map?.status === "filed") {
+        result.saved_line = researchMapSavedLine(result.findings_card.saved?.card_id);
+      }
       // Analyses a free contributor's research validated, in this chat or another, go to the review inbox at the
       // account's next passing final check (analysis-staging.ts).
       if (researcher?.mode === "FREE_CONTRIBUTOR" && result.finalization_receipt !== undefined) {
@@ -2212,6 +2236,7 @@ function defineResearchOperations(
               "quotations exactly as they are and its other words in the answer's language when the answer is not in " +
               `English: ${result.plain_answer_note}`) +
           (result.plain_answer?.reason === undefined ? "" : `\nPlain answer: ${result.plain_answer.reason}`) +
+          (result.research_map?.note === undefined ? "" : `\nResearch map: ${result.research_map.note}`) +
           (result.saved_line === undefined ? "" :
             `\nJust before the check line, end the answer with this line, as written (in the answer's language when the answer is not in English): ${result.saved_line}`) +
           (result.check_line === undefined ? "" :
@@ -2644,6 +2669,39 @@ async function resolveVideoLeads(leads: readonly string[]): Promise<string[] | u
 function isActionCall(extra: unknown): boolean {
   return (extra as ResearchOperationExtra | undefined)?.surface === "action";
 }
+
+/**
+ * This research's map's receipts (owner answer 143a): the check of the final check whose offer a paid private map is
+ * filed with, and the research_map receipt a filed map returns. Both need the receipt secret.
+ */
+const RESEARCH_MAP_RECEIPTS: ResearchMapOptions = {
+  checkOffer: (receipt, accountKey) => {
+    const secret = researchReceiptSecretFromEnv();
+    if (secret === undefined) return { ok: false, reason: "this server cannot verify receipts." };
+    const verified = verifyResearchReceipt(receipt, { secret });
+    if (!verified.ok) {
+      return {
+        ok: false,
+        reason: verified.reason === "expired"
+          ? "it has expired, so call finalize_research again and ask the user again."
+          : "it is not a receipt this server signed."
+      };
+    }
+    if (
+      verified.kind !== "finalization" || verified.claims.map !== "offered" ||
+      verified.claims.acct !== researchMapAccountBinding(secret, accountKey)
+    ) {
+      return { ok: false, reason: "it is not a final check of this account whose offer included this research's map." };
+    }
+    return { ok: true, receiptSha256: createHash("sha256").update(receipt.trim(), "utf8").digest("hex") };
+  },
+  sign: (accountKey) => {
+    const secret = researchReceiptSecretFromEnv();
+    return secret === undefined
+      ? undefined
+      : researchReceipt("research_map", { acct: researchMapAccountBinding(secret, accountKey) });
+  }
+};
 
 /** Signs a receipt when a signing secret is configured; see research-receipts.ts. */
 function researchReceipt(
