@@ -3285,6 +3285,10 @@ describe("findings card at the final gate", () => {
     const counted = finalizeResearch({ ...input, findings_card: card }, offerOptions);
     expect(counted).toMatchObject({ status: plain.status, next_steps: [], findings_card: { status: "checked", beyond_quick_answer: 2 } });
     expect(counted.caveats).toEqual([...plain.caveats, offer]);
+    // The owner's example (139c), word for word.
+    expect(findingsSaveOffer({ studies: 2, videos: 3, absences: 0, corrections: 0 })).toBe("These findings rest on " +
+      "full-text audits of 2 studies and audited comments on 3 videos, work a quick answer does not do. If you want " +
+      "them saved to AskRigor's findings library for review, say yes; nothing is saved otherwise.");
     expect(findingsSaveOffer({ studies: 2, videos: 3, absences: 2, corrections: 1 })).toBe("These findings rest on " +
       "full-text audits of 2 studies, audited comments on 3 videos, 2 checks of what the evidence does not show and a " +
       `correction the research made to an earlier statement, work a quick answer does not do. ${FINDINGS_SAVE_OFFER}`);

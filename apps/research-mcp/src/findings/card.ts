@@ -53,9 +53,9 @@ export const findingsCardSchema = z.object({
 
 export type FindingsCard = z.output<typeof findingsCardSchema>;
 
-/** The sentence a paid-private answer's offer ends with: the save waits for a yes. */
+/** The sentence a paid-private answer's offer ends with, as the owner worded it (139c): the save waits for a yes. */
 export const FINDINGS_SAVE_OFFER =
-  "If you want these findings saved to AskRigor's findings library for review, say yes; nothing is saved otherwise.";
+  "If you want them saved to AskRigor's findings library for review, say yes; nothing is saved otherwise.";
 
 /**
  * Work a quick answer cannot do, which finalize_research derives for each finding of a checked card from that call's
