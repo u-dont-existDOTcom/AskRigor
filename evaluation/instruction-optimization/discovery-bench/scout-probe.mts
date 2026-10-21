@@ -72,9 +72,11 @@ const options = {
 let execution = await executeResumableAutomatedGeminiScout(input, undefined, options, leads);
 let advances = 1;
 while ("controller_progress" in execution && Date.now() - started < Number(values["max-seconds"]) * 1_000) {
+  const budgetHold = execution.controller_progress.budget_hold;
   execution = await executeResumableAutomatedGeminiScout(input, {
     checkpoint: execution.controller_progress.checkpoint,
-    accountedNanoUsd: execution.controller_progress.accounted_nano_usd
+    accountedNanoUsd: execution.controller_progress.accounted_nano_usd,
+    ...(budgetHold === undefined ? {} : { budgetHold })
   }, options, leads);
   advances += 1;
 }

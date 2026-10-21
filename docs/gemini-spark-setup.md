@@ -38,15 +38,18 @@ model alias that can silently change quality or price.
 ## Cost boundary
 
 Every scout reserves at most $1.00 from the existing aggregate AskRigor AI
-budget before Gemini is called. A background scout is conservatively charged
-the full reservation when its job starts; later polls do not reserve or charge
-again. A one-request technical call that completes synchronously commits an amount
-from reported input, output, thought, and Google Search-query usage at the
-reviewed list prices. Missing token usage commits the full reservation. A
+budget before Gemini is called. A one-request technical call that completes
+synchronously commits an amount from reported input, output, thought, and
+Google Search-query usage at the reviewed list prices. A background scout is
+charged the full reservation as a hold when its job starts; later polls do not
+reserve again, and the call that completes it settles the hold with the same
+usage-based amount, returning the rest to the hold's UTC month once (nothing
+once that month has ended). Missing token usage commits the full reservation. A
 scout whose reported usage costs more than its reservation (72 or more Google
 searches do on their own) is refused and charged the full reservation, and its
 candidates are not used; the ledger cannot record its real cost above $1.
-Provider failures forfeit the reservation conservatively. The shared application ledger
+Provider failures, and background scouts stopped or abandoned before they
+complete, keep the whole reservation charged. The shared application ledger
 retains only UTC month, fixed monthly limit, aggregate charged nano-USD, update
 time, and schema version—never target text, candidates, credentials, or raw
 provider output.

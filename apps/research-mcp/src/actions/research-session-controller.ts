@@ -9,6 +9,7 @@ import {
 } from "@askrigor/sources";
 import { z } from "zod";
 
+import { budgetHoldSchema, type BudgetHold } from "../lessons/ai-budget.js";
 import type { YoutubeCommunitySurveyOutput } from "../youtube-community-survey.js";
 import {
   bidirectionalIterationDiagnosticsSchema,
@@ -330,7 +331,10 @@ const scoutStateSchema = z.object({
     "TEMPORARY_BACKGROUND_DELETE_REQUESTED"
   ]).optional(),
   accounted_nano_usd: z.number().int().nonnegative().max(1_000_000_000).optional(),
-  background_job: geminiYoutubeScoutBackgroundCheckpointSchema.optional()
+  background_job: geminiYoutubeScoutBackgroundCheckpointSchema.optional(),
+  // The budget hold the scout's completion settles; sessions saved before
+  // holds existed have none, and their charge stays whole.
+  budget_hold: budgetHoldSchema.optional()
 }).strict();
 
 const finalCompletionAuditStateSchema = z.object({
@@ -432,6 +436,12 @@ export const researchSessionStateSchema = z.object({
     context.addIssue({
       code: "custom",
       message: "Only an in-progress scout may retain a background provider checkpoint"
+    });
+  }
+  if (state.scout.budget_hold !== undefined && state.scout.status !== "IN_PROGRESS") {
+    context.addIssue({
+      code: "custom",
+      message: "Only an in-progress scout may retain a budget hold"
     });
   }
   if (
@@ -1216,7 +1226,8 @@ export function recordAutomatedScoutCompletion(
 export function recordAutomatedScoutProgress(
   rawState: ResearchSessionState,
   checkpoint: GeminiYoutubeScoutBackgroundCheckpoint,
-  accountedNanoUsd: number
+  accountedNanoUsd: number,
+  budgetHold?: BudgetHold
 ): ResearchSessionState {
   const state = requireCurrentProtocols(rawState);
   if (
@@ -1251,7 +1262,8 @@ export function recordAutomatedScoutProgress(
       unresolved_candidate_ids: [],
       provider_storage_mode: "TEMPORARY_BACKGROUND_DELETE_PENDING",
       accounted_nano_usd: accountedNanoUsd,
-      background_job: parsedCheckpoint
+      background_job: parsedCheckpoint,
+      ...(budgetHold === undefined ? {} : { budget_hold: budgetHold })
     },
     candidate_discovery: candidateDiscovery
   });
@@ -1904,7 +1916,11 @@ function blockedScoutProjection(
 ): ResearchSessionState["scout"] {
   const external = candidateDiscovery.external_scout;
   const providerResponseId = external.provider_response_id ?? prior.provider_response_id;
-  const { background_job: _backgroundJob, ...withoutBackgroundJob } = prior;
+  const {
+    background_job: _backgroundJob,
+    budget_hold: _budgetHold,
+    ...withoutBackgroundJob
+  } = prior;
   return {
     ...withoutBackgroundJob,
     status: "BLOCKED",

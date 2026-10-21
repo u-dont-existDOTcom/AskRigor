@@ -10,6 +10,8 @@ import {
 } from "@askrigor/sources";
 import { z } from "zod";
 
+import { budgetHoldSchema, type BudgetHold } from "./lessons/ai-budget.js";
+
 /**
  * Signed continuation for the MCP Gemini scout.
  *
@@ -17,10 +19,11 @@ import { z } from "zod";
  * (Claude clients stop at 60 seconds), so the MCP tool runs the scout as a
  * background Interaction and hands the model a token to call again. The token
  * carries the de-identified target, any language tag and rediscovery leads, the provider
- * checkpoint (opaque identity, public search receipts and counters) and the
- * budget already charged, so a later call resumes without reserving or charging
- * again. It is signed under a domain-separated key and expires; a tampered or
- * stale token is rejected.
+ * checkpoint (opaque identity, public search receipts and counters), the
+ * budget already charged and its hold (a random identity, the amount and its
+ * UTC month), so a later call resumes without reserving again and the call
+ * that completes the scout settles its real cost. It is signed under a
+ * domain-separated key and expires; a tampered or stale token is rejected.
  */
 
 const DOMAIN = "askrigor:gemini-scout-continuation:v1";
@@ -35,6 +38,8 @@ const continuationStateSchema = z.object({
     .min(1).max(GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS).optional(),
   checkpoint: geminiYoutubeScoutBackgroundCheckpointSchema,
   accounted_nano_usd: z.number().int().nonnegative(),
+  // Tokens issued before holds existed have none; their charge stays whole.
+  budget_hold: budgetHoldSchema.optional(),
   expires_at_ms: z.number().int().positive()
 }).strict();
 
@@ -45,6 +50,7 @@ export interface ScoutContinuationState {
   rediscovery_leads?: string[];
   checkpoint: GeminiYoutubeScoutBackgroundCheckpoint;
   accounted_nano_usd: number;
+  budget_hold?: BudgetHold;
   expires_at_ms: number;
 }
 
