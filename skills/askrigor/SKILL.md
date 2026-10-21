@@ -27,7 +27,7 @@ Free contributor mode permits AskRigor to learn from eligible deidentified
 structured research progress. It never permits submission of raw chat, prompts,
 identity/contact details, private health narratives, uploads, raw source or
 provider bodies, credentials, or YouTube/community posts, commenters, links or
-video IDs. Paid private mode submits no shared contribution.
+video IDs. Paid private mode submits nothing unasked.
 
 After eligible free-mode work, submit the strict formal research
 frontier with its exact coverage, candidate decisions, partial state, and open

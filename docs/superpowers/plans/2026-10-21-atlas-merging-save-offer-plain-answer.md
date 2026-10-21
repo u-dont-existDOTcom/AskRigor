@@ -183,6 +183,29 @@ is better; the model's `why_not_usual` stays on the card for the owner's review.
 - **143b:** every account is asked; a free user's no means the map is not filed.
 - **143c:** no question: the free reminder only; paid accounts keep filing nothing.
 
+**Owner answer 143a (21 Oct). Built on `build-143a-20261021`:**
+
+- `finalize_research` on the MCP connector: a paid private answer's offer is one sentence that also asks to file the
+  map (`FINDINGS_AND_MAP_SAVE_OFFER`); the finalization receipt then signs `map=offered` and a 16-character HMAC
+  binding to the account (`researchMapAccountBinding`). `research_map` reports `filed`, `offered` (with the steps
+  after the yes) or, for a free contributor whose research did work a quick answer cannot do, `not_filed` with the
+  reminder. A map counts as this research's when its `research_map` receipt, from this account, was issued after the
+  first research receipt. A free answer whose map was filed ends with `researchMapSavedLine`.
+- `submit_research_contribution`: `userConsent` (`yes_to_this_save`) and `finalizationReceipt`; the handler checks the
+  receipt (signature, kind, age, account binding, offer) and the service files a paid private account's proposal only
+  as a `RESEARCH_FRONTIER` with that receipt's SHA-256; every filed map returns a `research_map` receipt.
+- Migration `0014_research_map_consent`: `consent_receipt_sha256`, its check, a unique index (one yes files one map)
+  and the proposal trigger admitting a paid private map only with the digest. The review view hides the digest.
+- The account reference (owner question, 21 Oct): every `manage_research_access` call returns `accountReference`,
+  the first 12 hex characters of the caller's own key; `ASKRIGOR_DEV_ACCOUNT_KEYS` takes references or whole keys.
+- Text: the server instructions ("Paid-private mode submits nothing unasked.", 2,044 of 2,048 characters), the tool
+  descriptions and inventory, the skill's sentence (the plugin package changes, so the release reinstalls it), the
+  privacy page's paid sentence and the data map. The terms are unchanged: they say paid private mode "contributes
+  nothing to the shared repository automatically", which stays true. The in-app notice is unchanged too: changing it
+  needs a new notice version, which every free contributor would have to accept again; the offer itself names the map.
+- **At release:** move the privacy page's effective date to the release day; put the notice question to the owner
+  in the release question; reinstall the plugin with the new skill file.
+
 ## 5. 140b, the plain answer first
 
 - **Which accounts:** paid private accounts, and accounts marked dev in a server setting
