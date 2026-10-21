@@ -1743,6 +1743,7 @@ function defineResearchOperations(
       service: options.researchContributionReviewService,
       resourceMetadataUrl: options.oauthResourceMetadataUrl,
       allowedReviewerSubjects: options.allowedReviewerSubjects,
+      canonical: RESEARCH_FRONTIER_READER,
     }),
   );
 

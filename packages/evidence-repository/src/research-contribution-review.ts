@@ -13,6 +13,18 @@ import {
   type ResearchContributionProposalKind,
   type ResearchContributionProposalRecord,
 } from "./research-contributor-access.js";
+import {
+  canonicalIdentityRequest,
+  preflightContribution,
+  proposalKeys,
+  RELATED_PROPOSAL_KEY_KINDS,
+  RELATED_RECORDS_SHOWN,
+  relatedCanonicalRecords,
+  type CanonicalIdentityReader,
+  type ContributionPreflight,
+  type RelatedCanonicalRecord,
+  type RelatedProposalKeyKind,
+} from "./contribution-identity.js";
 import type {
   LivingEvidenceContribution,
   ResearchFrontierContribution,
@@ -169,6 +181,29 @@ export interface ResearchContributionReviewView {
    */
   supersedesProposalId: string | null;
   supersededByProposalIds: string[];
+  /**
+   * Owner answer 138b: the other proposals pending review or queued for promotion that share one of this proposal's
+   * identities, by proposal ID only (never an account key); and, when the canonical store was read for this review,
+   * the canonical records that share them.
+   */
+  related: {
+    proposals: ResearchContributionRelatedProposal[];
+    proposalsNotShown: number;
+    canonical: { records: RelatedCanonicalRecord[]; notShown: number } | null;
+  };
+  /**
+   * A read-only dry run of the canonical writer's identity checks, for a proposal pending review or queued for
+   * promotion when the canonical store was read for this review; unavailable when it could not be read.
+   */
+  preflight: ContributionPreflight | { status: "unavailable" } | null;
+}
+
+export interface ResearchContributionRelatedProposal {
+  proposalId: string;
+  proposalKind: ResearchContributionProposalKind;
+  status: "PENDING_REVIEW" | "ACCEPTED";
+  promotionStatus: "PENDING" | null;
+  shared: RelatedProposalKeyKind[];
 }
 
 export interface ResearchContributionReviewStore {
@@ -208,8 +243,31 @@ export class ResearchContributionReviewService {
     this.createUuid = options.randomUuid ?? randomUUID;
   }
 
-  async inspect(proposalId?: string): Promise<ResearchContributionReviewView | null> {
-    return validateReviewView(await this.store.inspect(proposalId));
+  /**
+   * One proposal for the owner's review. With the canonical store's read-only view, a proposal pending review or
+   * queued for promotion also gets the canonical records it shares identities with and the promotion preflight.
+   */
+  async inspect(
+    proposalId?: string,
+    options: { canonical?: CanonicalIdentityReader } = {},
+  ): Promise<ResearchContributionReviewView | null> {
+    const view = validateReviewView(await this.store.inspect(proposalId));
+    if (
+      view === null || options.canonical === undefined ||
+      !(view.status === "PENDING_REVIEW" || (view.status === "ACCEPTED" && view.promotion?.status === "PENDING"))
+    ) {
+      return view;
+    }
+    const kind = view.proposalKind;
+    const state = await options.canonical
+      .readCanonicalIdentity(canonicalIdentityRequest(kind, view.payload))
+      .catch(() => undefined);
+    if (state === undefined) return { ...view, preflight: { status: "unavailable" } };
+    return {
+      ...view,
+      related: { ...view.related, canonical: relatedCanonicalRecords(kind, view.payload, state) },
+      preflight: preflightContribution(kind, view.payload, state, view.payloadSha256),
+    };
   }
 
   async decide(input: unknown): Promise<ResearchContributionReviewView> {
@@ -261,16 +319,34 @@ implements ResearchContributionReviewStore {
             left.proposalId.localeCompare(right.proposalId)
           )[0]
       : this.proposals.get(proposalId);
-    return proposal === undefined ? null : reviewView(
+    if (proposal === undefined) return null;
+    const ordered = [...this.proposals.values()].sort((left, right) =>
+      left.createdAt.localeCompare(right.createdAt) || left.proposalId.localeCompare(right.proposalId));
+    const ownKeys = new Set(proposalKeys(proposal.payload).map(({ kind, value }) => `${kind}\u0000${value}`));
+    const related = ordered.flatMap((other): ResearchContributionRelatedProposal[] => {
+      const promotion = this.promotions.get(other.proposalId) ?? null;
+      const queued = other.status === "ACCEPTED" && promotion?.status === "PENDING";
+      if (other.proposalId === proposal.proposalId || (other.status !== "PENDING_REVIEW" && !queued)) return [];
+      const shared = [...new Set(proposalKeys(other.payload)
+        .filter(({ kind, value }) => ownKeys.has(`${kind}\u0000${value}`))
+        .map(({ kind }) => kind))].sort();
+      return shared.length === 0 ? [] : [{
+        proposalId: other.proposalId,
+        proposalKind: other.proposalKind,
+        status: other.status as "PENDING_REVIEW" | "ACCEPTED",
+        promotionStatus: queued ? "PENDING" : null,
+        shared,
+      }];
+    });
+    return reviewView(
       proposal,
       this.promotions.get(proposal.proposalId) ?? null,
-      [...this.proposals.values()]
+      ordered
         .filter((other) =>
           other.supersedesProposalId === proposal.proposalId &&
           (other.status === "PENDING_REVIEW" || other.status === "ACCEPTED"))
-        .sort((left, right) =>
-          left.createdAt.localeCompare(right.createdAt) || left.proposalId.localeCompare(right.proposalId))
         .map(({ proposalId: id }) => id),
+      related,
     );
   }
 
@@ -682,6 +758,14 @@ const reviewContextSchema = z.object({
   }).strict().nullable().optional(),
   supersedes_proposal_id: z.string().uuid().nullable().optional(),
   superseded_by_proposal_ids: z.array(z.string().uuid()).optional(),
+  related_proposals: z.array(z.object({
+    proposal_id: z.string().uuid(),
+    proposal_kind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS"]),
+    status: z.enum(["PENDING_REVIEW", "ACCEPTED"]),
+    promotion_status: z.literal("PENDING").nullable(),
+    shared: z.array(z.enum(RELATED_PROPOSAL_KEY_KINDS)).min(1),
+  }).strict()).max(RELATED_RECORDS_SHOWN).optional(),
+  related_proposal_count: z.number().int().nonnegative().optional(),
 }).strict();
 
 type ResearchContributionReviewContext = z.infer<typeof reviewContextSchema>;
@@ -698,6 +782,7 @@ function reviewView(
   proposal: ResearchContributionProposalRecord,
   promotion: ResearchContributionPromotionView | null,
   supersededByProposalIds: string[],
+  related: ResearchContributionRelatedProposal[],
 ): ResearchContributionReviewView {
   const { accountKey: _accountKey, supersedesProposalId, ...publicProposal } = proposal;
   return structuredClone({
@@ -705,6 +790,12 @@ function reviewView(
     promotion,
     supersedesProposalId: supersedesProposalId ?? null,
     supersededByProposalIds,
+    related: {
+      proposals: related.slice(0, RELATED_RECORDS_SHOWN),
+      proposalsNotShown: Math.max(0, related.length - RELATED_RECORDS_SHOWN),
+      canonical: null,
+    },
+    preflight: null,
   });
 }
 
@@ -757,6 +848,18 @@ function reviewViewFromRow(
     promotion,
     supersedesProposalId: context.supersedes_proposal_id ?? null,
     supersededByProposalIds: context.superseded_by_proposal_ids ?? [],
+    related: {
+      proposals: (context.related_proposals ?? []).map((related) => ({
+        proposalId: related.proposal_id,
+        proposalKind: related.proposal_kind,
+        status: related.status,
+        promotionStatus: related.promotion_status,
+        shared: related.shared,
+      })),
+      proposalsNotShown: Math.max(0, (context.related_proposal_count ?? 0) - (context.related_proposals?.length ?? 0)),
+      canonical: null,
+    },
+    preflight: null,
   };
 }
 

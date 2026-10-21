@@ -4,6 +4,7 @@ import type {
 } from "./contracts.js";
 import { sha256, stableJson } from "./hash.js";
 import type { ContributionProblemRule } from "./research-contribution-check.js";
+import type { ResearchContributionPromotionFailureCode } from "./research-contribution-review.js";
 
 // Owner answer 138b (2026-10-20): "exact merging (the same topic, question or study continues the existing record
 // ...)". A proposal is reconciled with the canonical store by exact identity only, before it is stored: the owner then
@@ -506,4 +507,374 @@ export function reconcileResearchFrontier(
     version.candidateId = candidateMap.get(version.candidateId) ?? version.candidateId;
   }
   return { payload, reconciled, findings };
+}
+
+/**
+ * The promotion preflight (owner answer 138b): a read-only dry run of the canonical writer's identity checks for this
+ * exact payload against the canonical store as it is now, naming each conflict with the code promotion would end the
+ * intent with, in the writer's order (the first is the one promotion meets). The store's other rules (delta windows,
+ * the scope of candidates and trails, receipts and bindings) run at promotion itself.
+ */
+export interface ContributionPreflight {
+  status: "clear" | "conflicts" | "replay";
+  conflicts: Array<{ code: ResearchContributionPromotionFailureCode; path: string }>;
+}
+
+export function preflightContribution(
+  kind: ContributionKind,
+  payload: LivingEvidenceContribution | ResearchFrontierContribution,
+  state: CanonicalIdentityState,
+  payloadSha256: string,
+): ContributionPreflight {
+  const conflicts: ContributionPreflight["conflicts"] = [];
+  const conflict = (code: ResearchContributionPromotionFailureCode, path: string) => conflicts.push({ code, path });
+  const recordId = kind === "RESEARCH_FRONTIER"
+    ? (payload as ResearchFrontierContribution).contributionId
+    : (payload as LivingEvidenceContribution).analysis.versionId;
+  if (state.idempotency !== null) {
+    if (state.idempotency.payloadSha256 === payloadSha256 && state.idempotency.recordId === recordId) {
+      return { status: "replay", conflicts: [] };
+    }
+    conflict(
+      kind === "RESEARCH_FRONTIER" ? "FRONTIER_IDEMPOTENCY_KEY_PAYLOAD_MISMATCH" : "IDEMPOTENCY_KEY_PAYLOAD_MISMATCH",
+      "payload.idempotencyKey",
+    );
+  }
+  payload.run.protocolManifests.forEach((manifest, index) => {
+    const stored = state.manifests.find(({ sha256: digest }) => digest === manifest.sha256);
+    if (stored !== undefined && (stored.name !== manifest.name || stored.version !== manifest.version || !stored.revisionDateMatches)) {
+      conflict("PROTOCOL_MANIFEST_CONFLICT", `payload.run.protocolManifests[${index}]`);
+    }
+  });
+  const run = state.run;
+  if (
+    run !== null && (
+      run.runKind !== payload.run.runKind || !run.startedAtMatches || !run.completedAtMatches ||
+      JSON.stringify(run.protocolManifestSha256s) !==
+        JSON.stringify(payload.run.protocolManifests.map(({ sha256: digest }) => digest)) ||
+      run.provenanceNote !== payload.run.provenanceNote
+    )
+  ) {
+    conflict("RESEARCH_RUN_CONFLICT", "payload.run.runId");
+  }
+  const topic = kind === "RESEARCH_FRONTIER"
+    ? (payload as ResearchFrontierContribution).topic
+    : (payload as LivingEvidenceContribution).topic;
+  if (topic !== null) {
+    const stored = state.topics.find(({ topicId }) => topicId === topic.topicId);
+    if (stored !== undefined) {
+      if (stored.canonicalKey !== topic.canonicalKey || stored.label !== topic.label) {
+        conflict("TOPIC_ID_CONFLICT", "payload.topic.topicId");
+      }
+    } else if (state.topics.some(({ canonicalKey }) => canonicalKey === topic.canonicalKey)) {
+      conflict("TOPIC_KEY_CONFLICT", "payload.topic.canonicalKey");
+    }
+  }
+  if (kind === "RESEARCH_FRONTIER") {
+    preflightFrontier(payload as ResearchFrontierContribution, state, conflict);
+  } else {
+    preflightAnalysis(payload as LivingEvidenceContribution, state, conflict);
+  }
+  return { status: conflicts.length === 0 ? "clear" : "conflicts", conflicts };
+}
+
+type Conflict = (code: ResearchContributionPromotionFailureCode, path: string) => void;
+
+function questionDiffers(
+  stored: CanonicalIdentityState["questions"][number],
+  topicId: string,
+  question: { normalizedQuestion: string; dimensions: QuestionDimensions },
+): boolean {
+  return stored.topicId !== topicId || stored.normalizedQuestion !== question.normalizedQuestion ||
+    !sameDimensions(stored.dimensions, question.dimensions);
+}
+
+function preflightFrontier(payload: ResearchFrontierContribution, state: CanonicalIdentityState, conflict: Conflict): void {
+  const storedQuestion = state.questions.find(({ questionId }) => questionId === payload.question.questionId);
+  if (storedQuestion !== undefined && questionDiffers(storedQuestion, payload.topic.topicId, payload.question)) {
+    conflict("QUESTION_ID_CONFLICT", "payload.question.questionId");
+  }
+  const frontierId = payload.frontier.frontierId;
+  const storedFrontier = state.frontiers.find((candidate) => candidate.frontierId === frontierId);
+  if (storedFrontier !== undefined) {
+    if (storedFrontier.questionId !== payload.question.questionId) {
+      conflict("RESEARCH_FRONTIER_ID_CONFLICT", "payload.frontier.frontierId");
+    }
+  } else if (state.frontiers.some(({ questionId }) => questionId === payload.question.questionId)) {
+    conflict("RESEARCH_FRONTIER_QUESTION_CONFLICT", "payload.frontier.frontierId");
+  }
+  payload.frontier.lanes.forEach((lane, index) => {
+    const stored = state.lanes.find(({ laneId }) => laneId === lane.laneId);
+    if (stored !== undefined) {
+      if (
+        stored.frontierId !== frontierId || stored.canonicalKey !== lane.canonicalKey ||
+        stored.sourceClass !== lane.sourceClass || stored.provider !== lane.provider || stored.label !== lane.label
+      ) {
+        conflict("FRONTIER_LANE_ID_CONFLICT", `payload.frontier.lanes[${index}].laneId`);
+      }
+    } else if (state.lanes.some((candidate) => candidate.frontierId === frontierId && candidate.canonicalKey === lane.canonicalKey)) {
+      conflict("FRONTIER_LANE_KEY_CONFLICT", `payload.frontier.lanes[${index}].canonicalKey`);
+    }
+  });
+  if (state.contributionIds.includes(payload.contributionId)) conflict("CANONICAL_UNIQUE_CONFLICT", "payload.contributionId");
+  payload.frontier.passes.forEach((pass, index) => {
+    if (state.passIds.includes(pass.passId)) conflict("CANONICAL_UNIQUE_CONFLICT", `payload.frontier.passes[${index}].passId`);
+    const basis = state.lanes.find(({ laneId }) => laneId === pass.laneId)?.coverageBasis ?? null;
+    if (basis !== null && basis !== pass.coverageBasis) {
+      conflict("FRONTIER_LANE_COVERAGE_BASIS_MISMATCH", `payload.frontier.passes[${index}].coverageBasis`);
+    }
+  });
+  // As the writer meets them, one after another: a version earlier in this payload is the next one's head.
+  const heads = new Map(state.candidates.map(({ candidateId, headVersionId }) => [candidateId, headVersionId]));
+  const versionCandidates = new Map(state.candidateVersions.map(({ versionId, candidateId }) => [versionId, candidateId]));
+  const created = new Map<string, { frontierId: string; candidateKind: string; identityHash: string }>();
+  payload.frontier.candidateVersions.forEach((version, index) => {
+    const path = `payload.frontier.candidateVersions[${index}]`;
+    const identityHash = frontierCandidateIdentityHash(version.identifiers);
+    const stored = state.candidates.find(({ candidateId }) => candidateId === version.candidateId) ??
+      created.get(version.candidateId);
+    if (stored === undefined) {
+      if (version.previousVersionId !== null) {
+        conflict("FRONTIER_CANDIDATE_INITIAL_VERSION_REQUIRED", `${path}.previousVersionId`);
+      } else if ([...state.candidates, ...created.values()].some((candidate) =>
+        candidate.frontierId === frontierId && candidate.identityHash === identityHash)) {
+        conflict("FRONTIER_CANDIDATE_IDENTITY_CONFLICT", `${path}.identifiers`);
+      }
+      created.set(version.candidateId, { frontierId, candidateKind: version.candidateKind, identityHash });
+    } else if (version.previousVersionId === null) {
+      conflict("FRONTIER_CANDIDATE_ALREADY_HAS_INITIAL_VERSION", `${path}.previousVersionId`);
+    } else if (
+      stored.frontierId !== frontierId || stored.candidateKind !== version.candidateKind || stored.identityHash !== identityHash
+    ) {
+      conflict("FRONTIER_CANDIDATE_ID_CONFLICT", `${path}.candidateId`);
+    }
+    // The store's lineage trigger runs before its unique keys.
+    if (version.previousVersionId !== null && (stored !== undefined || created.has(version.candidateId))) {
+      if (versionCandidates.get(version.previousVersionId) !== version.candidateId) {
+        conflict("FRONTIER_CANDIDATE_LINEAGE_MISMATCH", `${path}.previousVersionId`);
+      } else if (heads.get(version.candidateId) !== version.previousVersionId) {
+        conflict("CANONICAL_UNIQUE_CONFLICT", `${path}.previousVersionId`);
+      }
+    }
+    if (versionCandidates.has(version.versionId)) conflict("CANONICAL_UNIQUE_CONFLICT", `${path}.versionId`);
+    versionCandidates.set(version.versionId, version.candidateId);
+    heads.set(version.candidateId, version.versionId);
+  });
+  const trailHeads = new Map(state.trails.map(({ trailId, headVersionId }) => [trailId, headVersionId]));
+  const trailVersions = new Map(state.trailVersions.map(({ versionId, trailId }) => [versionId, trailId]));
+  const createdTrails = new Map<string, { frontierId: string; trailKind: string }>();
+  payload.frontier.trailVersions.forEach((trail, index) => {
+    const path = `payload.frontier.trailVersions[${index}]`;
+    const stored = state.trails.find(({ trailId }) => trailId === trail.trailId) ?? createdTrails.get(trail.trailId);
+    if (stored === undefined) {
+      if (trail.previousVersionId !== null) conflict("FRONTIER_TRAIL_INITIAL_VERSION_REQUIRED", `${path}.previousVersionId`);
+      createdTrails.set(trail.trailId, { frontierId, trailKind: trail.trailKind });
+    } else if (trail.previousVersionId === null) {
+      conflict("FRONTIER_TRAIL_ALREADY_HAS_INITIAL_VERSION", `${path}.previousVersionId`);
+    } else if (stored.frontierId !== frontierId || stored.trailKind !== trail.trailKind) {
+      conflict("FRONTIER_TRAIL_ID_CONFLICT", `${path}.trailId`);
+    }
+    if (trail.previousVersionId !== null && (stored !== undefined || createdTrails.has(trail.trailId))) {
+      if (trailVersions.get(trail.previousVersionId) !== trail.trailId) {
+        conflict("FRONTIER_TRAIL_LINEAGE_MISMATCH", `${path}.previousVersionId`);
+      } else if (trailHeads.get(trail.trailId) !== trail.previousVersionId) {
+        conflict("CANONICAL_UNIQUE_CONFLICT", `${path}.previousVersionId`);
+      }
+    }
+    if (trailVersions.has(trail.versionId)) conflict("CANONICAL_UNIQUE_CONFLICT", `${path}.versionId`);
+    trailVersions.set(trail.versionId, trail.trailId);
+    trailHeads.set(trail.trailId, trail.versionId);
+  });
+}
+
+function preflightAnalysis(payload: LivingEvidenceContribution, state: CanonicalIdentityState, conflict: Conflict): void {
+  const source = payload.source;
+  if (source !== null) {
+    const family = state.sourceFamilies.find(({ familyId }) => familyId === source.familyId);
+    if (family !== undefined) {
+      if (
+        family.sourceKind !== source.sourceKind || family.identityHash !== source.identityHash ||
+        family.displayTitle !== source.displayTitle
+      ) {
+        conflict("SOURCE_FAMILY_ID_CONFLICT", "payload.source.familyId");
+      }
+    } else if (state.sourceFamilies.some(({ identityHash }) => identityHash === source.identityHash)) {
+      conflict("SOURCE_FAMILY_IDENTITY_CONFLICT", "payload.source.identityHash");
+    }
+    source.identifiers.forEach(({ scheme, value }, index) => {
+      if (state.sourceFamilies.some((candidate) =>
+        candidate.familyId !== source.familyId &&
+        candidate.identifiers.some((stored) => stored.scheme === scheme && stored.value === value))) {
+        conflict("SOURCE_IDENTIFIER_CONFLICT", `payload.source.identifiers[${index}]`);
+      }
+    });
+    const version = state.sourceVersions.find(({ versionId }) => versionId === source.versionId);
+    if (version !== undefined) {
+      if (
+        version.familyId !== source.familyId || version.sourceContentSha256 !== source.sourceContentSha256 ||
+        version.accessStatus !== source.accessStatus || !version.retrievedAtMatches ||
+        version.sourceLocator !== source.sourceLocator
+      ) {
+        conflict("SOURCE_VERSION_ID_CONFLICT", "payload.source.versionId");
+      }
+    } else if (state.sourceVersions.some((candidate) =>
+      candidate.familyId === source.familyId && candidate.sourceContentSha256 === source.sourceContentSha256 &&
+      candidate.accessStatus === source.accessStatus && candidate.retrievedAtMatches)) {
+      conflict("SOURCE_VERSION_IDENTITY_CONFLICT", "payload.source.versionId");
+    }
+  }
+  const analysis = payload.analysis;
+  const stored = state.analyses.find(({ analysisId }) => analysisId === analysis.analysisId);
+  if (stored === undefined) {
+    if (analysis.relationship !== "initial") conflict("ANALYSIS_INITIAL_VERSION_REQUIRED", "payload.analysis.relationship");
+  } else if (analysis.relationship === "initial") {
+    conflict("ANALYSIS_ALREADY_HAS_INITIAL_VERSION", "payload.analysis.analysisId");
+  } else if (stored.topicId !== (payload.topic?.topicId ?? null) || stored.sourceFamilyId !== (source?.familyId ?? null)) {
+    conflict("ANALYSIS_TARGET_MISMATCH", "payload.analysis.analysisId");
+  }
+  if (state.analysisVersionIds.includes(analysis.versionId)) conflict("CANONICAL_UNIQUE_CONFLICT", "payload.analysis.versionId");
+  if (analysis.previousVersionId !== null && !state.analysisVersionIds.includes(analysis.previousVersionId)) {
+    conflict("ANALYSIS_LINEAGE_MISMATCH", "payload.analysis.previousVersionId");
+  }
+  const knowledge = payload.knowledge;
+  if (knowledge === undefined) return;
+  const question = knowledge.question;
+  if (question !== null && payload.topic !== null) {
+    const storedQuestion = state.questions.find(({ questionId }) => questionId === question.questionId);
+    if (storedQuestion !== undefined && questionDiffers(storedQuestion, payload.topic.topicId, question)) {
+      conflict("QUESTION_ID_CONFLICT", "payload.knowledge.question.questionId");
+    }
+  }
+  knowledge.claims.forEach((claim, index) => {
+    const path = `payload.knowledge.claims[${index}]`;
+    const storedClaim = state.claims.find(({ claimId }) => claimId === claim.claimId);
+    if (storedClaim === undefined) {
+      if (claim.supersedesClaimVersionId !== null) conflict("CLAIM_INITIAL_VERSION_REQUIRED", `${path}.supersedesClaimVersionId`);
+    } else if (claim.supersedesClaimVersionId === null) {
+      conflict("CLAIM_ALREADY_HAS_INITIAL_VERSION", `${path}.supersedesClaimVersionId`);
+    } else if (storedClaim.questionId !== claim.questionId || storedClaim.claimType !== claim.claimType) {
+      conflict("CLAIM_ID_CONFLICT", `${path}.claimId`);
+    }
+  });
+  const policy = knowledge.freshnessPolicy;
+  if (policy !== null && source !== null) {
+    const storedPolicy = state.freshnessPolicies.find(({ policyId }) => policyId === policy.policyId);
+    if (storedPolicy !== undefined) {
+      if (
+        storedPolicy.sourceFamilyId !== source.familyId || storedPolicy.sourceClass !== policy.sourceClass ||
+        storedPolicy.cadenceDays !== policy.cadenceDays || storedPolicy.maximumAgeDays !== policy.maximumAgeDays ||
+        storedPolicy.ownerRole !== policy.ownerRole ||
+        JSON.stringify(storedPolicy.requiredChecks) !== JSON.stringify(policy.requiredChecks) ||
+        storedPolicy.failureBehavior !== policy.failureBehavior
+      ) {
+        conflict("FRESHNESS_POLICY_ID_CONFLICT", "payload.knowledge.freshnessPolicy.policyId");
+      }
+    } else if (state.freshnessPolicies.some(({ sourceFamilyId }) => sourceFamilyId === source.familyId)) {
+      // One freshness policy per source family.
+      conflict("CANONICAL_UNIQUE_CONFLICT", "payload.knowledge.freshnessPolicy.policyId");
+    }
+  }
+}
+
+/** A canonical record that shares one of a proposal's identities (for the owner's review). IDs only. */
+export interface RelatedCanonicalRecord {
+  record: "topic" | "question" | "frontier" | "frontier_candidate" | "source_family";
+  id: string;
+  frontierId?: string;
+  shared: "topic_key" | "question_text_and_dimensions" | "question_id" | "frontier_id" | "identifier";
+}
+
+export const RELATED_RECORDS_SHOWN = 25;
+
+/** The canonical records sharing the proposal's topic key, frontier, question or a candidate or source identifier. */
+export function relatedCanonicalRecords(
+  kind: ContributionKind,
+  payload: LivingEvidenceContribution | ResearchFrontierContribution,
+  state: CanonicalIdentityState,
+): { records: RelatedCanonicalRecord[]; notShown: number } {
+  const records: RelatedCanonicalRecord[] = [];
+  const topic = kind === "RESEARCH_FRONTIER"
+    ? (payload as ResearchFrontierContribution).topic
+    : (payload as LivingEvidenceContribution).topic;
+  for (const stored of state.topics) {
+    if (topic !== null && stored.canonicalKey === topic.canonicalKey) {
+      records.push({ record: "topic", id: stored.topicId, shared: "topic_key" });
+    }
+  }
+  if (kind === "RESEARCH_FRONTIER") {
+    const frontier = payload as ResearchFrontierContribution;
+    for (const stored of state.questions) {
+      if (
+        stored.questionId !== frontier.question.questionId &&
+        stored.normalizedQuestion === frontier.question.normalizedQuestion &&
+        sameDimensions(stored.dimensions, frontier.question.dimensions)
+      ) {
+        records.push({ record: "question", id: stored.questionId, shared: "question_text_and_dimensions" });
+      }
+    }
+    for (const stored of state.frontiers) {
+      if (stored.frontierId === frontier.frontier.frontierId) {
+        records.push({ record: "frontier", id: stored.frontierId, shared: "frontier_id" });
+      } else if (stored.questionId === frontier.question.questionId) {
+        records.push({ record: "frontier", id: stored.frontierId, shared: "question_id" });
+      }
+    }
+  }
+  const candidates = new Map<string, RelatedCanonicalRecord>();
+  for (const stored of state.identifierCandidates) {
+    candidates.set(stored.candidateId, {
+      record: "frontier_candidate", id: stored.candidateId, frontierId: stored.frontierId, shared: "identifier",
+    });
+  }
+  records.push(...candidates.values());
+  const identifiers = kind === "RESEARCH_FRONTIER"
+    ? (payload as ResearchFrontierContribution).frontier.candidateVersions.flatMap(({ identifiers: list }) => list)
+    : (payload as LivingEvidenceContribution).source?.identifiers ?? [];
+  for (const family of state.sourceFamilies) {
+    if (family.identifiers.some((stored) => identifiers.some(({ scheme, value }) => scheme === stored.scheme && value === stored.value))) {
+      records.push({ record: "source_family", id: family.familyId, shared: "identifier" });
+    }
+  }
+  return { records: records.slice(0, RELATED_RECORDS_SHOWN), notShown: Math.max(0, records.length - RELATED_RECORDS_SHOWN) };
+}
+
+export const RELATED_PROPOSAL_KEY_KINDS = [
+  "topic_key",
+  "topic_id",
+  "frontier_id",
+  "question_id",
+  "source_family_id",
+  "identifier",
+] as const;
+
+export type RelatedProposalKeyKind = typeof RELATED_PROPOSAL_KEY_KINDS[number];
+
+/**
+ * The identities a proposal's payload names, which related proposals share: in step with migration 0012's
+ * research_contribution_proposal_keys, which the review role's context function uses.
+ */
+export function proposalKeys(payload: unknown): Array<{ kind: RelatedProposalKeyKind; value: string }> {
+  const record = (value: unknown): Record<string, unknown> =>
+    value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const list = (value: unknown): unknown[] => Array.isArray(value) ? value : [];
+  const text = (value: unknown) => typeof value === "string" ? value : undefined;
+  const root = record(payload);
+  const identifier = (value: unknown) => {
+    const { scheme, value: identifierValue } = record(value);
+    return typeof scheme === "string" && typeof identifierValue === "string" ? `${scheme}:${identifierValue}` : undefined;
+  };
+  const keys: Array<[RelatedProposalKeyKind, string | undefined]> = [
+    ["topic_key", text(record(root.topic).canonicalKey)],
+    ["topic_id", text(record(root.topic).topicId)],
+    ["frontier_id", text(record(root.frontier).frontierId)],
+    ["question_id", text(record(root.question).questionId)],
+    ["question_id", text(record(record(root.knowledge).question).questionId)],
+    ["source_family_id", text(record(root.source).familyId)],
+    ...list(record(root.frontier).candidateVersions).flatMap((candidate) =>
+      list(record(candidate).identifiers).map((value): [RelatedProposalKeyKind, string | undefined] =>
+        ["identifier", identifier(value)])),
+    ...list(record(root.source).identifiers).map((value): [RelatedProposalKeyKind, string | undefined] =>
+      ["identifier", identifier(value)]),
+  ];
+  return keys.flatMap(([kind, value]) => value === undefined ? [] : [{ kind, value }]);
 }

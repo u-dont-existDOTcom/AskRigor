@@ -321,3 +321,97 @@ function sourceAnalysis(): LivingEvidenceContribution {
     receipts: [],
   };
 }
+
+describe("the owner sees related records and a promotion preflight before deciding (owner answer 138b)", () => {
+  const second = (): ResearchContributionProposalRecord => {
+    const payload = sourceAnalysis();
+    payload.idempotencyKey = "synthetic:owner-review:second-audit";
+    payload.analysis.analysisId = "55555555-5555-4555-a555-555555555556";
+    payload.analysis.versionId = "66666666-6666-4666-a666-666666666667";
+    const prepared = prepareResearchContributionProposal("SOURCE_ANALYSIS", payload);
+    return {
+      proposalId: "77777777-7777-4777-a777-777777777778",
+      accountKey: "9".repeat(64),
+      proposalKind: "SOURCE_ANALYSIS",
+      payloadSha256: prepared.payloadSha256,
+      payload: prepared.payload,
+      privacyBoundary: PRIVACY_BOUNDARY,
+      partial: prepared.partial,
+      status: "PENDING_REVIEW",
+      createdAt: "2026-09-01T02:59:30.000Z",
+      reviewedAt: null,
+      reviewReason: null,
+    };
+  };
+
+  it("lists another account's pending proposal on the same study by proposal ID only", async () => {
+    const { proposal, service, store } = fixture();
+    store.seed(second());
+    const view = await service.inspect(proposal.proposalId);
+    expect(view?.related).toEqual({
+      proposals: [{
+        proposalId: "77777777-7777-4777-a777-777777777778",
+        proposalKind: "SOURCE_ANALYSIS",
+        status: "PENDING_REVIEW",
+        promotionStatus: null,
+        shared: ["identifier", "source_family_id", "topic_id", "topic_key"],
+      }],
+      proposalsNotShown: 0,
+      canonical: null,
+    });
+    expect(view?.preflight).toBeNull();
+    expect(JSON.stringify(view)).not.toContain("9".repeat(64));
+    expect(JSON.stringify(view)).not.toContain("8".repeat(64));
+  });
+
+  it("names what promotion would meet, from the canonical store as it is now", async () => {
+    const { proposal, service, store } = fixture();
+    store.seed(second());
+    const payload = proposal.payload as LivingEvidenceContribution;
+    const state = {
+      idempotency: null, manifests: [], run: null, topics: [], questions: [], frontiers: [], lanes: [],
+      contributionIds: [], passIds: [], candidates: [], candidateVersions: [], trails: [], trailVersions: [],
+      identifierCandidates: [], sourceVersions: [], freshnessPolicies: [], analysisVersionIds: [], claims: [],
+      receiptVersions: [],
+      sourceFamilies: [{
+        familyId: "33333333-3333-4333-a333-333333333333", sourceKind: "study", identityHash: "2".repeat(64),
+        displayTitle: "A canonical title the payload does not repeat", identifiers: [{ scheme: "doi", value: "10.0000/owner-review" }],
+      }],
+      analyses: [{
+        analysisId: payload.analysis.analysisId, analysisKind: "study_method_audit", topicId: null,
+        sourceFamilyId: "33333333-3333-4333-a333-333333333333",
+      }],
+    };
+    const handler = createResearchContributionReviewHandler({
+      service,
+      allowedReviewerSubjects: new Set([OWNER]),
+      canonical: { readCanonicalIdentity: async () => state },
+    });
+    const result = await handler({ action: "inspect", proposalId: proposal.proposalId }, auth(OWNER));
+    expect(result.structuredContent).toMatchObject({
+      outcome: "pending_review",
+      proposal: {
+        related: { canonical: { records: [{ record: "source_family", id: "33333333-3333-4333-a333-333333333333", shared: "identifier" }], notShown: 0 } },
+        preflight: {
+          status: "conflicts",
+          conflicts: [
+            { code: "SOURCE_FAMILY_ID_CONFLICT", path: "payload.source.familyId" },
+            { code: "ANALYSIS_ALREADY_HAS_INITIAL_VERSION", path: "payload.analysis.analysisId" },
+          ],
+        },
+      },
+    });
+    const text = JSON.stringify(result.content);
+    expect(text).toContain("Promotion preflight: promotion would end FAILED with SOURCE_FAMILY_ID_CONFLICT at payload.source.familyId (2 conflicts");
+    expect(text).toContain("1 other pending or queued proposal and 1 canonical record share");
+    expect(JSON.stringify(result)).not.toContain("9".repeat(64));
+
+    const unavailable = createResearchContributionReviewHandler({
+      service,
+      allowedReviewerSubjects: new Set([OWNER]),
+      canonical: { readCanonicalIdentity: async () => { throw new Error("reader down"); } },
+    });
+    expect((await unavailable({ action: "inspect", proposalId: proposal.proposalId }, auth(OWNER))).structuredContent)
+      .toMatchObject({ proposal: { preflight: { status: "unavailable" }, related: { canonical: null } } });
+  });
+});

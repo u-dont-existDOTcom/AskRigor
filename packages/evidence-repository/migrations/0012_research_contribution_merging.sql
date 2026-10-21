@@ -299,9 +299,77 @@ REVOKE ALL ON FUNCTION decide_research_contribution_proposal(
   uuid, text, text, text, timestamptz, uuid
 ) FROM PUBLIC;
 
+-- The identities a proposal's payload names, which related proposals share (owner answer 138b): its topic key and
+-- ID, frontier, question, source family, and every candidate or source identifier as scheme:value. In step with
+-- proposalKeys in contribution-identity.ts.
+CREATE OR REPLACE FUNCTION research_contribution_proposal_keys(payload jsonb)
+RETURNS TABLE (key_kind text, key_value text)
+LANGUAGE sql
+IMMUTABLE
+SET search_path = __SCHEMA__, pg_catalog
+AS $function$
+  SELECT keys.key_kind, keys.key_value
+    FROM (
+      SELECT 'topic_key', payload -> 'topic' ->> 'canonicalKey'
+      UNION ALL SELECT 'topic_id', payload -> 'topic' ->> 'topicId'
+      UNION ALL SELECT 'frontier_id', payload -> 'frontier' ->> 'frontierId'
+      UNION ALL SELECT 'question_id', payload -> 'question' ->> 'questionId'
+      UNION ALL SELECT 'question_id', payload -> 'knowledge' -> 'question' ->> 'questionId'
+      UNION ALL SELECT 'source_family_id', payload -> 'source' ->> 'familyId'
+      UNION ALL
+      SELECT 'identifier', (identifier ->> 'scheme') || ':' || (identifier ->> 'value')
+        FROM jsonb_array_elements(
+               CASE WHEN jsonb_typeof(payload -> 'frontier' -> 'candidateVersions') = 'array'
+                    THEN payload -> 'frontier' -> 'candidateVersions' ELSE '[]'::jsonb END
+             ) candidate,
+             jsonb_array_elements(
+               CASE WHEN jsonb_typeof(candidate -> 'identifiers') = 'array'
+                    THEN candidate -> 'identifiers' ELSE '[]'::jsonb END
+             ) identifier
+      UNION ALL
+      SELECT 'identifier', (identifier ->> 'scheme') || ':' || (identifier ->> 'value')
+        FROM jsonb_array_elements(
+               CASE WHEN jsonb_typeof(payload -> 'source' -> 'identifiers') = 'array'
+                    THEN payload -> 'source' -> 'identifiers' ELSE '[]'::jsonb END
+             ) identifier
+    ) AS keys(key_kind, key_value)
+   WHERE keys.key_value IS NOT NULL
+$function$;
+
+REVOKE ALL ON FUNCTION research_contribution_proposal_keys(jsonb) FROM PUBLIC;
+
+-- The other proposals pending review, or accepted and queued for promotion, that share an identity with this payload.
+CREATE OR REPLACE FUNCTION research_contribution_related_proposals(target_proposal_id uuid, payload jsonb)
+RETURNS TABLE (
+  proposal_id uuid,
+  proposal_kind text,
+  status text,
+  created_at timestamptz,
+  promotion_status text,
+  shared jsonb
+)
+LANGUAGE sql
+STABLE
+SET search_path = __SCHEMA__, pg_catalog
+AS $function$
+  SELECT other.proposal_id, other.proposal_kind, other.status, other.created_at, promotion.status,
+         to_jsonb(array_agg(DISTINCT other_key.key_kind ORDER BY other_key.key_kind))
+    FROM research_contribution_proposals other
+    LEFT JOIN research_contribution_promotions promotion ON promotion.proposal_id = other.proposal_id
+    CROSS JOIN LATERAL research_contribution_proposal_keys(other.payload_json) other_key
+    JOIN research_contribution_proposal_keys(payload) own_key
+      ON own_key.key_kind = other_key.key_kind AND own_key.key_value = other_key.key_value
+   WHERE other.proposal_id <> target_proposal_id
+     AND (other.status = 'PENDING_REVIEW' OR (other.status = 'ACCEPTED' AND promotion.status = 'PENDING'))
+   GROUP BY other.proposal_id, other.proposal_kind, other.status, other.created_at, promotion.status
+$function$;
+
+REVOKE ALL ON FUNCTION research_contribution_related_proposals(uuid, jsonb) FROM PUBLIC;
+
 -- What the review role reads beyond 0010's inspect projection, as one JSON object so later fields need no new
--- function: the promotion's failure, and the supersession links in both directions (proposal IDs only). Never an
--- account key.
+-- function: the promotion's failure, the supersession links in both directions, and the other proposals still pending
+-- review or queued for promotion that share one of its identities, with which kinds of identity they share (proposal
+-- IDs only, at most 25, and how many there are). Never an account key.
 CREATE OR REPLACE FUNCTION inspect_research_contribution_context(
   target_proposal_id uuid
 )
@@ -327,7 +395,24 @@ AS $function$
         FROM research_contribution_proposals replacement
        WHERE replacement.supersedes_proposal_id = proposal.proposal_id
          AND replacement.status IN ('PENDING_REVIEW', 'ACCEPTED')
-    ), '[]'::jsonb)
+    ), '[]'::jsonb),
+    'related_proposals', COALESCE((
+      SELECT jsonb_agg(jsonb_build_object(
+               'proposal_id', related.proposal_id,
+               'proposal_kind', related.proposal_kind,
+               'status', related.status,
+               'promotion_status', related.promotion_status,
+               'shared', related.shared
+             ) ORDER BY related.created_at, related.proposal_id)
+        FROM (
+          SELECT shares.* FROM research_contribution_related_proposals(proposal.proposal_id, proposal.payload_json) shares
+           ORDER BY shares.created_at, shares.proposal_id
+           LIMIT 25
+        ) related
+    ), '[]'::jsonb),
+    'related_proposal_count', (
+      SELECT count(*) FROM research_contribution_related_proposals(proposal.proposal_id, proposal.payload_json)
+    )
   )
     FROM research_contribution_proposals proposal
    WHERE proposal.proposal_id = target_proposal_id

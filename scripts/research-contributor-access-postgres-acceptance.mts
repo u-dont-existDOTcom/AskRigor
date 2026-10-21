@@ -375,6 +375,7 @@ async function verify(
     await verifyExactContinuation({ adminUrl, readerUrl, service, reviewService, writer, checks });
     await verifyTwoAuditsOfOneStudy({ adminUrl, readerUrl, admin, service, reviewService, writer, checks });
     await verifySupersession({ admin, reviewRestricted, service, reviewService, checks });
+    await verifyRelatedAndPreflight({ adminUrl, readerUrl, reviewRestricted, service, reviewService, writer, checks });
 
     const racePayload = researchFrontierFixture("research-review-withdraw-race");
     const raceProposal = await service.submitProposal(REVIEW_SUBJECT, {
@@ -863,6 +864,122 @@ async function verifySupersession(context: {
     "DRAFT_NOT_SUPERSEDED_IN_THE_SAME_DECISION",
   );
   checks.push("finished_version_supersedes_only_the_accounts_own_pending_draft_in_the_same_decision");
+}
+
+/**
+ * Owner answer 138b: the review role sees another account's related pending proposal by proposal ID only, and the
+ * promotion preflight names, for each conflicting proposal, the code its promotion then ends FAILED with.
+ */
+async function verifyRelatedAndPreflight(context: {
+  adminUrl: string;
+  readerUrl: string;
+  reviewRestricted: Pool;
+  service: ResearchContributorAccessService;
+  reviewService: ResearchContributionReviewService;
+  writer: PostgresEvidenceRepository;
+  checks: string[];
+}): Promise<void> {
+  const { adminUrl, readerUrl, reviewRestricted, service, reviewService, writer, checks } = context;
+  const reader = new PostgresEvidenceRepository({ connectionString: readerUrl, schema: SCHEMA });
+  const runner = new PostgresResearchContributionPromotionRunner(
+    { connectionString: adminUrl, schema: SCHEMA },
+    writer,
+    { now: () => "2026-09-01T03:55:00.000Z" },
+  );
+  try {
+    // Drain what earlier checks queued, so the queue holds only the intents below.
+    while ((await runner.promoteAccepted()).result.status === "promoted") { /* next */ }
+
+    const otherSubject = "auth0|synthetic-postgres-other-contributor";
+    const mine = await service.submitProposal(PROMOTION_SUBJECT, {
+      proposalKind: "RESEARCH_FRONTIER", privacyBoundary: PRIVACY_BOUNDARY, payload: researchFrontierFixture("related-mine"),
+    });
+    const theirs = await service.submitProposal(otherSubject, {
+      proposalKind: "RESEARCH_FRONTIER", privacyBoundary: PRIVACY_BOUNDARY, payload: researchFrontierFixture("related-theirs"),
+    });
+    const view = await reviewService.inspect(mine.record.proposalId, { canonical: reader });
+    const related = view?.related.proposals.find(({ proposalId }) => proposalId === theirs.record.proposalId);
+    const raw = await reviewRestricted.query<{ context: unknown }>(
+      `SELECT ${SCHEMA}.inspect_research_contribution_context($1::uuid) AS context`,
+      [mine.record.proposalId],
+    );
+    assert(
+      related !== undefined && related.shared.includes("identifier") && view?.related.canonical !== null &&
+      view?.preflight?.status === "clear" &&
+      !JSON.stringify(raw.rows).includes(theirs.record.accountKey) && !JSON.stringify(view).includes(theirs.record.accountKey),
+      "RELATED_PROPOSAL_MISSING_OR_ACCOUNT_KEY_LEAKED",
+    );
+    await reviewService.decide({
+      proposalId: theirs.record.proposalId,
+      expectedPayloadSha256: theirs.record.payloadSha256,
+      decision: "REJECT",
+      reason: "Synthetic related proposal, not needed.",
+    });
+    await reviewService.decide({
+      proposalId: mine.record.proposalId,
+      expectedPayloadSha256: mine.record.payloadSha256,
+      decision: "REJECT",
+      reason: "Synthetic related proposal, not needed.",
+    });
+    checks.push("related_pending_proposals_by_id_only_through_the_review_role");
+
+    const canonicalFrontier = researchFrontierFixture("promotion-time-no_milliseconds");
+    const run = researchFrontierFixture("preflight-run");
+    // The canonical run was stored with the no-milliseconds times; this one differs by two milliseconds.
+    run.run = { ...canonicalFrontier.run, startedAt: "2026-10-20T22:54:00.002Z", completedAt: "2026-10-20T23:10:00Z" };
+    const key = researchFrontierFixture("preflight-topic-key");
+    key.topic.canonicalKey = canonicalFrontier.topic.canonicalKey;
+    const lane = researchFrontierFixture("preflight-lane-key");
+    lane.topic = canonicalFrontier.topic;
+    lane.question = canonicalFrontier.question;
+    lane.frontier.frontierId = canonicalFrontier.frontier.frontierId;
+    const canonicalSource = livingEvidenceFixture("promotion-time-source");
+    canonicalSource.run.startedAt = "2026-08-29T12:00:00Z";
+    canonicalSource.run.completedAt = "2026-08-29T14:01:00+02:00";
+    canonicalSource.source!.retrievedAt = "2026-08-29T11:59:00Z";
+    const version = structuredClone(canonicalSource);
+    version.idempotencyKey = "acceptance:preflight-source-version";
+    version.run.runId = deterministicUuid("preflight-source-version:run");
+    version.analysis.analysisId = deterministicUuid("preflight-source-version:analysis");
+    version.analysis.versionId = deterministicUuid("preflight-source-version:version");
+    version.source!.retrievedAt = "2026-08-29T11:59:00.5Z";
+    const initial = structuredClone(canonicalSource);
+    initial.idempotencyKey = "acceptance:preflight-second-initial";
+    initial.run.runId = deterministicUuid("preflight-second-initial:run");
+    initial.analysis.versionId = deterministicUuid("preflight-second-initial:version");
+    const expected: Array<[string, "RESEARCH_FRONTIER" | "SOURCE_ANALYSIS", unknown]> = [
+      ["RESEARCH_RUN_CONFLICT", "RESEARCH_FRONTIER", run],
+      ["TOPIC_KEY_CONFLICT", "RESEARCH_FRONTIER", key],
+      ["FRONTIER_LANE_KEY_CONFLICT", "RESEARCH_FRONTIER", lane],
+      ["SOURCE_VERSION_ID_CONFLICT", "SOURCE_ANALYSIS", version],
+      ["ANALYSIS_ALREADY_HAS_INITIAL_VERSION", "SOURCE_ANALYSIS", initial],
+    ];
+    const preflighted: Array<{ proposalId: string; code: string }> = [];
+    for (const [code, proposalKind, payload] of expected) {
+      // Filed as sent (no canonical view), as proposals filed before this build were.
+      const filed = await service.submitProposal(PROMOTION_SUBJECT, { proposalKind, privacyBoundary: PRIVACY_BOUNDARY, payload });
+      const inspected = await reviewService.inspect(filed.record.proposalId, { canonical: reader });
+      const first = inspected?.preflight?.status === "conflicts" ? inspected.preflight.conflicts[0]?.code : undefined;
+      assert(first === code, `PREFLIGHT_CODE_MISMATCH expected=${code} actual=${String(first)}`);
+      await reviewService.decide({
+        proposalId: filed.record.proposalId,
+        expectedPayloadSha256: filed.record.payloadSha256,
+        decision: "ACCEPT",
+        reason: "Synthetic conflict accepted to compare the preflight with promotion.",
+      });
+      preflighted.push({ proposalId: filed.record.proposalId, code });
+    }
+    const promoted = await runner.promoteAccepted();
+    assert(
+      promoted.result.status === "no_pending_promotion" &&
+      promoted.failed.map(({ proposalId, failureCode }) => `${proposalId}:${failureCode}`).join(",") ===
+        preflighted.map(({ proposalId, code }) => `${proposalId}:${code}`).join(","),
+      "PREFLIGHT_DID_NOT_MATCH_PROMOTION",
+    );
+    checks.push("preflight_names_the_code_each_conflicting_promotion_ends_failed_with");
+  } finally {
+    await Promise.allSettled([reader.close(), runner.close()]);
+  }
 }
 
 async function expectPgCode(action: () => Promise<unknown>, code: string): Promise<void> {

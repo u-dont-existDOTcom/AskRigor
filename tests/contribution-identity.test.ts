@@ -9,10 +9,14 @@ import {
   ResearchContributorAccessService,
   canonicalIdentityRequest,
   frontierCandidateIdentityHash,
+  preflightContribution,
   prepareResearchContributionProposal,
+  proposalKeys,
   reconcileResearchFrontier,
+  relatedCanonicalRecords,
   type CanonicalIdentityReader,
   type CanonicalIdentityState,
+  type LivingEvidenceContribution,
   type ResearchFrontierContribution,
 } from "../packages/evidence-repository/src/index.js";
 
@@ -53,6 +57,7 @@ function canonicalState(payload = sent()): CanonicalIdentityState {
     candidateId: uuid(5), frontierId: uuid(3), candidateKind: candidate.candidateKind,
     identityHash: frontierCandidateIdentityHash(candidate.identifiers), headVersionId: uuid(6),
   });
+  state.candidateVersions.push({ versionId: uuid(6), candidateId: uuid(5) });
   return state;
 }
 
@@ -245,5 +250,141 @@ describe("submission reconciles a frontier before it is stored", () => {
     expect(store.allProposals()[0]!.payload).toMatchObject({
       topic: { topicId: (CONTRIBUTION_EXAMPLES.RESEARCH_FRONTIER.topic as { topicId: string }).topicId },
     });
+  });
+});
+
+describe("the promotion preflight names what the canonical writer would refuse, with its code", () => {
+  const sha = "f".repeat(64);
+  const codes = (state: CanonicalIdentityState, payload = sent()) =>
+    preflightContribution("RESEARCH_FRONTIER", payload, state, sha).conflicts.map(({ code, path }) => `${code} ${path}`);
+
+  it("is clear for a frontier the store does not hold, and a replay for the stored one", () => {
+    const payload = sent();
+    expect(preflightContribution("RESEARCH_FRONTIER", payload, emptyState(), sha)).toEqual({ status: "clear", conflicts: [] });
+    const stored = emptyState();
+    stored.idempotency = { recordId: payload.contributionId, payloadSha256: sha };
+    expect(preflightContribution("RESEARCH_FRONTIER", payload, stored, sha)).toEqual({ status: "replay", conflicts: [] });
+    stored.idempotency = { recordId: payload.contributionId, payloadSha256: "e".repeat(64) };
+    expect(codes(stored)).toEqual(["FRONTIER_IDEMPOTENCY_KEY_PAYLOAD_MISMATCH payload.idempotencyKey"]);
+  });
+
+  it("names the latent collisions an unreconciled frontier meets, in the writer's order", () => {
+    // canonicalState() holds the same topic key, question, lane key and candidate identity under other IDs; as sent,
+    // the frontier is a new one under a new topic UUID, so only the topic key meets the store.
+    expect(codes(canonicalState())).toEqual(["TOPIC_KEY_CONFLICT payload.topic.canonicalKey"]);
+    // Within the canonical frontier, a new candidate UUID with a canonical candidate's identifiers is a collision too.
+    const inFrontier = sent();
+    inFrontier.topic.topicId = uuid(1);
+    inFrontier.topic.label = "Canonical label";
+    inFrontier.question.questionId = uuid(2);
+    inFrontier.frontier.frontierId = uuid(3);
+    inFrontier.frontier.lanes[0]!.laneId = uuid(4);
+    inFrontier.frontier.lanes[0]!.label = "Canonical lane label";
+    inFrontier.frontier.passes[0]!.laneId = uuid(4);
+    inFrontier.frontier.trailVersions[0]!.laneId = uuid(4);
+    const lanes = canonicalState();
+    expect(codes(lanes, inFrontier)).toEqual([
+      "FRONTIER_CANDIDATE_IDENTITY_CONFLICT payload.frontier.candidateVersions[0].identifiers",
+    ]);
+    // Once reconciled, the same frontier is clear.
+    const reconciled = reconcileResearchFrontier(sent(), canonicalState()).payload;
+    expect(preflightContribution("RESEARCH_FRONTIER", reconciled, canonicalState(), sha)).toMatchObject({ status: "clear" });
+  });
+
+  it("compares run times as instants and names the run, the question, the frontier and the lane conflicts", () => {
+    const payload = sent();
+    const state = emptyState();
+    state.run = {
+      runId: payload.run.runId, runKind: payload.run.runKind, startedAtMatches: false, completedAtMatches: true,
+      protocolManifestSha256s: payload.run.protocolManifests.map(({ sha256: digest }) => digest),
+      provenanceNote: payload.run.provenanceNote,
+    };
+    state.questions.push({ questionId: payload.question.questionId, topicId: payload.topic.topicId,
+      normalizedQuestion: "Another question", dimensions: payload.question.dimensions });
+    state.frontiers.push({ frontierId: uuid(70), questionId: payload.question.questionId });
+    state.lanes.push({ laneId: uuid(71), frontierId: payload.frontier.frontierId, canonicalKey: payload.frontier.lanes[0]!.canonicalKey,
+      sourceClass: "study", provider: "pubmed", label: "Canonical lane", coverageBasis: "index_date" });
+    expect(codes(state, payload)).toEqual([
+      "RESEARCH_RUN_CONFLICT payload.run.runId",
+      "QUESTION_ID_CONFLICT payload.question.questionId",
+      "RESEARCH_FRONTIER_QUESTION_CONFLICT payload.frontier.frontierId",
+      "FRONTIER_LANE_KEY_CONFLICT payload.frontier.lanes[0].canonicalKey",
+    ]);
+  });
+
+  it("checks a candidate's versions as the writer chains them", () => {
+    const payload = sent();
+    const state = canonicalState();
+    state.candidates[0]!.candidateId = payload.frontier.candidateVersions[0]!.candidateId;
+    state.candidates[0]!.frontierId = payload.frontier.frontierId;
+    state.candidateVersions.push({ versionId: uuid(6), candidateId: payload.frontier.candidateVersions[0]!.candidateId });
+    state.topics = [];
+    // An existing candidate needs a version chained to its current one.
+    expect(codes(state, payload)).toEqual([
+      "FRONTIER_CANDIDATE_ALREADY_HAS_INITIAL_VERSION payload.frontier.candidateVersions[0].previousVersionId",
+    ]);
+    payload.frontier.candidateVersions[0]!.previousVersionId = uuid(6);
+    expect(codes(state, payload)).toEqual([]);
+    // A stale predecessor: another version already continues it.
+    state.candidates[0]!.headVersionId = uuid(7);
+    expect(codes(state, payload)).toEqual(["CANONICAL_UNIQUE_CONFLICT payload.frontier.candidateVersions[0].previousVersionId"]);
+  });
+
+  it("checks a source analysis's family, identifiers, version and initial analysis", () => {
+    const analysis = prepareResearchContributionProposal(
+      "SOURCE_ANALYSIS",
+      structuredClone(CONTRIBUTION_EXAMPLES.SOURCE_ANALYSIS),
+    ).payload as LivingEvidenceContribution;
+    const source = analysis.source!;
+    const state = emptyState();
+    state.sourceFamilies.push(
+      { familyId: source.familyId, sourceKind: "study", identityHash: source.identityHash, displayTitle: "Another title", identifiers: [] },
+      { familyId: uuid(80), sourceKind: "study", identityHash: "a".repeat(64), displayTitle: "Other",
+        identifiers: [...source.identifiers] },
+    );
+    state.sourceVersions.push({ versionId: source.versionId, familyId: source.familyId, sourceContentSha256: source.sourceContentSha256,
+      accessStatus: "complete", retrievedAt: "2026-01-01T00:05:00.000001Z", retrievedAtMatches: false, sourceLocator: source.sourceLocator });
+    state.analyses.push({ analysisId: analysis.analysis.analysisId, analysisKind: "study_method_audit", topicId: null,
+      sourceFamilyId: source.familyId });
+    expect(preflightContribution("SOURCE_ANALYSIS", analysis, state, sha).conflicts.map(({ code, path }) => `${code} ${path}`))
+      .toEqual([
+        "SOURCE_FAMILY_ID_CONFLICT payload.source.familyId",
+        "SOURCE_IDENTIFIER_CONFLICT payload.source.identifiers[0]",
+        "SOURCE_VERSION_ID_CONFLICT payload.source.versionId",
+        "ANALYSIS_ALREADY_HAS_INITIAL_VERSION payload.analysis.analysisId",
+      ]);
+  });
+});
+
+describe("related canonical records, IDs only", () => {
+  it("lists the canonical topic, question, frontier and candidates that share the frontier's identities", () => {
+    const payload = sent();
+    const state = canonicalState();
+    state.identifierCandidates.push(
+      { candidateId: uuid(5), frontierId: uuid(3), scheme: "doi", value: "10.1000/example" },
+      { candidateId: uuid(90), frontierId: uuid(91), scheme: "doi", value: "10.1000/example" },
+    );
+    expect(relatedCanonicalRecords("RESEARCH_FRONTIER", payload, state)).toEqual({
+      records: [
+        { record: "topic", id: uuid(1), shared: "topic_key" },
+        { record: "question", id: uuid(2), shared: "question_text_and_dimensions" },
+        { record: "frontier_candidate", id: uuid(5), frontierId: uuid(3), shared: "identifier" },
+        { record: "frontier_candidate", id: uuid(90), frontierId: uuid(91), shared: "identifier" },
+      ],
+      notShown: 0,
+    });
+  });
+
+  it("reads the keys a proposal shares exactly as the review function does", () => {
+    expect(proposalKeys(CONTRIBUTION_EXAMPLES.RESEARCH_FRONTIER)).toEqual([
+      { kind: "topic_key", value: "example-topic" },
+      { kind: "topic_id", value: "00000000-0000-4000-8000-000000000033" },
+      { kind: "frontier_id", value: "00000000-0000-4000-8000-000000000035" },
+      { kind: "question_id", value: "00000000-0000-4000-8000-000000000034" },
+      { kind: "identifier", value: "doi:10.1000/example" },
+    ]);
+    expect(proposalKeys(CONTRIBUTION_EXAMPLES.SOURCE_ANALYSIS).map(({ kind }) => kind)).toEqual([
+      "topic_key", "topic_id", "question_id", "source_family_id", "identifier",
+    ]);
   });
 });
