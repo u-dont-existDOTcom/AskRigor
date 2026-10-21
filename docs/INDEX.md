@@ -86,6 +86,15 @@ complete XML protocol.
   as one entry, the one-line panel, the correction-report question, and HRP 20.6.26, with production acceptance and
   the Codex plugin refresh, and the owner regressions (the final check passed in 12 of 21 cases; first-call schema
   rejections in 11 of 22 runs, from 19 of 20) with the findings for the next build.
+- `audits/2026-10-20-carried-state-production-release.md`: release of #346 (owner questions 109 to 113, 117 and 120 to
+  123, released on 124a): lessons #32 to #37 and carried state, with HRP 20.6.27, Universal 20.5.44, production
+  acceptance and the Codex plugin refresh, and the owner regressions (13 of 30 cases met every criterion, none failed;
+  the final check passed in 29 of 32); the case-by-case judgment is `audits/2026-10-20-owner-regressions-judgment.md`.
+- `audits/2026-10-21-owner-answers-125-137-production-release.md`: release of #350 (owner answers 125 to 137 and
+  128b, the book-review item): HRP 20.6.28, Universal 20.5.45, the final check's serious-harm screen, the October
+  ledger reset (145a), production acceptance and the plugin reinstall, and the owner regressions run with the
+  owner's personal Codex instructions off (50 cases: 21 met every criterion, 1 failed; the final check passed in 44);
+  the case-by-case judgment is `audits/2026-10-21-owner-regressions-judgment.md`.
 - `audits/2026-10-16-report-identity-production-release.md`: release of #337 and #338 (owner questions 96 to 101)
   and #340 (questions 100 and 102): the final-check fixes from the 15 Oct regressions, protocol loading in one
   call, the owner's mobile notice (Universal 20.5.43), HRP 20.6.25 with `ProposeDiscriminatingTest` and lessons
