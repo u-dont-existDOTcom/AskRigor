@@ -368,6 +368,19 @@ export function findingsLibraryEnabledFromEnv(
   return value?.trim() === "enabled";
 }
 
+/**
+ * The research account keys of dev accounts (owner answer 140b, 2026-10-20): ASKRIGOR_DEV_ACCOUNT_KEYS, a
+ * comma-separated list of the 64-character keys research_use_accounts stores. Like a paid private account, a dev
+ * account registers a plain answer before research and its checked answer ends with the note comparing the two. The
+ * keys are pseudonymous HMACs, not secrets; an entry that is not one is ignored.
+ */
+export function devAccountKeysFromEnv(
+  value = process.env.ASKRIGOR_DEV_ACCOUNT_KEYS
+): ReadonlySet<string> {
+  return new Set((value ?? "").split(",").map((key) => key.trim().toLowerCase())
+    .filter((key) => /^[a-f0-9]{64}$/u.test(key)));
+}
+
 export function parseTrustedClientIpHeader(
   value = process.env.ASKRIGOR_TRUSTED_CLIENT_IP_HEADER
 ): "cf-connecting-ip" | undefined {

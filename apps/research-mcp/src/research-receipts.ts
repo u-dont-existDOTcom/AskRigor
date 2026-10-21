@@ -10,7 +10,10 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
  * leaves only a lead,
  * a recorded full-text service failure after public-copy search,
  * a treatment-coverage check, or Gemini's reading of a
- * video the person gave) returns one short token. The
+ * video the person gave) returns one short token, and so does
+ * manage_research_access for a plain answer registered before research (its
+ * claims, the digests of its text and research target, and its issue order;
+ * owner answer 140b). The
  * finalize_research gate verifies the tokens, so completion is checked by the
  * server instead of taken from the model's own report. Tokens are stateless:
  * they survive restarts and need no session store.
@@ -38,7 +41,8 @@ export const RESEARCH_RECEIPT_KINDS = [
   "study_audit",
   "review_audit",
   "treatment_coverage",
-  "finalization"
+  "finalization",
+  "plain_answer"
 ] as const;
 export type ResearchReceiptKind = typeof RESEARCH_RECEIPT_KINDS[number];
 

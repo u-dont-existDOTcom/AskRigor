@@ -67,6 +67,7 @@ import { infoAccessClientFromEnv, type InfoAccessClient } from "./infoaccess-cli
 import { authorizedSubject } from "./research-contributor-access-tool.js";
 import {
   PUBLIC_TOOL_LIMITS,
+  devAccountKeysFromEnv,
   findingsLibraryEnabledFromEnv,
   optionalLivingEvidenceReuseConfigFromEnv
 } from "./config.js";
@@ -165,6 +166,7 @@ import {
   manageResearchAccessInputSchema,
   manageResearchAccessOutputSchema,
   optionalSignInSecurityMetadata,
+  plainAnswerRequested,
   researchConnection,
   researchConnectionSchema,
   researchConnectionSummary,
@@ -1701,7 +1703,10 @@ function defineResearchOperations(
   registrar.registerTool(
     "manage_research_access",
     {
-      description: `Shows or sets AskRigor's research-use mode. Inspecting it is the first step of research, and it shows why a research tool was refused. Free use requires explicit agreement to version ${RESEARCH_USE_NOTICE_VERSION}: what AskRigor learns from the research (deidentified structured research progress and each finished answer's findings card) is saved for non-authoritative review. Paid private mode saves an answer's findings card or lesson feedback only when the user accepts saving it for that answer, and activates only for an existing verified entitlement; this release offers no price or checkout.`,
+      description: `Shows or sets AskRigor's research-use mode. Inspecting it is the first step of research, and it shows why a research tool was refused. Free use requires explicit agreement to version ${RESEARCH_USE_NOTICE_VERSION}: what AskRigor learns from the research (deidentified structured research progress and each finished answer's findings card) is saved for non-authoritative review. Paid private mode saves an answer's findings card or lesson feedback only when the user accepts saving it for that answer, and activates only for an existing verified entitlement; this release offers no price or checkout. ` +
+        "For a paid private or dev account, inspect asks for a plain answer before research: register_plain_answer " +
+        "signs the short answer you would give without AskRigor's tools, which the final check compares with the " +
+        "checked answer in a note, and set_plain_answer_note turns that note off or on.",
       inputSchema: manageResearchAccessInputSchema,
       outputSchema: manageResearchAccessOutputSchema,
       annotations: MUTATING_ANNOTATIONS,
@@ -1710,6 +1715,14 @@ function defineResearchOperations(
       service: options.researchContributorAccessService,
       resourceMetadataUrl: options.oauthResourceMetadataUrl,
       signIn: options.signIn,
+      // Owner answer 140b: the plain answer is the MCP connector's (/mcp and /mcp/claude); Gemini's catalog does not
+      // list this tool, and Custom GPT Actions do not reach it.
+      ...(options.mcpSurface === "/mcp/gemini" ? {} : {
+        plainAnswer: {
+          devAccountKeys: () => devAccountKeysFromEnv(),
+          sign: (claims) => researchReceipt("plain_answer", claims),
+        },
+      }),
     }),
   );
 
@@ -2080,7 +2093,9 @@ function defineResearchOperations(
         "receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked " +
         "findings_card is saved to AskRigor's private findings library for the owner's review, and saved_line says " +
         "so at the end of the answer; in paid private mode, when a finding rests on work a quick answer cannot do, " +
-        "the caveats offer its save. " +
+        "the caveats offer its save. For a paid private or dev account whose plain answer was registered with " +
+        "manage_research_access before the research, plain_answer_comparison gives what the research found for each " +
+        "of its claims, and when ready, plain_answer_note is the note comparing the two, for the end of the answer. " +
         // The only text ChatGPT's app shows the model for this tool (Codex probes, 2026-10-16): the JSON of the
         // inputs its type hides, from which the regression's first calls invented fields.
         FINALIZE_RESEARCH_SHAPES_DESCRIPTION,
@@ -2117,7 +2132,13 @@ function defineResearchOperations(
           ? "closed" as const
           : account === undefined ? "private" as const : account.mode === "FREE_CONTRIBUTOR" ? "save" as const : "offer" as const,
         ...(readsOnMobile(extra._meta) ? { mobileClient: true } : {}),
-        ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) })
+        ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) }),
+        // Owner answer 140b: a paid private or dev account's plain answer, registered before research, is compared
+        // with the answer, on the MCP connector only.
+        ...(researcher !== undefined && options.mcpSurface !== "/mcp/gemini" &&
+            plainAnswerRequested(researcher.mode, researcher.accountKey, devAccountKeysFromEnv())
+          ? { plainAnswer: { note: researcher.plainAnswerNote } }
+          : {})
       };
       let result = finalizeResearch(input, finalizeOptions);
       const reader = options.secondReader ?? { enabled: secondReaderEnabled, readAnswer };
@@ -2172,6 +2193,12 @@ function defineResearchOperations(
           `${result.limits.length} limit(s) to state; ${result.receipts_verified} receipt(s) verified.` +
           result.caveats.map((caveat) => `\nThe answer must contain, as written: ${caveat}`).join("") +
           result.must_report.map((lane) => `\nThe answer must report: ${lane}`).join("") +
+          (result.plain_answer_note === undefined ? "" :
+            `\nNear the end of the answer, before ${result.saved_line === undefined ? "" : "the saved line and "}the ` +
+              "check line, give this note comparing the answer with the plain answer registered before research, its " +
+              "quotations exactly as they are and its other words in the answer's language when the answer is not in " +
+              `English: ${result.plain_answer_note}`) +
+          (result.plain_answer?.reason === undefined ? "" : `\nPlain answer: ${result.plain_answer.reason}`) +
           (result.saved_line === undefined ? "" :
             `\nJust before the check line, end the answer with this line, as written (in the answer's language when the answer is not in English): ${result.saved_line}`) +
           (result.check_line === undefined ? "" :

@@ -153,6 +153,18 @@ mode-0600 runtime environment. The review URL must use
 `askrigor_research_review`, not the access role or migrator. It can call only
 the hash-bound inspect/decide functions and cannot read tables directly.
 
+Owner answer 140b (2026-10-20): paid private accounts and dev accounts register
+a plain answer before research, and their checked answers end with a note
+comparing the two. Mark an account dev with `ASKRIGOR_DEV_ACCOUNT_KEYS` in the
+same runtime environment: a comma-separated list of the 64-character
+`account_key` values `research_use_accounts` stores (pseudonymous HMACs, not
+secrets; an entry that is not one is ignored). Migration
+`0013_research_plain_answer_note` adds each account's note setting
+(`plain_answer_note`, on by default); the access role's existing table grant
+covers it. Apply it with the one-shot admin `migrate` before an image that
+reads it serves, since the access store reads that column on every research
+call. An earlier image does not read it, so a rollback needs no step.
+
 When OAuth research access is active, the server omits legacy research Action
 routes so they cannot bypass the mode choice. The separately governed lesson
 Action is unaffected. Verify all 27 MCP operations: the mode, proposal, and

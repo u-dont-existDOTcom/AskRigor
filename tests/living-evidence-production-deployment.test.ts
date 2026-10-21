@@ -150,6 +150,12 @@ describe("production living-evidence deployment", () => {
     );
     expect(notice).toContain("IF NOT EXISTS");
     expect(await read("packages/evidence-repository/src/postgres.ts")).toContain('"0011_research_use_notice_v2"');
+    // Owner answer 140b (2026-10-20): the plain-answer note is a choice on the account row, on by default, which the
+    // role's table grant already covers; the plain answer itself is never stored.
+    const noteSetting = await read("packages/evidence-repository/migrations/0013_research_plain_answer_note.sql");
+    expect(noteSetting).toContain("ADD COLUMN IF NOT EXISTS plain_answer_note boolean NOT NULL DEFAULT true");
+    expect(noteSetting).not.toMatch(/CREATE TABLE|GRANT/iu);
+    expect(await read("packages/evidence-repository/src/postgres.ts")).toContain('"0013_research_plain_answer_note"');
     expect(provision).not.toMatch(
       /GRANT\s+(?:DELETE|TRUNCATE|CREATE)\b/iu,
     );

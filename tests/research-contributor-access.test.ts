@@ -324,6 +324,31 @@ describe("research contributor access", () => {
     });
   });
 
+  // Owner answer 140b (2026-10-20): the plain-answer note is a stored choice, on by default.
+  it("stores the plain-answer note setting, on by default, which saving or revoking the account leaves as it is", async () => {
+    const { store, service } = fixture();
+    await expect(service.setPlainAnswerNote(SUBJECT, false)).rejects.toMatchObject({ code: "RESEARCH_ACCESS_REQUIRED" });
+    expect(store.allAccounts()).toEqual([]);
+    await service.acceptFreeContributor(SUBJECT, agreement());
+    await expect(service.activeAccount(SUBJECT)).resolves.toEqual({ mode: "FREE_CONTRIBUTOR", plainAnswerNote: true });
+    await expect(service.setPlainAnswerNote(SUBJECT, false)).resolves.toBe(false);
+    await expect(service.activeAccount(SUBJECT)).resolves.toEqual({ mode: "FREE_CONTRIBUTOR", plainAnswerNote: false });
+    // Accepting again saves the account row anew; the choice is the account's, not the agreement's.
+    await service.acceptFreeContributor(SUBJECT, agreement());
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ plainAnswerNote: false });
+    await service.revoke(SUBJECT);
+    await expect(service.setPlainAnswerNote(SUBJECT, true)).rejects.toMatchObject({ code: "RESEARCH_ACCESS_REVOKED" });
+    await service.acceptFreeContributor(SUBJECT, agreement());
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ plainAnswerNote: false });
+    await service.setPlainAnswerNote(SUBJECT, true);
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ plainAnswerNote: true });
+    // Only the choice is kept: no text field joins the account row.
+    expect(Object.keys(store.allAccounts()[0]!).sort()).toEqual([
+      "accountKey", "activatedAt", "agreement", "createdAt", "mode", "noticeVersion", "plainAnswerNote", "revokedAt",
+      "status", "updatedAt"
+    ]);
+  });
+
   it("rejects identity secrets that cannot protect a stable OAuth subject", () => {
     expect(() => new ResearchContributorAccessService({
       store: new InMemoryResearchContributorAccessStore(),
