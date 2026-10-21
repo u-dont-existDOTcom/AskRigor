@@ -61,7 +61,7 @@ const promotionSchema = z.object({
 
 const proposalSchema = z.object({
   proposalId: z.string().uuid(),
-  proposalKind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS"]),
+  proposalKind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS", "TOPIC_LINK"]),
   payloadSha256: z.string().regex(/^[a-f0-9]{64}$/u),
   payload: z.record(z.string(), z.unknown()),
   privacyBoundary: z.record(z.string(), z.boolean()),
@@ -77,7 +77,7 @@ const proposalSchema = z.object({
   related: z.object({
     proposals: z.array(z.object({
       proposalId: z.string().uuid(),
-      proposalKind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS"]),
+      proposalKind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS", "TOPIC_LINK"]),
       status: z.enum(["PENDING_REVIEW", "ACCEPTED"]),
       promotionStatus: z.literal("PENDING").nullable(),
       shared: z.array(z.enum(RELATED_PROPOSAL_KEY_KINDS)),
@@ -226,6 +226,14 @@ export function createResearchContributionReviewHandler(
 /** What shares the proposal's identities and what promotion would meet, in a sentence or two (IDs only). */
 function reviewAidText(proposal: ResearchContributionReviewView): string {
   const parts: string[] = [];
+  if (proposal.proposalKind === "TOPIC_LINK" && proposal.status === "PENDING_REVIEW") {
+    // Owner answer 138b: whether two wordings name one topic is the model's declaration and the owner's judgment.
+    const link = proposal.payload as { relation: string; fromTopic: { canonicalKey: string }; toTopic: { canonicalKey: string } };
+    parts.push(`It declares topic ${link.fromTopic.canonicalKey} ${link.relation === "same" ? "the same as" : link.relation === "related" ? "related to" : `${link.relation} than`} ` +
+      `topic ${link.toTopic.canonicalKey}; whether that is so is your judgment. Accepting it writes ` +
+      (link.relation === "same" ? "each topic's label as the other's alias" : "one topic edge") +
+      " and moves, changes or deletes nothing filed under either topic.");
+  }
   if (proposal.supersedesProposalId !== null && proposal.status === "PENDING_REVIEW") {
     parts.push(`It replaces this account's draft ${proposal.supersedesProposalId}; accepting it rejects that draft as superseded.`);
   }

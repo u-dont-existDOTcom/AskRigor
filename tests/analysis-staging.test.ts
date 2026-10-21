@@ -346,7 +346,7 @@ describe("a second audit of a study joins the study's record (owner answer 138b)
     idempotency: null, manifests: [], run: null, topics: [], questions: [], frontiers: [], lanes: [],
     contributionIds: [], passIds: [], candidates: [], candidateVersions: [], trails: [], trailVersions: [],
     identifierCandidates: [], sourceFamilies: [], sourceVersions: [], freshnessPolicies: [], analyses: [],
-    analysisVersionIds: [], claims: [], receiptVersions: [], ...overrides,
+    analysisVersionIds: [], claims: [], topicLink: null, receiptVersions: [], ...overrides,
   });
   const FAMILY = "20000000-0000-4000-8000-000000000001";
   const VERSION = "20000000-0000-4000-8000-000000000002";

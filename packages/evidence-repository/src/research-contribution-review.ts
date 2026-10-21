@@ -6,6 +6,7 @@ import { z } from "zod";
 import type {
   ContributionReceipt,
   FrontierContributionReceipt,
+  TopicLinkContributionReceipt,
 } from "./postgres.js";
 import {
   prepareResearchContributionProposal,
@@ -28,6 +29,7 @@ import {
 import type {
   LivingEvidenceContribution,
   ResearchFrontierContribution,
+  TopicLinkContribution,
 } from "./contracts.js";
 import { sha256, stableJson } from "./hash.js";
 
@@ -81,6 +83,11 @@ export const RESEARCH_CONTRIBUTION_PROMOTION_FAILURE_CODES = [
   "CLAIM_ALREADY_HAS_INITIAL_VERSION",
   "CLAIM_ID_CONFLICT",
   "FRESHNESS_POLICY_ID_CONFLICT",
+  "TOPIC_LINK_IDEMPOTENCY_KEY_PAYLOAD_MISMATCH",
+  "TOPIC_LINK_TOPIC_MISSING",
+  "TOPIC_LINK_CONFLICT",
+  "TOPIC_ALIAS_CONFLICT",
+  "TOPIC_LINK_ID_CONFLICT",
   // The canonical store's triggers (migrations 0001 and 0002), raised as check violations with these exact messages.
   "ANALYSIS_LINEAGE_MISMATCH",
   "CLAIM_DEPENDENCY_CYCLE",
@@ -167,7 +174,7 @@ export interface ResearchContributionReviewView {
   proposalId: string;
   proposalKind: ResearchContributionProposalKind;
   payloadSha256: string;
-  payload: LivingEvidenceContribution | ResearchFrontierContribution;
+  payload: LivingEvidenceContribution | ResearchFrontierContribution | TopicLinkContribution;
   privacyBoundary: ContributionPrivacyBoundary;
   partial: boolean;
   status: ResearchContributionProposalRecord["status"];
@@ -533,7 +540,10 @@ implements ResearchContributionReviewStore {
 export interface CanonicalResearchContributionWriter {
   contribute(input: unknown): Promise<ContributionReceipt>;
   contributeFrontier(input: unknown): Promise<FrontierContributionReceipt>;
+  contributeTopicLink(input: unknown): Promise<TopicLinkContributionReceipt>;
 }
+
+type CanonicalWriterReceipt = ContributionReceipt | FrontierContributionReceipt | TopicLinkContributionReceipt;
 
 export interface ResearchContributionPromotionReceipt {
   receiptSchema: "askrigor.research-contribution-promotion.v1";
@@ -541,8 +551,8 @@ export interface ResearchContributionPromotionReceipt {
   proposalId: string;
   proposalKind: ResearchContributionProposalKind;
   reviewedPayloadSha256: string;
-  writerOperation: "contribute" | "contributeFrontier";
-  canonicalWriterReceipt: ContributionReceipt | FrontierContributionReceipt;
+  writerOperation: "contribute" | "contributeFrontier" | "contributeTopicLink";
+  canonicalWriterReceipt: CanonicalWriterReceipt;
   promotedAt: string;
 }
 
@@ -652,12 +662,14 @@ export class PostgresResearchContributionPromotionRunner {
       }
       const writerOperation = row.proposal_kind === "RESEARCH_FRONTIER"
         ? "contributeFrontier"
-        : "contribute";
-      let canonicalWriterReceipt: ContributionReceipt | FrontierContributionReceipt;
+        : row.proposal_kind === "TOPIC_LINK" ? "contributeTopicLink" : "contribute";
+      let canonicalWriterReceipt: CanonicalWriterReceipt;
       try {
         canonicalWriterReceipt = writerOperation === "contributeFrontier"
           ? await this.writer.contributeFrontier(prepared.payload)
-          : await this.writer.contribute(prepared.payload);
+          : writerOperation === "contributeTopicLink"
+            ? await this.writer.contributeTopicLink(prepared.payload)
+            : await this.writer.contribute(prepared.payload);
       } catch (error) {
         // The writer rolled its own transaction back; this one still holds the intent's lock.
         const failureCode = promotionFailureCode(error);
@@ -760,7 +772,7 @@ const reviewContextSchema = z.object({
   superseded_by_proposal_ids: z.array(z.string().uuid()).optional(),
   related_proposals: z.array(z.object({
     proposal_id: z.string().uuid(),
-    proposal_kind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS"]),
+    proposal_kind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS", "TOPIC_LINK"]),
     status: z.enum(["PENDING_REVIEW", "ACCEPTED"]),
     promotion_status: z.literal("PENDING").nullable(),
     shared: z.array(z.enum(RELATED_PROPOSAL_KEY_KINDS)).min(1),
@@ -882,15 +894,23 @@ const canonicalWriterReceiptSchema = z.union([
     candidateVersionCount: z.number().int().nonnegative(),
     trailVersionCount: z.number().int().nonnegative(),
   }).strict(),
+  z.object({
+    status: z.enum(["inserted", "idempotent_replay"]),
+    linkId: z.string().uuid(),
+    relation: z.enum(["same", "narrower", "broader", "related"]),
+    payloadSha256: z.string().regex(/^[a-f0-9]{64}$/u),
+    aliasesWritten: z.number().int().min(0).max(2),
+    edgesWritten: z.number().int().min(0).max(1),
+  }).strict(),
 ]);
 
 const promotionReceiptSchema = z.object({
   receiptSchema: z.literal("askrigor.research-contribution-promotion.v1"),
   promotionId: z.string().uuid(),
   proposalId: z.string().uuid(),
-  proposalKind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS"]),
+  proposalKind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS", "TOPIC_LINK"]),
   reviewedPayloadSha256: z.string().regex(/^[a-f0-9]{64}$/u),
-  writerOperation: z.enum(["contribute", "contributeFrontier"]),
+  writerOperation: z.enum(["contribute", "contributeFrontier", "contributeTopicLink"]),
   canonicalWriterReceipt: canonicalWriterReceiptSchema,
   promotedAt: z.iso.datetime({ offset: true }),
 }).strict();

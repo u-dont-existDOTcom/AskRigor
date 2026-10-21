@@ -32,7 +32,7 @@ function emptyState(): CanonicalIdentityState {
     idempotency: null, manifests: [], run: null, topics: [], questions: [], frontiers: [], lanes: [],
     contributionIds: [], passIds: [], candidates: [], candidateVersions: [], trails: [], trailVersions: [],
     identifierCandidates: [], sourceFamilies: [], sourceVersions: [], freshnessPolicies: [], analyses: [],
-    analysisVersionIds: [], claims: [], receiptVersions: [],
+    analysisVersionIds: [], claims: [], topicLink: null, receiptVersions: [],
   };
 }
 

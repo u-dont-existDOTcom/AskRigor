@@ -4,14 +4,21 @@ import { Pool, type PoolClient, type PoolConfig } from "pg";
 
 import {
   frontierCandidateIdentityHash,
+  topicLinkFindings,
   type CanonicalIdentityRequest,
   type CanonicalIdentityState,
+  type TopicLinkState,
 } from "./contribution-identity.js";
-import type { LivingEvidenceContribution, ResearchFrontierContribution } from "./contracts.js";
+import type {
+  LivingEvidenceContribution,
+  ResearchFrontierContribution,
+  TopicLinkContribution,
+} from "./contracts.js";
 import { deterministicUuid, sha256, stableJson } from "./hash.js";
 import {
   prepareContribution,
   prepareFrontierContribution,
+  prepareTopicLinkContribution,
   type PreparedContribution,
   type PreparedFrontierContribution,
 } from "./prepare.js";
@@ -46,6 +53,25 @@ export interface FrontierContributionReceipt {
   passCount: number;
   candidateVersionCount: number;
   trailVersionCount: number;
+}
+
+export interface TopicLinkContributionReceipt {
+  status: "inserted" | "idempotent_replay";
+  linkId: string;
+  relation: TopicLinkContribution["relation"];
+  payloadSha256: string;
+  aliasesWritten: number;
+  edgesWritten: number;
+}
+
+function topicLinkReceipt(
+  status: TopicLinkContributionReceipt["status"],
+  payloadSha256: string,
+  link: TopicLinkContribution,
+  aliasesWritten: number,
+  edgesWritten: number,
+): TopicLinkContributionReceipt {
+  return { status, linkId: link.linkId, relation: link.relation, payloadSha256, aliasesWritten, edgesWritten };
 }
 
 export interface ResearchFrontierLookupInput {
@@ -348,6 +374,102 @@ export class PostgresEvidenceRepository {
       );
       await client.query("COMMIT");
       return this.frontierReceipt("inserted", prepared);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Writes one owner-accepted topic link (owner answer 138b): it appends a topic_link_contributions row and, for "same",
+   * each topic's label as the other's alias, or for narrower, broader and related one topic_edges row. It never moves,
+   * changes or deletes either topic or anything filed under it. The exact checks are the intake's own, repeated
+   * against the store as it is at promotion.
+   */
+  async contributeTopicLink(input: unknown): Promise<TopicLinkContributionReceipt> {
+    const prepared = prepareTopicLinkContribution(input);
+    const link = prepared.contribution;
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN ISOLATION LEVEL SERIALIZABLE");
+      await this.setSearchPath(client);
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended('askrigor:living-evidence-writer', 0))");
+      const replay = await client.query<{ link_id: string; payload_sha256: string; aliases_written: number; edges_written: number }>(
+        "SELECT link_id, payload_sha256, aliases_written, edges_written FROM topic_link_contributions WHERE idempotency_key = $1",
+        [link.idempotencyKey],
+      );
+      if (replay.rowCount !== 0) {
+        const row = replay.rows[0]!;
+        if (row.payload_sha256 !== prepared.payloadSha256 || row.link_id !== link.linkId) {
+          throw new Error("TOPIC_LINK_IDEMPOTENCY_KEY_PAYLOAD_MISMATCH");
+        }
+        await client.query("COMMIT");
+        return topicLinkReceipt("idempotent_replay", prepared.payloadSha256, link, row.aliases_written, row.edges_written);
+      }
+      await this.insertProtocolsAndRun(client, link);
+      const topics = await client.query<{ topic_id: string; canonical_key: string; label: string }>(
+        "SELECT topic_id, canonical_key, label FROM topics WHERE topic_id = ANY($1::uuid[])",
+        [[link.fromTopic.topicId, link.toTopic.topicId]],
+      );
+      const state = {
+        topics: topics.rows.map((row) => ({ topicId: row.topic_id, canonicalKey: row.canonical_key, label: row.label })),
+        topicLink: await this.readTopicLinkState(client, {
+          linkId: link.linkId, fromTopicId: link.fromTopic.topicId, toTopicId: link.toTopic.topicId,
+        }),
+      };
+      const finding = topicLinkFindings(link, state)[0];
+      if (finding !== undefined) throw new Error(finding.code);
+      const from = state.topics.find(({ topicId }) => topicId === link.fromTopic.topicId)!;
+      const to = state.topics.find(({ topicId }) => topicId === link.toTopic.topicId)!;
+      let aliasesWritten = 0;
+      let edgesWritten = 0;
+      if (link.relation === "same") {
+        for (const [topic, other] of [[from, to], [to, from]] as const) {
+          if (other.label === topic.label) continue;
+          const written = await client.query(
+            "INSERT INTO topic_aliases (topic_id, alias) VALUES ($1, $2) ON CONFLICT (topic_id, alias) DO NOTHING",
+            [topic.topicId, other.label],
+          );
+          aliasesWritten += written.rowCount ?? 0;
+        }
+      } else {
+        await client.query(
+          `INSERT INTO topic_edges (edge_id, from_topic_id, to_topic_id, relation, run_id)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [
+            link.linkId, link.fromTopic.topicId, link.toTopic.topicId,
+            link.relation === "narrower" ? "narrower_than" : link.relation === "broader" ? "broader_than" : "related_to",
+            link.run.runId,
+          ],
+        );
+        edgesWritten = 1;
+      }
+      await client.query(
+        `INSERT INTO topic_link_contributions
+          (link_id, idempotency_key, run_id, from_topic_id, to_topic_id, relation, aliases_written, edges_written,
+           payload_sha256, payload_json)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)`,
+        [
+          link.linkId, link.idempotencyKey, link.run.runId, link.fromTopic.topicId, link.toTopic.topicId,
+          link.relation, aliasesWritten, edgesWritten, prepared.payloadSha256, JSON.stringify(link),
+        ],
+      );
+      await client.query(
+        `INSERT INTO repository_events
+          (event_id, event_kind, run_id, analysis_id, version_id, payload_sha256, event_at, details)
+         VALUES ($1, 'topic_link_contributed', $2, NULL, NULL, $3, $4, $5::jsonb)`,
+        [
+          deterministicUuid(`askrigor:topic-link-event:${prepared.payloadSha256}`),
+          link.run.runId,
+          prepared.payloadSha256,
+          link.run.completedAt,
+          JSON.stringify({ link_id: link.linkId, relation: link.relation, aliases_written: aliasesWritten, edges_written: edgesWritten }),
+        ],
+      );
+      await client.query("COMMIT");
+      return topicLinkReceipt("inserted", prepared.payloadSha256, link, aliasesWritten, edgesWritten);
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;
@@ -708,7 +830,9 @@ export class PostgresEvidenceRepository {
       const idempotency = await client.query<{ record_id: string; payload_sha256: string }>(
         request.kind === "RESEARCH_FRONTIER"
           ? "SELECT contribution_id AS record_id, payload_sha256 FROM frontier_contributions WHERE idempotency_key = $1"
-          : "SELECT version_id AS record_id, payload_sha256 FROM analysis_versions WHERE idempotency_key = $1",
+          : request.kind === "TOPIC_LINK"
+            ? "SELECT link_id AS record_id, payload_sha256 FROM topic_link_contributions WHERE idempotency_key = $1"
+            : "SELECT version_id AS record_id, payload_sha256 FROM analysis_versions WHERE idempotency_key = $1",
         [request.idempotencyKey],
       );
       const manifests = await client.query<{ sha256: string; name: string; version: string; revision_date_matches: boolean }>(
@@ -941,8 +1065,10 @@ export class PostgresEvidenceRepository {
           ORDER BY receipt.version_id`,
         [request.receiptSha256s],
       );
+      const topicLink = request.topicLink === null ? null : await this.readTopicLinkState(client, request.topicLink);
       await client.query("COMMIT");
       return {
+        topicLink,
         idempotency: idempotency.rows[0] === undefined
           ? null
           : { recordId: idempotency.rows[0].record_id, payloadSha256: idempotency.rows[0].payload_sha256 },
@@ -1452,7 +1578,7 @@ export class PostgresEvidenceRepository {
       "evidence_bindings", "freshness_policies", "freshness_checks", "repository_events", "impact_jobs",
       "research_frontiers", "frontier_lanes", "frontier_contributions", "discovery_passes",
       "frontier_candidates", "frontier_candidate_identifiers", "frontier_candidate_versions",
-      "frontier_trails", "frontier_trail_versions",
+      "frontier_trails", "frontier_trail_versions", "topic_link_contributions",
     ] as const;
     const client = await this.pool.connect();
     try {
@@ -1526,6 +1652,69 @@ export class PostgresEvidenceRepository {
 
   async close(): Promise<void> {
     await this.pool.end();
+  }
+
+  /** What the store holds between two topics, inside the caller's transaction (the reader's or the writer's). */
+  private async readTopicLinkState(
+    client: PoolClient,
+    link: { linkId: string; fromTopicId: string; toTopicId: string },
+  ): Promise<TopicLinkState> {
+    const pair = [link.fromTopicId, link.toTopicId];
+    const links = await client.query<{ link_id: string; from_topic_id: string; to_topic_id: string; relation: string }>(
+      `SELECT link_id, from_topic_id, to_topic_id, relation FROM topic_link_contributions
+        WHERE from_topic_id = ANY($1::uuid[]) AND to_topic_id = ANY($1::uuid[])
+        ORDER BY link_id`,
+      [pair],
+    );
+    const edges = await client.query<{ from_topic_id: string; to_topic_id: string; relation: string }>(
+      `SELECT from_topic_id, to_topic_id, relation FROM topic_edges
+        WHERE from_topic_id = ANY($1::uuid[]) AND to_topic_id = ANY($1::uuid[])`,
+      [pair],
+    );
+    // A chain of hierarchy edges from the first topic down to the second, as the cycle trigger walks it.
+    const descends = async (ancestor: string, descendant: string) => (await client.query<{ found: boolean }>(
+      `WITH RECURSIVE descendants(node_id) AS (
+         SELECT CASE WHEN edge.relation = 'broader_than' THEN edge.to_topic_id ELSE edge.from_topic_id END
+           FROM topic_edges edge
+          WHERE edge.relation IN ('broader_than', 'narrower_than')
+            AND (CASE WHEN edge.relation = 'broader_than' THEN edge.from_topic_id ELSE edge.to_topic_id END) = $1
+         UNION
+         SELECT CASE WHEN edge.relation = 'broader_than' THEN edge.to_topic_id ELSE edge.from_topic_id END
+           FROM descendants prior
+           JOIN topic_edges edge
+             ON edge.relation IN ('broader_than', 'narrower_than')
+            AND (CASE WHEN edge.relation = 'broader_than' THEN edge.from_topic_id ELSE edge.to_topic_id END) = prior.node_id
+       )
+       SELECT EXISTS (SELECT 1 FROM descendants WHERE node_id = $2) AS found`,
+      [ancestor, descendant],
+    )).rows[0]?.found === true;
+    const aliases = await client.query<{ topic_id: string; alias: string }>(
+      `SELECT alias.topic_id, alias.alias FROM topic_aliases alias
+        WHERE alias.topic_id = ANY($1::uuid[])
+           OR alias.alias IN (SELECT topic.label FROM topics topic WHERE topic.topic_id = ANY($1::uuid[]))
+        ORDER BY alias.topic_id, alias.alias`,
+      [pair],
+    );
+    const taken = await client.query<{ taken: boolean }>(
+      `SELECT EXISTS (SELECT 1 FROM topic_link_contributions WHERE link_id = $1)
+           OR EXISTS (SELECT 1 FROM topic_edges WHERE edge_id = $1) AS taken`,
+      [link.linkId],
+    );
+    return {
+      links: links.rows.map((row) => ({
+        linkId: row.link_id, fromTopicId: row.from_topic_id, toTopicId: row.to_topic_id, relation: row.relation,
+      })),
+      parentEdges: edges.rows
+        .filter(({ relation }) => relation === "broader_than" || relation === "narrower_than")
+        .map((row) => row.relation === "broader_than"
+          ? { parentTopicId: row.from_topic_id, childTopicId: row.to_topic_id }
+          : { parentTopicId: row.to_topic_id, childTopicId: row.from_topic_id }),
+      relatedEdges: edges.rows.filter(({ relation }) => relation === "related_to").length,
+      fromIsAncestorOfTo: await descends(link.fromTopicId, link.toTopicId),
+      toIsAncestorOfFrom: await descends(link.toTopicId, link.fromTopicId),
+      aliases: aliases.rows.map((row) => ({ topicId: row.topic_id, alias: row.alias })),
+      linkIdTaken: taken.rows[0]?.taken === true,
+    };
   }
 
   private async setSearchPath(client: PoolClient): Promise<void> {

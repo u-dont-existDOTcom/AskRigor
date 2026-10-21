@@ -372,7 +372,7 @@ describe("the owner sees related records and a promotion preflight before decidi
       idempotency: null, manifests: [], run: null, topics: [], questions: [], frontiers: [], lanes: [],
       contributionIds: [], passIds: [], candidates: [], candidateVersions: [], trails: [], trailVersions: [],
       identifierCandidates: [], sourceVersions: [], freshnessPolicies: [], analysisVersionIds: [], claims: [],
-      receiptVersions: [],
+      topicLink: null, receiptVersions: [],
       sourceFamilies: [{
         familyId: "33333333-3333-4333-a333-333333333333", sourceKind: "study", identityHash: "2".repeat(64),
         displayTitle: "A canonical title the payload does not repeat", identifiers: [{ scheme: "doi", value: "10.0000/owner-review" }],

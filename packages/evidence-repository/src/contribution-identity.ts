@@ -1,6 +1,7 @@
 import type {
   LivingEvidenceContribution,
   ResearchFrontierContribution,
+  TopicLinkContribution,
 } from "./contracts.js";
 import { sha256, stableJson } from "./hash.js";
 import type { ContributionProblemRule } from "./research-contribution-check.js";
@@ -11,7 +12,25 @@ import type { ResearchContributionPromotionFailureCode } from "./research-contri
 // reviews, and promotion writes, the reconciled payload's hash. Nothing here judges meaning; that is the model's
 // declaration (TOPIC_LINK) and the owner's review.
 
-export type ContributionKind = "RESEARCH_FRONTIER" | "SOURCE_ANALYSIS";
+export type ContributionKind = "RESEARCH_FRONTIER" | "SOURCE_ANALYSIS" | "TOPIC_LINK";
+
+type ContributionPayload = LivingEvidenceContribution | ResearchFrontierContribution | TopicLinkContribution;
+
+/** What the canonical store holds between the two topics a TOPIC_LINK names. */
+export interface TopicLinkState {
+  /** Topic links already accepted between the two topics, in either order. */
+  links: Array<{ linkId: string; fromTopicId: string; toTopicId: string; relation: string }>;
+  /** Hierarchy edges between them, as parent and child ("broader_than" from the parent, "narrower_than" from the child). */
+  parentEdges: Array<{ parentTopicId: string; childTopicId: string }>;
+  relatedEdges: number;
+  /** Whether a chain of hierarchy edges already leads from one topic down to the other. */
+  fromIsAncestorOfTo: boolean;
+  toIsAncestorOfFrom: boolean;
+  /** Alias rows of either topic, and rows whose alias is either topic's label. */
+  aliases: Array<{ topicId: string; alias: string }>;
+  /** Whether the link's UUID already names a topic link or a topic edge. */
+  linkIdTaken: boolean;
+}
 
 export interface QuestionDimensions {
   population: string | null;
@@ -94,6 +113,8 @@ export interface CanonicalIdentityState {
   analyses: Array<{ analysisId: string; analysisKind: string; topicId: string | null; sourceFamilyId: string | null }>;
   analysisVersionIds: string[];
   claims: Array<{ claimId: string; questionId: string; claimType: string }>;
+  /** Present when the request names a topic link. */
+  topicLink: TopicLinkState | null;
   /** Canonical analysis versions holding a receipt with one of the payload's receipt hashes, and their protocols. */
   receiptVersions: Array<{
     versionId: string;
@@ -134,6 +155,7 @@ export interface CanonicalIdentityRequest {
   analysisVersionIds: string[];
   claimIds: string[];
   receiptSha256s: string[];
+  topicLink: { linkId: string; fromTopicId: string; toTopicId: string } | null;
 }
 
 /** The canonical store's read-only identity view. The public runtime's reader role is enough. */
@@ -151,7 +173,7 @@ export function frontierCandidateIdentityHash(identifiers: ReadonlyArray<{ schem
 
 export function canonicalIdentityRequest(
   kind: ContributionKind,
-  payload: LivingEvidenceContribution | ResearchFrontierContribution,
+  payload: ContributionPayload,
 ): CanonicalIdentityRequest {
   const unique = (values: Array<string | null | undefined>) =>
     [...new Set(values.filter((value): value is string => typeof value === "string"))].sort();
@@ -168,7 +190,18 @@ export function canonicalIdentityRequest(
     contributionIds: [], passIds: [], candidateIds: [], candidateIdentityHashes: [], candidateVersionIds: [], trailIds: [],
     trailVersionIds: [], identifiers: [], sourceFamilyIds: [], sourceIdentityHashes: [], sourceVersion: null,
     freshnessPolicyIds: [], analysisIds: [], analysisVersionIds: [], claimIds: [], receiptSha256s: [],
+    topicLink: null,
   };
+  if (kind === "TOPIC_LINK") {
+    const link = payload as TopicLinkContribution;
+    return {
+      ...empty,
+      ...base,
+      topicIds: unique([link.fromTopic.topicId, link.toTopic.topicId]),
+      topicKeys: unique([link.fromTopic.canonicalKey, link.toTopic.canonicalKey]),
+      topicLink: { linkId: link.linkId, fromTopicId: link.fromTopic.topicId, toTopicId: link.toTopic.topicId },
+    };
+  }
   if (kind === "RESEARCH_FRONTIER") {
     const frontier = payload as ResearchFrontierContribution;
     const candidates = frontier.frontier.candidateVersions;
@@ -522,7 +555,7 @@ export interface ContributionPreflight {
 
 export function preflightContribution(
   kind: ContributionKind,
-  payload: LivingEvidenceContribution | ResearchFrontierContribution,
+  payload: ContributionPayload,
   state: CanonicalIdentityState,
   payloadSha256: string,
 ): ContributionPreflight {
@@ -530,13 +563,17 @@ export function preflightContribution(
   const conflict = (code: ResearchContributionPromotionFailureCode, path: string) => conflicts.push({ code, path });
   const recordId = kind === "RESEARCH_FRONTIER"
     ? (payload as ResearchFrontierContribution).contributionId
-    : (payload as LivingEvidenceContribution).analysis.versionId;
+    : kind === "TOPIC_LINK"
+      ? (payload as TopicLinkContribution).linkId
+      : (payload as LivingEvidenceContribution).analysis.versionId;
   if (state.idempotency !== null) {
     if (state.idempotency.payloadSha256 === payloadSha256 && state.idempotency.recordId === recordId) {
       return { status: "replay", conflicts: [] };
     }
     conflict(
-      kind === "RESEARCH_FRONTIER" ? "FRONTIER_IDEMPOTENCY_KEY_PAYLOAD_MISMATCH" : "IDEMPOTENCY_KEY_PAYLOAD_MISMATCH",
+      kind === "RESEARCH_FRONTIER"
+        ? "FRONTIER_IDEMPOTENCY_KEY_PAYLOAD_MISMATCH"
+        : kind === "TOPIC_LINK" ? "TOPIC_LINK_IDEMPOTENCY_KEY_PAYLOAD_MISMATCH" : "IDEMPOTENCY_KEY_PAYLOAD_MISMATCH",
       "payload.idempotencyKey",
     );
   }
@@ -556,6 +593,12 @@ export function preflightContribution(
     )
   ) {
     conflict("RESEARCH_RUN_CONFLICT", "payload.run.runId");
+  }
+  if (kind === "TOPIC_LINK") {
+    for (const finding of topicLinkFindings(payload as TopicLinkContribution, state)) {
+      conflict(finding.code, finding.path.join(".").replace(/\.(\d+)/gu, "[$1]"));
+    }
+    return { status: conflicts.length === 0 ? "clear" : "conflicts", conflicts };
   }
   const topic = kind === "RESEARCH_FRONTIER"
     ? (payload as ResearchFrontierContribution).topic
@@ -789,18 +832,21 @@ export const RELATED_RECORDS_SHOWN = 25;
 /** The canonical records sharing the proposal's topic key, frontier, question or a candidate or source identifier. */
 export function relatedCanonicalRecords(
   kind: ContributionKind,
-  payload: LivingEvidenceContribution | ResearchFrontierContribution,
+  payload: ContributionPayload,
   state: CanonicalIdentityState,
 ): { records: RelatedCanonicalRecord[]; notShown: number } {
   const records: RelatedCanonicalRecord[] = [];
-  const topic = kind === "RESEARCH_FRONTIER"
-    ? (payload as ResearchFrontierContribution).topic
-    : (payload as LivingEvidenceContribution).topic;
+  const topicKeys = kind === "TOPIC_LINK"
+    ? [(payload as TopicLinkContribution).fromTopic.canonicalKey, (payload as TopicLinkContribution).toTopic.canonicalKey]
+    : [(kind === "RESEARCH_FRONTIER"
+        ? (payload as ResearchFrontierContribution).topic
+        : (payload as LivingEvidenceContribution).topic)?.canonicalKey];
   for (const stored of state.topics) {
-    if (topic !== null && stored.canonicalKey === topic.canonicalKey) {
+    if (topicKeys.includes(stored.canonicalKey)) {
       records.push({ record: "topic", id: stored.topicId, shared: "topic_key" });
     }
   }
+  if (kind === "TOPIC_LINK") return { records, notShown: 0 };
   if (kind === "RESEARCH_FRONTIER") {
     const frontier = payload as ResearchFrontierContribution;
     for (const stored of state.questions) {
@@ -866,6 +912,10 @@ export function proposalKeys(payload: unknown): Array<{ kind: RelatedProposalKey
   const keys: Array<[RelatedProposalKeyKind, string | undefined]> = [
     ["topic_key", text(record(root.topic).canonicalKey)],
     ["topic_id", text(record(root.topic).topicId)],
+    ["topic_key", text(record(root.fromTopic).canonicalKey)],
+    ["topic_id", text(record(root.fromTopic).topicId)],
+    ["topic_key", text(record(root.toTopic).canonicalKey)],
+    ["topic_id", text(record(root.toTopic).topicId)],
     ["frontier_id", text(record(root.frontier).frontierId)],
     ["question_id", text(record(root.question).questionId)],
     ["question_id", text(record(record(root.knowledge).question).questionId)],
@@ -877,4 +927,92 @@ export function proposalKeys(payload: unknown): Array<{ kind: RelatedProposalKey
       ["identifier", identifier(value)]),
   ];
   return keys.flatMap(([kind, value]) => value === undefined ? [] : [{ kind, value }]);
+}
+
+/** A conflict a topic link meets in the canonical store: its failure code, payload path, rule and expectation. */
+export interface TopicLinkFinding {
+  code: Extract<
+    ResearchContributionPromotionFailureCode,
+    "TOPIC_LINK_TOPIC_MISSING" | "TOPIC_LINK_CONFLICT" | "TOPIC_ALIAS_CONFLICT" | "TOPIC_LINK_ID_CONFLICT"
+  >;
+  path: Array<string | number>;
+  rule: CanonicalFinding["rule"];
+  expected: string;
+}
+
+/**
+ * The exact checks a topic link meets, the same at intake, in the preflight and in the canonical writer: both topics
+ * are canonical under the ID and key named; no stored link contradicts or repeats this one (two topics declared the
+ * same have no hierarchy between them, a hierarchy runs one way and has no cycle, a link is not stored twice); for
+ * "same", each topic's label, written as the other's alias, is no third topic's alias; and the link's UUID is new.
+ */
+export function topicLinkFindings(
+  link: TopicLinkContribution,
+  state: Pick<CanonicalIdentityState, "topics" | "topicLink">,
+): TopicLinkFinding[] {
+  const findings: TopicLinkFinding[] = [];
+  const named = (reference: TopicLinkContribution["fromTopic"], path: "fromTopic" | "toTopic") => {
+    const topic = state.topics.find(({ topicId }) => topicId === reference.topicId);
+    if (topic === undefined || topic.canonicalKey !== reference.canonicalKey) {
+      findings.push({
+        code: "TOPIC_LINK_TOPIC_MISSING",
+        path: ["payload", path],
+        rule: "canonical_missing",
+        expected: "the topicId and canonicalKey of one canonical topic, as search_research_frontiers or " +
+          "get_research_frontier returns them: no canonical topic has this ID with this key",
+      });
+    }
+    return topic;
+  };
+  const from = named(link.fromTopic, "fromTopic");
+  const to = named(link.toTopic, "toTopic");
+  const stored = state.topicLink;
+  if (from === undefined || to === undefined || stored === null) return findings;
+  if (stored.linkIdTaken) {
+    findings.push({
+      code: "TOPIC_LINK_ID_CONFLICT",
+      path: ["payload", "linkId"],
+      rule: "canonical_conflict",
+      expected: "a new UUID: this UUID already names a canonical topic link or edge",
+    });
+  }
+  const same = stored.links.some(({ relation }) => relation === "same");
+  const parent = (parentTopicId: string, childTopicId: string) =>
+    stored.parentEdges.some((edge) => edge.parentTopicId === parentTopicId && edge.childTopicId === childTopicId);
+  const conflict = (expected: string) => findings.push({
+    code: "TOPIC_LINK_CONFLICT", path: ["payload", "relation"], rule: "canonical_conflict", expected,
+  });
+  if (link.relation === "same") {
+    if (same) conflict("another relation, or no link: these two topics are already linked as the same topic");
+    else if (stored.parentEdges.length > 0 || stored.fromIsAncestorOfTo || stored.toIsAncestorOfFrom) {
+      conflict("narrower or broader as stored, or related: a stored link puts one of these topics above the other, " +
+        "so they are not the same topic");
+    }
+    for (const [topic, other] of [[from, to], [to, from]] as const) {
+      if (other.label === topic.label) continue;
+      if (stored.aliases.some(({ topicId, alias }) => alias === other.label && topicId !== topic.topicId)) {
+        findings.push({
+          code: "TOPIC_ALIAS_CONFLICT",
+          path: ["payload", "relation"],
+          rule: "canonical_conflict",
+          expected: "a link to the topic that already has this label as an alias: another canonical topic is " +
+            "already known by this topic's label",
+        });
+      }
+    }
+  } else if (link.relation === "narrower" || link.relation === "broader") {
+    // fromTopic narrower than toTopic: toTopic is the parent.
+    const [parentTopic, childTopic] = link.relation === "narrower" ? [to, from] : [from, to];
+    const childIsAncestor = link.relation === "narrower" ? stored.fromIsAncestorOfTo : stored.toIsAncestorOfFrom;
+    if (same) conflict("same, as stored, or no link: these two topics are linked as the same topic");
+    else if (parent(parentTopic.topicId, childTopic.topicId)) {
+      conflict("another relation, or no link: this hierarchy link is already stored");
+    } else if (parent(childTopic.topicId, parentTopic.topicId) || childIsAncestor) {
+      conflict("the relation the stored links give, or related: the stored hierarchy already runs the other way, so " +
+        "this link would make a cycle");
+    }
+  } else if (stored.relatedEdges > 0) {
+    conflict("another relation, or no link: these two topics are already linked as related");
+  }
+  return findings;
 }

@@ -8,8 +8,11 @@ export {
   PROHIBITED_PERSISTENT_KEY_NAMES,
   protocolManifestSchema,
   researchFrontierContributionSchema,
+  TOPIC_LINK_RELATIONS,
+  topicLinkContributionSchema,
   type LivingEvidenceContribution,
   type ResearchFrontierContribution,
+  type TopicLinkContribution,
 } from "./contracts.js";
 export { deterministicUuid, sha256, stableJson } from "./hash.js";
 export {
@@ -124,6 +127,7 @@ export {
   RELATED_RECORDS_SHOWN,
   relatedCanonicalRecords,
   resolveCanonicalSource,
+  topicLinkFindings,
   type CanonicalFinding,
   type CanonicalSourceMatch,
   type ContributionPreflight,
@@ -135,6 +139,8 @@ export {
   type FrontierReconciliation,
   type QuestionDimensions,
   type ReconciledIdentity,
+  type TopicLinkFinding,
+  type TopicLinkState,
 } from "./contribution-identity.js";
 export {
   checkResearchContributionProposal,
@@ -183,9 +189,11 @@ export {
 export {
   prepareContribution,
   prepareFrontierContribution,
+  prepareTopicLinkContribution,
   splitMarkdownPreservingBytes,
   type PreparedContribution,
   type PreparedFrontierContribution,
+  type PreparedTopicLinkContribution,
 } from "./prepare.js";
 export {
   PostgresEvidenceRepository,
@@ -199,4 +207,5 @@ export {
   type KnowledgeSearchInput,
   type ResearchFrontierLookupInput,
   type ResearchFrontierSearchInput,
+  type TopicLinkContributionReceipt,
 } from "./postgres.js";

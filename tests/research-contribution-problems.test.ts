@@ -322,13 +322,20 @@ describe("the intake's other rules, reported the same way", () => {
       expected: "RESEARCH_FRONTIER: payload is a RESEARCH_FRONTIER record, so proposalKind names it, or payload is a " +
         "SOURCE_ANALYSIS record",
     })]);
+    const link = await rejection(structuredClone(CONTRIBUTION_EXAMPLES.TOPIC_LINK), "RESEARCH_FRONTIER");
+    expect(link.problems).toEqual([expect.objectContaining({
+      path: "proposalKind",
+      rule: "kind_mismatch",
+      expected: "TOPIC_LINK: payload is a TOPIC_LINK record, so proposalKind names it, or payload is a " +
+        "RESEARCH_FRONTIER record",
+    })]);
 
     const payload = sourceAnalysis();
     payload.analysis.coverageStatement = "Mail sentinel@example.com";
     const unnamed = await rejection(payload, "SENTINEL_PROPOSAL");
     expect(unnamed.payloadCheck).toBe("kind_invalid");
     expect(problemAt(unnamed, "proposalKind", "not_allowed")).toMatchObject({
-      expected: "one of RESEARCH_FRONTIER, SOURCE_ANALYSIS",
+      expected: "one of RESEARCH_FRONTIER, SOURCE_ANALYSIS, TOPIC_LINK",
       example: JSON.stringify("RESEARCH_FRONTIER"),
     });
     // Privacy rules read payload whatever its kind.

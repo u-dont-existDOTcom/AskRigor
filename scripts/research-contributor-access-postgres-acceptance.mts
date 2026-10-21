@@ -376,6 +376,7 @@ async function verify(
     await verifyTwoAuditsOfOneStudy({ adminUrl, readerUrl, admin, service, reviewService, writer, checks });
     await verifySupersession({ admin, reviewRestricted, service, reviewService, checks });
     await verifyRelatedAndPreflight({ adminUrl, readerUrl, reviewRestricted, service, reviewService, writer, checks });
+    await verifyTopicLinks({ adminUrl, readerUrl, admin, service, reviewService, writer, checks });
 
     const racePayload = researchFrontierFixture("research-review-withdraw-race");
     const raceProposal = await service.submitProposal(REVIEW_SUBJECT, {
@@ -470,6 +471,7 @@ async function verifyPromotionFailures(context: {
     {
       contribute: async () => { throw transient; },
       contributeFrontier: async () => { throw transient; },
+      contributeTopicLink: async () => { throw transient; },
     },
     { now: promotionClock },
   );
@@ -977,6 +979,156 @@ async function verifyRelatedAndPreflight(context: {
       "PREFLIGHT_DID_NOT_MATCH_PROMOTION",
     );
     checks.push("preflight_names_the_code_each_conflicting_promotion_ends_failed_with");
+  } finally {
+    await Promise.allSettled([reader.close(), runner.close()]);
+  }
+}
+
+/**
+ * Owner answer 138b: "merging by meaning (the AI may declare two differently worded topics the same, linked on your
+ * acceptance, nothing moved or deleted)". A topic link is checked exactly against the canonical topics at intake
+ * through the reader role, reviewed with a clear preflight, and promoted: "same" writes each label as the other's
+ * alias, which the catalog search reads, and a hierarchy link one edge; neither topic nor its frontier moves. A link
+ * the stored ones contradict is refused at intake, and one accepted before the first was promoted ends FAILED.
+ */
+async function verifyTopicLinks(context: {
+  adminUrl: string;
+  readerUrl: string;
+  admin: Pool;
+  service: ResearchContributorAccessService;
+  reviewService: ResearchContributionReviewService;
+  writer: PostgresEvidenceRepository;
+  checks: string[];
+}): Promise<void> {
+  const { adminUrl, readerUrl, admin, service, reviewService, writer, checks } = context;
+  const reader = new PostgresEvidenceRepository({ connectionString: readerUrl, schema: SCHEMA });
+  const runner = new PostgresResearchContributionPromotionRunner(
+    { connectionString: adminUrl, schema: SCHEMA },
+    writer,
+    { now: () => "2026-09-01T04:05:00.000Z" },
+  );
+  try {
+    while ((await runner.promoteAccepted()).result.status === "promoted") { /* next */ }
+    const first = researchFrontierFixture("topic-link-first-wording");
+    first.topic.label = "Synthetic topic worded as lindenmayer";
+    const second = researchFrontierFixture("topic-link-second-wording");
+    second.topic.label = "Synthetic topic worded as quillwort";
+    const broader = researchFrontierFixture("topic-link-broader");
+    broader.topic.label = "Synthetic broader topic";
+    for (const payload of [first, second, broader]) await writer.contributeFrontier(payload);
+    const link = (name: string, relation: string, from: typeof first, to: typeof first) => ({
+      schemaVersion: 1,
+      idempotencyKey: `acceptance:${name}:topic-link`,
+      linkId: deterministicUuid(`${name}:topic-link`),
+      run: { ...first.run, runId: deterministicUuid(`${name}:topic-link:run`) },
+      fromTopic: { topicId: from.topic.topicId, canonicalKey: from.topic.canonicalKey },
+      relation,
+      toTopic: { topicId: to.topic.topicId, canonicalKey: to.topic.canonicalKey },
+      rationale: "Synthetic declaration about two differently worded canonical topics.",
+    });
+    const submit = (payload: unknown) => service.submitProposal(PROMOTION_SUBJECT, {
+      proposalKind: "TOPIC_LINK", privacyBoundary: PRIVACY_BOUNDARY, payload,
+    }, { canonical: reader });
+    const accept = (record: { proposalId: string; payloadSha256: string }) => reviewService.decide({
+      proposalId: record.proposalId,
+      expectedPayloadSha256: record.payloadSha256,
+      decision: "ACCEPT",
+      reason: "Synthetic topic link accepted for promotion.",
+    });
+    const quillwort = async () => (await reader.searchResearchFrontiers({ query: "quillwort" })).matches as Array<{
+      frontier_id: string; topic: { topic_id: string }; match_fields: string[];
+    }>;
+    assert((await quillwort()).map(({ frontier_id: id }) => id).join() === second.frontier.frontierId, "TOPIC_LINK_SEARCH_BASELINE");
+
+    const samePayload = link("topic-link-same", "same", first, second);
+    const same = await submit(samePayload);
+    assert(same.status === "inserted" && same.canonicalCheck === "checked", "TOPIC_LINK_NOT_CHECKED_AT_INTAKE");
+    const reviewed = await reviewService.inspect(same.record.proposalId, { canonical: reader });
+    assert(
+      reviewed?.preflight?.status === "clear" &&
+      reviewed.related.canonical?.records.filter(({ record }) => record === "topic").length === 2,
+      "TOPIC_LINK_REVIEW_AID_MISSING",
+    );
+    // Accepted while the first link still waits for promotion, so the intake could not see the contradiction.
+    const contradicting = await submit(link("topic-link-contradicting", "narrower", first, second));
+    await accept(same.record);
+    await accept(contradicting.record);
+    const promoted = await runner.promoteAccepted();
+    assert(
+      promoted.failed.length === 0 && promoted.result.status === "promoted" &&
+      promoted.result.receipt.proposalId === same.record.proposalId &&
+      promoted.result.receipt.writerOperation === "contributeTopicLink" &&
+      promoted.result.receipt.canonicalWriterReceipt.status === "inserted",
+      "TOPIC_LINK_NOT_PROMOTED",
+    );
+    const aliases = await admin.query<{ topic_id: string; alias: string }>(
+      `SELECT topic_id, alias FROM ${SCHEMA}.topic_aliases WHERE topic_id = ANY($1::uuid[]) ORDER BY alias`,
+      [[first.topic.topicId, second.topic.topicId]],
+    );
+    assert(
+      aliases.rows.map(({ topic_id: id, alias }) => `${id}=${alias}`).join() ===
+        [`${second.topic.topicId}=${first.topic.label}`, `${first.topic.topicId}=${second.topic.label}`].join(),
+      "TOPIC_LINK_ALIASES_NOT_WRITTEN",
+    );
+    const found = await quillwort();
+    const byAlias = found.find(({ frontier_id: id }) => id === first.frontier.frontierId);
+    assert(
+      found.length === 2 && byAlias?.topic.topic_id === first.topic.topicId && byAlias.match_fields.includes("topic_alias"),
+      "TOPIC_LINK_ALIAS_NOT_SEARCHED",
+    );
+    for (const payload of [first, second]) {
+      const kept = await reader.getResearchFrontier({ frontierId: payload.frontier.frontierId, includeHistory: false });
+      assert(
+        (kept.frontiers as Array<{ topic: { topic_id: string } }>)[0]?.topic.topic_id === payload.topic.topicId,
+        "TOPIC_LINK_MOVED_A_FRONTIER",
+      );
+    }
+    assert((await writer.contributeTopicLink(samePayload)).status === "idempotent_replay", "TOPIC_LINK_REPLAY_FAILED");
+    checks.push("topic_link_checked_at_intake_reviewed_and_promoted_as_aliases_the_search_reads_nothing_moved");
+
+    const queued = await reviewService.inspect(contradicting.record.proposalId, { canonical: reader });
+    assert(
+      queued?.preflight?.status === "conflicts" && queued.preflight.conflicts[0]?.code === "TOPIC_LINK_CONFLICT",
+      "TOPIC_LINK_PREFLIGHT_MISSED_THE_CONTRADICTION",
+    );
+    const failed = await runner.promoteAccepted();
+    assert(
+      failed.result.status === "no_pending_promotion" && failed.failed.length === 1 &&
+      failed.failed[0]!.proposalId === contradicting.record.proposalId &&
+      failed.failed[0]!.failureCode === "TOPIC_LINK_CONFLICT",
+      "CONTRADICTING_TOPIC_LINK_DID_NOT_FAIL_WITH_ITS_CODE",
+    );
+    const refused = async (payload: unknown) => {
+      const error = await submit(payload).catch((caught: unknown) => caught);
+      assert(error instanceof ResearchContributionRejectedError, "TOPIC_LINK_NOT_REFUSED_AT_INTAKE");
+      return error.problems.map(({ path, rule }) => `${path} ${rule}`).join();
+    };
+    assert(
+      await refused(link("topic-link-again", "broader", first, second)) === "payload.relation canonical_conflict",
+      "STORED_LINK_CONTRADICTION_NOT_REFUSED",
+    );
+    const missing = link("topic-link-missing", "related", first, second);
+    missing.toTopic.topicId = deterministicUuid("topic-link-missing:not-canonical");
+    assert(await refused(missing) === "payload.toTopic canonical_missing", "MISSING_TOPIC_NOT_REFUSED");
+    checks.push("contradicting_topic_link_refused_at_intake_and_ends_failed_with_its_code_at_promotion");
+
+    const hierarchy = await submit(link("topic-link-broader", "broader", broader, first));
+    await accept(hierarchy.record);
+    const edge = await runner.promoteAccepted();
+    const edges = await admin.query<{ edge_id: string; relation: string }>(
+      `SELECT edge_id, relation FROM ${SCHEMA}.topic_edges WHERE from_topic_id = $1 AND to_topic_id = $2`,
+      [broader.topic.topicId, first.topic.topicId],
+    );
+    assert(
+      edge.result.status === "promoted" && edges.rows.length === 1 && edges.rows[0]!.relation === "broader_than" &&
+      edges.rows[0]!.edge_id === (hierarchy.record.payload as { linkId: string }).linkId,
+      "TOPIC_LINK_EDGE_NOT_WRITTEN",
+    );
+    await expectMessage(
+      () => admin.query(`UPDATE ${SCHEMA}.topic_link_contributions SET relation = 'related'`),
+      "APPEND_ONLY_TABLE",
+    );
+    checks.push("hierarchy_topic_link_writes_one_edge_and_topic_links_are_append_only");
   } finally {
     await Promise.allSettled([reader.close(), runner.close()]);
   }

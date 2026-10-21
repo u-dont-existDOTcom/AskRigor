@@ -92,6 +92,11 @@ BEGIN
         'CLAIM_ALREADY_HAS_INITIAL_VERSION',
         'CLAIM_ID_CONFLICT',
         'FRESHNESS_POLICY_ID_CONFLICT',
+        'TOPIC_LINK_IDEMPOTENCY_KEY_PAYLOAD_MISMATCH',
+        'TOPIC_LINK_TOPIC_MISSING',
+        'TOPIC_LINK_CONFLICT',
+        'TOPIC_ALIAS_CONFLICT',
+        'TOPIC_LINK_ID_CONFLICT',
         'ANALYSIS_LINEAGE_MISMATCH',
         'CLAIM_DEPENDENCY_CYCLE',
         'EVIDENCE_BINDING_RECEIPT_SOURCE_MISMATCH',
@@ -183,6 +188,74 @@ BEFORE INSERT ON research_contribution_proposals
 FOR EACH ROW EXECUTE FUNCTION enforce_research_contribution_supersession();
 
 REVOKE ALL ON FUNCTION enforce_research_contribution_supersession() FROM PUBLIC;
+
+-- Owner answer 138b: "merging by meaning (the AI may declare two differently worded topics the same, linked on your
+-- acceptance, nothing moved or deleted)". TOPIC_LINK joins the two proposal kinds; the canonical store keeps each
+-- owner-accepted link, append-only, beside the alias or edge it wrote.
+DO $$
+DECLARE
+  stale record;
+BEGIN
+  -- 0009's and 0010's unnamed kind checks admit only RESEARCH_FRONTIER and SOURCE_ANALYSIS; the named checks below
+  -- replace them.
+  FOR stale IN
+    SELECT conrelid::regclass AS table_name, conname
+    FROM pg_constraint
+    WHERE conrelid IN ('research_contribution_proposals'::regclass, 'research_contribution_promotions'::regclass)
+      AND contype = 'c'
+      AND conname NOT IN ('research_contribution_proposals_v2_kind_check', 'research_contribution_promotions_v2_kind_check')
+      AND pg_get_constraintdef(oid) LIKE '%proposal_kind%'
+  LOOP
+    EXECUTE format('ALTER TABLE %s DROP CONSTRAINT %I', stale.table_name, stale.conname);
+  END LOOP;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'research_contribution_proposals'::regclass
+      AND conname = 'research_contribution_proposals_v2_kind_check'
+  ) THEN
+    ALTER TABLE research_contribution_proposals
+      ADD CONSTRAINT research_contribution_proposals_v2_kind_check
+      CHECK (proposal_kind IN ('RESEARCH_FRONTIER', 'SOURCE_ANALYSIS', 'TOPIC_LINK'));
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'research_contribution_promotions'::regclass
+      AND conname = 'research_contribution_promotions_v2_kind_check'
+  ) THEN
+    ALTER TABLE research_contribution_promotions
+      ADD CONSTRAINT research_contribution_promotions_v2_kind_check
+      CHECK (proposal_kind IN ('RESEARCH_FRONTIER', 'SOURCE_ANALYSIS', 'TOPIC_LINK'));
+  END IF;
+END
+$$;
+
+-- fromTopic is <relation> toTopic. "same" wrote each topic's label as the other's alias (none where the two labels are
+-- equal or the alias was already there); narrower, broader and related wrote one topic_edges row under link_id.
+CREATE TABLE IF NOT EXISTS topic_link_contributions (
+  link_id uuid PRIMARY KEY,
+  idempotency_key text NOT NULL UNIQUE,
+  run_id uuid NOT NULL REFERENCES research_runs(run_id),
+  from_topic_id uuid NOT NULL REFERENCES topics(topic_id),
+  to_topic_id uuid NOT NULL REFERENCES topics(topic_id),
+  relation text NOT NULL CHECK (relation IN ('same', 'narrower', 'broader', 'related')),
+  aliases_written integer NOT NULL CHECK (aliases_written BETWEEN 0 AND 2),
+  edges_written integer NOT NULL CHECK (edges_written BETWEEN 0 AND 1),
+  payload_sha256 char(64) NOT NULL CHECK (payload_sha256 ~ '^[a-f0-9]{64}$'),
+  payload_json jsonb NOT NULL CHECK (jsonb_typeof(payload_json) = 'object'),
+  inserted_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  CHECK (from_topic_id <> to_topic_id),
+  CHECK (
+    (relation = 'same' AND edges_written = 0)
+    OR (relation <> 'same' AND aliases_written = 0 AND edges_written = 1)
+  )
+);
+
+CREATE INDEX IF NOT EXISTS topic_link_contributions_topics_idx
+  ON topic_link_contributions (from_topic_id, to_topic_id);
+
+DROP TRIGGER IF EXISTS append_only_guard ON topic_link_contributions;
+CREATE TRIGGER append_only_guard BEFORE UPDATE OR DELETE ON topic_link_contributions
+  FOR EACH ROW EXECUTE FUNCTION reject_living_evidence_mutation();
 
 -- 0010's decision, with the supersession step: the same signature and result, so 0010 still applies over itself.
 CREATE OR REPLACE FUNCTION decide_research_contribution_proposal(
@@ -300,8 +373,8 @@ REVOKE ALL ON FUNCTION decide_research_contribution_proposal(
 ) FROM PUBLIC;
 
 -- The identities a proposal's payload names, which related proposals share (owner answer 138b): its topic key and
--- ID, frontier, question, source family, and every candidate or source identifier as scheme:value. In step with
--- proposalKeys in contribution-identity.ts.
+-- ID (a topic link's two), frontier, question, source family, and every candidate or source identifier as
+-- scheme:value. In step with proposalKeys in contribution-identity.ts.
 CREATE OR REPLACE FUNCTION research_contribution_proposal_keys(payload jsonb)
 RETURNS TABLE (key_kind text, key_value text)
 LANGUAGE sql
@@ -312,6 +385,10 @@ AS $function$
     FROM (
       SELECT 'topic_key', payload -> 'topic' ->> 'canonicalKey'
       UNION ALL SELECT 'topic_id', payload -> 'topic' ->> 'topicId'
+      UNION ALL SELECT 'topic_key', payload -> 'fromTopic' ->> 'canonicalKey'
+      UNION ALL SELECT 'topic_id', payload -> 'fromTopic' ->> 'topicId'
+      UNION ALL SELECT 'topic_key', payload -> 'toTopic' ->> 'canonicalKey'
+      UNION ALL SELECT 'topic_id', payload -> 'toTopic' ->> 'topicId'
       UNION ALL SELECT 'frontier_id', payload -> 'frontier' ->> 'frontierId'
       UNION ALL SELECT 'question_id', payload -> 'question' ->> 'questionId'
       UNION ALL SELECT 'question_id', payload -> 'knowledge' -> 'question' ->> 'questionId'

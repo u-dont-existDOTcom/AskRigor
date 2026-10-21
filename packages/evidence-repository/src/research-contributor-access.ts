@@ -9,6 +9,7 @@ import { z } from "zod";
 import {
   canonicalIdentityRequest,
   reconcileResearchFrontier,
+  topicLinkFindings,
   type CanonicalIdentityReader,
   type ReconciledIdentity,
 } from "./contribution-identity.js";
@@ -16,10 +17,12 @@ import {
   assertNoProhibitedPersistentKeys,
   type LivingEvidenceContribution,
   type ResearchFrontierContribution,
+  type TopicLinkContribution,
 } from "./contracts.js";
 import {
   prepareContribution,
   prepareFrontierContribution,
+  prepareTopicLinkContribution,
 } from "./prepare.js";
 import {
   checkResearchContributionProposal,
@@ -99,7 +102,8 @@ export type ContributionPrivacyBoundary = z.infer<
 >;
 export type ResearchContributionProposalKind =
   | "RESEARCH_FRONTIER"
-  | "SOURCE_ANALYSIS";
+  | "SOURCE_ANALYSIS"
+  | "TOPIC_LINK";
 
 export interface ResearchUseAccountRecord {
   accountKey: string;
@@ -129,7 +133,7 @@ export interface ResearchContributionProposalRecord {
   accountKey: string;
   proposalKind: ResearchContributionProposalKind;
   payloadSha256: string;
-  payload: LivingEvidenceContribution | ResearchFrontierContribution;
+  payload: LivingEvidenceContribution | ResearchFrontierContribution | TopicLinkContribution;
   privacyBoundary: ContributionPrivacyBoundary;
   partial: boolean;
   status: "PENDING_REVIEW" | "ACCEPTED" | "REJECTED" | "WITHDRAWN";
@@ -151,7 +155,8 @@ export interface ProposalInsertResult {
 export interface SubmitProposalOptions {
   /**
    * The canonical store's read-only identity view (owner answer 138b): a frontier then continues the exact canonical
-   * records it names before it is stored. Without it, or when it cannot be read, the record is filed as sent.
+   * records it names before it is stored. Without it, or when it cannot be read, the record is filed as sent. A topic
+   * link names canonical topics only, so it is not filed without this check.
    */
   canonical?: CanonicalIdentityReader;
   /**
@@ -212,6 +217,7 @@ export class ResearchAccessError extends Error {
       | "PAID_PRIVATE_DOES_NOT_CONTRIBUTE"
       | "FREE_CONTRIBUTOR_REQUIRED"
       | "CONTRIBUTION_PRIVACY_REJECTED"
+      | "RESEARCH_ACCESS_SERVICE_UNAVAILABLE"
       | "INVALID_REQUEST",
     message: string,
   ) {
@@ -431,6 +437,27 @@ export class ResearchContributorAccessService {
         reconciled = reconciliation.reconciled;
         canonicalCheck = "checked";
       }
+    }
+    if (parsed.proposalKind === "TOPIC_LINK") {
+      // Both topics, and every stored link between them, are checked exactly before the link is filed.
+      const link = prepareTopicLinkContribution(parsed.payload).contribution;
+      const state = options.canonical === undefined
+        ? undefined
+        : await options.canonical
+          .readCanonicalIdentity(canonicalIdentityRequest("TOPIC_LINK", link))
+          .catch(() => undefined);
+      if (state === undefined) {
+        throw new ResearchAccessError(
+          "RESEARCH_ACCESS_SERVICE_UNAVAILABLE",
+          "A topic link is checked against the canonical topics it names, which cannot be read just now. Nothing " +
+            "was stored; try again shortly.",
+        );
+      }
+      const findings = topicLinkFindings(link, state);
+      if (findings.length > 0) {
+        throw new ResearchContributionRejectedError(contributionCheckFromFindings("TOPIC_LINK", findings));
+      }
+      canonicalCheck = "checked";
     }
     const prepared = prepareResearchContributionProposal(
       parsed.proposalKind,
@@ -872,10 +899,14 @@ export function prepareResearchContributionProposal(
   kind: ResearchContributionProposalKind,
   payload: unknown,
 ): {
-  payload: LivingEvidenceContribution | ResearchFrontierContribution;
+  payload: LivingEvidenceContribution | ResearchFrontierContribution | TopicLinkContribution;
   payloadSha256: string;
   partial: boolean;
 } {
+  if (kind === "TOPIC_LINK") {
+    const prepared = prepareTopicLinkContribution(payload);
+    return { payload: prepared.contribution, payloadSha256: prepared.payloadSha256, partial: false };
+  }
   if (kind === "RESEARCH_FRONTIER") {
     const prepared = prepareFrontierContribution(payload);
     for (const candidate of prepared.contribution.frontier.candidateVersions) {

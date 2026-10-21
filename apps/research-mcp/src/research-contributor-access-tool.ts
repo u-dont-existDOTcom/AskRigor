@@ -13,6 +13,7 @@ import {
   researchContributionNullableParts,
   researchContributionShapeTemplate,
   researchFrontierContributionSchema,
+  topicLinkContributionSchema,
   type CanonicalIdentityReader,
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
@@ -88,9 +89,9 @@ export const manageResearchAccessOutputSchema = z.object({
  * handler checks every call against it itself (owner question 127), so a rejection can name every problem.
  */
 export const submitResearchContributionInputSchema = z.object({
-  proposalKind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS"]).describe("Which record payload holds."),
+  proposalKind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS", "TOPIC_LINK"]).describe("Which record payload holds."),
   privacyBoundary: contributionPrivacyBoundarySchema.describe("Eight markers, each exactly false."),
-  payload: z.union([researchFrontierContributionSchema, livingEvidenceContributionSchema])
+  payload: z.union([researchFrontierContributionSchema, livingEvidenceContributionSchema, topicLinkContributionSchema])
     .describe("The record proposalKind names, shaped as this tool's description shows."),
   supersedesProposalId: z.uuid().optional()
     .describe("Optional: the proposalId of this account's own pending proposal of the same kind that this one replaces; accepting this one rejects it as superseded."),
@@ -107,7 +108,7 @@ export function submitResearchContributionConnectorInputSchema(relaxed: boolean)
   return permissiveConnectorInputSchema(submitResearchContributionPublishedInputSchema({ relaxed }));
 }
 
-const nullableParts = (kind: "RESEARCH_FRONTIER" | "SOURCE_ANALYSIS") => {
+const nullableParts = (kind: "RESEARCH_FRONTIER" | "SOURCE_ANALYSIS" | "TOPIC_LINK") => {
   const parts = researchContributionNullableParts(kind);
   return parts.length <= 1 ? parts.join("") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
 };
@@ -122,15 +123,20 @@ export const SUBMIT_RESEARCH_CONTRIBUTION_SHAPES_DESCRIPTION = "Record shapes, a
   `SOURCE_ANALYSIS payload ${researchContributionShapeTemplate("SOURCE_ANALYSIS")}; ${nullableParts("SOURCE_ANALYSIS")} ` +
   "may be null; knowledge is optional (structured claims, evidence bindings, edges, an assessment and freshness " +
   "records); receipts[].details holds names of your choice, each with text, a number, true, false or null; and " +
-  "declaredWholeTextSha256 is null or the SHA-256 of the sections' content joined in order.";
+  "declaredWholeTextSha256 is null or the SHA-256 of the sections' content joined in order. " +
+  `TOPIC_LINK payload ${researchContributionShapeTemplate("TOPIC_LINK")}: fromTopic is the same topic as toTopic, ` +
+  "narrower than it, broader than it or related to it; each holds the topic's topic_id and canonical_key as " +
+  "search_research_frontiers or get_research_frontier returns them, and rationale says why in deidentified text.";
 
 export const SUBMIT_RESEARCH_CONTRIBUTION_DESCRIPTION = "Files one already-validated, deidentified formal research " +
-  "frontier in the pending review inbox. Study and review audits validated in free contributor research are filed by " +
-  "the server when finalize_research passes, so they are not submitted here. It accepts no raw chat, prompts, " +
-  "identity or contact details, private health narratives, uploads, raw source or provider bodies, or YouTube or " +
-  "community data. A proposal is not canonical evidence and does not gain scientific authority by submission. " +
-  "Paid-private mode cannot use this operation. A rejected record comes back with every problem found, each with its " +
-  "path, what was expected and an example; the values sent are not repeated. " +
+  "frontier in the pending review inbox, or a topic link: your declaration that two differently worded canonical " +
+  "topics name the same topic, or that one is narrower than, broader than or related to the other, which the " +
+  "owner's acceptance links without moving or deleting anything. Study and review audits validated in free " +
+  "contributor research are filed by the server when finalize_research passes, so they are not submitted here. " +
+  "It accepts no raw chat, prompts, identity or contact details, private health narratives, uploads, raw source or " +
+  "provider bodies, or YouTube or community data. A proposal is not canonical evidence and does not gain scientific " +
+  "authority by submission. Paid-private mode cannot use this operation. A rejected record comes back with every " +
+  "problem found, each with its path, what was expected and an example; the values sent are not repeated. " +
   SUBMIT_RESEARCH_CONTRIBUTION_SHAPES_DESCRIPTION;
 
 const contributionProblemSchema = z.object({
@@ -144,7 +150,7 @@ export const submitResearchContributionOutputSchema = z.object({
   ok: z.boolean(),
   proposal: z.object({
     proposalId: z.string().uuid(),
-    proposalKind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS"]),
+    proposalKind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS", "TOPIC_LINK"]),
     payloadSha256: z.string().regex(/^[a-f0-9]{64}$/u),
     status: z.literal("PENDING_REVIEW"),
     partial: z.boolean(),
@@ -379,7 +385,7 @@ export function createSubmitResearchContributionHandler(
       return {
         content: [{
           type: "text",
-          text: `${proposal.proposalKind === "RESEARCH_FRONTIER" ? "Research frontier" : "Source analysis"} proposal ${proposal.writeStatus === "inserted" ? "entered" : "was already present in"} the review inbox. Canonical evidence was not changed.${continued}`,
+          text: `${proposal.proposalKind === "RESEARCH_FRONTIER" ? "Research frontier" : proposal.proposalKind === "TOPIC_LINK" ? "Topic link" : "Source analysis"} proposal ${proposal.writeStatus === "inserted" ? "entered" : "was already present in"} the review inbox. Canonical evidence was not changed.${continued}`,
         }],
         structuredContent: submitResearchContributionOutputSchema.parse({
           ok: true,
@@ -403,7 +409,7 @@ function rejectedProposal(error: ResearchContributionRejectedError): CallToolRes
     "found. Fix each one and call submit_research_contribution again; nothing was stored, and the values sent are " +
     "not repeated here." +
     (error.payloadCheck === "kind_invalid"
-      ? " The record in payload is checked once proposalKind is RESEARCH_FRONTIER or SOURCE_ANALYSIS."
+      ? " The record in payload is checked once proposalKind is RESEARCH_FRONTIER, SOURCE_ANALYSIS or TOPIC_LINK."
       : error.payloadCheck === "kind_mismatch"
         ? " The record in payload is checked against the kind proposalKind names once the two agree."
         : "") +

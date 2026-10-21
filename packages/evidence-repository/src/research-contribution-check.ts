@@ -9,6 +9,7 @@ import {
   livingEvidenceContributionSchema,
   PROHIBITED_PERSISTENT_KEY_NAMES,
   researchFrontierContributionSchema,
+  topicLinkContributionSchema,
 } from "./contracts.js";
 import { sha256 } from "./hash.js";
 
@@ -29,14 +30,14 @@ export const contributionPrivacyBoundarySchema = z.object({
 }).strict();
 
 export const researchContributionProposalInputSchema = z.object({
-  proposalKind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS"]),
+  proposalKind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS", "TOPIC_LINK"]),
   privacyBoundary: contributionPrivacyBoundarySchema,
   payload: z.unknown(),
   // Owner answer 138b: this account's own pending proposal of the same kind that this one replaces.
   supersedesProposalId: z.uuid().optional(),
 }).strict();
 
-type ProposalKind = "RESEARCH_FRONTIER" | "SOURCE_ANALYSIS";
+type ProposalKind = "RESEARCH_FRONTIER" | "SOURCE_ANALYSIS" | "TOPIC_LINK";
 
 /** A shared SOURCE_ANALYSIS proposal is a source-bound study or review audit. */
 export const SHARED_ANALYSIS_KINDS: readonly string[] = ["study_method_audit", "review_method_audit"];
@@ -395,6 +396,16 @@ export const CONTRIBUTION_EXAMPLES: Readonly<Record<ProposalKind, Record<string,
       }],
     },
   },
+  TOPIC_LINK: {
+    schemaVersion: 1,
+    idempotencyKey: "topic-link-example-1",
+    linkId: uuid(51),
+    run: exampleRun(52),
+    fromTopic: { topicId: uuid(53), canonicalKey: "example-topic" },
+    relation: "same",
+    toTopic: { topicId: uuid(54), canonicalKey: "example-topic-other-wording" },
+    rationale: TEXT,
+  },
 });
 
 // In a shared SOURCE_ANALYSIS proposal, these accept less than the contribution schema does.
@@ -455,6 +466,7 @@ function contractJson() {
   const kinds = {
     RESEARCH_FRONTIER: toJson(researchFrontierContributionSchema),
     SOURCE_ANALYSIS: toJson(livingEvidenceContributionSchema),
+    TOPIC_LINK: toJson(topicLinkContributionSchema),
   };
   const known = new Set<string>();
   const collect = (node: unknown): void => {
@@ -469,7 +481,7 @@ function contractJson() {
     if (Array.isArray(node.anyOf)) node.anyOf.forEach(collect);
     collect(node.additionalProperties);
   };
-  for (const node of [envelope, kinds.RESEARCH_FRONTIER, kinds.SOURCE_ANALYSIS]) collect(node);
+  for (const node of [envelope, kinds.RESEARCH_FRONTIER, kinds.SOURCE_ANALYSIS, kinds.TOPIC_LINK]) collect(node);
   contract = { envelope, kinds, known };
   return contract;
 }
@@ -499,8 +511,9 @@ export function checkResearchContributionProposal(input: unknown): ResearchContr
   let payloadCheck: ResearchContributionCheck["payloadCheck"] = kind === undefined ? "kind_invalid" : "checked";
   if (kind !== undefined) {
     const parsed = contributionSchema(kind).safeParse(payload);
-    const other: ProposalKind = kind === "SOURCE_ANALYSIS" ? "RESEARCH_FRONTIER" : "SOURCE_ANALYSIS";
-    if (!parsed.success && contributionSchema(other).safeParse(payload).success) {
+    const other = (["RESEARCH_FRONTIER", "SOURCE_ANALYSIS", "TOPIC_LINK"] as const)
+      .find((candidate) => candidate !== kind && contributionSchema(candidate).safeParse(payload).success);
+    if (!parsed.success && other !== undefined) {
       payloadCheck = "kind_mismatch";
       found.push({
         segments: ["proposalKind"],
@@ -548,7 +561,9 @@ export function contributionCheckFromFindings(
 }
 
 function contributionSchema(kind: ProposalKind): z.ZodType {
-  return kind === "SOURCE_ANALYSIS" ? livingEvidenceContributionSchema : researchFrontierContributionSchema;
+  return kind === "SOURCE_ANALYSIS"
+    ? livingEvidenceContributionSchema
+    : kind === "TOPIC_LINK" ? topicLinkContributionSchema : researchFrontierContributionSchema;
 }
 
 function fromIssue(
@@ -700,6 +715,8 @@ function recordRuleFindings(kind: ProposalKind, payload: unknown): Found[] {
     if (isPlainObject(source)) identifiers(source.identifiers, ["source", "identifiers"], true);
     return found;
   }
+  // A topic link names canonical topics only; the canonical checks run once it is otherwise valid.
+  if (kind === "TOPIC_LINK") return found;
   const frontier = payload.frontier;
   if (!isPlainObject(frontier)) return found;
   if (Array.isArray(frontier.lanes)) {
@@ -724,6 +741,7 @@ function recordRuleFindings(kind: ProposalKind, payload: unknown): Found[] {
 }
 
 function hashFindings(kind: ProposalKind, record: unknown): Found[] {
+  if (kind === "TOPIC_LINK") return [];
   if (kind === "SOURCE_ANALYSIS") {
     const { analysis } = record as { analysis: { declaredWholeTextSha256: string | null; sections: { content: string }[] } };
     const whole = sha256(analysis.sections.map(({ content }) => content).join(""));
