@@ -83,6 +83,12 @@ export const CONTRIBUTION_PROBLEM_RULES = [
   "cross_field",
   "hash_mismatch",
   "kind_mismatch",
+  // Checks against stored records (owner answer 138b): an ID the canonical store holds with other content, a canonical
+  // record the proposal names that does not exist, and a supersedesProposalId that is not this account's own pending
+  // proposal of the same kind.
+  "canonical_conflict",
+  "canonical_missing",
+  "superseded_proposal",
   "prohibited_key",
   "contact_pattern",
   "sandbox_locator",
@@ -514,6 +520,29 @@ export function checkResearchContributionProposal(input: unknown): ResearchContr
     }
   }
   return bounded(found, kind, { crossFieldRulesPending, payloadCheck });
+}
+
+/** One problem found by a check against stored records, at its path from the call's root. */
+export interface ContributionFinding {
+  path: ReadonlyArray<string | number>;
+  rule: ContributionProblemRule;
+  expected: string;
+}
+
+/**
+ * The problems a check against stored records found (the canonical store, or the account's own pending proposals),
+ * bounded and ordered like the intake's own, each with its example. Run on a record that passed the intake, so its
+ * cross-field rules have run.
+ */
+export function contributionCheckFromFindings(
+  kind: ProposalKind,
+  findings: readonly ContributionFinding[],
+): ResearchContributionCheck {
+  return bounded(
+    findings.map(({ path, rule, expected }) => ({ segments: sanitize(path), rule, expected })),
+    kind,
+    { crossFieldRulesPending: false, payloadCheck: "checked" },
+  );
 }
 
 function contributionSchema(kind: ProposalKind): z.ZodType {

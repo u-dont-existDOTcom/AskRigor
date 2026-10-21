@@ -1727,6 +1727,7 @@ function defineResearchOperations(
       service: options.researchContributorAccessService,
       resourceMetadataUrl: options.oauthResourceMetadataUrl,
       signIn: options.signIn,
+      canonical: RESEARCH_FRONTIER_READER,
     }),
   );
 

@@ -102,6 +102,8 @@ export {
   type ResearchUseNoticeVersion,
   type StoredFreeContributorAgreement,
   type ProposalInsertResult,
+  type ProposalSubmission,
+  type SubmitProposalOptions,
   type ResearchAccessView,
   type ResearchContributionProposalKind,
   type ResearchContributionProposalRecord,
@@ -112,7 +114,20 @@ export {
   type ResearchUseMode,
 } from "./research-contributor-access.js";
 export {
+  canonicalIdentityRequest,
+  frontierCandidateIdentityHash,
+  reconcileResearchFrontier,
+  type CanonicalFinding,
+  type CanonicalIdentityReader,
+  type CanonicalIdentityRequest,
+  type CanonicalIdentityState,
+  type FrontierReconciliation,
+  type QuestionDimensions,
+  type ReconciledIdentity,
+} from "./contribution-identity.js";
+export {
   checkResearchContributionProposal,
+  contributionCheckFromFindings,
   CONTRIBUTION_EXAMPLES,
   CONTRIBUTION_PATTERN_DESCRIPTIONS,
   CONTRIBUTION_PRIVACY_BOUNDARY_EXAMPLE,
@@ -122,6 +137,7 @@ export {
   researchContributionContractKeys,
   researchContributionNullableParts,
   researchContributionShapeTemplate,
+  type ContributionFinding,
   type ContributionProblem,
   type ContributionProblemRule,
   type ResearchContributionCheck,

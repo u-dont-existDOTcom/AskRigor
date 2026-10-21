@@ -13,6 +13,7 @@ import {
   researchContributionNullableParts,
   researchContributionShapeTemplate,
   researchFrontierContributionSchema,
+  type CanonicalIdentityReader,
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
@@ -147,6 +148,13 @@ export const submitResearchContributionOutputSchema = z.object({
     partial: z.boolean(),
     writeStatus: z.enum(["inserted", "idempotent_replay"]),
     canonicalEvidenceChanged: z.literal(false),
+    // Owner answer 138b: the canonical records the stored record continues by exact identity, IDs only.
+    canonicalCheck: z.enum(["checked", "unavailable"]).optional(),
+    reconciled: z.array(z.object({
+      path: z.string().min(1).max(CONTRIBUTION_PROBLEM_LIMITS.pathCharacters),
+      from: z.string().uuid().nullable(),
+      to: z.string().uuid(),
+    }).strict()).max(1_000).optional(),
   }).strict().optional(),
   error: researchAccessErrorSchema.optional(),
   // A rejected record: each problem's path, rule, what was expected and an example, never a value sent.
@@ -159,6 +167,8 @@ export interface ResearchContributorToolOptions {
   resourceMetadataUrl?: URL;
   /** What happened to this request's sign-in on /mcp; undefined without OAuth. */
   signIn?: SignInState;
+  /** The canonical store's read-only identity view, which a submitted frontier is reconciled with. */
+  canonical?: CanonicalIdentityReader;
 }
 
 /**
@@ -345,7 +355,7 @@ export function createSubmitResearchContributionHandler(
     try {
       // The service refuses by account first (paid private submits nothing),
       // then checks the record and names every problem it finds.
-      const result = await options.service.submitProposal(auth.subject, input);
+      const result = await options.service.submitProposal(auth.subject, input, { canonical: options.canonical });
       const proposal = {
         proposalId: result.record.proposalId,
         proposalKind: result.record.proposalKind,
@@ -354,11 +364,18 @@ export function createSubmitResearchContributionHandler(
         partial: result.record.partial,
         writeStatus: result.status,
         canonicalEvidenceChanged: false,
+        ...(result.canonicalCheck === undefined ? {} : { canonicalCheck: result.canonicalCheck }),
+        ...(result.reconciled.length === 0 ? {} : { reconciled: result.reconciled }),
       } as const;
+      const continued = result.reconciled.length === 0
+        ? ""
+        : ` It continues the canonical records it names by exact identity: ${result.reconciled.length} ID` +
+          `${result.reconciled.length === 1 ? " was" : "s were"} set to the canonical one${result.reconciled.length === 1 ? "" : "s"} ` +
+          "(proposal.reconciled), so the stored record and its hash differ from the one sent.";
       return {
         content: [{
           type: "text",
-          text: `${proposal.proposalKind === "RESEARCH_FRONTIER" ? "Research frontier" : "Source analysis"} proposal ${proposal.writeStatus === "inserted" ? "entered" : "was already present in"} the review inbox. Canonical evidence was not changed.`,
+          text: `${proposal.proposalKind === "RESEARCH_FRONTIER" ? "Research frontier" : "Source analysis"} proposal ${proposal.writeStatus === "inserted" ? "entered" : "was already present in"} the review inbox. Canonical evidence was not changed.${continued}`,
         }],
         structuredContent: submitResearchContributionOutputSchema.parse({
           ok: true,

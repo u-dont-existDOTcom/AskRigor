@@ -9,6 +9,7 @@ import {
   ResearchContributionReviewService,
   ResearchContributorAccessService,
   deterministicUuid,
+  prepareResearchContributionProposal,
   type ContributionPrivacyBoundary,
 } from "../packages/evidence-repository/src/index.js";
 import {
@@ -63,6 +64,7 @@ async function main(): Promise<void> {
     adminUrl,
     requiredEnv("ASKRIGOR_RESEARCH_ACCESS_DATABASE_URL"),
     requiredEnv("ASKRIGOR_RESEARCH_REVIEW_DATABASE_URL"),
+    requiredEnv("ASKRIGOR_LIVING_EVIDENCE_READER_DATABASE_URL"),
   );
 }
 
@@ -70,6 +72,7 @@ async function verify(
   adminUrl: string,
   accessUrl: string,
   reviewUrl: string,
+  readerUrl: string,
 ): Promise<void> {
   const admin = new Pool({ connectionString: adminUrl });
   const restricted = new Pool({ connectionString: accessUrl });
@@ -364,6 +367,7 @@ async function verify(
       writer,
       checks,
     });
+    await verifyExactContinuation({ adminUrl, readerUrl, service, reviewService, writer, checks });
 
     const racePayload = researchFrontierFixture("research-review-withdraw-race");
     const raceProposal = await service.submitProposal(REVIEW_SUBJECT, {
@@ -588,6 +592,107 @@ async function verifyPromotionFailures(context: {
     checks.push("transient_error_stays_pending_and_failure_state_is_closed");
   } finally {
     await Promise.allSettled([runner.close(), flakyRunner.close()]);
+  }
+}
+
+/**
+ * Owner answer 138b: a frontier sent with new UUIDs for a canonical topic key, question, lane key and candidate
+ * identity continues those records when it is filed, through the public runtime's read-only reader role, and
+ * promotes; filed as sent, the same frontier ends FAILED with TOPIC_KEY_CONFLICT.
+ */
+async function verifyExactContinuation(context: {
+  adminUrl: string;
+  readerUrl: string;
+  service: ResearchContributorAccessService;
+  reviewService: ResearchContributionReviewService;
+  writer: PostgresEvidenceRepository;
+  checks: string[];
+}): Promise<void> {
+  const { adminUrl, readerUrl, service, reviewService, writer, checks } = context;
+  const reader = new PostgresEvidenceRepository({ connectionString: readerUrl, schema: SCHEMA });
+  const runner = new PostgresResearchContributionPromotionRunner(
+    { connectionString: adminUrl, schema: SCHEMA },
+    writer,
+    { now: () => "2026-09-01T03:40:00.000Z" },
+  );
+  try {
+    const canonical = researchFrontierFixture("promotion-time-no_milliseconds");
+    const continuation = researchFrontierFixture("continuation-of-canonical");
+    continuation.topic.canonicalKey = canonical.topic.canonicalKey;
+    continuation.topic.label = "A wording the canonical label replaces";
+    const sentPayloadSha256 = prepareResearchContributionProposal("RESEARCH_FRONTIER", continuation).payloadSha256;
+    const filed = await service.submitProposal(PROMOTION_SUBJECT, {
+      proposalKind: "RESEARCH_FRONTIER",
+      privacyBoundary: PRIVACY_BOUNDARY,
+      payload: continuation,
+    }, { canonical: reader });
+    assert(filed.status === "inserted" && filed.canonicalCheck === "checked", "CONTINUATION_NOT_CHECKED");
+    assert(
+      filed.reconciled.map(({ path, to }) => `${path}=${to}`).join(",") === [
+        `payload.topic.topicId=${canonical.topic.topicId}`,
+        `payload.question.questionId=${canonical.question.questionId}`,
+        `payload.frontier.frontierId=${canonical.frontier.frontierId}`,
+        `payload.frontier.lanes[0].laneId=${canonical.frontier.lanes[0]!.laneId}`,
+        `payload.frontier.candidateVersions[0].candidateId=${canonical.frontier.candidateVersions[0]!.candidateId}`,
+        `payload.frontier.candidateVersions[0].previousVersionId=${canonical.frontier.candidateVersions[0]!.versionId}`,
+      ].join(","),
+      "CONTINUATION_RECONCILED_IDS_MISMATCH",
+    );
+    assert(filed.record.payloadSha256 !== sentPayloadSha256, "CONTINUATION_HASH_NOT_OF_STORED_RECORD");
+    await reviewService.decide({
+      proposalId: filed.record.proposalId,
+      expectedPayloadSha256: filed.record.payloadSha256,
+      decision: "ACCEPT",
+      reason: "Synthetic exact continuation of a canonical frontier.",
+    });
+    const promoted = await runner.promoteAccepted();
+    assert(
+      promoted.failed.length === 0 && promoted.result.status === "promoted" &&
+      promoted.result.receipt.proposalId === filed.record.proposalId,
+      "CONTINUATION_NOT_PROMOTED",
+    );
+    const snapshot = await writer.getResearchFrontier({ frontierId: canonical.frontier.frontierId, includeHistory: true });
+    const frontier = (snapshot.frontiers as Array<{
+      topic: { label: string };
+      contribution_receipts: unknown[];
+      lanes: unknown[];
+      current_candidates: Array<{ version_id: string }>;
+      history: { candidate_versions: Array<{ version_id: string; previous_version_id: string | null }> };
+    }>)[0]!;
+    assert(
+      frontier.contribution_receipts.length === 2 && frontier.lanes.length === 1 &&
+      frontier.current_candidates.length === 1 &&
+      frontier.current_candidates[0]!.version_id === continuation.frontier.candidateVersions[0]!.versionId &&
+      frontier.history.candidate_versions.length === 2 &&
+      frontier.topic.label === canonical.topic.label,
+      "CONTINUATION_NOT_ONE_CANONICAL_RECORD",
+    );
+    checks.push("new_uuids_for_canonical_topic_question_lane_and_candidate_continue_the_record_and_promote");
+
+    // The same frontier filed as sent meets the canonical key under a new UUID at promotion.
+    const unreconciled = researchFrontierFixture("continuation-filed-as-sent");
+    unreconciled.topic.canonicalKey = canonical.topic.canonicalKey;
+    const asSent = await service.submitProposal(PROMOTION_SUBJECT, {
+      proposalKind: "RESEARCH_FRONTIER",
+      privacyBoundary: PRIVACY_BOUNDARY,
+      payload: unreconciled,
+    });
+    assert(asSent.canonicalCheck === undefined && asSent.reconciled.length === 0, "UNRECONCILED_CONTROL_RECONCILED");
+    await reviewService.decide({
+      proposalId: asSent.record.proposalId,
+      expectedPayloadSha256: asSent.record.payloadSha256,
+      decision: "ACCEPT",
+      reason: "Synthetic control filed without reconciliation.",
+    });
+    const control = await runner.promoteAccepted();
+    assert(
+      control.failed.length === 1 && control.failed[0]!.failureCode === "TOPIC_KEY_CONFLICT" &&
+      control.result.status === "no_pending_promotion",
+      "UNRECONCILED_CONTROL_DID_NOT_FAIL_WITH_TOPIC_KEY_CONFLICT",
+    );
+    checks.push("the_same_frontier_filed_as_sent_fails_with_topic_key_conflict");
+  } finally {
+    await Promise.allSettled([reader.close(), runner.close()]);
   }
 }
 

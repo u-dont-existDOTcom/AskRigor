@@ -2,6 +2,11 @@ import { readFile } from "node:fs/promises";
 
 import { Pool, type PoolClient, type PoolConfig } from "pg";
 
+import {
+  frontierCandidateIdentityHash,
+  type CanonicalIdentityRequest,
+  type CanonicalIdentityState,
+} from "./contribution-identity.js";
 import type { LivingEvidenceContribution, ResearchFrontierContribution } from "./contracts.js";
 import { deterministicUuid, sha256, stableJson } from "./hash.js";
 import {
@@ -98,6 +103,18 @@ export interface AnalysisReuseCandidate {
   completedImpactJobs: number;
   pendingImpactJobs: number;
   payload: LivingEvidenceContribution;
+}
+
+interface QuestionRow {
+  question_id: string;
+  topic_id: string;
+  normalized_question: string;
+  population: string | null;
+  program_or_exposure: string | null;
+  comparator: string | null;
+  outcome: string | null;
+  horizon: string | null;
+  setting: string | null;
 }
 
 interface ExportedVersion {
@@ -669,6 +686,343 @@ export class PostgresEvidenceRepository {
         result_count: matches.length,
         has_more: hasMore,
         matches,
+      };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * What the canonical store holds under a payload's identities (owner answer 138b): read-only, in one repeatable-read
+   * snapshot, by exact IDs, keys, identity hashes and identifiers. Stored times are compared with the payload's in SQL.
+   */
+  async readCanonicalIdentity(request: CanonicalIdentityRequest): Promise<CanonicalIdentityState> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+      await this.setSearchPath(client);
+      const exactTime = (column: string) => `to_char(${column} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
+      const idempotency = await client.query<{ record_id: string; payload_sha256: string }>(
+        request.kind === "RESEARCH_FRONTIER"
+          ? "SELECT contribution_id AS record_id, payload_sha256 FROM frontier_contributions WHERE idempotency_key = $1"
+          : "SELECT version_id AS record_id, payload_sha256 FROM analysis_versions WHERE idempotency_key = $1",
+        [request.idempotencyKey],
+      );
+      const manifests = await client.query<{ sha256: string; name: string; version: string; revision_date_matches: boolean }>(
+        `SELECT manifest.sha256, manifest.name, manifest.version,
+                manifest.revision_date = requested.revision_date::date AS revision_date_matches
+           FROM protocol_manifests manifest
+           JOIN unnest($1::text[], $2::text[]) AS requested(sha256, revision_date)
+             ON requested.sha256 = manifest.sha256`,
+        [request.manifests.map(({ sha256: digest }) => digest), request.manifests.map(({ revisionDate }) => revisionDate)],
+      );
+      const run = await client.query<{
+        run_id: string;
+        run_kind: string;
+        started_at_matches: boolean;
+        completed_at_matches: boolean;
+        protocol_manifest_sha256s: string[];
+        provenance_note: string;
+      }>(
+        `SELECT run_id, run_kind, started_at = $2::timestamptz AS started_at_matches,
+                completed_at = $3::timestamptz AS completed_at_matches, protocol_manifest_sha256s, provenance_note
+           FROM research_runs WHERE run_id = $1`,
+        [request.run.runId, request.run.startedAt, request.run.completedAt],
+      );
+      const topics = await client.query<{ topic_id: string; canonical_key: string; label: string }>(
+        "SELECT topic_id, canonical_key, label FROM topics WHERE topic_id = ANY($1::uuid[]) OR canonical_key = ANY($2::text[])",
+        [request.topicIds, request.topicKeys],
+      );
+      const topicIds = [...new Set([...request.topicIds, ...topics.rows.map(({ topic_id: id }) => id)])];
+      const questionRows = await client.query<QuestionRow>(
+        `SELECT question_id, topic_id, normalized_question, population, program_or_exposure,
+                comparator, outcome, horizon, setting
+           FROM questions WHERE question_id = ANY($1::uuid[])`,
+        [request.questionIds],
+      );
+      for (const tuple of request.questionTuples) {
+        const exact = await client.query<QuestionRow>(
+          `SELECT question_id, topic_id, normalized_question, population, program_or_exposure,
+                  comparator, outcome, horizon, setting
+             FROM questions
+            WHERE topic_id = ANY($1::uuid[]) AND normalized_question = $2
+              AND population IS NOT DISTINCT FROM $3 AND program_or_exposure IS NOT DISTINCT FROM $4
+              AND comparator IS NOT DISTINCT FROM $5 AND outcome IS NOT DISTINCT FROM $6
+              AND horizon IS NOT DISTINCT FROM $7 AND setting IS NOT DISTINCT FROM $8
+            ORDER BY question_id`,
+          [
+            topicIds, tuple.normalizedQuestion, tuple.dimensions.population, tuple.dimensions.programOrExposure,
+            tuple.dimensions.comparator, tuple.dimensions.outcome, tuple.dimensions.horizon, tuple.dimensions.setting,
+          ],
+        );
+        questionRows.rows.push(...exact.rows);
+      }
+      const questions = [...new Map(questionRows.rows.map((row) => [row.question_id, row])).values()];
+      const frontiers = await client.query<{ frontier_id: string; question_id: string }>(
+        "SELECT frontier_id, question_id FROM research_frontiers WHERE frontier_id = ANY($1::uuid[]) OR question_id = ANY($2::uuid[])",
+        [request.frontierIds, [...new Set([...request.questionIds, ...questions.map(({ question_id: id }) => id)])]],
+      );
+      const frontierIds = [...new Set([...request.frontierIds, ...frontiers.rows.map(({ frontier_id: id }) => id)])];
+      const lanes = await client.query<{
+        lane_id: string;
+        frontier_id: string;
+        canonical_key: string;
+        source_class: string;
+        provider: string;
+        label: string;
+        coverage_basis: string | null;
+      }>(
+        `SELECT lane.lane_id, lane.frontier_id, lane.canonical_key, lane.source_class, lane.provider, lane.label,
+                (SELECT pass.coverage_basis FROM discovery_passes pass WHERE pass.lane_id = lane.lane_id LIMIT 1)
+                  AS coverage_basis
+           FROM frontier_lanes lane
+          WHERE lane.lane_id = ANY($1::uuid[])
+             OR (lane.frontier_id = ANY($2::uuid[]) AND lane.canonical_key = ANY($3::text[]))`,
+        [request.laneIds, frontierIds, request.laneKeys],
+      );
+      const contributions = await client.query<{ contribution_id: string }>(
+        "SELECT contribution_id FROM frontier_contributions WHERE contribution_id = ANY($1::uuid[])",
+        [request.contributionIds],
+      );
+      const passes = await client.query<{ pass_id: string }>(
+        "SELECT pass_id FROM discovery_passes WHERE pass_id = ANY($1::uuid[])",
+        [request.passIds],
+      );
+      const head = (table: string, key: string, alias: string) =>
+        `(SELECT head.version_id FROM ${table} head
+           WHERE head.${key} = ${alias}.${key}
+             AND NOT EXISTS (SELECT 1 FROM ${table} child WHERE child.previous_version_id = head.version_id)
+           ORDER BY head.inserted_at DESC, head.version_id DESC LIMIT 1)`;
+      const candidates = await client.query<{
+        candidate_id: string;
+        frontier_id: string;
+        candidate_kind: string;
+        identity_hash: string;
+        head_version_id: string | null;
+      }>(
+        `SELECT candidate.candidate_id, candidate.frontier_id, candidate.candidate_kind,
+                candidate.identity_hash::text, ${head("frontier_candidate_versions", "candidate_id", "candidate")}
+                  AS head_version_id
+           FROM frontier_candidates candidate
+          WHERE candidate.candidate_id = ANY($1::uuid[])
+             OR (candidate.frontier_id = ANY($2::uuid[]) AND candidate.identity_hash = ANY($3::text[]))`,
+        [request.candidateIds, frontierIds, request.candidateIdentityHashes],
+      );
+      const candidateVersions = await client.query<{ version_id: string; candidate_id: string }>(
+        "SELECT version_id, candidate_id FROM frontier_candidate_versions WHERE version_id = ANY($1::uuid[])",
+        [request.candidateVersionIds],
+      );
+      const trails = await client.query<{
+        trail_id: string;
+        frontier_id: string;
+        trail_kind: string;
+        head_version_id: string | null;
+      }>(
+        `SELECT trail.trail_id, trail.frontier_id, trail.trail_kind,
+                ${head("frontier_trail_versions", "trail_id", "trail")} AS head_version_id
+           FROM frontier_trails trail WHERE trail.trail_id = ANY($1::uuid[])`,
+        [request.trailIds],
+      );
+      const trailVersions = await client.query<{ version_id: string; trail_id: string }>(
+        "SELECT version_id, trail_id FROM frontier_trail_versions WHERE version_id = ANY($1::uuid[])",
+        [request.trailVersionIds],
+      );
+      const schemes = request.identifiers.map(({ scheme }) => scheme);
+      const values = request.identifiers.map(({ value }) => value);
+      const identifierCandidates = await client.query<{
+        candidate_id: string;
+        frontier_id: string;
+        scheme: string;
+        canonical_value: string;
+      }>(
+        `SELECT identifier.candidate_id, candidate.frontier_id, identifier.scheme, identifier.canonical_value
+           FROM frontier_candidate_identifiers identifier
+           JOIN frontier_candidates candidate ON candidate.candidate_id = identifier.candidate_id
+           JOIN unnest($1::text[], $2::text[]) AS requested(scheme, canonical_value)
+             ON requested.scheme = identifier.scheme AND requested.canonical_value = identifier.canonical_value
+          ORDER BY identifier.candidate_id, identifier.scheme, identifier.canonical_value
+          LIMIT 200`,
+        [schemes, values],
+      );
+      const families = await client.query<{
+        family_id: string;
+        source_kind: string;
+        identity_hash: string;
+        display_title: string;
+        identifiers: Array<{ scheme: string; value: string }>;
+      }>(
+        `SELECT family.family_id, family.source_kind, family.identity_hash::text, family.display_title,
+                COALESCE((
+                  SELECT jsonb_agg(jsonb_build_object('scheme', identifier.scheme, 'value', identifier.canonical_value)
+                    ORDER BY identifier.scheme, identifier.canonical_value)
+                  FROM source_identifiers identifier WHERE identifier.family_id = family.family_id
+                ), '[]'::jsonb) AS identifiers
+           FROM source_families family
+          WHERE family.family_id = ANY($1::uuid[]) OR family.identity_hash = ANY($2::text[])
+             OR family.family_id IN (
+               SELECT identifier.family_id FROM source_identifiers identifier
+                 JOIN unnest($3::text[], $4::text[]) AS requested(scheme, canonical_value)
+                   ON requested.scheme = identifier.scheme AND requested.canonical_value = identifier.canonical_value
+             )
+          ORDER BY family.family_id`,
+        [request.sourceFamilyIds, request.sourceIdentityHashes, schemes, values],
+      );
+      const familyIds = families.rows.map(({ family_id: id }) => id);
+      const versions = await client.query<{
+        version_id: string;
+        family_id: string;
+        source_content_sha256: string | null;
+        access_status: string;
+        retrieved_at: string | null;
+        retrieved_at_matches: boolean;
+        source_locator: string | null;
+      }>(
+        `SELECT version_id, family_id, source_content_sha256::text, access_status,
+                ${exactTime("retrieved_at")} AS retrieved_at,
+                retrieved_at IS NOT DISTINCT FROM $3::timestamptz AS retrieved_at_matches, source_locator
+           FROM source_versions
+          WHERE version_id = $1::uuid
+             OR (family_id = ANY($2::uuid[]) AND source_content_sha256 IS NOT DISTINCT FROM $4::text)
+          ORDER BY retrieved_at NULLS FIRST, version_id`,
+        [
+          request.sourceVersion?.versionId ?? null, familyIds, request.sourceVersion?.retrievedAt ?? null,
+          request.sourceVersion?.contentSha256 ?? null,
+        ],
+      );
+      const policies = await client.query<{
+        policy_id: string;
+        source_family_id: string;
+        source_class: string;
+        cadence_days: number;
+        maximum_age_days: number;
+        owner_role: string;
+        required_checks: string[];
+        failure_behavior: string;
+      }>(
+        `SELECT policy_id, source_family_id, source_class, cadence_days, maximum_age_days, owner_role,
+                required_checks, failure_behavior
+           FROM freshness_policies WHERE policy_id = ANY($1::uuid[]) OR source_family_id = ANY($2::uuid[])`,
+        [request.freshnessPolicyIds, [...new Set([...request.sourceFamilyIds, ...familyIds])]],
+      );
+      const analyses = await client.query<{
+        analysis_id: string;
+        analysis_kind: string;
+        topic_id: string | null;
+        source_family_id: string | null;
+      }>(
+        "SELECT analysis_id, analysis_kind, topic_id, source_family_id FROM analyses WHERE analysis_id = ANY($1::uuid[])",
+        [request.analysisIds],
+      );
+      const analysisVersions = await client.query<{ version_id: string }>(
+        "SELECT version_id FROM analysis_versions WHERE version_id = ANY($1::uuid[])",
+        [request.analysisVersionIds],
+      );
+      const claims = await client.query<{ claim_id: string; question_id: string; claim_type: string }>(
+        "SELECT claim_id, question_id, claim_type FROM claims WHERE claim_id = ANY($1::uuid[])",
+        [request.claimIds],
+      );
+      await client.query("COMMIT");
+      return {
+        idempotency: idempotency.rows[0] === undefined
+          ? null
+          : { recordId: idempotency.rows[0].record_id, payloadSha256: idempotency.rows[0].payload_sha256 },
+        manifests: manifests.rows.map((row) => ({
+          sha256: row.sha256, name: row.name, version: row.version, revisionDateMatches: row.revision_date_matches,
+        })),
+        run: run.rows[0] === undefined
+          ? null
+          : {
+              runId: run.rows[0].run_id,
+              runKind: run.rows[0].run_kind,
+              startedAtMatches: run.rows[0].started_at_matches,
+              completedAtMatches: run.rows[0].completed_at_matches,
+              protocolManifestSha256s: run.rows[0].protocol_manifest_sha256s,
+              provenanceNote: run.rows[0].provenance_note,
+            },
+        topics: topics.rows.map((row) => ({ topicId: row.topic_id, canonicalKey: row.canonical_key, label: row.label })),
+        questions: questions.map((row) => ({
+          questionId: row.question_id,
+          topicId: row.topic_id,
+          normalizedQuestion: row.normalized_question,
+          dimensions: {
+            population: row.population,
+            programOrExposure: row.program_or_exposure,
+            comparator: row.comparator,
+            outcome: row.outcome,
+            horizon: row.horizon,
+            setting: row.setting,
+          },
+        })),
+        frontiers: frontiers.rows.map((row) => ({ frontierId: row.frontier_id, questionId: row.question_id })),
+        lanes: lanes.rows.map((row) => ({
+          laneId: row.lane_id,
+          frontierId: row.frontier_id,
+          canonicalKey: row.canonical_key,
+          sourceClass: row.source_class,
+          provider: row.provider,
+          label: row.label,
+          coverageBasis: row.coverage_basis,
+        })),
+        contributionIds: contributions.rows.map(({ contribution_id: id }) => id),
+        passIds: passes.rows.map(({ pass_id: id }) => id),
+        candidates: candidates.rows.map((row) => ({
+          candidateId: row.candidate_id,
+          frontierId: row.frontier_id,
+          candidateKind: row.candidate_kind,
+          identityHash: row.identity_hash,
+          headVersionId: row.head_version_id,
+        })),
+        candidateVersions: candidateVersions.rows.map((row) => ({ versionId: row.version_id, candidateId: row.candidate_id })),
+        trails: trails.rows.map((row) => ({
+          trailId: row.trail_id,
+          frontierId: row.frontier_id,
+          trailKind: row.trail_kind,
+          headVersionId: row.head_version_id,
+        })),
+        trailVersions: trailVersions.rows.map((row) => ({ versionId: row.version_id, trailId: row.trail_id })),
+        identifierCandidates: identifierCandidates.rows.map((row) => ({
+          candidateId: row.candidate_id,
+          frontierId: row.frontier_id,
+          scheme: row.scheme,
+          value: row.canonical_value,
+        })),
+        sourceFamilies: families.rows.map((row) => ({
+          familyId: row.family_id,
+          sourceKind: row.source_kind,
+          identityHash: row.identity_hash,
+          displayTitle: row.display_title,
+          identifiers: row.identifiers,
+        })),
+        sourceVersions: versions.rows.map((row) => ({
+          versionId: row.version_id,
+          familyId: row.family_id,
+          sourceContentSha256: row.source_content_sha256,
+          accessStatus: row.access_status,
+          retrievedAt: row.retrieved_at,
+          retrievedAtMatches: row.retrieved_at_matches,
+          sourceLocator: row.source_locator,
+        })),
+        freshnessPolicies: policies.rows.map((row) => ({
+          policyId: row.policy_id,
+          sourceFamilyId: row.source_family_id,
+          sourceClass: row.source_class,
+          cadenceDays: row.cadence_days,
+          maximumAgeDays: row.maximum_age_days,
+          ownerRole: row.owner_role,
+          requiredChecks: row.required_checks,
+          failureBehavior: row.failure_behavior,
+        })),
+        analyses: analyses.rows.map((row) => ({
+          analysisId: row.analysis_id,
+          analysisKind: row.analysis_kind,
+          topicId: row.topic_id,
+          sourceFamilyId: row.source_family_id,
+        })),
+        analysisVersionIds: analysisVersions.rows.map(({ version_id: id }) => id),
+        claims: claims.rows.map((row) => ({ claimId: row.claim_id, questionId: row.question_id, claimType: row.claim_type })),
       };
     } catch (error) {
       await client.query("ROLLBACK");
@@ -1404,7 +1758,7 @@ export class PostgresEvidenceRepository {
       const identifiers = [...candidate.identifiers]
         .map(({ scheme, value }) => ({ scheme, value }))
         .sort((left, right) => stableJson(left).localeCompare(stableJson(right)));
-      const identityHash = sha256(stableJson(identifiers));
+      const identityHash = frontierCandidateIdentityHash(identifiers);
       const existing = await client.query<{ frontier_id: string; candidate_kind: string; identity_hash: string }>(
         "SELECT frontier_id, candidate_kind, identity_hash FROM frontier_candidates WHERE candidate_id = $1",
         [candidate.candidateId],

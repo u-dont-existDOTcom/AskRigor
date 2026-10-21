@@ -7,6 +7,12 @@ import { Pool, type PoolConfig } from "pg";
 import { z } from "zod";
 
 import {
+  canonicalIdentityRequest,
+  reconcileResearchFrontier,
+  type CanonicalIdentityReader,
+  type ReconciledIdentity,
+} from "./contribution-identity.js";
+import {
   assertNoProhibitedPersistentKeys,
   type LivingEvidenceContribution,
   type ResearchFrontierContribution,
@@ -18,6 +24,7 @@ import {
 import {
   checkResearchContributionProposal,
   contactPatternKind,
+  contributionCheckFromFindings,
   contributionPrivacyBoundarySchema,
   isCommunityIdentifier,
   isIdentifierValuePath,
@@ -134,6 +141,21 @@ export interface ResearchContributionProposalRecord {
 export interface ProposalInsertResult {
   status: "inserted" | "idempotent_replay";
   record: ResearchContributionProposalRecord;
+}
+
+export interface SubmitProposalOptions {
+  /**
+   * The canonical store's read-only identity view (owner answer 138b): a frontier then continues the exact canonical
+   * records it names before it is stored. Without it, or when it cannot be read, the record is filed as sent.
+   */
+  canonical?: CanonicalIdentityReader;
+}
+
+export interface ProposalSubmission extends ProposalInsertResult {
+  /** Whether the record was checked against the canonical store, when a view was given. */
+  canonicalCheck?: "checked" | "unavailable";
+  /** The canonical IDs the stored record continues instead of the ones sent (IDs only). */
+  reconciled: ReconciledIdentity[];
 }
 
 export interface ResearchContributorAccessStore {
@@ -350,7 +372,8 @@ export class ResearchContributorAccessService {
   async submitProposal(
     subject: string,
     input: unknown,
-  ): Promise<ProposalInsertResult> {
+    options: SubmitProposalOptions = {},
+  ): Promise<ProposalSubmission> {
     const mode = await this.requireActive(subject);
     if (mode === "PAID_PRIVATE") {
       throw new ResearchAccessError(
@@ -371,9 +394,31 @@ export class ResearchContributorAccessService {
     const parsed = researchContributionProposalInputSchema.parse(input);
     assertNoProhibitedPersistentKeys(parsed.payload);
     assertNoObviousPrivateContactText(parsed.payload);
+    let payload = parsed.payload;
+    let reconciled: ReconciledIdentity[] = [];
+    let canonicalCheck: ProposalSubmission["canonicalCheck"];
+    if (options.canonical !== undefined && parsed.proposalKind === "RESEARCH_FRONTIER") {
+      const frontier = prepareFrontierContribution(parsed.payload).contribution;
+      const state = await options.canonical
+        .readCanonicalIdentity(canonicalIdentityRequest("RESEARCH_FRONTIER", frontier))
+        .catch(() => undefined);
+      if (state === undefined) {
+        canonicalCheck = "unavailable";
+      } else {
+        const reconciliation = reconcileResearchFrontier(frontier, state);
+        if (reconciliation.findings.length > 0) {
+          throw new ResearchContributionRejectedError(
+            contributionCheckFromFindings("RESEARCH_FRONTIER", reconciliation.findings),
+          );
+        }
+        payload = reconciliation.payload;
+        reconciled = reconciliation.reconciled;
+        canonicalCheck = "checked";
+      }
+    }
     const prepared = prepareResearchContributionProposal(
       parsed.proposalKind,
-      parsed.payload,
+      payload,
     );
     const at = this.now();
     const record: ResearchContributionProposalRecord = {
@@ -389,7 +434,11 @@ export class ResearchContributorAccessService {
       reviewedAt: null,
       reviewReason: null,
     };
-    return this.store.insertProposal(record);
+    return {
+      ...await this.store.insertProposal(record),
+      ...(canonicalCheck === undefined ? {} : { canonicalCheck }),
+      reconciled,
+    };
   }
 }
 
