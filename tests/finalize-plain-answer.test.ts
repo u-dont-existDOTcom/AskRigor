@@ -17,10 +17,10 @@ import {
 } from "../apps/research-mcp/src/research-contributor-access-tool.js";
 import {
   FINALIZE_REMINDER, FINALIZE_RESEARCH_SHAPES_DESCRIPTION, TOOL_LIST_REFRESH_HINT, finalizeResearch,
-  finalizeResearchInputSchema, type FinalizeResearchInput
+  finalizeResearchInputSchema, plainAnswerClaimDigest, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import {
-  discoveryQueryDigest, issueResearchReceipt, researchTargetDigest, verifyResearchReceipt
+  discoveryQueryDigest, issueResearchReceipt, plainAnswerAccountBinding, researchTargetDigest, verifyResearchReceipt
 } from "../apps/research-mcp/src/research-receipts.js";
 import { withCommunitySkip } from "./helpers/community-skip.js";
 import { CARD } from "./helpers/findings-fixtures.js";
@@ -36,9 +36,13 @@ const DOI = "10.1000/vitamin-d-trial";
 const CLAIMS = ["Vitamin D supplements prevent colds in most adults.", "A daily dose of 1,000 IU is enough."];
 const PLAIN_TEXT = `${CLAIMS[0]} ${CLAIMS[1]} Sunlight helps too.`;
 const sha256 = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
+// The account the gate's calls are made for, by the binding its plain-answer receipts sign.
+const ACCOUNT = plainAnswerAccountBinding(SECRET, "a".repeat(64));
 // Receipts sign their issue order `t`; the research here begins at t = 2000.
-const plainReceipt = (t: number, claims: readonly string[] = CLAIMS, target = TARGET) => issueResearchReceipt(
-  "plain_answer", { claims, text: sha256(PLAIN_TEXT), target: researchTargetDigest(target), t }, { secret: SECRET });
+const plainReceipt = (t: number, claims: readonly string[] = CLAIMS, target = TARGET, acct = ACCOUNT) =>
+  issueResearchReceipt("plain_answer", {
+    claims: claims.map(plainAnswerClaimDigest), text: sha256(PLAIN_TEXT), target: researchTargetDigest(target), acct, t
+  }, { secret: SECRET });
 const audit = (t = 2_000) => issueResearchReceipt("study_audit", {
   id: DOI, status: "complete_no_unresolved_fields", t
 }, { secret: SECRET });
@@ -48,8 +52,8 @@ const CORRECTED = "In three large trials, vitamin D did not prevent colds in adu
 const QUALIFIED = "The trials gave 1,000 to 4,000 IU a day, and only people low in vitamin D might benefit.";
 type Comparison = NonNullable<FinalizeResearchInput["plain_answer_comparison"]>;
 const COMPARISON: Comparison = [
-  { claim: 0, outcome: "corrected", answer_quote: CORRECTED, sources: [DOI] },
-  { claim: 1, outcome: "not_checked" }
+  { claim: CLAIMS[0]!, outcome: "corrected", answer_quote: CORRECTED, sources: [DOI] },
+  { claim: CLAIMS[1]!, outcome: "not_checked" }
 ];
 const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchInput => withCommunitySkip({
   receipts: [plainReceipt(1_000), audit()],
@@ -65,10 +69,10 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   plain_answer_comparison: COMPARISON,
   ...overrides
 });
-// An account asked for a plain answer, with its note on, unless a test passes its setting or null for another account.
-const check = (overrides: Partial<FinalizeResearchInput> = {}, plainAnswer: { note: boolean } | null = { note: true }) =>
+// An account asked for a plain answer, with its note on, unless a test passes its setting, or null for another account.
+const check = (overrides: Partial<FinalizeResearchInput> = {}, note: boolean | null = true) =>
   assertNextStepsContract(finalizeResearch(base(overrides), {
-    secret: SECRET, ...(plainAnswer === null ? {} : { plainAnswer })
+    secret: SECRET, ...(note === null ? {} : { plainAnswer: { note, account: ACCOUNT } })
   }));
 const steps = (overrides: Partial<FinalizeResearchInput> = {}) =>
   check(overrides).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
@@ -86,26 +90,31 @@ describe("finalize_research compares the answer with the plain answer registered
     expect(result.plain_answer_note).toBe(NOTE);
     // The note is written for the end of the answer; it is not a caveat the draft must already carry.
     expect(result.caveats.join(" ")).not.toContain("quick answer would have said");
-    // A qualification and a confirmation, with the work behind them in the server's words.
+    // In the registered order, whatever the comparison's order; a qualification and a confirmation, with the work
+    // behind them in the server's words.
     const both = check({ plain_answer_comparison: [
-      { claim: 0, outcome: "confirmed" },
-      { claim: 1, outcome: "qualified", answer_quote: QUALIFIED, sources: [DOI, `https://doi.org/${DOI.toUpperCase()}`] }
+      { claim: CLAIMS[1]!, outcome: "qualified", answer_quote: QUALIFIED, sources: [DOI, `https://doi.org/${DOI.toUpperCase()}`] },
+      { claim: CLAIMS[0]!, outcome: "confirmed" }
     ] });
     expect(both.plain_answer_note).toBe("Without AskRigor, a quick answer would have said: “Vitamin D supplements " +
       "prevent colds in most adults.” This research confirmed that. It would also have said: “A daily dose of " +
       "1,000 IU is enough.” This research qualified that, from a full-text audit of 1 study: “The trials gave " +
       "1,000 to 4,000 IU a day, and only people low in vitamin D might benefit.”");
+    // A claim copied with other quotation marks, spacing or case is the same claim.
+    expect(check({ plain_answer_comparison: [
+      { ...COMPARISON[0]!, claim: `  ${CLAIMS[0]!.toUpperCase()} ` }, COMPARISON[1]!
+    ] })).toMatchObject({ next_steps: [], plain_answer: { status: "registered" } });
   });
 
-  it("quotes claims in any language exactly as they were registered", () => {
+  it("quotes claims in any language exactly as the comparison copies them", () => {
     const claims = ["ビタミンDは大人の風邪を予防する", "Один грамм в день достаточно."];
     const corrected = "三つの大規模試験では、ビタミンDは風邪を予防しなかった。";
     const result = check({
       receipts: [plainReceipt(1_000, claims), audit()],
       answer_draft: `${LINK}\n\n${corrected}`, answer_language: "ja",
       plain_answer_comparison: [
-        { claim: 1, outcome: "not_checked" },
-        { claim: 0, outcome: "corrected", answer_quote: corrected, sources: [DOI] }
+        { claim: claims[1]!, outcome: "not_checked" },
+        { claim: claims[0]!, outcome: "corrected", answer_quote: corrected, sources: [DOI] }
       ]
     });
     expect(result.plain_answer_note).toBe("Without AskRigor, a quick answer would have said: " +
@@ -113,18 +122,20 @@ describe("finalize_research compares the answer with the plain answer registered
       `It would also have said: “${claims[1]}” This research did not check that.`);
   });
 
-  it("asks for the comparison, naming each registered claim, and blocks until it is given", () => {
+  it("asks for the comparison, and blocks until it is given or the plain answer's receipt is left out", () => {
     const result = check({ plain_answer_comparison: undefined });
     expect(result.status).toBe("not_ready");
     expect(result.next_steps).toEqual([
-      "Give plain_answer_comparison: the plain answer registered before this research has 2 claims (0 " +
-        `${JSON.stringify(CLAIMS[0])}; 1 ${JSON.stringify(CLAIMS[1])}). For each, by its number in claim, give whether ` +
-        "the research confirmed, corrected or qualified it, or did not check it (outcome); a correction or a " +
-        "qualification also gives the answer's sentence stating it (answer_quote) and what backs it (sources).",
+      "Give plain_answer_comparison: for each of the 2 claims of the plain answer registered before this research, " +
+        "copied exactly as manage_research_access listed it, whether the research confirmed, corrected or qualified " +
+        "it, or did not check it (outcome); a correction or a qualification also gives the answer's sentence stating " +
+        "it (answer_quote) and what backs it (sources). Without that field, leave the plain answer's research_receipt " +
+        "out of receipts: the answer then ends without the note.",
       TOOL_LIST_REFRESH_HINT
     ]);
     expect(result).not.toHaveProperty("plain_answer_note");
     expect(result.finalization_receipt).toBeUndefined();
+    expect(check({ plain_answer_comparison: undefined, receipts: [audit()] }).status).toBe("ready_with_limits");
   });
 
   it("refuses a change without the work that backs it, naming the problem", () => {
@@ -147,20 +158,22 @@ describe("finalize_research compares the answer with the plain answer registered
       "plain_answer_comparison[0].answer_quote gives text the answer does not show: copy each sentence exactly from " +
         "answer_draft."
     ]);
-    // Every claim once, by a number the plain answer has.
+    expect(check({ plain_answer_comparison: corrected({ sources: undefined }) })).not.toHaveProperty("plain_answer_note");
+  });
+
+  it("needs each registered claim once, copied as registered", () => {
     expect(steps({ plain_answer_comparison: [COMPARISON[0]!] })).toEqual([
-      `plain_answer_comparison leaves out claim 1 ${JSON.stringify(CLAIMS[1])}: give whether the research confirmed, ` +
+      "plain_answer_comparison leaves out claim 1 of the plain answer registered before this research, as " +
+        "manage_research_access numbered them: give each, copied exactly, with whether the research confirmed, " +
         "corrected or qualified it, or did not check it."
     ]);
-    expect(steps({ plain_answer_comparison: [...COMPARISON, { claim: 0, outcome: "confirmed" }, { claim: 2, outcome: "not_checked" }] }))
-      .toEqual([
-        "plain_answer_comparison[2] gives claim 0 again, as plain_answer_comparison[0] does: give each claim one entry.",
-        "plain_answer_comparison[3].claim is 2, but the plain answer registered before this research has 2 claims, " +
-          "numbered 0 to 1."
-      ]);
-    for (const result of [check({ plain_answer_comparison: corrected({ sources: undefined }) })]) {
-      expect(result).not.toHaveProperty("plain_answer_note");
-    }
+    expect(steps({ plain_answer_comparison: [
+      ...COMPARISON, { claim: CLAIMS[0]!, outcome: "confirmed" }, { claim: "Vitamin D cures colds.", outcome: "not_checked" }
+    ] })).toEqual([
+      "plain_answer_comparison[2] gives the same claim as plain_answer_comparison[0]: give each claim one entry.",
+      "plain_answer_comparison[3].claim is not one of the 2 claims of the plain answer registered before this " +
+        "research: copy it exactly as manage_research_access listed it."
+    ]);
   });
 
   it("accepts a checked absence claim or the research's own correction as what backs a change", () => {
@@ -175,7 +188,7 @@ describe("finalize_research compares the answer with the plain answer registered
       receipts: [plainReceipt(1_000), audit(), search],
       answer_draft: `${LINK}\n\n${CORRECTED} ${absent}\n\n${bounded}`,
       absence_claims: [{ quote: absent, state: "support_not_located" }],
-      plain_answer_comparison: [COMPARISON[0]!, { claim: 1, outcome: "qualified", answer_quote: absent }]
+      plain_answer_comparison: [COMPARISON[0]!, { claim: CLAIMS[1]!, outcome: "qualified", answer_quote: absent }]
     });
     expect(result).toMatchObject({ status: "ready_with_limits", next_steps: [] });
     expect(result.plain_answer_note).toContain("This research qualified that, from a check of what the evidence does " +
@@ -184,25 +197,33 @@ describe("finalize_research compares the answer with the plain answer registered
     const corrected = check({
       answer_draft: `${LINK}\n\n${CORRECTED} ${fixed}`,
       corrections: [{ retracted: "The dose is 1,000 mg a day.", change: fixed, by_user: false }],
-      plain_answer_comparison: [COMPARISON[0]!, { claim: 1, outcome: "corrected", answer_quote: fixed }]
+      plain_answer_comparison: [COMPARISON[0]!, { claim: CLAIMS[1]!, outcome: "corrected", answer_quote: fixed }]
     });
     expect(corrected).toMatchObject({ status: "ready_with_limits", next_steps: [] });
     expect(corrected.plain_answer_note).toContain("This research corrected that, from a correction the research made " +
       `to an earlier statement: “${fixed}”`);
   });
 
-  it("gives no note, and holds nothing back, without a plain answer registered before this research", () => {
+  it("gives no note, and holds nothing back, without this account's plain answer registered before this research", () => {
     const later = " For a later question, register its plain answer before researching it.";
+    const afterResearch = "The plain answer passed was registered after a research receipt passed here was issued, so " +
+      "it cannot show what a quick answer would have said, and the answer ends without the note. For a later question, " +
+      "register its plain answer before researching it, and pass only receipts issued after it.";
+    const otherDiscovery = issueResearchReceipt("youtube_search", {
+      videos: [], q: "a1a1a1a1a1a1", target: researchTargetDigest("Another question"), t: 200
+    }, { secret: SECRET });
     const cases: Array<[string[], string, string]> = [
       [[audit()], "no_receipt", "No plain answer registered with manage_research_access before this research was " +
         `passed in receipts, so the answer ends without the note comparing it with one.${later}`],
-      [[audit(), plainReceipt(2_500)], "after_research", "The plain answer passed was registered after this research " +
-        `began, so it cannot show what a quick answer would have said, and the answer ends without the note.${later}`],
+      [[audit(), plainReceipt(2_500)], "after_research", afterResearch],
       [[plainReceipt(1_000, CLAIMS, "Another question"), audit()], "other_target", "The plain answer passed was " +
         `registered for another research target, so the answer ends without the note comparing it with this research.${later}`],
-      // A study audit names no research target, so it counts as research whatever it was made for.
-      [[audit(500), plainReceipt(1_000), audit()], "after_research", "The plain answer passed was registered after " +
-        `this research began, so it cannot show what a quick answer would have said, and the answer ends without the note.${later}`]
+      [[plainReceipt(1_000, CLAIMS, TARGET, plainAnswerAccountBinding(SECRET, "b".repeat(64))), audit()], "other_account",
+        `The plain answer passed was registered by another account, so the answer ends without the note comparing it with one.${later}`],
+      // Research began with the earliest receipt passed, whatever it was made for: a study audit names no research
+      // target, and discovery for an earlier question came before this plain answer too.
+      [[audit(500), plainReceipt(1_000), audit()], "after_research", afterResearch],
+      [[otherDiscovery, plainReceipt(1_000), audit()], "after_research", afterResearch]
     ];
     for (const [receipts, status, reason] of cases) {
       for (const comparison of [undefined, COMPARISON]) {
@@ -213,18 +234,15 @@ describe("finalize_research compares the answer with the plain answer registered
     }
   });
 
-  it("compares the latest plain answer signed before research, setting aside discovery for another target", () => {
+  it("compares the latest plain answer this account signed before the research", () => {
     const earlier = plainReceipt(500, ["Vitamin D cures colds."]);
-    const otherDiscovery = issueResearchReceipt("youtube_search", {
-      videos: [], q: "a1a1a1a1a1a1", target: researchTargetDigest("Another question"), t: 200
-    }, { secret: SECRET });
-    const result = check({ receipts: [otherDiscovery, plainReceipt(1_000), earlier, audit()] });
+    const result = check({ receipts: [plainReceipt(1_000), earlier, audit()] });
     expect(result).toMatchObject({ next_steps: [], plain_answer: { status: "registered", claims: 2 } });
     expect(result.plain_answer_note).toBe(NOTE);
   });
 
   it("removes only the note when the account turned it off: the comparison is still asked for and checked", () => {
-    const off = check({}, { note: false });
+    const off = check({}, false);
     expect(off).toMatchObject({
       status: "ready_with_limits", next_steps: [],
       plain_answer: {
@@ -234,7 +252,7 @@ describe("finalize_research compares the answer with the plain answer registered
       }
     });
     expect(off).not.toHaveProperty("plain_answer_note");
-    expect(check({ plain_answer_comparison: undefined }, { note: false }).status).toBe("not_ready");
+    expect(check({ plain_answer_comparison: undefined }, false).status).toBe("not_ready");
   });
 
   it("counts a plain-answer receipt for nothing from an account not asked for one", () => {
@@ -243,15 +261,18 @@ describe("finalize_research compares the answer with the plain answer registered
     expect(free).not.toHaveProperty("plain_answer");
     expect(free).not.toHaveProperty("plain_answer_note");
     expect(check({ plain_answer_comparison: undefined }, null).status).toBe("ready_with_limits");
+    // The saved card's stamp counts research receipts, and a plain answer is not research.
+    const verified = verifyResearchReceipt(check().finalization_receipt!, { secret: SECRET });
+    expect(verified.ok && verified.claims.receipts).toBe("1");
   });
 
   it("gives the hidden nested input its JSON in the tool description", () => {
     expect(FINALIZE_RESEARCH_SHAPES_DESCRIPTION).toContain("plain_answer_comparison[].sources [\"10.1000/example\"]");
     expect(finalizeResearchInputSchema.shape.plain_answer_comparison.safeParse([
-      { claim: 0, outcome: "corrected", answer_quote: "…", sources: ["10.1000/example"] }
+      { claim: "…", outcome: "corrected", answer_quote: "…", sources: ["10.1000/example"] }
     ]).success).toBe(true);
     expect(finalizeResearchInputSchema.shape.plain_answer_comparison.safeParse([
-      { claim: 0, outcome: "contradicted" }
+      { claim: "…", outcome: "contradicted" }
     ]).success).toBe(false);
   });
 });
@@ -308,6 +329,9 @@ describe("manage_research_access and finalize_research through the connector (ow
     action: "register_plain_answer",
     plainAnswer: { researchTarget: TARGET, text: PLAIN_TEXT, claims: CLAIMS, ...overrides }
   });
+  // The research a fixture reports: one audited study, passed after the plain answer was registered.
+  const request = (receipts: string[], overrides: Record<string, unknown> = {}) => ({ ...base({ receipts }), ...overrides });
+  const laterAudit = () => audit(Date.now() + 60_000);
 
   it("reads the dev accounts from the server's settings, ignoring entries that are not account keys", () => {
     expect([...devAccountKeysFromEnv(` ${"A".repeat(64)},${"b".repeat(64)} , ${"c".repeat(63)},`)])
@@ -325,8 +349,8 @@ describe("manage_research_access and finalize_research through the connector (ow
     }
     expect(plainAnswerRequest(true)).toBe("Before any research call, write the short answer you would give without " +
       "AskRigor's tools, and register it with action register_plain_answer: plainAnswer.text, that answer (at most " +
-      "1,500 characters); plainAnswer.claims, its main claims, 1 to 5 sentences each copied exactly from it (at most " +
-      "250 characters each); and plainAnswer.researchTarget, the research target you will give finalize_research. " +
+      "1,500 characters); plainAnswer.claims, its main claims, 1 to 5 whole sentences each copied exactly from it (at " +
+      "most 250 characters each); and plainAnswer.researchTarget, the research target you will give finalize_research. " +
       "AskRigor signs it with the time. Then treat each claim as something to check, confirm or correct, and look " +
       "beyond the claims too. The final check then writes a short note comparing the checked answer with this plain " +
       "answer, for the end of the answer.");
@@ -341,7 +365,7 @@ describe("manage_research_access and finalize_research through the connector (ow
     });
   });
 
-  it("signs the plain answer's claims with the time, never storing them, and refuses one not copied exactly", async () => {
+  it("signs digests of the plain answer's whole-sentence claims with the time, and keeps none of its text", async () => {
     const { store, service } = await accounts();
     const manage = tool("manage_research_access", { researchContributorAccessService: service });
     const registered = await manage(register(), "auth0|paid");
@@ -353,36 +377,47 @@ describe("manage_research_access and finalize_research through the connector (ow
     const verified = verifyResearchReceipt(receipt, { secret: SECRET });
     expect(verified).toMatchObject({
       ok: true, kind: "plain_answer",
-      claims: { claims: CLAIMS, text: sha256(PLAIN_TEXT), target: researchTargetDigest(TARGET) }
+      claims: {
+        claims: CLAIMS.map(plainAnswerClaimDigest), text: sha256(PLAIN_TEXT), target: researchTargetDigest(TARGET),
+        acct: plainAnswerAccountBinding(SECRET, service.accountKeyForSubject("auth0|paid"))
+      }
     });
     expect(verified.ok && typeof verified.claims.t === "string").toBe(true);
+    expect(CLAIMS.map(plainAnswerClaimDigest).every((digest) => /^[a-f0-9]{16}$/u.test(digest))).toBe(true);
+    // Neither the receipt nor the account row holds the plain answer, or the account key.
+    for (const word of ["Vitamin", "colds", "1,000", service.accountKeyForSubject("auth0|paid")]) {
+      expect(decodeURIComponent(receipt)).not.toContain(word);
+    }
+    expect(JSON.stringify(store.allAccounts())).not.toContain("Vitamin");
     expect(text(registered)).toContain(`research_receipt: ${receipt}`);
     expect(text(registered)).toContain(FINALIZE_REMINDER);
     expect(text(registered)).toContain(`Claims: 0 ${JSON.stringify(CLAIMS[0])}; 1 ${JSON.stringify(CLAIMS[1])}.`);
-    // The plain answer is not kept: the receipt goes back to the client, and the account row holds only the setting.
-    expect(JSON.stringify(store.allAccounts())).not.toContain("Vitamin");
-    expect(JSON.stringify(store.allAccounts())).not.toContain(receipt);
 
-    const refused = async (input: Record<string, unknown>, problem: string) => {
+    const refused = async (input: Record<string, unknown>, problems: string[]) => {
       const result = await manage(input, "auth0|dev");
       expect(result.isError).toBe(true);
-      expect(result.structuredContent).toMatchObject({ ok: false, problems: [problem], error: { code: "invalid_request" } });
+      expect(result.structuredContent).toMatchObject({ ok: false, problems, error: { code: "invalid_request" } });
       expect(result.structuredContent).not.toHaveProperty("research_receipt");
     };
-    await refused(register({ claims: [CLAIMS[0], "Vitamin D cures colds."] }),
-      "plainAnswer.claims[1] is not copied exactly from plainAnswer.text: copy the sentence as the text writes it, " +
-        "from one paragraph.");
+    const notWhole = (index: number) => `plainAnswer.claims[${index}] is not one or more whole sentences copied ` +
+      "exactly from plainAnswer.text: copy each claim as the text writes it, from the start of a sentence to its end, " +
+      "within one paragraph.";
+    await refused(register({ claims: [CLAIMS[0], "Vitamin D cures colds."] }), [notWhole(1)]);
+    // A fragment of a sentence is not a claim the note could quote as the plain answer's.
+    await refused(register({ claims: ["Vitamin", "1,000 IU is enough."] }), [notWhole(0), notWhole(1)]);
     await refused(register({ claims: [CLAIMS[0], `  ${CLAIMS[0]!.toUpperCase().replace(".", "")} `] }),
-      "plainAnswer.claims[1] repeats plainAnswer.claims[0]: give each claim once.");
-    // Its claims must fit one research receipt; in Cyrillic, each letter takes six characters once signed.
-    const long = Array.from({ length: 5 }, (_, index) => `${"Витамин ".repeat(27)}${index}.`);
-    await refused(register({ text: long.join(" "), claims: long }), "plainAnswer.claims are too long to sign " +
-      "together in one research receipt: shorten them, or keep only the main ones.");
-    // Typographic quotation marks, dashes and case are compared as the final check compares answer quotes.
+      ["plainAnswer.claims[1] repeats plainAnswer.claims[0]: give each claim once."]);
+    // Typographic quotation marks, dashes and case are compared as the final check compares answer quotes, and the
+    // receipt's size is the same in any script.
     const typographic = await manage(register({
-      text: "Vitamin D won’t prevent colds — not in most adults.", claims: ["vitamin d won't prevent colds - not in most adults"]
+      text: "Vitamin D won’t prevent colds — not in most adults.",
+      claims: ["vitamin d won't prevent colds - not in most adults"]
     }), "auth0|dev");
     expect(typographic.structuredContent).toMatchObject({ ok: true, plainAnswer: { claims: 1 } });
+    const long = Array.from({ length: 5 }, (_, index) => `${"Витамин ".repeat(30)}${index}.`);
+    const cyrillic = await manage(register({ text: long.join(" "), claims: long }), "auth0|dev");
+    expect(cyrillic.structuredContent).toMatchObject({ ok: true, plainAnswer: { claims: 5 } });
+    expect((cyrillic.structuredContent as { research_receipt: string }).research_receipt.length).toBeLessThan(400);
 
     const free = await manage(register(), "auth0|free");
     expect(free.structuredContent).toMatchObject({ ok: false, error: { code: "plain_answer_not_requested" } });
@@ -396,17 +431,12 @@ describe("manage_research_access and finalize_research through the connector (ow
       .toMatchObject({ ok: false, error: { code: "receipts_unavailable" } });
   });
 
-  // The research a fixture reports: one audited study, passed after the plain answer was registered.
-  const request = (receipts: string[], overrides: Record<string, unknown> = {}) => ({
-    ...base({ receipts }), ...overrides
-  });
-
   it("turns the note off and back on for the account, and the final check follows the setting", async () => {
     const { store, service } = await accounts();
     const manage = tool("manage_research_access", { researchContributorAccessService: service });
     const finalize = tool("finalize_research", { researchContributorAccessService: service, findingsLibrary: false });
     const receipt = (await manage(register(), "auth0|paid")).structuredContent as { research_receipt: string };
-    const checked = () => finalize(request([receipt.research_receipt, audit(Date.now() + 60_000)]), "auth0|paid");
+    const checked = () => finalize(request([receipt.research_receipt, laterAudit()]), "auth0|paid");
 
     const on = await checked();
     expect(on.structuredContent).toMatchObject({ status: "ready_with_limits", plain_answer: { status: "registered" } });
@@ -416,9 +446,9 @@ describe("manage_research_access and finalize_research through the connector (ow
     expect(off.structuredContent).toEqual({ ok: true, plainAnswer: { requested: true, note: false } });
     expect(store.allAccounts().find(({ accountKey }) => accountKey === service.accountKeyForSubject("auth0|paid")))
       .toMatchObject({ plainAnswerNote: false });
-    expect((await manage({ action: "inspect" }, "auth0|paid")).structuredContent)
-      .toMatchObject({ plainAnswer: { requested: true, note: false } });
-    expect(text(await manage({ action: "inspect" }, "auth0|paid"))).toContain(plainAnswerRequest(false));
+    const inspected = await manage({ action: "inspect" }, "auth0|paid");
+    expect(inspected.structuredContent).toMatchObject({ plainAnswer: { requested: true, note: false } });
+    expect(text(inspected)).toContain(plainAnswerRequest(false));
     const quiet = await checked();
     expect(quiet.structuredContent).toMatchObject({ status: "ready_with_limits", plain_answer: { status: "note_off" } });
     expect(quiet.structuredContent).not.toHaveProperty("plain_answer_note");
@@ -447,8 +477,7 @@ describe("manage_research_access and finalize_research through the connector (ow
     const card = findingsCardSchema.parse({
       ...CARD, findings: [{ ...CARD.findings[0]!, answer_quote: CORRECTED, sources: [DOI], tags: ["full_text_read"] }]
     });
-    const result = await finalize(request([receipt.research_receipt, audit(Date.now() + 60_000)], { findings_card: card }),
-      "auth0|dev");
+    const result = await finalize(request([receipt.research_receipt, laterAudit()], { findings_card: card }), "auth0|dev");
     expect(result.structuredContent).toMatchObject({
       status: "ready_with_limits", plain_answer_note: NOTE,
       saved_line: "Saved to AskRigor's findings library for review as ARF-0042."
@@ -462,10 +491,16 @@ describe("manage_research_access and finalize_research through the connector (ow
     expect(note).toBeGreaterThan(0);
     expect(savedLine).toBeGreaterThan(note);
     expect(checkLine).toBeGreaterThan(savedLine);
-    // The saved card holds none of the plain answer: it lives only in its receipt and in the answer.
+    // The saved card holds none of the plain answer: it reaches only the answer.
     expect(saved).toHaveLength(1);
     expect(JSON.stringify(saved)).not.toContain("prevent colds in most adults");
     expect(JSON.stringify(saved)).not.toContain("1,000 IU is enough");
+
+    // Another account's plain answer is not this one's.
+    const closed = tool("finalize_research", { researchContributorAccessService: service, findingsLibrary: false });
+    const paid = await closed(request([receipt.research_receipt, laterAudit()]), "auth0|paid");
+    expect(paid.structuredContent).toMatchObject({ status: "ready_with_limits", plain_answer: { status: "other_account" } });
+    expect(paid.structuredContent).not.toHaveProperty("plain_answer_note");
 
     // A free account not marked dev is not compared, and gets no word about it.
     const free = await finalize(request([audit()], { findings_card: card }), "auth0|free");

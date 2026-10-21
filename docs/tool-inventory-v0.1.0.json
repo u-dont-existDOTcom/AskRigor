@@ -10705,7 +10705,7 @@
                   "minLength": 1,
                   "maxLength": 250
                 },
-                "description": "Its main claims, each a sentence copied exactly from text."
+                "description": "Its main claims, each one or more whole sentences copied exactly from text."
               }
             },
             "required": [
@@ -14851,14 +14851,14 @@
             }
           },
           "plain_answer_comparison": {
-            "description": "With answer_draft, when a plain answer registered with manage_research_access before this research is passed in receipts: for each of its claims, by number, whether the research confirmed, corrected or qualified it, or did not check it. A correction or a qualification gives the answer's sentence stating it and what backs it, checked against this call's receipts and declarations. From it the final check writes plain_answer_note, for the end of the answer.",
+            "description": "With answer_draft, when a plain answer registered with manage_research_access before this research is passed in receipts: for each of its claims, copied exactly, whether the research confirmed, corrected or qualified it, or did not check it. A correction or a qualification gives the answer's sentence stating it and what backs it, checked against this call's receipts and declarations. From it the final check writes plain_answer_note, for the end of the answer.",
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
                 "claim": {
-                  "type": "integer",
-                  "description": "The claim's number in the plain answer registered before this research, from 0."
+                  "type": "string",
+                  "description": "One claim of the plain answer registered before this research, copied exactly as manage_research_access listed it."
                 },
                 "outcome": {
                   "type": "string",
@@ -15205,7 +15205,7 @@
             "type": "string"
           },
           "plain_answer": {
-            "description": "For a paid private or dev account: registered, a plain answer signed for this research target before the research, which plain_answer_comparison compares with the answer; note_off, the same with the account's note turned off; or why there is none to compare (no_receipt, other_target, after_research), which holds nothing back.",
+            "description": "For a paid private or dev account: registered, a plain answer signed for this research target before the research, which plain_answer_comparison compares with the answer; note_off, the same with the account's note turned off; or why there is none to compare (no_receipt, other_account, other_target, after_research), which holds nothing back.",
             "type": "object",
             "properties": {
               "status": {
@@ -15214,6 +15214,7 @@
                   "registered",
                   "note_off",
                   "no_receipt",
+                  "other_account",
                   "other_target",
                   "after_research"
                 ]

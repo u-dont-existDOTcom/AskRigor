@@ -232,6 +232,7 @@ import {
   discoveryQueryDigest,
   issueResearchReceipt,
   pageKey,
+  plainAnswerAccountBinding,
   researchReceiptSecretFromEnv,
   researchTargetDigest,
   type ResearchReceiptClaims,
@@ -1720,7 +1721,12 @@ function defineResearchOperations(
       ...(options.mcpSurface === "/mcp/gemini" ? {} : {
         plainAnswer: {
           devAccountKeys: () => devAccountKeysFromEnv(),
-          sign: (claims) => researchReceipt("plain_answer", claims),
+          sign: (claims, accountKey) => {
+            const secret = researchReceiptSecretFromEnv();
+            return secret === undefined
+              ? undefined
+              : researchReceipt("plain_answer", { ...claims, acct: plainAnswerAccountBinding(secret, accountKey) });
+          },
         },
       }),
     }),
@@ -2135,9 +2141,9 @@ function defineResearchOperations(
         ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) }),
         // Owner answer 140b: a paid private or dev account's plain answer, registered before research, is compared
         // with the answer, on the MCP connector only.
-        ...(researcher !== undefined && options.mcpSurface !== "/mcp/gemini" &&
+        ...(researcher !== undefined && secret !== undefined && options.mcpSurface !== "/mcp/gemini" &&
             plainAnswerRequested(researcher.mode, researcher.accountKey, devAccountKeysFromEnv())
-          ? { plainAnswer: { note: researcher.plainAnswerNote } }
+          ? { plainAnswer: { note: researcher.plainAnswerNote, account: plainAnswerAccountBinding(secret, researcher.accountKey) } }
           : {})
       };
       let result = finalizeResearch(input, finalizeOptions);

@@ -361,7 +361,11 @@ describe("findings library save", () => {
       contributor: BOB, finalization_receipt: finalization({ receipts: 8, bases: ["full_text_audit"] }),
     }), CONTEXT)).resolves.toMatchObject({ status: "existing_card", card_id: "ARF-0042", occurrence_count: 2 });
     expect(github.issues[0]!.labels).toContainEqual({ name: "beyond-quick-answer" });
-    expect(storedRecord(github.comments.get(42)![0]!.body).card.findings[0]).toMatchObject({ verified_bases: ["full_text_audit"] });
+    const [occurrence] = github.comments.get(42)!;
+    expect(storedRecord(occurrence!.body).card.findings[0]).toMatchObject({ verified_bases: ["full_text_audit"] });
+    // The card's own copy shows its first save's bases, so the occurrence shows its own.
+    expect(occurrence!.body).toContain("## Beyond a quick answer, as this save's receipts show\n\n- Finding 1: full\\_text\\_audit");
+    expect(github.issues[0]!.body).toContain("- Beyond a quick answer, as the receipts show: none");
     // A card already labeled is not labeled again.
     const writes = github.writes.length;
     await save.save(saveInput({

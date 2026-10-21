@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { z } from "zod";
 import { normalizeProductName, productNameOccurs } from "@askrigor/sources";
 
@@ -612,8 +614,9 @@ export const finalizeResearchInputSchema = z.object({
   }).strict()).max(40).optional()
     .describe("In an answer not in English: each caveat in the answer's language."),
   plain_answer_comparison: z.array(z.object({
-    claim: z.number().int().nonnegative()
-      .describe("The claim's number in the plain answer registered before this research, from 0."),
+    claim: z.string().trim().min(1).max(PLAIN_ANSWER_LIMITS.claimCharacters)
+      .describe("One claim of the plain answer registered before this research, copied exactly as " +
+        "manage_research_access listed it."),
     outcome: z.enum(PLAIN_ANSWER_OUTCOMES)
       .describe("confirmed: the research supports it; corrected: the research shows it is wrong; qualified: it holds " +
         "only in part or under conditions; not_checked: the research did not test it."),
@@ -626,9 +629,9 @@ export const finalizeResearchInputSchema = z.object({
         "also declares.")
   }).strict()).max(PLAIN_ANSWER_LIMITS.claims).optional()
     .describe("With answer_draft, when a plain answer registered with manage_research_access before this research is " +
-      "passed in receipts: for each of its claims, by number, whether the research confirmed, corrected or qualified " +
-      "it, or did not check it. A correction or a qualification gives the answer's sentence stating it and what " +
-      "backs it, checked against this call's receipts and declarations. From it the final check writes " +
+      "passed in receipts: for each of its claims, copied exactly, whether the research confirmed, corrected or " +
+      "qualified it, or did not check it. A correction or a qualification gives the answer's sentence stating it and " +
+      "what backs it, checked against this call's receipts and declarations. From it the final check writes " +
       "plain_answer_note, for the end of the answer."),
   findings_card: findingsCardSchema.optional()
     .describe("With answer_draft, when the answer cites a study or video verified here: the answer's best findings " +
@@ -960,14 +963,14 @@ export const finalizeResearchOutputSchema = z.object({
   saved_line: z.string().optional()
     .describe("When a free contributor's card was saved: the line the answer ends with, just before check_line."),
   plain_answer: z.object({
-    status: z.enum(["registered", "note_off", "no_receipt", "other_target", "after_research"]),
+    status: z.enum(["registered", "note_off", "no_receipt", "other_account", "other_target", "after_research"]),
     claims: z.number().int().positive().optional(),
     reason: z.string().optional()
   }).strict().optional()
     .describe("For a paid private or dev account: registered, a plain answer signed for this research target before " +
       "the research, which plain_answer_comparison compares with the answer; note_off, the same with the account's " +
-      "note turned off; or why there is none to compare (no_receipt, other_target, after_research), which holds " +
-      "nothing back."),
+      "note turned off; or why there is none to compare (no_receipt, other_account, other_target, after_research), " +
+      "which holds nothing back."),
   plain_answer_note: z.string().optional()
     .describe("When ready, for a registered plain answer: the note the answer ends with, before saved_line and " +
       "check_line, quoting each of its claims exactly and saying what the research found, and what backs each change."),
@@ -1001,9 +1004,9 @@ export interface FinalizeResearchOptions {
   // account, whose card is neither checked nor saved.
   findings?: "closed" | "save" | "offer" | "private";
   // A paid private or dev account on the connector (owner answer 140b): a plain answer it registered before research
-  // is compared with the answer, and the note doing so is written unless the account turned it off. Other callers'
-  // plain-answer receipts count for nothing.
-  plainAnswer?: { note: boolean };
+  // is compared with the answer, and the note doing so is written unless the account turned it off. `account` is the
+  // binding its plain-answer receipts sign (plainAnswerAccountBinding). Other callers' receipts count for nothing.
+  plainAnswer?: { note: boolean; account: string };
   // The client's own hint that the answer will be read on a phone or tablet:
   // the answer then carries the owner's mobile notice (owner request,
   // 2026-10-15), as Universal's output_style asks wherever a phone shows.
@@ -2357,7 +2360,7 @@ export function finalizeResearch(
   // nothing back.
   const plainAnswer = options.plainAnswer === undefined
     ? undefined
-    : registeredPlainAnswer(verified, offTarget, targetDigest);
+    : registeredPlainAnswer(verified, options.plainAnswer.account, targetDigest);
   // Each registered claim with what the research found, for the note.
   let compared: ComparedClaim[] | undefined;
   if (draft === undefined) {
@@ -2416,35 +2419,35 @@ export function finalizeResearch(
     // declaration, in any language. What is checked exactly: every claim has one entry, a change quotes the answer's
     // sentence stating it, and what backs it is work this call's receipts and declarations show, as for a findings card.
     if (plainAnswer?.status === "registered") {
-      const claims = plainAnswer.claims;
+      const registered = plainAnswer.claims;
+      const count = registered.length === 1 ? "1 claim" : `${registered.length} claims`;
       const comparison = input.plain_answer_comparison;
       if (comparison === undefined) {
-        requireDeclaration("Give plain_answer_comparison: the plain answer registered before this research has " +
-          `${claims.length === 1 ? "1 claim" : `${claims.length} claims`} (` +
-          claims.map((claim, number) => `${number} ${JSON.stringify(claim)}`).join("; ") + "). For each, by its " +
-          "number in claim, give whether the research confirmed, corrected or qualified it, or did not check it " +
-          "(outcome); a correction or a qualification also gives the answer's sentence stating it (answer_quote) and " +
-          "what backs it (sources).");
+        requireDeclaration(`Give plain_answer_comparison: for each of the ${count} of the plain answer registered ` +
+          "before this research, copied exactly as manage_research_access listed it, whether the research confirmed, " +
+          "corrected or qualified it, or did not check it (outcome); a correction or a qualification also gives the " +
+          "answer's sentence stating it (answer_quote) and what backs it (sources). Without that field, leave the " +
+          "plain answer's research_receipt out of receipts: the answer then ends without the note.");
       } else {
+        // Registered claim number -> the entry giving it, and what the research found for it.
         const entryFor = new Map<number, number>();
         const found = new Map<number, ComparedClaim>();
         for (const [index, entry] of comparison.entries()) {
           const at = `plain_answer_comparison[${index}]`;
-          if (entry.claim >= claims.length) {
-            nextSteps.push(`${at}.claim is ${entry.claim}, but the plain answer registered before this research has ` +
-              (claims.length === 1 ? "1 claim, number 0." : `${claims.length} claims, numbered 0 to ${claims.length - 1}.`));
+          const number = registered.indexOf(plainAnswerClaimDigest(entry.claim));
+          if (number < 0) {
+            nextSteps.push(`${at}.claim is not one of the ${count} of the plain answer registered before this ` +
+              "research: copy it exactly as manage_research_access listed it.");
             continue;
           }
-          const earlier = entryFor.get(entry.claim);
+          const earlier = entryFor.get(number);
           if (earlier !== undefined) {
-            nextSteps.push(`${at} gives claim ${entry.claim} again, as plain_answer_comparison[${earlier}] does: give ` +
-              "each claim one entry.");
+            nextSteps.push(`${at} gives the same claim as plain_answer_comparison[${earlier}]: give each claim one entry.`);
             continue;
           }
-          entryFor.set(entry.claim, index);
-          const claim = claims[entry.claim]!;
+          entryFor.set(number, index);
           if (entry.outcome === "not_checked") {
-            found.set(entry.claim, { claim, outcome: entry.outcome });
+            found.set(number, { claim: entry.claim, outcome: entry.outcome });
             continue;
           }
           const sources = entry.sources ?? [];
@@ -2464,19 +2467,20 @@ export function finalizeResearch(
               "in sources a study audited in full text here or a video whose comments were read here, or quote as " +
               "answer_quote a sentence that absence_claims or corrections (with by_user false) also declare.");
           }
-          found.set(entry.claim, {
-            claim, outcome: entry.outcome,
+          found.set(number, {
+            claim: entry.claim, outcome: entry.outcome,
             ...(entry.answer_quote === undefined ? {} : { quote: entry.answer_quote }),
             ...(backed ? { work: countWork([work]) } : {})
           });
         }
-        const left = claims.flatMap((claim, number) => entryFor.has(number) ? [] : [`${number} ${JSON.stringify(claim)}`]);
+        const left = registered.flatMap((_, number) => entryFor.has(number) ? [] : [number]);
         if (left.length > 0) {
           nextSteps.push(`plain_answer_comparison leaves out ${left.length === 1 ? "claim" : "claims"} ` +
-            `${left.join("; ")}: give whether the research confirmed, corrected or qualified ` +
-            `${left.length === 1 ? "it" : "each"}, or did not check ${left.length === 1 ? "it" : "them"}.`);
+            `${joinNames(left.map(String))} of the plain answer registered before this research, as ` +
+            "manage_research_access numbered them: give each, copied exactly, with whether the research confirmed, " +
+            "corrected or qualified it, or did not check it.");
         } else {
-          compared = claims.map((_, number) => found.get(number)!);
+          compared = registered.map((_, number) => found.get(number)!);
         }
       }
     }
@@ -2588,7 +2592,8 @@ export function finalizeResearch(
     output.finalization_receipt = issueResearchReceipt("finalization", {
       status,
       community: input.community_evidence,
-      receipts: verified.length,
+      // Research receipts, which a saved card's stamp counts; a plain answer is not research.
+      receipts: verified.filter(({ kind }) => kind !== "plain_answer").length,
       videos: materialVideos.length,
       depth: input.research_depth,
       target: targetDigest,
@@ -2972,21 +2977,19 @@ function checkSecondReading(input: FinalizeResearchInput | undefined, reading: F
   };
   const showing = quoteLocator(displayedProse(input?.answer_draft ?? ""));
   const findings = reading.findings.filter(({ kind, quote }) => Object.hasOwn(labels, kind) && showing(quote).length > 0);
-  const forms = (quote: string) => [quoteForm(quote.replace(MARKDOWN_LINK, "$1")),
-    quoteForm(quote.replace(MARKDOWN_LINK_TEXT, "$1"))];
-  const dismissedQuotes = (input?.reader_dismissed ?? []).map(({ quote }) => forms(quote));
+  const dismissedQuotes = (input?.reader_dismissed ?? []).map(({ quote }) => quoteForms(quote));
   let open = 0;
   let dismissed = 0;
   for (const { kind, quote } of findings) {
-    const normalized = forms(quote);
+    const normalized = quoteForms(quote);
     if (dismissedQuotes.some((other) => normalized.some((text, i) => text === other[i]))) {
       dismissed += 1;
       continue;
     }
     const covered = kind === "key_terms"
       ? (input?.key_terms ?? []).some(({ term }) => normalized.some((text, i) =>
-        termOccurrences(text, forms(term)[i]!).length > 0))
-      : (input?.[kind] ?? []).some((declared) => forms(declared.quote).some((text, i) =>
+        termOccurrences(text, quoteForms(term)[i]!).length > 0))
+      : (input?.[kind] ?? []).some((declared) => quoteForms(declared.quote).some((text, i) =>
         text.length > 0 && (text.includes(normalized[i]!) || normalized[i]!.includes(text))));
     if (covered) continue;
     open += 1;
@@ -3087,25 +3090,28 @@ interface ComparedClaim {
 
 type RegisteredPlainAnswer =
   | { status: "registered"; claims: string[] }
-  | { status: "no_receipt" | "other_target" | "after_research" };
+  | { status: "no_receipt" | "other_account" | "other_target" | "after_research" };
 
 /**
- * The plain answer this call compares with the answer: of the plain-answer receipts signed for this research target,
- * the latest one issued before every research receipt passed here, by the signed issue order. A discovery receipt
- * set aside for another target is not this research; any other receipt is, whatever it was made for.
+ * The plain answer this call compares with the answer: of the plain-answer receipts this account signed for this
+ * research target, the latest one issued before every research receipt passed here, by the signed issue order. Its
+ * claims are their digests (plainAnswerClaimDigest), in the order registered.
  */
 function registeredPlainAnswer(
   verified: readonly VerifiedReceipt[],
-  setAside: ReadonlyArray<{ index: number }>,
+  account: string,
   target: string
 ): RegisteredPlainAnswer {
   const plain = verified.filter(({ kind }) => kind === "plain_answer");
   if (plain.length === 0) return { status: "no_receipt" };
-  const forTarget = plain.filter(({ claims }) => text(claims.target) === target && list(claims.claims).length > 0);
+  const own = plain.filter(({ claims }) => text(claims.acct) === account);
+  if (own.length === 0) return { status: "other_account" };
+  const forTarget = own.filter(({ claims }) => text(claims.target) === target && list(claims.claims).length > 0);
   if (forTarget.length === 0) return { status: "other_target" };
-  const aside = new Set(setAside.map(({ index }) => index));
-  const began = Math.min(...verified.filter(({ kind, index }) =>
-    kind !== "plain_answer" && kind !== "finalization" && !aside.has(index)).map(receiptOrder));
+  // Research began with the earliest receipt passed here, whatever it was made for: a plain answer written after it,
+  // even for a later question, could draw on that research.
+  const began = Math.min(...verified.filter(({ kind }) => kind !== "plain_answer" && kind !== "finalization")
+    .map(receiptOrder));
   const latest = forTarget.filter((receipt) => receiptOrder(receipt) < began)
     .sort((left, right) => receiptOrder(left) - receiptOrder(right) || left.index - right.index)
     .at(-1);
@@ -3117,13 +3123,37 @@ const NEXT_PLAIN_ANSWER = " For a later question, register its plain answer befo
 const PLAIN_ANSWER_REASONS = {
   no_receipt: "No plain answer registered with manage_research_access before this research was passed in receipts, " +
     `so the answer ends without the note comparing it with one.${NEXT_PLAIN_ANSWER}`,
+  other_account: "The plain answer passed was registered by another account, so the answer ends without the note " +
+    `comparing it with one.${NEXT_PLAIN_ANSWER}`,
   other_target: "The plain answer passed was registered for another research target, so the answer ends without the " +
     `note comparing it with this research.${NEXT_PLAIN_ANSWER}`,
-  after_research: "The plain answer passed was registered after this research began, so it cannot show what a quick " +
-    `answer would have said, and the answer ends without the note.${NEXT_PLAIN_ANSWER}`,
+  after_research: "The plain answer passed was registered after a research receipt passed here was issued, so it " +
+    "cannot show what a quick answer would have said, and the answer ends without the note. For a later question, " +
+    "register its plain answer before researching it, and pass only receipts issued after it.",
   note_off: "This account has turned off the note comparing the answer with its plain answer, so the answer ends " +
     "without it; manage_research_access with action set_plain_answer_note turns it back on."
 } as const;
+
+/**
+ * What a plain-answer receipt signs for each claim: 16 hex characters of its SHA-256, compared as quotes are, so the
+ * receipt holds no text of the plain answer and its size is the same in any language. finalize_research finds each
+ * claim the comparison copies by it.
+ */
+export function plainAnswerClaimDigest(claim: string): string {
+  return createHash("sha256").update(`askrigor:plain-answer-claim:v1\0${quoteForms(claim)[1]}`, "utf8")
+    .digest("hex").slice(0, 16);
+}
+
+/**
+ * Whether a claim stands as a sentence of a text, as the answer check reads a caveat: it begins a paragraph or list
+ * item or follows a sentence's end, and ends its sentence, by Unicode's sentence-ending punctuation, so "。" and "?"
+ * end one too; in a script that ends sentences without punctuation, only a whole paragraph or list item stands alone.
+ * Compared as quotes are, so exact and the same in any language.
+ */
+export function sentencesOf(text: string): (claim: string) => boolean {
+  const blocks = displayedProse(text).map((block) => caveatText(linkTargets(block)));
+  return (claim) => statesCaveat(blocks, claim);
+}
 
 /** Text in quotation marks, exactly as given, ending its sentence. */
 function quotation(text: string): string {
@@ -3144,15 +3174,6 @@ function plainAnswerNote(compared: readonly ComparedClaim[]): string {
     const from = work === undefined ? "" : `, from ${verifiedWorkPhrase(work)}`;
     return `${said} This research ${outcome} that${from}${quote === undefined ? "." : `: ${quotation(quote)}`}`;
   }).join(" ");
-}
-
-/**
- * Whether a text shows each quote as the answer check reads answer_quotes: within one paragraph or list item, with
- * Unicode form, quotation marks, dashes, emphasis, spacing and case set aside. Exact, and the same in any language.
- */
-export function quotesFrom(text: string): (quote: string) => boolean {
-  const showing = quoteLocator(displayedProse(text));
-  return (quote) => showing(quote).length > 0;
 }
 
 // Bounded and closed to brackets and parentheses, so a long draft is read in linear time.
@@ -3182,11 +3203,14 @@ function quoteForm(quote: string, fold: (text: string) => string = caveatText): 
   return text.slice(start, end).trim();
 }
 
+/** A quote's two forms as the answer check compares them: each link by its target, and by its text. */
+function quoteForms(quote: string): [string, string] {
+  return [quoteForm(quote.replace(MARKDOWN_LINK, "$1")), quoteForm(quote.replace(MARKDOWN_LINK_TEXT, "$1"))];
+}
+
 /** Whether two declared quotes are one sentence, compared as the answer check compares a quote: by link target or text. */
 export function sameQuote(left: string, right: string): boolean {
-  const forms = (quote: string) => [quoteForm(quote.replace(MARKDOWN_LINK, "$1")),
-    quoteForm(quote.replace(MARKDOWN_LINK_TEXT, "$1"))];
-  const [ours, theirs] = [forms(left), forms(right)];
+  const [ours, theirs] = [quoteForms(left), quoteForms(right)];
   return ours.some((form, index) => /[\p{L}\p{N}]/u.test(form) && form === theirs[index]);
 }
 

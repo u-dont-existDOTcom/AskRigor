@@ -281,8 +281,15 @@ function cardIssueBody(record: FindingsRecord, metadata: CardMetadata): string {
 
 function occurrenceComment(record: FindingsRecord, metadata: OccurrenceMetadata): string {
   const tail = `## Full record\n\n${fencedJson(record)}\n\n${marker(OCCURRENCE_MARKER, metadata)}`;
+  // The card's own copy shows its first save's bases; a later save's, which may have labeled the card, show here.
+  const bases = beyondQuickAnswer(record)
+    ? `\n\n${section("Beyond a quick answer, as this save's receipts show", record.card.findings.map((finding, index) =>
+      `- Finding ${index + 1}: ${(finding.verified_bases ?? []).length === 0
+        ? "none"
+        : finding.verified_bases!.map(escapeMarkdown).join(", ")}`).join("\n"))}`
+    : "";
   const full = `## Saved again\n\nOccurrence ${metadata.occurrence_count}: the same question and claims, saved ` +
-    `again after another checked answer.\n\n${readableStamp(record)}\n\n${tail}`;
+    `again after another checked answer.${bases}\n\n${readableStamp(record)}\n\n${tail}`;
   return boundedBody(full, tail);
 }
 

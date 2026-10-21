@@ -33,8 +33,9 @@ import {
 import {
   FINALIZE_REMINDER,
   PLAIN_ANSWER_LIMITS,
-  quotesFrom,
+  plainAnswerClaimDigest,
   sameQuote,
+  sentencesOf,
 } from "./research-finalization-gate.js";
 import type { ResearchOperationExtra } from "./research-operation.js";
 import { researchTargetDigest, type ResearchReceiptClaims } from "./research-receipts.js";
@@ -55,7 +56,7 @@ const plainAnswerInputSchema = z.object({
     .describe("The short answer you would give without AskRigor's tools, written before any research call."),
   claims: z.array(z.string().trim().min(1).max(PLAIN_ANSWER_LIMITS.claimCharacters)).min(1)
     .max(PLAIN_ANSWER_LIMITS.claims)
-    .describe("Its main claims, each a sentence copied exactly from text."),
+    .describe("Its main claims, each one or more whole sentences copied exactly from text."),
 }).strict();
 
 export const manageResearchAccessInputSchema = z.object({
@@ -204,8 +205,11 @@ export interface ResearchContributorToolOptions {
 export interface PlainAnswerOptions {
   /** The research account keys the server's settings mark as dev accounts (ASKRIGOR_DEV_ACCOUNT_KEYS). */
   devAccountKeys: () => ReadonlySet<string>;
-  /** Signs a plain-answer research receipt, or undefined when this server cannot sign receipts. */
-  sign: (claims: ResearchReceiptClaims) => string | undefined;
+  /**
+   * Signs a plain-answer research receipt bound to the account (plainAnswerAccountBinding), or undefined when this
+   * server cannot sign receipts.
+   */
+  sign: (claims: ResearchReceiptClaims, accountKey: string) => string | undefined;
 }
 
 /**
@@ -233,7 +237,7 @@ export function plainAnswerRequest(note: boolean): string {
   return "Before any research call, write the short answer you would give without AskRigor's tools, and register it " +
     "with action register_plain_answer: plainAnswer.text, that answer (at most " +
     `${textCharacters.toLocaleString("en-US")} characters); plainAnswer.claims, its main claims, 1 to ${claims} ` +
-    `sentences each copied exactly from it (at most ${claimCharacters} characters each); and ` +
+    `whole sentences each copied exactly from it (at most ${claimCharacters} characters each); and ` +
     "plainAnswer.researchTarget, the research target you will give finalize_research. AskRigor signs it with the " +
     "time. Then treat each claim as something to check, confirm or correct, and look beyond the claims too. " +
     (note ? NOTE_ON : NOTE_OFF);
@@ -404,8 +408,9 @@ export function createManageResearchAccessHandler(
             ? await options.service.activatePaidPrivate(auth.subject)
             : await options.service.revoke(auth.subject);
       // An active paid private or dev account is asked for its plain answer before research (owner answer 140b).
-      const plain = access.status === "ACTIVE"
-        ? await plainAnswerAccount(options.service, auth.subject, options.plainAnswer)
+      const plain = access.status === "ACTIVE" && access.mode !== null
+        ? await plainAnswerAccount(options.service, auth.subject, options.plainAnswer, access.mode)
+          .catch(() => undefined)
         : undefined;
       return {
         content: [{
@@ -429,28 +434,32 @@ export function createManageResearchAccessHandler(
   };
 }
 
-/** The plain-answer setting of an active account asked for one, or undefined for any other account. Never throws. */
+/**
+ * The active account asked for a plain answer (owner answer 140b), with its key and note setting; undefined for any
+ * other account, or on a surface without the plain answer. A mode already known settles most accounts without another
+ * read. Throws as activeAccount does for an inactive account.
+ */
 async function plainAnswerAccount(
   service: ResearchContributorAccessService,
   subject: string,
   plain: PlainAnswerOptions | undefined,
-): Promise<{ note: boolean } | undefined> {
+  knownMode?: "FREE_CONTRIBUTOR" | "PAID_PRIVATE",
+): Promise<{ accountKey: string; note: boolean } | undefined> {
   if (plain === undefined) return undefined;
-  try {
-    const account = await service.activeAccount(subject);
-    return plainAnswerRequested(account.mode, service.accountKeyForSubject(subject), plain.devAccountKeys())
-      ? { note: account.plainAnswerNote }
-      : undefined;
-  } catch {
-    return undefined;
-  }
+  const accountKey = service.accountKeyForSubject(subject);
+  if (knownMode !== undefined && !plainAnswerRequested(knownMode, accountKey, plain.devAccountKeys())) return undefined;
+  const account = await service.activeAccount(subject);
+  return plainAnswerRequested(account.mode, accountKey, plain.devAccountKeys())
+    ? { accountKey, note: account.plainAnswerNote }
+    : undefined;
 }
 
 /**
- * Signs the plain answer an account asked for one writes before research (owner answer 140b): its claims, each a
- * sentence quoted exactly from its text (compared as the final check compares answer quotes, in any language), the
- * SHA-256 of the text and the 12-character digest of the research target, with the receipt's issue time and order.
- * The receipt goes back to the client and is never stored; the text itself is not kept.
+ * Signs the plain answer an account asked for one writes before research (owner answer 140b): a 16-character digest
+ * of each claim, which must stand as one or more whole sentences of the text (compared as the final check compares
+ * answer quotes and caveats, in any language), the SHA-256 of the text, the 12-character digest of the research target
+ * and a binding to the account, with the receipt's issue time and order. The receipt holds no text of the plain answer,
+ * goes back to the client and is never stored; the text and its claims are not kept.
  */
 async function registerPlainAnswer(
   service: ResearchContributorAccessService,
@@ -458,34 +467,25 @@ async function registerPlainAnswer(
   plainAnswer: z.infer<typeof plainAnswerInputSchema>,
   plain: PlainAnswerOptions | undefined,
 ): Promise<CallToolResult> {
-  const account = await service.activeAccount(subject);
-  if (plain === undefined ||
-    !plainAnswerRequested(account.mode, service.accountKeyForSubject(subject), plain.devAccountKeys())) {
-    return accessError("plain_answer_not_requested", PLAIN_ANSWER_NOT_REQUESTED);
-  }
-  const quoted = quotesFrom(plainAnswer.text);
+  const account = await plainAnswerAccount(service, subject, plain);
+  if (account === undefined) return accessError("plain_answer_not_requested", PLAIN_ANSWER_NOT_REQUESTED);
+  const stands = sentencesOf(plainAnswer.text);
   const problems: string[] = [];
   plainAnswer.claims.forEach((claim, index) => {
-    if (!quoted(claim)) {
-      problems.push(`plainAnswer.claims[${index}] is not copied exactly from plainAnswer.text: copy the sentence as ` +
-        "the text writes it, from one paragraph.");
+    if (!stands(claim)) {
+      problems.push(`plainAnswer.claims[${index}] is not one or more whole sentences copied exactly from ` +
+        "plainAnswer.text: copy each claim as the text writes it, from the start of a sentence to its end, within one " +
+        "paragraph.");
     }
     const earlier = plainAnswer.claims.findIndex((other, at) => at < index && sameQuote(other, claim));
     if (earlier >= 0) problems.push(`plainAnswer.claims[${index}] repeats plainAnswer.claims[${earlier}]: give each claim once.`);
   });
   if (problems.length > 0) return rejectedPlainAnswer(problems);
-  let receipt: string | undefined;
-  try {
-    receipt = plain.sign({
-      claims: plainAnswer.claims,
-      text: createHash("sha256").update(plainAnswer.text, "utf8").digest("hex"),
-      target: researchTargetDigest(plainAnswer.researchTarget),
-    });
-  } catch (error) {
-    if (!(error instanceof Error) || error.message !== "Research receipt exceeds its size limit") throw error;
-    return rejectedPlainAnswer(["plainAnswer.claims are too long to sign together in one research receipt: shorten " +
-      "them, or keep only the main ones."]);
-  }
+  const receipt = plain!.sign({
+    claims: plainAnswer.claims.map(plainAnswerClaimDigest),
+    text: createHash("sha256").update(plainAnswer.text, "utf8").digest("hex"),
+    target: researchTargetDigest(plainAnswer.researchTarget),
+  }, account.accountKey);
   if (receipt === undefined) {
     return accessError("receipts_unavailable", "This AskRigor server cannot sign research receipts, so the plain " +
       "answer was not registered; the research goes ahead without it.");
@@ -493,10 +493,10 @@ async function registerPlainAnswer(
   const count = plainAnswer.claims.length;
   const summary = `Plain answer registered before research: ${count === 1 ? "1 claim" : `${count} claims`}, signed ` +
     "with the time. Treat each claim as something to check, confirm or correct, and look beyond the claims too. Pass " +
-    "this research_receipt to finalize_research with the others; there, plain_answer_comparison gives, for each claim " +
-    "by its number, whether the research confirmed, corrected or qualified it, or did not check it. Claims: " +
-    plainAnswer.claims.map((claim, number) => `${number} ${JSON.stringify(claim)}`).join("; ") + ". " +
-    (account.plainAnswerNote ? NOTE_ON : NOTE_OFF);
+    "this research_receipt to finalize_research with the others; there, plain_answer_comparison gives each claim, " +
+    "copied exactly as listed here, with whether the research confirmed, corrected or qualified it, or did not check " +
+    "it. Claims: " + plainAnswer.claims.map((claim, number) => `${number} ${JSON.stringify(claim)}`).join("; ") + ". " +
+    (account.note ? NOTE_ON : NOTE_OFF);
   return {
     content: [
       { type: "text", text: summary },
@@ -505,7 +505,7 @@ async function registerPlainAnswer(
     ],
     structuredContent: manageResearchAccessOutputSchema.parse({
       ok: true,
-      plainAnswer: { requested: true, note: account.plainAnswerNote, claims: count },
+      plainAnswer: { requested: true, note: account.note, claims: count },
       research_receipt: receipt,
     }),
   };
@@ -518,9 +518,7 @@ async function setPlainAnswerNote(
   enabled: boolean,
   plain: PlainAnswerOptions | undefined,
 ): Promise<CallToolResult> {
-  const account = await service.activeAccount(subject);
-  if (plain === undefined ||
-    !plainAnswerRequested(account.mode, service.accountKeyForSubject(subject), plain.devAccountKeys())) {
+  if (await plainAnswerAccount(service, subject, plain) === undefined) {
     return accessError("plain_answer_not_requested", PLAIN_ANSWER_NOT_REQUESTED);
   }
   await service.setPlainAnswerNote(subject, enabled);

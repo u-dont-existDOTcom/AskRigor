@@ -48,16 +48,19 @@ Owner answer 140b (2026-10-20): a paid private account, or an account the
 server's settings list in `ASKRIGOR_DEV_ACCOUNT_KEYS` (comma-separated research
 account keys), is asked by `inspect` to register, before any research call, the
 short answer it would give without AskRigor's tools. `register_plain_answer`
-takes that text (at most 1,500 characters), one to five of its sentences as its
-claims (each copied exactly from the text, at most 250 characters) and the
-research target, and returns a signed `plain_answer` research receipt holding
-the claims, the text's SHA-256, the target's digest and the issue order. The
-receipt is never stored. `finalize_research` then asks, when that receipt was
-issued before every research receipt of the call for the same target, for
-`plain_answer_comparison` (each claim confirmed, corrected, qualified or not
-checked; each change with the answer's sentence and what backs it, checked
-against the call's receipts) and writes the note the answer ends with. Without
-such a receipt there is no note and nothing is held back. `set_plain_answer_note`
+takes that text (at most 1,500 characters), one to five claims, each one or
+more whole sentences copied exactly from the text (at most 250 characters), and
+the research target, and returns a signed `plain_answer` research receipt: a
+16-character digest of each claim (so its size is the same in any language),
+the text's SHA-256, the target's digest, an HMAC binding it to the account and
+the issue order. It holds no text of the plain answer and is never stored.
+`finalize_research` then asks, when the account's receipt for the same target
+was issued before every research receipt of the call, for
+`plain_answer_comparison` (each claim copied as registered, and confirmed,
+corrected, qualified or not checked; each change with the answer's sentence and
+what backs it, checked against the call's receipts) and writes the note the
+answer ends with, quoting the claims. Without such a receipt there is no note
+and nothing is held back. `set_plain_answer_note`
 turns the note off or on; migration `0013_research_plain_answer_note` stores the
 choice in `research_use_accounts.plain_answer_note`, on by default. The note
 setting removes only the note: the plain answer still guides the research. Only
