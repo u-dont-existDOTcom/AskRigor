@@ -473,8 +473,8 @@ From the owner's three reports of 21 October on one adult OCD treatment comparis
 The sources named are the ones the reports give. The final check now gives each step that is not ready its kind
 (`next_step_kinds`), the line an answer given before a pass ends with (`unchecked_line`), and the SHA-256 of the
 draft it checked in the finalization receipt; the conversation's next check knows the last one did not pass
-(`previous_check`). Rows that depend on an owner decision name it (153a, 153b or 153c); until that answer, they are
-run and recorded but do not decide a release.
+(`previous_check`). Rows that name 153a, 153b or 153c rest on those sentences, which the owner approved on
+21 October (HRP 20.6.29 and Universal 20.5.46), so they decide a release like the others.
 
 ### #354: an answer given while the final check said not ready
 
