@@ -115,6 +115,12 @@ export interface ResearchUseAccountRecord {
   revokedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Whether a checked answer ends with the note comparing it with the plain answer the account registered before
+   * research (owner answer 140b); absent means the default, on. saveAccount and revokeAccount never change it;
+   * setPlainAnswerNote does.
+   */
+  plainAnswerNote?: boolean;
 }
 
 export interface ResearchPrivateEntitlementRecord {
@@ -187,6 +193,8 @@ export interface ResearchContributorAccessStore {
     idempotencyKey: string,
   ): Promise<ResearchContributionProposalRecord | null>;
   revokeAccount(record: ResearchUseAccountRecord): Promise<number>;
+  /** Sets the account's plain-answer note; false when the account has no row. */
+  setPlainAnswerNote(accountKey: string, enabled: boolean): Promise<boolean>;
 }
 
 export interface ResearchContributorAccessServiceOptions {
@@ -358,6 +366,14 @@ export class ResearchContributorAccessService {
   }
 
   async requireActive(subject: string): Promise<ResearchUseMode> {
+    return (await this.activeAccount(subject)).mode;
+  }
+
+  /**
+   * The active account's mode and its plain-answer note setting (owner answer 140b), with the checks requireActive
+   * makes.
+   */
+  async activeAccount(subject: string): Promise<{ mode: ResearchUseMode; plainAnswerNote: boolean }> {
     const account = await this.store.getAccount(
       this.accountKeyForSubject(subject),
     );
@@ -388,7 +404,22 @@ export class ResearchContributorAccessService {
         "The paid private entitlement is no longer active.",
       );
     }
-    return account.mode;
+    return { mode: account.mode, plainAnswerNote: account.plainAnswerNote ?? true };
+  }
+
+  /**
+   * Turns the note comparing a checked answer with its plain answer off or on for an active account (owner answer
+   * 140b). Only the choice is stored; the plain answer still guides the research either way.
+   */
+  async setPlainAnswerNote(subject: string, enabled: boolean): Promise<boolean> {
+    await this.requireActive(subject);
+    if (!await this.store.setPlainAnswerNote(this.accountKeyForSubject(subject), enabled)) {
+      throw new ResearchAccessError(
+        "RESEARCH_ACCESS_REQUIRED",
+        "Choose free contributor mode or activate an existing paid private entitlement before using AskRigor research tools.",
+      );
+    }
+    return enabled;
   }
 
   async submitProposal(
@@ -526,7 +557,21 @@ implements ResearchContributorAccessStore {
   }
 
   async saveAccount(record: ResearchUseAccountRecord): Promise<void> {
-    this.accounts.set(record.accountKey, structuredClone(record));
+    this.accounts.set(record.accountKey, this.keepingNote(record));
+  }
+
+  async setPlainAnswerNote(accountKey: string, enabled: boolean): Promise<boolean> {
+    const account = this.accounts.get(accountKey);
+    if (account === undefined) return false;
+    this.accounts.set(accountKey, { ...account, plainAnswerNote: enabled });
+    return true;
+  }
+
+  /** The record as saved: with the account's note setting, which only setPlainAnswerNote changes. */
+  private keepingNote(record: ResearchUseAccountRecord): ResearchUseAccountRecord {
+    const { plainAnswerNote: _ignored, ...saved } = structuredClone(record);
+    const note = this.accounts.get(record.accountKey)?.plainAnswerNote;
+    return note === undefined ? saved : { ...saved, plainAnswerNote: note };
   }
 
   async hasActivePrivateEntitlement(
@@ -603,7 +648,7 @@ implements ResearchContributorAccessStore {
       });
       withdrawn += 1;
     }
-    this.accounts.set(accountRecord.accountKey, structuredClone(accountRecord));
+    this.accounts.set(accountRecord.accountKey, this.keepingNote(accountRecord));
     return withdrawn;
   }
 
@@ -648,12 +693,24 @@ implements ResearchContributorAccessStore {
   async getAccount(accountKey: string): Promise<ResearchUseAccountRecord | null> {
     const result = await this.pool.query<ResearchUseAccountRow>(
       `SELECT account_key, status, mode, notice_version, agreement_json,
-              activated_at, revoked_at, created_at, updated_at
+              activated_at, revoked_at, created_at, updated_at,
+              plain_answer_note
          FROM ${this.schema}.research_use_accounts
         WHERE account_key = $1`,
       [accountKey],
     );
     return result.rowCount === 0 ? null : accountFromRow(result.rows[0]!);
+  }
+
+  // saveAccount and revokeAccount leave plain_answer_note as it is: a new row takes the column's default, on.
+  async setPlainAnswerNote(accountKey: string, enabled: boolean): Promise<boolean> {
+    const result = await this.pool.query(
+      `UPDATE ${this.schema}.research_use_accounts
+          SET plain_answer_note = $2
+        WHERE account_key = $1`,
+      [accountKey, enabled],
+    );
+    return result.rowCount !== 0;
   }
 
   async saveAccount(record: ResearchUseAccountRecord): Promise<void> {
@@ -826,6 +883,7 @@ interface ResearchUseAccountRow {
   revoked_at: Date | string | null;
   created_at: Date | string;
   updated_at: Date | string;
+  plain_answer_note: boolean;
 }
 
 const PROPOSAL_COLUMNS = `proposal_id, account_key, proposal_kind, payload_sha256,
@@ -864,6 +922,7 @@ function accountFromRow(row: ResearchUseAccountRow): ResearchUseAccountRecord {
     revokedAt: nullableTimestamp(row.revoked_at),
     createdAt: timestamp(row.created_at),
     updatedAt: timestamp(row.updated_at),
+    plainAnswerNote: row.plain_answer_note !== false,
   };
 }
 

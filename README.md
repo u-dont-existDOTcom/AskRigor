@@ -457,6 +457,20 @@ checked or saved) until `ASKRIGOR_FINDINGS_LIBRARY=enabled`, which follows the
 owner's notice wording, the private repository and its GitHub App installation,
 and deploy approval; the data flow is in `docs/privacy-data-map.md`.
 
+Owner answers 139c and 140b (2026-10-20; built, not yet released): the final
+check derives each card finding's work beyond a quick answer from the call's
+receipts (a full-text audit, audited comments, a checked absence claim or a
+correction the research found), signs it with the card and stamps it on the
+saved card, labeled `beyond-quick-answer`. A paid-private answer offers the save
+only when a finding has such a basis, naming the work with the server's counts,
+and a free answer whose save confirmed ends with "Saved to AskRigor's findings
+library for review as ARF-####.". Paid private accounts and the dev accounts
+listed in `ASKRIGOR_DEV_ACCOUNT_KEYS` register, through `manage_research_access`,
+the short answer they would give without AskRigor's tools before research; the
+checked answer ends with a note comparing the two, which each account can turn
+off (migration `0013_research_plain_answer_note`). The plan is
+`docs/superpowers/plans/2026-10-21-atlas-merging-save-offer-plain-answer.md`.
+
 ## Public-review status
 
 The Phase K2 source candidate is not a public-release claim. It requires a

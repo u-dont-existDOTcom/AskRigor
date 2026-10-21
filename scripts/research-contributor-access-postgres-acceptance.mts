@@ -58,7 +58,7 @@ async function main(): Promise<void> {
       status: "PASS",
       phase: "migrate",
       schema: SCHEMA,
-      migration: "0012_research_contribution_merging",
+      migration: "0013_research_plain_answer_note",
     })}\n`);
     return;
   }
@@ -238,6 +238,22 @@ async function verify(
     );
     assertEqualCounts(await canonicalCounts(admin), canonicalBefore, "PAID_MODE_CHANGED_CANONICAL_TABLES");
     checks.push("entitlement_admin_only_and_paid_private_contributes_nothing");
+
+    // Owner answer 140b: the plain-answer note is a stored choice on the account row, on by default, which the
+    // restricted role turns off and on, and which saving the account again leaves as it is.
+    const noteMigrationRows = await admin.query<{ migration_id: string }>(
+      `SELECT migration_id FROM ${SCHEMA}.schema_migrations
+       WHERE migration_id = '0013_research_plain_answer_note'`,
+    );
+    assert(noteMigrationRows.rowCount === 1, "MIGRATION_0013_NOT_APPLIED");
+    assert((await service.activeAccount(PAID_SUBJECT)).plainAnswerNote, "PLAIN_ANSWER_NOTE_NOT_ON_BY_DEFAULT");
+    await service.setPlainAnswerNote(PAID_SUBJECT, false);
+    assert(!(await service.activeAccount(PAID_SUBJECT)).plainAnswerNote, "PLAIN_ANSWER_NOTE_NOT_TURNED_OFF");
+    await service.activatePaidPrivate(PAID_SUBJECT);
+    assert(!(await service.activeAccount(PAID_SUBJECT)).plainAnswerNote, "PLAIN_ANSWER_NOTE_CHANGED_BY_SAVE");
+    await service.setPlainAnswerNote(PAID_SUBJECT, true);
+    assert((await service.activeAccount(PAID_SUBJECT)).plainAnswerNote, "PLAIN_ANSWER_NOTE_NOT_TURNED_ON");
+    checks.push("plain_answer_note_stored_on_by_default_and_kept_by_save");
 
     const identityRows = await admin.query<{ account_key: string; body: string }>(
       `SELECT account_key, row_to_json(a)::text AS body
