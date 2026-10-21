@@ -33,13 +33,51 @@ const LANE_CALL = {
   args: ["api", "repos/u-dont-existDOTcom/universal-dev-architecture/contents/suggested-fixes/AskRigor"],
   shell: false,
 };
-const EMPTY_LANE = { lane_status: "available", lane_unrecorded: 0, lane_unrecorded_items: [] };
+const PULLS_PATH = "repos/u-dont-existDOTcom/universal-dev-architecture/pulls";
+const PULLS_CALL = {
+  file: "gh",
+  args: ["api", "--method", "GET", "--paginate", PULLS_PATH, "-f", "state=open", "-f", "per_page=100"],
+  shell: false,
+};
+const filesCall = (pull: number) => ({
+  file: "gh",
+  args: ["api", "--method", "GET", "--paginate", `${PULLS_PATH}/${pull}/files`, "-f", "per_page=100"],
+  shell: false,
+});
+const EMPTY_LANE = {
+  lane_status: "available", lane_unrecorded: 0, lane_unrecorded_items: [],
+  lane_pull_status: "available", lane_pull_unrecorded: 0, lane_pull_unrecorded_items: [],
+};
+const EMPTY_PULLS = { lane_pull_status: "available", lane_pull_unrecorded: 0, lane_pull_unrecorded_items: [] };
 
-async function runCommand(scenario: string, args: string[] = [], lane: unknown = [], ledger: LessonStatusDependencies["readLedger"] = async () => ""): Promise<CommandResult> {
+async function runCommand(
+  scenario: string,
+  args: string[] = [],
+  lane: unknown = [],
+  ledger: LessonStatusDependencies["readLedger"] = async () => "",
+  pulls: unknown = [],
+  pullFiles: Record<number, unknown> = {},
+): Promise<CommandResult> {
   const calls: CommandResult["calls"] = [];
+  const answer = (callback: Parameters<LessonStatusExecFile>[3], value: unknown) => {
+    if (typeof value === "string") {
+      callback(Object.assign(new Error("ghp_PRIVATE_TOKEN"), { code: "EFAIL" }), "PRIVATE", value);
+    } else {
+      callback(null, JSON.stringify(value), "");
+    }
+  };
   const execute: LessonStatusExecFile = (file, ghArgs, options, callback) => {
     calls.push({ file, args: ghArgs, shell: options.shell });
     queueMicrotask(() => {
+      if (ghArgs.includes(PULLS_PATH)) {
+        answer(callback, pulls);
+        return;
+      }
+      const filesOf = ghArgs.find((arg) => arg.startsWith(`${PULLS_PATH}/`));
+      if (filesOf !== undefined) {
+        answer(callback, pullFiles[Number(filesOf.split("/")[4])] ?? []);
+        return;
+      }
       if (ghArgs.includes(LANE_CALL.args[1])) {
         if (typeof lane === "string") {
           callback(Object.assign(new Error("ghp_PRIVATE_TOKEN"), { code: "EFAIL" }), "PRIVATE", lane);
@@ -51,6 +89,18 @@ async function runCommand(scenario: string, args: string[] = [], lane: unknown =
       const isPrimary = ghArgs.includes("--slurp");
       if (scenario === "success") {
         callback(null, JSON.stringify([page1, page2]), "");
+        return;
+      }
+      if (scenario === "builtin-fallback" && isPrimary) {
+        callback(
+          Object.assign(new Error("PRIVATE local parser detail"), { code: 1 }) as unknown as NodeJS.ErrnoException,
+          "",
+          "gh: --slurp is not supported by this built-in gh.\n\nUsage: gh api <endpoint> [flags]\n",
+        );
+        return;
+      }
+      if (scenario === "builtin-fallback") {
+        callback(null, `${JSON.stringify(page1)}${JSON.stringify(page2)}`, "");
         return;
       }
       if (scenario.startsWith("unsupported-fallback") && isPrimary) {
@@ -297,7 +347,7 @@ describe("lesson queue command", () => {
         "-f", "per_page=100",
       ],
       shell: false,
-    }, LANE_CALL]);
+    }, LANE_CALL, PULLS_CALL]);
   });
 
   it("retries the fixed read-only request without slurp only for the local unsupported flag", async () => {
@@ -330,6 +380,7 @@ describe("lesson queue command", () => {
         shell: false,
       },
       LANE_CALL,
+      PULLS_CALL,
     ]);
     expect(`${result.stdout}${result.stderr}`).not.toMatch(/PRIVATE|github\.com\//);
   });
@@ -351,7 +402,7 @@ describe("lesson queue command", () => {
       reason_code: "invalid_response",
     });
     expect(result.stderr).toBe("Lesson queue status unavailable: invalid_response\n");
-    expect(result.calls).toHaveLength(3);
+    expect(result.calls).toHaveLength(4);
     expect(`${result.stdout}${result.stderr}`).not.toContain("PRIVATE");
   });
 
@@ -376,7 +427,7 @@ describe("lesson queue command", () => {
     expect(output).not.toHaveProperty("needs_review");
     expect(result.stderr).toBe(`Lesson queue status unavailable: ${reasonCode}\n`);
     expect(`${result.stdout}${result.stderr}`).not.toMatch(/PRIVATE|ghp_|github\.com\/|example\.invalid/);
-    expect(result.calls).toHaveLength(2);
+    expect(result.calls).toHaveLength(3);
   });
 
   it.each([
@@ -394,7 +445,7 @@ describe("lesson queue command", () => {
       reason_code: reasonCode,
     });
     expect(result.stderr).toBe(`Lesson queue status unavailable: ${reasonCode}\n`);
-    expect(result.calls).toHaveLength(2);
+    expect(result.calls).toHaveLength(3);
     expect(`${result.stdout}${result.stderr}`).not.toContain("PRIVATE");
   });
 
@@ -412,7 +463,7 @@ describe("lesson queue command", () => {
       reason_code: "invalid_response",
     });
     expect(result.stderr).toBe("Lesson queue status unavailable: invalid_response\n");
-    expect(result.calls).toHaveLength(callCount + 1);
+    expect(result.calls).toHaveLength(callCount + 2);
     expect(`${result.stdout}${result.stderr}`).not.toContain("PRIVATE");
   });
 
@@ -451,6 +502,7 @@ describe("lesson queue command", () => {
     expect(JSON.parse(result.stdout)).toEqual({
       ...summarizeLessonIssues([...page1, ...page2], NOW),
       lane_status: "available", lane_unrecorded: 2, lane_unrecorded_items: ["a-new", "z-new"],
+      ...EMPTY_PULLS,
     });
     expect(result.stdout).not.toContain("PRIVATE");
   });
@@ -469,6 +521,7 @@ describe("lesson queue command", () => {
     expect(output).toEqual({
       ...summarizeLessonIssues([...page1, ...page2], NOW),
       lane_status: "unavailable", lane_reason_code: reason,
+      ...EMPTY_PULLS,
     });
     expect(output).not.toHaveProperty("lane_unrecorded");
     expect(output).not.toHaveProperty("lane_unrecorded_items");
@@ -482,8 +535,59 @@ describe("lesson queue command", () => {
     expect(JSON.parse(result.stdout)).toEqual({
       ...summarizeLessonIssues([...page1, ...page2], NOW),
       lane_status: "unavailable", lane_reason_code: "ledger_unavailable",
+      lane_pull_status: "unavailable", lane_pull_reason_code: "ledger_unavailable",
     });
     expect(`${result.stdout}${result.stderr}`).not.toContain("PRIVATE");
+  });
+
+  it("falls back without slurp for the gh client built into Claude Code cloud sessions", async () => {
+    const result = await runCommand("builtin-fallback");
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({ ...summarizeLessonIssues([...page1, ...page2], NOW), ...EMPTY_LANE });
+    expect(result.calls).toHaveLength(4);
+    expect(result.calls[1]?.args).not.toContain("--slurp");
+  });
+
+  it("lists lane items that open UDA pull requests add and the ledger does not record", async () => {
+    const lane = (name: string, status = "added") => ({ filename: `suggested-fixes/AskRigor/${name}`, status, patch: "PRIVATE" });
+    const result = await runCommand("success", [], [], async () => "| recorded | adopted |\n", [
+      { number: 408, title: "PRIVATE" }, { number: 345 }, { number: 345 }, { number: 12 },
+    ], {
+      345: [lane("recorded.md"), lane("b-new.md")],
+      408: [
+        lane("a-new.md"), lane("README.md"), lane("sub/nested.md"), lane("changed.md", "modified"),
+        lane("gone.md", "removed"), lane("notes.txt"), lane("moved.md", "renamed"),
+        { filename: "suggested-fixes/Other/c.md", status: "added" }, { filename: "patterns/x.md", status: "added" },
+      ],
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({
+      ...summarizeLessonIssues([...page1, ...page2], NOW),
+      lane_status: "available", lane_unrecorded: 0, lane_unrecorded_items: [],
+      lane_pull_status: "available", lane_pull_unrecorded: 3,
+      lane_pull_unrecorded_items: ["#345 b-new", "#408 a-new", "#408 moved"],
+    });
+    expect(result.calls.slice(2)).toEqual([PULLS_CALL, filesCall(12), filesCall(345), filesCall(408)]);
+    expect(result.stdout).not.toContain("PRIVATE");
+  });
+
+  it.each([
+    ["HTTP 403 PRIVATE ghp_token", {}, "auth_unavailable"],
+    [{ private: "PRIVATE" }, {}, "invalid_response"],
+    [[{ number: 7 }], { 7: "HTTP 429 PRIVATE" }, "github_rate_limited"],
+    [[{ number: 7 }], { 7: [{ filename: "suggested-fixes/AskRigor/x.md" }] }, "invalid_response"],
+  ])("reports unreadable lane pull requests without zero counts or dependency details", async (pulls, files, reason) => {
+    const result = await runCommand("success", [], [], async () => "", pulls, files as Record<number, unknown>);
+    expect(result.exitCode).toBe(1);
+    const output = JSON.parse(result.stdout);
+    expect(output).toEqual({
+      ...summarizeLessonIssues([...page1, ...page2], NOW),
+      lane_status: "available", lane_unrecorded: 0, lane_unrecorded_items: [],
+      lane_pull_status: "unavailable", lane_pull_reason_code: reason,
+    });
+    expect(output).not.toHaveProperty("lane_pull_unrecorded");
+    expect(result.stderr).toBe(`Suggested fixes lane pull requests unavailable: ${reason}\n`);
+    expect(`${result.stdout}${result.stderr}`).not.toMatch(/PRIVATE|ghp_/);
   });
 
   it("is exposed through the package lessons:status command", async () => {

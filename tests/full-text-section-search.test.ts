@@ -5,6 +5,7 @@ import { EUROPE_PMC_SECTIONS, EUROPE_PMC_FULL_TEXT_COVERAGE, europePmcSections }
 import { finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput, type FinalizeResearchOutput } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { discoveryQueryDigest, issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
+import { withCommunitySkip } from "./helpers/community-skip.js";
 import { assertNextStepsContract, inventory } from "./helpers/finalize-next-steps-contract.js";
 
 const SECRET = "full-text-section-search-test-secret-0123456789";
@@ -26,7 +27,8 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: DOI, status: "validated" }], absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
   answer_draft: `[Study](https://doi.org/${DOI}) reports a synthetic mechanism.`, ...overrides
 });
-const check = (input: FinalizeResearchInput) => assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
+// The answer carries the sentence its no_real_world_outcome declaration requires (owner question 125).
+const check = (input: FinalizeResearchInput) => assertNextStepsContract(finalizeResearch(withCommunitySkip(input), { secret: SECRET }));
 
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
@@ -80,9 +82,9 @@ describe("section search through the in-memory MCP endpoint", () => {
       expect(fetch).toHaveBeenCalledTimes(1);
       if (sections.length > 0) {
         const request = base({ receipts: [...base().receipts, output.research_receipt], full_text_search: { status: "run", queries: [query] } });
-        const finalized = await client.callTool({ name: "finalize_research", arguments: { ...request } });
+        const finalized = await client.callTool({ name: "finalize_research", arguments: { ...withCommunitySkip(request) } });
         expect(finalized.isError).not.toBe(true);
-        expect(assertNextStepsContract(finalized.structuredContent as FinalizeResearchOutput).status).toBe("ready");
+        expect(assertNextStepsContract(finalized.structuredContent as FinalizeResearchOutput).status).toBe("ready_with_limits");
       }
     } finally { await client.close(); await server.close(); }
   });
@@ -108,7 +110,7 @@ describe("full_text_search declaration gate", () => {
   it("accepts every query matched to a verified section receipt", () => {
     const second = "RESULTS:harms";
     expect(check(base({ receipts: [...base().receipts, receipt(), receipt(second, { ft: ["RESULTS"] })],
-      full_text_search: { status: "run", queries: [QUERY.toLowerCase(), second] } })).status).toBe("ready");
+      full_text_search: { status: "run", queries: [QUERY.toLowerCase(), second] } })).status).toBe("ready_with_limits");
   });
   it.each([
     ["unmatched query", receipt("METHODS:other")],
@@ -123,7 +125,7 @@ describe("full_text_search declaration gate", () => {
     expect(result.next_steps.some((step) => step.includes(JSON.stringify(QUERY)) && step.includes("search_europe_pmc") && step.includes("research_receipt"))).toBe(true);
   });
   it("accepts not_needed with the model's reason", () => {
-    expect(check(base({ full_text_search: { status: "not_needed", reason: "The question is answered by the audited abstracts." } })).status).toBe("ready");
+    expect(check(base({ full_text_search: { status: "not_needed", reason: "The question is answered by the audited abstracts." } })).status).toBe("ready_with_limits");
   });
   it.each([
     { status: "not_needed", reason: "short" },
@@ -142,7 +144,7 @@ describe("full_text_search declaration gate", () => {
   });
   it("leaves the field a status does not use unused", () => {
     expect(check(base({ full_text_search: { status: "not_needed", reason: "A valid reason here.", queries: [QUERY] } }))
-      .status).toBe("ready");
+      .status).toBe("ready_with_limits");
     expect(check(base({ full_text_search: { status: "run", queries: [QUERY], reason: "Not used with run." } })).next_steps
       .join(" ")).toContain(`full_text_search query ${JSON.stringify(QUERY)} has no verified Europe PMC section-search receipt`);
   });

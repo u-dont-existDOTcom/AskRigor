@@ -91,13 +91,13 @@ describe("owner-approved research handoff target fidelity, question 79: 79a (202
     expect(hash(beforeReadDepth)).toBe(readDepth.from.sha256);
     await expect(undoReadDepth(await loadCurrent(), "hrp")).resolves.toBe(beforeReadDepth);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: "20.6.27", revisionDate: "2026-10-18", sha256: hash(await loadCurrent()),
+      name: "HRP", version: "20.6.28", revisionDate: "2026-10-20", sha256: hash(await loadCurrent()),
     });
     const universal = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
     expect(hash(await undoCorrectionReport(universal))).toBe("06e5ca6befb9dac648fd41996213394e793e17795087eee8fbc63cbcbbbd8174");
-    expect(hash(universal)).toBe("946fac7e5e6ce5cb08811d4c533371e3032e1ce46f5c217990dc326808b55135");
+    expect(hash(universal)).toBe("564c8697fdd4aa69f08b0ecba228ca47cc7dc3e022e6ef55d84ea14f86fb416e");
     await expect(getProtocolManifest("universal")).resolves.toEqual({
-      name: "AskRigor.com universal saved instructions", version: "20.5.44", revisionDate: "2026-10-17", sha256: hash(universal),
+      name: "AskRigor.com universal saved instructions", version: "20.5.45", revisionDate: "2026-10-20", sha256: hash(universal),
     });
   });
 

@@ -329,6 +329,13 @@ export const livingEvidenceContributionSchema = z.object({
 
 export type LivingEvidenceContribution = z.infer<typeof livingEvidenceContributionSchema>;
 
+/** A YouTube, Reddit or forum link: outside the durable frontier and shared-proposal boundaries. */
+export const COMMUNITY_LOCATOR_PATTERN = /(?:youtube\.com|youtu\.be|reddit\.com|\/forum(?:s)?(?:\/|$))/iu;
+/** A community or video provider named for a frontier lane. */
+export const COMMUNITY_PROVIDER_PATTERN = /(?:youtube|youtu\.be|reddit|forum|community)/iu;
+export const COMMUNITY_PROVIDER_MESSAGE = "community and video providers are outside the durable frontier boundary";
+export const COMMUNITY_LOCATOR_MESSAGE = "community and video locators are outside the durable frontier boundary";
+
 const formalFrontierSourceClassSchema = z.enum([
   "study",
   "review",
@@ -476,22 +483,22 @@ export const researchFrontierContributionSchema = z.object({
   const passes = new Map(value.frontier.passes.map((pass) => [pass.passId, pass]));
   const laneCoverageBases = new Map<string, z.infer<typeof frontierPassSchema>["coverageBasis"]>();
   for (const [index, lane] of value.frontier.lanes.entries()) {
-    if (/(?:youtube|youtu\.be|reddit|forum|community)/iu.test(lane.provider)) {
+    if (COMMUNITY_PROVIDER_PATTERN.test(lane.provider)) {
       context.addIssue({
         code: "custom",
         path: ["frontier", "lanes", index, "provider"],
-        message: "community and video providers are outside the durable frontier boundary",
+        message: COMMUNITY_PROVIDER_MESSAGE,
       });
     }
   }
   for (const [index, candidate] of value.frontier.candidateVersions.entries()) {
     if (candidate.identifiers.some(({ scheme, value: identifier }) =>
-      scheme === "url" && /(?:youtube\.com|youtu\.be|reddit\.com|\/forum(?:s)?(?:\/|$))/iu.test(identifier)
+      scheme === "url" && COMMUNITY_LOCATOR_PATTERN.test(identifier)
     )) {
       context.addIssue({
         code: "custom",
         path: ["frontier", "candidateVersions", index, "identifiers"],
-        message: "community and video locators are outside the durable frontier boundary",
+        message: COMMUNITY_LOCATOR_MESSAGE,
       });
     }
   }
@@ -646,6 +653,17 @@ const PROHIBITED_PERSISTENT_KEYS = new Set([
   "username",
 ]);
 
+/** The prohibited names, as compared: NFKC, lower case, letters and digits only. */
+export const PROHIBITED_PERSISTENT_KEY_NAMES: readonly string[] = [...PROHIBITED_PERSISTENT_KEYS].sort();
+
+/** Whether a key, holding this value, may never be persisted; rawContentPersisted is allowed only as false. */
+export function isProhibitedPersistentKey(key: string, child: unknown): boolean {
+  const normalizedKey = key.normalize("NFKC").toLowerCase().replace(/[^a-z0-9]/gu, "");
+  const isRequiredNegativeMarker = key === "rawContentPersisted" && child === false;
+  return (key === "rawContentPersisted" && child !== false) ||
+    (PROHIBITED_PERSISTENT_KEYS.has(normalizedKey) && !isRequiredNegativeMarker);
+}
+
 export function assertNoProhibitedPersistentKeys(value: unknown, path = "$", seen = new Set<object>()): void {
   if (value === null || typeof value !== "object") return;
   if (seen.has(value)) return;
@@ -655,12 +673,7 @@ export function assertNoProhibitedPersistentKeys(value: unknown, path = "$", see
     return;
   }
   for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-    const normalizedKey = key.normalize("NFKC").toLowerCase().replace(/[^a-z0-9]/gu, "");
-    const isRequiredNegativeMarker = key === "rawContentPersisted" && child === false;
-    if (
-      (key === "rawContentPersisted" && child !== false) ||
-      (PROHIBITED_PERSISTENT_KEYS.has(normalizedKey) && !isRequiredNegativeMarker)
-    ) {
+    if (isProhibitedPersistentKey(key, child)) {
       throw new Error(`PROHIBITED_PERSISTENT_KEY path=${path}.${key}`);
     }
     assertNoProhibitedPersistentKeys(child, `${path}.${key}`, seen);

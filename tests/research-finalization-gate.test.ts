@@ -23,10 +23,23 @@ import {
   verifyResearchReceipt
 } from "../apps/research-mcp/src/research-receipts.js";
 
+import { communitySkipCaveat, COMMUNITY_SKIP_LIMIT } from "./helpers/community-skip.js";
 import { assertNextStepsContract, fixtureStudyLinks } from "./helpers/finalize-next-steps-contract.js";
 
 // Pinned word for word: a lead receipt is signed only with the exact searches recorded.
 const LEAD_RECEIPT_SEARCH_TEXT = "A lead receipt needs the public-copy search recorded: search for the exact DOI and the exact title, then pass those searches as public_copy_search and any public copy found as candidate_urls.";
+// Pinned word for word: the step for each receipt that failed verification, by the verifier's reason.
+const LEAVE_IT_OUT = "Leaving it out is allowed; work that rests only on it then needs its call again.";
+const REJECTED_RECEIPT_STEPS = {
+  signature_invalid: (index: number) => `receipts[${index}] does not verify, because it was changed in copying or ` +
+    `issued by another AskRigor server: copy it again exactly as the tool returned it. ${LEAVE_IT_OUT}`,
+  malformed: (index: number) => `receipts[${index}] is not a whole research receipt: copy the whole research_receipt ` +
+    `value exactly as the tool returned it. ${LEAVE_IT_OUT}`,
+  expired: (index: number) => `receipts[${index}] has expired, since a research receipt is valid for 24 hours: repeat ` +
+    `the call it came from and pass the research_receipt it returns. ${LEAVE_IT_OUT}`,
+  unknown_kind: (index: number) => `receipts[${index}] is a kind of receipt this AskRigor server does not know, perhaps ` +
+    `from another version of AskRigor: repeat the call it came from and pass the research_receipt it returns. ${LEAVE_IT_OUT}`
+} as const;
 
 const finalizeResearchBare = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
   assertNextStepsContract(finalizeResearchUnwrapped(...args));
@@ -131,8 +144,8 @@ const offerLimit = (community = true, unsaturated = false) =>
   `${community ? "two ways" : "way"} to go deeper, a sentence or two each, in plain language for the user (no video ` +
   "IDs or internal codes): a deeper study review (Longer trials; Results in people over 70)" +
   (community ? " and deeper community research (Named walking programs; People who stopped)" : "") +
-  ". Say why each focus looks promising and roughly what another pass would take, and ask which the user wants and " +
-  "which focus.";
+  ". Say what each focus could change in this answer and why it looks promising, give roughly what another pass " +
+  "would take, and ask which the user wants and which focus.";
 const OFFER_LIMIT = offerLimit();
 const STUDY_FOCUS_CAVEATS = [
   "Study focus: Longer trials. The trials read lasted twelve weeks.",
@@ -187,8 +200,14 @@ const finalizeResearchRaw = (input: Record<string, unknown>, gateOptions: Parame
     ...communityDefaults(input), ...offerDefaults(input), ...absenceDefaults(input), ...scaleDefaults(input), ...claimDefaults(input), ...input,
     ...threadSelectionDefaults({ ...communityDefaults(input), ...input }),
     ...(typeof input.answer_draft === "string"
-      ? { answer_draft: `${fixtureStudyLinks(input)}\n\n${input.answer_draft}` } : {})
+      ? { answer_draft: `${fixtureStudyLinks(input)}\n\n${input.answer_draft}${skipParagraph(input)}` } : {})
   }, gateOptions);
+// An answer whose call declares community evidence not relevant for no real-world outcome states the server's sentence
+// with the declared reason (owner question 125); fixtures of other checks carry it as a paragraph of its own.
+function skipParagraph(input: Record<string, unknown>): string {
+  return input.community_evidence === "not_relevant" && input.not_relevant_basis === "no_real_world_outcome" &&
+    typeof input.not_relevant_reason === "string" ? `\n\n${communitySkipCaveat(input.not_relevant_reason)}` : "";
+}
 const finalizeResearchGate = (input: Record<string, unknown>, gateOptions: typeof options) => {
   const request = { another_pass_estimate: PASS_ESTIMATE, ...communityDefaults(input), ...input };
   return finalizeResearchRaw(
@@ -1541,12 +1560,14 @@ describe("finalize_research gate", () => {
     const bounded = "Where this answer says something was not found, it means the searches made here (PubMed and Europe " +
       "PMC) did not find it, and they did not cover older or variant terms, citation chains and grey literature; that " +
       "is not evidence that it does not exist.";
-    expect(check({}).caveats).toEqual([bounded]);
+    // The first caveat is the community search skipped for no real-world outcome (owner question 125).
+    const skip = communitySkipCaveat(base.not_relevant_reason);
+    expect(check({}).caveats).toEqual([skip, bounded]);
     expect(check({}).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([leftOut(bounded)]);
     expect(check({ answer_draft: `${answer} ${bounded}` })).toMatchObject({ status: "ready_with_limits", next_steps: [] });
     const covered = "Where this answer says something was not found, it means the searches made here (PubMed and Europe " +
       "PMC) did not find it; that is not evidence that it does not exist.";
-    expect(check({ search_coverage: ["historical_terms", "citation_chains", "grey_literature"] }).caveats).toEqual([covered]);
+    expect(check({ search_coverage: ["historical_terms", "citation_chains", "grey_literature"] }).caveats).toEqual([skip, covered]);
     expect(check({ receipts: [study] }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
       "The answer says something was not found, but no literature search receipt was passed: search with " +
         "search_pubmed or search_europe_pmc (and search_clinical_trials for trials) and pass their research receipts."
@@ -2319,9 +2340,11 @@ describe("finalize_research gate", () => {
     const firstPass = { ...base, receipts, research_depth: "first_pass" as const };
     expect(finalizeResearch({ ...firstPass, open_leads: [] }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "List two or three open_leads with direction studies: studies whose methods were not audited in full text, or " +
-        "questions not yet searched, each with why it looks promising.",
+        "questions not yet searched, each with what it could change in this answer (the conclusion, a ranking, the " +
+        "confidence, or only detail) and why it looks promising.",
       "List two or three open_leads with direction community: communities, options or subgroups not yet reached, each " +
-        "with why it looks promising. Discovery has not saturated, so include the topics where more community signal " +
+        "with what it could change in this answer (the conclusion, a ranking, the confidence, or only detail) and why " +
+        "it looks promising. Discovery has not saturated, so include the topics where more community signal " +
         "is likely and the searches YouTube's rate limit or daily quota stopped."
     ]);
     // Two or three focuses each, not more.
@@ -2553,9 +2576,11 @@ describe("finalize_research gate", () => {
     expect(noLeads.community).toMatchObject({ saturated: false, first_pass_complete: true });
     expect(noLeads.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "List two or three open_leads with direction studies: studies whose methods were not audited in full text, or " +
-        "questions not yet searched, each with why it looks promising.",
+        "questions not yet searched, each with what it could change in this answer (the conclusion, a ranking, the " +
+        "confidence, or only detail) and why it looks promising.",
       "List two or three open_leads with direction community: communities, options or subgroups not yet reached, each " +
-        "with why it looks promising. Discovery has not saturated, so include the topics where more community signal " +
+        "with what it could change in this answer (the conclusion, a ranking, the confidence, or only detail) and why " +
+        "it looks promising. Discovery has not saturated, so include the topics where more community signal " +
         "is likely."
     ]);
 
@@ -2577,8 +2602,8 @@ describe("finalize_research gate", () => {
       "First pass only; discovery had not saturated. End the answer with the two ways to go deeper, a sentence or two " +
         "each, in plain language for the user (no video IDs or internal codes): a deeper study review (Longer trials; " +
         "Results in people over 70) and deeper community research (Gelatin and collagen for hip pain; Named " +
-        "physiotherapy programs). Say why each focus looks promising and roughly what another pass would take, and ask " +
-        "which the user wants and which focus."
+        "physiotherapy programs). Say what each focus could change in this answer and why it looks promising, give " +
+        "roughly what another pass would take, and ask which the user wants and which focus."
     ]);
     // Without community research, the answer offers the study review alone.
     const studiesOnly = finalizeResearch({
@@ -2587,8 +2612,8 @@ describe("finalize_research gate", () => {
       treatment_choice: "not_compared", research_target: TARGET,
       key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }]
     }, options);
-    expect(studiesOnly).toMatchObject({ status: "ready_with_limits", limits: [offerLimit(false)] });
-    expect(studiesOnly.caveats).toEqual(STUDIES_OFFER_CAVEATS);
+    expect(studiesOnly).toMatchObject({ status: "ready_with_limits", limits: [COMMUNITY_SKIP_LIMIT, offerLimit(false)] });
+    expect(studiesOnly.caveats).toEqual([communitySkipCaveat("A question about one lab value."), ...STUDIES_OFFER_CAVEATS]);
     // An answer that researched neither studies nor communities has nothing to offer.
     expect(finalizeResearch({
       receipts: [], community_evidence: "not_relevant", not_relevant_reason: "A dose arithmetic question.",
@@ -2775,7 +2800,11 @@ describe("finalize_research gate", () => {
       { index: 0, reason: "signature_invalid" },
       { index: 1, reason: "malformed" }
     ]);
-    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toHaveLength(2);
+    // One step for each rejected receipt, with its own way out (UDA lane item
+    // 2026-10-12-finalizer-bounded-completion-and-receipt-diagnostics), then the declaration the skip needs.
+    const receiptSteps = result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
+    expect(receiptSteps).toHaveLength(3);
+    expect(receiptSteps.slice(0, 2)).toEqual([REJECTED_RECEIPT_STEPS.signature_invalid(0), REJECTED_RECEIPT_STEPS.malformed(1)]);
 
     // HRP ForumSignalNonTrigger: nonactivation is affirmative, for a question with no real-world outcome or an
     // emergency before triage. A question whether smelling geosmin helps is neither (owner report, 2026-09-30).
@@ -2799,14 +2828,54 @@ describe("finalize_research gate", () => {
       not_relevant_reason: "Dose conversion question with no treatment choice.",
       key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "PMC10518852", status: "validated" }]
     }, options);
-    // Its only limit is the first pass's offer of a deeper study review.
-    expect(reasoned).toMatchObject({ status: "ready_with_limits", limits: [offerLimit(false)] });
+    // Its limits are the skipped community search, which the answer states with the reason (owner question 125), and
+    // the first pass's offer of a deeper study review.
+    expect(reasoned).toMatchObject({ status: "ready_with_limits", limits: [COMMUNITY_SKIP_LIMIT, offerLimit(false)] });
     expect(finalizeResearch({
       receipts: [study], community_evidence: "not_relevant", treatment_choice: "not_compared", research_target: TARGET,
       not_relevant_basis: "no_real_world_outcome",
       not_relevant_reason: "Dose conversion question with no treatment choice.", research_depth: "deep",
       key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "PMC10518852", status: "validated" }]
-    }, options).status).toBe("ready");
+    }, options)).toMatchObject({ status: "ready_with_limits", limits: [COMMUNITY_SKIP_LIMIT] });
+  });
+
+  it("gives each receipt that fails verification its own reason and way out, without repeating it", () => {
+    const hours = (count: number) => () => new Date(now().getTime() - count * 60 * 60 * 1000);
+    const claims = { id: "PMC10518852", doi: "10.1002/art.41142", status: "complete_no_unresolved_fields" };
+    const cases = {
+      signature_invalid: `${study.slice(0, -2)}xx`,
+      malformed: study.split("~").slice(0, 3).join("~"),
+      expired: issueResearchReceipt("study_audit", claims, { secret: SECRET, now: hours(25) }),
+      // Signed here, but of a kind this server does not know, as from another version of AskRigor.
+      unknown_kind: issueResearchReceipt("retired_kind" as Parameters<typeof issueResearchReceipt>[0], claims, options)
+    } as const;
+    const deep = {
+      community_evidence: "not_relevant" as const, not_relevant_basis: "no_real_world_outcome" as const,
+      not_relevant_reason: "A question about one lab value.", treatment_choice: "not_compared" as const,
+      research_target: TARGET, research_depth: "deep" as const, key_sources: [],
+      answer_draft: "One lab value is explained. No study's methods were checked in full text for this answer."
+    };
+    for (const [reason, token] of Object.entries(cases) as Array<[keyof typeof cases, string]>) {
+      // The rejected receipt comes after a valid one, so its step names its own place in receipts.
+      const result = finalizeResearch({ ...deep, receipts: [study, token] }, options);
+      expect(result.status, reason).toBe("not_ready");
+      expect(result.receipts_rejected, reason).toEqual([{ index: 1, reason }]);
+      expect(result.receipts_verified, reason).toBe(1);
+      const steps = result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
+      expect(steps, reason).toEqual([REJECTED_RECEIPT_STEPS[reason](1)]);
+      // Nothing of the receipt or the signing secret is repeated.
+      for (const part of [token, ...token.split("~").filter((piece) => piece.length >= 8)]) {
+        expect(steps.join("\n"), reason).not.toContain(part);
+      }
+      expect(steps.join("\n"), reason).not.toContain(SECRET);
+    }
+    // Every rejected receipt gets its own step, in the order passed.
+    const all = finalizeResearch({ ...deep, receipts: Object.values(cases) }, options);
+    expect(all.receipts_rejected).toEqual(Object.keys(cases).map((reason, index) => ({ index, reason })));
+    expect(all.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
+      .toEqual((Object.keys(cases) as Array<keyof typeof cases>).map((reason, index) => REJECTED_RECEIPT_STEPS[reason](index)));
+    // Leaving the rejected receipts out is allowed: without them the answer passes.
+    expect(finalizeResearch({ ...deep, receipts: [study] }, options).next_steps).toEqual([]);
   });
 
   it("reports when receipts cannot be verified on this server", () => {
@@ -3033,8 +3102,10 @@ describe("findings card at the final gate", () => {
     const quote = "Le foie élimine ce médicament en quelques heures.";
     const card = withFinding({ answer_quote: quote, sources: ["PMC10518852"], tags: ["full_text_read"] });
     const french = finalizeResearch({ ...base, findings_card: card, answer_draft: quote, answer_language: "fr" }, options);
+    // Its one limit and caveat are the skipped community search, which the fixture states (owner question 125).
     expect(french).toMatchObject({
-      status: "ready", next_steps: [], limits: [], caveats: [], findings_card: { status: "checked" }
+      status: "ready_with_limits", next_steps: [], limits: [COMMUNITY_SKIP_LIMIT],
+      caveats: [communitySkipCaveat(base.not_relevant_reason)], findings_card: { status: "checked" }
     });
     expect(findingsClaim(french.finalization_receipt)).toBe(findingsCardDigest(findingsCardSchema.parse(card)));
   });
@@ -3115,7 +3186,8 @@ describe("findings card at the final gate", () => {
       caveat_renderings: [{ caveat: FINDINGS_SAVE_OFFER, text: offer }]
     }, offerOptions);
     expect(translated).toMatchObject({
-      status: "ready", next_steps: [], limits: [], caveats: [FINDINGS_SAVE_OFFER], findings_card: { status: "checked" }
+      status: "ready_with_limits", next_steps: [], limits: [COMMUNITY_SKIP_LIMIT],
+      caveats: [communitySkipCaveat(base.not_relevant_reason), FINDINGS_SAVE_OFFER], findings_card: { status: "checked" }
     });
     expect(finalizeResearch({ ...base, findings_card: card, answer_draft: quote, answer_language: "fr" }, offerOptions).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toEqual([leftOut(FINDINGS_SAVE_OFFER)]);

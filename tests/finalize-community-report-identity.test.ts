@@ -58,9 +58,11 @@ const checked = (input: FinalizeResearchInput) => {
   const first = run(input);
   return run({ ...input, answer_draft: `${input.answer_draft}\n\n${first.caveats.join(" ")}` });
 };
+// An emergency before triage skips the community search with no caveat; no_real_world_outcome would add one (owner
+// question 125), and with it a limit.
 const noForum = () => base({
-  community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome",
-  not_relevant_reason: "Pure chemical mechanism without a real-world outcome.",
+  community_evidence: "not_relevant", not_relevant_basis: "emergency_before_triage",
+  not_relevant_reason: "Synthetic emergency before triage.",
   principal_communities: undefined, community_searches: undefined
 });
 const zeroCaveat = "In Mineral Forum, no one described their own use of form A, so its reports are not evidence about it.";

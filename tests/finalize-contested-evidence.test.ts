@@ -3,6 +3,7 @@ import {
   finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
+import { communitySkipCaveat, withCommunitySkip } from "./helpers/community-skip.js";
 import { assertNextStepsContract, inventory } from "./helpers/finalize-next-steps-contract.js";
 
 const SECRET = "contested-evidence-test-secret-0123456789012345";
@@ -24,8 +25,9 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   absence_claims: [{ quote, state: "not_established", studies: [DOI] }], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
   answer_draft: `[Study](https://doi.org/${DOI}) was read. ${quote}`, ...overrides
 });
+// The answer carries the sentence its no_real_world_outcome declaration requires (owner question 125).
 const check = (overrides: Partial<FinalizeResearchInput> = {}) =>
-  assertNextStepsContract(finalizeResearch(base(overrides), { secret: SECRET }));
+  assertNextStepsContract(finalizeResearch(withCommunitySkip(base(overrides)), { secret: SECRET }));
 const steps = (overrides: Partial<FinalizeResearchInput> = {}) =>
   check(overrides).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
 
@@ -36,7 +38,7 @@ describe("declared contested intervention evidence-strength verdicts", () => {
   ])("accepts an audited not_established declaration: %s", (text) => {
     const result = check({ answer_draft: `[Study](https://doi.org/${DOI}). ${text}`,
       absence_claims: [{ quote: text, state: "not_established", studies: [DOI] }] });
-    expect(result.status).toBe("ready");
+    expect(result.status).toBe("ready_with_limits");
     expect(result.next_steps).toEqual([]);
     expect(result.finalization_receipt).toBeDefined();
   });
@@ -63,7 +65,7 @@ describe("declared contested intervention evidence-strength verdicts", () => {
       sign(kind, { id: "PMC12345", status: "complete_no_unresolved_fields" }),
       sign("pubmed_record", { pmid: "1234", doi: DOI })];
     expect(check({ receipts,
-      absence_claims: [{ quote, state: "not_established", studies: [DOI, "1234", "PMC12345"] }] }).status).toBe("ready");
+      absence_claims: [{ quote, state: "not_established", studies: [DOI, "1234", "PMC12345"] }] }).status).toBe("ready_with_limits");
   });
   it("requires the declared quote to occur in answer_draft", () => {
     expect(steps({ answer_draft: `[Study](https://doi.org/${DOI}) was read.` })).toEqual([
@@ -81,12 +83,12 @@ describe("declared contested intervention evidence-strength verdicts", () => {
         "coverage when none were."
     );
     expect(missing.next_steps.filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
-    expect(check({ absence_claims: [] }).status).toBe("ready");
+    expect(check({ absence_claims: [] }).status).toBe("ready_with_limits");
   });
   it.each(["direct_null_evidence", "bounded_exclusion"] as const)("preserves %s source and numeric checks", (state) => {
     const text = "The trial found no benefit (difference 0.1, 95% CI -0.4 to 0.6).";
     expect(check({ answer_draft: `[Study](https://doi.org/${DOI}). ${text}`,
-      absence_claims: [{ quote: text, state, studies: [DOI] }] }).status).toBe("ready");
+      absence_claims: [{ quote: text, state, studies: [DOI] }] }).status).toBe("ready_with_limits");
     expect(steps({ absence_claims: [{ quote, state, studies: [DOI] }] })).toEqual([
       `absence_claims[0] states ${state === "direct_null_evidence" ? "a direct null result" : "a bounded exclusion"}: ` +
         "give the estimate and its interval in that sentence, so a reader sees how large an effect the studies could have missed."
@@ -101,12 +103,11 @@ describe("declared contested intervention evidence-strength verdicts", () => {
     const receipts = [...base().receipts, sign("literature_search", { src: "pubmed", q: "a".repeat(12), ret: 0, n: 0 })];
     const result = check({ ...notLocated, receipts, search_coverage: ["historical_terms", "citation_chains", "grey_literature"] });
     expect(result.status).toBe("not_ready");
-    expect(result.caveats).toEqual([
-      "Where this answer says something was not found, it means the searches made here (PubMed) did not find it; " +
-        "that is not evidence that it does not exist."
-    ]);
+    const notFound = "Where this answer says something was not found, it means the searches made here (PubMed) did " +
+      "not find it; that is not evidence that it does not exist.";
+    expect(result.caveats).toEqual([communitySkipCaveat(base().not_relevant_reason!), notFound]);
     expect(check({ ...notLocated, receipts, search_coverage: ["historical_terms", "citation_chains", "grey_literature"],
-      answer_draft: `${base().answer_draft} ${result.caveats[0]}` }).status).toBe("ready_with_limits");
+      answer_draft: `${base().answer_draft} ${notFound}` }).status).toBe("ready_with_limits");
   });
   it("publishes the new state and descriptive evidence-strength declaration in the generated catalog", () => {
     const tool = inventory.tools.find(({ name }) => name === "finalize_research")!;

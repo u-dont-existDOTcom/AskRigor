@@ -7,6 +7,7 @@ import {
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
+import { withCommunitySkip } from "./helpers/community-skip.js";
 import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
 const SECRET = "lab-preparation-test-secret-01234567890123456789";
@@ -47,7 +48,8 @@ describe.each(["gate", "MCP endpoint"] as const)("lab_preparation through the %s
     vi.unstubAllEnvs();
   });
   const call = async (overrides: Partial<FinalizeResearchInput> = {}): Promise<FinalizeResearchOutput> => {
-    const input = base(overrides);
+    // The answer carries the sentence its no_real_world_outcome declaration requires (owner question 125).
+    const input = withCommunitySkip(base(overrides));
     if (surface === "gate") return assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
     const result = await client!.callTool({ name: "finalize_research", arguments: { ...input } });
     expect(result.isError).not.toBe(true);
@@ -76,8 +78,8 @@ describe.each(["gate", "MCP endpoint"] as const)("lab_preparation through the %s
     });
   it("leaves the field a status does not use unused", async () => {
     expect((await call({ lab_preparation: { ...notApplicable, answer_quotes: ["This sentence is missing from the answer."] } }))
-      .status).toBe("ready");
-    expect((await call({ lab_preparation: { ...covered(), reason: notApplicable.reason } })).status).toBe("ready");
+      .status).toBe("ready_with_limits");
+    expect((await call({ lab_preparation: { ...covered(), reason: notApplicable.reason } })).status).toBe("ready_with_limits");
   });
   it("does not require it without key sources", async () => {
     const result = await call({ key_sources: [],
@@ -89,14 +91,14 @@ describe.each(["gate", "MCP endpoint"] as const)("lab_preparation through the %s
     const second = "Repeat under comparable collection conditions.";
     const result = await call({ lab_preparation: covered([QUOTE, second]),
       answer_draft: `${base().answer_draft} ${second}` });
-    expect(result.status).toBe("ready");
+    expect(result.status).toBe("ready_with_limits");
     expect(result.next_steps).toEqual([]);
   });
   it("checks quotes using the existing visible-prose normalization in any language", async () => {
     const quote = "Buvez de l’eau normalement avant le prélèvement.";
     const result = await call({ lab_preparation: covered([quote]),
       answer_draft: `[Study](https://doi.org/${DOI}). **Buvez** de l'eau\nnormalement avant le prélèvement.` });
-    expect(result.status).toBe("ready");
+    expect(result.status).toBe("ready_with_limits");
     expect(result.next_steps).toEqual([]);
   });
   it("rejects a quote absent from the answer with the existing quote failure wording", async () => {
@@ -117,13 +119,13 @@ describe.each(["gate", "MCP endpoint"] as const)("lab_preparation through the %s
   });
   it("accepts not_applicable with a valid reason without judging applicability", async () => {
     const result = await call({ lab_preparation: notApplicable });
-    expect(result.status).toBe("ready");
+    expect(result.status).toBe("ready_with_limits");
     expect(result.next_steps).toEqual([]);
   });
   it("leaves advice quality to the model", async () => {
     const quote = "The model declares this unrelated sentence as covered.";
     const result = await call({ lab_preparation: covered([quote]), answer_draft: `${base().answer_draft} ${quote}` });
-    expect(result.status).toBe("ready");
+    expect(result.status).toBe("ready_with_limits");
   });
   if (surface === "MCP endpoint") it("rejects a too-short reason at the endpoint", async () => {
     const result = await client!.callTool({ name: "finalize_research", arguments: {

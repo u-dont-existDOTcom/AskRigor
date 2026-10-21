@@ -27,6 +27,7 @@ import {
 import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
 import { getProtocolManifest, protocolNamedElements, protocolSections } from "../packages/protocol/src/index.js";
 import { pageKey, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
+import { COMMUNITY_SKIP_LIMIT, communitySkipCaveat } from "../apps/research-mcp/src/research-finalization-gate.js";
 
 const TOOL_NAMES = [
   "get_protocol_manifest",
@@ -224,10 +225,10 @@ describe("AskRigor MCP tools", () => {
         "Retrieves the next contiguous page of an existing document_handle from its server-owned cursor. Coverage binds the handle and content hash; exhausted, expired, or invalid handles cannot advance. Pages preserve the exact document chain for source-linked audit."
       );
       expect(descriptions.validate_study_method_audit).toBe(
-        "Validates a full-text, source-linked individual-study audit on the exact exhausted document_handle. Accepts a newly performed audit or the repository_analysis_version_id advertised by the same acquisition. Repository reuse repeats exact source/protocol/rubric/freshness/impact checks and runs the same validator; fresh_study_audit_required records the need for a newly performed audit. Validated coverage binds the acquisition handle and content hash. Audits of client_supplied copies sign search-index provenance for the required finalization caveat."
+        "Validates a full-text, source-linked individual-study audit on the exact exhausted document_handle. Accepts a newly performed audit or the repository_analysis_version_id advertised by the same acquisition. Repository reuse repeats exact source/protocol/rubric/freshness/impact checks and runs the same validator; fresh_study_audit_required records the need for a newly performed audit. Validated coverage binds the acquisition handle and content hash. Audits of client_supplied copies sign search-index provenance for the required finalization caveat. Validation checks that the findings cite the document's own blocks and that every domain is covered, not that each interpretation is right."
       );
       expect(descriptions.validate_review_method_audit).toBe(
-        "Validates a full-text, source-linked review or guideline audit on the exact exhausted acquisition document_handle, including search coverage, study ancestry, heterogeneity, bias, conflicts, and claim scope. Coverage binds the acquisition handle and source_content_sha256; mismatches block synthesis. Audits of client_supplied copies sign search-index provenance for the required finalization caveat."
+        "Validates a full-text, source-linked review or guideline audit on the exact exhausted acquisition document_handle, including search coverage, study ancestry, heterogeneity, bias, conflicts, and claim scope. Coverage binds the acquisition handle and source_content_sha256; mismatches block synthesis. Audits of client_supplied copies sign search-index provenance for the required finalization caveat. Validation checks that the findings cite the document's own blocks and that every domain is covered, not that each interpretation is right."
       );
     } finally {
       await server.close();
@@ -861,18 +862,23 @@ describe("AskRigor MCP tools", () => {
         key_sources: [],
         absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: []
       };
-      // The answer must carry the limit before it is signed.
+      // The answer must carry the limits before it is signed: no study read in full text, and the community search
+      // skipped for no real-world outcome, in the server's sentence with the declared reason (owner question 125).
+      const noStudy = "No study's methods were checked in full text for this answer.";
+      const skip = communitySkipCaveat(dosing.not_relevant_reason);
+      expect(skip).toBe("I did not search firsthand reports or community discussions for this answer: A dosing " +
+        "arithmetic question with no treatment choice.");
       const uncaveated = await client.callTool({
         name: "finalize_research",
         arguments: { ...dosing, answer_draft: "Multiply the dose per kilogram by the body weight: 5 mg/kg for 20 kg is 100 mg." }
       });
       expect(uncaveated.structuredContent).toMatchObject({
         status: "not_ready",
-        caveats: ["No study's methods were checked in full text for this answer."],
+        caveats: [skip, noStudy],
         next_steps: [
-          "The answer leaves out this caveat; include each as its own sentence, as written (a link's text may " +
+          "The answer leaves out these caveats; include each as its own sentence, as written (a link's text may " +
             "change), or, in an answer not in English, in the answer's language with the same links, given in " +
-            "caveat_renderings: \"No study's methods were checked in full text for this answer.\""
+            `caveat_renderings: "${skip}" "${noStudy}"`
         ]
       });
       expect((uncaveated.structuredContent as { finalization_receipt?: string }).finalization_receipt).toBeUndefined();
@@ -881,23 +887,29 @@ describe("AskRigor MCP tools", () => {
         arguments: {
           ...dosing,
           answer_draft: "Multiply the dose per kilogram by the body weight: 5 mg/kg for 20 kg is 100 mg. No study's " +
-            "methods were checked in full text for this answer."
+            `methods were checked in full text for this answer. ${skip}`
         }
       });
       expect(declined.structuredContent).toMatchObject({
         status: "ready_with_limits",
         answer_checked: true,
-        limits: ["No study was declared decision-critical; say that no study's methods were checked in full text."]
+        limits: [
+          COMMUNITY_SKIP_LIMIT,
+          "No study was declared decision-critical; say that no study's methods were checked in full text."
+        ]
       });
-      // An answer in another language states the caveat in that language and says which sentence it is.
+      // An answer in another language states each caveat in that language and says which sentence it is.
       const french = "Aucune étude n'a été vérifiée en texte intégral pour cette réponse.";
+      const frenchSkip = "Je n'ai pas cherché de témoignages directs ni de discussions de communautés pour cette " +
+        "réponse : c'est une question de calcul de dose, sans choix de traitement.";
       const inFrench = await client.callTool({
         name: "finalize_research",
         arguments: {
           ...dosing,
-          answer_draft: `Multipliez la dose par kilogramme par le poids : 5 mg/kg pour 20 kg font 100 mg. ${french}`,
+          answer_draft: `Multipliez la dose par kilogramme par le poids : 5 mg/kg pour 20 kg font 100 mg. ${french}\n\n` +
+            frenchSkip,
           answer_language: "fr",
-          caveat_renderings: [{ caveat: "No study's methods were checked in full text for this answer.", text: french }]
+          caveat_renderings: [{ caveat: noStudy, text: french }, { caveat: skip, text: frenchSkip }]
         }
       });
       expect(inFrench.structuredContent).toMatchObject({ status: "ready_with_limits", next_steps: [], answer_checked: true });
@@ -913,7 +925,7 @@ describe("AskRigor MCP tools", () => {
         arguments: {
           ...dosing,
           answer_draft: "5 mg/kg for 20 kg is 100 mg. No study's methods were checked in full text for this answer. " +
-            "DeepForumAuditActivationPrompt: none needed (LimitsNote)."
+            `DeepForumAuditActivationPrompt: none needed (LimitsNote). ${skip}`
         }
       });
       expect(leaky.structuredContent).toMatchObject({
@@ -2810,15 +2822,15 @@ describe("AskRigor MCP tools", () => {
         protocol: "hrp",
         manifest: {
           name: "HRP",
-          version: "20.6.27",
-          revisionDate: "2026-10-18",
-          sha256: "e6db59c14c78f3d53b04b8d36ce514eecfcaaec1cf7f9d176d7b8ad665b2e2fe"
+          version: "20.6.28",
+          revisionDate: "2026-10-20",
+          sha256: "a38e3e76b0983f9d4545325a90c6e14b76d087750600ce99623b3ec4aa22cef4"
         },
         scope: "full",
         page: 1,
         next_page: 2,
         complete: false,
-        scope_sha256: "e6db59c14c78f3d53b04b8d36ce514eecfcaaec1cf7f9d176d7b8ad665b2e2fe"
+        scope_sha256: "a38e3e76b0983f9d4545325a90c6e14b76d087750600ce99623b3ec4aa22cef4"
       });
       const pageCount = (first.structuredContent as { page_count: number }).page_count;
       expect(first.content).toEqual([
@@ -2861,8 +2873,8 @@ describe("AskRigor MCP tools", () => {
         core_sections: string[];
       };
       expect(indexContent.manifest).toMatchObject({
-        version: "20.5.44",
-        sha256: "946fac7e5e6ce5cb08811d4c533371e3032e1ce46f5c217990dc326808b55135"
+        version: "20.5.45",
+        sha256: "564c8697fdd4aa69f08b0ecba228ca47cc7dc3e022e6ef55d84ea14f86fb416e"
       });
       expect(indexContent.index).toHaveLength(40);
       expect(indexContent.core_sections).toContain("epistemics");
@@ -3192,9 +3204,9 @@ describe("AskRigor Streamable HTTP server", () => {
           protocol: "universal",
           manifest: {
             name: "AskRigor.com universal saved instructions",
-            version: "20.5.44",
-            revisionDate: "2026-10-17",
-            sha256: "946fac7e5e6ce5cb08811d4c533371e3032e1ce46f5c217990dc326808b55135"
+            version: "20.5.45",
+            revisionDate: "2026-10-20",
+            sha256: "564c8697fdd4aa69f08b0ecba228ca47cc7dc3e022e6ef55d84ea14f86fb416e"
           }
         });
       } finally {
@@ -3245,8 +3257,8 @@ describe("AskRigor Streamable HTTP server", () => {
           ok: true,
           protocol: "universal",
           manifest: {
-            version: "20.5.44",
-            sha256: "946fac7e5e6ce5cb08811d4c533371e3032e1ce46f5c217990dc326808b55135"
+            version: "20.5.45",
+            sha256: "564c8697fdd4aa69f08b0ecba228ca47cc7dc3e022e6ef55d84ea14f86fb416e"
           }
         });
       } finally {

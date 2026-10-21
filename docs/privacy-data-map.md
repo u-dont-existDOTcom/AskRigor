@@ -618,6 +618,7 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 | --- | --- | --- |
 | MCP or Custom GPT research Action request and adapter memory | Request parameters, provider responses, normalized metadata, public open-publication content and audit fields, public YouTube identity/comment/caption data, screened Gemini scout target and provisional candidate annotations, treatment-landscape coverage fields, and the current bounded segment used to update a deterministic sample and rolling corpus digest | Used for the active request only except for the exact Action handle/checkpoint rows below. No database, account profile, queue, durable full-text store, transcript-text store, candidate-packet store, treatment-landscape store, or server-side comment corpus is implemented. The low-level Gemini route sets `store:false`. Controlled Gemini scouting retains only the opaque background-job checkpoint in the encrypted research session until completion/boundary and requests provider deletion after use. Transcript continuations re-fetch the selected track; only compact chain metadata is retained under the bounded row below. The coverage assessor makes no provider call. The Phase D1 Crossref/FORRT primitives are not reachable through these public transports. |
 | ChatGPT's device hint on `finalize_research` | The optional, best-effort `openai/userAgent` hint ChatGPT may send with the call: the reader's browser or app user-agent string | Read in request memory only, to decide whether the answer must carry the owner's mobile notice (a user agent naming an iPhone, iPad, iPod, Android device or mobile browser). It is never logged, stored, returned, signed into a receipt or sent to a provider; the caveats returned to the same caller show only whether the notice is asked for. Without the hint, or with a wrong one, only that notice changes. |
+| The serious-harm screen on `finalize_research` (`harm_screen`, `safety_question`) | The model's declaration of up to 20 serious harms the research searched by name, required with an answer draft that has safety statements or answers a question the model marks a safety question (`safety_question`, a boolean): each harm in at most 150 characters, what the screen found (`label_warning`, `reported_signal`, `not_found` or `not_checked`), the kinds of source searched (six fixed values), the answer's sentence reporting a harm found, and for a harm not found the exact literature query it was searched with (at most 500 characters) | Request-local: read in memory for that call only, never logged or stored, not signed into the finalization receipt, not in the carried state, never saved with a findings card and not sent to the second reader. A query is compared with the call's literature-search receipts by its 12-hex digest and is never returned; a quoted sentence is compared with the answer draft. A harm comes back to the same caller only in that call's caveat and limit for a harm not checked ("This answer did not check …"), and in next steps that point to an entry by its position and name its declared harm. |
 | Internal Phase D1 external-evidence adapter invocation | One public DOI; normalized Crossref publication events or FORRT replication/reproduction relationships; provider response hashes, access/error state, limitations, and FLoRA attribution | Transient process memory only. No public route, research-session connection, database, cache, response artifact, or durable provider-content store is added in Phase D1. Fixtures are synthetic. |
 | Internal Phase D5 optional-provider adapter invocation | A strict synthetic or future server-authorized record for one public DOI; bounded PubPeer message/thread state or Epistemonikos review-ancestry metadata; content/item hashes, status, pagination, classification provenance, directives, and limitations | Phase D5 has no live transport or new provider request. When a server executor is supplied in tests, the existing bounded in-memory artifact store and signed receipt are used; the research-session projection keeps hashes/status/work rather than message bodies. No durable store, token, public operation, or deployment activation is added. |
 | MCP client-carried continuation state | The minimized, opaque authenticated continuation state described above | Returned to the invoking MCP client and processed transiently if resubmitted within one hour. The server keeps no matching MCP session record. |
@@ -647,6 +648,17 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 | Owner-accepted contribution promotion | Proposal UUID, strict kind and SHA-256; explicit owner decision/reason and timestamps; pending/claimed/completed/failed promotion state; bounded attempt metadata; canonical identifiers; stable receipt and receipt SHA-256 | The public runtime cannot write this state or canonical evidence. One function-only owner-review call atomically creates the exact intent only on acceptance. A separate root-scheduled short-lived admin container receives only the existing canonical writer environment and processes one accepted intent per activation. The static unit accepts no user input and logs only the bounded operation receipt; it receives no raw chat, account key, private health narrative, upload, raw source/provider content, or community data. Disabling the timer preserves all rows. |
 
 Contribution intake rejects frontier candidate and source-analysis identifier values beginning with `sandbox:` (case-insensitive), because a sandbox link points into another session and can never be opened.
+
+The intake's contact, address and credential screen reads field names as well as values (20 Oct): a free name under
+`receipts[].details` that matches one of those patterns is refused like a value would be, so it is never stored.
+
+A rejected `submit_research_contribution` call (owner question 127) returns, to the caller only, every problem the
+intake found: each problem's field path, rule name, what the contract expects there and a JSON example taken from
+AskRigor's own example records, at most 25 problems and about 16,000 characters, with the count of the rest. It never
+repeats a value sent: no text, number, identifier, link or matched contact pattern, and no key the contract does not
+define (such a key, and a free name under `receipts[].details`, is shown as `*`); a privacy rule is named with its path,
+never the text it matched. The rejection is not stored or logged, and refusals by account (sign-in, revoked or
+unchosen mode, paid private) come before the record is read. Nothing new is collected.
 
 Full application request bodies and response bodies are not logged or written
 to durable storage for either research transport. The Action adapter retains
@@ -1112,7 +1124,12 @@ pending-proposal stores have their own strict contracts and authority boundaries
   recommendation repeat the declared intervention, open inputs and follow-up,
   so the answer can state them; a recommendation's next step names the
   declared intervention. `not_relevant_basis` is one of two
-  fixed values.
+  fixed values. With `no_real_world_outcome`, the caveat the answer must state
+  repeats the declared `not_relevant_reason` ("I did not search firsthand
+  reports or community discussions for this answer: …"), and a reason showing
+  internal labels gets a next step naming them; like the other declarations,
+  the reason is request-local: not stored or logged, not in the finalization
+  receipt or the carried state, and never saved with a findings card.
 - The MCP `scout_gemini_youtube_candidates` tool runs the same de-identified,
   population-level scout as the controlled Action route, applying the same
   screen: a target with first-person words, contact details, links, keys or

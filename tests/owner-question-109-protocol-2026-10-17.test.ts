@@ -6,7 +6,10 @@ import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
 import { coreSectionNames, getProtocolManifest, loadProtocolSectionSnapshot, protocolNamedElements, protocolSections } from "@askrigor/protocol";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
-import { undoOwnerQuestion109Hrp, undoOwnerQuestion109Universal, undoOwnerQuestions103And104Hrp, undoMobileNoticeUniversal, undoReadDepth } from "./helpers/undo-read-depth.js";
+import {
+  undoBookReviewsUniversal, undoOwnerQuestion109Hrp, undoOwnerQuestion109Universal, undoOwnerQuestion125Hrp,
+  undoOwnerQuestions103And104Hrp, undoMobileNoticeUniversal, undoReadDepth,
+} from "./helpers/undo-read-depth.js";
 
 // Independent of the recorded edit fixtures: owner question 109's approved wording, word for word.
 const APPROVED = {
@@ -166,11 +169,19 @@ const parser = new XMLParser({ parseTagValue: false });
 const hash = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
 const normalize = (text: string) => text.replace(/\s+/gu, " ").trim();
 const plain = (body: string) => normalize(parser.parse(`<text>${body}</text>`).text as string);
-const load = (protocol: "hrp" | "universal") => readFile(new URL(
+const loadCurrent = (protocol: "hrp" | "universal") => readFile(new URL(
   `protocols/${protocol === "hrp" ? "HRP_Full.xml" : "Universal_Instructions.xml"}`, ROOT,
 ), "utf8");
-const undo109 = (protocol: "hrp" | "universal", text: string) =>
-  (protocol === "hrp" ? undoOwnerQuestion109Hrp : undoOwnerQuestion109Universal)(text);
+// HRP 20.6.27 and Universal 20.5.44, this layer's result, rebuilt from the current files.
+const load = async (protocol: "hrp" | "universal") =>
+  (protocol === "hrp" ? undoOwnerQuestion125Hrp : undoBookReviewsUniversal)(await loadCurrent(protocol));
+// The state before this layer, from the current files.
+const undo109 = async (protocol: "hrp" | "universal") =>
+  (protocol === "hrp" ? undoOwnerQuestion109Hrp : undoOwnerQuestion109Universal)(await loadCurrent(protocol));
+const CURRENT = {
+  hrp: { version: "20.6.28", revisionDate: "2026-10-20", sha256: "a38e3e76b0983f9d4545325a90c6e14b76d087750600ce99623b3ec4aa22cef4" },
+  universal: { version: "20.5.45", revisionDate: "2026-10-20", sha256: "564c8697fdd4aa69f08b0ecba228ca47cc7dc3e022e6ef55d84ea14f86fb416e" },
+} as const;
 interface Edits {
   from: { version: string; sha256: string }; to: { version: string; sha256: string };
   edits: Array<[string, string]>;
@@ -296,16 +307,17 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17), with 113, 
     expect(expectedEdits(protocol, prior).reduce((text, [before, after]) => replaceOnce(text, before, after), prior)).toBe(current);
     expect(expectedEdits(protocol, prior).reduce((text, [before, after]) =>
       replaceOnce(text, normalize(before), normalize(after)), normalize(prior))).toBe(normalize(current));
-    await expect(undo109(protocol, current)).resolves.toBe(prior);
+    await expect(undo109(protocol)).resolves.toBe(prior);
     const beforePrevious = [...previous.edits].reverse().reduce((text, [before, after]) => replaceOnce(text, after, before), prior);
     expect(hash(beforePrevious)).toBe(previous.from.sha256);
-    await expect((protocol === "hrp" ? undoOwnerQuestions103And104Hrp : undoMobileNoticeUniversal)(current)).resolves.toBe(beforePrevious);
+    await expect((protocol === "hrp" ? undoOwnerQuestions103And104Hrp : undoMobileNoticeUniversal)(await loadCurrent(protocol))).resolves.toBe(beforePrevious);
     const readDepth = JSON.parse(await readFile(new URL("tests/fixtures/protocol-edits/2026-10-11-read-depth.json", ROOT), "utf8"))[protocol] as Edits;
-    expect(hash(await undoReadDepth(current, protocol))).toBe(readDepth.from.sha256);
+    expect(hash(await undoReadDepth(await loadCurrent(protocol), protocol))).toBe(readDepth.from.sha256);
     await expect(getProtocolManifest(protocol)).resolves.toEqual({
       name: protocol === "hrp" ? "HRP" : "AskRigor.com universal saved instructions",
-      version: PINS[protocol].to.version, revisionDate: protocol === "hrp" ? "2026-10-18" : "2026-10-17", sha256: hash(current),
+      version: CURRENT[protocol].version, revisionDate: CURRENT[protocol].revisionDate, sha256: CURRENT[protocol].sha256,
     });
+    expect(hash(await loadCurrent(protocol))).toBe(CURRENT[protocol].sha256);
   });
 
   it("keeps question 113's approved acquisition and outage texts word for word in place", async () => {
@@ -374,7 +386,7 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17), with 113, 
 
   it("inserts only the exact Universal sentence on question 78's existing line, between its approved neighbours", async () => {
     const text = await load("universal");
-    const prior = await undo109("universal", text);
+    const prior = await undo109("universal");
     const anchor = `${APPROVED.sendSentence} When the user clarifies,`;
     const after = `${APPROVED.sendSentence} ${APPROVED.universalSentence} When the user clarifies,`;
     expect(section(text, "corrections_and_calibration")).toBe(replaceOnce(section(prior, "corrections_and_calibration"), anchor, after));
@@ -385,7 +397,7 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17), with 113, 
 
   it.each(Q123_MOVES)("moves %s from %s into the core section %s, word for word and only once", async (name, from, to) => {
     const text = await load("hrp");
-    const prior = await undo109("hrp", text);
+    const prior = await undo109("hrp");
     expect(protocolNamedElements(prior, name)).toMatchObject([{ tag: "Rule", section: from }]);
     expect(protocolNamedElements(text, name)).toMatchObject([{ tag: "Rule", section: to }]);
     expect(coreSectionNames("hrp")).toContain(to);
@@ -397,7 +409,7 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17), with 113, 
 
   it("adds question 121's paragraph to output_style, between the mobile notice and the Next step paragraph", async () => {
     const text = await load("universal");
-    const prior = await undo109("universal", text);
+    const prior = await undo109("universal");
     expect(section(text, "output_style")).toBe(replaceOnce(section(prior, "output_style"), Q121_BEFORE, Q121_AFTER));
     expect(text.split("\n").filter((line) => line.includes(Q121.paragraph))).toEqual([Q121.paragraph]);
     expect(coreSectionNames("universal")).toContain("output_style");
@@ -405,7 +417,7 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17), with 113, 
 
   it.each(["hrp", "universal"] as const)("places the exact Critical %s revision first", async (protocol) => {
     const text = await load(protocol);
-    const prior = await undo109(protocol, text);
+    const prior = await undo109(protocol);
     const [tag, history, approved, xml] = protocol === "hrp"
       ? ["Revision", "RevisionHistory", HRP_REVISION_TEXT, HRP_REVISION]
       : ["revision", "revision_history", UNIVERSAL_REVISION_TEXT, UNIVERSAL_REVISION];
@@ -416,7 +428,7 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17), with 113, 
 
   it.each(["hrp", "universal"] as const)("wraps new %s lines at 118, except its root and approved one-line text", async (protocol) => {
     const text = await load(protocol);
-    const prior = await undo109(protocol, text);
+    const prior = await undo109(protocol);
     const remaining = new Map<string, number>();
     for (const line of prior.split("\n")) remaining.set(line, (remaining.get(line) ?? 0) + 1);
     const added = text.split("\n").filter((line) => {
@@ -433,7 +445,7 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17), with 113, 
 
   it("grows only the four affected HRP core sections by the exact new and moved rule bytes", async () => {
     const text = await load("hrp");
-    const prior = await undo109("hrp", text);
+    const prior = await undo109("hrp");
     const sizes = (source: string) => new Map(protocolSections("hrp", source).map(({ name, bytes }) => [name, bytes]));
     const [now, before] = [sizes(text), sizes(prior)];
     let growth = 0;
@@ -461,7 +473,8 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17), with 113, 
     try {
       await server.connect(serverTransport);
       await client.connect(clientTransport);
-      const text = await load("hrp");
+      // The server serves the current file.
+      const text = await loadCurrent("hrp");
       const bytes = Buffer.from(text, "utf8");
       const names = [...RULES.map(([name]) => name), ...Q123_MOVES.map(([name]) => name), ...CASES.map(([name]) => name)];
       for (const name of names) {

@@ -168,7 +168,8 @@ import {
   researchConnectionSchema,
   researchConnectionSummary,
   researchUseSecurityMetadata,
-  submitResearchContributionInputSchema,
+  SUBMIT_RESEARCH_CONTRIBUTION_DESCRIPTION,
+  submitResearchContributionConnectorInputSchema,
   submitResearchContributionOutputSchema,
   submitServerSourceAnalysis,
 } from "./research-contributor-access-tool.js";
@@ -206,6 +207,8 @@ import {
 } from "./actions/open-full-text-route.js";
 import type { ReportedFiguresCheck } from "./actions/study-method-audit.js";
 import {
+  COMMUNITY_SKIP_CAVEAT_START,
+  HARM_NOT_CHECKED_CAVEAT_START,
   LEAD_RECEIPT_SEARCH,
   FINALIZE_REMINDER,
   FINALIZE_RESEARCH_CONTRACT,
@@ -1712,8 +1715,11 @@ function defineResearchOperations(
   registrar.registerTool(
     "submit_research_contribution",
     {
-      description: "Files one already-validated, deidentified formal research frontier in the pending review inbox. Study and review audits validated in free contributor research are filed by the server when finalize_research passes, so they are not submitted here. It accepts no raw chat, prompts, identity or contact details, private health narratives, uploads, raw source or provider bodies, or YouTube or community data. A proposal is not canonical evidence and does not gain scientific authority by submission. Paid-private mode cannot use this operation.",
-      inputSchema: submitResearchContributionInputSchema,
+      // Owner question 127: ChatGPT's app shows the model no part of payload's type, so the description carries
+      // both record shapes; Claude's surface also publishes the strict schema. Every call reaches the handler, which
+      // checks it and names every problem.
+      description: SUBMIT_RESEARCH_CONTRIBUTION_DESCRIPTION,
+      inputSchema: submitResearchContributionConnectorInputSchema(options.mcpSurface !== "/mcp/claude"),
       outputSchema: submitResearchContributionOutputSchema,
       annotations: MUTATING_ANNOTATIONS,
     },
@@ -2044,7 +2050,9 @@ function defineResearchOperations(
         "Final check of a research answer before it is given. Input: the research_receipt values that AskRigor's " +
         "tools returned in this session; the research_target as given to the scout, search_youtube and the coverage " +
         "check, and as research_question to surveys and community audits (discovery for another target does not " +
-        "count); whether community evidence was researched and whether the answer compares treatment options; where " +
+        "count); whether community evidence was researched, or not relevant with its basis and reason " +
+        "(not_relevant_basis, not_relevant_reason; with no_real_world_outcome, the answer states the reason in the " +
+        `caveat "${COMMUNITY_SKIP_CAVEAT_START} [reason]."), and whether the answer compares treatment options; where ` +
         "the topic is discussed and what each community searched outside YouTube showed (principal_communities, " +
         "community_searches); what the YouTube comments read showed (community_findings); the studies the " +
         "conclusions rest on (key_sources), whole-intervention identity (intervention_identity), item-level product " +
@@ -2052,7 +2060,12 @@ function defineResearchOperations(
         "another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare " +
         "video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was " +
         "not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results " +
-        "(scale_results: quoted explanations with the scale name, range, values and benchmark), visible links to " +
+        "(scale_results: quoted explanations with the scale name, range, values and benchmark), with safety " +
+        "statements (safety_claims) or a safety question (safety_question) the serious harms plausible for the " +
+        "exposure, apart from its common side effects, each screened by name (harm_screen: label_warning or " +
+        "reported_signal with the answer's sentence reporting it, not_found with the exact query of a PubMed, Europe " +
+        "PMC or ClinicalTrials.gov search passed here, or not_checked, which the answer states in the caveat " +
+        `"${HARM_NOT_CHECKED_CAVEAT_START} [harm]."), visible links to ` +
         "each key study, and the caveats, " +
         "and is not stored; once the other checks pass, a second model may read the answer for harm " +
         "statements, specialized terms and scale results the declarations leave out (reader_dismissed answers them); " +
@@ -2660,7 +2673,7 @@ function registerOpenFullTextMcpTools(
   registrar.registerTool(
     "validate_study_method_audit",
     {
-      description: "Validates a full-text, source-linked individual-study audit on the exact exhausted document_handle. Accepts a newly performed audit or the repository_analysis_version_id advertised by the same acquisition. Repository reuse repeats exact source/protocol/rubric/freshness/impact checks and runs the same validator; fresh_study_audit_required records the need for a newly performed audit. Validated coverage binds the acquisition handle and content hash. Audits of client_supplied copies sign search-index provenance for the required finalization caveat.",
+      description: "Validates a full-text, source-linked individual-study audit on the exact exhausted document_handle. Accepts a newly performed audit or the repository_analysis_version_id advertised by the same acquisition. Repository reuse repeats exact source/protocol/rubric/freshness/impact checks and runs the same validator; fresh_study_audit_required records the need for a newly performed audit. Validated coverage binds the acquisition handle and content hash. Audits of client_supplied copies sign search-index provenance for the required finalization caveat. Validation checks that the findings cite the document's own blocks and that every domain is covered, not that each interpretation is right.",
       inputSchema: studyMethodAuditActionInputSchema,
       outputSchema: studyMethodAuditRouteOutputSchema.safeExtend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
@@ -2672,7 +2685,7 @@ function registerOpenFullTextMcpTools(
   registrar.registerTool(
     "validate_review_method_audit",
     {
-      description: "Validates a full-text, source-linked review or guideline audit on the exact exhausted acquisition document_handle, including search coverage, study ancestry, heterogeneity, bias, conflicts, and claim scope. Coverage binds the acquisition handle and source_content_sha256; mismatches block synthesis. Audits of client_supplied copies sign search-index provenance for the required finalization caveat.",
+      description: "Validates a full-text, source-linked review or guideline audit on the exact exhausted acquisition document_handle, including search coverage, study ancestry, heterogeneity, bias, conflicts, and claim scope. Coverage binds the acquisition handle and source_content_sha256; mismatches block synthesis. Audits of client_supplied copies sign search-index provenance for the required finalization caveat. Validation checks that the findings cite the document's own blocks and that every domain is covered, not that each interpretation is right.",
       inputSchema: reviewMethodAuditActionInputSchema,
       outputSchema: reviewMethodAuditActionOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS

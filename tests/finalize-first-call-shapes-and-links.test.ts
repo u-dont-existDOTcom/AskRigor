@@ -5,6 +5,7 @@ import {
   TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
+import { withCommunitySkip } from "./helpers/community-skip.js";
 import { assertNextStepsContract, inventory } from "./helpers/finalize-next-steps-contract.js";
 
 // The owner regression run of 2026-10-16: 19 of 20 first finalize_research calls were rejected by ChatGPT's connector
@@ -129,8 +130,9 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
   answer_draft: `[Trial](https://doi.org/${DOI}) was read.`, ...overrides
 });
+// The answer carries the sentence its no_real_world_outcome declaration requires (owner question 125).
 const check = (overrides: Partial<FinalizeResearchInput> = {}) =>
-  assertNextStepsContract(finalizeResearch(base(overrides), { secret: SECRET }));
+  assertNextStepsContract(finalizeResearch(withCommunitySkip(base(overrides)), { secret: SECRET }));
 const linkSteps = (link: string, receipts: string[], key_sources = base().key_sources) =>
   check({ receipts, key_sources, answer_draft: `[Trial](${link}) was read.` }).next_steps
     .filter((step) => step !== TOOL_LIST_REFRESH_HINT && /^Key (?:study|source) /u.test(step));
@@ -141,7 +143,7 @@ const untied = (link: string, pages: string) =>
 
 describe("key-study links AskRigor's receipts tie (#336, 2026-10-16)", () => {
   it("accepts the doi.org page as before", () => {
-    expect(check().status).toBe("ready");
+    expect(check().status).toBe("ready_with_limits");
   });
 
   it.each([

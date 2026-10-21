@@ -27,12 +27,12 @@ const REQUESTED = {
   paragraph: "When the context or the person shows that the response will be read in a mobile app or a phone's browser, start each substantive response with this notice, as its own sentence and in the response's language: “Mobile responses may be shorter and less intelligent than desktop web/app, even with the same model and thinking level selected.” When nothing shows a phone, leave it out.",
   revision: "Owner request (2026-10-15): when the context or the person shows a phone, each substantive response starts with the owner's notice that mobile responses may be shorter and less intelligent than desktop web/app, even with the same model and thinking level selected.",
 } as const;
-const CURRENT_UNIVERSAL = {"version": "20.5.44", "sha256": "946fac7e5e6ce5cb08811d4c533371e3032e1ce46f5c217990dc326808b55135"};
+const CURRENT_UNIVERSAL = {"version": "20.5.45", "sha256": "564c8697fdd4aa69f08b0ecba228ca47cc7dc3e022e6ef55d84ea14f86fb416e"};
 const PINS = {
   from: { version: "20.5.42", sha256: "0401335ed4b1f0ec44d4d7351ecb369828dd1c7f362b5c4e0234df22c7f10173" },
   to: { version: "20.5.43", sha256: "7f03ddbd280a9906860f5a34b022b95931f61da87377b3c6e33afcdbaf9a1bdd" },
   universal20541: "115b22a595b4cdcd663bb60986bd3dba0fb0d3f65f64bcc7bbb6d5a4bfd8a708",
-  hrp: { version: "20.6.27", sha256: "e6db59c14c78f3d53b04b8d36ce514eecfcaaec1cf7f9d176d7b8ad665b2e2fe" },
+  hrp: { version: "20.6.28", sha256: "a38e3e76b0983f9d4545325a90c6e14b76d087750600ce99623b3ec4aa22cef4" },
 } as const;
 const WIDTH = 118;
 const NEXT_STEP = "For every substantive response, finish with an explicit “Next step:”";
@@ -90,14 +90,14 @@ describe("owner request: the mobile notice (2026-10-15)", () => {
     expect(hash(beforePrevious)).toBe(PINS.universal20541);
     await expect(undoOwnerQuestions86To89Universal(await loadCurrent())).resolves.toBe(beforePrevious);
     await expect(getProtocolManifest("universal")).resolves.toEqual({
-      name: "AskRigor.com universal saved instructions", version: CURRENT_UNIVERSAL.version, revisionDate: "2026-10-17",
+      name: "AskRigor.com universal saved instructions", version: CURRENT_UNIVERSAL.version, revisionDate: "2026-10-20",
       sha256: hash(await loadCurrent()),
     });
     // HRP does not change.
     const hrp = await loadCurrent("HRP_Full.xml");
     expect(hash(hrp)).toBe(PINS.hrp.sha256);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: PINS.hrp.version, revisionDate: "2026-10-18", sha256: PINS.hrp.sha256,
+      name: "HRP", version: PINS.hrp.version, revisionDate: "2026-10-20", sha256: PINS.hrp.sha256,
     });
   });
 
@@ -150,7 +150,7 @@ describe("owner request: the mobile notice (2026-10-15)", () => {
     const { manifest, sections, text } = await loadProtocolSectionSnapshot("universal");
     expect(text).toBe(bytes.toString("utf8"));
     expect(manifest).toEqual({
-      name: "AskRigor.com universal saved instructions", version: CURRENT_UNIVERSAL.version, revisionDate: "2026-10-17",
+      name: "AskRigor.com universal saved instructions", version: CURRENT_UNIVERSAL.version, revisionDate: "2026-10-20",
       sha256: CURRENT_UNIVERSAL.sha256,
     });
     expect(coreSectionNames("universal")).toContain("output_style");

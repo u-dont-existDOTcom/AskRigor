@@ -2589,7 +2589,7 @@
     },
     {
       "name": "validate_study_method_audit",
-      "description": "Validates a full-text, source-linked individual-study audit on the exact exhausted document_handle. Accepts a newly performed audit or the repository_analysis_version_id advertised by the same acquisition. Repository reuse repeats exact source/protocol/rubric/freshness/impact checks and runs the same validator; fresh_study_audit_required records the need for a newly performed audit. Validated coverage binds the acquisition handle and content hash. Audits of client_supplied copies sign search-index provenance for the required finalization caveat.",
+      "description": "Validates a full-text, source-linked individual-study audit on the exact exhausted document_handle. Accepts a newly performed audit or the repository_analysis_version_id advertised by the same acquisition. Repository reuse repeats exact source/protocol/rubric/freshness/impact checks and runs the same validator; fresh_study_audit_required records the need for a newly performed audit. Validated coverage binds the acquisition handle and content hash. Audits of client_supplied copies sign search-index provenance for the required finalization caveat. Validation checks that the findings cite the document's own blocks and that every domain is covered, not that each interpretation is right.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3690,7 +3690,7 @@
     },
     {
       "name": "validate_review_method_audit",
-      "description": "Validates a full-text, source-linked review or guideline audit on the exact exhausted acquisition document_handle, including search coverage, study ancestry, heterogeneity, bias, conflicts, and claim scope. Coverage binds the acquisition handle and source_content_sha256; mismatches block synthesis. Audits of client_supplied copies sign search-index provenance for the required finalization caveat.",
+      "description": "Validates a full-text, source-linked review or guideline audit on the exact exhausted acquisition document_handle, including search coverage, study ancestry, heterogeneity, bias, conflicts, and claim scope. Coverage binds the acquisition handle and source_content_sha256; mismatches block synthesis. Audits of client_supplied copies sign search-index provenance for the required finalization caveat. Validation checks that the findings cite the document's own blocks and that every domain is covered, not that each interpretation is right.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -10826,7 +10826,7 @@
     },
     {
       "name": "submit_research_contribution",
-      "description": "Files one already-validated, deidentified formal research frontier in the pending review inbox. Study and review audits validated in free contributor research are filed by the server when finalize_research passes, so they are not submitted here. It accepts no raw chat, prompts, identity or contact details, private health narratives, uploads, raw source or provider bodies, or YouTube or community data. A proposal is not canonical evidence and does not gain scientific authority by submission. Paid-private mode cannot use this operation.",
+      "description": "Files one already-validated, deidentified formal research frontier in the pending review inbox. Study and review audits validated in free contributor research are filed by the server when finalize_research passes, so they are not submitted here. It accepts no raw chat, prompts, identity or contact details, private health narratives, uploads, raw source or provider bodies, or YouTube or community data. A proposal is not canonical evidence and does not gain scientific authority by submission. Paid-private mode cannot use this operation. A rejected record comes back with every problem found, each with its path, what was expected and an example; the values sent are not repeated. Record shapes, as JSON, where <uuid> stands for a UUID, <sha256> for 64 lowercase hexadecimal characters, <date-time> for an ISO 8601 date-time with a time zone, <date> for YYYY-MM-DD, … for deidentified text, a|b for one of the values and |null for a value that may be null. RESEARCH_FRONTIER payload {\"schemaVersion\":1,\"idempotencyKey\":\"research-frontier-example-1\",\"contributionId\":\"<uuid>\",\"persistenceBoundary\":{\"rawSourceContentPersisted\":false,\"rawProviderResponsePersisted\":false,\"personalDataPersisted\":false,\"communityDataPersisted\":false},\"run\":{\"runId\":\"<uuid>\",\"runKind\":\"live_research|historical_import|clarification|correction|synthetic_fixture\",\"startedAt\":\"<date-time>\",\"completedAt\":\"<date-time>\",\"protocolManifests\":[{\"name\":\"HRP\",\"version\":\"…\",\"revisionDate\":\"<date>\",\"sha256\":\"<sha256>\"}],\"provenanceNote\":\"…\"},\"topic\":{\"topicId\":\"<uuid>\",\"canonicalKey\":\"example-topic\",\"label\":\"…\"},\"question\":{\"questionId\":\"<uuid>\",\"normalizedQuestion\":\"…\",\"dimensions\":{\"population\":\"…|null\",\"programOrExposure\":\"…|null\",\"comparator\":\"…|null\",\"outcome\":\"…|null\",\"horizon\":\"…|null\",\"setting\":\"…|null\"}},\"frontier\":{\"frontierId\":\"<uuid>\",\"lanes\":[{\"laneId\":\"<uuid>\",\"canonicalKey\":\"pubmed-formal\",\"sourceClass\":\"study|review|guideline|registry|book|grey_literature|other\",\"provider\":\"pubmed\",\"label\":\"…\"}],\"passes\":[{\"passId\":\"<uuid>\",\"laneId\":\"<uuid>\",\"deidentifiedQuery\":\"…\",\"declaredQuerySha256\":\"<sha256>\",\"executedAt\":\"<date-time>\",\"coverageBasis\":\"publication_date|index_date|provider_unspecified\",\"requestedWindow\":{\"start\":\"<date>\",\"endExclusive\":\"<date>\"},\"confirmedWindow\":{\"start\":\"<date>\",\"endExclusive\":\"<date>\"},\"coverageRelation\":\"initial|full_refresh|contiguous_delta|overlap_delta|gap_delta|unscoped\",\"deltaFromPassId\":\"<uuid>|null\",\"status\":\"complete|partial|blocked_retryable|blocked_terminal\",\"accessStatus\":\"complete|api_visible_complete|partial|abstract_only|metadata_only|inaccessible|rate_limited|not_found|error\",\"exhausted\":true,\"retrievedCandidateCount\":1,\"screenedCandidateCount\":1,\"selectedCandidateCount\":1,\"nextCapability\":\"…|null\",\"blockedReasonCode\":\"…|null\",\"receiptSha256\":\"<sha256>\",\"limitations\":[\"…\"]}],\"candidateVersions\":[{\"candidateId\":\"<uuid>\",\"versionId\":\"<uuid>\",\"observedInPassId\":\"<uuid>\",\"candidateKind\":\"study|review|guideline|registry|book|grey_literature|other\",\"identifiers\":[{\"scheme\":\"doi|pmid|pmcid|arxiv|nct|isbn|url|other\",\"value\":\"10.1000/example\"}],\"displayTitle\":\"…\",\"publicationDate\":\"<date>|null\",\"decision\":\"selected|excluded|deferred|unresolved\",\"decisionReason\":\"…\",\"relevanceSummary\":\"…\",\"sourceFamilyId\":\"<uuid>|null\",\"previousVersionId\":\"<uuid>|null\"}],\"trailVersions\":[{\"trailId\":\"<uuid>\",\"versionId\":\"<uuid>\",\"trailKind\":\"unresolved_question|unattempted_search|blocked_source|formal_followup|discriminator_search|coverage_gap|delta_search\",\"laneId\":\"<uuid>|null\",\"targetWindow\":{\"start\":\"<date>\",\"endExclusive\":\"<date>\"},\"description\":\"…\",\"rationale\":\"…\",\"priority\":\"low|medium|high|decision_critical\",\"state\":\"open|ready|blocked_retryable|blocked_terminal|resolved|cancelled\",\"nextCapability\":\"…|null\",\"blockedReasonCode\":\"…|null\",\"resolutionNote\":\"…|null\",\"previousVersionId\":\"<uuid>|null\"}]}}; frontier.passes[].requestedWindow, frontier.passes[].confirmedWindow and frontier.trailVersions[].targetWindow may be null, and declaredQuerySha256 is the SHA-256 of the pass's deidentifiedQuery. SOURCE_ANALYSIS payload {\"schemaVersion\":1,\"idempotencyKey\":\"source-analysis-example-1\",\"run\":{\"runId\":\"<uuid>\",\"runKind\":\"live_research|historical_import|clarification|correction|synthetic_fixture\",\"startedAt\":\"<date-time>\",\"completedAt\":\"<date-time>\",\"protocolManifests\":[{\"name\":\"HRP\",\"version\":\"…\",\"revisionDate\":\"<date>\",\"sha256\":\"<sha256>\"}],\"provenanceNote\":\"…\"},\"topic\":{\"topicId\":\"<uuid>\",\"canonicalKey\":\"example-topic\",\"label\":\"…\"},\"source\":{\"familyId\":\"<uuid>\",\"versionId\":\"<uuid>\",\"sourceKind\":\"study|review\",\"identityHash\":\"<sha256>\",\"displayTitle\":\"…\",\"identifiers\":[{\"scheme\":\"doi|pmid|pmcid|arxiv|nct|url|other\",\"value\":\"10.1000/example\"}],\"sourceContentSha256\":\"<sha256>|null\",\"accessStatus\":\"complete|partial|abstract_only|metadata_only|inaccessible|not_found\",\"retrievedAt\":\"<date-time>|null\",\"sourceLocator\":\"…|null\",\"rawContentPersisted\":false},\"analysis\":{\"analysisId\":\"<uuid>\",\"versionId\":\"<uuid>\",\"analysisKind\":\"study_method_audit|review_method_audit\",\"relationship\":\"initial|clarifies|corrects|supersedes|invalidates\",\"previousVersionId\":\"<uuid>|null\",\"captureStatus\":\"complete_performed_analysis|partial_historical_capture|clarification|correction|invalidation\",\"authoredAt\":\"<date-time>\",\"coverageStatement\":\"…\",\"declaredWholeTextSha256\":\"<sha256>|null\",\"sections\":[{\"ordinal\":0,\"sectionKey\":\"000-method-audit\",\"title\":\"…\",\"content\":\"…\"}],\"domains\":[{\"ordinal\":0,\"rubric\":\"study_method_v1|review_method_v1|general_analysis_v1\",\"domain\":\"randomization\",\"status\":\"adequate|limitation_identified|unclear|not_applicable\",\"finding\":\"…\",\"evidenceLocators\":[\"…\"],\"unresolvedFields\":[\"…\"],\"limitations\":[\"…\"]}],\"claimCapabilities\":[{\"ordinal\":0,\"claim\":\"…\",\"capability\":\"can_support|cannot_support|unclear\",\"reason\":\"…\",\"evidenceLocators\":[\"…\"]}],\"futureAnalysisItems\":[{\"itemId\":\"<uuid>\",\"question\":\"…\",\"rationale\":\"…\",\"priority\":\"low|medium|high|decision_critical\",\"status\":\"open|resolved|cancelled\",\"evidenceNeeded\":[\"…\"],\"resolvedByVersionId\":\"<uuid>|null\"}]},\"receipts\":[{\"receiptId\":\"<uuid>\",\"receiptKind\":\"…\",\"receiptSha256\":\"<sha256>\",\"locator\":\"…|null\",\"details\":{\"<name>\":\"…\"}}]}; topic may be null; knowledge is optional (structured claims, evidence bindings, edges, an assessment and freshness records); receipts[].details holds names of your choice, each with text, a number, true, false or null; and declaredWholeTextSha256 is null or the SHA-256 of the sections' content joined in order.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -10835,7 +10835,8 @@
             "enum": [
               "RESEARCH_FRONTIER",
               "SOURCE_ANALYSIS"
-            ]
+            ],
+            "description": "Which record payload holds."
           },
           "privacyBoundary": {
             "type": "object",
@@ -10883,14 +10884,10 @@
               "rawProviderResponsePersisted",
               "communityDataPersisted"
             ],
-            "additionalProperties": false
+            "description": "Eight markers, each exactly false."
           },
           "payload": {
-            "type": "object",
-            "propertyNames": {
-              "type": "string"
-            },
-            "additionalProperties": {}
+            "description": "The record proposalKind names, shaped as this tool's description shows."
           }
         },
         "required": [
@@ -10898,8 +10895,7 @@
           "privacyBoundary",
           "payload"
         ],
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "additionalProperties": false
+        "$schema": "http://json-schema.org/draft-07/schema#"
       },
       "outputSchema": {
         "type": "object",
@@ -10983,6 +10979,67 @@
               "message"
             ],
             "additionalProperties": false
+          },
+          "problems": {
+            "minItems": 1,
+            "maxItems": 25,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "rule": {
+                  "type": "string",
+                  "enum": [
+                    "missing",
+                    "wrong_type",
+                    "unknown_keys",
+                    "not_allowed",
+                    "too_long",
+                    "too_short",
+                    "too_many",
+                    "too_few",
+                    "too_large",
+                    "too_small",
+                    "format",
+                    "cross_field",
+                    "hash_mismatch",
+                    "kind_mismatch",
+                    "prohibited_key",
+                    "contact_pattern",
+                    "sandbox_locator",
+                    "community_source",
+                    "source_bound"
+                  ]
+                },
+                "expected": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 600
+                },
+                "example": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 900
+                }
+              },
+              "required": [
+                "path",
+                "rule",
+                "expected",
+                "example"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "problemsNotShown": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -13731,7 +13788,7 @@
     },
     {
       "name": "finalize_research",
-      "description": "Final check of a research answer before it is given. Input: the research_receipt values that AskRigor's tools returned in this session; the research_target as given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits (discovery for another target does not count); whether community evidence was researched and whether the answer compares treatment options; where the topic is discussed and what each community searched outside YouTube showed (principal_communities, community_searches); what the YouTube comments read showed (community_findings); the studies the conclusions rest on (key_sources), whole-intervention identity (intervention_identity), item-level product identity (product_corpora and item_identity), and destination-bound offers or search routes (shopping); after a first pass, the focuses for going deeper (open_leads, another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results (scale_results: quoted explanations with the scale name, range, values and benchmark), visible links to each key study, and the caveats, and is not stored; once the other checks pass, a second model may read the answer for harm statements, specialized terms and scale results the declarations leave out (reader_dismissed answers them); in a later turn, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened. Result: second_reading, whether it ran; carry_forward, the conversation's state to pass back next turn; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh hint when a required declaration is missing; ready_with_limits with the limits, the caveat sentences for the answer (each as its own sentence and as written, in the answer's language when answer_language and caveat_renderings are given) and must_report, what the answer reports from each lane researched; when ready, check_line, the line the answer ends with; or receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the owner's review; in paid private mode the caveats offer its save. Nested inputs, as JSON: intervention_identity.interventions [{\"study_ids\":[\"10.1000/example\"],\"label\":\"…\",\"status\":\"resolved\",\"identity\":{\"registry_code\":\"…\",\"sponsor_or_maker\":\"…\",\"current_product\":\"…\"}}] (an unresolved item has no identity); findings_card.findings [{\"claim\":\"…\",\"certainty\":\"moderate\",\"applies_to\":\"…\",\"answer_quote\":\"…\",\"sources\":[\"10.1000/example\"],\"why_not_usual\":\"…\",\"what_would_change_it\":\"…\"}]; community_searches[].queries [\"…\"]; community_searches[].threads_read [{\"url\":\"https://example.org/t/1\",\"title\":\"…\"}]; community_searches[].report_identity [{\"exposure\":\"…\",\"reports_read\":5,\"firsthand_exact\":2,\"exposure_unclear\":1,\"other_exposure\":1,\"not_firsthand\":1,\"measured_after\":0}] (or one such object); community_searches[].review_corpora [{\"product\":\"…\",\"reviews_read\":20,\"selection\":\"most_recent\",\"outcome_search\":{\"queries\":[\"…\"],\"directions\":[\"benefit\",\"no_effect\",\"adverse\"]},\"item_identity\":{\"exact_product\":18,\"variant_unresolved\":2,\"other_variant_excluded\":0}}]; community_searches[].answer_quotes {\"benefit_reports\":\"…\",\"no_effect_reports\":\"…\",\"adverse_reports\":\"…\",\"effect_on_answer\":\"…\"}; community_findings.product_corpora [{\"product\":\"…\",\"video_ids\":[\"abcdefghijk\"],\"exact_product_signal\":\"…\"}]; comparison_claims[].arms [{\"exposure\":\"…\",\"dose\":6,\"unit\":\"mg\"},{\"exposure\":\"…\",\"dose\":null,\"unit\":null}]; shopping.offers [{\"product\":\"…\",\"url\":\"https://example.org/p/1\",\"offer_state\":\"live_destination_orderable\",\"role\":\"buy_option\"}]; scale_results[].range {\"min\":0,\"max\":10}; scale_results[].values [4.5,2]; scale_results[].benchmark {\"value\":1,\"kind\":\"minimal_important_difference\"} or \"none_established\"; mechanism_claims[].tissue {\"measured\":\"…\",\"claimed\":\"…\"}; absence_claims[].studies, safety_claims[].studies, mechanism_claims[].studies [\"10.1000/example\"]. key_sources[].answer_marker is the visible label, 3 to 80 characters, not a link; another_pass_estimate has at most 200 characters; answer_language is a language tag such as en or pt-BR.",
+      "description": "Final check of a research answer before it is given. Input: the research_receipt values that AskRigor's tools returned in this session; the research_target as given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits (discovery for another target does not count); whether community evidence was researched, or not relevant with its basis and reason (not_relevant_basis, not_relevant_reason; with no_real_world_outcome, the answer states the reason in the caveat \"I did not search firsthand reports or community discussions for this answer: [reason].\"), and whether the answer compares treatment options; where the topic is discussed and what each community searched outside YouTube showed (principal_communities, community_searches); what the YouTube comments read showed (community_findings); the studies the conclusions rest on (key_sources), whole-intervention identity (intervention_identity), item-level product identity (product_corpora and item_identity), and destination-bound offers or search routes (shopping); after a first pass, the focuses for going deeper (open_leads, another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results (scale_results: quoted explanations with the scale name, range, values and benchmark), with safety statements (safety_claims) or a safety question (safety_question) the serious harms plausible for the exposure, apart from its common side effects, each screened by name (harm_screen: label_warning or reported_signal with the answer's sentence reporting it, not_found with the exact query of a PubMed, Europe PMC or ClinicalTrials.gov search passed here, or not_checked, which the answer states in the caveat \"This answer did not check [harm].\"), visible links to each key study, and the caveats, and is not stored; once the other checks pass, a second model may read the answer for harm statements, specialized terms and scale results the declarations leave out (reader_dismissed answers them); in a later turn, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened. Result: second_reading, whether it ran; carry_forward, the conversation's state to pass back next turn; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh hint when a required declaration is missing; ready_with_limits with the limits, the caveat sentences for the answer (each as its own sentence and as written, in the answer's language when answer_language and caveat_renderings are given) and must_report, what the answer reports from each lane researched; when ready, check_line, the line the answer ends with; or receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the owner's review; in paid private mode the caveats offer its save. Nested inputs, as JSON: intervention_identity.interventions [{\"study_ids\":[\"10.1000/example\"],\"label\":\"…\",\"status\":\"resolved\",\"identity\":{\"registry_code\":\"…\",\"sponsor_or_maker\":\"…\",\"current_product\":\"…\"}}] (an unresolved item has no identity); findings_card.findings [{\"claim\":\"…\",\"certainty\":\"moderate\",\"applies_to\":\"…\",\"answer_quote\":\"…\",\"sources\":[\"10.1000/example\"],\"why_not_usual\":\"…\",\"what_would_change_it\":\"…\"}]; community_searches[].queries [\"…\"]; community_searches[].threads_read [{\"url\":\"https://example.org/t/1\",\"title\":\"…\"}]; community_searches[].report_identity [{\"exposure\":\"…\",\"reports_read\":5,\"firsthand_exact\":2,\"exposure_unclear\":1,\"other_exposure\":1,\"not_firsthand\":1,\"measured_after\":0}] (or one such object); community_searches[].review_corpora [{\"product\":\"…\",\"reviews_read\":20,\"selection\":\"most_recent\",\"outcome_search\":{\"queries\":[\"…\"],\"directions\":[\"benefit\",\"no_effect\",\"adverse\"]},\"item_identity\":{\"exact_product\":18,\"variant_unresolved\":2,\"other_variant_excluded\":0}}]; community_searches[].answer_quotes {\"benefit_reports\":\"…\",\"no_effect_reports\":\"…\",\"adverse_reports\":\"…\",\"effect_on_answer\":\"…\"}; community_findings.product_corpora [{\"product\":\"…\",\"video_ids\":[\"abcdefghijk\"],\"exact_product_signal\":\"…\"}]; comparison_claims[].arms [{\"exposure\":\"…\",\"dose\":6,\"unit\":\"mg\"},{\"exposure\":\"…\",\"dose\":null,\"unit\":null}]; shopping.offers [{\"product\":\"…\",\"url\":\"https://example.org/p/1\",\"offer_state\":\"live_destination_orderable\",\"role\":\"buy_option\"}]; scale_results[].range {\"min\":0,\"max\":10}; scale_results[].values [4.5,2]; scale_results[].benchmark {\"value\":1,\"kind\":\"minimal_important_difference\"} or \"none_established\"; mechanism_claims[].tissue {\"measured\":\"…\",\"claimed\":\"…\"}; harm_screen[].sources_searched [\"label\",\"case_reports\"]; absence_claims[].studies, safety_claims[].studies, mechanism_claims[].studies [\"10.1000/example\"]. key_sources[].answer_marker is the visible label, 3 to 80 characters, not a link; another_pass_estimate has at most 200 characters; answer_language is a language tag such as en or pt-BR.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -13841,6 +13898,7 @@
             ]
           },
           "not_relevant_reason": {
+            "description": "Needed with not_relevant: why firsthand reports cannot matter, in plain words. With no_real_world_outcome the answer states it in the caveat \"I did not search firsthand reports or community discussions for this answer: [reason].\"",
             "type": "string"
           },
           "material_video_ids": {
@@ -13876,7 +13934,7 @@
             ]
           },
           "open_leads": {
-            "description": "After a first pass: two or three focuses for each way to go deeper, studies and (when community evidence was researched) community, each with why it looks promising. When discovery has not saturated, the community focuses include the topics where more community signal is likely. Focuses deepen what the answer covers: a first pass still covers every plausible option class and the red flags briefly, never leaving them for later.",
+            "description": "After a first pass: two or three focuses for each way to go deeper, studies and (when community evidence was researched) community, each with what it could change in this answer (the conclusion, a ranking, the confidence, or only detail) and why it looks promising. When discovery has not saturated, the community focuses include the topics where more community signal is likely. Focuses deepen what the answer covers: a first pass still covers every plausible option class and the red flags briefly, never leaving them for later.",
             "type": "array",
             "items": {
               "type": "object",
@@ -13894,7 +13952,8 @@
                   "type": "string"
                 },
                 "why": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "What this focus could change in this answer (the conclusion, a ranking, the confidence, or only detail) and why it looks promising."
                 }
               },
               "required": [
@@ -14165,7 +14224,7 @@
                 "status"
               ]
             },
-            "description": "Lists each study the conclusions depend on: validated after a full-text method audit, or lead_only when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text. With answer_draft, each study has a visible link with its DOI, PMID or PMCID, or to a page AskRigor's receipts tie to it: a copy read here, or the page resolve_doi found the DOI registered to."
+            "description": "Lists each study the conclusions depend on: validated after a full-text method audit, or lead_only when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text. The audit's validation checks that its findings cite the document's own blocks and that every domain is covered, not that each interpretation is right. With answer_draft, each study has a visible link with its DOI, PMID or PMCID, or to a page AskRigor's receipts tie to it: a copy read here, or the page resolve_doi found the DOI registered to."
           },
           "intervention_identity": {
             "description": "Records whether key studies tested coded, branded, combination or multi-ingredient interventions, including co-administered drugs (such as L-DOPA given with carbidopa), and their traced whole-intervention identity. Needed when key_sources is nonempty.",
@@ -14369,6 +14428,48 @@
                 "direction",
                 "exposure",
                 "basis"
+              ]
+            }
+          },
+          "safety_question": {
+            "description": "true when the user asks whether something is safe, how risky it is or what harm it can do, or the answer compares options' safety. With answer_draft, harm_screen is then required, as it is whenever safety_claims lists a sentence.",
+            "type": "boolean"
+          },
+          "harm_screen": {
+            "description": "With answer_draft, when safety_claims lists a sentence or safety_question is true: the serious harms plausible for this exposure, apart from its common side effects, each searched by name, with what the search found (at least one entry, at most 20). Each state's own field is checked: answer_quote is shown in the answer, search_query is the query of a literature search passed here, and a harm not_checked adds the caveat \"This answer did not check [harm].\" Whether the list is complete stays the model's declaration.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "harm": {
+                  "type": "string",
+                  "description": "One serious harm plausible for this exposure, in at most 150 characters, named as the answer would name it, so that \"This answer did not check [harm].\" reads as a sentence: for example, severe allergic reactions after injections that were tolerated before."
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "label_warning",
+                    "reported_signal",
+                    "not_found",
+                    "not_checked"
+                  ],
+                  "description": "label_warning: an official label or a regulator's safety warning names it; reported_signal: post-marketing reports, trials' serious adverse events, case reports or community reports describe it, with no such warning; not_found: searched by name and not found; not_checked: not searched by name."
+                },
+                "sources_searched": {
+                  "description": "The kinds of source searched for it: label, regulator_warning (a regulator's safety warnings), post_marketing (pharmacovigilance and post-marketing reports), trial_serious_events (trials' serious adverse events and withdrawals), case_reports and community (firsthand reports); needed for every state except not_checked."
+                },
+                "answer_quote": {
+                  "description": "With label_warning or reported_signal: the answer's sentence reporting it, copied from answer_draft.",
+                  "type": "string"
+                },
+                "search_query": {
+                  "description": "With not_found: the exact query it was searched with in search_pubmed, search_europe_pmc or search_clinical_trials, whose research_receipt is passed in receipts.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "harm",
+                "state"
               ]
             }
           },

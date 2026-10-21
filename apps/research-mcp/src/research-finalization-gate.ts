@@ -10,6 +10,12 @@ import {
   CARRIED_STATE_TOO_LARGE, carriedStateSchema, issueCarriedState, userObservationSchema, verifyCarriedState, type CarriedState
 } from "./carried-state.js";
 import { analysesSavedSchema } from "./analysis-staging.js";
+import {
+  permissiveConnectorInputSchema,
+  relaxedConnectorInputSchema,
+  strictConnectorInputSchema,
+  type ConnectorJsonSchema
+} from "./connector-input-schema.js";
 import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
 import type { SecondReaderFinding } from "./second-reader.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
@@ -24,13 +30,15 @@ import {
 import {
   discoveryQueryDigest,
   issueResearchReceipt,
+  RESEARCH_RECEIPT_MAX_AGE_MS,
   RESEARCH_RECEIPT_MAX_CHARACTERS,
   readPages,
   receiptIssueOrder,
   researchTargetDigest,
   roundUnreadPages,
   verifyResearchReceipt,
-  type ResearchReceiptKind
+  type ResearchReceiptKind,
+  type ResearchReceiptRejection
 } from "./research-receipts.js";
 
 /**
@@ -93,11 +101,59 @@ export const TOOL_LIST_REFRESH_HINT = "If this chat's AskRigor tool has no such 
 export const LEAD_RECEIPT_SEARCH = "A lead receipt needs the public-copy search recorded: search for the exact DOI " +
   "and the exact title, then pass those searches as public_copy_search and any public copy found as candidate_urls.";
 
+// Community evidence declared not relevant because the question has no real-world outcome: the answer says so in this
+// sentence, completed by the reason the call declares (owner question 125, from lesson #38, where a question whether
+// two product names meant the same thing was answered from chemistry alone and nothing showed the skip).
+export const COMMUNITY_SKIP_CAVEAT_START = "I did not search firsthand reports or community discussions for this answer:";
+export const COMMUNITY_SKIP_LIMIT = "Firsthand reports and community discussions were not searched, for a question " +
+  "declared to have no real-world outcome: say so in the answer, with the reason, as the caveat does.";
+
+/** The skip's caveat: the server's words and the declared reason, on one line, ending as a sentence. */
+export function communitySkipCaveat(reason: string): string {
+  const stated = reason.replace(/\s+/gu, " ").trim();
+  return `${COMMUNITY_SKIP_CAVEAT_START} ${stated}${/\p{STerm}$/u.test(stated) ? "" : "."}`;
+}
+
+// What a receipt that failed verification needs, by the verifier's reason (UDA lane item
+// 2026-10-12-finalizer-bounded-completion-and-receipt-diagnostics): each gets its own step and way out. A step names
+// the receipt by its place in receipts and never repeats its contents.
+const RECEIPT_REJECTION_STEPS: Readonly<Record<ResearchReceiptRejection, string>> = {
+  signature_invalid: "does not verify, because it was changed in copying or issued by another AskRigor server: copy " +
+    "it again exactly as the tool returned it",
+  malformed: "is not a whole research receipt: copy the whole research_receipt value exactly as the tool returned it",
+  expired: `has expired, since a research receipt is valid for ${RESEARCH_RECEIPT_MAX_AGE_MS / 3_600_000} hours: ` +
+    "repeat the call it came from and pass the research_receipt it returns",
+  unknown_kind: "is a kind of receipt this AskRigor server does not know, perhaps from another version of AskRigor: " +
+    "repeat the call it came from and pass the research_receipt it returns"
+};
+const rejectedReceiptStep = (index: number, reason: ResearchReceiptRejection): string =>
+  `receipts[${index}] ${RECEIPT_REJECTION_STEPS[reason]}. Leaving it out is allowed; work that rests only on it ` +
+  "then needs its call again.";
+
 // What a harm or safety sentence rests on (owner questions 86 and 89; a share of
 // selected reports, lesson #25 by owner question 92).
 export const SAFETY_BASES = [
   "comparative_rates", "observed_rates", "share_of_reports", "case_reports", "hazard_measurement", "not_quantified"
 ] as const;
+
+// The serious-harm screen (owner answer "128b", 2026-10-20, from lesson #44): what the screen found for each serious
+// harm plausible for the exposure, and the kinds of source searched for it.
+export const HARM_SCREEN_STATES = ["label_warning", "reported_signal", "not_found", "not_checked"] as const;
+export const HARM_SCREEN_SOURCES = [
+  "label", "regulator_warning", "post_marketing", "trial_serious_events", "case_reports", "community"
+] as const;
+const HARM_SCREEN_MAX_ENTRIES = 20;
+const HARM_TEXT_MAX_CHARACTERS = 150;
+const HARM_QUERY_MAX_CHARACTERS = 500;
+// A serious harm the screen did not search by name reaches the answer in this sentence, completed by the harm as the
+// call declares it (owner answer "128b": "This answer did not check [harm].").
+export const HARM_NOT_CHECKED_CAVEAT_START = "This answer did not check";
+
+/** The caveat for a harm not checked: the server's words and the declared harm, on one line, ending as a sentence. */
+export function harmNotCheckedCaveat(harm: string): string {
+  const stated = harm.replace(/\s+/gu, " ").trim();
+  return `${HARM_NOT_CHECKED_CAVEAT_START} ${stated}${/\p{STerm}$/u.test(stated) ? "" : "."}`;
+}
 
 // Research results remind the AI, in the turn it researches, that answers using
 // the research are checked at the end, in that turn or a later one (owner
@@ -171,7 +227,9 @@ export const finalizeResearchInputSchema = z.object({
   not_relevant_basis: z.enum(["no_real_world_outcome", "emergency_before_triage"]).optional()
     .describe("Why firsthand reports cannot matter: no real-world outcome (a definition, calculation, or chemical or " +
       "mechanistic question), or an emergency before triage."),
-  not_relevant_reason: z.string().trim().min(1).max(1_000).optional(),
+  not_relevant_reason: z.string().trim().min(1).max(1_000).optional()
+    .describe("Needed with not_relevant: why firsthand reports cannot matter, in plain words. With " +
+      `no_real_world_outcome the answer states it in the caveat "${COMMUNITY_SKIP_CAVEAT_START} [reason]."`),
   material_video_ids: z.array(youtubeVideoIdSchema).max(60).optional()
     .describe("Videos worth auditing: each adds an approach or substantial firsthand experience. Defaults to every audited video."),
   no_material_video_reason: z.string().trim().min(1).max(1_000).optional()
@@ -191,9 +249,12 @@ export const finalizeResearchInputSchema = z.object({
         "yet searched); community: deeper community research (communities, options or subgroups not yet reached)."),
     topic: z.string().trim().min(1).max(200),
     why: z.string().trim().min(1).max(500)
+      .describe("What this focus could change in this answer (the conclusion, a ranking, the confidence, or only " +
+        "detail) and why it looks promising.")
   }).strict()).max(12).optional()
     .describe("After a first pass: two or three focuses for each way to go deeper, studies and (when community evidence " +
-      "was researched) community, each with why it looks promising. When discovery has not saturated, the community " +
+      "was researched) community, each with what it could change in this answer (the conclusion, a ranking, the " +
+      "confidence, or only detail) and why it looks promising. When discovery has not saturated, the community " +
       "focuses include the topics where more community signal is likely. Focuses deepen what the answer covers: a " +
       "first pass still covers every plausible option class and the red flags briefly, never leaving them for later."),
   another_pass_estimate: z.string().trim().min(1).max(200).optional()
@@ -330,6 +391,8 @@ export const finalizeResearchInputSchema = z.object({
   }).strict()).max(60)
     .describe("Lists each study the conclusions depend on: validated after a full-text method audit, or lead_only " +
       "when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text. " +
+      "The audit's validation checks that its findings cite the document's own blocks and that every domain is " +
+      "covered, not that each interpretation is right. " +
       "With answer_draft, each study has a visible link with its DOI, PMID or PMCID, or to a page AskRigor's receipts " +
       "tie to it: a copy read here, or the page resolve_doi found the DOI registered to."),
   intervention_identity: z.object({
@@ -423,6 +486,36 @@ export const finalizeResearchInputSchema = z.object({
     .describe("Records each sentence of the answer that warns that something can cause harm, is unsafe, toxic or " +
       "risky, or should be avoided because of a possible harm, or that calls something safe or harmless, with what " +
       "it is about, its basis and the sources it rests on (an empty list if none)."),
+  safety_question: z.boolean().optional()
+    .describe("true when the user asks whether something is safe, how risky it is or what harm it can do, or the " +
+      "answer compares options' safety. With answer_draft, harm_screen is then required, as it is whenever " +
+      "safety_claims lists a sentence."),
+  harm_screen: z.array(z.object({
+    harm: z.string().trim().min(1).max(HARM_TEXT_MAX_CHARACTERS)
+      .describe(`One serious harm plausible for this exposure, in at most ${HARM_TEXT_MAX_CHARACTERS} characters, ` +
+        `named as the answer would name it, so that "${HARM_NOT_CHECKED_CAVEAT_START} [harm]." reads as a sentence: ` +
+        "for example, severe allergic reactions after injections that were tolerated before."),
+    state: z.enum(HARM_SCREEN_STATES)
+      .describe("label_warning: an official label or a regulator's safety warning names it; reported_signal: " +
+        "post-marketing reports, trials' serious adverse events, case reports or community reports describe it, " +
+        "with no such warning; not_found: searched by name and not found; not_checked: not searched by name."),
+    sources_searched: z.array(z.enum(HARM_SCREEN_SOURCES)).max(HARM_SCREEN_SOURCES.length).optional()
+      .describe("The kinds of source searched for it: label, regulator_warning (a regulator's safety warnings), " +
+        "post_marketing (pharmacovigilance and post-marketing reports), trial_serious_events (trials' serious " +
+        "adverse events and withdrawals), case_reports and community (firsthand reports); needed for every state " +
+        "except not_checked."),
+    answer_quote: answerQuote.optional()
+      .describe("With label_warning or reported_signal: the answer's sentence reporting it, copied from answer_draft."),
+    search_query: z.string().trim().min(1).max(HARM_QUERY_MAX_CHARACTERS).optional()
+      .describe("With not_found: the exact query it was searched with in search_pubmed, search_europe_pmc or " +
+        "search_clinical_trials, whose research_receipt is passed in receipts.")
+  }).strict()).max(HARM_SCREEN_MAX_ENTRIES).optional()
+    .describe("With answer_draft, when safety_claims lists a sentence or safety_question is true: the serious harms " +
+      "plausible for this exposure, apart from its common side effects, each searched by name, with what the " +
+      `search found (at least one entry, at most ${HARM_SCREEN_MAX_ENTRIES}). Each state's own field is checked: ` +
+      "answer_quote is shown in the answer, search_query is the query of a literature search passed here, and a " +
+      `harm not_checked adds the caveat "${HARM_NOT_CHECKED_CAVEAT_START} [harm]." Whether the list is complete ` +
+      "stays the model's declaration."),
   key_terms: z.array(z.object({
     term: z.string().trim().min(1).max(120).describe("The term as the answer writes it."),
     explanation: answerQuote.describe("The sentence that first explains it in plain words, copied from answer_draft.")
@@ -566,6 +659,7 @@ export const FINALIZE_RESEARCH_HIDDEN_SHAPES: ReadonlyArray<{
   { paths: ["scale_results[].values"], examples: [[4.5, 2]] },
   { paths: ["scale_results[].benchmark"], examples: [{ value: 1, kind: "minimal_important_difference" }, "none_established"] },
   { paths: ["mechanism_claims[].tissue"], examples: [{ measured: "…", claimed: "…" }] },
+  { paths: ["harm_screen[].sources_searched"], examples: [["label", "case_reports"]] },
   { paths: ["absence_claims[].studies", "safety_claims[].studies", "mechanism_claims[].studies"],
     examples: [["10.1000/example"]] }
 ];
@@ -581,50 +675,15 @@ export const FINALIZE_RESEARCH_SHAPES_DESCRIPTION = "Nested inputs, as JSON: " +
       (note === undefined ? "" : ` (${note})`)).join("; ") +
   `. ${FINALIZE_RESEARCH_HIDDEN_LIMITS}`;
 
-interface FinalizeJsonSchema {
-  [key: string]: unknown;
-  type?: string | string[];
-  description?: string;
-  properties?: Record<string, FinalizeJsonSchema>;
-  items?: FinalizeJsonSchema;
-  anyOf?: FinalizeJsonSchema[];
-  oneOf?: FinalizeJsonSchema[];
-  required?: string[];
-}
-
 /** The SDK uses draft-7 and input mode for tools/list (zod-json-schema-compat). */
-export function finalizeResearchPublishedInputSchema({ relaxed }: { relaxed: boolean }): FinalizeJsonSchema {
-  const strict = z.toJSONSchema(finalizeResearchInputSchema, { target: "draft-7", io: "input" }) as FinalizeJsonSchema;
-  if (!relaxed) return strict;
-  const removed = new Set(["minItems", "maxItems", "minLength", "maxLength", "pattern", "format", "minimum",
-    "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "uniqueItems", "additionalProperties"]);
-  const walk = (node: FinalizeJsonSchema, depth: number): FinalizeJsonSchema => {
-    const container = node.properties !== undefined || node.items !== undefined || node.type === "object" || node.type === "array";
-    if (node.anyOf !== undefined || node.oneOf !== undefined || (container && depth >= 3)) {
-      return node.description === undefined ? {} : { description: node.description };
-    }
-    const result: FinalizeJsonSchema = {};
-    for (const [key, value] of Object.entries(node)) {
-      if (removed.has(key)) continue;
-      if (key === "properties") result.properties = Object.fromEntries(
-        Object.entries(node.properties!).map(([name, child]) => [name, walk(child, depth + 1)]));
-      else if (key === "items") result.items = walk(node.items!, depth + 1);
-      else result[key] = value;
-    }
-    return result;
-  };
-  return walk(strict, 0);
+export function finalizeResearchPublishedInputSchema({ relaxed }: { relaxed: boolean }): ConnectorJsonSchema {
+  const strict = strictConnectorInputSchema(finalizeResearchInputSchema);
+  return relaxed ? relaxedConnectorInputSchema(strict) : strict;
 }
 
 /** Runtime acceptance is permissive on both surfaces; only the published schema differs. */
 export function finalizeResearchConnectorInputSchema(relaxed: boolean) {
-  const published = finalizeResearchPublishedInputSchema({ relaxed });
-  return z.looseObject(Object.fromEntries(Object.entries(published.properties!).map(([key, fragment]) =>
-    [key, z.unknown().optional().meta(fragment)]))).meta({
-      ...published,
-      // Override looseObject's generated additionalProperties too, including its absence on /mcp.
-      additionalProperties: published.additionalProperties
-    });
+  return permissiveConnectorInputSchema(finalizeResearchPublishedInputSchema({ relaxed }));
 }
 
 /** Optional empty lists mean none. Clone only the affected containers, preserving the raw call. */
@@ -980,7 +1039,7 @@ export function finalizeResearch(
   }
 
   const verified: VerifiedReceipt[] = [];
-  const rejected: FinalizeResearchOutput["receipts_rejected"] = [];
+  const rejected: Array<{ index: number; reason: ResearchReceiptRejection }> = [];
   // The same receipt passed twice is one unit of work, never two rounds.
   const seen = new Set<string>();
   input.receipts.forEach((token, index) => {
@@ -1078,11 +1137,7 @@ export function finalizeResearch(
   let communitiesSearched: string[] = [];
   let communitiesRead: CommunityRead[] = [];
   let communitiesUnverified = 0;
-  if (rejected.length > 0) {
-    nextSteps.push(
-      `${rejected.length} receipt(s) failed verification; pass each research_receipt exactly as the tool returned it.`
-    );
-  }
+  for (const { index, reason } of rejected) nextSteps.push(rejectedReceiptStep(index, reason));
 
   // Each status needs its own field; the other one, if given, is not used.
   const fullTextSearch = input.full_text_search;
@@ -1212,6 +1267,17 @@ export function finalizeResearch(
         );
       }
       if (input.key_sources.length > 0) commercialReviewCoverage(input, { nextSteps, requireDeclaration });
+      // The skip shows in the answer, with the reason this call declares (owner question 125). The reason reaches the
+      // reader, so it shows no internal labels; whether it is a good reason stays the model's declaration.
+      if (input.not_relevant_reason !== undefined) {
+        const labels = internalLabels(input.not_relevant_reason, options.protocolNames ?? new Set());
+        if (labels.length > 0) {
+          nextSteps.push(`not_relevant_reason shows internal labels (${labels.slice(0, 8).join(", ")}` +
+            `${labels.length > 8 ? ", and more" : ""}): the answer states this reason in its caveat, so give it in ` +
+            "plain words.");
+        }
+        requireLimit(COMMUNITY_SKIP_LIMIT, communitySkipCaveat(input.not_relevant_reason));
+      }
     }
   } else {
     const communities = input.principal_communities;
@@ -1769,7 +1835,8 @@ export function finalizeResearch(
       }
       if (count >= 2) return;
       requireDeclaration(
-        `List two or three open_leads with direction ${direction}: ${what}, each with why it looks promising.` +
+        `List two or three open_leads with direction ${direction}: ${what}, each with what it could change in this ` +
+          "answer (the conclusion, a ranking, the confidence, or only detail) and why it looks promising." +
           (direction === "community" && unsaturatedFirstPass
             ? " Discovery has not saturated, so include the topics where more community signal is likely" +
               (firstPassRateLimited > 0 ? " and the searches YouTube's rate limit or daily quota stopped." : ".")
@@ -1789,7 +1856,8 @@ export function finalizeResearch(
           "the user (no video IDs or internal codes): " +
           directions.map(({ label }, index) => `${label} (${focuses[index]!.map(({ topic }) => topic.trim()).join("; ")})`)
             .join(" and ") +
-          ". Say why each focus looks promising and roughly what another pass would take, and ask which the user " +
+          ". Say what each focus could change in this answer and why it looks promising, give roughly what another " +
+          "pass would take, and ask which the user " +
           "wants and which focus.",
         ...directions.flatMap(({ caption }, index) =>
           focuses[index]!.map(({ topic, why }) => `${caption}: ${topic.trim()}. ${asSentence(why)}`)),
@@ -1957,6 +2025,75 @@ export function finalizeResearch(
         `How often harms occur with ${exposure} wasn't quantified in the sources found here.`);
     }
   }
+  // The serious harms a safety answer screened by name (owner answer "128b", 2026-10-20, from lesson #44: comparing
+  // the safety of a prescribed growth hormone with peptides that raise it, an answer searched blood sugar, swelling,
+  // joints, the heart and cancer, but never severe allergic reactions after injections tolerated before, and nothing
+  // showed the gap). The model lists each serious harm and what its screen found, and each state's own field is
+  // checked exactly: a label warning or a reported signal is shown in the answer by its sentence, a harm not found
+  // was searched with the query of a literature-search receipt passed here, and a harm not checked reaches the answer
+  // in the server's sentence. Which harms are plausible, and so whether the list is complete, stays the model's
+  // declaration: no word list reads the harms or the answer. The rule itself is the protocols' serious-harm screen.
+  const harmScreen = input.harm_screen ?? [];
+  const harmScreenTrigger = (input.safety_claims ?? []).length > 0
+    ? "the answer makes safety statements (safety_claims)"
+    : input.safety_question === true ? "the question is about safety (safety_question)" : undefined;
+  if (input.answer_draft !== undefined && harmScreenTrigger !== undefined && harmScreen.length === 0) {
+    (input.harm_screen === undefined ? requireDeclaration : (step: string) => { nextSteps.push(step); })(
+      `harm_screen ${input.harm_screen === undefined ? "is missing" : "lists no harm"}: ${harmScreenTrigger}, so ` +
+        "harm_screen lists the serious harms plausible for this exposure, apart from its common side effects, each " +
+        "searched by name, with what the search found: label_warning or reported_signal with the answer's sentence " +
+        "as answer_quote, not_found with the exact search_query of a literature search passed here, or not_checked " +
+        "(at least one entry)."
+    );
+  }
+  // Each entry's own field, as its state needs it; another state's field, if given, is not used.
+  const screenedHarms = new Map<string, number>();
+  for (const [index, entry] of harmScreen.entries()) {
+    const at = `harm_screen[${index}]`;
+    const harm = plainPhrase(entry.harm).replace(/\s+/gu, " ");
+    // One harm, one entry: names compared as caveats are, so a repeat adds no second caveat.
+    const first = screenedHarms.get(caveatText(harm));
+    if (first === undefined) screenedHarms.set(caveatText(harm), index);
+    else nextSteps.push(`${at} names the same harm as harm_screen[${first}]: give each harm one entry.`);
+    const sources = new Set(entry.sources_searched ?? []);
+    if (entry.state !== "not_checked" && sources.size === 0) {
+      nextSteps.push(`${at} is ${entry.state} without sources_searched: give the kinds of source searched for ${harm}.`);
+    }
+    if (entry.state === "label_warning" && sources.size > 0 && !sources.has("label") && !sources.has("regulator_warning")) {
+      nextSteps.push(`${at} is label_warning, but sources_searched lists neither label nor regulator_warning: add the ` +
+        `one whose warning names ${harm}, or declare it reported_signal.`);
+    }
+    if ((entry.state === "label_warning" || entry.state === "reported_signal") && entry.answer_quote === undefined) {
+      nextSteps.push(`${at} is ${entry.state} without answer_quote: report ${harm} in the answer, and copy that ` +
+        "sentence from answer_draft.");
+    }
+    if (entry.state === "not_found") {
+      // A harm not found was searched with a query a literature-search receipt in this call signed, compared by its
+      // digest as full_text_search queries are; nothing else shows that the search ran.
+      const query = entry.search_query === undefined ? undefined : discoveryQueryDigest([entry.search_query]);
+      if (query === undefined) {
+        nextSteps.push(`${at} is not_found without search_query: give the exact query ${harm} was searched with, and ` +
+          "pass that search's research_receipt, or declare it not_checked.");
+      } else if (!verified.some(({ kind, claims }) => kind === "literature_search" && text(claims.q) === query)) {
+        nextSteps.push(`${at}.search_query is not the query of any literature search passed here: search ${harm} by ` +
+          "name with search_pubmed, search_europe_pmc or search_clinical_trials, give that exact query, and pass its " +
+          "research_receipt, or declare it not_checked.");
+      }
+    }
+    if (entry.state === "not_checked") {
+      // The harm reaches the reader in the caveat, so it shows no internal labels, as not_relevant_reason does.
+      const labels = internalLabels(entry.harm, options.protocolNames ?? new Set());
+      if (labels.length > 0) {
+        nextSteps.push(`${at}.harm shows internal labels (${labels.slice(0, 8).join(", ")}` +
+          `${labels.length > 8 ? ", and more" : ""}): the answer names this harm in its caveat, so give it in plain ` +
+          "words.");
+      }
+      if (first === undefined) {
+        caveatOnce(`A serious harm, ${harm}, was not checked: say so in the answer, as the caveat does.`,
+          harmNotCheckedCaveat(entry.harm));
+      }
+    }
+  }
   // A mechanism rests on evidence from its route, species and tissue, or the
   // answer says where the evidence came from (FS229; owner questions 88 and
   // 92). Whom an experiment was done in and where it measured stay the
@@ -2063,7 +2200,10 @@ export function finalizeResearch(
       );
     }
   }
-  if (absenceClaims.some(({ state }) => state === "support_not_located")) {
+  // A serious harm the screen did not find is a claim that something was not found too, so the same caveats bound it
+  // to the searches made here; its own step above names a search receipt it lacks.
+  const notLocated = absenceClaims.some(({ state }) => state === "support_not_located");
+  if (notLocated || harmScreen.some(({ state }) => state === "not_found")) {
     if (fullTextQueries !== undefined) {
       requireLimit(
         "The answer says something was not found after full-text searches: bound that to their coverage, as the caveat does.",
@@ -2075,10 +2215,12 @@ export function finalizeResearch(
       .map(({ claims }) => text(claims.src)));
     const names = LITERATURE_SOURCES.filter(({ id }) => searched.has(id)).map(({ name }) => name);
     if (names.length === 0) {
-      nextSteps.push(
-        "The answer says something was not found, but no literature search receipt was passed: search with " +
-          "search_pubmed or search_europe_pmc (and search_clinical_trials for trials) and pass their research receipts."
-      );
+      if (notLocated) {
+        nextSteps.push(
+          "The answer says something was not found, but no literature search receipt was passed: search with " +
+            "search_pubmed or search_europe_pmc (and search_clinical_trials for trials) and pass their research receipts."
+        );
+      }
     } else {
       const covered = new Set(input.search_coverage ?? []);
       const uncovered = SEARCH_COVERAGE.filter(({ id }) => !covered.has(id)).map(({ phrase }) => phrase);
@@ -2185,6 +2327,10 @@ export function finalizeResearch(
         ...(input.reader_dismissed ?? []).map(({ quote }, index) => ({ at: `reader_dismissed[${index}]`, quote })),
         ...(input.comparison_claims ?? []).map(({ quote }, index) => ({ at: `comparison_claims[${index}]`, quote })),
         ...(input.safety_claims ?? []).map(({ quote }, index) => ({ at: `safety_claims[${index}]`, quote })),
+        // A harm the screen found is shown in the answer by the sentence the entry copies.
+        ...harmScreen.flatMap(({ state, answer_quote: quote }, index) =>
+          (state === "label_warning" || state === "reported_signal") && quote !== undefined
+            ? [{ at: `harm_screen[${index}].answer_quote`, quote }] : []),
         ...(input.mechanism_claims ?? []).map(({ quote }, index) => ({ at: `mechanism_claims[${index}]`, quote })),
         ...(input.recommendations ?? []).map(({ quote }, index) => ({ at: `recommendations[${index}]`, quote })),
         ...(input.proposed_tests ?? []).flatMap(({ quote, difference }, index) => [
@@ -2310,6 +2456,25 @@ const looksLikeVideoId = (token: string) =>
 const PASTED_FORUM_TEMPLATE = /strict-core cohort and separately labeled adjacent cohorts/iu;
 const URL = /https?:\/\/\S+/gu;
 
+/**
+ * The internal labels a text would show a reader: snake-case tokens outside links (not a Reddit name after r/ or u/,
+ * not a video ID, nor one `exempt` accepts), protocol names, and internal phrases. Exact token checks, the same in any
+ * language; what the text means is not read.
+ */
+function internalLabels(text: string, protocolNames: ReadonlySet<string>,
+  exempt: (token: string) => boolean = () => false): string[] {
+  // Links may carry IDs and underscores legitimately; the words around them may not.
+  const prose = text.replace(URL, " ");
+  return [...new Set([
+    ...[...prose.matchAll(SNAKE_CASE_LABEL)].filter((match) => {
+      const prefix = prose.slice(Math.max(0, match.index - 2), match.index);
+      return prefix !== "r/" && prefix !== "u/" && !looksLikeVideoId(match[0]) && !exempt(match[0]);
+    }).map(([label]) => label),
+    ...[...prose.matchAll(CAPITALIZED_TOKEN)].map(([name]) => name).filter((name) => protocolNames.has(name)),
+    ...[...prose.matchAll(INTERNAL_PHRASE)].map(([label]) => label.toLowerCase())
+  ])];
+}
+
 /** A lane the answer must report, with the answer's sentences the model says report each finding. */
 interface AnswerLane {
   // As next steps name it: "the YouTube comments", or the community.
@@ -2352,16 +2517,9 @@ function answerDraftProblems(
   const prose = draft.replace(URL, " ");
   // What the answer must say is read from the prose a reader sees; what it must not show, from the whole draft.
   const shownBlocks = displayedProse(draft);
-  const labels = [...new Set([
-    ...[...prose.matchAll(SNAKE_CASE_LABEL)].filter((match) => {
-      const prefix = prose.slice(Math.max(0, match.index - 2), match.index);
-      return prefix !== "r/" && prefix !== "u/" && !looksLikeVideoId(match[0]) &&
-        ![...context.caveats, ...context.communityNames].some((text) =>
-          [...text.matchAll(SNAKE_CASE_LABEL)].some(([token]) => token === match[0]));
-    }).map(([label]) => label),
-    ...[...prose.matchAll(CAPITALIZED_TOKEN)].map(([name]) => name).filter((name) => context.protocolNames.has(name)),
-    ...[...prose.matchAll(INTERNAL_PHRASE)].map(([label]) => label.toLowerCase())
-  ])];
+  const labels = internalLabels(draft, context.protocolNames, (token) =>
+    [...context.caveats, ...context.communityNames].some((text) =>
+      [...text.matchAll(SNAKE_CASE_LABEL)].some(([caveatToken]) => caveatToken === token)));
   if (labels.length > 0) {
     problems.push(
       `The answer shows internal labels (${labels.slice(0, 8).join(", ")}${labels.length > 8 ? ", and more" : ""}): ` +
