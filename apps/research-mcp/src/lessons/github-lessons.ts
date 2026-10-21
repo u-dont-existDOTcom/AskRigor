@@ -1,4 +1,8 @@
-import type { GeneralizedLesson } from "./contracts.js";
+import {
+  PUBLIC_ASKRIGOR_REPOSITORY,
+  relatedIssueSchema,
+  type GeneralizedLesson,
+} from "./contracts.js";
 import {
   GITHUB_API_ROOT,
   GitHubApiError,
@@ -18,6 +22,12 @@ export interface GitHubLessonSubmission {
   fingerprint: string;
   /** Labels a new issue; a repeat leaves the existing issue's labels alone. */
   source?: LessonSource;
+  /**
+   * The number of a public AskRigor issue a connector submission named. A new
+   * issue's body and a repeat's occurrence comment show it as a reference; it
+   * is in neither the fingerprint nor the hidden metadata.
+   */
+  relatedIssue?: number;
 }
 
 export interface GitHubLessonQueueResult {
@@ -105,7 +115,10 @@ export class GitHubLessonQueue {
   }
 
   private async submitSerialized(input: GitHubLessonSubmission): Promise<GitHubLessonQueueResult> {
-    if (!FINGERPRINT_PATTERN.test(input.fingerprint)) {
+    if (
+      !FINGERPRINT_PATTERN.test(input.fingerprint) ||
+      (input.relatedIssue !== undefined && !relatedIssueSchema.safeParse(input.relatedIssue).success)
+    ) {
       throw new GitHubApiError("github_service_unavailable", false);
     }
     const observedAt = this.safeTimestamp();
@@ -193,7 +206,7 @@ export class GitHubLessonQueue {
     };
     const created = await this.request(`${ISSUES_PATH}/${issue.number}/comments`, {
       method: "POST",
-      body: JSON.stringify({ body: buildOccurrenceComment(metadata) }),
+      body: JSON.stringify({ body: buildOccurrenceComment(metadata, input.relatedIssue) }),
     });
     if (!isRecord(created) || !isPositiveInteger(created.id)) {
       throw new GitHubApiError("github_service_unavailable", true);
@@ -275,6 +288,7 @@ export class GitHubLessonQueue {
               : { incident_occurrences: [incidentOccurrence(input.candidate, observedAt)] }),
           },
           terminal?.number,
+          input.relatedIssue,
         ),
         labels,
       }),
@@ -328,6 +342,7 @@ function buildIssueBody(
   candidate: GeneralizedLesson,
   metadata: PrivateMetadata,
   priorIssueNumber: number | undefined,
+  relatedIssue: number | undefined,
 ): string {
   const versionContext = [
     `AskRigor: ${candidate.askrigor_version ? escapeMarkdown(candidate.askrigor_version) : "Not supplied"}`,
@@ -352,6 +367,9 @@ function buildIssueBody(
     ...(priorIssueNumber === undefined
       ? []
       : [section("Prior candidate", escapeMarkdown(publicCandidateId(priorIssueNumber)))]),
+    ...(relatedIssue === undefined
+      ? []
+      : [section("Related AskRigor issue", relatedIssueReference(relatedIssue))]),
     ...(metadata.incident_occurrences?.length
       ? [section(
           "Opaque incident provenance",
@@ -373,18 +391,27 @@ function buildIssueBody(
   return `${sections.join("\n\n")}\n\n${metadataMarker(metadata)}`;
 }
 
-function buildOccurrenceComment(metadata: OccurrenceMetadata): string {
+function buildOccurrenceComment(metadata: OccurrenceMetadata, relatedIssue: number | undefined): string {
   return [
     "## Anonymous lesson occurrence",
     "",
     `Occurrence count: ${metadata.occurrence_count}`,
     `Observed at: ${metadata.observed_at}`,
+    ...(relatedIssue === undefined
+      ? []
+      : [`Related AskRigor issue: ${relatedIssueReference(relatedIssue)}`]),
     ...(metadata.incident_occurrence === undefined
       ? []
       : ["", "Opaque incident provenance:", formatIncidentOccurrence(metadata.incident_occurrence)]),
     "",
     occurrenceMetadataMarker(metadata),
   ].join("\n");
+}
+
+// Built only from the server's repository name and an integer the queue has
+// validated, so it holds no submitted text; GitHub links it to the public issue.
+function relatedIssueReference(issueNumber: number): string {
+  return `${PUBLIC_ASKRIGOR_REPOSITORY}#${issueNumber}`;
 }
 
 function issueTitle(candidate: GeneralizedLesson): string {

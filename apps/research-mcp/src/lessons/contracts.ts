@@ -43,6 +43,27 @@ export const lessonCandidateSchema = z.strictObject({
 
 export type LessonCandidate = z.infer<typeof lessonCandidateSchema>;
 
+/** The public repository whose issue a connector lesson may name. */
+export const PUBLIC_ASKRIGOR_REPOSITORY = "u-dont-existDOTcom/AskRigor" as const;
+
+/**
+ * The number of an issue or pull request in the public AskRigor repository.
+ * The queue builds the reference from this integer alone, so it adds no free text.
+ */
+export const relatedIssueSchema = z.number().int().min(1).max(1_000_000);
+
+/**
+ * The connector's request shape: the Action's candidate without incident
+ * provenance (the connector has no incident vault), plus the optional number
+ * of a public AskRigor issue that reports the failure. Only the connector
+ * accepts related_issue; the Action's shape above is unchanged.
+ */
+export const connectorLessonCandidateSchema = lessonCandidateSchema
+  .omit({ incident_provenance: true })
+  .extend({ related_issue: relatedIssueSchema.optional() });
+
+export type ConnectorLessonCandidate = z.infer<typeof connectorLessonCandidateSchema>;
+
 /** The model must return the same bounded, derived-only lesson shape. */
 export const generalizedLessonSchema = z.strictObject({
   category: categorySchema,

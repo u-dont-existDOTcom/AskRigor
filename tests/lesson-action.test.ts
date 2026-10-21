@@ -541,6 +541,52 @@ describe("consequential lesson Action", () => {
     }
   });
 
+  // Issue #357: the connector may name the public AskRigor issue that reports
+  // the failure, by number only; the Action's schema and the receipt stay the same.
+  it("lets the connector name a related public AskRigor issue by number, with the same receipt", async () => {
+    const received: unknown[] = [];
+    const server = createAskRigorServer("standard", {
+      lessonSubmission: async (raw) => {
+        received.push(raw);
+        return submitted();
+      },
+    });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: "lesson-action-test", version: "1.0.0" });
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+    try {
+      const tool = (await client.listTools()).tools.find(({ name }) => name === "submit_lesson_candidate");
+      expect(tool?.inputSchema.properties?.related_issue).toEqual({
+        description: "The number of an issue in u-dont-existDOTcom/AskRigor that reports this failure in detail, when the user filed one.",
+        type: "integer",
+        minimum: 1,
+        maximum: 1_000_000,
+      });
+      expect(tool?.inputSchema.required).not.toContain("related_issue");
+      expect(LESSON_ACTION_REQUEST_SCHEMA.properties).not.toHaveProperty("related_issue");
+
+      const saved = await client.callTool({
+        name: "submit_lesson_candidate",
+        arguments: { ...validCandidate, related_issue: 357 },
+      });
+      expect(saved.isError).not.toBe(true);
+      expect(saved.content).toEqual([{ type: "text", text: "Lesson saved for review as ARL-0042." }]);
+      expect(saved.structuredContent).toEqual(submitted());
+      expect(received).toEqual([{ ...validCandidate, related_issue: 357 }]);
+
+      for (const related_issue of [0, -357, 357.5, "357", 1_000_001, "https://github.com/u-dont-existDOTcom/AskRigor/issues/357"]) {
+        const rejected = await client.callTool({
+          name: "submit_lesson_candidate",
+          arguments: { ...validCandidate, related_issue },
+        });
+        expect(rejected.isError).toBe(true);
+      }
+      expect(received).toHaveLength(1);
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
+  });
+
   it("returns the unavailable receipt when the connector's lesson queue is not configured", async () => {
     clearRuntimeEnvironment();
     await expect(submitConnectorLessonCandidate(validCandidate)).resolves.toEqual({

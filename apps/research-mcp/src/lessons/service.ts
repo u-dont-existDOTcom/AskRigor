@@ -1,8 +1,10 @@
 import { z } from "zod";
 import {
+  connectorLessonCandidateSchema,
   generalizedLessonSchema,
   lessonCandidateSchema,
   lessonSubmissionResultSchema,
+  type ConnectorLessonCandidate,
   type GeneralizedLesson,
   type LessonCandidate,
   type LessonSubmissionResult,
@@ -25,7 +27,8 @@ import {
 import type { LessonAttemptLimiter } from "./rate-limit.js";
 
 export interface LessonSubmissionPipeline {
-  parseCandidate(raw: unknown): LessonCandidate | undefined;
+  /** Strict parse; only a connector request may name a related public AskRigor issue. */
+  parseCandidate(raw: unknown, source: LessonSource): LessonCandidate | ConnectorLessonCandidate | undefined;
   parseGeneralized(raw: unknown): GeneralizedLesson | undefined;
   screen(candidate: LessonCandidate): PrivacyScreenResult;
   canonicalize(candidate: LessonCandidate): CanonicalLesson;
@@ -41,8 +44,10 @@ export interface LessonSubmissionServiceOptions {
 }
 
 const defaultPipeline: LessonSubmissionPipeline = {
-  parseCandidate(raw) {
-    const result = lessonCandidateSchema.safeParse(raw);
+  parseCandidate(raw, source) {
+    const result = source === "connector"
+      ? connectorLessonCandidateSchema.safeParse(raw)
+      : lessonCandidateSchema.safeParse(raw);
     return result.success ? result.data : undefined;
   },
   parseGeneralized(raw) {
@@ -121,8 +126,13 @@ export class LessonSubmissionService {
         });
       }
 
-      const parsedCandidate = this.pipeline.parseCandidate(raw);
-      if (!parsedCandidate) return privacyRejected();
+      const parsed = this.pipeline.parseCandidate(raw, source);
+      if (!parsed) return privacyRejected();
+      // A related public AskRigor issue (connector only) is a validated number
+      // the queue renders as a reference, not lesson text. Like incident
+      // provenance below, it stays out of the screen and the anonymizer, and
+      // the exact validated number reaches the queue.
+      const { candidate: parsedCandidate, relatedIssue } = splitRelatedIssue(parsed);
 
       const preScreen = this.pipeline.screen(parsedCandidate);
       if (!preScreen.safe) return privacyRejected();
@@ -176,6 +186,7 @@ export class LessonSubmissionService {
           candidate: postScreen.candidate,
           fingerprint,
           source,
+          ...(relatedIssue === undefined ? {} : { relatedIssue }),
         });
       } catch (error) {
         return githubUnavailable(error);
@@ -199,6 +210,16 @@ export class LessonSubmissionService {
       retryable: false,
     });
   }
+}
+
+// The key is dropped even when present with no value, so the anonymizer and
+// the strict generalized parse never see it.
+function splitRelatedIssue(
+  parsed: LessonCandidate | ConnectorLessonCandidate,
+): { candidate: LessonCandidate; relatedIssue?: number } {
+  if (!("related_issue" in parsed)) return { candidate: parsed };
+  const { related_issue: relatedIssue, ...candidate } = parsed;
+  return relatedIssue === undefined ? { candidate } : { candidate, relatedIssue };
 }
 
 function privacyRejected(): LessonSubmissionResult {

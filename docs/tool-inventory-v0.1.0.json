@@ -16079,6 +16079,12 @@
               "conversation"
             ],
             "description": "\"conversation\" only after the user said yes for the whole chat."
+          },
+          "related_issue": {
+            "description": "The number of an issue in u-dont-existDOTcom/AskRigor that reports this failure in detail, when the user filed one.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000
           }
         },
         "required": [

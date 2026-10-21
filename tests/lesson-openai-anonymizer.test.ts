@@ -12,6 +12,7 @@ import {
   createOpenAiLessonAnonymizer,
 } from "../apps/research-mcp/src/lessons/openai-anonymizer.js";
 import { screenLessonCandidate } from "../apps/research-mcp/src/lessons/privacy-screen.js";
+import { LessonSubmissionService } from "../apps/research-mcp/src/lessons/service.js";
 
 const candidate: LessonCandidate = {
   category: "missing_sources",
@@ -195,6 +196,50 @@ describe("fixed-model OpenAI lesson anonymizer", () => {
         },
       },
     });
+  });
+
+  // Issue #357: a connector lesson's related issue number is linkage, not
+  // lesson text. The model never sees it, and the lesson the anonymizer
+  // rebuilds from the strict transport form cannot drop it.
+  it("keeps a connector lesson's related issue out of the model request, and the service still queues it", async () => {
+    const { askrigor_version: _version, ...lesson } = candidate;
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(responseFor({
+      safe: true,
+      risk_codes: [],
+      // The strict transport form: every key present and an omitted one null,
+      // so the anonymizer rebuilds the lesson object.
+      generalized: { ...lesson, askrigor_version: null },
+    }));
+    const { anonymizer, budget } = createSubject(fetchMock);
+    const submit = vi.fn(async (_input: unknown) => ({
+      kind: "created" as const,
+      issueNumber: 42,
+      occurrenceCount: 1,
+      possibleRegression: false,
+    }));
+    const service = new LessonSubmissionService({
+      limiter: { consume: () => ({ allowed: true }), lastBlockingReason: () => "hourly_limit" },
+      anonymizer,
+      queue: { submit },
+    });
+
+    await expect(service.submit({ ...lesson, related_issue: 357 }, "connector")).resolves.toEqual({
+      status: "submitted",
+      candidate_id: "ARL-0042",
+      occurrence_count: 1,
+      retryable: false,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(budget.reservation.commits).toEqual([32_500]);
+    const requestBody = String(fetchMock.mock.calls[0]![1]?.body);
+    expect(JSON.parse(JSON.parse(requestBody).input[1].content[0].text)).toEqual(lesson);
+    expect(requestBody).not.toContain("related_issue");
+    expect(submit.mock.calls.map(([input]) => input)).toEqual([{
+      candidate: lesson,
+      fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/u),
+      source: "connector",
+      relatedIssue: 357,
+    }]);
   });
 
   it("commits valid usage and rejects a model-declared unsafe candidate", async () => {

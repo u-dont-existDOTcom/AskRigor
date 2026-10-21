@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { LessonCandidate } from "../apps/research-mcp/src/lessons/contracts.js";
 import { GitHubApiError } from "../apps/research-mcp/src/lessons/github-app.js";
+import { createLocalLessonGeneralizer } from "../apps/research-mcp/src/lessons/local-generalizer.js";
 import type { CanonicalLesson, PrivacyScreenResult } from "../apps/research-mcp/src/lessons/privacy-screen.js";
 import type { LessonAttemptLimiter } from "../apps/research-mcp/src/lessons/rate-limit.js";
 import {
@@ -151,6 +152,91 @@ describe("lesson submission pipeline", () => {
     await service.submit(candidate, "connector");
     expect(submit.mock.calls.map(([input]) => (input as { source?: string }).source))
       .toEqual(["custom-gpt", "connector"]);
+  });
+
+  // Issue #357: a connector lesson may name the public AskRigor issue that
+  // reports the failure. The number is linkage, like incident provenance: it
+  // stays out of the screen and the anonymizer and reaches the queue as validated.
+  it("hands a connector lesson's related issue to the queue, outside the lesson the anonymizer sees", async () => {
+    const { service, generalize, submit } = createSubject();
+
+    const result = await service.submit({ ...candidate, related_issue: 357 }, "connector");
+
+    expect(result).toEqual({
+      status: "submitted",
+      candidate_id: "ARL-0042",
+      occurrence_count: 1,
+      retryable: false,
+    });
+    expect(JSON.stringify(result)).not.toContain("357");
+    expect(generalize.mock.calls.map(([input]) => input)).toEqual([candidate]);
+    expect(generalize.mock.calls[0]![0]).not.toHaveProperty("related_issue");
+    expect(submit.mock.calls.map(([input]) => input)).toEqual([{
+      candidate,
+      fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/u),
+      source: "connector",
+      relatedIssue: 357,
+    }]);
+  });
+
+  it("gives the queue the same fingerprint with or without a related issue", async () => {
+    const { service, submit } = createSubject();
+
+    await service.submit(candidate, "connector");
+    await service.submit({ ...candidate, related_issue: 357 }, "connector");
+
+    const inputs = submit.mock.calls.map(([input]) => input as { fingerprint: string; relatedIssue?: number });
+    expect(inputs).toHaveLength(2);
+    expect(inputs[1]!.fingerprint).toBe(inputs[0]!.fingerprint);
+    expect(inputs.map(({ relatedIssue }) => relatedIssue)).toEqual([undefined, 357]);
+    expect(inputs[0]).not.toHaveProperty("relatedIssue");
+  });
+
+  it("keeps the Action's strict shape: there a related issue is an unknown field", async () => {
+    const { service, generalize, submit } = createSubject();
+
+    await expect(service.submit({ ...candidate, related_issue: 357 })).resolves.toEqual({
+      status: "privacy_rejected",
+      retryable: false,
+      reason_code: "unsafe_candidate",
+    });
+    expect(generalize).not.toHaveBeenCalled();
+    expect(submit).not.toHaveBeenCalled();
+  });
+
+  it.each([0, -357, 357.5, "357", 1_000_001])(
+    "rejects the connector's related issue %j before either external dependency",
+    async (relatedIssue) => {
+      const { service, generalize, submit } = createSubject();
+
+      await expect(service.submit({ ...candidate, related_issue: relatedIssue }, "connector")).resolves.toEqual({
+        status: "privacy_rejected",
+        retryable: false,
+        reason_code: "unsafe_candidate",
+      });
+      expect(generalize).not.toHaveBeenCalled();
+      expect(submit).not.toHaveBeenCalled();
+    },
+  );
+
+  it("drops an empty related issue key before the local generalizer's strict parse", async () => {
+    const submit = vi.fn(async (_input: unknown) => ({
+      kind: "created" as const,
+      issueNumber: 42,
+      occurrenceCount: 1,
+      possibleRegression: false,
+    }));
+    const service = new LessonSubmissionService({
+      limiter: { consume: () => ({ allowed: true }), lastBlockingReason: () => "hourly_limit" },
+      anonymizer: createLocalLessonGeneralizer(),
+      queue: { submit },
+    });
+
+    await expect(service.submit({ ...candidate, related_issue: undefined }, "connector"))
+      .resolves.toMatchObject({ status: "submitted" });
+    expect(submit).toHaveBeenCalledTimes(1);
+    expect(submit.mock.calls[0]![0]).not.toHaveProperty("relatedIssue");
+    expect((submit.mock.calls[0]![0] as { candidate: object }).candidate).not.toHaveProperty("related_issue");
   });
 
   it("maps an active duplicate to the same public-safe candidate shape", async () => {
