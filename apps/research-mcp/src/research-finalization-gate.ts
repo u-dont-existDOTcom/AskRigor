@@ -456,17 +456,20 @@ export const finalizeResearchInputSchema = z.object({
   absence_claims: z.array(z.object({
     quote: answerQuote.describe("The sentence(s), copied from answer_draft."),
     state: z.enum(["support_not_located", "direct_null_evidence", "not_established", "bounded_exclusion"])
-      .describe("support_not_located: the searches did not find it; direct_null_evidence: studies found no effect; " +
-        "not_established: studies were found but do not establish the effect; " +
-        "bounded_exclusion: precise studies rule out an effect above a stated size."),
+      .describe("support_not_located: the searches did not find it; direct_null_evidence: studies found no effect, " +
+        "or no difference between the options compared; not_established: studies were found but do not establish the " +
+        "effect; bounded_exclusion: precise studies rule out an effect, or a difference between options, above a " +
+        "stated size."),
     studies: z.array(z.string().trim().min(1).max(300)).max(20).optional()
       .describe("For direct_null_evidence, not_established and bounded_exclusion: the key sources (DOI, PMID or " +
         "PMCID) it rests on.")
   }).strict()).max(20).optional()
     .describe("With answer_draft: each place the answer says something was not found, not studied, has no evidence or " +
-      "has no effect, or calls an intervention's evidence unconvincing, weak, not demonstrated or showing no benefit " +
-      "(an empty list if none). Evidence-strength sentences are absence claims, declared with not_established and " +
-      "their key sources when studies were found, or support_not_located with search coverage when none were."),
+      "has no effect; that an option made no difference compared with another, worked as well as it, or did no " +
+      "better or no worse than it; or calls an intervention's evidence unconvincing, weak, not demonstrated or " +
+      "showing no benefit (an empty list if none). Evidence-strength sentences are absence claims, declared with " +
+      "not_established and their key sources when studies were found, or support_not_located with search coverage " +
+      "when none were."),
   scale_results: z.array(z.object({
     quote: answerQuote.describe("Records the sentence(s) reporting and explaining the result, copied from answer_draft."),
     scale: z.string().trim().min(1).max(300).describe("Records the scale's name or abbreviation as the answer writes it."),
@@ -1992,15 +1995,20 @@ export function finalizeResearch(
   // find is bounded to the searches made (owner reports, 2026-09-30: "I
   // found no evidence that smelling humic acid treats neuroinflammation";
   // 2026-10-12: an answer judged a remedy to have "no convincing benefit"
-  // before searching its exact route).
+  // before searching its exact route). A sentence saying one option worked as
+  // well as another, made no difference against it, or did no better or worse
+  // is one too, so a null comparison also gives its numbers (AskRigor#355: an
+  // answer called saffron "as effective as fluvoxamine" for OCD from a trial
+  // that found no significant difference and set no equivalence margin).
   const absenceClaims = input.absence_claims ?? [];
   if (input.answer_draft !== undefined && input.absence_claims === undefined) {
     requireDeclaration(
       "absence_claims is missing: it lists each sentence saying something was not found, not studied, has no " +
-        "evidence or has no effect, or calling an intervention's evidence unconvincing, weak, not demonstrated or " +
-        "showing no benefit (an empty list means none). Evidence-strength sentences are absence claims, declared " +
-        "with not_established and their key sources when studies were found, or support_not_located with search " +
-        "coverage when none were."
+        "evidence or has no effect; that an option made no difference compared with another, worked as well as it, " +
+        "or did no better or no worse than it; or calling an intervention's evidence unconvincing, weak, not " +
+        "demonstrated or showing no benefit (an empty list means none). Evidence-strength sentences are absence " +
+        "claims, declared with not_established and their key sources when studies were found, or support_not_located " +
+        "with search coverage when none were."
     );
   }
   if (input.answer_draft !== undefined && input.scale_results === undefined) {

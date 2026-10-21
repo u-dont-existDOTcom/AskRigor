@@ -14916,7 +14916,7 @@
             }
           },
           "absence_claims": {
-            "description": "With answer_draft: each place the answer says something was not found, not studied, has no evidence or has no effect, or calls an intervention's evidence unconvincing, weak, not demonstrated or showing no benefit (an empty list if none). Evidence-strength sentences are absence claims, declared with not_established and their key sources when studies were found, or support_not_located with search coverage when none were.",
+            "description": "With answer_draft: each place the answer says something was not found, not studied, has no evidence or has no effect; that an option made no difference compared with another, worked as well as it, or did no better or no worse than it; or calls an intervention's evidence unconvincing, weak, not demonstrated or showing no benefit (an empty list if none). Evidence-strength sentences are absence claims, declared with not_established and their key sources when studies were found, or support_not_located with search coverage when none were.",
             "type": "array",
             "items": {
               "type": "object",
@@ -14933,7 +14933,7 @@
                     "not_established",
                     "bounded_exclusion"
                   ],
-                  "description": "support_not_located: the searches did not find it; direct_null_evidence: studies found no effect; not_established: studies were found but do not establish the effect; bounded_exclusion: precise studies rule out an effect above a stated size."
+                  "description": "support_not_located: the searches did not find it; direct_null_evidence: studies found no effect, or no difference between the options compared; not_established: studies were found but do not establish the effect; bounded_exclusion: precise studies rule out an effect, or a difference between options, above a stated size."
                 },
                 "studies": {
                   "description": "For direct_null_evidence, not_established and bounded_exclusion: the key sources (DOI, PMID or PMCID) it rests on."

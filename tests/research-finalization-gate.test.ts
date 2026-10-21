@@ -1576,10 +1576,11 @@ describe("finalize_research gate", () => {
     // The answer must say which it is: an absence it does not declare cannot be checked.
     expect(check({ absence_claims: undefined }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
       "absence_claims is missing: it lists each sentence saying something was not found, not studied, has no " +
-        "evidence or has no effect, or calling an intervention's evidence unconvincing, weak, not demonstrated or " +
-        "showing no benefit (an empty list means none). Evidence-strength sentences are absence claims, declared " +
-        "with not_established and their key sources when studies were found, or support_not_located with search " +
-        "coverage when none were."
+        "evidence or has no effect; that an option made no difference compared with another, worked as well as it, " +
+        "or did no better or no worse than it; or calling an intervention's evidence unconvincing, weak, not " +
+        "demonstrated or showing no benefit (an empty list means none). Evidence-strength sentences are absence " +
+        "claims, declared with not_established and their key sources when studies were found, or support_not_located " +
+        "with search coverage when none were."
     );
     expect(check({ absence_claims: [{ quote: "There is no evidence at all.", state: "support_not_located" }] }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toContain("absence_claims[0] gives text the answer does not show: copy each sentence exactly from answer_draft.");
