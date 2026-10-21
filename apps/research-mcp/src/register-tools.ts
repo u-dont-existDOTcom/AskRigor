@@ -78,6 +78,7 @@ import {
 } from "./lessons/connector-tool.js";
 import type { LessonSubmissionResult } from "./lessons/contracts.js";
 import { submitConnectorLessonCandidate } from "./lessons/runtime.js";
+import { findingsSavedLine } from "./findings/card.js";
 import {
   findingsSaveToolResult,
   SAVE_RESEARCH_FINDINGS_DESCRIPTION,
@@ -2077,7 +2078,8 @@ function defineResearchOperations(
         "caveat_renderings are given) and must_report, what the answer reports from each lane researched; " +
         "when ready, check_line, the line the answer ends with; or " +
         "receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked " +
-        "findings_card is saved to AskRigor's private findings library for the owner's review; in paid private mode " +
+        "findings_card is saved to AskRigor's private findings library for the owner's review, and saved_line says " +
+        "so at the end of the answer; in paid private mode, when a finding rests on work a quick answer cannot do, " +
         "the caveats offer its save. " +
         // The only text ChatGPT's app shows the model for this tool (Codex probes, 2026-10-16): the JSON of the
         // inputs its type hides, from which the regression's first calls invented fields.
@@ -2146,6 +2148,10 @@ function defineResearchOperations(
           options.findingsSaveDeadlineMilliseconds ?? FINDINGS_SAVE_DEADLINE_MILLISECONDS,
           { status: "unconfirmed" }
         );
+        // Owner answer 139c: a free answer whose save confirmed ends by saying so, with the card's id; an
+        // unconfirmed or failed save has no id, and no line.
+        const cardId = result.findings_card.saved.card_id;
+        if (cardId !== undefined) result.saved_line = findingsSavedLine(cardId);
       }
       // Analyses a free contributor's research validated, in this chat or another, go to the review inbox at the
       // account's next passing final check (analysis-staging.ts).
@@ -2166,6 +2172,8 @@ function defineResearchOperations(
           `${result.limits.length} limit(s) to state; ${result.receipts_verified} receipt(s) verified.` +
           result.caveats.map((caveat) => `\nThe answer must contain, as written: ${caveat}`).join("") +
           result.must_report.map((lane) => `\nThe answer must report: ${lane}`).join("") +
+          (result.saved_line === undefined ? "" :
+            `\nJust before the check line, end the answer with this line, as written (in the answer's language when the answer is not in English): ${result.saved_line}`) +
           (result.check_line === undefined ? "" :
             `\nEnd the answer with this line, as written (in the answer's language when the answer is not in English): ${result.check_line}`) +
           (card.status === "absent" || card.status === "private"
@@ -2179,7 +2187,14 @@ function defineResearchOperations(
                       ? "the save had not finished; it may still complete"
                       : `saved for review as ${card.saved.card_id}`
                 }.`
-                : card.problems.length === 0 ? "." : `: ${card.problems.join(" ")}`)) +
+                : card.problems.length > 0
+                  ? `: ${card.problems.join(" ")}`
+                  // A paid private card no finding of which rests on work a quick answer cannot do is not offered,
+                  // and its receipt still signs it, so the user can still ask for the save (owner answer 139c).
+                  : finalizeOptions.findings === "offer" && card.beyond_quick_answer === 0
+                    ? "; no finding rests on work a quick answer cannot do, so the answer offers no save. If the user " +
+                      "asks for it, save_research_findings still saves it after their yes."
+                    : ".")) +
           (analyses === undefined
             ? ""
             : `\nStudy and review analyses from this account's research, in this chat or another, sent to the review inbox: ${analyses.saved + analyses.already_saved}` +

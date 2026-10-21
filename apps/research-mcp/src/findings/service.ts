@@ -4,6 +4,7 @@ import { GitHubApiError } from "../lessons/github-app.js";
 import type { LessonAttemptLimiter } from "../lessons/rate-limit.js";
 import { verifyResearchReceipt } from "../research-receipts.js";
 import {
+  findingBasesFromReceipt,
   findingsCardDigest,
   findingsCardFingerprint,
   isSafeReportedModel,
@@ -131,9 +132,17 @@ export class FindingsSaveService {
       }
 
       const stored = withoutYouTubeData(input.findings_card);
+      // Each finding's work beyond a quick answer, as the receipt signed it (owner answer 139c); a receipt from before
+      // bases were signed stamps none.
+      const bases = findingBasesFromReceipt(receipt.claims.bases, stored.card.findings.length);
+      const card: StoredFindingsCard = bases === undefined ? stored.card : {
+        ...stored.card,
+        findings: stored.card.findings.map((finding, index) =>
+          bases[index]!.length === 0 ? finding : { ...finding, verified_bases: bases[index]! }),
+      };
       const record: FindingsRecord = {
         schema: "askrigor.findings-card.v1",
-        card: stored.card,
+        card,
         card_sha256: cardSha256,
         ...(stored.omitted ? { stored_without: ["youtube_video_ids_and_links"] } : {}),
         stamp: {

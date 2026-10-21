@@ -20,12 +20,14 @@ import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
 import type { SecondReaderFinding } from "./second-reader.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
 import {
-  FINDINGS_SAVE_OFFER,
   findingsCardDigest,
   findingsCardSchema,
+  findingsSaveOffer,
   screenFindingsCard,
+  signedFindingBases,
   type FindingsCard,
-  type FindingsPrivacyReason
+  type FindingsPrivacyReason,
+  type VerifiedBasis
 } from "./findings/card.js";
 import {
   discoveryQueryDigest,
@@ -605,8 +607,9 @@ export const finalizeResearchInputSchema = z.object({
     .describe("With answer_draft, when the answer cites a study or video verified here: the answer's best findings " +
       "for AskRigor's findings library, never claims the user corrected and no personal details, checked against the " +
       "answer and this call's verified sources. Leave it out when the answer cites none. In free " +
-      "contributor mode a checked card is saved for the owner's review; in paid private mode it adds a caveat " +
-      "offering the save. A rejected card is not saved or offered and does not hold back the answer."),
+      "contributor mode a checked card is saved for the owner's review; in paid private mode, when a finding rests " +
+      "on work a quick answer cannot do, it adds a caveat offering the save. A rejected card is not saved or offered " +
+      "and does not hold back the answer."),
   reported_model: z.string().trim().min(1).max(80).optional()
     .describe("Your model's name as your app reports it; kept, unverified, with a saved findings card.")
 }).strict();
@@ -915,14 +918,20 @@ export const finalizeResearchOutputSchema = z.object({
   findings_card: z.object({
     status: z.enum(["checked", "rejected", "absent", "closed", "private"]),
     problems: z.array(z.string()),
+    beyond_quick_answer: z.number().int().nonnegative().optional()
+      .describe("For a checked card: how many of its findings rest on work a quick answer cannot do (a full-text " +
+        "audit, audited comments, a checked absence claim or a correction the research found), as this call's " +
+        "receipts show."),
     saved: z.object({
       status: z.enum(["saved", "already_saved", "not_saved", "unconfirmed"]),
       card_id: z.string().regex(/^ARF-[0-9]{4,}$/u).optional(),
       reason: z.string().optional()
     }).strict().optional()
   }).strict().describe("Whether findings_card checked, and for a free contributor account whether it was saved; for " +
-    "a paid private account a checked card's caveats offer the save. closed: the findings library is not open; " +
-    "private: no research account, so nothing is saved."),
+    "a paid private account, a checked card with a finding beyond a quick answer adds the caveat offering the save. " +
+    "closed: the findings library is not open; private: no research account, so nothing is saved."),
+  saved_line: z.string().optional()
+    .describe("When a free contributor's card was saved: the line the answer ends with, just before check_line."),
   carry_forward: z.string().optional(),
   carried: carriedStateSchema.optional(),
   carry_forward_note: z.string().optional(),
@@ -2174,6 +2183,8 @@ export function finalizeResearch(
     const doi = isPmid(normalized) ? pubmedDois.get(normalized) : undefined;
     return validatedIds.has(normalized) || (doi !== undefined && doi !== "" && validatedIds.has(doi));
   };
+  // The absence claims these checks accept, on which a finding's verified basis may rest (owner answer 139c).
+  const acceptedAbsences = new Set<number>();
   for (const [index, claim] of absenceClaims.entries()) {
     if (claim.state === "support_not_located") continue;
     const verdict = claim.state === "not_established";
@@ -2182,11 +2193,14 @@ export function finalizeResearch(
       : verdict ? "that studies do not establish the effect" : "a bounded exclusion");
     const studies = claim.studies ?? [];
     const unaudited = studies.filter((id) => !auditedStudy(id));
+    let accepted = true;
     if (studies.length === 0) {
+      accepted = false;
       requireDeclaration(`${stated} without the studies it rests on: ` + (verdict
         ? "studies lists its key sources (DOI, PMID or PMCID), each covered by a full-text method audit."
         : "name them in studies, each read with a full-text method audit, or state it as support_not_located."));
     } else if (unaudited.length > 0) {
+      accepted = false;
       nextSteps.push(`${stated} on ${unaudited.join(", ")}, which no full-text method audit here covers: ` + (verdict
         ? "an abstract or a lead cannot establish this evidence-strength verdict. Each listed study needs a " +
           "full-text method audit."
@@ -2194,11 +2208,13 @@ export function finalizeResearch(
     }
     // A verdict that studies do not establish an effect states no estimate.
     if (!verdict && !/\p{Nd}/u.test(claim.quote)) {
+      accepted = false;
       nextSteps.push(
         `${stated}: give the estimate and its interval in that sentence, so a reader sees how large an effect the ` +
           "studies could have missed."
       );
     }
+    if (accepted) acceptedAbsences.add(index);
   }
   // A serious harm the screen did not find is a claim that something was not found too, so the same caveats bound it
   // to the searches made here; its own step above names a search receipt it lacks.
@@ -2214,6 +2230,12 @@ export function finalizeResearch(
     const searched = new Set(verified.filter(({ kind }) => kind === "literature_search")
       .map(({ claims }) => text(claims.src)));
     const names = LITERATURE_SOURCES.filter(({ id }) => searched.has(id)).map(({ name }) => name);
+    // What the searches did not find is accepted once it is bounded to searches passed here.
+    if (names.length > 0) {
+      absenceClaims.forEach(({ state }, index) => {
+        if (state === "support_not_located") acceptedAbsences.add(index);
+      });
+    }
     if (names.length === 0) {
       if (notLocated) {
         nextSteps.push(
@@ -2258,6 +2280,34 @@ export function finalizeResearch(
             status: "rejected",
             problems: ["A findings card is checked against the answer: pass answer_draft with it."]
           };
+  // Work a quick answer cannot do behind a finding (owner answer 139c), from this call's receipts and declarations
+  // only, compared exactly and the same in any language: a source audited in full text (each paper once, whichever
+  // identifier cites it), a video whose comments were read, a sentence that is an accepted absence claim, or one that
+  // states a correction the research found. Whether the finding is better than a quick answer stays the model's
+  // why_not_usual, for the owner's review.
+  const paperKey = (id: string): string => papers.identifiers(normalizeIdentifier(id)).sort()[0]!;
+  const verifiedWork = (sources: readonly string[], quote: string | undefined) => ({
+    studies: new Set(sources.filter(auditedStudy).map(paperKey)),
+    videos: new Set(sources.filter((source) => commentVideos.has(source))),
+    absences: new Set(quote === undefined ? [] : absenceClaims.flatMap(({ quote: claimed }, index) =>
+      acceptedAbsences.has(index) && sameQuote(quote, claimed) ? [index] : [])),
+    corrections: new Set(quote === undefined ? [] : (input.corrections ?? []).flatMap(({ change, by_user }, index) =>
+      by_user === false && sameQuote(quote, change) ? [index] : []))
+  });
+  type Work = ReturnType<typeof verifiedWork>;
+  const basesOf = (work: Work): VerifiedBasis[] => [
+    ...(work.studies.size > 0 ? ["full_text_audit" as const] : []),
+    ...(work.videos.size > 0 ? ["comment_audit" as const] : []),
+    ...(work.absences.size > 0 ? ["bounded_absence" as const] : []),
+    ...(work.corrections.size > 0 ? ["research_correction" as const] : [])
+  ];
+  const countWork = (works: readonly Work[]) => ({
+    studies: new Set(works.flatMap(({ studies }) => [...studies])).size,
+    videos: new Set(works.flatMap(({ videos }) => [...videos])).size,
+    absences: new Set(works.flatMap(({ absences }) => [...absences])).size,
+    corrections: new Set(works.flatMap(({ corrections }) => [...corrections])).size
+  });
+  let cardBases: VerifiedBasis[][] | undefined;
   if (draft === undefined) {
     requireDeclaration(
       "Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final check reads it."
@@ -2299,7 +2349,16 @@ export function finalizeResearch(
           materialVideos.includes(id),
         videoAudited
       });
-      if (findingsCard.status === "checked" && options.findings === "offer") caveats.push(FINDINGS_SAVE_OFFER);
+      if (findingsCard.status === "checked") {
+        const work = input.findings_card.findings.map(({ sources, answer_quote: quote }) => verifiedWork(sources, quote));
+        cardBases = work.map(basesOf);
+        const beyond = cardBases.filter((bases) => bases.length > 0).length;
+        findingsCard = { ...findingsCard, beyond_quick_answer: beyond };
+        // A paid private answer offers the save only when a finding rests on such work, which the offer names with
+        // this call's counts; without one there is no offer line, and the receipt still signs the card, so the user
+        // can still ask for the save.
+        if (options.findings === "offer" && beyond > 0) caveats.push(findingsSaveOffer(countWork(work)));
+      }
     }
     const lanes: AnswerLane[] = [
       ...(findings === undefined || commentVideos.size === 0 ? [] : [{
@@ -2406,9 +2465,12 @@ export function finalizeResearch(
       leads: leadSources.length,
       limits: limits.length,
       unverified: communitiesUnverified,
-      // The findings library saves only the card whose digest this signs.
+      // The findings library saves only the card whose digest this signs, and stamps each finding's bases with it.
       ...(findingsCard.status === "checked" && input.findings_card !== undefined
-        ? { findings: findingsCardDigest(input.findings_card) }
+        ? {
+            findings: findingsCardDigest(input.findings_card),
+            ...(cardBases === undefined ? {} : { bases: cardBases.map(signedFindingBases) })
+          }
         : {})
     }, {
       secret: options.secret,
@@ -2907,6 +2969,14 @@ function quoteForm(quote: string, fold: (text: string) => string = caveatText): 
   while (end > start && (QUOTE_MARK.test(text.charAt(end - 1)) || SENTENCE_MARK.test(text.charAt(end - 1)) ||
     text.charAt(end - 1) === " ")) end -= 1;
   return text.slice(start, end).trim();
+}
+
+/** Whether two declared quotes are one sentence, compared as the answer check compares a quote: by link target or text. */
+function sameQuote(left: string, right: string): boolean {
+  const forms = (quote: string) => [quoteForm(quote.replace(MARKDOWN_LINK, "$1")),
+    quoteForm(quote.replace(MARKDOWN_LINK_TEXT, "$1"))];
+  const [ours, theirs] = [forms(left), forms(right)];
+  return ours.some((form, index) => /[\p{L}\p{N}]/u.test(form) && form === theirs[index]);
 }
 
 /** The pages a text links to, compared as two links to one page are. */

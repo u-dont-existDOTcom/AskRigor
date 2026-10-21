@@ -15,6 +15,8 @@ import {
   FINDINGS_SAVE_OFFER,
   findingsCardDigest,
   findingsCardSchema,
+  findingsSavedLine,
+  findingsSaveOffer,
   withoutYouTubeData,
 } from "../apps/research-mcp/src/findings/card.js";
 import {
@@ -52,7 +54,7 @@ const PROTOCOLS = [
   { name: "Universal Instructions", version: "20.5.33", sha256: "b".repeat(64) },
 ];
 
-const finalization = (claims: Record<string, string | number> = {}, now = NOW) => issueResearchReceipt("finalization", {
+const finalization = (claims: Record<string, string | number | string[]> = {}, now = NOW) => issueResearchReceipt("finalization", {
   status: "ready_with_limits",
   community: "researched",
   receipts: 7,
@@ -78,7 +80,7 @@ const saveInput = (overrides: Record<string, unknown> = {}) => ({
 });
 
 /** Another card on the same question, as a corrected answer would give it, with its own receipt. */
-const corrected = (claims: Record<string, string | number> = {}) => {
+const corrected = (claims: Record<string, string | number | string[]> = {}) => {
   const card = {
     ...CARD,
     findings: [{ ...CARD.findings[0], claim: "Supervised exercise helped only people who kept it up for months." }],
@@ -138,6 +140,15 @@ class FakeGitHub {
       const issue = this.issues.find(({ number }) => number === Number(edit[1]))!;
       Object.assign(issue, body);
       return json(issue);
+    }
+    const labels = new RegExp(`^${root.replace(/[.]/gu, "\\.")}/(\\d+)/labels$`, "u").exec(url);
+    if (labels !== null && method === "POST") {
+      this.writes.push({ method, url, body });
+      const issue = this.issues.find(({ number }) => number === Number(labels[1]))!;
+      for (const name of body.labels as string[]) {
+        if (!issue.labels.some((label) => label.name === name)) issue.labels.push({ name });
+      }
+      return json(issue.labels);
     }
     const comments = new RegExp(`^${root.replace(/[.]/gu, "\\.")}/(\\d+)/comments(?:\\?.*)?$`, "u").exec(url);
     if (comments !== null && method === "GET") {
@@ -318,6 +329,45 @@ describe("findings library save", () => {
     expect(issue!.body).toContain("Pending the owner's review");
     expect(issue!.body).toContain("Model, as the app reported it \\(not verified\\): Example Model 2026\\-08\\-06");
     expect(issue!.body).toMatch(/\n<!-- askrigor-findings-card:[A-Za-z0-9_-]+ -->$/u);
+  });
+
+  // Owner answer 139c (2026-10-20): the owner reviews first the cards whose findings rest on work a quick answer can't do.
+  it("stamps each finding's work beyond a quick answer as its receipt signed it, and labels the card", async () => {
+    const github = new FakeGitHub();
+    const save = service(github);
+    await expect(save.save(saveInput({ finalization_receipt: finalization({ bases: ["full_text_audit.comment_audit"] }) }), CONTEXT))
+      .resolves.toMatchObject({ status: "saved", card_id: "ARF-0042" });
+    const [issue] = github.issues;
+    expect(issue!.labels).toEqual([{ name: "findings-card" }, { name: "pending-review" }, { name: "beyond-quick-answer" }]);
+    expect(storedRecord(issue!.body).card.findings[0]).toMatchObject({ verified_bases: ["full_text_audit", "comment_audit"] });
+    expect(issue!.body).toContain("- Beyond a quick answer, as the receipts show: full\\_text\\_audit, comment\\_audit");
+
+    // No basis, a list that does not fit the card, or a name the library does not know: nothing is stamped.
+    for (const bases of [["none"], ["none", "full_text_audit"], ["full_text_read"], ["comment_audit.comment_audit"]]) {
+      const other = new FakeGitHub();
+      await service(other).save(saveInput({ finalization_receipt: finalization({ bases }) }), CONTEXT);
+      expect(other.issues[0]!.labels).toEqual([{ name: "findings-card" }, { name: "pending-review" }]);
+      expect(storedRecord(other.issues[0]!.body).card.findings[0]).not.toHaveProperty("verified_bases");
+      expect(other.issues[0]!.body).toContain("- Beyond a quick answer, as the receipts show: none");
+    }
+  });
+
+  it("labels an open card when another person's save of the same findings goes beyond a quick answer", async () => {
+    const github = new FakeGitHub();
+    const save = service(github);
+    await save.save(saveInput(), CONTEXT);
+    expect(github.issues[0]!.labels).toEqual([{ name: "findings-card" }, { name: "pending-review" }]);
+    await expect(save.save(saveInput({
+      contributor: BOB, finalization_receipt: finalization({ receipts: 8, bases: ["full_text_audit"] }),
+    }), CONTEXT)).resolves.toMatchObject({ status: "existing_card", card_id: "ARF-0042", occurrence_count: 2 });
+    expect(github.issues[0]!.labels).toContainEqual({ name: "beyond-quick-answer" });
+    expect(storedRecord(github.comments.get(42)![0]!.body).card.findings[0]).toMatchObject({ verified_bases: ["full_text_audit"] });
+    // A card already labeled is not labeled again.
+    const writes = github.writes.length;
+    await save.save(saveInput({
+      contributor: "3".repeat(64), finalization_receipt: finalization({ receipts: 9, bases: ["comment_audit"] }),
+    }), CONTEXT);
+    expect(github.writes.slice(writes).map(({ url }) => url.replace(/^.*\/issues/u, ""))).toEqual(["/42/comments"]);
   });
 
   it("adds another person's matching card to the open one once per receipt, and starts afresh once that is closed", async () => {
@@ -559,9 +609,19 @@ describe("finalize_research, save_research_findings and the findings library", (
     expect(result.structuredContent).toMatchObject({
       status: "ready_with_limits",
       caveats: [SKIP],
-      findings_card: { status: "checked", problems: [], saved: { status: "saved", card_id: "ARF-0042" } },
+      findings_card: { status: "checked", problems: [], beyond_quick_answer: 1, saved: { status: "saved", card_id: "ARF-0042" } },
+      // Owner answer 139c: the free answer ends by saying where its findings went, with the card's real id.
+      saved_line: "Saved to AskRigor's findings library for review as ARF-0042.",
     });
-    expect(JSON.stringify(result.content)).toContain("Findings card: checked; saved for review as ARF-0042.");
+    const text = (result.content as Array<{ text: string }>)[0]!.text;
+    expect(text).toContain("Findings card: checked; saved for review as ARF-0042.");
+    const saved = "\nJust before the check line, end the answer with this line, as written (in the answer's language " +
+      "when the answer is not in English): Saved to AskRigor's findings library for review as ARF-0042.";
+    const ending = "\nEnd the answer with this line, as written (in the answer's language when the answer is not in " +
+      "English): Checked with AskRigor's final check, with the limits above.";
+    expect(text).toContain(saved);
+    expect(text.indexOf(saved)).toBeLessThan(text.indexOf(ending));
+    expect(findingsSavedLine("ARF-0042")).toBe("Saved to AskRigor's findings library for review as ARF-0042.");
     expect(calls).toHaveLength(1);
     const [raw, context] = calls[0]!;
     expect(raw).toEqual({
@@ -601,6 +661,9 @@ describe("finalize_research, save_research_findings and the findings library", (
       findings_card: { status: "checked", saved: { status: "not_saved", reason: "hourly_limit" } },
     });
     expect(JSON.stringify(result.content)).toContain("Findings card: checked; not saved.");
+    // A save that did not happen has no id, so the answer says nothing of it.
+    expect(result.structuredContent).not.toHaveProperty("saved_line");
+    expect(JSON.stringify(result.content)).not.toContain("Saved to AskRigor's findings library");
   });
 
   it("lets the answer go ahead when a save takes too long", async () => {
@@ -617,6 +680,8 @@ describe("finalize_research, save_research_findings and the findings library", (
       findings_card: { status: "checked", saved: { status: "unconfirmed" } },
     });
     expect(JSON.stringify(result.content)).toContain("the save had not finished; it may still complete");
+    expect(result.structuredContent).not.toHaveProperty("saved_line");
+    expect(JSON.stringify(result.content)).not.toContain("Saved to AskRigor's findings library");
   });
 
   it("offers a paid-private answer's save and saves only after the user's yes", async () => {
@@ -625,14 +690,18 @@ describe("finalize_research, save_research_findings and the findings library", (
     const { calls, findingsSave } = recorder();
     const options = { researchContributorAccessService: service, findingsLibrary: true, findingsSave };
     const finalize = connectorTool("finalize_research", options);
+    // The card's finding rests on the study audited in full text, so the offer names that work (owner answer 139c).
+    const offer = findingsSaveOffer({ studies: 1, videos: 0, absences: 0, corrections: 0 });
+    expect(offer).toBe(`These findings rest on a full-text audit of 1 study, work a quick answer does not do. ${FINDINGS_SAVE_OFFER}`);
     // The answer must carry the offer before the card is signed; nothing is saved at the final check.
     expect((await finalize(request(), "auth0|paid")).structuredContent).toMatchObject({
-      status: "not_ready", caveats: [SKIP, FINDINGS_SAVE_OFFER], findings_card: { status: "checked" },
+      status: "not_ready", caveats: [SKIP, offer], findings_card: { status: "checked", beyond_quick_answer: 1 },
     });
-    const offered = await finalize(request({ answer_draft: `${QUOTE} ${FINDINGS_SAVE_OFFER}` }), "auth0|paid");
+    const offered = await finalize(request({ answer_draft: `${QUOTE} ${offer}` }), "auth0|paid");
     expect(offered.structuredContent).toMatchObject({
-      status: "ready_with_limits", caveats: [SKIP, FINDINGS_SAVE_OFFER], findings_card: { status: "checked", problems: [] },
+      status: "ready_with_limits", caveats: [SKIP, offer], findings_card: { status: "checked", problems: [] },
     });
+    expect(offered.structuredContent).not.toHaveProperty("saved_line");
     expect((offered.structuredContent as { findings_card: object }).findings_card).not.toHaveProperty("saved");
     expect(calls).toEqual([]);
 
@@ -669,6 +738,43 @@ describe("finalize_research, save_research_findings and the findings library", (
     expect(calls).toHaveLength(1);
   });
 
+  it("offers no paid-private save when no finding rests on work a quick answer can't do, and still saves on request", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    const { calls, findingsSave } = recorder();
+    const options = { researchContributorAccessService: service, findingsLibrary: true, findingsSave };
+    const finalize = connectorTool("finalize_research", options);
+    const LEAD = "10.1016/j.joca.2020.01.001";
+    const leadCard = { ...CARD, findings: [{ ...CHECKED_CARD.findings[0], sources: [LEAD], tags: [] }] };
+    const leadRequest = (draft: string) => request({
+      receipts: [...request().receipts, issueResearchReceipt("full_text_lead", {
+        doi: LEAD, state: "PAYWALL_OR_LOGIN_REQUIRED",
+      }, { secret: SECRET })],
+      key_sources: [...request().key_sources, { read_depth: "abstract_only", answer_marker: "Study", id: LEAD, status: "lead_only" }],
+      findings_card: leadCard,
+      answer_draft: draft,
+    });
+    const draft = `${QUOTE} [Study](https://doi.org/${LEAD})`;
+    const first = await finalize(leadRequest(draft), "auth0|paid");
+    const caveats = (first.structuredContent as { caveats: string[] }).caveats;
+    expect(caveats.some((caveat) => caveat.includes(FINDINGS_SAVE_OFFER))).toBe(false);
+    const result = await finalize(leadRequest([draft, ...caveats].join("\n\n")), "auth0|paid");
+    expect(result.structuredContent).toMatchObject({
+      status: "ready_with_limits", next_steps: [], findings_card: { status: "checked", problems: [], beyond_quick_answer: 0 },
+    });
+    expect(JSON.stringify(result.content)).toContain(
+      "Findings card: checked; no finding rests on work a quick answer cannot do, so the answer offers no save. If the " +
+        "user asks for it, save_research_findings still saves it after their yes."
+    );
+    // The receipt signed the checked card, so the user's own request saves it after their yes.
+    const receipt = (result.structuredContent as { finalization_receipt: string }).finalization_receipt;
+    const saved = await connectorTool("save_research_findings", options)({
+      findings_card: leadCard, finalization_receipt: receipt, user_consent: "yes_to_this_save",
+    }, "auth0|paid");
+    expect(saved.isError).not.toBe(true);
+    expect(calls).toHaveLength(1);
+  });
+
   it("keeps research without a research account, and research while the library is closed, out of the library", async () => {
     process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
     const service = await accessService();
@@ -700,9 +806,12 @@ describe("finalize_research, save_research_findings and the findings library", (
     }
     expect(finalize?.description).toContain(
       "In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the " +
-        "owner's review; in paid private mode the caveats offer its save."
+        "owner's review, and saved_line says so at the end of the answer; in paid private mode, when a finding rests " +
+        "on work a quick answer cannot do, the caveats offer its save."
     );
-    expect(save?.description).toContain("when the answer offered the save and the user said yes to it");
+    expect(save?.description).toContain(
+      "when the user said yes to saving it: after the answer offered the save, or when the user asked for it"
+    );
     expect(save?.description).toContain("never include claims the user corrected");
     expect(save?.actionEnabled).toBe(false);
   });

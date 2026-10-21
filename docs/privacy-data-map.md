@@ -776,10 +776,12 @@ retention and provider-side deletion remain governed by the provider.
 Owner decisions Q9 to Q11 (2026-09-30): free AskRigor use is reciprocal, so what
 AskRigor learns from free research is saved. When `finalize_research` checks a
 free contributor account's answer, the server saves that answer's checked
-findings card to a private review queue, with nothing asked of the user. A
-paid-private answer ends by offering the save, and its card is saved only when
-the user accepts saving it for that answer, through the connector's
-`save_research_findings`. The owner reviews every card before it is accepted.
+findings card to a private review queue, with nothing asked of the user, and
+the answer ends by naming the saved card's `ARF-####` id. A paid-private answer
+whose findings rest on work a quick answer cannot do ends by offering the save,
+and a card is saved only when the user accepts saving it for that answer,
+through the connector's `save_research_findings`. The owner reviews every card
+before it is accepted.
 It is live since 2026-10-01 (20:19 UTC). The owner approved the wording of the
 in-app free contributor notice (in the code), `https://askrigor.com/privacy`
 and `/terms` on 2026-09-30; the two pages took it, with that day's effective
@@ -821,12 +823,39 @@ What the model sends, and when:
   the answer and that call's verified sources. A rejected card is reported and
   not saved; it never holds back the answer. A checked card's SHA-256 digest is
   signed into the finalization receipt; for a paid-private account a checked
-  card also adds the sentence offering its save to the caveats the answer must
+  card one of whose findings rests on work a quick answer cannot do (below)
+  also adds the sentence offering its save to the caveats the answer must
   carry. For a caller with no research account the card is neither checked nor
   saved (`private`).
 - In `save_research_findings`, only after a paid-private user says yes to that
-  offer: the same card, that finalization receipt, the literal consent
-  `yes_to_this_save`, and optionally the model name as the app reports it.
+  offer, or to a save they asked for: the same card, that finalization receipt,
+  the literal consent `yes_to_this_save`, and optionally the model name as the
+  app reports it.
+
+What the server derives for each finding of a checked card (owner answer 139c,
+2026-10-20), from fields the card already has and the receipts of the same
+call, with no new input: its verified bases, work a quick answer cannot do.
+`full_text_audit`: one of its sources has a study or review method-audit
+receipt in that call. `comment_audit`: one of its sources is a video whose
+comments that call's audits read. `bounded_absence`: its sentence is an
+`absence_claims` entry the check accepted. `research_correction`: its sentence
+is a `corrections[].change` that the research found (`by_user: false`). Each is
+an exact comparison, the same in any language; they show depth, not that a
+finding is better, which stays the model's `why_not_usual` for the owner's
+review. The finalization receipt signs them with the card's digest, one list
+entry per finding. A paid-private answer's offer appears only when at least one
+finding has a basis, and names what was done with the server's counts, for
+example "These findings rest on full-text audits of 2 studies and audited
+comments on 3 videos, work a quick answer does not do. If you want them saved
+to AskRigor's findings library for review, say yes; nothing is saved
+otherwise.": counts of studies, videos, absence claims and corrections, never
+card text. With no basis there is no offer line; the receipt still signs the
+card, so the user can still ask for the save. For a free contributor account,
+once the server's save confirms, the result gives the line the answer ends
+with, just before the check line: "Saved to AskRigor's findings library for
+review as ARF-0042.", with the card's real id (an occurrence save names the
+open card it joined). An unconfirmed or failed save gives no id and no line.
+The id is the one a deletion request names.
 
 What the server checks before it saves: that the caller's OAuth token belongs
 to an active research account (a free contributor under the current notice, at
@@ -847,8 +876,12 @@ What is stored, and where: one issue in the private GitHub repository
 `ASKRIGOR_FINDINGS_REPOSITORY`, under the same owner), reached through the
 lesson queue's GitHub App with a token scoped to that one private repository.
 The issue holds the question as its title, the labels `findings-card` and
-`pending-review`, a readable copy of the card, and a JSON record: the card, its
-SHA-256, and the server's version stamp. The stored card holds no YouTube video
+`pending-review` (and `beyond-quick-answer` when a finding has a verified
+basis; an open card gets it too when a later save of the same findings with a
+basis joins it), a readable copy of the card, and a JSON record: the card, its
+SHA-256, and the server's version stamp. Each stored finding also keeps its
+verified bases (`verified_bases`, the four values above, as the receipt signed
+them; none from a receipt that signed none). The stored card holds no YouTube video
 ID or link while AskRigor's YouTube API compliance review is open: each finding
 keeps only the number of videos whose audited comments backed it, and a link
 keeps its text (`stored_without` records this; the SHA-256 is still the checked
@@ -876,8 +909,9 @@ What is never stored: the chat, the answer beyond each finding's one quoted
 sentence, the research target or its digest, the account key, the receipts
 themselves, comment or caption text, commenter identities, the user's OAuth
 subject, email or network identity, and any upload. `finalize_research` reports
-only whether the card was saved and its `ARF-####` id, never the issue number,
-link, card text or fingerprint. Because a stored card carries no account
+only whether the card was saved and its `ARF-####` id, with the line naming that
+id that the answer ends with, never the issue number, link, card text or
+fingerprint. Because a stored card carries no account
 identity, revoking research access does not withdraw it; its deletion is
 requested with its `ARF-####` id.
 

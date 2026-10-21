@@ -53,9 +53,84 @@ export const findingsCardSchema = z.object({
 
 export type FindingsCard = z.output<typeof findingsCardSchema>;
 
-/** The sentence a paid-private answer ends with when its card checked: the save waits for a yes. */
+/** The sentence a paid-private answer's offer ends with: the save waits for a yes. */
 export const FINDINGS_SAVE_OFFER =
   "If you want these findings saved to AskRigor's findings library for review, say yes; nothing is saved otherwise.";
+
+/**
+ * Work a quick answer cannot do, which finalize_research derives for each finding of a checked card from that call's
+ * receipts and declarations (owner answer 139c, 2026-10-20): a source audited in full text, a video whose comments
+ * were read, a sentence that is a checked absence claim, or a correction the research itself found. It shows depth,
+ * not that a finding is better; why_not_usual stays the model's, for the owner's review.
+ */
+export const VERIFIED_BASES = ["full_text_audit", "comment_audit", "bounded_absence", "research_correction"] as const;
+export type VerifiedBasis = typeof VERIFIED_BASES[number];
+
+/** What the bases of a card's findings rest on, counted once each across the card. */
+export interface VerifiedWork {
+  /** Studies audited in full text, each paper once whichever of its identifiers a finding cites. */
+  studies: number;
+  /** Videos whose comments were read. */
+  videos: number;
+  /** Absence claims a finding's sentence states. */
+  absences: number;
+  /** Corrections the research found that a finding's sentence states. */
+  corrections: number;
+}
+
+/** The work, in the words the answer shows: "full-text audits of 2 studies and audited comments on 3 videos". */
+export function verifiedWorkPhrase(work: VerifiedWork): string {
+  const counted = (count: number, one: string, many: string) => count === 1 ? one : many.replace("#", String(count));
+  const parts = [
+    ...(work.studies === 0 ? [] : [counted(work.studies, "a full-text audit of 1 study", "full-text audits of # studies")]),
+    ...(work.videos === 0 ? [] : [counted(work.videos, "audited comments on 1 video", "audited comments on # videos")]),
+    ...(work.absences === 0 ? [] : [counted(work.absences, "a check of what the evidence does not show",
+      "# checks of what the evidence does not show")]),
+    ...(work.corrections === 0 ? [] : [counted(work.corrections, "a correction the research made to an earlier statement",
+      "# corrections the research made to earlier statements")])
+  ];
+  return parts.length <= 1 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
+}
+
+/**
+ * The caveat a paid-private answer carries when a finding of its checked card rests on work a quick answer cannot do,
+ * naming that work with the server's counts (the owner's example, 139c: "These findings rest on full-text audits of 2
+ * studies and audited comments on 3 videos, work a quick answer does not do. If you want them saved ...").
+ */
+export function findingsSaveOffer(work: VerifiedWork): string {
+  return `These findings rest on ${verifiedWorkPhrase(work)}, work a quick answer does not do. ${FINDINGS_SAVE_OFFER}`;
+}
+
+/** The line a free answer ends with, just before the check line, once the server's save of its card confirms (139c). */
+export function findingsSavedLine(cardId: string): string {
+  return `Saved to AskRigor's findings library for review as ${cardId}.`;
+}
+
+/**
+ * A finding's bases as the finalization receipt signs them: the basis names joined by "." in VERIFIED_BASES order, or
+ * "none". The receipt's list holds one per finding, in the card's order.
+ */
+export function signedFindingBases(bases: readonly VerifiedBasis[]): string {
+  return bases.length === 0 ? "none" : VERIFIED_BASES.filter((basis) => bases.includes(basis)).join(".");
+}
+
+/** The bases a receipt signed for each of a card's findings, or undefined when it signed none or a different card. */
+export function findingBasesFromReceipt(
+  signed: string | string[] | undefined,
+  findings: number
+): VerifiedBasis[][] | undefined {
+  if (!Array.isArray(signed) || signed.length !== findings) return undefined;
+  const bases: VerifiedBasis[][] = [];
+  for (const entry of signed) {
+    const names = entry === "none" ? [] : entry.split(".");
+    if (!names.every((name): name is VerifiedBasis => (VERIFIED_BASES as readonly string[]).includes(name)) ||
+      new Set(names).size !== names.length) {
+      return undefined;
+    }
+    bases.push(names);
+  }
+  return bases;
+}
 
 /**
  * JSON with each object's keys sorted and no spacing, so one card has one text
@@ -145,6 +220,8 @@ export type StoredFinding = Omit<FindingsCard["findings"][number], "sources"> & 
   sources: string[];
   /** Videos whose audited comments back this finding; their IDs are not stored. */
   youtube_videos?: number;
+  /** The work a quick answer cannot do that this finding rests on, as the finalization receipt signed it. */
+  verified_bases?: VerifiedBasis[];
 };
 
 /** A card as the library stores it. */
