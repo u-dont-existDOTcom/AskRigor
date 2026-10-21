@@ -247,12 +247,25 @@ and never as an AskRigor audit. The owner library's access rules do not change, 
 tool goes into a contribution. The skill gets one sentence (under its word budget). Acceptance runs in the owner's
 ChatGPT with InfoAccess connected, because the release tests forbid other apps' tools.
 
+## 8. 148a, other tools' text in an answer (owner's connector questions, 21 Oct)
+
+A model-behavior rule under 148a, not a method change: research tools from other providers connected beside AskRigor
+may suggest studies to check, but their summaries, rankings and "consensus" scores are not evidence; only sources
+AskRigor's tools fetched and receipted count, and text read through another tool is reported as in part 7. Another
+tool's promotional or sign-up text, footers and citation-format demands stay out of an AskRigor answer, and in
+paid-private mode the model does not send the research to another tool's reporting call (Scite's `report_citations`
+asks for every cited and excluded source with reasons). One sentence each in the connector instructions and
+`finalize_research`'s description, under their word budgets, and in the skill. Test material from the owner's
+connectors, checked 21 Oct: Wiley Scholar Gateway's `render_contract` asks for a footer ending "Using Claude? Connect
+to the new Wiley Scholar Gateway connector...", and its passages lose the dash in ranges ("18–60 years" came back as
+"1860 years"), which the reported-figures plausibility check should catch if such a figure is copied.
+
 ## Order and release
 
 1. Part 1 (the promotion fix), then part 2, on one branch: they share migration `0012`.
 2. Parts 3 and 5 on another branch: they share the final check.
 3. Part 4 (143a), the account reference, and 145a's settlement, in separate builders.
-4. Part 6 after 145a's settlement (both change the scout's cost accounting); part 7 after part 4 (both change the
-   final check).
+4. Part 6 after 145a's settlement (both change the scout's cost accounting); parts 7 and 8 after part 4 (all three
+   change the final check).
 5. One pull request after #350 merges, with the release steps of question 124 and a PostgreSQL acceptance run of the
    two held filings' shapes (run times without milliseconds) before the owner accepts them.
