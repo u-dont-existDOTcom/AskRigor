@@ -78,6 +78,16 @@ const required = (gap: "is missing" | "lists no harm", why: string) => `harm_scr
   "not_found with the exact search_query of a literature search passed here, or not_checked (at least one entry).";
 const BECAUSE_CLAIMS = "the answer makes safety statements (safety_claims)";
 const BECAUSE_QUESTION = "the question is about safety (safety_question)";
+const BECAUSE_LONG_TERM = "the answer recommends, puts forward or ranks a medicine likely to be taken for months or " +
+  "years (recommendations)";
+type Recommendation = NonNullable<FinalizeResearchInput["recommendations"]>[number];
+const RANKED = "Of the options compared, the hormone ranks first for most adults, if a clinician confirms normal " +
+  "blood sugar.";
+const longTerm = (overrides: Partial<Recommendation> = {}): Recommendation => ({
+  quote: RANKED, intervention: "the hormone", safety_check: "conditional", open_inputs: "normal blood sugar",
+  long_term_use: true, longest_follow_up: "26 weeks", follow_up_matches_use: true, stopping_covered: true, ...overrides
+});
+const CONDITIONAL = "The hormone depends on normal blood sugar, which a clinician should confirm first.";
 const SAFETY_QUESTION_MISSING = "safety_question is missing: with answer_draft, say whether the question is about " +
   "safety: true when the user asks whether something is safe, how risky it is or what harm it can do, or the answer " +
   "compares options' safety; false otherwise.";
@@ -167,6 +177,49 @@ describe("finalize_research harm_screen: when it is required (owner answer 128b)
     expect(withHarmScreen(plain)).toBe(plain);
     const own = base({ harm_screen: [notChecked] });
     expect(withHarmScreen(own)).toBe(own);
+  });
+});
+
+// Owner answer 153c (Universal: "or when the answer ranks or puts forward a medicine likely to be taken for months or
+// years, list the serious harms"): a recommendations entry with long_term_use asks for the screen too. Which medicine
+// is likely taken that long stays the model's declaration.
+describe("finalize_research harm_screen: a medicine put forward or ranked for long-term use (owner answer 153c)", () => {
+  const ranked = (overrides: Partial<FinalizeResearchInput> = {}) => ({
+    safety_claims: [], safety_question: false, recommendations: [longTerm()],
+    answer_draft: `${LINKS}\n\n${RANKED} ${CONDITIONAL}\n\n${LABEL}`, ...overrides
+  });
+
+  it("asks for the screen, with the connector-refresh hint, when recommendations lists one for long-term use", () => {
+    const result = check(ranked({ harm_screen: undefined }));
+    expect(result.status).toBe("not_ready");
+    expect(result.next_steps).toEqual([required("is missing", BECAUSE_LONG_TERM), TOOL_LIST_REFRESH_HINT]);
+    expect(result.next_step_kinds).toEqual(["declaration", "tool_list"]);
+    expect(steps(ranked({ harm_screen: [] }))).toEqual([required("lists no harm", BECAUSE_LONG_TERM)]);
+  });
+
+  it("passes once the screen is given; a general ranking is conditional and states the existing caveat", () => {
+    expect(check(ranked())).toMatchObject({ status: "ready_with_limits", next_steps: [], caveats: [CONDITIONAL] });
+    // Without the caveat the answer is sent back for it, as for any conditional recommendation (FS231).
+    expect(steps(ranked({ answer_draft: `${LINKS}\n\n${RANKED}\n\n${LABEL}` }))).toEqual([missing(CONDITIONAL)]);
+  });
+
+  it("is not required for a recommendation that is not for long-term use, nor before an answer draft", () => {
+    const shortTerm = check(ranked({ recommendations: [longTerm({ long_term_use: false })], harm_screen: undefined,
+      answer_draft: `${LINKS}\n\n${RANKED} ${CONDITIONAL}` }));
+    expect(shortTerm).toMatchObject({ status: "ready_with_limits", next_steps: [] });
+    expect(steps(ranked({ harm_screen: undefined, answer_draft: undefined }))).toEqual([NO_DRAFT]);
+  });
+
+  it("names one reason: the safety statements, else the safety question, else the long-term medicine", () => {
+    expect(steps(ranked({ harm_screen: undefined, safety_claims: base().safety_claims,
+      answer_draft: `${LINKS}\n\n${SAFETY}\n\n${RANKED} ${CONDITIONAL}` }))).toEqual([required("is missing", BECAUSE_CLAIMS)]);
+    expect(steps(ranked({ harm_screen: undefined, safety_question: true })))
+      .toEqual([required("is missing", BECAUSE_QUESTION)]);
+    // Any entry for long-term use counts, wherever it is listed.
+    const second = "A short course of the cream could also help.";
+    expect(steps(ranked({ harm_screen: undefined,
+      recommendations: [{ quote: second, intervention: "the cream", safety_check: "resolved", long_term_use: false }, longTerm()],
+      answer_draft: `${LINKS}\n\n${second} ${RANKED} ${CONDITIONAL}` }))).toEqual([required("is missing", BECAUSE_LONG_TERM)]);
   });
 });
 
@@ -577,11 +630,14 @@ describe("finalize_research publishes harm_screen on both surfaces (owner answer
       }
       expect(tool.description).toContain(FINALIZE_RESEARCH_SHAPES_DESCRIPTION);
       expect(tool.description).toContain("whether the question is about safety (safety_question, required), with " +
-        "safety statements (safety_claims) or a safety question the serious harms plausible for the exposure, apart " +
+        "safety statements (safety_claims), a safety question or a medicine put forward or ranked for long-term use " +
+        "(recommendations) the serious harms plausible for the exposure, apart " +
         "from its common side effects, each screened by name (harm_screen: label_warning or reported_signal with the " +
         "answer's sentence reporting it, not_found with the exact query of a PubMed, Europe PMC or ClinicalTrials.gov " +
         `search passed here, or not_checked, which the answer states in the caveat "${HARM_NOT_CHECKED_CAVEAT_START} ` +
         "[harm].\"), visible links");
+      expect(screen.description).toContain("when safety_claims lists a sentence, safety_question is true or " +
+        "recommendations lists one for long-term use");
 
       const logged = (["log", "info", "warn", "error", "debug"] as const)
         .map((method) => vi.spyOn(console, method).mockImplementation(() => undefined));
@@ -600,6 +656,9 @@ describe("finalize_research publishes harm_screen on both surfaces (owner answer
       expect(unscreened.result.next_steps).toEqual([required("is missing", BECAUSE_CLAIMS), TOOL_LIST_REFRESH_HINT]);
       const undeclared = await call(base({ safety_question: undefined }));
       expect(undeclared.result.next_steps).toEqual([SAFETY_QUESTION_MISSING, TOOL_LIST_REFRESH_HINT]);
+      const ranked = await call(base({ safety_claims: [], recommendations: [longTerm()], harm_screen: undefined,
+        answer_draft: `${LINKS}\n\n${RANKED} ${CONDITIONAL}` }));
+      expect(ranked.result.next_steps).toEqual([required("is missing", BECAUSE_LONG_TERM), TOOL_LIST_REFRESH_HINT]);
       // Both surfaces accept any input and answer it with AskRigor's own validation.
       const invalid = await call({ ...base(), harm_screen: [{ harm: "anaphylaxis", state: "suspected", sources_searched: "label" }] });
       expect(invalid.result).toMatchObject({ status: "not_ready", next_steps: [

@@ -116,10 +116,15 @@ export const COMMUNITY_SKIP_CAVEAT_START = "I did not search firsthand reports o
 export const COMMUNITY_SKIP_LIMIT = "Firsthand reports and community discussions were not searched, for a question " +
   "declared to have no real-world outcome: say so in the answer, with the reason, as the caveat does.";
 
+/** The server's words completed by a declared phrase, on one line, ending as a sentence. */
+function completedCaveat(start: string, phrase: string): string {
+  const stated = phrase.replace(/\s+/gu, " ").trim();
+  return `${start} ${stated}${/\p{STerm}$/u.test(stated) ? "" : "."}`;
+}
+
 /** The skip's caveat: the server's words and the declared reason, on one line, ending as a sentence. */
 export function communitySkipCaveat(reason: string): string {
-  const stated = reason.replace(/\s+/gu, " ").trim();
-  return `${COMMUNITY_SKIP_CAVEAT_START} ${stated}${/\p{STerm}$/u.test(stated) ? "" : "."}`;
+  return completedCaveat(COMMUNITY_SKIP_CAVEAT_START, reason);
 }
 
 // What a receipt that failed verification needs, by the verifier's reason (UDA lane item
@@ -152,15 +157,32 @@ export const HARM_SCREEN_SOURCES = [
 ] as const;
 const HARM_SCREEN_MAX_ENTRIES = 20;
 const HARM_TEXT_MAX_CHARACTERS = 150;
-const HARM_QUERY_MAX_CHARACTERS = 500;
+// The exact query of a literature search a declaration names, as harm_screen and option_classes give it.
+const LITERATURE_QUERY_MAX_CHARACTERS = 500;
 // A serious harm the screen did not search by name reaches the answer in this sentence, completed by the harm as the
 // call declares it (owner answer "128b": "This answer did not check [harm].").
 export const HARM_NOT_CHECKED_CAVEAT_START = "This answer did not check";
 
 /** The caveat for a harm not checked: the server's words and the declared harm, on one line, ending as a sentence. */
 export function harmNotCheckedCaveat(harm: string): string {
-  const stated = harm.replace(/\s+/gu, " ").trim();
-  return `${HARM_NOT_CHECKED_CAVEAT_START} ${stated}${/\p{STerm}$/u.test(stated) ? "" : "."}`;
+  return completedCaveat(HARM_NOT_CHECKED_CAVEAT_START, harm);
+}
+
+// The classes of treatment an answer comparing treatment options covers (owner answer 153a, from the OCD comparison
+// reports AskRigor#354 to #357): each materially plausible class, searched by name, not researched, or out of reach. A
+// class not researched or out of reach reaches the answer in these sentences, completed by the class as the call
+// declares it ("This answer did not research [class].").
+export const OPTION_CLASS_STATES = ["researched", "not_researched", "inaccessible"] as const;
+const OPTION_CLASSES_MAX_ENTRIES = 20;
+const OPTION_CLASS_MAX_CHARACTERS = 120;
+export const OPTION_CLASS_CAVEAT_STARTS = {
+  not_researched: "This answer did not research",
+  inaccessible: "This answer could not reach the research on"
+} as const;
+
+/** The caveat for a class not researched or out of reach: the server's words and the declared class, ending as a sentence. */
+export function optionClassCaveat(state: keyof typeof OPTION_CLASS_CAVEAT_STARTS, optionClass: string): string {
+  return completedCaveat(OPTION_CLASS_CAVEAT_STARTS[state], optionClass);
 }
 
 // Research results remind the AI, in the turn it researches, that answers using
@@ -253,7 +275,31 @@ export const finalizeResearchInputSchema = z.object({
     .describe("Why none of the videos found was worth auditing; needed only when discovery found videos but material_video_ids is empty."),
   treatment_choice: z.enum(["compared", "not_compared"])
     .describe("compared when the answer compares, ranks or recommends treatment options. Deep research then needs an " +
-      "assess_treatment_landscape_coverage result; a first pass presents the comparison as provisional, with no final ranking."),
+      "assess_treatment_landscape_coverage result; a first pass presents the comparison as provisional, with no final " +
+      "ranking. With answer_draft, option_classes then lists each plausible class of treatment."),
+  // Flat fields only, as binary_results' are: ChatGPT's app shows the model an object nested in an entry only as
+  // "unknown" (FINALIZE_RESEARCH_HIDDEN_SHAPES).
+  option_classes: z.array(z.object({
+    option_class: z.string().trim().min(1).max(OPTION_CLASS_MAX_CHARACTERS)
+      .describe(`One materially plausible class of treatment, in at most ${OPTION_CLASS_MAX_CHARACTERS} characters, ` +
+        `named as the answer would name it, so that "${OPTION_CLASS_CAVEAT_STARTS.not_researched} [class]." reads as a ` +
+        "sentence: for example, supplements and botanicals."),
+    state: z.enum(OPTION_CLASS_STATES)
+      .describe("researched: searched by name in a literature search passed here; not_researched: not searched; " +
+        "inaccessible: its research was out of reach here, such as a search that failed or studies that could not " +
+        "be read."),
+    search_query: z.string().trim().min(1).max(LITERATURE_QUERY_MAX_CHARACTERS).optional()
+      .describe("With researched: the exact query the class was searched by name with in search_pubmed, " +
+        "search_europe_pmc or search_clinical_trials, whose research_receipt is passed in receipts."),
+    answer_quote: answerQuote.optional()
+      .describe("With researched: the answer's sentence reporting what that search found, copied from answer_draft.")
+  }).strict()).max(OPTION_CLASSES_MAX_ENTRIES).optional()
+    .describe("With answer_draft, when treatment_choice is compared, in a first pass too: each materially plausible " +
+      `class of treatment, and whether it was searched by name (at least one entry, at most ${OPTION_CLASSES_MAX_ENTRIES}). ` +
+      "Each state's own field is checked: a researched class gives search_query, the query of a literature search " +
+      "passed here, and answer_quote, shown in the answer; a class not_researched adds the caveat " +
+      `"${OPTION_CLASS_CAVEAT_STARTS.not_researched} [class]." and one inaccessible the caveat ` +
+      `"${OPTION_CLASS_CAVEAT_STARTS.inaccessible} [class]." Which classes are plausible stays the model's declaration.`),
   research_target: z.string().trim().min(1).max(5_000)
     .describe("The research target, copied exactly as given to the scout, search_youtube and " +
       "assess_treatment_landscape_coverage, and as research_question to surveys and community audits. Discovery " +
@@ -512,15 +558,22 @@ export const finalizeResearchInputSchema = z.object({
     follow_up: z.string().trim().min(1).max(120)
       .describe("How long people were followed for this outcome, as the answer writes it, such as 12 weeks."),
     nnt: z.number().positive().optional()
-      .describe("The number needed to treat the answer gives for this outcome, if it gives one."),
+      .describe("The number needed to treat the answer gives for this outcome, if it gives one: 1 divided by the " +
+        "difference in the groups' rates, rounded up."),
     nnh: z.number().positive().optional()
-      .describe("The number needed to harm the answer gives for this outcome, if it gives one.")
+      .describe("The number needed to harm the answer gives for this outcome, if it gives one: 1 divided by the " +
+        "difference in the groups' rates, rounded up."),
+    harms_quote: answerQuote.optional()
+      .describe("With nnt: the answer's sentence giving the harms measured over the same follow-up, or saying that " +
+        "none were found, copied from answer_draft.")
   }).strict()).max(20).optional()
     .describe("Lists each yes-or-no outcome answer_draft reports for two groups, or with a number needed to treat or " +
       "harm (an empty list if none). With answer_draft this declaration is required. The quote shows each group's " +
       "events and total, or its rate as a percentage; nnt (the option did better) or nnh (it did worse) is checked " +
-      "against 1 divided by the difference in the groups' rates, and the quote shows it with the follow-up. Whether " +
-      "the counts are the paper's own remains the model's declaration."),
+      "against 1 divided by the difference in the groups' rates, rounded up, and the quote shows it with the " +
+      "follow-up; beside an nnt, harms_quote gives the harms measured over the same follow-up, or says that none were " +
+      "found, and is shown in the answer. Whether the counts are the paper's own, and whether harms_quote reports " +
+      "harms, remain the model's declarations."),
   safety_claims: z.array(z.object({
     quote: answerQuote.describe("The sentence(s), copied from answer_draft."),
     direction: z.enum(["harm", "safety"])
@@ -545,7 +598,7 @@ export const finalizeResearchInputSchema = z.object({
   safety_question: z.boolean().optional()
     .describe("Required with answer_draft: true when the user asks whether something is safe, how risky it is or " +
       "what harm it can do, or the answer compares options' safety; false otherwise. When true, harm_screen is " +
-      "required, as it is whenever safety_claims lists a sentence."),
+      "required, as it is whenever safety_claims lists a sentence or recommendations lists one for long-term use."),
   harm_screen: z.array(z.object({
     harm: z.string().trim().min(1).max(HARM_TEXT_MAX_CHARACTERS)
       .describe(`One serious harm plausible for this exposure, in at most ${HARM_TEXT_MAX_CHARACTERS} characters, ` +
@@ -562,12 +615,13 @@ export const finalizeResearchInputSchema = z.object({
         "except not_checked."),
     answer_quote: answerQuote.optional()
       .describe("With label_warning or reported_signal: the answer's sentence reporting it, copied from answer_draft."),
-    search_query: z.string().trim().min(1).max(HARM_QUERY_MAX_CHARACTERS).optional()
+    search_query: z.string().trim().min(1).max(LITERATURE_QUERY_MAX_CHARACTERS).optional()
       .describe("With not_found: the exact query it was searched with in search_pubmed, search_europe_pmc or " +
         "search_clinical_trials, whose research_receipt is passed in receipts.")
   }).strict()).max(HARM_SCREEN_MAX_ENTRIES).optional()
-    .describe("With answer_draft, when safety_claims lists a sentence or safety_question is true: the serious harms " +
-      "plausible for this exposure, apart from its common side effects, each searched by name, with what the " +
+    .describe("With answer_draft, when safety_claims lists a sentence, safety_question is true or recommendations " +
+      "lists one for long-term use: the serious harms plausible for this exposure, apart from its common side " +
+      "effects, each searched by name, with what the " +
       `search found (at least one entry, at most ${HARM_SCREEN_MAX_ENTRIES}). Each state's own field is checked: ` +
       "answer_quote is shown in the answer, search_query is the query of a literature search passed here, and a " +
       `harm not_checked adds the caveat "${HARM_NOT_CHECKED_CAVEAT_START} [harm]." Whether the list is complete ` +
@@ -597,14 +651,16 @@ export const finalizeResearchInputSchema = z.object({
       "through a mechanism, with the route of the use it describes, the route of the experiment it rests on, whom " +
       "it was done in, any difference in tissue, and those studies (an empty list if none)."),
   recommendations: z.array(z.object({
-    quote: answerQuote.describe("The sentence that puts it forward, copied from answer_draft."),
+    quote: answerQuote.describe("The sentence that puts it forward or ranks it, copied from answer_draft."),
     intervention: z.string().trim().min(1).max(200).describe("What it is, as the answer names it."),
     safety_check: z.enum(["resolved", "conditional", "unresolved"])
       .describe("Whether this person's safety conflicts and missing safety inputs for it are resolved, resolved on " +
-        "a condition a clinician should confirm, or still open."),
+        "a condition a clinician should confirm (as for a general ranking with no person-specific inputs), or still " +
+        "open."),
     open_inputs: z.string().trim().min(1).max(300).optional()
       .describe("For conditional and unresolved: the conflicts or inputs still open, in a few words."),
-    long_term_use: z.boolean().describe("Whether it would likely be taken for months or years."),
+    long_term_use: z.boolean()
+      .describe("Whether it would likely be taken for months or years; if so, harm_screen lists its serious harms."),
     longest_follow_up: z.string().trim().min(1).max(120).optional()
       .describe("For long-term use: the longest follow-up in its evidence, as the sources state it, such as 12 weeks."),
     follow_up_matches_use: z.boolean().optional()
@@ -613,9 +669,11 @@ export const finalizeResearchInputSchema = z.object({
       .describe("For long-term use: whether the answer covers stopping, withdrawal and lasting harms, or says they " +
         "are unknown.")
   }).strict()).max(20).optional()
-    .describe("Records each intervention the answer recommends or puts forward for this person, with the sentence " +
-      "that does so, whether this person's safety conflicts and inputs are resolved, and, for long-term use, the " +
-      "longest follow-up in its evidence and whether stopping is covered (an empty list if none)."),
+    .describe("Records each intervention the answer recommends or puts forward for this person, or ranks among the " +
+      "treatments it compares, with the sentence that does so, whether this person's safety conflicts and inputs are " +
+      "resolved (a general ranking with no person-specific inputs is conditional, with open_inputs naming what a " +
+      "clinician should confirm), and, for long-term use, the longest follow-up in its evidence and whether stopping " +
+      "is covered (an empty list if none)."),
   user_observations: z.array(userObservationSchema).max(30).optional()
     .describe("With answer_draft: each observation the user reported, about themselves or others, that the answer relies on or rules out, including attempts where nothing happened and reports withdrawn or called uncertain (HRP UserObservationLedger); an empty list if the user reported none."),
   proposed_tests: z.array(z.object({
@@ -1240,6 +1298,7 @@ export function finalizeResearch(
   const caveatOnce = (limit: string, caveat: string): void => {
     if (!caveats.includes(caveat)) requireLimit(limit, caveat);
   };
+  const plainPhrase = (text: string): string => text.trim().replace(/[\s.;:!?]+$/u, "");
   if (input.answer_draft !== undefined && input.treatment_choice === "compared" &&
       (input.community_searches ?? []).some(({ platform, threads_read }) =>
         platform !== "review_site" && threads_read.length > 0) && input.comparison_claims === undefined) {
@@ -1687,6 +1746,66 @@ export function finalizeResearch(
     }
   }
 
+  // The classes of treatment a comparison covers, in a first pass too (owner answer 153a; HRP: "search each materially
+  // plausible class by name at least once, or say in the answer that it was not researched"). The model lists each
+  // class and what was done, and each state's own field is checked exactly, as harm_screen's are: a class researched
+  // was searched with the query of a literature-search receipt passed here, and the answer shows its sentence on what
+  // that search found; a class not researched, or whose research was out of reach, reaches the answer in the server's
+  // sentence. Which classes are plausible, and so whether the list is complete, stays the model's declaration: no word
+  // list reads the classes or the answer.
+  const optionClasses = input.option_classes ?? [];
+  if (input.answer_draft !== undefined && input.treatment_choice === "compared" && optionClasses.length === 0) {
+    (input.option_classes === undefined ? requireDeclaration : (step: string) => addStep("declaration", step))(
+      `option_classes ${input.option_classes === undefined ? "is missing" : "lists no class"}: the answer compares ` +
+        "treatment options, so option_classes lists each materially plausible class of treatment and whether it was " +
+        "searched by name: researched, with the exact search_query of a literature search passed here and the " +
+        "answer's sentence on what it found as answer_quote; not_researched; or inaccessible, when its research was " +
+        "out of reach (at least one entry)."
+    );
+  }
+  // Each entry's own field, as its state needs it; another state's field, if given, is not used.
+  const listedClasses = new Map<string, number>();
+  for (const [index, entry] of optionClasses.entries()) {
+    const at = `option_classes[${index}]`;
+    const optionClass = plainPhrase(entry.option_class).replace(/\s+/gu, " ");
+    // One class, one entry: names compared as harms are, so a repeat adds no second caveat.
+    const first = listedClasses.get(caveatText(optionClass));
+    if (first === undefined) listedClasses.set(caveatText(optionClass), index);
+    else addStep("declaration", `${at} names the same class as option_classes[${first}]: give each class one entry.`);
+    if (entry.state === "researched") {
+      // Searched with a query a literature-search receipt in this call signed, compared by its digest as a harm not
+      // found is; nothing else shows that the search ran.
+      const query = entry.search_query === undefined ? undefined : discoveryQueryDigest([entry.search_query]);
+      if (query === undefined) {
+        addStep("declaration", `${at} is researched without search_query: give the exact query ${optionClass} was ` +
+          "searched by name with, and pass that search's research_receipt, or declare it not_researched.");
+      } else if (!verified.some(({ kind, claims }) => kind === "literature_search" && text(claims.q) === query)) {
+        addStep("research", `${at}.search_query is not the query of any literature search passed here: search ` +
+          `${optionClass} by name with search_pubmed, search_europe_pmc or search_clinical_trials, give that exact ` +
+          "query, and pass its research_receipt, or declare it not_researched.");
+      }
+      if (entry.answer_quote === undefined) {
+        addStep("answer_draft", `${at} is researched without answer_quote: say in the answer what the search for ` +
+          `${optionClass} found, and copy that sentence from answer_draft.`);
+      }
+      continue;
+    }
+    // The class reaches the reader in the caveat, so it shows no internal labels, as a harm not checked does.
+    const labels = internalLabels(entry.option_class, options.protocolNames ?? new Set());
+    if (labels.length > 0) {
+      addStep("declaration", `${at}.option_class shows internal labels (${labels.slice(0, 8).join(", ")}` +
+        `${labels.length > 8 ? ", and more" : ""}): the answer names this class in its caveat, so give it in plain ` +
+        "words.");
+    }
+    if (first === undefined) {
+      caveatOnce(entry.state === "not_researched"
+        ? `A plausible class of treatment, ${optionClass}, was not researched: say so in the answer, as the caveat does.`
+        : `The research on a plausible class of treatment, ${optionClass}, was out of reach: say so in the answer, as ` +
+          "the caveat does.",
+      optionClassCaveat(entry.state, entry.option_class));
+    }
+  }
+
   // Key studies.
   const validatedIds = new Set<string>();
   const leadIds = new Set<string>();
@@ -2113,10 +2232,12 @@ export function finalizeResearch(
   // group's events and total, which direction is better and the follow-up; the
   // gate checks the arithmetic here, exactly, and in answerDraftProblems that
   // the quote shows each group's figure and any number needed to treat or harm
-  // with its follow-up (HRP NNTAndNNH). Whether the counts are the paper's own
-  // stays the model's declaration and the study audit's job. Harms beside a
-  // benefit figure, and rounding up, are not required: they are owner question
-  // 153b, not yet approved.
+  // with its follow-up (HRP NNTAndNNH). Owner answer 153b adds the reciprocal
+  // rounded up, and beside a benefit figure the harms measured over the same
+  // follow-up, or that none were found: the model copies that sentence as
+  // harms_quote, which the answer must show. Whether the counts are the
+  // paper's own stays the model's declaration and the study audit's job, and
+  // whether harms_quote reports harms stays the model's declaration.
   for (const [index, result] of (input.binary_results ?? []).entries()) {
     const at = `binary_results[${index}]`;
     const overCounted = binaryGroups(result).filter(({ events, total }) => events > total);
@@ -2138,24 +2259,29 @@ export function finalizeResearch(
     const supported = optionBetter ? "nnt" : "nnh";
     if (stated.length === 2) {
       addStep("declaration", `${at} gives both nnt and nnh: give only ${supported}, the one its counts support.`);
-      continue;
+    } else {
+      const field = stated[0]!;
+      const value = result[field]!;
+      if (field !== supported) {
+        const [outcome, option, comparator] = [result.outcome, result.option, result.comparator]
+          .map(withoutEndPunctuation);
+        const share = contrast.optionHigher ? "larger" : "smaller";
+        addStep("declaration", `${at} gives ${field}, but by its counts a ${share} share of people had ${outcome} with ` +
+          `${option} than with ${comparator}, and ${result.better} is better, so it is a number needed to ` +
+          `${optionBetter ? "treat" : "harm"}: give it as ${supported}.`);
+      }
+      // Only the reciprocal rounded up counts (owner answer 153b: "rounding the reciprocal up").
+      if (value !== contrast.roundedUp) {
+        addStep("declaration", `${at} gives ${field} ${value}, but by its counts 1 divided by the difference in rates ` +
+          `is ${contrast.reciprocal.toFixed(1)}, which rounds up to ${contrast.roundedUp}: give the reciprocal rounded ` +
+          "up, recomputed from the groups' counts the answer uses, or correct the counts.");
+      }
     }
-    const field = stated[0]!;
-    const value = result[field]!;
-    if (field !== supported) {
-      const [outcome, option, comparator] = [result.outcome, result.option, result.comparator]
-        .map(withoutEndPunctuation);
-      const share = contrast.optionHigher ? "larger" : "smaller";
-      addStep("declaration", `${at} gives ${field}, but by its counts a ${share} share of people had ${outcome} with ` +
-        `${option} than with ${comparator}, and ${result.better} is better, so it is a number needed to ` +
-        `${optionBetter ? "treat" : "harm"}: give it as ${supported}.`);
-    }
-    // The reciprocal rounded down or up both count; owner question 153b, if approved, would accept only
-    // contrast.roundedUp here.
-    if (value < contrast.roundedDown || value > contrast.roundedUp) {
-      addStep("declaration", `${at} gives ${field} ${value}, but by its counts 1 divided by the difference in rates is ` +
-        `${contrast.reciprocal.toFixed(1)}, ${contrast.roundedUp} rounded up: recompute it from the groups' counts ` +
-        "the answer uses, or correct the counts.");
+    // A number needed to treat the counts support has the harms beside it. An entry whose counts leave no number, or
+    // make it a number needed to harm, is not asked for them: its own step changes the number first.
+    if (supported === "nnt" && result.nnt !== undefined && result.harms_quote === undefined) {
+      addStep("answer_draft", `${at} gives nnt without harms_quote: give, beside the benefit figure, the harms measured ` +
+        "over the same follow-up, or say that none were found, and copy that sentence from answer_draft as harms_quote.");
     }
   }
   // Harm and safety sentences, the terms a conclusion depends on, and
@@ -2190,9 +2316,10 @@ export function finalizeResearch(
   if (input.answer_draft !== undefined && input.recommendations === undefined) {
     requireDeclaration(
       "recommendations is missing: with answer_draft, it lists each intervention the answer recommends or puts " +
-        "forward for this person, with the sentence that does so, whether this person's safety conflicts and inputs " +
-        "are resolved, and for long-term use its longest follow-up and whether stopping is covered (an empty list " +
-        "means none)."
+        "forward for this person, or ranks among the treatments it compares, with the sentence that does so, whether " +
+        "this person's safety conflicts and inputs are resolved (for a general ranking, conditional, with what a " +
+        "clinician should confirm), and for long-term use its longest follow-up and whether stopping is covered (an " +
+        "empty list means none)."
     );
   }
   // The key source a declared study names, by its own identifier or its PubMed record's DOI.
@@ -2215,7 +2342,6 @@ export function finalizeResearch(
         "with its read depth and link, so its reading is checked like any key study.");
     }
   };
-  const plainPhrase = (text: string): string => text.trim().replace(/[\s.;:!?]+$/u, "");
   for (const [index, claim] of (input.safety_claims ?? []).entries()) {
     const at = `safety_claims[${index}]`;
     const exposure = plainPhrase(claim.exposure);
@@ -2283,7 +2409,9 @@ export function finalizeResearch(
   // in the server's sentence. Which harms are plausible, and so whether the list is complete, stays the model's
   // declaration: no word list reads the harms or the answer. The rule itself is the protocols' serious-harm screen.
   // Every answer says whether its question is about safety (AskRigor#356), so leaving safety_question out cannot
-  // skip the screen.
+  // skip the screen. An answer that recommends, puts forward or ranks a medicine likely to be taken for months or
+  // years screens it too (owner answer 153c), as its recommendations entry declares with long_term_use. The step names
+  // one reason: the answer's own safety statements, else the question, else the long-term medicine.
   if (input.answer_draft !== undefined && input.safety_question === undefined) {
     requireDeclaration(
       "safety_question is missing: with answer_draft, say whether the question is about safety: true when the user " +
@@ -2294,7 +2422,12 @@ export function finalizeResearch(
   const harmScreen = input.harm_screen ?? [];
   const harmScreenTrigger = (input.safety_claims ?? []).length > 0
     ? "the answer makes safety statements (safety_claims)"
-    : input.safety_question === true ? "the question is about safety (safety_question)" : undefined;
+    : input.safety_question === true
+      ? "the question is about safety (safety_question)"
+      : (input.recommendations ?? []).some(({ long_term_use }) => long_term_use)
+        ? "the answer recommends, puts forward or ranks a medicine likely to be taken for months or years " +
+          "(recommendations)"
+        : undefined;
   if (input.answer_draft !== undefined && harmScreenTrigger !== undefined && harmScreen.length === 0) {
     (input.harm_screen === undefined ? requireDeclaration : (step: string) => addStep("declaration", step))(
       `harm_screen ${input.harm_screen === undefined ? "is missing" : "lists no harm"}: ${harmScreenTrigger}, so ` +
@@ -2380,8 +2513,12 @@ export function finalizeResearch(
   }
   // Question 90 (lesson #23): what the answer puts forward for this person
   // carries its safety check, and a medicine taken long term its follow-up and
-  // stopping. Whether a sentence recommends something and whether an input is
-  // open stay the model's declarations; the checks and caveats are exact.
+  // stopping. Owner answer 153c widens it to the options an answer ranks among
+  // the treatments it compares: a general ranking with no person-specific
+  // inputs is declared conditional, with what a clinician should confirm, and
+  // the caveat below applies (FS231). Whether a sentence recommends or ranks
+  // something and whether an input is open stay the model's declarations; the
+  // checks and caveats are exact.
   const sentenceStart = (text: string): string => {
     const phrase = plainPhrase(text);
     return phrase.charAt(0).toUpperCase() + phrase.slice(1);
@@ -2734,7 +2871,14 @@ export function finalizeResearch(
       declaredQuotes: [
         ...(input.reader_dismissed ?? []).map(({ quote }, index) => ({ at: `reader_dismissed[${index}]`, quote })),
         ...(input.comparison_claims ?? []).map(({ quote }, index) => ({ at: `comparison_claims[${index}]`, quote })),
-        ...(input.binary_results ?? []).map(({ quote }, index) => ({ at: `binary_results[${index}]`, quote })),
+        // A class researched is shown in the answer by the sentence on what its search found.
+        ...optionClasses.flatMap(({ state, answer_quote: quote }, index) => state === "researched" && quote !== undefined
+          ? [{ at: `option_classes[${index}].answer_quote`, quote }] : []),
+        // A number needed to treat is shown with its harms, by the sentence the entry copies as harms_quote.
+        ...(input.binary_results ?? []).flatMap(({ quote, nnt, harms_quote: harms }, index) => [
+          { at: `binary_results[${index}]`, quote },
+          ...(nnt === undefined || harms === undefined ? [] : [{ at: `binary_results[${index}].harms_quote`, quote: harms }])
+        ]),
         ...(input.safety_claims ?? []).map(({ quote }, index) => ({ at: `safety_claims[${index}]`, quote })),
         // A harm the screen found is shown in the answer by the sentence the entry copies.
         ...harmScreen.flatMap(({ state, answer_quote: quote }, index) =>
@@ -2962,7 +3106,7 @@ function binaryGroups(result: BinaryResult) {
  * needed to treat or harm.
  */
 function binaryContrast(result: BinaryResult):
-  { optionHigher: boolean; reciprocal: number; roundedDown: number; roundedUp: number } | undefined {
+  { optionHigher: boolean; reciprocal: number; roundedUp: number } | undefined {
   const option = BigInt(result.option_events) * BigInt(result.comparator_total);
   const comparator = BigInt(result.comparator_events) * BigInt(result.option_total);
   if (option === comparator) return undefined;
@@ -2973,7 +3117,6 @@ function binaryContrast(result: BinaryResult):
   return {
     optionHigher: option > comparator,
     reciprocal: Number(people) / Number(difference),
-    roundedDown: Number(roundedDown),
     roundedUp: Number(people % difference === 0n ? roundedDown : roundedDown + 1n)
   };
 }

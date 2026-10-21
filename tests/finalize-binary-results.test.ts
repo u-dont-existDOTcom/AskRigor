@@ -26,17 +26,23 @@ import { withHarmScreen } from "./helpers/harm-screen.js";
 // AskRigor#356 and the 21 Oct q136 responders case, whose answer computed a ratio from counts that conflicted with the
 // paper's: for each yes-or-no outcome the answer reports for two groups, the model declares each group's events and
 // total, which direction is better and the follow-up, and the final check works out the arithmetic and checks that the
-// quote shows them. The figures are synthetic gate fixtures, the sertraline one shaped like the issue's example (any
-// adverse event, 87% against 68% on placebo); none is evidence about a treatment.
+// quote shows them. Owner answer 153b (HRP: "Give an NNT or NNH with both groups' rates and the follow-up beside it,
+// rounding the reciprocal up, and beside a benefit figure give the harms measured over the same follow-up, or say that
+// none were found"): only the reciprocal rounded up counts, and a number needed to treat has the answer's sentence on
+// its harms, harms_quote. The figures are synthetic gate fixtures, the sertraline one shaped like the issue's example
+// (any adverse event, 87% against 68% on placebo); none is evidence about a treatment.
 const SECRET = "binary-results-test-secret-0123456789012345678";
 const DOI = "10.1000/binary-results";
 const responders = (nnt = "7") => "After 12 weeks, 45 of 100 people taking the drug had a response, against 30 of " +
   `100 taking placebo, a number needed to treat of ${nnt}.`;
 const GOOD = responders();
+// The sentence beside the benefit figure on the harms over the same follow-up.
+const HARMS = "Over the same 12 weeks, side effects were about as common on the drug as on placebo.";
 type BinaryResult = NonNullable<FinalizeResearchInput["binary_results"]>[number];
 const declaration = (overrides: Partial<BinaryResult> = {}): BinaryResult => ({
   quote: GOOD, outcome: "a response", better: "more", option: "the drug", option_events: 45, option_total: 100,
-  comparator: "placebo", comparator_events: 30, comparator_total: 100, follow_up: "12 weeks", nnt: 7, ...overrides
+  comparator: "placebo", comparator_events: 30, comparator_total: 100, follow_up: "12 weeks", nnt: 7,
+  harms_quote: HARMS, ...overrides
 });
 const SERTRALINE = "Over 10 to 13 weeks, 87% of people taking sertraline had any adverse event, against 68% taking " +
   "placebo: one more person in every 6 treated had one, a number needed to harm of 6.";
@@ -55,7 +61,7 @@ const packageFor = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeRes
   not_relevant_reason: "Isolates exact declaration checks with synthetic receipts and text.",
   treatment_choice: "not_compared",
   key_sources: [{ read_depth: "full_text_audited", answer_marker: "Study", id: DOI, status: "validated" }],
-  answer_draft: GOOD, absence_claims: [], scale_results: [], binary_results: [declaration()], user_observations: [],
+  answer_draft: `${GOOD} ${HARMS}`, absence_claims: [], scale_results: [], binary_results: [declaration()], user_observations: [],
   proposed_tests: [], safety_claims: [], safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [],
   ...overrides
 });
@@ -65,7 +71,11 @@ const noFigure = (index: number, group: string, events: number, total: number, r
   `(${events} and ${total}) nor its rate (${rate}%).`;
 const recompute = (field: "nnt" | "nnh", value: number, reciprocal: string, roundedUp: number) =>
   `binary_results[0] gives ${field} ${value}, but by its counts 1 divided by the difference in rates is ` +
-  `${reciprocal}, ${roundedUp} rounded up: recompute it from the groups' counts the answer uses, or correct the counts.`;
+  `${reciprocal}, which rounds up to ${roundedUp}: give the reciprocal rounded up, recomputed from the groups' counts ` +
+  "the answer uses, or correct the counts.";
+const NO_HARMS = (index = 0) => `binary_results[${index}] gives nnt without harms_quote: give, beside the benefit ` +
+  "figure, the harms measured over the same follow-up, or say that none were found, and copy that sentence from " +
+  "answer_draft as harms_quote.";
 
 describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_results through the %s", (surface) => {
   let server: Server | undefined;
@@ -103,9 +113,10 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
     expect(result.isError).not.toBe(true);
     return assertNextStepsContract(result.structuredContent as FinalizeResearchOutput);
   };
-  // A result in a sentence of its own.
+  // A result in a sentence of its own, with its harms sentence when it gives a number needed to treat.
   const one = (result: BinaryResult, overrides: Partial<FinalizeResearchInput> = {}) =>
-    call({ answer_draft: result.quote, binary_results: [result], ...overrides });
+    call({ answer_draft: result.nnt === undefined || result.harms_quote === undefined ? result.quote
+      : `${result.quote} ${result.harms_quote}`, binary_results: [result], ...overrides });
   // Its one limit is the community search skipped for no real-world outcome (owner question 125).
   const ready = (result: FinalizeResearchOutput) => {
     expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
@@ -149,8 +160,13 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
   });
 
   it("rejects a quote absent from the answer", async () => {
-    blocked(await call({ answer_draft: "The drug helped some people." }), [
+    blocked(await call({ answer_draft: `The drug helped some people. ${HARMS}` }), [
       "binary_results[0] gives text the answer does not show: copy each sentence exactly from answer_draft."
+    ]);
+    // Its harms sentence is a quote too.
+    blocked(await call({ answer_draft: "The drug helped some people." }), [
+      "binary_results[0], binary_results[0].harms_quote give text the answer does not show: copy each sentence " +
+        "exactly from answer_draft."
     ]);
   });
 
@@ -219,13 +235,22 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
   });
 
   describe("a number needed to treat or harm", () => {
-    // 45 of 100 against 30 of 100: 1 divided by the difference in rates is 6.7.
-    it.each(["6", "6.7", "7"])("accepts %s, from the reciprocal rounded down to rounded up", async (nnt) => {
-      ready(await one(declaration({ quote: responders(nnt), nnt: Number(nnt) })));
+    // 45 of 100 against 30 of 100: 1 divided by the difference in rates is 6.7, which rounds up to 7.
+    it("accepts the reciprocal rounded up", async () => {
+      ready(await one(declaration({ quote: responders("7"), nnt: 7 })));
     });
 
-    it.each([5, 8])("refuses %s, giving the reciprocal and its rounded-up value", async (nnt) => {
-      blocked(await one(declaration({ quote: responders(String(nnt)), nnt })), [recompute("nnt", nnt, "6.7", 7)]);
+    // Owner answer 153b: only the reciprocal rounded up counts, not the value rounded down or left unrounded.
+    it.each([5, 6, 6.7, 8])("refuses %s, giving the reciprocal and its rounded-up value", async (nnt) => {
+      const refused = await one(declaration({ quote: responders(String(nnt)), nnt }));
+      blocked(refused, [recompute("nnt", nnt, "6.7", 7)]);
+      expect(refused.next_step_kinds).toEqual(["declaration"]);
+    });
+
+    it("refuses a number needed to harm rounded down too", async () => {
+      // 87% against 68%: 1 divided by 0.19 is 5.3, which rounds up to 6.
+      blocked(await one({ ...sertraline, quote: SERTRALINE.replace("harm of 6", "harm of 5"), nnh: 5 }),
+        [recompute("nnh", 5, "5.3", 6)]);
     });
 
     it("accepts only the exact value when the reciprocal is a whole number", async () => {
@@ -291,7 +316,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
 
     it("needs the stated value in the quote", async () => {
       const quote = "After 12 weeks, 45 of 100 people taking the drug had a response, against 30 of 100 taking placebo.";
-      blocked(await call({ answer_draft: `${quote} A number needed to treat of 7 follows.`,
+      blocked(await call({ answer_draft: `${quote} A number needed to treat of 7 follows. ${HARMS}`,
         binary_results: [declaration({ quote })] }), [
         "binary_results[0] quotes no number needed to treat: the quote does not contain 7."
       ]);
@@ -313,16 +338,95 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
     });
   });
 
+  // Owner answer 153b: beside a benefit figure, the harms measured over the same follow-up, or that none were found.
+  describe("the harms beside a number needed to treat", () => {
+    const NONE_FOUND = "No side effects were reported in either group over those 12 weeks.";
+
+    it("needs harms_quote with an nnt, as a step on the answer, without the refresh hint", async () => {
+      const result = await one(declaration({ harms_quote: undefined }));
+      blocked(result, [NO_HARMS()]);
+      expect(result.next_step_kinds).toEqual(["answer_draft"]);
+      expect(result.next_steps).not.toContain(TOOL_LIST_REFRESH_HINT);
+    });
+
+    it("accepts the sentence giving the harms or saying none were found, in any language", async () => {
+      for (const harms of [HARMS, NONE_FOUND,
+        "Sur les mêmes 12 semaines, les effets indésirables ont été aussi fréquents sous le médicament que sous placebo.",
+        "同じ12週間で、副作用の頻度は薬とプラセボでほぼ同じでした。"
+      ]) ready(await one(declaration({ harms_quote: harms })));
+      // The same sentence may give the benefit and the harms.
+      const both = `${GOOD.slice(0, -1)}; side effects were about as common on both.`;
+      ready(await one(declaration({ quote: both, harms_quote: both })));
+      // Compared as other quotes are: its closing mark, quotation marks, emphasis, spacing and case aside.
+      ready(await call({ answer_draft: `${GOOD} **Over the same 12 weeks**, side effects were about as common on ` +
+        "the drug as on placebo.", binary_results: [declaration({ harms_quote: `"${HARMS.slice(0, -1).toUpperCase()}"` })] }));
+    });
+
+    it("needs the answer to show it", async () => {
+      for (const draft of [GOOD, `${GOOD}\n\n\`\`\`\n${HARMS}\n\`\`\``, `${GOOD}\n\n> ${HARMS}`, `${GOOD} <!-- ${HARMS} -->`]) {
+        const result = await call({ answer_draft: draft, binary_results: [declaration()] });
+        blocked(result, ["binary_results[0].harms_quote gives text the answer does not show: copy each sentence " +
+          "exactly from answer_draft."]);
+        expect(result.next_step_kinds).toEqual(["answer_draft"]);
+      }
+    });
+
+    it("is not asked of a number needed to harm, or a result without a number", async () => {
+      ready(await one(sertraline));
+      ready(await one(declaration({ nnt: undefined, harms_quote: undefined,
+        quote: GOOD.replace(", a number needed to treat of 7", "") })));
+      // Given there, it is not used: the answer need not show it.
+      ready(await one({ ...sertraline, harms_quote: "A sentence the answer does not show." }));
+    });
+
+    it("is not asked while the counts make the number one to harm, or leave none", async () => {
+      // The option did worse, so the step turns the nnt into an nnh before any harms beside it.
+      const worse = "After 12 weeks, 30 of 100 people taking the drug had a response, against 45 of 100 taking " +
+        "placebo, a number needed to harm of 7.";
+      blocked(await one(declaration({ quote: worse, option_events: 30, comparator_events: 45, harms_quote: undefined })), [
+        "binary_results[0] gives nnt, but by its counts a smaller share of people had a response with the drug than " +
+          "with placebo, and more is better, so it is a number needed to harm: give it as nnh."
+      ]);
+      // The same rate in both groups leaves no number at all.
+      const same = "After 12 weeks, 30 of 100 people taking the drug had a response, against 30 of 100 taking " +
+        "placebo, a number needed to treat of 7.";
+      blocked(await one(declaration({ quote: same, option_events: 30, harms_quote: undefined })), [
+        "binary_results[0]'s counts give the same rate in both groups, so there is no number needed to treat or " +
+          "harm: leave nnt out."
+      ]);
+    });
+
+    it("names the missing harms with the entry's other steps, each with its own kind", async () => {
+      const result = await one(declaration({ quote: responders("6"), nnt: 6, harms_quote: undefined }));
+      blocked(result, [recompute("nnt", 6, "6.7", 7), NO_HARMS()]);
+      expect(result.next_step_kinds).toEqual(["declaration", "answer_draft"]);
+      // Both numbers given, the one the counts support is kept, so its harms are asked for too.
+      blocked(await one(declaration({ nnh: 7, harms_quote: undefined })), [
+        "binary_results[0] gives both nnt and nnh: give only nnt, the one its counts support.", NO_HARMS()
+      ]);
+      // Each entry by its index.
+      const second = "After 12 weeks, 50 of 100 people taking the drug had a remission, against 30 of 100 taking " +
+        "placebo, a number needed to treat of 5.";
+      blocked(await call({ answer_draft: `${GOOD} ${HARMS} ${second}`, binary_results: [declaration(),
+        declaration({ quote: second, outcome: "a remission", option_events: 50, nnt: 5, harms_quote: undefined })] }),
+      [NO_HARMS(1)]);
+    });
+  });
+
   it("accepts a French result with decimal commas", async () => {
+    // 86.5% against 68.5%: 1 divided by 0.18 is 5.6, which rounds up to 6.
     const quote = "Sur 12 semaines, 86,5 % des patients sous sertraline ont eu au moins un effet indésirable, contre " +
-      "68,5 % sous placebo, soit un nombre de patients à traiter pour nuire de 5,6.";
+      "68,5 % sous placebo, soit un nombre de patients à traiter pour nuire de 6.";
     ready(await one({ ...sertraline, quote, option_events: 173, option_total: 200, comparator_events: 137,
-      comparator_total: 200, follow_up: "12 semaines", nnh: 5.6 }));
+      comparator_total: 200, follow_up: "12 semaines", nnh: 6 }));
+    // An unrounded 5,6 is the reciprocal, not the number needed to harm.
+    blocked(await one({ ...sertraline, quote: quote.replace("de 6.", "de 5,6."), option_events: 173, option_total: 200,
+      comparator_events: 137, comparator_total: 200, follow_up: "12 semaines", nnh: 5.6 }), [recompute("nnh", 5.6, "5.6", 6)]);
   });
 
   it("reports each failed entry by its index", async () => {
     const vague = "After 12 weeks, more people taking the drug had a response than people taking placebo.";
-    blocked(await call({ answer_draft: `${GOOD} ${vague}`,
+    blocked(await call({ answer_draft: `${GOOD} ${HARMS} ${vague}`,
       binary_results: [declaration(), declaration({ quote: vague, nnt: undefined })] }), [
       noFigure(1, "the drug", 45, 100, 45), noFigure(1, "placebo", 30, 100, 30)
     ]);
@@ -346,7 +450,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
     const result = await call();
     ready(result);
     const receipt = verifyResearchReceipt(result.finalization_receipt!, { secret: SECRET });
-    for (const declared of ["the drug", "a response", "12 weeks", "placebo"]) {
+    for (const declared of ["the drug", "a response", "12 weeks", "placebo", "side effects"]) {
       expect(JSON.stringify(receipt)).not.toContain(declared);
       expect(JSON.stringify(result.carried ?? {})).not.toContain(declared);
     }
@@ -357,8 +461,9 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
     expect(tools).toHaveLength(33);
     const tool = tools.find(({ name }) => name === "finalize_research")!;
     expect(tool.description).toContain("its reported yes-or-no results (binary_results: each group's events and " +
-      "total, quoted as counts or a percentage, and any number needed to treat or harm, checked against them and " +
-      "quoted with its follow-up)");
+      "total, quoted as counts or a percentage, and any number needed to treat or harm, rounded up, checked against " +
+      "them and quoted with its follow-up, and for a number needed to treat the sentence on harms over the same " +
+      "follow-up, harms_quote)");
     // Primitives only, so ChatGPT's app shows the model each field: nothing of it needs JSON in the description.
     type Node = { type?: string; items?: { properties?: Record<string, Node> } };
     for (const relaxed of [true, false]) {
@@ -366,7 +471,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
       const fields = published.properties.binary_results!.items!.properties!;
       expect(Object.keys(fields)).toEqual([
         "quote", "outcome", "better", "option", "option_events", "option_total", "comparator", "comparator_events",
-        "comparator_total", "follow_up", "nnt", "nnh"
+        "comparator_total", "follow_up", "nnt", "nnh", "harms_quote"
       ]);
       for (const field of Object.values(fields)) expect(["string", "integer", "number"]).toContain(field.type);
     }

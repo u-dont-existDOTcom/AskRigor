@@ -2123,7 +2123,9 @@ function defineResearchOperations(
         "check, and as research_question to surveys and community audits (discovery for another target does not " +
         "count); whether community evidence was researched, or not relevant with its basis and reason " +
         "(not_relevant_basis, not_relevant_reason; with no_real_world_outcome, the answer states the reason in the " +
-        `caveat "${COMMUNITY_SKIP_CAVEAT_START} [reason]."), and whether the answer compares treatment options; where ` +
+        `caveat "${COMMUNITY_SKIP_CAVEAT_START} [reason]."), and whether the answer compares treatment options; with a ` +
+        "comparison, each plausible class of treatment, researched by name, not researched or out of reach " +
+        "(option_classes); where " +
         "the topic is discussed and what each community searched outside YouTube showed (principal_communities, " +
         "community_searches); what the YouTube comments read showed (community_findings); the studies the " +
         "conclusions rest on (key_sources), whole-intervention identity (intervention_identity), item-level product " +
@@ -2133,9 +2135,11 @@ function defineResearchOperations(
         "not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results " +
         "(scale_results: quoted explanations with the scale name, range, values and benchmark), its reported " +
         "yes-or-no results (binary_results: each group's events and total, quoted as counts or a percentage, and any " +
-        "number needed to treat or harm, checked against them and quoted with its follow-up), whether the question " +
-        "is about safety (safety_question, required), with safety statements (safety_claims) or a safety question " +
-        "the serious harms plausible for the exposure, apart from its common side effects, each screened by name " +
+        "number needed to treat or harm, rounded up, checked against them and quoted with its follow-up, and for a " +
+        "number needed to treat the sentence on harms over the same follow-up, harms_quote), whether the question " +
+        "is about safety (safety_question, required), with safety statements (safety_claims), a safety question or a " +
+        "medicine put forward or ranked for long-term use (recommendations) the serious harms plausible for the " +
+        "exposure, apart from its common side effects, each screened by name " +
         "(harm_screen: label_warning or " +
         "reported_signal with the answer's sentence reporting it, not_found with the exact query of a PubMed, Europe " +
         "PMC or ClinicalTrials.gov search passed here, or not_checked, which the answer states in the caveat " +

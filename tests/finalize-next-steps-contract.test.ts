@@ -5,9 +5,9 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   FINALIZE_RESEARCH_CONTRACT, MOBILE_NOTICE, TOOL_LIST_REFRESH_HINT, finalizeResearch, finalizeResearchPublishedInputSchema,
-  type FinalizeResearchInput, type FinalizeResearchOutput
+  optionClassCaveat, type FinalizeResearchInput, type FinalizeResearchOutput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
-import { issueResearchReceipt, researchTargetDigest } from "../apps/research-mcp/src/research-receipts.js";
+import { discoveryQueryDigest, issueResearchReceipt, researchTargetDigest } from "../apps/research-mcp/src/research-receipts.js";
 import { PUBLIC_RATE_LIMIT } from "../apps/research-mcp/src/config.js";
 import { createTokenBucketLimiter } from "../apps/research-mcp/src/rate-limit.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
@@ -51,6 +51,14 @@ const reviewSearch = {
   threads_read: [{ url: "https://reviews.example/product" }],
   review_corpora: [{ outcome_search: { queries: [TARGET], directions: ["benefit" as const, "no_effect" as const, "worse" as const] }, product: "Clinoptilolite", reviews_read: 2, selection: "all" as const }]
 };
+// A comparison lists each plausible class of treatment (owner answer 153a): searched in PubMed and reported in a
+// sentence of its own, or not researched, which the answer states in the server's caveat.
+const CLASS_QUERY = "clinoptilolite binder";
+const CLASS_SENTENCE = "A PubMed search for mineral binders found only the study above.";
+const CLASS_DRAFT = `[Study](https://doi.org/${DOI}) describes ion exchange.\n\n${CLASS_SENTENCE}`;
+const classSearch = () => sign("literature_search", { src: "pubmed", q: discoveryQueryDigest([CLASS_QUERY]), ret: 1, n: 1 });
+const researchedClass = { option_class: "mineral binders", state: "researched" as const, search_query: CLASS_QUERY,
+  answer_quote: CLASS_SENTENCE };
 
 describe("finalize next-step identifier contract", () => {
   it("derives allowed identifiers from all schema depths, enums, tool names and reviewed output fields", () => {
@@ -127,6 +135,16 @@ describe("finalize next-step identifier contract", () => {
       intervention_identity: undefined, scale_results: undefined }],
     ["missing nontrigger declarations", { not_relevant_basis: undefined, not_relevant_reason: undefined }],
     ["contradictory comparison", { treatment_choice: "compared" }],
+    ["option class problems", { treatment_choice: "compared", option_classes: [
+      { option_class: "mineral binders", state: "researched" }, { option_class: "Mineral  binders.", state: "not_researched" },
+      { option_class: "fibre supplements", state: "researched", search_query: "a query no receipt has" },
+      { option_class: "binding resins", state: "inaccessible" }
+    ] }],
+    ["empty option classes", { treatment_choice: "compared", option_classes: [] }],
+    // The caveat quotes the declared class, so the answer states it as written; the labels step names the class.
+    ["option class internal labels", { treatment_choice: "compared",
+      option_classes: [{ option_class: "binder_products", state: "inaccessible" }],
+      answer_draft: `[Study](https://doi.org/${DOI}) describes ion exchange. ${optionClassCaveat("inaccessible", "binder_products")}` }],
     ["rejected receipt", { receipts: ["not-a-receipt"] }],
     ["missing answer", { answer_draft: undefined }],
     ["missing scale", { scale_results: undefined }],
@@ -316,8 +334,11 @@ describe.each(["gate", "MCP endpoint"] as const)("finalizer contract, links and 
   });
 
   it("refuses the apple pectin versus clinoptilolite comparison's not_relevant bypass", async () => {
-    const result = await complete(base({ research_target: "Apple pectin versus clinoptilolite as binders", treatment_choice: "compared" }));
+    // Its classes of treatment are declared, so the bypass is what holds it back.
+    const result = await complete(base({ research_target: "Apple pectin versus clinoptilolite as binders", treatment_choice: "compared",
+      option_classes: [researchedClass], receipts: [study(), classSearch()], answer_draft: CLASS_DRAFT }));
     expect(result.status).toBe("not_ready");
+    expect(result.next_steps.join(" ")).not.toContain("option_classes");
     expect(result.next_steps.join(" ")).toContain("treatment_choice is compared");
     expect(result.next_steps.join(" ")).toContain("community and buyer-review layer");
   });
@@ -340,7 +361,8 @@ describe.each(["gate", "MCP endpoint"] as const)("finalizer contract, links and 
   it("allows the practical comparison once its community and buyer-review lanes record access boundaries", async () => {
     const result = await complete(base({ community_evidence: "researched", treatment_choice: "compared",
       commercial_review_applicability: { status: "required", products: ["Clinoptilolite"] }, shopping: { status: "not_requested" },
-      receipts: [study(), sign("treatment_coverage", { target: researchTargetDigest(TARGET), broad: true, boundary: "bounded_nonranking_only" })],
+      option_classes: [researchedClass], answer_draft: CLASS_DRAFT,
+      receipts: [study(), classSearch(), sign("treatment_coverage", { target: researchTargetDigest(TARGET), broad: true, boundary: "bounded_nonranking_only" })],
       principal_communities: [{ name: "Reviews", platform: "review_site" }, { name: "Forum", platform: "forum" }],
       community_searches: [
         { community: "Reviews", platform: "review_site", queries: [TARGET], threads_read: [], url: "https://reviews.example/", access_boundary: "no_web_search" },
@@ -355,9 +377,11 @@ describe.each(["gate", "MCP endpoint"] as const)("finalizer contract, links and 
     const emergency = await complete(base({ not_relevant_basis: "emergency_before_triage", treatment_choice: "compared",
       commercial_review_applicability: undefined, research_depth: "first_pass", key_sources: [],
       shopping: { status: "buy_options", destination: "Mauritania", offers: [{ product: "Product", url: "https://seller.example/product", role: "buy_option", offer_state: "live_destination_orderable" }] },
+      option_classes: [{ option_class: "other binding products", state: "not_researched" }],
       answer_draft: "Emergency triage. [Offer](https://seller.example/product)" }));
     expect(emergency.status).toBe("ready_with_limits");
     expect(emergency.next_steps).toEqual([]);
+    expect(emergency.caveats).toContain("This answer did not research other binding products.");
     const noStudies = await complete(base({ key_sources: [], commercial_review_applicability: undefined }));
     expect(noStudies.status).toBe("ready_with_limits");
   });
