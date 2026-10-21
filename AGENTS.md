@@ -201,6 +201,11 @@ Unreviewed lessons cannot silently expand the current task's scope or block an
 unrelated release. Bring a potentially critical lesson relevant to the current
 work to the user's attention and obtain direction before expanding scope.
 
+Owner decision 148a (2026-10-21): build each lesson as soon as it is triaged,
+on the next-build branch, without first asking; ask on the owner questions page
+only when it changes clinical or scientific method. Releases still need the
+owner's explicit yes, several lessons per release.
+
 ## Suggested fixes from other projects
 
 Other projects and chats file AskRigor fixes in UDA's lane, `suggested-fixes/AskRigor/` in
