@@ -5,7 +5,9 @@ import {
   finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT,
   type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
-import { issueResearchReceipt, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
+import {
+  discoveryQueryDigest, issueResearchReceipt, researchTargetDigest, verifyResearchReceipt
+} from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
@@ -51,6 +53,19 @@ function base(overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
     answer_draft: `[Study](https://doi.org/${DOI}) describes the exposures. ${QUOTE}\n\n` + searches.map((s) =>
       `On [${s.community}](${s.threads_read[0]!.url}): ${Object.values(FINDINGS).join(" ")}`).join("\n\n"),
     ...overrides
+  };
+}
+// An answer that compares the forms lists each plausible class of treatment, searched by name (owner answer 153a): here
+// one class, searched in PubMed and reported in a sentence of its own.
+const CLASS_QUERY = "mineral forms supplementation";
+const CLASS_SENTENCE = "A PubMed search for mineral forms found only the study above.";
+function compared(overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchInput {
+  const input = base({ treatment_choice: "compared", ...overrides });
+  return {
+    ...input,
+    receipts: [...input.receipts, sign("literature_search", { src: "pubmed", q: discoveryQueryDigest([CLASS_QUERY]), ret: 1, n: 1 })],
+    option_classes: [{ option_class: "mineral forms", state: "researched", search_query: CLASS_QUERY, answer_quote: CLASS_SENTENCE }],
+    answer_draft: `${input.answer_draft}\n\n${CLASS_SENTENCE}`
   };
 }
 const run = (input: FinalizeResearchInput) => assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
@@ -133,7 +148,7 @@ describe("forum report identity", () => {
 
 describe("comparisons with declared doses", () => {
   it("requires the declaration with a compared answer and threads read, and accepts an empty list", () => {
-    const input = base({ treatment_choice: "compared" });
+    const input = compared();
     expect(checked(input).next_steps).toEqual([
       "Give comparison_claims: each comparison the answer draws from forum reports, with both sides' daily doses as numbers, or an empty list if it draws none.", TOOL_LIST_REFRESH_HINT
     ]);
@@ -144,7 +159,7 @@ describe("comparisons with declared doses", () => {
     const absentDraft = run(base({ treatment_choice: "compared", answer_draft: undefined }));
     expect(absentDraft.next_steps.some((step) => step.includes("comparison_claims"))).toBe(false);
     for (const platform of ["forum", "review_site"] as const) {
-      const input = base({ treatment_choice: "compared" });
+      const input = compared();
       for (const s of input.community_searches!) {
         s.platform = platform;
         if (platform === "forum") s.threads_read = [];

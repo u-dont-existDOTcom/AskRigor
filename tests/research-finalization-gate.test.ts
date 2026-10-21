@@ -184,6 +184,21 @@ const claimDefaults = (input: Record<string, unknown>) => !("answer_draft" in in
   ...("binary_results" in input ? {} : { binary_results: [] }),
   ...("safety_question" in input ? {} : { safety_question: false })
 };
+// An answer that compares treatments lists each plausible class of treatment, searched by name (owner answer 153a);
+// tests of other checks searched exercise therapy in PubMed, which CLEAN_DRAFT reports in a sentence of its own. The
+// search's receipt is signed without an issue order, so the other receipts keep theirs.
+const EXERCISE_QUERY = "exercise therapy hip osteoarthritis";
+const EXERCISE_SEARCH = issueResearchReceipt("literature_search", {
+  src: "pubmed", q: discoveryQueryDigest([EXERCISE_QUERY]), ret: 20, n: 20
+}, options);
+const optionClassDefaults = (input: Record<string, unknown>) =>
+  input.treatment_choice !== "compared" || "option_classes" in input || !Array.isArray(input.receipts) ? {} : {
+    receipts: [...input.receipts, EXERCISE_SEARCH],
+    option_classes: [{
+      option_class: "exercise therapy", state: "researched", search_query: EXERCISE_QUERY,
+      answer_quote: "Exercise therapy has the strongest evidence for hip osteoarthritis."
+    }]
+  };
 // Threads read outside review sites say how they were chosen; tests of other
 // checks read every relevant thread their searches found.
 const threadSelectionDefaults = (input: Record<string, unknown>) => !Array.isArray(input.community_searches) ? {} : {
@@ -192,7 +207,7 @@ const threadSelectionDefaults = (input: Record<string, unknown>) => !Array.isArr
       report_identity: REDDIT_SEARCH.report_identity, thread_selection: "all_found", ...search
     })
 };
-// Every call gets the community, offer, absence and scale defaults unless it passes its own.
+// Every call gets the community, offer, absence, scale and option-class defaults unless it passes its own.
 const finalizeResearchRaw = (input: Record<string, unknown>, gateOptions: Parameters<typeof finalizeResearchBare>[1]) =>
   finalizeResearchBare({
     lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
@@ -202,6 +217,7 @@ const finalizeResearchRaw = (input: Record<string, unknown>, gateOptions: Parame
       ? { commercial_review_applicability: NONCOMMERCIAL_EXERCISE } : {}),
     comparison_claims: [],
     ...communityDefaults(input), ...offerDefaults(input), ...absenceDefaults(input), ...scaleDefaults(input), ...claimDefaults(input), ...input,
+    ...optionClassDefaults(input),
     ...threadSelectionDefaults({ ...communityDefaults(input), ...input }),
     ...(typeof input.answer_draft === "string"
       ? { answer_draft: `${fixtureStudyLinks(input)}\n\n${input.answer_draft}${skipParagraph(input)}` } : {})
