@@ -1049,8 +1049,15 @@ async function verifyTopicLinks(context: {
       reviewed.related.canonical?.records.filter(({ record }) => record === "topic").length === 2,
       "TOPIC_LINK_REVIEW_AID_MISSING",
     );
-    // Accepted while the first link still waits for promotion, so the intake could not see the contradiction.
+    // Accepted while the first link still waits for promotion, so the intake could not see the contradiction; the
+    // review shows the first link beside it, through the review role.
     const contradicting = await submit(link("topic-link-contradicting", "narrower", first, second));
+    const beside = await reviewService.inspect(contradicting.record.proposalId, { canonical: reader });
+    assert(
+      beside?.related.proposals.some(({ proposalId, shared }) =>
+        proposalId === same.record.proposalId && shared.join() === "topic_id,topic_key") === true,
+      "TOPIC_LINK_RELATED_PROPOSAL_MISSING",
+    );
     await accept(same.record);
     await accept(contradicting.record);
     const promoted = await runner.promoteAccepted();

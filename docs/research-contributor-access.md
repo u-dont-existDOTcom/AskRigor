@@ -102,7 +102,7 @@ A proposal these checks refuse comes back with every problem found (owner
 question 127): each with its field path, its rule, what the contract expects
 there and an example from AskRigor's own example records, bounded and in a fixed
 order, privacy rules first. It never repeats a value sent, and a key the contract
-does not define is shown as `*`. The tool description carries both record shapes,
+does not define is shown as `*`. The tool description carries every record shape,
 because ChatGPT's app shows the model no part of `payload`'s type; Claude's
 surface also publishes the strict schema. Refusals by account (sign-in, mode, paid
 private) still come first.
