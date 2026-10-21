@@ -2143,7 +2143,8 @@ function defineResearchOperations(
         "in a later turn, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened. Result: " +
         "second_reading, whether it ran; " +
         "carry_forward, the conversation's state to pass back next turn; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh " +
-        "hint when a required declaration is missing; ready_with_limits with the limits, the caveat sentences for the answer " +
+        "hint when a required declaration is missing, each step's kind (next_step_kinds) and the line an answer given " +
+        "before a pass ends with (unchecked_line); previous_check when the conversation's previous check did not pass; ready_with_limits with the limits, the caveat sentences for the answer " +
         "(each as its own sentence and as written, in the answer's language when answer_language and " +
         "caveat_renderings are given) and must_report, what the answer reports from each lane researched; " +
         "when ready, check_line, the line the answer ends with; or " +
@@ -2281,6 +2282,12 @@ function defineResearchOperations(
             `\nJust before the check line, end the answer with this line, as written (in the answer's language when the answer is not in English): ${result.saved_line}`) +
           (result.check_line === undefined ? "" :
             `\nEnd the answer with this line, as written (in the answer's language when the answer is not in English): ${result.check_line}`) +
+          // AskRigor#354: the server never sees which answer the user gets, so an answer given before a pass says so.
+          (result.unchecked_line === undefined ? "" :
+            `\nAn answer given before this check passes ends with this line, as written (in the answer's language when the answer is not in English): ${result.unchecked_line}`) +
+          (result.previous_check === undefined ? "" :
+            `\nThe previous final check in this conversation did not pass (${result.previous_check.open.join(", ") || "steps open"}), ` +
+              "so an answer given after it went out unchecked; if one did, this answer says what changed from it.") +
           (card.status === "absent" || card.status === "private"
             ? ""
             : `\nFindings card: ${card.status}` +

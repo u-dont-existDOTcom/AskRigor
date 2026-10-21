@@ -75,7 +75,8 @@ describe("finalize next-step identifier contract", () => {
       "in a later turn, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened. Result: " +
       "second_reading, whether it ran; " +
       "carry_forward, the conversation's state to pass back next turn; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh " +
-      "hint when a required declaration is missing;"
+      "hint when a required declaration is missing, each step's kind (next_step_kinds) and the line an answer given " +
+      "before a pass ends with (unchecked_line); previous_check when the conversation's previous check did not pass;"
     );
     const input = tool.inputSchema as { properties: Record<string, { description: string }> };
     expect(input.properties.key_sources!.description).toBe(

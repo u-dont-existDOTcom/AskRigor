@@ -1178,13 +1178,24 @@ pending-proposal stores have their own strict contracts and authority boundaries
   The public privacy notice must describe the provider before the reader is enabled
   in production (owner questions 118 and 119).
   `carry_forward` holds the user's observations and goals, statements taken
-  back, options rejected and communities named as a signed, compressed token
-  returned in the tool result, alongside the readable `carried` state. The client
+  back, options rejected and communities named, and the last check's status
+  with the kinds of step it left open (fixed values; AskRigor#354), as a signed,
+  compressed token returned in the tool result, alongside the readable `carried`
+  state. The client
   passes the token back as `carried_state`; AskRigor verifies and rebuilds it
   in memory and never stores or logs it. It has no expiry and is readable by
   anyone who can read the conversation. It is not a research receipt.
   The output's `check_line` is a fixed server sentence for the answer to end with;
-  it is not part of the signed finalization receipt.
+  it is not part of the signed finalization receipt. When the check does not
+  pass, each next step has a kind (`next_step_kinds`, eight fixed values), and
+  `unchecked_line` is a fixed server sentence, worded from those kinds, that an
+  answer given before a pass ends with; `previous_check` repeats the kinds the
+  carried state holds from a check that did not pass (AskRigor#354). The
+  finalization receipt signs the SHA-256 of the answer draft the check read
+  (`answer`), so whoever holds the receipt and the answer the user saw can tell
+  whether that answer is the checked one. The receipt goes only to the caller;
+  a saved findings card and a filed research map store only the receipt's own
+  SHA-256, never the receipt.
   The panel resource renders the same result in the client's sandboxed frame; nothing new is collected, stored, logged or sent.
   Its `full_text_search` declaration (`run` with the Europe PMC section
   queries the model ran, or `not_needed` with a short reason) is request-local

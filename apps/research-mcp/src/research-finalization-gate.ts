@@ -19,6 +19,7 @@ import {
   type ConnectorJsonSchema
 } from "./connector-input-schema.js";
 import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
+import { NEXT_STEP_KINDS, type NextStepKind } from "./next-step-kinds.js";
 import type { SecondReaderFinding } from "./second-reader.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
 import {
@@ -780,11 +781,13 @@ function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResear
       nextSteps.push(`${match.path} as JSON: ${match.shape.examples.map((example) => JSON.stringify(example)).join(" or ")}`);
     }
   }
+  // A second reading of no answer finds nothing, so every step here is about the inputs.
+  const secondReading = options.secondReading === undefined
+    ? undefined : checkSecondReading(undefined, options.secondReading, nextSteps);
   return {
     contract: FINALIZE_RESEARCH_CONTRACT, status: "not_ready", next_steps: nextSteps,
-    ...(options.secondReading === undefined ? {} : {
-      second_reading: checkSecondReading(undefined, options.secondReading, nextSteps)
-    }),
+    next_step_kinds: nextSteps.map(() => "input_invalid" as const), unchecked_line: uncheckedLine(["input_invalid"]),
+    ...(secondReading === undefined ? {} : { second_reading: secondReading }),
     limits: [], caveats: [], must_report: [], receipts_verified: 0, receipts_rejected: [], answer_checked: false,
     sources: { validated: [], lead_only: [] },
     community: { decision: "not_relevant", surveys: 0, discovery_rounds: 0, saturated: false, depth: "first_pass",
@@ -814,10 +817,38 @@ function retractedStatementShown(draft: string, statement: string, changes: read
 const optionKey = (text: string) => text.trim().toLowerCase();
 
 // The ledger and the rejected list hold at most this many entries; at that size the model chooses which to keep.
+/** A push-only view of the check's steps that files each one under a kind, for a helper that only adds steps. */
+function stepSink(addStep: (kind: NextStepKind, ...steps: string[]) => void, kind: NextStepKind): Pick<string[], "push"> {
+  return {
+    push: (...steps: string[]) => {
+      addStep(kind, ...steps);
+      return steps.length;
+    }
+  };
+}
+
+// The line an answer given before the final check passes ends with (AskRigor#354). The server never sees which answer
+// the user gets, so it cannot hold one back; the answer says itself that the check has not passed, and why, from the
+// kinds of step still open.
+export const UNCHECKED_LINE_START = "AskRigor's final check has not passed";
+const UNCHECKED_ANSWER_KINDS: ReadonlySet<NextStepKind> =
+  new Set(["declaration", "answer_draft", "carried_state", "second_reading", "tool_list"]);
+
+export function uncheckedLine(kinds: readonly NextStepKind[]): string {
+  const open = new Set(kinds);
+  const reasons = [
+    ...(open.has("input_invalid") ? ["the check could not run"] : []),
+    ...(open.has("research") ? ["research this answer needs is unfinished"] : []),
+    ...(open.has("receipt_rejected") ? ["some of its research records did not verify"] : []),
+    ...([...open].some((kind) => UNCHECKED_ANSWER_KINDS.has(kind)) ? ["some of its statements were not checked"] : [])
+  ];
+  return reasons.length === 0 ? `${UNCHECKED_LINE_START}.` : `${UNCHECKED_LINE_START}: ${listOf(reasons, "and")}.`;
+}
+
 const MAX_CARRIED_OBSERVATIONS = 30;
 const MAX_CARRIED_REJECTED = 12;
 
-function checkCarriedState(input: FinalizeResearchInput, secret: string, nextSteps: string[]):
+function checkCarriedState(input: FinalizeResearchInput, secret: string, nextSteps: Pick<string[], "push">):
   { carried?: CarriedState; invalid: boolean } {
   let carried: CarriedState | undefined;
   let invalid = false;
@@ -871,7 +902,8 @@ function checkCarriedState(input: FinalizeResearchInput, secret: string, nextSte
  * later call cannot shed it by passing this call's token. A withdrawn mark, a reopened option or a changed goal
  * changes it.
  */
-function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState | undefined, options: FinalizeResearchOptions):
+function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState | undefined, options: FinalizeResearchOptions,
+  check: { status: "ready" | "ready_with_limits" | "not_ready"; open: NextStepKind[] }):
   { carry_forward: string; carried: CarriedState } | "too_large" | undefined {
   if (options.secret === undefined) return undefined;
   const reopened = new Set((input.reopened ?? []).map(optionKey));
@@ -901,7 +933,9 @@ function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState |
     ...(goal === undefined ? {} : { primary_outcome: goal }),
     rejected,
     named_communities: [...new Set([...(carried?.named_communities ?? []),
-      ...(input.principal_communities ?? []).filter(({ named_by_user }) => named_by_user === true).map(({ name }) => name)])].slice(0, 8)
+      ...(input.principal_communities ?? []).filter(({ named_by_user }) => named_by_user === true).map(({ name }) => name)])].slice(0, 8),
+    last_status: check.status,
+    ...(check.status === "not_ready" ? { open_kinds: check.open } : {})
   };
   const token = issueCarriedState(state, { secret: options.secret });
   if (token === undefined) return "too_large";
@@ -920,6 +954,20 @@ export const finalizeResearchOutputSchema = z.object({
   contract: z.literal(FINALIZE_RESEARCH_CONTRACT).describe("Records the server's finalize_research input contract version."),
   status: finalizationStatusSchema,
   next_steps: z.array(z.string()),
+  next_step_kinds: z.array(z.enum(NEXT_STEP_KINDS))
+    .describe("Each next step's kind, in the same order: input_invalid, the inputs failed and the check did not run; " +
+      "receipt_rejected, a receipt did not verify or is for another research target; research, a search, reading, " +
+      "audit or community lane is not done; declaration, a declaration is missing, incomplete or inconsistent; " +
+      "answer_draft, the draft does not yet say, show or link what it must; carried_state, the conversation's " +
+      "carried state; second_reading, a sentence a second reading found; tool_list, the connector-refresh hint."),
+  unchecked_line: z.string().optional()
+    .describe("When not_ready: the line an answer given before this check passes ends with, saying why it is unchecked."),
+  previous_check: z.object({
+    status: z.literal("not_ready"),
+    open: z.array(z.enum(NEXT_STEP_KINDS))
+  }).strict().optional()
+    .describe("When the carried state shows that the previous final check in this conversation did not pass: the " +
+      "kinds of step it left open. An answer given after it went out unchecked."),
   limits: z.array(z.string()),
   caveats: z.array(z.string())
     .describe("Sentences the answer must contain, each as its own sentence and as written; a link's text may change."),
@@ -1083,6 +1131,7 @@ export function finalizeResearch(
       contract: FINALIZE_RESEARCH_CONTRACT,
       status: "receipts_unavailable",
       next_steps: nextSteps,
+      next_step_kinds: nextSteps.map(() => "second_reading" as const),
       ...(secondReading === undefined ? {} : { second_reading: secondReading }),
       limits: [
         "This AskRigor server cannot verify research receipts. The research steps still apply, and the answer says that research completion was not server-verified."
@@ -1137,10 +1186,16 @@ export function finalizeResearch(
   });
 
   const nextSteps: string[] = [];
+  // Each step's kind, in the same order (AskRigor#354).
+  const stepKinds: NextStepKind[] = [];
+  const addStep = (kind: NextStepKind, ...steps: string[]): void => {
+    nextSteps.push(...steps);
+    stepKinds.push(...steps.map(() => kind));
+  };
   let missingDeclaration = false;
   const requireDeclaration = (step: string): void => {
     missingDeclaration = true;
-    nextSteps.push(step);
+    addStep("declaration", step);
   };
   const limits: string[] = [];
   // Each limit's sentences for the user, written here so the answer carries
@@ -1193,14 +1248,14 @@ export function finalizeResearch(
   for (const [index, test] of (input.proposed_tests ?? []).entries()) {
     if (test.repeats !== undefined) {
       const observation = input.user_observations?.[test.repeats]?.observation;
-      if (observation === undefined) nextSteps.push(`proposed_tests[${index}].repeats names user_observations[${test.repeats}], which this call does not give.`);
-      else if (test.difference === undefined) nextSteps.push(`proposed_tests[${index}] repeats what the user already tried (${observation}): leave it out of the answer, or give the answer's sentence saying how it differs in a way that could change the result as difference.`);
+      if (observation === undefined) addStep("declaration", `proposed_tests[${index}].repeats names user_observations[${test.repeats}], which this call does not give.`);
+      else if (test.difference === undefined) addStep("declaration", `proposed_tests[${index}] repeats what the user already tried (${observation}): leave it out of the answer, or give the answer's sentence saying how it differs in a way that could change the result as difference.`);
     }
     if (!test.blinded) caveatOnce(
       "A test the answer proposes is not blinded; say it can show how the person did, not what caused a change.",
       "A test done without blinding can show how the person did, not what caused a change, because expectation, effort and practice can move it too.");
   }
-  const { carried, invalid: carriedInvalid } = checkCarriedState(input, options.secret, nextSteps);
+  const { carried, invalid: carriedInvalid } = checkCarriedState(input, options.secret, stepSink(addStep, "carried_state"));
   // The correction-report question rests on the model's declaration of who pointed the error out.
   for (const [index, { by_user, report }] of (input.corrections ?? []).entries()) {
     if (by_user === true && report === undefined) {
@@ -1220,7 +1275,7 @@ export function finalizeResearch(
   let communitiesSearched: string[] = [];
   let communitiesRead: CommunityRead[] = [];
   let communitiesUnverified = 0;
-  for (const { index, reason } of rejected) nextSteps.push(rejectedReceiptStep(index, reason));
+  for (const { index, reason } of rejected) addStep("receipt_rejected", rejectedReceiptStep(index, reason));
 
   // Each status needs its own field; the other one, if given, is not used.
   const fullTextSearch = input.full_text_search;
@@ -1234,7 +1289,7 @@ export function finalizeResearch(
       const matches = verified.filter(({ kind, claims }) => kind === "literature_search" &&
         claims.src === "europepmc" && claims.q === discoveryQueryDigest([query]));
       if (!matches.some(({ claims }) => Array.isArray(claims.ft) && claims.ft.length > 0)) {
-        nextSteps.push(`full_text_search query ${JSON.stringify(query)} has no verified Europe PMC section-search receipt` +
+        addStep("research", `full_text_search query ${JSON.stringify(query)} has no verified Europe PMC section-search receipt` +
           (matches.length === 0 ? ". " : " (the matching receipt has no section fields). ") +
           "Search that query with section fields using search_europe_pmc and pass its research_receipt in receipts.");
       }
@@ -1342,20 +1397,20 @@ export function finalizeResearch(
           ? [`shopping is ${input.shopping.status}`] : [])
       ];
       if (triggers.length > 0) {
-        nextSteps.push(
+        addStep("research", 
           `community_evidence cannot be not_relevant with no_real_world_outcome when ${triggers.join("; ")}: ` +
             "comparing options' real-world usefulness or a product people buy needs the community and buyer-review " +
             "layer. Research that layer with community_evidence researched, principal_communities and " +
             "community_searches, or complete it with an access_boundary."
         );
       }
-      if (input.key_sources.length > 0) commercialReviewCoverage(input, { nextSteps, requireDeclaration });
+      if (input.key_sources.length > 0) commercialReviewCoverage(input, { addStep, requireDeclaration });
       // The skip shows in the answer, with the reason this call declares (owner question 125). The reason reaches the
       // reader, so it shows no internal labels; whether it is a good reason stays the model's declaration.
       if (input.not_relevant_reason !== undefined) {
         const labels = internalLabels(input.not_relevant_reason, options.protocolNames ?? new Set());
         if (labels.length > 0) {
-          nextSteps.push(`not_relevant_reason shows internal labels (${labels.slice(0, 8).join(", ")}` +
+          addStep("declaration", `not_relevant_reason shows internal labels (${labels.slice(0, 8).join(", ")}` +
             `${labels.length > 8 ? ", and more" : ""}): the answer states this reason in its caveat, so give it in ` +
             "plain words.");
         }
@@ -1374,7 +1429,7 @@ export function finalizeResearch(
       // Any discovery round counts: the Gemini scout is the primary route, and
       // YouTube's own search is capped at 100 calls a day per project.
       if (rounds.length === 0) {
-        nextSteps.push(
+        addStep("research", 
           "Find community videos with scout_gemini_youtube_candidates (survey_youtube_community only if the scout is " +
             "unavailable), audit each material video, and pass the remedies its comments name back to the scout as " +
             "rediscovery_leads (a video or creator as video:<id>)." +
@@ -1414,7 +1469,7 @@ export function finalizeResearch(
         firstPassRateLimited = saturation.rateLimited;
       } else if (!saturated) {
         discoveryContinues = true;
-        nextSteps.push(...saturation.nextSteps);
+        addStep("research", ...saturation.nextSteps);
       }
       if (materialVideos.length === 0 && (saturated || firstPassComplete)) {
         if (discovered.size === 0) {
@@ -1451,7 +1506,7 @@ export function finalizeResearch(
       const unfinished: string[] = [];
       for (const video of materialVideos) {
         if (!discovered.has(video)) {
-          nextSteps.push(offTargetVideos.has(video)
+          addStep("declaration", offTargetVideos.has(video)
             ? `Video ${video} was found only by discovery for another research target; rerun discovery with this ` +
               "research_target, or drop it from material_video_ids."
             : `Video ${video} is not among the videos found by the surveys, scouts or searches whose receipts were passed; ` +
@@ -1459,7 +1514,7 @@ export function finalizeResearch(
         }
         const audit = audited.get(video);
         if (audit === undefined) {
-          nextSteps.push(
+          addStep("research", 
             (communityAudited.has(video) ? `Video ${video} has only a one-call community audit. ` : "") +
               `Audit video ${video} with audit_youtube_video_community and continue until the audit completes.`
           );
@@ -1490,8 +1545,8 @@ export function finalizeResearch(
       }
     }
     ({ searched: communitiesSearched, read: communitiesRead, unverified: communitiesUnverified } =
-      communityCoverage(input, youtubeResearched, { nextSteps, requireDeclaration, requireLimit, lanes: communityLanes }, options.redditThreads));
-    commercialReviewCoverage(input, { nextSteps, requireDeclaration });
+      communityCoverage(input, youtubeResearched, { addStep, requireDeclaration, requireLimit, lanes: communityLanes }, options.redditThreads));
+    commercialReviewCoverage(input, { addStep, requireDeclaration });
   }
 
   // Comments that were read must reach the answer, even when their signal is
@@ -1515,13 +1570,13 @@ export function finalizeResearch(
     const unlisted = [...commentVideos].filter((video) => !reviewed.has(video)).sort();
     const unaudited = [...reviewed].filter((video) => !auditedAtAll.has(video)).sort();
     if (unlisted.length > 0) {
-      nextSteps.push(
+      addStep("declaration", 
         `Add ${unlisted.join(", ")} to community_findings.videos_reviewed: their comments were read, so the ` +
           "findings must account for them."
       );
     }
     if (unaudited.length > 0) {
-      nextSteps.push(
+      addStep("declaration", 
         `community_findings.videos_reviewed lists ${unaudited.join(", ")}, but no comment-audit receipt passed here ` +
           "covers them; pass the receipt or drop them."
       );
@@ -1531,7 +1586,7 @@ export function finalizeResearch(
     }
   }
 
-  productIdentityDeclarations(input, rounds, verified, { nextSteps, requireDeclaration, requireLimit, mustReport });
+  productIdentityDeclarations(input, rounds, verified, { addStep, requireDeclaration, requireLimit, mustReport });
   mustReport.push(...communityLanes);
 
   // Treatment coverage. A first pass does not run the coverage lock, so its
@@ -1558,7 +1613,7 @@ export function finalizeResearch(
       .sort((left, right) => coverageRestriction(right) - coverageRestriction(left))
       .at(0);
     if (coverageChecks.length > 0 && coverage === undefined) {
-      nextSteps.push(
+      addStep("research", 
         "No assess_treatment_landscape_coverage receipt passed here was made for this research_target; pass the one " +
           "for this question, give research_target exactly as the check received it, or run the check again."
       );
@@ -1568,20 +1623,20 @@ export function finalizeResearch(
     // research's discovery, so a check made for another question cannot pass.
     const foreignCoverageVideos = list(coverage?.claims.videos).filter((video) => !discovered.has(video));
     if (foreignCoverageVideos.length > 0) {
-      nextSteps.push(
+      addStep("research", 
         `The treatment-coverage check judged video(s) ${foreignCoverageVideos.join(", ")} that no discovery receipt ` +
           "passed here found; pass the receipts of the discovery calls that found them, or rerun the check."
       );
     }
     if (coverage !== undefined && input.treatment_choice === "compared" && text(coverage.claims.broad) !== "true") {
-      nextSteps.push(
+      addStep("research", 
         "A treatment comparison needs the coverage check run as a broad treatment choice: call " +
           "assess_treatment_landscape_coverage again with broad_treatment_choice true."
       );
     }
     if (coverageBoundary === undefined) {
       if (input.treatment_choice === "compared" && coverageChecks.length === 0) {
-        nextSteps.push(
+        addStep("research", 
           "The answer compares treatment options: call assess_treatment_landscape_coverage with the treatment ledger " +
             "and pass its research_receipt."
         );
@@ -1593,7 +1648,7 @@ export function finalizeResearch(
           "options."
       );
     } else if (coverageBoundary !== "ledger_consistent_for_synthesis") {
-      nextSteps.push(
+      addStep("research", 
         `The latest assess_treatment_landscape_coverage result was ${coverageBoundary}: fix its selection and depth ` +
           "blockers and call it again until it allows the answer (deep research needs ledger_consistent_for_synthesis)."
       );
@@ -1698,7 +1753,7 @@ export function finalizeResearch(
     const doi = isDoi(id) ? id : pubmedDoi !== undefined && pubmedDoi !== "" ? pubmedDoi : undefined;
     const openCopy = pmcidFor(id);
     if (doi === undefined || openCopy === undefined || attempts.get(doi)?.has(openCopy)) return false;
-    nextSteps.push(
+    addStep("research", 
       `PubMed lists an open copy of ${sourceId} in PubMed Central (${openCopy}) that the full-text attempt did not ` +
         `try: call acquire_open_full_text with DOI ${doi} and pmcid ${openCopy}, then audit it, or pass the new ` +
         `research_receipt if it still finds no full text. ${LEAD_RECEIPT_SEARCH}`
@@ -1741,7 +1796,7 @@ export function finalizeResearch(
       requireDeclaration(`Give key_sources.read_depth for ${source.id}: ${READ_DEPTH_VALUES.join(", ")}.`);
     } else if ((source.read_depth === "full_text_audited" && !audited) ||
                (source.read_depth === "full_text_read" && !read)) {
-      nextSteps.push(`Key source ${source.id} cannot support read_depth ${source.read_depth} with these receipts; ` +
+      addStep("declaration", `Key source ${source.id} cannot support read_depth ${source.read_depth} with these receipts; ` +
         `give read_depth ${read ? "full_text_read" : "partial_text or another lower value reflecting what was read"}, ` +
         `or pass its matching research_receipt.`);
     }
@@ -1762,16 +1817,16 @@ export function finalizeResearch(
       if (source.answer_marker === undefined) {
         requireDeclaration(`Give key_sources.answer_marker for ${source.id}: the visible label, 3 to 80 characters, on the same line as its link in answer_draft.`);
       } else if (untied !== undefined) {
-        nextSteps.push(`Key study ${source.id} is linked by ${untied}, which no receipt passed here ties to it: ` +
+        addStep("answer_draft", `Key study ${source.id} is linked by ${untied}, which no receipt passed here ties to it: ` +
           `link ${listOf(pages, "or")} instead` + (isDoi(id)
             ? `, or pass the research_receipt that ties that page: resolve_doi with ${id} ties the page the DOI is ` +
               "registered to, and fetch_pubmed_record ties the study's PubMed page."
             : "."));
       } else if (!markerLinks.some((links) => links.some(linked))) {
-        nextSteps.push(`Key source ${source.id} has no answer_marker on the same line as its link in answer_draft; put its answer_marker there.`);
+        addStep("answer_draft", `Key source ${source.id} has no answer_marker on the same line as its link in answer_draft; put its answer_marker there.`);
       }
       if (identified && untied === undefined && !studyLinks.some(linked)) {
-        nextSteps.push(`Key study ${source.id} has no link in the answer; link it to the page AskRigor's tools returned, such as ${listOf(pages, "or")}.`);
+        addStep("answer_draft", `Key study ${source.id} has no link in the answer; link it to the page AskRigor's tools returned, such as ${listOf(pages, "or")}.`);
       }
     }
     if (ids.some((candidate) => validatedIds.has(candidate))) {
@@ -1804,7 +1859,7 @@ export function finalizeResearch(
     if (source.status === "lead_only" && failedForSource.length > 0) {
       const times = failedForSource.map(({ issued }) => issued);
       if (Math.max(...times) - Math.min(...times) < 60_000) {
-        nextSteps.push(`A full-text service failed for ${source.id}: call acquire_open_full_text again at least a minute ` +
+        addStep("research", `A full-text service failed for ${source.id}: call acquire_open_full_text again at least a minute ` +
           "after the first attempt; if it fails again, pass the research_receipt from each attempt and cite it as a lead.");
         continue;
       }
@@ -1822,13 +1877,13 @@ export function finalizeResearch(
       continue;
     }
     if (!isDoi(id) && !isPmid(id) && !isPmcid(id)) {
-      nextSteps.push(
+      addStep("declaration", 
         `Identify ${source.id} by DOI, PMID or PMCID, or leave it out of key_sources and label it unverified in the answer.`
       );
       continue;
     }
     if (isPmid(id) && pubmedDoi === undefined) {
-      nextSteps.push(
+      addStep("research", 
         `Fetch PMID ${id} with fetch_pubmed_record and pass its research_receipt; if it has a DOI, try acquire_open_full_text.`
       );
       continue;
@@ -1837,7 +1892,7 @@ export function finalizeResearch(
     if (isPmid(id) && pubmedDoi === "" && pubmedPmcid !== undefined) {
       // An open copy exists in PMC, so this is not a lead; the full-text chain
       // needs a DOI, so find one or keep the study out of the key sources.
-      nextSteps.push(
+      addStep("research", 
         `PubMed lists an open full text in PubMed Central (${pubmedPmcid}) for PMID ${id} but no DOI. Find its DOI ` +
           `(search_europe_pmc for ${pubmedPmcid}) and read it with acquire_open_full_text and that pmcid, or leave it out of ` +
           "key_sources and label its claims unverified."
@@ -1858,7 +1913,7 @@ export function finalizeResearch(
       continue;
     }
     const target = pubmedDoi ?? source.id;
-    nextSteps.push(source.status === "validated"
+    addStep("research", source.status === "validated"
       ? `For ${source.id}: acquire_open_full_text${target === source.id ? "" : ` (DOI ${target})`}, continue_open_full_text until exhausted, ` +
           "then validate_study_method_audit (or validate_review_method_audit) and pass its research_receipt. If no open full text exists, " +
           `the acquisition receipt lets you list it as lead_only. ${LEAD_RECEIPT_SEARCH}`
@@ -1930,7 +1985,7 @@ export function finalizeResearch(
     directions.forEach(({ direction, what }, index) => {
       const count = focuses[index]!.length;
       if (count > 3) {
-        nextSteps.push(`open_leads lists ${count} focuses with direction ${direction}; keep the two or three most promising.`);
+        addStep("declaration", `open_leads lists ${count} focuses with direction ${direction}; keep the two or three most promising.`);
         return;
       }
       if (count >= 2) return;
@@ -1945,7 +2000,7 @@ export function finalizeResearch(
     });
     const estimate = input.another_pass_estimate === undefined ? undefined : withoutEndPunctuation(input.another_pass_estimate);
     if (estimate === undefined || !PASS_COST_NUMBER.test(estimate)) {
-      (estimate === undefined ? requireDeclaration : (step: string) => nextSteps.push(step))(
+      (estimate === undefined ? requireDeclaration : (step: string) => addStep("declaration", step))(
         "Give another_pass_estimate: roughly what another pass over the open leads would take, with a number in " +
           "digits and a unit (for example, \"about 20 minutes and 15 YouTube searches\")."
       );
@@ -2062,7 +2117,7 @@ export function finalizeResearch(
   const undeclaredStudies = (at: string, studies: readonly string[]): void => {
     const missing = studies.filter((id) => keySourceFor(id) === undefined);
     if (missing.length > 0) {
-      nextSteps.push(`${at} rests on ${missing.join(", ")}, which key_sources does not list: add each to key_sources ` +
+      addStep("declaration", `${at} rests on ${missing.join(", ")}, which key_sources does not list: add each to key_sources ` +
         "with its read depth and link, so its reading is checked like any key study.");
     }
   };
@@ -2082,14 +2137,14 @@ export function finalizeResearch(
     }
     const numbers = extractUnsignedNumbers(claim.quote);
     if (claim.basis === "comparative_rates" && numbers.length < 2) {
-      nextSteps.push(`${at} rests on rates against a comparator, but its sentence gives fewer than two numbers: ` +
+      addStep("answer_draft", `${at} rests on rates against a comparator, but its sentence gives fewer than two numbers: ` +
         "give the rate in each group in that sentence.");
     }
     if (claim.basis === "observed_rates" && numbers.length < 1) {
-      nextSteps.push(`${at} rests on an observed rate, but its sentence gives no number: give the rate in that sentence.`);
+      addStep("answer_draft", `${at} rests on an observed rate, but its sentence gives no number: give the rate in that sentence.`);
     }
     if (claim.basis === "share_of_reports" && numbers.length < 1) {
-      nextSteps.push(`${at} rests on a share of selected reports, but its sentence gives no number: give the share ` +
+      addStep("answer_draft", `${at} rests on a share of selected reports, but its sentence gives no number: give the share ` +
         "in that sentence.");
     }
     const measured = claim.measured_exposure === undefined ? undefined : plainPhrase(claim.measured_exposure);
@@ -2138,7 +2193,7 @@ export function finalizeResearch(
     ? "the answer makes safety statements (safety_claims)"
     : input.safety_question === true ? "the question is about safety (safety_question)" : undefined;
   if (input.answer_draft !== undefined && harmScreenTrigger !== undefined && harmScreen.length === 0) {
-    (input.harm_screen === undefined ? requireDeclaration : (step: string) => { nextSteps.push(step); })(
+    (input.harm_screen === undefined ? requireDeclaration : (step: string) => addStep("declaration", step))(
       `harm_screen ${input.harm_screen === undefined ? "is missing" : "lists no harm"}: ${harmScreenTrigger}, so ` +
         "harm_screen lists the serious harms plausible for this exposure, apart from its common side effects, each " +
         "searched by name, with what the search found: label_warning or reported_signal with the answer's sentence " +
@@ -2154,17 +2209,17 @@ export function finalizeResearch(
     // One harm, one entry: names compared as caveats are, so a repeat adds no second caveat.
     const first = screenedHarms.get(caveatText(harm));
     if (first === undefined) screenedHarms.set(caveatText(harm), index);
-    else nextSteps.push(`${at} names the same harm as harm_screen[${first}]: give each harm one entry.`);
+    else addStep("declaration", `${at} names the same harm as harm_screen[${first}]: give each harm one entry.`);
     const sources = new Set(entry.sources_searched ?? []);
     if (entry.state !== "not_checked" && sources.size === 0) {
-      nextSteps.push(`${at} is ${entry.state} without sources_searched: give the kinds of source searched for ${harm}.`);
+      addStep("declaration", `${at} is ${entry.state} without sources_searched: give the kinds of source searched for ${harm}.`);
     }
     if (entry.state === "label_warning" && sources.size > 0 && !sources.has("label") && !sources.has("regulator_warning")) {
-      nextSteps.push(`${at} is label_warning, but sources_searched lists neither label nor regulator_warning: add the ` +
+      addStep("declaration", `${at} is label_warning, but sources_searched lists neither label nor regulator_warning: add the ` +
         `one whose warning names ${harm}, or declare it reported_signal.`);
     }
     if ((entry.state === "label_warning" || entry.state === "reported_signal") && entry.answer_quote === undefined) {
-      nextSteps.push(`${at} is ${entry.state} without answer_quote: report ${harm} in the answer, and copy that ` +
+      addStep("answer_draft", `${at} is ${entry.state} without answer_quote: report ${harm} in the answer, and copy that ` +
         "sentence from answer_draft.");
     }
     if (entry.state === "not_found") {
@@ -2172,10 +2227,10 @@ export function finalizeResearch(
       // digest as full_text_search queries are; nothing else shows that the search ran.
       const query = entry.search_query === undefined ? undefined : discoveryQueryDigest([entry.search_query]);
       if (query === undefined) {
-        nextSteps.push(`${at} is not_found without search_query: give the exact query ${harm} was searched with, and ` +
+        addStep("declaration", `${at} is not_found without search_query: give the exact query ${harm} was searched with, and ` +
           "pass that search's research_receipt, or declare it not_checked.");
       } else if (!verified.some(({ kind, claims }) => kind === "literature_search" && text(claims.q) === query)) {
-        nextSteps.push(`${at}.search_query is not the query of any literature search passed here: search ${harm} by ` +
+        addStep("research", `${at}.search_query is not the query of any literature search passed here: search ${harm} by ` +
           "name with search_pubmed, search_europe_pmc or search_clinical_trials, give that exact query, and pass its " +
           "research_receipt, or declare it not_checked.");
       }
@@ -2184,7 +2239,7 @@ export function finalizeResearch(
       // The harm reaches the reader in the caveat, so it shows no internal labels, as not_relevant_reason does.
       const labels = internalLabels(entry.harm, options.protocolNames ?? new Set());
       if (labels.length > 0) {
-        nextSteps.push(`${at}.harm shows internal labels (${labels.slice(0, 8).join(", ")}` +
+        addStep("declaration", `${at}.harm shows internal labels (${labels.slice(0, 8).join(", ")}` +
           `${labels.length > 8 ? ", and more" : ""}): the answer names this harm in its caveat, so give it in plain ` +
           "words.");
       }
@@ -2233,7 +2288,7 @@ export function finalizeResearch(
     const intervention = sentenceStart(recommendation.intervention);
     if (recommendation.safety_check !== "resolved") {
       if (recommendation.open_inputs === undefined) {
-        nextSteps.push(`${at} is ${recommendation.safety_check} without open_inputs: name the conflicts or safety ` +
+        addStep("declaration", `${at} is ${recommendation.safety_check} without open_inputs: name the conflicts or safety ` +
           "inputs still open, in a few words.");
       } else {
         const open = plainPhrase(recommendation.open_inputs);
@@ -2252,12 +2307,12 @@ export function finalizeResearch(
       ...(recommendation.stopping_covered === undefined ? ["stopping_covered"] : [])
     ];
     if (missing.length > 0) {
-      nextSteps.push(`${at} is for long-term use without ${missing.join(", ")}: give the longest follow-up in its ` +
+      addStep("declaration", `${at} is for long-term use without ${missing.join(", ")}: give the longest follow-up in its ` +
         "evidence, whether it matches how long it would be taken, and whether the answer covers stopping.");
       continue;
     }
     if (recommendation.stopping_covered === false) {
-      nextSteps.push(`${at} puts ${plainPhrase(recommendation.intervention)} forward for long-term use without ` +
+      addStep("answer_draft", `${at} puts ${plainPhrase(recommendation.intervention)} forward for long-term use without ` +
         "covering stopping: say what is known about stopping, withdrawal and lasting harms, or that they are " +
         "unknown, and mark stopping_covered.");
     }
@@ -2292,7 +2347,7 @@ export function finalizeResearch(
         : "name them in studies, each read with a full-text method audit, or state it as support_not_located."));
     } else if (unaudited.length > 0) {
       accepted = false;
-      nextSteps.push(`${stated} on ${unaudited.join(", ")}, which no full-text method audit here covers: ` + (verdict
+      addStep("research", `${stated} on ${unaudited.join(", ")}, which no full-text method audit here covers: ` + (verdict
         ? "an abstract or a lead cannot establish this evidence-strength verdict. Each listed study needs a " +
           "full-text method audit."
         : "an abstract or a lead cannot show a null result. Audit each, or state it as support_not_located."));
@@ -2300,7 +2355,7 @@ export function finalizeResearch(
     // A verdict that studies do not establish an effect states no estimate.
     if (!verdict && !/\p{Nd}/u.test(claim.quote)) {
       accepted = false;
-      nextSteps.push(
+      addStep("answer_draft", 
         `${stated}: give the estimate and its interval in that sentence, so a reader sees how large an effect the ` +
           "studies could have missed."
       );
@@ -2329,7 +2384,7 @@ export function finalizeResearch(
     }
     if (names.length === 0) {
       if (notLocated) {
-        nextSteps.push(
+        addStep("research", 
           "The answer says something was not found, but no literature search receipt was passed: search with " +
             "search_pubmed or search_europe_pmc (and search_clinical_trials for trials) and pass their research receipts."
         );
@@ -2502,13 +2557,13 @@ export function finalizeResearch(
           const at = `plain_answer_comparison[${index}]`;
           const number = registered.indexOf(plainAnswerClaimDigest(entry.claim));
           if (number < 0) {
-            nextSteps.push(`${at}.claim is not one of the ${count} of the plain answer registered before this ` +
+            addStep("declaration", `${at}.claim is not one of the ${count} of the plain answer registered before this ` +
               "research: copy it exactly as manage_research_access listed it.");
             continue;
           }
           const earlier = entryFor.get(number);
           if (earlier !== undefined) {
-            nextSteps.push(`${at} gives the same claim as plain_answer_comparison[${earlier}]: give each claim one entry.`);
+            addStep("declaration", `${at} gives the same claim as plain_answer_comparison[${earlier}]: give each claim one entry.`);
             continue;
           }
           entryFor.set(number, index);
@@ -2519,17 +2574,17 @@ export function finalizeResearch(
           const sources = entry.sources ?? [];
           const unbacked = sources.filter((source) => !auditedStudy(source) && !commentVideos.has(source));
           if (unbacked.length > 0) {
-            nextSteps.push(`${at}.sources lists ${unbacked.join(", ")}, which no full-text method audit or comment ` +
+            addStep("declaration", `${at}.sources lists ${unbacked.join(", ")}, which no full-text method audit or comment ` +
               "audit passed here covers: list studies audited in full text here (DOI, PMID or PMCID) and videos whose " +
               "comments were read here (video ID), or leave sources out.");
           }
           const work = verifiedWork(sources, entry.answer_quote);
           const backed = basesOf(work).length > 0;
           if (entry.outcome !== "confirmed" && entry.answer_quote === undefined) {
-            nextSteps.push(`${at} is ${entry.outcome} without answer_quote: copy the answer's sentence that states the ` +
+            addStep("declaration", `${at} is ${entry.outcome} without answer_quote: copy the answer's sentence that states the ` +
               "change from answer_draft.");
           } else if (entry.outcome !== "confirmed" && !backed) {
-            nextSteps.push(`${at} is ${entry.outcome} with nothing behind it that a quick answer could not have: give ` +
+            addStep("declaration", `${at} is ${entry.outcome} with nothing behind it that a quick answer could not have: give ` +
               "in sources a study audited in full text here or a video whose comments were read here, or quote as " +
               "answer_quote a sentence that absence_claims or corrections (with by_user false) also declare.");
           }
@@ -2541,7 +2596,7 @@ export function finalizeResearch(
         }
         const left = registered.flatMap((_, number) => entryFor.has(number) ? [] : [number]);
         if (left.length > 0) {
-          nextSteps.push(`plain_answer_comparison leaves out ${left.length === 1 ? "claim" : "claims"} ` +
+          addStep("declaration", `plain_answer_comparison leaves out ${left.length === 1 ? "claim" : "claims"} ` +
             `${joinNames(left.map(String))} of the plain answer registered before this research, as ` +
             "manage_research_access numbered them: give each, copied exactly, with whether the research confirmed, " +
             "corrected or qualified it, or did not check it.");
@@ -2565,7 +2620,7 @@ export function finalizeResearch(
         urls: community.urls
       }))
     ];
-    nextSteps.push(...answerDraftProblems(draft, {
+    addStep("answer_draft", ...answerDraftProblems(draft, {
       videoIds: [...new Set([...discovered, ...auditedAtAll])],
       protocolNames: options.protocolNames ?? new Set(),
       caveats,
@@ -2604,9 +2659,9 @@ export function finalizeResearch(
     }));
   }
 
-  if (missingDeclaration) nextSteps.push(TOOL_LIST_REFRESH_HINT);
+  if (missingDeclaration) addStep("tool_list", TOOL_LIST_REFRESH_HINT);
 
-  const secondReading = checkSecondReading(input, options.secondReading, nextSteps);
+  const secondReading = checkSecondReading(input, options.secondReading, stepSink(addStep, "second_reading"));
 
   const status = nextSteps.length > 0
     ? "not_ready"
@@ -2617,6 +2672,7 @@ export function finalizeResearch(
     contract: FINALIZE_RESEARCH_CONTRACT,
     status,
     next_steps: nextSteps,
+    next_step_kinds: stepKinds,
     limits,
     caveats,
     must_report: mustReport,
@@ -2643,6 +2699,11 @@ export function finalizeResearch(
   if (status === "ready") output.check_line = "Checked with AskRigor's final check.";
   else if (status === "ready_with_limits") {
     output.check_line = "Checked with AskRigor's final check, with the limits above.";
+  } else output.unchecked_line = uncheckedLine(stepKinds);
+  // A check that did not pass, carried from earlier in this conversation (AskRigor#354): whatever answer went out
+  // after it went out unchecked, which only the model knows, so the result says so and the model says what changed.
+  if (carried?.last_status === "not_ready") {
+    output.previous_check = { status: "not_ready", open: carried.open_kinds ?? [] };
   }
   if (plainAnswer !== undefined) {
     const note = options.plainAnswer?.note !== false;
@@ -2679,6 +2740,9 @@ export function finalizeResearch(
       leads: leadSources.length,
       limits: limits.length,
       unverified: communitiesUnverified,
+      // The SHA-256 of the answer draft this check read (AskRigor#354): whoever holds the receipt and the answer the
+      // user saw can tell whether that answer is the checked one.
+      ...(draft === undefined ? {} : { answer: createHash("sha256").update(draft, "utf8").digest("hex") }),
       // The findings library saves only the card whose digest this signs, and stamps each finding's bases with it.
       ...(findingsCard.status === "checked" && input.findings_card !== undefined
         ? {
@@ -2695,7 +2759,9 @@ export function finalizeResearch(
     });
   }
   // A carried state that does not verify gets no replacement: the model passes the last good one again.
-  const carry = carriedInvalid ? undefined : buildCarriedState(input, carried, options);
+  const carry = carriedInvalid ? undefined : buildCarriedState(input, carried, options, {
+    status, open: [...new Set(stepKinds)]
+  });
   if (carry === "too_large") output.carry_forward_note = CARRIED_STATE_TOO_LARGE;
   else if (carry !== undefined) Object.assign(output, carry);
   return finalizeResearchOutputSchema.parse(output);
@@ -3046,7 +3112,7 @@ function quoteLocator(shownBlocks: readonly string[]): (quote: string) => number
 
 /** Meaning belongs to the reader; this gate compares only shown and declared text. */
 function checkSecondReading(input: FinalizeResearchInput | undefined, reading: FinalizeResearchOptions["secondReading"],
-  nextSteps: string[]): FinalizeResearchOutput["second_reading"] {
+  nextSteps: Pick<string[], "push">): FinalizeResearchOutput["second_reading"] {
   if (reading === undefined) return undefined;
   if (reading.status === "skipped") return { status: "skipped", reason: reading.reason, findings: 0, open: 0, dismissed: 0 };
   const labels = {
@@ -3749,7 +3815,7 @@ function communityKey(name: string, platform: string): string {
 
 /** The declared buyer-review lane cannot be omitted behind forum or YouTube coverage. */
 interface DeclarationSteps {
-  nextSteps: string[];
+  addStep: (kind: NextStepKind, ...steps: string[]) => void;
   requireDeclaration: (step: string) => void;
 }
 
@@ -3773,7 +3839,7 @@ function commercialReviewCoverage(input: FinalizeResearchInput, out: Declaration
       );
     }
     if (sites.length > 0 || searches.length > 0) {
-      out.nextSteps.push(
+      out.addStep("declaration", 
         "commercial_review_applicability is not_applicable, but principal_communities or community_searches lists " +
           "platform review_site: change the declaration or the review-site entry so they agree."
       );
@@ -3829,7 +3895,7 @@ function productIdentityDeclarations(
       const labels = corpora.map(({ product }) => normalizeProductName(product));
       if (labels.length !== products.length || new Set(labels).size !== labels.length ||
           products.some((product) => !labels.includes(normalizeProductName(product)))) {
-        out.nextSteps.push("community_findings.product_corpora needs exactly one entry for each commercial_review_applicability product, with the same product label.");
+        out.addStep("declaration", "community_findings.product_corpora needs exactly one entry for each commercial_review_applicability product, with the same product label.");
       }
       const receipts = [...rounds.filter(({ kind }) => kind === "youtube_community_audit"),
         ...verified.filter(({ kind }) => kind === "youtube_video_audit")];
@@ -3842,10 +3908,10 @@ function productIdentityDeclarations(
             (list(claims.videos).includes(video) || text(claims.video) === video);
         }));
         if (uncovered.length > 0) {
-          out.nextSteps.push(`The product corpus for ${corpus.product} lists ${uncovered.join(", ")} without a comment-audit receipt for that product that admitted those videos; rerun audit_youtube_video_community for that product or remove them from the corpus.`);
+          out.addStep("research", `The product corpus for ${corpus.product} lists ${uncovered.join(", ")} without a comment-audit receipt for that product that admitted those videos; rerun audit_youtube_video_community for that product or remove them from the corpus.`);
         }
         const unreviewed = corpus.video_ids.filter((video) => !input.community_findings!.videos_reviewed.includes(video));
-        if (unreviewed.length > 0) out.nextSteps.push(`The product corpus for ${corpus.product} lists ${unreviewed.join(", ")} outside community_findings.videos_reviewed; make the declarations agree.`);
+        if (unreviewed.length > 0) out.addStep("declaration", `The product corpus for ${corpus.product} lists ${unreviewed.join(", ")} outside community_findings.videos_reviewed; make the declarations agree.`);
         out.mustReport.push(`${corpus.product}: Exact product signal: ${corpus.exact_product_signal}` +
           (corpus.variant_unresolved_signal === undefined ? "" : ` Variant unresolved signal: ${corpus.variant_unresolved_signal}`));
       }
@@ -3857,7 +3923,7 @@ function productIdentityDeclarations(
       if (counts === undefined) {
         out.requireDeclaration(`Give item_identity for ${corpus.product} in ${search.community}: exact_product, variant_unresolved and other_variant_excluded counts, adding up to reviews_read.`);
       } else if (counts.exact_product + counts.variant_unresolved + counts.other_variant_excluded !== corpus.reviews_read) {
-        out.nextSteps.push(`item_identity for ${corpus.product} in ${search.community} does not add up to reviews_read; count every review in exactly one identity class.`);
+        out.addStep("declaration", `item_identity for ${corpus.product} in ${search.community} does not add up to reviews_read; count every review in exactly one identity class.`);
       } else {
         out.mustReport.push(`${search.community}, ${corpus.product}: ${counts.exact_product} exact-product review(s), ${counts.variant_unresolved} variant-unresolved review(s), ${counts.other_variant_excluded} other-variant review(s) excluded.`);
       }
@@ -3866,7 +3932,7 @@ function productIdentityDeclarations(
       if (outcomeSearch === undefined && boundary === undefined) {
         out.requireDeclaration(`Give outcome_search or outcome_search_boundary for ${corpus.product} in ${search.community}: the searches run within the review text for the outcome and their directions, or why that search could not run.`);
       } else if (outcomeSearch !== undefined && boundary !== undefined) {
-        out.nextSteps.push(`Give exactly one of outcome_search or outcome_search_boundary for ${corpus.product} in ${search.community}, so the declarations agree.`);
+        out.addStep("declaration", `Give exactly one of outcome_search or outcome_search_boundary for ${corpus.product} in ${search.community}, so the declarations agree.`);
       }
       if (outcomeSearch !== undefined) {
         const directions = outcomeSearch.directions;
@@ -3876,7 +3942,7 @@ function productIdentityDeclarations(
           ...(directions.includes("worse") || directions.includes("adverse") ? [] : ["worse or adverse"])
         ];
         if (missing.length > 0) {
-          out.nextSteps.push(`outcome_search.directions for ${corpus.product} in ${search.community} is missing ${missing.join(", ")}; record searches for each missing direction.`);
+          out.addStep("research", `outcome_search.directions for ${corpus.product} in ${search.community} is missing ${missing.join(", ")}; record searches for each missing direction.`);
         }
         // The community's own caveat already says AskRigor could not verify its searches; no second limit here.
       }
@@ -3899,18 +3965,18 @@ function productIdentityDeclarations(
   }
   if (intervention?.status === "not_applicable") {
     if (intervention.reason === undefined) out.requireDeclaration("Give a reason for intervention_identity not_applicable.");
-    if (intervention.interventions !== undefined) out.nextSteps.push("intervention_identity not_applicable cannot list interventions; make the declaration agree.");
+    if (intervention.interventions !== undefined) out.addStep("declaration", "intervention_identity not_applicable cannot list interventions; make the declaration agree.");
   } else if (intervention?.status === "checked") {
     if (intervention.interventions === undefined) out.requireDeclaration("Give interventions for intervention_identity checked, with study_ids, label and resolved or unresolved status.");
     const sources = new Set(input.key_sources.map(({ id }) => normalizeIdentifier(id)));
     for (const entry of intervention.interventions ?? []) {
       if (entry.study_ids.some((id) => !sources.has(normalizeIdentifier(id)))) {
-        out.nextSteps.push(`intervention_identity for ${entry.label} lists study_ids outside key_sources; make the source declarations agree.`);
+        out.addStep("declaration", `intervention_identity for ${entry.label} lists study_ids outside key_sources; make the source declarations agree.`);
       }
       if (entry.status === "resolved" && entry.identity === undefined) {
         out.requireDeclaration(`Give the resolved identity for ${entry.label}: registry_code, sponsor_or_maker and current_product.`);
       } else if (entry.status === "unresolved") {
-        if (entry.identity !== undefined) out.nextSteps.push(`The unresolved intervention ${entry.label} cannot also declare a resolved identity.`);
+        if (entry.identity !== undefined) out.addStep("declaration", `The unresolved intervention ${entry.label} cannot also declare a resolved identity.`);
         out.requireLimit(`The intervention ${entry.label} has not been traced to a current product.`,
           `The exact product tested in ${entry.label} was not traced to a current product, so this answer does not present it as something to buy.`);
       }
@@ -3922,7 +3988,7 @@ function productIdentityDeclarations(
   }
   if (shopping === undefined) return;
   if (shopping.status === "not_requested") {
-    if ((shopping.offers?.length ?? 0) > 0) out.nextSteps.push("shopping not_requested cannot list offers.");
+    if ((shopping.offers?.length ?? 0) > 0) out.addStep("declaration", "shopping not_requested cannot list offers.");
     return;
   }
   if (shopping.destination === undefined) out.requireDeclaration("Give the destination for shopping buy_options or no_live_option_found.");
@@ -3935,14 +4001,14 @@ function productIdentityDeclarations(
   for (const offer of offers) {
     if (offer.role !== "buy_option") continue;
     if (offer.offer_state !== "live_destination_orderable") {
-      out.nextSteps.push(`The buy option for ${offer.product} is ${offer.offer_state}; a buy_option for ${shopping.destination ?? "the destination"} must be live_destination_orderable.`);
+      out.addStep("declaration", `The buy option for ${offer.product} is ${offer.offer_state}; a buy_option for ${shopping.destination ?? "the destination"} must be live_destination_orderable.`);
     }
     if (input.answer_draft !== undefined && !links.has(comparableUrl(offer.url))) {
-      out.nextSteps.push(`The buy option for ${offer.product} is missing from answer_draft; include its link ${offer.url}.`);
+      out.addStep("answer_draft", `The buy option for ${offer.product} is missing from answer_draft; include its link ${offer.url}.`);
     }
   }
   if (shopping.status === "no_live_option_found") {
-    if (offers.some(({ role }) => role === "buy_option")) out.nextSteps.push("shopping no_live_option_found cannot list buy options.");
+    if (offers.some(({ role }) => role === "buy_option")) out.addStep("declaration", "shopping no_live_option_found cannot list buy options.");
     if (new Set(shopping.routes_searched ?? []).size < 3) {
       out.requireDeclaration("shopping no_live_option_found needs at least three distinct routes_searched: international_storefronts, marketplaces, exporters, specialist_sellers or secondary_marketplaces.");
     }
@@ -4069,7 +4135,7 @@ function communityCoverage(
   for (const search of input.community_searches ?? []) {
     const name = search.community;
     if (search.platform === "review_site" && search.report_identity !== undefined) {
-      out.nextSteps.push(
+      out.addStep("declaration", 
         `community_searches for ${name} gives report_identity, which is for threads outside review sites: review sites use review_corpora.`
       );
     }
@@ -4077,13 +4143,13 @@ function communityCoverage(
     const links = [...search.threads_read.map(({ url }) => url), ...(search.url === undefined ? [] : [search.url])];
     const hosts = links.map(hostOf);
     if (hosts.some((host) => YOUTUBE_HOST.test(host))) {
-      out.nextSteps.push(`community_searches for ${name} lists YouTube links; research YouTube with its own tools.`);
+      out.addStep("declaration", `community_searches for ${name} lists YouTube links; research YouTube with its own tools.`);
       continue;
     }
     // A platform with its own hosts links only there, and its hosts' links belong to it.
     const own = PLATFORM_HOSTS[search.platform];
     if (own !== undefined && hosts.some((host) => !own.host.test(host))) {
-      out.nextSteps.push(search.platform === "reddit"
+      out.addStep("declaration", search.platform === "reddit"
         ? `community_searches for ${name} is on Reddit but lists links elsewhere; list the Reddit threads you read.`
         : `community_searches for ${name} is on ${own.label} but lists links elsewhere; give the ${own.label} links ` +
           "of the community and the posts you read.");
@@ -4093,7 +4159,7 @@ function communityCoverage(
       .find(([platform, { host }]) => platform !== search.platform && hosts.some((link) => host.test(link)));
     if (foreign !== undefined) {
       const [platform, { label }] = foreign;
-      out.nextSteps.push(platform === "reddit"
+      out.addStep("declaration", platform === "reddit"
         ? `community_searches for ${name} lists Reddit links; record them under platform reddit, as the subreddit ` +
           "they are in."
         : `community_searches for ${name} lists ${label} links; record them under platform ${platform}.`);
@@ -4104,22 +4170,22 @@ function communityCoverage(
     const communityStep = COMMUNITY_LINK_STEPS[search.platform];
     if (communityStep !== undefined && (search.threads_read.some(({ url }) => community(url, true) === undefined) ||
       (search.url !== undefined && community(search.url, false) === undefined))) {
-      out.nextSteps.push(`community_searches for ${name} ${communityStep}`);
+      out.addStep("declaration", `community_searches for ${name} ${communityStep}`);
       continue;
     }
     // A subreddit is one community: its entry names it, and its threads are in it.
     if (search.platform === "reddit") {
       const subreddit = SUBREDDIT_NAME.exec(name)?.[1]?.toLowerCase();
       if (subreddit === undefined) {
-        out.nextSteps.push(`Name the Reddit community ${name} by its subreddit, as r/<name>.`);
+        out.addStep("declaration", `Name the Reddit community ${name} by its subreddit, as r/<name>.`);
         continue;
       }
       if (search.url !== undefined && subredditHomeOf(search.url) !== subreddit) {
-        out.nextSteps.push(`community_searches for ${name} gives a url outside r/${subreddit}; give the subreddit's own link.`);
+        out.addStep("declaration", `community_searches for ${name} gives a url outside r/${subreddit}; give the subreddit's own link.`);
         continue;
       }
       if (search.threads_read.some(({ url }) => subredditOf(url) !== subreddit)) {
-        out.nextSteps.push(
+        out.addStep("declaration", 
           `community_searches for ${name} lists links that are not threads in r/${subreddit}: list each thread you ` +
             `read by its full link (reddit.com/r/${subreddit}/comments/…), under its own subreddit's entry.`
         );
@@ -4139,19 +4205,19 @@ function communityCoverage(
             : []);
         if (absent.length > 0 || elsewhere.length > 0 || retitled.length > 0) {
           if (absent.length > 0) {
-            out.nextSteps.push(
+            out.addStep("declaration", 
               `community_searches for ${name} lists thread(s) Reddit does not have (${absent.join(", ")}): list only ` +
                 "threads you read, by the links you read them at."
             );
           }
           if (elsewhere.length > 0) {
-            out.nextSteps.push(
+            out.addStep("declaration", 
               `community_searches for ${name} lists thread(s) that Reddit files under another subreddit ` +
                 `(${elsewhere.join(", ")}): list each thread under its own subreddit's entry.`
             );
           }
           if (retitled.length > 0) {
-            out.nextSteps.push(
+            out.addStep("declaration", 
               `community_searches for ${name} gives thread title(s) that differ from Reddit's (${retitled.join("; ")}): ` +
                 "check that each link is the thread you read, and give its title exactly as Reddit shows it."
             );
@@ -4164,7 +4230,7 @@ function communityCoverage(
     const shared = search.threads_read.map(({ url }) => comparableUrl(url))
       .filter((thread) => (threadOwners.get(thread) ?? key) !== key);
     if (shared.length > 0) {
-      out.nextSteps.push(
+      out.addStep("declaration", 
         `community_searches for ${name} lists a thread already listed for another community; list each thread under ` +
           "the one community it belongs to."
       );
@@ -4179,7 +4245,7 @@ function communityCoverage(
       continue;
     }
     if (search.access_boundary === "no_relevant_results" && search.threads_read.length > 0) {
-      out.nextSteps.push(
+      out.addStep("declaration", 
         `community_searches for ${name} gives both threads read and access_boundary no_relevant_results; keep one: ` +
           "the threads and what they showed, or the boundary if nothing relevant turned up."
       );
@@ -4188,7 +4254,7 @@ function communityCoverage(
     // A review site's reviews need their counts and selection (HRP ReviewCorpusSelectionAndCounts).
     const corpora = search.review_corpora ?? [];
     if (corpora.length > 0 && search.platform !== "review_site") {
-      out.nextSteps.push(
+      out.addStep("declaration", 
         `community_searches for ${name} gives review_corpora, which are for review sites: record the site's product ` +
           "reviews under platform review_site, or leave review_corpora out."
       );
@@ -4204,7 +4270,7 @@ function communityCoverage(
     const miscounted = corpora.filter(({ reviews_shown: shown, reviews_read: read, selection }) =>
       shown !== undefined && (read > shown || (selection === "all" && read < shown)));
     if (miscounted.length > 0) {
-      out.nextSteps.push(
+      out.addStep("declaration", 
         `community_searches for ${name} gives review counts that do not fit (${miscounted.map(({ product }) => product)
           .join(", ")}): reviews_read cannot exceed reviews_shown, and selection all means every review shown was read.`
       );
@@ -4226,7 +4292,7 @@ function communityCoverage(
           ...(search.url === undefined ? [] : [community(search.url, false) ?? siteOf(search.url)])
         ]);
     if (sites.size > 1) {
-      out.nextSteps.push(
+      out.addStep("declaration", 
         `community_searches for ${name} points to more than one site (${[...sites].join(", ")}); give each site its ` +
           "own entry."
       );
@@ -4235,7 +4301,7 @@ function communityCoverage(
     const site = [...sites][0];
     const owner = site === undefined ? undefined : siteOwners.get(site);
     if (owner !== undefined && owner !== key) {
-      out.nextSteps.push(
+      out.addStep("declaration", 
         `community_searches for ${name} is on ${site}, as ${searched.get(owner) ?? "another entry"} is: ` +
           "one site is one discussion pool, so list its threads under one entry and search an independent community."
       );
@@ -4262,7 +4328,7 @@ function communityCoverage(
         const { exposure, reports_read, firsthand_exact, exposure_unclear, other_exposure, not_firsthand, measured_after } = report;
         if (firsthand_exact + exposure_unclear + other_exposure + not_firsthand !== reports_read ||
             measured_after > firsthand_exact) {
-          out.nextSteps.push(
+          out.addStep("declaration", 
             `report_identity for ${exposure} in ${name} does not add up: the four classes must add up to reports_read, and measured_after cannot exceed firsthand_exact.`
           );
           continue;
@@ -4390,7 +4456,7 @@ function communityCoverage(
     const others = [...new Map(communities
       .filter(({ name, platform }) => !searched.has(communityKey(name, platform)))
       .map(({ name, platform }) => [communityKey(name, platform), name])).values()];
-    out.nextSteps.push(
+    out.addStep("research", 
       "Search at least one more community, independent of " +
         `${searched.size === 0 ? "the first" : [...searched.values()].join(", ")}` +
         `${others.length === 0 ? "" : ` (${others.join(", ")})`}: YouTube with its tools, the others with your web ` +
