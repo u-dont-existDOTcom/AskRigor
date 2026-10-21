@@ -821,7 +821,9 @@ describe("finalize_research, save_research_findings and the findings library", (
     const options = { researchContributorAccessService: await accessService(), findingsLibrary: true, findingsSave };
     const finalize = connectorTool("finalize_research", options);
     // Its research audited a study in full text and no map of it was filed: the check reminds, holding nothing back.
-    const first = await finalize(request(), "auth0|free");
+    // The research's receipts are made once, before the map is filed, as in a real conversation.
+    const research = request().receipts;
+    const first = await finalize(request({ receipts: research }), "auth0|free");
     const reminder = researchMapReminder({ studies: 1, videos: 0, absences: 0, corrections: 0 });
     expect(first.structuredContent).toMatchObject({
       status: "ready_with_limits",
@@ -837,7 +839,7 @@ describe("finalize_research, save_research_findings and the findings library", (
     }, "auth0|free");
     const mapReceipt = (filed.structuredContent as { research_receipt: string }).research_receipt;
     expect(mapReceipt).toMatch(/^rr1~research_map~/u);
-    const second = await finalize(request({ receipts: [...request().receipts, mapReceipt] }), "auth0|free");
+    const second = await finalize(request({ receipts: [...research, mapReceipt] }), "auth0|free");
     expect(second.structuredContent).toMatchObject({
       status: "ready_with_limits",
       research_map: { status: "filed" },
@@ -849,7 +851,7 @@ describe("finalize_research, save_research_findings and the findings library", (
     // The map is not research: the receipt count a saved card's stamp carries is unchanged.
     expect((second.structuredContent as { receipts_verified: number }).receipts_verified).toBe(2);
     // Another account's map is not this research's.
-    const paidMap = await finalize(request({ receipts: [...request().receipts, mapReceipt] }), "auth0|paid");
+    const paidMap = await finalize(request({ receipts: [...research, mapReceipt] }), "auth0|paid");
     expect(paidMap.structuredContent).toMatchObject({ research_map: { status: "offered" } });
   });
 

@@ -6,7 +6,9 @@ import {
   GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS,
   geminiYoutubeScoutBackgroundCheckpointSchema,
   geminiYoutubeScoutLanguageSchema,
-  type GeminiYoutubeScoutBackgroundCheckpoint
+  type GeminiYoutubeScoutBackgroundCheckpoint,
+  GEMINI_MODEL_TRIAL_ARMS,
+  type GeminiModelTrialArm
 } from "@askrigor/sources";
 import { z } from "zod";
 
@@ -40,6 +42,8 @@ const continuationStateSchema = z.object({
   accounted_nano_usd: z.number().int().nonnegative(),
   // Tokens issued before holds existed have none; their charge stays whole.
   budget_hold: budgetHoldSchema.optional(),
+  // Owner answer 146b: a dev account's trial arm, which the resumed scout keeps.
+  model_trial: z.enum(GEMINI_MODEL_TRIAL_ARMS).optional(),
   expires_at_ms: z.number().int().positive()
 }).strict();
 
@@ -51,6 +55,7 @@ export interface ScoutContinuationState {
   checkpoint: GeminiYoutubeScoutBackgroundCheckpoint;
   accounted_nano_usd: number;
   budget_hold?: BudgetHold;
+  model_trial?: GeminiModelTrialArm;
   expires_at_ms: number;
 }
 

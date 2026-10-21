@@ -258,6 +258,16 @@ session's safety check at 13:40 UTC, before anything ran; the owner then chose "
   wrong videos for the scout; claim accuracy against the video for the reader), with cost and time per run, stopping
   before $30. Switching the default model is a separate owner question.
 
+**Built (21 Oct), trial first:** `packages/sources/src/gemini-models.ts` holds the models, thinking levels and dated
+prices (`gemini-4-argon` $2 and $10 until 1 December, then $4 and $20); the scout and the video reader take a model and
+thinking level in their configuration, defaulting to today's. `scout_gemini_youtube_candidates` and
+`extract_youtube_video_claims` take `model_trial` (`current`, `gemini-4-low`, `gemini-4-high`) from a dev account only
+(`gemini_model_trial_dev_only` otherwise), carry it in the continuation token and report `model_trial` with the real
+cost. A Gemini 4 scout reserves the same scout at its prices (30 searches plus the $0.58 token share of $1 scaled by
+the price: $1.97, then $3.52) and settles at them; today's model keeps $1 and its prices exactly. The Action and session
+paths keep today's model. The server-wide settings (`ASKRIGOR_GEMINI_SCOUT_MODEL` and the rest) wait for the owner's
+separate question on switching the default, since only that needs them.
+
 ## 7. 147a, a lead's other full-text routes (owner, 21 Oct)
 
 The owner's answer "147a" to UDA #411 (`2026-10-21-source-access-cross-connector-debug`): when a study that could

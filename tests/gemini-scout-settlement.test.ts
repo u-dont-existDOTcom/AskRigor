@@ -2,12 +2,14 @@ import { chmod, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { GEMINI_YOUTUBE_SCOUT_MODEL } from "@askrigor/sources";
+import { GEMINI_YOUTUBE_SCOUT_MODEL, geminiModelTrialSetting } from "@askrigor/sources";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  calculateGeminiScoutNanoUsd,
   executeResumableAutomatedGeminiScout,
-  GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
+  GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD,
+  geminiScoutReservationNanoUsd
 } from "../apps/research-mcp/src/actions/gemini-scout-route.js";
 import {
   createFileAiBudget,
@@ -142,6 +144,57 @@ async function startScout(budget: AiBudget, scout: ReturnType<typeof backgroundS
     budgetHold: started.controller_progress.budget_hold as BudgetHold
   };
 }
+
+// Owner answer 146b (2026-10-21): a dev account's Gemini 4 trial runs its own model and thinking level, reserves at
+// its prices and settles its real cost at them; today's model keeps its $1 reservation and prices.
+describe("a Gemini model trial's reservation and cost", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("reserves the same scout at Gemini 4's prices, which rise on 1 December", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-21T14:00:00.000Z"));
+    expect(geminiScoutReservationNanoUsd()).toBe(GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD);
+    expect(geminiScoutReservationNanoUsd(geminiModelTrialSetting("current"))).toBe(GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD);
+    // 30 searches at $0.014, and the $0.58 token share of $1 at 8/3 of the price: $1.9666...
+    expect(geminiScoutReservationNanoUsd(geminiModelTrialSetting("gemini-4-low"))).toBe(1_966_666_667);
+    expect(calculateGeminiScoutNanoUsd(USAGE, geminiModelTrialSetting("gemini-4-high"))).toBe(139_000_000);
+    expect(calculateGeminiScoutNanoUsd(USAGE)).toBe(ACTUAL_NANO_USD);
+    vi.setSystemTime(new Date("2026-12-01T00:00:00.000Z"));
+    // At $4 and $20: 16/3 of the price.
+    expect(geminiScoutReservationNanoUsd(geminiModelTrialSetting("gemini-4-low"))).toBe(3_513_333_334);
+    expect(calculateGeminiScoutNanoUsd(USAGE, geminiModelTrialSetting("gemini-4-low"))).toBe(166_000_000);
+  });
+
+  it("runs the trial's model and thinking level and settles its hold at that model's prices", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-21T14:00:00.000Z"));
+    const book = await ledger(new Date("2026-10-21T14:00:00.000Z"));
+    const scout = backgroundScout();
+    const setting = geminiModelTrialSetting("gemini-4-high");
+    const started = await executeResumableAutomatedGeminiScout(TARGET, undefined,
+      options(book.open(), scout, { modelSetting: setting }));
+    if (!("controller_progress" in started)) throw new Error("The trial did not start in the background");
+    expect(started.controller_progress).toMatchObject({
+      accounted_nano_usd: 1_966_666_667,
+      budget_hold: { held_nano_usd: 1_966_666_667 }
+    });
+    expect(scout.advance).toHaveBeenLastCalledWith(expect.anything(),
+      { apiKey: "gemini-key", model: "gemini-4-argon", thinkingLevel: "high" }, undefined);
+    expect(await book.read()).toMatchObject({ charged_nano_usd: 1_966_666_667 });
+    const done = await executeResumableAutomatedGeminiScout(TARGET, {
+      checkpoint: started.controller_progress.checkpoint,
+      accountedNanoUsd: started.controller_progress.accounted_nano_usd,
+      budgetHold: started.controller_progress.budget_hold as BudgetHold,
+      modelSetting: setting
+    }, options(book.open(), scout));
+    expect(done).toMatchObject({ controller_completion: { accounted_nano_usd: 139_000_000 } });
+    expect(scout.advance).toHaveBeenLastCalledWith(expect.anything(),
+      { apiKey: "gemini-key", model: "gemini-4-argon", thinkingLevel: "high" }, CHECKPOINT);
+    expect(await book.read()).toMatchObject({ charged_nano_usd: 139_000_000 });
+  });
+});
 
 describe("background Gemini scout budget settlement", () => {
   it("settles the real cost on the call that completes the scout, once, also after a restart", async () => {

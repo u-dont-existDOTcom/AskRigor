@@ -276,7 +276,12 @@ export function plainAnswerRequested(
   accountKey: string,
   devAccountKeys: ReadonlySet<string>,
 ): boolean {
-  return mode === "PAID_PRIVATE" || devAccountKeys.has(researchAccountReference(accountKey));
+  return mode === "PAID_PRIVATE" || isDevAccount(accountKey, devAccountKeys);
+}
+
+/** Whether the server's settings list this account as a dev account, by its reference (owner answer 140b). */
+export function isDevAccount(accountKey: string, devAccountKeys: ReadonlySet<string>): boolean {
+  return devAccountKeys.has(researchAccountReference(accountKey));
 }
 
 const PLAIN_ANSWER_NOT_REQUESTED = "AskRigor asks paid private accounts and the dev accounts its settings list for a " +

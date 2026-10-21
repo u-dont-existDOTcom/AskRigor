@@ -57,7 +57,10 @@ import {
   youtubeVideoDataSchema,
   youtubeVideoFailureDataSchema,
   GEMINI_YOUTUBE_SCOUT_MAX_LEAD_CHARACTERS,
-  GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS
+  GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS,
+  GEMINI_MODEL_TRIAL_ARMS,
+  geminiModelTrialSetting,
+  type GeminiModelTrialArm
 } from "@askrigor/sources";
 import { z } from "zod";
 import { EUROPE_PMC_SECTIONS, EUROPE_PMC_FULL_TEXT_COVERAGE, europePmcSections } from "./europe-pmc-sections.js";
@@ -165,6 +168,7 @@ import {
   manageResearchAccessInputSchema,
   manageResearchAccessOutputSchema,
   optionalSignInSecurityMetadata,
+  isDevAccount,
   plainAnswerRequested,
   researchConnection,
   researchConnectionSchema,
@@ -1857,12 +1861,14 @@ function defineResearchOperations(
       outputSchema: MCP_SCOUT_OUTPUT_SCHEMA,
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async (input) => {
+    async (input, extra) => {
       const secret = researchReceiptSecretFromEnv();
       if (secret === undefined) return scoutError("gemini_scout_continuation_unavailable", false);
       let target: z.output<typeof automatedScoutInputSchema>;
       let leads: string[] = [];
       let resume: Parameters<typeof executeResumableAutomatedGeminiScout>[1];
+      // Owner answer 146b: the trial arm, sent by a dev account or carried by the token of a scout one started.
+      let arm: GeminiModelTrialArm | undefined;
       if (input.continuation_token !== undefined) {
         try {
           const state = decodeScoutContinuation(input.continuation_token, secret, Date.now());
@@ -1873,10 +1879,12 @@ function defineResearchOperations(
             ...(state.language === undefined ? {} : { language: state.language })
           };
           leads = state.rediscovery_leads ?? [];
+          arm = state.model_trial;
           resume = {
             checkpoint: state.checkpoint,
             accountedNanoUsd: state.accounted_nano_usd,
-            ...(state.budget_hold === undefined ? {} : { budgetHold: state.budget_hold })
+            ...(state.budget_hold === undefined ? {} : { budgetHold: state.budget_hold }),
+            ...(arm === undefined ? {} : { modelSetting: geminiModelTrialSetting(arm) })
           };
         } catch (error) {
           // An expired token still names the stored provider interaction:
@@ -1910,6 +1918,14 @@ function defineResearchOperations(
         if (!geminiKeyDeclaredUnbilled()) {
           return scoutError("gemini_scout_spend_not_authorized", false, SCOUT_SPEND_GUIDANCE);
         }
+        // Owner answer 146b: only a dev account the server's settings list may name a trial arm.
+        if (input.model_trial !== undefined) {
+          const researcher = await researchUseAccount(extra, options.researchContributorAccessService);
+          if (researcher === undefined || !isDevAccount(researcher.accountKey, devAccountKeysFromEnv())) {
+            return scoutError("gemini_model_trial_dev_only", false, MODEL_TRIAL_DEV_ONLY);
+          }
+          arm = input.model_trial;
+        }
         // Only screened, population-level text reaches Gemini.
         if (!isPopulationLevelResearchTarget(target.research_target)) {
           return scoutError("research_target_not_deidentified", false, SCOUT_TARGET_GUIDANCE);
@@ -1932,9 +1948,14 @@ function defineResearchOperations(
       // Poll within one call only while a further provider request still fits
       // under the client's tool timeout; otherwise hand back a continuation.
       const started = Date.now();
-      const execution = await executeResumableAutomatedGeminiScout(
-        target, resume, { deadlineMs: started + MCP_SCOUT_POLL_WINDOW_MS }, leads
-      );
+      const trialSetting = arm === undefined ? undefined : geminiModelTrialSetting(arm);
+      const execution = await executeResumableAutomatedGeminiScout(target, resume, {
+        deadlineMs: started + MCP_SCOUT_POLL_WINDOW_MS,
+        ...(trialSetting === undefined ? {} : { modelSetting: trialSetting })
+      }, leads);
+      const trial = arm === undefined || trialSetting === undefined
+        ? undefined
+        : { arm, model: trialSetting.model, thinking: trialSetting.thinking };
       if ("controller_boundary" in execution) {
         const { code, retryable } = execution.controller_boundary;
         return scoutError(code, retryable, code === "research_target_not_population_level"
@@ -1952,6 +1973,7 @@ function defineResearchOperations(
           checkpoint: execution.controller_progress.checkpoint,
           accounted_nano_usd: execution.controller_progress.accounted_nano_usd,
           ...(budgetHold === undefined ? {} : { budget_hold: budgetHold }),
+          ...(arm === undefined ? {} : { model_trial: arm }),
           expires_at_ms: Date.now() + SCOUT_CONTINUATION_TTL_MS
         }, secret);
         const heldBy = execution.controller_progress.held_by;
@@ -1968,7 +1990,8 @@ function defineResearchOperations(
             ...target,
             ...(leads.length === 0 ? {} : { rediscovery_leads: leads }),
             continuation_token: continuation,
-            retry_after_seconds: MCP_SCOUT_RETRY_AFTER_SECONDS
+            retry_after_seconds: MCP_SCOUT_RETRY_AFTER_SECONDS,
+            ...(trial === undefined ? {} : { model_trial: trial })
           })
         );
       }
@@ -2008,7 +2031,16 @@ function defineResearchOperations(
         search_gaps: packet.search_gaps,
         validation,
         ...(titleLookup === undefined ? {} : { title_lookup: titleLookup }),
-        ...(storageMode === undefined ? {} : { provider_storage_mode: storageMode })
+        ...(storageMode === undefined ? {} : { provider_storage_mode: storageMode }),
+        // The trial arm's real cost at its model's prices, or its whole hold when that could not be settled.
+        ...(trial === undefined ? {} : {
+          model_trial: {
+            ...trial,
+            ...(execution.controller_completion.accounted_nano_usd === undefined
+              ? {}
+              : { cost_usd: execution.controller_completion.accounted_nano_usd / 1_000_000_000 })
+          }
+        })
       });
       if (Buffer.byteLength(JSON.stringify(output), "utf8") > MCP_SCOUT_MAX_BYTES) {
         return scoutError("gemini_youtube_candidate_validation_response_too_large", false);
@@ -2063,10 +2095,15 @@ function defineResearchOperations(
       outputSchema: extractYoutubeVideoClaimsOutputSchema,
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async (input) => {
+    async (input, extra) => {
       const { result, receipt } = await extractYoutubeVideoClaims(input, {
         secret: researchReceiptSecretFromEnv(),
-        geminiKeyUnbilled: geminiKeyDeclaredUnbilled()
+        geminiKeyUnbilled: geminiKeyDeclaredUnbilled(),
+        // Owner answer 146b: only a dev account the server's settings list may name a trial arm.
+        devAccount: async () => {
+          const researcher = await researchUseAccount(extra, options.researchContributorAccessService);
+          return researcher !== undefined && isDevAccount(researcher.accountKey, devAccountKeysFromEnv());
+        }
       });
       return receipt === undefined
         ? result
@@ -2515,7 +2552,11 @@ const MCP_SCOUT_INPUT_SCHEMA = z.object({
     .min(1).max(GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS).optional()
     .describe("Remedies, methods, products, videos or creators named in audited comments, to search next."),
   continuation_token: z.string().min(1).max(12_000).optional()
-    .describe("Returned while the scout is still searching; call again with only this token.")
+    .describe("Returned while the scout is still searching; call again with only this token."),
+  // Owner answer 146b: the owner's Gemini 4 trial, for the dev accounts the server's settings list.
+  model_trial: z.enum(GEMINI_MODEL_TRIAL_ARMS).optional()
+    .describe("Dev accounts only, for the owner's model trial: current, gemini-4-low or gemini-4-high. Leave it out " +
+      "otherwise.")
 }).strict().superRefine((value, context) => {
   if (value.continuation_token === undefined &&
       (value.research_target === undefined || value.diagnosis_status === undefined)) {
@@ -2528,6 +2569,12 @@ const MCP_SCOUT_INPUT_SCHEMA = z.object({
     context.addIssue({
       code: "custom",
       message: "The continuation_token already carries the rediscovery leads; send only the token."
+    });
+  }
+  if (value.continuation_token !== undefined && value.model_trial !== undefined) {
+    context.addIssue({
+      code: "custom",
+      message: "The continuation_token already carries the model trial; send only the token."
     });
   }
 });
@@ -2562,6 +2609,13 @@ const MCP_SCOUT_OUTPUT_SCHEMA = z.object({
     }).strict())
   }).strict().optional(),
   provider_storage_mode: z.enum(["DISABLED", "TEMPORARY_BACKGROUND_DELETE_REQUESTED"]).optional(),
+  // Owner answer 146b: a dev account's trial arm, its model and thinking level, and, once complete, its real cost.
+  model_trial: z.object({
+    arm: z.enum(GEMINI_MODEL_TRIAL_ARMS),
+    model: z.string(),
+    thinking: z.string(),
+    cost_usd: z.number().nonnegative().optional()
+  }).strict().optional(),
   research_receipt: z.string().optional()
 }).strict();
 
@@ -2572,6 +2626,10 @@ const LONG_VIDEO_AUDIT_SLOTS = createConcurrencyLimiter(PUBLIC_TOOL_LIMITS.mcpLo
 const ANALYSIS_STAGING = new AnalysisStaging();
 // Like the findings save, sending held analyses never holds the answer back long.
 const ANALYSES_SAVE_DEADLINE_MILLISECONDS = 10_000;
+
+// Owner answer 146b: the model trial is the owner's, for the dev accounts the server's settings list.
+const MODEL_TRIAL_DEV_ONLY = "model_trial is for the dev accounts AskRigor's owner lists in the server's settings; " +
+  "call again without it.";
 
 const SCOUT_SPEND_GUIDANCE =
   "The zero-spend policy allows the Gemini scout only with a key that has no billing " +

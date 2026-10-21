@@ -11,7 +11,10 @@ import {
   type GeminiVideoBoundaryCode,
   type GeminiVideoClaimsReport,
   type GeminiVideoMomentReport,
-  type GeminiVideoRequest
+  type GeminiVideoRequest,
+  GEMINI_MODEL_TRIAL_ARMS,
+  geminiModelTrialSetting,
+  geminiUsageNanoUsd
 } from "@askrigor/sources";
 import { z } from "zod";
 
@@ -60,10 +63,17 @@ export const extractYoutubeVideoClaimsInputSchema = z.object({
   at: z.string().trim().min(1).max(10).optional()
     .describe("Only to follow up one unclear claim: its time, as MM:SS (H:MM:SS from one hour on)."),
   continuation_token: z.string().min(1).max(4_000).optional()
-    .describe("Returned while Gemini is still reading; call again with only this token.")
+    .describe("Returned while Gemini is still reading; call again with only this token."),
+  // Owner answer 146b: the owner's Gemini 4 trial, for the dev accounts the server's settings list.
+  model_trial: z.enum(GEMINI_MODEL_TRIAL_ARMS).optional()
+    .describe("Dev accounts only, for the owner's model trial: current, gemini-4-low or gemini-4-high. Leave it out " +
+      "otherwise.")
 }).strict().superRefine((value, context) => {
   if ((value.video === undefined) === (value.continuation_token === undefined)) {
     context.addIssue({ code: "custom", message: "Provide video, or a continuation_token." });
+  }
+  if (value.model_trial !== undefined && value.video === undefined) {
+    context.addIssue({ code: "custom", message: "The continuation_token already carries the model trial; send only the token." });
   }
   if (value.at !== undefined && value.video === undefined) {
     context.addIssue({ code: "custom", message: "The continuation_token already carries the time; send only the token." });
@@ -73,6 +83,13 @@ export type ExtractYoutubeVideoClaimsInput = z.output<typeof extractYoutubeVideo
 
 const speakerSchema = z.enum(["creator", "guest", "other", "unclear"]);
 export const extractYoutubeVideoClaimsOutputSchema = z.object({
+  // Owner answer 146b: a dev account's trial arm, its model and thinking level, and, once complete, its real cost.
+  model_trial: z.object({
+    arm: z.enum(GEMINI_MODEL_TRIAL_ARMS),
+    model: z.string(),
+    thinking: z.string(),
+    cost_usd: z.number().nonnegative().optional()
+  }).strict().optional(),
   status: z.enum(["pending", "complete"]),
   mode: z.enum(["claims", "moment"]),
   video: z.object({
@@ -151,6 +168,8 @@ export interface VideoClaimsToolDependencies {
   ledger?: () => GeminiVideoLedger;
   now?: () => number;
   sleep?: (milliseconds: number) => Promise<void>;
+  /** Whether the caller is a dev account the server's settings list, who may name a trial arm (owner answer 146b). */
+  devAccount?: () => Promise<boolean>;
 }
 
 export async function extractYoutubeVideoClaims(
@@ -186,7 +205,12 @@ export async function extractYoutubeVideoClaims(
         SPEND_GUIDANCE + (deleted ? "" : ` ${DELETION_RETRY}`));
     }
     checkpoint = state.checkpoint;
-    pass = { request: state.request, video: state.video, charged_seconds: state.charged_seconds };
+    pass = {
+      request: state.request,
+      video: state.video,
+      charged_seconds: state.charged_seconds,
+      ...(state.model_trial === undefined ? {} : { model_trial: state.model_trial })
+    };
   } else {
     const videoId = parseVideoReference(input.video!);
     if (videoId === undefined) {
@@ -198,6 +222,11 @@ export async function extractYoutubeVideoClaims(
     }
     if (!dependencies.geminiKeyUnbilled) return refusal("gemini_video_spend_not_authorized", false, SPEND_GUIDANCE);
     if (geminiApiKey === "") return refusal("gemini_provider_not_configured", false);
+    // Owner answer 146b: only a dev account the server's settings list may name a trial arm.
+    if (input.model_trial !== undefined && !await (dependencies.devAccount ?? (async () => false))()) {
+      return refusal("gemini_model_trial_dev_only", false,
+        "model_trial is for the dev accounts AskRigor's owner lists in the server's settings; call again without it.");
+    }
     const youtubeApiKey = (dependencies.youtubeApiKey ?? process.env.YOUTUBE_API_KEY ?? "").trim();
     if (youtubeApiKey === "") return refusal("youtube_provider_not_configured", false);
 
@@ -223,7 +252,8 @@ export async function extractYoutubeVideoClaims(
     pass = {
       request,
       video: { title: looked.title, channel: looked.channel, duration_seconds: looked.duration_seconds },
-      charged_seconds: looked.duration_seconds
+      charged_seconds: looked.duration_seconds,
+      ...(input.model_trial === undefined ? {} : { model_trial: input.model_trial })
     };
   }
 
@@ -231,7 +261,11 @@ export async function extractYoutubeVideoClaims(
   const sleep = dependencies.sleep ?? ((milliseconds: number) => new Promise<void>((resolve) => {
     setTimeout(resolve, milliseconds);
   }));
-  const config = { apiKey: geminiApiKey };
+  const trial = pass.model_trial === undefined ? undefined : geminiModelTrialSetting(pass.model_trial);
+  const config = {
+    apiKey: geminiApiKey,
+    ...(trial === undefined ? {} : { model: trial.model, thinkingLevel: trial.thinking })
+  };
   let step: GeminiVideoAdvance;
   try {
     step = await advance(pass.request, config, checkpoint);
@@ -266,7 +300,7 @@ export async function extractYoutubeVideoClaims(
       )
     };
   }
-  return completedResult(pass, step.report);
+  return completedResult(pass, step.report, step.usage);
 }
 
 /**
@@ -350,20 +384,21 @@ async function lookUpVideo(
 
 function completedResult(
   pass: Omit<VideoContinuationState, "checkpoint" | "expires_at_ms">,
-  report: Extract<GeminiVideoAdvance, { kind: "complete" }>["report"]
+  report: Extract<GeminiVideoAdvance, { kind: "complete" }>["report"],
+  usage: Extract<GeminiVideoAdvance, { kind: "complete" }>["usage"]
 ): VideoClaimsToolOutcome {
   const videoId = pass.request.video_id;
   const duration = pass.video.duration_seconds;
   const output: Output = report.mode === "claims"
     ? extractYoutubeVideoClaimsOutputSchema.parse({
         status: "complete",
-        ...passFields(pass),
+        ...passFields(pass, usage),
         ...claimsFields(report.claims, videoId, duration),
         source_note: SOURCE_NOTE
       })
     : extractYoutubeVideoClaimsOutputSchema.parse({
         status: "complete",
-        ...passFields(pass),
+        ...passFields(pass, usage),
         moment: momentFields(report.moment, videoId, duration),
         source_note: SOURCE_NOTE
       });
@@ -385,8 +420,25 @@ function completedResult(
   };
 }
 
-function passFields(pass: Omit<VideoContinuationState, "checkpoint" | "expires_at_ms">): Pick<Output, "mode" | "video" | "at"> {
+function passFields(
+  pass: Omit<VideoContinuationState, "checkpoint" | "expires_at_ms">,
+  usage?: Extract<GeminiVideoAdvance, { kind: "complete" }>["usage"]
+): Pick<Output, "mode" | "video" | "at" | "model_trial"> {
+  const trial = pass.model_trial === undefined ? undefined : geminiModelTrialSetting(pass.model_trial);
+  const costNanoUsd = trial === undefined || usage === undefined ? undefined : geminiUsageNanoUsd(trial.model, new Date(), {
+    ...(usage.total_input_tokens === undefined ? {} : { inputTokens: usage.total_input_tokens }),
+    ...(usage.total_output_tokens === undefined ? {} : { outputTokens: usage.total_output_tokens }),
+    ...(usage.total_thought_tokens === undefined ? {} : { thoughtTokens: usage.total_thought_tokens })
+  });
   return {
+    ...(trial === undefined || pass.model_trial === undefined ? {} : {
+      model_trial: {
+        arm: pass.model_trial,
+        model: trial.model,
+        thinking: trial.thinking,
+        ...(costNanoUsd === undefined ? {} : { cost_usd: costNanoUsd / 1_000_000_000 })
+      }
+    }),
     mode: pass.request.mode,
     video: {
       video_id: pass.request.video_id,
