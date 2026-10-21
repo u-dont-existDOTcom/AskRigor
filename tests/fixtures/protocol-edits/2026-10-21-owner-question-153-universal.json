@@ -1,0 +1,27 @@
+{
+  "purpose": "Owner-approved question 153, from the owner's answer \"153c\" (2026-10-21), from bug report AskRigor#356. Exact approved text; reversible UNIVERSAL 20.5.46 edits chained from the book-review layer's Universal 20.5.45.",
+  "universal": {
+    "from": {
+      "version": "20.5.45",
+      "sha256": "564c8697fdd4aa69f08b0ecba228ca47cc7dc3e022e6ef55d84ea14f86fb416e"
+    },
+    "to": {
+      "version": "20.5.46",
+      "sha256": "e313306b09da7e359ea326a44c3850af020acbb2550c30bb2cddf46dc6074d9e"
+    },
+    "edits": [
+      [
+        "version=\"20.5.45\" revisionDate=\"2026-10-20\"",
+        "version=\"20.5.46\" revisionDate=\"2026-10-21\""
+      ],
+      [
+        "<revision_history>\n",
+        "<revision_history>\n<revision version=\"20.5.46\" priority=\"Critical\">\nOwner-approved, answer 153c (2026-10-21), from bug report AskRigor#356: the serious harms are listed and searched by\nname not only when asked how safe an exposure is, or which option is safer, but also when the answer ranks or puts\nforward a medicine likely to be taken for months or years (health_labs_supplements_environmental_health).\n</revision>\n"
+      ],
+      [
+        "When asked how safe an exposure is, or which option is safer, list the serious harms",
+        "When asked how safe an exposure is, or which option is safer, or when the answer ranks or puts forward a medicine likely to be taken for months or years, list the serious harms"
+      ]
+    ]
+  }
+}
