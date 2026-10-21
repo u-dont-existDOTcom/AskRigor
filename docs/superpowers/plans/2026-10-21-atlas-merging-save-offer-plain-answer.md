@@ -212,10 +212,47 @@ is better; the model's `why_not_usual` stays on the card for the owner's review.
   research receipt gives no note; a declared change without its basis is refused with its problem named; the note
   quotes the registered claims exactly; the setting turns the note off and back on; the catalog stays at 33 tools.
 
+## 6. 146b, the Gemini model as a server setting (owner, 21 Oct)
+
+The owner's answer "146b" (a test of Gemini 4 for the YouTube scout and the video reader, at most $30 from the owner's
+Google credits). The first plan, a one-off script run inside the production server with its key, was refused by this
+session's safety check at 13:40 UTC, before anything ran; the owner then chose "do the proper server switch".
+
+- **Settings:** `ASKRIGOR_GEMINI_SCOUT_MODEL`, `ASKRIGOR_GEMINI_SCOUT_THINKING`, `ASKRIGOR_GEMINI_VIDEO_MODEL` and
+  `ASKRIGOR_GEMINI_VIDEO_THINKING`, each from a closed list (models `gemini-3.6-flash` and `gemini-4-argon`; thinking
+  `low`, `medium` and `high`); unset means today's `gemini-3.6-flash` at `medium`. An unknown value fails closed to the
+  default and is logged once, by name only.
+- **Prices per model:** the scout's cost accounting (`calculateGeminiScoutNanoUsd`) and the video reader's use each
+  model's own prices, from one table with its source and date (Google's price page, read 21 Oct: `gemini-3.6-flash`
+  $0.75 and $3.75 per million input and output tokens through 31 Dec; `gemini-4-argon` $2 and $10 through 30 Nov, then
+  $4 and $20; searches past 5,000 a month $14 per 1,000). A price that changes on a date carries the date.
+- **The trial, dev accounts only:** `scout_gemini_youtube_candidates` (and the video reader's tool) accept an optional
+  `model_trial` naming one arm (`current`, `gemini-4-low`, `gemini-4-high`); any account not listed in
+  `ASKRIGOR_DEV_ACCOUNT_KEYS` is refused with one fixed code; the result names the arm and its real cost; it is charged
+  to the same monthly ledger. No new tool; the tool inventory is regenerated.
+- **The test after release:** 10 DEVELOPMENT scout questions and 4 videos of at most 20 minutes, each in the three
+  arms through the owner's dev account, judged blind (relevance, real and firsthand candidates, variety, invented or
+  wrong videos for the scout; claim accuracy against the video for the reader), with cost and time per run, stopping
+  before $30. Switching the default model is a separate owner question.
+
+## 7. 147a, a lead's other full-text routes (owner, 21 Oct)
+
+The owner's answer "147a" to UDA #411 (`2026-10-21-source-access-cross-connector-debug`): when a study that could
+change the answer stays a lead (`acquire_open_full_text` returns `possibly_useful_lead`), the result names the next
+step: use another full-text tool the host has connected, asking the user first when it costs credits; the final check
+accepts, for each decision-important lead, whether another route was tried, read it, was unavailable, or was not used
+because of its cost (the model's declaration; the server cannot see the host's other apps, and says so); and a study
+read through another tool is reported as "read through another tool, not audited by AskRigor", never as abstract-only
+and never as an AskRigor audit. The owner library's access rules do not change, and no proprietary text from another
+tool goes into a contribution. The skill gets one sentence (under its word budget). Acceptance runs in the owner's
+ChatGPT with InfoAccess connected, because the release tests forbid other apps' tools.
+
 ## Order and release
 
 1. Part 1 (the promotion fix), then part 2, on one branch: they share migration `0012`.
 2. Parts 3 and 5 on another branch: they share the final check.
-3. Part 4 after question 143.
-4. One pull request after #350 merges, with the release steps of question 124 and a PostgreSQL acceptance run of the
+3. Part 4 (143a), the account reference, and 145a's settlement, in separate builders.
+4. Part 6 after 145a's settlement (both change the scout's cost accounting); part 7 after part 4 (both change the
+   final check).
+5. One pull request after #350 merges, with the release steps of question 124 and a PostgreSQL acceptance run of the
    two held filings' shapes (run times without milliseconds) before the owner accepts them.
