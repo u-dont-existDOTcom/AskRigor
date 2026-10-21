@@ -551,7 +551,7 @@ describe("the server sends a free contributor's validated analyses when the fina
       // With the sentence its no_real_world_outcome declaration requires (owner question 125).
       answer_draft: `The liver clears this drug within a few hours. [Study](https://doi.org/${DOI})\n\n` +
         communitySkipCaveat("How the body clears a drug, with no real-world outcome."),
-      absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
+      absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [], safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [],
     }), "auth0|free");
     const receipt = (validated.structuredContent as { research_receipt: string }).research_receipt;
     // The audit's figures check rides in its receipt (owner questions 87 and 89).

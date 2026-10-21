@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  extractUnsignedNumbers, firstNumberReadings, includesAbsoluteNumber
+  extractUnsignedNumbers, firstNumberReadings, includesAbsoluteNumber, numberReadings
 } from "../apps/research-mcp/src/unicode-numbers.js";
 
 describe("Unicode unsigned numbers", () => {
@@ -35,6 +35,13 @@ describe("Unicode unsigned numbers", () => {
     ["0,125", [0.125]], ["1,2345", [1.2345]], ["18% of 1,234", [18]], ["١٬٢٣٤", [1, 1234]], ["none", []]
   ])("reads the first number in %s every way its separators allow", (text, readings) => {
     expect(firstNumberReadings(text)).toEqual(readings);
+  });
+
+  it.each([
+    ["617 of 1,234 and 494 of 1 235", [617, 1.234, 1234, 494, 1, 1235, 235]],
+    ["86,5 % against 68.5%", [86.5, 68.5]], ["٤٩٤ من ١٬٢٣٥", [494, 1, 1235, 235]], ["none", []]
+  ])("reads every number in %s as firstNumberReadings reads it at its position", (text, readings) => {
+    expect(numberReadings(text)).toEqual(readings);
   });
 
   it("compares absolute values with a 1e-9 tolerance", () => {

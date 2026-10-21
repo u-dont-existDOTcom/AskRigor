@@ -20,7 +20,7 @@ import {
 } from "./connector-input-schema.js";
 import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
 import type { SecondReaderFinding } from "./second-reader.js";
-import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
+import { extractUnsignedNumbers, includesAbsoluteNumber, numberReadings } from "./unicode-numbers.js";
 import {
   findingsAndMapSaveOffer,
   findingsCardDigest,
@@ -491,6 +491,35 @@ export const finalizeResearchInputSchema = z.object({
       "answer_draft this declaration is required. The quote contains the scale name, both range endpoints, each " +
       "value and any benchmark value as numbers; digits in any script and a decimal dot or comma count, compared " +
       "by absolute value. Direction and magnitude interpretation remain the model's declarations."),
+  // Flat fields only: ChatGPT's app shows the model an object nested in an entry only as "unknown"
+  // (FINALIZE_RESEARCH_HIDDEN_SHAPES).
+  binary_results: z.array(z.object({
+    quote: answerQuote.describe("The sentence(s) reporting the result, copied from answer_draft."),
+    outcome: z.string().trim().min(1).max(200)
+      .describe("The yes-or-no outcome as the answer names it, such as response or any adverse event."),
+    better: z.enum(["fewer", "more"])
+      .describe("Whether fewer or more people with this outcome is better: fewer for a harm or a relapse, more for a " +
+        "response or a remission."),
+    option: z.string().trim().min(1).max(120).describe("The option the result is about, as the answer names it."),
+    option_events: z.number().int().nonnegative().describe("How many people in the option's group had the outcome."),
+    option_total: z.number().int().min(1).describe("How many people were in the option's group."),
+    comparator: z.string().trim().min(1).max(120)
+      .describe("What the option was compared with, as the answer names it, such as placebo."),
+    comparator_events: z.number().int().nonnegative()
+      .describe("How many people in the comparator's group had the outcome."),
+    comparator_total: z.number().int().min(1).describe("How many people were in the comparator's group."),
+    follow_up: z.string().trim().min(1).max(120)
+      .describe("How long people were followed for this outcome, as the answer writes it, such as 12 weeks."),
+    nnt: z.number().positive().optional()
+      .describe("The number needed to treat the answer gives for this outcome, if it gives one."),
+    nnh: z.number().positive().optional()
+      .describe("The number needed to harm the answer gives for this outcome, if it gives one.")
+  }).strict()).max(20).optional()
+    .describe("Lists each yes-or-no outcome answer_draft reports for two groups, or with a number needed to treat or " +
+      "harm (an empty list if none). With answer_draft this declaration is required. The quote shows each group's " +
+      "events and total, or its rate as a percentage; nnt (the option did better) or nnh (it did worse) is checked " +
+      "against 1 divided by the difference in the groups' rates, and the quote shows it with the follow-up. Whether " +
+      "the counts are the paper's own remains the model's declaration."),
   safety_claims: z.array(z.object({
     quote: answerQuote.describe("The sentence(s), copied from answer_draft."),
     direction: z.enum(["harm", "safety"])
@@ -513,9 +542,9 @@ export const finalizeResearchInputSchema = z.object({
       "risky, or should be avoided because of a possible harm, or that calls something safe or harmless, with what " +
       "it is about, its basis and the sources it rests on (an empty list if none)."),
   safety_question: z.boolean().optional()
-    .describe("true when the user asks whether something is safe, how risky it is or what harm it can do, or the " +
-      "answer compares options' safety. With answer_draft, harm_screen is then required, as it is whenever " +
-      "safety_claims lists a sentence."),
+    .describe("Required with answer_draft: true when the user asks whether something is safe, how risky it is or " +
+      "what harm it can do, or the answer compares options' safety; false otherwise. When true, harm_screen is " +
+      "required, as it is whenever safety_claims lists a sentence."),
   harm_screen: z.array(z.object({
     harm: z.string().trim().min(1).max(HARM_TEXT_MAX_CHARACTERS)
       .describe(`One serious harm plausible for this exposure, in at most ${HARM_TEXT_MAX_CHARACTERS} characters, ` +
@@ -2017,6 +2046,63 @@ export function finalizeResearch(
         "reported in the answer (an empty list means none)."
     );
   }
+  if (input.answer_draft !== undefined && input.binary_results === undefined) {
+    requireDeclaration(
+      "binary_results is missing: with answer_draft, it lists each yes-or-no outcome the answer reports for two " +
+        "groups, or with a number needed to treat or harm (an empty list means none)."
+    );
+  }
+  // Yes-or-no results (AskRigor#356; the 21 Oct q136 responders case, whose
+  // answer computed a ratio from counts that conflicted with the paper's). For
+  // each outcome the answer reports for two groups, the model declares each
+  // group's events and total, which direction is better and the follow-up; the
+  // gate checks the arithmetic here, exactly, and in answerDraftProblems that
+  // the quote shows each group's figure and any number needed to treat or harm
+  // with its follow-up (HRP NNTAndNNH). Whether the counts are the paper's own
+  // stays the model's declaration and the study audit's job. Harms beside a
+  // benefit figure, and rounding up, are not required: they are owner question
+  // 153b, not yet approved.
+  for (const [index, result] of (input.binary_results ?? []).entries()) {
+    const at = `binary_results[${index}]`;
+    const overCounted = binaryGroups(result).filter(({ events, total }) => events > total);
+    for (const { field, name } of overCounted) {
+      nextSteps.push(`${at} gives more events than people for ${name}: ${field}_events counts the people in that ` +
+        `group with the outcome, so it cannot exceed ${field}_total.`);
+    }
+    const stated = (["nnt", "nnh"] as const).filter((field) => result[field] !== undefined);
+    if (overCounted.length > 0 || stated.length === 0) continue;
+    const contrast = binaryContrast(result);
+    if (contrast === undefined) {
+      nextSteps.push(`${at}'s counts give the same rate in both groups, so there is no number needed to treat or ` +
+        `harm: leave ${stated.join(" and ")} out.`);
+      continue;
+    }
+    // The option did better when a larger share had an outcome more people should have, or a smaller share one
+    // fewer should.
+    const optionBetter = contrast.optionHigher === (result.better === "more");
+    const supported = optionBetter ? "nnt" : "nnh";
+    if (stated.length === 2) {
+      nextSteps.push(`${at} gives both nnt and nnh: give only ${supported}, the one its counts support.`);
+      continue;
+    }
+    const field = stated[0]!;
+    const value = result[field]!;
+    if (field !== supported) {
+      const [outcome, option, comparator] = [result.outcome, result.option, result.comparator]
+        .map(withoutEndPunctuation);
+      const share = contrast.optionHigher ? "larger" : "smaller";
+      nextSteps.push(`${at} gives ${field}, but by its counts a ${share} share of people had ${outcome} with ` +
+        `${option} than with ${comparator}, and ${result.better} is better, so it is a number needed to ` +
+        `${optionBetter ? "treat" : "harm"}: give it as ${supported}.`);
+    }
+    // The reciprocal rounded down or up both count; owner question 153b, if approved, would accept only
+    // contrast.roundedUp here.
+    if (value < contrast.roundedDown || value > contrast.roundedUp) {
+      nextSteps.push(`${at} gives ${field} ${value}, but by its counts 1 divided by the difference in rates is ` +
+        `${contrast.reciprocal.toFixed(1)}, ${contrast.roundedUp} rounded up: recompute it from the groups' counts ` +
+        "the answer uses, or correct the counts.");
+    }
+  }
   // Harm and safety sentences, the terms a conclusion depends on, and
   // mechanism claims (owner questions 86, 88 and 89). HRP and Universal
   // already require rates against a comparator, scoped hazards, plain-language
@@ -2141,6 +2227,15 @@ export function finalizeResearch(
   // was searched with the query of a literature-search receipt passed here, and a harm not checked reaches the answer
   // in the server's sentence. Which harms are plausible, and so whether the list is complete, stays the model's
   // declaration: no word list reads the harms or the answer. The rule itself is the protocols' serious-harm screen.
+  // Every answer says whether its question is about safety (AskRigor#356), so leaving safety_question out cannot
+  // skip the screen.
+  if (input.answer_draft !== undefined && input.safety_question === undefined) {
+    requireDeclaration(
+      "safety_question is missing: with answer_draft, say whether the question is about safety: true when the user " +
+        "asks whether something is safe, how risky it is or what harm it can do, or the answer compares options' " +
+        "safety; false otherwise."
+    );
+  }
   const harmScreen = input.harm_screen ?? [];
   const harmScreenTrigger = (input.safety_claims ?? []).length > 0
     ? "the answer makes safety statements (safety_claims)"
@@ -2580,9 +2675,11 @@ export function finalizeResearch(
       lanes,
       absenceQuotes: absenceClaims.map(({ quote }) => quote),
       scaleResults: input.scale_results ?? [],
+      binaryResults: input.binary_results ?? [],
       declaredQuotes: [
         ...(input.reader_dismissed ?? []).map(({ quote }, index) => ({ at: `reader_dismissed[${index}]`, quote })),
         ...(input.comparison_claims ?? []).map(({ quote }, index) => ({ at: `comparison_claims[${index}]`, quote })),
+        ...(input.binary_results ?? []).map(({ quote }, index) => ({ at: `binary_results[${index}]`, quote })),
         ...(input.safety_claims ?? []).map(({ quote }, index) => ({ at: `safety_claims[${index}]`, quote })),
         // A harm the screen found is shown in the answer by the sentence the entry copies.
         ...harmScreen.flatMap(({ state, answer_quote: quote }, index) =>
@@ -2780,6 +2877,41 @@ const YOUTUBE_LANE_FINDINGS = [
   "benefit_reports", "no_effect_reports", "adverse_reports", "creators_versus_commenters", "effect_on_answer"
 ] as const;
 
+type BinaryResult = NonNullable<FinalizeResearchInput["binary_results"]>[number];
+
+/** A yes-or-no result's two groups as declared, by the prefix of their fields: the option's and the comparator's. */
+function binaryGroups(result: BinaryResult) {
+  return [
+    { field: "option", name: withoutEndPunctuation(result.option), events: result.option_events,
+      total: result.option_total },
+    { field: "comparator", name: withoutEndPunctuation(result.comparator), events: result.comparator_events,
+      total: result.comparator_total }
+  ] as const;
+}
+
+/**
+ * How a yes-or-no result's two rates differ, in exact integer arithmetic: the rates are compared by cross-multiplying,
+ * option_events · comparator_total against comparator_events · option_total, so 1 / |risk difference| is
+ * option_total · comparator_total / |difference|. Undefined when the rates are the same, which leaves no number
+ * needed to treat or harm.
+ */
+function binaryContrast(result: BinaryResult):
+  { optionHigher: boolean; reciprocal: number; roundedDown: number; roundedUp: number } | undefined {
+  const option = BigInt(result.option_events) * BigInt(result.comparator_total);
+  const comparator = BigInt(result.comparator_events) * BigInt(result.option_total);
+  if (option === comparator) return undefined;
+  const people = BigInt(result.option_total) * BigInt(result.comparator_total);
+  const difference = option > comparator ? option - comparator : comparator - option;
+  // Both are positive, so the quotient is rounded down.
+  const roundedDown = people / difference;
+  return {
+    optionHigher: option > comparator,
+    reciprocal: Number(people) / Number(difference),
+    roundedDown: Number(roundedDown),
+    roundedUp: Number(people % difference === 0n ? roundedDown : roundedDown + 1n)
+  };
+}
+
 function answerDraftProblems(
   draft: string,
   context: {
@@ -2789,6 +2921,7 @@ function answerDraftProblems(
     lanes: readonly AnswerLane[];
     absenceQuotes: readonly string[];
     scaleResults: NonNullable<FinalizeResearchInput["scale_results"]>;
+    binaryResults: readonly BinaryResult[];
     declaredQuotes: ReadonlyArray<{ at: string; quote: string }>;
     corrections: NonNullable<FinalizeResearchInput["corrections"]>;
     communityNames: readonly string[];
@@ -2908,6 +3041,39 @@ function answerDraftProblems(
     }
     if (result.benchmark !== "none_established" && !includesAbsoluteNumber(numbers, result.benchmark.value)) {
       problems.push(`${at} quotes no benchmark: the quote does not contain ${result.benchmark.value}.`);
+    }
+  }
+  // Yes-or-no results (AskRigor#356; finalizeResearch checks their arithmetic): the quote shows each group's figure
+  // as declared, its events and total or its rate as a percentage, and a number needed to treat or harm with its
+  // follow-up (HRP NNTAndNNH). A total of 1,000 or more may be written with a grouping separator, so each number
+  // counts in every reading. Whether the quote reports the declared outcome stays the model's declaration.
+  for (const [index, result] of context.binaryResults.entries()) {
+    const at = `binary_results[${index}]`;
+    const numbers = numberReadings(result.quote);
+    for (const { name, events, total } of binaryGroups(result)) {
+      // More events than people has its own step, and no rate.
+      if (events > total) continue;
+      const rate = 100 * events / total;
+      // A rate rounded to a whole number or to one decimal is within 0.5 of it.
+      const rateShown = numbers.some((number) => Math.abs(number - rate) <= 0.5 + 1e-9);
+      if (!rateShown && !(includesAbsoluteNumber(numbers, events) && includesAbsoluteNumber(numbers, total))) {
+        problems.push(`${at} quotes no figure for ${name}: the quote contains neither its events and total ` +
+          `(${events} and ${total}) nor its rate (${Number(rate.toFixed(1))}%).`);
+      }
+    }
+    const stated = (["nnt", "nnh"] as const).filter((field) => result[field] !== undefined);
+    for (const field of stated) {
+      if (!includesAbsoluteNumber(numbers, result[field]!)) {
+        problems.push(`${at} quotes no number needed to ${field === "nnt" ? "treat" : "harm"}: the quote does not ` +
+          `contain ${result[field]}.`);
+      }
+    }
+    // The follow-up is folded as declared quotes are, so case, spacing, dashes, emphasis and a closing mark aside.
+    const followUp = quoteForm(result.follow_up);
+    if (stated.length > 0 && !(/[\p{L}\p{N}]/u.test(followUp) &&
+        quoteForm(result.quote.replace(MARKDOWN_LINK_TEXT, "$1")).includes(followUp))) {
+      problems.push(`${at} gives a number needed to treat or harm without its follow-up: the quote does not contain ` +
+        "the declared follow-up.");
     }
   }
   const unshownDeclared = context.declaredQuotes.filter(({ quote }) => showing(quote).length === 0).map(({ at }) => at);

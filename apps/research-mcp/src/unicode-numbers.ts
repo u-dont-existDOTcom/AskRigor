@@ -45,6 +45,15 @@ export function firstNumberReadings(text: string): number[] {
   return Number.isFinite(reading) && reading !== plain ? [plain, reading] : [plain];
 }
 
+/**
+ * Every reading of every number in a text, each read as firstNumberReadings reads it at its own position, so "1,234",
+ * "1 234" and "1.234" each give 1234 as well.
+ */
+export function numberReadings(text: string): number[] {
+  return [...text.matchAll(new RegExp(NUMBER.source, "gu"))]
+    .flatMap(({ index }) => firstNumberReadings(text.slice(index)));
+}
+
 /** Whether an extracted number matches the declared magnitude, within 1e-9. */
 export function includesAbsoluteNumber(numbers: readonly number[], declared: number): boolean {
   return numbers.some((number) => Math.abs(Math.abs(number) - Math.abs(declared)) <= 1e-9);

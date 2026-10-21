@@ -31,7 +31,7 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
     { id: DOI, status: "validated", read_depth: "full_text_audited", answer_marker: "Trial" },
     { id: RAT, status: "validated", read_depth: "full_text_audited", answer_marker: "Rat study" }
   ],
-  absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [],
+  absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [], safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [],
   answer_draft: LINKS, ...overrides
 });
 // The answer carries the sentence its no_real_world_outcome declaration requires (owner question 125); it follows the
