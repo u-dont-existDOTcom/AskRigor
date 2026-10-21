@@ -19,6 +19,7 @@ import {
   type ResearchFrontierContribution,
   type TopicLinkContribution,
 } from "./contracts.js";
+import { sha256 } from "./hash.js";
 import {
   prepareContribution,
   prepareFrontierContribution,
@@ -32,6 +33,7 @@ import {
   isCommunityIdentifier,
   isIdentifierValuePath,
   isSandboxLocator,
+  RESEARCH_MAP_CONSENT,
   researchContributionProposalInputSchema,
   SHARED_ANALYSIS_KINDS,
   SHARED_SOURCE_KINDS,
@@ -71,6 +73,18 @@ export const RESEARCH_USE_NOTICE = [
   "Saved research is reviewed and does not become evidence, conclusions, or scientific authority merely because it was saved or repeated.",
   "Paid private access saves research findings or lesson feedback only when you accept saving them for that answer, and requires an active verified entitlement.",
 ].join(" ");
+
+/**
+ * How many characters of an account key make its account reference (owner question, 2026-10-21: "how can i mark
+ * accounts as dev?"): manage_research_access shows a signed-in user this much of their pseudonymous key, so the owner
+ * can list the account in the server's settings without anyone seeing the key or anything about the person.
+ */
+export const RESEARCH_ACCOUNT_REFERENCE_CHARACTERS = 12;
+
+/** An account's reference: the first 12 hexadecimal characters of its account key. It is derived, never stored. */
+export function researchAccountReference(accountKey: string): string {
+  return accountKey.slice(0, RESEARCH_ACCOUNT_REFERENCE_CHARACTERS);
+}
 
 export const researchUseModeSchema = z.enum([
   "FREE_CONTRIBUTOR",
@@ -148,10 +162,29 @@ export interface ResearchContributionProposalRecord {
   reviewReason: string | null;
   /** This account's own pending proposal of the same kind that this one replaces, when the submitter named one. */
   supersedesProposalId?: string | null;
+  /**
+   * A paid private account's research map only (owner answer 143a): the SHA-256 of the finalization receipt whose offer
+   * to file it the user said yes to. One yes files one map; a free contributor's proposal has none.
+   */
+  consentReceiptSha256?: string | null;
 }
 
 /** The superseded proposal named is not this account's own pending proposal of the same kind. */
 const SUPERSEDES_NOT_OWN_PENDING = "RESEARCH_PROPOSAL_SUPERSEDES_NOT_OWN_PENDING";
+/** A paid private account's proposal that is not a research map filed with the user's yes. */
+const PAID_PRIVATE_CONSENT_REQUIRED = "RESEARCH_PROPOSAL_PAID_PRIVATE_CONSENT_REQUIRED";
+/** A consent on a proposal that is not a paid private account's. */
+const CONSENT_NOT_PAID_PRIVATE = "RESEARCH_PROPOSAL_CONSENT_NOT_PAID_PRIVATE";
+/** The user's yes named by this finalization receipt already filed a map. */
+const CONSENT_ALREADY_USED = "RESEARCH_PROPOSAL_CONSENT_ALREADY_USED";
+
+/** Why a paid private account's proposal is refused before anything is read or stored (owner answer 143a). */
+export const PAID_PRIVATE_MAP_ONLY = "Paid private mode files nothing without the user's yes. It files only this " +
+  "research's map (a RESEARCH_FRONTIER proposal), after the answer's final check offered to file it and the user " +
+  `said yes: send userConsent "${RESEARCH_MAP_CONSENT}" and that check's finalization_receipt as ` +
+  "finalizationReceipt. Nothing was stored.";
+const CONSENT_SPENT = "The user's yes to that offer has already filed this research's map, so nothing more was " +
+  "stored: another map needs a new final check, its offer and the user's yes.";
 
 export interface ProposalInsertResult {
   status: "inserted" | "idempotent_replay";
@@ -170,6 +203,12 @@ export interface SubmitProposalOptions {
    * idempotency key, pending, accepted or rejected, is the same audit and is not filed again, whatever clock staged it.
    */
   serverBuilt?: boolean;
+  /**
+   * For a paid private account (owner answer 143a): the input's finalizationReceipt as the caller checked it, a
+   * finalization receipt this server signed for this account, unexpired, whose offer included this research's map.
+   * The service files the map only when it names the input's receipt and the input carries the user's consent.
+   */
+  paidPrivateConsent?: { receiptSha256: string };
 }
 
 export interface ProposalSubmission extends ProposalInsertResult {
@@ -428,13 +467,14 @@ export class ResearchContributorAccessService {
     options: SubmitProposalOptions = {},
   ): Promise<ProposalSubmission> {
     const mode = await this.requireActive(subject);
-    if (mode === "PAID_PRIVATE") {
-      throw new ResearchAccessError(
-        "PAID_PRIVATE_DOES_NOT_CONTRIBUTE",
-        "Paid private mode does not submit shared research contributions.",
-      );
+    // Owner answer 143a (2026-10-21): a paid private account files only this research's map, and only with the user's
+    // yes to the answer's offer to file it, shown by the finalization receipt the input names and the caller checked.
+    // Anything else is refused before the record is read.
+    const consent = mode === "PAID_PRIVATE" ? paidPrivateMapConsent(input, options.paidPrivateConsent) : undefined;
+    if (mode === "PAID_PRIVATE" && consent === undefined) {
+      throw new ResearchAccessError("PAID_PRIVATE_DOES_NOT_CONTRIBUTE", PAID_PRIVATE_MAP_ONLY);
     }
-    if (mode !== "FREE_CONTRIBUTOR") {
+    if (mode !== "FREE_CONTRIBUTOR" && mode !== "PAID_PRIVATE") {
       throw new ResearchAccessError(
         "FREE_CONTRIBUTOR_REQUIRED",
         "A shared research proposal requires active free contributor mode.",
@@ -517,11 +557,19 @@ export class ResearchContributorAccessService {
       reviewedAt: null,
       reviewReason: null,
       supersedesProposalId: parsed.supersedesProposalId ?? null,
+      // A free contributor's map is filed under the agreement; only a paid private map carries the user's yes.
+      consentReceiptSha256: consent ?? null,
     };
     let inserted: ProposalInsertResult;
     try {
       inserted = await this.store.insertProposal(record);
     } catch (error) {
+      if (error instanceof Error && error.message.includes(CONSENT_ALREADY_USED)) {
+        throw new ResearchAccessError("PAID_PRIVATE_DOES_NOT_CONTRIBUTE", CONSENT_SPENT);
+      }
+      if (error instanceof Error && error.message.includes(PAID_PRIVATE_CONSENT_REQUIRED)) {
+        throw new ResearchAccessError("PAID_PRIVATE_DOES_NOT_CONTRIBUTE", PAID_PRIVATE_MAP_ONLY);
+      }
       // One answer whatever the UUID names, so nothing is learnt about another account's proposals.
       if (!(error instanceof Error) || !error.message.includes(SUPERSEDES_NOT_OWN_PENDING)) throw error;
       throw new ResearchContributionRejectedError(contributionCheckFromFindings(parsed.proposalKind, [{
@@ -590,11 +638,17 @@ implements ResearchContributorAccessStore {
     record: ResearchContributionProposalRecord,
   ): Promise<ProposalInsertResult> {
     const account = this.accounts.get(record.accountKey);
-    if (
-      account === undefined || account.status !== "ACTIVE" ||
-      account.mode !== "FREE_CONTRIBUTOR"
-    ) {
+    if (account === undefined || account.status !== "ACTIVE" || account.mode === null) {
       throw new Error("RESEARCH_PROPOSAL_ACCOUNT_NOT_FREE_ACTIVE");
+    }
+    // As the database trigger: a free contributor's proposal carries no consent, and a paid private account's is a
+    // research map filed with the user's yes (owner answer 143a).
+    const consent = record.consentReceiptSha256 ?? null;
+    if (account.mode === "FREE_CONTRIBUTOR" && consent !== null) {
+      throw new Error(CONSENT_NOT_PAID_PRIVATE);
+    }
+    if (account.mode === "PAID_PRIVATE" && (record.proposalKind !== "RESEARCH_FRONTIER" || consent === null)) {
+      throw new Error(PAID_PRIVATE_CONSENT_REQUIRED);
     }
     const replay = [...this.proposals.values()].find((candidate) =>
       candidate.accountKey === record.accountKey &&
@@ -603,6 +657,10 @@ implements ResearchContributorAccessStore {
     );
     if (replay !== undefined) {
       return { status: "idempotent_replay", record: structuredClone(replay) };
+    }
+    // One yes files one map, as the database's unique index on the consent holds it.
+    if (consent !== null && [...this.proposals.values()].some(({ consentReceiptSha256 }) => consentReceiptSha256 === consent)) {
+      throw new Error(CONSENT_ALREADY_USED);
     }
     if (record.supersedesProposalId !== undefined && record.supersedesProposalId !== null) {
       const superseded = this.proposals.get(record.supersedesProposalId);
@@ -773,27 +831,35 @@ implements ResearchContributorAccessStore {
       const prior = await replay();
       if (prior.rowCount !== 0) return { status: "idempotent_replay", record: proposalFromRow(prior.rows[0]!) };
     }
-    const result = await this.pool.query<ResearchContributionProposalRow>(
-      `INSERT INTO ${this.schema}.research_contribution_proposals
-        (proposal_id, account_key, proposal_kind, payload_sha256, payload_json,
-         privacy_boundary_json, partial, status, created_at, reviewed_at,
-         review_reason, supersedes_proposal_id)
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, NULL, NULL, $10::uuid)
-       ON CONFLICT (account_key, proposal_kind, payload_sha256) DO NOTHING
-       RETURNING ${PROPOSAL_COLUMNS}`,
-      [
-        record.proposalId,
-        record.accountKey,
-        record.proposalKind,
-        record.payloadSha256,
-        JSON.stringify(record.payload),
-        JSON.stringify(record.privacyBoundary),
-        record.partial,
-        record.status,
-        record.createdAt,
-        supersedes,
-      ],
-    );
+    let result: Awaited<ReturnType<typeof replay>>;
+    try {
+      result = await this.pool.query<ResearchContributionProposalRow>(
+        `INSERT INTO ${this.schema}.research_contribution_proposals
+          (proposal_id, account_key, proposal_kind, payload_sha256, payload_json,
+           privacy_boundary_json, partial, status, created_at, reviewed_at,
+           review_reason, supersedes_proposal_id, consent_receipt_sha256)
+         VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, NULL, NULL, $10::uuid, $11)
+         ON CONFLICT (account_key, proposal_kind, payload_sha256) DO NOTHING
+         RETURNING ${PROPOSAL_COLUMNS}`,
+        [
+          record.proposalId,
+          record.accountKey,
+          record.proposalKind,
+          record.payloadSha256,
+          JSON.stringify(record.payload),
+          JSON.stringify(record.privacyBoundary),
+          record.partial,
+          record.status,
+          record.createdAt,
+          supersedes,
+          record.consentReceiptSha256 ?? null,
+        ],
+      );
+    } catch (error) {
+      // One yes files one map (migration 0014): another record under the same consent meets its unique index.
+      if (uniqueViolation(error, CONSENT_INDEX)) throw new Error(CONSENT_ALREADY_USED);
+      throw error;
+    }
     if (result.rowCount !== 0) {
       return { status: "inserted", record: proposalFromRow(result.rows[0]!) };
     }
@@ -888,7 +954,16 @@ interface ResearchUseAccountRow {
 
 const PROPOSAL_COLUMNS = `proposal_id, account_key, proposal_kind, payload_sha256,
               payload_json, privacy_boundary_json, partial, status,
-              created_at, reviewed_at, review_reason, supersedes_proposal_id`;
+              created_at, reviewed_at, review_reason, supersedes_proposal_id,
+              consent_receipt_sha256`;
+
+/** Migration 0014's unique index: one research map per paid private yes. */
+const CONSENT_INDEX = "research_contribution_proposals_consent_idx";
+
+function uniqueViolation(error: unknown, index: string): boolean {
+  return typeof error === "object" && error !== null &&
+    (error as { code?: unknown }).code === "23505" && (error as { constraint?: unknown }).constraint === index;
+}
 
 interface ResearchContributionProposalRow {
   proposal_id: string;
@@ -903,6 +978,7 @@ interface ResearchContributionProposalRow {
   reviewed_at: Date | string | null;
   review_reason: string | null;
   supersedes_proposal_id: string | null;
+  consent_receipt_sha256: string | null;
 }
 
 function accountFromRow(row: ResearchUseAccountRow): ResearchUseAccountRecord {
@@ -951,6 +1027,7 @@ function proposalFromRow(
     reviewedAt: nullableTimestamp(row.reviewed_at),
     reviewReason: row.review_reason,
     supersedesProposalId: row.supersedes_proposal_id,
+    consentReceiptSha256: row.consent_receipt_sha256,
   };
 }
 
@@ -1016,6 +1093,27 @@ function assertNoSandboxIdentifiers(identifiers: ReadonlyArray<{ value: string }
       "A sandbox link points into another session and can never be opened.",
     );
   }
+}
+
+/**
+ * The consent a paid private account's input carries for this research's map (owner answer 143a): the SHA-256 of its
+ * finalizationReceipt, when the input is a RESEARCH_FRONTIER proposal with the user's consent and the caller checked
+ * that same receipt; otherwise undefined, and nothing is filed.
+ */
+function paidPrivateMapConsent(
+  input: unknown,
+  checked: { receiptSha256: string } | undefined,
+): string | undefined {
+  if (checked === undefined || input === null || typeof input !== "object" || Array.isArray(input)) return undefined;
+  const { proposalKind, userConsent, finalizationReceipt } = input as Record<string, unknown>;
+  if (
+    proposalKind !== "RESEARCH_FRONTIER" || userConsent !== RESEARCH_MAP_CONSENT ||
+    typeof finalizationReceipt !== "string"
+  ) {
+    return undefined;
+  }
+  const receiptSha256 = sha256(finalizationReceipt.trim());
+  return receiptSha256 === checked.receiptSha256 ? receiptSha256 : undefined;
 }
 
 function assertNoObviousPrivateContactText(value: unknown): void {

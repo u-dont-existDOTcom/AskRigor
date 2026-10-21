@@ -796,7 +796,10 @@ function reviewView(
   supersededByProposalIds: string[],
   related: ResearchContributionRelatedProposal[],
 ): ResearchContributionReviewView {
-  const { accountKey: _accountKey, supersedesProposalId, ...publicProposal } = proposal;
+  // The review shows neither the account nor a paid private map's consent digest, as 0010's projection does not.
+  const {
+    accountKey: _accountKey, consentReceiptSha256: _consent, supersedesProposalId, ...publicProposal
+  } = proposal;
   return structuredClone({
     ...publicProposal,
     promotion,

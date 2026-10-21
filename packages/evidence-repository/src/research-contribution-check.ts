@@ -29,12 +29,26 @@ export const contributionPrivacyBoundarySchema = z.object({
   communityDataPersisted: z.literal(false),
 }).strict();
 
+/**
+ * The consent a paid private account's research map is filed with (owner answer 143a, 2026-10-21): the user's yes to
+ * the answer's offer, which saves its findings card and files this research's map, the literal save_research_findings
+ * takes for the same yes.
+ */
+export const RESEARCH_MAP_CONSENT = "yes_to_this_save" as const;
+
+// The research receipt's size limit (RESEARCH_RECEIPT_MAX_CHARACTERS in the research server).
+const FINALIZATION_RECEIPT_MAX_CHARACTERS = 2_048;
+
 export const researchContributionProposalInputSchema = z.object({
   proposalKind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS", "TOPIC_LINK"]),
   privacyBoundary: contributionPrivacyBoundarySchema,
   payload: z.unknown(),
   // Owner answer 138b: this account's own pending proposal of the same kind that this one replaces.
   supersedesProposalId: z.uuid().optional(),
+  // Owner answer 143a: a paid private account's research map, filed after the user's yes to the answer's offer, with
+  // the finalization receipt of the final check that made it. A free contributor's map needs neither.
+  userConsent: z.literal(RESEARCH_MAP_CONSENT).optional(),
+  finalizationReceipt: z.string().trim().min(1).max(FINALIZATION_RECEIPT_MAX_CHARACTERS).optional(),
 }).strict();
 
 type ProposalKind = "RESEARCH_FRONTIER" | "SOURCE_ANALYSIS" | "TOPIC_LINK";
@@ -962,6 +976,8 @@ function envelopeExample(kind: ProposalKind | undefined): Record<string, unknown
     privacyBoundary: CONTRIBUTION_PRIVACY_BOUNDARY_EXAMPLE,
     payload: kind === undefined ? {} : CONTRIBUTION_EXAMPLES[kind],
     supersedesProposalId: uuid(50),
+    userConsent: RESEARCH_MAP_CONSENT,
+    finalizationReceipt: "rr1~finalization~…",
   };
 }
 

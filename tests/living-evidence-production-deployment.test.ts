@@ -176,6 +176,15 @@ describe("production living-evidence deployment", () => {
     expect(noteSetting).toContain("ADD COLUMN IF NOT EXISTS plain_answer_note boolean NOT NULL DEFAULT true");
     expect(noteSetting).not.toMatch(/CREATE TABLE|GRANT/iu);
     expect(await read("packages/evidence-repository/src/postgres.ts")).toContain('"0013_research_plain_answer_note"');
+    // Owner answer 143a (2026-10-21): a paid private account's research map is filed only with the user's yes, whose
+    // finalization receipt's digest it carries; one yes files one map, and the receipt itself is never stored.
+    const mapConsent = await read("packages/evidence-repository/migrations/0014_research_map_consent.sql");
+    expect(mapConsent).toContain("ADD COLUMN IF NOT EXISTS consent_receipt_sha256 char(64)");
+    expect(mapConsent).toContain("consent_receipt_sha256 IS NULL\n        OR (consent_receipt_sha256 ~ '^[a-f0-9]{64}$' AND proposal_kind = 'RESEARCH_FRONTIER')");
+    expect(mapConsent).toContain("CREATE UNIQUE INDEX IF NOT EXISTS research_contribution_proposals_consent_idx");
+    expect(mapConsent).toContain("NEW.proposal_kind <> 'RESEARCH_FRONTIER' OR NEW.consent_receipt_sha256 IS NULL");
+    expect(mapConsent).not.toMatch(/CREATE TABLE|GRANT/iu);
+    expect(await read("packages/evidence-repository/src/postgres.ts")).toContain('"0014_research_map_consent"');
     expect(provision).not.toMatch(
       /GRANT\s+(?:DELETE|TRUNCATE|CREATE)\b/iu,
     );
