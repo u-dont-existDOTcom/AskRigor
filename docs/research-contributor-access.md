@@ -125,9 +125,28 @@ reruns the strict contribution preparation, dispatches to the existing
 receipt and SHA-256. A crash after the canonical writer commits but before the
 intent receipt commits leaves the intent pending; retry uses the canonical
 writer's existing idempotency key and then completes the receipt. The command
-processes at most one intent per invocation. The deployed hardened five-minute
+promotes at most one intent per invocation. The deployed hardened five-minute
 timer invokes only this command without arguments or a shell; it does not
 change the review or scientific-decision boundary.
+
+Owner answer 138b (2026-10-20): "a conflicting record is marked failed with its
+reason and stops blocking the queue, and run times in any valid format are
+accepted at promotion." The writer compares stored dates and times with the
+payload's as values in SQL, so `...:00Z`, `...+02:00` and microseconds name the
+instant they name. When the writer refuses the exact payload because it
+conflicts with what the append-only store holds, the intent ends `FAILED` with
+one code from a closed list (`RESEARCH_CONTRIBUTION_PROMOTION_FAILURE_CODES`,
+the same list as migration `0012`'s check) and its failure time, and the same
+invocation tries the next accepted intent, at most 20 failures per invocation.
+A lost connection, a timeout, a serialization failure or an unexpected error
+leaves the intent `PENDING` for the next activation. The owner review `inspect`
+and `status` actions show a failed promotion and its code
+(`accepted_promotion_failed`), and the admin receipt lists each failed intent's
+UUIDs, kind and code. A latent collision the writer used to meet as a raw
+constraint error now has its own code: `TOPIC_KEY_CONFLICT`,
+`RESEARCH_FRONTIER_QUESTION_CONFLICT`, `FRONTIER_LANE_KEY_CONFLICT`,
+`FRONTIER_CANDIDATE_IDENTITY_CONFLICT`, `SOURCE_FAMILY_IDENTITY_CONFLICT` and
+`SOURCE_VERSION_IDENTITY_CONFLICT`.
 
 ## Database model
 
@@ -152,8 +171,12 @@ tables.
 
 Migration `0010_research_contribution_review.sql` adds the
 `research_contribution_promotions` outbox and two security-definer functions.
+Migration `0012_research_contribution_merging.sql` adds the `FAILED` state,
+`failure_code` and `failed_at`, and a third security-definer function,
+`inspect_research_contribution_context`, which returns what the review needs
+beyond 0010's projection as one JSON object and never an account key.
 The distinct `askrigor_research_review` database role receives only schema use
-and execute permission on those exact inspect/decide functions. It has no
+and execute permission on those exact inspect/decide/context functions. It has no
 direct table privilege. The functions omit `account_key`, lock a proposal for
 each decision, require the owner-reviewed payload hash and a nonempty reason,
 and bind an accepted intent to the proposal kind and hash with a composite

@@ -12,9 +12,16 @@ narrative, uploads, raw source/provider content, or community data.
 The public `research-mcp` container receives no canonical-writer credential,
 Docker socket, systemd control, or scheduler-launch operation. The existing
 `living-evidence-admin promote-accepted` command remains the sole scheduled
-entry point. It processes one accepted intent per activation, revalidates the
+entry point. It promotes one accepted intent per activation, revalidates the
 stored payload and hash, uses the existing idempotent canonical writer, and
-stores one durable receipt.
+stores one durable receipt. An intent whose canonical write conflicts with what
+the append-only store already holds ends `FAILED` with one fixed `failure_code`
+from a closed list and its `failed_at` time (owner answer 138b, 2026-10-20), and
+the same activation moves on to the next accepted intent, so a conflict no
+longer holds the queue back; at most 20 intents can end `FAILED` in one
+activation. Stored times are compared with the payload's as instants, so a run
+or retrieval time written without milliseconds, with an offset or with
+microseconds promotes.
 
 ## Installed files
 
@@ -79,9 +86,10 @@ without depending on or warning about root's Docker client configuration.
    one exact promotion and receipt is the expected bounded mutation.
 2. Inspect `systemctl status askrigor-research-promotion.service` and the bounded
    `journalctl -u askrigor-research-promotion.service` output. Logs may contain
-   operation state, proposal UUID/hash, canonical identifiers, and receipt hash;
-   they must not contain a database URL, credential, raw payload, account key,
-   or private content.
+   operation state, proposal UUID/hash, canonical identifiers, receipt hash, and
+   each failed intent's promotion and proposal UUIDs, kind and fixed failure
+   code; they must not contain a database URL, credential, raw payload, account
+   key, or private content.
 3. Enable and start `askrigor-research-promotion.timer`. Verify it is loaded,
    enabled, and active, then use `systemctl list-timers
    askrigor-research-promotion.timer` to record a future trigger.
@@ -102,9 +110,18 @@ shell loop or unbounded batch mode.
 
 - No pending intent: exit zero with `no_pending_promotion`; the timer remains
   healthy.
-- Database, image, Compose, credential, or writer failure: the service exits
-  nonzero and remains visible as failed. The durable intent is not discarded;
-  the next timer activation retries it.
+- Deterministic conflict: the canonical writer refuses the exact payload because
+  it conflicts with what the append-only store already holds (an identity,
+  idempotency, initial-version or lineage conflict, a canonical trigger, or a
+  canonical constraint by its class). Nothing from the payload is written; the
+  intent ends `FAILED` with its code, the receipt's `failed` list names it, and
+  the activation tries the next intent. The same payload would fail on every
+  retry, so a `FAILED` intent is never retried; filing the research again needs a
+  corrected proposal. The owner review `status` action shows the code.
+- Database, image, Compose, credential, transient writer failure (a lost
+  connection, a timeout, a serialization failure), or an unexpected error: the
+  service exits nonzero and remains visible as failed. The durable intent stays
+  `PENDING` and is not discarded; the next timer activation retries it.
 - Crash after canonical commit but before promotion-receipt commit: the intent
   remains pending and the existing canonical idempotency key lets the next run
   complete the one receipt without a duplicate logical write.

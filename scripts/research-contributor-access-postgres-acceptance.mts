@@ -52,7 +52,7 @@ async function main(): Promise<void> {
       status: "PASS",
       phase: "migrate",
       schema: SCHEMA,
-      migration: "0010_research_contribution_review",
+      migration: "0012_research_contribution_merging",
     })}\n`);
     return;
   }
@@ -355,6 +355,16 @@ async function verify(
     );
     checks.push("reject_has_no_promotion_intent");
 
+    await verifyPromotionFailures({
+      adminUrl,
+      admin,
+      reviewRestricted,
+      service,
+      reviewService,
+      writer,
+      checks,
+    });
+
     const racePayload = researchFrontierFixture("research-review-withdraw-race");
     const raceProposal = await service.submitProposal(REVIEW_SUBJECT, {
       proposalKind: "RESEARCH_FRONTIER",
@@ -400,6 +410,195 @@ async function verify(
       admin.end(),
     ]);
   }
+}
+
+const PROMOTION_SUBJECT = "auth0|synthetic-postgres-promotion-user";
+const FREE_AGREEMENT = {
+  noticeVersion: RESEARCH_USE_NOTICE_VERSION,
+  eligibleDeidentifiedResearchContributionRequired: true,
+  prohibitedPrivateAndRawContentExcluded: true,
+  proposalReviewAndNoAuthorityAcknowledged: true,
+  paidPrivateAlternativeAcknowledged: true,
+} as const;
+
+/**
+ * Owner answer 138b: stored times compare as instants, a deterministic conflict ends its intent FAILED with its code
+ * while the activation moves on to the next intent, and a transient error leaves the intent pending.
+ */
+async function verifyPromotionFailures(context: {
+  adminUrl: string;
+  admin: Pool;
+  reviewRestricted: Pool;
+  service: ResearchContributorAccessService;
+  reviewService: ResearchContributionReviewService;
+  writer: PostgresEvidenceRepository;
+  checks: string[];
+}): Promise<void> {
+  const { adminUrl, admin, reviewRestricted, service, reviewService, writer, checks } = context;
+  const migration = await admin.query(
+    `SELECT migration_id FROM ${SCHEMA}.schema_migrations
+     WHERE migration_id = '0012_research_contribution_merging'`,
+  );
+  assert(migration.rowCount === 1, "MIGRATION_0012_NOT_APPLIED");
+  checks.push("migration_0012_applied");
+
+  await service.acceptFreeContributor(PROMOTION_SUBJECT, FREE_AGREEMENT);
+  const promotionClock = () => "2026-09-01T03:30:00.000Z";
+  const runner = new PostgresResearchContributionPromotionRunner(
+    { connectionString: adminUrl, schema: SCHEMA },
+    writer,
+    { now: promotionClock },
+  );
+  const transient = Object.assign(
+    new Error("could not serialize access due to concurrent update"),
+    { code: "40001" },
+  );
+  const flakyRunner = new PostgresResearchContributionPromotionRunner(
+    { connectionString: adminUrl, schema: SCHEMA },
+    {
+      contribute: async () => { throw transient; },
+      contributeFrontier: async () => { throw transient; },
+    },
+    { now: promotionClock },
+  );
+  const accepted = async (
+    proposalKind: "RESEARCH_FRONTIER" | "SOURCE_ANALYSIS",
+    payload: unknown,
+  ) => {
+    const submitted = await service.submitProposal(PROMOTION_SUBJECT, {
+      proposalKind,
+      privacyBoundary: PRIVACY_BOUNDARY,
+      payload,
+    });
+    assert(submitted.status === "inserted", "PROMOTION_CHECK_PROPOSAL_NOT_INSERTED");
+    await reviewService.decide({
+      proposalId: submitted.record.proposalId,
+      expectedPayloadSha256: submitted.record.payloadSha256,
+      decision: "ACCEPT",
+      reason: "Synthetic exact-hash promotion check.",
+    });
+    return submitted.record;
+  };
+  try {
+    // The shapes the two held filings use (no milliseconds), and the other shapes the contract accepts.
+    for (const [shape, startedAt, completedAt] of [
+      ["no_milliseconds", "2026-10-20T22:54:00Z", "2026-10-20T23:10:00Z"],
+      ["offset", "2026-10-21T00:54:00+02:00", "2026-10-21T01:10:00+02:00"],
+      ["microseconds", "2026-10-20T22:54:00.123456Z", "2026-10-20T23:10:00.654321Z"],
+    ] as const) {
+      const payload = researchFrontierFixture(`promotion-time-${shape}`);
+      payload.run.startedAt = startedAt;
+      payload.run.completedAt = completedAt;
+      const proposal = await accepted("RESEARCH_FRONTIER", payload);
+      const run = await runner.promoteAccepted();
+      assert(
+        run.failed.length === 0 && run.result.status === "promoted" &&
+        run.result.receipt.proposalId === proposal.proposalId &&
+        run.result.receipt.canonicalWriterReceipt.status === "inserted",
+        `PROMOTION_TIME_SHAPE_NOT_PROMOTED shape=${shape}`,
+      );
+      const replay = await writer.contributeFrontier(payload);
+      assert(replay.status === "idempotent_replay", `PROMOTION_TIME_SHAPE_REPLAY_FAILED shape=${shape}`);
+    }
+    const source = livingEvidenceFixture("promotion-time-source");
+    source.run.startedAt = "2026-08-29T12:00:00Z";
+    source.run.completedAt = "2026-08-29T14:01:00+02:00";
+    source.source!.retrievedAt = "2026-08-29T11:59:00Z";
+    const sourceProposal = await accepted("SOURCE_ANALYSIS", source);
+    const sourceRun = await runner.promoteAccepted();
+    assert(
+      sourceRun.failed.length === 0 && sourceRun.result.status === "promoted" &&
+      sourceRun.result.receipt.proposalId === sourceProposal.proposalId,
+      "PROMOTION_SOURCE_TIME_SHAPE_NOT_PROMOTED",
+    );
+    assert((await writer.contribute(source)).status === "idempotent_replay", "PROMOTION_SOURCE_TIME_REPLAY_FAILED");
+    checks.push("run_and_retrieval_times_in_any_valid_shape_promote_and_replay");
+
+    // The same run with a different instant still conflicts; the next accepted intent promotes in the same run.
+    const conflicting = researchFrontierFixture("promotion-conflict-run");
+    conflicting.run = {
+      ...researchFrontierFixture("promotion-time-no_milliseconds").run,
+      startedAt: "2026-10-20T22:54:00.001Z",
+      completedAt: "2026-10-20T23:10:00Z",
+    };
+    const conflictProposal = await accepted("RESEARCH_FRONTIER", conflicting);
+    const keyed = researchFrontierFixture("promotion-conflict-topic-key");
+    keyed.topic.canonicalKey = researchFrontierFixture("promotion-time-offset").topic.canonicalKey;
+    const keyedProposal = await accepted("RESEARCH_FRONTIER", keyed);
+    const afterConflicts = await accepted("RESEARCH_FRONTIER", researchFrontierFixture("promotion-after-conflicts"));
+    const moved = await runner.promoteAccepted();
+    assert(
+      moved.failed.map(({ proposalId, failureCode }) => `${proposalId}:${failureCode}`).join(",") ===
+        `${conflictProposal.proposalId}:RESEARCH_RUN_CONFLICT,${keyedProposal.proposalId}:TOPIC_KEY_CONFLICT`,
+      "PROMOTION_CONFLICTS_NOT_FAILED_WITH_CODES",
+    );
+    assert(
+      moved.result.status === "promoted" && moved.result.receipt.proposalId === afterConflicts.proposalId,
+      "PROMOTION_QUEUE_DID_NOT_MOVE_ON",
+    );
+    const failedView = await reviewService.inspect(conflictProposal.proposalId);
+    assert(
+      failedView?.status === "ACCEPTED" && failedView.promotion?.status === "FAILED" &&
+      failedView.promotion.failureCode === "RESEARCH_RUN_CONFLICT" &&
+      failedView.promotion.failedAt === promotionClock() &&
+      failedView.promotion.receipt === null,
+      "PROMOTION_FAILURE_NOT_VISIBLE_IN_REVIEW",
+    );
+    const unwritten = await admin.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM ${SCHEMA}.frontier_contributions
+        WHERE contribution_id = ANY($1::uuid[])`,
+      [[conflicting.contributionId, keyed.contributionId]],
+    );
+    assert(unwritten.rows[0]?.count === 0, "FAILED_PROMOTION_WROTE_CANONICAL_ROWS");
+    assert((await runner.promoteAccepted()).result.status === "no_pending_promotion", "FAILED_INTENT_STILL_PENDING");
+    const reviewContext = await reviewRestricted.query<{ context: unknown }>(
+      `SELECT ${SCHEMA}.inspect_research_contribution_context($1::uuid) AS context`,
+      [conflictProposal.proposalId],
+    );
+    assert(
+      JSON.stringify(reviewContext.rows[0]?.context).includes("RESEARCH_RUN_CONFLICT") &&
+      !JSON.stringify(reviewContext.rows).includes(conflictProposal.accountKey),
+      "REVIEW_ROLE_CONTEXT_MISSING_FAILURE_OR_LEAKED_ACCOUNT_KEY",
+    );
+    checks.push("deterministic_conflict_fails_with_code_and_next_intent_promotes_in_same_run");
+
+    // A transient error leaves the intent pending, and the state stays closed to free text.
+    const transientProposal = await accepted("RESEARCH_FRONTIER", researchFrontierFixture("promotion-transient"));
+    await expectMessage(() => flakyRunner.promoteAccepted(), "could not serialize access");
+    const pending = await reviewService.inspect(transientProposal.proposalId);
+    assert(pending?.promotion?.status === "PENDING", "TRANSIENT_PROMOTION_ERROR_DID_NOT_STAY_PENDING");
+    await expectPgCode(() => admin.query(
+      `UPDATE ${SCHEMA}.research_contribution_promotions
+          SET status = 'FAILED', failure_code = 'any free text', failed_at = $2::timestamptz
+        WHERE promotion_id = $1::uuid`,
+      [pending.promotion.promotionId, promotionClock()],
+    ), "23514");
+    await expectPgCode(() => admin.query(
+      `UPDATE ${SCHEMA}.research_contribution_promotions
+          SET status = 'FAILED', failure_code = 'RESEARCH_RUN_CONFLICT'
+        WHERE promotion_id = $1::uuid`,
+      [pending.promotion.promotionId],
+    ), "23514");
+    const recovered = await runner.promoteAccepted();
+    assert(
+      recovered.failed.length === 0 && recovered.result.status === "promoted" &&
+      recovered.result.receipt.proposalId === transientProposal.proposalId,
+      "TRANSIENT_PROMOTION_NOT_RECOVERED",
+    );
+    checks.push("transient_error_stays_pending_and_failure_state_is_closed");
+  } finally {
+    await Promise.allSettled([runner.close(), flakyRunner.close()]);
+  }
+}
+
+async function expectPgCode(action: () => Promise<unknown>, code: string): Promise<void> {
+  try {
+    await action();
+  } catch (error) {
+    if (isPgCode(error, code)) return;
+    throw error;
+  }
+  throw new Error(`EXPECTED_POSTGRES_ERROR_CODE_MISSING code=${code}`);
 }
 
 async function canonicalCounts(pool: Pool): Promise<Record<string, number>> {

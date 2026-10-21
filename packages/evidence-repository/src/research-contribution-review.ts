@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { Pool, type PoolConfig } from "pg";
+import { Pool, type PoolClient, type PoolConfig } from "pg";
 import { z } from "zod";
 
 import type {
@@ -30,13 +30,125 @@ export type ResearchContributionReviewDecision = z.infer<
   typeof researchContributionReviewDecisionSchema
 >;
 
+/**
+ * Why a promotion ended FAILED (owner answer 138b, 2026-10-20): the canonical writer's deterministic identity and
+ * lineage conflicts, the canonical store's own lineage and scope checks, and any other canonical constraint by its
+ * class. The list is closed, in step with migration 0012's check, and holds no free text or payload content. Each
+ * names a conflict with what the append-only store already holds, so the same payload would fail again on every
+ * retry; anything else (a lost connection, a timeout, a serialization failure, an unexpected error) leaves the intent
+ * pending for the next activation.
+ */
+export const RESEARCH_CONTRIBUTION_PROMOTION_FAILURE_CODES = [
+  "IDEMPOTENCY_KEY_PAYLOAD_MISMATCH",
+  "FRONTIER_IDEMPOTENCY_KEY_PAYLOAD_MISMATCH",
+  "PROTOCOL_MANIFEST_CONFLICT",
+  "RESEARCH_RUN_CONFLICT",
+  "TOPIC_ID_CONFLICT",
+  "TOPIC_KEY_CONFLICT",
+  "QUESTION_ID_CONFLICT",
+  "RESEARCH_FRONTIER_ID_CONFLICT",
+  "RESEARCH_FRONTIER_QUESTION_CONFLICT",
+  "FRONTIER_LANE_ID_CONFLICT",
+  "FRONTIER_LANE_KEY_CONFLICT",
+  "FRONTIER_CANDIDATE_INITIAL_VERSION_REQUIRED",
+  "FRONTIER_CANDIDATE_ALREADY_HAS_INITIAL_VERSION",
+  "FRONTIER_CANDIDATE_ID_CONFLICT",
+  "FRONTIER_CANDIDATE_IDENTITY_CONFLICT",
+  "FRONTIER_TRAIL_INITIAL_VERSION_REQUIRED",
+  "FRONTIER_TRAIL_ALREADY_HAS_INITIAL_VERSION",
+  "FRONTIER_TRAIL_ID_CONFLICT",
+  "SOURCE_FAMILY_ID_CONFLICT",
+  "SOURCE_FAMILY_IDENTITY_CONFLICT",
+  "SOURCE_IDENTIFIER_CONFLICT",
+  "SOURCE_VERSION_ID_CONFLICT",
+  "SOURCE_VERSION_IDENTITY_CONFLICT",
+  "ANALYSIS_INITIAL_VERSION_REQUIRED",
+  "ANALYSIS_ALREADY_HAS_INITIAL_VERSION",
+  "ANALYSIS_TARGET_MISMATCH",
+  "CLAIM_INITIAL_VERSION_REQUIRED",
+  "CLAIM_ALREADY_HAS_INITIAL_VERSION",
+  "CLAIM_ID_CONFLICT",
+  "FRESHNESS_POLICY_ID_CONFLICT",
+  // The canonical store's triggers (migrations 0001 and 0002), raised as check violations with these exact messages.
+  "ANALYSIS_LINEAGE_MISMATCH",
+  "CLAIM_DEPENDENCY_CYCLE",
+  "EVIDENCE_BINDING_RECEIPT_SOURCE_MISMATCH",
+  "FRONTIER_CANDIDATE_LINEAGE_MISMATCH",
+  "FRONTIER_CANDIDATE_SCOPE_MISMATCH",
+  "FRONTIER_CANDIDATE_SOURCE_IDENTITY_MISMATCH",
+  "FRONTIER_DELTA_PRIOR_COVERAGE_INVALID",
+  "FRONTIER_DELTA_RELATION_MISMATCH",
+  "FRONTIER_GAP_TRAIL_REQUIRED",
+  "FRONTIER_LANE_COVERAGE_BASIS_MISMATCH",
+  "FRONTIER_PASS_CANDIDATE_COUNT_MISMATCH",
+  "FRONTIER_PASS_SCOPE_MISMATCH",
+  "FRONTIER_TRAIL_LINEAGE_MISMATCH",
+  "FRONTIER_TRAIL_SCOPE_MISMATCH",
+  "FUTURE_ANALYSIS_RESOLUTION_LINEAGE_MISMATCH",
+  "FUTURE_ANALYSIS_RESOLUTION_WITHOUT_OPEN_ITEM",
+  "SOURCE_LINEAGE_CYCLE",
+  "TOPIC_HIERARCHY_CYCLE",
+  // Any other canonical constraint the write violated, by its class.
+  "CANONICAL_UNIQUE_CONFLICT",
+  "CANONICAL_REFERENCE_MISSING",
+  "CANONICAL_CHECK_VIOLATION",
+  "CANONICAL_VALUE_INVALID",
+] as const;
+
+export type ResearchContributionPromotionFailureCode =
+  typeof RESEARCH_CONTRIBUTION_PROMOTION_FAILURE_CODES[number];
+
+const CANONICAL_TRIGGER_CODES: ReadonlySet<string> = new Set(
+  RESEARCH_CONTRIBUTION_PROMOTION_FAILURE_CODES.slice(
+    RESEARCH_CONTRIBUTION_PROMOTION_FAILURE_CODES.indexOf("ANALYSIS_LINEAGE_MISMATCH"),
+    RESEARCH_CONTRIBUTION_PROMOTION_FAILURE_CODES.indexOf("CANONICAL_UNIQUE_CONFLICT"),
+  ),
+);
+const WRITER_CONFLICT_CODES: ReadonlySet<string> = new Set(
+  RESEARCH_CONTRIBUTION_PROMOTION_FAILURE_CODES.slice(
+    0,
+    RESEARCH_CONTRIBUTION_PROMOTION_FAILURE_CODES.indexOf("ANALYSIS_LINEAGE_MISMATCH"),
+  ),
+);
+
+/**
+ * The failure code for an error the canonical writer raised, or undefined when the error is transient or unexpected
+ * and the intent stays pending. An exact check of the error's identity: the writer's own code, or PostgreSQL's
+ * SQLSTATE and, for the canonical triggers, their fixed message.
+ */
+export function promotionFailureCode(
+  error: unknown,
+): ResearchContributionPromotionFailureCode | undefined {
+  if (!(error instanceof Error)) return undefined;
+  const sqlState = "code" in error && typeof error.code === "string" && /^[0-9A-Z]{5}$/u.test(error.code)
+    ? error.code
+    : undefined;
+  if (sqlState === undefined) {
+    return WRITER_CONFLICT_CODES.has(error.message)
+      ? error.message as ResearchContributionPromotionFailureCode
+      : undefined;
+  }
+  if (sqlState === "23514") {
+    return CANONICAL_TRIGGER_CODES.has(error.message)
+      ? error.message as ResearchContributionPromotionFailureCode
+      : "CANONICAL_CHECK_VIOLATION";
+  }
+  if (sqlState === "23505") return "CANONICAL_UNIQUE_CONFLICT";
+  if (sqlState === "23503") return "CANONICAL_REFERENCE_MISSING";
+  if (sqlState.startsWith("22")) return "CANONICAL_VALUE_INVALID";
+  return undefined;
+}
+
 export interface ResearchContributionPromotionView {
   promotionId: string;
-  status: "PENDING" | "COMPLETED";
+  status: "PENDING" | "COMPLETED" | "FAILED";
   createdAt: string;
   completedAt: string | null;
   receipt: ResearchContributionPromotionReceipt | null;
   receiptSha256: string | null;
+  /** Set exactly when status is FAILED. */
+  failureCode: ResearchContributionPromotionFailureCode | null;
+  failedAt: string | null;
 }
 
 export interface ResearchContributionReviewView {
@@ -127,6 +239,11 @@ implements ResearchContributionReviewStore {
     this.proposals.set(record.proposalId, structuredClone(record));
   }
 
+  /** Sets an accepted proposal's promotion as the separate runner left it, for tests. */
+  seedPromotion(proposalId: string, promotion: ResearchContributionPromotionView): void {
+    this.promotions.set(proposalId, structuredClone(promotion));
+  }
+
   async inspect(
     proposalId?: string,
   ): Promise<ResearchContributionReviewView | null> {
@@ -188,6 +305,8 @@ implements ResearchContributionReviewStore {
           completedAt: null,
           receipt: null,
           receiptSha256: null,
+          failureCode: null,
+          failedAt: null,
         });
       }
     } else if (
@@ -239,11 +358,25 @@ implements ResearchContributionReviewStore {
   async inspect(
     proposalId?: string,
   ): Promise<ResearchContributionReviewView | null> {
-    const result = await this.pool.query<ResearchContributionReviewRow>(
-      `SELECT * FROM ${this.schema}.inspect_research_contribution_proposal($1::uuid)`,
-      [proposalId ?? null],
-    );
-    return result.rowCount === 0 ? null : reviewViewFromRow(result.rows[0]!);
+    // The projection and its context come from one snapshot.
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+      const result = await client.query<ResearchContributionReviewRow>(
+        `SELECT * FROM ${this.schema}.inspect_research_contribution_proposal($1::uuid)`,
+        [proposalId ?? null],
+      );
+      const view = result.rowCount === 0
+        ? null
+        : reviewViewFromRow(result.rows[0]!, await this.context(client, result.rows[0]!.proposal_id));
+      await client.query("COMMIT");
+      return view;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async decide(input: {
@@ -254,8 +387,10 @@ implements ResearchContributionReviewStore {
     reviewedAt: string;
     promotionId: string | null;
   }): Promise<ResearchContributionReviewView> {
+    const client = await this.pool.connect();
     try {
-      const result = await this.pool.query<ResearchContributionReviewRow>(
+      await client.query("BEGIN");
+      const result = await client.query<ResearchContributionReviewRow>(
         `SELECT * FROM ${this.schema}.decide_research_contribution_proposal(
            $1::uuid, $2::text, $3::text, $4::text, $5::timestamptz, $6::uuid
          )`,
@@ -269,10 +404,23 @@ implements ResearchContributionReviewStore {
         ],
       );
       if (result.rowCount === 0) throw new Error("REVIEW_RESULT_MISSING");
-      return reviewViewFromRow(result.rows[0]!);
+      const view = reviewViewFromRow(result.rows[0]!, await this.context(client, input.proposalId));
+      await client.query("COMMIT");
+      return view;
     } catch (error) {
+      await client.query("ROLLBACK");
       throw mapPostgresReviewError(error);
+    } finally {
+      client.release();
     }
+  }
+
+  private async context(client: PoolClient, proposalId: string): Promise<ResearchContributionReviewContext> {
+    const result = await client.query<{ context: unknown }>(
+      `SELECT ${this.schema}.inspect_research_contribution_context($1::uuid) AS context`,
+      [proposalId],
+    );
+    return reviewContextSchema.parse(result.rows[0]?.context ?? {});
   }
 
   async close(): Promise<void> {
@@ -296,13 +444,34 @@ export interface ResearchContributionPromotionReceipt {
   promotedAt: string;
 }
 
+export interface ResearchContributionPromotionFailure {
+  status: "failed";
+  promotionId: string;
+  proposalId: string;
+  proposalKind: ResearchContributionProposalKind;
+  failureCode: ResearchContributionPromotionFailureCode;
+  failedAt: string;
+}
+
 export type ResearchContributionPromotionResult =
   | { status: "no_pending_promotion" }
   | {
       status: "promoted";
       receipt: ResearchContributionPromotionReceipt;
       receiptSha256: string;
-    };
+    }
+  | ResearchContributionPromotionFailure;
+
+/** One activation: at most one promotion, after any intents that ended FAILED on the way to it. */
+export interface ResearchContributionPromotionRun {
+  result:
+    | Exclude<ResearchContributionPromotionResult, ResearchContributionPromotionFailure>
+    | { status: "failure_limit_reached" };
+  failed: ResearchContributionPromotionFailure[];
+}
+
+/** An activation stops after this many FAILED intents, so a long backlog of conflicts drains over a few runs. */
+export const PROMOTION_FAILURES_PER_ACTIVATION = 20;
 
 export class PostgresResearchContributionPromotionRunner {
   readonly schema: string;
@@ -323,6 +492,27 @@ export class PostgresResearchContributionPromotionRunner {
       statement_timeout: options.statementTimeoutMillis,
     });
     this.now = runtime.now ?? (() => new Date().toISOString());
+  }
+
+  /**
+   * Promotes accepted intents, oldest first, until one is promoted or none is pending. An intent whose canonical write
+   * conflicts deterministically ends FAILED with its code and the next one is tried, so a conflict no longer blocks
+   * the queue; a transient error stops the activation and leaves its intent pending. Bounded by
+   * PROMOTION_FAILURES_PER_ACTIVATION.
+   */
+  async promoteAccepted(options: {
+    maximumFailures?: number;
+    /** Told of each failure as it is recorded, so it is reported even if a later intent stops the activation. */
+    onFailed?: (failure: ResearchContributionPromotionFailure) => void;
+  } = {}): Promise<ResearchContributionPromotionRun> {
+    const failed: ResearchContributionPromotionFailure[] = [];
+    while (failed.length < (options.maximumFailures ?? PROMOTION_FAILURES_PER_ACTIVATION)) {
+      const result = await this.promoteNext();
+      if (result.status !== "failed") return { result, failed };
+      failed.push(result);
+      options.onFailed?.(result);
+    }
+    return { result: { status: "failure_limit_reached" }, failed };
   }
 
   async promoteNext(
@@ -361,9 +551,35 @@ export class PostgresResearchContributionPromotionRunner {
       const writerOperation = row.proposal_kind === "RESEARCH_FRONTIER"
         ? "contributeFrontier"
         : "contribute";
-      const canonicalWriterReceipt = writerOperation === "contributeFrontier"
-        ? await this.writer.contributeFrontier(prepared.payload)
-        : await this.writer.contribute(prepared.payload);
+      let canonicalWriterReceipt: ContributionReceipt | FrontierContributionReceipt;
+      try {
+        canonicalWriterReceipt = writerOperation === "contributeFrontier"
+          ? await this.writer.contributeFrontier(prepared.payload)
+          : await this.writer.contribute(prepared.payload);
+      } catch (error) {
+        // The writer rolled its own transaction back; this one still holds the intent's lock.
+        const failureCode = promotionFailureCode(error);
+        if (failureCode === undefined) throw error;
+        const failedAt = this.now();
+        const marked = await client.query(
+          `UPDATE ${this.schema}.research_contribution_promotions
+              SET status = 'FAILED', failure_code = $2, failed_at = $3::timestamptz
+            WHERE promotion_id = $1::uuid AND status = 'PENDING'
+              AND reviewed_payload_sha256 = $4
+          RETURNING promotion_id`,
+          [row.promotion_id, failureCode, failedAt, row.reviewed_payload_sha256],
+        );
+        if (marked.rowCount !== 1) throw new Error("PROMOTION_FAILURE_CONFLICT");
+        await client.query("COMMIT");
+        return {
+          status: "failed",
+          promotionId: row.promotion_id,
+          proposalId: row.proposal_id,
+          proposalKind: row.proposal_kind,
+          failureCode,
+          failedAt,
+        };
+      }
       if (canonicalWriterReceipt.payloadSha256 !== row.reviewed_payload_sha256) {
         throw new Error("PROMOTION_WRITER_PAYLOAD_SHA256_MISMATCH");
       }
@@ -425,12 +641,22 @@ interface ResearchContributionReviewRow {
   reviewed_at: Date | string | null;
   review_reason: string | null;
   promotion_id: string | null;
-  promotion_status: "PENDING" | "COMPLETED" | null;
+  promotion_status: "PENDING" | "COMPLETED" | "FAILED" | null;
   promotion_created_at: Date | string | null;
   promotion_completed_at: Date | string | null;
   promotion_receipt_json: unknown;
   promotion_receipt_sha256: string | null;
 }
+
+/** inspect_research_contribution_context's object (migration 0012). */
+const reviewContextSchema = z.object({
+  promotion_failure: z.object({
+    failure_code: z.enum(RESEARCH_CONTRIBUTION_PROMOTION_FAILURE_CODES),
+    failed_at: z.iso.datetime({ offset: true }),
+  }).strict().nullable().optional(),
+}).strict();
+
+type ResearchContributionReviewContext = z.infer<typeof reviewContextSchema>;
 
 interface PromotionCandidateRow {
   promotion_id: string;
@@ -450,6 +676,7 @@ function reviewView(
 
 function reviewViewFromRow(
   row: ResearchContributionReviewRow,
+  context: ResearchContributionReviewContext,
 ): ResearchContributionReviewView {
   const prepared = prepareResearchContributionProposal(
     row.proposal_kind,
@@ -458,23 +685,29 @@ function reviewViewFromRow(
   if (prepared.payloadSha256 !== row.payload_sha256) {
     throw new Error("PROPOSAL_PAYLOAD_SHA256_MISMATCH");
   }
+  const failure = context.promotion_failure ?? null;
   const promotion = row.promotion_id === null
     ? null
     : {
         promotionId: row.promotion_id,
-        status: z.enum(["PENDING", "COMPLETED"]).parse(row.promotion_status),
+        status: z.enum(["PENDING", "COMPLETED", "FAILED"]).parse(row.promotion_status),
         createdAt: timestamp(row.promotion_created_at),
         completedAt: nullableTimestamp(row.promotion_completed_at),
         receipt: row.promotion_receipt_json === null
           ? null
           : promotionReceiptSchema.parse(row.promotion_receipt_json),
         receiptSha256: row.promotion_receipt_sha256,
+        failureCode: failure?.failure_code ?? null,
+        failedAt: failure === null ? null : new Date(failure.failed_at).toISOString(),
       };
   if (
     promotion?.receipt !== null && promotion !== null &&
     sha256(stableJson(promotion.receipt)) !== promotion.receiptSha256
   ) {
     throw new Error("PROMOTION_RECEIPT_SHA256_MISMATCH");
+  }
+  if (promotion !== null && (promotion.status === "FAILED") !== (promotion.failureCode !== null)) {
+    throw new Error("PROMOTION_FAILURE_STATE_MISMATCH");
   }
   return {
     proposalId: row.proposal_id,

@@ -11116,6 +11116,7 @@
               "pending_review",
               "accepted_pending_promotion",
               "accepted_promoted",
+              "accepted_promotion_failed",
               "rejected",
               "withdrawn",
               "no_pending_proposal"
@@ -11205,7 +11206,8 @@
                         "type": "string",
                         "enum": [
                           "PENDING",
-                          "COMPLETED"
+                          "COMPLETED",
+                          "FAILED"
                         ]
                       },
                       "createdAt": {
@@ -11245,6 +11247,80 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "failureCode": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "IDEMPOTENCY_KEY_PAYLOAD_MISMATCH",
+                              "FRONTIER_IDEMPOTENCY_KEY_PAYLOAD_MISMATCH",
+                              "PROTOCOL_MANIFEST_CONFLICT",
+                              "RESEARCH_RUN_CONFLICT",
+                              "TOPIC_ID_CONFLICT",
+                              "TOPIC_KEY_CONFLICT",
+                              "QUESTION_ID_CONFLICT",
+                              "RESEARCH_FRONTIER_ID_CONFLICT",
+                              "RESEARCH_FRONTIER_QUESTION_CONFLICT",
+                              "FRONTIER_LANE_ID_CONFLICT",
+                              "FRONTIER_LANE_KEY_CONFLICT",
+                              "FRONTIER_CANDIDATE_INITIAL_VERSION_REQUIRED",
+                              "FRONTIER_CANDIDATE_ALREADY_HAS_INITIAL_VERSION",
+                              "FRONTIER_CANDIDATE_ID_CONFLICT",
+                              "FRONTIER_CANDIDATE_IDENTITY_CONFLICT",
+                              "FRONTIER_TRAIL_INITIAL_VERSION_REQUIRED",
+                              "FRONTIER_TRAIL_ALREADY_HAS_INITIAL_VERSION",
+                              "FRONTIER_TRAIL_ID_CONFLICT",
+                              "SOURCE_FAMILY_ID_CONFLICT",
+                              "SOURCE_FAMILY_IDENTITY_CONFLICT",
+                              "SOURCE_IDENTIFIER_CONFLICT",
+                              "SOURCE_VERSION_ID_CONFLICT",
+                              "SOURCE_VERSION_IDENTITY_CONFLICT",
+                              "ANALYSIS_INITIAL_VERSION_REQUIRED",
+                              "ANALYSIS_ALREADY_HAS_INITIAL_VERSION",
+                              "ANALYSIS_TARGET_MISMATCH",
+                              "CLAIM_INITIAL_VERSION_REQUIRED",
+                              "CLAIM_ALREADY_HAS_INITIAL_VERSION",
+                              "CLAIM_ID_CONFLICT",
+                              "FRESHNESS_POLICY_ID_CONFLICT",
+                              "ANALYSIS_LINEAGE_MISMATCH",
+                              "CLAIM_DEPENDENCY_CYCLE",
+                              "EVIDENCE_BINDING_RECEIPT_SOURCE_MISMATCH",
+                              "FRONTIER_CANDIDATE_LINEAGE_MISMATCH",
+                              "FRONTIER_CANDIDATE_SCOPE_MISMATCH",
+                              "FRONTIER_CANDIDATE_SOURCE_IDENTITY_MISMATCH",
+                              "FRONTIER_DELTA_PRIOR_COVERAGE_INVALID",
+                              "FRONTIER_DELTA_RELATION_MISMATCH",
+                              "FRONTIER_GAP_TRAIL_REQUIRED",
+                              "FRONTIER_LANE_COVERAGE_BASIS_MISMATCH",
+                              "FRONTIER_PASS_CANDIDATE_COUNT_MISMATCH",
+                              "FRONTIER_PASS_SCOPE_MISMATCH",
+                              "FRONTIER_TRAIL_LINEAGE_MISMATCH",
+                              "FRONTIER_TRAIL_SCOPE_MISMATCH",
+                              "FUTURE_ANALYSIS_RESOLUTION_LINEAGE_MISMATCH",
+                              "FUTURE_ANALYSIS_RESOLUTION_WITHOUT_OPEN_ITEM",
+                              "SOURCE_LINEAGE_CYCLE",
+                              "TOPIC_HIERARCHY_CYCLE",
+                              "CANONICAL_UNIQUE_CONFLICT",
+                              "CANONICAL_REFERENCE_MISSING",
+                              "CANONICAL_CHECK_VIOLATION",
+                              "CANONICAL_VALUE_INVALID"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "failedAt": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
                     "required": [
@@ -11253,7 +11329,9 @@
                       "createdAt",
                       "completedAt",
                       "receipt",
-                      "receiptSha256"
+                      "receiptSha256",
+                      "failureCode",
+                      "failedAt"
                     ],
                     "additionalProperties": false
                   },

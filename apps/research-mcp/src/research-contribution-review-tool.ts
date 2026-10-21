@@ -1,5 +1,6 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
+  RESEARCH_CONTRIBUTION_PROMOTION_FAILURE_CODES,
   ResearchContributionReviewError,
   ResearchContributionReviewService,
 } from "@askrigor/evidence-repository";
@@ -45,11 +46,13 @@ export const researchContributionReviewInputSchema = z.object({
 
 const promotionSchema = z.object({
   promotionId: z.string().uuid(),
-  status: z.enum(["PENDING", "COMPLETED"]),
+  status: z.enum(["PENDING", "COMPLETED", "FAILED"]),
   createdAt: z.string(),
   completedAt: z.string().nullable(),
   receipt: z.record(z.string(), z.unknown()).nullable(),
   receiptSha256: z.string().regex(/^[a-f0-9]{64}$/u).nullable(),
+  failureCode: z.enum(RESEARCH_CONTRIBUTION_PROMOTION_FAILURE_CODES).nullable(),
+  failedAt: z.string().nullable(),
 }).strict();
 
 const proposalSchema = z.object({
@@ -86,6 +89,7 @@ export const researchContributionReviewOutputSchema = z.object({
     "pending_review",
     "accepted_pending_promotion",
     "accepted_promoted",
+    "accepted_promotion_failed",
     "rejected",
     "withdrawn",
     "no_pending_proposal",
@@ -146,16 +150,22 @@ export function createResearchContributionReviewHandler(
             ? "withdrawn"
             : proposal.promotion?.status === "COMPLETED"
               ? "accepted_promoted"
-              : "accepted_pending_promotion";
+              : proposal.promotion?.status === "FAILED"
+                ? "accepted_promotion_failed"
+                : "accepted_pending_promotion";
       const text = outcome === "accepted_pending_promotion"
         ? "The exact reviewed proposal was accepted and queued for the separate canonical promotion runner. This call did not change canonical evidence."
         : outcome === "accepted_promoted"
           ? "The accepted proposal has a completed canonical promotion receipt."
-          : outcome === "rejected"
-            ? "The proposal was rejected and no promotion intent exists."
-            : outcome === "withdrawn"
-              ? "The contributor withdrew this proposal before review."
-              : "Loaded the proposal for owner review; it remains non-authoritative and pending.";
+          : outcome === "accepted_promotion_failed"
+            ? `The accepted proposal's promotion failed: the canonical writer refused it with ${proposal.promotion!.failureCode}, ` +
+              "a conflict with what the append-only canonical store already holds, so nothing from it was written and " +
+              "it no longer holds back later accepted proposals. Filing the research again needs a corrected proposal."
+            : outcome === "rejected"
+              ? "The proposal was rejected and no promotion intent exists."
+              : outcome === "withdrawn"
+                ? "The contributor withdrew this proposal before review."
+                : "Loaded the proposal for owner review; it remains non-authoritative and pending.";
       return successfulResult(text, { outcome, proposal });
     } catch (error) {
       if (error instanceof z.ZodError) {

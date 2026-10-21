@@ -42,7 +42,8 @@ repository tables and no `DELETE`, `TRUNCATE`, schema-create, role-create, or
 database-create privilege. The research-access role has only the account,
 entitlement-read, pending-proposal insert/read, and bounded pending-withdrawal
 permissions documented below. The research-review role can execute only the
-two bounded owner-review functions and has no direct table privileges. The
+three bounded owner-review functions (inspect, decide, and the review context of
+migration 0012) and has no direct table privileges. The
 ordinary research service receives the reader, evidence-gap intake,
 research-access, and research-review URLs through the existing
 root-owned mode-0600 runtime.env. The one-shot admin profile receives only the migrator URL
@@ -97,7 +98,7 @@ placed in Compose.
    proposal review-state updates, canonical-table writes, deletes, truncation,
    temporary objects, and schema creation fail.
    Connect separately as `askrigor_research_review` and prove that the exact
-   inspect/decide functions work while direct proposal-table reads or updates,
+   inspect/decide/context functions work while direct proposal-table reads or updates,
    canonical-table reads or writes, temporary objects, and schema creation fail.
 7. Recreate only research-mcp with the combined Compose selection. Verify it
    remains non-root/read-only/capability-free, joins exactly its prior network
@@ -151,7 +152,8 @@ Add `ASKRIGOR_RESEARCH_REVIEW_ENABLED=true`, the dedicated review-role URL,
 schema `living_evidence`, and Docker-internal SSL mode `disable` to the same
 mode-0600 runtime environment. The review URL must use
 `askrigor_research_review`, not the access role or migrator. It can call only
-the hash-bound inspect/decide functions and cannot read tables directly.
+the hash-bound inspect/decide functions and the read-only review context
+function, and cannot read tables directly.
 
 When OAuth research access is active, the server omits legacy research Action
 routes so they cannot bypass the mode choice. The separately governed lesson
@@ -193,8 +195,10 @@ using the same one-shot admin profile; do not create a VPS import file or log
 the payload.
 
 After the owner accepts an exact proposal, invoke `promote-accepted` through
-the one-shot admin profile. Each invocation processes at most one pending
-intent and emits only a bounded receipt. The initial owner-review release used
+the one-shot admin profile. Each invocation promotes at most one pending
+intent and emits only a bounded receipt; an intent whose canonical write
+conflicts deterministically ends `FAILED` with its fixed code on the way, and
+the invocation tries the next one. The initial owner-review release used
 manual repetition until `no_pending_promotion`. The separately reviewed
 promotion-scheduler slice installs a hardened five-minute systemd timer that
 invokes this exact command without arguments or a shell; its activation and

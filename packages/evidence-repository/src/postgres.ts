@@ -161,6 +161,7 @@ export class PostgresEvidenceRepository {
       "0009_research_contributor_access",
       "0010_research_contribution_review",
       "0011_research_use_notice_v2",
+      "0012_research_contribution_merging",
     ].map(async (migrationId) => ({
       migrationId,
       sql: await readFile(new URL(`../migrations/${migrationId}.sql`, import.meta.url), "utf8"),
@@ -1191,12 +1192,14 @@ export class PostgresEvidenceRepository {
          VALUES ($1, $2, $3, $4) ON CONFLICT (sha256) DO NOTHING`,
         [manifest.sha256, manifest.name, manifest.version, manifest.revisionDate],
       );
-      const stored = await client.query<{ name: string; version: string; revision_date: string }>(
-        "SELECT name, version, revision_date::text FROM protocol_manifests WHERE sha256 = $1",
-        [manifest.sha256],
+      // Stored dates and times are compared with the payload's as values in SQL, never as text: any valid way of
+      // writing one value is the same value (owner answer 138b, 2026-10-20).
+      const stored = await client.query<{ name: string; version: string; revision_date_matches: boolean }>(
+        "SELECT name, version, revision_date = $2::date AS revision_date_matches FROM protocol_manifests WHERE sha256 = $1",
+        [manifest.sha256, manifest.revisionDate],
       );
       const row = stored.rows[0];
-      if (!row || row.name !== manifest.name || row.version !== manifest.version || row.revision_date !== manifest.revisionDate) {
+      if (!row || row.name !== manifest.name || row.version !== manifest.version || !row.revision_date_matches) {
         throw new Error("PROTOCOL_MANIFEST_CONFLICT");
       }
     }
@@ -1213,23 +1216,26 @@ export class PostgresEvidenceRepository {
         contribution.run.provenanceNote,
       ],
     );
+    // As instants: a time without milliseconds, with an offset or with microseconds is the time it names.
     const storedRun = await client.query<{
       run_kind: string;
-      started_at: Date;
-      completed_at: Date;
+      started_at_matches: boolean;
+      completed_at_matches: boolean;
       protocol_manifest_sha256s: string[];
       provenance_note: string;
     }>(
-      `SELECT run_kind, started_at, completed_at, protocol_manifest_sha256s, provenance_note
+      `SELECT run_kind, started_at = $2::timestamptz AS started_at_matches,
+              completed_at = $3::timestamptz AS completed_at_matches,
+              protocol_manifest_sha256s, provenance_note
        FROM research_runs WHERE run_id = $1`,
-      [contribution.run.runId],
+      [contribution.run.runId, contribution.run.startedAt, contribution.run.completedAt],
     );
     const run = storedRun.rows[0];
     if (
       !run ||
       run.run_kind !== contribution.run.runKind ||
-      run.started_at.toISOString() !== contribution.run.startedAt ||
-      run.completed_at.toISOString() !== contribution.run.completedAt ||
+      !run.started_at_matches ||
+      !run.completed_at_matches ||
       JSON.stringify(run.protocol_manifest_sha256s) !== JSON.stringify(contribution.run.protocolManifests.map(({ sha256: digest }) => digest)) ||
       run.provenance_note !== contribution.run.provenanceNote
     ) {
@@ -1237,24 +1243,33 @@ export class PostgresEvidenceRepository {
     }
   }
 
+  /**
+   * Inserts a topic or confirms the stored one. A key that already names another topic is TOPIC_KEY_CONFLICT, and an
+   * ID stored with another key or label TOPIC_ID_CONFLICT: named conflicts rather than a raw constraint error.
+   */
+  private async insertTopic(
+    client: PoolClient,
+    topic: { topicId: string; canonicalKey: string; label: string },
+  ): Promise<void> {
+    await client.query(
+      "INSERT INTO topics (topic_id, canonical_key, label) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
+      [topic.topicId, topic.canonicalKey, topic.label],
+    );
+    const storedTopic = await client.query<{ canonical_key: string; label: string }>(
+      "SELECT canonical_key, label FROM topics WHERE topic_id = $1",
+      [topic.topicId],
+    );
+    if (storedTopic.rowCount === 0) throw new Error("TOPIC_KEY_CONFLICT");
+    if (storedTopic.rows[0]!.canonical_key !== topic.canonicalKey || storedTopic.rows[0]!.label !== topic.label) {
+      throw new Error("TOPIC_ID_CONFLICT");
+    }
+  }
+
   private async insertFrontierTopicAndQuestion(
     client: PoolClient,
     contribution: ResearchFrontierContribution,
   ): Promise<void> {
-    await client.query(
-      "INSERT INTO topics (topic_id, canonical_key, label) VALUES ($1, $2, $3) ON CONFLICT (topic_id) DO NOTHING",
-      [contribution.topic.topicId, contribution.topic.canonicalKey, contribution.topic.label],
-    );
-    const storedTopic = await client.query<{ canonical_key: string; label: string }>(
-      "SELECT canonical_key, label FROM topics WHERE topic_id = $1",
-      [contribution.topic.topicId],
-    );
-    if (
-      storedTopic.rows[0]?.canonical_key !== contribution.topic.canonicalKey ||
-      storedTopic.rows[0]?.label !== contribution.topic.label
-    ) {
-      throw new Error("TOPIC_ID_CONFLICT");
-    }
+    await this.insertTopic(client, contribution.topic);
     const dimensions = contribution.question.dimensions;
     await client.query(
       `INSERT INTO questions
@@ -1309,23 +1324,25 @@ export class PostgresEvidenceRepository {
     client: PoolClient,
     contribution: ResearchFrontierContribution,
   ): Promise<void> {
+    // One frontier per question, and one lane per key in a frontier: a second one is a named conflict.
     await client.query(
       `INSERT INTO research_frontiers (frontier_id, question_id, created_by_run_id)
-       VALUES ($1, $2, $3) ON CONFLICT (frontier_id) DO NOTHING`,
+       VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
       [contribution.frontier.frontierId, contribution.question.questionId, contribution.run.runId],
     );
     const storedFrontier = await client.query<{ question_id: string }>(
       "SELECT question_id FROM research_frontiers WHERE frontier_id = $1",
       [contribution.frontier.frontierId],
     );
-    if (storedFrontier.rows[0]?.question_id !== contribution.question.questionId) {
+    if (storedFrontier.rowCount === 0) throw new Error("RESEARCH_FRONTIER_QUESTION_CONFLICT");
+    if (storedFrontier.rows[0]!.question_id !== contribution.question.questionId) {
       throw new Error("RESEARCH_FRONTIER_ID_CONFLICT");
     }
     for (const lane of contribution.frontier.lanes) {
       await client.query(
         `INSERT INTO frontier_lanes
           (lane_id, frontier_id, canonical_key, source_class, provider, label, created_by_run_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (lane_id) DO NOTHING`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING`,
         [lane.laneId, contribution.frontier.frontierId, lane.canonicalKey, lane.sourceClass, lane.provider, lane.label, contribution.run.runId],
       );
       const stored = await client.query<{
@@ -1339,8 +1356,9 @@ export class PostgresEvidenceRepository {
         [lane.laneId],
       );
       const row = stored.rows[0];
+      if (row === undefined) throw new Error("FRONTIER_LANE_KEY_CONFLICT");
       if (
-        row?.frontier_id !== contribution.frontier.frontierId ||
+        row.frontier_id !== contribution.frontier.frontierId ||
         row.canonical_key !== lane.canonicalKey || row.source_class !== lane.sourceClass ||
         row.provider !== lane.provider || row.label !== lane.label
       ) {
@@ -1393,12 +1411,14 @@ export class PostgresEvidenceRepository {
       );
       if (existing.rowCount === 0) {
         if (candidate.previousVersionId !== null) throw new Error("FRONTIER_CANDIDATE_INITIAL_VERSION_REQUIRED");
-        await client.query(
+        const inserted = await client.query(
           `INSERT INTO frontier_candidates
             (candidate_id, frontier_id, candidate_kind, identity_hash, created_by_run_id)
-           VALUES ($1, $2, $3, $4, $5)`,
+           VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING`,
           [candidate.candidateId, contribution.frontier.frontierId, candidate.candidateKind, identityHash, contribution.run.runId],
         );
+        // The same identifiers already name another candidate of this frontier.
+        if (inserted.rowCount === 0) throw new Error("FRONTIER_CANDIDATE_IDENTITY_CONFLICT");
       } else {
         const row = existing.rows[0]!;
         if (candidate.previousVersionId === null) throw new Error("FRONTIER_CANDIDATE_ALREADY_HAS_INITIAL_VERSION");
@@ -1473,24 +1493,12 @@ export class PostgresEvidenceRepository {
   }
 
   private async insertTargets(client: PoolClient, contribution: LivingEvidenceContribution): Promise<{ topicId: string | null; sourceFamilyId: string | null; sourceVersionId: string | null }> {
-    if (contribution.topic !== null) {
-      await client.query(
-        "INSERT INTO topics (topic_id, canonical_key, label) VALUES ($1, $2, $3) ON CONFLICT (topic_id) DO NOTHING",
-        [contribution.topic.topicId, contribution.topic.canonicalKey, contribution.topic.label],
-      );
-      const storedTopic = await client.query<{ canonical_key: string; label: string }>(
-        "SELECT canonical_key, label FROM topics WHERE topic_id = $1",
-        [contribution.topic.topicId],
-      );
-      if (storedTopic.rows[0]?.canonical_key !== contribution.topic.canonicalKey || storedTopic.rows[0]?.label !== contribution.topic.label) {
-        throw new Error("TOPIC_ID_CONFLICT");
-      }
-    }
+    if (contribution.topic !== null) await this.insertTopic(client, contribution.topic);
     if (contribution.source !== null) {
       const source = contribution.source;
       await client.query(
         `INSERT INTO source_families (family_id, source_kind, identity_hash, display_title)
-         VALUES ($1, $2, $3, $4) ON CONFLICT (family_id) DO NOTHING`,
+         VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
         [source.familyId, source.sourceKind, source.identityHash, source.displayTitle],
       );
       const storedFamily = await client.query<{ source_kind: string; identity_hash: string; display_title: string }>(
@@ -1498,7 +1506,9 @@ export class PostgresEvidenceRepository {
         [source.familyId],
       );
       const family = storedFamily.rows[0];
-      if (!family || family.source_kind !== source.sourceKind || family.identity_hash !== source.identityHash || family.display_title !== source.displayTitle) {
+      // The same identity hash already names another source family.
+      if (!family) throw new Error("SOURCE_FAMILY_IDENTITY_CONFLICT");
+      if (family.source_kind !== source.sourceKind || family.identity_hash !== source.identityHash || family.display_title !== source.displayTitle) {
         throw new Error("SOURCE_FAMILY_ID_CONFLICT");
       }
       for (const identifier of source.identifiers) {
@@ -1518,28 +1528,31 @@ export class PostgresEvidenceRepository {
       await client.query(
         `INSERT INTO source_versions
           (version_id, family_id, source_content_sha256, access_status, retrieved_at, source_locator, raw_content_persisted)
-         VALUES ($1, $2, $3, $4, $5, $6, false) ON CONFLICT (version_id) DO NOTHING`,
+         VALUES ($1, $2, $3, $4, $5, $6, false) ON CONFLICT DO NOTHING`,
         [source.versionId, source.familyId, source.sourceContentSha256, source.accessStatus, source.retrievedAt, source.sourceLocator],
       );
       const storedVersion = await client.query<{
         family_id: string;
         source_content_sha256: string | null;
         access_status: string;
-        retrieved_at: Date | null;
+        retrieved_at_matches: boolean;
         source_locator: string | null;
         raw_content_persisted: boolean;
       }>(
-        `SELECT family_id, source_content_sha256, access_status, retrieved_at, source_locator, raw_content_persisted
+        `SELECT family_id, source_content_sha256, access_status,
+                retrieved_at IS NOT DISTINCT FROM $2::timestamptz AS retrieved_at_matches,
+                source_locator, raw_content_persisted
          FROM source_versions WHERE version_id = $1`,
-        [source.versionId],
+        [source.versionId, source.retrievedAt],
       );
       const version = storedVersion.rows[0];
+      // Another version of this family already records the same bytes, access and retrieval time.
+      if (!version) throw new Error("SOURCE_VERSION_IDENTITY_CONFLICT");
       if (
-        !version ||
         version.family_id !== source.familyId ||
         version.source_content_sha256 !== source.sourceContentSha256 ||
         version.access_status !== source.accessStatus ||
-        (version.retrieved_at?.toISOString() ?? null) !== source.retrievedAt ||
+        !version.retrieved_at_matches ||
         version.source_locator !== source.sourceLocator ||
         version.raw_content_persisted
       ) {

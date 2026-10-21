@@ -1,9 +1,14 @@
+import { readFile } from "node:fs/promises";
+
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import {
   InMemoryResearchContributionReviewStore,
+  RESEARCH_CONTRIBUTION_PROMOTION_FAILURE_CODES,
   ResearchContributionReviewService,
   prepareResearchContributionProposal,
+  promotionFailureCode,
   sha256,
   type ContributionPrivacyBoundary,
   type LivingEvidenceContribution,
@@ -155,6 +160,93 @@ describe("research contribution owner review", () => {
       },
     });
     expect(JSON.stringify(accepted)).not.toContain("accountKey");
+  });
+});
+
+describe("a promotion that conflicts ends FAILED with its code (owner answer 138b)", () => {
+  const pgError = (code: string, message: string) => Object.assign(new Error(message), { code });
+
+  it("names the writer's conflicts, the canonical triggers and the constraint classes", () => {
+    for (const code of ["RESEARCH_RUN_CONFLICT", "SOURCE_VERSION_ID_CONFLICT", "TOPIC_KEY_CONFLICT",
+      "ANALYSIS_ALREADY_HAS_INITIAL_VERSION", "IDEMPOTENCY_KEY_PAYLOAD_MISMATCH", "FRONTIER_CANDIDATE_IDENTITY_CONFLICT"]) {
+      expect(promotionFailureCode(new Error(code))).toBe(code);
+    }
+    expect(promotionFailureCode(pgError("23514", "FRONTIER_LANE_COVERAGE_BASIS_MISMATCH")))
+      .toBe("FRONTIER_LANE_COVERAGE_BASIS_MISMATCH");
+    expect(promotionFailureCode(pgError("23514", 'new row for relation "discovery_passes" violates check constraint')))
+      .toBe("CANONICAL_CHECK_VIOLATION");
+    expect(promotionFailureCode(pgError("23505", 'duplicate key value violates unique constraint "topics_canonical_key_key"')))
+      .toBe("CANONICAL_UNIQUE_CONFLICT");
+    expect(promotionFailureCode(pgError("23503", "insert or update violates foreign key constraint")))
+      .toBe("CANONICAL_REFERENCE_MISSING");
+    expect(promotionFailureCode(pgError("22008", "date/time field value out of range"))).toBe("CANONICAL_VALUE_INVALID");
+  });
+
+  it("leaves transient, contract and unexpected errors pending, so a fix or a retry can still promote them", () => {
+    for (const error of [
+      pgError("40001", "could not serialize access due to concurrent update"),
+      pgError("40P01", "deadlock detected"),
+      pgError("57014", "canceling statement due to statement timeout"),
+      pgError("08006", "connection failure"),
+      pgError("53300", "too many connections"),
+      Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" }),
+      new Error("Connection terminated unexpectedly"),
+      new Error("Query read timeout"),
+      // Re-preparing the reviewed payload is the runtime's own check, not a conflict with the store.
+      new Error("PROMOTION_REVIEWED_PAYLOAD_SHA256_MISMATCH"),
+      new Error("INJECTED_FAILURE_AFTER_PROMOTION_WRITER"),
+      new z.ZodError([]),
+      "a thrown string",
+    ]) {
+      expect(promotionFailureCode(error)).toBeUndefined();
+    }
+  });
+
+  it("keeps the code list closed and the same in the migration's check", async () => {
+    const migration = await readFile(
+      new URL("../packages/evidence-repository/migrations/0012_research_contribution_merging.sql", import.meta.url),
+      "utf8",
+    );
+    const check = migration.slice(migration.indexOf("failure_code IS NULL OR failure_code IN ("));
+    const listed = [...check.slice(0, check.indexOf(")\n")).matchAll(/'([A-Z_]+)'/gu)].map(([, code]) => code);
+    expect(listed).toEqual([...RESEARCH_CONTRIBUTION_PROMOTION_FAILURE_CODES]);
+    expect(new Set(listed).size).toBe(listed.length);
+    for (const code of RESEARCH_CONTRIBUTION_PROMOTION_FAILURE_CODES) expect(code).toMatch(/^[A-Z][A-Z_]{2,63}$/u);
+  });
+
+  it("shows the owner the failed promotion and its code", async () => {
+    const { proposal, service, store } = fixture();
+    await service.decide({
+      proposalId: proposal.proposalId,
+      expectedPayloadSha256: proposal.payloadSha256,
+      decision: "ACCEPT",
+      reason: "Validated deidentified formal-source analysis.",
+    });
+    store.seedPromotion(proposal.proposalId, {
+      promotionId: "99999999-9999-4999-a999-999999999999",
+      status: "FAILED",
+      createdAt: NOW,
+      completedAt: null,
+      receipt: null,
+      receiptSha256: null,
+      failureCode: "SOURCE_VERSION_ID_CONFLICT",
+      failedAt: "2026-09-01T03:05:00.000Z",
+    });
+    const handler = createResearchContributionReviewHandler({
+      service,
+      allowedReviewerSubjects: new Set([OWNER]),
+    });
+    const status = await handler({ action: "status", proposalId: proposal.proposalId }, auth(OWNER));
+    expect(status.structuredContent).toMatchObject({
+      ok: true,
+      outcome: "accepted_promotion_failed",
+      proposal: {
+        status: "ACCEPTED",
+        promotion: { status: "FAILED", failureCode: "SOURCE_VERSION_ID_CONFLICT", failedAt: "2026-09-01T03:05:00.000Z" },
+      },
+    });
+    expect(JSON.stringify(status.content)).toContain("SOURCE_VERSION_ID_CONFLICT");
+    expect(JSON.stringify(status)).not.toContain("8".repeat(64));
   });
 });
 

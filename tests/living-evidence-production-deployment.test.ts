@@ -108,6 +108,26 @@ describe("production living-evidence deployment", () => {
     expect(migration).toContain("RESEARCH_CONTRIBUTION_REVIEW_CONFLICT");
   });
 
+  it("adds the FAILED promotion state and one review context function, still function-only (owner answer 138b)", async () => {
+    const provision = await read(
+      "infra/living-evidence-production/provision-research-review-role.sh",
+    );
+    const migration = await read(
+      "packages/evidence-repository/migrations/0012_research_contribution_merging.sql",
+    );
+
+    expect(await read("packages/evidence-repository/src/postgres.ts")).toContain('"0012_research_contribution_merging"');
+    expect(provision).toContain(
+      "GRANT EXECUTE ON FUNCTION living_evidence.inspect_research_contribution_context(uuid)\n  TO askrigor_research_review;",
+    );
+    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(3);
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS failure_code text");
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS failed_at timestamptz");
+    expect(migration).toContain("(status = 'FAILED' AND completed_at IS NULL");
+    expect(migration).toContain("SECURITY DEFINER");
+    expect(migration).toContain("REVOKE ALL ON FUNCTION inspect_research_contribution_context(uuid) FROM PUBLIC;");
+  });
+
   it("provisions a proposal-only reciprocal research role without canonical writer authority", async () => {
     const compose = await read("infra/living-evidence-production/compose.yaml");
     const provision = await read(
