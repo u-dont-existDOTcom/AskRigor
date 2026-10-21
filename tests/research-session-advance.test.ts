@@ -318,12 +318,20 @@ describe("transport-independent research-session advancement", () => {
     expect(forfeit).not.toHaveBeenCalled();
   });
 
-  it("charges a background scout once and resumes its server-owned checkpoint without a second reservation", async () => {
+  it("charges a background scout once, resumes its server-owned checkpoint without a second reservation and settles its hold at completion", async () => {
     const packet = researchPacket();
     const commit = vi.fn(async () => undefined);
     const forfeit = vi.fn(async () => undefined);
+    const budgetHold = {
+      hold_id: "00000000-0000-4000-8000-000000000002",
+      held_nano_usd: 1_000_000_000,
+      utc_month: "2026-10"
+    };
+    const hold = vi.fn(async () => budgetHold);
+    const settle = vi.fn(async () => undefined);
     const budget = {
-      reserve: vi.fn(async () => ({ commit, forfeit }))
+      reserve: vi.fn(async () => ({ commit, forfeit, hold })),
+      settle
     };
     const backgroundScout = vi.fn()
       .mockResolvedValueOnce({
@@ -387,16 +395,28 @@ describe("transport-independent research-session advancement", () => {
     expect(progress.scout.background_job).toMatchObject({
       interaction_id: "interaction-background-runtime-1"
     });
+    // The whole reservation stays charged as a hold the session carries.
+    expect(progress.scout).toMatchObject({
+      accounted_nano_usd: 1_000_000_000,
+      budget_hold: budgetHold
+    });
     expect(budget.reserve).toHaveBeenCalledOnce();
-    expect(forfeit).toHaveBeenCalledOnce();
+    expect(hold).toHaveBeenCalledOnce();
+    expect(forfeit).not.toHaveBeenCalled();
     expect(commit).not.toHaveBeenCalled();
+    expect(settle).not.toHaveBeenCalled();
 
     const completed = await executeScout(progress);
     expect(completed.operations.automated_video_scout.status).toBe("COMPLETE");
     expect(completed.scout.background_job).toBeUndefined();
+    expect(completed.scout.budget_hold).toBeUndefined();
     expect(completed.scout.provider_storage_mode).toBe(
       "TEMPORARY_BACKGROUND_DELETE_REQUESTED"
     );
+    // 1,000 input, 2,100 output and thought tokens and 8 searches.
+    expect(settle).toHaveBeenCalledOnce();
+    expect(settle).toHaveBeenCalledWith(budgetHold, 120_625_000);
+    expect(completed.scout.accounted_nano_usd).toBe(120_625_000);
     expect(budget.reserve).toHaveBeenCalledOnce();
     expect(backgroundScout).toHaveBeenCalledTimes(2);
   });

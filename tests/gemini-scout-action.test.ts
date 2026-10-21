@@ -471,10 +471,19 @@ describe("automated Gemini YouTube scout Action", () => {
     vi.stubGlobal("fetch", fetchMock);
     try {
       const input = { research_target: TARGET, diagnosis_status: "diagnosis_not_specified" as const, language: "fr" };
+      const hold = {
+        hold_id: "00000000-0000-4000-8000-000000000001",
+        held_nano_usd: GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD,
+        utc_month: "2026-10"
+      };
       const options = {
         geminiApiKey: "gemini-secret",
         youtubeApiKey: "youtube-secret",
-        budget: budget({ commit: vi.fn(async () => undefined), forfeit: vi.fn(async () => undefined) }),
+        budget: budget({
+          commit: vi.fn(async () => undefined),
+          forfeit: vi.fn(async () => undefined),
+          hold: vi.fn(async () => hold)
+        }),
         scout: scoutGeminiYoutubeCandidates,
         backgroundScout: advanceGeminiYoutubeScoutBackground,
         loadScoutInstructions: async () => "fixture scout instructions"
@@ -482,7 +491,7 @@ describe("automated Gemini YouTube scout Action", () => {
 
       // The background executor, which the MCP tool and research sessions use.
       expect(await executeResumableAutomatedGeminiScout(input, undefined, options)).toMatchObject({
-        controller_progress: { checkpoint: { interaction_id: "interaction-language-1" } }
+        controller_progress: { checkpoint: { interaction_id: "interaction-language-1" }, budget_hold: hold }
       });
       // The stateless executor; an unfinished reply is a boundary that still echoes the language.
       expect((await executeAutomatedGeminiScout(input, options)).receipt).toMatchObject({

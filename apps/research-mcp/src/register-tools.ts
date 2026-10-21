@@ -57,8 +57,7 @@ import {
   youtubeVideoDataSchema,
   youtubeVideoFailureDataSchema,
   GEMINI_YOUTUBE_SCOUT_MAX_LEAD_CHARACTERS,
-  GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS,
-  type GeminiYoutubeScoutBackgroundCheckpoint
+  GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS
 } from "@askrigor/sources";
 import { z } from "zod";
 import { EUROPE_PMC_SECTIONS, EUROPE_PMC_FULL_TEXT_COVERAGE, europePmcSections } from "./europe-pmc-sections.js";
@@ -1856,7 +1855,7 @@ function defineResearchOperations(
       if (secret === undefined) return scoutError("gemini_scout_continuation_unavailable", false);
       let target: z.output<typeof automatedScoutInputSchema>;
       let leads: string[] = [];
-      let resume: { checkpoint: GeminiYoutubeScoutBackgroundCheckpoint; accountedNanoUsd: number } | undefined;
+      let resume: Parameters<typeof executeResumableAutomatedGeminiScout>[1];
       if (input.continuation_token !== undefined) {
         try {
           const state = decodeScoutContinuation(input.continuation_token, secret, Date.now());
@@ -1867,7 +1866,11 @@ function defineResearchOperations(
             ...(state.language === undefined ? {} : { language: state.language })
           };
           leads = state.rediscovery_leads ?? [];
-          resume = { checkpoint: state.checkpoint, accountedNanoUsd: state.accounted_nano_usd };
+          resume = {
+            checkpoint: state.checkpoint,
+            accountedNanoUsd: state.accounted_nano_usd,
+            ...(state.budget_hold === undefined ? {} : { budgetHold: state.budget_hold })
+          };
         } catch (error) {
           // An expired token still names the stored provider interaction:
           // delete it before reporting the expiry.
@@ -1935,11 +1938,13 @@ function defineResearchOperations(
             : undefined);
       }
       if ("controller_progress" in execution) {
+        const budgetHold = execution.controller_progress.budget_hold;
         const continuation = encodeScoutContinuation({
           ...target,
           ...(leads.length === 0 ? {} : { rediscovery_leads: leads }),
           checkpoint: execution.controller_progress.checkpoint,
           accounted_nano_usd: execution.controller_progress.accounted_nano_usd,
+          ...(budgetHold === undefined ? {} : { budget_hold: budgetHold }),
           expires_at_ms: Date.now() + SCOUT_CONTINUATION_TTL_MS
         }, secret);
         const heldBy = execution.controller_progress.held_by;

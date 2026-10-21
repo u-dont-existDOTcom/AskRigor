@@ -25,7 +25,8 @@ import { RESEARCH_ACTION_RESPONSE_MAX_BYTES } from "../config.js";
 import {
   createSharedFileAiBudget,
   MONTHLY_AI_BUDGET_NANO_USD,
-  type AiBudget
+  type AiBudget,
+  type BudgetHold
 } from "../lessons/ai-budget.js";
 import type { ActionRequestContext, ActionResult, ActionRoute } from "./types.js";
 
@@ -167,6 +168,9 @@ export type ResumableAutomatedGeminiScoutExecution =
       controller_progress: {
         checkpoint: GeminiYoutubeScoutBackgroundCheckpoint;
         accounted_nano_usd: number;
+        // The budget hold charged when the scout started, which the call that
+        // completes it settles; the caller carries it with the checkpoint.
+        budget_hold?: BudgetHold;
         // Why a resumed scout is held without advancing: it was stopped and
         // its stored interaction is not deleted yet, or a provider it needs is
         // not configured here. A later call deletes or resumes it.
@@ -420,13 +424,16 @@ export async function executeAutomatedGeminiScout(
 /**
  * Controller-only Gemini executor. The first transition starts one budgeted
  * background Interaction; later transitions poll the exact server-owned
- * checkpoint without reserving or charging the budget again.
+ * checkpoint without reserving again. A scout unfinished after its first call
+ * keeps its whole reservation charged as a hold, and the call that completes
+ * it settles the real cost against that hold, as a one-call scout commits it.
  */
 export async function executeResumableAutomatedGeminiScout(
   input: z.output<typeof automatedScoutInputSchema>,
   resume: {
     checkpoint: GeminiYoutubeScoutBackgroundCheckpoint;
     accountedNanoUsd: number;
+    budgetHold?: BudgetHold;
   } | undefined,
   options: CreateAutomatedGeminiScoutActionRouteOptions = {},
   rediscoveryLeads: readonly string[] = []
@@ -543,9 +550,10 @@ export async function executeResumableAutomatedGeminiScout(
   }
 
   if (advance.kind === "progress") {
+    let budgetHold = resume?.budgetHold;
     if (reservation !== undefined) {
       try {
-        await reservation.forfeit();
+        budgetHold = await reservation.hold();
       } catch {
         return controllerBoundary("gemini_scout_budget_unavailable", false);
       }
@@ -554,7 +562,8 @@ export async function executeResumableAutomatedGeminiScout(
       controller_progress: {
         checkpoint: advance.checkpoint,
         accounted_nano_usd: resume?.accountedNanoUsd ??
-          GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
+          GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD,
+        ...(budgetHold === undefined ? {} : { budget_hold: budgetHold })
       }
     };
   }
@@ -578,6 +587,12 @@ export async function executeResumableAutomatedGeminiScout(
       await reservation.commit(accountedNanoUsd);
     } catch {
       return controllerBoundary("gemini_scout_budget_unavailable", false);
+    }
+  } else if (resume?.budgetHold !== undefined) {
+    // Started on an earlier call: its real cost settles the hold charged then.
+    const actualNanoUsd = calculateGeminiScoutNanoUsd(scoutData.usage);
+    if (await settleBudgetHold(resume.budgetHold, actualNanoUsd, options)) {
+      accountedNanoUsd = actualNanoUsd;
     }
   }
   if (accountedNanoUsd === undefined) {
@@ -619,16 +634,42 @@ function controllerBoundary(
 }
 
 function heldResume(
-  resume: { checkpoint: GeminiYoutubeScoutBackgroundCheckpoint; accountedNanoUsd: number },
+  resume: {
+    checkpoint: GeminiYoutubeScoutBackgroundCheckpoint;
+    accountedNanoUsd: number;
+    budgetHold?: BudgetHold;
+  },
   code: z.output<typeof automatedScoutBoundarySchema>["code"]
 ): ResumableAutomatedGeminiScoutExecution {
   return {
     controller_progress: {
       checkpoint: resume.checkpoint,
       accounted_nano_usd: resume.accountedNanoUsd,
+      ...(resume.budgetHold === undefined ? {} : { budget_hold: resume.budgetHold }),
       held_by: code
     }
   };
+}
+
+/**
+ * Settles a resumed scout's hold with its real cost. False when no budget is
+ * configured here, the hold is larger than one scout's reservation, or the
+ * ledger cannot record it: the whole hold then stays charged, as for a scout
+ * that never settles.
+ */
+async function settleBudgetHold(
+  hold: BudgetHold,
+  actualNanoUsd: number,
+  options: CreateAutomatedGeminiScoutActionRouteOptions
+): Promise<boolean> {
+  if (!(hold.held_nano_usd <= GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD)) return false;
+  try {
+    const budget = options.budget ?? productionAiBudget();
+    await budget.settle(hold, actualNanoUsd);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
