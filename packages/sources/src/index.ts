@@ -257,6 +257,22 @@ export {
   type GeminiVideoUsage
 } from "./gemini-video-claims.js";
 export {
+  DEFAULT_GEMINI_MODEL_SETTING,
+  GEMINI_MODEL_IDS,
+  GEMINI_MODEL_TRIAL_ARMS,
+  GEMINI_SEARCH_QUERY_NANO_USD,
+  GEMINI_THINKING_LEVELS,
+  geminiModelIdSchema,
+  geminiModelTrialSetting,
+  geminiThinkingLevelSchema,
+  geminiTokenPrices,
+  geminiUsageNanoUsd,
+  type GeminiModelId,
+  type GeminiModelSetting,
+  type GeminiModelTrialArm,
+  type GeminiThinkingLevel
+} from "./gemini-models.js";
+export {
   createYoutubeTranscriptProvider,
   getYoutubeTranscript,
   youtubeTranscriptEnvelopeSchema,
