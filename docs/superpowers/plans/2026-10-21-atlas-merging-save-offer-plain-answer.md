@@ -270,6 +270,13 @@ and never as an AskRigor audit. The owner library's access rules do not change, 
 tool goes into a contribution. The skill gets one sentence (under its word budget). Acceptance runs in the owner's
 ChatGPT with InfoAccess connected, because the release tests forbid other apps' tools.
 
+**Built (21 Oct):** a completed lead's `acquire_open_full_text` reply ends with `OTHER_FULL_TEXT_ROUTE`, the next step;
+`key_sources[].other_route` (`read`, `unavailable`, `cost`, `none`) is the model's declaration; a lead declared `read`
+gets the limit "Cite … as read through another tool, not audited by AskRigor." and the caveat "One key study, [this
+study](…), was read through another tool, not audited by AskRigor." in place of its unread-study caveat, on each of
+the three lead paths (a signed lead, repeated service failures, a PubMed record without a DOI). The skill has no room
+for its sentence (1,198 of 1,200 words), so the reply and the final check carry it.
+
 ## 8. 148a, other tools' text in an answer (owner's connector questions, 21 Oct)
 
 A model-behavior rule under 148a, not a method change: research tools from other providers connected beside AskRigor

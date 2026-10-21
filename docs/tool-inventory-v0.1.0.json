@@ -14737,6 +14737,16 @@
                 },
                 "reason": {
                   "type": "string"
+                },
+                "other_route": {
+                  "description": "For a lead_only study, as you know it (AskRigor cannot see this app's other tools): read, its text was read through another full-text tool connected here; unavailable, one was tried without access; cost, one was not used because it costs the user credits; none, no such tool is connected. A study read that way is reported as read through another tool, not audited by AskRigor.",
+                  "type": "string",
+                  "enum": [
+                    "read",
+                    "unavailable",
+                    "cost",
+                    "none"
+                  ]
                 }
               },
               "required": [

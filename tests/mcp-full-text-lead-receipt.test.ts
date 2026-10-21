@@ -16,6 +16,7 @@ vi.mock("@askrigor/sources", async (importOriginal) => ({
 }));
 
 const { createAskRigorServer } = await import("../apps/research-mcp/src/server.js");
+const { OTHER_FULL_TEXT_ROUTE } = await import("../apps/research-mcp/src/register-tools.js");
 
 const SECRET = "full-text-lead-test-secret-0123456789ab";
 const DOI = "10.1000/example-trial";
@@ -119,7 +120,8 @@ describe("MCP full-text lead receipts", () => {
       { route: "unpaywall", result: "inaccessible", identifier: DOI }
     ]));
     const { text, receipt } = await acquireOnce();
-    expect(text).toBe("acquire open full text completed.");
+    // Owner answer 147a: a completed lead names the next step, another full-text tool this app has connected.
+    expect(text).toBe(`acquire open full text completed. ${OTHER_FULL_TEXT_ROUTE}`);
     expect(verifyResearchReceipt(receipt!, { secret: SECRET })).toMatchObject({
       ok: true,
       kind: "full_text_lead",

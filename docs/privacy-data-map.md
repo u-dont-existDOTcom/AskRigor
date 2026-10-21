@@ -1055,8 +1055,12 @@ pending-proposal stores have their own strict contracts and authority boundaries
   fetched, logged or stored for this.
   `key_sources.read_depth` records declared reading depth, and `answer_marker`
   records the visible source label (3–80 characters), checked on the source
-  link's line without judging its meaning. These declarations are request-local
-  and are not logged or persisted.
+  link's line without judging its meaning. For a lead, `key_sources.other_route`
+  (owner answer 147a) records how the model says it used another full-text tool
+  the app has connected: `read`, `unavailable`, `cost` or `none`. AskRigor cannot
+  see the app's other tools and sends nothing to them; a study declared `read`
+  is reported as read through another tool, not audited by AskRigor. These
+  declarations are request-local and are not logged or persisted.
 - MCP research receipts (`research_receipt`) are HMAC-SHA256 tokens under a
   domain-separated key derived from the finalization signing secret, or else the
   YouTube continuation secret. They carry only public identifiers (YouTube

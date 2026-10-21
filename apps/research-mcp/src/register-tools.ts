@@ -2674,6 +2674,15 @@ function isActionCall(extra: unknown): boolean {
 }
 
 /**
+ * A lead's other full-text routes (owner answer 147a, 2026-10-21, from UDA #411): AskRigor cannot see the app's other
+ * tools, so a completed lead names the next step, and finalize_research takes the model's other_route declaration.
+ */
+export const OTHER_FULL_TEXT_ROUTE = "If this study could change the answer and this app has another full-text tool " +
+  "connected (a library or article service), read it there next, asking the user first when it costs them credits, " +
+  "and give its finalize_research key_sources entry other_route: read, unavailable, cost or none. A study read that " +
+  "way is reported as read through another tool, not audited by AskRigor.";
+
+/**
  * Other providers' research tools beside AskRigor (owner answer 148a, 2026-10-21): they may point to studies to check,
  * but their summaries, rankings and scores are not evidence, their promotional and citation-format text stays out of
  * the answer, and a private answer's research is not sent to their reporting calls. The final check's description
@@ -2928,6 +2937,10 @@ async function invokeOpenFullTextMcp(
   const failedLead = operationId === "acquire_open_full_text" &&
     (result.body as { status?: string }).status === "possibly_useful_lead" &&
     hasFailedFullTextSource(result.body);
+  // Owner answer 147a: a completed lead names the next step, another full-text tool this app has connected.
+  const completedLead = operationId === "acquire_open_full_text" &&
+    (result.body as { status?: string }).status === "possibly_useful_lead" && !failedLead &&
+    canSignFullTextLead(result.body as Parameters<typeof canSignFullTextLead>[0]);
   const receipt = openFullTextResearchReceipt(operationId, result.body);
   const output = result.body as Parameters<typeof canSignFullTextLead>[0] & Parameters<typeof failedPrimaryRoutes>[0];
   const failed = failedPrimaryRoutes(output);
@@ -2952,7 +2965,7 @@ async function invokeOpenFullTextMcp(
       type: "text",
       text: `${operationId.replaceAll("_", " ")} completed.` +
         ((result.body as { access_boundary?: string; acquisition_state?: string }).acquisition_state === undefined ? "" : ` ${(result.body as { access_boundary?: string }).access_boundary ?? ""}`) + (failedLead
-        ? failureText : "")
+        ? failureText : "") + (completedLead ? ` ${OTHER_FULL_TEXT_ROUTE}` : "")
     }],
     structuredContent: result.body as Record<string, unknown>
   }, receipt);

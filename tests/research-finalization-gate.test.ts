@@ -1865,6 +1865,29 @@ describe("finalize_research gate", () => {
     expect(result.caveats).toContain(caveat);
   });
 
+  // Owner answer 147a (2026-10-21, from UDA #411): a lead read through another of the app's full-text tools is
+  // reported as read that way, never as abstract-only and never as AskRigor's audit; the other answers keep the lead.
+  it("reports a lead read through another tool as read there, not audited by AskRigor", () => {
+    const id = "10.1016/j.joca.2020.01.001";
+    const receipt = sign("full_text_lead", { doi: id, state: "PAYWALL_OR_LOGIN_REQUIRED" }, options);
+    const check = (other_route: "read" | "unavailable" | "cost" | "none") => finalizeResearch({
+      receipts: [survey, emptySearch, repeatScout, videoA, videoB, study, receipt],
+      community_evidence: "researched", treatment_choice: "not_compared", research_target: TARGET,
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id, status: "lead_only", other_route }]
+    }, options);
+    const read = check("read");
+    expect(read.status).toBe("ready_with_limits");
+    expect(read.sources.lead_only).toEqual([id]);
+    expect(read.limits).toContain(`Cite ${id} as read through another tool, not audited by AskRigor.`);
+    expect(read.caveats).toContain(`One key study, ${LEAD_LINK}, was read through another tool, not audited by AskRigor.`);
+    expect(read.caveats.join(" ")).not.toContain("was not openly available");
+    for (const other of ["unavailable", "cost", "none"] as const) {
+      const lead = check(other);
+      expect(lead.caveats).toContain(`The full text of ${LEAD_LINK} was not openly available, so its methods were not checked.`);
+      expect(lead.caveats.join(" ")).not.toContain("read through another tool");
+    }
+  });
+
   it("states that PubMed lists a key study without a DOI, without calling it unavailable", () => {
     const noDoiRecord = sign("pubmed_record", { pmid: "31234567" }, options);
     const result = finalizeResearch({

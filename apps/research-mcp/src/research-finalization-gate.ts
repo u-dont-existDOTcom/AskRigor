@@ -200,6 +200,9 @@ const reportIdentitySchema = z.object({
 // full_text_search and lab_preparation are one object each, not two alternatives: ChatGPT's app shows the model a
 // two-branch union only as "unknown" (read-only Codex probes, 2026-10-16), so the model invented their fields and
 // the connector rejected the call. The status names the field it needs, which the final check asks for.
+/** How a lead_only study was handled with this app's other full-text tools (owner answer 147a). */
+export const OTHER_ROUTE_VALUES = ["read", "unavailable", "cost", "none"] as const;
+
 export const finalizeResearchInputSchema = z.object({
   receipts: z.array(z.string().max(RESEARCH_RECEIPT_MAX_CHARACTERS)).max(300)
     .describe("Every research_receipt AskRigor tools returned during this research, copied exactly."),
@@ -400,7 +403,14 @@ export const finalizeResearchInputSchema = z.object({
       .describe("Records each source's required reading depth; full_text_audited needs a verified method audit, full_text_read a completed-reading or audit receipt."),
     answer_marker: z.string().trim().min(3).max(80).optional()
       .describe("Required with answer_draft: the visible label for this source, 3–80 characters, on the same line as its link."),
-    reason: z.string().trim().min(1).max(1_000).optional()
+    reason: z.string().trim().min(1).max(1_000).optional(),
+    // Owner answer 147a (2026-10-21, from UDA #411): AskRigor cannot see the app's other tools, so the model declares
+    // whether a lead was read through one.
+    other_route: z.enum(OTHER_ROUTE_VALUES).optional()
+      .describe("For a lead_only study, as you know it (AskRigor cannot see this app's other tools): read, its text " +
+        "was read through another full-text tool connected here; unavailable, one was tried without access; cost, " +
+        "one was not used because it costs the user credits; none, no such tool is connected. A study read that way " +
+        "is reported as read through another tool, not audited by AskRigor.")
   }).strict()).max(60)
     .describe("Lists each study the conclusions depend on: validated after a full-text method audit, or lead_only " +
       "when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text. " +
@@ -1707,6 +1717,11 @@ export function finalizeResearch(
   // Studies read only as leads: one limit each, and one caveat per reason that
   // stopped the reading, from the state each full-text lead receipt signed.
   const unreadStudies = new Map<string, string | undefined>();
+  // Owner answer 147a: a lead the model declares it read through another of this app's tools.
+  const readThroughOtherTool = (sourceId: string, id: string): void => {
+    requireLimit(`Cite ${sourceId} as read through another tool, not audited by AskRigor.`);
+    unreadStudies.set(id, "OTHER_TOOL");
+  };
   // Every identifier and page the receipts tie to a key study links it (a PubMed record's page since the
   // 2026-10-15 owner regressions; its other copies and its publisher page since 16 October's).
   const keyLinks = input.key_sources.map((source) => {
@@ -1774,6 +1789,10 @@ export function finalizeResearch(
         PARTIAL_TEXT_READABLE: "only part of its text was readable",
         IDENTITY_MISMATCH: "no copy found could be verified as the same paper"
       };
+      if (source.other_route === "read") {
+        readThroughOtherTool(source.id, id);
+        continue;
+      }
       const state = ids.map((candidate) => leadStates.get(candidate)).find((state) => state !== undefined);
       const limit = state === undefined ? "no open full text was available" : limits[state] ?? "no open full text was available";
       requireLimit(`Cite ${source.id} as a lead: ${limit}, so its methods were not audited.`);
@@ -1793,6 +1812,10 @@ export function finalizeResearch(
         [doi, new Set(failures.map(({ pmcid }) => pmcid))]));
       if (needsPubmedCopyAttempt(source.id, id, pubmedDoi, failedAttempts)) continue;
       leadSources.push(source.id);
+      if (source.other_route === "read") {
+        readThroughOtherTool(source.id, id);
+        continue;
+      }
       requireLimit(`Cite ${source.id} as a lead: a full-text service kept failing when AskRigor tried to fetch it, ` +
         "so its methods were not audited.");
       unreadStudies.set(id, "ROUTE_FAILED");
@@ -1824,6 +1847,10 @@ export function finalizeResearch(
     if (isPmid(id) && pubmedDoi === "") {
       // PubMed lists no DOI and no PMC copy, so the open full-text chain cannot run; the lead is proven.
       leadSources.push(source.id);
+      if (source.other_route === "read") {
+        readThroughOtherTool(source.id, id);
+        continue;
+      }
       requireLimit(
         `Cite ${source.id} as a lead: PubMed lists no DOI, so no open full text could be acquired and its methods were not audited.`
       );
@@ -3357,6 +3384,8 @@ function unreadStudiesCaveats(studies: ReadonlyMap<string, string | undefined>):
   return [...groups].map(([reason, links]) => {
     const [one, several] = UNREAD_STUDY_REASONS[reason]!;
     const listed = links.length === 1 ? links[0]! : `${links.slice(0, -1).join(", ")} and ${links.at(-1)}`;
+    // A study read through another tool was read: the sentence says by what, and that AskRigor did not audit it.
+    if (reason === "OTHER_TOOL") return `${(links.length === 1 ? one : several).replace("{links}", () => listed)}.`;
     return links.length === 1
       ? `${one.replace("{links}", () => listed)}, so its methods were not checked.`
       : `${several.replace("{links}", () => listed)}, so their methods were not checked.`;
@@ -3371,6 +3400,10 @@ const UNREAD_STUDY_REASONS: Readonly<Record<string, readonly [string, string]>> 
     "AskRigor could not fetch the full texts of {links} because full-text services kept failing"
   ],
   UNAVAILABLE: ["The full text of {links} was not openly available", "The full texts of {links} were not openly available"],
+  OTHER_TOOL: [
+    "One key study, {links}, was read through another tool, not audited by AskRigor",
+    "Key studies {links} were read through another tool, not audited by AskRigor"
+  ],
   NO_DOI: [
     "AskRigor could not fetch the full text of {links}, which PubMed lists without a DOI",
     "AskRigor could not fetch the full texts of {links}, which PubMed lists without DOIs"
