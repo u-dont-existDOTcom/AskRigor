@@ -29,15 +29,16 @@ identity/contact details, private health narratives, uploads, raw source or
 provider bodies, credentials, or YouTube/community posts, commenters, links or
 video IDs. Paid private mode submits no shared contribution.
 
-At the end of eligible free-mode work, submit the strict formal research
+After eligible free-mode work, submit the strict formal research
 frontier with its exact coverage, candidate decisions, partial state, and open
 trails, with `submit_research_contribution`; never invent missing fields or
-reconstruct analysis from memory. The server files this account's validated
-study and review audits, from any chat, when `finalize_research` passes; never
-submit those yourself. A pending proposal is not canonical evidence;
-never present it as accepted. Preserve partial corpora as usable and label them
-partial. If no eligible structured formal-research proposal exists, submit
-nothing.
+reconstruct analysis from memory. Differently worded canonical topics: propose a
+`TOPIC_LINK` (same/narrower/broader/related) for owner review. The server files
+this account's validated study/review audits, from any chat, when
+`finalize_research` passes; never submit those yourself.
+A pending proposal is not canonical evidence; never present it as accepted.
+Preserve partial corpora as usable and label them partial. Without an eligible
+structured formal-research proposal, submit nothing.
 
 For an authenticated allowlisted owner's proposal review, call
 `review_research_contribution` and inspect the exact payload/hash first. Accept

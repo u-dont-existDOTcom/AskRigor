@@ -1734,7 +1734,7 @@ function defineResearchOperations(
   registrar.registerTool(
     "review_research_contribution",
     {
-      description: "Owner-only review of one deidentified pending research contribution. Inspect the exact payload and hash, then accept or reject with a reason. Acceptance creates a hash-bound pending promotion intent but this public-runtime call never writes canonical evidence; a separate one-shot administrator completes promotion.",
+      description: "Owner-only review of one deidentified pending research contribution. Inspect the exact payload and hash, then accept or reject with a reason. Inspect also shows, by ID only, the other pending proposals and the canonical records that share its topic, question, frontier or identifiers, and a promotion preflight naming any conflict by its code. Acceptance creates a hash-bound pending promotion intent but this public-runtime call never writes canonical evidence; a separate one-shot administrator completes promotion.",
       inputSchema: researchContributionReviewInputSchema,
       outputSchema: researchContributionReviewOutputSchema,
       annotations: MUTATING_ANNOTATIONS,

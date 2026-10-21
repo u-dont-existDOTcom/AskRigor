@@ -23,6 +23,12 @@ activation. Stored times are compared with the payload's as instants, so a run
 or retrieval time written without milliseconds, with an offset or with
 microseconds promotes.
 
+Each intent goes to the canonical writer for its kind: `contribute` for a source
+analysis, `contributeFrontier` for a frontier, and `contributeTopicLink` for a
+topic link (owner answer 138b), which appends the link with either each topic's
+label as the other's alias or one topic edge, and never moves, changes or
+deletes a topic or anything filed under it.
+
 ## Installed files
 
 Install the reviewed repository bytes as root:
@@ -86,10 +92,11 @@ without depending on or warning about root's Docker client configuration.
    one exact promotion and receipt is the expected bounded mutation.
 2. Inspect `systemctl status askrigor-research-promotion.service` and the bounded
    `journalctl -u askrigor-research-promotion.service` output. Logs may contain
-   operation state, proposal UUID/hash, canonical identifiers, receipt hash, and
-   each failed intent's promotion and proposal UUIDs, kind and fixed failure
-   code; they must not contain a database URL, credential, raw payload, account
-   key, or private content.
+   operation state, proposal UUID/hash, canonical identifiers, receipt hash (a
+   topic link's receipt names its link UUID, relation and how many aliases and
+   edges it wrote), and each failed intent's promotion and proposal UUIDs, kind
+   and fixed failure code; they must not contain a database URL, credential, raw
+   payload, account key, or private content.
 3. Enable and start `askrigor-research-promotion.timer`. Verify it is loaded,
    enabled, and active, then use `systemctl list-timers
    askrigor-research-promotion.timer` to record a future trigger.

@@ -64,7 +64,7 @@ user cannot obtain cross-user case or proposal review merely by carrying
 ## Proposal boundary
 
 `submit_research_contribution` is available only in active free-contributor
-mode. It accepts one of the two already canonical strict payload shapes:
+mode. It accepts one of three strict payload shapes:
 
 1. `RESEARCH_FRONTIER`: formal discovery lanes, exact coverage windows and
    receipts, candidates and decisions, open/blocked trails, and partial state.
@@ -72,6 +72,9 @@ mode. It accepts one of the two already canonical strict payload shapes:
    including the complete performed AskRigor-authored analysis when available,
    its exact hashes/receipts, domain findings, limitations, and future-analysis
    items.
+3. `TOPIC_LINK` (owner answer 138b): two canonical topics, each named by its
+   ID and key, one relation (`same`, `narrower`, `broader` or `related`) and a
+   deidentified rationale. See "Merging" below.
 
 Partial formal corpora are accepted and labeled `partial`; incomplete coverage
 does not make observed records ineligible. A topic-only narrative is not a
@@ -120,8 +123,8 @@ and has no canonical writer credential.
 
 Canonical promotion remains a separate privileged operation. The one-shot
 `living-evidence-admin promote-accepted` command locks one pending intent,
-reruns the strict contribution preparation, dispatches to the existing
-`contribute` or `contributeFrontier` writer, and stores an exact stable-JSON
+reruns the strict contribution preparation, dispatches to the
+`contribute`, `contributeFrontier` or `contributeTopicLink` writer, and stores an exact stable-JSON
 receipt and SHA-256. A crash after the canonical writer commits but before the
 intent receipt commits leaves the intent pending; retry uses the canonical
 writer's existing idempotency key and then completes the receipt. The command
@@ -148,6 +151,78 @@ constraint error now has its own code: `TOPIC_KEY_CONFLICT`,
 `FRONTIER_CANDIDATE_IDENTITY_CONFLICT`, `SOURCE_FAMILY_IDENTITY_CONFLICT` and
 `SOURCE_VERSION_IDENTITY_CONFLICT`.
 
+## Merging (owner answer 138b)
+
+Owner answer 138b (2026-10-20): "exact merging (the same topic, question or
+study continues the existing record; a finished version replaces the same
+account's draft; related records shown when you review), plus merging by
+meaning (the AI may declare two differently worded topics the same, linked on
+your acceptance, nothing moved or deleted)". Every check below is exact; none
+judges meaning, so each works in any language.
+
+**A frontier continues the canonical records it names.** Before a
+`RESEARCH_FRONTIER` proposal is stored, the service reads the canonical store
+through the public runtime's read-only reader and reconciles the frontier by
+exact identity: the topic by its key (keeping the canonical topic's ID and
+label); the question and frontier by ID, or by the exact normalized question and
+all six dimensions within the topic; a lane by key when its provider, source
+class and coverage basis match; a candidate by the hash of its identifiers, as a
+new version chained to the candidate's current version. Passes and trails stay
+as sent. The result lists each ID set to a canonical one (`proposal.reconciled`,
+IDs only, all already public through the catalog tools), and the stored payload
+and its hash are the reconciled ones, which the owner reviews. A canonical ID
+named with other content is refused with a field-level problem
+(`canonical_conflict` or `canonical_missing`). When the reader cannot be read,
+the frontier is filed as sent (`canonicalCheck: "unavailable"`).
+
+**A second audit of a study joins the study's record.** An analysis the server
+files after `finalize_research` is its own analysis, keyed by its audit and
+protocols, so two audits of one study never both claim an `initial` version.
+When the source's identifiers name one canonical source family and no
+identifier conflicts, the analysis carries that family's ID, title, version of
+the same bytes and freshness policy. An audit the canonical store already holds
+under the same protocols, or one this account already filed, is not filed
+again. Whether one audit supersedes another stays a human judgment.
+
+**A finished version replaces the account's own draft.** An optional
+`supersedesProposalId` names this account's own pending proposal of the same
+kind. Accepting the new proposal rejects that draft, with the reason
+"superseded by <id>", in the same transaction; rejecting it leaves the draft.
+A database trigger refuses any other UUID with one problem
+(`superseded_proposal`) that says nothing about whether the UUID names another
+account's proposal.
+
+**The review shows what is related, and what promotion would meet.**
+`review_research_contribution` `inspect` returns `related.proposals`: the other
+proposals pending review or queued for promotion that share the topic key or
+ID, the frontier, the question, the source family, or a candidate or source
+identifier, by proposal ID, kind, state and the kinds of identity shared (at
+most 25 shown, with a count of the rest), never an account key or another
+proposal's content. It also returns `related.canonical`, the canonical records
+sharing those identities (IDs only), and `preflight`: a read-only dry run of
+the canonical writer's identity checks that names each conflict by its failure
+code and payload path (`clear`, `conflicts`, `replay` or `unavailable`). The
+proposals come through `inspect_research_contribution_context`; the canonical
+records and the preflight through the public runtime's read-only reader.
+Nothing in them is stored.
+
+**Merging by meaning is a topic link.** Whether two differently worded topics
+are the same, or one is narrower than, broader than or related to the other, is
+the model's declaration and the owner's judgment at review; the review text
+says so. The intake checks only what is exact, against the canonical store: both
+topics exist under the IDs and keys named, they differ, and no stored link
+contradicts or repeats this one (topics linked as the same have no hierarchy
+between them, a hierarchy runs one way and makes no cycle, a link is not stored
+twice, no third topic already has the alias "same" would write, and the link's
+UUID is new). A link is not filed when the canonical reader cannot be read. On
+promotion the canonical writer repeats those checks under its lock and appends a
+`topic_link_contributions` row: for `same`, each topic's label as the other's
+alias, which `search_research_frontiers` reads; otherwise one `topic_edges` row
+under the link's UUID. It never moves, changes or deletes either topic or
+anything filed under it. A conflict ends the promotion `FAILED` with
+`TOPIC_LINK_CONFLICT`, `TOPIC_ALIAS_CONFLICT`, `TOPIC_LINK_TOPIC_MISSING`,
+`TOPIC_LINK_ID_CONFLICT` or `TOPIC_LINK_IDEMPOTENCY_KEY_PAYLOAD_MISMATCH`.
+
 ## Database model
 
 Migration `0009_research_contributor_access.sql` creates:
@@ -172,7 +247,10 @@ tables.
 Migration `0010_research_contribution_review.sql` adds the
 `research_contribution_promotions` outbox and two security-definer functions.
 Migration `0012_research_contribution_merging.sql` adds the `FAILED` state,
-`failure_code` and `failed_at`, and a third security-definer function,
+`failure_code` and `failed_at`, the proposal's optional
+`supersedes_proposal_id` with its same-account trigger, the `TOPIC_LINK` kind,
+the append-only canonical `topic_link_contributions` table (written only by the
+canonical writer), and a third security-definer function,
 `inspect_research_contribution_context`, which returns what the review needs
 beyond 0010's projection as one JSON object and never an account key.
 The distinct `askrigor_research_review` database role receives only schema use
@@ -230,6 +308,11 @@ the primary ChatGPT/Codex plugin is the supported surface for this slice.
 - The deterministic privacy screen cannot recognize every indirect identifier.
 - Pending proposal retention is operator-managed rather than automatically
   expiring in this slice.
+- Exact merging joins only exact matches: a question worded differently, or a
+  study with a conflicting identifier, stays its own record. A topic link joins
+  differently worded topics, not questions or studies.
+- An accepted topic link stays in the append-only store; there is no record yet
+  that withdraws a wrong one.
 
 The scheduler release evidence is in
 `audits/2026-09-01-promotion-scheduler-production-release.md` and its machine
