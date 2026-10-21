@@ -2738,7 +2738,8 @@ async function stageValidatedAnalysis(
     kind,
     index,
     auditReceipt: body!.audit_receipt as never,
-    crossref: crossrefConfig()
+    crossref: crossrefConfig(),
+    canonical: LIVING_EVIDENCE_READER
   }));
   return result;
 }

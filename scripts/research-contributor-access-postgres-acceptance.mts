@@ -11,10 +11,14 @@ import {
   deterministicUuid,
   prepareResearchContributionProposal,
   type ContributionPrivacyBoundary,
+  type LivingEvidenceContribution,
 } from "../packages/evidence-repository/src/index.js";
+import { buildStagedAnalysis } from "../apps/research-mcp/src/analysis-staging.js";
+import { validateStudyMethodAudit } from "../apps/research-mcp/src/index.js";
 import {
   livingEvidenceFixture,
   researchFrontierFixture,
+  reusableStudyAuditFixture,
 } from "./living-evidence-task-acceptance.mts";
 
 const SCHEMA = "living_evidence";
@@ -368,6 +372,7 @@ async function verify(
       checks,
     });
     await verifyExactContinuation({ adminUrl, readerUrl, service, reviewService, writer, checks });
+    await verifyTwoAuditsOfOneStudy({ adminUrl, readerUrl, admin, service, reviewService, writer, checks });
 
     const racePayload = researchFrontierFixture("research-review-withdraw-race");
     const raceProposal = await service.submitProposal(REVIEW_SUBJECT, {
@@ -691,6 +696,104 @@ async function verifyExactContinuation(context: {
       "UNRECONCILED_CONTROL_DID_NOT_FAIL_WITH_TOPIC_KEY_CONFLICT",
     );
     checks.push("the_same_frontier_filed_as_sent_fails_with_topic_key_conflict");
+  } finally {
+    await Promise.allSettled([reader.close(), runner.close()]);
+  }
+}
+
+/**
+ * Owner answer 138b: two free accounts' audits of one DOI, both pending at once, promote as two analyses of one source
+ * version; a later audit, staged with the reader, joins the canonical family; an audit the store already holds is not
+ * filed again; and the same audit staged again at another time is filed once.
+ */
+async function verifyTwoAuditsOfOneStudy(context: {
+  adminUrl: string;
+  readerUrl: string;
+  admin: Pool;
+  service: ResearchContributorAccessService;
+  reviewService: ResearchContributionReviewService;
+  writer: PostgresEvidenceRepository;
+  checks: string[];
+}): Promise<void> {
+  const { adminUrl, readerUrl, admin, service, reviewService, writer, checks } = context;
+  const reader = new PostgresEvidenceRepository({ connectionString: readerUrl, schema: SCHEMA });
+  const runner = new PostgresResearchContributionPromotionRunner(
+    { connectionString: adminUrl, schema: SCHEMA },
+    writer,
+    { now: () => "2026-09-01T03:50:00.000Z" },
+  );
+  const { index, audit } = reusableStudyAuditFixture("two-audits-of-one-study");
+  const reworded = (finding: string) => ({
+    ...audit,
+    domain_findings: audit.domain_findings.map((domain, position) =>
+      position === 0 ? { ...domain, plain_language_finding: finding } : domain),
+  });
+  const audits = [audit, reworded("A second reader's bounded finding."), reworded("A third reader's bounded finding.")];
+  const stage = async (submission: typeof audit, at: string, canonical?: PostgresEvidenceRepository) => {
+    const staged = await buildStagedAnalysis({
+      kind: "study",
+      index,
+      auditReceipt: validateStudyMethodAudit(index, submission),
+      crossref: { mailto: "" },
+      now: () => new Date(at),
+      protocolManifests: async () => researchFrontierFixture("protocols").run.protocolManifests,
+      checkIntegrity: async () => ({
+        provider: "crossref",
+        access_status: "metadata_only",
+        data: { doi: index.source.doi!, status: "no_retraction_record_found", evidence: [], sources_checked: ["crossref"] },
+      }) as never,
+      ...(canonical === undefined ? {} : { canonical }),
+    });
+    if (!staged.ready) throw new Error(`STUDY_AUDIT_NOT_STAGED reason=${staged.reason}`);
+    return staged;
+  };
+  const file = async (contribution: unknown) => service.submitProposal(PROMOTION_SUBJECT, {
+    proposalKind: "SOURCE_ANALYSIS",
+    privacyBoundary: PRIVACY_BOUNDARY,
+    payload: contribution,
+  }, { serverBuilt: true });
+  const accept = async (record: { proposalId: string; payloadSha256: string }) => reviewService.decide({
+    proposalId: record.proposalId,
+    expectedPayloadSha256: record.payloadSha256,
+    decision: "ACCEPT",
+    reason: "Synthetic audit of a study another audit also covers.",
+  });
+  try {
+    const first = await file((await stage(audits[0]!, "2026-10-21T01:00:00.000Z")).contribution);
+    const second = await file((await stage(audits[1]!, "2026-10-21T02:30:00.000Z")).contribution);
+    assert(first.status === "inserted" && second.status === "inserted", "TWO_AUDITS_NOT_FILED");
+    await accept(first.record);
+    await accept(second.record);
+    const both = await runner.promoteAccepted();
+    const afterFirst = await runner.promoteAccepted();
+    assert(
+      both.failed.length === 0 && afterFirst.failed.length === 0 &&
+      both.result.status === "promoted" && afterFirst.result.status === "promoted",
+      "TWO_AUDITS_OF_ONE_STUDY_COLLIDED",
+    );
+    const family = (first.record.payload as LivingEvidenceContribution).source!.familyId;
+    const stored = await admin.query<{ analyses: number; versions: number }>(
+      `SELECT (SELECT count(*)::int FROM ${SCHEMA}.analyses WHERE source_family_id = $1) AS analyses,
+              (SELECT count(*)::int FROM ${SCHEMA}.source_versions WHERE family_id = $1) AS versions`,
+      [family],
+    );
+    assert(stored.rows[0]?.analyses === 2 && stored.rows[0].versions === 1, "TWO_AUDITS_NOT_ONE_STUDY_RECORD");
+    checks.push("two_pending_audits_of_one_doi_promote_as_two_analyses_of_one_source_version");
+
+    const third = await stage(audits[2]!, "2026-10-21T04:00:00.000Z", reader);
+    assert(third.contribution.source!.familyId === family && third.alreadyCanonical === undefined, "THIRD_AUDIT_NOT_RESOLVED");
+    const thirdFiled = await file(third.contribution);
+    await accept(thirdFiled.record);
+    const thirdRun = await runner.promoteAccepted();
+    assert(thirdRun.failed.length === 0 && thirdRun.result.status === "promoted", "THIRD_AUDIT_NOT_PROMOTED");
+    const again = await stage(audits[0]!, "2026-10-21T05:00:00.000Z", reader);
+    assert(again.alreadyCanonical === true, "CANONICAL_AUDIT_NOT_RECOGNIZED");
+    const restaged = await file((await stage(audits[1]!, "2026-10-21T06:00:00.000Z")).contribution);
+    assert(
+      restaged.status === "idempotent_replay" && restaged.record.proposalId === second.record.proposalId,
+      "RESTAGED_AUDIT_FILED_AGAIN",
+    );
+    checks.push("a_later_audit_joins_the_canonical_family_and_a_known_audit_is_not_filed_again");
   } finally {
     await Promise.allSettled([reader.close(), runner.close()]);
   }

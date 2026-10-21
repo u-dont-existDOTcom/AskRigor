@@ -93,6 +93,14 @@ export interface CanonicalIdentityState {
   analyses: Array<{ analysisId: string; analysisKind: string; topicId: string | null; sourceFamilyId: string | null }>;
   analysisVersionIds: string[];
   claims: Array<{ claimId: string; questionId: string; claimType: string }>;
+  /** Canonical analysis versions holding a receipt with one of the payload's receipt hashes, and their protocols. */
+  receiptVersions: Array<{
+    versionId: string;
+    sourceFamilyId: string | null;
+    receiptKind: string;
+    receiptSha256: string;
+    protocolManifestSha256s: string[];
+  }>;
 }
 
 /** The identities a payload names, which the canonical reader looks up. */
@@ -124,6 +132,7 @@ export interface CanonicalIdentityRequest {
   analysisIds: string[];
   analysisVersionIds: string[];
   claimIds: string[];
+  receiptSha256s: string[];
 }
 
 /** The canonical store's read-only identity view. The public runtime's reader role is enough. */
@@ -157,7 +166,7 @@ export function canonicalIdentityRequest(
     topicIds: [], topicKeys: [], questionIds: [], questionTuples: [], frontierIds: [], laneIds: [], laneKeys: [],
     contributionIds: [], passIds: [], candidateIds: [], candidateIdentityHashes: [], candidateVersionIds: [], trailIds: [],
     trailVersionIds: [], identifiers: [], sourceFamilyIds: [], sourceIdentityHashes: [], sourceVersion: null,
-    freshnessPolicyIds: [], analysisIds: [], analysisVersionIds: [], claimIds: [],
+    freshnessPolicyIds: [], analysisIds: [], analysisVersionIds: [], claimIds: [], receiptSha256s: [],
   };
   if (kind === "RESEARCH_FRONTIER") {
     const frontier = payload as ResearchFrontierContribution;
@@ -208,7 +217,77 @@ export function canonicalIdentityRequest(
     analysisIds: [analysis.analysis.analysisId],
     analysisVersionIds: unique([analysis.analysis.versionId, analysis.analysis.previousVersionId]),
     claimIds: unique((knowledge?.claims ?? []).map(({ claimId }) => claimId)),
+    receiptSha256s: unique(analysis.receipts.map(({ receiptSha256 }) => receiptSha256)),
   };
+}
+
+/** The canonical source family a server-built analysis is filed under, with the metadata it reuses. */
+export interface CanonicalSourceMatch {
+  family: { familyId: string; sourceKind: string; identityHash: string; displayTitle: string };
+  /** A complete canonical version of the family with the same bytes, earliest first. */
+  version: { versionId: string; retrievedAt: string | null; sourceLocator: string | null } | null;
+  freshnessPolicy: CanonicalIdentityState["freshnessPolicies"][number] | null;
+}
+
+/**
+ * The one canonical source family the analysed source's identifiers name, when none of them conflicts: every
+ * identifier the store knows names that family, the family records the same kind of source, and it holds no other
+ * value for a scheme the source has (a DOI and a PMID that disagree stay unresolved). Its title, the version with the
+ * same bytes and its freshness policy are reused, so a second audit of a study joins the study's record.
+ */
+export function resolveCanonicalSource(
+  source: {
+    identifiers: ReadonlyArray<{ scheme: string; value: string }>;
+    sourceKind: string;
+    sourceContentSha256: string | null;
+  },
+  state: CanonicalIdentityState,
+): CanonicalSourceMatch | undefined {
+  const named = state.sourceFamilies.filter((family) =>
+    family.identifiers.some((stored) =>
+      source.identifiers.some(({ scheme, value }) => scheme === stored.scheme && value === stored.value)));
+  if (named.length !== 1) return undefined;
+  const family = named[0]!;
+  if (family.sourceKind !== source.sourceKind) return undefined;
+  const disagrees = source.identifiers.some(({ scheme, value }) => {
+    const stored = family.identifiers.filter((identifier) => identifier.scheme === scheme);
+    return stored.length > 0 && !stored.some((identifier) => identifier.value === value);
+  });
+  if (disagrees) return undefined;
+  const version = state.sourceVersions
+    .filter((candidate) =>
+      candidate.familyId === family.familyId && candidate.accessStatus === "complete" &&
+      candidate.sourceContentSha256 !== null && candidate.sourceContentSha256 === source.sourceContentSha256)
+    .sort((left, right) =>
+      (left.retrievedAt ?? "").localeCompare(right.retrievedAt ?? "") || left.versionId.localeCompare(right.versionId))[0];
+  return {
+    family: {
+      familyId: family.familyId,
+      sourceKind: family.sourceKind,
+      identityHash: family.identityHash,
+      displayTitle: family.displayTitle,
+    },
+    version: version === undefined
+      ? null
+      : { versionId: version.versionId, retrievedAt: version.retrievedAt, sourceLocator: version.sourceLocator },
+    freshnessPolicy: state.freshnessPolicies.find(({ sourceFamilyId }) => sourceFamilyId === family.familyId) ?? null,
+  };
+}
+
+/**
+ * Whether the canonical store already holds this audit of this source under these protocols: a version of the same
+ * family carrying a receipt of the same kind and hash, written under the same protocol manifests.
+ */
+export function auditAlreadyCanonical(
+  contribution: LivingEvidenceContribution,
+  state: CanonicalIdentityState,
+): boolean {
+  const protocols = contribution.run.protocolManifests.map(({ sha256: digest }) => digest).sort();
+  return contribution.receipts.some(({ receiptKind, receiptSha256 }) =>
+    state.receiptVersions.some((stored) =>
+      stored.sourceFamilyId === contribution.source?.familyId &&
+      stored.receiptKind === receiptKind && stored.receiptSha256 === receiptSha256 &&
+      stableJson([...stored.protocolManifestSha256s].sort()) === stableJson(protocols)));
 }
 
 /** One identity a reconciled payload continues: the payload path and the ID it now holds there. IDs only. */

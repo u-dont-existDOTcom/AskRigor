@@ -924,6 +924,23 @@ export class PostgresEvidenceRepository {
         "SELECT claim_id, question_id, claim_type FROM claims WHERE claim_id = ANY($1::uuid[])",
         [request.claimIds],
       );
+      const receiptVersions = await client.query<{
+        version_id: string;
+        source_family_id: string | null;
+        receipt_kind: string;
+        receipt_sha256: string;
+        protocol_manifest_sha256s: string[];
+      }>(
+        `SELECT receipt.version_id, analysis.source_family_id, receipt.receipt_kind, receipt.receipt_sha256::text,
+                run.protocol_manifest_sha256s
+           FROM analysis_receipts receipt
+           JOIN analysis_versions version ON version.version_id = receipt.version_id
+           JOIN analyses analysis ON analysis.analysis_id = version.analysis_id
+           JOIN research_runs run ON run.run_id = version.run_id
+          WHERE receipt.receipt_sha256 = ANY($1::text[])
+          ORDER BY receipt.version_id`,
+        [request.receiptSha256s],
+      );
       await client.query("COMMIT");
       return {
         idempotency: idempotency.rows[0] === undefined
@@ -1023,6 +1040,13 @@ export class PostgresEvidenceRepository {
         })),
         analysisVersionIds: analysisVersions.rows.map(({ version_id: id }) => id),
         claims: claims.rows.map((row) => ({ claimId: row.claim_id, questionId: row.question_id, claimType: row.claim_type })),
+        receiptVersions: receiptVersions.rows.map((row) => ({
+          versionId: row.version_id,
+          sourceFamilyId: row.source_family_id,
+          receiptKind: row.receipt_kind,
+          receiptSha256: row.receipt_sha256,
+          protocolManifestSha256s: row.protocol_manifest_sha256s,
+        })),
       };
     } catch (error) {
       await client.query("ROLLBACK");

@@ -14,6 +14,8 @@ import {
   prepareResearchContributionProposal,
   sha256,
   stableJson,
+  type CanonicalIdentityReader,
+  type CanonicalIdentityState,
   type ResearchContributionProposalRecord,
 } from "@askrigor/evidence-repository";
 import {
@@ -61,6 +63,16 @@ const NO_RECORD = {
   data: { doi: DOI, status: "no_retraction_record_found", evidence: [], sources_checked: ["crossref"] },
 };
 const SECRET = "analysis-staging-test-secret-0123456789abcdef";
+const CONTRIBUTION_PRIVACY_BOUNDARY = {
+  rawChatPersisted: false,
+  promptPersisted: false,
+  accountIdentityInPayload: false,
+  privateHealthNarrativePersisted: false,
+  uploadContentPersisted: false,
+  rawSourceContentPersisted: false,
+  rawProviderResponsePersisted: false,
+  communityDataPersisted: false,
+};
 const IDENTITY_SECRET = new TextEncoder().encode("synthetic-research-identity-secret-with-at-least-thirty-two-bytes");
 
 afterEach(() => {
@@ -309,6 +321,151 @@ describe("held analyses", () => {
         { reason: "no_doi", count: 1 },
       ],
     });
+  });
+});
+
+describe("a second audit of a study joins the study's record (owner answer 138b)", () => {
+  const base = (now: Date, audit = studyAudit(studyIndex())) => {
+    const index = studyIndex();
+    return {
+      kind: "study" as const, index, auditReceipt: validateStudyMethodAudit(index, audit), crossref: { mailto: "" },
+      now: () => now, protocolManifests: async () => PROTOCOLS, checkIntegrity: async () => NO_RECORD as never,
+    };
+  };
+  const secondAudit = () => {
+    const audit = studyAudit(studyIndex());
+    audit.domain_findings[0]!.plain_language_finding = "A second reader inspected this domain and recorded its own bounded limitation.";
+    return audit;
+  };
+  const ready = async (staged: Promise<Awaited<ReturnType<typeof buildStagedAnalysis>>>) => {
+    const analysis = await staged;
+    if (!analysis.ready) throw new Error(`not held: ${analysis.reason}`);
+    return analysis;
+  };
+  const state = (overrides: Partial<CanonicalIdentityState> = {}): CanonicalIdentityState => ({
+    idempotency: null, manifests: [], run: null, topics: [], questions: [], frontiers: [], lanes: [],
+    contributionIds: [], passIds: [], candidates: [], candidateVersions: [], trails: [], trailVersions: [],
+    identifierCandidates: [], sourceFamilies: [], sourceVersions: [], freshnessPolicies: [], analyses: [],
+    analysisVersionIds: [], claims: [], receiptVersions: [], ...overrides,
+  });
+  const FAMILY = "20000000-0000-4000-8000-000000000001";
+  const VERSION = "20000000-0000-4000-8000-000000000002";
+  const POLICY = "20000000-0000-4000-8000-000000000003";
+  const canonicalFamily = (identifiers = [{ scheme: "doi", value: DOI }]) => state({
+    sourceFamilies: [{ familyId: FAMILY, sourceKind: "study", identityHash: "c".repeat(64), displayTitle: "Canonical title", identifiers }],
+    sourceVersions: [{
+      versionId: VERSION, familyId: FAMILY, sourceContentSha256: studyIndex().source.content_sha256, accessStatus: "complete",
+      retrievedAt: "2026-10-01T08:00:00.123456Z", retrievedAtMatches: false, sourceLocator: "https://canonical.example.org/study",
+    }],
+    freshnessPolicies: [{
+      policyId: POLICY, sourceFamilyId: FAMILY, sourceClass: "study", cadenceDays: 30, maximumAgeDays: 30,
+      ownerRole: "refresh_worker", requiredChecks: ["exact source-content hash"], failureBehavior: "block_current_projection",
+    }],
+  });
+
+  it("files two audits of one DOI as two analyses of one source version, neither claiming the other's initial version", async () => {
+    const first = (await ready(buildStagedAnalysis(base(NOW)))).contribution;
+    const second = (await ready(buildStagedAnalysis(base(new Date("2026-10-04T09:30:00.000Z"), secondAudit())))).contribution;
+    expect(second.analysis.analysisId).not.toBe(first.analysis.analysisId);
+    expect(second.analysis.versionId).not.toBe(first.analysis.versionId);
+    expect([first.analysis.relationship, second.analysis.relationship]).toEqual(["initial", "initial"]);
+    // The same family and source version, with no staging clock in it, so neither conflicts with the other.
+    expect(second.source).toEqual(first.source);
+    expect(first.source!.retrievedAt).toBeNull();
+    expect(second.knowledge!.freshnessPolicy).toEqual(first.knowledge!.freshnessPolicy);
+  });
+
+  it("files under the canonical family the identifiers name, reusing its title, its version of the same bytes and its policy", async () => {
+    const reader: CanonicalIdentityReader = { readCanonicalIdentity: async () => canonicalFamily() };
+    const { contribution } = await ready(buildStagedAnalysis({ ...base(NOW), canonical: reader }));
+    expect(contribution.source).toMatchObject({
+      familyId: FAMILY,
+      versionId: VERSION,
+      identityHash: "c".repeat(64),
+      displayTitle: "Canonical title",
+      retrievedAt: "2026-10-01T08:00:00.123456Z",
+      sourceLocator: "https://canonical.example.org/study",
+      identifiers: [{ scheme: "doi", value: DOI }],
+    });
+    expect(contribution.knowledge!.freshnessPolicy).toMatchObject({ policyId: POLICY, requiredChecks: ["exact source-content hash"] });
+    expect(contribution.knowledge!.freshnessChecks[0]!.policyId).toBe(POLICY);
+    expect(contribution.analysis.relationship).toBe("initial");
+    expect(() => prepareResearchContributionProposal("SOURCE_ANALYSIS", contribution)).not.toThrow();
+  });
+
+  it("leaves identity unresolved when an identifier conflicts, the kind differs or two families are named", async () => {
+    const unresolved = async (canonical: CanonicalIdentityState) =>
+      (await ready(buildStagedAnalysis({ ...base(NOW), canonical: { readCanonicalIdentity: async () => canonical } })))
+        .contribution.source!.familyId;
+    const derived = (await ready(buildStagedAnalysis(base(NOW)))).contribution.source!.familyId;
+    expect(await unresolved(canonicalFamily([{ scheme: "doi", value: "10.9999/another" }]))).toBe(derived);
+    // The DOI names the family, but its PMID disagrees with the document's: a DOI and a PMID that disagree stay unresolved.
+    const withPmid = { ...studyIndex(), source: { ...studyIndex().source, pmid: "2" } };
+    const pmidAudit = { ...base(NOW), index: withPmid, auditReceipt: validateStudyMethodAudit(withPmid, studyAudit(withPmid)) };
+    const disagreeing = canonicalFamily([{ scheme: "doi", value: DOI }, { scheme: "pmid", value: "1" }]);
+    const built = async (canonical?: CanonicalIdentityState) => (await ready(buildStagedAnalysis({
+      ...pmidAudit, ...(canonical === undefined ? {} : { canonical: { readCanonicalIdentity: async () => canonical } }),
+    }))).contribution.source!;
+    expect((await built(disagreeing)).familyId).toBe((await built()).familyId);
+    // With a PMID the family lacks, the family is resolved and the PMID joins it at promotion.
+    expect(await built(canonicalFamily())).toMatchObject({
+      familyId: FAMILY,
+      identifiers: [{ scheme: "doi", value: DOI }, { scheme: "pmid", value: "2" }],
+    });
+    const review = canonicalFamily();
+    review.sourceFamilies[0]!.sourceKind = "review";
+    expect(await unresolved(review)).toBe(derived);
+    const two = canonicalFamily();
+    two.sourceFamilies.push({ ...two.sourceFamilies[0]!, familyId: "20000000-0000-4000-8000-000000000009" });
+    expect(await unresolved(two)).toBe(derived);
+    // A reader that fails leaves the analysis built from the document alone.
+    expect((await ready(buildStagedAnalysis({
+      ...base(NOW), canonical: { readCanonicalIdentity: async () => { throw new Error("reader down"); } },
+    }))).contribution.source!.familyId).toBe(derived);
+  });
+
+  it("does not file an audit the canonical store already holds under the same protocols", async () => {
+    const audit = base(NOW);
+    const built = (await ready(buildStagedAnalysis({
+      ...audit, canonical: { readCanonicalIdentity: async () => canonicalFamily() },
+    }))).contribution;
+    const holding = canonicalFamily();
+    holding.receiptVersions.push({
+      versionId: built.analysis.versionId, sourceFamilyId: FAMILY, receiptKind: "askrigor_study_method_audit",
+      receiptSha256: audit.auditReceipt.audit_sha256, protocolManifestSha256s: PROTOCOLS.map(({ sha256: digest }) => digest).reverse(),
+    });
+    const again = await ready(buildStagedAnalysis({ ...audit, canonical: { readCanonicalIdentity: async () => holding } }));
+    expect(again.alreadyCanonical).toBe(true);
+    let submitted = 0;
+    expect(await saveStagedAnalyses([Promise.resolve(again)], async () => { submitted += 1; return "inserted"; }, 50))
+      .toEqual({ saved: 0, already_saved: 1, unconfirmed: 0, not_saved: [] });
+    expect(submitted).toBe(0);
+    // Under other protocols it is another analysis, and is filed.
+    holding.receiptVersions[0]!.protocolManifestSha256s = ["d".repeat(64)];
+    expect((await ready(buildStagedAnalysis({ ...audit, canonical: { readCanonicalIdentity: async () => holding } })))
+      .alreadyCanonical).toBeUndefined();
+  });
+
+  it("files the same audit staged twice, at different times, once", async () => {
+    const store = new InMemoryResearchContributorAccessStore();
+    const service = new ResearchContributorAccessService({ store, identitySecret: IDENTITY_SECRET });
+    await service.acceptFreeContributor("auth0|free", {
+      noticeVersion: RESEARCH_USE_NOTICE_VERSION,
+      eligibleDeidentifiedResearchContributionRequired: true,
+      prohibitedPrivateAndRawContentExcluded: true,
+      proposalReviewAndNoAuthorityAcknowledged: true,
+      paidPrivateAlternativeAcknowledged: true,
+    });
+    const file = async (now: Date) => service.submitProposal("auth0|free", {
+      proposalKind: "SOURCE_ANALYSIS",
+      privacyBoundary: CONTRIBUTION_PRIVACY_BOUNDARY,
+      payload: (await ready(buildStagedAnalysis(base(now)))).contribution,
+    }, { serverBuilt: true });
+    const first = await file(NOW);
+    const later = await file(new Date("2026-10-05T18:45:00.000Z"));
+    expect(first.status).toBe("inserted");
+    expect(later).toMatchObject({ status: "idempotent_replay", record: { proposalId: first.record.proposalId } });
+    expect(store.allProposals()).toHaveLength(1);
   });
 });
 

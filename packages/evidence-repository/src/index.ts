@@ -114,10 +114,13 @@ export {
   type ResearchUseMode,
 } from "./research-contributor-access.js";
 export {
+  auditAlreadyCanonical,
   canonicalIdentityRequest,
   frontierCandidateIdentityHash,
   reconcileResearchFrontier,
+  resolveCanonicalSource,
   type CanonicalFinding,
+  type CanonicalSourceMatch,
   type CanonicalIdentityReader,
   type CanonicalIdentityRequest,
   type CanonicalIdentityState,

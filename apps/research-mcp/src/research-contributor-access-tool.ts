@@ -508,7 +508,7 @@ export async function submitServerSourceAnalysis(
       communityDataPersisted: false,
     },
     payload: contribution,
-  });
+  }, { serverBuilt: true });
   return result.status;
 }
 

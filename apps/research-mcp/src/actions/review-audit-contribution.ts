@@ -6,7 +6,7 @@ import {
   deterministicUuid,
   livingEvidenceContributionSchema,
   sha256,
-  stableJson,
+  type CanonicalSourceMatch,
   type LivingEvidenceContribution,
 } from "@askrigor/evidence-repository";
 import type { ProtocolManifest } from "@askrigor/protocol";
@@ -18,7 +18,7 @@ import {
   type ReviewMethodAuditReceipt,
   type ReviewMethodAuditSubmission,
 } from "./review-method-audit.js";
-import { sourceIdentifiers } from "./study-audit-reuse.js";
+import { analysisSourceIdentity } from "./study-audit-reuse.js";
 
 const SECTION_KEY = "000-validated-review-method-audit-v1";
 const ENVELOPE_SCHEMA = "askrigor.validated-review-method-audit.v1";
@@ -41,6 +41,7 @@ export function createValidatedReviewAuditContribution(input: {
     nextDueAt: string;
     receiptSha256: string;
   };
+  canonicalSource?: CanonicalSourceMatch;
 }): LivingEvidenceContribution {
   const index = auditableDocumentIndexSchema.parse(input.index);
   const receipt = reviewMethodAuditReceiptSchema.parse(input.auditReceipt);
@@ -48,18 +49,17 @@ export function createValidatedReviewAuditContribution(input: {
   if (revalidated.audit_sha256 !== receipt.audit_sha256) {
     throw new Error("REVIEW_AUDIT_REVALIDATION_MISMATCH");
   }
-  const identifiers = sourceIdentifiers(index);
-  const protocolDigest = sha256(stableJson(input.protocolManifests));
-  const familyId = deterministicUuid(`askrigor:source-family:${stableJson(identifiers)}`);
-  const sourceVersionId = deterministicUuid(
-    `askrigor:source-version:${familyId}:${index.source.content_sha256}`,
-  );
-  const analysisId = deterministicUuid(`askrigor:analysis:${familyId}:review-method-v1`);
-  const analysisVersionId = deterministicUuid(
-    `askrigor:analysis-version:${analysisId}:${receipt.audit_sha256}:${protocolDigest}`,
-  );
+  const source = analysisSourceIdentity({
+    index,
+    kind: "review",
+    auditSha256: receipt.audit_sha256,
+    protocolManifests: input.protocolManifests,
+    canonicalSource: input.canonicalSource,
+  });
+  const { identifiers, familyId, analysisId, analysisVersionId } = source;
+  const sourceVersionId = source.sourceVersionId;
   const envelope = JSON.stringify({ schema: ENVELOPE_SCHEMA, audit_receipt: receipt });
-  const policyId = deterministicUuid(`askrigor:freshness-policy:${familyId}:review`);
+  const policyId = source.freshnessPolicy?.policyId ?? source.defaultPolicyId;
   const receiptId = deterministicUuid(
     `askrigor:receipt:${analysisVersionId}:${receipt.audit_sha256}`,
   );
@@ -79,13 +79,13 @@ export function createValidatedReviewAuditContribution(input: {
       familyId,
       versionId: sourceVersionId,
       sourceKind: "review",
-      identityHash: sha256(stableJson(identifiers)),
-      displayTitle: (index.source.title ?? index.source.primary_identifier).slice(0, 500),
+      identityHash: source.identityHash,
+      displayTitle: source.displayTitle,
       identifiers,
       sourceContentSha256: index.source.content_sha256,
       accessStatus: "complete",
-      retrievedAt: input.freshness.checkedAt,
-      sourceLocator: index.source.canonical_url,
+      retrievedAt: source.retrievedAt,
+      sourceLocator: source.sourceLocator,
       rawContentPersisted: false,
     },
     analysis: {
@@ -154,7 +154,7 @@ export function createValidatedReviewAuditContribution(input: {
       sourceEdges: [],
       claimEdges: [],
       assessment: null,
-      freshnessPolicy: {
+      freshnessPolicy: source.freshnessPolicy ?? {
         policyId,
         sourceClass: "review",
         cadenceDays: 30,

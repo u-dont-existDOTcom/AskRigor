@@ -149,6 +149,11 @@ export interface SubmitProposalOptions {
    * records it names before it is stored. Without it, or when it cannot be read, the record is filed as sent.
    */
   canonical?: CanonicalIdentityReader;
+  /**
+   * The server built this analysis itself (analysis-staging.ts): one this account already filed under the same
+   * idempotency key, pending, accepted or rejected, is the same audit and is not filed again, whatever clock staged it.
+   */
+  serverBuilt?: boolean;
 }
 
 export interface ProposalSubmission extends ProposalInsertResult {
@@ -165,6 +170,12 @@ export interface ResearchContributorAccessStore {
   insertProposal(
     record: ResearchContributionProposalRecord,
   ): Promise<ProposalInsertResult>;
+  /** This account's own proposal of the kind under an idempotency key, pending, accepted or rejected. */
+  findOwnProposalByIdempotencyKey(
+    accountKey: string,
+    proposalKind: ResearchContributionProposalKind,
+    idempotencyKey: string,
+  ): Promise<ResearchContributionProposalRecord | null>;
   revokeAccount(record: ResearchUseAccountRecord): Promise<number>;
 }
 
@@ -420,10 +431,19 @@ export class ResearchContributorAccessService {
       parsed.proposalKind,
       payload,
     );
+    const accountKey = this.accountKeyForSubject(subject);
+    if (options.serverBuilt === true) {
+      const filed = await this.store.findOwnProposalByIdempotencyKey(
+        accountKey,
+        parsed.proposalKind,
+        prepared.payload.idempotencyKey,
+      );
+      if (filed !== null) return { status: "idempotent_replay", record: filed, reconciled };
+    }
     const at = this.now();
     const record: ResearchContributionProposalRecord = {
       proposalId: this.createUuid(),
-      accountKey: this.accountKeyForSubject(subject),
+      accountKey,
       proposalKind: parsed.proposalKind,
       payloadSha256: prepared.payloadSha256,
       payload: prepared.payload,
@@ -495,6 +515,19 @@ implements ResearchContributorAccessStore {
     }
     this.proposals.set(record.proposalId, structuredClone(record));
     return { status: "inserted", record: structuredClone(record) };
+  }
+
+  async findOwnProposalByIdempotencyKey(
+    accountKey: string,
+    proposalKind: ResearchContributionProposalKind,
+    idempotencyKey: string,
+  ): Promise<ResearchContributionProposalRecord | null> {
+    const filed = [...this.proposals.values()]
+      .filter((proposal) =>
+        proposal.accountKey === accountKey && proposal.proposalKind === proposalKind &&
+        proposal.payload.idempotencyKey === idempotencyKey && proposal.status !== "WITHDRAWN")
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt))[0];
+    return filed === undefined ? null : structuredClone(filed);
   }
 
   async revokeAccount(accountRecord: ResearchUseAccountRecord): Promise<number> {
@@ -653,6 +686,26 @@ implements ResearchContributorAccessStore {
       status: "idempotent_replay",
       record: proposalFromRow(replay.rows[0]!),
     };
+  }
+
+  async findOwnProposalByIdempotencyKey(
+    accountKey: string,
+    proposalKind: ResearchContributionProposalKind,
+    idempotencyKey: string,
+  ): Promise<ResearchContributionProposalRecord | null> {
+    const result = await this.pool.query<ResearchContributionProposalRow>(
+      `SELECT proposal_id, account_key, proposal_kind, payload_sha256,
+              payload_json, privacy_boundary_json, partial, status,
+              created_at, reviewed_at, review_reason
+         FROM ${this.schema}.research_contribution_proposals
+        WHERE account_key = $1 AND proposal_kind = $2
+          AND payload_json ->> 'idempotencyKey' = $3
+          AND status IN ('PENDING_REVIEW', 'ACCEPTED', 'REJECTED')
+        ORDER BY created_at, proposal_id
+        LIMIT 1`,
+      [accountKey, proposalKind, idempotencyKey],
+    );
+    return result.rowCount === 0 ? null : proposalFromRow(result.rows[0]!);
   }
 
   async revokeAccount(record: ResearchUseAccountRecord): Promise<number> {

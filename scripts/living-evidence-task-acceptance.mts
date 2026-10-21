@@ -414,7 +414,7 @@ function resolveResearchFrontierGap(
   };
 }
 
-function reusableStudyAuditFixture(namespace: string): {
+export function reusableStudyAuditFixture(namespace: string): {
   index: AuditableDocumentIndex;
   audit: StudyMethodAuditSubmission;
   contribution: LivingEvidenceContribution;
