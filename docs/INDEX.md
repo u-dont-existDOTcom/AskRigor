@@ -105,6 +105,9 @@ complete XML protocol.
   review role's context grant, the privacy page of October 22, 2026, the October ledger at the owner's $18, production
   acceptance (the video read did not complete) and the plugin reinstall; the owner regressions wait for the owner's
   ChatGPT app refresh.
+- `audits/2026-10-22-owner-answer-149-protocol.md`: owner answer 149a, from the 21 Oct regression case Responders
+  (question 136): HRP 20.6.30 adds the core rule `CountsNeedTheirGroupSizes` (no percentage, difference or ratio from
+  counts until their group sizes are reconciled), with the new size, SHA-256 and tests; built, not yet released.
 - `audits/2026-10-16-report-identity-production-release.md`: release of #337 and #338 (owner questions 96 to 101)
   and #340 (questions 100 and 102): the final-check fixes from the 15 Oct regressions, protocol loading in one
   call, the owner's mobile notice (Universal 20.5.43), HRP 20.6.25 with `ProposeDiscriminatingTest` and lessons

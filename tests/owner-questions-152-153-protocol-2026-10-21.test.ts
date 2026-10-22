@@ -10,8 +10,8 @@ import {
 } from "@askrigor/protocol";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import {
-  undoBookReviewsUniversal, undoOwnerQuestion125Hrp, undoOwnerQuestion153Universal, undoOwnerQuestions152And153Hrp,
-  undoReadDepth,
+  undoBookReviewsUniversal, undoOwnerQuestion125Hrp, undoOwnerQuestion149Hrp, undoOwnerQuestion153Universal,
+  undoOwnerQuestions152And153Hrp, undoReadDepth,
 } from "./helpers/undo-read-depth.js";
 
 type Protocol = "hrp" | "universal";
@@ -87,6 +87,11 @@ const PINS = {
   },
 } as const;
 const REVISION_DATE = "2026-10-21";
+// The current files: owner answer 149a (HRP 20.6.30, 2026-10-22) has since added a core rule to HRP.
+const CURRENT = {
+  hrp: { version: "20.6.30", revisionDate: "2026-10-22", sha256: "b7c1df6eb235bcd1423e4d8fdb86245887e3cd0eac3f469f6cc91619a5c91ef8" },
+  universal: { version: "20.5.46", revisionDate: REVISION_DATE, sha256: PINS.universal.to.sha256 },
+} as const;
 const NAMES = { hrp: "HRP", universal: "AskRigor.com universal saved instructions" } as const;
 const FIXTURES = {
   hrp: ["2026-10-21-owner-questions-152-153-hrp.json", "2026-10-20-owner-question-125-hrp.json"],
@@ -102,13 +107,17 @@ const hash = (text: string) => createHash("sha256").update(text, "utf8").digest(
 const size = (text: string) => Buffer.byteLength(text, "utf8");
 const normalize = (text: string) => text.replace(/\s+/gu, " ").trim();
 const plain = (body: string) => normalize(parser.parse(`<text>${body}</text>`).text as string);
-const load = (protocol: Protocol) => readFile(new URL(
+const loadCurrent = (protocol: Protocol) => readFile(new URL(
   `protocols/${protocol === "hrp" ? "HRP_Full.xml" : "Universal_Instructions.xml"}`, ROOT,
 ), "utf8");
-const undoLayer = (protocol: Protocol, text: string) =>
-  (protocol === "hrp" ? undoOwnerQuestions152And153Hrp : undoOwnerQuestion153Universal)(text);
-const undoPrevious = (protocol: Protocol, text: string) =>
-  (protocol === "hrp" ? undoOwnerQuestion125Hrp : undoBookReviewsUniversal)(text);
+// This layer's result: HRP 20.6.29, rebuilt from the current file, and Universal 20.5.46, the current file.
+const load = async (protocol: Protocol) =>
+  protocol === "hrp" ? undoOwnerQuestion149Hrp(await loadCurrent("hrp")) : loadCurrent("universal");
+// The state before this layer, and before the previous one, from the current file.
+const undoLayer = async (protocol: Protocol) =>
+  (protocol === "hrp" ? undoOwnerQuestions152And153Hrp : undoOwnerQuestion153Universal)(await loadCurrent(protocol));
+const undoPrevious = async (protocol: Protocol) =>
+  (protocol === "hrp" ? undoOwnerQuestion125Hrp : undoBookReviewsUniversal)(await loadCurrent(protocol));
 interface Edits {
   from: { version: string; sha256: string }; to: { version: string; sha256: string };
   edits: Array<[string, string]>;
@@ -211,20 +220,22 @@ describe('owner-approved questions 152 and 153: "152a" and "153a,b,c" (2026-10-2
     expect(expectedEdits(protocol, prior).reduce((text, [before, after]) => replaceOnce(text, before, after), prior)).toBe(current);
     expect(expectedEdits(protocol, prior).reduce((text, [before, after]) =>
       replaceOnce(text, normalize(before), normalize(after)), normalize(prior))).toBe(normalize(current));
-    await expect(undoLayer(protocol, current)).resolves.toBe(prior);
+    await expect(undoLayer(protocol)).resolves.toBe(prior);
     const beforePrevious = [...previous.edits].reverse().reduce((text, [before, after]) => replaceOnce(text, after, before), prior);
     expect(hash(beforePrevious)).toBe(previous.from.sha256);
-    await expect(undoPrevious(protocol, current)).resolves.toBe(beforePrevious);
+    await expect(undoPrevious(protocol)).resolves.toBe(beforePrevious);
     const readDepth = JSON.parse(await readFile(new URL("tests/fixtures/protocol-edits/2026-10-11-read-depth.json", ROOT), "utf8"))[protocol] as Edits;
-    expect(hash(await undoReadDepth(current, protocol))).toBe(readDepth.from.sha256);
+    expect(hash(await undoReadDepth(await loadCurrent(protocol), protocol))).toBe(readDepth.from.sha256);
     await expect(getProtocolManifest(protocol)).resolves.toEqual({
-      name: NAMES[protocol], version: PINS[protocol].to.version, revisionDate: REVISION_DATE, sha256: hash(current),
+      name: NAMES[protocol], version: CURRENT[protocol].version, revisionDate: CURRENT[protocol].revisionDate,
+      sha256: CURRENT[protocol].sha256,
     });
+    expect(hash(await loadCurrent(protocol))).toBe(CURRENT[protocol].sha256);
   });
 
   it.each(HRP_SENTENCES)("ends %s, in %s, with the approved sentence word for word and nothing else", async (rule, home, sentence) => {
     const text = await load("hrp");
-    const prior = await undoLayer("hrp", text);
+    const prior = await undoLayer("hrp");
     expect(plain(element(text, "Rule", "name", rule))).toBe(`${plain(element(prior, "Rule", "name", rule))} ${sentence}`);
     expect(normalize(text).split(sentence)).toHaveLength(2);
     expect(normalize(prior)).not.toContain(sentence);
@@ -242,7 +253,7 @@ describe('owner-approved questions 152 and 153: "152a" and "153a,b,c" (2026-10-2
 
   it("keeps HealthFollowUpInformationGain on its one line, with the sentence one space after its last", async () => {
     const text = await load("hrp");
-    const prior = await undoLayer("hrp", text);
+    const prior = await undoLayer("hrp");
     const line = ruleLines(text, Q152.followUp.rule);
     expect(line).not.toContain("\n");
     expect(line).toBe(replaceOnce(ruleLines(prior, Q152.followUp.rule), `${Q152.followUp.end}</Rule>`,
@@ -252,7 +263,7 @@ describe('owner-approved questions 152 and 153: "152a" and "153a,b,c" (2026-10-2
 
   it("starts each sentence that ends a wrapped rule on a line of its own, RelevanceBeforeWarning's right after the 126a sentence", async () => {
     const text = await load("hrp");
-    const prior = await undoLayer("hrp", text);
+    const prior = await undoLayer("hrp");
     expect(plain(element(prior, "Rule", "name", Q152.warning.rule)).endsWith(` ${Q152.warning.follows}`)).toBe(true);
     expect(plain(element(text, "Rule", "name", Q152.warning.rule)).endsWith(` ${Q152.warning.follows} ${Q152.warning.sentence}`)).toBe(true);
     expect(ruleLines(text, Q152.warning.rule).endsWith(`\n${wrapped(Q152.warning.sentence, 3)}\n  </Rule>`)).toBe(true);
@@ -264,7 +275,7 @@ describe('owner-approved questions 152 and 153: "152a" and "153a,b,c" (2026-10-2
 
   it("keeps each stress case's prompt and expected behavior word for word, in order after question 128's cases", async () => {
     const text = await load("hrp");
-    const prior = await undoLayer("hrp", text);
+    const prior = await undoLayer("hrp");
     for (const [id, prompt, expected] of Q152.cases) {
       const body = element(section(text, "StressTestExpectations"), "Case", "id", id);
       expect(plain(section(body, "Prompt")), id).toBe(prompt);
@@ -284,7 +295,7 @@ describe('owner-approved questions 152 and 153: "152a" and "153a,b,c" (2026-10-2
 
   it("inserts exactly question 153c's clause into Universal's serious-harm sentence, and keeps the rest of it", async () => {
     const text = await load("universal");
-    const prior = await undoLayer("universal", text);
+    const prior = await undoLayer("universal");
     const { section: home, before, after, rest, follows, lineStart } = Q153.universal;
     expect(section(text, home)).toBe(replaceOnce(section(prior, home), before, after));
     // One line, which still starts with the ranking sentence and holds question 128's wording with the clause.
@@ -300,7 +311,7 @@ describe('owner-approved questions 152 and 153: "152a" and "153a,b,c" (2026-10-2
 
   it.each(["hrp", "universal"] as const)("places the exact Critical %s revision first, wrapped like its neighbours", async (protocol) => {
     const text = await load(protocol);
-    const prior = await undoLayer(protocol, text);
+    const prior = await undoLayer(protocol);
     const [tag, history, parts, xml] = protocol === "hrp"
       ? ["Revision", "RevisionHistory", HRP_REVISIONS, HRP_REVISION_XML]
       : ["revision", "revision_history", [Q153.universal.revision], UNIVERSAL_REVISION_XML];
@@ -311,7 +322,7 @@ describe('owner-approved questions 152 and 153: "152a" and "153a,b,c" (2026-10-2
 
   it.each(["hrp", "universal"] as const)("wraps new %s lines at 118, apart from the root line and the one-line rule or paragraph", async (protocol) => {
     const text = await load(protocol);
-    const prior = await undoLayer(protocol, text);
+    const prior = await undoLayer(protocol);
     const remaining = new Map<string, number>();
     for (const line of prior.split("\n")) remaining.set(line, (remaining.get(line) ?? 0) + 1);
     const added = text.split("\n").filter((line) => {
@@ -328,7 +339,7 @@ describe('owner-approved questions 152 and 153: "152a" and "153a,b,c" (2026-10-2
 
   it.each(["hrp", "universal"] as const)("changes only the %s sections its edits name, by their exact bytes; the core stays one page", async (protocol) => {
     const text = await load(protocol);
-    const prior = await undoLayer(protocol, text);
+    const prior = await undoLayer(protocol);
     const [now, before] = [protocolSections(protocol, text), protocolSections(protocol, prior)];
     expect(now.map(({ name }) => name)).toEqual(before.map(({ name }) => name));
     const changed = now.filter(({ name, sha256 }) => before.find((section) => section.name === name)!.sha256 !== sha256)
@@ -362,6 +373,7 @@ describe('owner-approved questions 152 and 153: "152a" and "153a,b,c" (2026-10-2
   });
 
   it.each(["hrp", "universal"] as const)("load_protocol serves each changed %s rule, case and section as exact canonical bytes, and the core as one page", async (protocol) => {
+    // The server serves the current file.
     const bytes = await readFile(new URL(`protocols/${protocol === "hrp" ? "HRP_Full.xml" : "Universal_Instructions.xml"}`, ROOT));
     const { sections, text } = await loadProtocolSectionSnapshot(protocol);
     expect(text).toBe(bytes.toString("utf8"));
