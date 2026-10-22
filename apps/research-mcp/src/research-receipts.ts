@@ -10,7 +10,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
  * leaves only a lead,
  * a recorded full-text service failure after public-copy search,
  * a treatment-coverage check, or Gemini's reading of a
- * video the person gave) returns one short token, and so does
+ * video the person gave, read or not) returns one short token, and so does
  * manage_research_access for a plain answer registered before research (the
  * digests of its claims, its text and its research target, a binding to the
  * account, and its issue order; owner answer 140b), and
@@ -34,6 +34,12 @@ export const RESEARCH_RECEIPT_KINDS = [
   "youtube_video_audit",
   "youtube_community_audit",
   "youtube_video_claims",
+  // AskRigor#359: a video extract_youtube_video_claims identified but did not read, with its refusal's code. Never a
+  // read video: youtube_video_claims alone says that.
+  "youtube_video_unread",
+  // A video extract_youtube_video_claims was still reading when it returned. Unless a later receipt shows it read or
+  // not, the answer did not get its reading, so the final check counts it as unread.
+  "youtube_video_pending",
   "pubmed_record",
   "doi_resolution",
   "literature_search",

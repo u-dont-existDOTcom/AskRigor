@@ -3,6 +3,14 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 const root = new URL("../", import.meta.url);
+const ATLAS_CANONICAL_TABLES = [
+  "atlas_intent_applications", "atlas_findings", "atlas_finding_versions", "atlas_finding_links",
+  "atlas_finding_link_withdrawals", "atlas_finding_changes", "atlas_source_checks", "atlas_redactions",
+];
+const ATLAS_REVIEW_FUNCTIONS = [
+  "inspect_atlas_cards", "decide_atlas_card_item", "record_atlas_finding_intent", "inspect_atlas_finding_intents",
+  "forget_atlas_cards",
+];
 
 describe("production living-evidence deployment", () => {
   it("keeps PostgreSQL private, non-root, bounded, and on a separate internal network", async () => {
@@ -120,7 +128,8 @@ describe("production living-evidence deployment", () => {
     expect(provision).toContain(
       "GRANT EXECUTE ON FUNCTION living_evidence.inspect_research_contribution_context(uuid)\n  TO askrigor_research_review;",
     );
-    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(3);
+    // The three contribution functions, then migration 0017's five Atlas functions (Atlas phase 2).
+    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(8);
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failure_code text");
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failed_at timestamptz");
     expect(migration).toContain("(status = 'FAILED' AND completed_at IS NULL");
@@ -190,8 +199,19 @@ describe("production living-evidence deployment", () => {
     const lessonReports = await read("packages/evidence-repository/migrations/0015_research_detailed_lesson_reports.sql");
     expect(lessonReports).toContain("ADD COLUMN IF NOT EXISTS detailed_lesson_reports boolean NOT NULL DEFAULT false");
     expect(lessonReports).not.toMatch(/CREATE TABLE|GRANT|DROP|DELETE|UPDATE/iu);
+    // Owner answers 159 (1b and 7) and 160b (2026-10-22): the third free contributor notice, next to the first two.
+    // It replaces 0011's constraint under 0011's name, so 0011 run again neither drops nor re-adds it, and only while
+    // the constraint lacks the third version.
+    const noticeV3 = await read("packages/evidence-repository/migrations/0016_research_use_notice_v3.sql");
+    expect(noticeV3).toContain(
+      "notice_version IN ('free-contributor-v1-2026-09-01', 'free-contributor-v2-2026-09-30', 'free-contributor-v3-2026-10-22')",
+    );
+    expect(noticeV3).toContain("pg_get_constraintdef(oid) NOT LIKE '%free-contributor-v3-2026-10-22%'");
+    expect(noticeV3.match(/research_use_accounts_free_notice_check/gu)).toHaveLength(4);
+    expect(noticeV3).toContain("IF NOT EXISTS");
+    expect(noticeV3).not.toMatch(/CREATE TABLE|GRANT|DELETE|UPDATE/iu);
     expect(await read("packages/evidence-repository/src/postgres.ts"))
-      .toContain('"0014_research_map_consent",\n      "0015_research_detailed_lesson_reports",\n    ]');
+      .toContain('"0015_research_detailed_lesson_reports",\n      "0016_research_use_notice_v3",\n      "0017_atlas_findings",\n');
     expect(provision).not.toMatch(
       /GRANT\s+(?:DELETE|TRUNCATE|CREATE)\b/iu,
     );
@@ -217,6 +237,172 @@ describe("production living-evidence deployment", () => {
     expect(runbook).toContain("Repository rows are retained.");
     expect(runbook).toContain("The unrelated annas-postgres-1 service is never used.");
     expect(runbook).toContain("root-owned, group 70, mode 0440");
+  });
+
+  it("ships migration 0017's append-only Atlas tables after 0016, with private review state (Atlas phase 2)", async () => {
+    const migration = await read("packages/evidence-repository/migrations/0017_atlas_findings.sql");
+    const repository = await read("packages/evidence-repository/src/postgres.ts");
+
+    // 0017 runs after 0016, last, on every migrate.
+    expect(repository).toContain('"0016_research_use_notice_v3",\n      "0017_atlas_findings",\n    ]');
+    // append_only_guard on exactly the eight canonical tables; the two private review tables are not among them.
+    const guarded = migration.slice(migration.indexOf("FOREACH table_name IN ARRAY ARRAY["));
+    expect([...guarded.slice(0, guarded.indexOf("] LOOP")).matchAll(/'([a-z_]+)'/gu)].map(([, table]) => table))
+      .toEqual(ATLAS_CANONICAL_TABLES);
+    expect(migration).toContain(
+      "'CREATE TRIGGER append_only_guard BEFORE UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION reject_living_evidence_mutation()'",
+    );
+    for (const table of [...ATLAS_CANONICAL_TABLES, "atlas_card_decisions", "atlas_finding_intents"]) {
+      expect(migration).toContain(`CREATE TABLE IF NOT EXISTS ${table} (`);
+    }
+    // Canonical rows never hold a card reference, a thread key, a receipt, an account, an answer quote, or YouTube
+    // or community data.
+    for (const table of ATLAS_CANONICAL_TABLES) {
+      const start = migration.indexOf(`CREATE TABLE IF NOT EXISTS ${table} (`);
+      const block = migration.slice(start, migration.indexOf("\n);", start));
+      expect(block).not.toMatch(/card_number|card_sha256|thread|account|receipt|answer_quote|youtube|comment/iu);
+    }
+    expect(migration).toContain("CREATE SEQUENCE IF NOT EXISTS atlas_public_number_seq AS bigint START WITH 1001");
+    expect(migration).toContain("CREATE OR REPLACE VIEW atlas_finding_current AS");
+    expect(migration).toContain("CONSTRAINT atlas_finding_intents_v1_state_check CHECK (");
+  });
+
+  it("grants the review role exactly migration 0017's five SECURITY DEFINER functions, revoked from PUBLIC", async () => {
+    const migration = await read("packages/evidence-repository/migrations/0017_atlas_findings.sql");
+    const provision = await read("infra/living-evidence-production/provision-research-review-role.sh");
+
+    const functions = migration.split("CREATE OR REPLACE FUNCTION ").slice(1).map((chunk) => ({
+      name: chunk.slice(0, chunk.indexOf("(")),
+      header: chunk.slice(0, chunk.indexOf("AS $")),
+    }));
+    expect(functions.filter(({ header }) => header.includes("SECURITY DEFINER")).map(({ name }) => name).sort())
+      .toEqual([...ATLAS_REVIEW_FUNCTIONS].sort());
+    for (const { name } of functions) {
+      // 0001's trigger function keeps the ACL 0001 gives it.
+      if (name === "reject_living_evidence_mutation") continue;
+      expect(migration).toMatch(new RegExp(`REVOKE ALL ON FUNCTION ${name}\\([^;]*\\) FROM PUBLIC;`, "u"));
+    }
+    const granted = [...provision.matchAll(/GRANT EXECUTE ON FUNCTION living_evidence\.([a-z_]+)\(/gu)].map(([, name]) => name);
+    expect(granted.filter((name) => name!.includes("atlas"))).toEqual(ATLAS_REVIEW_FUNCTIONS);
+    expect(granted).toHaveLength(8);
+    // Each grant names the function's exact signature, as the migration's REVOKE does.
+    const signature = (text: string, prefix: string) => {
+      const start = text.indexOf(prefix) + prefix.length;
+      return text.slice(start, text.indexOf(")", start)).replace(/\s+/gu, " ").trim();
+    };
+    for (const name of ATLAS_REVIEW_FUNCTIONS) {
+      expect(signature(provision, `GRANT EXECUTE ON FUNCTION living_evidence.${name}(`))
+        .toBe(signature(migration, `REVOKE ALL ON FUNCTION ${name}(`));
+    }
+    for (const writerOnly of ["erase_atlas_wording", "atlas_redaction_permits", "atlas_question_erasable",
+      "atlas_numbers_without_labels", "validate_atlas_finding_version", "atlas_public_number_seq"]) {
+      expect(provision).not.toContain(writerOnly);
+    }
+    expect(provision).not.toMatch(/GRANT\s+(?:SELECT|INSERT|UPDATE|DELETE|TRUNCATE|USAGE|ALL)\s+ON\s+(?:TABLE|SEQUENCE|ALL)/iu);
+  });
+
+  it("keeps the redaction branch in the guard body in force, for exactly erase_atlas_wording's text columns (decision 7)", async () => {
+    const migration = await read("packages/evidence-repository/migrations/0017_atlas_findings.sql");
+    const repository = await read("packages/evidence-repository/src/postgres.ts");
+
+    // Every migrate runs 0001 first, which restores the plain guard; the last migration that redefines the guard
+    // decides the body in force, and it must keep the branch.
+    const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
+    const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
+    const redefining: string[] = [];
+    for (const id of order) {
+      const sql = await read(`packages/evidence-repository/migrations/${id}.sql`);
+      if (sql.includes("CREATE OR REPLACE FUNCTION reject_living_evidence_mutation()")) redefining.push(id);
+    }
+    expect(redefining).toEqual(["0001_living_evidence", "0017_atlas_findings"]);
+    const guard = migration.slice(migration.indexOf("CREATE OR REPLACE FUNCTION reject_living_evidence_mutation()"));
+    const body = guard.slice(0, guard.indexOf("$$;"));
+    // The tables erase_atlas_wording changes (Atlas phase 2 part D, decision 7): the version's own rows, the finding's
+    // links and their withdrawals, and the question.
+    const tables = [
+      "claim_versions", "atlas_finding_versions", "atlas_finding_changes", "atlas_finding_links",
+      "atlas_finding_link_withdrawals", "questions",
+    ];
+    expect(body).toContain("IF TG_OP = 'UPDATE'");
+    expect(body).toContain("AND TG_TABLE_SCHEMA = '__SCHEMA__'");
+    const guarded = body.slice(body.indexOf("AND TG_TABLE_NAME IN ("), body.indexOf(")", body.indexOf("AND TG_TABLE_NAME IN (")));
+    expect([...guarded.matchAll(/'([a-z_]+)'/gu)].map(([, table]) => table)).toEqual(tables);
+    expect(body).toContain("AND __SCHEMA__.atlas_redaction_permits(TG_TABLE_NAME, to_jsonb(OLD), to_jsonb(NEW)) THEN");
+    expect(body).toContain("RAISE EXCEPTION 'APPEND_ONLY_TABLE mutation rejected for %', TG_TABLE_NAME");
+    expect(body).not.toContain("DELETE");
+
+    // The exception permits a change to exactly the columns erase_atlas_wording replaces, table by table, and only
+    // while erase_atlas_wording names the redaction row it applies.
+    const permits = migration.slice(
+      migration.indexOf("CREATE OR REPLACE FUNCTION atlas_redaction_permits"),
+      migration.indexOf("REVOKE ALL ON FUNCTION atlas_redaction_permits"),
+    );
+    const erase = migration.slice(
+      migration.indexOf("CREATE OR REPLACE FUNCTION erase_atlas_wording"),
+      migration.indexOf("REVOKE ALL ON FUNCTION erase_atlas_wording"),
+    );
+    const permitted = (table: string) => {
+      const start = permits.indexOf(`target_table = '${table}' THEN`);
+      const branch = permits.slice(start, permits.indexOf("ELS", start + 1));
+      return [...branch.matchAll(/ARRAY\[([^\]]*)\]/gu)]
+        .flatMap(([, list]) => [...list!.matchAll(/'([a-z_]+)'/gu)].map(([, column]) => column!)).sort();
+    };
+    const erased = (table: string) => {
+      const start = erase.indexOf(`UPDATE ${table} erased`);
+      const clause = erase.slice(erase.indexOf("SET", start), erase.indexOf("WHERE", start));
+      return [...clause.matchAll(/(?:SET|,)\s+([a-z_]+) =/gu)].map(([, column]) => column!).sort();
+    };
+    const branches = [...permits.matchAll(/target_table = '([a-z_]+)' THEN/gu)].map(([, table]) => table);
+    const updates = [...erase.matchAll(/UPDATE ([a-z_]+) erased/gu)].map(([, table]) => table);
+    expect(branches).toEqual(tables);
+    expect(updates).toEqual(tables);
+    for (const table of tables) {
+      expect(erased(table).length).toBeGreaterThan(0);
+      expect(erased(table)).toEqual(permitted(table));
+    }
+    expect(erased("atlas_finding_versions")).toEqual([
+      "accepted_wording_key", "card_wording_key", "numbers", "usual_answer", "what_it_changes", "what_would_change_it",
+      "who_else", "why_not_usual",
+    ]);
+    expect(erased("atlas_finding_links")).toEqual(["rationale"]);
+    expect(erased("atlas_finding_link_withdrawals")).toEqual(["public_note"]);
+    expect(erased("questions")).toEqual(["normalized_question"]);
+    // A question is erased only while no other finding or research uses it, the guard checking the same rule.
+    expect(erase).toContain("IF atlas_question_erasable(redaction.finding_id) THEN");
+    expect(permits).toContain("OR NOT atlas_question_erasable(redaction.finding_id) THEN");
+    expect(erase).toContain("PERFORM set_config('askrigor.atlas_erasing_redaction', target_redaction_id::text, true);");
+    expect(erase).toContain("PERFORM set_config('askrigor.atlas_erasing_redaction', '', true);");
+    expect(permits).toContain("current_setting('askrigor.atlas_erasing_redaction', true)");
+    expect(permits).toContain("SELECT * INTO redaction FROM atlas_redactions WHERE redaction_id = erasing::uuid;");
+    expect(permits).toContain(
+      "IF (old_row - text_columns - key_columns - label_columns) IS DISTINCT FROM\n" +
+      "     (new_row - text_columns - key_columns - label_columns) THEN",
+    );
+    expect(permits).toContain("OR new_row -> column_name IS DISTINCT FROM to_jsonb('[wording removed]'::text)) THEN");
+    expect(permits).toContain(
+      "AND new_row -> column_name IS DISTINCT FROM atlas_numbers_without_labels(old_row -> column_name) THEN",
+    );
+  });
+
+  it("runs the Atlas runner after the contribution runner in promote-accepted, with the units unchanged", async () => {
+    const admin = await read("apps/research-mcp/src/living-evidence-admin.ts");
+    const runbook = (await read("infra/living-evidence-production/README.md")).replace(/\s+/gu, " ");
+    const scheduler = (await read("docs/research-contribution-promotion-scheduler.md")).replace(/\s+/gu, " ");
+
+    expect(admin).toContain("new AtlasFindingPromotionRunner(new PostgresAtlasPromotionStore(config))");
+    expect(admin).toContain("await promoteAtlasFindings(config);\n      if (contributionError !== undefined) throw contributionError;");
+    expect(admin.indexOf("new PostgresResearchContributionPromotionRunner("))
+      .toBeLessThan(admin.indexOf("await promoteAtlasFindings(config);"));
+    expect(admin).toContain('queue: "atlas_findings"');
+    expect(runbook).toContain("Migration `0017_atlas_findings` adds:");
+    expect(runbook).toContain("expect `no_pending_promotion` for both queues");
+    expect(runbook).toContain("an earlier image never selects an Atlas intent");
+    expect(runbook).toContain("Re-run `/usr/local/bin/provision-research-review-role`");
+    expect(scheduler).toContain("## Atlas findings queue");
+    expect(scheduler).toContain("Strictly first in, first out");
+    expect(scheduler).toContain("`FOR UPDATE NOWAIT`");
+    expect(scheduler).toContain("One Atlas intent per activation (choice 7)");
+    expect(scheduler).toContain("The systemd units are unchanged.");
   });
 
   it("ships the append-only formal frontier migration, writer-only import, and dedicated read-only public query", async () => {

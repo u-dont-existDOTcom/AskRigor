@@ -28,6 +28,7 @@ import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/s
 import { getProtocolManifest, protocolNamedElements, protocolSections } from "../packages/protocol/src/index.js";
 import { pageKey, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { COMMUNITY_SKIP_LIMIT, communitySkipCaveat } from "../apps/research-mcp/src/research-finalization-gate.js";
+import { TOOL_LIST_REFRESH_SENTENCE } from "../apps/research-mcp/src/tool-list-currency.js";
 
 const TOOL_NAMES = [
   "get_protocol_manifest",
@@ -91,6 +92,8 @@ const MUTATING_ANNOTATIONS = {
   idempotentHint: true,
   openWorldHint: false,
 };
+// The owner's review withdraws findings and, with decision 7, forgets cards (Atlas phase 2, owner choice 6a).
+const OWNER_REVIEW_ANNOTATIONS = { ...MUTATING_ANNOTATIONS, destructiveHint: true };
 
 const clients: Client[] = [];
 const clinicalFixture = (name: string) =>
@@ -118,18 +121,53 @@ describe("AskRigor MCP tools", () => {
 
       expect(tools.map(({ name }) => name)).toEqual(TOOL_NAMES);
       expect(tools.map(({ annotations }) => annotations)).toEqual(
-        TOOL_NAMES.map((name) => [
-          "manage_research_access",
-          "submit_research_contribution",
-          "review_research_contribution",
-          "submit_lesson_candidate",
-          "finalize_research",
-          "save_research_findings",
-        ].includes(name) ? MUTATING_ANNOTATIONS : READ_ONLY_ANNOTATIONS)
+        TOOL_NAMES.map((name) => name === "review_research_contribution"
+          ? OWNER_REVIEW_ANNOTATIONS
+          : [
+            "manage_research_access",
+            "submit_research_contribution",
+            "submit_lesson_candidate",
+            "finalize_research",
+            "save_research_findings",
+          ].includes(name) ? MUTATING_ANNOTATIONS : READ_ONLY_ANNOTATIONS)
       );
       expect(tools.every(({ inputSchema, outputSchema }) =>
         inputSchema.type === "object" && outputSchema?.type === "object"
       )).toBe(true);
+    } finally {
+      await server.close();
+    }
+  });
+
+  // Atlas phase 2 (design section 6): the owner's findings actions ride on the owner review tool, so the catalog keeps
+  // 33 tools; every field is flat, and no call writes canonical evidence.
+  it("publishes the owner's findings actions on the owner review tool, flat, with no canonical write", async () => {
+    const { client, server } = await createInMemoryClient();
+
+    try {
+      const { tools } = await client.listTools();
+      const review = tools.find(({ name }) => name === "review_research_contribution")!;
+      expect(review.description).toContain("Findings for the Atlas: list_findings shows the findings cards that wait");
+      expect(review.description).toContain("Nothing from a card is public until the owner accepts it");
+      expect(review.description).toContain("this call never writes canonical evidence");
+      const input = review.inputSchema as { properties: Record<string, { enum?: string[]; type?: string; pattern?: string }> };
+      expect(input.properties.action!.enum).toEqual(["inspect", "status", "accept", "reject", "list_findings",
+        "inspect_finding", "accept_finding", "edit_finding", "reject_finding", "withdraw_finding", "link_findings",
+        "forget_card"]);
+      expect(review.description).toContain("forget_card (card ARF-0142) removes what ties a card to its contributor");
+      expect(Object.keys(input.properties)).toEqual(["action", "proposalId", "expectedPayloadSha256", "reason", "card",
+        "finding", "lead", "atlasNumber", "cardSha256", "version", "topicKey", "topicLabel", "wording", "appliesTo",
+        "whyNotUsual", "whatWouldChangeIt", "question", "sources", "numbers", "note", "correction", "eraseWording",
+        "confirm", "relation", "to", "disagreement", "rationale", "cursor"]);
+      // Flat: the only nested inputs are the lists of source identifiers and of figures, whose entries are flat too.
+      const numbers = input.properties.numbers as unknown as { items: { properties: Record<string, { type?: string }> } };
+      expect(Object.values(numbers.items.properties).every(({ type }) => type !== "object" && type !== "array")).toBe(true);
+      expect(input.properties.card!.pattern).toBe("^[Aa][Rr][Ff]-[0-9]{1,9}$");
+      const output = review.outputSchema as { properties: Record<string, unknown>; required?: string[] };
+      expect(output.required).toEqual(["ok", "canonicalEvidenceChangedByThisCall"]);
+      expect(output.properties.canonicalEvidenceChangedByThisCall).toMatchObject({ const: false });
+      expect(Object.keys(output.properties)).toEqual(["ok", "outcome", "proposal", "findings", "card", "atlas", "checks",
+        "retry", "forget", "canonicalEvidenceChangedByThisCall", "error"]);
     } finally {
       await server.close();
     }
@@ -219,7 +257,7 @@ describe("AskRigor MCP tools", () => {
       );
 
       expect(descriptions.acquire_open_full_text).toBe(
-        "Acquires one DOI through Europe PMC, Unpaywall PDFs, up to five public HTTPS candidate_urls, and up to two AI-supplied candidate_texts from a client search index, with an optional PMCID. When none of these is admitted, the configured owner library serves the signed-in owner, or an active paid-private account whose paper shows a verified public basis: a public page with the paper's own text beyond its abstract, or an open license. Library copies cite the public basis URL and expose no library link. Supplied texts receive the same identity, admission and embedded-block checks plus an exact abstract cross-check when available; audits carry a search-copy caveat. Records expanded public-copy searches with public_copy_search; lead receipts require exact DOI and known-title queries without technical failures. Reports identity, structural completeness, source class and its basis, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID."
+        "Acquires one DOI through Europe PMC, Unpaywall PDFs, up to five public HTTPS candidate_urls, and up to two AI-supplied candidate_texts from a client search index, with an optional PMCID. When none of these is admitted, the configured owner library serves the signed-in owner, or an active free-contributor or paid-private account whose paper shows a verified public basis: a public page with the paper's own text beyond its abstract, or an open license. Library copies cite the public basis URL and expose no library link. Supplied texts receive the same identity, admission and embedded-block checks plus an exact abstract cross-check when available; audits carry a search-copy caveat. Records expanded public-copy searches with public_copy_search; lead receipts require exact DOI and known-title queries without technical failures. Reports identity, structural completeness, source class and its basis, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID."
       );
       expect(descriptions.continue_open_full_text).toBe(
         "Retrieves the next contiguous page of an existing document_handle from its server-owned cursor. Coverage binds the handle and content hash; exhausted, expired, or invalid handles cannot advance. Pages preserve the exact document chain for source-linked audit."
@@ -854,7 +892,7 @@ describe("AskRigor MCP tools", () => {
       const dosing = {
         receipts: [],
         community_evidence: "not_relevant",
-        not_relevant_basis: "no_real_world_outcome",
+        not_relevant_basis: "no_real_world_outcome", question_about: "other",
         treatment_choice: "not_compared",
         research_target: "Adults asking about a dosing calculation",
         not_relevant_reason: "A dosing arithmetic question with no treatment choice.",
@@ -1991,18 +2029,47 @@ describe("AskRigor MCP tools", () => {
         },
         outputSchema: { type: "object" }
       });
+      // The DOI under either name: the 22 Oct regressions' 27 failed calls here all named it doi.
       expect(retraction).toMatchObject({
         description: "Check traceable Crossref update metadata for a DOI without inferring validity, safety, or medical conclusions.",
         annotations: READ_ONLY_ANNOTATIONS,
         inputSchema: {
           type: "object",
-          required: ["identifier"],
           additionalProperties: false,
-          properties: { identifier: { type: "string", minLength: 1, maxLength: 5000 } }
+          properties: {
+            identifier: { type: "string", minLength: 1, maxLength: 5000 },
+            doi: { type: "string", minLength: 1, maxLength: 5000 }
+          }
         },
         outputSchema: { type: "object" }
       });
+      expect((retraction?.inputSchema as { required?: string[] }).required ?? []).toEqual([]);
     } finally {
+      await server.close();
+    }
+  });
+
+  it("takes the retraction check's DOI as identifier or doi, and says which to give when neither is", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previous = process.env.CROSSREF_MAILTO;
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("provider-secret", { status: 503 })));
+    process.env.CROSSREF_MAILTO = "maintainer@example.test";
+
+    try {
+      for (const args of [{ identifier: "10.0000/unresolvable" }, { doi: "10.0000/unresolvable" }]) {
+        const result = await client.callTool({ name: "check_retraction_status", arguments: args });
+        expect(result.structuredContent).toMatchObject({ error: { code: "crossref_upstream_unavailable" } });
+      }
+      const missing = await client.callTool({ name: "check_retraction_status", arguments: {} });
+      expect(missing.isError).toBe(true);
+      expect(missing.content).toEqual([{ type: "text", text: "Give the DOI to inspect as identifier." }]);
+      expect(missing.structuredContent).toMatchObject({
+        data: { status: "unknown" }, error: { code: "crossref_identifier_missing" }
+      });
+    } finally {
+      vi.unstubAllGlobals();
+      if (previous === undefined) delete process.env.CROSSREF_MAILTO;
+      else process.env.CROSSREF_MAILTO = previous;
       await server.close();
     }
   });
@@ -2822,15 +2889,15 @@ describe("AskRigor MCP tools", () => {
         protocol: "hrp",
         manifest: {
           name: "HRP",
-          version: "20.6.29",
-          revisionDate: "2026-10-21",
-          sha256: "a72aed35746b86b084398cdb92fa1d36dac2d2941b31feea34e242678cf49b79"
+          version: "20.6.31",
+          revisionDate: "2026-10-22",
+          sha256: "29269d656e73c70b541226023b58b294e583188c721481c043d53f900ee0a8b5"
         },
         scope: "full",
         page: 1,
         next_page: 2,
         complete: false,
-        scope_sha256: "a72aed35746b86b084398cdb92fa1d36dac2d2941b31feea34e242678cf49b79"
+        scope_sha256: "29269d656e73c70b541226023b58b294e583188c721481c043d53f900ee0a8b5"
       });
       const pageCount = (first.structuredContent as { page_count: number }).page_count;
       expect(first.content).toEqual([
@@ -3179,6 +3246,44 @@ describe("AskRigor Streamable HTTP server", () => {
     } finally {
       vi.unstubAllEnvs();
     }
+  });
+
+  it("publishes a tool list version that a release changing no tool keeps, and compares the one sent back", async () => {
+    // Owner request (2026-10-22): an app's user is told to refresh AskRigor only when its tools changed.
+    const listed = async (build: string) => {
+      vi.stubEnv("ASKRIGOR_BUILD_COMMIT", build);
+      try {
+        let seen: { description?: string; version?: string } = {};
+        await withHttpServer(async (baseUrl) => {
+          const client = new Client({ name: "askrigor-test", version: "0.1.0" });
+          try {
+            await client.connect(new StreamableHTTPClientTransport(new URL("/mcp", baseUrl)));
+            const { tools } = await client.listTools();
+            const field = (name: string) => (tools.find((tool) => tool.name === name)?.inputSchema.properties
+              ?.tool_list_version as { description?: string } | undefined)?.description ?? "";
+            const version = /"([0-9a-f]{16})"/u.exec(field("get_protocol_manifest"))?.[1];
+            expect(field("manage_research_access")).toContain(`"${version}"`);
+            const manifest = async (toolListVersion: string) => (await client.callTool({
+              name: "get_protocol_manifest", arguments: { protocol: "hrp", tool_list_version: toolListVersion },
+            })).content as Array<{ text?: string }>;
+            expect((await manifest(version!))[0]?.text).not.toContain(TOOL_LIST_REFRESH_SENTENCE);
+            expect((await manifest("0123456789abcdef"))[0]?.text).toContain(TOOL_LIST_REFRESH_SENTENCE);
+            seen = { description: tools[0]?.description, version };
+          } finally {
+            await client.close();
+          }
+        });
+        return seen;
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    };
+    const before = await listed("5640e6d2cfef");
+    const after = await listed("8c0ffee5a1b2");
+    expect(before.version).toMatch(/^[0-9a-f]{16}$/u);
+    // The release's version text changed; the tools did not, so the version stays.
+    expect(after.description).not.toBe(before.description);
+    expect(after.version).toBe(before.version);
   });
 
   it("supports consecutive MCP requests through the real stateless SDK transport", async () => {

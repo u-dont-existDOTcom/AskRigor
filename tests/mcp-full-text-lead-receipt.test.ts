@@ -129,6 +129,16 @@ describe("MCP full-text lead receipts", () => {
     });
   });
 
+  // Owner answer 157a (2026-10-22): on a free account the AI took another app's paid text tool, so the step names a
+  // free route first, and a tool that costs the user credits only after the user's yes in this conversation.
+  it("names another app's free route first, and a tool that costs credits only after the user's yes", () => {
+    expect(OTHER_FULL_TEXT_ROUTE).toBe("If this study could change the answer and this app has another full-text " +
+      "tool connected (a library or article service), read it there next: try a free route first, such as a free PDF " +
+      "tool, and use a tool that costs the user credits only after the user says yes to that cost in this " +
+      "conversation. Give this study's finalize_research key_sources entry other_route: read, unavailable, cost or " +
+      "none. A study read that way is reported as read through another tool, not audited by AskRigor.");
+  });
+
   it("signs a service-failure receipt for Europe PMC 500, and asks for a spaced retry", async () => {
     acquire.mockResolvedValueOnce(noOpenText([
       { route: "europe_pmc", result: "error", identifier: PMCID, http_status: 500 },

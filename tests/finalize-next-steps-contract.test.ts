@@ -31,7 +31,7 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
   full_text_search: { status: "not_needed", reason: "Synthetic fixtures isolate other completion checks." },
   receipts: [study()], research_target: TARGET, research_depth: "deep", treatment_choice: "not_compared",
-  community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome", not_relevant_reason: "Pure chemical mechanism with no real-world outcome.",
+  community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome", question_about: "other", not_relevant_reason: "Pure chemical mechanism with no real-world outcome.",
   commercial_review_applicability: declaration, intervention_identity: declaration,
   key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: DOI, status: "validated" }], absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [], safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [],
   answer_draft: `[Study](https://doi.org/${DOI}) describes ion exchange.`, ...overrides
@@ -93,7 +93,8 @@ describe("finalize next-step identifier contract", () => {
       "The audit's validation checks that its findings cite the document's own blocks and that every domain is " +
       "covered, not that each interpretation is right. " +
       "With answer_draft, each study has a visible link with its DOI, PMID or PMCID, or to a page AskRigor's receipts " +
-      "tie to it: a copy read here, or the page resolve_doi found the DOI registered to."
+      "tie to it: a copy read here, or the page resolve_doi found the DOI registered to. With named_target, each study " +
+      "also says how it matches each of its fields (target_components to target_time_horizon)."
     );
     expect(input.properties.commercial_review_applicability!.description).toContain(
       "Records a required declaration when community evidence is researched, or when no_real_world_outcome is declared with key studies."

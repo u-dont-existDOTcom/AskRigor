@@ -153,7 +153,16 @@ export type GeminiVideoAdvance =
       retryable: boolean;
       // Where an invalid report broke its contract (paths only, no text).
       report_issues?: string[];
+      // How Gemini ended a pass it did not finish: its status and error code, identifiers only, never its text.
+      gemini_status?: string;
+      gemini_error_code?: string;
+      // A pass Gemini no longer had when it was polled (HTTP 404): a fixed marker, never Gemini's reply or the pass's
+      // identity, so the refusal can tell it from a pass Gemini ended with a status (AskRigor#359).
+      gemini_ending?: "interaction_missing";
     };
+
+const GEMINI_STATUS_PATTERN = /^[A-Za-z][A-Za-z_]{0,39}$/u;
+const GEMINI_ERROR_CODE_PATTERN = /^(?:[A-Z][A-Z_]{0,39}|[1-9]\d{0,2})$/u;
 
 const interactionSchema = z.object({
   id: z.string().min(1).optional(),
@@ -362,9 +371,11 @@ export async function advanceGeminiVideoPass(
         });
   } catch (error) {
     if (prior === undefined) return failureBoundary(error);
-    // The stored pass is gone (deleted, or expired at Google): it cannot finish.
+    // The stored pass is gone (deleted, or expired at Google): it cannot finish, and its ending says so.
     if (error instanceof UpstreamHttpError && error.status === 404) {
-      return { kind: "boundary", code: "gemini_video_not_completed", retryable: false };
+      return {
+        kind: "boundary", code: "gemini_video_not_completed", retryable: false, gemini_ending: "interaction_missing"
+      };
     }
     // Any other failed poll counts as one attempt and polls again later.
     return pollAgain(parsedConfig.data, prior);
@@ -392,7 +403,7 @@ export async function advanceGeminiVideoPass(
     // Gemini ended the pass without a report, for example on a video it could
     // not read; another pass would charge the daily limit again.
     return await deleteGeminiVideoInteraction(parsedConfig.data, interactionId)
-      ? { kind: "boundary", code: "gemini_video_not_completed", retryable: false }
+      ? { kind: "boundary", code: "gemini_video_not_completed", retryable: false, ...geminiEnding(interaction) }
       : { kind: "progress", checkpoint: current };
   }
 
@@ -517,6 +528,24 @@ async function pollAgain(
   return await deleteGeminiVideoInteraction(config, prior.interaction_id)
     ? { kind: "boundary", code: "gemini_video_timed_out", retryable: true }
     : { kind: "progress", checkpoint: next };
+}
+
+/**
+ * The status Gemini ended an unfinished pass with, and its error code when it gives one (its `status`, such as
+ * `INVALID_ARGUMENT`, before a numeric `code`). Only values shaped like identifiers are kept, never Gemini's message,
+ * so the refusal can say what happened without carrying provider text.
+ */
+function geminiEnding(
+  interaction: z.output<typeof interactionSchema>
+): Pick<Extract<GeminiVideoAdvance, { kind: "boundary" }>, "gemini_status" | "gemini_error_code"> {
+  const error = (interaction as { error?: { status?: unknown; code?: unknown } | null }).error;
+  const code = [error?.status, error?.code]
+    .map((value) => typeof value === "number" ? String(value) : value)
+    .find((value): value is string => typeof value === "string" && GEMINI_ERROR_CODE_PATTERN.test(value));
+  return {
+    gemini_status: GEMINI_STATUS_PATTERN.test(interaction.status) ? interaction.status : "unrecognized",
+    ...(code === undefined ? {} : { gemini_error_code: code })
+  };
 }
 
 function failureBoundary(error: unknown): Extract<GeminiVideoAdvance, { kind: "boundary" }> {

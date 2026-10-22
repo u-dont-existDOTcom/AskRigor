@@ -50,14 +50,28 @@ export interface GitHubFindingsQueueOptions {
   repository: GitHubRepository;
 }
 
-interface CardMetadata {
+/** What a card's hidden marker holds: the duplicate fingerprint, the receipt's hash, the save time and the thread key. */
+export interface CardMetadata {
   fingerprint: string;
   receipt_sha256: string;
   saved_at: string;
   thread?: string;
+  /** A re-filed save's: the issue number of the forgotten card it was a later save of (decision 7). */
+  refiled_from?: number;
 }
 
-interface OccurrenceMetadata extends CardMetadata {
+/** Another person's later save of a card being forgotten, to file as a card of its own (decision 7). */
+export interface GitHubFindingsRefile {
+  /** The later save's record, as its comment holds it. */
+  record: FindingsRecord;
+  /** Its comment's marker: its fingerprint, receipt hash, save time and research thread. */
+  metadata: OccurrenceMetadata;
+  /** The issue number of the card being forgotten. */
+  refiledFrom: number;
+}
+
+/** What a later save's (an occurrence comment's) hidden marker holds. */
+export interface OccurrenceMetadata extends CardMetadata {
   occurrence_count: number;
 }
 
@@ -71,8 +85,9 @@ interface OpenCard {
 }
 
 const HEX_64 = /^[a-f0-9]{64}$/u;
-const CARD_MARKER = "askrigor-findings-card";
-const OCCURRENCE_MARKER = "askrigor-findings-occurrence";
+/** The hidden markers a card's body and each later save's comment end with; the owner's review reads them too. */
+export const CARD_MARKER = "askrigor-findings-card";
+export const OCCURRENCE_MARKER = "askrigor-findings-occurrence";
 const MAX_TITLE_CHARACTERS = 256;
 // GitHub refuses an issue or comment body over 65,536 characters.
 const MAX_BODY_CHARACTERS = 60_000;
@@ -98,6 +113,50 @@ export class GitHubFindingsQueue {
     const result = this.writer.then(() => this.submitSerialized(input));
     this.writer = result.then(() => undefined, () => undefined);
     return result;
+  }
+
+  /**
+   * Decision 7: files another person's later save of a card being forgotten as a card of its own, as a new card is
+   * filed (its labels, readable copy, record and stamp), with a note naming the forgotten card. Its marker keeps the
+   * save's own fingerprint, receipt hash, save time and research thread, so a later request from that person finds it,
+   * and the forgotten card's number, so a request naming that number finds where the save went. Returns the new card's
+   * issue number.
+   */
+  refile(input: GitHubFindingsRefile): Promise<number> {
+    const result = this.writer.then(() => this.refileSerialized(input));
+    this.writer = result.then(() => undefined, () => undefined);
+    return result;
+  }
+
+  private async refileSerialized(input: GitHubFindingsRefile): Promise<number> {
+    const { metadata } = input;
+    if (!HEX_64.test(metadata.fingerprint) || !HEX_64.test(metadata.receipt_sha256) ||
+      (metadata.thread !== undefined && !HEX_64.test(metadata.thread)) || !isPositiveInteger(input.refiledFrom)) {
+      throw new GitHubApiError("github_service_unavailable", false);
+    }
+    const card: CardMetadata = {
+      fingerprint: metadata.fingerprint,
+      receipt_sha256: metadata.receipt_sha256,
+      saved_at: metadata.saved_at,
+      ...(metadata.thread === undefined ? {} : { thread: metadata.thread }),
+      refiled_from: input.refiledFrom,
+    };
+    const response = await this.request(this.issuesPath, {
+      method: "POST",
+      body: JSON.stringify({
+        title: issueTitle(input.record.card.question),
+        body: cardIssueBody(input.record, card),
+        labels: [
+          FINDINGS_CARD_LABEL,
+          PENDING_REVIEW_LABEL,
+          ...(beyondQuickAnswer(input.record) ? [BEYOND_QUICK_ANSWER_LABEL] : []),
+        ],
+      }),
+    });
+    if (!isRecord(response) || !isPositiveInteger(response.number)) {
+      throw new GitHubApiError("github_service_unavailable", true);
+    }
+    return response.number;
   }
 
   private async submitSerialized(input: GitHubFindingsSubmission): Promise<GitHubFindingsQueueResult> {
@@ -274,8 +333,12 @@ export class GitHubFindingsQueue {
 
 function cardIssueBody(record: FindingsRecord, metadata: CardMetadata): string {
   const tail = `## Full record\n\n${fencedJson(record)}\n\n${marker(CARD_MARKER, metadata)}`;
-  const full = `${readableCard(record)}\n\n${readableStamp(record)}\n\n## Review\n\nPending the owner's review: ` +
-    `nothing in this card is accepted until then.\n\n${tail}`;
+  // A re-filed save says where it came from (decision 7): a request that names the forgotten card finds it.
+  const refiled = metadata.refiled_from === undefined ? "" : `${section("Re-filed", `Re-filed from ` +
+    `${publicFindingsCardId(metadata.refiled_from)}, whose contributor asked for it to be forgotten. This was a later ` +
+    "save of the same question and claims, from another research thread; it is reviewed here as a card of its own.")}\n\n`;
+  const full = `${refiled}${readableCard(record)}\n\n${readableStamp(record)}\n\n## Review\n\nPending the owner's ` +
+    `review: nothing in this card is accepted until then.\n\n${tail}`;
   return boundedBody(full, tail);
 }
 
@@ -288,8 +351,10 @@ function occurrenceComment(record: FindingsRecord, metadata: OccurrenceMetadata)
         ? "none"
         : finding.verified_bases!.map(escapeMarkdown).join(", ")}`).join("\n"))}`
     : "";
+  // So does each save's own declaration of whom the findings would help (owner answer 156a).
   const full = `## Saved again\n\nOccurrence ${metadata.occurrence_count}: the same question and claims, saved ` +
-    `again after another checked answer.${bases}\n\n${readableStamp(record)}\n\n${tail}`;
+    `again after another checked answer.${bases}\n\n` +
+    `${publicValueSection(record, "Public value, as this save declares it")}\n\n${readableStamp(record)}\n\n${tail}`;
   return boundedBody(full, tail);
 }
 
@@ -312,6 +377,7 @@ function readableCard(record: FindingsRecord): string {
   return [
     section("Question", escapeMarkdown(card.question)),
     section("Usual answer", escapeMarkdown(card.usual_answer)),
+    publicValueSection(record, "Public value, as the AI declared it"),
     ...card.findings.map((finding, index) => section(`Finding ${index + 1}`, [
       `- Claim: ${escapeMarkdown(finding.claim)}`,
       `- Certainty: ${escapeMarkdown(finding.certainty)}`,
@@ -334,6 +400,21 @@ function readableCard(record: FindingsRecord): string {
       ? []
       : [section("Open leads", card.open_leads.map((lead) => `- ${escapeMarkdown(lead)}`).join("\n"))]),
   ].join("\n\n");
+}
+
+/**
+ * Whom the findings would help, as the model declared it on the card (owner answer 156a, 2026-10-22): the owner's
+ * review reads it before accepting a card for the Atlas. A saved card declares public value; a card saved before the
+ * declaration was asked for shows that it has none.
+ */
+function publicValueSection(record: FindingsRecord, heading: string): string {
+  const value = record.card.public_value;
+  return section(heading, value === undefined ? "Not declared." : [
+    `- Scope: ${escapeMarkdown(value.scope)}`,
+    ...(value.who_else === undefined ? [] : [`- Who else faces it: ${escapeMarkdown(value.who_else)}`]),
+    ...(value.what_it_changes === undefined ? []
+      : [`- What it could change for them: ${escapeMarkdown(value.what_it_changes)}`]),
+  ].join("\n"));
 }
 
 /** Whether a finding of the record rests on work a quick answer cannot do. */
@@ -395,12 +476,17 @@ function escapeMarkdown(value: string): string {
     .replace(/@/gu, "&#64;");
 }
 
-function marker(name: string, metadata: CardMetadata | OccurrenceMetadata): string {
+/** A hidden marker: its name and its metadata as base64url JSON, in an HTML comment that GitHub does not show. */
+export function marker(name: string, metadata: object): string {
   return `<!-- ${name}:${Buffer.from(JSON.stringify(metadata), "utf8").toString("base64url")} -->`;
 }
 
 /** The metadata a body ends with, as this queue wrote it; undefined for anything else. */
-function parseMarker<T>(body: string, name: string, parse: (value: Record<string, unknown>) => T | undefined): T | undefined {
+export function parseMarker<T>(
+  body: string,
+  name: string,
+  parse: (value: Record<string, unknown>) => T | undefined,
+): T | undefined {
   // An edit in GitHub's editor may leave a line break after it.
   const match = new RegExp(`\\n<!-- ${name}:([A-Za-z0-9_-]{1,2048}) -->\\s*$`, "u").exec(body);
   if (match === null) return undefined;
@@ -412,7 +498,7 @@ function parseMarker<T>(body: string, name: string, parse: (value: Record<string
   }
 }
 
-function parseCardMetadata(value: Record<string, unknown>): CardMetadata | undefined {
+export function parseCardMetadata(value: Record<string, unknown>): CardMetadata | undefined {
   return typeof value.fingerprint === "string" && HEX_64.test(value.fingerprint) &&
     typeof value.receipt_sha256 === "string" && HEX_64.test(value.receipt_sha256) &&
     typeof value.saved_at === "string"
@@ -421,11 +507,12 @@ function parseCardMetadata(value: Record<string, unknown>): CardMetadata | undef
         receipt_sha256: value.receipt_sha256,
         saved_at: value.saved_at,
         ...(typeof value.thread === "string" && HEX_64.test(value.thread) ? { thread: value.thread } : {}),
+        ...(isPositiveInteger(value.refiled_from) ? { refiled_from: value.refiled_from } : {}),
       }
     : undefined;
 }
 
-function parseOccurrenceMetadata(value: Record<string, unknown>): OccurrenceMetadata | undefined {
+export function parseOccurrenceMetadata(value: Record<string, unknown>): OccurrenceMetadata | undefined {
   const card = parseCardMetadata(value);
   return card !== undefined && isPositiveInteger(value.occurrence_count)
     ? { ...card, occurrence_count: value.occurrence_count }

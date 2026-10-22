@@ -369,6 +369,19 @@ export function findingsLibraryEnabledFromEnv(
 }
 
 /**
+ * Whether the owner's findings actions for the Atlas are open on review_research_contribution (Atlas phase 2 design,
+ * section 3): ASKRIGOR_ATLAS_REVIEW set to "enabled". It stays closed until the release has applied migration 0017,
+ * granted the review role its functions, bound the promotion timer to the deployed image and checked the catalog;
+ * while closed, list_findings, inspect_finding, accept_finding, edit_finding, reject_finding, withdraw_finding and
+ * link_findings answer atlas_review_closed and record nothing. The proposal actions are not affected.
+ */
+export function atlasReviewEnabledFromEnv(
+  value = process.env.ASKRIGOR_ATLAS_REVIEW
+): boolean {
+  return value?.trim() === "enabled";
+}
+
+/**
  * The dev accounts (owner answer 140b, 2026-10-20): ASKRIGOR_DEV_ACCOUNT_KEYS, a comma-separated list of account
  * references, the 12 characters manage_research_access shows a signed-in user (owner question, 2026-10-21), or of the
  * 64-character keys research_use_accounts stores. Like a paid private account, a dev account registers a plain answer

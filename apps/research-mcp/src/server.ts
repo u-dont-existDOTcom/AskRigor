@@ -22,6 +22,7 @@ import {
 import {
   actionApiKeyFromEnv,
   actionsAreEnabled,
+  atlasReviewEnabledFromEnv,
   CLAUDE_MCP_PATH,
   GEMINI_COMPATIBLE_MCP_PATH,
   GEMINI_COMPATIBLE_SERVICE_NAME,
@@ -117,6 +118,9 @@ import type { LessonSubmissionResult } from "./lessons/contracts.js";
 import type { FindingsSaveResult } from "./findings/contracts.js";
 import type { FindingsSaveContext } from "./findings/service.js";
 import type { McpSurface } from "./register-tools.js";
+import { toolListVersionOf } from "./tool-list-currency.js";
+import type { AtlasReview } from "./findings/atlas-review.js";
+import { createAtlasReviewFromEnv } from "./findings/runtime.js";
 
 export type McpToolCatalogProfile = "standard" | "gemini";
 
@@ -127,6 +131,10 @@ export interface AskRigorMcpServerOptions {
   allowedReviewerSubjects?: ReadonlySet<string>;
   researchContributorAccessService?: ResearchContributorAccessService;
   researchContributionReviewService?: ResearchContributionReviewService;
+  /** The owner's findings actions for the Atlas; made once per process, from the environment by default. */
+  atlasReview?: AtlasReview;
+  /** Whether the findings actions are open; defaults to ASKRIGOR_ATLAS_REVIEW. */
+  atlasReviewEnabled?: boolean;
   researchAccessRequired?: boolean;
   /** Replaces the production lesson queue, for tests. */
   lessonSubmission?: (raw: unknown) => Promise<LessonSubmissionResult>;
@@ -138,6 +146,8 @@ export interface AskRigorMcpServerOptions {
   mcpSurface?: McpSurface;
   /** The versions this server runs: its title and version, and the manifest tool's description. */
   runningVersions?: RunningVersions;
+  /** This surface's tool list version (toolListVersionOf), which a call's tool_list_version is compared with. */
+  toolListVersion?: string;
   /** What happened to this request's sign-in on /mcp; undefined without OAuth. */
   signIn?: SignInState;
 }
@@ -224,6 +234,9 @@ export interface AskRigorHttpServerOptions {
   claudeOAuthResourceServer?: AskRigorOAuthResourceServer | null;
   researchContributorAccessService?: ResearchContributorAccessService;
   researchContributionReviewService?: ResearchContributionReviewService;
+  /** The owner's findings actions for the Atlas; from the environment by default, and only while they are open. */
+  atlasReview?: AtlasReview;
+  atlasReviewEnabled?: boolean;
 }
 
 export interface McpHandshakeDiagnosticRecord {
@@ -440,6 +453,9 @@ export function createAskRigorHttpServer(
             ssl: researchContributionReviewConfig.ssl,
           }),
         ));
+  // The Atlas review's database pools and GitHub App token: made once per process, and only while it is open.
+  const atlasReviewEnabled = options.atlasReviewEnabled ?? atlasReviewEnabledFromEnv();
+  const atlasReview = options.atlasReview ?? (atlasReviewEnabled ? createAtlasReviewFromEnv() : undefined);
   const researchAccessRequired = oauthResourceServer !== undefined;
   const effectiveActionRoutes = researchAccessRequired
     ? actionRoutes.filter(({ publicResearch, controlledResearch }) =>
@@ -462,33 +478,52 @@ export function createAskRigorHttpServer(
     (payload) => { runningVersions = runningVersionsOf(payload); },
     () => undefined,
   );
-  const createMcpServer = options.createMcpServer ??
-    ((profile?: McpToolCatalogProfile, signIn?: SignInState) => createAskRigorServer(profile, {
-      publicEvidenceGapReviewService,
-      oauthResourceMetadataUrl,
-      allowedReviewerSubjects: oauthResourceServer?.reviewerSubjects,
-      researchContributorAccessService,
-      researchContributionReviewService,
-      researchAccessRequired,
-      mcpSurface: profile === "gemini" ? GEMINI_COMPATIBLE_MCP_PATH : "/mcp",
-      runningVersions,
-      signIn,
+  const mcpServerOptions = (profile?: McpToolCatalogProfile, signIn?: SignInState): AskRigorMcpServerOptions => ({
+    publicEvidenceGapReviewService,
+    oauthResourceMetadataUrl,
+    allowedReviewerSubjects: oauthResourceServer?.reviewerSubjects,
+    researchContributorAccessService,
+    researchContributionReviewService,
+    atlasReview,
+    atlasReviewEnabled,
+    researchAccessRequired,
+    mcpSurface: profile === "gemini" ? GEMINI_COMPATIBLE_MCP_PATH : "/mcp",
+    signIn,
+  });
+  const claudeMcpServerOptions = (signIn?: SignInState): AskRigorMcpServerOptions => ({
+    publicEvidenceGapReviewService,
+    oauthResourceMetadataUrl: claudeOAuthResourceServer === undefined
+      ? undefined
+      : protectedResourceMetadataUrl(claudeOAuthResourceServer.resourceUrl),
+    allowedReviewerSubjects: claudeOAuthResourceServer?.reviewerSubjects,
+    researchContributorAccessService,
+    researchContributionReviewService,
+    atlasReview,
+    atlasReviewEnabled,
+    researchAccessRequired,
+    mcpSurface: CLAUDE_MCP_PATH,
+    signIn,
+  });
+  // Each surface's tool list version (owner request, 2026-10-22), taken at its first MCP request from a server made
+  // without the running versions, so a release that changes no tool keeps it; after a failure the surface gives none.
+  const toolListVersions = new Map<McpSurface | undefined, Promise<string | undefined>>();
+  const toolListVersionFor = (profile: McpToolCatalogProfile, serverOptions: AskRigorMcpServerOptions) => {
+    let version = toolListVersions.get(serverOptions.mcpSurface);
+    if (version === undefined) {
+      version = Promise.resolve()
+        .then(() => toolListVersionOf(createAskRigorServer(profile, serverOptions)))
+        .catch(() => undefined);
+      toolListVersions.set(serverOptions.mcpSurface, version);
+    }
+    return version;
+  };
+  const createMcpServer: (profile?: McpToolCatalogProfile, signIn?: SignInState, toolListVersion?: string) => McpServer =
+    options.createMcpServer ?? ((profile, signIn, toolListVersion) => createAskRigorServer(profile, {
+      ...mcpServerOptions(profile, signIn), runningVersions, toolListVersion,
     }));
-  const createClaudeMcpServer = (signIn?: SignInState) => options.createMcpServer !== undefined
+  const createClaudeMcpServer = (signIn?: SignInState, toolListVersion?: string) => options.createMcpServer !== undefined
     ? options.createMcpServer("standard", signIn)
-    : createAskRigorServer("standard", {
-      publicEvidenceGapReviewService,
-      oauthResourceMetadataUrl: claudeOAuthResourceServer === undefined
-        ? undefined
-        : protectedResourceMetadataUrl(claudeOAuthResourceServer.resourceUrl),
-      allowedReviewerSubjects: claudeOAuthResourceServer?.reviewerSubjects,
-      researchContributorAccessService,
-      researchContributionReviewService,
-      researchAccessRequired,
-      mcpSurface: CLAUDE_MCP_PATH,
-      runningVersions,
-      signIn,
-    });
+    : createAskRigorServer("standard", { ...claudeMcpServerOptions(signIn), runningVersions, toolListVersion });
 
   return createServer(async (request, response) => {
     const pathname = exactOriginFormPath(request.url);
@@ -701,7 +736,12 @@ export function createAskRigorHttpServer(
           ? "gemini"
           : "standard";
         await runningVersionsRead;
-        server = claudeSurface ? createClaudeMcpServer(signIn) : createMcpServer(profile, signIn);
+        const toolListVersion = options.createMcpServer !== undefined ? undefined : await (claudeSurface
+          ? toolListVersionFor("standard", claudeMcpServerOptions())
+          : toolListVersionFor(profile, mcpServerOptions(profile)));
+        server = claudeSurface
+          ? createClaudeMcpServer(signIn, toolListVersion)
+          : createMcpServer(profile, signIn, toolListVersion);
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: undefined
         });

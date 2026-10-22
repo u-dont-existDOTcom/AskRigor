@@ -100,6 +100,22 @@ complete XML protocol.
   ledger reset (145a), production acceptance and the plugin reinstall, and the owner regressions run with the
   owner's personal Codex instructions off (50 cases: 21 met every criterion, 1 failed; the final check passed in 44);
   the case-by-case judgment is `audits/2026-10-21-owner-regressions-judgment.md`.
+- `audits/2026-10-22-owner-answer-158a-dev-account.md`: the owner's account listed as a dev account in production on
+  owner answer 158a (one `runtime.env` line, `research-mcp` recreated on the same image, acceptance and rollback).
+- `audits/2026-10-22-owner-answers-138-154-production-release.md`: release of #358 (owner answers 138b to 154 and the
+  fixes for AskRigor#354 to #357, released on 151a): HRP 20.6.29, Universal 20.5.46, migrations 0012 to 0015 and the
+  review role's context grant, the privacy page of October 22, 2026, the October ledger at the owner's $18, production
+  acceptance (the video read did not complete), the plugin reinstall, and the owner regressions after the owner's
+  ChatGPT app refresh (65 cases: 23 met every criterion, 2 failed, 1 was refused by OpenAI's filter; the final check
+  passed in 55); the case-by-case judgment, with the answers changed after their check, is
+  `audits/2026-10-22-owner-regressions-judgment.md`.
+- `audits/2026-10-22-owner-answer-149-protocol.md`: owner answer 149a, from the 21 Oct regression case Responders
+  (question 136): HRP 20.6.30 adds the core rule `CountsNeedTheirGroupSizes` (no percentage, difference or ratio from
+  counts until their group sizes are reconciled), with the new size, SHA-256 and tests; built, not yet released.
+- `audits/2026-10-22-owner-answer-161-protocol.md`: owner answer 161a, from lesson #49: HRP 20.6.31 adds the rule
+  `SocialMediaWholeThreadAudit` to `SourceVerificationAndCitationAudit`, outside the core (a social-media post's
+  claims are graded on the author's complete thread; inaccessible material leaves the audit incomplete), with the
+  lesson's three cases as stress cases and owner regressions, the new size, SHA-256 and tests; built, not yet released.
 - `audits/2026-10-16-report-identity-production-release.md`: release of #337 and #338 (owner questions 96 to 101)
   and #340 (questions 100 and 102): the final-check fixes from the 15 Oct regressions, protocol loading in one
   call, the owner's mobile notice (Universal 20.5.43), HRP 20.6.25 with `ProposeDiscriminatingTest` and lessons

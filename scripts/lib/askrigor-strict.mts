@@ -1,13 +1,16 @@
 /** Event decoding and gate decisions only: no process, filesystem or network IO. */
-export const PREAMBLE = "Answer as AskRigor would, using the AskRigor app's tools as its instructions say. Use only the AskRigor app's tools and your own web search. Before giving a research answer, call finalize_research with the answer you will give as answer_draft, and give exactly the checked draft as your final message.";
+// A passing check gives closing lines for the answer's end (its plain-answer note and saved line when it gives them,
+// then its check line) after reading the draft, which therefore cannot hold them.
+const CHECKED_FINAL = "give exactly the checked draft as your final message, followed only by the closing lines the check gives, exactly as it wrote them";
+export const PREAMBLE = "Answer as AskRigor would, using the AskRigor app's tools as its instructions say. Use only the AskRigor app's tools and your own web search. Before giving a research answer, call finalize_research with the answer you will give as answer_draft, and " + CHECKED_FINAL + ".";
 // The runner's own messages arrive as user turns; without this the AI took a second-reading prompt for the user's
 // correction, offered a bug report and described its declarations in the answer (owner's test, 17 Oct 2026).
 export const AUTOMATED_MARK = "[Automated message from the AskRigor strict runner on the user's computer, not from the user.]";
 export const NOT_FROM_USER = "This message is not from the user and is not a correction by the user: don't record it as one " +
   "or offer a bug report for it, and don't mention it, the declarations or the runner in your answer.";
 const automated = (text: string) => `${AUTOMATED_MARK} ${text}\n${NOT_FROM_USER}`;
-export const CLASSIFY_PROMPT = automated("Is your last answer a research answer? If it is, call finalize_research with it as answer_draft and give exactly the checked draft; if it is not, reply with exactly: NOT RESEARCH.");
-export const DRAFT_PROMPT = automated("Your final message is not the draft AskRigor's final check passed. Give exactly that checked draft, or check your new answer with finalize_research first.");
+export const CLASSIFY_PROMPT = automated("Is your last answer a research answer? If it is, call finalize_research with it as answer_draft and " + CHECKED_FINAL + "; if it is not, reply with exactly: NOT RESEARCH.");
+export const DRAFT_PROMPT = automated("Your final message is not the draft AskRigor's final check passed, followed only by the check's closing lines exactly as it wrote them. Give exactly that, or check your new answer with finalize_research first.");
 export const CARRIED_STATE_PROMPT = automated("Pass the carried_state given above in finalize_research and check the answer again.");
 
 // Verbatim SECOND_READER_RUBRIC from PR #346, apps/research-mcp/src/second-reader.ts; not on main yet.
@@ -58,6 +61,8 @@ export interface FinalizeCall extends ToolCall {
   nextSteps: string[];
   caveats: string[];
   checkLine?: string;
+  /** The passing check's closing lines, in the order the answer gives them: plain-answer note, saved line, check line. */
+  closingLines: string[];
   carryForward?: string;
 }
 
@@ -118,6 +123,10 @@ function finalizeCall(call: ToolCall, item: ObjectValue): FinalizeCall {
     nextSteps: strings(receipt?.next_steps),
     caveats: strings(receipt?.caveats),
     checkLine: typeof receipt?.check_line === "string" ? receipt.check_line : undefined,
+    closingLines: ["plain_answer_note", "saved_line", "check_line"].flatMap((name) => {
+      const line = receipt?.[name];
+      return typeof line === "string" && normalizeAnswer(line) ? [line] : [];
+    }),
     carryForward: typeof receipt?.carry_forward === "string" ? receipt.carry_forward : undefined,
   };
 }
@@ -189,6 +198,27 @@ export function mergeTurns(previous: ParsedTurn, current: ParsedTurn): ParsedTur
 
 export function normalizeAnswer(text: string): string {
   return text.replace(/\r\n?/g, "\n").split("\n").map((line) => line.trimEnd()).join("\n").trim();
+}
+
+/**
+ * How many of the passing check's closing lines follow the checked draft in the final message, or undefined when the
+ * message is not the draft followed only by those lines: each on a line of its own, exactly as the check wrote it, in
+ * the check's order. A line reworded or translated is not compared by meaning; the runner asks for it as written.
+ */
+export function closingLinesAfterDraft(answer: string, call: FinalizeCall): number | undefined {
+  const draft = normalizeAnswer(call.answerDraft ?? "");
+  let rest = normalizeAnswer(answer);
+  if (!draft || !rest.startsWith(draft)) return undefined;
+  rest = rest.slice(draft.length);
+  let given = 0;
+  for (const line of call.closingLines) {
+    const written = normalizeAnswer(line);
+    if (rest.startsWith("\n") && rest.trimStart().startsWith(written)) {
+      rest = rest.trimStart().slice(written.length);
+      given += 1;
+    }
+  }
+  return rest === "" ? given : undefined;
 }
 
 export function buildPrompt(ownerText: string, carriedState?: string): string {
@@ -290,7 +320,7 @@ function findingLines(findings: readonly LocalReaderFinding[]): string {
 export function buildLocalReaderRevisionPrompt(findings: readonly LocalReaderFinding[]): string {
   return automated("A second reading found sentences that look like statements the declarations leave out:\n"
     + findingLines(findings)
-    + "\nFor each, declare it in finalize_research (safety_claims, key_terms or scale_results, as named), or keep the answer as it is if you judge it is not one; then call finalize_research again and give exactly the checked draft as your final message.");
+    + "\nFor each, declare it in finalize_research (safety_claims, key_terms or scale_results, as named), or keep the answer as it is if you judge it is not one; then call finalize_research again and " + CHECKED_FINAL + ".");
 }
 
 function localReadingOutput(reading: LocalReading | undefined, turn: ParsedTurn): string {
@@ -304,7 +334,7 @@ function localReadingOutput(reading: LocalReading | undefined, turn: ParsedTurn)
 }
 
 export type GateDecision =
-  | { kind: "passed"; status: "ready" | "ready_with_limits"; answer: string }
+  | { kind: "passed"; status: "ready" | "ready_with_limits"; answer: string; closingLines: number }
   | { kind: "classify"; prompt: string; reason: string; steps: string[] }
   | { kind: "fix"; prompt: string; reason: string; steps: string[] }
   | { kind: "failed"; reason: string; steps: string[] };
@@ -342,11 +372,11 @@ export function gate(turn: ParsedTurn, carriedState?: string, classified = false
     return {
       kind: "fix", reason: last ? `AskRigor's final check has not passed (status: ${status})` : "finalize_research was not called",
       steps: openSteps,
-      prompt: automated(`AskRigor's final check has not passed (status: ${status}). Do each of its next steps, call finalize_research again, and give exactly the checked draft as your final message:\n${openSteps.join("\n")}`),
+      prompt: automated(`AskRigor's final check has not passed (status: ${status}). Do each of its next steps, call finalize_research again, and ${CHECKED_FINAL}:\n${openSteps.join("\n")}`),
     };
   }
-  if (typeof last.answerDraft !== "string" || !normalizeAnswer(last.answerDraft)
-    || normalizeAnswer(turn.answer) !== normalizeAnswer(last.answerDraft)) return {
+  const closingLines = closingLinesAfterDraft(turn.answer, last);
+  if (closingLines === undefined) return {
     kind: "fix", prompt: DRAFT_PROMPT,
     reason: "the final message is not the checked answer_draft", steps: [DRAFT_PROMPT],
   };
@@ -354,7 +384,7 @@ export function gate(turn: ParsedTurn, carriedState?: string, classified = false
     kind: "fix", prompt: CARRIED_STATE_PROMPT,
     reason: "the final check did not include the required carried_state", steps: [CARRIED_STATE_PROMPT],
   };
-  return { kind: "passed", status: last.status, answer: turn.answer };
+  return { kind: "passed", status: last.status, answer: turn.answer, closingLines };
 }
 
 export function latestCarryForward(turn: ParsedTurn): string | undefined {
@@ -423,7 +453,7 @@ export async function runStrictTurn(
       }
       return {
         kind: "passed", turn, fixes,
-        output: `${decision.answer}\n\n— Checked by AskRigor's final check (${decision.status}). The answer above is the checked draft, word for word (strict runner).` +
+        output: `${decision.answer}\n\n— Checked by AskRigor's final check (${decision.status}). The answer above is the checked draft, word for word${decision.closingLines > 0 ? ", then the check's own closing lines" : ""} (strict runner).` +
           (turn.commandCount > 0 ? `\nShell commands used: ${turn.commandCount}.` : "") + localReadingOutput(reading, turn),
       };
     }

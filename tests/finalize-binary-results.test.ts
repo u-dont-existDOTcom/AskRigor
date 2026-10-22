@@ -57,7 +57,7 @@ const packageFor = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeRes
   full_text_search: { status: "not_needed", reason: "Synthetic fixtures isolate yes-or-no result checks." },
   receipts: [issueResearchReceipt("study_audit", { id: DOI, status: "complete_no_unresolved_fields" }, { secret: SECRET })],
   research_target: "Synthetic yes-or-no result gate fixture", research_depth: "deep",
-  community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome",
+  community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome", question_about: "other",
   not_relevant_reason: "Isolates exact declaration checks with synthetic receipts and text.",
   treatment_choice: "not_compared",
   key_sources: [{ read_depth: "full_text_audited", answer_marker: "Study", id: DOI, status: "validated" }],

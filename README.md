@@ -23,8 +23,8 @@ AskRigor uses this order when sources disagree:
 6. current release/reviewer evidence indexed by `docs/INDEX.md`; and
 7. the recovery checkpoint at `project/CODEX-CURRENT-STATE.md`.
 
-The current canonical files identify HRP `20.6.29` (2026-10-21), SHA-256
-`a72aed35746b86b084398cdb92fa1d36dac2d2941b31feea34e242678cf49b79`,
+The current canonical files identify HRP `20.6.31` (2026-10-22), SHA-256
+`29269d656e73c70b541226023b58b294e583188c721481c043d53f900ee0a8b5`,
 and Universal Instructions `20.5.46` (2026-10-21), SHA-256
 `e313306b09da7e359ea326a44c3850af020acbb2550c30bb2cddf46dc6074d9e`.
 Those values are descriptive receipts derived from the exact XML bytes, not
@@ -470,6 +470,30 @@ the short answer they would give without AskRigor's tools before research; the
 checked answer ends with a note comparing the two, which each account can turn
 off (migration `0013_research_plain_answer_note`). The plan is
 `docs/superpowers/plans/2026-10-21-atlas-merging-save-offer-plain-answer.md`.
+
+Owner answer 156a (2026-10-22; built, not yet released): the Atlas holds what
+other people would benefit from, so the AI declares on each findings card whom
+its findings would help (`public_value`: `public`, with who else faces them and
+what they could change for them, or `personal_only`). The final check rejects a
+card without the declaration, which holds back nothing. A personal-only card is
+neither saved for a free contributor nor offered to a paid private one, and
+`save_research_findings` refuses it; the rest are saved or offered as before,
+and the owner's review shows each card's declaration.
+
+Owner answers 159 (1b and 7) and 160b (2026-10-22; built, not yet released,
+the sentences waiting for the owner's word-for-word approval): the free
+contributor notice moves to `free-contributor-v3-2026-10-22`. It adds that
+findings AskRigor's owner accepts may be published in AskRigor's public Atlas,
+written without the person; that asking to delete a findings card removes
+everything that ties it to the person, with no reason needed; and that a
+published finding stays while it is valid, is corrected or taken down when
+someone shows it is wrong, and is rewritten or removed if it could identify
+anyone. Accounts that accepted v1 or v2 accept v3 before free research
+continues (migration `0016_research_use_notice_v3`). A paid private answer's
+save offer ends with "Saved findings that AskRigor's owner accepts may be
+published in AskRigor's public Atlas, written without you.", and the privacy
+page and the terms say the same three points. Nothing is accepted or published
+yet; the build plan is `docs/superpowers/plans/2026-10-22-public-atlas-build.md`.
 
 ## Public-review status
 

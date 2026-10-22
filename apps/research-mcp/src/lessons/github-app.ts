@@ -209,6 +209,33 @@ export async function githubRequestJsonResponse(
   url: string,
   init: RequestInit,
 ): Promise<GitHubJsonResponse> {
+  return await sanitizedRequest(fetchImpl, url, init, async (response) => {
+    const value: unknown = await response.json();
+    const etag = response.headers.get("etag");
+    return { value, ...(etag ? { etag } : {}) };
+  });
+}
+
+/**
+ * The same sanitized request for a call whose success has no body (204 No Content), such as deleting an issue comment
+ * or locking an issue.
+ */
+export async function githubRequestNoContent(
+  fetchImpl: typeof fetch,
+  url: string,
+  init: RequestInit,
+): Promise<void> {
+  await sanitizedRequest(fetchImpl, url, init, async (response) => {
+    await response.body?.cancel();
+  });
+}
+
+async function sanitizedRequest<T>(
+  fetchImpl: typeof fetch,
+  url: string,
+  init: RequestInit,
+  read: (response: Response) => Promise<T>,
+): Promise<T> {
   const timeoutController = new AbortController();
   const timeout = setTimeout(() => timeoutController.abort(), REQUEST_TIMEOUT_MILLISECONDS);
   try {
@@ -222,9 +249,7 @@ export async function githubRequestJsonResponse(
       : timeoutController.signal;
     const response = await fetchImpl(url, { ...init, headers, signal });
     if (!response.ok) throw errorForResponse(response);
-    const value: unknown = await response.json();
-    const etag = response.headers.get("etag");
-    return { value, ...(etag ? { etag } : {}) };
+    return await read(response);
   } catch (error) {
     if (error instanceof GitHubApiError) throw error;
     throw new GitHubApiError("github_service_unavailable", true);

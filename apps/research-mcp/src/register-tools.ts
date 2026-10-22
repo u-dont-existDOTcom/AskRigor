@@ -69,10 +69,12 @@ import { infoAccessClientFromEnv, type InfoAccessClient } from "./infoaccess-cli
 import { authorizedSubject } from "./research-contributor-access-tool.js";
 import {
   PUBLIC_TOOL_LIMITS,
+  atlasReviewEnabledFromEnv,
   devAccountKeysFromEnv,
   findingsLibraryEnabledFromEnv,
   optionalLivingEvidenceReuseConfigFromEnv
 } from "./config.js";
+import type { AtlasReview } from "./findings/atlas-review.js";
 import { createConcurrencyLimiter } from "./rate-limit.js";
 import {
   DETAILED_REPORT_RULE,
@@ -83,7 +85,7 @@ import {
 import type { ConnectorLessonSubmissionResult } from "./lessons/contracts.js";
 import { submitConnectorLessonCandidate } from "./lessons/runtime.js";
 import type { LessonSubmissionContext } from "./lessons/service.js";
-import { findingsSavedLine, researchMapSavedLine } from "./findings/card.js";
+import { FINDINGS_ATLAS_SENTENCE, findingsSavedLine, researchMapSavedLine } from "./findings/card.js";
 import {
   findingsSaveToolResult,
   SAVE_RESEARCH_FINDINGS_DESCRIPTION,
@@ -161,13 +163,14 @@ import {
   evidenceGapReviewSecurityMetadata,
 } from "./evidence-gap-review-tool.js";
 import type { SignInState } from "./oauth-resource-server.js";
+import { toolListNotice, toolListVersionField } from "./tool-list-currency.js";
 import { type RunningVersions, runningVersionsText } from "./version.js";
 import {
   createManageResearchAccessHandler,
   createResearchAccessGuard,
   createSubmitResearchContributionHandler,
   researchUseAccount,
-  manageResearchAccessInputSchema,
+  manageResearchAccessInputSchemaFor,
   manageResearchAccessOutputSchema,
   optionalSignInSecurityMetadata,
   isDevAccount,
@@ -724,6 +727,8 @@ const MUTATING_ANNOTATIONS: ToolAnnotations = {
   idempotentHint: true,
   openWorldHint: false,
 };
+// The owner's review takes findings down and, with decision 7, forgets cards: destructive (owner choice 6a).
+const OWNER_REVIEW_ANNOTATIONS: ToolAnnotations = { ...MUTATING_ANNOTATIONS, destructiveHint: true };
 const DEFAULT_PUBMED_PAGE_SIZE = 20;
 const MAX_PUBMED_PAGE_SIZE = 100;
 const DEFAULT_EUROPE_PMC_PAGE_SIZE = 20;
@@ -776,6 +781,10 @@ export interface RegisterToolsOptions {
   allowedReviewerSubjects?: ReadonlySet<string>;
   researchContributorAccessService?: ResearchContributorAccessService;
   researchContributionReviewService?: ResearchContributionReviewService;
+  /** The owner's findings actions for the Atlas: their stores, canonical reader and GitHub inbox. */
+  atlasReview?: AtlasReview;
+  /** Whether the findings actions are open; defaults to ASKRIGOR_ATLAS_REVIEW. */
+  atlasReviewEnabled?: boolean;
   researchAccessRequired?: boolean;
   /** Replaces the production lesson queue, for tests. */
   lessonSubmission?: (raw: unknown, context: LessonSubmissionContext) => Promise<ConnectorLessonSubmissionResult>;
@@ -788,13 +797,44 @@ export interface RegisterToolsOptions {
   mcpSurface?: McpSurface;
   /** The versions this server runs, shown first in get_protocol_manifest's description. */
   runningVersions?: RunningVersions;
+  /** This surface's tool list version (toolListVersionOf), which a call's tool_list_version is compared with. */
+  toolListVersion?: string;
   /** What happened to this request's sign-in on /mcp; undefined without OAuth. */
   signIn?: SignInState;
 }
 
+/**
+ * The owner review tool (owner-only, cases:review): proposals, and the findings the owner accepts into the Atlas
+ * (Atlas phase 2 design, section 6).
+ */
+export const REVIEW_RESEARCH_CONTRIBUTION_DESCRIPTION =
+  "Owner-only review. Proposals: inspect one deidentified pending research contribution's exact payload and hash, " +
+  "then accept or reject it with a reason; inspect also shows, by ID only, the other pending proposals and canonical " +
+  "records that share its topic, question, frontier or identifiers, and a promotion preflight naming any conflict by " +
+  "its code. Findings for the Atlas: list_findings shows the findings cards that wait; inspect_finding runs every " +
+  "exact check on a card item (card ARF-0142 with finding or lead) and returns its cardSha256, or shows an accepted " +
+  "finding (atlasNumber F-1007) with its versions, label, links and write status; accept_finding takes that " +
+  "cardSha256, the topicKey you declare (with topicLabel for a new topic) and the numbers the wording gives (an empty " +
+  "list if none), and confirm: true only after the owner said to accept what the checks flagged; edit_finding accepts " +
+  "with the owner's wording, or after acceptance (with version) corrects it with a dated note; reject_finding, " +
+  "withdraw_finding and link_findings complete the set. With eraseWording, edit_finding or withdraw_finding also " +
+  "erases wording the owner judges could identify a person. forget_card (card ARF-0142) removes what ties a card to " +
+  "its contributor whenever they ask, with no reason needed: it deletes the card's decision rows and strips its " +
+  "GitHub issue, which the owner then deletes, and findings accepted from it stay while they are valid. Nothing from " +
+  "a card is public until the owner accepts it, and nothing is public until the Atlas pages exist. An accepted " +
+  "decision is a hash-bound intent: this call never writes canonical evidence, and a separate one-shot writer applies " +
+  "it within about 5 minutes.";
+
 // A findings save never holds back the answer for long: past this, the answer
 // goes ahead and the save, which carries on, is reported unconfirmed.
 const FINDINGS_SAVE_DEADLINE_MILLISECONDS = 10_000;
+
+// What finalize_research says of a checked card whose findings are declared personal only (owner answer 156a,
+// 2026-10-22): a free contributor's is not saved, and a paid private answer offers no save.
+export const PERSONAL_ONLY_NOT_SAVED = "not saved: its findings are declared personal only, so they stay out of " +
+  "AskRigor's findings library";
+export const PERSONAL_ONLY_NOT_OFFERED = "its findings are declared personal only, so the answer offers no save, and " +
+  "save_research_findings does not save them";
 
 function defineResearchOperations(
   registrar: Pick<McpServer, "registerTool">,
@@ -811,7 +851,9 @@ function defineResearchOperations(
         : `Versions when this tool list was loaded: ${runningVersionsText(options.runningVersions)}. `) +
         "Lists canonical protocol identity, SHA-256 metadata and the finalize_research input contract version.",
       inputSchema: {
-        protocol: protocolSchema.describe("Canonical protocol to inspect.")
+        protocol: protocolSchema.describe("Canonical protocol to inspect."),
+        // Owner request (2026-10-22): the result says when this app's copy of AskRigor's tools is out of date.
+        tool_list_version: toolListVersionField(options.toolListVersion)
       },
       outputSchema: {
         contract: z.literal(FINALIZE_RESEARCH_CONTRACT).describe("Records the server's finalize_research input contract version."),
@@ -825,16 +867,18 @@ function defineResearchOperations(
       },
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async ({ protocol }, extra) => {
+    async ({ protocol, tool_list_version }, extra) => {
       try {
         const manifest = await getProtocolManifest(protocol);
+        const notice = toolListNotice(tool_list_version, options.toolListVersion);
         const connection = await researchConnection(extra, {
           service: options.researchContributorAccessService,
           signIn: options.signIn,
         });
         return successfulToolResult(
           `Protocol manifest: ${manifest.name} ${manifest.version} (${manifest.revisionDate}); SHA-256 ${manifest.sha256}.` +
-            (connection === undefined ? "" : ` ${researchConnectionSummary(connection)}`),
+            (connection === undefined ? "" : ` ${researchConnectionSummary(connection)}`) +
+            (notice === undefined ? "" : ` ${notice}`),
           { contract: FINALIZE_RESEARCH_CONTRACT, ok: true, protocol, manifest, ...(connection === undefined ? {} : { connection }) }
         );
       } catch (error) {
@@ -1275,17 +1319,26 @@ function defineResearchOperations(
     {
       description:
         "Check traceable Crossref update metadata for a DOI without inferring validity, safety, or medical conclusions.",
+      // Either name: in the 22 Oct regressions all 27 calls that failed here named the DOI doi, and the app refused
+      // them before they reached AskRigor, as identifier was required.
       inputSchema: z.object({
-        identifier: z.string().trim().min(1).max(5_000).describe(
+        identifier: z.string().trim().min(1).max(5_000).optional().describe(
           "DOI URL, doi: identifier, or bare DOI to inspect."
-        )
+        ),
+        doi: z.string().trim().min(1).max(5_000).optional().describe("The same DOI, for a call that names it doi.")
       }).strict(),
       outputSchema: retractionStatusEnvelopeSchema,
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async ({ identifier }) => {
+    async ({ identifier, doi }) => {
+      const given = identifier ?? doi;
+      if (given === undefined) {
+        return crossrefToolResult("Give the DOI to inspect as identifier.", crossrefRetractionFailure(
+          "crossref_identifier_missing", "Give the DOI to inspect as identifier (or doi)."
+        ));
+      }
       try {
-        const result = await checkRetractionStatus(identifier, crossrefConfig());
+        const result = await checkRetractionStatus(given, crossrefConfig());
         return crossrefToolResult(
           `Crossref retraction-status lookup finished with status ${result.data.status}; access status ${result.access_status}.`,
           result
@@ -1712,7 +1765,7 @@ function defineResearchOperations(
   registrar.registerTool(
     "manage_research_access",
     {
-      description: `Shows or sets AskRigor's research-use mode. Inspecting it is the first step of research, and it shows why a research tool was refused. Free use requires explicit agreement to version ${RESEARCH_USE_NOTICE_VERSION}: what AskRigor learns from the research (deidentified structured research progress and each finished answer's findings card) is saved for non-authoritative review. Paid private mode saves an answer's findings card, files its research map or saves lesson feedback only when the user accepts that for that answer, and activates only for an existing verified entitlement; this release offers no price or checkout. ` +
+      description: `Shows or sets AskRigor's research-use mode. Inspecting it is the first step of research, and it shows why a research tool was refused. Free use requires explicit agreement to version ${RESEARCH_USE_NOTICE_VERSION}: what AskRigor learns from the research (deidentified structured research progress and each finished answer's findings card) is saved for non-authoritative review, and findings AskRigor's owner accepts may be published in its public Atlas, written without the person. Paid private mode saves an answer's findings card, files its research map or saves lesson feedback only when the user accepts that for that answer, and activates only for an existing verified entitlement; this release offers no price or checkout. ` +
         "For a paid private or dev account, inspect asks for a plain answer before research: register_plain_answer " +
         "signs the short answer you would give without AskRigor's tools, which the final check compares with the " +
         "checked answer in a note, and set_plain_answer_note turns that note off or on. " +
@@ -1721,7 +1774,7 @@ function defineResearchOperations(
         "by default; inspect shows which): only with them on may a lesson carry a detailed report. Each call also returns " +
         "accountReference, this account's reference, which the user can give AskRigor's owner (for example to be " +
         "listed as a dev account); give it only when the user asks for it.",
-      inputSchema: manageResearchAccessInputSchema,
+      inputSchema: manageResearchAccessInputSchemaFor(options.toolListVersion),
       outputSchema: manageResearchAccessOutputSchema,
       annotations: MUTATING_ANNOTATIONS,
     },
@@ -1729,6 +1782,7 @@ function defineResearchOperations(
       service: options.researchContributorAccessService,
       resourceMetadataUrl: options.oauthResourceMetadataUrl,
       signIn: options.signIn,
+      toolListVersion: options.toolListVersion,
       // Owner answer 140b: the plain answer is the MCP connector's (/mcp and /mcp/claude); Gemini's catalog does not
       // list this tool, and Custom GPT Actions do not reach it.
       ...(options.mcpSurface === "/mcp/gemini" ? {} : {
@@ -1769,16 +1823,22 @@ function defineResearchOperations(
   registrar.registerTool(
     "review_research_contribution",
     {
-      description: "Owner-only review of one deidentified pending research contribution. Inspect the exact payload and hash, then accept or reject with a reason. Inspect also shows, by ID only, the other pending proposals and the canonical records that share its topic, question, frontier or identifiers, and a promotion preflight naming any conflict by its code. Acceptance creates a hash-bound pending promotion intent but this public-runtime call never writes canonical evidence; a separate one-shot administrator completes promotion.",
+      description: REVIEW_RESEARCH_CONTRIBUTION_DESCRIPTION,
       inputSchema: researchContributionReviewInputSchema,
       outputSchema: researchContributionReviewOutputSchema,
-      annotations: MUTATING_ANNOTATIONS,
+      annotations: OWNER_REVIEW_ANNOTATIONS,
     },
     createResearchContributionReviewHandler({
       service: options.researchContributionReviewService,
       resourceMetadataUrl: options.oauthResourceMetadataUrl,
       allowedReviewerSubjects: options.allowedReviewerSubjects,
       canonical: RESEARCH_FRONTIER_READER,
+      atlas: {
+        enabled: options.atlasReviewEnabled ?? atlasReviewEnabledFromEnv(),
+        review: options.atlasReview,
+        // The source checks use the provider settings the connector's own provider tools use.
+        providers: () => ({ crossref: crossrefConfig(), pubmed: ncbiConfig() }),
+      },
     }),
   );
 
@@ -2101,7 +2161,7 @@ function defineResearchOperations(
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (input, extra) => {
-      const { result, receipt } = await extractYoutubeVideoClaims(input, {
+      const { result, receipt, unread, pending } = await extractYoutubeVideoClaims(input, {
         secret: researchReceiptSecretFromEnv(),
         geminiKeyUnbilled: geminiKeyDeclaredUnbilled(),
         // Owner answer 146b: only a dev account the server's settings list may name a trial arm.
@@ -2110,9 +2170,16 @@ function defineResearchOperations(
           return researcher !== undefined && isDevAccount(researcher.accountKey, devAccountKeysFromEnv());
         }
       });
-      return receipt === undefined
-        ? result
-        : withResearchReceipt(result, researchReceipt("youtube_video_claims", receipt));
+      // AskRigor#359: a video the tool did not read is signed on its refusal, so the final check can tell a video that
+      // was read from one whose title and description were all the answer had. A reading still in progress is signed
+      // too, so one the AI abandons counts as unread there.
+      return receipt !== undefined
+        ? withResearchReceipt(result, researchReceipt("youtube_video_claims", receipt))
+        : unread !== undefined
+          ? withResearchReceipt(result, researchReceipt("youtube_video_unread", unread), true)
+          : pending === undefined
+            ? result
+            : withResearchReceipt(result, researchReceipt("youtube_video_pending", pending));
     }
   );
 
@@ -2127,13 +2194,17 @@ function defineResearchOperations(
         "tools returned in this session; the research_target as given to the scout, search_youtube and the coverage " +
         "check, and as research_question to surveys and community audits (discovery for another target does not " +
         "count); whether community evidence was researched, or not relevant with its basis and reason " +
-        "(not_relevant_basis, not_relevant_reason; with no_real_world_outcome, the answer states the reason in the " +
-        `caveat "${COMMUNITY_SKIP_CAVEAT_START} [reason]."), and whether the answer compares treatment options; with a ` +
+        "(not_relevant_basis, not_relevant_reason; with no_real_world_outcome, whether the question is about a symptom " +
+        "or a test result, question_about, which then needs its community evidence researched, and the answer states " +
+        `the reason in the caveat "${COMMUNITY_SKIP_CAVEAT_START} [reason]."), and whether the answer compares ` +
+        "treatment options; with a " +
         "comparison, each plausible class of treatment, researched by name, not researched or out of reach " +
         "(option_classes); where " +
         "the topic is discussed and what each community searched outside YouTube showed (principal_communities, " +
         "community_searches); what the YouTube comments read showed (community_findings); the studies the " +
-        "conclusions rest on (key_sources), whole-intervention identity (intervention_identity), item-level product " +
+        "conclusions rest on (key_sources), whole-intervention identity (intervention_identity), the one thing the " +
+        "question is about and how each key study matches it (named_target), videos AskRigor could not read " +
+        "(unwatched_videos), item-level product " +
         "identity (product_corpora and item_identity), and destination-bound offers or search routes (shopping); after a first pass, the focuses for going deeper (open_leads, " +
         "another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare " +
         "video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was " +
@@ -2163,7 +2234,8 @@ function defineResearchOperations(
         "receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked " +
         "findings_card is saved to AskRigor's private findings library for the owner's review, and saved_line says " +
         "so at the end of the answer; in paid private mode, when a finding rests on work a quick answer cannot do, " +
-        "the caveats offer its save, which also asks to file this research's map. research_map says whether this " +
+        "the caveats offer its save, which also asks to file this research's map. A card whose public_value declares " +
+        "its findings personal_only is neither saved nor offered. research_map says whether this " +
         "research's map was filed or offered, or reminds a free contributor to file it. For a paid private or dev " +
         "account whose plain answer was registered with " +
         "manage_research_access before the research, plain_answer_comparison gives what the research found for each " +
@@ -2174,7 +2246,7 @@ function defineResearchOperations(
         // The only text ChatGPT's app shows the model for this tool (Codex probes, 2026-10-16): the JSON of the
         // inputs its type hides, from which the regression's first calls invented fields.
         FINALIZE_RESEARCH_SHAPES_DESCRIPTION,
-      inputSchema: finalizeResearchConnectorInputSchema(options.mcpSurface !== "/mcp/claude"),
+      inputSchema: finalizeResearchConnectorInputSchema(options.mcpSurface !== "/mcp/claude", options.toolListVersion),
       outputSchema: finalizeResearchOutputSchema,
       ...(options.mcpSurface === "/mcp/gemini" ? {} : {
         _meta: {
@@ -2207,6 +2279,7 @@ function defineResearchOperations(
           ? "closed" as const
           : account === undefined ? "private" as const : account.mode === "FREE_CONTRIBUTOR" ? "save" as const : "offer" as const,
         ...(readsOnMobile(extra._meta) ? { mobileClient: true } : {}),
+        ...(options.toolListVersion === undefined ? {} : { toolListVersion: options.toolListVersion }),
         ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) }),
         // Owner answer 140b: a paid private or dev account's plain answer, registered before research, is compared
         // with the answer, on the MCP connector only.
@@ -2237,6 +2310,13 @@ function defineResearchOperations(
         result = finalizeResearch(input, { ...finalizeOptions, secondReading });
       }
       if (
+        account?.mode === "FREE_CONTRIBUTOR" && result.findings_card.status === "checked" &&
+        result.findings_card.public_value === "personal_only"
+      ) {
+        // Owner answer 156a (2026-10-22): findings declared personal only are not saved for the Atlas, so no save is
+        // attempted and the answer ends with no saved line for them.
+        result.findings_card.saved = { status: "not_saved", reason: "personal_only" };
+      } else if (
         account?.mode === "FREE_CONTRIBUTOR" && checkedInput?.findings_card !== undefined &&
         result.findings_card.status === "checked" && result.finalization_receipt !== undefined
       ) {
@@ -2293,10 +2373,18 @@ function defineResearchOperations(
           (result.saved_line === undefined ? "" :
             `\nJust before the check line, end the answer with this line, as written (in the answer's language when the answer is not in English): ${result.saved_line}`) +
           (result.check_line === undefined ? "" :
-            `\nEnd the answer with this line, as written (in the answer's language when the answer is not in English): ${result.check_line}`) +
+            `\nEnd the answer with this line, as written (in the answer's language when the answer is not in English): ${result.check_line}` +
+            // The 22 Oct regressions: in 57 of the 64 runs whose check passed, the answer the user saw was the checked
+            // draft reworded afterwards, which no check read.
+            "\nGive the user the checked answer_draft word for word, followed only by the lines this result gives for " +
+            "its end; to change anything in it, call finalize_research again with the changed draft first.") +
           // AskRigor#354: the server never sees which answer the user gets, so an answer given before a pass says so.
+          // AskRigor#359: one such answer opened with a confident verdict, so it also says at its start that it is
+          // partial, and gives no ranking or verdict that a step still open could change.
           (result.unchecked_line === undefined ? "" :
-            `\nAn answer given before this check passes ends with this line, as written (in the answer's language when the answer is not in English): ${result.unchecked_line}`) +
+            "\nAn answer given before this check passes says at its start that it is partial, gives no ranking or " +
+              "verdict that a step still open could change, and ends with this line, as written (in the answer's " +
+              `language when the answer is not in English): ${result.unchecked_line}`) +
           (result.previous_check === undefined ? "" :
             `\nThe previous final check in this conversation did not pass (${result.previous_check.open.join(", ") || "steps open"}), ` +
               "so an answer given after it went out unchecked; if one did, this answer says what changed from it.") +
@@ -2306,19 +2394,26 @@ function defineResearchOperations(
               (card.saved !== undefined
                 ? `; ${
                   card.saved.status === "not_saved"
-                    ? "not saved"
+                    ? card.saved.reason === "personal_only" ? PERSONAL_ONLY_NOT_SAVED : "not saved"
                     : card.saved.status === "unconfirmed"
                       ? "the save had not finished; it may still complete"
                       : `saved for review as ${card.saved.card_id}`
                 }.`
                 : card.problems.length > 0
                   ? `: ${card.problems.join(" ")}`
-                  // A paid private card no finding of which rests on work a quick answer cannot do is not offered,
-                  // and its receipt still signs it, so the user can still ask for the save (owner answer 139c).
-                  : finalizeOptions.findings === "offer" && card.beyond_quick_answer === 0
-                    ? "; no finding rests on work a quick answer cannot do, so the answer offers no save. If the user " +
-                      "asks for it, save_research_findings still saves it after their yes."
-                    : ".")) +
+                  // Owner answer 156a: a paid private card declared personal only is not offered, and its save is
+                  // refused even when the user asks.
+                  : finalizeOptions.findings === "offer" && card.public_value === "personal_only"
+                    ? `; ${PERSONAL_ONLY_NOT_OFFERED}.`
+                    // A paid private card no finding of which rests on work a quick answer cannot do is not offered,
+                    // and its receipt still signs it, so the user can still ask for the save (owner answer 139c).
+                    : finalizeOptions.findings === "offer" && card.beyond_quick_answer === 0
+                      // Owner answer 160b: the user who asks for the save hears first, as the offer says, that
+                      // accepted findings may be published in the public Atlas.
+                      ? "; no finding rests on work a quick answer cannot do, so the answer offers no save. If the user " +
+                        `asks for it, tell them first: "${FINDINGS_ATLAS_SENTENCE}" Then save_research_findings saves ` +
+                        "it after their yes."
+                      : ".")) +
           (analyses === undefined
             ? ""
             : `\nStudy and review analyses from this account's research, in this chat or another, sent to the review inbox: ${analyses.saved + analyses.already_saved}` +
@@ -2761,10 +2856,13 @@ function isActionCall(extra: unknown): boolean {
 /**
  * A lead's other full-text routes (owner answer 147a, 2026-10-21, from UDA #411): AskRigor cannot see the app's other
  * tools, so a completed lead names the next step, and finalize_research takes the model's other_route declaration.
+ * Owner answer 157a (2026-10-22): on a free account the AI took InfoAccess's paid text tool, so the step names a free
+ * route first, and a tool that costs the user credits only after the user's yes in this conversation.
  */
 export const OTHER_FULL_TEXT_ROUTE = "If this study could change the answer and this app has another full-text tool " +
-  "connected (a library or article service), read it there next, asking the user first when it costs them credits, " +
-  "and give its finalize_research key_sources entry other_route: read, unavailable, cost or none. A study read that " +
+  "connected (a library or article service), read it there next: try a free route first, such as a free PDF tool, " +
+  "and use a tool that costs the user credits only after the user says yes to that cost in this conversation. Give " +
+  "this study's finalize_research key_sources entry other_route: read, unavailable, cost or none. A study read that " +
   "way is reported as read through another tool, not audited by AskRigor.";
 
 /**
@@ -2832,16 +2930,17 @@ function receiptSequence(): number {
 }
 
 /**
- * Adds the receipt to a result. An error result carries none, except a
- * discovery round's (`signsStoppedRound`): a search a rate limit or the daily
- * quota stopped is signed with that limit, which keeps discovery open.
+ * Adds the receipt to a result. An error result carries none, except where
+ * `signsError` asks for it: a discovery round's, as a search a rate limit or
+ * the daily quota stopped is signed with that limit, which keeps discovery
+ * open; and a video extract_youtube_video_claims did not read (AskRigor#359).
  */
 function withResearchReceipt(
   result: CallToolResult,
   receipt: string | undefined,
-  signsStoppedRound = false
+  signsError = false
 ): CallToolResult {
-  if (receipt === undefined || (result.isError === true && !signsStoppedRound)) return result;
+  if (receipt === undefined || (result.isError === true && !signsError)) return result;
   // The reminder reaches the AI whenever it researches, in any turn: a
   // "continue" turn without a mention is still the same task (owner question 86).
   return {
@@ -2851,7 +2950,11 @@ function withResearchReceipt(
       { type: "text", text: `research_receipt: ${receipt}` },
       { type: "text", text: FINALIZE_REMINDER }
     ],
-    structuredContent: { ...result.structuredContent, research_receipt: receipt }
+    // An error result without structured content gets none: clients check any they receive against the tool's output
+    // schema, which describes a result that completed, so its receipt goes in the text only.
+    ...(result.isError === true && result.structuredContent === undefined
+      ? {}
+      : { structuredContent: { ...result.structuredContent, research_receipt: receipt } })
   };
 }
 
@@ -2864,7 +2967,7 @@ function registerOpenFullTextMcpTools(
   registrar.registerTool(
     "acquire_open_full_text",
     {
-      description: "Acquires one DOI through Europe PMC, Unpaywall PDFs, up to five public HTTPS candidate_urls, and up to two AI-supplied candidate_texts from a client search index, with an optional PMCID. When none of these is admitted, the configured owner library serves the signed-in owner, or an active paid-private account whose paper shows a verified public basis: a public page with the paper's own text beyond its abstract, or an open license. Library copies cite the public basis URL and expose no library link. Supplied texts receive the same identity, admission and embedded-block checks plus an exact abstract cross-check when available; audits carry a search-copy caveat. Records expanded public-copy searches with public_copy_search; lead receipts require exact DOI and known-title queries without technical failures. Reports identity, structural completeness, source class and its basis, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID.",
+      description: "Acquires one DOI through Europe PMC, Unpaywall PDFs, up to five public HTTPS candidate_urls, and up to two AI-supplied candidate_texts from a client search index, with an optional PMCID. When none of these is admitted, the configured owner library serves the signed-in owner, or an active free-contributor or paid-private account whose paper shows a verified public basis: a public page with the paper's own text beyond its abstract, or an open license. Library copies cite the public basis URL and expose no library link. Supplied texts receive the same identity, admission and embedded-block checks plus an exact abstract cross-check when available; audits carry a search-copy caveat. Records expanded public-copy searches with public_copy_search; lead receipts require exact DOI and known-title queries without technical failures. Reports identity, structural completeness, source class and its basis, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID.",
       inputSchema: acquireOpenFullTextActionInputSchema,
       outputSchema: openFullTextMcpOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
@@ -2873,8 +2976,11 @@ function registerOpenFullTextMcpTools(
       let runtime: AcquireOpenFullTextRuntime | undefined;
       const auth = authorizedSubject(extra as ResearchOperationExtra | undefined, options.oauthResourceMetadataUrl, options.signIn);
       if (infoAccess !== undefined && "subject" in auth) {
+        // Owner answer 157a (2026-10-22): every active research account, free contributor or paid private, reads the
+        // library under the same public-basis rule. researchUseAccount gives none for an unregistered or revoked
+        // account, a free account without the current notice, or a lapsed paid entitlement.
         const access = options.allowedReviewerSubjects?.has(auth.subject) === true ? "owner" :
-          (await researchUseAccount(extra as ResearchOperationExtra | undefined, options.researchContributorAccessService))?.mode === "PAID_PRIVATE"
+          (await researchUseAccount(extra as ResearchOperationExtra | undefined, options.researchContributorAccessService)) !== undefined
             ? "public_only" : undefined;
         if (access !== undefined) runtime = { ownerLibrary: { access, fetchPdf: (doi) => infoAccess.fetchPdf(doi) } };
       }
@@ -3741,7 +3847,7 @@ function crossrefResolveFailure() {
   });
 }
 
-function crossrefRetractionFailure() {
+function crossrefRetractionFailure(code = "crossref_tool_failed", message = "Crossref retraction-status lookup failed") {
   return errorEnvelope({
     provider: "crossref",
     recordType: "retraction_status",
@@ -3749,8 +3855,8 @@ function crossrefRetractionFailure() {
     returned: 0,
     accessStatus: "error",
     limitations: ["Crossref metadata was unavailable or could not be interpreted; retraction state remains unknown."],
-    code: "crossref_tool_failed",
-    message: "Crossref retraction-status lookup failed",
+    code,
+    message,
     retryable: false,
     data: { doi: null, status: "unknown", evidence: [], sources_checked: ["crossref"] }
   });

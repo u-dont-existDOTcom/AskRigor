@@ -13,6 +13,9 @@
   - openly licensed papers may always be read;
   - papers that were never public, such as ones an author sent, are for the owner's own research only.
 - **Base:** this builds on #287 (full-text route recovery, phases 1 and 1b) and ships with it.
+- **Owner answer 157a (2026-10-22)** replaces question 57's paid-only limit: free contributor accounts get
+  `public_only` too, under the same public-basis rule. On a free account the AI had used InfoAccess's paid text tool,
+  because AskRigor's free library route was offered to paid accounts only (owner question 157).
 
 ## The route
 

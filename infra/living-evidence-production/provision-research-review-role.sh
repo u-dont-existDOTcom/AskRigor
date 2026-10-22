@@ -57,6 +57,18 @@ GRANT EXECUTE ON FUNCTION living_evidence.decide_research_contribution_proposal(
 ) TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.inspect_research_contribution_context(uuid)
   TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_cards(integer[])
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.decide_atlas_card_item(
+  integer, text, integer, text, text, text, timestamptz, uuid, jsonb, text, text
+) TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.record_atlas_finding_intent(
+  uuid, text, text, jsonb, text, text, timestamptz, uuid
+) TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_finding_intents(text[])
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.forget_atlas_cards(integer[], timestamptz)
+  TO askrigor_research_review;
 ALTER ROLE askrigor_research_review SET statement_timeout = '5s';
 ALTER ROLE askrigor_research_review SET idle_in_transaction_session_timeout = '5s';
 ALTER ROLE askrigor_research_review SET search_path = living_evidence, pg_catalog;

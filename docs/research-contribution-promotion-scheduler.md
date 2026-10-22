@@ -29,6 +29,53 @@ topic link (owner answer 138b), which appends the link with either each topic's
 label as the other's alias or one topic edge, and never moves, changes or
 deletes a topic or anything filed under it.
 
+## Atlas findings queue
+
+Atlas phase 2 (owner answers 159 and 160b, 2026-10-22; design
+`superpowers/plans/2026-10-22-atlas-phase-2-design.md`, section 3): the owner's
+`review_research_contribution` findings actions record a decision and a
+hash-bound intent in `atlas_finding_intents` (migration `0017_atlas_findings`),
+and write nothing canonical. After the contribution queue, the same
+`promote-accepted` activation runs the Atlas runner, which writes the canonical
+Atlas rows. It runs even when the contribution queue failed, so a stuck intent
+in one queue never holds the other back; either failure fails the activation.
+The systemd units are unchanged.
+
+- **Order.** Strictly first in, first out, because later intents depend on
+  earlier ones (a link needs both findings written, a correction the version
+  before it). A pass takes the oldest pending intent `FOR UPDATE NOWAIT` in one
+  SERIALIZABLE transaction that already holds the canonical writers' lock; an
+  activation that finds it held by another stops with `atlas_queue_busy` rather
+  than skipping ahead.
+- **Atomic pass.** The canonical rows are written in a savepoint inside that
+  transaction, and the intent's `COMPLETED` receipt or `FAILED` code commits
+  with them. An intent the writer already applied (an `atlas_intent_applications`
+  row for it) is completed through the writer's idempotent replay.
+- **Throughput.** One Atlas intent per activation (choice 7), after at most 20
+  that end `FAILED` on the way to it, like the contribution queue.
+- **Failures.** A deterministic conflict ends the intent `FAILED` with one fixed
+  code from a closed list (for example `ATLAS_VERSION_STALE`,
+  `ATLAS_FINDING_MISSING` or `SOURCE_IDENTIFIER_CONFLICT`), and the activation
+  tries the next intent. A transient or unexpected error leaves the intent
+  `PENDING`. The owner retries a failed decision under the same finding number.
+- **Erasures.** An erasure intent (decision 7) is applied like any other: in
+  the same pass, the runner writes a redaction row for each version erased,
+  calls `erase_atlas_wording()`, which sets the wording that row covers to the
+  fixed marker, and sets the same texts to the marker in the finished intents
+  that name the finding. A revision or withdrawal recorded with its erasure is
+  applied first, in its own activation, and the erasure in the next. An erasure
+  of every version of a finding that is not withdrawn ends `FAILED` with
+  `ATLAS_ERASE_NOT_WITHDRAWN`, and the activation tries the next intent. Only an
+  image that does not apply erasures stops at one, answering
+  `intent_kind_not_applied`, with the queue waiting behind it.
+- **Receipts and logs.** Each line carries `"queue":"atlas_findings"`; a
+  receipt holds only ids, hashes, the intent kind and its public `F-` number,
+  and a failure line names the intent, its kind, its number and its code. No
+  wording, card, account or chat is ever logged.
+
+An earlier image has no Atlas runner, so it never selects an Atlas intent: they
+stay `PENDING` and are neither lost nor failed.
+
 ## Installed files
 
 Install the reviewed repository bytes as root:
@@ -88,8 +135,9 @@ without depending on or warning about root's Docker client configuration.
 
 1. Start `askrigor-research-promotion.service` manually before enabling the
    timer. With no accepted intent, it must exit successfully with the bounded
-   `no_pending_promotion` result. If an already owner-accepted intent exists,
-   one exact promotion and receipt is the expected bounded mutation.
+   `no_pending_promotion` result, for both queues (the contribution line and the
+   `"queue":"atlas_findings"` line). If an already owner-accepted intent exists,
+   one exact promotion and receipt per queue is the expected bounded mutation.
 2. Inspect `systemctl status askrigor-research-promotion.service` and the bounded
    `journalctl -u askrigor-research-promotion.service` output. Logs may contain
    operation state, proposal UUID/hash, canonical identifiers, receipt hash (a
@@ -154,8 +202,8 @@ environment file.
    service.
 5. Verify no next trigger exists and the public runtime/database remain healthy.
 
-Do not delete proposals, promotion intents, promotion receipts, or canonical
-evidence during scheduler rollback. Disabling the timer restores manual
+Do not delete proposals, promotion intents, promotion receipts, Atlas decisions
+or Atlas intents, or canonical evidence during scheduler rollback. Disabling the timer restores manual
 `promote-accepted` operation and does not reverse an exact promotion that
 already completed. A scientific correction or evidence withdrawal uses the
 repository's explicit supersession/withdrawal paths, not timer rollback.

@@ -10,5 +10,11 @@ export { COMMUNITY_SKIP_LIMIT, communitySkipCaveat } from "../../apps/research-m
 export function withCommunitySkip<T extends Partial<FinalizeResearchInput>>(input: T): T {
   if (input.answer_draft === undefined || input.community_evidence !== "not_relevant" ||
     input.not_relevant_basis !== "no_real_world_outcome" || input.not_relevant_reason === undefined) return input;
-  return { ...input, answer_draft: `${input.answer_draft}\n\n${communitySkipCaveat(input.not_relevant_reason)}` };
+  // Owner answer 149a: the skip also says the question is not about a symptom or a test result, unless a fixture
+  // declares otherwise.
+  return {
+    ...input,
+    question_about: input.question_about ?? "other",
+    answer_draft: `${input.answer_draft}\n\n${communitySkipCaveat(input.not_relevant_reason)}`,
+  };
 }

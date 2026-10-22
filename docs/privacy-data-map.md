@@ -31,8 +31,15 @@ free contributor mode (owner decisions Q9 to Q11): when `finalize_research`
 checks a free contributor's answer, the server saves that answer's checked
 findings card to a private GitHub review queue; a paid-private answer offers the
 save, and its card is saved only after the user says yes to that save. It moves
-the free contributor notice to a second version that says so. It is described
-under "Findings library" below. The owner approved the public wording on
+the free contributor notice to a second version that says so. A card whose
+findings the AI declares personal only is neither saved nor offered (owner
+answer 156a, 2026-10-22). The notice's third version (owner answers 159 and
+160b, 2026-10-22; built, not yet released) adds that findings AskRigor's owner
+accepts may be published in AskRigor's public Atlas, written without the
+person, and says what deleting a card removes and what stays; the privacy page
+and the terms say the same, and the paid save offer says the first. It is
+described under "Findings library" below.
+The owner approved the public wording on
 2026-09-30; `https://askrigor.com/privacy` and `/terms` take it, with that day's
 effective date, when the library goes live, and the library stays closed until
 then.
@@ -282,7 +289,12 @@ AskRigor has deliberately separate processing paths:
   server-written version stamp in a private GitHub review queue; the answer is
   never stored, and nothing asks the user. For a paid-private account the
   answer offers the save, and the connector's `save_research_findings` saves
-  the checked card only after the user says yes to that save. See "Findings
+  the checked card only after the user says yes to that save. A card whose
+  findings the AI declares personal only is neither saved nor offered (owner
+  answer 156a). Findings the owner accepts from a saved card may be published
+  in AskRigor's public Atlas, written without the person, as notice v3, the
+  paid save offer and the public pages say (owner answers 159 and 160b; built,
+  not yet released); no finding is accepted or published yet. See "Findings
   library" below.
 - **Automated Gemini-candidate path:** a public read-only Action and the
   `scout_gemini_youtube_candidates` MCP tool (behind the research-access guard)
@@ -622,19 +634,21 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 | MCP or Custom GPT research Action request and adapter memory | Request parameters, provider responses, normalized metadata, public open-publication content and audit fields, public YouTube identity/comment/caption data, screened Gemini scout target and provisional candidate annotations, treatment-landscape coverage fields, and the current bounded segment used to update a deterministic sample and rolling corpus digest | Used for the active request only except for the exact Action handle/checkpoint rows below. No database, account profile, queue, durable full-text store, transcript-text store, candidate-packet store, treatment-landscape store, or server-side comment corpus is implemented. The low-level Gemini route sets `store:false`. Controlled Gemini scouting retains only the opaque background-job checkpoint in the encrypted research session until completion/boundary and requests provider deletion after use. Transcript continuations re-fetch the selected track; only compact chain metadata is retained under the bounded row below. The coverage assessor makes no provider call. The Phase D1 Crossref/FORRT primitives are not reachable through these public transports. |
 | ChatGPT's device hint on `finalize_research` | The optional, best-effort `openai/userAgent` hint ChatGPT may send with the call: the reader's browser or app user-agent string | Read in request memory only, to decide whether the answer must carry the owner's mobile notice (a user agent naming an iPhone, iPad, iPod, Android device or mobile browser). It is never logged, stored, returned, signed into a receipt or sent to a provider; the caveats returned to the same caller show only whether the notice is asked for. Without the hint, or with a wrong one, only that notice changes. |
 | The plain answer before research (`manage_research_access` action `register_plain_answer`; owner answer 140b) | For a paid private account or a dev account, on the MCP connector only (`/mcp` and `/mcp/claude`): the short answer the model would give without AskRigor's tools (at most 1,500 characters), one to five of its sentences as its claims (at most 250 characters each), and the research target. The dev accounts are the account references (or whole account keys) the operator lists in `ASKRIGOR_DEV_ACCOUNT_KEYS`, a server setting that is not a secret. | Request-local: each claim is checked in memory to stand as one or more whole sentences of the text, then a `plain_answer` research receipt signs a 16-character digest of each claim, the text's SHA-256, the research target's 12-character digest, a 16-character HMAC under the receipt secret that binds it to the account (never the account key itself) and the receipt's issue order, and goes back to the same caller with the claims listed. The receipt holds no text of the plain answer and is never stored or logged; neither are the text and its claims. It is a token the client carries, like every research receipt. Nothing is sent to a provider, a second reader or the findings library, and paid private accounts still submit nothing. Custom GPT Actions do not reach it, and Gemini's catalog does not list it. |
+| The tool list's version (`tool_list_version` on `get_protocol_manifest`, `manage_research_access` and `finalize_research`; owner request, 2026-10-22) | The version of AskRigor's tool list the app loaded, which the model copies from that field's description: 16 hexadecimal characters of a digest of the tool list itself, never user content. | Request-local: compared in memory with the version of the tool list the surface now serves; when it differs, the result asks the model to tell the user to refresh AskRigor in the app's settings, and when none is sent, to do so if its tool list has no such field. On `finalize_research` it is read only when a declaration is missing, and the same version means no refresh is suggested. Never stored, logged or sent anywhere. |
 | The plain-answer comparison on `finalize_research` (`plain_answer_comparison`) and its note | For an account asked for a plain answer, with its plain-answer receipt: each claim, copied as registered, its outcome (`confirmed`, `corrected`, `qualified`, `not_checked`), the answer's sentence stating a change and the study or video identifiers behind it | Request-local: read in memory for that call only, never logged or stored, not signed into the finalization receipt, not in the carried state, never saved with a findings card and not sent to the second reader. Each claim is matched to the receipt's digests, the quoted sentence is compared with the answer draft, and the identifiers with that call's receipts. A receipt bound to another account, signed for another research target, or issued after any receipt passed with it gives no note. When the check passes and the account's note is on, the result returns to the same caller the note the answer ends with (`plain_answer_note`): the plain answer's claims quoted exactly, what the research found, the answer's sentences and the server's counts of the work behind each change. So the plain answer reaches only the receipt and the answer. |
 | The serious-harm screen on `finalize_research` (`harm_screen`, `safety_question`) | The model's declaration of up to 20 serious harms the research searched by name, required with an answer draft that has safety statements, answers a question the model marks a safety question (`safety_question`, a boolean) or puts forward or ranks a medicine the model marks for long-term use (`recommendations` with `long_term_use`): each harm in at most 150 characters, what the screen found (`label_warning`, `reported_signal`, `not_found` or `not_checked`), the kinds of source searched (six fixed values), the answer's sentence reporting a harm found, and for a harm not found the exact literature query it was searched with (at most 500 characters) | Request-local: read in memory for that call only, never logged or stored, not signed into the finalization receipt, not in the carried state, never saved with a findings card and not sent to the second reader. A query is compared with the call's literature-search receipts by its 12-hex digest and is never returned; a quoted sentence is compared with the answer draft. A harm comes back to the same caller only in that call's caveat and limit for a harm not checked ("This answer did not check …"), and in next steps that point to an entry by its position and name its declared harm. |
 | The classes of treatment a comparison covers, on `finalize_research` (`option_classes`; owner answer 153a) | The model's declaration of up to 20 materially plausible classes of treatment, required with an answer draft that compares treatment options (`treatment_choice` `compared`), in a first pass too: each class in at most 120 characters, what was done (`researched`, `not_researched` or `inaccessible`), and for a class researched the exact literature query it was searched with by name (at most 500 characters) and the answer's sentence reporting what that search found | Request-local: read in memory for that call only, never logged or stored, not signed into the finalization receipt, not in the carried state, never saved with a findings card and not sent to the second reader. A query is compared with the call's literature-search receipts by its 12-hex digest and is never returned; a quoted sentence is compared with the answer draft. A class comes back to the same caller only in that call's caveat and limit for a class not researched or out of reach ("This answer did not research …", "This answer could not reach the research on …"), and in next steps that point to an entry by its position and name its declared class. |
+| The one thing a question is about, and videos AskRigor could not read, on `finalize_research` (`named_target`, the six `target_` match fields of `key_sources`, `unwatched_videos`; AskRigor#359) | The model's declaration, when a question is about one specific intervention, product, program or video routine, and required whenever an `extract_youtube_video_claims` receipt is passed: a label in at most 160 characters, where its description comes from (`video_read`, `video_description_only`, `person` or `source_text`), an optional public video ID, and six fingerprint fields (components, dose or intensity, frequency and duration, population, outcome, time horizon), each at most 300 characters or "program not described"; for each key study, one of three fixed values per field (`same`, `different`, `not_described`); and for each video the tool could not read or did not finish reading, its public ID and where the answer's account of it comes from (`description_only` or `person`) | Request-local: read in memory for that call only, never logged or stored, not signed into the finalization receipt, not in the carried state, never saved with a findings card and not sent to the second reader. Video IDs are compared with the call's video receipts, and the fixed values with each other. The fingerprint fields never come back. The label comes back to the same caller only in that call's caveat and limit when no key study is declared the same on all six fields ("None of the studies I found tested … as described: …"), and in a next step naming internal labels in it; an unread video's public ID comes back in its caveat's link and limit ("I could not watch [this video](…), so …") and in next steps that point to an entry by its position. |
 | Internal Phase D1 external-evidence adapter invocation | One public DOI; normalized Crossref publication events or FORRT replication/reproduction relationships; provider response hashes, access/error state, limitations, and FLoRA attribution | Transient process memory only. No public route, research-session connection, database, cache, response artifact, or durable provider-content store is added in Phase D1. Fixtures are synthetic. |
 | Internal Phase D5 optional-provider adapter invocation | A strict synthetic or future server-authorized record for one public DOI; bounded PubPeer message/thread state or Epistemonikos review-ancestry metadata; content/item hashes, status, pagination, classification provenance, directives, and limitations | Phase D5 has no live transport or new provider request. When a server executor is supplied in tests, the existing bounded in-memory artifact store and signed receipt are used; the research-session projection keeps hashes/status/work rather than message bodies. No durable store, token, public operation, or deployment activation is added. |
 | MCP client-carried continuation state | The minimized, opaque authenticated continuation state described above | Returned to the invoking MCP client and processed transiently if resubmitted within one hour. The server keeps no matching MCP session record. |
 | Custom GPT Action continuation handle map | A short random handle mapped to the existing signed minimized token; no comment/reply text, author identity, provider credential, or protocol text | Process memory only on the single application replica, no longer than one hour, at most 2,048 handles and 16 MiB. Server restart, expiry, or capacity eviction removes access. Nothing is written to disk or application logs; there is no durable research-session store. Horizontal scaling requires an approved sticky-routing or shared-state design. |
 | Custom GPT transcript Action continuation handle map | A short random handle mapped to compact transcript chain metadata: provider cursor, public video ID, selected-track metadata, caption-snapshot hash, page size/count, cumulative segment count, next expected index, and timestamp-presence state; no caption text, title, channel name, request text, provider credential, or protocol text | Process memory only on the single application replica, no longer than one hour, at most 2,048 handles and 4 MiB. Server restart, expiry, or capacity eviction removes access. Nothing is written to disk or application logs; there is no durable research-session store. Horizontal scaling requires approved sticky routing or shared state. |
-| Open-full-text Action handle map | A short random handle mapped to one exact identity-verified document index plus the next block/character cursor, segment counts, public source metadata, manuscript version, and document/block hashes | Process memory only on the single application replica, no longer than one hour, at most 64 handles and 128 MiB total. The map may contain extracted publication text, including an owner-library copy admitted for the verified owner or a currently entitled paid-private account with a same-call public basis. Library PDF bytes and the private download URL are discarded after acquisition; the index records the public basis URL (or DOI URL for owner access), retrieval provider, identity check and content hash. It contains no provider credential or user health record. Server restart, expiry, or capacity eviction removes access. Nothing is written to disk or application logs; horizontal scaling requires approved sticky routing or shared state. |
+| Open-full-text Action handle map | A short random handle mapped to one exact identity-verified document index plus the next block/character cursor, segment counts, public source metadata, manuscript version, and document/block hashes | Process memory only on the single application replica, no longer than one hour, at most 64 handles and 128 MiB total. The map may contain extracted publication text, including an owner-library copy admitted for the verified owner, or for an active free-contributor or currently entitled paid-private account with a same-call public basis. Library PDF bytes and the private download URL are discarded after acquisition; the index records the public basis URL (or DOI URL for owner access), retrieval provider, identity check and content hash. It contains no provider credential or user health record. Server restart, expiry, or capacity eviction removes access. Nothing is written to disk or application logs; horizontal scaling requires approved sticky routing or shared state. |
 | MCP or Custom GPT research Action response | The normalized fields in the table above. Action protocol and open-full-text reads use exact ordered chunks; transcript pages contain bounded timestamped caption segments; oversized per-video community samples may be deterministically transport-bounded without changing retrieval counts, digest, access state, or receipt. | Delivered to the connected client. The client/ChatGPT may retain conversation or tool-result data under its own terms; AskRigor v0 does not control that retention. |
 | Server logs | In routine operation the application emits a startup line only. A disabled-by-default MCP connector diagnostic can be enabled temporarily by a maintainer. It emits only a fixed route class, HTTP method class, coarse header/media-presence classes, selected JSON-RPC phase class, completion class, and response status. It never emits a URL or query, IP/network address, user-agent, header value, request or response body, JSON-RPC ID, tool name or argument, prompt, provider payload, comment text, user identifier, or credential. Infrastructure may independently process operational metadata such as time, route, HTTP status, latency, IP/network data, or security signals. | No request-body, response-body, candidate-content, or dedicated application access log is emitted or stored. The temporary connector diagnostic is restricted to a troubleshooting window and must be disabled by recreating the diagnostic container after the needed receipt is captured; its active container log is not a durable research-session store. Infrastructure retention and backups follow each provider's configured policy and are outside AskRigor's application storage. |
 | Provider requests | Necessary query/identifier and fixed service contact values where required by a provider, including the service contact email sent to Unpaywall; the screened population-level target, any language tag and public scout instructions sent to Gemini; the public watch URL of a video the person gave, with fixed reading instructions or the fixed one-time follow-up, sent to Gemini; and, only after a malformed scout packet, one bounded correction containing Gemini's own public candidate output, exact executed public queries, and safe validation issues. If the internal Phase D1 adapters are invoked by later controller work, Crossref receives the public DOI and configured service contact, while FORRT receives only the public DOI and fixed headers. | Europe PMC, Unpaywall, public copy hosts, Crossref, FORRT, Google Gemini, Google Search, and YouTube process requests under their own policies. The low-level Gemini route uses `store:false`; the controlled path uses `background:true`/`store:true` and requests deletion immediately after consumption. Only the first interaction can use Google Search. Provider keys and contacts remain server-only. AskRigor does not claim to control provider processing, backups, or policy-required retention. Phase D1 itself does not expose or deploy the new internal adapters. |
-| Owner-library InfoAccess request and PDF transfer | Only the requested DOI is sent to the free `get_article_pdf` MCP tool, authenticated with the dedicated server token. The returned download URL, byte size, SHA-256 and at most 64 MiB of PDF bytes are checked in memory within a 120-second call deadline. No question, health detail or account identity is sent. | Enabled only with both `ASKRIGOR_INFOACCESS_URL` and `ASKRIGOR_INFOACCESS_TOKEN`. The library is consulted only when no public copy was admitted. Access is decided from the verified sign-in: configured reviewer/owner subject, or research access with a currently active paid-private entitlement and a same-call public basis. Free accounts have no route. The token is never logged or sent to the PDF download host; the private download URL never appears in client output. No paid InfoAccess tool is called. PDF bytes and transfer metadata are not persisted; extracted admitted text follows the bounded handle retention above. The public privacy notice's sentence on the operator's study library was owner-approved (question 62) and is effective October 10, 2026. |
+| Owner-library InfoAccess request and PDF transfer | Only the requested DOI is sent to the free `get_article_pdf` MCP tool, authenticated with the dedicated server token. The returned download URL, byte size, SHA-256 and at most 64 MiB of PDF bytes are checked in memory within a 120-second call deadline. No question, health detail or account identity is sent. | Enabled only with both `ASKRIGOR_INFOACCESS_URL` and `ASKRIGOR_INFOACCESS_TOKEN`. The library is consulted only when no public copy was admitted. Access is decided from the verified sign-in: configured reviewer/owner subject, or an active research account (free contributor, or paid private with a currently active entitlement) and a same-call public basis. Free accounts have had this route since owner answer 157a (2026-10-22); before it, only paid private accounts did. An unregistered or revoked account, a free account that has not accepted the current notice, and a paid account whose entitlement has lapsed have no route. Every account's library reads share InfoAccess's rate limits with the owner's own InfoAccess use; a rate-limited request is a route failure, not a completed lead and never a statement that the paper is inaccessible, and a later attempt can try again. The token is never logged or sent to the PDF download host; the private download URL never appears in client output. No paid InfoAccess tool is called. PDF bytes and transfer metadata are not persisted; extracted admitted text follows the bounded handle retention above. The public privacy notice's sentence on the operator's study library was owner-approved (question 62) and is effective October 10, 2026; owner answer 157a extends it to free accounts under the same condition ("for a free or paying account only while the same study is publicly available elsewhere"), and the notice's effective date is set to that change's release day. |
 | Aggregate AI budget ledger | UTC month, fixed $50 monthly limit, aggregate charged nano-USD, update time, and schema version shared by lesson privacy and Gemini scouting | Owner-only mode-0600 file. It contains no target, prompt, candidate, request, response, identity, or credential. Each Gemini scout reserves at most $1 before provider execution; a dev account's Gemini 4 trial (owner answer 146b) reserves the same scout at that model's prices, about $1.97 through November and $3.52 from 1 December, and its trial arm travels in its continuation token. A background scout charges that maximum at job start as a hold; later polls do not reserve again, and the call that completes it settles its real cost, the same usage-based amount a one-call scout commits, refunding the rest to the hold's UTC month once (nothing once that month has ended). A boundary, failure, over-budget result, stopped, expired or abandoned scout, or a settlement this file cannot record keeps the whole hold charged, as does a scout started before holds existed. The hold (a random hold identity, the amount held and its UTC month) travels with the scout in the MCP continuation token or the research-session checkpoint, never in this file; to refund each hold once, the server process remembers the current month's settled hold identities in memory only (none survive a restart). |
 | Gemini video daily ledger | Pacific calendar day, fixed 8-hour daily limit, total video seconds charged that day, update time, and schema version | Owner-only mode-0600 file beside the AI budget ledger. It contains no video ID, title, request, report, identity, or credential. Each Gemini video reading charges its video's whole length before it starts, a charge is never refunded, and a reading that would pass the limit is refused. The count restarts each Pacific day, when Google's daily quotas reset. |
 | Optional local legacy Gemini-candidate validator | Operator-supplied de-identified research target, executed search queries, public video IDs/URLs/titles/channels, provisional creator-claim annotations, and independently retrieved bounded public video metadata | The operator controls the historical input file and standard output. AskRigor creates no additional file, database row, log, account record, comment corpus, or transcript store. YouTube processes the video-ID lookups under its own policy. |
@@ -650,8 +664,8 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 | Curated production living-evidence study audit | Exact public DOI/PMID/PMCID identifiers and source-version hash; source locator/access state; complete AskRigor-authored validated 13-domain study-method audit and claim-capability findings, with the audit's declared headline figures (as printed, recomputed, its plausibility call and source block) and each program's route; unresolved/future-analysis items; canonical protocol, freshness, impact, and validator receipts | A one-shot administrator process receives the exact public document index transiently over bounded stdin and writes only the source-free strict contribution to a private PostgreSQL service on the AskRigor VPS. The public MCP canonical-lookup component uses a SELECT-only role, performs one 1.5-second lookup at acquisition and one at requested reuse, and writes no public-user request, chat, tool call, health narrative, article block, provider body, transcript, comment, reply, or identity to canonical tables. No database port is published and no automatic off-host backup is added in this phase. |
 | Curated formal research frontier | Exact current protocol manifests; de-identified formal-source query/hash; provider and formal source class; requested and confirmed half-open publication/index windows; access/exhaustion/count receipt; public formal identifiers/title/date; append-only candidate decision/reason; unresolved, blocked, coverage-gap, discriminator, and delta trails with next capability or terminal reason. Read-only catalog search accepts transient free text and returns only stored topic/question metadata, exact selectors, lexical match fields, and descriptive coverage counts. | One strict writer-only `import-frontier` transaction in the same private PostgreSQL service. The contribution requires explicit false raw-source/raw-provider/personal/community persistence markers. Source/provider/candidate/trail scope and lineage are database-checked; update/delete fails. The canonical lookup role remains SELECT-only; catalog lookup runs in a read-only transaction. The distinct proposal role can insert only pending strict proposals, not canonical rows. YouTube/community classes and locators are rejected. Deterministic Obsidian/Mermaid exports are derived, non-authoritative views. |
 | Owner-accepted topic link | Link UUID and idempotency key; the run's protocol manifests, times and provenance note; the two canonical topics' IDs and keys; one relation (`same`, `narrower`, `broader` or `related`); the model's deidentified rationale (at most 2,000 characters); the payload as reviewed and its SHA-256; how many aliases and edges it wrote. For `same`, each topic's label written as the other's alias; otherwise one topic edge under the link's UUID (owner answer 138b, 2026-10-20) | Written only by the canonical writer, under its lock, from the exact TOPIC_LINK proposal the owner accepted; the writer repeats the intake's exact checks (both topics exist under the IDs and keys named, no stored link contradicts or repeats it, no third topic holds the alias, the UUID is new) and otherwise ends the promotion `FAILED` with its code. It never moves, changes or deletes either topic, its aliases, edges or anything filed under it; update and delete fail. Whether two wordings name one topic is the model's declaration and the owner's judgment, not a server check. The canonical lookup role reads it SELECT-only, the catalog search reads the aliases, and the repository export includes the rows. No account key, chat, prompt, person's details or source content. |
-| Connected research-use account and pending contribution proposal | HMAC-SHA-256 account key; active/revoked state; free-contributor or paid-private mode; exact notice/agreement fields and timestamps; the plain-answer note setting (`plain_answer_note`, a boolean, on by default; owner answer 140b, migration `0013_research_plain_answer_note`); the detailed lesson reports setting (`detailed_lesson_reports`, a boolean, off by default, which only the user's `set_detailed_lesson_reports` turns on; owner question 154, migration `0015_research_detailed_lesson_reports`), never a report; verified-entitlement status; strict deidentified formal-frontier, source-analysis or topic-link proposal, proposal hash/kind/partial state, eight privacy false markers, and review timestamps/reason; optionally the UUID of the same account's own pending proposal of the same kind that the proposal supersedes (owner answer 138b, 2026-10-20); for a paid-private account's research map only, the SHA-256 of the finalization receipt whose offer the user said yes to (`consent_receipt_sha256`, owner answer 143a, migration `0014_research_map_consent`), never the receipt | A distinct least-privilege PostgreSQL role can select/insert/update access accounts, read entitlements, select/insert proposals, and execute one security-definer function that changes only pending proposals for a supplied HMAC account key to `WITHDRAWN`. It cannot grant entitlements, change proposal review dispositions, or write canonical evidence/frontier tables. The service, not the client, derives the key from the authenticated OAuth subject. Proposal payloads exclude raw chat/prompts, identity/contact data, private health narratives, uploads, raw source/provider bodies, credentials, and community/YouTube data. Pending rows have no automatic expiry in this slice and no automatic off-host backup. A database trigger accepts a supersedes link only to the same account's own pending proposal of the same kind, and refuses any other UUID with one answer, so a submitter learns nothing about another account's proposals; accepting the proposal rejects that draft, "superseded by <id>", in the same transaction. The same trigger admits a paid-private account's proposal only as a research map carrying that consent digest, and a free contributor's never carries one; a unique index lets one yes file one map, and the owner's review shows neither the account key nor the digest. The owner's review sees the link in both directions by proposal ID only, which shows that the two proposals come from one account, never the account key. Before storage, a frontier is reconciled with the canonical store by exact identity through the read-only canonical reader, so the stored payload may hold canonical IDs and labels in place of the ones sent; the submitter is told which IDs, all of them already public through the catalog tools. A topic link names two canonical topics by ID and key, one of four relations and a deidentified rationale; it is stored only after the same reader confirms both topics and that no stored link contradicts it, and when the reader cannot be read nothing is stored. |
-| Held validated analysis (free contributor) | HMAC-SHA-256 account key; the study or review audit's SHA-256; the living-evidence contribution built from one validated method audit: source identifiers, title, content hash and locator, structured domain findings and claim capabilities, a study audit's declared headline figures and program routes, the audit receipt, the protocol identities, and a Crossref integrity-check hash | Process memory only, between a free contributor's successful `validate_study_method_audit` or `validate_review_method_audit` on MCP and a passing `finalize_research`. The final check then files it as a pending `SOURCE_ANALYSIS` proposal through the same intake and privacy checks as `submit_research_contribution`, so the AI no longer has to send it. Held only for active free contributor accounts, never paid private, and only for a source with a DOI and a clean Crossref integrity check; repository reuse is not held. No source text, chat, prompt or person's details; entries drop after 24 hours, past 500 entries, or on restart. The contribution itself is the same data a pending proposal already stores. Owner answer 138b (2026-10-20): each audit is its own analysis, keyed by the audit and its protocols; when the source's identifiers name one canonical source family with no conflicting identifier, the public runtime's read-only canonical reader supplies that family's ID, title, version of the same bytes and freshness policy, which the contribution then carries instead of the document's; a new source version records no retrieval time. An audit the canonical store already holds under the same protocols, or one this account already filed (pending, accepted or rejected), is not filed again. |
+| Connected research-use account and pending contribution proposal | HMAC-SHA-256 account key; active/revoked state; free-contributor or paid-private mode; exact notice/agreement fields and timestamps (the notice version accepted, now `free-contributor-v3-2026-10-22`, or v1 or v2, whose account accepts v3 before free research continues; migration `0016_research_use_notice_v3`, owner answers 159 and 160b); the plain-answer note setting (`plain_answer_note`, a boolean, on by default; owner answer 140b, migration `0013_research_plain_answer_note`); the detailed lesson reports setting (`detailed_lesson_reports`, a boolean, off by default, which only the user's `set_detailed_lesson_reports` turns on; owner question 154, migration `0015_research_detailed_lesson_reports`), never a report; verified-entitlement status; strict deidentified formal-frontier, source-analysis or topic-link proposal, proposal hash/kind/partial state, eight privacy false markers, and review timestamps/reason; optionally the UUID of the same account's own pending proposal of the same kind that the proposal supersedes (owner answer 138b, 2026-10-20); for a paid-private account's research map only, the SHA-256 of the finalization receipt whose offer the user said yes to (`consent_receipt_sha256`, owner answer 143a, migration `0014_research_map_consent`), never the receipt | A distinct least-privilege PostgreSQL role can select/insert/update access accounts, read entitlements, select/insert proposals, and execute one security-definer function that changes only pending proposals for a supplied HMAC account key to `WITHDRAWN`. It cannot grant entitlements, change proposal review dispositions, or write canonical evidence/frontier tables. The service, not the client, derives the key from the authenticated OAuth subject. Proposal payloads exclude raw chat/prompts, identity/contact data, private health narratives, uploads, raw source/provider bodies, credentials, and community/YouTube data. Pending rows have no automatic expiry in this slice and no automatic off-host backup. A database trigger accepts a supersedes link only to the same account's own pending proposal of the same kind, and refuses any other UUID with one answer, so a submitter learns nothing about another account's proposals; accepting the proposal rejects that draft, "superseded by <id>", in the same transaction. The same trigger admits a paid-private account's proposal only as a research map carrying that consent digest, and a free contributor's never carries one; a unique index lets one yes file one map, and the owner's review shows neither the account key nor the digest. The owner's review sees the link in both directions by proposal ID only, which shows that the two proposals come from one account, never the account key. Before storage, a frontier is reconciled with the canonical store by exact identity through the read-only canonical reader, so the stored payload may hold canonical IDs and labels in place of the ones sent; the submitter is told which IDs, all of them already public through the catalog tools. A topic link names two canonical topics by ID and key, one of four relations and a deidentified rationale; it is stored only after the same reader confirms both topics and that no stored link contradicts it, and when the reader cannot be read nothing is stored. |
+| Held validated analysis (free contributor) | HMAC-SHA-256 account key; the study or review audit's SHA-256; the living-evidence contribution built from one validated method audit: source identifiers, title, content hash and locator, structured domain findings and claim capabilities, a study audit's declared headline figures and program routes, the audit receipt, the protocol identities, and a Crossref integrity-check hash | Process memory only, between a free contributor's successful `validate_study_method_audit` or `validate_review_method_audit` on MCP and a passing `finalize_research`. The final check then files it as a pending `SOURCE_ANALYSIS` proposal through the same intake and privacy checks as `submit_research_contribution`, so the AI no longer has to send it. Held only for active free contributor accounts, never paid private, and only for a source with a DOI and a clean Crossref integrity check; repository reuse is not held. No source text, chat, prompt or person's details; entries drop after 24 hours, past 500 entries, or on restart. A study a free contributor read from the operator's library (owner answer 157a) is held the same way: its locator is the public page that gave its public basis (or the canonical family's own), never the library's link. The contribution itself is the same data a pending proposal already stores. Owner answer 138b (2026-10-20): each audit is its own analysis, keyed by the audit and its protocols; when the source's identifiers name one canonical source family with no conflicting identifier, the public runtime's read-only canonical reader supplies that family's ID, title, version of the same bytes and freshness policy, which the contribution then carries instead of the document's; a new source version records no retrieval time. An audit the canonical store already holds under the same protocols, or one this account already filed (pending, accepted or rejected), is not filed again. |
 | Owner-accepted contribution promotion | Promotion UUID; proposal UUID, strict kind and reviewed payload SHA-256; creation time; `PENDING`, `COMPLETED` or `FAILED` state; for `COMPLETED`, the completion time and the stable receipt (canonical identifiers and the writer's receipt) with its SHA-256; for `FAILED`, one failure code from a closed list of canonical conflict codes (never free text or payload content) and the failure time. The owner's decision, reason and review time stay on the proposal row. No claim, attempt count or error text is stored. | The public runtime cannot write this state or canonical evidence. One function-only owner-review call atomically creates the exact intent only on acceptance; the review role reads a failed intent's code through one more security-definer function, which returns no account key. That function also gives the owner's review the supersession links and the other proposals pending review or queued for promotion that share one of the proposal's identities (topic key or ID, frontier, question, source family, or a candidate or source identifier), by proposal ID, kind, state and the kinds of identity shared only: never an account key or another proposal's content. The review also reads the canonical store through the public runtime's read-only reader for the canonical records sharing those identities (IDs only) and a promotion preflight, a dry run of the writer's identity checks that stores nothing and names each conflict by its fixed code and payload path; neither is stored or sent anywhere but to the owner. A separate root-scheduled short-lived admin container receives only the existing canonical writer environment and promotes at most one accepted intent per activation; an intent whose canonical write conflicts deterministically ends `FAILED` with its code and the activation moves to the next (at most 20 per activation), while a transient error leaves it `PENDING` (owner answer 138b, 2026-10-20). The static unit accepts no user input and logs only the bounded operation receipt, including each failed intent's UUIDs, kind and code; it receives no raw chat, account key, private health narrative, upload, raw source/provider content, or community data. Disabling the timer preserves all rows. |
 
 Contribution intake rejects frontier candidate and source-analysis identifier values beginning with `sandbox:` (case-insensitive), because a sandbox link points into another session and can never be opened.
@@ -831,19 +845,66 @@ whose findings rest on work a quick answer cannot do ends by offering the save,
 and a card is saved only when the user accepts saving it for that answer,
 through the connector's `save_research_findings`. The owner reviews every card
 before it is accepted.
+
+Owner answer 156a (2026-10-22): the library feeds the Atlas, which holds what
+other people would benefit from, not every answer better than a quick one. So
+the AI declares on each card whether its findings would help anyone beyond the
+person asking (`public_value`, below). A card declared `personal_only` is
+checked like any other but neither saved nor offered: a free contributor's
+result says it was not saved (`saved.reason` `personal_only`) and its answer
+ends with no saved line for it; a paid-private answer offers no save for it,
+and so no research map either, since the map is asked for only in the card's
+offer sentence; and `save_research_findings` refuses it even when the user
+asks. The rest are saved or offered as before. Whether findings would help
+other people is the model's declaration, by the owner's four-part test in the
+field's description (other people face it, it was checked here, it could change
+what someone does or believes, it adds something to well-known guidance); the
+server checks only that the declaration is made and complete, and the owner
+judges it in review.
+
 It is live since 2026-10-01 (20:19 UTC). The owner approved the wording of the
 in-app free contributor notice (in the code), `https://askrigor.com/privacy`
 and `/terms` on 2026-09-30; the two pages took it, with that day's effective
 date, when the library went live (2026-10-01, 20:18 UTC).
 
-The free contributor notice is now version `free-contributor-v2-2026-09-30`,
-which says each finished research answer's findings card is saved. A free
-account that accepted `free-contributor-v1-2026-09-01` is shown as not yet
-enrolled, and research tools refuse it (`RESEARCH_ACCESS_REQUIRED`), until it
-accepts the new version. Migration `0011_research_use_notice_v2` lets the
-account table hold either version; the service admits only the current one.
+The free contributor notice's second version, `free-contributor-v2-2026-09-30`,
+said each finished research answer's findings card is saved. A free account
+that accepted `free-contributor-v1-2026-09-01` was shown as not yet enrolled,
+and research tools refused it (`RESEARCH_ACCESS_REQUIRED`), until it accepted
+v2. Migration `0011_research_use_notice_v2` let the account table hold either
+version.
 
-An image rollback to a version that reads only v1 first runs
+The notice is now version `free-contributor-v3-2026-10-22` (owner answers 159,
+1b and 7, and 160b, 2026-10-22; built, not yet released, its sentences waiting
+for the owner's word-for-word approval with the release question). It keeps
+v2's sentences, saves a card only for an answer whose findings would help other
+people (owner answer 156a), and adds three: findings AskRigor's owner accepts
+may be published in AskRigor's public Atlas, written without the person; asking
+to delete a findings card removes everything that ties it to the person, with
+no reason needed; and a published finding stays while it is valid, is
+corrected or taken down when someone shows it is wrong, and is rewritten or
+removed if it could identify anyone. A free account that accepted v1 or v2 is
+shown as not yet enrolled, and research tools refuse it, until it accepts v3
+through `manage_research_access`; today that is the owner's account alone, so
+older cards count as the owner's (decision 1b). Migration
+`0016_research_use_notice_v3` replaces 0011's check, under the same name, with
+one that admits v1, v2 and v3; the service admits only the current version. The
+account row stores nothing new: the version accepted and the agreement's fields,
+as before. Nothing is published yet: no tool accepts a finding, and no Atlas
+page exists (the build plan is
+`docs/superpowers/plans/2026-10-22-public-atlas-build.md`).
+
+An image rollback to a version that reads only v1 and v2 first runs
+`infra/living-evidence-production/research-use-notice-v3-hold.sql`. It copies
+each v3 account row, unchanged, into `research_use_notice_v3_hold` and marks
+the account revoked, so the earlier version reads it and the person can accept
+v2. `research-use-notice-v3-restore.sql` puts back each account still in that
+state once a v3 version serves, and empties the table. Like the v2 table below,
+it holds no new kind of data, only the migrator role can read it, and it is
+empty except during such a rollback. Neither script changes another table:
+entitlements, proposals and Atlas rows stay as they are.
+
+An image rollback to a version that reads only v1 also runs
 `infra/living-evidence-production/research-use-notice-v2-hold.sql`. It copies
 each v2 account row, unchanged, into `research_use_notice_v2_hold` and marks
 the account revoked, so the earlier version reads it and the person can accept
@@ -866,16 +927,23 @@ What the model sends, and when:
   sentence copied from the answer (`answer_quote`), one to ten source
   identifiers (DOI, PMID, PMCID or YouTube video id; no tool verifies an NCT id
   yet, so a trial is cited through its paper), why the usual answer misses it
-  (300), allowlisted tags and what would change it (300), and up to six open
-  leads (200 each). Optionally, the model name as the app reports it
-  (`reported_model`, at most 80 characters). The gate checks the card against
-  the answer and that call's verified sources. A rejected card is reported and
-  not saved; it never holds back the answer. A checked card's SHA-256 digest is
-  signed into the finalization receipt; for a paid-private account a checked
-  card one of whose findings rests on work a quick answer cannot do (below)
-  also adds the sentence offering its save to the caveats the answer must
-  carry. For a caller with no research account the card is neither checked nor
-  saved (`private`).
+  (300), allowlisted tags and what would change it (300), whom the findings
+  would help (`public_value`: `scope` `public`, with who else faces them,
+  `who_else`, at most 300 characters, and what they could change for those
+  people, `what_it_changes`, 300, both in general terms with no personal
+  details; or `scope` `personal_only`, whose other two fields are not used),
+  and up to six open leads (200 each). Optionally, the model name as the app
+  reports it (`reported_model`, at most 80 characters). The gate checks the
+  card against the answer and that call's verified sources, and that it
+  declares `public_value`, with both fields when public. A rejected card is
+  reported and not saved; it never holds back the answer. A card without
+  `public_value`, as from an app whose tool list predates it, is rejected the
+  same way. A checked card's SHA-256 digest is signed into the finalization
+  receipt, a personal-only one's too; for a paid-private account a checked
+  public card one of whose findings rests on work a quick answer cannot do
+  (below) also adds the sentence offering its save to the caveats the answer
+  must carry. For a caller with no research account the card is neither
+  checked nor saved (`private`).
 - In `save_research_findings`, only after a paid-private user says yes to that
   offer, or to a save they asked for: the same card, that finalization receipt,
   the literal consent `yes_to_this_save`, and optionally the model name as the
@@ -897,8 +965,12 @@ finding has a basis, and names what was done with the server's counts, for
 example "These findings rest on full-text audits of 2 studies and audited
 comments on 3 videos, work a quick answer does not do. If you want them saved
 to AskRigor's findings library for review, say yes; nothing is saved
-otherwise.": counts of studies, videos, absence claims and corrections, never
-card text. With no basis there is no offer line; the receipt still signs the
+otherwise. Saved findings that AskRigor's owner accepts may be published in
+AskRigor's public Atlas, written without you.": counts of studies, videos,
+absence claims and corrections, never card text. The last sentence follows the
+offer, with or without the map below, so the user hears it before saying yes
+(owner answers 159 and 160b, 2026-10-22; built, not yet released, its wording
+waiting for the owner's word-for-word approval). With no basis there is no offer line; the receipt still signs the
 card, so the user can still ask for the save. For a free contributor account,
 once the server's save confirms, the result gives the line the answer ends
 with, just before the check line: "Saved to AskRigor's findings library for
@@ -912,7 +984,8 @@ sentence, to file it, so one yes saves the card and files the map: "If you want
 them saved to AskRigor's findings library for review, and this research's map
 (the searches, the studies found and the leads left open, never this chat)
 filed to AskRigor's shared research repository for review, say yes; nothing is
-saved or filed otherwise." The finalization receipt then also signs
+saved or filed otherwise.", followed by the same sentence on the public Atlas.
+The finalization receipt then also signs
 `map=offered` and a 16-character HMAC, under the receipt secret, that binds the
 offer to the account (never the account key). Only after that yes does
 `submit_research_contribution` file the map: the same strict deidentified
@@ -942,8 +1015,12 @@ What the server checks before it saves: that the caller's OAuth token belongs
 to an active research account (a free contributor under the current notice, at
 the final check, or a paid-private account, through `save_research_findings`
 after the user's yes); the receipt's
-signature, kind and 24-hour age, and that it signed this exact card; the lesson
-queue's deterministic privacy screen over every text field (with study and
+signature, kind and 24-hour age, and that it signed this exact card; that the
+card declares its findings public (a `personal_only` card is refused as
+`personal_only`, and a card checked before the declaration was asked for as
+`public_value_missing`, to be checked again; neither consumes the rate limit);
+the lesson queue's deterministic privacy screen over every text field, the
+declaration's included (with study and
 video identifiers, links to their pages, statistics-shaped numbers and in-word
 apostrophes set aside first); sources by their form; and a rate limit of its
 own (20 cards an hour and 100 a day per server process; later cards are not
@@ -960,7 +1037,11 @@ The issue holds the question as its title, the labels `findings-card` and
 `pending-review` (and `beyond-quick-answer` when a finding has a verified
 basis; an open card gets it too when a later save of the same findings with a
 basis joins it), a readable copy of the card, and a JSON record: the card, its
-SHA-256, and the server's version stamp. Each stored finding also keeps its
+SHA-256, and the server's version stamp. The stored card keeps its public-value
+declaration (`public_value`: who else faces the findings and what they could
+change for them, with no personal details), which the readable copy shows under
+"Public value" for the owner's review; a later save that joins an open card
+shows its own declaration in its comment. Each stored finding also keeps its
 verified bases (`verified_bases`, the four values above, as the receipt signed
 them; none from a receipt that signed none). The stored card holds no YouTube video
 ID or link while AskRigor's YouTube API compliance review is open: each finding
@@ -989,12 +1070,29 @@ not match.
 What is never stored: the chat, the answer beyond each finding's one quoted
 sentence, the research target or its digest, the account key, the receipts
 themselves, comment or caption text, commenter identities, the user's OAuth
-subject, email or network identity, and any upload. `finalize_research` reports
+subject, email or network identity, any upload, and any card declared personal
+only, which reaches only the call that checks it. `finalize_research` reports
 only whether the card was saved and its `ARF-####` id, with the line naming that
 id that the answer ends with, never the issue number, link, card text or
 fingerprint. Because a stored card carries no account
 identity, revoking research access does not withdraw it; its deletion is
 requested with its `ARF-####` id.
+
+Deleting a card (owner answer 159, rule 7, as notice v3 and the public pages
+say it; owner decision 7): a request names the card's `ARF-####` id and needs no
+reason; asking why is optional. It removes the card and everything that ties it
+to the person: the stored issue, with its readable copy, record, version stamp
+and hidden marker, which holds the research thread key, the person's later
+saves on other cards, and the owner's decision rows on the card. What stays is
+only what is written without the person: a finding from the card that the
+owner has accepted for the public Atlas stays while it is valid, is corrected
+or taken down when someone shows it is wrong (a request that says why is
+reviewed as a correction), and is rewritten or removed if it could identify
+anyone (wording erasure, below). The owner's findings actions (below) are built
+but closed until the owner opens them (`ASKRIGOR_ATLAS_REVIEW`); while they are
+closed no finding can be accepted, and the owner deletes the issue by hand.
+Once they are open, the owner's `forget_card` does the rest (below), and the
+owner then deletes the stripped issues in GitHub.
 
 The living-evidence and frontier stores hold no YouTube identifiers while the
 YouTube compliance review is open, and neither does this library.
@@ -1003,6 +1101,169 @@ Cards have no automatic expiry: they stay in the private repository until the
 owner deletes them. GitHub processes the stored issues under its own policies.
 Until the private repository exists and is added to the App's installation, a
 save answers that the library is unavailable and stores nothing.
+
+## Atlas findings: owner review
+
+Owner answers 159 and 160b (2026-10-22), Atlas phase 2 design
+(`docs/superpowers/plans/2026-10-22-atlas-phase-2-design.md`): the owner accepts
+saved findings into AskRigor's evidence database, from which the public Atlas
+pages will be built. The actions are on the owner-only
+`review_research_contribution` (OAuth `cases:review` and the allowlisted owner
+subject): `list_findings`, `inspect_finding`, `accept_finding`, `edit_finding`,
+`reject_finding`, `withdraw_finding`, `link_findings` and `forget_card`. They are closed unless
+`ASKRIGOR_ATLAS_REVIEW` is `enabled`, which the release sets once migration
+0017, the review role's grants and the promotion timer are verified; while
+closed they answer `atlas_review_closed` and read and record nothing. Nothing
+from a card is public until the owner accepts it, and nothing is public until
+the Atlas pages exist. The owner's call never writes canonical evidence: it
+records a decision and a hash-bound intent through the review role's
+functions, and the existing one-shot timer job writes the canonical rows within
+about 5 minutes.
+
+What the owner's call reads, for that call only: the card and its later saves
+(occurrence comments) from the private findings repository, through the same
+GitHub App; the review store's decisions and intents; the canonical Atlas
+through the public runtime's read-only reader; and, for each source a finding
+keeps, its public record and retraction status from Crossref, PubMed, Europe PMC
+or ClinicalTrials.gov, with the provider tools' own calls and settings. Only the
+identifier is sent to a provider. A complete source check is kept in process
+memory for 10 minutes, so the accept binds what the inspect showed; nothing else
+from the call is kept beyond what follows. The checks are exact: which save of
+a card a finding comes from and whether it has a verified basis, community
+evidence under decision 4a (a finding with no DOI, PMID, PMCID or NCT source is
+refused, and one that also rested on audited comments needs the owner's confirm),
+the numbers the AI declares against the wording, the providers' records and
+retraction notices (a retracted source is bound as context only, after the
+owner's confirm), the privacy screen and a guard against any `ARF-` reference
+over every text an intent would store, the exact re-check key, and the rules for
+links. The topic, the numbers and the links are the AI's declarations; the owner
+accepts or rejects.
+
+- **Decisions** (`atlas_card_decisions`): the card's issue number, the item
+  number, the decision, the F number it took, the SHA-256 of the card record
+  and its later saves as the owner inspected them, the owner's private reason
+  (always for a rejection, optional otherwise) and the time. They are the only rows that name a card. They are kept
+  until the card is forgotten (`forget_card`, decision 7), which deletes them,
+  the owner's private reasons with them. The reader role can read them, as it
+  can read every table today.
+- **Intents** (`atlas_finding_intents`): the accepted texts (the question, the
+  wording, whom it applies to, the card's usual answer, why the usual answer
+  misses it, what would change it, and its public-value declaration's who-else
+  and what-it-changes), its certainty, tags and verified bases, the numbers the
+  AI declared, each kept source's identifiers with its check (provider, title,
+  year, retraction status and notices, the owner's confirmation, a SHA-256 of
+  the provider responses and the check time), the topic key and label, two
+  wording keys (SHA-256 of the normalized question and claim, as found and as
+  accepted), the version stamp (AskRigor version, build, protocol names,
+  versions and SHA-256, research depth and status) and the research day. A
+  correction or edit holds the new version's texts, numbers and sources the same
+  way, with its public note; a withdrawal and an unlink hold their public note; a
+  link holds its relation, what the two findings disagree on and its rationale;
+  the last three hold the AskRigor version, build and protocols that recorded
+  them. Beside a later change's payload, never in it, the row keeps the owner's
+  optional private reason. Each row also keeps its status, the writer's receipt
+  or refusal code, the retry it answers and its times. An intent never holds a
+  card reference. Its texts are erased with the finding's (wording erasure,
+  below); an erasure intent holds only the F number, the version it was decided
+  against, its scope, the reason code `could_identify_a_person` and the
+  AskRigor version, build and protocols that recorded it.
+- **Canonical Atlas records**: general knowledge written without the person,
+  append-only; kept while valid, corrected by new versions, and withdrawn by an
+  invalidated version; their wording is erased only on the path for findings
+  that could identify someone (below).
+- **Wording erasure** (`eraseWording` on `edit_finding` and `withdraw_finding`;
+  decision 7, choice 4a): when the owner judges that a finding's wording could
+  identify a person, `edit_finding` with new general wording records a new
+  version and the erasure of every earlier version's wording, in one
+  transaction, and `withdraw_finding` records the withdrawal and the erasure of
+  every version's wording, the withdrawal's note included, which leaves the
+  finding "withdrawn, wording removed" with its date; a finding withdrawn before
+  can be erased the same way. The promotion runner applies each erasure as it
+  applies any intent: it writes one `atlas_redactions` row per version erased
+  (the finding, the version, the reason code, the time and the run) and then
+  calls `erase_atlas_wording()`, the only function the append-only guard lets
+  change a canonical row, which sets to the fixed marker `[wording removed]`:
+  the version's claim texts and its Atlas texts (the usual answer, why it
+  misses, what would change it, who else and what it changes), the text labels
+  of its numbers (outcome, option, comparator and follow-up; the counts, totals
+  and directions stay), and the notes of its change records; its two wording
+  keys, set to 64 zeros; the rationale of every link that touches the finding
+  and the note of each such link's withdrawal; and the finding's question, only
+  when no research frontier asks it and every other finding that answers it has
+  had all its wording erased (a question still in use stays, and the owner's
+  call names the F numbers that use it). Topic labels are never erased. In the
+  same transaction the runner sets the same texts to the marker in every intent
+  it has finished with that names the finding (the earlier accept's and
+  corrections' texts and wording keys, notes and link rationales, and the
+  question when it went), keeping the payload of the correction that made the
+  new general version, and records when (`texts_erased_at`); a pending intent
+  keeps its texts until it is applied. A `wording_removed` change record dates
+  the erasure without any text. The erasure itself holds no card reference, so
+  the runner cannot tell which cards still hold the original wording: the
+  owner's call names them (cards with a decision on the finding, and open cards
+  whose wording keys match the erased ones) and suggests `forget_card` for
+  each, and `inspect_finding` repeats it.
+- **Forgetting a card** (`forget_card`, decision 7): the owner names the card's
+  `ARF-####` id; no reason is needed. The call first reads the private findings
+  repository: the person's cards are the named card and every card, open or
+  closed, whose hidden marker holds the same research-thread key (the thread's
+  earlier, replaced cards among them), plus any card a tombstone of an earlier
+  call lists; the person's later saves are the occurrence comments with that
+  key on other cards. Everything is read before anything changes: a later save
+  on the person's cards that does not read as the library saved it stops the
+  call with nothing changed, and so does a named card holding later saves from
+  other research threads until the owner confirms (`confirm: true`), because
+  those savers were told the card's id too. Then it deletes the person's cards'
+  decision rows (`forget_atlas_cards`), and, within the GitHub App's
+  `issues: write`, re-files each other person's later save on the person's cards
+  as a card of its own (a new issue with that save's record and stamp, whose
+  marker notes the forgotten card it came from), deletes the person's later
+  saves on other cards, and, the named card last, deletes each of the person's
+  cards' comments, replaces its title and body with a tombstone (a hidden
+  marker listing the cards forgotten together and the time, nothing else),
+  removes its labels, closes it as not planned and locks it. The reply names
+  the F numbers that came only from these cards and those also accepted from
+  other cards, all of which stay in the Atlas while valid, and asks the owner to
+  delete each stripped issue in GitHub, which also removes its edit history
+  (choice 5a: the App cannot delete issues). Calling again checks GitHub: when
+  every issue answers 404 or 410 and no decision row names the card, the reply
+  is `card_forgotten`; until then it is `card_forget_waiting_for_owner`, linking
+  each issue still there. A call that fails part way is resumed by calling
+  again; nothing done is redone.
+- **GitHub additions**: each decision as a comment on the card, such as
+  "Finding 1: accepted as F-1007, checked, 4 Nov 2026.", with a hidden marker
+  holding the item, the decision, the F number and the time, never the owner's
+  reason; the `reviewed` label in place of `pending-review` once every finding
+  of the card has a decision, when the card is also closed as completed. A
+  GitHub write that fails is redone, matched by its marker, on the next inspect
+  or list. `forget_card` removes these with the card (above).
+- **Never stored in the Atlas**: the account, the research thread key, the
+  finalization receipt or its hash, and the duplicate fingerprint; the `ARF-`
+  number outside the decisions table; save times, the reported model, the
+  surface and the tool catalog hash; the answer quote, YouTube video IDs or
+  counts, the comment-audit basis and community text.
+- **Stated limits**: a person must name each `ARF-` id they want deleted,
+  because their other cards cannot be found from the account alone. The privacy
+  screen reads English for some patterns, as it does for cards. A card's record
+  is read as GitHub holds it: the hidden marker binds its question, claims and
+  save time, and a card stored whole binds every text, source and tag to the
+  digest the final check signed, but its verified bases and version stamp are
+  as GitHub holds them. An intent the writer refused stays in `list_findings`
+  until the owner sends a corrected one, which is recorded as its retry.
+  Forgetting finds the person's other saves only through the named card's
+  research-thread key: saves from the person's other research threads are
+  found only when they are named too. A card whose marker holds no thread key
+  (saved before thread keys existed) is forgotten alone. GitHub keeps a
+  stripped issue, with its edit history, until the owner deletes it; once the
+  owner has deleted every tombstone, a later call for one of the cards can list
+  only that card. Erasure replaces wording in the live rows: PostgreSQL keeps
+  the earlier row versions in its data files until vacuum reclaims them and in
+  its write-ahead log until it is recycled, and the database has no automatic
+  off-host backup to hold them. `edit_finding` does not change a version's usual
+  answer, who-else or what-it-changes texts, so a new general version keeps the
+  earlier version's. When the question is erased, the kept version's accepted
+  wording key is still a SHA-256 over the original question with the new
+  wording.
 
 ## Research data not persistently stored
 
@@ -1041,8 +1302,10 @@ pending-proposal stores have their own strict contracts and authority boundaries
   explicit writes (research-access mode, plain-answer note and detailed lesson reports settings, pending proposal, owner review, lesson
   candidate, `finalize_research`, which saves a free contributor's checked
   findings card, and `save_research_findings`, a paid-private card saved after
-  the user's yes) are declared with `destructiveHint: false` and
-  `openWorldHint: false`. Owner review requires `cases:review`; the others
+  the user's yes) are declared with `openWorldHint: false`, and all but owner
+  review with `destructiveHint: false`; owner review is declared
+  `destructiveHint: true`, since it withdraws accepted findings and, with
+  decision 7, forgets cards (Atlas owner choice 6a). Owner review requires `cases:review`; the others
   require authenticated `research:use`; all ordinary research operations also
   require that scope and an active free-contributor or paid-private mode. The Action-only transcript,
   treatment-landscape, automated Gemini-candidate, and legacy validation routes
@@ -1114,7 +1377,8 @@ pending-proposal stores have their own strict contracts and authority boundaries
   video IDs, DOIs, PMIDs, PMCIDs), the public paper pages described above (a
   DOI's registered landing page; the URL of a copy AskRigor fetched), the
   bounded normalized product claim above
-  when product identity was declared, completion states, counts, and the issue
+  when product identity was declared, completion states, a refusal's fixed
+  code for a video not read, counts, and the issue
   time; never comments, source text, questions, or user data. Discovery
   receipts (surveys, searches, scouts, one-call community audits) also carry
   `q`, the first 12 hex characters of a SHA-256 over the round's normalized
@@ -1266,7 +1530,9 @@ pending-proposal stores have their own strict contracts and authority boundaries
   recommendation repeat the declared intervention, open inputs and follow-up,
   so the answer can state them; a recommendation's next step names the
   declared intervention. `not_relevant_basis` is one of two
-  fixed values. With `no_real_world_outcome`, the caveat the answer must state
+  fixed values, and with `no_real_world_outcome`, `question_about` (owner
+  answer 149a) is one of two more: `symptom_or_test_result`, which refuses the
+  skip, or `other`. With `no_real_world_outcome`, the caveat the answer must state
   repeats the declared `not_relevant_reason` ("I did not search firsthand
   reports or community discussions for this answer: …"), and a reason showing
   internal labels gets a next step naming them; like the other declarations,
@@ -1337,7 +1603,15 @@ pending-proposal stores have their own strict contracts and authority boundaries
   ID and any time, the video's public title, channel and length, the opaque
   interaction identity and poll count, and the seconds charged; AskRigor
   stores none of it. A completed reading returns a research receipt that
-  signs the video ID, the mode and the claim count. It is a connector tool
+  signs the video ID, the mode and the claim count. A call that ends without
+  reading a video it identified (any refusal or boundary once the ID is known,
+  except YouTube showing no public video under it) returns, in its refusal's
+  text, a research receipt of its own that signs the video ID and the
+  refusal's code, a fixed identifier such as `gemini_video_not_completed`, so
+  `finalize_research` can tell a video that was read from one that was not
+  (AskRigor#359). When Gemini no longer has a reading AskRigor polls (an HTTP
+  404), the refusal says so in a fixed sentence; nothing from Gemini's reply
+  and no interaction identity is kept. It is a connector tool
   only: no Custom GPT Action path, and absent from the Gemini-compatible
   catalog.
 - Strict Zod input/output schemas reject undeclared input fields. Pagination cursors are opaque at the MCP boundary.

@@ -39,6 +39,8 @@ export const FINDINGS_SAVE_STATUSES = [
   "privacy_rejected",
   "rate_limited",
   "card_not_checked",
+  // Owner answer 156a (2026-10-22): the checked card declares its findings personal only, so nothing is saved.
+  "personal_only",
   "queue_unavailable"
 ] as const;
 
@@ -49,6 +51,8 @@ export const FINDINGS_SAVE_REASONS = [
   "receipt_expired",
   "card_not_in_receipt",
   "card_changed",
+  // A card checked before the final check asked whom its findings would help (owner answer 156a).
+  "public_value_missing",
   "unsafe_card",
   "hourly_limit",
   "daily_limit",

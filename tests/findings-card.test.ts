@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import {
   canonicalJson,
@@ -12,6 +13,8 @@ import {
   screenFindingsCard,
   withoutYouTubeData,
 } from "../apps/research-mcp/src/findings/card.js";
+import { saveResearchFindingsInputSchema } from "../apps/research-mcp/src/findings/contracts.js";
+import { finalizeResearchPublishedInputSchema } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { CARD, parsedCard } from "./helpers/findings-fixtures.js";
 
 describe("findings card", () => {
@@ -19,6 +22,7 @@ describe("findings card", () => {
     expect(canonicalJson({ b: [2, { d: 1, c: undefined, a: "x" }], a: null })).toBe('{"a":null,"b":[2,{"a":"x","d":1}]}');
     const reordered = findingsCardSchema.parse({
       open_leads: CARD.open_leads,
+      public_value: Object.fromEntries(Object.entries(CARD.public_value).reverse()),
       findings: CARD.findings.map((finding) => Object.fromEntries(Object.entries(finding).reverse())),
       usual_answer: `  ${CARD.usual_answer}  `,
       question: CARD.question,
@@ -133,5 +137,98 @@ describe("findings card as the library stores it", () => {
   it("stores a card without YouTube data as it was checked", () => {
     const card = findingsCardSchema.parse({ ...CARD, findings: [{ ...CARD.findings[0], sources: ["10.1002/art.41142"] }] });
     expect(withoutYouTubeData(card)).toEqual({ card, omitted: false });
+  });
+});
+
+// Owner answer 156a (2026-10-22): the AI declares on each card who else its findings would help and why, or that they
+// are personal only. Whether they would help is the model's declaration; what the server checks is exact.
+describe("a findings card's public-value declaration (owner answer 156a)", () => {
+  type Node = { description?: string; type?: string; enum?: unknown[]; required?: string[]; properties?: Record<string, Node> };
+  const declarationIn = (schema: unknown) => {
+    const card = (schema as Node).properties!.findings_card!;
+    return { card, declared: card.properties!.public_value! };
+  };
+
+  it("is one optional object that every published schema shows with its fields and their descriptions", () => {
+    for (const schema of [
+      finalizeResearchPublishedInputSchema({ relaxed: true }),
+      finalizeResearchPublishedInputSchema({ relaxed: false }),
+      z.toJSONSchema(saveResearchFindingsInputSchema, { target: "draft-7", io: "input" })
+    ]) {
+      const { card, declared } = declarationIn(schema);
+      // Optional, so a call from an app whose tool list predates it still parses; the final check asks for it.
+      expect(card.required).not.toContain("public_value");
+      expect(declared.required).toEqual(["scope"]);
+      // One object whose fields ChatGPT's app shows, not a union it would show only as "unknown".
+      expect(declared.type).toBe("object");
+      expect(Object.keys(declared.properties!)).toEqual(["scope", "who_else", "what_it_changes"]);
+      expect(declared.properties!.scope!.enum).toEqual(["public", "personal_only"]);
+      expect(declared.description).toBe("Whether these findings would help anyone beyond this person. Findings " +
+        "declared personal_only are not saved to AskRigor's findings library or offered for it. When the answer holds " +
+        "both kinds, put only the general findings on the card, written without the person, and declare them public.");
+      // The owner's four-part test, in the words the model reads.
+      expect(declared.properties!.scope!.description).toBe("public when all four hold: other people face it (it is " +
+        "about a condition, symptom, test, treatment, supplement, product, food or practice, and holds without this " +
+        "person's history); it rests on what the research checked here, not on what this person reported; it could " +
+        "change what someone does or believes; and it adds something to well-known guidance. personal_only otherwise, " +
+        "as for a cause found only in this person's own past or routine.");
+      expect(declared.properties!.who_else!.description).toBe("With scope public: who else faces it, in general terms " +
+        "with no personal details, such as adults with hip osteoarthritis weighing surgery.");
+      expect(declared.properties!.what_it_changes!.description).toBe("With scope public: what it could change in what " +
+        "they do or believe, beyond well-known guidance, such as an effect in absolute numbers, a harm with its basis, " +
+        "an overlooked option with real evidence, a correction of a widely repeated claim or a search that found nothing.");
+    }
+    expect(declarationIn(finalizeResearchPublishedInputSchema({ relaxed: true })).card.description)
+      .toContain("with public_value saying whether they would help anyone beyond this person");
+  });
+
+  it("adds nothing to a card that does not declare it, so its digest is what it was", () => {
+    const { public_value: _declared, ...undeclared } = CARD;
+    const parsed = findingsCardSchema.parse(undeclared);
+    expect(parsed).not.toHaveProperty("public_value");
+    expect(canonicalJson(parsed)).not.toContain("public_value");
+    expect(findingsCardDigest(parsed)).not.toBe(findingsCardDigest(parsedCard()));
+    // Who the findings would help is not part of the duplicate key: the same question and claims are one card.
+    expect(findingsCardFingerprint(parsed)).toBe(findingsCardFingerprint(parsedCard()));
+    for (const declared of [{ scope: "everyone" }, { scope: "public", who_else: "" }, { scope: "public", reason: "x" }]) {
+      expect(findingsCardSchema.safeParse({ ...CARD, public_value: declared }).success, JSON.stringify(declared)).toBe(false);
+    }
+    expect(findingsCardSchema.safeParse({ ...CARD, public_value: { scope: "personal_only" } }).success).toBe(true);
+  });
+
+  it("screens the declaration's words as it screens the card's other text, whatever the scope", () => {
+    const declaring = (public_value: Record<string, string>) =>
+      screenFindingsCard(findingsCardSchema.parse({ ...CARD, public_value }));
+    expect(declaring(CARD.public_value)).toEqual([]);
+    expect(declaring({ ...CARD.public_value, who_else: "I was diagnosed with hip osteoarthritis last year." }))
+      .toEqual([{ field: "public_value.who_else", reasonCode: "personal_narrative" }]);
+    expect(declaring({ ...CARD.public_value, what_it_changes: "Call the clinic on 555-123-4567 first." }))
+      .toEqual([{ field: "public_value.what_it_changes", reasonCode: "direct_identifier" }]);
+    expect(declaring({ ...CARD.public_value, what_it_changes: "See [the thread](https://www.reddit.com/r/HipOA/comments/abc123/x/)." }))
+      .toEqual([{ field: "public_value.what_it_changes", reasonCode: "control_or_markup" }]);
+    expect(declaring({ scope: "personal_only", who_else: "Write to someone@example.org about it." }))
+      .toEqual([{ field: "public_value.who_else", reasonCode: "direct_identifier" }]);
+    // Study references and statistics are what a declaration may name, as elsewhere on the card.
+    expect(declaring({ ...CARD.public_value, what_it_changes: "Pain fell by 0.45 (0.21-0.69) in PMC10518852." })).toEqual([]);
+  });
+
+  it("is stored without YouTube video IDs or links, like the rest of the card", () => {
+    const card = findingsCardSchema.parse({
+      ...CARD,
+      public_value: {
+        scope: "public",
+        who_else: "Viewers of [a physiotherapist's talk](https://www.youtube.com/watch?v=aaaaaaaaaaa) with hip pain",
+        what_it_changes: "Shows that https://youtu.be/bbbbbbbbbbb overstates the benefit."
+      }
+    });
+    const { card: stored, omitted } = withoutYouTubeData(card);
+    expect(omitted).toBe(true);
+    expect(stored.public_value).toEqual({
+      scope: "public",
+      who_else: "Viewers of a physiotherapist's talk (YouTube video) with hip pain",
+      what_it_changes: "Shows that (YouTube video) overstates the benefit."
+    });
+    expect(withoutYouTubeData(findingsCardSchema.parse({ ...CARD, public_value: { scope: "personal_only" } })).card.public_value)
+      .toEqual({ scope: "personal_only" });
   });
 });

@@ -540,7 +540,7 @@ describe("the server sends a free contributor's validated analyses when the fina
       full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates staged analysis checks." },
       receipts,
       community_evidence: "not_relevant",
-      not_relevant_basis: "no_real_world_outcome",
+      not_relevant_basis: "no_real_world_outcome", question_about: "other",
       commercial_review_applicability: { status: "not_applicable", reason: "Drug clearance mechanism involves no product or service people buy." },
       not_relevant_reason: "How the body clears a drug, with no real-world outcome.",
       treatment_choice: "not_compared",

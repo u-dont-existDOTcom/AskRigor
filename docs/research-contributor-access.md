@@ -11,12 +11,18 @@ AskRigor has two research-use modes:
   may be submitted to AskRigor's shared living-evidence repository, and each
   finished research answer's findings card is saved to AskRigor's private
   findings library for review (owner decision Q11, 2026-09-30; see
-  `docs/privacy-data-map.md`). This is the free product.
+  `docs/privacy-data-map.md`), unless the AI declares its findings personal
+  only (owner answer 156a, 2026-10-22). Findings AskRigor's owner accepts may
+  be published in AskRigor's public Atlas, written without the person (owner
+  answers 159 and 160b, 2026-10-22; built, not yet released). This is the free
+  product.
 - **Paid private.** No research progress is submitted. Research findings and
   lesson feedback are saved only when the user accepts saving them for that
-  answer. This mode activates only when the account already has a verified
-  entitlement. The current slice offers no price, payment provider, or
-  checkout.
+  answer. The answer's offer to save its findings ends with "Saved findings
+  that AskRigor's owner accepts may be published in AskRigor's public Atlas,
+  written without you." (owner answers 159 and 160b). This mode activates only
+  when the account already has a verified entitlement. The current slice
+  offers no price, payment provider, or checkout.
 
 This is an ordinary product access choice. It is not an institutional research
 program, a study-enrollment system, a public forum, or a claim that product
@@ -24,16 +30,51 @@ usage itself is scientific evidence.
 
 ## Exact notice
 
-The version is `free-contributor-v2-2026-09-30`. The server returns the complete
-notice from `RESEARCH_USE_NOTICE`. Free mode activates only when all four
-versioned agreement fields are literal `true`. Silence, inferred consent, a
-different notice version, or a partially checked agreement is rejected.
+The version is `free-contributor-v3-2026-10-22` (owner answers 159, 1b and 7,
+and 160b, 2026-10-22; built, not yet released, its sentences waiting for the
+owner's word-for-word approval). The server returns the complete notice from
+`RESEARCH_USE_NOTICE`. Free mode activates only when all four versioned
+agreement fields are literal `true`. Silence, inferred consent, a different
+notice version, or a partially checked agreement is rejected.
+
+The notice says, in eight sentences: what AskRigor learns from free research is
+saved for its research library; that includes deidentified structured research
+progress and, for each finished research answer whose findings would help
+other people, a findings card; what is never saved; that saved research is
+reviewed and gains no authority by being saved or repeated; that findings
+AskRigor's owner accepts may be published in AskRigor's public Atlas, written
+without the person; that asking to delete a findings card removes everything
+that ties it to the person, with no reason needed; that a published finding
+stays while it is valid, is corrected or taken down when someone shows it is
+wrong, and is rewritten or removed if it could identify anyone; and what paid
+private access saves. The privacy page and the terms say the same three new
+points, and the paid save offer the first.
 
 The first version, `free-contributor-v1-2026-09-01`, did not mention findings
-cards. A free account that accepted it inspects as `UNENROLLED`, and research
-tools refuse it with `RESEARCH_ACCESS_REQUIRED`, until it accepts the current
-version. Migration `0011_research_use_notice_v2` lets `research_use_accounts`
-hold either version; the one-shot admin `migrate` applies it at release.
+cards; the second, `free-contributor-v2-2026-09-30`, did not mention the public
+Atlas or what deleting a card removes. A free account that accepted either
+inspects as `UNENROLLED`, and research tools refuse it with
+`RESEARCH_ACCESS_REQUIRED`, until it accepts the current version. Migration
+`0011_research_use_notice_v2` let `research_use_accounts` hold v1 or v2;
+migration `0016_research_use_notice_v3` replaces that check, under the same
+name, with one that admits v1, v2 and v3. The one-shot admin `migrate` applies
+it at release, before an image that offers v3 serves.
+
+An image that reads only v1 and v2 fails the access check of an account whose
+row carries v3, so an image rollback below v3 first runs
+`infra/living-evidence-production/research-use-notice-v3-hold.sql`. It copies
+each v3 account row, unchanged, into `research_use_notice_v3_hold`, which only
+the migrator can read, and marks the account revoked: the earlier image reads
+that state, and the person leaves it by accepting v2, that image's notice, or
+by activating an entitled paid private account. `research-use-notice-v3-restore.sql`,
+run once an image that reads v3 serves again, puts back each account still
+exactly in that state and empties the table; an account the person changed
+meanwhile keeps its newer row and is asked to accept v3 as usual. The hold is
+not a revocation: pending proposals stay pending, and neither script changes
+an entitlement, a proposal or an Atlas row. The v2 scripts
+(`research-use-notice-v2-{hold,restore}.sql`) do the same for v2 rows, for an
+image that reads only v1. The order, with migration 0017, is in
+`infra/living-evidence-production/README.md`.
 
 `manage_research_access` is the OAuth-scoped operation for `inspect`,
 `accept_free_contributor`, `activate_paid_private`, `revoke`,
@@ -271,6 +312,124 @@ anything filed under it. A conflict ends the promotion `FAILED` with
 `TOPIC_LINK_CONFLICT`, `TOPIC_ALIAS_CONFLICT`, `TOPIC_LINK_TOPIC_MISSING`,
 `TOPIC_LINK_ID_CONFLICT` or `TOPIC_LINK_IDEMPOTENCY_KEY_PAYLOAD_MISMATCH`.
 
+## Atlas findings review (owner answers 159 and 160b)
+
+Built, not yet released: Atlas phase 2 parts A to D
+(`docs/superpowers/plans/2026-10-22-atlas-phase-2-design.md`). The owner
+accepts saved findings cards' findings into the Atlas through eight more
+actions on the same owner-only `review_research_contribution`, which stays one
+of 33 tools. They are flat fields with one rule set per action:
+
+- `list_findings`: the open cards waiting for a decision, ten per page (a
+  `cursor` continues), those beyond a quick answer first and then the oldest;
+  any Atlas intent the writer refused comes first, with its code in plain
+  words, and the count of intents waiting for the writer.
+- `inspect_finding`: with `card`, the card's `cardSha256` and each item with
+  the save that counts (the card or a later save of it), its verified bases,
+  what it would become, whether its exact wording key makes it a re-check of a
+  current finding, and its decision; with `finding` or `lead` as well, a dry run
+  of every check on that item, its sources checked with the providers. With
+  `atlasNumber`, an accepted finding's status, version, label, links and
+  intents.
+- `accept_finding`: the finding, or an open lead, as the AI declares its topic
+  (`topicKey`, with `topicLabel` for a new topic) and its numbers. A finding
+  with no verified basis is accepted as a lead (3b). A card finding whose
+  normalized question and claim match a current finding's records a re-check of
+  that finding instead.
+- `edit_finding`: before acceptance, an accept with the owner's wording
+  (`wording`, `appliesTo`, `whyNotUsual`, `whatWouldChangeIt`, `question`,
+  `sources`, `numbers`); after it, with `atlasNumber` and `version`, a
+  correction with a public dated `note`, or, with `correction: false`, a wording
+  fix (5a). With `eraseWording: true` (decision 7, when the owner judges the
+  wording could identify a person) the new wording becomes a new general
+  version and every earlier version's wording is erased; sent with no new
+  wording, it erases the earlier versions' wording if any is left.
+- `reject_finding`: the owner's private `reason`, which never leaves the
+  decision row.
+- `withdraw_finding`: takes an accepted finding down, with a public dated
+  `note`. With `eraseWording: true` the withdrawal is followed by the erasure of
+  every version's wording, the note included, which leaves the finding
+  "withdrawn, wording removed" with its date; a finding already withdrawn needs
+  no note.
+- `link_findings`: `same_as`, `narrows`, `contradicts` (with what the two
+  disagree on) or `replaces`, with the AI's `rationale`; `unlink` withdraws a
+  stored link with a note.
+- `forget_card` (decision 7): with `card` (`ARF-0142`), whenever its
+  contributor asks and with no reason, removes what ties the card to them:
+  its decision rows, and on GitHub the person's cards found by the card's
+  research-thread key, which are stripped to a locked tombstone, and their later
+  saves on other cards. Another person's later save on those cards is re-filed
+  as a card of its own first; when the named card holds one, the call asks for
+  `confirm: true`, since that saver was told the card's id too. The findings
+  accepted from the cards stay while they are valid. The App cannot delete an
+  issue, so the reply links each stripped issue for the owner to delete; the
+  same call again answers `card_forgotten` once GitHub answers 404 or 410 for
+  every one, and `card_forget_waiting_for_owner` until then.
+
+Each decision on a card item carries the `cardSha256` from its inspect: when
+the card or its later saves changed since, the call answers `card_changed` and
+records nothing. A card item is decided once; the same request again replays
+the decision, and a different one is `decision_conflict`. A change to an
+accepted finding names its `version`, and an older one answers
+`version_stale`. While the writer has not stored an earlier intent the change
+depends on, the call answers `try_again_later` and records nothing.
+
+Code checks only what is exact (part B): which save counts and its verified
+basis, community evidence (`community_only` is refused; a finding that also
+rested on audited comments needs `confirm`), every source's provider record and
+retraction status, the declared numbers against the wording, the privacy screen
+and the `ARF-` guard over every text an intent would store, the exact wording
+key, and the rules for links. The topic, the numbers and the links are the AI's
+declarations, and the owner accepts or rejects. A call the checks stop is not a
+tool error: `needs_confirmation` asks for `confirm: true` after the owner reads
+what the call names (a retracted source, then bound as context only; an
+expression of concern, a correction, or a status the providers could not settle;
+audited comments), `checks_not_passed` lists each problem with its code
+and what to change, and `try_again_later` says a provider could not be reached.
+Nothing is recorded in any of them.
+
+A passed decision is recorded with `decide_atlas_card_item`, the decision row
+and its hash-bound accept or re-check intent in one transaction; a later change
+with `record_atlas_finding_intent`. The tool returns the outcome
+`finding_queued` with the F number and the label it will take; the same
+request sent again after the writer has run answers `finding_written` or
+`finding_write_failed`, and an inspect shows the intent's status. The call never
+writes canonical evidence (`canonicalEvidenceChangedByThisCall` is always
+false). The existing one-shot `living-evidence-admin promote-accepted` command
+promotes the contribution queue first, then at most one Atlas intent per
+invocation (choice 7), oldest first, through the canonical writer; the
+five-minute timer runs it unchanged. A refused intent ends `FAILED` with one
+code from migration `0017`'s list (`ATLAS_LINK_PAIR_TAKEN`, `ATLAS_LINK_CYCLE`
+and `ATLAS_LINK_ALREADY_RECORDED` among them), and the owner's corrected
+request is recorded as its retry.
+
+The card is kept in step on GitHub through the same App: each decision as a
+comment with a hidden `askrigor-findings-decision` marker (never the owner's
+reason), and, once every finding of the card has a decision, the `reviewed`
+label in place of `pending-review` and the issue closed as completed. A GitHub
+write that fails is redone, matched by its marker, on the next inspect or list.
+
+The actions answer `atlas_review_closed` and read nothing unless
+`ASKRIGOR_ATLAS_REVIEW` is `enabled`, which the release sets once migration
+`0017`, the review role's grants and the promotion timer are verified; with the
+switch on and the store or the findings repository not configured, they answer
+`review_service_unavailable`. The tool is declared `destructiveHint: true`
+(choice 6).
+
+Erasing wording (part D) is recorded as an `erase` intent: with a revision or a
+withdrawal, both are recorded in one transaction, and the runner applies them in
+order, one per run. The runner writes an `atlas_redactions` row for each version
+erased and calls `erase_atlas_wording()`, the one function the append-only
+guard lets change a canonical row, and in the same transaction clears the same
+texts from the finished intents that name the finding. An erasure of every
+version of a finding that is not withdrawn ends `FAILED` with
+`ATLAS_ERASE_NOT_WITHDRAWN`, a stale one with `ATLAS_VERSION_STALE`, and the
+next intent goes on. The runner cannot reach GitHub, so the owner's call names
+the cards that still hold the original wording and suggests `forget_card` for
+each; `inspect_finding` shows which versions' wording is removed and repeats
+it. The privacy data map's "Atlas findings: owner review" section gives the
+erasure's exact scope and the forget path's steps and limits.
+
 ## Database model
 
 Migration `0009_research_contributor_access.sql` creates:
@@ -308,6 +467,17 @@ each decision, require the owner-reviewed payload hash and a nonempty reason,
 and bind an accepted intent to the proposal kind and hash with a composite
 foreign key. The separate admin writer retains its existing canonical write
 authority and processes the outbox independently.
+
+Migration `0017_atlas_findings.sql` (Atlas phase 2) adds the private review
+state, `atlas_card_decisions` (the only rows that name a card) and the
+`atlas_finding_intents` outbox, and the append-only Atlas tables the canonical
+writer alone writes. The review role gains execute permission on five more
+security-definer functions, `inspect_atlas_cards`, `decide_atlas_card_item`,
+`record_atlas_finding_intent`, `inspect_atlas_finding_intents` and
+`forget_atlas_cards` (used by `forget_card`), and still no direct table
+privilege. The writer-only `erase_atlas_wording()` and its helpers are not
+granted to it. The privacy data map's "Atlas findings: owner review" section
+lists what each holds.
 
 ## Runtime and failure behavior
 
@@ -361,6 +531,14 @@ the primary ChatGPT/Codex plugin is the supported surface for this slice.
   differently worded topics, not questions or studies.
 - An accepted topic link stays in the append-only store; there is no record yet
   that withdraws a wrong one.
+- The findings actions stay closed until the release turns on
+  `ASKRIGOR_ATLAS_REVIEW`. Forgetting a card and erasing a finding's wording
+  come with Atlas phase 2 part D; until then a card with decisions is deleted
+  by hand, and its decision rows stay.
+- A re-check is found only by the exact normalized wording key; a finding worded
+  differently is its own finding, which the AI may link.
+- A refused Atlas intent stays in `list_findings` until the owner's corrected
+  request is recorded as its retry.
 
 The scheduler release evidence is in
 `audits/2026-09-01-promotion-scheduler-production-release.md` and its machine

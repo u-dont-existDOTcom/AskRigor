@@ -48,6 +48,7 @@ import {
   researchTargetDigest,
   type ResearchReceiptClaims,
 } from "./research-receipts.js";
+import { toolListNotice, toolListVersionField } from "./tool-list-currency.js";
 
 // A notice version as a pattern, not the current value: clients keep a tool's
 // schema for as long as a chat or connector lives, so a constant here would let
@@ -87,7 +88,13 @@ export const manageResearchAccessInputSchema = z.object({
   detailedLessonReports: z.boolean().optional()
     .describe("With set_detailed_lesson_reports, when the user asks: true turns this account's detailed lesson " +
       "reports on, false off."),
+  tool_list_version: toolListVersionField(undefined),
 }).strict();
+
+/** The input schema as a surface publishes it: tool_list_version's description carries that surface's version. */
+export function manageResearchAccessInputSchemaFor(toolListVersion: string | undefined) {
+  return manageResearchAccessInputSchema.extend({ tool_list_version: toolListVersionField(toolListVersion) });
+}
 
 const researchAccessViewSchema = z.object({
   status: z.enum(["UNENROLLED", "ACTIVE", "REVOKED"]),
@@ -247,6 +254,8 @@ export interface ResearchContributorToolOptions {
   plainAnswer?: PlainAnswerOptions;
   /** This research's map on the MCP connector (owner answer 143a): the offer a paid private map needs, and its receipt. */
   researchMap?: ResearchMapOptions;
+  /** This surface's tool list version, which a call's tool_list_version is compared with (owner request, 2026-10-22). */
+  toolListVersion?: string;
 }
 
 export interface ResearchMapOptions {
@@ -417,6 +426,27 @@ export function optionalSignInSecurityMetadata(): Record<string, unknown> {
 export function createManageResearchAccessHandler(
   options: ResearchContributorToolOptions,
 ) {
+  const respond = manageResearchAccess(options);
+  // Owner request (2026-10-22): inspecting is the first step of research, so its result, whatever else it says,
+  // first says when this app's copy of AskRigor's tools is out of date.
+  return async (
+    input: Record<string, unknown>,
+    extra?: ResearchOperationExtra,
+  ): Promise<CallToolResult> => {
+    const result = await respond(input, extra);
+    const notice = toolListNotice(
+      typeof input.tool_list_version === "string" ? input.tool_list_version : undefined,
+      options.toolListVersion,
+    );
+    if (notice === undefined) return result;
+    const [first, ...rest] = result.content;
+    return first?.type === "text"
+      ? { ...result, content: [{ ...first, text: `${notice} ${first.text}` }, ...rest] }
+      : { ...result, content: [{ type: "text", text: notice }, ...result.content] };
+  };
+}
+
+function manageResearchAccess(options: ResearchContributorToolOptions) {
   return async (
     input: Record<string, unknown>,
     extra?: ResearchOperationExtra,

@@ -82,10 +82,11 @@ export interface FindingsSaveServiceOptions {
 /**
  * Saves the findings card of a free contributor's finalized answer (owner
  * decision Q11, 2026-09-30): only the card whose digest a valid, unexpired
- * finalization receipt signed, only past the privacy screen, within the rate
- * limit, stamped by the server. No model call. The card replaces the open
- * cards of its research thread: the same account and research target, which
- * the queue knows only as a keyed hash.
+ * finalization receipt signed, only when it declares that its findings would
+ * help other people (owner answer 156a, 2026-10-22), only past the privacy
+ * screen, within the rate limit, stamped by the server. No model call. The
+ * card replaces the open cards of its research thread: the same account and
+ * research target, which the queue knows only as a keyed hash.
  */
 export class FindingsSaveService {
   private readonly now: () => Date;
@@ -112,6 +113,12 @@ export class FindingsSaveService {
       if (signed !== cardSha256) return notChecked("card_changed");
       const target = receipt.claims.target;
       if (typeof target !== "string" || target === "") return notChecked("receipt_invalid");
+      // Owner answer 156a (2026-10-22): the library keeps only findings that would help other people. The declaration
+      // read here is the one the final check signed with the card; the final check rejects a card without one, so a
+      // card that makes none comes from a check before it was asked for, and is checked again first.
+      const scope = input.findings_card.public_value?.scope;
+      if (scope === "personal_only") return result({ status: "personal_only", retryable: false });
+      if (scope !== "public") return notChecked("public_value_missing");
 
       if (screenFindingsCard(input.findings_card).length > 0) {
         return result({ status: "privacy_rejected", retryable: false, reason_code: "unsafe_card" });

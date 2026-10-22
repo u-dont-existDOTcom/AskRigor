@@ -12,6 +12,7 @@ import {
   CARRIED_STATE_TOO_LARGE, carriedStateSchema, issueCarriedState, userObservationSchema, verifyCarriedState, type CarriedState
 } from "./carried-state.js";
 import { analysesSavedSchema } from "./analysis-staging.js";
+import { binaryContrast, binaryGroups, withoutEndPunctuation } from "./binary-results.js";
 import {
   permissiveConnectorInputSchema,
   relaxedConnectorInputSchema,
@@ -20,6 +21,9 @@ import {
 } from "./connector-input-schema.js";
 import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
 import { NEXT_STEP_KINDS, type NextStepKind } from "./next-step-kinds.js";
+import {
+  toolListNotice, toolListVersionDescription, toolListVersionOrUndefined, toolListVersionSchema
+} from "./tool-list-currency.js";
 import type { SecondReaderFinding } from "./second-reader.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber, numberReadings } from "./unicode-numbers.js";
 import {
@@ -27,6 +31,7 @@ import {
   findingsCardDigest,
   findingsCardSchema,
   findingsSaveOffer,
+  PUBLIC_VALUE_SCOPES,
   screenFindingsCard,
   signedFindingBases,
   verifiedWorkPhrase,
@@ -101,8 +106,14 @@ export const FINALIZE_RESEARCH_CONTRACT = "2026-10-07";
 // A chat keeps its own copy of the tool list, so a field added in a release can be missing from it. When a required
 // declaration is missing, next_steps names the way out once instead of looping (UDA lane item
 // 2026-10-07-finalizer-must-not-require-unexposed-schema-fields).
+// Owner request (2026-10-22): the user is told, since only the user can refresh the app's copy of the tools.
+// When the call sends the version its tool list gives (tool_list_version), the check knows: the same version means the
+// field is there, and no refresh is suggested; an older one gets toolListNotice's plain notice. In the 22 Oct
+// regressions an answer whose tool list was current told the user to refresh, reading this hint as a finding.
 export const TOOL_LIST_REFRESH_HINT = "If this chat's AskRigor tool has no such field, its tool list is outdated: " +
-  "refreshing the AskRigor connector in the app's settings and starting a new chat loads the current list.";
+  "tell the user, in their language, that AskRigor has been updated since this app loaded its tools, and that " +
+  "refreshing AskRigor in the app's settings and starting a new chat loads the current list. If it has the field, " +
+  "its tool list is current: give the field, and say nothing to the user about refreshing.";
 
 // acquire_open_full_text signs a lead receipt only when the exact public-copy searches are recorded with it
 // (canSignFullTextLead), so a step that sends the AI there for one says so, or a retry without them loops.
@@ -183,6 +194,73 @@ export const OPTION_CLASS_CAVEAT_STARTS = {
 /** The caveat for a class not researched or out of reach: the server's words and the declared class, ending as a sentence. */
 export function optionClassCaveat(state: keyof typeof OPTION_CLASS_CAVEAT_STARTS, optionClass: string): string {
   return completedCaveat(OPTION_CLASS_CAVEAT_STARTS[state], optionClass);
+}
+
+// The one thing a question is about, and a video the person gave that AskRigor could not read (AskRigor#359: an answer
+// described a video it could not watch as if it had, then judged its 2-minute routine by studies of other exercises).
+// named_target gives HRP ExactProgramFingerprint's fields and each key study says how it matches each one; the model
+// judges the matches, the check is exact on what it declares, and the caveats state only declared mismatches.
+export const NAMED_TARGET_FIELDS = [
+  "components", "dose_or_intensity", "frequency_and_duration", "population", "outcome", "time_horizon"
+] as const;
+type NamedTargetField = typeof NAMED_TARGET_FIELDS[number];
+export const NAMED_TARGET_SOURCES = ["video_read", "video_description_only", "person", "source_text"] as const;
+export const TARGET_MATCHES = ["same", "different", "not_described"] as const;
+export const UNWATCHED_CONTENT_SOURCES = ["description_only", "person"] as const;
+const NAMED_TARGET_LABEL_MAX_CHARACTERS = 160;
+const NAMED_TARGET_FIELD_MAX_CHARACTERS = 300;
+// The HRP's sentinel for a field the description leaves out.
+export const PROGRAM_NOT_DESCRIBED = "program not described";
+const TARGET_FIELD_WORDS: Readonly<Record<NamedTargetField, string>> = {
+  components: "the components",
+  dose_or_intensity: "the dose or intensity",
+  frequency_and_duration: "the frequency and duration",
+  population: "the population",
+  outcome: "the outcome",
+  time_horizon: "the time horizon"
+};
+
+/** A key source's match with one field of the named target. */
+const targetMatchField = <F extends NamedTargetField>(field: F) => `target_${field}` as const;
+
+/**
+ * Whether a fingerprint field is the HRP's sentinel "program not described", with the legacy spacing, hyphen,
+ * underscore and case variants the HRP normalizes, and any quotation marks or closing stop around it. Exact: the
+ * sentinel is an identifier, not a meaning.
+ */
+export function isProgramNotDescribed(value: string): boolean {
+  return value.trim().replace(/^["'\p{Pi}\p{Pf}]+|["'\p{Pi}\p{Pf}.]+$/gu, "").replace(/[\s_-]+/gu, " ").trim()
+    .toLowerCase() === PROGRAM_NOT_DESCRIBED;
+}
+
+/** The caveat for a video extract_youtube_video_claims did not read, by where the answer's account of it comes from. */
+export function unwatchedVideoCaveat(video: string, contentFrom: typeof UNWATCHED_CONTENT_SOURCES[number]): string {
+  return `I could not watch ${videoLink(video, "this video")}, so what this answer says about it comes ` +
+    (contentFrom === "person" ? "from what you said about it, not from watching it." : "only from its title and description.");
+}
+
+/**
+ * The caveat for a named target no key study tested as described, for one study or several: the fields they differ
+ * in, or, when none differs, the fields that could not be compared.
+ */
+export function namedTargetCaveat(label: string, studies: number, differing: readonly NamedTargetField[],
+  uncompared: readonly NamedTargetField[]): string {
+  const target = withoutEndPunctuation(label);
+  const one = studies === 1;
+  const fields = (list: readonly NamedTargetField[]) => {
+    const words = list.map((field) => TARGET_FIELD_WORDS[field]);
+    return words.length <= 2 ? words.join(" and ") : `${words.slice(0, -1).join(", ")}, and ${words.at(-1)}`;
+  };
+  if (differing.length > 0) {
+    return (one
+      ? `The study I found did not test ${target} as described: it differs in ${fields(differing)}, so it is`
+      : `None of the studies I found tested ${target} as described: they differ in ${fields(differing)}, so they are`) +
+      " indirect evidence about it.";
+  }
+  return (one
+    ? `The study I found is not known to have tested ${target} as described: `
+    : `None of the studies I found is known to have tested ${target} as described: `) +
+    `${fields(uncompared)} could not be compared, so how directly ${one ? "it applies" : "they apply"} is not known.`;
 }
 
 // Research results remind the AI, in the turn it researches, that answers using
@@ -269,6 +347,9 @@ export const finalizeResearchInputSchema = z.object({
   not_relevant_reason: z.string().trim().min(1).max(1_000).optional()
     .describe("Needed with not_relevant: why firsthand reports cannot matter, in plain words. With " +
       `no_real_world_outcome the answer states it in the caveat "${COMMUNITY_SKIP_CAVEAT_START} [reason]."`),
+  question_about: z.enum(["symptom_or_test_result", "other"]).optional()
+    .describe("Needed with not_relevant and no_real_world_outcome: symptom_or_test_result when the question is about " +
+      "a symptom or a test result (for example what could explain a low lab value), otherwise other."),
   material_video_ids: z.array(youtubeVideoIdSchema).max(60).optional()
     .describe("Videos worth auditing: each adds an approach or substantial firsthand experience. Defaults to every audited video."),
   no_material_video_reason: z.string().trim().min(1).max(1_000).optional()
@@ -378,14 +459,16 @@ export const finalizeResearchInputSchema = z.object({
       .transform((identity) => Array.isArray(identity) ? identity : [identity]).optional()
       .describe("Outside review sites, for each exposure the answer draws on from this community's threads: how the reports you read divide. The four classes add up to reports_read (HRP ScopeAxesBeforeSampling, ObjectiveSubjectiveSeparation)."),
     access_boundary: z.enum([
-      "no_web_search", "login_required", "blocked", "retrieval_failed", "no_relevant_results"
+      "no_web_search", "login_required", "blocked", "retrieval_failed", "no_relevant_results", "not_found"
     ]).optional()
       .describe("What stopped the search: this app has no web search; the site needs a login; the site refused " +
-        "access, such as a block page; a search or page fetch failed, such as an error or a timeout; or the " +
-        "searches found nothing relevant."),
+        "access, such as a block page; a search or page fetch failed, such as an error or a timeout; the " +
+        "searches found nothing relevant; or the community itself could not be found, with no site, group or forum " +
+        "under its name."),
     url: z.string().trim().url().max(2_048).optional()
       .describe("The community's own address (its forum, group or site link). Needed when no thread was read outside " +
-        "Reddit, so the community is known by its site rather than its name."),
+        "Reddit, so the community is known by its site rather than its name, unless the community could not be " +
+        "found (access_boundary not_found)."),
     review_corpora: z.array(z.object({
       product: z.string().trim().min(1).max(200).describe("The exact product and variant, as its label names it."),
       ratings_shown: z.number().int().min(0).optional()
@@ -457,14 +540,29 @@ export const finalizeResearchInputSchema = z.object({
       .describe("For a lead_only study, as you know it (AskRigor cannot see this app's other tools): read, its text " +
         "was read through another full-text tool connected here; unavailable, one was tried without access; cost, " +
         "one was not used because it costs the user credits; none, no such tool is connected. A study read that way " +
-        "is reported as read through another tool, not audited by AskRigor.")
+        "is reported as read through another tool, not audited by AskRigor."),
+    // AskRigor#359: with named_target, how this study matches each of its fields, as the model judges it.
+    target_components: z.enum(TARGET_MATCHES).optional()
+      .describe("With named_target: same when this study's components are named_target's, different when they differ, " +
+        "not_described when this study or named_target does not describe them."),
+    target_dose_or_intensity: z.enum(TARGET_MATCHES).optional()
+      .describe("With named_target: as target_components, for the dose or intensity."),
+    target_frequency_and_duration: z.enum(TARGET_MATCHES).optional()
+      .describe("With named_target: as target_components, for the frequency and duration."),
+    target_population: z.enum(TARGET_MATCHES).optional()
+      .describe("With named_target: as target_components, for the population."),
+    target_outcome: z.enum(TARGET_MATCHES).optional()
+      .describe("With named_target: as target_components, for the outcome."),
+    target_time_horizon: z.enum(TARGET_MATCHES).optional()
+      .describe("With named_target: as target_components, for the time horizon.")
   }).strict()).max(60)
     .describe("Lists each study the conclusions depend on: validated after a full-text method audit, or lead_only " +
       "when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text. " +
       "The audit's validation checks that its findings cite the document's own blocks and that every domain is " +
       "covered, not that each interpretation is right. " +
       "With answer_draft, each study has a visible link with its DOI, PMID or PMCID, or to a page AskRigor's receipts " +
-      "tie to it: a copy read here, or the page resolve_doi found the DOI registered to."),
+      "tie to it: a copy read here, or the page resolve_doi found the DOI registered to. With named_target, each study " +
+      "also says how it matches each of its fields (target_components to target_time_horizon)."),
   intervention_identity: z.object({
     status: z.enum(["not_applicable", "checked"]),
     reason: z.string().trim().min(1).max(1_000).optional(),
@@ -479,6 +577,51 @@ export const finalizeResearchInputSchema = z.object({
       }).strict().optional()
     }).strict()).min(1).max(60).optional()
   }).strict().optional().describe("Records whether key studies tested coded, branded, combination or multi-ingredient interventions, including co-administered drugs (such as L-DOPA given with carbidopa), and their traced whole-intervention identity. Needed when key_sources is nonempty."),
+  // AskRigor#359: the one thing the question is about, as HRP ExactProgramFingerprint's fields give it.
+  named_target: z.object({
+    label: z.string().trim().min(1).max(NAMED_TARGET_LABEL_MAX_CHARACTERS)
+      .describe(`What the question is about, as the answer names it, in at most ${NAMED_TARGET_LABEL_MAX_CHARACTERS} ` +
+        "characters, so that \"None of the studies I found tested [label] as described.\" reads as a sentence: for " +
+        "example, the video's 2-minute bouncing routine."),
+    described_from: z.enum(NAMED_TARGET_SOURCES)
+      .describe("Where its description comes from: video_read, the video as extract_youtube_video_claims read it; " +
+        "video_description_only, the video's title and description only; person, what the person said; " +
+        "source_text, a study, a label or another text."),
+    video_id: youtubeVideoIdSchema.optional()
+      .describe("The video's 11-character ID, when it comes from a video; needed with video_read and " +
+        "video_description_only."),
+    components: z.string().trim().min(1).max(NAMED_TARGET_FIELD_MAX_CHARACTERS)
+      .describe(`What it is made of, every part its description names, in at most ${NAMED_TARGET_FIELD_MAX_CHARACTERS} ` +
+        `characters, or "${PROGRAM_NOT_DESCRIBED}".`),
+    dose_or_intensity: z.string().trim().min(1).max(NAMED_TARGET_FIELD_MAX_CHARACTERS)
+      .describe(`Its dose or intensity in a few words, or "${PROGRAM_NOT_DESCRIBED}".`),
+    frequency_and_duration: z.string().trim().min(1).max(NAMED_TARGET_FIELD_MAX_CHARACTERS)
+      .describe(`How often and for how long, in a few words, or "${PROGRAM_NOT_DESCRIBED}".`),
+    population: z.string().trim().min(1).max(NAMED_TARGET_FIELD_MAX_CHARACTERS)
+      .describe(`Who it is for, in a few words, or "${PROGRAM_NOT_DESCRIBED}".`),
+    outcome: z.string().trim().min(1).max(NAMED_TARGET_FIELD_MAX_CHARACTERS)
+      .describe(`The outcome it is said to change, in a few words, or "${PROGRAM_NOT_DESCRIBED}".`),
+    time_horizon: z.string().trim().min(1).max(NAMED_TARGET_FIELD_MAX_CHARACTERS)
+      .describe(`Over what time, in a few words, or "${PROGRAM_NOT_DESCRIBED}".`)
+  }).strict().optional()
+    .describe("When the question is about one specific intervention, product, program or video routine, and whenever " +
+      "extract_youtube_video_claims ran on a video, read or not: what it is, where its description comes from, and " +
+      "its fingerprint (HRP ExactProgramFingerprint), each field in a few words or \"program not described\". Each key " +
+      "source then gives target_components to target_time_horizon: same, different or not_described. When no key " +
+      "study is the same on all six, the answer states the caveat \"None of the studies I found tested [label] as " +
+      "described: they differ in [fields], so they are indirect evidence about it.\" Which matches hold stays the " +
+      "model's declaration."),
+  unwatched_videos: z.array(z.object({
+    video_id: youtubeVideoIdSchema.describe("The video's 11-character ID."),
+    content_from: z.enum(UNWATCHED_CONTENT_SOURCES)
+      .describe("Where the answer's account of its content comes from: description_only, its title and description; " +
+        "person, what the person said about it.")
+  }).strict()).max(20).optional()
+    .describe("Videos extract_youtube_video_claims could not read, with where the answer's account of each comes " +
+      "from. Each such video adds the caveat \"I could not watch [this video](link), so what this answer says about " +
+      "it comes only from its title and description.\", or with person \"…, so what this answer says about it comes " +
+      "from what you said about it, not from watching it.\" A video left out counts as description_only, unless " +
+      "named_target is described_from person with its video_id."),
   shopping: z.object({
     status: z.enum(["not_requested", "buy_options", "no_live_option_found"]),
     destination: z.string().trim().min(1).max(200).optional(),
@@ -685,6 +828,10 @@ export const finalizeResearchInputSchema = z.object({
     .describe("With answer_draft: each test or self-measurement the answer proposes to the user, whether it repeats an attempt in user_observations, and whether it is blinded (HRP UserObservationLedger, MeasurementIsNotAttribution); an empty list if none."),
   carried_state: z.string().max(48_000).optional()
     .describe("The carry_forward value the last final check in this conversation returned, passed back exactly; left out in a conversation's first research answer."),
+  // Owner request (2026-10-22), and the 22 Oct regressions: with it, a missing declaration says whether this app's
+  // tools are out of date rather than asking the model to guess. The published schema's description gives the
+  // surface's version (finalizeResearchConnectorInputSchema).
+  tool_list_version: toolListVersionSchema.optional().describe(toolListVersionDescription(undefined)),
   primary_outcome: z.string().trim().min(1).max(300).optional()
     .describe("The user's main goal for this research, in their words (HRP PrimaryOutcomeContinuity)."),
   primary_outcome_changed: z.boolean().optional()
@@ -738,10 +885,12 @@ export const finalizeResearchInputSchema = z.object({
   findings_card: findingsCardSchema.optional()
     .describe("With answer_draft, when the answer cites a study or video verified here: the answer's best findings " +
       "for AskRigor's findings library, never claims the user corrected and no personal details, checked against the " +
-      "answer and this call's verified sources. Leave it out when the answer cites none. In free " +
+      "answer and this call's verified sources, with public_value saying whether they would help anyone beyond this " +
+      "person. Leave it out when the answer cites none. In free " +
       "contributor mode a checked card is saved for the owner's review; in paid private mode, when a finding rests " +
       "on work a quick answer cannot do, it adds a caveat offering the save, which also asks to file this research's " +
-      "map. A rejected card is not saved or offered and does not hold back the answer."),
+      "map. Neither a card declared personal_only nor a rejected card is saved or offered, and neither holds back the " +
+      "answer."),
   reported_model: z.string().trim().min(1).max(80).optional()
     .describe("Your model's name as your app reports it; kept, unverified, with a saved findings card.")
 }).strict();
@@ -816,9 +965,20 @@ export function finalizeResearchPublishedInputSchema({ relaxed }: { relaxed: boo
   return relaxed ? relaxedConnectorInputSchema(strict) : strict;
 }
 
-/** Runtime acceptance is permissive on both surfaces; only the published schema differs. */
-export function finalizeResearchConnectorInputSchema(relaxed: boolean) {
-  return permissiveConnectorInputSchema(finalizeResearchPublishedInputSchema({ relaxed }));
+/**
+ * Runtime acceptance is permissive on both surfaces; only the published schema differs. Its tool_list_version
+ * carries the surface's version, which the model sends back.
+ */
+export function finalizeResearchConnectorInputSchema(relaxed: boolean, toolListVersion?: string) {
+  const published = finalizeResearchPublishedInputSchema({ relaxed });
+  const field = published.properties?.tool_list_version;
+  return permissiveConnectorInputSchema(field === undefined ? published : {
+    ...published,
+    properties: {
+      ...published.properties,
+      tool_list_version: { ...field, description: toolListVersionDescription(toolListVersion) }
+    }
+  });
 }
 
 /** Optional empty lists mean none. Clone only the affected containers, preserving the raw call. */
@@ -904,6 +1064,20 @@ function retractedStatementShown(draft: string, statement: string, changes: read
   return occurrences(wrong).some((start) => !inChange.some(([from, to]) => start >= from && start + wrong.length <= to));
 }
 
+/**
+ * The caveat of this check that holds a statement taken back, if one does. The answer must state the caveat, so a
+ * statement inside it cannot also be left out; the two rules held each other in the 22 Oct regression o354 continue,
+ * where the AI declared the check's own YouTube caveat as a statement it took back. Exact: the caveat's text contains
+ * the statement, compared as the answer check compares quotes.
+ */
+function caveatHolding(statement: string, caveats: readonly string[]): string | undefined {
+  const wrong = quoteForms(statement);
+  return caveats.find((caveat) => {
+    const held = quoteForms(caveat);
+    return wrong.some((form, index) => /[\p{L}\p{N}]/u.test(form) && held[index]!.includes(form));
+  });
+}
+
 const optionKey = (text: string) => text.trim().toLowerCase();
 
 // The ledger and the rejected list hold at most this many entries; at that size the model chooses which to keep.
@@ -961,11 +1135,6 @@ function checkCarriedState(input: FinalizeResearchInput, secret: string, nextSte
       : carried.observations.filter(({ observation }) => !observations.has(observation));
     for (const { observation } of dropped.slice(0, 10)) nextSteps.push(`user_observations leaves out ${JSON.stringify(observation)} from an earlier turn: keep it, marked withdrawn or uncertain if its source took it back.`);
     if (dropped.length > 10) nextSteps.push(`and ${dropped.length - 10} more earlier observations.`);
-    for (const statement of carried.retracted) {
-      if (input.answer_draft !== undefined && retractedStatementShown(input.answer_draft, statement, (input.corrections ?? []).map(({ change }) => change))) {
-        nextSteps.push(`The answer repeats a statement taken back in an earlier turn: ${JSON.stringify(statement)}. Leave it out.`);
-      }
-    }
     if ((input.rejected_options ?? []).length < MAX_CARRIED_REJECTED) {
       for (const option of carried.rejected) {
         if (!rejected.has(optionKey(option)) && !reopened.has(optionKey(option))) nextSteps.push(`rejected_options leaves out ${option}, which the user rejected in an earlier turn: keep it, or list it in reopened if the user reopened it.`);
@@ -993,11 +1162,13 @@ function checkCarriedState(input: FinalizeResearchInput, secret: string, nextSte
  * changes it.
  */
 function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState | undefined, options: FinalizeResearchOptions,
-  check: { status: "ready" | "ready_with_limits" | "not_ready"; open: NextStepKind[] }):
+  check: { status: "ready" | "ready_with_limits" | "not_ready"; open: NextStepKind[]; caveats: readonly string[] }):
   { carry_forward: string; carried: CarriedState } | "too_large" | undefined {
   if (options.secret === undefined) return undefined;
   const reopened = new Set((input.reopened ?? []).map(optionKey));
+  // A statement a caveat of this check holds is not carried as taken back: the caveat stays (caveatHolding).
   const retracted = [...(carried?.retracted ?? []), ...(input.corrections ?? []).map(({ retracted }) => retracted)]
+    .filter((text) => caveatHolding(text, check.caveats) === undefined)
     .map((text) => text.slice(0, 200));
   // Keep the latest occurrence of each statement, then the latest twelve statements.
   const latest = [...new Set([...retracted].reverse())].reverse().slice(-12);
@@ -1051,7 +1222,9 @@ export const finalizeResearchOutputSchema = z.object({
       "answer_draft, the draft does not yet say, show or link what it must; carried_state, the conversation's " +
       "carried state; second_reading, a sentence a second reading found; tool_list, the connector-refresh hint."),
   unchecked_line: z.string().optional()
-    .describe("When not_ready: the line an answer given before this check passes ends with, saying why it is unchecked."),
+    .describe("When not_ready: the line an answer given before this check passes ends with, saying why it is unchecked. " +
+      "Such an answer also says at its start that it is partial, and gives no ranking or verdict that a step still " +
+      "open could change."),
   previous_check: z.object({
     status: z.literal("not_ready"),
     open: z.array(z.enum(NEXT_STEP_KINDS))
@@ -1101,15 +1274,22 @@ export const finalizeResearchOutputSchema = z.object({
       .describe("For a checked card: how many of its findings rest on work a quick answer cannot do (a full-text " +
         "audit, audited comments, a checked absence claim or a correction the research found), as this call's " +
         "receipts show."),
+    // Owner answer 156a (2026-10-22): what the checked card's public_value declares, which decides whether it is saved
+    // or offered at all.
+    public_value: z.enum(PUBLIC_VALUE_SCOPES).optional()
+      .describe("For a checked card: the scope its public_value declares. A personal_only card is neither saved nor " +
+        "offered."),
     saved: z.object({
       status: z.enum(["saved", "already_saved", "not_saved", "unconfirmed"]),
       card_id: z.string().regex(/^ARF-[0-9]{4,}$/u).optional(),
       reason: z.string().optional()
+        .describe("With not_saved: why, such as personal_only when the card declares its findings personal only.")
     }).strict().optional()
   }).strict().describe("Whether findings_card checked, and for a free contributor account whether it was saved; for " +
     "a paid private account, a checked card with a finding beyond a quick answer adds the caveat offering the save " +
-    "(and the filing of this research's map; see research_map). closed: the findings library is not open; private: " +
-    "no research account, so nothing is saved."),
+    "(and the filing of this research's map; see research_map), unless the card declares its findings personal_only, " +
+    "which are neither saved nor offered. closed: the findings library is not open; private: no research account, so " +
+    "nothing is saved."),
   saved_line: z.string().optional()
     .describe("When a free contributor's card was saved, or a map of this research was filed: the line the answer " +
       "ends with, just before check_line, saying what was saved."),
@@ -1177,6 +1357,8 @@ export interface FinalizeResearchOptions {
   // the answer then carries the owner's mobile notice (owner request,
   // 2026-10-15), as Universal's output_style asks wherever a phone shows.
   mobileClient?: boolean;
+  /** This surface's tool list version (toolListVersionOf), which a call's tool_list_version is compared with. */
+  toolListVersion?: string;
 }
 
 // The owner's words (2026-10-15), many users' reports and the owner's own
@@ -1401,6 +1583,12 @@ export function finalizeResearch(
   let surveys = 0;
   let partialSurveys = 0;
   const discovered = new Set<string>();
+  // Videos the person gave that extract_youtube_video_claims read, and those it identified but did not read
+  // (AskRigor#359).
+  const videosRead = new Set<string>();
+  const videosUnread = new Set<string>();
+  // And those it was still reading when it last returned: one that no receipt shows read or not counts as unread.
+  const videosPending = new Set<string>();
   const audited = new Map<string, VideoAudit>();
   const communityAudited = new Set<string>();
   // Videos a one-call audit read comments from; its other selected videos
@@ -1439,6 +1627,16 @@ export function finalizeResearch(
       // its comments needs no discovery round to have turned it up. It is no
       // round itself, so community discovery still runs as before.
       discovered.add(text(claims.video));
+      videosRead.add(text(claims.video));
+    }
+    if (kind === "youtube_video_unread") {
+      // One it could not read counts as found too: its comments can still be audited.
+      discovered.add(text(claims.video));
+      videosUnread.add(text(claims.video));
+    }
+    if (kind === "youtube_video_pending") {
+      discovered.add(text(claims.video));
+      videosPending.add(text(claims.video));
     }
     if (kind === "youtube_video_audit") {
       // Comments the audit's final view returned; receipts from before `shown`
@@ -1455,6 +1653,10 @@ export function finalizeResearch(
       for (const video of list(claims.read ?? claims.videos)) communityRead.add(video);
     }
   }
+  // A reading left in progress never reached the answer (AskRigor#359).
+  const unfinishedReadings = new Set([...videosPending].filter((video) =>
+    !videosRead.has(video) && !videosUnread.has(video)));
+  for (const video of unfinishedReadings) videosUnread.add(video);
   const auditedVideos = [...audited.keys()].sort();
   let materialVideos: string[] = [];
   let saturated = false;
@@ -1494,6 +1696,18 @@ export function finalizeResearch(
             "layer. Research that layer with community_evidence researched, principal_communities and " +
             "community_searches, or complete it with an access_boundary."
         );
+      }
+      // Owner answer 149a (2026-10-22): a symptom or a test result has a real-world side, what people with it found
+      // and tried (HRP EvidenceLayersAreNotAFixedDiscoveryOrder), so its community evidence is not skipped. Which
+      // kind the question is stays the model's declaration; the check is exact on what it declares.
+      if (input.question_about === undefined) {
+        requireDeclaration("With community_evidence not_relevant for no_real_world_outcome, say whether the question " +
+          "is about a symptom or a test result (question_about symptom_or_test_result) or not (other).");
+      } else if (input.question_about === "symptom_or_test_result") {
+        addStep("research", "community_evidence cannot be not_relevant for a question about a symptom or a test " +
+          "result: what people with it found and tried is real-world evidence. Research it with community_evidence " +
+          "researched: name where people discussing it talk in principal_communities and search the dominant one " +
+          "and an independent one, or record the access_boundary that stopped you.");
       }
       if (input.key_sources.length > 0) commercialReviewCoverage(input, { addStep, requireDeclaration });
       // The skip shows in the answer, with the reason this call declares (owner question 125). The reason reaches the
@@ -2121,6 +2335,123 @@ export function finalizeResearch(
     );
   }
 
+  // A video the person gave, and the one thing the question is about (AskRigor#359). The receipts show which videos
+  // extract_youtube_video_claims read and which it did not; either kind is the exact trigger for named_target, a video
+  // the person gave. Where the answer's account of an unread video comes from, what the question is about and how each
+  // key study matches each of its fields are the model's declarations, checked exactly; the caveats state only what
+  // the receipts show and the declared mismatches.
+  const unwatched = new Map<string, { index: number; from: typeof UNWATCHED_CONTENT_SOURCES[number] }>();
+  const listedVideos = new Map<string, number>();
+  for (const [index, { video_id: video, content_from: from }] of (input.unwatched_videos ?? []).entries()) {
+    const at = `unwatched_videos[${index}]`;
+    const first = listedVideos.get(video);
+    if (first === undefined) listedVideos.set(video, index);
+    if (first !== undefined) {
+      addStep("declaration", `${at} names the same video as unwatched_videos[${first}]: give each video one entry.`);
+    } else if (videosRead.has(video)) {
+      addStep("declaration", `${at} names video ${video}, which extract_youtube_video_claims read: leave it out.`);
+    } else if (!videosUnread.has(video)) {
+      addStep("declaration", `${at} names video ${video}, which no research_receipt passed here shows ` +
+        "extract_youtube_video_claims could not read: read it with extract_youtube_video_claims and pass the " +
+        "research_receipt it returns, or leave the entry out.");
+    } else unwatched.set(video, { index, from });
+  }
+  const target = input.named_target;
+  // An unread video's caveat says where the answer's account of it comes from: its entry, else a named target
+  // described from what the person said about that video, else its title and description.
+  for (const video of [...videosUnread].filter((video) => !videosRead.has(video)).sort()) {
+    const from = unwatched.get(video)?.from ??
+      (target?.video_id === video && target.described_from === "person" ? "person" : "description_only");
+    const account = from === "person" ? "from what the person said about it" : "only from its title and description";
+    caveatOnce(unfinishedReadings.has(video)
+      ? `extract_youtube_video_claims was still reading video ${video} when it last returned, and no research_receipt ` +
+        "passed here shows the reading finished: finish it with its continuation_token and pass the research_receipt " +
+        `it returns, or say that the video was not watched and that what the answer says about it comes ${account}, ` +
+        "as the caveat does."
+      : `Video ${video} was not watched, so what the answer says about it comes ${account}: say so, as the caveat does.`,
+    unwatchedVideoCaveat(video, from));
+  }
+  const matchOf = (source: FinalizeResearchInput["key_sources"][number], field: NamedTargetField) =>
+    source[targetMatchField(field)];
+  if (target === undefined) {
+    if (videosRead.size > 0 || videosUnread.size > 0) {
+      requireDeclaration("Give named_target: the person gave a video, which extract_youtube_video_claims read or " +
+        "could not read, so the answer is about what it puts forward. Give its label as the answer names it; " +
+        "described_from, where its description comes from (video_read, video_description_only, person or " +
+        "source_text), with the video's video_id; and its components, dose_or_intensity, frequency_and_duration, " +
+        "population, outcome and time_horizon, each in a few words or \"program not described\". Each key source " +
+        "then says how it matches each one (target_components to target_time_horizon: same, different or " +
+        "not_described).");
+    }
+    if (input.key_sources.some((source) => NAMED_TARGET_FIELDS.some((field) => matchOf(source, field) !== undefined))) {
+      addStep("declaration", "key_sources gives target_components to target_time_horizon without named_target, what " +
+        "they are matched with: give named_target, or leave the matches out.");
+    }
+  } else {
+    const video = target.video_id;
+    const describedFrom = target.described_from;
+    if (video === undefined && (describedFrom === "video_read" || describedFrom === "video_description_only")) {
+      addStep("declaration", `named_target is described_from ${describedFrom} without video_id: give the video's ` +
+        "11-character ID.");
+    } else if (describedFrom === "video_read" && video !== undefined && !videosRead.has(video)) {
+      addStep("declaration", unfinishedReadings.has(video)
+        ? `named_target is described_from video_read, but extract_youtube_video_claims had not finished reading video ` +
+          `${video}: finish the reading with its continuation_token and pass the research_receipt it returns, or give ` +
+          "described_from as the case is, video_description_only or person."
+        : videosUnread.has(video)
+          ? `named_target is described_from video_read, but extract_youtube_video_claims could not read video ` +
+            `${video}: give described_from as the case is, video_description_only or person.`
+          : `named_target is described_from video_read, but no research_receipt passed here shows that ` +
+            `extract_youtube_video_claims read video ${video}: read it and pass the research_receipt it returns, or ` +
+            "give described_from as the case is.");
+    }
+    const entry = video === undefined ? undefined : unwatched.get(video);
+    const declared = describedFrom === "person" ? "person" : describedFrom === "video_description_only"
+      ? "description_only" : undefined;
+    if (entry !== undefined && declared !== undefined && entry.from !== declared) {
+      addStep("declaration", `named_target is described_from ${describedFrom} for video ${video}, but ` +
+        `unwatched_videos[${entry.index}] gives its content_from as ${entry.from}: make the two agree.`);
+    }
+    // Each key study's match with each field, as the model judges it; a field the target leaves undescribed matches
+    // nothing, so no study is the same there or differs there.
+    const unmatched = input.key_sources.filter((source) =>
+      NAMED_TARGET_FIELDS.some((field) => matchOf(source, field) === undefined));
+    if (unmatched.length > 0) {
+      requireDeclaration(`named_target is given, so each key source says how it matches it: give ` +
+        `${listOf(unmatched.map(({ id }) => id), "and")} target_components, target_dose_or_intensity, ` +
+        "target_frequency_and_duration, target_population, target_outcome and target_time_horizon, each same, " +
+        "different or not_described (the study, or named_target, does not describe it).");
+    }
+    const undescribed = NAMED_TARGET_FIELDS.filter((field) => isProgramNotDescribed(target[field]));
+    for (const field of undescribed) {
+      const matched = input.key_sources.filter((source) => {
+        const match = matchOf(source, field);
+        return match === "same" || match === "different";
+      });
+      if (matched.length > 0) {
+        addStep("declaration", `named_target.${field} is "${PROGRAM_NOT_DESCRIBED}", so no study is the same there or ` +
+          `differs there: give ${listOf(matched.map(({ id }) => id), "and")} ${targetMatchField(field)} not_described.`);
+      }
+    }
+    // A study tested it as described only when it is the same on all six fields.
+    const effective = (source: FinalizeResearchInput["key_sources"][number], field: NamedTargetField) =>
+      undescribed.includes(field) ? "not_described" : matchOf(source, field);
+    if (unmatched.length === 0 && input.key_sources.length > 0 && !input.key_sources.some((source) =>
+      NAMED_TARGET_FIELDS.every((field) => effective(source, field) === "same"))) {
+      const fieldsWhere = (match: typeof TARGET_MATCHES[number]) => NAMED_TARGET_FIELDS.filter((field) =>
+        input.key_sources.some((source) => effective(source, field) === match));
+      // The label reaches the reader in the caveat, so it shows no internal labels, as a declared class does.
+      const labels = internalLabels(target.label, options.protocolNames ?? new Set());
+      if (labels.length > 0) {
+        addStep("declaration", `named_target.label shows internal labels (${labels.slice(0, 8).join(", ")}` +
+          `${labels.length > 8 ? ", and more" : ""}): the answer names it in its caveat, so give it in plain words.`);
+      }
+      caveatOnce(`No key study is shown to have tested ${withoutEndPunctuation(target.label)} as described: say so, ` +
+        "as the caveat does.",
+      namedTargetCaveat(target.label, input.key_sources.length, fieldsWhere("different"), fieldsWhere("not_described")));
+    }
+  }
+
   // After a first pass of research the answer offers the two ways to go
   // deeper, a deeper study review and deeper community research, with two or
   // three focuses each, and asks which the user wants (HRP LimitsNote); an
@@ -2656,6 +2987,8 @@ export function finalizeResearch(
   // offered; a paid private answer offers its checked card's save, which waits
   // for the user's yes. A rejected card is reported, not saved or offered, and
   // never holds back the answer, whose research may have nothing a card can cite.
+  // A checked card whose findings are declared personal only is signed but
+  // neither saved nor offered (owner answer 156a, 2026-10-22).
   let findingsCard: FindingsCardCheck = options.findings === "private"
     ? privateFindings()
     : input.findings_card === undefined
@@ -2737,7 +3070,9 @@ export function finalizeResearch(
             "the owner's review."
           : "Give findings_card with answer_draft: the answer offers to save its findings to AskRigor's findings " +
             "library, and they are saved only if the user says yes.") +
-          " Put in the answer's best findings, none the user corrected, and no personal details."
+          " Put in the answer's best findings, none the user corrected, and no personal details, and say in " +
+          // Owner answer 156a (2026-10-22): asked with the card, so a first card has the declaration it needs.
+          "public_value whether they would help anyone beyond this person."
       );
     }
     if (input.findings_card !== undefined && findingsOpen(options)) {
@@ -2764,11 +3099,15 @@ export function finalizeResearch(
         const work = input.findings_card.findings.map(({ sources, answer_quote: quote }) => verifiedWork(sources, quote));
         cardBases = work.map(basesOf);
         const beyond = cardBases.filter((bases) => bases.length > 0).length;
-        findingsCard = { ...findingsCard, beyond_quick_answer: beyond };
+        // A checked card has declared whom its findings would help (findingsCardCheck).
+        const scope = input.findings_card.public_value!.scope;
+        findingsCard = { ...findingsCard, beyond_quick_answer: beyond, public_value: scope };
         // A paid private answer offers the save only when a finding rests on such work, which the offer names with
         // this call's counts; without one there is no offer line, and the receipt still signs the card, so the user
-        // can still ask for the save.
-        if (options.findings === "offer" && beyond > 0) {
+        // can still ask for the save. Owner answer 156a (2026-10-22): findings declared personal only are never
+        // offered, and so neither is this research's map, which is offered only in the same sentence as the card
+        // (143a). The receipt still signs the card, so save_research_findings refuses it by its signed declaration.
+        if (options.findings === "offer" && beyond > 0 && scope === "public") {
           // Owner answer 143a: on the connector the offer's one sentence also asks to file this research's map, unless
           // one was filed already, so one yes saves the card and files the map.
           mapOffered = options.researchMap?.mode === "offer" && !mapFiled;
@@ -2860,6 +3199,22 @@ export function finalizeResearch(
         urls: community.urls
       }))
     ];
+    // A statement taken back in an earlier turn stays out of the answer, unless a caveat of this check holds it: the
+    // caveat stays, so a correction cannot take it back (the 22 Oct regression o354 continue).
+    for (const statement of carried?.retracted ?? []) {
+      if (caveatHolding(statement, caveats) === undefined &&
+          retractedStatementShown(draft, statement, (input.corrections ?? []).map(({ change }) => change))) {
+        addStep("carried_state", `The answer repeats a statement taken back in an earlier turn: ${JSON.stringify(statement)}. Leave it out.`);
+      }
+    }
+    for (const [index, { retracted }] of (input.corrections ?? []).entries()) {
+      const caveat = caveatHolding(retracted, caveats);
+      if (caveat !== undefined) {
+        addStep("declaration", `corrections[${index}] takes back words of the check's own caveat ${JSON.stringify(caveat)}, ` +
+          "which the answer keeps while what it describes stands: leave that correction out, or give as retracted the " +
+          "wrong statement as your earlier answer put it, outside the caveat's words.");
+      }
+    }
     addStep("answer_draft", ...answerDraftProblems(draft, {
       videoIds: [...new Set([...discovered, ...auditedAtAll])],
       protocolNames: options.protocolNames ?? new Set(),
@@ -2897,7 +3252,7 @@ export function finalizeResearch(
           .flatMap(({ outcome, answer_quote: quote }, index) => outcome === "not_checked" || quote === undefined ? [] :
             [{ at: `plain_answer_comparison[${index}].answer_quote`, quote }])
       ],
-      corrections: input.corrections ?? [],
+      corrections: (input.corrections ?? []).filter(({ retracted }) => caveatHolding(retracted, caveats) === undefined),
       communityNames: [...(input.community_searches ?? []).map(({ community }) => community),
         ...(input.principal_communities ?? []).map(({ name }) => name)],
       keyTerms: input.key_terms ?? [],
@@ -2908,7 +3263,12 @@ export function finalizeResearch(
     }));
   }
 
-  if (missingDeclaration) addStep("tool_list", TOOL_LIST_REFRESH_HINT);
+  if (missingDeclaration) {
+    const current = toolListVersionOrUndefined(options.toolListVersion);
+    const declared = toolListVersionOrUndefined(input.tool_list_version);
+    if (current === undefined || declared === undefined) addStep("tool_list", TOOL_LIST_REFRESH_HINT);
+    else if (declared !== current) addStep("tool_list", toolListNotice(declared, current)!);
+  }
 
   const secondReading = checkSecondReading(input, options.secondReading, stepSink(addStep, "second_reading"));
 
@@ -3009,7 +3369,7 @@ export function finalizeResearch(
   }
   // A carried state that does not verify gets no replacement: the model passes the last good one again.
   const carry = carriedInvalid ? undefined : buildCarriedState(input, carried, options, {
-    status, open: [...new Set(stepKinds)]
+    status, open: [...new Set(stepKinds)], caveats
   });
   if (carry === "too_large") output.carry_forward_note = CARRIED_STATE_TOO_LARGE;
   else if (carry !== undefined) Object.assign(output, carry);
@@ -3087,39 +3447,8 @@ const YOUTUBE_LANE_FINDINGS = [
   "benefit_reports", "no_effect_reports", "adverse_reports", "creators_versus_commenters", "effect_on_answer"
 ] as const;
 
+// binaryGroups and binaryContrast, which read these, are shared with the Atlas's numbers (binary-results.ts).
 type BinaryResult = NonNullable<FinalizeResearchInput["binary_results"]>[number];
-
-/** A yes-or-no result's two groups as declared, by the prefix of their fields: the option's and the comparator's. */
-function binaryGroups(result: BinaryResult) {
-  return [
-    { field: "option", name: withoutEndPunctuation(result.option), events: result.option_events,
-      total: result.option_total },
-    { field: "comparator", name: withoutEndPunctuation(result.comparator), events: result.comparator_events,
-      total: result.comparator_total }
-  ] as const;
-}
-
-/**
- * How a yes-or-no result's two rates differ, in exact integer arithmetic: the rates are compared by cross-multiplying,
- * option_events · comparator_total against comparator_events · option_total, so 1 / |risk difference| is
- * option_total · comparator_total / |difference|. Undefined when the rates are the same, which leaves no number
- * needed to treat or harm.
- */
-function binaryContrast(result: BinaryResult):
-  { optionHigher: boolean; reciprocal: number; roundedUp: number } | undefined {
-  const option = BigInt(result.option_events) * BigInt(result.comparator_total);
-  const comparator = BigInt(result.comparator_events) * BigInt(result.option_total);
-  if (option === comparator) return undefined;
-  const people = BigInt(result.option_total) * BigInt(result.comparator_total);
-  const difference = option > comparator ? option - comparator : comparator - option;
-  // Both are positive, so the quotient is rounded down.
-  const roundedDown = people / difference;
-  return {
-    optionHigher: option > comparator,
-    reciprocal: Number(people) / Number(difference),
-    roundedUp: Number(people % difference === 0n ? roundedDown : roundedDown + 1n)
-  };
-}
 
 function answerDraftProblems(
   draft: string,
@@ -3492,10 +3821,13 @@ const FINDINGS_PRIVACY_PROBLEMS: Readonly<Record<FindingsPrivacyReason, string>>
  * Checks a findings card against this call. Each finding's sentence must be
  * shown in the answer (the answer_quotes check, exact and the same in any
  * language); each source must be one this call verified; a full_text_read or
- * community_checked tag must rest on a source of that kind; and the card must
- * pass the privacy screen its save runs. Whether a sentence states its
- * finding, and the other tags, are the model's declarations, which the owner
- * reviews before accepting a card.
+ * community_checked tag must rest on a source of that kind; the card must
+ * declare whom its findings would help, a public declaration saying who else
+ * faces them and what they could change (owner answer 156a, 2026-10-22); and
+ * the card must pass the privacy screen its save runs. Whether a sentence
+ * states its finding, the other tags and whether the findings would help other
+ * people are the model's declarations, which the owner reviews before
+ * accepting a card.
  */
 function findingsCardCheck(
   card: FindingsCard,
@@ -3530,6 +3862,27 @@ function findingsCardCheck(
     }
     if (new Set(finding.tags).size < finding.tags.length) problems.push(`${at}.tags lists a tag more than once.`);
   });
+  // Owner answer 156a (2026-10-22): only the declaration's presence and its fields are checked, exactly; whether the
+  // findings would help other people stays the model's judgment, by the test the field describes. A card without it,
+  // from an app whose tool list predates it, is reported like any other problem: not saved or offered, and the answer
+  // goes ahead. With personal_only, who_else and what_it_changes are not used.
+  const declared = card.public_value;
+  if (declared === undefined) {
+    problems.push(
+      "findings_card.public_value is missing: say whether these findings would help other people, as " +
+        '{"scope":"public","who_else":"…","what_it_changes":"…"}, or only this person, as {"scope":"personal_only"}. ' +
+        "Without it the card is not saved or offered."
+    );
+  } else if (declared.scope === "public") {
+    if (declared.who_else === undefined) {
+      problems.push("findings_card.public_value.who_else is missing: with scope public, say who else faces these " +
+        "findings, in general terms.");
+    }
+    if (declared.what_it_changes === undefined) {
+      problems.push("findings_card.public_value.what_it_changes is missing: with scope public, say what these findings " +
+        "could change in what those people do or believe.");
+    }
+  }
   // A source that is not an identifier is already unverified above.
   for (const { field, reasonCode } of screenFindingsCard(card)) {
     if (reasonCode === "not_a_source_identifier") continue;
@@ -3802,16 +4155,6 @@ const UNREAD_STUDY_REASONS: Readonly<Record<string, readonly [string, string]>> 
     "No copies of {links} could be verified as the same papers"
   ]
 };
-
-/** Text without surrounding spaces or a closing sentence mark or semicolon, spaces made single. */
-function withoutEndPunctuation(text: string): string {
-  let result = text.replace(/\s+/gu, " ").trim();
-  for (let shorter = result.replace(/[\p{STerm};]$/u, "").trimEnd(); shorter !== result;
-    shorter = result.replace(/[\p{STerm};]$/u, "").trimEnd()) {
-    result = shorter;
-  }
-  return result;
-}
 
 const asSentence = (text: string): string => {
   const trimmed = text.trim();
@@ -4130,6 +4473,20 @@ function communityKey(name: string, platform: string): string {
     : `${platform}:${name.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, "")}`;
 }
 
+/**
+ * Whether a community listed in principal_communities was searched. One named by its platform alone, such as the user's
+ * "Reddit", is searched when any community on that platform is: a Reddit search is recorded by its subreddit, so a
+ * record named Reddit is refused (the 22 Oct regression o355 keto thread, where the two held each other). Exact: the
+ * name is the platform's own name.
+ */
+function communitySearched(searched: ReadonlyMap<string, string>, name: string, platform: string): boolean {
+  const key = communityKey(name, platform);
+  if (searched.has(key)) return true;
+  const label = PLATFORM_HOSTS[platform]?.label;
+  return label !== undefined && key === communityKey(label, platform) &&
+    [...searched.keys()].some((searchedKey) => searchedKey.startsWith(`${platform}:`));
+}
+
 /** The declared buyer-review lane cannot be omitted behind forum or YouTube coverage. */
 interface DeclarationSteps {
   addStep: (kind: NextStepKind, ...steps: string[]) => void;
@@ -4380,6 +4737,7 @@ function boundaryCaveat(name: string, boundary: NonNullable<CommunitySearch["acc
     case "blocked": return `${name} blocked access, so reports there are not included.`;
     case "retrieval_failed": return `Pages from ${name} could not be retrieved, so reports there are not included.`;
     case "no_relevant_results": return `A search of ${name} turned up no relevant reports.`;
+    case "not_found": return `I could not find ${name}, so reports there are not included.`;
   }
 }
 
@@ -4442,6 +4800,8 @@ function communityCoverage(
   }
   // Key -> name as given.
   const searched = new Map<string, string>();
+  // Keys of communities recorded as not found (access_boundary not_found).
+  const unfound = new Set<string>();
   // One site is one discussion pool, whatever its entries are called: outside
   // Reddit, a community's identity is the site its threads are on (HRP
   // MultipleIndependentCommunities: stable source identifiers, not names).
@@ -4568,6 +4928,17 @@ function communityCoverage(
       );
       continue;
     }
+    // A community that could not be found has no address and no thread (the 22 Oct regressions, where a check
+    // asking for the address of communities nobody can find held both book cases and l24).
+    if (search.access_boundary === "not_found" && (search.threads_read.length > 0 || search.url !== undefined)) {
+      out.addStep("declaration",
+        `community_searches for ${name} gives access_boundary not_found with ` +
+          `${search.threads_read.length > 0 ? "threads read" : "an address"}: a community with ` +
+          `${search.threads_read.length > 0 ? "threads you read" : "an address"} was found, so record what stopped ` +
+          "the search instead, or the threads and what they showed."
+      );
+      continue;
+    }
     // A review site's reviews need their counts and selection (HRP ReviewCorpusSelectionAndCounts).
     const corpora = search.review_corpora ?? [];
     if (corpora.length > 0 && search.platform !== "review_site") {
@@ -4595,7 +4966,8 @@ function communityCoverage(
     }
     // Outside Reddit, whose subreddit names it, a community read nowhere is
     // known by its address, never by its name alone.
-    if (search.platform !== "reddit" && search.threads_read.length === 0 && search.url === undefined) {
+    if (search.platform !== "reddit" && search.threads_read.length === 0 && search.url === undefined &&
+        search.access_boundary !== "not_found") {
       out.requireDeclaration(
         `community_searches for ${name} records an access boundary but no url: give the community's address (its ` +
           "forum, group or site link), so it is known by its site rather than its name."
@@ -4626,11 +4998,15 @@ function communityCoverage(
     }
     if (site !== undefined) siteOwners.set(site, key);
     searched.set(key, name);
+    // Recorded, so a community the user named is not asked for again, but no discussion pool of its own.
+    if (search.access_boundary === "not_found") unfound.add(key);
     if (search.access_boundary !== undefined) {
       out.requireLimit(
         search.access_boundary === "no_relevant_results"
           ? `The search of ${name} found no relevant reports; say so.`
-          : `The search of ${name} ended at an access boundary (${search.access_boundary}); say so.`,
+          : search.access_boundary === "not_found"
+            ? `${name} could not be found; say so.`
+            : `The search of ${name} ended at an access boundary (${search.access_boundary}); say so.`,
         boundaryCaveat(name, search.access_boundary)
       );
     }
@@ -4736,24 +5112,27 @@ function communityCoverage(
   const named = new Set<string>();
   for (const { name, platform, named_by_user } of communities) {
     const key = communityKey(name, platform);
-    if (named_by_user === true && platform !== "youtube" && !searched.has(key) && !named.has(key)) {
+    if (named_by_user === true && platform !== "youtube" && !communitySearched(searched, name, platform) &&
+        !named.has(key)) {
       named.add(key);
       out.requireDeclaration(
         `The user named ${name}: search it with your web search and record it in community_searches, or the access boundary that stops you.`
       );
     }
   }
-  if (dominant.platform !== "youtube" && !searched.has(communityKey(dominant.name, dominant.platform))) {
+  if (dominant.platform !== "youtube" && !communitySearched(searched, dominant.name, dominant.platform)) {
     out.requireDeclaration(
       `Search ${dominant.name}, the community listed first, with your web search and record it in ` +
         "community_searches, or the access boundary that stops you."
     );
   }
-  const listed = new Set(communities.map(({ name, platform }) => communityKey(name, platform)));
+  // A community that could not be found is no discussion pool, so it never makes the found one the only one.
+  const listed = new Set(communities.map(({ name, platform }) => communityKey(name, platform))
+    .filter((key) => !unfound.has(key)));
   // A Facebook group, Telegram channel or Discord server is known by links the
   // server cannot tie to one identity (a group's name or number, a server's
   // many invites), so each of those platforms counts once toward independence.
-  const pools = new Set([...searched.keys()].map((key) => {
+  const pools = new Set([...searched.keys()].filter((key) => !unfound.has(key)).map((key) => {
     const platform = key.split(":")[0]!;
     return COMMUNITY_LINK_STEPS[platform] === undefined ? key : platform;
   }));
@@ -4771,17 +5150,19 @@ function communityCoverage(
     }
   } else if (pools.size < 2) {
     const others = [...new Map(communities
-      .filter(({ name, platform }) => !searched.has(communityKey(name, platform)))
+      .filter(({ name, platform }) => !communitySearched(searched, name, platform))
       .map(({ name, platform }) => [communityKey(name, platform), name])).values()];
+    const found = [...searched].filter(([key]) => !unfound.has(key)).map(([, name]) => name);
     out.addStep("research", 
       "Search at least one more community, independent of " +
-        `${searched.size === 0 ? "the first" : [...searched.values()].join(", ")}` +
+        `${found.length === 0 ? "the first" : found.join(", ")}` +
         `${others.length === 0 ? "" : ` (${others.join(", ")})`}: YouTube with its tools, the others with your web ` +
         "search recorded in community_searches, or record the access boundary that stops you." +
-        (pools.size < searched.size
+        (pools.size < found.length
           ? " Communities on one of Facebook, Telegram or Discord count once together: their links cannot show that " +
             "they are separate discussion pools."
-          : "")
+          : "") +
+        (unfound.size > 0 ? " A community that could not be found is not one of them." : "")
     );
   }
   // Every community searched outside YouTube rests on the client's word.

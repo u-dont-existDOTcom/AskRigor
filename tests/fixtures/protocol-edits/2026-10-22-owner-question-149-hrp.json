@@ -1,0 +1,27 @@
+{
+  "purpose": "Owner-approved question 149, from the owner's answer \"149a\" (2026-10-22), from the 21 Oct regression case Responders (question 136). Exact approved text apart from XML formatting; reversible HRP 20.6.30 edits chained from questions 152 and 153's HRP 20.6.29.",
+  "hrp": {
+    "from": {
+      "version": "20.6.29",
+      "sha256": "a72aed35746b86b084398cdb92fa1d36dac2d2941b31feea34e242678cf49b79"
+    },
+    "to": {
+      "version": "20.6.30",
+      "sha256": "b7c1df6eb235bcd1423e4d8fdb86245887e3cd0eac3f469f6cc91619a5c91ef8"
+    },
+    "edits": [
+      [
+        "version=\"20.6.29\" revisionDate=\"2026-10-21\"",
+        "version=\"20.6.30\" revisionDate=\"2026-10-22\""
+      ],
+      [
+        " <RevisionHistory>\n",
+        " <RevisionHistory>\n  <Revision version=\"20.6.30\" priority=\"Critical\">\n   Owner-approved, answer 149a (2026-10-22), from the 21 Oct regression case Responders (question 136), which computed\n   rates and a ratio from counts whose group sizes conflicted: added CountsNeedTheirGroupSizes to the core section\n   EpistemicSafetyRules, which every research answer loads.\n  </Revision>\n"
+      ],
+      [
+        "  <Rule name=\"UnverifiedSpecificsLimitConfidence\" priority=\"Critical\">\n   Titles, snippets, abstracts, summaries, AI reports, videos, user descriptions, or remembered forum patterns do not\n   become verified full-text or forum-signal facts.\n  </Rule>\n </EpistemicSafetyRules>",
+        "  <Rule name=\"UnverifiedSpecificsLimitConfidence\" priority=\"Critical\">\n   Titles, snippets, abstracts, summaries, AI reports, videos, user descriptions, or remembered forum patterns do not\n   become verified full-text or forum-signal facts.\n  </Rule>\n\n  <Rule name=\"CountsNeedTheirGroupSizes\" priority=\"Critical\">\n   When counts are given without the group sizes they come from, or the group sizes conflict, give the counts and the\n   conflict, and work out no percentage, difference or ratio from them, not even as a conditional figure, until the\n   group sizes are reconciled.\n  </Rule>\n </EpistemicSafetyRules>"
+      ]
+    ]
+  }
+}

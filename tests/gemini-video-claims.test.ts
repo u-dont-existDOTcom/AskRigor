@@ -171,7 +171,37 @@ describe("Gemini video reading pass", () => {
       .mockResolvedValueOnce(new Response("{}", { status: 200 })));
     expect(await advanceGeminiVideoPass(
       { mode: "claims", video_id: VIDEO }, CONFIG, { interaction_id: "interaction-1", poll_attempts: 0 }
-    )).toEqual({ kind: "boundary", code: "gemini_video_not_completed", retryable: false });
+    )).toEqual({ kind: "boundary", code: "gemini_video_not_completed", retryable: false, gemini_status: "failed" });
+  });
+
+  // 22 Oct: production's video reads ended without a report and the refusal could not say why. The status and the
+  // error code Gemini gives are kept when they are identifiers; its message, which could carry any text, never is.
+  it("keeps how Gemini ended an unfinished pass: its status and error code, not its message", async () => {
+    const ended = (status: string, error: unknown) => new Response(JSON.stringify({
+      id: "interaction-1", status, model: "gemini-3.6-flash", steps: [], error
+    }), { status: 200, headers: { "content-type": "application/json" } });
+    const pass = async (status: string, error: unknown) => {
+      vi.stubGlobal("fetch", vi.fn()
+        .mockResolvedValueOnce(ended(status, error))
+        .mockResolvedValueOnce(new Response("{}", { status: 200 })));
+      return advanceGeminiVideoPass(
+        { mode: "claims", video_id: VIDEO }, CONFIG, { interaction_id: "interaction-1", poll_attempts: 0 }
+      );
+    };
+    const named = await pass("failed", { status: "INVALID_ARGUMENT", code: 400, message: "Video https://x.example/v is private" });
+    expect(named).toEqual({
+      kind: "boundary", code: "gemini_video_not_completed", retryable: false,
+      gemini_status: "failed", gemini_error_code: "INVALID_ARGUMENT"
+    });
+    expect(JSON.stringify(named)).not.toContain("private");
+    expect(await pass("cancelled", { code: 403 })).toMatchObject({ gemini_status: "cancelled", gemini_error_code: "403" });
+    const odd = await pass("failed: see https://x.example", { status: "video is private", code: 12_345 });
+    expect(odd).toEqual({
+      kind: "boundary", code: "gemini_video_not_completed", retryable: false, gemini_status: "unrecognized"
+    });
+    expect(await pass("incomplete", null)).toEqual({
+      kind: "boundary", code: "gemini_video_not_completed", retryable: false, gemini_status: "incomplete"
+    });
   });
 
   it("classifies a refused start", async () => {
@@ -209,6 +239,38 @@ describe("Gemini video reading pass", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response("{}", { status: 404 })));
     expect(await advanceGeminiVideoPass(
       { mode: "claims", video_id: VIDEO }, CONFIG, { interaction_id: "interaction-1", poll_attempts: 0 }
-    )).toEqual({ kind: "boundary", code: "gemini_video_not_completed", retryable: false });
+    )).toEqual({ kind: "boundary", code: "gemini_video_not_completed", retryable: false, gemini_ending: "interaction_missing" });
+  });
+
+  // AskRigor#359: a reading that ended gemini_video_not_completed could not say whether Gemini ended it with a status
+  // or no longer had it when polled. The second now carries a fixed marker, and nothing from Gemini's reply.
+  it("marks a pass Gemini no longer had when polled, with nothing from its reply, and polls nothing more", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({
+      error: { code: 404, status: "NOT_FOUND", message: "Interaction interaction-7 for https://x.example/v was not found" }
+    }), { status: 404, headers: { "content-type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const gone = await advanceGeminiVideoPass(
+      { mode: "claims", video_id: VIDEO }, CONFIG, { interaction_id: "interaction-7", poll_attempts: 3 }
+    );
+    expect(gone).toEqual({
+      kind: "boundary", code: "gemini_video_not_completed", retryable: false, gemini_ending: "interaction_missing"
+    });
+    for (const leaked of ["interaction-7", "NOT_FOUND", "x.example", "not found", CONFIG.apiKey]) {
+      expect(JSON.stringify(gone)).not.toContain(leaked);
+    }
+    // One poll, no retry and no delete: the pass is gone, and another reading would charge the daily limit again.
+    expect(requests(fetchMock)).toEqual([{ url: `${ENDPOINT}/interaction-7`, method: "GET", body: undefined }]);
+
+    // A pass Gemini ended with a status keeps its status, with no such marker.
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(interaction("failed"))
+      .mockResolvedValueOnce(new Response("{}", { status: 200 })));
+    expect(await advanceGeminiVideoPass(
+      { mode: "claims", video_id: VIDEO }, CONFIG, { interaction_id: "interaction-1", poll_attempts: 0 }
+    )).not.toHaveProperty("gemini_ending");
+    // A start Gemini refuses with 404 is a refused request, not a pass it lost.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response("{}", { status: 404 })));
+    expect(await advanceGeminiVideoPass({ mode: "claims", video_id: VIDEO }, CONFIG))
+      .toEqual({ kind: "boundary", code: "gemini_video_request_rejected", retryable: false });
   });
 });

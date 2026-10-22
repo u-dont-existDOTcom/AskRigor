@@ -338,6 +338,131 @@ describe("extract_youtube_video_claims", () => {
       "extract youtube video claims could not complete: gemini_video_invalid_report. Gemini's report did not have " +
         "the required form, so none of it is used."
     );
+
+    // How Gemini ended an unfinished reading comes before the usual guidance, as identifiers only.
+    const ended = dependencies();
+    ended.deps.advance.mockResolvedValueOnce({
+      kind: "boundary", code: "gemini_video_not_completed", retryable: false,
+      gemini_status: "failed", gemini_error_code: "INVALID_ARGUMENT"
+    });
+    expect(text(await extractYoutubeVideoClaims({ video: VIDEO }, ended.deps))).toBe(
+      "extract youtube video claims could not complete: gemini_video_not_completed. Gemini ended the reading with " +
+        "status failed (INVALID_ARGUMENT). Gemini could not read this video; check the claims the person reports " +
+        "from it with the other tools."
+    );
+  });
+
+  // AskRigor#359: a reading that ended gemini_video_not_completed could not say whether Gemini no longer had it when
+  // AskRigor polled it, which says nothing about whether Gemini could read the video.
+  it("says when Gemini no longer had the reading, without claiming it could not read the video", async () => {
+    const { deps } = dependencies();
+    deps.advance.mockResolvedValueOnce({
+      kind: "boundary", code: "gemini_video_not_completed", retryable: false, gemini_ending: "interaction_missing"
+    });
+    const gone = await extractYoutubeVideoClaims({ video: VIDEO }, deps);
+    expect(text(gone)).toBe(
+      "extract youtube video claims could not complete: gemini_video_not_completed. Gemini no longer had the " +
+        "reading when AskRigor checked on it. The video was not read; check the claims the person reports from it " +
+        "with the other tools."
+    );
+    expect(gone.unread).toEqual({ video: VIDEO, code: "gemini_video_not_completed" });
+  });
+
+  // AskRigor#359: the reading failed and the answer described the video from its title and description as if it had
+  // been watched. A call that ends without reading a video it identified says so, with its refusal's code, for the
+  // final check; one that never identified a video, or found no public video under the ID, says nothing of one.
+  it("names a video it identified but did not read, with the refusal's code, and nothing else", async () => {
+    const unreadFrom = async (input: Parameters<typeof extractYoutubeVideoClaims>[0],
+      setup: (deps: ReturnType<typeof dependencies>["deps"]) => void, overrides: Partial<VideoClaimsToolDependencies> = {}) => {
+      const { deps } = dependencies(overrides);
+      setup(deps);
+      const outcome = await extractYoutubeVideoClaims(input, deps);
+      expect(outcome.result.isError).toBe(true);
+      expect(outcome.receipt).toBeUndefined();
+      return outcome.unread;
+    };
+    const none = () => undefined;
+    const boundary = (code: string, retryable = false) => (deps: ReturnType<typeof dependencies>["deps"]) => {
+      deps.advance.mockResolvedValueOnce({ kind: "boundary", code, retryable } as GeminiVideoAdvance);
+    };
+    for (const [code, input, setup, overrides] of [
+      ["gemini_video_spend_not_authorized", { video: VIDEO }, none, { geminiKeyUnbilled: false }],
+      ["gemini_provider_not_configured", { video: VIDEO }, none, { geminiApiKey: " " }],
+      ["video_time_outside_video", { video: VIDEO, at: "15:00" }, none, {}],
+      ["youtube_video_not_public", { video: VIDEO }, none,
+        { getVideo: vi.fn(async () => videoEnvelope({ privacy_status: "unlisted" })) as never }],
+      ["youtube_video_too_long", { video: VIDEO }, none,
+        { getVideo: vi.fn(async () => videoEnvelope({ duration: "PT3H" })) as never }],
+      ["gemini_video_daily_limit_reached", { video: VIDEO }, none,
+        { ledger: () => ({ charge: vi.fn(async () => ({ charged: false as const, remaining_seconds: 0 })) }) }],
+      ["gemini_video_not_completed", { video: `https://youtu.be/${VIDEO}?si=SHARE` }, boundary("gemini_video_not_completed"), {}],
+      ["gemini_video_timed_out", { video: VIDEO }, boundary("gemini_video_timed_out", true), {}],
+      ["gemini_video_credits_depleted", { video: VIDEO }, boundary("gemini_video_credits_depleted"), {}],
+      ["gemini_video_invalid_report", { video: VIDEO, at: "04:10" }, boundary("gemini_video_invalid_report"), {}],
+      ["gemini_video_unclassified_failure", { video: VIDEO },
+        (deps: ReturnType<typeof dependencies>["deps"]) => { deps.advance.mockRejectedValueOnce(new Error("socket")); }, {}],
+      ["gemini_video_report_too_large", { video: VIDEO },
+        (deps: ReturnType<typeof dependencies>["deps"]) => {
+          deps.advance.mockResolvedValueOnce(complete({ ...REPORT, claims: Array.from({ length: 40 }, () => ({
+            ...REPORT.claims[0]!, quote: "q".repeat(600), claim: "c".repeat(400), evidence_detail: "e".repeat(400),
+            specifics: Array.from({ length: 12 }, () => "s".repeat(160))
+          })) }));
+        }, {}]
+    ] as const) {
+      expect(await unreadFrom(input, setup, overrides as Partial<VideoClaimsToolDependencies>), code)
+        .toEqual({ video: VIDEO, code });
+    }
+    // No video identified, or none YouTube shows under the ID: nothing to name.
+    expect(await unreadFrom({ video: "my knee video" }, none)).toBeUndefined();
+    expect(await unreadFrom({ video: VIDEO }, none, {
+      getVideo: vi.fn(async () => ({ access_status: "not_found", data: {}, error: { code: "youtube_video_not_visible" } })) as never
+    })).toBeUndefined();
+    expect(await unreadFrom({ continuation_token: "not-a-token" }, none)).toBeUndefined();
+
+    // A reading that completes, or is still pending, names no unread video; one still pending names its video as
+    // pending, so that a reading the AI abandons still reaches the final check.
+    const read = dependencies();
+    read.deps.advance.mockResolvedValueOnce(complete());
+    const done = await extractYoutubeVideoClaims({ video: VIDEO }, read.deps);
+    expect(done.unread).toBeUndefined();
+    expect(done.pending).toBeUndefined();
+    expect(done.receipt).toEqual({ video: VIDEO, mode: "claims", n: 2 });
+    const pendingDeps = dependencies();
+    pendingDeps.deps.advance.mockResolvedValue(progress(0));
+    const pending = await extractYoutubeVideoClaims({ video: VIDEO }, pendingDeps.deps);
+    expect(pending.result.isError).not.toBe(true);
+    expect(pending).not.toHaveProperty("unread");
+    expect(pending).not.toHaveProperty("code");
+    expect(pending).not.toHaveProperty("receipt");
+    expect(pending.pending).toEqual({ video: VIDEO });
+    // Resumed and still pending: the token's video.
+    const token = (pending.result.structuredContent as { continuation_token: string }).continuation_token;
+    const resumed = await extractYoutubeVideoClaims({ continuation_token: token }, pendingDeps.deps);
+    expect(resumed.pending).toEqual({ video: VIDEO });
+  });
+
+  it("names the video a continuation token carried when the resumed reading ends unread", async () => {
+    const state = {
+      request: { mode: "claims" as const, video_id: VIDEO },
+      video: { title: "t", channel: "c", duration_seconds: 900 },
+      checkpoint: { interaction_id: "interaction-9", poll_attempts: 2 },
+      charged_seconds: 900
+    };
+    const expiredDeps = dependencies();
+    const expired = encodeVideoContinuation({ ...state, expires_at_ms: expiredDeps.deps.now() - 1 }, SECRET);
+    expect((await extractYoutubeVideoClaims({ continuation_token: expired }, expiredDeps.deps)).unread)
+      .toEqual({ video: VIDEO, code: "gemini_video_continuation_expired" });
+
+    const live = dependencies();
+    const token = encodeVideoContinuation({ ...state, expires_at_ms: live.deps.now() + 60_000 }, SECRET);
+    live.deps.advance.mockResolvedValueOnce({
+      kind: "boundary", code: "gemini_video_not_completed", retryable: false, gemini_ending: "interaction_missing"
+    });
+    expect((await extractYoutubeVideoClaims({ continuation_token: token }, live.deps)).unread)
+      .toEqual({ video: VIDEO, code: "gemini_video_not_completed" });
+    const unbilled = dependencies({ geminiKeyUnbilled: false });
+    expect((await extractYoutubeVideoClaims({ continuation_token: token }, unbilled.deps)).unread)
+      .toEqual({ video: VIDEO, code: "gemini_video_spend_not_authorized" });
   });
 });
 
@@ -429,5 +554,108 @@ describe("extract_youtube_video_claims through MCP", () => {
       kind: "youtube_video_claims",
       claims: { video: VIDEO, mode: "claims", n: "2" }
     });
+  });
+
+  // AskRigor#359: a reading still in progress is signed as pending, so that one the AI abandons still counts as unread
+  // at the final check.
+  it("signs a reading still in progress as pending, in its structured result", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "Date"] });
+    try {
+      vi.stubGlobal("fetch", vi.fn(async (input: string | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.startsWith("https://www.googleapis.com/youtube/v3/videos")) {
+          return Response.json({
+            kind: "youtube#videoListResponse",
+            pageInfo: { totalResults: 1, resultsPerPage: 1 },
+            items: [{
+              kind: "youtube#video",
+              id: VIDEO,
+              snippet: { title: "How I fixed my knees", channelTitle: "Knee Stories", liveBroadcastContent: "none" },
+              contentDetails: { duration: "PT15M" },
+              status: { privacyStatus: "public" }
+            }]
+          });
+        }
+        if ((init?.method ?? "GET") === "DELETE") return new Response("{}");
+        return Response.json({ id: "interaction-1", status: "in_progress", model: "gemini-3.6-flash", steps: [] });
+      }));
+
+      const server = createAskRigorServer();
+      const client = new Client({ name: "askrigor-video-test", version: "0.1.0" });
+      const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+      await server.connect(serverTransport);
+      await client.connect(clientTransport);
+      // Listing the tools makes the client check results against their output schemas, as connected apps do.
+      await client.listTools();
+
+      const call = client.callTool({ name: "extract_youtube_video_claims", arguments: { video: VIDEO } });
+      // The tool polls Gemini for up to its window before it hands back a continuation token.
+      await vi.advanceTimersByTimeAsync(40_000);
+      const result = await call;
+      expect(result.isError).not.toBe(true);
+      const content = result.structuredContent as { status: string; continuation_token: string; research_receipt: string };
+      expect(content.status).toBe("pending");
+      expect(content.continuation_token).toEqual(expect.any(String));
+      expect(verifyResearchReceipt(content.research_receipt, { secret: SECRET })).toMatchObject({
+        ok: true,
+        kind: "youtube_video_pending",
+        claims: { video: VIDEO }
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // AskRigor#359: the reading failed and the answer described the video as if it had been watched. The refusal now
+  // carries a receipt saying the video was not read, so the final check can make the answer say so.
+  it("signs a video Gemini did not read as unread, in the refusal's text", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.startsWith("https://www.googleapis.com/youtube/v3/videos")) {
+        return Response.json({
+          kind: "youtube#videoListResponse",
+          pageInfo: { totalResults: 1, resultsPerPage: 1 },
+          items: [{
+            kind: "youtube#video",
+            id: VIDEO,
+            snippet: { title: "How I fixed my knees", channelTitle: "Knee Stories", liveBroadcastContent: "none" },
+            contentDetails: { duration: "PT15M" },
+            status: { privacyStatus: "public" }
+          }]
+        });
+      }
+      if ((init?.method ?? "GET") === "DELETE") return new Response("{}");
+      return Response.json({ id: "interaction-1", status: "failed", model: "gemini-3.6-flash", steps: [] });
+    }));
+
+    const server = createAskRigorServer();
+    const client = new Client({ name: "askrigor-video-test", version: "0.1.0" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+    // Listing the tools makes the client check results against their output schemas, as connected apps do.
+    await client.listTools();
+
+    const result = await client.callTool({ name: "extract_youtube_video_claims", arguments: { video: VIDEO } });
+    expect(result.isError).toBe(true);
+    // No structured content: the output schema describes a reading, so the receipt travels in the text.
+    expect(result.structuredContent).toBeUndefined();
+    const texts = (result.content as Array<{ text: string }>).map(({ text }) => text);
+    expect(texts[0]).toBe("extract youtube video claims could not complete: gemini_video_not_completed. Gemini ended " +
+      "the reading with status failed. Gemini could not read this video; check the claims the person reports from it " +
+      "with the other tools.");
+    const receipt = texts.find((text) => text.startsWith("research_receipt: "))?.slice("research_receipt: ".length);
+    expect(verifyResearchReceipt(receipt!, { secret: SECRET })).toMatchObject({
+      ok: true,
+      kind: "youtube_video_unread",
+      claims: { video: VIDEO, code: "gemini_video_not_completed" }
+    });
+    expect(texts.at(-1)).toMatch(/^Answers that use this research are checked with finalize_research/u);
+
+    // A refusal before any video is identified carries no receipt.
+    const unidentified = await client.callTool({ name: "extract_youtube_video_claims", arguments: { video: "my knee video" } });
+    expect(unidentified.isError).toBe(true);
+    expect((unidentified.content as Array<{ text: string }>).map(({ text }) => text).join("\n"))
+      .not.toContain("research_receipt");
   });
 });

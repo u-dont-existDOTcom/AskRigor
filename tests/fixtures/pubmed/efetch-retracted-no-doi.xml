@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE PubmedArticleSet PUBLIC "-//NLM//DTD PubMedArticle, 1st January 2025//EN" "https://dtd.nlm.nih.gov/ncbi/pubmed/out/pubmed_250101.dtd">
+<PubmedArticleSet>
+  <PubmedArticle>
+    <MedlineCitation Status="MEDLINE" Owner="NLM">
+      <PMID Version="1">53123456</PMID>
+      <Article PubModel="Print">
+        <Journal>
+          <JournalIssue CitedMedium="Print"><PubDate><Year>2016</Year><Month>Mar</Month></PubDate></JournalIssue>
+          <Title>Journal of Recorded Examples</Title>
+        </Journal>
+        <ArticleTitle>Recorded retracted trial listed without a DOI</ArticleTitle>
+        <PublicationTypeList>
+          <PublicationType UI="D016428">Journal Article</PublicationType>
+          <PublicationType UI="D016441">Retracted Publication</PublicationType>
+        </PublicationTypeList>
+      </Article>
+    </MedlineCitation>
+    <PubmedData>
+      <ArticleIdList>
+        <ArticleId IdType="pubmed">53123456</ArticleId>
+      </ArticleIdList>
+    </PubmedData>
+  </PubmedArticle>
+</PubmedArticleSet>

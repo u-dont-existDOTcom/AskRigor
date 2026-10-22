@@ -1,6 +1,13 @@
+import { PostgresAtlasReader, PostgresAtlasReviewStore } from "@askrigor/evidence-repository";
 import { getProtocolManifest } from "@askrigor/protocol";
 
-import { askrigorBuildCommitFromEnv, findingsLibraryEnabledFromEnv, SERVICE_VERSION } from "../config.js";
+import {
+  askrigorBuildCommitFromEnv,
+  findingsLibraryEnabledFromEnv,
+  livingEvidenceReuseConfigFromEnv,
+  researchContributionReviewConfigFromEnv,
+  SERVICE_VERSION,
+} from "../config.js";
 import {
   GitHubInstallationTokenProvider,
   LESSON_REPOSITORY_NAME,
@@ -11,7 +18,9 @@ import {
 import { createLessonAttemptLimiter } from "../lessons/rate-limit.js";
 import { githubAppCredentialsFromEnv } from "../lessons/runtime.js";
 import { researchReceiptSecretFromEnv } from "../research-receipts.js";
+import { AtlasReview } from "./atlas-review.js";
 import type { FindingsSaveResult } from "./contracts.js";
+import { GitHubFindingsReview } from "./github-findings-review.js";
 import { GitHubFindingsQueue } from "./github-findings.js";
 import {
   FindingsSaveService,
@@ -94,6 +103,56 @@ function createFindingsServiceFromEnv(): FindingsSaveService {
     });
   } catch {
     throw new Error(CONFIGURATION_ERROR);
+  }
+}
+
+/**
+ * The owner's findings actions for the Atlas, from the environment (Atlas phase 2 design, section 3): decisions and
+ * intents through the review role's functions (the research review database), the canonical Atlas through the public
+ * runtime's read-only reader, and the cards through the findings library's GitHub App. Undefined, with nothing
+ * connected, when any of them is not configured; the tool then answers that the review is not configured.
+ */
+export function createAtlasReviewFromEnv(env: NodeJS.ProcessEnv = process.env): AtlasReview | undefined {
+  try {
+    const review = researchContributionReviewConfigFromEnv(env);
+    const reader = livingEvidenceReuseConfigFromEnv(env);
+    if (review === undefined || reader === undefined) return undefined;
+    const { appId, installationId, privateKeyBase64 } = githubAppCredentialsFromEnv();
+    const repository = findingsRepositoryFromEnv(env);
+    const now = () => new Date();
+    return new AtlasReview({
+      store: new PostgresAtlasReviewStore({
+        connectionString: review.connectionString,
+        schema: review.schema,
+        ssl: review.ssl,
+      }),
+      reader: new PostgresAtlasReader({
+        connectionString: reader.connectionString,
+        schema: reader.schema,
+        ssl: reader.ssl,
+        connectionTimeoutMillis: reader.connectionTimeoutMillis,
+        queryTimeoutMillis: reader.queryTimeoutMillis,
+        statementTimeoutMillis: reader.statementTimeoutMillis,
+      }),
+      inbox: new GitHubFindingsReview({
+        tokenProvider: new GitHubInstallationTokenProvider({
+          appId,
+          installationId,
+          privateKeyBase64,
+          repository,
+          fetch,
+          now,
+        }),
+        fetch,
+        repository,
+      }),
+      version: SERVICE_VERSION,
+      build: askrigorBuildCommitFromEnv(env.ASKRIGOR_BUILD_COMMIT),
+      protocols: protocolIdentities,
+      now,
+    });
+  } catch {
+    return undefined;
   }
 }
 

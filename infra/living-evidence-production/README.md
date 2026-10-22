@@ -43,7 +43,9 @@ database-create privilege. The research-access role has only the account,
 entitlement-read, pending-proposal insert/read, and bounded pending-withdrawal
 permissions documented below. The research-review role can execute only the
 three bounded owner-review functions (inspect, decide, and the review context of
-migration 0012) and has no direct table privileges. The
+migration 0012) and the five Atlas review functions of migration 0017 (inspect
+cards, decide a card item, record an intent, inspect intents, and forget
+cards), and has no direct table or sequence privileges. The
 ordinary research service receives the reader, evidence-gap intake,
 research-access, and research-review URLs through the existing
 root-owned mode-0600 runtime.env. The one-shot admin profile receives only the migrator URL
@@ -100,6 +102,10 @@ placed in Compose.
    Connect separately as `askrigor_research_review` and prove that the exact
    inspect/decide/context functions work while direct proposal-table reads or updates,
    canonical-table reads or writes, temporary objects, and schema creation fail.
+   Prove too that the five Atlas functions work while the Atlas tables, the
+   `atlas_public_number_seq` sequence, `erase_atlas_wording`,
+   `atlas_redaction_permits`, `atlas_question_erasable` and
+   `atlas_numbers_without_labels` are refused.
 7. Recreate only research-mcp with the combined Compose selection. Verify it
    remains non-root/read-only/capability-free, joins exactly its prior network
    plus the internal repository network, stays healthy, and does not emit
@@ -152,8 +158,8 @@ Add `ASKRIGOR_RESEARCH_REVIEW_ENABLED=true`, the dedicated review-role URL,
 schema `living_evidence`, and Docker-internal SSL mode `disable` to the same
 mode-0600 runtime environment. The review URL must use
 `askrigor_research_review`, not the access role or migrator. It can call only
-the hash-bound inspect/decide functions and the read-only review context
-function, and cannot read tables directly.
+the hash-bound inspect/decide functions, the read-only review context
+function and the five Atlas review functions, and cannot read tables directly.
 
 Owner answer 140b (2026-10-20): paid private accounts and dev accounts register
 a plain answer before research, and their checked answers end with a note
@@ -191,6 +197,122 @@ covers it. Apply it with the one-shot admin `migrate` before an image that
 reads it serves, since the access store reads that column on every research
 call. An earlier image does not read it and accepts no detailed report, so a
 rollback needs no step.
+
+Owner answers 159 (1b and 7) and 160b (2026-10-22): the free contributor
+notice's third version, `free-contributor-v3-2026-10-22`, says that findings
+the owner accepts may be published in the public Atlas and what deleting a
+findings card removes and what stays. Migration `0016_research_use_notice_v3`
+replaces the account table's notice check, under the name 0011 gave it
+(`research_use_accounts_free_notice_check`), with one that admits v1, v2 and
+v3; it adds no column or grant. Apply it with the one-shot admin `migrate`
+before an image that offers v3 serves, since that image stores v3 rows.
+
+An earlier image, such as build `71f09f63`, reads only v1 and v2 and fails the
+access check of an account whose row carries v3, so an image rollback below v3
+holds those rows first. `research-use-notice-v3-hold.sql` copies each v3
+account row, unchanged, into `research_use_notice_v3_hold` and marks the
+account revoked, a state the earlier image reads; the person leaves it by
+accepting that image's notice, v2, or by activating an entitled paid private
+account. `research-use-notice-v3-restore.sql`, run once an image that reads v3
+serves again, puts back each account still exactly in the held state and
+empties the table. An account the person changed meanwhile keeps its newer
+row, and the v3 image asks a v2 account to accept v3 as usual. Both scripts are
+idempotent, run as the migrator in the form of the v2 scripts (the exact
+command is in `../../docs/superpowers/plans/2026-10-01-pr246-production-release.md`),
+and change no other table: entitlements, proposals and Atlas rows stay as they
+are. Only the hold table's owner, the migrator, can read it; the hold removes
+every other grant, including the reader's default-privilege one.
+`npm run contributor-access:notice-v3-rollback-acceptance` checks both against
+real PostgreSQL in Docker. The rollback's order, with migration 0017, is at the
+end of the Atlas section below. A rollback to an image that reads only v1 also
+runs `research-use-notice-v2-hold.sql`, and later its restore; the two holds
+move different rows, so their order does not matter.
+
+Atlas phase 2 (owner answers 159 and 160b, 2026-10-22; design
+`../../docs/superpowers/plans/2026-10-22-atlas-phase-2-design.md`): the owner
+accepts findings from saved findings cards into this database. Migration
+`0017_atlas_findings` adds:
+
+- two private review tables, which the review role reaches only through its
+  functions: `atlas_card_decisions` (the owner's decision on each card item,
+  the only rows that name a card, deleted when the card is forgotten) and
+  `atlas_finding_intents` (each decision's hash-bound intent, queued for the
+  runner), with the `atlas_public_number_seq` sequence that numbers findings
+  from `F-1001`;
+- eight canonical tables with the `append_only_guard` trigger:
+  `atlas_findings`, `atlas_finding_versions`, `atlas_finding_changes`,
+  `atlas_finding_links`, `atlas_finding_link_withdrawals`,
+  `atlas_source_checks`, `atlas_redactions` and `atlas_intent_applications`,
+  and the `atlas_finding_current` view;
+- five SECURITY DEFINER review functions, each revoked from PUBLIC:
+  `inspect_atlas_cards`, `decide_atlas_card_item`,
+  `record_atlas_finding_intent`, `inspect_atlas_finding_intents` and
+  `forget_atlas_cards`;
+- writer-only `erase_atlas_wording`, `atlas_redaction_permits`,
+  `atlas_question_erasable` and `atlas_numbers_without_labels`, and a new body
+  for `reject_living_evidence_mutation()` whose one exception lets
+  `erase_atlas_wording` set to a fixed marker, under a redaction row, the
+  wording that row covers (decision 7): its version's claim and Atlas texts,
+  wording keys (to 64 zeros), numbers' text labels and change notes, the
+  rationale of each link touching its finding and each such link's withdrawal
+  note, and the finding's question only while no other finding or research
+  frontier uses it. Every other column, row and table stays refused, and
+  nothing is ever deleted.
+
+Canonical Atlas rows never hold an ARF number, a thread key, a receipt hash, an
+account, an answer quote, or YouTube or community data. The owner's call
+records a decision and its intent; only the one-shot admin
+`promote-accepted` writes canonical rows, after the contribution queue in the
+same activation, and it applies an erasure the same way: the redaction rows,
+then `erase_atlas_wording`, then the cleared texts of the finished intents that
+name the finding, in one transaction. `forget_card` deletes a card's decision
+rows through `forget_atlas_cards` and changes no canonical row.
+
+The release, in this order:
+
+1. Run the one-shot admin `migrate`, which applies 0017 (and 0016 if it has not
+   run yet), before the new image serves.
+2. Re-run `/usr/local/bin/provision-research-review-role` inside the PostgreSQL
+   service, so the review role gets the five Atlas grants (the script grants
+   exactly those, after the three contribution grants), and prove the role
+   boundary as step 6 above says.
+3. Bind `/opt/askrigor/living-evidence-image.env` to the deployed image, start
+   `askrigor-research-promotion.service` by hand, and expect
+   `no_pending_promotion` for both queues (the contribution line and the line
+   with `"queue":"atlas_findings"`). Then verify the next timer trigger.
+4. Check the 33-tool catalog; the owner refreshes each connector's tool list.
+
+The owner's Atlas actions stay closed behind `ASKRIGOR_ATLAS_REVIEW=enabled`
+until all of that is verified. For a rollback, an earlier image never selects
+an Atlas intent, so pending intents stay `PENDING` and are neither lost nor
+failed; delete no decision, intent or canonical row. A rollback restores
+nothing decision 7 removed: erased wording stays erased, and a forgotten card's
+decision rows and stripped issues stay gone.
+
+An image rollback below this release, to build `71f09f63` or another image that
+reads notice v1 and v2 and no Atlas table, goes in this order:
+
+1. Stop and disable `askrigor-research-promotion.timer`.
+2. Run `research-use-notice-v3-hold.sql` as the migrator (notice v3 above).
+3. Restore the selector (`/opt/askrigor/living-evidence-image.env`) and
+   `runtime.env` from the release's rollback folder, recreate only
+   `research-mcp` with the earlier image, and check its health.
+4. Run the hold once more. It changes nothing unless an account accepted v3
+   between steps 2 and 3, and then it holds that account too.
+5. Re-enable the timer against the restored image.
+
+Undo no migration: 0016 and 0017 stay, with every Atlas row. 0016 only widens
+the notice check, which the earlier image tolerates; the canonical Atlas tables
+are append-only, the earlier image reads no Atlas table, and neither script
+touches one. The earlier image needs no `migrate`. If its `migrate` runs, it
+ignores the 0016 and 0017 rows in `schema_migrations` and puts back 0001's body
+of `reject_living_evidence_mutation()`, without the Atlas erasure exception, so
+every guarded row stays refused until this release's `migrate` runs again.
+
+To serve this release again: run its `migrate` before its image serves,
+recreate `research-mcp` with that image, then run
+`research-use-notice-v3-restore.sql` as the migrator (never while the earlier
+image serves), and then steps 2 to 4 of the release above.
 
 When OAuth research access is active, the server omits legacy research Action
 routes so they cannot bypass the mode choice. The separately governed lesson
@@ -243,6 +365,10 @@ rollback contract is in
 `../../docs/research-contribution-promotion-scheduler.md`. A failed process
 after the canonical writer commit leaves the intent pending, and the next
 invocation completes it through the writer's idempotent replay path.
+The same invocation then promotes the oldest pending Atlas intent (Atlas phase
+2), strictly first in, first out: one SERIALIZABLE transaction holds the writer
+lock and the intent's row lock, writes the canonical rows and records the
+intent's receipt or fixed failure code together, so an Atlas pass is atomic.
 The exact production installation, safe first-attempt recovery, manual run, and
 real timer-triggered acceptance are preserved in
 `../../docs/audits/2026-09-01-promotion-scheduler-production-release.md` and its
@@ -266,6 +392,11 @@ machine JSON.
   research closed; it does not restore anonymous access. Retain account and
   proposal rows for explicit review/deletion rather than deleting them during
   code rollback.
+- An image rollback below a free contributor notice that accounts have
+  accepted holds that notice's account rows first and restores them once the
+  newer image serves again: `research-use-notice-v3-hold.sql` and
+  `research-use-notice-v3-restore.sql` in the order at the end of the Atlas
+  section above, and the v2 pair as well for an image that reads only v1.
 - Stop the database only after the research service no longer selects the
   overlay. Do not delete its state, secrets, or logical exports as part of a
   code rollback.
