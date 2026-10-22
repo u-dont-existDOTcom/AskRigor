@@ -37,6 +37,9 @@ const reasonCodeSchema = z.enum([
   "github_rate_limited",
   "invalid_response",
   "ledger_unavailable",
+  // The issue listing came back empty while the repository reports open issues (on 22 Oct 2026 a run during a
+  // GitHub reconnect read every count as zero and called it available).
+  "empty_listing",
 ]);
 
 export type LessonQueueReasonCode = z.infer<typeof reasonCodeSchema>;
@@ -377,6 +380,32 @@ async function fetchLessonIssues(
   return parseSequentialPages(fallback.stdout);
 }
 
+const REPOSITORY_PATH = REPOSITORY_ISSUES_PATH.slice(0, -"/issues".length);
+const repositorySchema = z.object({ open_issues_count: z.number().int().nonnegative() }).passthrough();
+
+// An empty listing is checked against the repository's own count of open issues (which counts pull requests, as the
+// listing does): an empty read of a repository that reports open issues is unavailable, never zeros.
+async function confirmEmptyListing(
+  execute: LessonStatusExecFile = execFile as unknown as LessonStatusExecFile,
+): Promise<void> {
+  const result = await executeGh(execute, ["api", "--method", "GET", REPOSITORY_PATH]);
+  if (result.error !== null) {
+    throw new LessonStatusError(result.error.code === "ENOENT"
+      ? "gh_unavailable"
+      : classifyGhFailure(result.error, result.stderr));
+  }
+  if (Buffer.byteLength(result.stdout, "utf8") > MAX_GH_OUTPUT_BYTES) return invalidResponse();
+  let raw: unknown;
+  try {
+    raw = JSON.parse(result.stdout) as unknown;
+  } catch {
+    return invalidResponse();
+  }
+  const parsed = repositorySchema.safeParse(raw);
+  if (!parsed.success) return invalidResponse();
+  if (parsed.data.open_issues_count > 0) throw new LessonStatusError("empty_listing");
+}
+
 async function fetchLaneSummary(dependencies: LessonStatusDependencies): Promise<Partial<LessonQueueSummary>> {
   const result = await executeGh(
     dependencies.execute ?? execFile as unknown as LessonStatusExecFile,
@@ -489,6 +518,7 @@ export async function runLessonsStatus(
     let exitCode = 0;
     try {
       const issues = await fetchLessonIssues(dependencies.execute);
+      if (issues.length === 0) await confirmEmptyListing(dependencies.execute);
       summary = summarizeLessonIssues(issues, now, category);
     } catch (error) {
       const reasonCode = error instanceof LessonStatusError ? error.reasonCode : "gh_unavailable";

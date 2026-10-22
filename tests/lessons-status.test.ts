@@ -33,6 +33,11 @@ const LANE_CALL = {
   args: ["api", "repos/u-dont-existDOTcom/universal-dev-architecture/contents/suggested-fixes/AskRigor"],
   shell: false,
 };
+const REPOSITORY_CALL = {
+  file: "gh",
+  args: ["api", "--method", "GET", "repos/u-dont-existDOTcom/AskRigor-lessons"],
+  shell: false,
+};
 const PULLS_PATH = "repos/u-dont-existDOTcom/universal-dev-architecture/pulls";
 const PULLS_CALL = {
   file: "gh",
@@ -57,6 +62,7 @@ async function runCommand(
   ledger: LessonStatusDependencies["readLedger"] = async () => "",
   pulls: unknown = [],
   pullFiles: Record<number, unknown> = {},
+  repository: unknown = { open_issues_count: 0 },
 ): Promise<CommandResult> {
   const calls: CommandResult["calls"] = [];
   const answer = (callback: Parameters<LessonStatusExecFile>[3], value: unknown) => {
@@ -86,7 +92,15 @@ async function runCommand(
         }
         return;
       }
+      if (ghArgs.includes(REPOSITORY_CALL.args[3])) {
+        answer(callback, repository);
+        return;
+      }
       const isPrimary = ghArgs.includes("--slurp");
+      if (scenario === "empty") {
+        callback(null, JSON.stringify([[]]), "");
+        return;
+      }
       if (scenario === "success") {
         callback(null, JSON.stringify([page1, page2]), "");
         return;
@@ -348,6 +362,35 @@ describe("lesson queue command", () => {
       ],
       shell: false,
     }, LANE_CALL, PULLS_CALL]);
+  });
+
+  it("reports an empty listing as unavailable when the repository reports open issues", async () => {
+    // On 22 Oct 2026 a run during a GitHub reconnect read every count as zero and called it available.
+    const result = await runCommand("empty", [], [], undefined, [], {}, { open_issues_count: 31 });
+
+    expect(result.exitCode).toBe(1);
+    expect(JSON.parse(result.stdout)).toMatchObject({ status: "unavailable", reason_code: "empty_listing", ...EMPTY_LANE });
+    expect(JSON.parse(result.stdout)).not.toHaveProperty("open_candidates");
+    expect(result.stderr).toContain("Lesson queue status unavailable: empty_listing");
+    expect(result.calls).toContainEqual(REPOSITORY_CALL);
+  });
+
+  it("accepts an empty listing when the repository reports no open issues", async () => {
+    const result = await runCommand("empty");
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      status: "available", open_candidates: 0, needs_review: 0, accepted_not_incorporated: 0,
+      incorporated_or_closed: 0, deletion_eligible: 0, ...EMPTY_LANE,
+    });
+    expect(result.calls).toContainEqual(REPOSITORY_CALL);
+  });
+
+  it("reports an unreadable repository count as unavailable, not zeros", async () => {
+    const result = await runCommand("empty", [], [], undefined, [], {}, { name: "AskRigor-lessons" });
+
+    expect(result.exitCode).toBe(1);
+    expect(JSON.parse(result.stdout)).toMatchObject({ status: "unavailable", reason_code: "invalid_response" });
   });
 
   it("retries the fixed read-only request without slurp only for the local unsupported flag", async () => {
