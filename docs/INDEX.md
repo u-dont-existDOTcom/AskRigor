@@ -109,6 +109,15 @@ complete XML protocol.
   ChatGPT app refresh (65 cases: 23 met every criterion, 2 failed, 1 was refused by OpenAI's filter; the final check
   passed in 55); the case-by-case judgment, with the answers changed after their check, is
   `audits/2026-10-22-owner-regressions-judgment.md`.
+- `audits/2026-10-22-owner-answers-149-163-production-release.md`: release of #361 on owner answer 162a, with
+  163a's one-line acceptance fix. It holds Atlas phases 1 and 2, notice v3, owner answers 149a to 161a and the #359
+  fixes, with HRP 20.6.31 and Universal 20.5.46. It covers:
+  - migrations 0016 and 0017, and the review role's Atlas grants;
+  - the Docker database tests;
+  - production acceptance, with no video read (zero spend);
+  - the Atlas review, switched on last;
+  - the privacy page and the terms of October 22, 2026, and the plugin reinstall;
+  - the owner regressions, after the owner's ChatGPT app refresh and notice acceptance (pending).
 - `audits/2026-10-22-owner-answer-149-protocol.md`: owner answer 149a, from the 21 Oct regression case Responders
   (question 136): HRP 20.6.30 adds the core rule `CountsNeedTheirGroupSizes` (no percentage, difference or ratio from
   counts until their group sizes are reconciled), with the new size, SHA-256 and tests; built, not yet released.
