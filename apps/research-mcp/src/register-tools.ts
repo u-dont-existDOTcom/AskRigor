@@ -2235,8 +2235,10 @@ function defineResearchOperations(
         "findings_card is saved to AskRigor's private findings library for the owner's review, and saved_line says " +
         "so at the end of the answer; in paid private mode, when a finding rests on work a quick answer cannot do, " +
         "the caveats offer its save, which also asks to file this research's map. A card whose public_value declares " +
-        "its findings personal_only is neither saved nor offered. research_map says whether this " +
-        "research's map was filed or offered, or reminds a free contributor to file it. For a paid private or dev " +
+        "its findings personal_only is neither saved nor offered; a public one gives its topic and, for each finding, " +
+        "its kind, subject, direction, numbers and, for a search that found nothing, its searches. research_map " +
+        "says whether this research's map was filed or offered, or reminds a free contributor to file it. For a " +
+        "paid private or dev " +
         "account whose plain answer was registered with " +
         "manage_research_access before the research, plain_answer_comparison gives what the research found for each " +
         "of its claims, and when ready, plain_answer_note is the note comparing the two, for the end of the answer. " +

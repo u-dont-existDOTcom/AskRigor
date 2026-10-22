@@ -3059,13 +3059,20 @@ describe("findings card at the final gate", () => {
       sources: ["10.1002/art.41142", "aaaaaaaaaaa"],
       why_not_usual: "Quick answers treat exercise as a stopgap.",
       tags: ["full_text_read", "community_checked"],
-      what_would_change_it: "A large trial finding no benefit over usual care."
+      what_would_change_it: "A large trial finding no benefit over usual care.",
+      // Atlas phase 3: what the pages need; the claim gives no two-group figure.
+      kind: "effect",
+      subject: "Exercise therapy",
+      subject_type: "practice",
+      direction: "benefit",
+      numbers: []
     }],
     public_value: {
       scope: "public",
       who_else: "Adults with hip osteoarthritis considering surgery",
       what_it_changes: "Exercise therapy becomes a first option with real evidence."
-    }
+    },
+    topic: { key: "hip-osteoarthritis", label: "Hip osteoarthritis" }
   };
   const withFinding = (overrides: Record<string, unknown>) => ({ ...CARD, findings: [{ ...CARD.findings[0], ...overrides }] });
   const signedClaim = (claim: string) => (receipt: string | undefined) => {
@@ -3207,7 +3214,9 @@ describe("findings card at the final gate", () => {
     // Owner answer 156a: the step asks for the declaration with the card.
     expect(missing.next_steps[0]).toBe("Give findings_card with answer_draft: this account's research is saved to " +
       "AskRigor's findings library for the owner's review. Put in the answer's best findings, none the user corrected, " +
-      "and no personal details, and say in public_value whether they would help anyone beyond this person.");
+      "and no personal details, and say in public_value whether they would help anyone beyond this person. A public " +
+      "card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers (for an " +
+      "effect, harm or overlooked_option) and searches (for nothing_found), as the findings description says.");
     expect(missing.finalization_receipt).toBeUndefined();
     // The card is asked for with the answer, not before it.
     expect(finalizeResearchRaw(READY, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).some((step) => step.startsWith("Give findings_card"))).toBe(false);

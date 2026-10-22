@@ -1061,8 +1061,10 @@ describe("finalize_research, save_research_findings and the findings library", (
       "In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the " +
         "owner's review, and saved_line says so at the end of the answer; in paid private mode, when a finding rests " +
         "on work a quick answer cannot do, the caveats offer its save, which also asks to file this research's map. " +
-        // Owner answer 156a (2026-10-22).
-        "A card whose public_value declares its findings personal_only is neither saved nor offered."
+        // Owner answer 156a (2026-10-22), and Atlas phase 3's fields for the pages.
+        "A card whose public_value declares its findings personal_only is neither saved nor offered; a public one " +
+        "gives its topic and, for each finding, its kind, subject, direction, numbers and, for a search that found " +
+        "nothing, its searches."
     );
     expect(save?.description).toContain("A card whose public_value declares its findings personal_only is not saved.");
     // Owner answer 148a: other providers' research tools point to studies; their text is not evidence or answer text.

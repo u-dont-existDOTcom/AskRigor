@@ -57,6 +57,48 @@ const FLAGGED_RETRACTION_STATUSES: ReadonlySet<string> = new Set([
   "retracted", "expression_of_concern", "corrected_or_updated",
 ]);
 
+// Atlas phase 3 (docs/superpowers/plans/2026-10-22-atlas-phase-3-design.md, section 1): the fields a findings card's
+// research AI declares for the pages, defined once here for the card (apps/research-mcp/src/findings/card.ts), the
+// intents and migration 0018. What each value means is the AI's declaration; code checks only that it is one of these.
+
+/** A finding's kind: the 156 test's six, which decide the page section it goes under. */
+export const ATLAS_FINDING_KINDS = [
+  "effect", "harm", "overlooked_option", "correction", "nothing_found", "tested_vs_sold",
+] as const;
+export type AtlasFindingKind = typeof ATLAS_FINDING_KINDS[number];
+/** What a finding is about, by type: the 156 test's list. */
+export const ATLAS_SUBJECT_TYPES = [
+  "condition", "symptom", "test", "treatment", "supplement", "product", "food", "practice",
+] as const;
+export type AtlasSubjectType = typeof ATLAS_SUBJECT_TYPES[number];
+/** A finding's direction, in claim_versions.direction's own values without unclear, which no declaration gives. */
+export const ATLAS_FINDING_DIRECTIONS = ["benefit", "harm", "no_effect", "mixed", "descriptive"] as const;
+export type AtlasFindingDirection = typeof ATLAS_FINDING_DIRECTIONS[number];
+/** The databases whose searches sign a literature_search receipt, by the receipt's own name for each (its src). */
+export const ATLAS_SEARCH_DATABASES = ["pubmed", "europepmc", "ctgov"] as const;
+export type AtlasSearchDatabase = typeof ATLAS_SEARCH_DATABASES[number];
+/** The kinds whose findings declare a numbers block: an empty list when they give no two-group yes-or-no figure. */
+export const ATLAS_KINDS_WITH_NUMBERS: readonly AtlasFindingKind[] = ["effect", "harm", "overlooked_option"];
+/** The one kind that carries the searches that found nothing, and states no direction. */
+export const ATLAS_SEARCH_KIND: AtlasFindingKind = "nothing_found";
+/**
+ * claims.claim_type (migration 0001's values) for each kind, fixed when the finding is accepted: an overlooked option
+ * is an effect claim, what was tested against what is sold is one of applicability, and a correction or a search that
+ * found nothing is other. A finding without a kind is other, as every phase 2 finding is.
+ */
+export const ATLAS_KIND_CLAIM_TYPES: Readonly<Record<AtlasFindingKind, "effect" | "harm" | "applicability" | "other">> = {
+  effect: "effect",
+  harm: "harm",
+  overlooked_option: "effect",
+  correction: "other",
+  nothing_found: "other",
+  tested_vs_sold: "applicability",
+};
+/** The most searches one finding carries, and the longest query. */
+export const ATLAS_SEARCHES_PER_FINDING = 10;
+export const ATLAS_SEARCH_QUERY_MAX_CHARACTERS = 500;
+export const ATLAS_SUBJECT_MAX_CHARACTERS = 120;
+
 /** What erase_atlas_wording() (migration 0017) writes in place of erased wording, and of an erased wording key. */
 export const ATLAS_ERASED_TEXT = "[wording removed]";
 export const ATLAS_ERASED_KEY = "0".repeat(64);

@@ -378,6 +378,9 @@ function readableCard(record: FindingsRecord): string {
     section("Question", escapeMarkdown(card.question)),
     section("Usual answer", escapeMarkdown(card.usual_answer)),
     publicValueSection(record, "Public value, as the AI declared it"),
+    // Atlas phase 3: the topic the AI declared, which acceptance takes by default.
+    ...(card.topic === undefined ? [] : [section("Topic, as the AI declared it",
+      `${escapeMarkdown(card.topic.label)} \\(${escapeMarkdown(card.topic.key)}\\)`)]),
     ...card.findings.map((finding, index) => section(`Finding ${index + 1}`, [
       `- Claim: ${escapeMarkdown(finding.claim)}`,
       `- Certainty: ${escapeMarkdown(finding.certainty)}`,
@@ -395,11 +398,36 @@ function readableCard(record: FindingsRecord): string {
         ? "none"
         : finding.verified_bases!.map(escapeMarkdown).join(", ")}`,
       `- What would change it: ${escapeMarkdown(finding.what_would_change_it)}`,
+      ...atlasFieldLines(finding),
     ].join("\n"))),
     ...(card.open_leads.length === 0
       ? []
       : [section("Open leads", card.open_leads.map((lead) => `- ${escapeMarkdown(lead)}`).join("\n"))]),
   ].join("\n\n");
+}
+
+/**
+ * A finding's Atlas fields, as the AI declared them while the papers were open (Atlas phase 3): its kind, subject,
+ * direction, each figure of its numbers block with the rates code works out, and each search that found nothing. A
+ * field the card leaves out shows no line, so an older card reads as it did.
+ */
+function atlasFieldLines(finding: FindingsRecord["card"]["findings"][number]): string[] {
+  const percent = (events: number, total: number) => `${Number((100 * events / total).toFixed(1))}%`;
+  return [
+    ...(finding.kind === undefined ? [] : [`- Kind: ${escapeMarkdown(finding.kind)}`]),
+    ...(finding.subject === undefined ? [] : [`- Subject: ${escapeMarkdown(finding.subject)}` +
+      `${finding.subject_type === undefined ? "" : ` \\(${escapeMarkdown(finding.subject_type)}\\)`}`]),
+    ...(finding.direction === undefined ? [] : [`- Direction: ${escapeMarkdown(finding.direction)}`]),
+    ...(finding.numbers === undefined ? [] : [`- Numbers: ${finding.numbers.length === 0 ? "none" : finding.numbers
+      .map((entry) => escapeMarkdown(`${entry.outcome} at ${entry.follow_up}: ${entry.option_events} of ` +
+        `${entry.option_total} with ${entry.option} (${percent(entry.option_events, entry.option_total)}) against ` +
+        `${entry.comparator_events} of ${entry.comparator_total} with ${entry.comparator} ` +
+        `(${percent(entry.comparator_events, entry.comparator_total)}), ${entry.better} is better` +
+        `${entry.nnt === undefined ? "" : `, NNT ${entry.nnt}`}${entry.nnh === undefined ? "" : `, NNH ${entry.nnh}`}` +
+        `${entry.harms_none_found === true ? ", no harms found" : ""}`)).join("; ")}`]),
+    ...(finding.searches === undefined ? [] : [`- Searches that found nothing: ${finding.searches
+      .map((search) => escapeMarkdown(`${search.database}: ${search.query}`)).join("; ")}`]),
+  ];
 }
 
 /**

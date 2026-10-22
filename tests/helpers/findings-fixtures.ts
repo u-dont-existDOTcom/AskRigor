@@ -15,6 +15,13 @@ export const CARD = {
     why_not_usual: "Quick answers treat exercise as a stopgap rather than the best-supported first option.",
     tags: ["full_text_read", "community_checked"],
     what_would_change_it: "A large trial finding no benefit of supervised exercise over usual care.",
+    // Atlas phase 3: what the pages need. A standardized difference is no two-group yes-or-no figure, so the effect's
+    // numbers block is declared empty.
+    kind: "effect",
+    subject: "Supervised exercise therapy",
+    subject_type: "practice",
+    direction: "benefit",
+    numbers: [],
   }],
   // Owner answer 156a (2026-10-22): whom the findings would help, as the model declares it.
   public_value: {
@@ -22,6 +29,7 @@ export const CARD = {
     who_else: "Adults with hip osteoarthritis who are weighing a joint replacement",
     what_it_changes: "It makes supervised exercise a first option with real evidence, not a stopgap before surgery.",
   },
+  topic: { key: "hip-osteoarthritis", label: "Hip osteoarthritis" },
   open_leads: ["Programs longer than twelve weeks"],
 };
 

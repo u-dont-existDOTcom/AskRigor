@@ -22,6 +22,7 @@ describe("findings card", () => {
     expect(canonicalJson({ b: [2, { d: 1, c: undefined, a: "x" }], a: null })).toBe('{"a":null,"b":[2,{"a":"x","d":1}]}');
     const reordered = findingsCardSchema.parse({
       open_leads: CARD.open_leads,
+      topic: Object.fromEntries(Object.entries(CARD.topic).reverse()),
       public_value: Object.fromEntries(Object.entries(CARD.public_value).reverse()),
       findings: CARD.findings.map((finding) => Object.fromEntries(Object.entries(finding).reverse())),
       usual_answer: `  ${CARD.usual_answer}  `,

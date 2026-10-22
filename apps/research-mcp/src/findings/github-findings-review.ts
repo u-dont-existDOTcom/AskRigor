@@ -1,6 +1,15 @@
 import { createHash } from "node:crypto";
 
-import { ATLAS_CARD_DECISIONS, type AtlasCardDecision, type AtlasCardItemKind } from "@askrigor/evidence-repository";
+import {
+  ATLAS_CARD_DECISIONS,
+  ATLAS_FINDING_DIRECTIONS,
+  ATLAS_FINDING_KINDS,
+  ATLAS_SEARCHES_PER_FINDING,
+  ATLAS_SUBJECT_MAX_CHARACTERS,
+  ATLAS_SUBJECT_TYPES,
+  type AtlasCardDecision,
+  type AtlasCardItemKind,
+} from "@askrigor/evidence-repository";
 import { z } from "zod";
 
 import {
@@ -19,6 +28,8 @@ import {
   PUBLIC_VALUE_SCOPES,
   VERIFIED_BASES,
   canonicalJson,
+  findingNumberEntrySchema,
+  findingSearchSchema,
   findingsCardDigest,
   findingsCardFingerprint,
 } from "./card.js";
@@ -71,7 +82,8 @@ export function findingsCardNumber(cardId: string): number | undefined {
 }
 
 // The record a card or a later save holds, strictly in the shape the library's save writes (findings/service.ts).
-// Fields added over time (verified bases, the public-value declaration, stored_without) are optional.
+// Fields added over time (verified bases, the public-value declaration, stored_without, and Atlas phase 3's kind,
+// subject, direction, numbers, searches and topic) are optional, so a record saved before each reads as it did.
 const text = (max: number) => z.string().min(1).max(max);
 const storedFindingSchema = z.object({
   claim: text(500),
@@ -82,6 +94,12 @@ const storedFindingSchema = z.object({
   why_not_usual: text(300),
   tags: z.array(z.enum(FINDING_TAGS)).max(FINDING_TAGS.length),
   what_would_change_it: text(300),
+  kind: z.enum(ATLAS_FINDING_KINDS).optional(),
+  subject: text(ATLAS_SUBJECT_MAX_CHARACTERS).optional(),
+  subject_type: z.enum(ATLAS_SUBJECT_TYPES).optional(),
+  direction: z.enum(ATLAS_FINDING_DIRECTIONS).optional(),
+  numbers: z.array(findingNumberEntrySchema).max(20).optional(),
+  searches: z.array(findingSearchSchema).max(ATLAS_SEARCHES_PER_FINDING).optional(),
   youtube_videos: z.number().int().min(1).max(10).optional(),
   verified_bases: z.array(z.enum(VERIFIED_BASES)).min(1).max(VERIFIED_BASES.length).optional(),
 }).strict();
@@ -95,6 +113,10 @@ const storedRecordSchema = z.object({
       scope: z.enum(PUBLIC_VALUE_SCOPES),
       who_else: text(300).optional(),
       what_it_changes: text(300).optional(),
+    }).strict().optional(),
+    topic: z.object({
+      key: z.string().regex(/^[a-z0-9][a-z0-9._-]{0,199}$/u),
+      label: text(200),
     }).strict().optional(),
     open_leads: z.array(text(200)).max(6),
   }).strict(),

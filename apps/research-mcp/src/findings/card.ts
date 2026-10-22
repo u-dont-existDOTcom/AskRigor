@@ -1,5 +1,15 @@
 import { createHash } from "node:crypto";
 
+import {
+  ATLAS_FINDING_DIRECTIONS,
+  ATLAS_FINDING_KINDS,
+  ATLAS_SEARCH_DATABASES,
+  ATLAS_SEARCH_QUERY_MAX_CHARACTERS,
+  ATLAS_SEARCHES_PER_FINDING,
+  ATLAS_SUBJECT_MAX_CHARACTERS,
+  ATLAS_SUBJECT_TYPES,
+  type AtlasNumberEntry
+} from "@askrigor/evidence-repository";
 import { z } from "zod";
 
 import {
@@ -38,6 +48,61 @@ export type PublicValueScope = typeof PUBLIC_VALUE_SCOPES[number];
 
 const cardText = (max: number) => z.string().trim().min(1).max(max);
 
+/**
+ * One figure of a finding's numbers block (Atlas phase 3, design section 1): phase 2's Atlas number entry
+ * (atlasNumberEntrySchema) as the card carries it, in binary_results' flat shape without its quotes. Shape only: that
+ * events never exceed the group's total, and the arithmetic, are the final check's exact checks, so a card that fails
+ * them is reported and never holds back the answer.
+ */
+export const findingNumberEntrySchema = z.object({
+  outcome: cardText(200)
+    .describe("The yes-or-no outcome as the claim names it, such as tremor score halved or nausea."),
+  better: z.enum(["fewer", "more"])
+    .describe("Whether fewer or more people with this outcome is better: fewer for a harm or a relapse, more for a " +
+      "response or a remission."),
+  option: cardText(120).describe("The option the figure is about, as the claim names it."),
+  option_events: z.number().int().nonnegative().describe("How many people in the option's group had the outcome."),
+  option_total: z.number().int().min(1).describe("How many people were in the option's group."),
+  comparator: cardText(120).describe("What the option was compared with, as the claim names it, such as placebo."),
+  comparator_events: z.number().int().nonnegative()
+    .describe("How many people in the comparator's group had the outcome."),
+  comparator_total: z.number().int().min(1).describe("How many people were in the comparator's group."),
+  follow_up: cardText(120)
+    .describe("How long people were followed for this outcome, as the claim writes it, such as 12 weeks."),
+  nnt: z.number().positive().optional()
+    .describe("The number needed to treat the claim gives for this outcome, if it gives one: 1 divided by the " +
+      "difference in the groups' rates, rounded up."),
+  nnh: z.number().positive().optional()
+    .describe("The number needed to harm the claim gives for this outcome, if it gives one: 1 divided by the " +
+      "difference in the groups' rates, rounded up."),
+  harms_none_found: z.boolean().optional()
+    .describe("With nnt: true when no harms were found over the same follow-up. Otherwise each harm measured over it " +
+      "is its own entry, with better set to fewer.")
+}).strict();
+export type FindingNumberEntry = z.output<typeof findingNumberEntrySchema>;
+// The card's figure is the Atlas's figure: the same fields, so acceptance takes the card's numbers as they are.
+const FINDING_NUMBERS_ARE_ATLAS_NUMBERS: (entry: FindingNumberEntry) => AtlasNumberEntry = (entry) => entry;
+void FINDING_NUMBERS_ARE_ATLAS_NUMBERS;
+
+/** A search that found nothing, as a literature_search receipt of the same call names it: its database and query. */
+export const findingSearchSchema = z.object({
+  database: z.enum(ATLAS_SEARCH_DATABASES)
+    .describe("pubmed (search_pubmed), europepmc (search_europe_pmc) or ctgov (search_clinical_trials)."),
+  query: cardText(ATLAS_SEARCH_QUERY_MAX_CHARACTERS)
+    .describe("The exact query that search was made with; its research_receipt is passed in this call.")
+}).strict();
+export type FindingSearch = z.output<typeof findingSearchSchema>;
+
+/** The new fields' words for ChatGPT's app, which shows a finding's own fields only as "unknown" (Atlas phase 3). */
+const FINDINGS_DESCRIPTION = "One to five findings. Each gives claim, certainty, applies_to, answer_quote, sources, " +
+  "why_not_usual, tags and what_would_change_it, and for the public Atlas: kind (effect, harm, overlooked_option, " +
+  "correction, nothing_found or tested_vs_sold); subject, what it is about as people know it, with subject_type " +
+  "(condition, symptom, test, treatment, supplement, product, food or practice); direction (benefit, harm, no_effect, " +
+  "mixed, or descriptive when it states no effect either way, as nothing_found does); for an effect, harm or " +
+  "overlooked_option, numbers: each two-group yes-or-no figure the claim gives, as binary_results gives it without " +
+  "its quotes (an empty list if none); and for nothing_found, searches: each search that found nothing, by its " +
+  "database (pubmed, europepmc or ctgov) and exact query, passed here as a literature search.";
+
 export const findingsCardSchema = z.object({
   question: cardText(300).describe("The question in general terms, with no personal details."),
   usual_answer: cardText(400).describe("What a quick, ordinary AI answer would say."),
@@ -54,8 +119,33 @@ export const findingsCardSchema = z.object({
     tags: z.array(z.enum(FINDING_TAGS)).max(FINDING_TAGS.length).default([])
       .describe("full_text_read needs a source read with a full-text method audit here; community_checked, a video " +
         "whose comments were audited here."),
-    what_would_change_it: cardText(300)
-  }).strict()).min(1).max(5),
+    what_would_change_it: cardText(300),
+    // Atlas phase 3 (design section 1): what the pages need, declared while the papers are open. Optional here, so a
+    // call from an app whose tool list predates them still parses; the final check asks for them on a public card.
+    kind: z.enum(ATLAS_FINDING_KINDS).optional()
+      .describe("Which kind of finding: effect (what an option does, in absolute numbers where the studies give " +
+        "them), harm (a harm, with its basis), overlooked_option (an option with real evidence that quick answers " +
+        "leave out), correction (a widely repeated claim the research shows is wrong), nothing_found (something " +
+        "searched for and not found) or tested_vs_sold (what was tested differs from what is sold, such as its dose " +
+        "or form)."),
+    subject: cardText(ATLAS_SUBJECT_MAX_CHARACTERS).optional()
+      .describe("What the finding is about, as people know it, in general terms: the treatment, supplement, " +
+        "product, food, practice, test, condition or symptom, such as zentarine."),
+    subject_type: z.enum(ATLAS_SUBJECT_TYPES).optional().describe("The subject's type."),
+    direction: z.enum(ATLAS_FINDING_DIRECTIONS).optional()
+      .describe("What the finding says the subject does: benefit, harm, no_effect (studies found no difference), " +
+        "mixed (it helps some outcomes or people and not others, or helps and harms), or descriptive (it states no " +
+        "effect either way, as a search that found nothing or what was tested against what is sold)."),
+    numbers: z.array(findingNumberEntrySchema).max(20).optional()
+      .describe("For an effect, harm or overlooked_option, required: each two-group yes-or-no figure the claim " +
+        "gives, an empty list if none. The claim shows each group's events and total, or its rate, and each nnt or " +
+        "nnh with its follow-up; each figure is one binary_results gives for the answer; beside an nnt, a harm " +
+        "(better: fewer) over the same follow-up, or harms_none_found."),
+    searches: z.array(findingSearchSchema).max(ATLAS_SEARCHES_PER_FINDING).optional()
+      .describe("For nothing_found only, required: each search that found nothing, made in this research with " +
+        "search_pubmed, search_europe_pmc or search_clinical_trials and passed here by its research_receipt. Its " +
+        "sentence is an absence_claims entry of state support_not_located, and its direction is descriptive.")
+  }).strict()).min(1).max(5).describe(FINDINGS_DESCRIPTION),
   // Owner answer 156a (2026-10-22): the library feeds the Atlas, which holds what other people would benefit from, not
   // every answer better than a quick one ("why do I get tired when cooking", traced to the person's childhood, stays
   // out). The model declares, by the owner's four-part test, who else the findings would help and why, or that they
@@ -81,6 +171,15 @@ export const findingsCardSchema = z.object({
     .describe("Whether these findings would help anyone beyond this person. Findings declared personal_only are not " +
       "saved to AskRigor's findings library or offered for it. When the answer holds both kinds, put only the general " +
       "findings on the card, written without the person, and declare them public."),
+  // Atlas phase 3 (design section 1): the card's topic, which the owner's acceptance takes by default and can change.
+  // Optional for the same reason as the findings' new fields.
+  topic: z.object({
+    key: z.string().trim().regex(/^[a-z0-9][a-z0-9._-]{0,199}$/u)
+      .describe("The topic as a key: lower case letters, digits and . _ -, such as velmor-syndrome."),
+    label: cardText(200).describe("The topic's name in plain words, such as Velmor syndrome.")
+  }).strict().optional()
+    .describe("With public_value public, required: the condition or goal the findings are about, under which the " +
+      "public Atlas would file them; the owner can change it at review."),
   open_leads: z.array(cardText(200)).max(6).default([])
 }).strict();
 
@@ -346,6 +445,20 @@ export function withoutYouTubeData(card: FindingsCard): { card: StoredFindingsCa
       answer_quote: text(finding.answer_quote),
       why_not_usual: text(finding.why_not_usual),
       what_would_change_it: text(finding.what_would_change_it),
+      // Atlas phase 3: the new texts are treated as every other card text; a field the card leaves out stays out.
+      ...(finding.subject === undefined ? {} : { subject: text(finding.subject) }),
+      ...(finding.numbers === undefined ? {} : {
+        numbers: finding.numbers.map((entry) => ({
+          ...entry,
+          outcome: text(entry.outcome),
+          option: text(entry.option),
+          comparator: text(entry.comparator),
+          follow_up: text(entry.follow_up)
+        }))
+      }),
+      ...(finding.searches === undefined ? {} : {
+        searches: finding.searches.map((search) => ({ ...search, query: text(search.query) }))
+      }),
       sources: sources.filter((source) => !isYouTubeVideoId(source)),
       ...(videos === 0 ? {} : { youtube_videos: videos })
     };
@@ -364,6 +477,7 @@ export function withoutYouTubeData(card: FindingsCard): { card: StoredFindingsCa
           ...(declared.what_it_changes === undefined ? {} : { what_it_changes: text(declared.what_it_changes) })
         }
       }),
+      ...(card.topic === undefined ? {} : { topic: { ...card.topic, label: text(card.topic.label) } }),
       open_leads: card.open_leads.map(text)
     },
     omitted
@@ -391,7 +505,8 @@ const YOUTUBE_VIDEO_ID = /^[A-Za-z0-9_-]{11}$/u;
 
 function cardTexts(card: FindingsCard): Array<[string, string]> {
   // The public-value declaration's words are stored with a saved card (owner answer 156a), so they are screened too,
-  // whatever its scope.
+  // whatever its scope; so are the Atlas fields' words (phase 3): the subject, each figure's labels, each search's
+  // query and the topic's label.
   const declared = card.public_value;
   return [
     ["question", card.question],
@@ -401,11 +516,21 @@ function cardTexts(card: FindingsCard): Array<[string, string]> {
       [`findings[${index}].applies_to`, finding.applies_to],
       [`findings[${index}].answer_quote`, finding.answer_quote],
       [`findings[${index}].why_not_usual`, finding.why_not_usual],
-      [`findings[${index}].what_would_change_it`, finding.what_would_change_it]
+      [`findings[${index}].what_would_change_it`, finding.what_would_change_it],
+      ...(finding.subject === undefined ? [] : [[`findings[${index}].subject`, finding.subject] as [string, string]]),
+      ...(finding.numbers ?? []).flatMap((entry, at): Array<[string, string]> => [
+        [`findings[${index}].numbers[${at}].outcome`, entry.outcome],
+        [`findings[${index}].numbers[${at}].option`, entry.option],
+        [`findings[${index}].numbers[${at}].comparator`, entry.comparator],
+        [`findings[${index}].numbers[${at}].follow_up`, entry.follow_up]
+      ]),
+      ...(finding.searches ?? []).map((search, at): [string, string] =>
+        [`findings[${index}].searches[${at}].query`, search.query])
     ]),
     ...(declared?.who_else === undefined ? [] : [["public_value.who_else", declared.who_else] as [string, string]]),
     ...(declared?.what_it_changes === undefined ? []
       : [["public_value.what_it_changes", declared.what_it_changes] as [string, string]]),
+    ...(card.topic === undefined ? [] : [["topic.label", card.topic.label] as [string, string]]),
     ...card.open_leads.map((lead, index): [string, string] => [`open_leads[${index}]`, lead])
   ];
 }

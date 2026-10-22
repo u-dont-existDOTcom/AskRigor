@@ -13,6 +13,7 @@ import {
 } from "./carried-state.js";
 import { analysesSavedSchema } from "./analysis-staging.js";
 import { binaryContrast, binaryGroups, withoutEndPunctuation } from "./binary-results.js";
+import { cardFieldProblems, type AnswerFigure } from "./findings/card-fields.js";
 import {
   permissiveConnectorInputSchema,
   relaxedConnectorInputSchema,
@@ -886,7 +887,9 @@ export const finalizeResearchInputSchema = z.object({
     .describe("With answer_draft, when the answer cites a study or video verified here: the answer's best findings " +
       "for AskRigor's findings library, never claims the user corrected and no personal details, checked against the " +
       "answer and this call's verified sources, with public_value saying whether they would help anyone beyond this " +
-      "person. Leave it out when the answer cites none. In free " +
+      "person. A public card also gives its topic, and each finding the fields the findings description names, " +
+      "checked against this call's binary_results, absence_claims and literature searches. Leave it out when the " +
+      "answer cites none. In free " +
       "contributor mode a checked card is saved for the owner's review; in paid private mode, when a finding rests " +
       "on work a quick answer cannot do, it adds a caveat offering the save, which also asks to file this research's " +
       "map. Neither a card declared personal_only nor a rejected card is saved or offered, and neither holds back the " +
@@ -912,9 +915,18 @@ export const FINALIZE_RESEARCH_HIDDEN_SHAPES: ReadonlyArray<{
     study_ids: ["10.1000/example"], label: "…", status: "resolved",
     identity: { registry_code: "…", sponsor_or_maker: "…", current_product: "…" }
   }]] },
+  // Atlas phase 3: an effect with its numbers, and a search that found nothing with its searches.
   { paths: ["findings_card.findings"], examples: [[{
     claim: "…", certainty: "moderate", applies_to: "…", answer_quote: "…", sources: ["10.1000/example"],
-    why_not_usual: "…", what_would_change_it: "…"
+    why_not_usual: "…", what_would_change_it: "…", kind: "effect", subject: "…", subject_type: "supplement",
+    direction: "benefit", numbers: [{
+      outcome: "…", better: "more", option: "…", option_events: 30, option_total: 120, comparator: "…",
+      comparator_events: 18, comparator_total: 120, follow_up: "12 weeks"
+    }]
+  }], [{
+    claim: "…", certainty: "moderate", applies_to: "…", answer_quote: "…", sources: ["10.1000/example"],
+    why_not_usual: "…", what_would_change_it: "…", kind: "nothing_found", subject: "…", subject_type: "treatment",
+    direction: "descriptive", searches: [{ database: "pubmed", query: "…" }]
   }]] },
   { paths: ["community_searches[].queries"], examples: [["…"]] },
   { paths: ["community_searches[].threads_read"], examples: [[{ url: "https://example.org/t/1", title: "…" }]] },
@@ -3072,7 +3084,11 @@ export function finalizeResearch(
             "library, and they are saved only if the user says yes.") +
           " Put in the answer's best findings, none the user corrected, and no personal details, and say in " +
           // Owner answer 156a (2026-10-22): asked with the card, so a first card has the declaration it needs.
-          "public_value whether they would help anyone beyond this person."
+          "public_value whether they would help anyone beyond this person." +
+          // Atlas phase 3: the same for the fields a public card gives the pages.
+          " A public card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers " +
+          "(for an effect, harm or overlooked_option) and searches (for nothing_found), as the findings description " +
+          "says."
       );
     }
     if (input.findings_card !== undefined && findingsOpen(options)) {
@@ -3093,7 +3109,14 @@ export function finalizeResearch(
         studyAudited: auditedStudy,
         verified: (id) => auditedStudy(id) || cardStudies.has(normalizeIdentifier(id)) || videoAudited(id) ||
           materialVideos.includes(id),
-        videoAudited
+        videoAudited,
+        // Atlas phase 3: a card's figures are the answer's, its searches this call's, and a search that found nothing
+        // is a sentence the answer declares as not found; each compared exactly, the same in any language.
+        answerFigures: input.binary_results ?? [],
+        searched: (database, query) => verified.some(({ kind, claims }) => kind === "literature_search" &&
+          text(claims.src) === database && text(claims.q) === discoveryQueryDigest([query])),
+        declaredNotFound: (quote) => absenceClaims.some(({ state, quote: claimed }) =>
+          state === "support_not_located" && sameQuote(quote, claimed))
       });
       if (findingsCard.status === "checked") {
         const work = input.findings_card.findings.map(({ sources, answer_quote: quote }) => verifiedWork(sources, quote));
@@ -3823,11 +3846,14 @@ const FINDINGS_PRIVACY_PROBLEMS: Readonly<Record<FindingsPrivacyReason, string>>
  * language); each source must be one this call verified; a full_text_read or
  * community_checked tag must rest on a source of that kind; the card must
  * declare whom its findings would help, a public declaration saying who else
- * faces them and what they could change (owner answer 156a, 2026-10-22); and
- * the card must pass the privacy screen its save runs. Whether a sentence
- * states its finding, the other tags and whether the findings would help other
- * people are the model's declarations, which the owner reviews before
- * accepting a card.
+ * faces them and what they could change (owner answer 156a, 2026-10-22); a
+ * public card must give the fields the Atlas pages need, whose exact parts are
+ * checked against this call's binary_results, absence claims and literature
+ * search receipts (Atlas phase 3, findings/card-fields.ts); and the card must
+ * pass the privacy screen its save runs. Whether a sentence states its finding,
+ * the other tags, whether the findings would help other people, and a
+ * finding's kind, subject, direction and topic are the model's declarations,
+ * which the owner reviews before accepting a card.
  */
 function findingsCardCheck(
   card: FindingsCard,
@@ -3836,6 +3862,9 @@ function findingsCardCheck(
     verified: (source: string) => boolean;
     studyAudited: (source: string) => boolean;
     videoAudited: (source: string) => boolean;
+    answerFigures: readonly AnswerFigure[];
+    searched: (database: string, query: string) => boolean;
+    declaredNotFound: (quote: string) => boolean;
   }
 ): FindingsCardCheck {
   const problems: string[] = [];
@@ -3883,6 +3912,14 @@ function findingsCardCheck(
         "could change in what those people do or believe.");
     }
   }
+  // Atlas phase 3: the fields the pages need, required on a public card; a card without them, as from an app whose
+  // tool list predates them, is reported like any other problem, and the answer goes ahead.
+  problems.push(...cardFieldProblems(card, {
+    required: declared?.scope === "public",
+    answerFigures: context.answerFigures,
+    searched: context.searched,
+    declaredNotFound: context.declaredNotFound
+  }));
   // A source that is not an identifier is already unverified above.
   for (const { field, reasonCode } of screenFindingsCard(card)) {
     if (reasonCode === "not_a_source_identifier") continue;
