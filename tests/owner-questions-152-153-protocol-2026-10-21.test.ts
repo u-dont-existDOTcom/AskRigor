@@ -87,9 +87,10 @@ const PINS = {
   },
 } as const;
 const REVISION_DATE = "2026-10-21";
-// The current files: owner answer 149a (HRP 20.6.30, 2026-10-22) has since added a core rule to HRP.
+// The current files: owner answer 149a (HRP 20.6.30, 2026-10-22) has since added a core rule to HRP, and owner answer
+// 161a (HRP 20.6.31, 2026-10-22) a rule outside the core.
 const CURRENT = {
-  hrp: { version: "20.6.30", revisionDate: "2026-10-22", sha256: "b7c1df6eb235bcd1423e4d8fdb86245887e3cd0eac3f469f6cc91619a5c91ef8" },
+  hrp: { version: "20.6.31", revisionDate: "2026-10-22", sha256: "29269d656e73c70b541226023b58b294e583188c721481c043d53f900ee0a8b5" },
   universal: { version: "20.5.46", revisionDate: REVISION_DATE, sha256: PINS.universal.to.sha256 },
 } as const;
 const NAMES = { hrp: "HRP", universal: "AskRigor.com universal saved instructions" } as const;

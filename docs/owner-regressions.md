@@ -599,6 +599,23 @@ its search queries, the DOIs found, how deeply each was read, and the final word
 | Only the abstract | Only the abstract can be read. | The reading is called abstract only, and the rating scale, blinding and agreement between raters are named as unknown. | Any of them is described. |
 | A simple lookup | "When was CrowdMed founded?" | A short answer with its source. | A literature sweep. |
 
+## Lesson #49 (question 161)
+
+From lesson #49 (owner answer "161a", 22 Oct), in which a source audit gave a decisive credibility verdict on a
+social-media post without checking the author's reply and supporting reference. HRP 20.6.31 adds the rule
+`SocialMediaWholeThreadAudit` to `SourceVerificationAndCitationAudit` with the owner's two sentences: evaluate the
+author's complete thread, including replies, attachments, corrections and cited research, before a credibility verdict,
+and let inaccessible material leave the audit incomplete rather than support a definitive negative judgment. Each
+prompt is one of the lesson's three invented cases, as the HRP stress case of the same name; the lesson's further
+expected behavior (the substantive claim apart from wording errors, and harm for one outcome apart from benefit for
+another) is in the pass criteria, not in the rule.
+
+| Case | Prompt | Passes when | Fails when |
+|---|---|---|---|
+| The author's reply first (#49, A) | `AuthorReplyBeforeVerdict`: an ambiguous claim appears in a post but the author's reply contains a study defining its population. | The reply and its study are read before the claim is graded, and the claim is graded for the population the study defines, keeping its actual scope and uncertainty; if the reply or the study cannot be read, the answer says the audit is incomplete. | A credibility verdict from the post alone, before the reply is read; the claim graded for people the study does not cover; or an unread reply or study used to support a definitive negative judgment. |
+| A wrong label, a separate measurement (#49, B) | `MistakenLabelNotFalseMeasurement`: a post uses a mistaken technical label but makes an independent measurable assertion. | The label is corrected, and the measurable assertion is evaluated on its own evidence, separately from the wording error; evidence of harm for one outcome is not taken as refuting evidence of benefit for another. | The mistaken label is treated as proof that the measurement is false, or the assertion is dismissed for its wording; or evidence of harm for one outcome is presented as refuting evidence of benefit for another. |
+| A thread that is plainly wrong (#49, C) | `CompleteThreadNegativeVerdict`: a fully read post and its replies make an unambiguously false assertion. | A plain negative verdict grounded in the complete material: what the post and its replies say, and the evidence against the assertion. | The verdict is withheld or hedged, or the audit called incomplete, although the post and its replies were read in full and nothing relevant is missing. |
+
 ## Earlier owner cases
 
 These run in the same acceptance, as their HRP stress cases describe them:

@@ -9,7 +9,9 @@ import {
   protocolSections,
 } from "@askrigor/protocol";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
-import { undoOwnerQuestion149Hrp, undoOwnerQuestions152And153Hrp, undoReadDepth } from "./helpers/undo-read-depth.js";
+import {
+  undoOwnerQuestion149Hrp, undoOwnerQuestion161Hrp, undoOwnerQuestions152And153Hrp, undoReadDepth,
+} from "./helpers/undo-read-depth.js";
 
 // Independent of the recorded edit fixture: the owner's approved rule of 2026-10-22, word for word (answer "149a", from
 // the 21 Oct regression case Responders, question 136), where it goes, and the revision note.
@@ -26,6 +28,10 @@ const PINS = {
   to: { version: "20.6.30", sha256: "b7c1df6eb235bcd1423e4d8fdb86245887e3cd0eac3f469f6cc91619a5c91ef8" },
 } as const;
 const REVISION_DATE = "2026-10-22";
+// The current file: owner answer 161a (HRP 20.6.31, 2026-10-22) has since added a rule outside the core.
+const CURRENT = {
+  version: "20.6.31", revisionDate: "2026-10-22", sha256: "29269d656e73c70b541226023b58b294e583188c721481c043d53f900ee0a8b5",
+} as const;
 // Universal does not change.
 const UNIVERSAL = {
   name: "AskRigor.com universal saved instructions", version: "20.5.46", revisionDate: "2026-10-21",
@@ -43,7 +49,12 @@ const hash = (text: string) => createHash("sha256").update(text, "utf8").digest(
 const size = (text: string) => Buffer.byteLength(text, "utf8");
 const normalize = (text: string) => text.replace(/\s+/gu, " ").trim();
 const plain = (body: string) => normalize(parser.parse(`<text>${body}</text>`).text as string);
-const load = () => readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
+const loadCurrent = () => readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
+// This layer's result, HRP 20.6.30, rebuilt from the current file.
+const load = async () => undoOwnerQuestion161Hrp(await loadCurrent());
+// The state before this layer, and before the previous one, from the current file.
+const undoLayer = async () => undoOwnerQuestion149Hrp(await loadCurrent());
+const undoPrevious = async () => undoOwnerQuestions152And153Hrp(await loadCurrent());
 interface Edits {
   from: { version: string; sha256: string }; to: { version: string; sha256: string };
   edits: Array<[string, string]>;
@@ -125,20 +136,22 @@ describe('owner-approved question 149: "149a" (2026-10-22)', () => {
     expect(expectedEdits(prior).reduce((text, [before, after]) => replaceOnce(text, before, after), prior)).toBe(current);
     expect(expectedEdits(prior).reduce((text, [before, after]) =>
       replaceOnce(text, normalize(before), normalize(after)), normalize(prior))).toBe(normalize(current));
-    await expect(undoOwnerQuestion149Hrp(current)).resolves.toBe(prior);
+    await expect(undoLayer()).resolves.toBe(prior);
     const beforePrevious = [...previous.edits].reverse().reduce((text, [before, after]) => replaceOnce(text, after, before), prior);
     expect(hash(beforePrevious)).toBe(previous.from.sha256);
-    await expect(undoOwnerQuestions152And153Hrp(current)).resolves.toBe(beforePrevious);
+    await expect(undoPrevious()).resolves.toBe(beforePrevious);
     const readDepth = JSON.parse(await readFile(new URL("tests/fixtures/protocol-edits/2026-10-11-read-depth.json", ROOT), "utf8")).hrp as Edits;
-    expect(hash(await undoReadDepth(current, "hrp"))).toBe(readDepth.from.sha256);
+    expect(hash(await undoReadDepth(await loadCurrent(), "hrp"))).toBe(readDepth.from.sha256);
+    expect(REVISION_DATE).toBe(CURRENT.revisionDate);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: PINS.to.version, revisionDate: REVISION_DATE, sha256: hash(current),
+      name: "HRP", version: CURRENT.version, revisionDate: CURRENT.revisionDate, sha256: CURRENT.sha256,
     });
+    expect(hash(await loadCurrent())).toBe(CURRENT.sha256);
   });
 
   it("adds CountsNeedTheirGroupSizes as a Critical rule with the approved text word for word and nothing else", async () => {
     const text = await load();
-    const prior = await undoOwnerQuestion149Hrp(text);
+    const prior = await undoLayer();
     expect(plain(element(text, "Rule", "name", RULE.name))).toBe(RULE.text);
     expect(ruleLines(text, RULE.name)).toBe(RULE_XML);
     expect(normalize(text).split(RULE.text)).toHaveLength(2);
@@ -151,7 +164,7 @@ describe('owner-approved question 149: "149a" (2026-10-22)', () => {
 
   it("sits in EpistemicSafetyRules directly after UnverifiedSpecificsLimitConfidence, formatted like it", async () => {
     const text = await load();
-    const prior = await undoOwnerQuestion149Hrp(text);
+    const prior = await undoLayer();
     expect(protocolNamedElements(prior, RULE.name)).toEqual([]);
     expect(protocolNamedElements(text, RULE.name)).toMatchObject([{ tag: "Rule", section: RULE.section }]);
     expect(protocolNamedElements(text, RULE.follows)).toMatchObject([{ tag: "Rule", section: RULE.section }]);
@@ -169,6 +182,7 @@ describe('owner-approved question 149: "149a" (2026-10-22)', () => {
 
   it("is in the core, which every research answer loads, and load_protocol serves it in the core on one page", async () => {
     expect(coreSectionNames("hrp")).toContain(RULE.section);
+    // The server serves the current file; question 161's rule left the core as this layer made it.
     const bytes = await readFile(new URL("protocols/HRP_Full.xml", ROOT));
     const { sections, text } = await loadProtocolSectionSnapshot("hrp");
     expect(text).toBe(bytes.toString("utf8"));
@@ -200,7 +214,7 @@ describe('owner-approved question 149: "149a" (2026-10-22)', () => {
 
   it("places the exact Critical revision first, wrapped like its neighbours", async () => {
     const text = await load();
-    const prior = await undoOwnerQuestion149Hrp(text);
+    const prior = await undoLayer();
     expect(plain(element(text, "Revision", "version", PINS.to.version))).toBe(REVISION);
     expect(section(prior, "RevisionHistory").trimStart().startsWith(`<Revision version="${PINS.from.version}" priority="Critical">`)).toBe(true);
     expect(section(text, "RevisionHistory")).toBe(`\n${REVISION_XML}${section(prior, "RevisionHistory")}`);
@@ -208,7 +222,7 @@ describe('owner-approved question 149: "149a" (2026-10-22)', () => {
 
   it("wraps new lines at 118, apart from the root line", async () => {
     const text = await load();
-    const prior = await undoOwnerQuestion149Hrp(text);
+    const prior = await undoLayer();
     const remaining = new Map<string, number>();
     for (const line of prior.split("\n")) remaining.set(line, (remaining.get(line) ?? 0) + 1);
     const added = text.split("\n").filter((line) => {
@@ -222,7 +236,7 @@ describe('owner-approved question 149: "149a" (2026-10-22)', () => {
 
   it("changes only the sections its edits name, by their exact bytes; the core stays one page", async () => {
     const text = await load();
-    const prior = await undoOwnerQuestion149Hrp(text);
+    const prior = await undoLayer();
     const [now, before] = [protocolSections("hrp", text), protocolSections("hrp", prior)];
     expect(now.map(({ name }) => name)).toEqual(before.map(({ name }) => name));
     const changed = now.filter(({ name, sha256 }) => before.find((section) => section.name === name)!.sha256 !== sha256)

@@ -112,6 +112,10 @@ complete XML protocol.
 - `audits/2026-10-22-owner-answer-149-protocol.md`: owner answer 149a, from the 21 Oct regression case Responders
   (question 136): HRP 20.6.30 adds the core rule `CountsNeedTheirGroupSizes` (no percentage, difference or ratio from
   counts until their group sizes are reconciled), with the new size, SHA-256 and tests; built, not yet released.
+- `audits/2026-10-22-owner-answer-161-protocol.md`: owner answer 161a, from lesson #49: HRP 20.6.31 adds the rule
+  `SocialMediaWholeThreadAudit` to `SourceVerificationAndCitationAudit`, outside the core (a social-media post's
+  claims are graded on the author's complete thread; inaccessible material leaves the audit incomplete), with the
+  lesson's three cases as stress cases and owner regressions, the new size, SHA-256 and tests; built, not yet released.
 - `audits/2026-10-16-report-identity-production-release.md`: release of #337 and #338 (owner questions 96 to 101)
   and #340 (questions 100 and 102): the final-check fixes from the 15 Oct regressions, protocol loading in one
   call, the owner's mobile notice (Universal 20.5.43), HRP 20.6.25 with `ProposeDiscriminatingTest` and lessons

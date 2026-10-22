@@ -1,0 +1,31 @@
+{
+  "purpose": "Owner-approved question 161, from the owner's answer \"161a\" (2026-10-22), from lesson #49. Exact approved text apart from XML formatting; reversible HRP 20.6.31 edits chained from question 149's HRP 20.6.30.",
+  "hrp": {
+    "from": {
+      "version": "20.6.30",
+      "sha256": "b7c1df6eb235bcd1423e4d8fdb86245887e3cd0eac3f469f6cc91619a5c91ef8"
+    },
+    "to": {
+      "version": "20.6.31",
+      "sha256": "29269d656e73c70b541226023b58b294e583188c721481c043d53f900ee0a8b5"
+    },
+    "edits": [
+      [
+        "version=\"20.6.30\" revisionDate=\"2026-10-22\"",
+        "version=\"20.6.31\" revisionDate=\"2026-10-22\""
+      ],
+      [
+        " <RevisionHistory>\n",
+        " <RevisionHistory>\n  <Revision version=\"20.6.31\" priority=\"Critical\">\n   Owner-approved, answer 161a (2026-10-22), from lesson #49, in which a source audit gave a decisive credibility\n   verdict on a social-media post without checking the author's reply and supporting reference: added\n   SocialMediaWholeThreadAudit to SourceVerificationAndCitationAudit, right after WholeReportAudit and outside the\n   core, with stress cases AuthorReplyBeforeVerdict, MistakenLabelNotFalseMeasurement and\n   CompleteThreadNegativeVerdict.\n  </Revision>\n"
+      ],
+      [
+        "  <Rule name=\"WholeReportAudit\" priority=\"Critical\">\n   For a user-supplied multi-claim report, audit the complete evidence hierarchy and the most decision-relevant claims,\n   including exact comparator composition and inferential scope, comparator ancestry and baseline evidence debt,\n   adverse-event capture and relatedness adjudication, component-to-program congruence, and unsupported intent\n   attribution. Do not focus only on the most novel or interesting factor.\n  </Rule>\n\n  <Rule name=\"HistoricalVocabularyAndCitationBackchain\" priority=\"Critical\">",
+        "  <Rule name=\"WholeReportAudit\" priority=\"Critical\">\n   For a user-supplied multi-claim report, audit the complete evidence hierarchy and the most decision-relevant claims,\n   including exact comparator composition and inferential scope, comparator ancestry and baseline evidence debt,\n   adverse-event capture and relatedness adjudication, component-to-program congruence, and unsupported intent\n   attribution. Do not focus only on the most novel or interesting factor.\n  </Rule>\n\n  <Rule name=\"SocialMediaWholeThreadAudit\" priority=\"Critical\">\n   When grading scientific or medical claims from social-media posts, evaluate the author's complete thread—including\n   replies, attachments, corrections, and cited research—before reaching a credibility verdict. Inaccessible material\n   must leave the audit incomplete rather than support a definitive negative judgment.\n  </Rule>\n\n  <Rule name=\"HistoricalVocabularyAndCitationBackchain\" priority=\"Critical\">"
+      ],
+      [
+        "  <Case id=\"CodedFormulaLargeEffect\">",
+        "  <Case id=\"AuthorReplyBeforeVerdict\">\n   <Prompt>\n    An ambiguous claim appears in a post but the author's reply contains a study defining its population.\n   </Prompt>\n   <ExpectedBehavior>\n    Grading must remain incomplete until that reply is read: read the reply and its study, then grade the claim for\n    the population the study defines, keeping the claim's actual scope and uncertainty. If the reply or the study\n    cannot be accessed, say that the audit is incomplete and give no definitive negative judgment from the post alone.\n   </ExpectedBehavior>\n  </Case>\n  <Case id=\"MistakenLabelNotFalseMeasurement\">\n   <Prompt>\n    A post uses a mistaken technical label but makes an independent measurable assertion.\n   </Prompt>\n   <ExpectedBehavior>\n    Correct the label without treating it as proof the measurement is false: evaluate the measurable assertion on its\n    own evidence, separately from the wording error, and do not take evidence of harm for one outcome as refuting\n    evidence of benefit for another.\n   </ExpectedBehavior>\n  </Case>\n  <Case id=\"CompleteThreadNegativeVerdict\">\n   <Prompt>\n    A fully read post and its replies make an unambiguously false assertion.\n   </Prompt>\n   <ExpectedBehavior>\n    Allow a negative verdict grounded in the complete material: say plainly that the assertion is false, citing what\n    the post and its replies say and the evidence against it, and do not withhold the verdict or call the audit\n    incomplete when nothing relevant is missing.\n   </ExpectedBehavior>\n  </Case>\n  <Case id=\"CodedFormulaLargeEffect\">"
+      ]
+    ]
+  }
+}
