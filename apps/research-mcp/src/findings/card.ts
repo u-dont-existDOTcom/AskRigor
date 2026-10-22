@@ -231,15 +231,21 @@ export function findingsCardDigest(card: FindingsCard): string {
 const INVISIBLE_CHARACTERS = /[­͏؜᠎​-‏‪-‮⁠⁦-⁩﻿]/gu;
 
 /**
+ * A card text as the library compares it: Unicode compatibility form, invisible characters, spacing and case set
+ * aside. The duplicate key below and the Atlas's wording key (findings/acceptance-checks.ts) both read texts this way.
+ */
+export function normalizedFindingsText(text: string): string {
+  return text.normalize("NFKC").replace(INVISIBLE_CHARACTERS, "").replace(/\s+/gu, " ").trim().toLowerCase();
+}
+
+/**
  * The library's duplicate key: the question and the claims, with Unicode
  * form, invisible characters, spacing, case and the claims' order set aside.
  */
 export function findingsCardFingerprint(card: FindingsCard): string {
-  const normalized = (text: string) =>
-    text.normalize("NFKC").replace(INVISIBLE_CHARACTERS, "").replace(/\s+/gu, " ").trim().toLowerCase();
-  const claims = card.findings.map(({ claim }) => normalized(claim)).sort();
+  const claims = card.findings.map(({ claim }) => normalizedFindingsText(claim)).sort();
   return createHash("sha256")
-    .update(JSON.stringify(["askrigor-findings-v1", normalized(card.question), claims]), "utf8")
+    .update(JSON.stringify(["askrigor-findings-v1", normalizedFindingsText(card.question), claims]), "utf8")
     .digest("hex");
 }
 
@@ -266,7 +272,7 @@ export interface FindingsPrivacyProblem {
 export function screenFindingsCard(card: FindingsCard): FindingsPrivacyProblem[] {
   const problems: FindingsPrivacyProblem[] = [];
   for (const [field, value] of cardTexts(card)) {
-    const reasonCode = screenPrivateText(withoutStudyForms(withoutWrappingQuotes(value)));
+    const reasonCode = screenFindingsText(value);
     if (reasonCode !== undefined) problems.push({ field, reasonCode });
   }
   card.findings.forEach(({ sources }, index) => {
@@ -277,6 +283,15 @@ export function screenFindingsCard(card: FindingsCard): FindingsPrivacyProblem[]
     });
   });
   return problems;
+}
+
+/**
+ * One findings text through the screen above: wrapping quotation marks and the forms a study summary carries set
+ * aside, then the lesson queue's screen; the first rule the text breaks, or undefined. The Atlas's checks on the texts
+ * the owner accepts (findings/acceptance-checks.ts) use the same screen.
+ */
+export function screenFindingsText(value: string): PrivacyScreenReasonCode | undefined {
+  return screenPrivateText(withoutStudyForms(withoutWrappingQuotes(value)));
 }
 
 /**
@@ -408,7 +423,12 @@ const APOSTROPHE_IN_WORD = /(?<=\p{L})['’](?=\p{L})/gu;
 const WRAPPING_QUOTE = /["'\p{Pi}\p{Pf}]/u;
 const PLACEHOLDER = "SOURCE";
 
-function withoutStudyForms(text: string): string {
+/**
+ * A text with the forms a study summary legitimately carries set aside for the privacy screen: links to a study's or
+ * a video's own page keep their text, a bare study link, DOI or labeled identifier becomes "SOURCE", a year range
+ * "YEARS", a statistic-shaped decimal "N", and an apostrophe inside a word goes. Each rule is exact and structural.
+ */
+export function withoutStudyForms(text: string): string {
   return text
     .replace(MARKDOWN_LINK, (link, label: string, target: string) => isStudyLink(target) ? label : link)
     .replace(BARE_URL, (url) => {

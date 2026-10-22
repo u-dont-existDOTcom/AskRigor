@@ -12,6 +12,7 @@ import {
   CARRIED_STATE_TOO_LARGE, carriedStateSchema, issueCarriedState, userObservationSchema, verifyCarriedState, type CarriedState
 } from "./carried-state.js";
 import { analysesSavedSchema } from "./analysis-staging.js";
+import { binaryContrast, binaryGroups, withoutEndPunctuation } from "./binary-results.js";
 import {
   permissiveConnectorInputSchema,
   relaxedConnectorInputSchema,
@@ -3427,39 +3428,8 @@ const YOUTUBE_LANE_FINDINGS = [
   "benefit_reports", "no_effect_reports", "adverse_reports", "creators_versus_commenters", "effect_on_answer"
 ] as const;
 
+// binaryGroups and binaryContrast, which read these, are shared with the Atlas's numbers (binary-results.ts).
 type BinaryResult = NonNullable<FinalizeResearchInput["binary_results"]>[number];
-
-/** A yes-or-no result's two groups as declared, by the prefix of their fields: the option's and the comparator's. */
-function binaryGroups(result: BinaryResult) {
-  return [
-    { field: "option", name: withoutEndPunctuation(result.option), events: result.option_events,
-      total: result.option_total },
-    { field: "comparator", name: withoutEndPunctuation(result.comparator), events: result.comparator_events,
-      total: result.comparator_total }
-  ] as const;
-}
-
-/**
- * How a yes-or-no result's two rates differ, in exact integer arithmetic: the rates are compared by cross-multiplying,
- * option_events · comparator_total against comparator_events · option_total, so 1 / |risk difference| is
- * option_total · comparator_total / |difference|. Undefined when the rates are the same, which leaves no number
- * needed to treat or harm.
- */
-function binaryContrast(result: BinaryResult):
-  { optionHigher: boolean; reciprocal: number; roundedUp: number } | undefined {
-  const option = BigInt(result.option_events) * BigInt(result.comparator_total);
-  const comparator = BigInt(result.comparator_events) * BigInt(result.option_total);
-  if (option === comparator) return undefined;
-  const people = BigInt(result.option_total) * BigInt(result.comparator_total);
-  const difference = option > comparator ? option - comparator : comparator - option;
-  // Both are positive, so the quotient is rounded down.
-  const roundedDown = people / difference;
-  return {
-    optionHigher: option > comparator,
-    reciprocal: Number(people) / Number(difference),
-    roundedUp: Number(people % difference === 0n ? roundedDown : roundedDown + 1n)
-  };
-}
 
 function answerDraftProblems(
   draft: string,
@@ -4166,16 +4136,6 @@ const UNREAD_STUDY_REASONS: Readonly<Record<string, readonly [string, string]>> 
     "No copies of {links} could be verified as the same papers"
   ]
 };
-
-/** Text without surrounding spaces or a closing sentence mark or semicolon, spaces made single. */
-function withoutEndPunctuation(text: string): string {
-  let result = text.replace(/\s+/gu, " ").trim();
-  for (let shorter = result.replace(/[\p{STerm};]$/u, "").trimEnd(); shorter !== result;
-    shorter = result.replace(/[\p{STerm};]$/u, "").trimEnd()) {
-    result = shorter;
-  }
-  return result;
-}
 
 const asSentence = (text: string): string => {
   const trimmed = text.trim();
