@@ -419,11 +419,13 @@ describe("extract_youtube_video_claims", () => {
     })).toBeUndefined();
     expect(await unreadFrom({ continuation_token: "not-a-token" }, none)).toBeUndefined();
 
-    // A reading that completes, or is still pending, names no unread video.
+    // A reading that completes, or is still pending, names no unread video; one still pending names its video as
+    // pending, so that a reading the AI abandons still reaches the final check.
     const read = dependencies();
     read.deps.advance.mockResolvedValueOnce(complete());
     const done = await extractYoutubeVideoClaims({ video: VIDEO }, read.deps);
     expect(done.unread).toBeUndefined();
+    expect(done.pending).toBeUndefined();
     expect(done.receipt).toEqual({ video: VIDEO, mode: "claims", n: 2 });
     const pendingDeps = dependencies();
     pendingDeps.deps.advance.mockResolvedValue(progress(0));
@@ -431,6 +433,12 @@ describe("extract_youtube_video_claims", () => {
     expect(pending.result.isError).not.toBe(true);
     expect(pending).not.toHaveProperty("unread");
     expect(pending).not.toHaveProperty("code");
+    expect(pending).not.toHaveProperty("receipt");
+    expect(pending.pending).toEqual({ video: VIDEO });
+    // Resumed and still pending: the token's video.
+    const token = (pending.result.structuredContent as { continuation_token: string }).continuation_token;
+    const resumed = await extractYoutubeVideoClaims({ continuation_token: token }, pendingDeps.deps);
+    expect(resumed.pending).toEqual({ video: VIDEO });
   });
 
   it("names the video a continuation token carried when the resumed reading ends unread", async () => {
@@ -546,6 +554,56 @@ describe("extract_youtube_video_claims through MCP", () => {
       kind: "youtube_video_claims",
       claims: { video: VIDEO, mode: "claims", n: "2" }
     });
+  });
+
+  // AskRigor#359: a reading still in progress is signed as pending, so that one the AI abandons still counts as unread
+  // at the final check.
+  it("signs a reading still in progress as pending, in its structured result", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "Date"] });
+    try {
+      vi.stubGlobal("fetch", vi.fn(async (input: string | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.startsWith("https://www.googleapis.com/youtube/v3/videos")) {
+          return Response.json({
+            kind: "youtube#videoListResponse",
+            pageInfo: { totalResults: 1, resultsPerPage: 1 },
+            items: [{
+              kind: "youtube#video",
+              id: VIDEO,
+              snippet: { title: "How I fixed my knees", channelTitle: "Knee Stories", liveBroadcastContent: "none" },
+              contentDetails: { duration: "PT15M" },
+              status: { privacyStatus: "public" }
+            }]
+          });
+        }
+        if ((init?.method ?? "GET") === "DELETE") return new Response("{}");
+        return Response.json({ id: "interaction-1", status: "in_progress", model: "gemini-3.6-flash", steps: [] });
+      }));
+
+      const server = createAskRigorServer();
+      const client = new Client({ name: "askrigor-video-test", version: "0.1.0" });
+      const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+      await server.connect(serverTransport);
+      await client.connect(clientTransport);
+      // Listing the tools makes the client check results against their output schemas, as connected apps do.
+      await client.listTools();
+
+      const call = client.callTool({ name: "extract_youtube_video_claims", arguments: { video: VIDEO } });
+      // The tool polls Gemini for up to its window before it hands back a continuation token.
+      await vi.advanceTimersByTimeAsync(40_000);
+      const result = await call;
+      expect(result.isError).not.toBe(true);
+      const content = result.structuredContent as { status: string; continuation_token: string; research_receipt: string };
+      expect(content.status).toBe("pending");
+      expect(content.continuation_token).toEqual(expect.any(String));
+      expect(verifyResearchReceipt(content.research_receipt, { secret: SECRET })).toMatchObject({
+        ok: true,
+        kind: "youtube_video_pending",
+        claims: { video: VIDEO }
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   // AskRigor#359: the reading failed and the answer described the video as if it had been watched. The refusal now

@@ -49,6 +49,8 @@ const sign = (kind: Parameters<typeof issueResearchReceipt>[0], claims: Paramete
   issueResearchReceipt(kind, claims, { secret: SECRET });
 const unread = sign("youtube_video_unread", { video: VIDEO, code: "gemini_video_not_completed" });
 const read = sign("youtube_video_claims", { video: VIDEO, mode: "claims", n: 3 });
+// A reading Gemini had not finished when extract_youtube_video_claims returned, which the AI never took up again.
+const pending = sign("youtube_video_pending", { video: VIDEO });
 const audit = (id: string) => sign("study_audit", { id, status: "complete_no_unresolved_fields" });
 const reviewAudit = (id: string) => sign("review_audit", { id, status: "complete_no_unresolved_fields" });
 
@@ -93,6 +95,10 @@ const UNWATCHED_LIMIT = `Video ${VIDEO} was not watched, so what the answer says
   "description: say so, as the caveat does.";
 const UNWATCHED_PERSON_LIMIT = `Video ${VIDEO} was not watched, so what the answer says about it comes from what the ` +
   "person said about it: say so, as the caveat does.";
+const unfinishedLimit = (account: string) => `extract_youtube_video_claims was still reading video ${VIDEO} when it ` +
+  "last returned, and no research_receipt passed here shows the reading finished: finish it with its " +
+  "continuation_token and pass the research_receipt it returns, or say that the video was not watched and that what " +
+  `the answer says about it comes ${account}, as the caveat does.`;
 const INDIRECT_LIMIT = "No key study is shown to have tested the video's 2-minute fascia routine as described: say so, " +
   "as the caveat does.";
 const REQUIRED = "Give named_target: the person gave a video, which extract_youtube_video_claims read or could not " +
@@ -318,12 +324,52 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
     });
   });
 
+  describe("a reading left in progress", () => {
+    const withReceipts = (...receipts: string[]) => [...receipts, audit(JUMPS), reviewAudit(SNACKS)];
+
+    it("counts as not watched, and says the reading can still be finished", async () => {
+      expect(await call({ receipts: withReceipts(pending) })).toMatchObject({ status: "ready_with_limits",
+        next_steps: [], caveats: [UNWATCHED_PERSON, INDIRECT],
+        limits: [unfinishedLimit("from what the person said about it"), INDIRECT_LIMIT] });
+      // From its title and description, the draft must say so.
+      expect(await steps({ receipts: withReceipts(pending), named_target: { ...ROUTINE, described_from: "source_text" } }))
+        .toEqual([leftOut(UNWATCHED)]);
+      expect((await call({ receipts: withReceipts(pending), named_target: { ...ROUTINE, described_from: "source_text" },
+        answer_draft: `${STUDY_LINES}\n\n${UNWATCHED} ${INDIRECT}` })).limits)
+        .toEqual([unfinishedLimit("only from its title and description"), INDIRECT_LIMIT]);
+      // Its unwatched_videos entry is accepted, as for a video the tool could not read.
+      expect(await call({ receipts: withReceipts(pending), named_target: { ...ROUTINE, described_from: "source_text" },
+        unwatched_videos: [{ video_id: VIDEO, content_from: "person" }] }))
+        .toMatchObject({ status: "ready_with_limits", next_steps: [], caveats: [UNWATCHED_PERSON, INDIRECT] });
+    });
+
+    it("is settled by a later receipt: read, or not read", async () => {
+      // Finished: the video was watched, so no caveat, and video_read holds.
+      expect(await call({ receipts: withReceipts(pending, read), named_target: { ...ROUTINE, described_from: "video_read" },
+        answer_draft: `${STUDY_LINES}\n\n${INDIRECT}` }))
+        .toMatchObject({ status: "ready_with_limits", next_steps: [], caveats: [INDIRECT], limits: [INDIRECT_LIMIT] });
+      // Ended unread (an expired token, say): the usual caveat, with no offer to finish it.
+      expect(await call({ receipts: withReceipts(pending, unread) })).toMatchObject({ status: "ready_with_limits",
+        caveats: [UNWATCHED_PERSON, INDIRECT], limits: [UNWATCHED_PERSON_LIMIT, INDIRECT_LIMIT] });
+    });
+
+    it("refuses described_from video_read until the reading is finished", async () => {
+      expect(await steps({ receipts: withReceipts(pending), named_target: { ...ROUTINE, described_from: "video_read" } }))
+        .toEqual([
+          `named_target is described_from video_read, but extract_youtube_video_claims had not finished reading video ` +
+            `${VIDEO}: finish the reading with its continuation_token and pass the research_receipt it returns, or give ` +
+            "described_from as the case is, video_description_only or person.",
+          leftOut(UNWATCHED)
+        ]);
+    });
+  });
+
   describe("when named_target is required", () => {
     // Key sources without matches, as an older call gives them.
     const unmatched = [source(JUMPS, "Jump trial"), source(SNACKS, "Snack review")];
 
     it("asks for it whenever a video receipt is passed, read or not, with the connector-refresh hint", async () => {
-      for (const receipt of [unread, read]) {
+      for (const receipt of [unread, read, pending]) {
         const result = await call({ receipts: [receipt, audit(JUMPS), reviewAudit(SNACKS)], named_target: undefined,
           key_sources: unmatched, answer_draft: `${STUDY_LINES}\n\n${UNWATCHED}` });
         expect(result.next_steps).toEqual([REQUIRED, TOOL_LIST_REFRESH_HINT]);

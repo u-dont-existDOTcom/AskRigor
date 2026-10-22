@@ -37,6 +37,9 @@ export const RESEARCH_RECEIPT_KINDS = [
   // AskRigor#359: a video extract_youtube_video_claims identified but did not read, with its refusal's code. Never a
   // read video: youtube_video_claims alone says that.
   "youtube_video_unread",
+  // A video extract_youtube_video_claims was still reading when it returned. Unless a later receipt shows it read or
+  // not, the answer did not get its reading, so the final check counts it as unread.
+  "youtube_video_pending",
   "pubmed_record",
   "doi_resolution",
   "literature_search",

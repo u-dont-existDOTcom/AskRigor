@@ -2161,7 +2161,7 @@ function defineResearchOperations(
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (input, extra) => {
-      const { result, receipt, unread } = await extractYoutubeVideoClaims(input, {
+      const { result, receipt, unread, pending } = await extractYoutubeVideoClaims(input, {
         secret: researchReceiptSecretFromEnv(),
         geminiKeyUnbilled: geminiKeyDeclaredUnbilled(),
         // Owner answer 146b: only a dev account the server's settings list may name a trial arm.
@@ -2171,12 +2171,15 @@ function defineResearchOperations(
         }
       });
       // AskRigor#359: a video the tool did not read is signed on its refusal, so the final check can tell a video that
-      // was read from one whose title and description were all the answer had.
+      // was read from one whose title and description were all the answer had. A reading still in progress is signed
+      // too, so one the AI abandons counts as unread there.
       return receipt !== undefined
         ? withResearchReceipt(result, researchReceipt("youtube_video_claims", receipt))
-        : unread === undefined
-          ? result
-          : withResearchReceipt(result, researchReceipt("youtube_video_unread", unread), true);
+        : unread !== undefined
+          ? withResearchReceipt(result, researchReceipt("youtube_video_unread", unread), true)
+          : pending === undefined
+            ? result
+            : withResearchReceipt(result, researchReceipt("youtube_video_pending", pending));
     }
   );
 

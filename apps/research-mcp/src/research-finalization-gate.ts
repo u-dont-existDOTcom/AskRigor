@@ -1587,6 +1587,8 @@ export function finalizeResearch(
   // (AskRigor#359).
   const videosRead = new Set<string>();
   const videosUnread = new Set<string>();
+  // And those it was still reading when it last returned: one that no receipt shows read or not counts as unread.
+  const videosPending = new Set<string>();
   const audited = new Map<string, VideoAudit>();
   const communityAudited = new Set<string>();
   // Videos a one-call audit read comments from; its other selected videos
@@ -1632,6 +1634,10 @@ export function finalizeResearch(
       discovered.add(text(claims.video));
       videosUnread.add(text(claims.video));
     }
+    if (kind === "youtube_video_pending") {
+      discovered.add(text(claims.video));
+      videosPending.add(text(claims.video));
+    }
     if (kind === "youtube_video_audit") {
       // Comments the audit's final view returned; receipts from before `shown`
       // existed count every record retrieved.
@@ -1647,6 +1653,10 @@ export function finalizeResearch(
       for (const video of list(claims.read ?? claims.videos)) communityRead.add(video);
     }
   }
+  // A reading left in progress never reached the answer (AskRigor#359).
+  const unfinishedReadings = new Set([...videosPending].filter((video) =>
+    !videosRead.has(video) && !videosUnread.has(video)));
+  for (const video of unfinishedReadings) videosUnread.add(video);
   const auditedVideos = [...audited.keys()].sort();
   let materialVideos: string[] = [];
   let saturated = false;
@@ -2352,9 +2362,14 @@ export function finalizeResearch(
   for (const video of [...videosUnread].filter((video) => !videosRead.has(video)).sort()) {
     const from = unwatched.get(video)?.from ??
       (target?.video_id === video && target.described_from === "person" ? "person" : "description_only");
-    caveatOnce(`Video ${video} was not watched, so what the answer says about it comes ` +
-      (from === "person" ? "from what the person said about it" : "only from its title and description") +
-      ": say so, as the caveat does.", unwatchedVideoCaveat(video, from));
+    const account = from === "person" ? "from what the person said about it" : "only from its title and description";
+    caveatOnce(unfinishedReadings.has(video)
+      ? `extract_youtube_video_claims was still reading video ${video} when it last returned, and no research_receipt ` +
+        "passed here shows the reading finished: finish it with its continuation_token and pass the research_receipt " +
+        `it returns, or say that the video was not watched and that what the answer says about it comes ${account}, ` +
+        "as the caveat does."
+      : `Video ${video} was not watched, so what the answer says about it comes ${account}: say so, as the caveat does.`,
+    unwatchedVideoCaveat(video, from));
   }
   const matchOf = (source: FinalizeResearchInput["key_sources"][number], field: NamedTargetField) =>
     source[targetMatchField(field)];
@@ -2379,12 +2394,16 @@ export function finalizeResearch(
       addStep("declaration", `named_target is described_from ${describedFrom} without video_id: give the video's ` +
         "11-character ID.");
     } else if (describedFrom === "video_read" && video !== undefined && !videosRead.has(video)) {
-      addStep("declaration", videosUnread.has(video)
-        ? `named_target is described_from video_read, but extract_youtube_video_claims could not read video ${video}: ` +
-          "give described_from as the case is, video_description_only or person."
-        : `named_target is described_from video_read, but no research_receipt passed here shows that ` +
-          `extract_youtube_video_claims read video ${video}: read it and pass the research_receipt it returns, or ` +
-          "give described_from as the case is.");
+      addStep("declaration", unfinishedReadings.has(video)
+        ? `named_target is described_from video_read, but extract_youtube_video_claims had not finished reading video ` +
+          `${video}: finish the reading with its continuation_token and pass the research_receipt it returns, or give ` +
+          "described_from as the case is, video_description_only or person."
+        : videosUnread.has(video)
+          ? `named_target is described_from video_read, but extract_youtube_video_claims could not read video ` +
+            `${video}: give described_from as the case is, video_description_only or person.`
+          : `named_target is described_from video_read, but no research_receipt passed here shows that ` +
+            `extract_youtube_video_claims read video ${video}: read it and pass the research_receipt it returns, or ` +
+            "give described_from as the case is.");
     }
     const entry = video === undefined ? undefined : unwatched.get(video);
     const declared = describedFrom === "person" ? "person" : describedFrom === "video_description_only"

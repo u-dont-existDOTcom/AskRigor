@@ -158,6 +158,8 @@ export interface VideoClaimsToolOutcome {
   // AskRigor#359: a call that ended without reading a video whose ID it had, with its refusal's code, so the final
   // check can tell a video that was read from one whose title and description were all the answer had.
   unread?: { video: string; code: string };
+  // A reading still in progress, so that one the AI abandons still reaches the final check.
+  pending?: { video: string };
 }
 
 // An ending as this file builds it: a refusal also names its code, which extractYoutubeVideoClaims signs as unread.
@@ -328,7 +330,8 @@ async function readVideoClaims(
           continuation_token: token,
           retry_after_seconds: RETRY_AFTER_SECONDS
         })
-      )
+      ),
+      pending: { video: pass.request.video_id }
     };
   }
   return completedResult(pass, step.report, step.usage);
