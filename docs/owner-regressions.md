@@ -22,10 +22,11 @@ How each case runs:
   stands in for the owner's personal Codex file, and it is removed when they end (owner answer 144a); on 21 October no
   run ran a shell command or fetched the owner's development repository, against 38 of 39 runs on 20 October.
 - **Saves:** the prompts ask for no save, submission or lesson report. The owner's account is in free contributor
-  mode, so a run whose final check passes still saves its findings card for the owner's review; the release record
-  names those runs. The prompts say to give `finalize_research` the findings card it asks for, and to write no notes
-  about the test: on 20 and 21 October, "send nothing" led runs to withhold the card, which held their checks
-  `not_ready` for that alone (r325, r331, l36), and several answers added a "release-test note".
+  mode, so a run whose final check passes still saves its findings card for the owner's review, unless the card
+  declares its findings personal only (owner answer 156a); the release record names those runs. The prompts say to
+  give `finalize_research` the findings card it asks for, and to write no notes about the test: on 20 and 21 October,
+  "send nothing" led runs to withhold the card, which held their checks `not_ready` for that alone (r325, r331, l36),
+  and several answers added a "release-test note".
 - **Questions to the user:** a run asks what AskRigor would ask a real user and sends nothing. After a correction the
   user made, the final check waits for the bug-report question (question 78's rule), so the prompts must let the run
   ask it; on 17 October they forbade the report itself, and the runs that showed it instead of asking stayed

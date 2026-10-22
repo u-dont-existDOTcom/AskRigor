@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   FINDINGS_SAVE_OFFER,
+  findingsAndMapSaveOffer,
   findingsCardDigest,
   findingsCardSchema,
   findingsSaveOffer
@@ -3034,7 +3035,12 @@ describe("findings card at the final gate", () => {
       why_not_usual: "Quick answers treat exercise as a stopgap.",
       tags: ["full_text_read", "community_checked"],
       what_would_change_it: "A large trial finding no benefit over usual care."
-    }]
+    }],
+    public_value: {
+      scope: "public",
+      who_else: "Adults with hip osteoarthritis considering surgery",
+      what_it_changes: "Exercise therapy becomes a first option with real evidence."
+    }
   };
   const withFinding = (overrides: Record<string, unknown>) => ({ ...CARD, findings: [{ ...CARD.findings[0], ...overrides }] });
   const signedClaim = (claim: string) => (receipt: string | undefined) => {
@@ -3049,7 +3055,7 @@ describe("findings card at the final gate", () => {
   it("checks a card the answer shows and this call's receipts back, and signs it without offering anything", () => {
     const plain = finalizeResearch(READY, closedOptions);
     const carded = finalizeResearch({ ...READY, findings_card: CARD }, options);
-    expect(carded.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 1 });
+    expect(carded.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 1, public_value: "public" });
     // The answer's own result is what it would be without the library: no caveat offers a save.
     expect(carded.status).toBe("ready_with_limits");
     expect(carded.status).toBe(plain.status);
@@ -3084,7 +3090,7 @@ describe("findings card at the final gate", () => {
     ] };
     const result = finalizeResearch({ ...input, findings_card: card }, options);
     expect(result).toMatchObject({ status: "ready_with_limits", next_steps: [] });
-    expect(result.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 3 });
+    expect(result.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 3, public_value: "public" });
     expect(basesClaim(result.finalization_receipt)).toEqual([
       "full_text_audit", "comment_audit", "none", "none", "full_text_audit.comment_audit"
     ]);
@@ -3173,6 +3179,10 @@ describe("findings card at the final gate", () => {
       next_steps: [expect.stringMatching(/^Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library/u), TOOL_LIST_REFRESH_HINT],
       findings_card: { status: "absent", problems: [] }
     });
+    // Owner answer 156a: the step asks for the declaration with the card.
+    expect(missing.next_steps[0]).toBe("Give findings_card with answer_draft: this account's research is saved to " +
+      "AskRigor's findings library for the owner's review. Put in the answer's best findings, none the user corrected, " +
+      "and no personal details, and say in public_value whether they would help anyone beyond this person.");
     expect(missing.finalization_receipt).toBeUndefined();
     // The card is asked for with the answer, not before it.
     expect(finalizeResearchRaw(READY, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).some((step) => step.startsWith("Give findings_card"))).toBe(false);
@@ -3192,17 +3202,74 @@ describe("findings card at the final gate", () => {
         "findings_card.findings[0] is tagged community_checked, but none of its sources is a video whose comments were audited here."],
       [withFinding({ tags: ["overlooked_study", "overlooked_study"] }), "findings_card.findings[0].tags lists a tag more than once."],
       [{ ...CARD, open_leads: ["Call the clinic on 555-123-4567 first."] },
-        "findings_card.open_leads[0] looks like it holds contact details, an address or a number shaped like a phone number"]
+        "findings_card.open_leads[0] looks like it holds contact details, an address or a number shaped like a phone number"],
+      // Owner answer 156a (2026-10-22): a card says whom its findings would help. Without it, as from an app whose tool
+      // list predates the field, the card is reported like any other problem and the answer goes ahead.
+      [{ ...CARD, public_value: undefined },
+        "findings_card.public_value is missing: say whether these findings would help other people, as " +
+          '{"scope":"public","who_else":"…","what_it_changes":"…"}, or only this person, as {"scope":"personal_only"}. ' +
+          "Without it the card is not saved or offered."],
+      [{ ...CARD, public_value: { scope: "public", what_it_changes: CARD.public_value.what_it_changes } },
+        "findings_card.public_value.who_else is missing: with scope public, say who else faces these findings, in " +
+          "general terms."],
+      [{ ...CARD, public_value: { scope: "public", who_else: CARD.public_value.who_else } },
+        "findings_card.public_value.what_it_changes is missing: with scope public, say what these findings could " +
+          "change in what those people do or believe."],
+      [{ ...CARD, public_value: { ...CARD.public_value, who_else: "I was diagnosed with hip osteoarthritis last year." } },
+        "findings_card.public_value.who_else looks like it holds a first-person health story, or a personal age or date"]
     ];
-    for (const [card, problem] of cases) {
-      const result = finalizeResearch({ ...READY, findings_card: card }, options);
-      expect(result.findings_card).toEqual({ status: "rejected", problems: [expect.stringContaining(problem)] });
-      expect(result.status).toBe(plain.status);
-      expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual(plain.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT));
-      expect(result.limits).toEqual(plain.limits);
-      expect(result.caveats).toEqual(plain.caveats);
-      expect(findingsClaim(result.finalization_receipt)).toBeUndefined();
+    for (const offered of [false, true]) {
+      const gateOptions = offered ? { secret: SECRET, now, findings: "offer" as const } : options;
+      for (const [card, problem] of cases) {
+        const result = finalizeResearch({ ...READY, findings_card: card }, gateOptions);
+        expect(result.findings_card).toEqual({ status: "rejected", problems: [expect.stringContaining(problem)] });
+        expect(result.status).toBe(plain.status);
+        expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual(plain.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT));
+        expect(result.limits).toEqual(plain.limits);
+        // A paid private answer offers no save for a rejected card either.
+        expect(result.caveats).toEqual(plain.caveats);
+        expect(findingsClaim(result.finalization_receipt)).toBeUndefined();
+      }
     }
+  });
+
+  // Owner answer 156a (2026-10-22): "personal-only findings are neither saved for the Atlas nor offered". The card is
+  // checked and signed like any other, so a save asked for anyway is refused by the declaration the check signed.
+  it("checks and signs a card declared personal only, and a paid private answer offers no save for it", () => {
+    const offerOptions = { secret: SECRET, now, findings: "offer" as const };
+    const personal = { ...CARD, public_value: { scope: "personal_only" } };
+    const plain = finalizeResearch(READY, closedOptions);
+    for (const gateOptions of [options, offerOptions]) {
+      const result = finalizeResearch({ ...READY, findings_card: personal }, gateOptions);
+      expect(result).toMatchObject({ status: plain.status, next_steps: plain.next_steps, limits: plain.limits });
+      expect(result.findings_card).toEqual({
+        status: "checked", problems: [], beyond_quick_answer: 1, public_value: "personal_only"
+      });
+      expect(result.caveats).toEqual(plain.caveats);
+      expect(findingsClaim(result.finalization_receipt)).toBe(findingsCardDigest(findingsCardSchema.parse(personal)));
+    }
+    // The same findings declared public are offered, with what they rest on.
+    expect(finalizeResearch({ ...READY, findings_card: CARD }, offerOptions).caveats).toEqual([...plain.caveats, CARD_OFFER]);
+    // With personal_only, who_else and what_it_changes are not used: the card still checks, and is still not offered.
+    const explained = { ...CARD, public_value: { ...CARD.public_value, scope: "personal_only" } };
+    expect(finalizeResearch({ ...READY, findings_card: explained }, offerOptions)).toMatchObject({
+      caveats: plain.caveats, findings_card: { status: "checked", public_value: "personal_only" }
+    });
+  });
+
+  // On the connector the offer's one sentence also asks to file this research's map (owner answer 143a), so with no
+  // offer for a personal-only card there is no map offer either, as for a card with no work beyond a quick answer.
+  it("offers no research map with a personal-only card, since the map is asked for only in the card's offer", () => {
+    const mapOptions = { secret: SECRET, now, findings: "offer" as const, researchMap: { mode: "offer" as const, account: "acct0123456789ab" } };
+    const plain = finalizeResearch(READY, closedOptions);
+    const offered = finalizeResearch({ ...READY, findings_card: CARD }, mapOptions);
+    expect(offered).toMatchObject({ research_map: { status: "offered" } });
+    expect(offered.caveats).toEqual([...plain.caveats, findingsAndMapSaveOffer({ studies: 1, videos: 1, absences: 0, corrections: 0 })]);
+    expect(signedClaim("map")(offered.finalization_receipt)).toBe("offered");
+    const personal = finalizeResearch({ ...READY, findings_card: { ...CARD, public_value: { scope: "personal_only" } } }, mapOptions);
+    expect(personal).not.toHaveProperty("research_map");
+    expect(personal.caveats).toEqual(plain.caveats);
+    expect(signedClaim("map")(personal.finalization_receipt)).toBeUndefined();
   });
 
   it("counts a lead as verified but not as read in full text, and a PMID by its PubMed DOI", () => {
@@ -3214,7 +3281,7 @@ describe("findings card at the final gate", () => {
     };
     expect(finalizeResearch({
       ...withLead, findings_card: withFinding({ sources: ["10.1016/J.JOCA.2020.01.001", "PMID: 31999999"], tags: ["full_text_read"] })
-    }, options).findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 1 });
+    }, options).findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 1, public_value: "public" });
     expect(finalizeResearch({
       ...withLead, findings_card: withFinding({ sources: ["10.1016/j.joca.2020.01.001"], tags: ["full_text_read"] })
     }, options).findings_card.problems).toEqual([expect.stringContaining("is tagged full_text_read")]);
@@ -3272,7 +3339,7 @@ describe("findings card at the final gate", () => {
     const offerOptions = { secret: SECRET, now, findings: "offer" as const };
     const plain = finalizeResearch(READY, closedOptions);
     const carded = finalizeResearch({ ...READY, findings_card: CARD }, offerOptions);
-    expect(carded.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 1 });
+    expect(carded.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 1, public_value: "public" });
     // The offer names what was done, with this call's counts (owner answer 139c).
     expect(CARD_OFFER).toBe("These findings rest on a full-text audit of 1 study and audited comments on 1 video, " +
       `work a quick answer does not do. ${FINDINGS_SAVE_OFFER}`);

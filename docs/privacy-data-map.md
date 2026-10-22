@@ -31,8 +31,10 @@ free contributor mode (owner decisions Q9 to Q11): when `finalize_research`
 checks a free contributor's answer, the server saves that answer's checked
 findings card to a private GitHub review queue; a paid-private answer offers the
 save, and its card is saved only after the user says yes to that save. It moves
-the free contributor notice to a second version that says so. It is described
-under "Findings library" below. The owner approved the public wording on
+the free contributor notice to a second version that says so. A card whose
+findings the AI declares personal only is neither saved nor offered (owner
+answer 156a, 2026-10-22). It is described under "Findings library" below.
+The owner approved the public wording on
 2026-09-30; `https://askrigor.com/privacy` and `/terms` take it, with that day's
 effective date, when the library goes live, and the library stays closed until
 then.
@@ -282,8 +284,9 @@ AskRigor has deliberately separate processing paths:
   server-written version stamp in a private GitHub review queue; the answer is
   never stored, and nothing asks the user. For a paid-private account the
   answer offers the save, and the connector's `save_research_findings` saves
-  the checked card only after the user says yes to that save. See "Findings
-  library" below.
+  the checked card only after the user says yes to that save. A card whose
+  findings the AI declares personal only is neither saved nor offered (owner
+  answer 156a). See "Findings library" below.
 - **Automated Gemini-candidate path:** a public read-only Action and the
   `scout_gemini_youtube_candidates` MCP tool (behind the research-access guard)
   share one implementation and accept only a
@@ -832,6 +835,23 @@ whose findings rest on work a quick answer cannot do ends by offering the save,
 and a card is saved only when the user accepts saving it for that answer,
 through the connector's `save_research_findings`. The owner reviews every card
 before it is accepted.
+
+Owner answer 156a (2026-10-22): the library feeds the Atlas, which holds what
+other people would benefit from, not every answer better than a quick one. So
+the AI declares on each card whether its findings would help anyone beyond the
+person asking (`public_value`, below). A card declared `personal_only` is
+checked like any other but neither saved nor offered: a free contributor's
+result says it was not saved (`saved.reason` `personal_only`) and its answer
+ends with no saved line for it; a paid-private answer offers no save for it,
+and so no research map either, since the map is asked for only in the card's
+offer sentence; and `save_research_findings` refuses it even when the user
+asks. The rest are saved or offered as before. Whether findings would help
+other people is the model's declaration, by the owner's four-part test in the
+field's description (other people face it, it was checked here, it could change
+what someone does or believes, it adds something to well-known guidance); the
+server checks only that the declaration is made and complete, and the owner
+judges it in review.
+
 It is live since 2026-10-01 (20:19 UTC). The owner approved the wording of the
 in-app free contributor notice (in the code), `https://askrigor.com/privacy`
 and `/terms` on 2026-09-30; the two pages took it, with that day's effective
@@ -867,16 +887,23 @@ What the model sends, and when:
   sentence copied from the answer (`answer_quote`), one to ten source
   identifiers (DOI, PMID, PMCID or YouTube video id; no tool verifies an NCT id
   yet, so a trial is cited through its paper), why the usual answer misses it
-  (300), allowlisted tags and what would change it (300), and up to six open
-  leads (200 each). Optionally, the model name as the app reports it
-  (`reported_model`, at most 80 characters). The gate checks the card against
-  the answer and that call's verified sources. A rejected card is reported and
-  not saved; it never holds back the answer. A checked card's SHA-256 digest is
-  signed into the finalization receipt; for a paid-private account a checked
-  card one of whose findings rests on work a quick answer cannot do (below)
-  also adds the sentence offering its save to the caveats the answer must
-  carry. For a caller with no research account the card is neither checked nor
-  saved (`private`).
+  (300), allowlisted tags and what would change it (300), whom the findings
+  would help (`public_value`: `scope` `public`, with who else faces them,
+  `who_else`, at most 300 characters, and what they could change for those
+  people, `what_it_changes`, 300, both in general terms with no personal
+  details; or `scope` `personal_only`, whose other two fields are not used),
+  and up to six open leads (200 each). Optionally, the model name as the app
+  reports it (`reported_model`, at most 80 characters). The gate checks the
+  card against the answer and that call's verified sources, and that it
+  declares `public_value`, with both fields when public. A rejected card is
+  reported and not saved; it never holds back the answer. A card without
+  `public_value`, as from an app whose tool list predates it, is rejected the
+  same way. A checked card's SHA-256 digest is signed into the finalization
+  receipt, a personal-only one's too; for a paid-private account a checked
+  public card one of whose findings rests on work a quick answer cannot do
+  (below) also adds the sentence offering its save to the caveats the answer
+  must carry. For a caller with no research account the card is neither
+  checked nor saved (`private`).
 - In `save_research_findings`, only after a paid-private user says yes to that
   offer, or to a save they asked for: the same card, that finalization receipt,
   the literal consent `yes_to_this_save`, and optionally the model name as the
@@ -943,8 +970,12 @@ What the server checks before it saves: that the caller's OAuth token belongs
 to an active research account (a free contributor under the current notice, at
 the final check, or a paid-private account, through `save_research_findings`
 after the user's yes); the receipt's
-signature, kind and 24-hour age, and that it signed this exact card; the lesson
-queue's deterministic privacy screen over every text field (with study and
+signature, kind and 24-hour age, and that it signed this exact card; that the
+card declares its findings public (a `personal_only` card is refused as
+`personal_only`, and a card checked before the declaration was asked for as
+`public_value_missing`, to be checked again; neither consumes the rate limit);
+the lesson queue's deterministic privacy screen over every text field, the
+declaration's included (with study and
 video identifiers, links to their pages, statistics-shaped numbers and in-word
 apostrophes set aside first); sources by their form; and a rate limit of its
 own (20 cards an hour and 100 a day per server process; later cards are not
@@ -961,7 +992,11 @@ The issue holds the question as its title, the labels `findings-card` and
 `pending-review` (and `beyond-quick-answer` when a finding has a verified
 basis; an open card gets it too when a later save of the same findings with a
 basis joins it), a readable copy of the card, and a JSON record: the card, its
-SHA-256, and the server's version stamp. Each stored finding also keeps its
+SHA-256, and the server's version stamp. The stored card keeps its public-value
+declaration (`public_value`: who else faces the findings and what they could
+change for them, with no personal details), which the readable copy shows under
+"Public value" for the owner's review; a later save that joins an open card
+shows its own declaration in its comment. Each stored finding also keeps its
 verified bases (`verified_bases`, the four values above, as the receipt signed
 them; none from a receipt that signed none). The stored card holds no YouTube video
 ID or link while AskRigor's YouTube API compliance review is open: each finding
@@ -990,7 +1025,8 @@ not match.
 What is never stored: the chat, the answer beyond each finding's one quoted
 sentence, the research target or its digest, the account key, the receipts
 themselves, comment or caption text, commenter identities, the user's OAuth
-subject, email or network identity, and any upload. `finalize_research` reports
+subject, email or network identity, any upload, and any card declared personal
+only, which reaches only the call that checks it. `finalize_research` reports
 only whether the card was saved and its `ARF-####` id, with the line naming that
 id that the answer ends with, never the issue number, link, card text or
 fingerprint. Because a stored card carries no account

@@ -30,6 +30,7 @@ import {
   findingsCardDigest,
   findingsCardSchema,
   findingsSaveOffer,
+  PUBLIC_VALUE_SCOPES,
   screenFindingsCard,
   signedFindingBases,
   verifiedWorkPhrase,
@@ -756,10 +757,12 @@ export const finalizeResearchInputSchema = z.object({
   findings_card: findingsCardSchema.optional()
     .describe("With answer_draft, when the answer cites a study or video verified here: the answer's best findings " +
       "for AskRigor's findings library, never claims the user corrected and no personal details, checked against the " +
-      "answer and this call's verified sources. Leave it out when the answer cites none. In free " +
+      "answer and this call's verified sources, with public_value saying whether they would help anyone beyond this " +
+      "person. Leave it out when the answer cites none. In free " +
       "contributor mode a checked card is saved for the owner's review; in paid private mode, when a finding rests " +
       "on work a quick answer cannot do, it adds a caveat offering the save, which also asks to file this research's " +
-      "map. A rejected card is not saved or offered and does not hold back the answer."),
+      "map. Neither a card declared personal_only nor a rejected card is saved or offered, and neither holds back the " +
+      "answer."),
   reported_model: z.string().trim().min(1).max(80).optional()
     .describe("Your model's name as your app reports it; kept, unverified, with a saved findings card.")
 }).strict();
@@ -1141,15 +1144,22 @@ export const finalizeResearchOutputSchema = z.object({
       .describe("For a checked card: how many of its findings rest on work a quick answer cannot do (a full-text " +
         "audit, audited comments, a checked absence claim or a correction the research found), as this call's " +
         "receipts show."),
+    // Owner answer 156a (2026-10-22): what the checked card's public_value declares, which decides whether it is saved
+    // or offered at all.
+    public_value: z.enum(PUBLIC_VALUE_SCOPES).optional()
+      .describe("For a checked card: the scope its public_value declares. A personal_only card is neither saved nor " +
+        "offered."),
     saved: z.object({
       status: z.enum(["saved", "already_saved", "not_saved", "unconfirmed"]),
       card_id: z.string().regex(/^ARF-[0-9]{4,}$/u).optional(),
       reason: z.string().optional()
+        .describe("With not_saved: why, such as personal_only when the card declares its findings personal only.")
     }).strict().optional()
   }).strict().describe("Whether findings_card checked, and for a free contributor account whether it was saved; for " +
     "a paid private account, a checked card with a finding beyond a quick answer adds the caveat offering the save " +
-    "(and the filing of this research's map; see research_map). closed: the findings library is not open; private: " +
-    "no research account, so nothing is saved."),
+    "(and the filing of this research's map; see research_map), unless the card declares its findings personal_only, " +
+    "which are neither saved nor offered. closed: the findings library is not open; private: no research account, so " +
+    "nothing is saved."),
   saved_line: z.string().optional()
     .describe("When a free contributor's card was saved, or a map of this research was filed: the line the answer " +
       "ends with, just before check_line, saying what was saved."),
@@ -2710,6 +2720,8 @@ export function finalizeResearch(
   // offered; a paid private answer offers its checked card's save, which waits
   // for the user's yes. A rejected card is reported, not saved or offered, and
   // never holds back the answer, whose research may have nothing a card can cite.
+  // A checked card whose findings are declared personal only is signed but
+  // neither saved nor offered (owner answer 156a, 2026-10-22).
   let findingsCard: FindingsCardCheck = options.findings === "private"
     ? privateFindings()
     : input.findings_card === undefined
@@ -2791,7 +2803,9 @@ export function finalizeResearch(
             "the owner's review."
           : "Give findings_card with answer_draft: the answer offers to save its findings to AskRigor's findings " +
             "library, and they are saved only if the user says yes.") +
-          " Put in the answer's best findings, none the user corrected, and no personal details."
+          " Put in the answer's best findings, none the user corrected, and no personal details, and say in " +
+          // Owner answer 156a (2026-10-22): asked with the card, so a first card has the declaration it needs.
+          "public_value whether they would help anyone beyond this person."
       );
     }
     if (input.findings_card !== undefined && findingsOpen(options)) {
@@ -2818,11 +2832,15 @@ export function finalizeResearch(
         const work = input.findings_card.findings.map(({ sources, answer_quote: quote }) => verifiedWork(sources, quote));
         cardBases = work.map(basesOf);
         const beyond = cardBases.filter((bases) => bases.length > 0).length;
-        findingsCard = { ...findingsCard, beyond_quick_answer: beyond };
+        // A checked card has declared whom its findings would help (findingsCardCheck).
+        const scope = input.findings_card.public_value!.scope;
+        findingsCard = { ...findingsCard, beyond_quick_answer: beyond, public_value: scope };
         // A paid private answer offers the save only when a finding rests on such work, which the offer names with
         // this call's counts; without one there is no offer line, and the receipt still signs the card, so the user
-        // can still ask for the save.
-        if (options.findings === "offer" && beyond > 0) {
+        // can still ask for the save. Owner answer 156a (2026-10-22): findings declared personal only are never
+        // offered, and so neither is this research's map, which is offered only in the same sentence as the card
+        // (143a). The receipt still signs the card, so save_research_findings refuses it by its signed declaration.
+        if (options.findings === "offer" && beyond > 0 && scope === "public") {
           // Owner answer 143a: on the connector the offer's one sentence also asks to file this research's map, unless
           // one was filed already, so one yes saves the card and files the map.
           mapOffered = options.researchMap?.mode === "offer" && !mapFiled;
@@ -3567,10 +3585,13 @@ const FINDINGS_PRIVACY_PROBLEMS: Readonly<Record<FindingsPrivacyReason, string>>
  * Checks a findings card against this call. Each finding's sentence must be
  * shown in the answer (the answer_quotes check, exact and the same in any
  * language); each source must be one this call verified; a full_text_read or
- * community_checked tag must rest on a source of that kind; and the card must
- * pass the privacy screen its save runs. Whether a sentence states its
- * finding, and the other tags, are the model's declarations, which the owner
- * reviews before accepting a card.
+ * community_checked tag must rest on a source of that kind; the card must
+ * declare whom its findings would help, a public declaration saying who else
+ * faces them and what they could change (owner answer 156a, 2026-10-22); and
+ * the card must pass the privacy screen its save runs. Whether a sentence
+ * states its finding, the other tags and whether the findings would help other
+ * people are the model's declarations, which the owner reviews before
+ * accepting a card.
  */
 function findingsCardCheck(
   card: FindingsCard,
@@ -3605,6 +3626,27 @@ function findingsCardCheck(
     }
     if (new Set(finding.tags).size < finding.tags.length) problems.push(`${at}.tags lists a tag more than once.`);
   });
+  // Owner answer 156a (2026-10-22): only the declaration's presence and its fields are checked, exactly; whether the
+  // findings would help other people stays the model's judgment, by the test the field describes. A card without it,
+  // from an app whose tool list predates it, is reported like any other problem: not saved or offered, and the answer
+  // goes ahead. With personal_only, who_else and what_it_changes are not used.
+  const declared = card.public_value;
+  if (declared === undefined) {
+    problems.push(
+      "findings_card.public_value is missing: say whether these findings would help other people, as " +
+        '{"scope":"public","who_else":"…","what_it_changes":"…"}, or only this person, as {"scope":"personal_only"}. ' +
+        "Without it the card is not saved or offered."
+    );
+  } else if (declared.scope === "public") {
+    if (declared.who_else === undefined) {
+      problems.push("findings_card.public_value.who_else is missing: with scope public, say who else faces these " +
+        "findings, in general terms.");
+    }
+    if (declared.what_it_changes === undefined) {
+      problems.push("findings_card.public_value.what_it_changes is missing: with scope public, say what these findings " +
+        "could change in what those people do or believe.");
+    }
+  }
   // A source that is not an identifier is already unverified above.
   for (const { field, reasonCode } of screenFindingsCard(card)) {
     if (reasonCode === "not_a_source_identifier") continue;

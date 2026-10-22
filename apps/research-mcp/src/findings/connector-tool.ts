@@ -11,8 +11,8 @@ export const SAVE_RESEARCH_FINDINGS_DESCRIPTION =
   "library, for the owner's review, when the user said yes to saving it: after the answer offered the save, or " +
   "when the user asked for it. Send the card " +
   "exactly as the last finalize_research call checked it, with its finalization_receipt; never include claims the " +
-  "user corrected, and no personal details. (Free contributor findings are saved by finalize_research.) Returns a " +
-  "receipt, never the stored card.";
+  "user corrected, and no personal details. A card whose public_value declares its findings personal_only is not " +
+  "saved. (Free contributor findings are saved by finalize_research.) Returns a receipt, never the stored card.";
 
 const UNAVAILABLE: FindingsSaveResult = {
   status: "queue_unavailable",
@@ -27,6 +27,8 @@ const NOT_CHECKED: Partial<Record<FindingsSaveReason, string>> = {
   receipt_expired: "the finalization receipt has expired, so run finalize_research again",
   card_not_in_receipt: "that finalize_research call did not check a findings card",
   card_changed: "the card is not the one finalize_research checked",
+  public_value_missing: "the card does not say whom its findings would help, so check it again with finalize_research, " +
+    "with public_value in the card",
   invalid_request: "the request is not a findings card with its receipt",
 };
 
@@ -61,6 +63,14 @@ export function findingsSaveToolResult(raw: FindingsSaveResult): CallToolResult 
       return receipt(
         `Not saved: ${NOT_CHECKED[result.reason_code ?? "invalid_request"] ?? NOT_CHECKED.invalid_request}. Save the ` +
           "card exactly as the last finalize_research call checked it, with the finalization_receipt it returned.",
+        result,
+        true,
+      );
+    // Owner answer 156a (2026-10-22): personal-only findings are never saved for the Atlas, even when the user asks.
+    case "personal_only":
+      return receipt(
+        "Not saved: the card declares its findings personal only, and AskRigor's findings library keeps only findings " +
+          "that would help other people.",
         result,
         true,
       );

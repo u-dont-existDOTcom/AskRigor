@@ -26,6 +26,7 @@ import {
   researchMapSavedLine,
   withoutYouTubeData,
 } from "../apps/research-mcp/src/findings/card.js";
+import { findingsSaveToolResult } from "../apps/research-mcp/src/findings/connector-tool.js";
 import {
   saveResearchFindingsInputSchema,
   type FindingsSaveResult,
@@ -45,6 +46,8 @@ import {
 import type { LessonAttemptLimiter } from "../apps/research-mcp/src/lessons/rate-limit.js";
 import {
   OTHER_TOOLS_SENTENCE,
+  PERSONAL_ONLY_NOT_OFFERED,
+  PERSONAL_ONLY_NOT_SAVED,
   RESEARCH_OPERATIONS,
   registerTools,
   type RegisterToolsOptions,
@@ -274,6 +277,78 @@ describe("findings library save", () => {
     await expect(service(github).save(saveInput({ findings_card: unsafe, finalization_receipt: receipt }), CONTEXT))
       .resolves.toEqual({ status: "privacy_rejected", retryable: false, reason_code: "unsafe_card" });
     expect(github.writes).toEqual([]);
+  });
+
+  // Owner answer 156a (2026-10-22): the library keeps only findings that would help other people.
+  it("refuses a card declared personal only, and one checked before the declaration, before the limit or the queue", async () => {
+    const github = new FakeGitHub();
+    let consumed = 0;
+    const counting: LessonAttemptLimiter = {
+      consume: () => {
+        consumed += 1;
+        return { allowed: true };
+      },
+      lastBlockingReason: () => "hourly_limit",
+    };
+    const save = service(github, { limiter: counting });
+    const personal = { ...CARD, public_value: { scope: "personal_only" } };
+    const { public_value: _declared, ...undeclared } = CARD;
+    const signed = (card: object) => finalization({ findings: findingsCardDigest(findingsCardSchema.parse(card)) });
+    await expect(save.save(saveInput({ findings_card: personal, finalization_receipt: signed(personal) }), CONTEXT))
+      .resolves.toEqual({ status: "personal_only", retryable: false });
+    // A receipt from before the final check asked for the declaration: the card is checked again first.
+    await expect(save.save(saveInput({ findings_card: undeclared, finalization_receipt: signed(undeclared) }), CONTEXT))
+      .resolves.toEqual({ status: "card_not_checked", retryable: false, reason_code: "public_value_missing" });
+    // The declaration read is the one the check signed: one changed after the check is a changed card.
+    await expect(save.save(saveInput({ findings_card: personal }), CONTEXT))
+      .resolves.toMatchObject({ status: "card_not_checked", reason_code: "card_changed" });
+    await expect(save.save(saveInput({ findings_card: CARD, finalization_receipt: signed(personal) }), CONTEXT))
+      .resolves.toMatchObject({ status: "card_not_checked", reason_code: "card_changed" });
+    expect(github.writes).toEqual([]);
+    expect(consumed).toBe(0);
+    // What the model and the user see.
+    expect(findingsSaveToolResult({ status: "personal_only", retryable: false })).toEqual({
+      content: [{
+        type: "text",
+        text: "Not saved: the card declares its findings personal only, and AskRigor's findings library keeps only " +
+          "findings that would help other people.",
+      }],
+      structuredContent: { status: "personal_only", retryable: false },
+      isError: true,
+    });
+    expect(findingsSaveToolResult({ status: "card_not_checked", retryable: false, reason_code: "public_value_missing" })
+      .content).toEqual([{
+        type: "text",
+        text: "Not saved: the card does not say whom its findings would help, so check it again with finalize_research, " +
+          "with public_value in the card. Save the card exactly as the last finalize_research call checked it, with " +
+          "the finalization_receipt it returned.",
+      }]);
+  });
+
+  it("stores the card's public-value declaration and shows each save's in the owner's review", async () => {
+    const github = new FakeGitHub();
+    const save = service(github);
+    await save.save(saveInput(), CONTEXT);
+    const [issue] = github.issues;
+    expect(storedRecord(issue!.body).card.public_value).toEqual(CARD.public_value);
+    const declared = "## Public value, as the AI declared it\n\n- Scope: public\n- Who else faces it: Adults with hip " +
+      "osteoarthritis who are weighing a joint replacement\n- What it could change for them: It makes supervised " +
+      "exercise a first option with real evidence, not a stopgap before surgery\\.";
+    expect(issue!.body).toContain(declared);
+    // Read after the question and the usual answer, before the findings.
+    expect(issue!.body.indexOf("## Usual answer")).toBeLessThan(issue!.body.indexOf(declared));
+    expect(issue!.body.indexOf(declared)).toBeLessThan(issue!.body.indexOf("## Finding 1"));
+    // Another person's save of the same question and claims declares in its own words, which its occurrence shows.
+    const theirs = { ...CARD, public_value: { ...CARD.public_value, who_else: "Older adults with hip osteoarthritis" } };
+    await expect(save.save(saveInput({
+      findings_card: theirs,
+      contributor: BOB,
+      finalization_receipt: finalization({ receipts: 8, findings: findingsCardDigest(findingsCardSchema.parse(theirs)) }),
+    }), CONTEXT)).resolves.toMatchObject({ status: "existing_card", card_id: "ARF-0042", occurrence_count: 2 });
+    const [occurrence] = github.comments.get(42)!;
+    expect(occurrence!.body).toContain("## Public value, as this save declares it\n\n- Scope: public\n- Who else faces " +
+      "it: Older adults with hip osteoarthritis\n");
+    expect(storedRecord(occurrence!.body).card.public_value).toEqual(theirs.public_value);
   });
 
   it("leaves out a reported model name that does not read as one, and saves the card", async () => {
@@ -892,6 +967,142 @@ describe("finalize_research, save_research_findings and the findings library", (
     expect(calls).toHaveLength(1);
   });
 
+  // Owner answer 156a (2026-10-22): "Build the test: the AI's public-value declaration on each card; personal-only
+  // findings are neither saved for the Atlas nor offered; you approve the rest."
+  const PERSONAL_CARD = { ...CHECKED_CARD, public_value: { scope: "personal_only" } };
+  const resultText = (result: CallToolResult) => (result.content as Array<{ text: string }>).map(({ text }) => text).join("\n");
+
+  it("saves a free contributor's public card and not a personal-only one, saying why, with no saved line for it", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const { calls, findingsSave } = recorder();
+    const options = { researchContributorAccessService: await accessService(), findingsLibrary: true, findingsSave };
+    const finalize = connectorTool("finalize_research", options);
+    const research = request().receipts;
+    const personal = await finalize(request({ receipts: research, findings_card: PERSONAL_CARD }), "auth0|free");
+    expect(personal.structuredContent).toMatchObject({
+      status: "ready_with_limits",
+      caveats: [SKIP],
+      findings_card: {
+        status: "checked", problems: [], public_value: "personal_only", saved: { status: "not_saved", reason: "personal_only" },
+      },
+    });
+    expect(personal.structuredContent).not.toHaveProperty("saved_line");
+    expect(resultText(personal)).toContain(`\nFindings card: checked; ${PERSONAL_ONLY_NOT_SAVED}.`);
+    expect(PERSONAL_ONLY_NOT_SAVED).toBe("not saved: its findings are declared personal only, so they stay out of " +
+      "AskRigor's findings library");
+    expect(resultText(personal)).not.toContain("Saved to AskRigor's findings library");
+    expect(calls).toEqual([]);
+    // The research map is separate from the card (owner answer 143a): its reminder still comes, and a map filed for
+    // this research is still named, alone, in the answer's last line.
+    expect(personal.structuredContent).toMatchObject({
+      research_map: { status: "not_filed", note: researchMapReminder({ studies: 1, videos: 0, absences: 0, corrections: 0 }) },
+    });
+    const filed = await connectorTool("submit_research_contribution", options)({
+      proposalKind: "RESEARCH_FRONTIER",
+      privacyBoundary: CONTRIBUTION_PRIVACY_BOUNDARY_EXAMPLE,
+      payload: CONTRIBUTION_EXAMPLES.RESEARCH_FRONTIER,
+    }, "auth0|free");
+    const mapReceipt = (filed.structuredContent as { research_receipt: string }).research_receipt;
+    const withMap = await finalize(request({ receipts: [...research, mapReceipt], findings_card: PERSONAL_CARD }), "auth0|free");
+    expect(withMap.structuredContent).toMatchObject({
+      research_map: { status: "filed" },
+      findings_card: { saved: { status: "not_saved", reason: "personal_only" } },
+      saved_line: researchMapSavedLine(undefined),
+    });
+    expect(calls).toEqual([]);
+    // Declared public, the same findings are saved for the owner's review, as before.
+    const shared = await finalize(request({ receipts: research }), "auth0|free");
+    expect(shared.structuredContent).toMatchObject({
+      findings_card: { status: "checked", public_value: "public", saved: { status: "saved", card_id: "ARF-0042" } },
+      saved_line: findingsSavedLine("ARF-0042"),
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]![0]).toMatchObject({ findings_card: { public_value: CARD.public_value } });
+  });
+
+  it("does not save a free contributor's card without the declaration, and lets the answer go ahead", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const { calls, findingsSave } = recorder();
+    const finalize = connectorTool("finalize_research", {
+      researchContributorAccessService: await accessService(), findingsLibrary: true, findingsSave,
+    });
+    const { public_value: _declared, ...undeclared } = CHECKED_CARD;
+    const result = await finalize(request({ findings_card: undeclared }), "auth0|free");
+    expect(result.structuredContent).toMatchObject({
+      status: "ready_with_limits",
+      next_steps: [],
+      findings_card: { status: "rejected", problems: [expect.stringMatching(/^findings_card\.public_value is missing: /u)] },
+    });
+    expect(result.structuredContent).not.toHaveProperty("saved_line");
+    expect(resultText(result)).toContain("\nFindings card: rejected: findings_card.public_value is missing: ");
+    expect(resultText(result)).toContain("\nEnd the answer with this line, as written");
+    expect(calls).toEqual([]);
+  });
+
+  it("offers a paid private save only for a public card, and save_research_findings refuses a personal-only one", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const github = new FakeGitHub();
+    // The library itself, with the clock the final check signs by.
+    const library = service(github, { now: new Date() });
+    const options = {
+      researchContributorAccessService: await accessService(),
+      findingsLibrary: true,
+      findingsSave: (raw: unknown, context: FindingsSaveContext) => library.save(raw, context),
+    };
+    const finalize = connectorTool("finalize_research", options);
+    const save = connectorTool("save_research_findings", options);
+    // A public card is offered as before, in the one sentence that also asks to file this research's map (143a).
+    const offer = findingsAndMapSaveOffer({ studies: 1, videos: 0, absences: 0, corrections: 0 });
+    const shared = await finalize(request({ answer_draft: `${QUOTE} ${offer}` }), "auth0|paid");
+    expect(shared.structuredContent).toMatchObject({
+      status: "ready_with_limits", caveats: [SKIP, offer],
+      findings_card: { status: "checked", public_value: "public" }, research_map: { status: "offered" },
+    });
+    // A personal-only card is checked, but nothing is offered: neither its save nor the map.
+    const personal = await finalize(request({ findings_card: PERSONAL_CARD }), "auth0|paid");
+    expect(personal.structuredContent).toMatchObject({
+      status: "ready_with_limits", caveats: [SKIP],
+      findings_card: { status: "checked", problems: [], beyond_quick_answer: 1, public_value: "personal_only" },
+    });
+    expect(personal.structuredContent).not.toHaveProperty("research_map");
+    expect((personal.structuredContent as { findings_card: object }).findings_card).not.toHaveProperty("saved");
+    expect(resultText(personal)).toContain(`\nFindings card: checked; ${PERSONAL_ONLY_NOT_OFFERED}.`);
+    expect(PERSONAL_ONLY_NOT_OFFERED).toBe("its findings are declared personal only, so the answer offers no save, and " +
+      "save_research_findings does not save them");
+    const receipt = (personal.structuredContent as { finalization_receipt: string }).finalization_receipt;
+    expect(receipt).not.toContain("map=offered");
+    // Asked anyway, the save is refused by the declaration the final check signed, and nothing is stored.
+    const refused = await save({ findings_card: PERSONAL_CARD, finalization_receipt: receipt, user_consent: "yes_to_this_save" }, "auth0|paid");
+    expect(refused.isError).toBe(true);
+    expect(refused.structuredContent).toEqual({ status: "personal_only", retryable: false });
+    expect(refused.content).toEqual([{
+      type: "text",
+      text: "Not saved: the card declares its findings personal only, and AskRigor's findings library keeps only " +
+        "findings that would help other people.",
+    }]);
+    // Declaring it public after the check does not get it saved: that is not the card the check signed.
+    const relabeled = await save({ findings_card: CHECKED_CARD, finalization_receipt: receipt, user_consent: "yes_to_this_save" }, "auth0|paid");
+    expect(relabeled.structuredContent).toMatchObject({ status: "card_not_checked", reason_code: "card_changed" });
+    expect(github.writes).toEqual([]);
+    // With no offer made, the map is not filed with this receipt either.
+    const map = await connectorTool("submit_research_contribution", options)({
+      proposalKind: "RESEARCH_FRONTIER",
+      privacyBoundary: CONTRIBUTION_PRIVACY_BOUNDARY_EXAMPLE,
+      payload: CONTRIBUTION_EXAMPLES.RESEARCH_FRONTIER,
+      userConsent: "yes_to_this_save",
+      finalizationReceipt: receipt,
+    }, "auth0|paid");
+    expect(map.isError).toBe(true);
+    // The public card's save, after the user's yes, is stored with its declaration.
+    const yes = await save({
+      findings_card: CHECKED_CARD,
+      finalization_receipt: (shared.structuredContent as { finalization_receipt: string }).finalization_receipt,
+      user_consent: "yes_to_this_save",
+    }, "auth0|paid");
+    expect(yes.structuredContent).toMatchObject({ status: "saved", card_id: "ARF-0042" });
+    expect(storedRecord(github.issues[0]!.body).card.public_value).toEqual(CARD.public_value);
+  });
+
   it("keeps research without a research account, and research while the library is closed, out of the library", async () => {
     process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
     const service = await accessService();
@@ -924,8 +1135,11 @@ describe("finalize_research, save_research_findings and the findings library", (
     expect(finalize?.description).toContain(
       "In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the " +
         "owner's review, and saved_line says so at the end of the answer; in paid private mode, when a finding rests " +
-        "on work a quick answer cannot do, the caveats offer its save, which also asks to file this research's map."
+        "on work a quick answer cannot do, the caveats offer its save, which also asks to file this research's map. " +
+        // Owner answer 156a (2026-10-22).
+        "A card whose public_value declares its findings personal_only is neither saved nor offered."
     );
+    expect(save?.description).toContain("A card whose public_value declares its findings personal_only is not saved.");
     // Owner answer 148a: other providers' research tools point to studies; their text is not evidence or answer text.
     expect(finalize?.description).toContain(OTHER_TOOLS_SENTENCE.trim());
     expect(OTHER_TOOLS_SENTENCE).toContain("their summaries, rankings and scores are not evidence");

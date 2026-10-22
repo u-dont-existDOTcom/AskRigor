@@ -471,6 +471,15 @@ checked answer ends with a note comparing the two, which each account can turn
 off (migration `0013_research_plain_answer_note`). The plan is
 `docs/superpowers/plans/2026-10-21-atlas-merging-save-offer-plain-answer.md`.
 
+Owner answer 156a (2026-10-22; built, not yet released): the Atlas holds what
+other people would benefit from, so the AI declares on each findings card whom
+its findings would help (`public_value`: `public`, with who else faces them and
+what they could change for them, or `personal_only`). The final check rejects a
+card without the declaration, which holds back nothing. A personal-only card is
+neither saved for a free contributor nor offered to a paid private one, and
+`save_research_findings` refuses it; the rest are saved or offered as before,
+and the owner's review shows each card's declaration.
+
 ## Public-review status
 
 The Phase K2 source candidate is not a public-release claim. It requires a

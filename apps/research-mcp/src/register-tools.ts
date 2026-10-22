@@ -799,6 +799,13 @@ export interface RegisterToolsOptions {
 // goes ahead and the save, which carries on, is reported unconfirmed.
 const FINDINGS_SAVE_DEADLINE_MILLISECONDS = 10_000;
 
+// What finalize_research says of a checked card whose findings are declared personal only (owner answer 156a,
+// 2026-10-22): a free contributor's is not saved, and a paid private answer offers no save.
+export const PERSONAL_ONLY_NOT_SAVED = "not saved: its findings are declared personal only, so they stay out of " +
+  "AskRigor's findings library";
+export const PERSONAL_ONLY_NOT_OFFERED = "its findings are declared personal only, so the answer offers no save, and " +
+  "save_research_findings does not save them";
+
 function defineResearchOperations(
   registrar: Pick<McpServer, "registerTool">,
   options: RegisterToolsOptions,
@@ -2182,7 +2189,8 @@ function defineResearchOperations(
         "receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked " +
         "findings_card is saved to AskRigor's private findings library for the owner's review, and saved_line says " +
         "so at the end of the answer; in paid private mode, when a finding rests on work a quick answer cannot do, " +
-        "the caveats offer its save, which also asks to file this research's map. research_map says whether this " +
+        "the caveats offer its save, which also asks to file this research's map. A card whose public_value declares " +
+        "its findings personal_only is neither saved nor offered. research_map says whether this " +
         "research's map was filed or offered, or reminds a free contributor to file it. For a paid private or dev " +
         "account whose plain answer was registered with " +
         "manage_research_access before the research, plain_answer_comparison gives what the research found for each " +
@@ -2257,6 +2265,13 @@ function defineResearchOperations(
         result = finalizeResearch(input, { ...finalizeOptions, secondReading });
       }
       if (
+        account?.mode === "FREE_CONTRIBUTOR" && result.findings_card.status === "checked" &&
+        result.findings_card.public_value === "personal_only"
+      ) {
+        // Owner answer 156a (2026-10-22): findings declared personal only are not saved for the Atlas, so no save is
+        // attempted and the answer ends with no saved line for them.
+        result.findings_card.saved = { status: "not_saved", reason: "personal_only" };
+      } else if (
         account?.mode === "FREE_CONTRIBUTOR" && checkedInput?.findings_card !== undefined &&
         result.findings_card.status === "checked" && result.finalization_receipt !== undefined
       ) {
@@ -2330,19 +2345,23 @@ function defineResearchOperations(
               (card.saved !== undefined
                 ? `; ${
                   card.saved.status === "not_saved"
-                    ? "not saved"
+                    ? card.saved.reason === "personal_only" ? PERSONAL_ONLY_NOT_SAVED : "not saved"
                     : card.saved.status === "unconfirmed"
                       ? "the save had not finished; it may still complete"
                       : `saved for review as ${card.saved.card_id}`
                 }.`
                 : card.problems.length > 0
                   ? `: ${card.problems.join(" ")}`
-                  // A paid private card no finding of which rests on work a quick answer cannot do is not offered,
-                  // and its receipt still signs it, so the user can still ask for the save (owner answer 139c).
-                  : finalizeOptions.findings === "offer" && card.beyond_quick_answer === 0
-                    ? "; no finding rests on work a quick answer cannot do, so the answer offers no save. If the user " +
-                      "asks for it, save_research_findings still saves it after their yes."
-                    : ".")) +
+                  // Owner answer 156a: a paid private card declared personal only is not offered, and its save is
+                  // refused even when the user asks.
+                  : finalizeOptions.findings === "offer" && card.public_value === "personal_only"
+                    ? `; ${PERSONAL_ONLY_NOT_OFFERED}.`
+                    // A paid private card no finding of which rests on work a quick answer cannot do is not offered,
+                    // and its receipt still signs it, so the user can still ask for the save (owner answer 139c).
+                    : finalizeOptions.findings === "offer" && card.beyond_quick_answer === 0
+                      ? "; no finding rests on work a quick answer cannot do, so the answer offers no save. If the user " +
+                        "asks for it, save_research_findings still saves it after their yes."
+                      : ".")) +
           (analyses === undefined
             ? ""
             : `\nStudy and review analyses from this account's research, in this chat or another, sent to the review inbox: ${analyses.saved + analyses.already_saved}` +

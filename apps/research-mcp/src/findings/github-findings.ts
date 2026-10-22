@@ -288,8 +288,10 @@ function occurrenceComment(record: FindingsRecord, metadata: OccurrenceMetadata)
         ? "none"
         : finding.verified_bases!.map(escapeMarkdown).join(", ")}`).join("\n"))}`
     : "";
+  // So does each save's own declaration of whom the findings would help (owner answer 156a).
   const full = `## Saved again\n\nOccurrence ${metadata.occurrence_count}: the same question and claims, saved ` +
-    `again after another checked answer.${bases}\n\n${readableStamp(record)}\n\n${tail}`;
+    `again after another checked answer.${bases}\n\n` +
+    `${publicValueSection(record, "Public value, as this save declares it")}\n\n${readableStamp(record)}\n\n${tail}`;
   return boundedBody(full, tail);
 }
 
@@ -312,6 +314,7 @@ function readableCard(record: FindingsRecord): string {
   return [
     section("Question", escapeMarkdown(card.question)),
     section("Usual answer", escapeMarkdown(card.usual_answer)),
+    publicValueSection(record, "Public value, as the AI declared it"),
     ...card.findings.map((finding, index) => section(`Finding ${index + 1}`, [
       `- Claim: ${escapeMarkdown(finding.claim)}`,
       `- Certainty: ${escapeMarkdown(finding.certainty)}`,
@@ -334,6 +337,21 @@ function readableCard(record: FindingsRecord): string {
       ? []
       : [section("Open leads", card.open_leads.map((lead) => `- ${escapeMarkdown(lead)}`).join("\n"))]),
   ].join("\n\n");
+}
+
+/**
+ * Whom the findings would help, as the model declared it on the card (owner answer 156a, 2026-10-22): the owner's
+ * review reads it before accepting a card for the Atlas. A saved card declares public value; a card saved before the
+ * declaration was asked for shows that it has none.
+ */
+function publicValueSection(record: FindingsRecord, heading: string): string {
+  const value = record.card.public_value;
+  return section(heading, value === undefined ? "Not declared." : [
+    `- Scope: ${escapeMarkdown(value.scope)}`,
+    ...(value.who_else === undefined ? [] : [`- Who else faces it: ${escapeMarkdown(value.who_else)}`]),
+    ...(value.what_it_changes === undefined ? []
+      : [`- What it could change for them: ${escapeMarkdown(value.what_it_changes)}`]),
+  ].join("\n"));
 }
 
 /** Whether a finding of the record rests on work a quick answer cannot do. */

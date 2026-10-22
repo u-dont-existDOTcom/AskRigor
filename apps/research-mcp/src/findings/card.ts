@@ -16,7 +16,8 @@ import {
  * contributor account the server then saves the card whose digest that
  * receipt signed; for a paid-private account the answer offers the save, and
  * save_research_findings saves it only after the user says yes. The owner
- * reviews every saved card.
+ * reviews every saved card. A card whose findings would help no one but the
+ * person asking is neither saved nor offered (owner answer 156a, 2026-10-22).
  */
 
 export const FINDING_CERTAINTIES = ["high", "moderate", "low", "very_low"] as const;
@@ -27,6 +28,13 @@ export const FINDING_TAGS = [
   "overlooked_study",
   "documented_absence"
 ] as const;
+
+/**
+ * Whom a card's findings would help, as the model declares it (owner answer 156a, 2026-10-22): other people, so the
+ * card may go to the owner's review for the Atlas, or only the person asking, so it stays out of the library.
+ */
+export const PUBLIC_VALUE_SCOPES = ["public", "personal_only"] as const;
+export type PublicValueScope = typeof PUBLIC_VALUE_SCOPES[number];
 
 const cardText = (max: number) => z.string().trim().min(1).max(max);
 
@@ -48,6 +56,31 @@ export const findingsCardSchema = z.object({
         "whose comments were audited here."),
     what_would_change_it: cardText(300)
   }).strict()).min(1).max(5),
+  // Owner answer 156a (2026-10-22): the library feeds the Atlas, which holds what other people would benefit from, not
+  // every answer better than a quick one ("why do I get tired when cooking", traced to the person's childhood, stays
+  // out). The model declares, by the owner's four-part test, who else the findings would help and why, or that they
+  // are personal only; the server checks only that the declaration is made, and keeps personal-only findings out of
+  // the library. One object rather than two alternatives, so that ChatGPT's app shows the model its fields (as for
+  // full_text_search). Optional here, so that a call from an app whose tool list predates it still parses: the final
+  // check rejects a card without it, and a rejected card holds back nothing.
+  public_value: z.object({
+    scope: z.enum(PUBLIC_VALUE_SCOPES)
+      .describe("public when all four hold: other people face it (it is about a condition, symptom, test, " +
+        "treatment, supplement, product, food or practice, and holds without this person's history); it rests on what " +
+        "the research checked here, not on what this person reported; it could change what someone does or believes; " +
+        "and it adds something to well-known guidance. personal_only otherwise, as for a cause found only in this " +
+        "person's own past or routine."),
+    who_else: cardText(300).optional()
+      .describe("With scope public: who else faces it, in general terms with no personal details, such as adults with " +
+        "hip osteoarthritis weighing surgery."),
+    what_it_changes: cardText(300).optional()
+      .describe("With scope public: what it could change in what they do or believe, beyond well-known guidance, " +
+        "such as an effect in absolute numbers, a harm with its basis, an overlooked option with real evidence, a " +
+        "correction of a widely repeated claim or a search that found nothing.")
+  }).strict().optional()
+    .describe("Whether these findings would help anyone beyond this person. Findings declared personal_only are not " +
+      "saved to AskRigor's findings library or offered for it. When the answer holds both kinds, put only the general " +
+      "findings on the card, written without the person, and declare them public."),
   open_leads: z.array(cardText(200)).max(6).default([])
 }).strict();
 
@@ -292,12 +325,20 @@ export function withoutYouTubeData(card: FindingsCard): { card: StoredFindingsCa
       ...(videos === 0 ? {} : { youtube_videos: videos })
     };
   });
+  const declared = card.public_value;
   return {
     card: {
       ...card,
       question: text(card.question),
       usual_answer: text(card.usual_answer),
       findings,
+      ...(declared === undefined ? {} : {
+        public_value: {
+          ...declared,
+          ...(declared.who_else === undefined ? {} : { who_else: text(declared.who_else) }),
+          ...(declared.what_it_changes === undefined ? {} : { what_it_changes: text(declared.what_it_changes) })
+        }
+      }),
       open_leads: card.open_leads.map(text)
     },
     omitted
@@ -324,6 +365,9 @@ const STUDY_IDENTIFIER = new RegExp(
 const YOUTUBE_VIDEO_ID = /^[A-Za-z0-9_-]{11}$/u;
 
 function cardTexts(card: FindingsCard): Array<[string, string]> {
+  // The public-value declaration's words are stored with a saved card (owner answer 156a), so they are screened too,
+  // whatever its scope.
+  const declared = card.public_value;
   return [
     ["question", card.question],
     ["usual_answer", card.usual_answer],
@@ -334,6 +378,9 @@ function cardTexts(card: FindingsCard): Array<[string, string]> {
       [`findings[${index}].why_not_usual`, finding.why_not_usual],
       [`findings[${index}].what_would_change_it`, finding.what_would_change_it]
     ]),
+    ...(declared?.who_else === undefined ? [] : [["public_value.who_else", declared.who_else] as [string, string]]),
+    ...(declared?.what_it_changes === undefined ? []
+      : [["public_value.what_it_changes", declared.what_it_changes] as [string, string]]),
     ...card.open_leads.map((lead, index): [string, string] => [`open_leads[${index}]`, lead])
   ];
 }

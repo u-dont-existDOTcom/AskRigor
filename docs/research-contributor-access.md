@@ -11,7 +11,8 @@ AskRigor has two research-use modes:
   may be submitted to AskRigor's shared living-evidence repository, and each
   finished research answer's findings card is saved to AskRigor's private
   findings library for review (owner decision Q11, 2026-09-30; see
-  `docs/privacy-data-map.md`). This is the free product.
+  `docs/privacy-data-map.md`), unless the AI declares its findings personal
+  only (owner answer 156a, 2026-10-22). This is the free product.
 - **Paid private.** No research progress is submitted. Research findings and
   lesson feedback are saved only when the user accepts saving them for that
   answer. This mode activates only when the account already has a verified
