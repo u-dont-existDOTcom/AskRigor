@@ -2,11 +2,14 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import {
+  AtlasFindingPromotionRunner,
+  PostgresAtlasPromotionStore,
   PostgresEvidenceRepository,
   PostgresResearchContributionPromotionRunner,
   assertNoProhibitedPersistentKeys,
   researchFrontierContributionSchema,
   stableJson,
+  type AtlasFindingPromotionFailure,
   type ResearchContributionPromotionFailure,
 } from "@askrigor/evidence-repository";
 import { getProtocolManifest } from "@askrigor/protocol";
@@ -107,6 +110,9 @@ async function main(): Promise<void> {
       return;
     }
     if (command === "promote-accepted") {
+      // The contribution queue first, as before; then the Atlas findings queue (Atlas phase 2), which runs even when
+      // the first fails, so a stuck intent in one queue never holds the other back. Either failure fails the run.
+      let contributionError: unknown;
       const runner = new PostgresResearchContributionPromotionRunner(
         config,
         repository,
@@ -137,9 +143,13 @@ async function main(): Promise<void> {
           result: run.result,
           failed: run.failed.map(failureLine),
         });
+      } catch (error) {
+        contributionError = error;
       } finally {
         await runner.close();
       }
+      await promoteAtlasFindings(config);
+      if (contributionError !== undefined) throw contributionError;
       return;
     }
     const raw = JSON.parse(await readBoundedStdin());
@@ -169,6 +179,44 @@ async function main(): Promise<void> {
     });
   } finally {
     await repository.close();
+  }
+}
+
+/**
+ * Atlas phase 2: promotes the owner's oldest pending Atlas intent, strictly first in, first out, with at most one
+ * promotion per activation (choice 7). An intent whose canonical write conflicts ends FAILED with its fixed code, named
+ * as it happens, and the next one is tried; receipts hold only ids and hashes.
+ */
+async function promoteAtlasFindings(config: ReturnType<typeof adminConfig>): Promise<void> {
+  const runner = new AtlasFindingPromotionRunner(new PostgresAtlasPromotionStore(config));
+  try {
+    const failureLine = ({ intentId, intentKind, publicNumber, failureCode }: AtlasFindingPromotionFailure) => ({
+      intent_id: intentId,
+      intent_kind: intentKind,
+      public_number: publicNumber,
+      failure_code: failureCode,
+    });
+    const run = await runner.promoteAccepted({
+      onFailed: (failure) => writeReceipt({
+        receipt_schema: "askrigor.living-evidence.admin-receipt.v1",
+        operation: "promote-accepted",
+        queue: "atlas_findings",
+        status: "intent_failed",
+        schema: config.schema,
+        ...failureLine(failure),
+      }),
+    });
+    writeReceipt({
+      receipt_schema: "askrigor.living-evidence.admin-receipt.v1",
+      operation: "promote-accepted",
+      queue: "atlas_findings",
+      status: "complete",
+      schema: config.schema,
+      result: run.result,
+      failed: run.failed.map(failureLine),
+    });
+  } finally {
+    await runner.close();
   }
 }
 

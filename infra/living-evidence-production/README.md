@@ -43,7 +43,9 @@ database-create privilege. The research-access role has only the account,
 entitlement-read, pending-proposal insert/read, and bounded pending-withdrawal
 permissions documented below. The research-review role can execute only the
 three bounded owner-review functions (inspect, decide, and the review context of
-migration 0012) and has no direct table privileges. The
+migration 0012) and the five Atlas review functions of migration 0017 (inspect
+cards, decide a card item, record an intent, inspect intents, and forget
+cards), and has no direct table or sequence privileges. The
 ordinary research service receives the reader, evidence-gap intake,
 research-access, and research-review URLs through the existing
 root-owned mode-0600 runtime.env. The one-shot admin profile receives only the migrator URL
@@ -100,6 +102,9 @@ placed in Compose.
    Connect separately as `askrigor_research_review` and prove that the exact
    inspect/decide/context functions work while direct proposal-table reads or updates,
    canonical-table reads or writes, temporary objects, and schema creation fail.
+   Prove too that the five Atlas functions work while the Atlas tables, the
+   `atlas_public_number_seq` sequence, `erase_atlas_wording` and
+   `atlas_redaction_permits` are refused.
 7. Recreate only research-mcp with the combined Compose selection. Verify it
    remains non-root/read-only/capability-free, joins exactly its prior network
    plus the internal repository network, stays healthy, and does not emit
@@ -152,8 +157,8 @@ Add `ASKRIGOR_RESEARCH_REVIEW_ENABLED=true`, the dedicated review-role URL,
 schema `living_evidence`, and Docker-internal SSL mode `disable` to the same
 mode-0600 runtime environment. The review URL must use
 `askrigor_research_review`, not the access role or migrator. It can call only
-the hash-bound inspect/decide functions and the read-only review context
-function, and cannot read tables directly.
+the hash-bound inspect/decide functions, the read-only review context
+function and the five Atlas review functions, and cannot read tables directly.
 
 Owner answer 140b (2026-10-20): paid private accounts and dev accounts register
 a plain answer before research, and their checked answers end with a note
@@ -204,6 +209,57 @@ earlier image reads only v1 and v2, so once any account has accepted v3, an
 image rollback needs a hold step for v3 rows like the v2 one
 (`research-use-notice-v2-hold.sql`, which moves v2 rows only); that step is not
 built yet.
+
+Atlas phase 2 (owner answers 159 and 160b, 2026-10-22; design
+`../../docs/superpowers/plans/2026-10-22-atlas-phase-2-design.md`): the owner
+accepts findings from saved findings cards into this database. Migration
+`0017_atlas_findings` adds:
+
+- two private review tables, which the review role reaches only through its
+  functions: `atlas_card_decisions` (the owner's decision on each card item,
+  the only rows that name a card, deleted when the card is forgotten) and
+  `atlas_finding_intents` (each decision's hash-bound intent, queued for the
+  runner), with the `atlas_public_number_seq` sequence that numbers findings
+  from `F-1001`;
+- eight canonical tables with the `append_only_guard` trigger:
+  `atlas_findings`, `atlas_finding_versions`, `atlas_finding_changes`,
+  `atlas_finding_links`, `atlas_finding_link_withdrawals`,
+  `atlas_source_checks`, `atlas_redactions` and `atlas_intent_applications`,
+  and the `atlas_finding_current` view;
+- five SECURITY DEFINER review functions, each revoked from PUBLIC:
+  `inspect_atlas_cards`, `decide_atlas_card_item`,
+  `record_atlas_finding_intent`, `inspect_atlas_finding_intents` and
+  `forget_atlas_cards`;
+- writer-only `erase_atlas_wording` and `atlas_redaction_permits`, and a new
+  body for `reject_living_evidence_mutation()` whose one exception lets
+  `erase_atlas_wording` replace the text columns of the version a redaction row
+  names with a fixed marker (decision 7). Nothing is ever deleted.
+
+Canonical Atlas rows never hold an ARF number, a thread key, a receipt hash, an
+account, an answer quote, or YouTube or community data. The owner's call
+records a decision and its intent; only the one-shot admin
+`promote-accepted` writes canonical rows, after the contribution queue in the
+same activation.
+
+The release, in this order:
+
+1. Run the one-shot admin `migrate`, which applies 0017 (and 0016 if it has not
+   run yet), before the new image serves.
+2. Re-run `/usr/local/bin/provision-research-review-role` inside the PostgreSQL
+   service, so the review role gets the five Atlas grants (the script grants
+   exactly those, after the three contribution grants), and prove the role
+   boundary as step 6 above says.
+3. Bind `/opt/askrigor/living-evidence-image.env` to the deployed image, start
+   `askrigor-research-promotion.service` by hand, and expect
+   `no_pending_promotion` for both queues (the contribution line and the line
+   with `"queue":"atlas_findings"`). Then verify the next timer trigger.
+4. Check the 33-tool catalog; the owner refreshes each connector's tool list.
+
+The owner's Atlas actions stay closed behind `ASKRIGOR_ATLAS_REVIEW=enabled`
+until all of that is verified. For a rollback, an earlier image never selects
+an Atlas intent, so pending intents stay `PENDING` and are neither lost nor
+failed; delete no decision, intent or canonical row. Notice v3 needs its own
+hold step, as the paragraph above says.
 
 When OAuth research access is active, the server omits legacy research Action
 routes so they cannot bypass the mode choice. The separately governed lesson
@@ -256,6 +312,10 @@ rollback contract is in
 `../../docs/research-contribution-promotion-scheduler.md`. A failed process
 after the canonical writer commit leaves the intent pending, and the next
 invocation completes it through the writer's idempotent replay path.
+The same invocation then promotes the oldest pending Atlas intent (Atlas phase
+2), strictly first in, first out: one SERIALIZABLE transaction holds the writer
+lock and the intent's row lock, writes the canonical rows and records the
+intent's receipt or fixed failure code together, so an Atlas pass is atomic.
 The exact production installation, safe first-attempt recovery, manual run, and
 real timer-triggered acceptance are preserved in
 `../../docs/audits/2026-09-01-promotion-scheduler-production-release.md` and its

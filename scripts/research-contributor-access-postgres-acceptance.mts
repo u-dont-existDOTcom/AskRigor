@@ -1,8 +1,18 @@
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { Pool } from "pg";
 
 import {
+  AtlasFindingPromotionRunner,
+  AtlasReviewError,
+  AtlasWriteConflict,
+  PostgresAtlasPromotionStore,
+  PostgresAtlasReader,
+  PostgresAtlasReviewStore,
+  PostgresAtlasWriter,
   PostgresEvidenceRepository,
   PostgresResearchContributorAccessStore,
   PostgresResearchContributionPromotionRunner,
@@ -12,11 +22,19 @@ import {
   ResearchContributionRejectedError,
   ResearchContributionReviewService,
   ResearchContributorAccessService,
+  atlasCurrentLabels,
   deterministicUuid,
+  prepareAtlasFindingIntent,
   prepareResearchContributionProposal,
+  type AtlasCardDecision,
+  type AtlasCardItemKind,
+  type AtlasFindingIntent,
+  type AtlasFindingPromotionRun,
+  type AtlasIntentView,
   type ContributionPrivacyBoundary,
   type LivingEvidenceContribution,
 } from "../packages/evidence-repository/src/index.js";
+import { readAtlasStateWith } from "../packages/evidence-repository/src/atlas-postgres.js";
 import { buildStagedAnalysis } from "../apps/research-mcp/src/analysis-staging.js";
 import { validateStudyMethodAudit } from "../apps/research-mcp/src/index.js";
 import {
@@ -63,7 +81,7 @@ async function main(): Promise<void> {
       status: "PASS",
       phase: "migrate",
       schema: SCHEMA,
-      migration: "0016_research_use_notice_v3",
+      migration: "0017_atlas_findings",
     })}\n`);
     return;
   }
@@ -549,6 +567,8 @@ async function verify(
     await verifySupersession({ admin, reviewRestricted, service, reviewService, checks });
     await verifyRelatedAndPreflight({ adminUrl, readerUrl, reviewRestricted, service, reviewService, writer, checks });
     await verifyTopicLinks({ adminUrl, readerUrl, admin, service, reviewService, writer, checks });
+    await verifyAtlasMigrations({ adminUrl, schema: SCHEMA, checks });
+    await verifyAtlasStorage({ adminUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
 
     const racePayload = researchFrontierFixture("research-review-withdraw-race");
     const raceProposal = await service.submitProposal(REVIEW_SUBJECT, {
@@ -1313,6 +1333,918 @@ async function verifyTopicLinks(context: {
   }
 }
 
+// Atlas phase 2, part A (docs/superpowers/plans/2026-10-22-atlas-phase-2-design.md, section 7): migration 0017, the
+// review role's five functions, the append-only Atlas tables and their one redaction exception, and the runner:
+// accept, lead, contested, replaces, a correction chain, withdraw, the failure codes and replay. Role boundaries are
+// checked with SET LOCAL ROLE from the migrator (a superuser in this container, as the official image makes it), so
+// the same checks also run where a role cannot log in separately.
+
+const ATLAS_CANONICAL_TABLES = [
+  "atlas_intent_applications", "atlas_findings", "atlas_finding_versions", "atlas_finding_links",
+  "atlas_finding_link_withdrawals", "atlas_finding_changes", "atlas_source_checks", "atlas_redactions",
+] as const;
+const ATLAS_REVIEW_FUNCTIONS = [
+  "decide_atlas_card_item", "forget_atlas_cards", "inspect_atlas_cards", "inspect_atlas_finding_intents",
+  "record_atlas_finding_intent",
+] as const;
+const CONTRIBUTION_REVIEW_FUNCTIONS = [
+  "decide_research_contribution_proposal", "inspect_research_contribution_context",
+  "inspect_research_contribution_proposal",
+] as const;
+const MIGRATIONS_BEFORE_ATLAS = [
+  "0001_living_evidence", "0002_research_frontier", "0003_community_forum_synthetic_lab",
+  "0004_community_forum_composer_frontier_queues", "0005_community_forum_hostile_lifecycle_research",
+  "0006_community_forum_closed_loop_hostile", "0007_community_forum_privacy_provenance_matrix",
+  "0008_public_evidence_gap_intake", "0009_research_contributor_access", "0010_research_contribution_review",
+  "0011_research_use_notice_v2", "0012_research_contribution_merging", "0013_research_plain_answer_note",
+  "0014_research_map_consent", "0015_research_detailed_lesson_reports", "0016_research_use_notice_v3",
+] as const;
+const ATLAS_ERASED = "[wording removed]";
+
+const atlasHex = (text: string) => createHash("sha256").update(text).digest("hex");
+const ATLAS_PROTOCOLS = [
+  { name: "Universal Instructions", version: "20.5.40", sha256: atlasHex("synthetic-universal-instructions") },
+  { name: "HRP", version: "20.6.30", sha256: atlasHex("synthetic-hrp") },
+];
+const ATLAS_MADE_WITH = {
+  askrigorVersion: "0.1.0", build: "unknown", protocols: ATLAS_PROTOCOLS, depth: "standard", status: "complete",
+};
+const ATLAS_DECIDED_WITH = { askrigorVersion: "0.1.0", build: "unknown", protocols: ATLAS_PROTOCOLS };
+// The draft's invented Velmor syndrome and zentarine, with synthetic identifiers.
+const ATLAS_TOPIC = { key: "velmor-syndrome", label: "Velmor syndrome (an invented condition)" };
+const ATLAS_QUESTION = "Does zentarine reduce relapse in adults with Velmor syndrome?";
+
+const atlasCardSha256 = (card: number) => atlasHex(`synthetic-findings-card:${card}`);
+const atlasWordingKey = (question: string, wording: string) => atlasHex(`synthetic-wording-key:${question}:${wording}`);
+
+function atlasSource(doi: string, checkedAt: string) {
+  return {
+    kind: "study",
+    identifiers: [{ scheme: "doi", value: doi }],
+    check: {
+      provider: "crossref",
+      title: `Synthetic zentarine trial ${doi.slice(doi.lastIndexOf("-") + 1)}`,
+      publishedYear: 2024,
+      retractionStatus: "none_found",
+      notices: [],
+      ownerConfirmed: false,
+      envelopeSha256: atlasHex(`synthetic-envelope:${doi}:${checkedAt}`),
+      checkedAt,
+    },
+  };
+}
+
+function atlasContent(wording: string, verifiedBases: string[], openLead = false) {
+  return {
+    wording,
+    appliesTo: openLead ? null : "Adults with Velmor syndrome",
+    certainty: openLead ? null : "moderate",
+    usualAnswer: "A quick answer says zentarine helps everyone with Velmor syndrome.",
+    whyNotUsual: openLead ? null : "The quick answer misses the dose the trials used.",
+    whatWouldChangeIt: openLead ? null : "A larger trial at the lower dose.",
+    whoElse: "Adults weighing zentarine for Velmor syndrome.",
+    whatItChanges: "Which dose to ask a doctor about.",
+    tags: [],
+    verifiedBases,
+    numbers: [],
+  };
+}
+
+function atlasAccept(options: {
+  wording: string;
+  bases: string[];
+  sources: unknown[];
+  entry?: "finding" | "unverified_finding" | "open_lead";
+  numbers?: unknown[];
+}) {
+  const entry = options.entry ?? "finding";
+  const key = atlasWordingKey(ATLAS_QUESTION, options.wording);
+  return {
+    schema: "askrigor.atlas-finding-intent.v1",
+    kind: "accept",
+    entryKind: entry === "finding" ? "finding" : "lead",
+    leadOrigin: entry === "finding" ? null : entry,
+    editedAtAcceptance: false,
+    topic: ATLAS_TOPIC,
+    question: ATLAS_QUESTION,
+    content: { ...atlasContent(options.wording, options.bases, entry === "open_lead"), numbers: options.numbers ?? [] },
+    sources: options.sources,
+    wordingKeys: { card: key, accepted: key },
+    researchCheckedOn: "2026-10-21",
+    madeWith: ATLAS_MADE_WITH,
+  };
+}
+
+function atlasRevise(publicNumber: string, version: number, changeKind: "corrected" | "edited", wording: string,
+  note: string | null, checkedAt: string) {
+  return {
+    schema: "askrigor.atlas-finding-intent.v1",
+    kind: "revise",
+    publicNumber,
+    version,
+    changeKind,
+    note,
+    content: atlasContent(wording, ["full_text_audit"]),
+    sources: [atlasSource("10.0000/synthetic-velmor-1", checkedAt)],
+    acceptedWordingKey: atlasWordingKey(ATLAS_QUESTION, wording),
+    researchCheckedOn: "2026-10-21",
+    madeWith: ATLAS_MADE_WITH,
+  };
+}
+
+async function atlasMigrationSnapshot(pool: Pool, schema: string): Promise<string> {
+  const [migrations, sequence, counts, constraints, guard] = await Promise.all([
+    pool.query(`SELECT migration_id, migration_sha256 FROM ${schema}.schema_migrations ORDER BY migration_id`),
+    pool.query(`SELECT last_value::text, is_called FROM ${schema}.atlas_public_number_seq`),
+    pool.query(`SELECT ${[...ATLAS_CANONICAL_TABLES, "atlas_card_decisions", "atlas_finding_intents"]
+      .map((table) => `(SELECT count(*)::int FROM ${schema}.${table}) AS ${table}`).join(", ")}`),
+    pool.query(
+      `SELECT constraint_row.conrelid::regclass::text AS relation, constraint_row.conname,
+              pg_get_constraintdef(constraint_row.oid) AS definition
+         FROM pg_constraint constraint_row
+         JOIN pg_namespace namespace ON namespace.oid = constraint_row.connamespace
+        WHERE namespace.nspname = $1 AND constraint_row.conrelid::regclass::text LIKE '%atlas%'
+        ORDER BY 1, 2`,
+      [schema],
+    ),
+    pool.query(`SELECT pg_get_functiondef('${schema}.reject_living_evidence_mutation()'::regprocedure) AS definition`),
+  ]);
+  return JSON.stringify({
+    migrations: migrations.rows,
+    sequence: sequence.rows,
+    counts: counts.rows,
+    constraints: constraints.rows,
+    guard: guard.rows,
+  });
+}
+
+/**
+ * Migration 0017: applied, a second migrate changes nothing, and a database at 0016 holding data upgrades to it and
+ * then takes an Atlas finding.
+ */
+export async function verifyAtlasMigrations(context: { adminUrl: string; schema: string; checks: string[] }): Promise<void> {
+  const { adminUrl, schema, checks } = context;
+  const admin = new Pool({ connectionString: adminUrl, max: 2 });
+  try {
+    const applied = await admin.query<{ migration_id: string }>(
+      `SELECT migration_id FROM ${schema}.schema_migrations WHERE migration_id = '0017_atlas_findings'`,
+    );
+    assert(applied.rowCount === 1, "MIGRATION_0017_NOT_APPLIED");
+    const before = await atlasMigrationSnapshot(admin, schema);
+    const again = new PostgresEvidenceRepository({ connectionString: adminUrl, schema });
+    try {
+      await again.migrate();
+    } finally {
+      await again.close();
+    }
+    assert(await atlasMigrationSnapshot(admin, schema) === before, "ATLAS_SECOND_MIGRATE_CHANGED_THE_SCHEMA_OR_ROWS");
+    checks.push("migration_0017_applied_and_a_second_migrate_changes_nothing");
+
+    // A database at 0016, as production holds it before this release, with canonical and account rows in it.
+    const upgrade = `${schema}_atlas_upgrade`;
+    const client = await admin.connect();
+    try {
+      await client.query("BEGIN");
+      for (const migrationId of MIGRATIONS_BEFORE_ATLAS) {
+        const sql = await readFile(
+          new URL(`../packages/evidence-repository/migrations/${migrationId}.sql`, import.meta.url),
+          "utf8",
+        );
+        await client.query(sql.replaceAll("__SCHEMA__", upgrade));
+        await client.query(
+          `INSERT INTO ${upgrade}.schema_migrations (migration_id, migration_sha256) VALUES ($1, $2)`,
+          [migrationId, createHash("sha256").update(sql).digest("hex")],
+        );
+      }
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+    const upgradeRepository = new PostgresEvidenceRepository({ connectionString: adminUrl, schema: upgrade });
+    const upgradeReview = new PostgresAtlasReviewStore({ connectionString: adminUrl, schema: upgrade });
+    const upgradeRunner = new AtlasFindingPromotionRunner(
+      new PostgresAtlasPromotionStore({ connectionString: adminUrl, schema: upgrade }),
+      { now: () => "2026-10-22T11:00:00.000Z" },
+    );
+    try {
+      await upgradeRepository.contributeFrontier(researchFrontierFixture("atlas-upgrade-frontier"));
+      await admin.query(
+        `INSERT INTO ${upgrade}.research_use_accounts
+           (account_key, status, mode, notice_version, agreement_json, activated_at, revoked_at, created_at, updated_at)
+         VALUES ($1, 'ACTIVE', 'FREE_CONTRIBUTOR', 'free-contributor-v3-2026-10-22', $2::jsonb, $3, NULL, $3, $3)`,
+        ["7".repeat(64), JSON.stringify({ noticeVersion: "free-contributor-v3-2026-10-22", synthetic: true }),
+          "2026-10-22T09:00:00.000Z"],
+      );
+      const counted = async () => (await admin.query<{ frontiers: number; accounts: number; migrations: number }>(
+        `SELECT (SELECT count(*)::int FROM ${upgrade}.frontier_contributions) AS frontiers,
+                (SELECT count(*)::int FROM ${upgrade}.research_use_accounts) AS accounts,
+                (SELECT count(*)::int FROM ${upgrade}.schema_migrations) AS migrations`,
+      )).rows[0]!;
+      const atZeroSixteen = await counted();
+      assert(atZeroSixteen.frontiers === 1 && atZeroSixteen.accounts === 1 && atZeroSixteen.migrations === 16,
+        "ATLAS_UPGRADE_BASELINE_MISMATCH");
+      await upgradeRepository.migrate();
+      const upgraded = await counted();
+      assert(upgraded.frontiers === 1 && upgraded.accounts === 1 && upgraded.migrations === 17,
+        "ATLAS_UPGRADE_LOST_ROWS_OR_SKIPPED_0017");
+      const prepared = prepareAtlasFindingIntent(atlasAccept({
+        wording: "In an invented trial, zentarine 20 mg cut relapse in adults with Velmor syndrome.",
+        bases: ["full_text_audit"],
+        sources: [atlasSource("10.0000/synthetic-velmor-upgrade", "2026-10-22T10:00:00.000Z")],
+      }));
+      const decided = await upgradeReview.decide({
+        cardNumber: 8001, itemKind: "finding", itemNumber: 1, decision: "accepted", cardSha256: atlasCardSha256(8001),
+        ownerReason: null, decidedAt: "2026-10-22T10:30:00.000Z",
+        intent: { intentId: deterministicUuid(`atlas-upgrade-intent:${upgrade}`), ...prepared },
+        recheckedPublicNumber: null,
+      });
+      const promoted = await upgradeRunner.promoteAccepted();
+      assert(
+        decided.publicNumber === "F-1001" && promoted.failed.length === 0 && promoted.result.status === "promoted" &&
+          promoted.result.receipt.publicNumber === "F-1001",
+        "ATLAS_UPGRADED_DATABASE_DID_NOT_TAKE_A_FINDING",
+      );
+    } finally {
+      await Promise.allSettled([upgradeRepository.close(), upgradeReview.close(), upgradeRunner.close()]);
+    }
+    checks.push("an_0016_database_with_data_upgrades_to_0017_keeps_its_rows_and_takes_a_finding");
+  } finally {
+    await admin.end();
+  }
+}
+
+/** The owner's Atlas decisions through the review role, and the runner's canonical writes. */
+export async function verifyAtlasStorage(context: {
+  adminUrl: string;
+  reviewUrl: string;
+  readerUrl: string;
+  schema: string;
+  checks: string[];
+}): Promise<void> {
+  const { adminUrl, reviewUrl, readerUrl, schema, checks } = context;
+  const admin = new Pool({ connectionString: adminUrl, max: 2 });
+  const reviewPool = new Pool({ connectionString: reviewUrl, max: 1 });
+  const review = new PostgresAtlasReviewStore({ connectionString: reviewUrl, schema });
+  const reader = new PostgresAtlasReader({ connectionString: readerUrl, schema });
+  let instant = Date.parse("2026-10-22T12:00:00.000Z");
+  const tick = () => new Date(instant += 1_000).toISOString();
+  const runner = new AtlasFindingPromotionRunner(
+    new PostgresAtlasPromotionStore({ connectionString: adminUrl, schema }),
+    { now: tick },
+  );
+  const writer = new PostgresAtlasWriter({ connectionString: adminUrl, schema }, { now: tick });
+  let intentSequence = 0;
+  const nextIntentId = () => deterministicUuid(`atlas-acceptance-intent:${schema}:${intentSequence++}`);
+  const decide = (
+    card: number,
+    itemKind: AtlasCardItemKind,
+    itemNumber: number,
+    decision: AtlasCardDecision,
+    payload: unknown,
+    options: { reason?: string; rechecked?: string } = {},
+  ) => {
+    const prepared = payload === null ? null : prepareAtlasFindingIntent(payload);
+    return review.decide({
+      cardNumber: card,
+      itemKind,
+      itemNumber,
+      decision,
+      cardSha256: atlasCardSha256(card),
+      ownerReason: options.reason ?? null,
+      decidedAt: tick(),
+      intent: prepared === null ? null : { intentId: nextIntentId(), ...prepared },
+      recheckedPublicNumber: options.rechecked ?? null,
+    });
+  };
+  const record = (payload: unknown, retryOf: string | null = null) => {
+    const prepared = prepareAtlasFindingIntent(payload);
+    const intent = prepared.payload;
+    if (intent.kind === "accept" || intent.kind === "recheck") throw new Error("ATLAS_ACCEPTANCE_RECORD_KIND");
+    return review.recordIntent({
+      intentId: nextIntentId(),
+      intentKind: intent.kind,
+      publicNumber: intent.publicNumber,
+      payload: intent,
+      payloadSha256: prepared.payloadSha256,
+      ownerReason: null,
+      createdAt: tick(),
+      retryOfIntentId: retryOf,
+    });
+  };
+  const promote = async (code: string) => {
+    const run: AtlasFindingPromotionRun = await runner.promoteAccepted();
+    if (run.failed.length !== 0 || run.result.status !== "promoted") throw new Error(`${code} ${JSON.stringify(run)}`);
+    return run.result;
+  };
+  const label = async (publicNumber: string) => (await admin.query<{ label: string }>(
+    `SELECT label FROM ${schema}.atlas_finding_current WHERE public_number = $1`,
+    [publicNumber],
+  )).rows[0]?.label;
+  const versionsOf = async (publicNumber: string) => (await admin.query<{
+    version_number: number;
+    claim_version_id: string;
+    status: string;
+    supersedes_claim_version_id: string | null;
+  }>(
+    `SELECT version.version_number, version.claim_version_id, claimed.status, claimed.supersedes_claim_version_id
+       FROM ${schema}.atlas_finding_versions version
+       JOIN ${schema}.atlas_findings finding ON finding.finding_id = version.finding_id
+       JOIN ${schema}.claim_versions claimed ON claimed.version_id = version.claim_version_id
+      WHERE finding.public_number = $1
+      ORDER BY version.version_number`,
+    [publicNumber],
+  )).rows;
+  const changesOf = async (publicNumber: string) => (await admin.query<{
+    change_kind: string;
+    label_before: string | null;
+    label_after: string;
+    public_note: string | null;
+    research_checked_on: string | null;
+    claim_version_id: string | null;
+  }>(
+    `SELECT change.change_kind, change.label_before, change.label_after, change.public_note,
+            to_char(change.research_checked_on, 'YYYY-MM-DD') AS research_checked_on, change.claim_version_id
+       FROM ${schema}.atlas_finding_changes change
+       JOIN ${schema}.atlas_findings finding ON finding.finding_id = change.finding_id
+      WHERE finding.public_number = $1
+      ORDER BY change.inserted_at, change.change_id`,
+    [publicNumber],
+  )).rows;
+  const asRole = async <T>(role: string, work: (client: import("pg").PoolClient) => Promise<T>): Promise<T> => {
+    const client = await admin.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(`SET LOCAL ROLE ${role}`);
+      await client.query(`SET LOCAL search_path TO ${schema}, public`);
+      return await work(client);
+    } finally {
+      await client.query("ROLLBACK").catch(() => undefined);
+      client.release();
+    }
+  };
+  try {
+    // An accepted finding with a verified basis is stored as checked, bound to its study by DOI.
+    const numbersA = [{
+      outcome: "relapse by 12 weeks", better: "fewer", option: "zentarine 20 mg", option_events: 18,
+      option_total: 120, comparator: "placebo", comparator_events: 30, comparator_total: 120, follow_up: "12 weeks",
+      nnt: 10, harms_none_found: true,
+    }];
+    const acceptA = atlasAccept({
+      wording: "In two invented trials, zentarine 20 mg cut 12-week relapse from 30 of 120 to 18 of 120 adults.",
+      bases: ["full_text_audit"],
+      sources: [atlasSource("10.0000/synthetic-velmor-1", tick())],
+      numbers: numbersA,
+    });
+    const decisionA = await decide(9001, "finding", 1, "accepted", acceptA);
+    const findingA = decisionA.publicNumber!;
+    assert(/^F-[1-9][0-9]{3,}$/u.test(findingA) && decisionA.intent?.status === "PENDING", "ATLAS_ACCEPT_NOT_QUEUED");
+    const promotedA = await promote("ATLAS_ACCEPT_NOT_PROMOTED");
+    assert(
+      promotedA.receipt.writerReceipt.status === "inserted" && promotedA.receipt.publicNumber === findingA &&
+        await label(findingA) === "checked",
+      "ATLAS_ACCEPTED_FINDING_NOT_CHECKED",
+    );
+    const boundA = await admin.query<{ polarity: string; extraction_type: string; access_status: string }>(
+      `SELECT binding.polarity, binding.extraction_type, source.access_status
+         FROM ${schema}.evidence_bindings binding
+         JOIN ${schema}.source_versions source ON source.version_id = binding.source_version_id
+         JOIN ${schema}.atlas_finding_versions version ON version.claim_version_id = binding.claim_version_id
+         JOIN ${schema}.atlas_findings finding ON finding.finding_id = version.finding_id
+        WHERE finding.public_number = $1`,
+      [findingA],
+    );
+    assert(
+      boundA.rows.length === 1 && boundA.rows[0]!.polarity === "supports" &&
+        boundA.rows[0]!.extraction_type === "authored_synthesis" && boundA.rows[0]!.access_status === "metadata_only",
+      "ATLAS_ACCEPTED_SOURCE_NOT_BOUND",
+    );
+    const replayedDecision = await decide(9001, "finding", 1, "accepted", acceptA);
+    assert(
+      replayedDecision.publicNumber === findingA && replayedDecision.intentId === decisionA.intentId,
+      "ATLAS_DECISION_REPLAY_CHANGED",
+    );
+    checks.push("atlas_accept_queues_a_hash_bound_intent_and_the_runner_writes_a_checked_finding_bound_to_its_study");
+
+    // A finding without a verified basis, and a card's open lead, are stored as leads (3b).
+    const acceptB = atlasAccept({
+      wording: "An invented case series reported fewer relapses on zentarine.",
+      bases: [],
+      sources: [atlasSource("10.0000/synthetic-velmor-2", tick())],
+      entry: "unverified_finding",
+    });
+    const findingB = (await decide(9001, "finding", 2, "accepted_as_lead", acceptB)).publicNumber!;
+    await promote("ATLAS_LEAD_NOT_PROMOTED");
+    const acceptC = atlasAccept({
+      wording: "Whether zentarine helps children with Velmor syndrome is untested.",
+      bases: [],
+      sources: [],
+      entry: "open_lead",
+    });
+    const findingC = (await decide(9001, "open_lead", 1, "accepted_as_lead", acceptC)).publicNumber!;
+    await promote("ATLAS_OPEN_LEAD_NOT_PROMOTED");
+    assert(await label(findingB) === "lead" && await label(findingC) === "lead", "ATLAS_LEADS_NOT_LABELED_LEAD");
+    checks.push("atlas_leads_from_an_unverified_finding_and_an_open_lead_are_stored_as_leads");
+
+    // A second card contradicts the first finding at a lower dose; the owner links them and both turn contested.
+    const acceptD = atlasAccept({
+      wording: "At 5 mg, zentarine did not reduce 12-week relapse in an invented trial of adults.",
+      bases: ["full_text_audit"],
+      sources: [atlasSource("10.0000/synthetic-velmor-3", tick())],
+    });
+    const findingD = (await decide(9002, "finding", 1, "accepted", acceptD)).publicNumber!;
+    await promote("ATLAS_SECOND_FINDING_NOT_PROMOTED");
+    await record({
+      schema: "askrigor.atlas-finding-intent.v1", kind: "link", publicNumber: findingD, relation: "contradicts",
+      toPublicNumber: findingA, disagreement: "dose", rationale: "The two invented trials disagree at different doses.",
+      decidedWith: ATLAS_DECIDED_WITH,
+    });
+    await promote("ATLAS_CONTRADICTS_LINK_NOT_PROMOTED");
+    assert(await label(findingA) === "contested" && await label(findingD) === "contested", "ATLAS_NOT_CONTESTED");
+    checks.push("atlas_contradicts_link_makes_both_findings_contested");
+
+    // A correction with a dated note, then a wording fix: versions 2 and 3 in one line, the label kept.
+    await record(atlasRevise(findingA, 1, "corrected",
+      "In two invented trials, zentarine 20 mg cut 12-week relapse from 30 of 120 to 19 of 120 adults.",
+      "The second trial's relapse count was 19, not 18.", tick()));
+    await promote("ATLAS_CORRECTION_NOT_PROMOTED");
+    await record(atlasRevise(findingA, 2, "edited",
+      "In two invented trials, zentarine 20 mg cut relapse by week 12 from 30 of 120 to 19 of 120 adults.", null, tick()));
+    await promote("ATLAS_WORDING_FIX_NOT_PROMOTED");
+    const chainA = await versionsOf(findingA);
+    const changesA = await changesOf(findingA);
+    assert(
+      chainA.length === 3 && chainA[0]!.supersedes_claim_version_id === null &&
+        chainA[1]!.supersedes_claim_version_id === chainA[0]!.claim_version_id &&
+        chainA[2]!.supersedes_claim_version_id === chainA[1]!.claim_version_id &&
+        changesA.map(({ change_kind: kind }) => kind).join() === "accepted,relabeled,corrected,edited" &&
+        changesA[2]!.public_note === "The second trial's relapse count was 19, not 18." &&
+        await label(findingA) === "contested",
+      "ATLAS_CORRECTION_CHAIN_MISMATCH",
+    );
+    checks.push("atlas_correction_chain_writes_versions_two_and_three_with_a_dated_note_and_keeps_the_label");
+
+    // A checked finding replaces the earlier lead, which turns superseded with a status-only version.
+    const acceptF = atlasAccept({
+      wording: "In a larger invented trial, zentarine 20 mg cut relapse in adults over 24 weeks.",
+      bases: ["full_text_audit"],
+      sources: [atlasSource("10.0000/synthetic-velmor-5", tick())],
+    });
+    const findingF = (await decide(9003, "finding", 1, "accepted", acceptF)).publicNumber!;
+    await promote("ATLAS_REPLACING_FINDING_NOT_PROMOTED");
+    await record({
+      schema: "askrigor.atlas-finding-intent.v1", kind: "link", publicNumber: findingF, relation: "replaces",
+      toPublicNumber: findingB, disagreement: null, rationale: "The larger trial replaces the earlier case series.",
+      decidedWith: ATLAS_DECIDED_WITH,
+    });
+    await promote("ATLAS_REPLACES_LINK_NOT_PROMOTED");
+    const chainB = await versionsOf(findingB);
+    assert(
+      await label(findingB) === "superseded" && chainB.length === 2 && chainB[1]!.status === "superseded" &&
+        await label(findingF) === "checked",
+      "ATLAS_LEAD_NOT_SUPERSEDED",
+    );
+    checks.push("atlas_replaces_link_supersedes_the_older_lead_with_a_status_only_version");
+
+    // Withdrawing one side of the contradiction returns the other to checked.
+    await record({
+      schema: "askrigor.atlas-finding-intent.v1", kind: "withdraw", publicNumber: findingD, version: 1,
+      note: "The invented 5 mg trial was a duplicate report.", decidedWith: ATLAS_DECIDED_WITH,
+    });
+    await promote("ATLAS_WITHDRAWAL_NOT_PROMOTED");
+    const chainD = await versionsOf(findingD);
+    const relabeledA = (await changesOf(findingA)).at(-1)!;
+    assert(
+      await label(findingD) === "withdrawn" && chainD.at(-1)!.status === "invalidated" &&
+        await label(findingA) === "checked" && relabeledA.change_kind === "relabeled" &&
+        relabeledA.label_before === "contested" && relabeledA.label_after === "checked",
+      "ATLAS_WITHDRAWAL_DID_NOT_RELABEL",
+    );
+    checks.push("atlas_withdrawal_invalidates_the_finding_and_returns_its_contradiction_partner_to_checked");
+
+    // An exact re-check that brings a verified basis relabels the open lead to checked.
+    await decide(9004, "finding", 1, "rechecked", {
+      schema: "askrigor.atlas-finding-intent.v1", kind: "recheck", publicNumber: findingC,
+      cardWordingKey: acceptC.wordingKeys.card, verifiedBases: ["full_text_audit"],
+      sources: [atlasSource("10.0000/synthetic-velmor-6", tick())], researchCheckedOn: "2026-10-22",
+      madeWith: ATLAS_MADE_WITH,
+    }, { rechecked: findingC });
+    await promote("ATLAS_RECHECK_NOT_PROMOTED");
+    const recheckC = (await changesOf(findingC)).at(-1)!;
+    assert(
+      await label(findingC) === "checked" && recheckC.change_kind === "rechecked" &&
+        recheckC.research_checked_on === "2026-10-22" && recheckC.claim_version_id !== null &&
+        recheckC.label_before === "lead",
+      "ATLAS_RECHECK_DID_NOT_RELABEL_THE_LEAD",
+    );
+    checks.push("atlas_exact_recheck_with_a_verified_basis_relabels_a_lead_to_checked");
+
+    // A stale version, an identifier conflict and the missing finding it leaves each end FAILED with its code, and the
+    // next intent promotes in the same activation.
+    const familyOne = deterministicUuid(`atlas-acceptance-conflict-one:${schema}`);
+    const familyTwo = deterministicUuid(`atlas-acceptance-conflict-two:${schema}`);
+    await admin.query(
+      `INSERT INTO ${schema}.source_families (family_id, source_kind, identity_hash, display_title)
+       VALUES ($1, 'study', $2, 'Synthetic conflict one'), ($3, 'study', $4, 'Synthetic conflict two')`,
+      [familyOne, atlasHex(`conflict-one:${schema}`), familyTwo, atlasHex(`conflict-two:${schema}`)],
+    );
+    await admin.query(
+      `INSERT INTO ${schema}.source_identifiers (family_id, scheme, canonical_value)
+       VALUES ($1, 'doi', '10.0000/synthetic-conflict-one'), ($2, 'pmid', '990001')`,
+      [familyOne, familyTwo],
+    );
+    const stale = await record(atlasRevise(findingA, 1, "edited", "A stale edit of the first version.", null, tick()));
+    const conflictWording = "In an invented crossover trial, zentarine 20 mg cut relapse in adults.";
+    const conflicting = await decide(9005, "finding", 1, "accepted", atlasAccept({
+      wording: conflictWording,
+      bases: ["full_text_audit"],
+      sources: [{
+        ...atlasSource("10.0000/synthetic-conflict-one", tick()),
+        identifiers: [{ scheme: "doi", value: "10.0000/synthetic-conflict-one" }, { scheme: "pmid", value: "990001" }],
+      }],
+    }));
+    const missing = await record({
+      schema: "askrigor.atlas-finding-intent.v1", kind: "withdraw", publicNumber: conflicting.publicNumber!, version: 1,
+      note: "Withdrawn before it was written.", decidedWith: ATLAS_DECIDED_WITH,
+    });
+    const sameAs = await record({
+      schema: "askrigor.atlas-finding-intent.v1", kind: "link", publicNumber: findingF, relation: "same_as",
+      toPublicNumber: findingA, disagreement: null, rationale: "Both report the 20 mg effect on relapse.",
+      decidedWith: ATLAS_DECIDED_WITH,
+    });
+    const moved = await runner.promoteAccepted();
+    assert(
+      moved.failed.map(({ intentId, failureCode }) => `${intentId}:${failureCode}`).join() === [
+        `${stale.intentId}:ATLAS_VERSION_STALE`,
+        `${conflicting.intentId}:SOURCE_IDENTIFIER_CONFLICT`,
+        `${missing.intentId}:ATLAS_FINDING_MISSING`,
+      ].join() && moved.result.status === "promoted" && moved.result.receipt.intentId === sameAs.intentId,
+      `ATLAS_FAILURE_CODES_MISMATCH ${JSON.stringify(moved)}`,
+    );
+    const unwritten = await admin.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM ${schema}.atlas_intent_applications WHERE intent_id = ANY($1::uuid[])`,
+      [[stale.intentId, conflicting.intentId!, missing.intentId]],
+    );
+    const shown = await review.inspectIntents(null);
+    assert(
+      unwritten.rows[0]?.count === 0 &&
+        shown.some(({ intentId, failureCode }) => intentId === missing.intentId && failureCode === "ATLAS_FINDING_MISSING"),
+      "ATLAS_FAILED_INTENT_WROTE_ROWS_OR_IS_HIDDEN",
+    );
+    checks.push("atlas_stale_version_missing_finding_and_identifier_conflict_fail_with_codes_and_the_next_intent_promotes");
+
+    // The failed accept is retried under its number, with a source that does not conflict.
+    const retried = await decide(9005, "finding", 1, "accepted", atlasAccept({
+      wording: conflictWording,
+      bases: ["full_text_audit"],
+      sources: [atlasSource("10.0000/synthetic-velmor-7", tick())],
+    }));
+    assert(
+      retried.publicNumber === conflicting.publicNumber && retried.intentId !== conflicting.intentId &&
+        retried.intent?.retryOfIntentId === conflicting.intentId,
+      "ATLAS_RETRY_NOT_UNDER_ITS_NUMBER",
+    );
+    await promote("ATLAS_RETRY_NOT_PROMOTED");
+    assert(await label(retried.publicNumber!) === "checked", "ATLAS_RETRIED_FINDING_NOT_CHECKED");
+    checks.push("atlas_a_failed_accept_is_retried_under_its_number");
+
+    // The writer commits but the receipt does not (a crash between them): the next run completes it by replay.
+    const decisionJ = await decide(9006, "finding", 1, "accepted", atlasAccept({
+      wording: "An invented registry search found no relapse data for zentarine beyond 24 weeks.",
+      bases: ["bounded_absence"],
+      sources: [atlasSource("10.0000/synthetic-velmor-8", tick())],
+    }));
+    const [storedJ] = await review.inspectIntents([decisionJ.publicNumber!]) as AtlasIntentView[];
+    const intentJ = {
+      intentId: storedJ!.intentId,
+      intentKind: storedJ!.intentKind,
+      publicNumber: storedJ!.publicNumber,
+      payload: storedJ!.payload,
+      payloadSha256: storedJ!.payloadSha256,
+      createdAt: storedJ!.createdAt,
+    };
+    const direct = await writer.contributeAtlasFinding(intentJ);
+    const pendingJ = (await review.inspectIntents([decisionJ.publicNumber!]))[0];
+    const replayed = await promote("ATLAS_REPLAY_NOT_PROMOTED");
+    assert(
+      direct.status === "inserted" && pendingJ?.status === "PENDING" &&
+        replayed.receipt.writerReceipt.status === "idempotent_replay" &&
+        JSON.stringify({ ...direct, status: null }) === JSON.stringify({ ...replayed.receipt.writerReceipt, status: null }) &&
+        (await writer.contributeAtlasFinding(intentJ)).status === "idempotent_replay",
+      "ATLAS_REPLAY_DID_NOT_COMPLETE_THE_INTENT",
+    );
+    checks.push("atlas_writer_commit_before_the_receipt_is_completed_by_idempotent_replay");
+
+    // An accept under a number already written is refused with its code, from the writer's own read, writing nothing.
+    const rewrite = prepareAtlasFindingIntent(atlasAccept({
+      wording: "A second accept under a number already written.",
+      bases: ["full_text_audit"],
+      sources: [atlasSource("10.0000/synthetic-velmor-9", tick())],
+    }));
+    const rewriteIntentId = deterministicUuid(`atlas-acceptance-rewrite:${schema}`);
+    const refusal = await writer.contributeAtlasFinding({
+      intentId: rewriteIntentId, intentKind: "accept", publicNumber: findingA, payload: rewrite.payload,
+      payloadSha256: rewrite.payloadSha256, createdAt: tick(),
+    }).then(() => "written", (error: unknown) => error instanceof AtlasWriteConflict ? error.code : String(error));
+    const rewritten = await admin.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM ${schema}.atlas_intent_applications WHERE intent_id = $1`,
+      [rewriteIntentId],
+    );
+    assert(
+      refusal === "ATLAS_FINDING_ALREADY_WRITTEN" && rewritten.rows[0]?.count === 0,
+      `ATLAS_WRITTEN_NUMBER_NOT_REFUSED ${refusal}`,
+    );
+    checks.push("atlas_an_accept_under_a_written_number_is_refused_with_its_code");
+
+    // The contribution runner never selects an Atlas intent; the Atlas runner then withdraws the link.
+    const unlink = await record({
+      schema: "askrigor.atlas-finding-intent.v1", kind: "unlink", publicNumber: findingF, relation: "same_as",
+      toPublicNumber: findingA, note: "They report different follow-up periods.", decidedWith: ATLAS_DECIDED_WITH,
+    });
+    const contributionWriter = new PostgresEvidenceRepository({ connectionString: adminUrl, schema });
+    const contributionRunner = new PostgresResearchContributionPromotionRunner(
+      { connectionString: adminUrl, schema },
+      contributionWriter,
+      { now: tick },
+    );
+    try {
+      while ((await contributionRunner.promoteAccepted()).result.status === "promoted") { /* drain */ }
+      assert(
+        (await contributionRunner.promoteAccepted()).result.status === "no_pending_promotion",
+        "CONTRIBUTION_RUNNER_FOUND_WORK",
+      );
+    } finally {
+      await Promise.allSettled([contributionRunner.close(), contributionWriter.close()]);
+    }
+    const untouched = (await review.inspectIntents([findingF])).find(({ intentId }) => intentId === unlink.intentId);
+    assert(untouched?.status === "PENDING", "ATLAS_INTENT_TOUCHED_BY_THE_CONTRIBUTION_RUNNER");
+    await promote("ATLAS_UNLINK_NOT_PROMOTED");
+    const withdrawnLinks = await admin.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM ${schema}.atlas_finding_link_withdrawals`,
+    );
+    assert(withdrawnLinks.rows[0]?.count === 1, "ATLAS_LINK_NOT_WITHDRAWN");
+    checks.push("the_contribution_runner_never_selects_an_atlas_intent_and_the_atlas_runner_withdraws_the_link");
+
+    // Conflicting decisions are refused; a card is forgotten, its decisions with it, and the findings stay.
+    await expectAtlasReviewCode(
+      () => decide(9001, "finding", 1, "rejected", null, { reason: "A different decision." }),
+      "DECISION_CONFLICT",
+    );
+    const rejected = await decide(9002, "finding", 2, "rejected", null, { reason: "Not general enough." });
+    assert(rejected.publicNumber === null && rejected.intent === null, "ATLAS_REJECTION_QUEUED_AN_INTENT");
+    await expectAtlasReviewCode(() => decide(9007, "finding", 1, "rechecked", {
+      schema: "askrigor.atlas-finding-intent.v1", kind: "recheck", publicNumber: "F-9999",
+      cardWordingKey: atlasHex("nothing"), verifiedBases: [], sources: [], researchCheckedOn: "2026-10-22",
+      madeWith: ATLAS_MADE_WITH,
+    }, { rechecked: "F-9999" }), "FINDING_NOT_FOUND");
+    const findingsBefore = await admin.query<{ count: number }>(`SELECT count(*)::int AS count FROM ${schema}.atlas_findings`);
+    const forgotten = await reviewPool.query<{
+      item_kind: string;
+      item_number: number;
+      public_number: string | null;
+      public_number_named_elsewhere: boolean;
+    }>(`SELECT * FROM ${schema}.forget_atlas_cards(ARRAY[9001], $1::timestamptz)`, [tick()]);
+    const named = new Map(forgotten.rows.map((row) => [row.public_number, row.public_number_named_elsewhere]));
+    const findingsAfter = await admin.query<{ count: number }>(`SELECT count(*)::int AS count FROM ${schema}.atlas_findings`);
+    assert(
+      forgotten.rows.length === 3 && named.get(findingA) === false && named.get(findingB) === false &&
+        named.get(findingC) === true && (await review.inspectCards([9001])).length === 0 &&
+        findingsAfter.rows[0]?.count === findingsBefore.rows[0]?.count,
+      "ATLAS_FORGET_MISMATCH",
+    );
+    checks.push("atlas_conflicting_decisions_are_refused_and_forgetting_a_card_removes_only_its_decisions");
+
+    // Wording changes only through erase_atlas_wording, for the version a redaction row names, and only to the marker.
+    const chain = await versionsOf(findingA);
+    const versionOne = chain[0]!.claim_version_id;
+    const versionTwo = chain[1]!.claim_version_id;
+    const findingIdA = (await admin.query<{ finding_id: string; created_by_run_id: string }>(
+      `SELECT finding_id, created_by_run_id FROM ${schema}.atlas_findings WHERE public_number = $1`,
+      [findingA],
+    )).rows[0]!;
+    await expectMessage(() => admin.query(
+      `UPDATE ${schema}.claim_versions SET normalized_assertion = '${ATLAS_ERASED}' WHERE version_id = $1`,
+      [versionTwo],
+    ), "APPEND_ONLY_TABLE");
+    const redactionId = deterministicUuid(`atlas-acceptance-redaction:${schema}`);
+    await admin.query(
+      `INSERT INTO ${schema}.atlas_redactions (redaction_id, finding_id, claim_version_id, reason_code, decided_at, run_id)
+       VALUES ($1, $2, $3, 'could_identify_a_person', $4, $5)`,
+      [redactionId, findingIdA.finding_id, versionTwo, tick(), findingIdA.created_by_run_id],
+    );
+    const underRedaction = async (sql: string, values: unknown[]) => {
+      const client = await admin.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query("SELECT set_config('askrigor.atlas_erasing_redaction', $1, true)", [redactionId]);
+        await client.query(sql, values);
+      } finally {
+        await client.query("ROLLBACK").catch(() => undefined);
+        client.release();
+      }
+    };
+    for (const [sql, values] of [
+      [`UPDATE ${schema}.claim_versions SET normalized_assertion = 'Another wording' WHERE version_id = $1`, [versionTwo]],
+      [`UPDATE ${schema}.claim_versions SET status = 'invalidated' WHERE version_id = $1`, [versionTwo]],
+      [`UPDATE ${schema}.claim_versions SET normalized_assertion = '${ATLAS_ERASED}' WHERE version_id = $1`, [versionOne]],
+      [`UPDATE ${schema}.atlas_finding_versions SET certainty = 'low' WHERE claim_version_id = $1`, [versionTwo]],
+      [`UPDATE ${schema}.atlas_findings SET entry_kind = 'lead' WHERE finding_id = $1`, [findingIdA.finding_id]],
+      [`DELETE FROM ${schema}.claim_versions WHERE version_id = $1`, [versionTwo]],
+    ] as const) {
+      await expectMessage(() => underRedaction(sql, [...values]), "APPEND_ONLY_TABLE");
+    }
+    const wordingOf = async (versionId: string) => (await admin.query<{ claimed: Record<string, unknown>; atlas: Record<string, unknown>; notes: Array<string | null> }>(
+      `SELECT row_to_json(claimed.*)::jsonb AS claimed, row_to_json(version.*)::jsonb AS atlas,
+              (SELECT coalesce(jsonb_agg(change.public_note ORDER BY change.change_id), '[]'::jsonb)
+                 FROM ${schema}.atlas_finding_changes change WHERE change.claim_version_id = $1) AS notes
+         FROM ${schema}.claim_versions claimed
+         JOIN ${schema}.atlas_finding_versions version ON version.claim_version_id = claimed.version_id
+        WHERE claimed.version_id = $1`,
+      [versionId],
+    )).rows[0]!;
+    const twoBefore = await wordingOf(versionTwo);
+    const oneBefore = await wordingOf(versionOne);
+    const erased = await admin.query<{ changed: number }>(
+      `SELECT ${schema}.erase_atlas_wording($1) AS changed`,
+      [redactionId],
+    );
+    const twoAfter = await wordingOf(versionTwo);
+    const textColumns = ["normalized_assertion", "population"];
+    const atlasTextColumns = ["usual_answer", "why_not_usual", "what_would_change_it", "who_else", "what_it_changes"];
+    const without = (row: Record<string, unknown>, keys: string[]) =>
+      JSON.stringify(Object.fromEntries(Object.entries(row).filter(([key]) => !keys.includes(key)).sort()));
+    assert(
+      erased.rows[0]?.changed === 3 &&
+        textColumns.every((column) => twoAfter.claimed[column] === ATLAS_ERASED) &&
+        atlasTextColumns.every((column) => twoAfter.atlas[column] === ATLAS_ERASED) &&
+        twoAfter.atlas.accepted_wording_key === "0".repeat(64) && twoAfter.atlas.card_wording_key === null &&
+        twoAfter.notes.join() === ATLAS_ERASED &&
+        without(twoAfter.claimed, textColumns) === without(twoBefore.claimed, textColumns) &&
+        without(twoAfter.atlas, [...atlasTextColumns, "accepted_wording_key"]) ===
+          without(twoBefore.atlas, [...atlasTextColumns, "accepted_wording_key"]) &&
+        JSON.stringify(await wordingOf(versionOne)) === JSON.stringify(oneBefore) &&
+        (await admin.query<{ changed: number }>(`SELECT ${schema}.erase_atlas_wording($1) AS changed`, [redactionId]))
+          .rows[0]?.changed === 0,
+      "ATLAS_ERASE_MISMATCH",
+    );
+    const guard = await admin.query<{ definition: string }>(
+      `SELECT pg_get_functiondef('${schema}.reject_living_evidence_mutation()'::regprocedure) AS definition`,
+    );
+    assert(
+      guard.rows[0]!.definition.includes("atlas_redaction_permits(TG_TABLE_NAME, to_jsonb(OLD), to_jsonb(NEW))"),
+      "ATLAS_GUARD_BODY_LOST_ITS_REDACTION_BRANCH",
+    );
+    checks.push("atlas_wording_changes_only_through_erase_atlas_wording_for_the_version_a_redaction_row_names");
+
+    // Every canonical Atlas table refuses UPDATE and DELETE.
+    for (const table of ATLAS_CANONICAL_TABLES) {
+      const row = await admin.query<{ ctid: string }>(`SELECT ctid::text FROM ${schema}.${table} LIMIT 1`);
+      assert(row.rows.length === 1, `ATLAS_TABLE_EMPTY ${table}`);
+      await expectMessage(() => admin.query(
+        `UPDATE ${schema}.${table} SET inserted_at = inserted_at WHERE ctid = $1::tid`,
+        [row.rows[0]!.ctid],
+      ), "APPEND_ONLY_TABLE");
+      await expectMessage(() => admin.query(
+        `DELETE FROM ${schema}.${table} WHERE ctid = $1::tid`,
+        [row.rows[0]!.ctid],
+      ), "APPEND_ONLY_TABLE");
+    }
+    checks.push("every_canonical_atlas_table_refuses_update_and_delete");
+
+    // The review role executes the five Atlas functions (and the three contribution ones) and nothing else; it reads
+    // and writes no table. The reader reads the Atlas and writes nothing.
+    const executable = await admin.query<{ proname: string }>(
+      `SELECT DISTINCT proc.proname FROM pg_proc proc
+         JOIN pg_namespace namespace ON namespace.oid = proc.pronamespace
+        WHERE namespace.nspname = $1 AND has_function_privilege('askrigor_research_review', proc.oid, 'EXECUTE')
+        ORDER BY proc.proname`,
+      [schema],
+    );
+    assert(
+      executable.rows.map(({ proname }) => proname).join() ===
+        [...ATLAS_REVIEW_FUNCTIONS, ...CONTRIBUTION_REVIEW_FUNCTIONS].sort().join(),
+      `ATLAS_REVIEW_ROLE_FUNCTIONS_MISMATCH ${executable.rows.map(({ proname }) => proname).join()}`,
+    );
+    const now = tick();
+    await asRole("askrigor_research_review", async (client) => {
+      await client.query("SELECT * FROM inspect_atlas_cards(ARRAY[9002])");
+      await client.query("SELECT * FROM inspect_atlas_finding_intents(NULL)");
+      await client.query(
+        `SELECT * FROM decide_atlas_card_item(9010, 'finding', 1, 'rejected', $1, 'A role check.', $2::timestamptz,
+           NULL, NULL, NULL, NULL)`,
+        [atlasCardSha256(9010), now],
+      );
+      await client.query("SELECT * FROM forget_atlas_cards(ARRAY[9010], $1::timestamptz)", [now]);
+    });
+    await expectMessage(() => asRole("askrigor_research_review", (client) => client.query(
+      `SELECT * FROM record_atlas_finding_intent($1::uuid, 'withdraw', 'F-1001', '{}'::jsonb, $2, NULL,
+         $3::timestamptz, NULL)`,
+      [deterministicUuid("atlas-role-check"), "0".repeat(64), now],
+    )), "ATLAS_REVIEW_INPUT_INVALID");
+    for (const statement of [
+      "SELECT count(*) FROM atlas_card_decisions",
+      "SELECT count(*) FROM atlas_finding_intents",
+      "SELECT count(*) FROM atlas_findings",
+      "SELECT count(*) FROM claim_versions",
+      "SELECT nextval('atlas_public_number_seq')",
+      `SELECT erase_atlas_wording('${redactionId}'::uuid)`,
+      "SELECT atlas_redaction_permits('claim_versions', '{}'::jsonb, '{}'::jsonb)",
+      `UPDATE atlas_card_decisions SET owner_reason = 'changed' WHERE card_number = 9002`,
+    ]) {
+      await expectPermissionDenied(() => asRole("askrigor_research_review", (client) => client.query(statement)));
+    }
+    const readable = await asRole("askrigor_reader", async (client) => {
+      for (const table of [...ATLAS_CANONICAL_TABLES, "atlas_finding_current"]) {
+        await client.query(`SELECT count(*) FROM ${table}`);
+      }
+      return readAtlasStateWith(client, { publicNumbers: [findingA] });
+    });
+    const viaReader = await reader.readAtlasState({ publicNumbers: [findingA] });
+    const idA = readable.findings.find(({ publicNumber }) => publicNumber === findingA)!.findingId;
+    assert(
+      atlasCurrentLabels(readable, [idA]).get(idA) === "checked" &&
+        atlasCurrentLabels(viaReader, [idA]).get(idA) === "checked",
+      "ATLAS_READER_STATE_MISMATCH",
+    );
+    await expectPermissionDenied(() => asRole("askrigor_reader", (client) => client.query(
+      `SELECT * FROM decide_atlas_card_item(9011, 'finding', 1, 'rejected', $1, 'A role check.', $2::timestamptz,
+         NULL, NULL, NULL, NULL)`,
+      [atlasCardSha256(9011), now],
+    )));
+    await expectPermissionDenied(() => asRole("askrigor_reader", (client) => client.query(
+      "UPDATE atlas_finding_intents SET owner_reason = 'changed'",
+    )));
+    checks.push("atlas_review_role_executes_only_its_functions_and_the_reader_reads_without_writing");
+
+    // No canonical or intent row holds a card reference, card hash, answer quote or community data.
+    const stored = await admin.query<{ body: string }>(
+      `SELECT jsonb_agg(row_to_json(rows.*))::text AS body FROM (
+         ${ATLAS_CANONICAL_TABLES.map((table) => `SELECT '${table}' AS source, row_to_json(${table}.*)::text AS row
+           FROM ${schema}.${table}`).join(" UNION ALL ")}
+         UNION ALL SELECT 'intent', payload_json::text || coalesce(receipt_json::text, '')
+           FROM ${schema}.atlas_finding_intents
+         UNION ALL SELECT 'run', row_to_json(run.*)::text FROM ${schema}.research_runs run
+           WHERE run.run_id IN (SELECT run_id FROM ${schema}.atlas_intent_applications)
+         UNION ALL SELECT 'event', row_to_json(event.*)::text FROM ${schema}.repository_events event
+           WHERE event.event_kind LIKE 'atlas_finding_%'
+       ) rows`,
+    );
+    const body = stored.rows[0]!.body;
+    for (const forbidden of [
+      "ARF-", "answer_quote", "youtube", "comment_audit", "community_checked",
+      ...[8001, 9001, 9002, 9003, 9004, 9005, 9006, 9007, 9010].map(atlasCardSha256),
+    ]) {
+      assert(!body.toLowerCase().includes(forbidden.toLowerCase()), `ATLAS_STORED_FORBIDDEN_CONTENT ${forbidden}`);
+    }
+    checks.push("atlas_canonical_and_intent_rows_hold_no_card_reference_answer_quote_or_community_data");
+
+    const current = await admin.query<{ public_number: string; label: string; latest_version_number: number }>(
+      `SELECT public_number, label, latest_version_number FROM ${schema}.atlas_finding_current ORDER BY public_number`,
+    );
+    const expected = new Map([
+      [findingA, "checked"], [findingB, "superseded"], [findingC, "checked"], [findingD, "withdrawn"],
+      [findingF, "checked"], [retried.publicNumber!, "checked"], [decisionJ.publicNumber!, "checked"],
+    ]);
+    assert(
+      current.rows.length === expected.size &&
+        current.rows.every(({ public_number: number, label: shown }) => expected.get(number) === shown),
+      `ATLAS_CURRENT_VIEW_MISMATCH ${JSON.stringify(current.rows)}`,
+    );
+    checks.push("atlas_finding_current_shows_each_findings_label");
+
+    // An erasure waits, pending, for the writer that applies it (part D); the queue waits with it.
+    const latestF = (await versionsOf(findingF)).at(-1)!.version_number;
+    const erase = await record({
+      schema: "askrigor.atlas-finding-intent.v1", kind: "erase", publicNumber: findingF, version: latestF,
+      scope: "earlier_versions", reasonCode: "could_identify_a_person", decidedWith: ATLAS_DECIDED_WITH,
+    });
+    const waiting = await runner.promoteAccepted();
+    assert(
+      waiting.failed.length === 0 && waiting.result.status === "intent_kind_not_applied" &&
+        waiting.result.intentId === erase.intentId &&
+        (await review.inspectIntents([findingF])).find(({ intentId }) => intentId === erase.intentId)?.status === "PENDING",
+      "ATLAS_ERASE_INTENT_DID_NOT_WAIT",
+    );
+    checks.push("an_atlas_erase_intent_waits_pending_for_the_writer_that_applies_it");
+  } finally {
+    await Promise.allSettled([
+      runner.close(), writer.close(), reader.close(), review.close(), reviewPool.end(), admin.end(),
+    ]);
+  }
+}
+
+async function expectAtlasReviewCode(action: () => Promise<unknown>, code: string): Promise<void> {
+  try {
+    await action();
+  } catch (error) {
+    if (error instanceof AtlasReviewError && error.code === code) return;
+    throw error;
+  }
+  throw new Error(`EXPECTED_ATLAS_REVIEW_CODE_MISSING code=${code}`);
+}
+
 async function expectPgCode(action: () => Promise<unknown>, code: string): Promise<void> {
   try {
     await action();
@@ -1406,8 +2338,12 @@ function requiredEnv(name: string): string {
   return value;
 }
 
-main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : "unknown PostgreSQL acceptance failure";
-  process.stderr.write(`Research contributor PostgreSQL acceptance failed: ${message}\n`);
-  process.exitCode = 1;
-});
+// Run when invoked; another script may import the Atlas checks above.
+const invokedPath = process.argv[1] === undefined ? undefined : pathToFileURL(resolve(process.argv[1])).href;
+if (invokedPath === import.meta.url) {
+  main().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : "unknown PostgreSQL acceptance failure";
+    process.stderr.write(`Research contributor PostgreSQL acceptance failed: ${message}\n`);
+    process.exitCode = 1;
+  });
+}
