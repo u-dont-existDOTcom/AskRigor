@@ -1308,15 +1308,17 @@ gained it, both book cases, l24 and q130 maker lost it.
      Reddit, and a community that cannot be found has none: the book cases' two invented review sites, the made-up
      "Open-web book-review discovery" and l24's "Unidentified publication comments". The fixtures' sites do not exist,
      but a user can as easily name a real community that cannot be found.
-   For the next build: a correction cannot take back one of the check's own caveats (the step says what would change
-   the caveat); a platform the user names is searched when any community on it is; a community that could not be found
-   is recorded so, without an address, with a caveat saying it.
+   Built since, not yet released (afd5937f): a correction cannot take back one of the check's own caveats, and the
+   step says why; a platform the user names is searched when any community on it is; a community that could not be
+   found is recorded so (`access_boundary` `not_found`), without an address, with a caveat saying it, and counts as no
+   discussion pool of its own.
 3. **The check's refresh hint made an answer blame the app.** b-book no reviews told the user "This chat’s tools list
    older protocol versions than the app supplies" and offered to refresh the connector, though the app's tool list was
    current. The run had left a declaration out, and the check's step for a missing declaration reads "If this chat's
-   AskRigor tool has no such field, its tool list is outdated: ...", which the AI took as a fact. The next build's
-   refresh alert (abe63489) knows each surface's tool-list version; finalize_research should carry it too, so the step
-   tells the user to refresh only when the app's list is really older.
+   AskRigor tool has no such field, its tool list is outdated: ...", which the AI took as a fact. Built since, not yet
+   released (afd5937f): finalize_research takes the app's tool-list version too (the next build's refresh alert,
+   abe63489, knows each surface's), so a missing declaration asks for a refresh only when the app's list is older, and
+   the hint for a call that sends none now says that a tool list with the field is current.
 4. **The check still passes answers without what the case needs** (21 Oct, finding 2). q132's turn 1 again declared
    community evidence not relevant for an abnormal test result with no named candidate, the case HRP 20.6.28's clause
    in `EvidenceLayersAreNotAFixedDiscoveryOrder` was written for; the next build's `question_about` (owner answer 149a,
