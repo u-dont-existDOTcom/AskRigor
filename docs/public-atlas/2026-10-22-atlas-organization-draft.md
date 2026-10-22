@@ -230,7 +230,7 @@ remove valid findings, only if they realized the findings were invalid".
 5. **a:** a correction shows the corrected text with a dated note, and the old wording stays in the history.
 6. **a:** a retracted or corrected key study, or 12 months without a check, raises a warning at once, and the finding
    leaves the lanes.
-7. **The owner's rule**, with a distinction proposed in reply at 14:47 UTC:
+7. **The owner's rule**, with the distinction proposed in reply at 14:47 UTC, which the owner agreed to ("on 7 i agree", about 15:35 UTC):
    - What ties a card to its contributor (the account link, the ARF record) is removed whenever the contributor asks,
      with no reason required; asking why is optional. This is a privacy-law right, and the privacy page promises it.
    - A published finding is general knowledge written without the person, so it stays while it is valid. Anyone who
