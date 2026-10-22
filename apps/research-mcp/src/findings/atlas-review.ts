@@ -287,6 +287,12 @@ export interface AtlasReviewRequest {
 const EDIT_TEXTS = ["wording", "appliesTo", "whyNotUsual", "whatWouldChangeIt"] as const;
 /** The fields a card declares for each finding (Atlas phase 3), which the owner may change at any decision. */
 const CARD_FIELDS = ["kind", "subject", "subjectType", "direction"] as const;
+/**
+ * What makes an edit after acceptance a new version: a text, the sources, the numbers or a declared field. The input
+ * rules and the service read this one list, so an edit the input takes as a new version is never applied as an
+ * erasure alone (review finding 1).
+ */
+const CHANGE_FIELDS = [...EDIT_TEXTS, "sources", "numbers", ...CARD_FIELDS] as const;
 const CARD_ITEM_DECISION_FIELDS: AtlasFieldName[] = [
   "card", "finding", "lead", "cardSha256", "topicKey", "topicLabel", "numbers", ...CARD_FIELDS, "confirm", "reason",
 ];
@@ -348,7 +354,7 @@ export function refineAtlasReviewInput(
     case "edit_finding":
       if (after) {
         findingOrCard();
-        const newText = [...EDIT_TEXTS, "sources", "numbers", ...CARD_FIELDS].some((field) => has(field as AtlasFieldName));
+        const newText = CHANGE_FIELDS.some((field) => has(field));
         if (!newText && value.eraseWording === true) {
           // Decision 7 alone: the earlier versions' wording is erased and the latest stays as it is.
           for (const field of ["note", "correction", "confirm"] as const) {
@@ -1370,7 +1376,7 @@ export class AtlasReview {
       return withdrawnConflict(resolved, erase ? " To erase its wording, use withdraw_finding with eraseWording." : "");
     }
     if (request.version !== latest.versionNumber) return versionStale(resolved, latest.versionNumber);
-    if (erase && ![...EDIT_TEXTS, "sources", "numbers"].some((field) => request[field as keyof AtlasReviewRequest] !== undefined)) {
+    if (erase && !CHANGE_FIELDS.some((field) => request[field] !== undefined)) {
       return this.eraseOnly(resolved, context, "earlier_versions", request);
     }
     const accept = intents.find((intent) => intent.intentKind === "accept" && intent.publicNumber === resolved &&

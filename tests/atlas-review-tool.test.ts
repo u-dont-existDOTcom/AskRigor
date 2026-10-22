@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 // The package the tool imports, so the stores' errors are the classes the tool recognizes.
 import {
+  ATLAS_ERASED_TEXT,
   AtlasFindingPromotionRunner,
   InMemoryAtlasCanonicalStore,
   InMemoryAtlasPromotionStore,
@@ -732,6 +733,49 @@ describe("the card's Atlas fields at acceptance (phase 3 design, section 5)", ()
     expect(recheck.text).toMatch(/^Recorded ARF-0043 finding 1 as a re-check of F-1001/u);
     expect(recheck.text).toContain(" F-1001 keeps its own kind, subject, subject type and direction; change them with " +
       "edit_finding.");
+  });
+
+  it("makes a field-only correction with eraseWording a new version, on one version or more (review finding 1)", async () => {
+    await stubProviders();
+    const h = harness();
+    // A subject that names a person, as the card declared it.
+    await h.save({ ...DOI_CARD, findings: [{ ...DOI_CARD.findings[0]!, subject: "Dr Roe's zentarine protocol" }] });
+    const cardSha256 = await inspected(h, "ARF-0042", 1);
+    expect((await h.call({ action: "accept_finding", card: "ARF-0042", finding: 1, cardSha256 })).structured.outcome)
+      .toBe("finding_queued");
+    expect((await h.promote()).result.status).toBe("promoted");
+    // On a finding with one version: the new subject makes version 2, and version 1's wording is erased behind it.
+    const one = await h.call({ action: "edit_finding", atlasNumber: "F-1001", version: 1, subject: "zentarine",
+      note: "The subject named a person.", eraseWording: true });
+    expect(one.structured.outcome, one.text).toBe("finding_queued");
+    expect(one.text).toMatch(/^Queued a correction of F-1001: version 2, with your note, which the Atlas dates, of kind effect, direction no_effect, about zentarine \(supplement\); then the wording of version 1 is erased \(decision 7\)/u);
+    const queued = await h.review.inspectIntents(["F-1001"]);
+    expect(queued.map(({ intentKind }) => intentKind)).toEqual(["accept", "revise", "erase"]);
+    expect(queued[1]!.payload).toMatchObject({ kind: "revise", version: 1, content: { subject: "zentarine" } });
+    expect(queued[2]!.payload).toMatchObject({ kind: "erase", version: 2, scope: "earlier_versions" });
+    expect((await h.promote()).result.status).toBe("promoted");
+    expect((await h.promote()).result.status).toBe("promoted");
+    const subjects = () => h.canonical.snapshot().versions.map(({ versionNumber, content }) => [versionNumber, content.subject]);
+    expect(subjects()).toEqual([[1, ATLAS_ERASED_TEXT], [2, "zentarine"]]);
+
+    // On a finding with more versions, the same call makes the next version and erases every one before it.
+    const other = harness();
+    await other.save({ ...DOI_CARD, findings: [{ ...DOI_CARD.findings[0]!, subject: "Dr Roe's zentarine protocol" }] });
+    const otherSha = await inspected(other, "ARF-0042", 1);
+    await other.call({ action: "accept_finding", card: "ARF-0042", finding: 1, cardSha256: otherSha });
+    expect((await other.promote()).result.status).toBe("promoted");
+    await other.call({ action: "edit_finding", atlasNumber: "F-1001", version: 1, correction: false,
+      whatWouldChangeIt: "A larger trial of 5 mg." });
+    expect((await other.promote()).result.status).toBe("promoted");
+    const two = await other.call({ action: "edit_finding", atlasNumber: "F-1001", version: 2, subject: "zentarine",
+      note: "The subject named a person.", eraseWording: true });
+    expect(two.text).toMatch(/^Queued a correction of F-1001: version 3, /u);
+    expect((await other.review.inspectIntents(["F-1001"])).map(({ intentKind }) => intentKind))
+      .toEqual(["accept", "revise", "revise", "erase"]);
+    expect((await other.promote()).result.status).toBe("promoted");
+    expect((await other.promote()).result.status).toBe("promoted");
+    expect(other.canonical.snapshot().versions.map(({ versionNumber, content }) => [versionNumber, content.subject]))
+      .toEqual([[1, ATLAS_ERASED_TEXT], [2, ATLAS_ERASED_TEXT], [3, "zentarine"]]);
   });
 
   it("corrects a finding's fields after acceptance, all four or none, and keeps its searches only as nothing_found", async () => {
