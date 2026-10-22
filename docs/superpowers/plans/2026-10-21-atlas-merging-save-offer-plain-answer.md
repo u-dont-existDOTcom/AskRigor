@@ -287,6 +287,11 @@ study](…), was read through another tool, not audited by AskRigor." in place o
 the three lead paths (a signed lead, repeated service failures, a PubMed record without a DOI). The skill has no room
 for its sentence (1,198 of 1,200 words), so the reply and the final check carry it.
 
+**Changed by 157a (22 Oct):** the step now says to try a free route first, such as a free PDF tool, and to use a tool
+that costs the user credits only after the user says yes to that cost in this conversation; `other_route` and its
+values are unchanged. 157a also changes the library's access rules, which 147a left as they were: free contributor
+accounts now get the owner library under the same public-basis rule as paid accounts.
+
 ## 8. 148a, other tools' text in an answer (owner's connector questions, 21 Oct)
 
 A model-behavior rule under 148a, not a method change: research tools from other providers connected beside AskRigor

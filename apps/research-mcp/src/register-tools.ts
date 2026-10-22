@@ -2814,10 +2814,13 @@ function isActionCall(extra: unknown): boolean {
 /**
  * A lead's other full-text routes (owner answer 147a, 2026-10-21, from UDA #411): AskRigor cannot see the app's other
  * tools, so a completed lead names the next step, and finalize_research takes the model's other_route declaration.
+ * Owner answer 157a (2026-10-22): on a free account the AI took InfoAccess's paid text tool, so the step names a free
+ * route first, and a tool that costs the user credits only after the user's yes in this conversation.
  */
 export const OTHER_FULL_TEXT_ROUTE = "If this study could change the answer and this app has another full-text tool " +
-  "connected (a library or article service), read it there next, asking the user first when it costs them credits, " +
-  "and give its finalize_research key_sources entry other_route: read, unavailable, cost or none. A study read that " +
+  "connected (a library or article service), read it there next: try a free route first, such as a free PDF tool, " +
+  "and use a tool that costs the user credits only after the user says yes to that cost in this conversation. Give " +
+  "this study's finalize_research key_sources entry other_route: read, unavailable, cost or none. A study read that " +
   "way is reported as read through another tool, not audited by AskRigor.";
 
 /**
@@ -2922,7 +2925,7 @@ function registerOpenFullTextMcpTools(
   registrar.registerTool(
     "acquire_open_full_text",
     {
-      description: "Acquires one DOI through Europe PMC, Unpaywall PDFs, up to five public HTTPS candidate_urls, and up to two AI-supplied candidate_texts from a client search index, with an optional PMCID. When none of these is admitted, the configured owner library serves the signed-in owner, or an active paid-private account whose paper shows a verified public basis: a public page with the paper's own text beyond its abstract, or an open license. Library copies cite the public basis URL and expose no library link. Supplied texts receive the same identity, admission and embedded-block checks plus an exact abstract cross-check when available; audits carry a search-copy caveat. Records expanded public-copy searches with public_copy_search; lead receipts require exact DOI and known-title queries without technical failures. Reports identity, structural completeness, source class and its basis, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID.",
+      description: "Acquires one DOI through Europe PMC, Unpaywall PDFs, up to five public HTTPS candidate_urls, and up to two AI-supplied candidate_texts from a client search index, with an optional PMCID. When none of these is admitted, the configured owner library serves the signed-in owner, or an active free-contributor or paid-private account whose paper shows a verified public basis: a public page with the paper's own text beyond its abstract, or an open license. Library copies cite the public basis URL and expose no library link. Supplied texts receive the same identity, admission and embedded-block checks plus an exact abstract cross-check when available; audits carry a search-copy caveat. Records expanded public-copy searches with public_copy_search; lead receipts require exact DOI and known-title queries without technical failures. Reports identity, structural completeness, source class and its basis, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID.",
       inputSchema: acquireOpenFullTextActionInputSchema,
       outputSchema: openFullTextMcpOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
@@ -2931,8 +2934,11 @@ function registerOpenFullTextMcpTools(
       let runtime: AcquireOpenFullTextRuntime | undefined;
       const auth = authorizedSubject(extra as ResearchOperationExtra | undefined, options.oauthResourceMetadataUrl, options.signIn);
       if (infoAccess !== undefined && "subject" in auth) {
+        // Owner answer 157a (2026-10-22): every active research account, free contributor or paid private, reads the
+        // library under the same public-basis rule. researchUseAccount gives none for an unregistered or revoked
+        // account, a free account without the current notice, or a lapsed paid entitlement.
         const access = options.allowedReviewerSubjects?.has(auth.subject) === true ? "owner" :
-          (await researchUseAccount(extra as ResearchOperationExtra | undefined, options.researchContributorAccessService))?.mode === "PAID_PRIVATE"
+          (await researchUseAccount(extra as ResearchOperationExtra | undefined, options.researchContributorAccessService)) !== undefined
             ? "public_only" : undefined;
         if (access !== undefined) runtime = { ownerLibrary: { access, fetchPdf: (doi) => infoAccess.fetchPdf(doi) } };
       }

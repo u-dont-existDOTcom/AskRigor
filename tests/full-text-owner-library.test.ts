@@ -29,6 +29,9 @@ const PROVIDER_MESSAGE = `Synthetic private provider detail ${LIBRARY_URL} ${TOK
 const CONFIG = { email: "test@example.test" };
 const ABSTRACT = "Synthetic abstract of fixture participants and generated measurements. ".repeat(10);
 const SEARCH = { queries: [`DOI ${DOI}`, `"${TITLE}"`] };
+const FREE_AGREEMENT = { noticeVersion: RESEARCH_USE_NOTICE_VERSION,
+  eligibleDeidentifiedResearchContributionRequired: true, prohibitedPrivateAndRawContentExcluded: true,
+  proposalReviewAndNoAuthorityAcknowledged: true, paidPrivateAlternativeAcknowledged: true } as const;
 const FRONT = `${TITLE}\nDOI ${DOI}`;
 const PARTIAL = `${FRONT}\nAbstract\n${ABSTRACT}\nMethods\n${syntheticBody("methods")}`;
 
@@ -89,7 +92,7 @@ function fakeLibrary() {
 async function run(surface: "function" | "mcp", input: Partial<AcquireOpenFullTextInput> = {}, subject = "owner", authOverrides: Partial<AuthInfo> = {}, configured = true) {
   const library = fakeLibrary();
   if (surface === "function") {
-    const access = subject === "owner" ? "owner" : subject === "paid" ? "public_only" : undefined;
+    const access = subject === "owner" ? "owner" : subject === "paid" || subject === "free" ? "public_only" : undefined;
     const rt = { ...runtime, ...(access === undefined ? {} : { ownerLibrary: { access, fetchPdf: library.fetchPdf } }) } as AcquireOpenFullTextRuntime;
     return createOpenFullTextExecutor({ acquire: (input) => actual.acquireOpenFullText(input, CONFIG, rt) }).acquire({ doi: DOI, ...input });
   }
@@ -142,9 +145,7 @@ beforeEach(async () => {
   };
   store = new InMemoryResearchContributorAccessStore();
   service = new ResearchContributorAccessService({ store, identitySecret: new TextEncoder().encode("synthetic-owner-library-identity-secret-0123456789") });
-  await service.acceptFreeContributor("free", { noticeVersion: RESEARCH_USE_NOTICE_VERSION,
-    eligibleDeidentifiedResearchContributionRequired: true, prohibitedPrivateAndRawContentExcluded: true,
-    proposalReviewAndNoAuthorityAcknowledged: true, paidPrivateAlternativeAcknowledged: true });
+  await service.acceptFreeContributor("free", FREE_AGREEMENT);
   store.grantPrivateEntitlement({ entitlementId: "88888888-8888-4888-a888-888888888888", accountKey: service.accountKeyForSubject("paid"),
     status: "ACTIVE", source: "OWNER_GRANTED", externalReferenceSha256: null, grantedAt: "2026-09-01T00:00:00.000Z", expiresAt: null, revokedAt: null });
   await service.activatePaidPrivate("paid");
@@ -180,22 +181,26 @@ for (const surface of ["function", "mcp"] as const) describe(`owner library thro
     expect(result.discovery_attempts.at(-1)).toMatchObject({ route: "owner_library", result: "indexed" });
     expect(calls).toEqual([{ name: "get_article_pdf", arguments: { doi: DOI } }]);
   });
-  it.each(["fetched candidate", "supplied text"])("admits paid private using a partial %s and cites its public URL", async (kind) => {
-    const input = kind === "fetched candidate" ? { candidate_urls: [{ url: URL }] } : {
-      candidate_texts: [{ url: URL, text: PARTIAL, retrieved_via: "client_search_index" as const }] };
-    const result = await run(surface, input, "paid");
-    expect(result).toMatchObject({ status: "full_text_available", source: { retrieval_provider: "owner_library", canonical_url: URL,
-      public_basis: { route: "candidate", url: URL } }, candidates: [{ state: "PARTIAL_TEXT_READABLE", identity_verification: "doi_exact" }] });
-    expect(downloads).toBe(1);
-  });
-  it("admits paid private using an existing Unpaywall cc license", async () => {
+  // Owner answer 157a (2026-10-22): a free contributor reads the library under the paid accounts' public-basis rule.
+  it.each([["paid", "fetched candidate"], ["paid", "supplied text"], ["free", "fetched candidate"], ["free", "supplied text"]] as const)(
+    "admits a %s account using a partial %s and cites its public URL", async (subject, kind) => {
+      const input = kind === "fetched candidate" ? { candidate_urls: [{ url: URL }] } : {
+        candidate_texts: [{ url: URL, text: PARTIAL, retrieved_via: "client_search_index" as const }] };
+      const result = await run(surface, input, subject);
+      expect(result).toMatchObject({ status: "full_text_available", source: { retrieval_provider: "owner_library", canonical_url: URL,
+        public_basis: { route: "candidate", url: URL } }, candidates: [{ state: "PARTIAL_TEXT_READABLE", identity_verification: "doi_exact" }] });
+      expect(calls).toEqual([{ name: "get_article_pdf", arguments: { doi: DOI } }]);
+      expect(downloads).toBe(1);
+    });
+  it.each(["paid", "free"])("admits a %s account using an existing Unpaywall cc license", async (subject) => {
     runtime.unpaywallRuntime!.resolve = async () => okEnvelope({ provider: "unpaywall", recordType: "open_access_location_resolution", accessStatus: "metadata_only",
       returned: 1, pagination: { exhausted: true }, data: { doi: DOI, title: TITLE, is_oa: true, oa_status: "gold", full_text_lead_status: "open_location_available",
         best_location: { license: "cc-by", landing_page_url: URL, transport: "https" }, oa_locations: [] } });
-    expect(await run(surface, {}, "paid")).toMatchObject({ status: "full_text_available", source: { canonical_url: URL, public_basis: { route: "unpaywall", url: URL } } });
+    expect(await run(surface, {}, subject)).toMatchObject({ status: "full_text_available", source: { canonical_url: URL, public_basis: { route: "unpaywall", url: URL } } });
   });
   it.each([["europe_pmc", "owner"], ["unpaywall", "owner"], ["candidate", "owner"], ["europe_pmc", "paid"], ["unpaywall", "paid"],
-    ["candidate", "paid"]] as const)("returns an admitted %s public copy for %s without reading the library", async (route, subject) => {
+    ["candidate", "paid"], ["europe_pmc", "free"], ["unpaywall", "free"], ["candidate", "free"]] as const)(
+    "returns an admitted %s public copy for %s without reading the library", async (route, subject) => {
     if (route === "candidate") candidateText = syntheticArticleText(FRONT);
     if (route === "unpaywall") {
       runtime.unpaywallRuntime!.resolve = async () => okEnvelope({ provider: "unpaywall", recordType: "open_access_location_resolution", accessStatus: "metadata_only",
@@ -247,21 +252,22 @@ for (const surface of ["function", "mcp"] as const) describe(`owner library thro
     expect(result.discovery_attempts.at(-1)).toMatchObject({ route: "owner_library", result: kind === "third_page_identity" ? "identity_mismatch" : kind });
     expect(result.blocks).toBeUndefined();
   });
-  it("returns not_public only after an exact public-copy search with no basis", async () => {
-    const result = await run(surface, { public_copy_search: SEARCH }, "paid");
+  it.each(["paid", "free"])("returns not_public for a %s account only after an exact public-copy search with no basis", async (subject) => {
+    const result = await run(surface, { public_copy_search: SEARCH }, subject);
     expect(result).toMatchObject({ status: "possibly_useful_lead", public_copy_search: { status: "declared" } });
     expect(result.discovery_attempts.at(-1)).toMatchObject({ route: "owner_library", result: "not_public" });
     expect(calls).toEqual([]);
   });
-  it("returns the existing search-first step without an exact search", async () => {
-    const result = await run(surface, {}, "paid");
+  it.each(["paid", "free"])("returns the existing search-first step for a %s account without an exact search", async (subject) => {
+    const result = await run(surface, {}, subject);
     expect(result.status).toBe("possibly_useful_lead");
     expect(result.access_boundary).toContain("Exact public-copy discovery remains");
     expect(result.discovery_attempts.some((attempt: any) => attempt.result === "not_public")).toBe(false);
     expect(calls).toEqual([]);
   });
-  it("gives a free account no library runtime or attempt", async () => {
-    const result = await run(surface, { public_copy_search: SEARCH }, "free");
+  it("gives an unregistered account no library runtime or attempt, even with a public basis", async () => {
+    const result = await run(surface, { candidate_urls: [{ url: URL }], public_copy_search: SEARCH }, "unregistered");
+    expect(result.status).toBe("possibly_useful_lead");
     expect(result.discovery_attempts.some((attempt: any) => attempt.route === "owner_library")).toBe(false);
     expect(calls).toEqual([]);
   });
@@ -284,7 +290,8 @@ for (const surface of ["function", "mcp"] as const) describe(`owner library thro
     expect(result.discovery_attempts.some((attempt: any) => attempt.route === "owner_library" && attempt.result === "inaccessible")).toBe(false);
     expect(result.research_receipt).toBeUndefined();
   });
-  it.each(["retrieval_failed", "too_large"])("records InfoAccess %s as an error attempt with no lead receipt", async (code) => {
+  // rate_limited: the free route's limits are shared with the owner's own InfoAccess use (owner answer 157a).
+  it.each(["retrieval_failed", "too_large", "rate_limited"])("records InfoAccess %s as an error attempt with no lead receipt", async (code) => {
     retrievalErrorCode = "retrieval_failed";
     const before = await run(surface, { public_copy_search: SEARCH });
     retrievalErrorCode = code;
@@ -375,6 +382,29 @@ describe("owner library sign-in and configuration", () => {
     } });
     expect(result.data.discovery_attempts.at(-1)).toMatchObject({ route: "owner_library", result: "error" });
     expect(result.data.document_index).toBeUndefined();
+  });
+  // Owner answer 157a (2026-10-22): the server decides access from the verified sign-in: owner for the owner, and
+  // public_only for every active research account, free contributor or paid private.
+  it.each([["owner", "owner"], ["paid", "public_only"], ["free", "public_only"], ["unregistered", undefined]] as const)(
+    "injects library access for the %s account: %s", async (subject, access) => {
+      await run("mcp", { candidate_urls: [{ url: URL }] }, subject);
+      expect(acquire).toHaveBeenCalledTimes(1);
+      expect(acquire.mock.calls[0][2]?.ownerLibrary?.access).toBe(access);
+    });
+  it.each(["free", "paid"])("gives a revoked %s account no library access or attempt", async (subject) => {
+    await service.revoke(subject);
+    const result = await run("mcp", { candidate_urls: [{ url: URL }], public_copy_search: SEARCH }, subject);
+    expect(acquire.mock.calls[0][2]?.ownerLibrary).toBeUndefined();
+    expect(result.discovery_attempts.some((attempt: any) => attempt.route === "owner_library")).toBe(false);
+    expect(calls).toEqual([]);
+  });
+  it("keeps owner access for the owner subject when it also has an active free account", async () => {
+    await service.acceptFreeContributor("owner", FREE_AGREEMENT);
+    const result = await run("mcp", {}, "owner");
+    expect(acquire.mock.calls[0][2]?.ownerLibrary?.access).toBe("owner");
+    expect(result).toMatchObject({ status: "full_text_available", source: { retrieval_provider: "owner_library",
+      canonical_url: `https://doi.org/${DOI}` } });
+    expect(result.source.public_basis).toBeUndefined();
   });
   it("rechecks an expired paid entitlement before injecting library access", async () => {
     store.grantPrivateEntitlement({ entitlementId: "88888888-8888-4888-a888-888888888888", accountKey: service.accountKeyForSubject("paid"),
