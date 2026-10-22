@@ -955,8 +955,10 @@ What the model sends, and when:
   and which way is better, each group's name, events and total, the follow-up,
   and any number needed to treat or harm; at most 20, in `binary_results`' flat
   shape without its quotes), and, for a search that found nothing, the searches
-  it made (each the database, `pubmed`, `europepmc` or `ctgov`, and its exact
-  query, at most 5,000 characters, as the search tools take; at most 10). The card gives its topic (a key
+  it made (each the database, `pubmed`, `europepmc` or `ctgov`, its exact
+  query, at most 5,000 characters, as the search tools take, and, for a search
+  restricted to publication dates, that range as the search took it, which
+  PubMed and Europe PMC take and ClinicalTrials.gov does not; at most 10). The card gives its topic (a key
   in the Atlas's topic format and a label, at most 200 characters). The final
   check requires them on a card declared public, and checks only what is
   exact: each count is at most its group's size; each rate and number needed to
@@ -964,7 +966,8 @@ What the model sends, and when:
   digits of any script, with the harms over the same follow-up beside a number
   needed to treat; each figure is one that the call's `binary_results` gives;
   each search is one a `literature_search` receipt of that call verifies (its
-  database and the digest of its query); searches go only with a search that
+  database, the digest of its query and its date range, or none when the search
+  had none); searches go only with a search that
   found nothing, whose direction is `descriptive` and whose sentence is an
   `absence_claims` entry of state `support_not_located`, and a finding whose
   sentence the answer declares only in that state is such a finding. The kind, subject,
@@ -1206,7 +1209,8 @@ check bound them, and are kept only while its kind stays `nothing_found`.
   versions and SHA-256, research depth and status) and the research day. From
   Atlas phase 3 the accepted content also holds the finding's kind, subject,
   subject type and direction and, for a search that found nothing, its searches
-  (each database and query); an intent queued before it holds none. A
+  (each database and query, with its date range when the search had one); an
+  intent queued before it holds none. A
   correction or edit holds the new version's texts, numbers and sources the same
   way, with its public note; a withdrawal and an unlink hold their public note; a
   link holds its relation, what the two findings disagree on and its rationale;
@@ -1233,7 +1237,7 @@ check bound them, and are kept only while its kind stays `nothing_found`.
   identify a person, `edit_finding` with new general wording records a new
   version and the erasure of every earlier version's wording, in one
   transaction (the new version keeps a search that found nothing's searches
-  with their databases and research day, each query set to the fixed marker,
+  with their databases, date ranges and research day, each query set to the fixed marker,
   since a query can identify a person as a wording can; Atlas phase 3), and
   `withdraw_finding` records the withdrawal and the erasure of
   every version's wording, the withdrawal's note included, which leaves the
@@ -1247,7 +1251,7 @@ check bound them, and are kept only while its kind stays `nothing_found`.
   usual answer, why it misses, what would change it, who else and what it
   changes), the text labels of its numbers (outcome, option, comparator and
   follow-up; the counts, totals and directions stay), the query of each search
-  that found nothing (its database stays; Atlas phase 3, migration 0018), and
+  that found nothing (its database and date range stay; Atlas phase 3, migration 0018), and
   the notes of its change records; its two wording
   keys, set to 64 zeros; the rationale of every link that touches the finding
   and the note of each such link's withdrawal; and the finding's question, only
@@ -1448,7 +1452,8 @@ pending-proposal stores have their own strict contracts and authority boundaries
   DOI's registered landing page; the URL of a copy AskRigor fetched), the
   bounded normalized product claim above
   when product identity was declared, completion states, a refusal's fixed
-  code for a video not read, counts, and the issue
+  code for a video not read, counts, the publication dates a literature search
+  was restricted to (two dates, no query text), and the issue
   time; never comments, source text, questions, or user data. Discovery
   receipts (surveys, searches, scouts, one-call community audits) also carry
   `q`, the first 12 hex characters of a SHA-256 over the round's normalized
@@ -1466,7 +1471,9 @@ pending-proposal stores have their own strict contracts and authority boundaries
   and rejected candidate video IDs and the public IDs it left to the model's
   judgment (reworded titles and YouTube's closest results for a title it could
   not find), a literature search receipt (PubMed, Europe PMC or
-  ClinicalTrials.gov) the database, the 12-hex digest of its query and its
+  ClinicalTrials.gov) the database, the 12-hex digest of its query, its date
+  range when a PubMed or Europe PMC search was restricted to publication dates
+  (`dr`, the range the caller sent), and its
   record counts (and, for a Europe PMC query that searches within article
   sections, `ft`: the provider's section field codes it used, such as
   `METHODS` or `TABLE`), a search receipt its access status, and a

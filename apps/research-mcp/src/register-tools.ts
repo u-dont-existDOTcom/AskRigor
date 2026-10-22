@@ -1135,7 +1135,7 @@ function defineResearchOperations(
           `PubMed search returned ${result.pagination.returned} PMID record(s); access status ${result.access_status}.` +
             sparseSearchNote(total),
           result
-        ), literatureSearchReceipt("pubmed", query, result, total));
+        ), literatureSearchReceipt("pubmed", query, result, total, date_range));
       } catch (error) {
         return pubmedToolResult(
           "PubMed search retrieval failed; access status error.",
@@ -1208,7 +1208,7 @@ function defineResearchOperations(
           `Europe PMC search returned ${result.pagination.returned} record(s); access status ${result.access_status}.` +
             sparseSearchNote(total),
           { ...result, ...scope }
-        ), literatureSearchReceipt("europepmc", query, result, total));
+        ), literatureSearchReceipt("europepmc", query, result, total, date_range));
       } catch (error) {
         return europePmcToolResult(
           "Europe PMC search retrieval failed; access status error.",
@@ -2604,7 +2604,10 @@ function literatureSearchReceipt(
   source: "pubmed" | "europepmc" | "ctgov",
   query: string,
   result: { error?: unknown; pagination: { returned: number } },
-  total: number | undefined
+  total: number | undefined,
+  // The publication dates the search was restricted to (review finding 8), signed as "start/end", so a search that
+  // found nothing within them is carried with its range; a search without one signs none.
+  dateRange?: { start: string; end: string }
 ): string | undefined {
   if (result.error !== undefined) return undefined;
   const sections = source === "europepmc" ? europePmcSections(query) : [];
@@ -2613,7 +2616,8 @@ function literatureSearchReceipt(
     q: discoveryQueryDigest([query]),
     ret: result.pagination.returned,
     ...(sections.length === 0 ? {} : { ft: sections }),
-    ...(total === undefined ? {} : { n: total })
+    ...(total === undefined ? {} : { n: total }),
+    ...(dateRange === undefined ? {} : { dr: `${dateRange.start}/${dateRange.end}` })
   });
 }
 

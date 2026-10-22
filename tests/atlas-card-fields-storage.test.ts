@@ -8,6 +8,7 @@ import {
   atlasClaimTypeOf,
   atlasErasedContent,
   atlasErasedIntentPayload,
+  atlasSearchWithoutQuery,
   atlasVersionContentSchema,
   prepareAtlasFindingIntent,
   sha256,
@@ -112,6 +113,20 @@ describe("an intent's version content with the card's fields", () => {
       .toEqual(["searches go only with kind nothing_found"]);
     expect(refused({ ...NOTHING_FOUND_FIELDS, direction: "no_effect" }))
       .toEqual(["a search that found nothing has direction descriptive"]);
+  });
+
+  it("keeps a search's date range, which its erasure keeps too (review finding 8)", () => {
+    const ranged = { database: "pubmed", query: "zentarine children", dateRange: { start: "2015-01-01", end: "2026-10-22" } };
+    const withSearch = (search: Record<string, unknown>) => atlasVersionContentSchema.safeParse(phase2Content("x", {
+      ...NOTHING_FOUND_FIELDS, numbers: [], searchScope: [search] })).success;
+    expect(withSearch(ranged)).toBe(true);
+    expect(withSearch({ ...ranged, dateRange: { start: "2015", end: "2026-10-22" } })).toBe(false);
+    expect(withSearch({ ...ranged, dateRange: { start: "2015-01-01" } })).toBe(false);
+    // Stored as the search took it: the search tools check a date's form, not the calendar, so neither does this,
+    // and a search the final check bound is never refused at acceptance.
+    expect(withSearch({ ...ranged, dateRange: { start: "2015-02-30", end: "2026-10-22" } })).toBe(true);
+    expect(atlasSearchWithoutQuery(ranged as Parameters<typeof atlasSearchWithoutQuery>[0]))
+      .toEqual({ ...ranged, query: ATLAS_ERASED_TEXT });
   });
 
   it("stores a query as long as the search tools take, 5,000 characters (review finding 6)", () => {

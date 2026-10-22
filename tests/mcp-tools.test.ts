@@ -2512,6 +2512,31 @@ describe("AskRigor MCP tools", () => {
       }
     };
 
+    it("signs a search's date range with its query, so a card can carry the range it searched (review finding 8)", async () => {
+      stubPubmed(3);
+      const ranged = await call("search_pubmed", { query: "ranged search",
+        date_range: { start: "2015-01-01", end: "2026-10-22" } });
+      expect(ranged.receipt).toMatchObject({ ok: true, kind: "literature_search",
+        claims: { src: "pubmed", dr: "2015-01-01/2026-10-22" } });
+      stubPubmed(3);
+      const open = await call("search_pubmed", { query: "open search" });
+      expect(open.receipt).toMatchObject({ ok: true, kind: "literature_search", claims: { src: "pubmed" } });
+      expect(open.receipt?.ok === true ? open.receipt.claims.dr : "missing").toBeUndefined();
+
+      // Europe PMC echoes the request it answered, the date restriction inside the query; this page echoes the request.
+      const page = JSON.parse(await readFile(new URL("fixtures/europe-pmc/search-page-1.json", import.meta.url), "utf8"));
+      vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+        const url = new URL(String(input));
+        return new Response(JSON.stringify({ ...page, hitCount: 2, request: { ...page.request,
+          queryString: url.searchParams.get("query"), cursorMark: url.searchParams.get("cursorMark"),
+          pageSize: Number(url.searchParams.get("pageSize")) } }), { status: 200 });
+      }));
+      const europe = await call("search_europe_pmc", { query: "ranged search", page_size: 2,
+        date_range: { start: "2020-01-01", end: "2020-12-31" } });
+      expect(europe.receipt).toMatchObject({ ok: true, kind: "literature_search",
+        claims: { src: "europepmc", dr: "2020-01-01/2020-12-31" } });
+    });
+
     it("returns every PubMed record in one call and signs the whole count", async () => {
       const retmaxes = stubPubmed(35);
 

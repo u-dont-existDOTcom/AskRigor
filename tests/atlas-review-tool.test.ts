@@ -830,6 +830,29 @@ describe("the card's Atlas fields at acceptance (phase 3 design, section 5)", ()
       searchScope: [{ database: "pubmed", query: "zentarine voice tremor" }] } });
   });
 
+  it("carries a search's date range from the card to the Atlas, and through an erasure (review finding 8)", async () => {
+    await stubProviders();
+    const h = harness();
+    const range = { start: "2015-01-01", end: "2026-10-22" };
+    await h.save({ ...VELMOR_CARD, findings: [VELMOR_CARD.findings[0]!, { ...VELMOR_CARD.findings[1]!,
+      searches: [{ database: "pubmed", query: "zentarine voice tremor", date_range: range }] }] }, ["full_text_audit", "none"]);
+    const inspect = await h.call({ action: "inspect_finding", card: "ARF-0042", finding: 2 });
+    expect(inspect.structured.card.items[1].searches)
+      .toEqual([{ database: "pubmed", query: "zentarine voice tremor", dateRange: range }]);
+    expect(inspect.text).toContain("; searches: pubmed \"zentarine voice tremor\" (2015-01-01 to 2026-10-22).");
+    await h.call({ action: "accept_finding", card: "ARF-0042", finding: 2, cardSha256: inspect.structured.card.cardSha256 });
+    const [intent] = await h.review.inspectIntents(["F-1001"]);
+    expect(intent!.payload).toMatchObject({ content: {
+      searchScope: [{ database: "pubmed", query: "zentarine voice tremor", dateRange: range }] } });
+    expect((await h.promote()).result.status).toBe("promoted");
+    // A general version made with eraseWording keeps the range with the database (review finding 2).
+    await h.call({ action: "edit_finding", atlasNumber: "F-1001", version: 1,
+      wording: "No trial measured the voice tremor of Velmor syndrome.", note: "General.", eraseWording: true });
+    const revise = (await h.review.inspectIntents(["F-1001"])).find(({ intentKind }) => intentKind === "revise")!;
+    expect(revise.payload).toMatchObject({ content: {
+      searchScope: [{ database: "pubmed", query: ATLAS_ERASED_TEXT, dateRange: range }] } });
+  });
+
   it("corrects a finding's fields after acceptance, all four or none, and keeps its searches only as nothing_found", async () => {
     await stubProviders();
     const h = harness();

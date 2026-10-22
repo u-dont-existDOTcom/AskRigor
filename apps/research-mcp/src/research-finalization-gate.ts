@@ -3114,8 +3114,9 @@ export function finalizeResearch(
         // is a sentence the answer declares as not found (and one it declares only so is a search that found nothing);
         // each compared exactly, the same in any language.
         answerFigures: input.binary_results ?? [],
-        searched: (database, query) => verified.some(({ kind, claims }) => kind === "literature_search" &&
-          text(claims.src) === database && text(claims.q) === discoveryQueryDigest([query])),
+        searched: (database, query, dateRange) => verified.some(({ kind, claims }) => kind === "literature_search" &&
+          text(claims.src) === database && text(claims.q) === discoveryQueryDigest([query]) &&
+          text(claims.dr) === (dateRange === undefined ? "" : `${dateRange.start}/${dateRange.end}`)),
         absenceStates: (quote) => absenceClaims.filter(({ quote: claimed }) => sameQuote(quote, claimed))
           .map(({ state }) => state)
       });
@@ -3864,7 +3865,7 @@ function findingsCardCheck(
     studyAudited: (source: string) => boolean;
     videoAudited: (source: string) => boolean;
     answerFigures: readonly AnswerFigure[];
-    searched: (database: string, query: string) => boolean;
+    searched: (database: string, query: string, dateRange?: { start: string; end: string }) => boolean;
     absenceStates: (quote: string) => readonly string[];
   }
 ): FindingsCardCheck {

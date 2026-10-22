@@ -495,7 +495,12 @@ export const atlasCardViewSchema = z.object({
     /** How many two-group figures its numbers block holds; null when the card declares none. */
     numbers: z.number().int().nonnegative().nullable(),
     /** A search that found nothing: the searches it made, as the final check bound them. */
-    searches: z.array(z.object({ database: z.enum(ATLAS_SEARCH_DATABASES), query: z.string() }).strict()).max(10),
+    searches: z.array(z.object({
+      database: z.enum(ATLAS_SEARCH_DATABASES),
+      query: z.string(),
+      /** The publication dates the search was restricted to, when it was (review finding 8). */
+      dateRange: z.object({ start: z.string(), end: z.string() }).strict().optional(),
+    }).strict()).max(10),
     sources: z.array(z.string()).max(10),
     youtubeVideos: z.number().int().nonnegative(),
     save: z.enum(["card", "occurrence"]),
@@ -978,8 +983,9 @@ export class AtlasReview {
           ? "\nDeclared: nothing, as a card saved before the Atlas fields."
           : `\nDeclared: ${fieldsWords(declared)}; numbers: ${focus.finding.numbers?.length ?? 0} two-group ` +
             `${(focus.finding.numbers?.length ?? 0) === 1 ? "figure" : "figures"}` +
-            `${declared.searchScope === undefined ? "" : `; searches: ${declared.searchScope.map(({ database, query }) =>
-              `${database} "${query}"`).join(", ")}`}.`) +
+            `${declared.searchScope === undefined ? "" : `; searches: ${declared.searchScope.map(({ database, query,
+              dateRange }) => `${database} "${query}"${dateRange === undefined ? ""
+              : ` (${dateRange.start} to ${dateRange.end})`}`).join(", ")}`}.`) +
         `\n${sourcesSentence(plan)}` +
         (privacy.length === 0 ? "" : `\nPrivacy: ${privacy.map(({ field, reasonCode }) => `${field} (${reasonCode})`).join(", ")}.`) +
         (problems.length === 0 ? "" : `\n${problems.map(({ message }) => message).join("\n")}`) +
@@ -2353,7 +2359,8 @@ function cardFieldsOf(item: CardItem): DeclaredFields {
     direction: finding.direction,
     searchScope: finding.searches === undefined || finding.searches.length === 0
       ? undefined
-      : finding.searches.map(({ database, query }): AtlasSearch => ({ database, query })),
+      : finding.searches.map(({ database, query, date_range: range }): AtlasSearch =>
+        ({ database, query, ...(range === undefined ? {} : { dateRange: range }) })),
   });
 }
 

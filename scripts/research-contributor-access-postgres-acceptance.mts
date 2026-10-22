@@ -1702,7 +1702,13 @@ export async function verifyAtlasCardFields(context: { adminUrl: string; schema:
         return decided.publicNumber!;
       };
       const effectFields = { kind: "effect", subject: "Zentarine", subjectType: "supplement", direction: "benefit" };
-      const searches = [{ database: "pubmed", query: "zentarine children" }, { database: "ctgov", query: "zentarine" }];
+      // The first search was restricted to publication dates (review finding 8): the range is kept, and erased with
+      // nothing, since it identifies no one.
+      const searches = [
+        { database: "pubmed", query: "zentarine children", dateRange: { start: "2015-01-01", end: "2026-10-22" } },
+        { database: "ctgov", query: "zentarine" },
+      ];
+      const withoutQueries = searches.map((search) => ({ ...search, query: ATLAS_ERASED }));
       const nothingFields = {
         kind: "nothing_found", subject: "Zentarine", subjectType: "supplement", direction: "descriptive",
         searchScope: searches,
@@ -1841,6 +1847,10 @@ export async function verifyAtlasCardFields(context: { adminUrl: string; schema:
         "'[]'::jsonb",
         `'${JSON.stringify([{ database: "europepmc", query: ATLAS_ERASED }, { database: "ctgov", query: ATLAS_ERASED }])}'::jsonb`,
         `'${JSON.stringify([{ database: "pubmed", query: "another query" }, searches[1]])}'::jsonb`,
+        // The queries erased, but the range changed or dropped: only the queries may change.
+        `'${JSON.stringify([{ ...withoutQueries[0], dateRange: { start: "2016-01-01", end: "2026-10-22" } },
+          withoutQueries[1]])}'::jsonb`,
+        `'${JSON.stringify([{ database: "pubmed", query: ATLAS_ERASED }, withoutQueries[1]])}'::jsonb`,
       ]) {
         await expectMessage(() => underRedaction(
           `UPDATE ${schema}.atlas_finding_versions SET search_scope = ${scope} WHERE claim_version_id = $1`),
@@ -1893,7 +1903,7 @@ export async function verifyAtlasCardFields(context: { adminUrl: string; schema:
         }
       })();
       assert(
-        isDeepStrictEqual(onlySearches, searches.map(({ database }) => ({ database, query: ATLAS_ERASED }))),
+        isDeepStrictEqual(onlySearches, withoutQueries),
         "ATLAS_CARD_FIELDS_ONLY_SEARCHES_NOT_ERASED",
       );
 
@@ -1931,7 +1941,7 @@ export async function verifyAtlasCardFields(context: { adminUrl: string; schema:
         erasedRows.rows.length === 2 && erasedRows.rows.every((row) =>
           row.program_or_exposure === ATLAS_ERASED && row.direction === "descriptive" && row.kind === "nothing_found" &&
           row.subject_type === "supplement" &&
-          isDeepStrictEqual(row.search_scope, searches.map(({ database }) => ({ database, query: ATLAS_ERASED })))),
+          isDeepStrictEqual(row.search_scope, withoutQueries)),
         "ATLAS_CARD_FIELDS_ERASE_MISMATCH",
       );
       const leftover = await admin.query<{ rows: string }>(

@@ -34,8 +34,11 @@ export interface CardFieldsContext {
   required: boolean;
   /** The two-group figures this call's binary_results gives, which the card's figures are among. */
   answerFigures: readonly AnswerFigure[];
-  /** Whether a literature_search receipt verified in this call names this database and the digest of this query. */
-  searched(database: string, query: string): boolean;
+  /**
+   * Whether a literature_search receipt verified in this call names this database, the digest of this query and this
+   * date range, or no date range when the search had none (review finding 8).
+   */
+  searched(database: string, query: string, dateRange?: { start: string; end: string }): boolean;
   /**
    * The states of this call's absence_claims entries whose quote is this sentence, compared as the gate compares quotes;
    * empty when the answer declares it in none.
@@ -96,10 +99,13 @@ export function cardFieldProblems(card: FindingsCard, context: CardFieldsContext
     // Searches that go with another kind are refused above; only a search that found nothing is bound to a receipt.
     if (kind === ATLAS_SEARCH_KIND || kind === undefined) {
       (finding.searches ?? []).forEach((search, place) => {
-        if (!context.searched(search.database, search.query)) {
+        if (!context.searched(search.database, search.query, search.date_range)) {
+          const range = search.date_range === undefined
+            ? "no date range"
+            : `the date range ${search.date_range.start} to ${search.date_range.end}`;
           problems.push(`${at}.searches[${place}] is not a search passed here: no literature_search receipt of this ` +
-            `call has database ${search.database} and that query. Give the query exactly as it was searched, and pass ` +
-            "its research_receipt.");
+            `call has database ${search.database}, that query and ${range}. Give the query exactly as it was ` +
+            "searched, with its date_range when the search had one, and pass its research_receipt.");
         }
       });
     }

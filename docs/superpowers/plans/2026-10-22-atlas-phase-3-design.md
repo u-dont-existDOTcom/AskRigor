@@ -43,7 +43,7 @@ Per finding (inside `findings_card.findings[]`):
 | `subject_type` | `condition`, `symptom`, `test`, `treatment`, `supplement`, `product`, `food`, `practice` (the 156 test's list) | AI |
 | `direction` | `benefit`, `harm`, `no_effect`, `mixed`, `descriptive` | AI |
 | `numbers` | The numbers block: a list of two-group yes-or-no figures, each in `binary_results`' flat shape without its quotes, at most 20 | AI declares; code checks |
-| `searches` | For `nothing_found` only: each search that found nothing, as `database` (`pubmed`, `europepmc` or `ctgov`) and its exact `query` (at most 5,000 characters, as the search tools take; review finding 6), at most 10; an empty list is none (review finding 7) | AI declares; code binds |
+| `searches` | For `nothing_found` only: each search that found nothing, as `database` (`pubmed`, `europepmc` or `ctgov`), its exact `query` (at most 5,000 characters, as the search tools take; review finding 6) and, when the search was restricted to publication dates, its `date_range` as the search took it (`start` and `end`, inclusive `YYYY-MM-DD`; review finding 8), at most 10; an empty list is none (review finding 7) | AI declares; code binds |
 
 Per card: `topic`, as `key` (the Atlas's topic key format: lower case letters, digits and `. _ -`, such as
 `velmor-syndrome`) and `label` (at most 200 characters, such as Velmor syndrome).
@@ -56,8 +56,11 @@ reciprocal of the difference in rates, rounded up, with the harms over the same 
 treat. A continuous result (a mean difference, say) is not such a figure, so an effect finding may carry an empty list.
 
 **The searches** name only searches a receipt of the call verifies: PubMed, Europe PMC and ClinicalTrials.gov, the
-three tools that sign `literature_search` receipts. The receipt signs the database and the query's digest, so the
-binding is exact up to case and spacing. The date the Atlas shows is the research day (the card stamp's
+three tools that sign `literature_search` receipts. The receipt signs the database, the query's digest and, for a
+PubMed or Europe PMC search restricted to publication dates, that date range (`dr`; ClinicalTrials.gov's search takes
+none), so the binding is exact up to case and spacing, and a search over some years is never shown as one over all of
+them (review finding 8). Restricted searches are not refused: the range goes with the search on the card, in the
+library's record and in the Atlas. The date the Atlas shows is the research day (the card stamp's
 `research.finalized_at`): every receipt a final check accepts is at most 24 hours old, so "searched by" that day is
 exact. Record counts are not carried (choice 6).
 
@@ -92,7 +95,8 @@ then neither saved nor offered and never holds back the answer, as today.
 7. **Each figure is one the answer reported:** its four counts and its `better` are those of a `binary_results` entry
    of the same call, which the gate has already checked against the answer (choice 4).
 8. **Each search is bound to the call's receipts:** a `literature_search` receipt verified in this call has the same
-   database and the digest of the same query.
+   database, the digest of the same query and the same date range, or none when the search had none (review
+   finding 8).
 9. **Searches go only with `nothing_found`.**
 10. **A search that found nothing states no direction:** a `nothing_found` finding's direction is `descriptive`
     (choice 5). A study that found no difference is an effect or harm finding with direction `no_effect`; HRP keeps the
@@ -192,7 +196,7 @@ stored kind, subject, subject type and direction.
 | subject type | `atlas_finding_versions.subject_type` (new) | |
 | direction | `claim_versions.direction` | Its values are the column's own, without `unclear`, which stays the value for a version without one |
 | numbers | `atlas_finding_versions.numbers` | Phase 2's column, now filled from the card |
-| searches | `atlas_finding_versions.search_scope` (new) | A list of `{database, query}`; only with kind `nothing_found` |
+| searches | `atlas_finding_versions.search_scope` (new) | A list of `{database, query}`, each with its `dateRange` when the search had one; only with kind `nothing_found` |
 | topic | `topics` via the question | As in phase 2 |
 
 The intent payload's version content gains the same five optional fields (`kind`, `subject`, `subjectType`,
@@ -218,10 +222,10 @@ hold no card reference, account, thread key, receipt, answer quote, or YouTube o
 five functions and its grants are unchanged: they check only an intent's top-level fields. No sequence, table or role
 is added.
 
-**Decision 7's erasure** now also sets each search's query to `[wording removed]` (its database stays), and the
-subject with the version's other claim texts (0017 already erases `program_or_exposure`). The new general version
-that `edit_finding` with `eraseWording` makes keeps a search that found nothing's searches with their databases and
-the version's research day, and each query becomes `[wording removed]` there too, since a query can identify a person
+**Decision 7's erasure** now also sets each search's query to `[wording removed]` (its database and date range stay),
+and the subject with the version's other claim texts (0017 already erases `program_or_exposure`). The new general
+version that `edit_finding` with `eraseWording` makes keeps a search that found nothing's searches with their
+databases, their date ranges and the version's research day, and each query becomes `[wording removed]` there too, since a query can identify a person
 as a wording can; the reply says so. A correction without `eraseWording` keeps the queries as the final check bound
 them. The in-memory writer and the
 intents' erasure (`atlasErasedContent`) do the same, so the intents keep no erased query. The guard's permitted

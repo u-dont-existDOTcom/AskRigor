@@ -84,12 +84,20 @@ export type FindingNumberEntry = z.output<typeof findingNumberEntrySchema>;
 const FINDING_NUMBERS_ARE_ATLAS_NUMBERS: (entry: FindingNumberEntry) => AtlasNumberEntry = (entry) => entry;
 void FINDING_NUMBERS_ARE_ATLAS_NUMBERS;
 
-/** A search that found nothing, as a literature_search receipt of the same call names it: its database and query. */
+/**
+ * A search that found nothing, as a literature_search receipt of the same call names it: its database, its query
+ * and, when the search was restricted to publication dates, that range (review finding 8), which the receipt signs.
+ */
 export const findingSearchSchema = z.object({
   database: z.enum(ATLAS_SEARCH_DATABASES)
     .describe("pubmed (search_pubmed), europepmc (search_europe_pmc) or ctgov (search_clinical_trials)."),
   query: cardText(ATLAS_SEARCH_QUERY_MAX_CHARACTERS)
-    .describe("The exact query that search was made with; its research_receipt is passed in this call.")
+    .describe("The exact query that search was made with; its research_receipt is passed in this call."),
+  date_range: z.object({
+    start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
+    end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u)
+  }).strict().optional()
+    .describe("The search's date_range, exactly as the search took it, when it had one; leave it out otherwise.")
 }).strict();
 export type FindingSearch = z.output<typeof findingSearchSchema>;
 
@@ -101,7 +109,8 @@ const FINDINGS_DESCRIPTION = "One to five findings. Each gives claim, certainty,
   "mixed, or descriptive when it states no effect either way, as nothing_found does); for an effect, harm or " +
   "overlooked_option, numbers: each two-group yes-or-no figure the claim gives, as binary_results gives it without " +
   "its quotes (an empty list if none); and for nothing_found, searches: each search that found nothing, by its " +
-  "database (pubmed, europepmc or ctgov) and exact query, passed here as a literature search.";
+  "database (pubmed, europepmc or ctgov) and exact query, with its date_range when it had one, passed here as a " +
+  "literature search.";
 
 export const findingsCardSchema = z.object({
   question: cardText(300).describe("The question in general terms, with no personal details."),

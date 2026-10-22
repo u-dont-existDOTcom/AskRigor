@@ -12625,6 +12625,22 @@
                           },
                           "query": {
                             "type": "string"
+                          },
+                          "dateRange": {
+                            "type": "object",
+                            "properties": {
+                              "start": {
+                                "type": "string"
+                              },
+                              "end": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "start",
+                              "end"
+                            ],
+                            "additionalProperties": false
                           }
                         },
                         "required": [
@@ -17791,7 +17807,7 @@
               "findings": {
                 "type": "array",
                 "items": {},
-                "description": "One to five findings. Each gives claim, certainty, applies_to, answer_quote, sources, why_not_usual, tags and what_would_change_it, and for the public Atlas: kind (effect, harm, overlooked_option, correction, nothing_found or tested_vs_sold); subject, what it is about as people know it, with subject_type (condition, symptom, test, treatment, supplement, product, food or practice); direction (benefit, harm, no_effect, mixed, or descriptive when it states no effect either way, as nothing_found does); for an effect, harm or overlooked_option, numbers: each two-group yes-or-no figure the claim gives, as binary_results gives it without its quotes (an empty list if none); and for nothing_found, searches: each search that found nothing, by its database (pubmed, europepmc or ctgov) and exact query, passed here as a literature search."
+                "description": "One to five findings. Each gives claim, certainty, applies_to, answer_quote, sources, why_not_usual, tags and what_would_change_it, and for the public Atlas: kind (effect, harm, overlooked_option, correction, nothing_found or tested_vs_sold); subject, what it is about as people know it, with subject_type (condition, symptom, test, treatment, supplement, product, food or practice); direction (benefit, harm, no_effect, mixed, or descriptive when it states no effect either way, as nothing_found does); for an effect, harm or overlooked_option, numbers: each two-group yes-or-no figure the claim gives, as binary_results gives it without its quotes (an empty list if none); and for nothing_found, searches: each search that found nothing, by its database (pubmed, europepmc or ctgov) and exact query, with its date_range when it had one, passed here as a literature search."
               },
               "public_value": {
                 "description": "Whether these findings would help anyone beyond this person. Findings declared personal_only are not saved to AskRigor's findings library or offered for it. When the answer holds both kinds, put only the general findings on the card, written without the person, and declare them public.",
@@ -19012,6 +19028,25 @@
                             "minLength": 1,
                             "maxLength": 5000,
                             "description": "The exact query that search was made with; its research_receipt is passed in this call."
+                          },
+                          "date_range": {
+                            "description": "The search's date_range, exactly as the search took it, when it had one; leave it out otherwise.",
+                            "type": "object",
+                            "properties": {
+                              "start": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                              },
+                              "end": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                              }
+                            },
+                            "required": [
+                              "start",
+                              "end"
+                            ],
+                            "additionalProperties": false
                           }
                         },
                         "required": [
@@ -19033,7 +19068,7 @@
                   ],
                   "additionalProperties": false
                 },
-                "description": "One to five findings. Each gives claim, certainty, applies_to, answer_quote, sources, why_not_usual, tags and what_would_change_it, and for the public Atlas: kind (effect, harm, overlooked_option, correction, nothing_found or tested_vs_sold); subject, what it is about as people know it, with subject_type (condition, symptom, test, treatment, supplement, product, food or practice); direction (benefit, harm, no_effect, mixed, or descriptive when it states no effect either way, as nothing_found does); for an effect, harm or overlooked_option, numbers: each two-group yes-or-no figure the claim gives, as binary_results gives it without its quotes (an empty list if none); and for nothing_found, searches: each search that found nothing, by its database (pubmed, europepmc or ctgov) and exact query, passed here as a literature search."
+                "description": "One to five findings. Each gives claim, certainty, applies_to, answer_quote, sources, why_not_usual, tags and what_would_change_it, and for the public Atlas: kind (effect, harm, overlooked_option, correction, nothing_found or tested_vs_sold); subject, what it is about as people know it, with subject_type (condition, symptom, test, treatment, supplement, product, food or practice); direction (benefit, harm, no_effect, mixed, or descriptive when it states no effect either way, as nothing_found does); for an effect, harm or overlooked_option, numbers: each two-group yes-or-no figure the claim gives, as binary_results gives it without its quotes (an empty list if none); and for nothing_found, searches: each search that found nothing, by its database (pubmed, europepmc or ctgov) and exact query, with its date_range when it had one, passed here as a literature search."
               },
               "public_value": {
                 "description": "Whether these findings would help anyone beyond this person. Findings declared personal_only are not saved to AskRigor's findings library or offered for it. When the answer holds both kinds, put only the general findings on the card, written without the person, and declare them public.",

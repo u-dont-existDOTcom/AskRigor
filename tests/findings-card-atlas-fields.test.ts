@@ -299,17 +299,18 @@ describe("a search that found nothing (owner decision 3b's bounded absence)", ()
 
   it("binds each search to a literature search receipt of the same call, case and spacing aside", () => {
     expect(searchProblems({ searches: [{ database: "pubmed", query: "  Zentarine   CHILDREN " }] })).toEqual([]);
-    const unbound = (database: string, query: string) =>
+    const unbound = (database: string) =>
       `findings_card.findings[1].searches[0] is not a search passed here: no literature_search receipt of this call ` +
-      `has database ${database} and that query. Give the query exactly as it was searched, and pass its research_receipt.`;
-    expect(searchProblems({ searches: [{ database: "europepmc", query: QUERY }] })).toEqual([unbound("europepmc", QUERY)]);
+      `has database ${database}, that query and no date range. Give the query exactly as it was searched, with its ` +
+      "date_range when the search had one, and pass its research_receipt.";
+    expect(searchProblems({ searches: [{ database: "europepmc", query: QUERY }] })).toEqual([unbound("europepmc")]);
     expect(searchProblems({ searches: [{ database: "pubmed", query: "zentarine adolescents" }] }))
-      .toEqual([unbound("pubmed", "zentarine adolescents")]);
+      .toEqual([unbound("pubmed")]);
     // A receipt from another server's secret is not this call's.
     const foreign = issueResearchReceipt("literature_search", { src: "ctgov", q: discoveryQueryDigest(["zentarine"]) },
       { secret: "another-secret-0123456789abcdefghijklmnop" });
     expect(searchProblems({ searches: [{ database: "ctgov", query: "zentarine" }] }, { receipts: [audit, search, foreign] }))
-      .toEqual([unbound("ctgov", "zentarine")]);
+      .toEqual([unbound("ctgov")]);
   });
 
   it("states no direction, since a study that found no difference is another kind of finding", () => {
@@ -344,6 +345,29 @@ describe("a search that found nothing (owner decision 3b's bounded absence)", ()
       query }] })).success;
     expect(parsed("z".repeat(5_000))).toBe(true);
     expect(parsed("z".repeat(5_001))).toBe(false);
+  });
+
+  it("carries a search's date range, bound to the range its receipt signs (review finding 8)", () => {
+    const range = { start: "2015-01-01", end: "2026-10-22" };
+    const ranged = issueResearchReceipt("literature_search", { src: "pubmed", q: discoveryQueryDigest([QUERY]),
+      dr: "2015-01-01/2026-10-22", ret: 0, n: 0 }, { secret: SECRET });
+    const withRanged = { receipts: [audit, ranged] };
+    expect(searchProblems({ searches: [{ database: "pubmed", query: QUERY, date_range: range }] }, withRanged))
+      .toEqual([]);
+    // The range is part of the search: a card that leaves it out, or gives another, names no search passed here.
+    const unbound = (described: string) => `findings_card.findings[1].searches[0] is not a search passed here: no ` +
+      `literature_search receipt of this call has database pubmed, that query and ${described}. Give the query ` +
+      "exactly as it was searched, with its date_range when the search had one, and pass its research_receipt.";
+    expect(searchProblems({ searches: [{ database: "pubmed", query: QUERY }] }, withRanged))
+      .toEqual([unbound("no date range")]);
+    expect(searchProblems({ searches: [{ database: "pubmed", query: QUERY,
+      date_range: { start: "2016-01-01", end: "2026-10-22" } }] }, withRanged))
+      .toEqual([unbound("the date range 2016-01-01 to 2026-10-22")]);
+    // A search with no range signs none, so a card that gives one names no search passed here.
+    expect(searchProblems({ searches: [{ database: "pubmed", query: QUERY, date_range: range }] }))
+      .toEqual([unbound("the date range 2015-01-01 to 2026-10-22")]);
+    expect(findingsCardSchema.safeParse(withFinding(1, { searches: [{ database: "pubmed", query: QUERY,
+      date_range: { start: "2015", end: "2026-10-22" } }] })).success).toBe(false);
   });
 
   it("reads an empty list of searches as none, on any kind (review finding 7)", () => {
@@ -462,6 +486,12 @@ describe("the new texts' privacy and storage", () => {
     const emptied = { ...withFinding(0, { searches: [] }), question: "Does zentarine ease the tremor at any dose?" };
     expect(await save(emptied, "3".repeat(64))).toMatchObject({ status: "saved", card_id: "ARF-0072" });
     expect(github.issue(72).body.match(/Searches that found nothing/gu)).toHaveLength(1);
+    // A search restricted to dates shows its range (review finding 8).
+    const ranged = { ...withFinding(1, { searches: [{ database: "pubmed", query: QUERY,
+      date_range: { start: "2015-01-01", end: "2026-10-22" } }] }), question: "Is zentarine tested in children yet?" };
+    expect(await save(ranged, "4".repeat(64))).toMatchObject({ status: "saved", card_id: "ARF-0073" });
+    expect(github.issue(73).body).toContain("- Searches that found nothing: pubmed: zentarine children, " +
+      "2015\\-01\\-01 to 2026\\-10\\-22");
 
     const inbox = new GitHubFindingsReview({ tokenProvider, fetch: github.fetch, repository: DEFAULT_FINDINGS_REPOSITORY });
     const read = await inbox.readCard(70);

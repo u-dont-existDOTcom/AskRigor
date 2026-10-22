@@ -259,12 +259,20 @@ const canonicalSubset = <T extends string>(allowed: readonly T[], values: readon
   values.every((value, index) => index === 0 || allowed.indexOf(values[index - 1]!) < allowed.indexOf(value));
 
 /**
+ * A date of a search's range as the search tools take it, YYYY-MM-DD with no calendar check, so every range a receipt
+ * signed, and the final check bound, can be stored as it was searched.
+ */
+const searchDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/u);
+
+/**
  * A search that found nothing, as the final check bound it to a literature_search receipt of its call (Atlas phase 3):
- * the database and the exact query. Its date is the version's research day.
+ * the database, the exact query and, when the search was restricted to publication dates, that range (review finding
+ * 8), which the receipt signs. Its date is the version's research day.
  */
 export const atlasSearchSchema = z.object({
   database: z.enum(ATLAS_SEARCH_DATABASES),
   query: atlasText(ATLAS_SEARCH_QUERY_MAX_CHARACTERS),
+  dateRange: z.object({ start: searchDateSchema, end: searchDateSchema }).strict().optional(),
 }).strict();
 export type AtlasSearch = z.infer<typeof atlasSearchSchema>;
 
@@ -1035,7 +1043,10 @@ export function atlasNumberEntryWithoutLabels(entry: AtlasNumberEntry): AtlasNum
     follow_up: ATLAS_ERASED_TEXT };
 }
 
-/** A search with its query erased, as atlas_search_scope_without_queries() (migration 0018) writes it: the database stays. */
+/**
+ * A search with its query erased, as atlas_search_scope_without_queries() (migration 0018) writes it: the database and
+ * any date range stay.
+ */
 export function atlasSearchWithoutQuery(search: AtlasSearch): AtlasSearch {
   return { ...search, query: ATLAS_ERASED_TEXT };
 }
@@ -1043,7 +1054,7 @@ export function atlasSearchWithoutQuery(search: AtlasSearch): AtlasSearch {
 /**
  * A version's content as erase_atlas_wording() leaves it: every text the fixed marker (a missing one stays missing),
  * the numbers' text labels and the searches' queries too (Atlas phase 3, migration 0018); certainty, tags, verified
- * bases, the counts, the kind, the subject type, the direction and each search's database stay.
+ * bases, the counts, the kind, the subject type, the direction and each search's database and date range stay.
  */
 export function atlasErasedContent(content: AtlasVersionContent): AtlasVersionContent {
   return {
