@@ -1,6 +1,6 @@
 # How the public Atlas is organized
 
-22 October 2026. **Draft for the owner; nothing here is built or decided.**
+22 October 2026. **Draft for the owner. The decisions in section 6 were made on 22 October; nothing here is built yet.**
 
 This is the page structure promised with your answer 156a ("What goes into the Atlas"). It builds on the 30 August
 Atlas design (`docs/superpowers/specs/2026-08-30-public-discovery-atlas-design.md`); section 8 says what it keeps,
@@ -216,6 +216,29 @@ in tremor. Its AI declares that it contradicts finding 1 at a lower dose; you ac
 **Contested**, naming the dose. If a pooled analysis later replaces finding 1, it turns **Superseded** and points there.
 
 ## 6. Decisions for you
+
+**Decided by the owner, 22 October 2026, about 14:39 UTC:** "159 1b (nobody agreed to anything yet except me) 2a 3b
+4a 5a 6a 7 when someone deletes a findings card they should explain why. if the findings are still valid they can't
+remove valid findings, only if they realized the findings were invalid".
+
+1. **b:** add the publishing sentence first, and publish from older cards too. Until now only the owner has agreed to
+   any notice, so every older card is the owner's.
+2. **a:** "Most important now" holds the owner's picks, up to 5, each with the owner's reason.
+3. **b:** leads appear in a "Not yet checked" list on condition, product and question pages, never in lanes or search.
+4. **a:** the community section is built switched off until the YouTube compliance review ends and the owner approves
+   a field-by-field rule.
+5. **a:** a correction shows the corrected text with a dated note, and the old wording stays in the history.
+6. **a:** a retracted or corrected key study, or 12 months without a check, raises a warning at once, and the finding
+   leaves the lanes.
+7. **The owner's rule**, with a distinction proposed in reply at 14:47 UTC:
+   - What ties a card to its contributor (the account link, the ARF record) is removed whenever the contributor asks,
+     with no reason required; asking why is optional. This is a privacy-law right, and the privacy page promises it.
+   - A published finding is general knowledge written without the person, so it stays while it is valid. Anyone who
+     thinks it is wrong explains why, and the owner reviews it as a correction (5a).
+   - A finding that could identify the person is rewritten or removed.
+   - The notice wording from 1 says this before anyone contributes.
+
+The options as they were put follow.
 
 Everything not listed follows your earlier answers. Answer by number and letter, for example `2: a`.
 
