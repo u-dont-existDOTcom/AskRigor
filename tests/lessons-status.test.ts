@@ -65,6 +65,7 @@ async function runCommand(
   repository: unknown = { open_issues_count: 0 },
 ): Promise<CommandResult> {
   const calls: CommandResult["calls"] = [];
+  let listings = 0;
   const answer = (callback: Parameters<LessonStatusExecFile>[3], value: unknown) => {
     if (typeof value === "string") {
       callback(Object.assign(new Error("ghp_PRIVATE_TOKEN"), { code: "EFAIL" }), "PRIVATE", value);
@@ -99,6 +100,11 @@ async function runCommand(
       const isPrimary = ghArgs.includes("--slurp");
       if (scenario === "empty") {
         callback(null, JSON.stringify([[]]), "");
+        return;
+      }
+      if (scenario === "empty-then-success") {
+        listings += 1;
+        callback(null, JSON.stringify(listings === 1 ? [[]] : [page1, page2]), "");
         return;
       }
       if (scenario === "success") {
@@ -202,6 +208,7 @@ async function runCommand(
     now: () => NOW,
     stdout: (value) => stdout.push(value),
     stderr: (value) => stderr.push(value),
+    sleep: async () => {},
   });
   return { exitCode, stdout: stdout.join(""), stderr: stderr.join(""), calls };
 }
@@ -373,6 +380,16 @@ describe("lesson queue command", () => {
     expect(JSON.parse(result.stdout)).not.toHaveProperty("open_candidates");
     expect(result.stderr).toContain("Lesson queue status unavailable: empty_listing");
     expect(result.calls).toContainEqual(REPOSITORY_CALL);
+    // Read four times before it is reported unavailable.
+    expect(result.calls.filter((call) => call.args.includes("repos/u-dont-existDOTcom/AskRigor-lessons/issues"))).toHaveLength(4);
+  });
+
+  it("reads an empty listing again and reports the counts when a later read returns them", async () => {
+    const result = await runCommand("empty-then-success", [], [], undefined, [], {}, { open_issues_count: 31 });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({ ...summarizeLessonIssues([...page1, ...page2], NOW), ...EMPTY_LANE });
+    expect(result.calls.filter((call) => call.args.includes("repos/u-dont-existDOTcom/AskRigor-lessons/issues"))).toHaveLength(2);
   });
 
   it("accepts an empty listing when the repository reports no open issues", async () => {
