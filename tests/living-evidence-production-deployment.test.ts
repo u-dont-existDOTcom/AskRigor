@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
 
@@ -266,6 +266,26 @@ describe("production living-evidence deployment", () => {
     expect(migration).toContain("CREATE SEQUENCE IF NOT EXISTS atlas_public_number_seq AS bigint START WITH 1001");
     expect(migration).toContain("CREATE OR REPLACE VIEW atlas_finding_current AS");
     expect(migration).toContain("CONSTRAINT atlas_finding_intents_v1_state_check CHECK (");
+  });
+
+  it("keeps the living-evidence acceptance's pinned migration chain equal to the migrate list and the migration files", async () => {
+    // CI's database step compares the migrations a fresh database records with the chain pinned in the acceptance
+    // script. Twice (0017, 0018) a new migration was missing from that pin and only CI found it; this check runs in
+    // verify. The pin stays an exact list: the pin, migrate's list and the migration files must name the same
+    // migrations in the same order (down migrations aside).
+    const repository = await read("packages/evidence-repository/src/postgres.ts");
+    const acceptance = await read("scripts/living-evidence-task-acceptance.mts");
+    const migrate = repository.slice(repository.indexOf("async migrate(): Promise<void>"));
+    const migrateList = [...migrate.slice(0, migrate.indexOf("].map(")).matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)]
+      .map(([, id]) => id);
+    const pinned = acceptance.match(/"(0001_living_evidence(?:,\d{4}_[a-z0-9_]+)*)"/u)?.[1]?.split(",");
+    const files = (await readdir(new URL("packages/evidence-repository/migrations/", root)))
+      .filter((name) => /^\d{4}_[a-z0-9_]+\.sql$/u.test(name) && !name.endsWith("_down.sql"))
+      .map((name) => name.slice(0, -".sql".length))
+      .sort();
+    expect(migrateList.length).toBeGreaterThanOrEqual(18);
+    expect(pinned).toEqual(migrateList);
+    expect(files).toEqual(migrateList);
   });
 
   it("grants the review role exactly migration 0017's five SECURITY DEFINER functions, revoked from PUBLIC", async () => {
