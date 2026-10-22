@@ -163,6 +163,12 @@ Status: branch-local architecture and Phase-0 implementation index
     - executable typed contract and cross-record integrity checks corresponding
       to the v0.3 JSON Schema.
 
+29. `2026-10-22-atlas-organization-draft.md`
+    - draft page structure promised with owner answer 156a: what fills each
+      section of the home, condition, finding, product, question and history
+      pages, from saved card to accepted finding, ranking, and seven choices
+      for the owner (owner question 159); nothing in it is built or decided.
+
 ## Supersession note
 
 The Community Health Forum and Public Lead Frontier prior-work scan, spec, machine contract, fixtures, plan, queue entry, and receipt are the controlling architecture for public secondhand leads.
