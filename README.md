@@ -480,6 +480,21 @@ neither saved for a free contributor nor offered to a paid private one, and
 `save_research_findings` refuses it; the rest are saved or offered as before,
 and the owner's review shows each card's declaration.
 
+Owner answers 159 (1b and 7) and 160b (2026-10-22; built, not yet released,
+the sentences waiting for the owner's word-for-word approval): the free
+contributor notice moves to `free-contributor-v3-2026-10-22`. It adds that
+findings AskRigor's owner accepts may be published in AskRigor's public Atlas,
+written without the person; that asking to delete a findings card removes
+everything that ties it to the person, with no reason needed; and that a
+published finding stays while it is valid, is corrected or taken down when
+someone shows it is wrong, and is rewritten or removed if it could identify
+anyone. Accounts that accepted v1 or v2 accept v3 before free research
+continues (migration `0016_research_use_notice_v3`). A paid private answer's
+save offer ends with "Saved findings that AskRigor's owner accepts may be
+published in AskRigor's public Atlas, written without you.", and the privacy
+page and the terms say the same three points. Nothing is accepted or published
+yet; the build plan is `docs/superpowers/plans/2026-10-22-public-atlas-build.md`.
+
 ## Public-review status
 
 The Phase K2 source candidate is not a public-release claim. It requires a

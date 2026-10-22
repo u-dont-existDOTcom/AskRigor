@@ -106,6 +106,14 @@ export const FINDINGS_AND_MAP_SAVE_OFFER = "If you want them saved to AskRigor's
   "otherwise.";
 
 /**
+ * The sentence after a paid-private answer's offer, with or without the map, before the user's yes (owner answers 159,
+ * 1b and 7, and 160b, 2026-10-22): what the owner accepts from saved findings may be published, as the free
+ * contributor notice says.
+ */
+export const FINDINGS_ATLAS_SENTENCE = "Saved findings that AskRigor's owner accepts may be published in AskRigor's " +
+  "public Atlas, written without you.";
+
+/**
  * Work a quick answer cannot do, which finalize_research derives for each finding of a checked card from that call's
  * receipts and declarations (owner answer 139c, 2026-10-20): a source audited in full text, a video whose comments
  * were read, a sentence that is a checked absence claim, or a correction the research itself found. It shows depth,
@@ -143,16 +151,18 @@ export function verifiedWorkPhrase(work: VerifiedWork): string {
 /**
  * The caveat a paid-private answer carries when a finding of its checked card rests on work a quick answer cannot do,
  * naming that work with the server's counts (the owner's example, 139c: "These findings rest on full-text audits of 2
- * studies and audited comments on 3 videos, work a quick answer does not do. If you want them saved ...").
+ * studies and audited comments on 3 videos, work a quick answer does not do. If you want them saved ..."), and ending
+ * with the sentence on the public Atlas (FINDINGS_ATLAS_SENTENCE).
  */
 export function findingsSaveOffer(work: VerifiedWork): string {
-  return `These findings rest on ${verifiedWorkPhrase(work)}, work a quick answer does not do. ${FINDINGS_SAVE_OFFER}`;
+  return `These findings rest on ${verifiedWorkPhrase(work)}, work a quick answer does not do. ${FINDINGS_SAVE_OFFER} ` +
+    FINDINGS_ATLAS_SENTENCE;
 }
 
-/** The same caveat when its one sentence also asks to file this research's map (owner answer 143a). */
+/** The same caveat when its offer sentence also asks to file this research's map (owner answer 143a). */
 export function findingsAndMapSaveOffer(work: VerifiedWork): string {
   return `These findings rest on ${verifiedWorkPhrase(work)}, work a quick answer does not do. ` +
-    FINDINGS_AND_MAP_SAVE_OFFER;
+    `${FINDINGS_AND_MAP_SAVE_OFFER} ${FINDINGS_ATLAS_SENTENCE}`;
 }
 
 /** The line a free answer ends with, just before the check line, once the server's save of its card confirms (139c). */

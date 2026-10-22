@@ -190,8 +190,19 @@ describe("production living-evidence deployment", () => {
     const lessonReports = await read("packages/evidence-repository/migrations/0015_research_detailed_lesson_reports.sql");
     expect(lessonReports).toContain("ADD COLUMN IF NOT EXISTS detailed_lesson_reports boolean NOT NULL DEFAULT false");
     expect(lessonReports).not.toMatch(/CREATE TABLE|GRANT|DROP|DELETE|UPDATE/iu);
+    // Owner answers 159 (1b and 7) and 160b (2026-10-22): the third free contributor notice, next to the first two.
+    // It replaces 0011's constraint under 0011's name, so 0011 run again neither drops nor re-adds it, and only while
+    // the constraint lacks the third version.
+    const noticeV3 = await read("packages/evidence-repository/migrations/0016_research_use_notice_v3.sql");
+    expect(noticeV3).toContain(
+      "notice_version IN ('free-contributor-v1-2026-09-01', 'free-contributor-v2-2026-09-30', 'free-contributor-v3-2026-10-22')",
+    );
+    expect(noticeV3).toContain("pg_get_constraintdef(oid) NOT LIKE '%free-contributor-v3-2026-10-22%'");
+    expect(noticeV3.match(/research_use_accounts_free_notice_check/gu)).toHaveLength(4);
+    expect(noticeV3).toContain("IF NOT EXISTS");
+    expect(noticeV3).not.toMatch(/CREATE TABLE|GRANT|DELETE|UPDATE/iu);
     expect(await read("packages/evidence-repository/src/postgres.ts"))
-      .toContain('"0014_research_map_consent",\n      "0015_research_detailed_lesson_reports",\n    ]');
+      .toContain('"0015_research_detailed_lesson_reports",\n      "0016_research_use_notice_v3",\n    ]');
     expect(provision).not.toMatch(
       /GRANT\s+(?:DELETE|TRUNCATE|CREATE)\b/iu,
     );

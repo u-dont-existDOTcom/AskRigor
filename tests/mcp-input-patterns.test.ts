@@ -22,7 +22,7 @@ const SAMPLES = [
   "NCT12345678", "nct12345678", "NCT1234567",
   "a".repeat(64), "A".repeat(64), `aft1_${"a".repeat(32)}`, `aft1_${"a".repeat(31)}`,
   "jats_000001_abcdef012345", "pdf_000001_abcdef012345", "direct_000001_abcdef012345",
-  "free-contributor-v2-2026-09-30", "hip-oa", "aaaaaaaaaaa",
+  "free-contributor-v2-2026-09-30", "free-contributor-v3-2026-10-22", "hip-oa", "aaaaaaaaaaa",
   "123e4567-e89b-42d3-a456-426614174000", "123E4567-E89B-42D3-A456-426614174000",
   "00000000-0000-0000-0000-000000000000", "ffffffff-ffff-ffff-ffff-ffffffffffff",
   "10.1002/", "https://example.org/10.1002/test", "10.123/test", "10.1234567890/test"

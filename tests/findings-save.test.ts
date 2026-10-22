@@ -17,6 +17,7 @@ import {
 import { askrigorBuildCommitFromEnv } from "../apps/research-mcp/src/config.js";
 import {
   FINDINGS_AND_MAP_SAVE_OFFER,
+  FINDINGS_ATLAS_SENTENCE,
   FINDINGS_SAVE_OFFER,
   findingsAndMapSaveOffer,
   findingsCardDigest,
@@ -792,9 +793,13 @@ describe("finalize_research, save_research_findings and the findings library", (
     const options = { researchContributorAccessService: service, findingsLibrary: true, findingsSave };
     const finalize = connectorTool("finalize_research", options);
     // The card's finding rests on the study audited in full text, so the offer names that work (owner answer 139c),
-    // and on the connector its one sentence also asks to file this research's map (owner answer 143a).
+    // and on the connector its one sentence also asks to file this research's map (owner answer 143a). The sentence on
+    // the public Atlas follows (owner answers 159 and 160b).
     const offer = findingsAndMapSaveOffer({ studies: 1, videos: 0, absences: 0, corrections: 0 });
-    expect(offer).toBe(`These findings rest on a full-text audit of 1 study, work a quick answer does not do. ${FINDINGS_AND_MAP_SAVE_OFFER}`);
+    expect(offer).toBe("These findings rest on a full-text audit of 1 study, work a quick answer does not do. " +
+      `${FINDINGS_AND_MAP_SAVE_OFFER} ${FINDINGS_ATLAS_SENTENCE}`);
+    expect(FINDINGS_ATLAS_SENTENCE).toBe("Saved findings that AskRigor's owner accepts may be published in AskRigor's " +
+      "public Atlas, written without you.");
     expect(FINDINGS_AND_MAP_SAVE_OFFER).toBe("If you want them saved to AskRigor's findings library for review, and " +
       "this research's map (the searches, the studies found and the leads left open, never this chat) filed to " +
       "AskRigor's shared research repository for review, say yes; nothing is saved or filed otherwise.");

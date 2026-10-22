@@ -196,6 +196,37 @@ describe("AskRigor public site", () => {
     ]) expect(terms).toContain(fragment);
   });
 
+  // Owner answers 159 (1b and 7) and 160b (2026-10-22), as the free contributor notice's third version says them:
+  // findings the owner accepts may be published in the public Atlas, written without the person; deleting a card
+  // removes everything that ties it to the person, with no reason needed; a published finding stays while it is valid.
+  // Word for word as drafted for the owner's approval; the release sets the effective dates.
+  it("says that accepted findings may be published in the public Atlas, and what deleting a card removes and keeps", async () => {
+    const privacy = await pageHtml("site/privacy/index.html");
+    for (const fragment of [
+      "<p>Findings that AskRigor’s owner accepts from a saved findings card, in either mode, may be published in " +
+        "AskRigor’s public Atlas, written without the person. A published finding stays while it is valid: it is " +
+        "corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify " +
+        "anyone.</p></section>",
+      "Paid private mode sends no research contribution to that path. Findings that AskRigor’s owner accepts may be " +
+        "published in AskRigor’s public Atlas, as described above.",
+      "To request deletion of a findings card, send its <code>ARF-####</code> id to the same address. No reason is " +
+        "needed. Deletion removes the card and everything that ties it to you; findings from the card that " +
+        "AskRigor’s owner has already accepted are written without you, so they stay while they are valid, as " +
+        "described above.",
+      "Effective October 22, 2026",
+    ]) expect(privacy).toContain(fragment);
+    const terms = await pageHtml("site/terms/index.html");
+    for (const fragment of [
+      "rather than silently rewritten. Findings that AskRigor’s owner accepts from a saved findings card, in either " +
+        "mode, may be published in AskRigor’s public Atlas, written without you. If you ask to delete a findings " +
+        "card, everything that ties it to you is removed, and no reason is needed. A published finding stays while " +
+        "it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it " +
+        "could identify anyone.</p></section>",
+      "does not promise attribution, publication, compensation, or a particular outcome",
+      "Effective October 1, 2026",
+    ]) expect(terms).toContain(fragment);
+  });
+
   it("says what Gemini receives when a video is checked, and what the daily ledger holds", async () => {
     // "Check this video" (AskRigor#248), wording proposed for the owner's approval (owner questions page, question 26).
     const privacy = await pageHtml("site/privacy/index.html");

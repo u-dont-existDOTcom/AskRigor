@@ -295,22 +295,39 @@ describe("research contributor access", () => {
     expect(store.allProposals()).toHaveLength(1);
   });
 
-  // Owner decision Q11 (2026-09-30): free use saves each finished answer's findings card, so the notice changed.
-  it("says that free use saves findings cards and that paid private access saves only what the user accepts", () => {
-    expect(RESEARCH_USE_NOTICE_VERSION).toBe("free-contributor-v2-2026-09-30");
-    expect(RESEARCH_USE_NOTICE).toContain("what AskRigor learns from your research is saved");
-    expect(RESEARCH_USE_NOTICE).toContain("for each finished research answer, a findings card");
-    expect(RESEARCH_USE_NOTICE).toContain("summarized without their posts, names, links or video IDs");
-    expect(RESEARCH_USE_NOTICE).toContain(
-      "Paid private access saves research findings or lesson feedback only when you accept saving them for that answer",
-    );
+  // Owner decision Q11 (2026-09-30) made free use save each finished answer's findings card (v2). Owner answers 159
+  // (1b and 7) and 160b (2026-10-22) add that findings the owner accepts may be published in the public Atlas, what
+  // deleting a card removes and that a published finding stays while it is valid (v3), word for word as drafted for
+  // the owner's approval.
+  it("pins the third free contributor notice, word for word, after the two earlier versions", () => {
+    expect(RESEARCH_USE_NOTICE_VERSION).toBe("free-contributor-v3-2026-10-22");
+    expect(EARLIER_RESEARCH_USE_NOTICE_VERSIONS).toEqual([
+      "free-contributor-v1-2026-09-01",
+      "free-contributor-v2-2026-09-30",
+    ]);
+    expect(RESEARCH_USE_NOTICE).toBe([
+      "Free AskRigor use is reciprocal: what AskRigor learns from your research is saved for its research library.",
+      "That includes deidentified structured research progress and, for each finished research answer whose " +
+        "findings would help other people, a findings card: the question in general terms, the main findings and " +
+        "how certain they are, the public studies behind them, and what public online communities reported, " +
+        "summarized without their posts, names, links or video IDs.",
+      "AskRigor never saves raw chat, prompts, identity or contact details, private health narratives, uploads, or " +
+        "raw source or provider bodies.",
+      "Saved research is reviewed and does not become evidence, conclusions, or scientific authority merely because " +
+        "it was saved or repeated.",
+      "Findings that AskRigor's owner accepts may be published in AskRigor's public Atlas, written without you.",
+      "If you ask to delete a findings card, everything that ties it to you is removed, and no reason is needed.",
+      "A published finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, " +
+        "and rewritten or removed if it could identify anyone.",
+      "Paid private access saves research findings or lesson feedback only when you accept saving them for that " +
+        "answer, and requires an active verified entitlement.",
+    ].join(" "));
   });
 
-  it("asks a free account that accepted an earlier notice to accept the current one", async () => {
+  it.each(EARLIER_RESEARCH_USE_NOTICE_VERSIONS)("asks a free account that accepted %s to accept the current notice", async (earlier) => {
     const { store, service } = fixture();
     await service.acceptFreeContributor(SUBJECT, agreement());
     const [account] = store.allAccounts();
-    const [earlier] = EARLIER_RESEARCH_USE_NOTICE_VERSIONS;
     await store.saveAccount({ ...account!, noticeVersion: earlier, agreement: { ...agreement(), noticeVersion: earlier } });
 
     await expect(service.inspect(SUBJECT)).resolves.toMatchObject({

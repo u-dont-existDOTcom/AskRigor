@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 import {
+  FINDINGS_AND_MAP_SAVE_OFFER,
+  FINDINGS_ATLAS_SENTENCE,
   FINDINGS_SAVE_OFFER,
   findingsAndMapSaveOffer,
   findingsCardDigest,
@@ -3363,9 +3365,10 @@ describe("findings card at the final gate", () => {
     const plain = finalizeResearch(READY, closedOptions);
     const carded = finalizeResearch({ ...READY, findings_card: CARD }, offerOptions);
     expect(carded.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 1, public_value: "public" });
-    // The offer names what was done, with this call's counts (owner answer 139c).
+    // The offer names what was done, with this call's counts (owner answer 139c), and ends with the sentence on the
+    // public Atlas (owner answers 159 and 160b).
     expect(CARD_OFFER).toBe("These findings rest on a full-text audit of 1 study and audited comments on 1 video, " +
-      `work a quick answer does not do. ${FINDINGS_SAVE_OFFER}`);
+      `work a quick answer does not do. ${FINDINGS_SAVE_OFFER} ${FINDINGS_ATLAS_SENTENCE}`);
     expect(carded.caveats).toEqual([...plain.caveats, CARD_OFFER]);
     expect(findingsClaim(carded.finalization_receipt)).toBe(findingsCardDigest(findingsCardSchema.parse(CARD)));
 
@@ -3416,17 +3419,49 @@ describe("findings card at the final gate", () => {
     ] };
     const offer = findingsSaveOffer({ studies: 1, videos: 2, absences: 0, corrections: 0 });
     expect(offer).toBe("These findings rest on a full-text audit of 1 study and audited comments on 2 videos, work a " +
-      `quick answer does not do. ${FINDINGS_SAVE_OFFER}`);
+      `quick answer does not do. ${FINDINGS_SAVE_OFFER} ${FINDINGS_ATLAS_SENTENCE}`);
     const counted = finalizeResearch({ ...input, findings_card: card }, offerOptions);
     expect(counted).toMatchObject({ status: plain.status, next_steps: [], findings_card: { status: "checked", beyond_quick_answer: 2 } });
     expect(counted.caveats).toEqual([...plain.caveats, offer]);
-    // The owner's example (139c), word for word.
+    // The owner's example (139c), word for word, then the sentence on the public Atlas (owner answers 159 and 160b),
+    // word for word as drafted for the owner's approval.
     expect(findingsSaveOffer({ studies: 2, videos: 3, absences: 0, corrections: 0 })).toBe("These findings rest on " +
       "full-text audits of 2 studies and audited comments on 3 videos, work a quick answer does not do. If you want " +
-      "them saved to AskRigor's findings library for review, say yes; nothing is saved otherwise.");
+      "them saved to AskRigor's findings library for review, say yes; nothing is saved otherwise. Saved findings " +
+      "that AskRigor's owner accepts may be published in AskRigor's public Atlas, written without you.");
     expect(findingsSaveOffer({ studies: 2, videos: 3, absences: 2, corrections: 1 })).toBe("These findings rest on " +
       "full-text audits of 2 studies, audited comments on 3 videos, 2 checks of what the evidence does not show and a " +
-      `correction the research made to an earlier statement, work a quick answer does not do. ${FINDINGS_SAVE_OFFER}`);
+      `correction the research made to an earlier statement, work a quick answer does not do. ${FINDINGS_SAVE_OFFER} ` +
+      FINDINGS_ATLAS_SENTENCE);
+  });
+
+  // Owner answers 159 (1b and 7) and 160b (2026-10-22): after the offer, with or without the map, one sentence says that
+  // saved findings the owner accepts may be published in the public Atlas. The offer's other words are unchanged, and
+  // an answer that leaves the sentence out leaves out the caveat.
+  it("ends a paid private offer, with or without the map, with the sentence on the public Atlas", () => {
+    expect(FINDINGS_ATLAS_SENTENCE).toBe("Saved findings that AskRigor's owner accepts may be published in AskRigor's " +
+      "public Atlas, written without you.");
+    expect(FINDINGS_SAVE_OFFER).toBe("If you want them saved to AskRigor's findings library for review, say yes; " +
+      "nothing is saved otherwise.");
+    expect(FINDINGS_AND_MAP_SAVE_OFFER).toBe("If you want them saved to AskRigor's findings library for review, and " +
+      "this research's map (the searches, the studies found and the leads left open, never this chat) filed to " +
+      "AskRigor's shared research repository for review, say yes; nothing is saved or filed otherwise.");
+    const work = { studies: 1, videos: 0, absences: 0, corrections: 0 };
+    expect(findingsSaveOffer(work)).toBe("These findings rest on a full-text audit of 1 study, work a quick answer " +
+      `does not do. ${FINDINGS_SAVE_OFFER} ${FINDINGS_ATLAS_SENTENCE}`);
+    expect(findingsAndMapSaveOffer(work)).toBe("These findings rest on a full-text audit of 1 study, work a quick " +
+      `answer does not do. ${FINDINGS_AND_MAP_SAVE_OFFER} ${FINDINGS_ATLAS_SENTENCE}`);
+
+    const offerOptions = { secret: SECRET, now, findings: "offer" as const };
+    const plain = finalizeResearch(READY, closedOptions);
+    const draft = [CLEAN_DRAFT, ...plain.caveats].join(" ");
+    const withoutAtlas = CARD_OFFER.slice(0, -FINDINGS_ATLAS_SENTENCE.length).trim();
+    expect(withoutAtlas.endsWith(FINDINGS_SAVE_OFFER)).toBe(true);
+    const dropped = finalizeResearch({ ...READY, findings_card: CARD, answer_draft: `${draft} ${withoutAtlas}` }, offerOptions);
+    expect(dropped).toMatchObject({ status: "not_ready", next_steps: [leftOut(CARD_OFFER)] });
+    expect(dropped.finalization_receipt).toBeUndefined();
+    const stated = finalizeResearch({ ...READY, findings_card: CARD, answer_draft: `${draft} ${CARD_OFFER}` }, offerOptions);
+    expect(stated).toMatchObject({ status: "ready_with_limits", next_steps: [] });
   });
 
   it("lets a paid private answer in another language give the offer in that language", () => {
@@ -3445,7 +3480,8 @@ describe("findings card at the final gate", () => {
     const english = findingsSaveOffer({ studies: 1, videos: 0, absences: 0, corrections: 0 });
     const offer = "Ces résultats reposent sur l'audit du texte intégral d'une étude, un travail qu'une réponse rapide ne " +
       "fait pas. Si vous voulez enregistrer ces résultats dans la bibliothèque d'AskRigor pour examen, dites oui ; " +
-      "rien n'est enregistré sinon.";
+      "rien n'est enregistré sinon. Les résultats enregistrés que le propriétaire d'AskRigor accepte peuvent être " +
+      "publiés dans l'Atlas public d'AskRigor, rédigés sans vous.";
     const card = withFinding({ answer_quote: quote, sources: ["PMC10518852"], tags: ["full_text_read"] });
     const translated = finalizeResearch({
       ...base, findings_card: card, answer_draft: `${quote} ${offer}`, answer_language: "fr",

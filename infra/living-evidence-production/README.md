@@ -192,6 +192,19 @@ reads it serves, since the access store reads that column on every research
 call. An earlier image does not read it and accepts no detailed report, so a
 rollback needs no step.
 
+Owner answers 159 (1b and 7) and 160b (2026-10-22): the free contributor
+notice's third version, `free-contributor-v3-2026-10-22`, says that findings
+the owner accepts may be published in the public Atlas and what deleting a
+findings card removes and what stays. Migration `0016_research_use_notice_v3`
+replaces the account table's notice check, under the name 0011 gave it
+(`research_use_accounts_free_notice_check`), with one that admits v1, v2 and
+v3; it adds no column or grant. Apply it with the one-shot admin `migrate`
+before an image that offers v3 serves, since that image stores v3 rows. An
+earlier image reads only v1 and v2, so once any account has accepted v3, an
+image rollback needs a hold step for v3 rows like the v2 one
+(`research-use-notice-v2-hold.sql`, which moves v2 rows only); that step is not
+built yet.
+
 When OAuth research access is active, the server omits legacy research Action
 routes so they cannot bypass the mode choice. The separately governed lesson
 Action is unaffected. Verify all 27 MCP operations: the mode, proposal, and

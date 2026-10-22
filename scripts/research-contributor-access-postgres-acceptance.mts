@@ -30,6 +30,8 @@ const NOW = "2026-09-01T02:00:00.000Z";
 const FREE_SUBJECT = "auth0|synthetic-postgres-free-user";
 const PAID_SUBJECT = "auth0|synthetic-postgres-paid-user";
 const REVIEW_SUBJECT = "auth0|synthetic-postgres-review-user";
+const NOTICE_V2_SUBJECT = "auth0|synthetic-postgres-notice-v2-user";
+const NOTICE_V2 = "free-contributor-v2-2026-09-30";
 const IDENTITY_SECRET = new TextEncoder().encode(
   "synthetic-postgres-identity-secret-at-least-thirty-two-bytes",
 );
@@ -61,7 +63,7 @@ async function main(): Promise<void> {
       status: "PASS",
       phase: "migrate",
       schema: SCHEMA,
-      migration: "0015_research_detailed_lesson_reports",
+      migration: "0016_research_use_notice_v3",
     })}\n`);
     return;
   }
@@ -290,6 +292,49 @@ async function verify(
     );
     assert(freeReports.rows[0]?.detailed_lesson_reports === false, "REVOKED_ACCOUNT_DETAILED_LESSON_REPORTS_CHANGED");
     checks.push("detailed_lesson_reports_stored_off_by_default_and_kept_by_save");
+
+    // Owner answers 159 (1b and 7) and 160b: the third free contributor notice. The account table admits the three
+    // versions and nothing else, and an account that accepted v2 before this release accepts v3 before free research.
+    const noticeV3MigrationRows = await admin.query<{ migration_id: string }>(
+      `SELECT migration_id FROM ${SCHEMA}.schema_migrations
+       WHERE migration_id = '0016_research_use_notice_v3'`,
+    );
+    assert(noticeV3MigrationRows.rowCount === 1, "MIGRATION_0016_NOT_APPLIED");
+    assert(RESEARCH_USE_NOTICE_VERSION === "free-contributor-v3-2026-10-22", "NOTICE_V3_NOT_CURRENT");
+    await service.acceptFreeContributor(NOTICE_V2_SUBJECT, FREE_AGREEMENT);
+    const noticeV2Key = service.accountKeyForSubject(NOTICE_V2_SUBJECT);
+    // The row as an account that accepted v2 before this release holds it.
+    await admin.query(
+      `UPDATE ${SCHEMA}.research_use_accounts
+          SET notice_version = $2,
+              agreement_json = jsonb_set(agreement_json, '{noticeVersion}', to_jsonb($2::text))
+        WHERE account_key = $1`,
+      [noticeV2Key, NOTICE_V2],
+    );
+    const noticeV2View = await service.inspect(NOTICE_V2_SUBJECT);
+    assert(
+      noticeV2View.status === "UNENROLLED" && noticeV2View.noticeVersion === RESEARCH_USE_NOTICE_VERSION,
+      "NOTICE_V2_ACCOUNT_NOT_SHOWN_V3",
+    );
+    await expectCode(() => service.requireActive(NOTICE_V2_SUBJECT), "RESEARCH_ACCESS_REQUIRED");
+    await service.acceptFreeContributor(NOTICE_V2_SUBJECT, FREE_AGREEMENT);
+    assert(await service.requireActive(NOTICE_V2_SUBJECT) === "FREE_CONTRIBUTOR", "NOTICE_V3_NOT_ACCEPTED");
+    const noticeV3Row = await admin.query<{ notice_version: string; agreement_json: { noticeVersion?: unknown } }>(
+      `SELECT notice_version, agreement_json FROM ${SCHEMA}.research_use_accounts WHERE account_key = $1`,
+      [noticeV2Key],
+    );
+    assert(
+      noticeV3Row.rows[0]?.notice_version === RESEARCH_USE_NOTICE_VERSION &&
+        noticeV3Row.rows[0]?.agreement_json.noticeVersion === RESEARCH_USE_NOTICE_VERSION,
+      "NOTICE_V3_ROW_MISMATCH",
+    );
+    await expectPgErrorMessage(() => admin.query(
+      `UPDATE ${SCHEMA}.research_use_accounts
+          SET notice_version = 'free-contributor-v4-2026-12-31'
+        WHERE account_key = $1`,
+      [noticeV2Key],
+    ), "research_use_accounts_free_notice_check");
+    checks.push("notice_v3_admitted_and_a_v2_account_accepts_it_before_research");
 
     // Owner answer 143a: a paid private account files only this research's map, and only under the user's yes to the
     // answer's offer. The database stores that finalization receipt's SHA-256, never the receipt, and takes it once;
