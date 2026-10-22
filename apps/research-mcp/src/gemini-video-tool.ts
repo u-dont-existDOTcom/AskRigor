@@ -280,7 +280,11 @@ export async function extractYoutubeVideoClaims(
     return refusal("gemini_video_unclassified_failure", false);
   }
 
-  if (step.kind === "boundary") return refusal(step.code, step.retryable, boundaryGuidance(step.code));
+  if (step.kind === "boundary") {
+    const guidance = [geminiEndingSentence(step), boundaryGuidance(step.code)]
+      .filter((part): part is string => part !== undefined).join(" ");
+    return refusal(step.code, step.retryable, guidance === "" ? undefined : guidance);
+  }
   if (step.kind === "progress") {
     const token = encodeVideoContinuation({
       ...pass,
@@ -511,6 +515,15 @@ function dailyLimitGuidance(remainingSeconds: number): string {
       : `${formatVideoTime(remainingSeconds)} is left today, less than this video.`) +
     " It resets at midnight Pacific time. Check the claims the person reports from the video with the other tools, " +
     "and say the video itself could not be read today.";
+}
+
+/** How Gemini ended a reading it did not finish, from its own status and error code (identifiers only). */
+function geminiEndingSentence(
+  step: { gemini_status?: string; gemini_error_code?: string }
+): string | undefined {
+  if (step.gemini_status === undefined) return undefined;
+  return `Gemini ended the reading with status ${step.gemini_status}` +
+    (step.gemini_error_code === undefined ? "." : ` (${step.gemini_error_code}).`);
 }
 
 function boundaryGuidance(code: GeminiVideoBoundaryCode): string | undefined {

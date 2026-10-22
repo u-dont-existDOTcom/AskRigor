@@ -338,6 +338,18 @@ describe("extract_youtube_video_claims", () => {
       "extract youtube video claims could not complete: gemini_video_invalid_report. Gemini's report did not have " +
         "the required form, so none of it is used."
     );
+
+    // How Gemini ended an unfinished reading comes before the usual guidance, as identifiers only.
+    const ended = dependencies();
+    ended.deps.advance.mockResolvedValueOnce({
+      kind: "boundary", code: "gemini_video_not_completed", retryable: false,
+      gemini_status: "failed", gemini_error_code: "INVALID_ARGUMENT"
+    });
+    expect(text(await extractYoutubeVideoClaims({ video: VIDEO }, ended.deps))).toBe(
+      "extract youtube video claims could not complete: gemini_video_not_completed. Gemini ended the reading with " +
+        "status failed (INVALID_ARGUMENT). Gemini could not read this video; check the claims the person reports " +
+        "from it with the other tools."
+    );
   });
 });
 
