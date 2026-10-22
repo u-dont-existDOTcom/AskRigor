@@ -75,7 +75,7 @@ import {
   type AtlasLinkState,
 } from "./acceptance-checks.js";
 import { forgetCard, type CardForgetReport } from "./atlas-forget.js";
-import { FINDING_CERTAINTIES, PUBLIC_VALUE_SCOPES, type StoredFinding } from "./card.js";
+import { FINDING_CERTAINTIES, PUBLIC_VALUE_SCOPES, topicKeyText, type StoredFinding } from "./card.js";
 import {
   decisionDate,
   findingsCardNumber,
@@ -2440,7 +2440,10 @@ function intentTexts(payload: unknown): Record<string, string | undefined> {
   const intent = payload as AtlasFindingIntent;
   switch (intent.kind) {
     case "accept":
-      return contentTexts(intent.content, { topicLabel: intent.topic.label, question: intent.question });
+      // The topic's key is stored for good (topics are never erased), so it is screened too, read as words. The payload
+      // is not parsed yet: with no topic, its key is missing, and the checks name that (topic_missing).
+      return contentTexts(intent.content, { topicLabel: intent.topic.label, question: intent.question,
+        topicKey: typeof intent.topic.key === "string" ? topicKeyText(intent.topic.key) : undefined });
     case "revise":
       return contentTexts(intent.content, { note: intent.note });
     case "withdraw":

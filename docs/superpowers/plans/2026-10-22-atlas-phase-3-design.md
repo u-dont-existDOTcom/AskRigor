@@ -106,7 +106,9 @@ then neither saved nor offered and never holds back the answer, as today.
     method: it enforces the distinction the gate already draws.
 12. **Privacy:** the subject, the topic label, each figure's outcome, option, comparator and follow-up, and each
     search's query pass the card's privacy screen (`screenFindingsCard`), and are stored without YouTube links, like
-    every other card text.
+    every other card text. So does the topic's key, which the Atlas keeps for good: the screen reads the key followed
+    by its words, each `.` and `_` and each dash not between two digits read as a space (review finding 4), and the
+    owner's acceptance screens the key it stores the same way, with the guard against a card reference.
 
 **Taken as given:** whether the kind, subject, subject type, direction and topic are right, whether a figure's
 outcome means what it says, and whether a search was the right one. Checks 10 and 11 are the exact contradictions

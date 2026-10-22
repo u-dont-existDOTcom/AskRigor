@@ -368,6 +368,20 @@ describe("the new texts' privacy and storage", () => {
       expect.stringMatching(/^findings_card\.findings\[0\]\.subject looks like it holds contact details/u)]);
   });
 
+  it("screens the topic's key too, read as words, since the Atlas keeps it for good (review finding 4)", () => {
+    const screened = (key: string) => screenFindingsCard(findingsCardSchema.parse({ ...CARD,
+      topic: { key, label: "Velmor syndrome" } }));
+    for (const key of ["velmor-syndrome", "type-2.diabetes_in-adults", "covid-19", "velmor_syndrome_2019-2024"]) {
+      expect(screened(key), key).toEqual([]);
+    }
+    expect(screened("555-867-5309")).toEqual([{ field: "topic.key", reasonCode: "direct_identifier" }]);
+    // Read with its . and _ as spaces, a key shows what it holds as one token would not.
+    expect(screened("555_867_5309")).toEqual([{ field: "topic.key", reasonCode: "direct_identifier" }]);
+    expect(screened("dob_1984_05_12")).toEqual([{ field: "topic.key", reasonCode: "direct_identifier" }]);
+    expect(problemsOf({ ...CARD, topic: { key: "555_867_5309", label: "Velmor syndrome" } }).problems).toEqual([
+      expect.stringMatching(/^findings_card\.topic\.key looks like it holds contact details/u)]);
+  });
+
   it("stores no YouTube link in any new text, and keeps a field the card leaves out out", () => {
     const link = "https://youtu.be/aaaaaaaaaaa";
     const linked = {

@@ -702,6 +702,21 @@ describe("the card's Atlas fields at acceptance (phase 3 design, section 5)", ()
     expect(await h.review.inspectIntents(null)).toEqual([]);
   });
 
+  it("screens the topic key the call sends, read as words, and refuses a card reference in it (review finding 4)", async () => {
+    await stubProviders();
+    const h = harness();
+    await h.save(DOI_CARD);
+    const cardSha256 = await inspected(h, "ARF-0042", 1);
+    const accept = (topicKey: string) => h.call({ action: "accept_finding", card: "ARF-0042", finding: 1, cardSha256,
+      topicKey, topicLabel: "Velmor syndrome" });
+    expect((await accept("555_867_5309")).structured.checks.privacy)
+      .toEqual([{ field: "topicKey", reasonCode: "direct_identifier" }]);
+    expect((await accept("arf-0042")).structured.checks.privacy)
+      .toEqual([{ field: "topicKey", reasonCode: "card_reference" }]);
+    expect(await h.review.inspectIntents(null)).toEqual([]);
+    expect((await accept("velmor-syndrome")).structured.outcome).toBe("finding_queued");
+  });
+
   it("takes no field on an open lead, and names the ones a re-check does not take", async () => {
     await stubProviders();
     const h = harness();

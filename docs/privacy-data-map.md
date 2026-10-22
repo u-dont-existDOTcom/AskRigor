@@ -971,7 +971,11 @@ What the model sends, and when:
   direction and topic are the model's declarations, taken as given. A public
   card without them, as from an app whose tool list predates them, is rejected
   like one without `public_value`, and the answer goes ahead. Each new text
-  passes the same privacy screen as the card's other texts. The sentence on what
+  passes the same privacy screen as the card's other texts, the topic's key
+  included: since the Atlas keeps a topic's key for good, the screen reads it
+  as the key followed by its words (each `.` and `_`, and each dash not between
+  two digits, read as a space), so a joined token such as `555_867_5309` shows
+  what it holds. The sentence on what
   communities reported that the pages may one day show (owner decision 4a) is
   not collected: no schema accepts it, and nothing stores it.
 - In `save_research_findings`, only after a paid-private user says yes to that
@@ -1170,7 +1174,8 @@ refused, and one that also rested on audited comments needs the owner's confirm)
 the numbers the AI declares against the wording, the providers' records and
 retraction notices (a retracted source is bound as context only, after the
 owner's confirm), the privacy screen and a guard against any `ARF-` reference
-over every text an intent would store, the exact re-check key, and the rules for
+over every text an intent would store (from Atlas phase 3 the topic's key too,
+read as words as at the final check), the exact re-check key, and the rules for
 links. The topic, the numbers and the links are the AI's declarations; the owner
 accepts or rejects. From Atlas phase 3 (built, not yet released) a card's topic,
 numbers block, kind, subject, subject type and direction are used by default,
@@ -1248,7 +1253,8 @@ check bound them, and are kept only while its kind stays `nothing_found`.
   and the note of each such link's withdrawal; and the finding's question, only
   when no research frontier asks it and every other finding that answers it has
   had all its wording erased (a question still in use stays, and the owner's
-  call names the F numbers that use it). Topic labels are never erased, nor are a
+  call names the F numbers that use it). Topic keys and labels are never erased
+  (both are screened before they are stored), nor are a
   version's kind, subject type and direction, which identify no one. In the
   same transaction the runner sets the same texts to the marker in every intent
   it has finished with that names the finding (the earlier accept's and

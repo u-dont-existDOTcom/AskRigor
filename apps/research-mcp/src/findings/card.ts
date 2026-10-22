@@ -503,10 +503,20 @@ const STUDY_IDENTIFIER = new RegExp(
 );
 const YOUTUBE_VIDEO_ID = /^[A-Za-z0-9_-]{11}$/u;
 
+/**
+ * A topic key as the privacy screen reads it (review finding 4): the key, then its words, with each . and _, and each
+ * dash not between two digits, read as a space. The Atlas keeps a topic's key for good (topics are never erased), and
+ * one joined token hides from the screen what its parts hold, such as 555_867_5309; a dash between digits stays, so a
+ * year range such as 2019-2024 is still set aside as one, and the key itself stays for the card-reference guard.
+ */
+export function topicKeyText(key: string): string {
+  return `${key} ${key.replace(/[._]|-(?!\p{Nd})|(?<!\p{Nd})-/gu, " ")}`;
+}
+
 function cardTexts(card: FindingsCard): Array<[string, string]> {
   // The public-value declaration's words are stored with a saved card (owner answer 156a), so they are screened too,
   // whatever its scope; so are the Atlas fields' words (phase 3): the subject, each figure's labels, each search's
-  // query and the topic's label.
+  // query, and the topic's label and key (the key read as words).
   const declared = card.public_value;
   return [
     ["question", card.question],
@@ -530,7 +540,10 @@ function cardTexts(card: FindingsCard): Array<[string, string]> {
     ...(declared?.who_else === undefined ? [] : [["public_value.who_else", declared.who_else] as [string, string]]),
     ...(declared?.what_it_changes === undefined ? []
       : [["public_value.what_it_changes", declared.what_it_changes] as [string, string]]),
-    ...(card.topic === undefined ? [] : [["topic.label", card.topic.label] as [string, string]]),
+    ...(card.topic === undefined ? [] : [
+      ["topic.label", card.topic.label] as [string, string],
+      ["topic.key", topicKeyText(card.topic.key)] as [string, string],
+    ]),
     ...card.open_leads.map((lead, index): [string, string] => [`open_leads[${index}]`, lead])
   ];
 }
