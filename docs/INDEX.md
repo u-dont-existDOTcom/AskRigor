@@ -100,6 +100,8 @@ complete XML protocol.
   ledger reset (145a), production acceptance and the plugin reinstall, and the owner regressions run with the
   owner's personal Codex instructions off (50 cases: 21 met every criterion, 1 failed; the final check passed in 44);
   the case-by-case judgment is `audits/2026-10-21-owner-regressions-judgment.md`.
+- `audits/2026-10-22-owner-answer-158a-dev-account.md`: the owner's account listed as a dev account in production on
+  owner answer 158a (one `runtime.env` line, `research-mcp` recreated on the same image, acceptance and rollback).
 - `audits/2026-10-22-owner-answers-138-154-production-release.md`: release of #358 (owner answers 138b to 154 and the
   fixes for AskRigor#354 to #357, released on 151a): HRP 20.6.29, Universal 20.5.46, migrations 0012 to 0015 and the
   review role's context grant, the privacy page of October 22, 2026, the October ledger at the owner's $18, production
