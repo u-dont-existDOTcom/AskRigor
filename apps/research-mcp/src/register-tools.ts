@@ -161,13 +161,14 @@ import {
   evidenceGapReviewSecurityMetadata,
 } from "./evidence-gap-review-tool.js";
 import type { SignInState } from "./oauth-resource-server.js";
+import { toolListBuildField, toolListNotice } from "./tool-list-currency.js";
 import { type RunningVersions, runningVersionsText } from "./version.js";
 import {
   createManageResearchAccessHandler,
   createResearchAccessGuard,
   createSubmitResearchContributionHandler,
   researchUseAccount,
-  manageResearchAccessInputSchema,
+  manageResearchAccessInputSchemaFor,
   manageResearchAccessOutputSchema,
   optionalSignInSecurityMetadata,
   isDevAccount,
@@ -811,7 +812,9 @@ function defineResearchOperations(
         : `Versions when this tool list was loaded: ${runningVersionsText(options.runningVersions)}. `) +
         "Lists canonical protocol identity, SHA-256 metadata and the finalize_research input contract version.",
       inputSchema: {
-        protocol: protocolSchema.describe("Canonical protocol to inspect.")
+        protocol: protocolSchema.describe("Canonical protocol to inspect."),
+        // Owner request (2026-10-22): the result says when this app's copy of AskRigor's tools is out of date.
+        tool_list_build: toolListBuildField(options.runningVersions)
       },
       outputSchema: {
         contract: z.literal(FINALIZE_RESEARCH_CONTRACT).describe("Records the server's finalize_research input contract version."),
@@ -825,16 +828,18 @@ function defineResearchOperations(
       },
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async ({ protocol }, extra) => {
+    async ({ protocol, tool_list_build }, extra) => {
       try {
         const manifest = await getProtocolManifest(protocol);
+        const notice = toolListNotice(tool_list_build, options.runningVersions);
         const connection = await researchConnection(extra, {
           service: options.researchContributorAccessService,
           signIn: options.signIn,
         });
         return successfulToolResult(
           `Protocol manifest: ${manifest.name} ${manifest.version} (${manifest.revisionDate}); SHA-256 ${manifest.sha256}.` +
-            (connection === undefined ? "" : ` ${researchConnectionSummary(connection)}`),
+            (connection === undefined ? "" : ` ${researchConnectionSummary(connection)}`) +
+            (notice === undefined ? "" : ` ${notice}`),
           { contract: FINALIZE_RESEARCH_CONTRACT, ok: true, protocol, manifest, ...(connection === undefined ? {} : { connection }) }
         );
       } catch (error) {
@@ -1721,7 +1726,7 @@ function defineResearchOperations(
         "by default; inspect shows which): only with them on may a lesson carry a detailed report. Each call also returns " +
         "accountReference, this account's reference, which the user can give AskRigor's owner (for example to be " +
         "listed as a dev account); give it only when the user asks for it.",
-      inputSchema: manageResearchAccessInputSchema,
+      inputSchema: manageResearchAccessInputSchemaFor(options.runningVersions),
       outputSchema: manageResearchAccessOutputSchema,
       annotations: MUTATING_ANNOTATIONS,
     },
@@ -1729,6 +1734,7 @@ function defineResearchOperations(
       service: options.researchContributorAccessService,
       resourceMetadataUrl: options.oauthResourceMetadataUrl,
       signIn: options.signIn,
+      runningVersions: options.runningVersions,
       // Owner answer 140b: the plain answer is the MCP connector's (/mcp and /mcp/claude); Gemini's catalog does not
       // list this tool, and Custom GPT Actions do not reach it.
       ...(options.mcpSurface === "/mcp/gemini" ? {} : {

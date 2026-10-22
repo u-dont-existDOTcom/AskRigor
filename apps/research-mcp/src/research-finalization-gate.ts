@@ -101,8 +101,10 @@ export const FINALIZE_RESEARCH_CONTRACT = "2026-10-07";
 // A chat keeps its own copy of the tool list, so a field added in a release can be missing from it. When a required
 // declaration is missing, next_steps names the way out once instead of looping (UDA lane item
 // 2026-10-07-finalizer-must-not-require-unexposed-schema-fields).
+// Owner request (2026-10-22): the user is told, since only the user can refresh the app's copy of the tools.
 export const TOOL_LIST_REFRESH_HINT = "If this chat's AskRigor tool has no such field, its tool list is outdated: " +
-  "refreshing the AskRigor connector in the app's settings and starting a new chat loads the current list.";
+  "tell the user, in their language, that AskRigor has been updated since this app loaded its tools, and that " +
+  "refreshing AskRigor in the app's settings and starting a new chat loads the current list.";
 
 // acquire_open_full_text signs a lead receipt only when the exact public-copy searches are recorded with it
 // (canSignFullTextLead), so a step that sends the AI there for one says so, or a retry without them loops.
