@@ -205,11 +205,28 @@ findings card removes and what stays. Migration `0016_research_use_notice_v3`
 replaces the account table's notice check, under the name 0011 gave it
 (`research_use_accounts_free_notice_check`), with one that admits v1, v2 and
 v3; it adds no column or grant. Apply it with the one-shot admin `migrate`
-before an image that offers v3 serves, since that image stores v3 rows. An
-earlier image reads only v1 and v2, so once any account has accepted v3, an
-image rollback needs a hold step for v3 rows like the v2 one
-(`research-use-notice-v2-hold.sql`, which moves v2 rows only); that step is not
-built yet.
+before an image that offers v3 serves, since that image stores v3 rows.
+
+An earlier image, such as build `71f09f63`, reads only v1 and v2 and fails the
+access check of an account whose row carries v3, so an image rollback below v3
+holds those rows first. `research-use-notice-v3-hold.sql` copies each v3
+account row, unchanged, into `research_use_notice_v3_hold` and marks the
+account revoked, a state the earlier image reads; the person leaves it by
+accepting that image's notice, v2, or by activating an entitled paid private
+account. `research-use-notice-v3-restore.sql`, run once an image that reads v3
+serves again, puts back each account still exactly in the held state and
+empties the table. An account the person changed meanwhile keeps its newer
+row, and the v3 image asks a v2 account to accept v3 as usual. Both scripts are
+idempotent, run as the migrator in the form of the v2 scripts (the exact
+command is in `../../docs/superpowers/plans/2026-10-01-pr246-production-release.md`),
+and change no other table: entitlements, proposals and Atlas rows stay as they
+are. Only the hold table's owner, the migrator, can read it; the hold removes
+every other grant, including the reader's default-privilege one.
+`npm run contributor-access:notice-v3-rollback-acceptance` checks both against
+real PostgreSQL in Docker. The rollback's order, with migration 0017, is at the
+end of the Atlas section below. A rollback to an image that reads only v1 also
+runs `research-use-notice-v2-hold.sql`, and later its restore; the two holds
+move different rows, so their order does not matter.
 
 Atlas phase 2 (owner answers 159 and 160b, 2026-10-22; design
 `../../docs/superpowers/plans/2026-10-22-atlas-phase-2-design.md`): the owner
@@ -270,8 +287,32 @@ until all of that is verified. For a rollback, an earlier image never selects
 an Atlas intent, so pending intents stay `PENDING` and are neither lost nor
 failed; delete no decision, intent or canonical row. A rollback restores
 nothing decision 7 removed: erased wording stays erased, and a forgotten card's
-decision rows and stripped issues stay gone. Notice v3 needs its own hold step,
-as the paragraph above says.
+decision rows and stripped issues stay gone.
+
+An image rollback below this release, to build `71f09f63` or another image that
+reads notice v1 and v2 and no Atlas table, goes in this order:
+
+1. Stop and disable `askrigor-research-promotion.timer`.
+2. Run `research-use-notice-v3-hold.sql` as the migrator (notice v3 above).
+3. Restore the selector (`/opt/askrigor/living-evidence-image.env`) and
+   `runtime.env` from the release's rollback folder, recreate only
+   `research-mcp` with the earlier image, and check its health.
+4. Run the hold once more. It changes nothing unless an account accepted v3
+   between steps 2 and 3, and then it holds that account too.
+5. Re-enable the timer against the restored image.
+
+Undo no migration: 0016 and 0017 stay, with every Atlas row. 0016 only widens
+the notice check, which the earlier image tolerates; the canonical Atlas tables
+are append-only, the earlier image reads no Atlas table, and neither script
+touches one. The earlier image needs no `migrate`. If its `migrate` runs, it
+ignores the 0016 and 0017 rows in `schema_migrations` and puts back 0001's body
+of `reject_living_evidence_mutation()`, without the Atlas erasure exception, so
+every guarded row stays refused until this release's `migrate` runs again.
+
+To serve this release again: run its `migrate` before its image serves,
+recreate `research-mcp` with that image, then run
+`research-use-notice-v3-restore.sql` as the migrator (never while the earlier
+image serves), and then steps 2 to 4 of the release above.
 
 When OAuth research access is active, the server omits legacy research Action
 routes so they cannot bypass the mode choice. The separately governed lesson
@@ -351,6 +392,11 @@ machine JSON.
   research closed; it does not restore anonymous access. Retain account and
   proposal rows for explicit review/deletion rather than deleting them during
   code rollback.
+- An image rollback below a free contributor notice that accounts have
+  accepted holds that notice's account rows first and restores them once the
+  newer image serves again: `research-use-notice-v3-hold.sql` and
+  `research-use-notice-v3-restore.sql` in the order at the end of the Atlas
+  section above, and the v2 pair as well for an image that reads only v1.
 - Stop the database only after the research service no longer selects the
   overlay. Do not delete its state, secrets, or logical exports as part of a
   code rollback.

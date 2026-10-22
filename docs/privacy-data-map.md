@@ -894,7 +894,17 @@ as before. Nothing is published yet: no tool accepts a finding, and no Atlas
 page exists (the build plan is
 `docs/superpowers/plans/2026-10-22-public-atlas-build.md`).
 
-An image rollback to a version that reads only v1 first runs
+An image rollback to a version that reads only v1 and v2 first runs
+`infra/living-evidence-production/research-use-notice-v3-hold.sql`. It copies
+each v3 account row, unchanged, into `research_use_notice_v3_hold` and marks
+the account revoked, so the earlier version reads it and the person can accept
+v2. `research-use-notice-v3-restore.sql` puts back each account still in that
+state once a v3 version serves, and empties the table. Like the v2 table below,
+it holds no new kind of data, only the migrator role can read it, and it is
+empty except during such a rollback. Neither script changes another table:
+entitlements, proposals and Atlas rows stay as they are.
+
+An image rollback to a version that reads only v1 also runs
 `infra/living-evidence-production/research-use-notice-v2-hold.sql`. It copies
 each v2 account row, unchanged, into `research_use_notice_v2_hold` and marks
 the account revoked, so the earlier version reads it and the person can accept

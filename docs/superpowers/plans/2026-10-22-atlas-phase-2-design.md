@@ -177,7 +177,8 @@ The systemd units are unchanged, so `tests/research-promotion-scheduler.test.ts`
 
 The switch `ASKRIGOR_ATLAS_REVIEW=enabled` keeps the new actions closed until all of that is verified. Phase 1's
 notice v3 needs its own hold and restore step for rollback, like v2's (`bec187bf`): an image that reads only v1 and v2
-refuses accounts that accepted v3.
+refuses accounts that accepted v3. It is built: `infra/living-evidence-production/research-use-notice-v3-hold.sql` and
+`research-use-notice-v3-restore.sql`, in the order the infra runbook gives.
 
 **What an accept writes into existing canonical tables.**
 

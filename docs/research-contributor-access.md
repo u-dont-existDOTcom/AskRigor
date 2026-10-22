@@ -61,10 +61,20 @@ name, with one that admits v1, v2 and v3. The one-shot admin `migrate` applies
 it at release, before an image that offers v3 serves.
 
 An image that reads only v1 and v2 fails the access check of an account whose
-row carries v3. The v2 hold and restore scripts
-(`infra/living-evidence-production/research-use-notice-v2-{hold,restore}.sql`)
-move v2 rows only, so an image rollback below v3, once an account has accepted
-v3, needs the same step for v3 rows; none exists yet.
+row carries v3, so an image rollback below v3 first runs
+`infra/living-evidence-production/research-use-notice-v3-hold.sql`. It copies
+each v3 account row, unchanged, into `research_use_notice_v3_hold`, which only
+the migrator can read, and marks the account revoked: the earlier image reads
+that state, and the person leaves it by accepting v2, that image's notice, or
+by activating an entitled paid private account. `research-use-notice-v3-restore.sql`,
+run once an image that reads v3 serves again, puts back each account still
+exactly in that state and empties the table; an account the person changed
+meanwhile keeps its newer row and is asked to accept v3 as usual. The hold is
+not a revocation: pending proposals stay pending, and neither script changes
+an entitlement, a proposal or an Atlas row. The v2 scripts
+(`research-use-notice-v2-{hold,restore}.sql`) do the same for v2 rows, for an
+image that reads only v1. The order, with migration 0017, is in
+`infra/living-evidence-production/README.md`.
 
 `manage_research_access` is the OAuth-scoped operation for `inspect`,
 `accept_free_contributor`, `activate_paid_private`, `revoke`,
