@@ -11254,7 +11254,7 @@
     },
     {
       "name": "review_research_contribution",
-      "description": "Owner-only review. Proposals: inspect one deidentified pending research contribution's exact payload and hash, then accept or reject it with a reason; inspect also shows, by ID only, the other pending proposals and canonical records that share its topic, question, frontier or identifiers, and a promotion preflight naming any conflict by its code. Findings for the Atlas: list_findings shows the findings cards that wait; inspect_finding runs every exact check on a card item (card ARF-0142 with finding or lead) and returns its cardSha256, or shows an accepted finding (atlasNumber F-1007) with its versions, label, links and write status; accept_finding takes that cardSha256, the topicKey you declare (with topicLabel for a new topic) and the numbers the wording gives (an empty list if none), and confirm: true only after the owner said to accept what the checks flagged; edit_finding accepts with the owner's wording, or after acceptance (with version) corrects it with a dated note; reject_finding, withdraw_finding and link_findings complete the set. Nothing from a card is public until the owner accepts it, and nothing is public until the Atlas pages exist. An accepted decision is a hash-bound intent: this call never writes canonical evidence, and a separate one-shot writer applies it within about 5 minutes.",
+      "description": "Owner-only review. Proposals: inspect one deidentified pending research contribution's exact payload and hash, then accept or reject it with a reason; inspect also shows, by ID only, the other pending proposals and canonical records that share its topic, question, frontier or identifiers, and a promotion preflight naming any conflict by its code. Findings for the Atlas: list_findings shows the findings cards that wait; inspect_finding runs every exact check on a card item (card ARF-0142 with finding or lead) and returns its cardSha256, or shows an accepted finding (atlasNumber F-1007) with its versions, label, links and write status; accept_finding takes that cardSha256, the topicKey you declare (with topicLabel for a new topic) and the numbers the wording gives (an empty list if none), and confirm: true only after the owner said to accept what the checks flagged; edit_finding accepts with the owner's wording, or after acceptance (with version) corrects it with a dated note; reject_finding, withdraw_finding and link_findings complete the set. With eraseWording, edit_finding or withdraw_finding also erases wording the owner judges could identify a person. forget_card (card ARF-0142) removes what ties a card to its contributor whenever they ask, with no reason needed: it deletes the card's decision rows and strips its GitHub issue, which the owner then deletes, and findings accepted from it stay while they are valid. Nothing from a card is public until the owner accepts it, and nothing is public until the Atlas pages exist. An accepted decision is a hash-bound intent: this call never writes canonical evidence, and a separate one-shot writer applies it within about 5 minutes.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -11271,9 +11271,10 @@
               "edit_finding",
               "reject_finding",
               "withdraw_finding",
-              "link_findings"
+              "link_findings",
+              "forget_card"
             ],
-            "description": "Proposals: inspect, status, accept or reject. Findings for the Atlas: list_findings, inspect_finding, accept_finding, edit_finding, reject_finding, withdraw_finding or link_findings."
+            "description": "Proposals: inspect, status, accept or reject. Findings for the Atlas: list_findings, inspect_finding, accept_finding, edit_finding, reject_finding, withdraw_finding, link_findings or forget_card."
           },
           "proposalId": {
             "description": "Proposals: the proposal's ID.",
@@ -11293,7 +11294,7 @@
             "maxLength": 2000
           },
           "card": {
-            "description": "Findings actions: a findings card's id, such as ARF-0142, in any case.",
+            "description": "Findings actions: a findings card's id, such as ARF-0142, in any case. forget_card: the card its contributor asked to delete.",
             "type": "string",
             "pattern": "^[Aa][Rr][Ff]-[0-9]{1,9}$"
           },
@@ -11482,11 +11483,11 @@
             "type": "boolean"
           },
           "eraseWording": {
-            "description": "Erasing wording that could identify a person comes with the next part of the Atlas build; until then a call with it records nothing.",
+            "description": "edit_finding after acceptance, withdraw_finding: true only when the owner judges that the finding's wording could identify a person (decision 7). edit_finding with new general wording makes it the new version and erases the earlier versions' wording; with no new text it erases the earlier versions' wording and keeps the latest. withdraw_finding erases every version's wording, its note included, leaving \"withdrawn, wording removed\" with the date; on a finding already withdrawn it needs no note. Either also erases its links' rationale, and its question when no other finding uses it.",
             "type": "boolean"
           },
           "confirm": {
-            "description": "accept_finding, edit_finding: true only after the owner said to accept anyway what the checks flagged.",
+            "description": "accept_finding, edit_finding: true only after the owner said to accept anyway what the checks flagged. forget_card: true only after the owner read why the call asked for it.",
             "type": "boolean"
           },
           "relation": {
@@ -11559,7 +11560,9 @@
               "finding_rejected",
               "needs_confirmation",
               "checks_not_passed",
-              "try_again_later"
+              "try_again_later",
+              "card_forgotten",
+              "card_forget_waiting_for_owner"
             ]
           },
           "proposal": {
@@ -12136,6 +12139,7 @@
                             "ATLAS_LINK_ALREADY_RECORDED",
                             "ATLAS_LINK_CYCLE",
                             "ATLAS_LINK_MISSING",
+                            "ATLAS_ERASE_NOT_WITHDRAWN",
                             "SOURCE_IDENTIFIER_CONFLICT",
                             "ATLAS_VERSION_LINEAGE_MISMATCH",
                             "CLAIM_DEPENDENCY_CYCLE",
@@ -12555,6 +12559,7 @@
                                     "ATLAS_LINK_ALREADY_RECORDED",
                                     "ATLAS_LINK_CYCLE",
                                     "ATLAS_LINK_MISSING",
+                                    "ATLAS_ERASE_NOT_WITHDRAWN",
                                     "SOURCE_IDENTIFIER_CONFLICT",
                                     "ATLAS_VERSION_LINEAGE_MISMATCH",
                                     "CLAIM_DEPENDENCY_CYCLE",
@@ -12725,6 +12730,15 @@
                   }
                 ]
               },
+              "wordingRemoved": {
+                "maxItems": 1000,
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                }
+              },
               "researchCheckedOn": {
                 "anyOf": [
                   {
@@ -12857,6 +12871,7 @@
                               "ATLAS_LINK_ALREADY_RECORDED",
                               "ATLAS_LINK_CYCLE",
                               "ATLAS_LINK_MISSING",
+                              "ATLAS_ERASE_NOT_WITHDRAWN",
                               "SOURCE_IDENTIFIER_CONFLICT",
                               "ATLAS_VERSION_LINEAGE_MISMATCH",
                               "CLAIM_DEPENDENCY_CYCLE",
@@ -12955,6 +12970,7 @@
                             "ATLAS_LINK_ALREADY_RECORDED",
                             "ATLAS_LINK_CYCLE",
                             "ATLAS_LINK_MISSING",
+                            "ATLAS_ERASE_NOT_WITHDRAWN",
                             "SOURCE_IDENTIFIER_CONFLICT",
                             "ATLAS_VERSION_LINEAGE_MISMATCH",
                             "CLAIM_DEPENDENCY_CYCLE",
@@ -13001,6 +13017,7 @@
               "version",
               "topic",
               "wording",
+              "wordingRemoved",
               "researchCheckedOn",
               "links",
               "intent",
@@ -13335,6 +13352,7 @@
                             "ATLAS_LINK_ALREADY_RECORDED",
                             "ATLAS_LINK_CYCLE",
                             "ATLAS_LINK_MISSING",
+                            "ATLAS_ERASE_NOT_WITHDRAWN",
                             "SOURCE_IDENTIFIER_CONFLICT",
                             "ATLAS_VERSION_LINEAGE_MISMATCH",
                             "CLAIM_DEPENDENCY_CYCLE",
@@ -13487,6 +13505,127 @@
             ],
             "additionalProperties": false
           },
+          "forget": {
+            "type": "object",
+            "properties": {
+              "card": {
+                "type": "string",
+                "pattern": "^ARF-[0-9]{4,}$"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "forgotten",
+                  "waiting_for_owner",
+                  "incomplete"
+                ]
+              },
+              "threadKnown": {
+                "type": "boolean"
+              },
+              "cards": {
+                "maxItems": 1000,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "card": {
+                      "type": "string",
+                      "pattern": "^ARF-[0-9]{4,}$"
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "github": {
+                      "type": "string",
+                      "enum": [
+                        "stripped",
+                        "deleted",
+                        "not_found"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "card",
+                    "url",
+                    "github"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "decisionsRemoved": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "findingsOnlyFromThese": {
+                "maxItems": 1000,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^F-[1-9][0-9]{3,}$"
+                }
+              },
+              "findingsAlsoElsewhere": {
+                "maxItems": 1000,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^F-[1-9][0-9]{3,}$"
+                }
+              },
+              "laterSavesDeletedOn": {
+                "maxItems": 1000,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^ARF-[0-9]{4,}$"
+                }
+              },
+              "refiled": {
+                "maxItems": 1000,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "from": {
+                      "type": "string",
+                      "pattern": "^ARF-[0-9]{4,}$"
+                    },
+                    "card": {
+                      "type": "string",
+                      "pattern": "^ARF-[0-9]{4,}$"
+                    }
+                  },
+                  "required": [
+                    "from",
+                    "card"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "ownerSteps": {
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "card",
+              "status",
+              "threadKnown",
+              "cards",
+              "decisionsRemoved",
+              "findingsOnlyFromThese",
+              "findingsAlsoElsewhere",
+              "laterSavesDeletedOn",
+              "refiled",
+              "ownerSteps"
+            ],
+            "additionalProperties": false
+          },
           "canonicalEvidenceChangedByThisCall": {
             "type": "boolean",
             "const": false
@@ -13511,7 +13650,7 @@
                   "finding_not_found",
                   "decision_conflict",
                   "version_stale",
-                  "erase_not_built",
+                  "card_unreadable",
                   "atlas_review_closed"
                 ]
               },

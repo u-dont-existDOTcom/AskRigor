@@ -304,9 +304,9 @@ anything filed under it. A conflict ends the promotion `FAILED` with
 
 ## Atlas findings review (owner answers 159 and 160b)
 
-Built, not yet released: Atlas phase 2 parts A to C
+Built, not yet released: Atlas phase 2 parts A to D
 (`docs/superpowers/plans/2026-10-22-atlas-phase-2-design.md`). The owner
-accepts saved findings cards' findings into the Atlas through seven more
+accepts saved findings cards' findings into the Atlas through eight more
 actions on the same owner-only `review_research_contribution`, which stays one
 of 33 tools. They are flat fields with one rule set per action:
 
@@ -330,14 +330,31 @@ of 33 tools. They are flat fields with one rule set per action:
   (`wording`, `appliesTo`, `whyNotUsual`, `whatWouldChangeIt`, `question`,
   `sources`, `numbers`); after it, with `atlasNumber` and `version`, a
   correction with a public dated `note`, or, with `correction: false`, a wording
-  fix (5a).
+  fix (5a). With `eraseWording: true` (decision 7, when the owner judges the
+  wording could identify a person) the new wording becomes a new general
+  version and every earlier version's wording is erased; sent with no new
+  wording, it erases the earlier versions' wording if any is left.
 - `reject_finding`: the owner's private `reason`, which never leaves the
   decision row.
 - `withdraw_finding`: takes an accepted finding down, with a public dated
-  `note`.
+  `note`. With `eraseWording: true` the withdrawal is followed by the erasure of
+  every version's wording, the note included, which leaves the finding
+  "withdrawn, wording removed" with its date; a finding already withdrawn needs
+  no note.
 - `link_findings`: `same_as`, `narrows`, `contradicts` (with what the two
   disagree on) or `replaces`, with the AI's `rationale`; `unlink` withdraws a
   stored link with a note.
+- `forget_card` (decision 7): with `card` (`ARF-0142`), whenever its
+  contributor asks and with no reason, removes what ties the card to them:
+  its decision rows, and on GitHub the person's cards found by the card's
+  research-thread key, which are stripped to a locked tombstone, and their later
+  saves on other cards. Another person's later save on those cards is re-filed
+  as a card of its own first; when the named card holds one, the call asks for
+  `confirm: true`, since that saver was told the card's id too. The findings
+  accepted from the cards stay while they are valid. The App cannot delete an
+  issue, so the reply links each stripped issue for the owner to delete; the
+  same call again answers `card_forgotten` once GitHub answers 404 or 410 for
+  every one, and `card_forget_waiting_for_owner` until then.
 
 Each decision on a card item carries the `cardSha256` from its inspect: when
 the card or its later saves changed since, the call answers `card_changed` and
@@ -387,9 +404,21 @@ The actions answer `atlas_review_closed` and read nothing unless
 `0017`, the review role's grants and the promotion timer are verified; with the
 switch on and the store or the findings repository not configured, they answer
 `review_service_unavailable`. The tool is declared `destructiveHint: true`
-(choice 6). Erasing a finding's wording and forgetting a card (decision 7) come
-with part D: until then an `eraseWording` request answers `erase_not_built` and
-records nothing.
+(choice 6).
+
+Erasing wording (part D) is recorded as an `erase` intent: with a revision or a
+withdrawal, both are recorded in one transaction, and the runner applies them in
+order, one per run. The runner writes an `atlas_redactions` row for each version
+erased and calls `erase_atlas_wording()`, the one function the append-only
+guard lets change a canonical row, and in the same transaction clears the same
+texts from the finished intents that name the finding. An erasure of every
+version of a finding that is not withdrawn ends `FAILED` with
+`ATLAS_ERASE_NOT_WITHDRAWN`, a stale one with `ATLAS_VERSION_STALE`, and the
+next intent goes on. The runner cannot reach GitHub, so the owner's call names
+the cards that still hold the original wording and suggests `forget_card` for
+each; `inspect_finding` shows which versions' wording is removed and repeats
+it. The privacy data map's "Atlas findings: owner review" section gives the
+erasure's exact scope and the forget path's steps and limits.
 
 ## Database model
 
@@ -435,8 +464,10 @@ state, `atlas_card_decisions` (the only rows that name a card) and the
 writer alone writes. The review role gains execute permission on five more
 security-definer functions, `inspect_atlas_cards`, `decide_atlas_card_item`,
 `record_atlas_finding_intent`, `inspect_atlas_finding_intents` and
-`forget_atlas_cards` (used by part D), and still no direct table privilege. The
-privacy data map's "Atlas findings: owner review" section lists what each holds.
+`forget_atlas_cards` (used by `forget_card`), and still no direct table
+privilege. The writer-only `erase_atlas_wording()` and its helpers are not
+granted to it. The privacy data map's "Atlas findings: owner review" section
+lists what each holds.
 
 ## Runtime and failure behavior
 

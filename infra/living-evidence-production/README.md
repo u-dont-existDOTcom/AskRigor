@@ -103,8 +103,9 @@ placed in Compose.
    inspect/decide/context functions work while direct proposal-table reads or updates,
    canonical-table reads or writes, temporary objects, and schema creation fail.
    Prove too that the five Atlas functions work while the Atlas tables, the
-   `atlas_public_number_seq` sequence, `erase_atlas_wording` and
-   `atlas_redaction_permits` are refused.
+   `atlas_public_number_seq` sequence, `erase_atlas_wording`,
+   `atlas_redaction_permits`, `atlas_question_erasable` and
+   `atlas_numbers_without_labels` are refused.
 7. Recreate only research-mcp with the combined Compose selection. Verify it
    remains non-root/read-only/capability-free, joins exactly its prior network
    plus the internal repository network, stays healthy, and does not emit
@@ -230,16 +231,25 @@ accepts findings from saved findings cards into this database. Migration
   `inspect_atlas_cards`, `decide_atlas_card_item`,
   `record_atlas_finding_intent`, `inspect_atlas_finding_intents` and
   `forget_atlas_cards`;
-- writer-only `erase_atlas_wording` and `atlas_redaction_permits`, and a new
-  body for `reject_living_evidence_mutation()` whose one exception lets
-  `erase_atlas_wording` replace the text columns of the version a redaction row
-  names with a fixed marker (decision 7). Nothing is ever deleted.
+- writer-only `erase_atlas_wording`, `atlas_redaction_permits`,
+  `atlas_question_erasable` and `atlas_numbers_without_labels`, and a new body
+  for `reject_living_evidence_mutation()` whose one exception lets
+  `erase_atlas_wording` set to a fixed marker, under a redaction row, the
+  wording that row covers (decision 7): its version's claim and Atlas texts,
+  wording keys (to 64 zeros), numbers' text labels and change notes, the
+  rationale of each link touching its finding and each such link's withdrawal
+  note, and the finding's question only while no other finding or research
+  frontier uses it. Every other column, row and table stays refused, and
+  nothing is ever deleted.
 
 Canonical Atlas rows never hold an ARF number, a thread key, a receipt hash, an
 account, an answer quote, or YouTube or community data. The owner's call
 records a decision and its intent; only the one-shot admin
 `promote-accepted` writes canonical rows, after the contribution queue in the
-same activation.
+same activation, and it applies an erasure the same way: the redaction rows,
+then `erase_atlas_wording`, then the cleared texts of the finished intents that
+name the finding, in one transaction. `forget_card` deletes a card's decision
+rows through `forget_atlas_cards` and changes no canonical row.
 
 The release, in this order:
 
@@ -258,8 +268,10 @@ The release, in this order:
 The owner's Atlas actions stay closed behind `ASKRIGOR_ATLAS_REVIEW=enabled`
 until all of that is verified. For a rollback, an earlier image never selects
 an Atlas intent, so pending intents stay `PENDING` and are neither lost nor
-failed; delete no decision, intent or canonical row. Notice v3 needs its own
-hold step, as the paragraph above says.
+failed; delete no decision, intent or canonical row. A rollback restores
+nothing decision 7 removed: erased wording stays erased, and a forgotten card's
+decision rows and stripped issues stay gone. Notice v3 needs its own hold step,
+as the paragraph above says.
 
 When OAuth research access is active, the server omits legacy research Action
 routes so they cannot bypass the mode choice. The separately governed lesson

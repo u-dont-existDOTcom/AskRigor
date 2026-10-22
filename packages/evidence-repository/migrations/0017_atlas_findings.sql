@@ -9,8 +9,9 @@ SET search_path TO __SCHEMA__, public;
 -- Two private review tables hold the owner's decisions and the queued intents. Decisions are deleted when a card is
 -- forgotten (decision 7). No other row names a card: canonical rows never hold an ARF number, a thread key, a receipt
 -- hash, an account, an answer quote, or YouTube or community data. Eight canonical Atlas tables are append-only; their
--- one exception is erase_atlas_wording(), which may replace the wording of a version a redaction row names with a fixed
--- marker. Safe to run again: every migration runs on each start, in one transaction.
+-- one exception is erase_atlas_wording(), which may replace with a fixed marker the wording of a version a redaction row
+-- names, the rationale and withdrawal notes of the finding's links, and its question when nothing else asks it. Safe to
+-- run again: every migration runs on each start, in one transaction.
 
 -- Private review state ---------------------------------------------------------------------------------------------
 
@@ -87,6 +88,7 @@ ALTER TABLE atlas_finding_intents
       'ATLAS_LINK_ALREADY_RECORDED',
       'ATLAS_LINK_CYCLE',
       'ATLAS_LINK_MISSING',
+      'ATLAS_ERASE_NOT_WITHDRAWN',
       'SOURCE_IDENTIFIER_CONFLICT',
       'ATLAS_VERSION_LINEAGE_MISMATCH',
       'CLAIM_DEPENDENCY_CYCLE',
@@ -425,10 +427,73 @@ LEFT JOIN LATERAL (
 
 -- Wording erasure (decision 7, choice 4a): the only change ever made to a canonical row --------------------------
 
--- Whether an UPDATE of a canonical row is erase_atlas_wording()'s replacement of the wording of the version its
--- redaction row names: the redaction it is applying (a transaction-local setting it sets) exists, the row belongs to
--- that version, and the only columns that differ are the version's text columns, each set from its text to the fixed
--- marker (the wording keys to 64 zeros). Everything else stays equal; a NULL stays NULL.
+-- Whether a finding's question may be erased with its wording (decision 7, part D): no research frontier asks it, and
+-- every other claim that answers it is an Atlas finding's whose every version's wording is already erased. A question
+-- another finding or research still uses is kept, and the owner's call names who uses it. Writer only.
+CREATE OR REPLACE FUNCTION atlas_question_erasable(target_finding_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SET search_path = __SCHEMA__, pg_catalog
+AS $function$
+  SELECT coalesce((
+    SELECT NOT EXISTS (
+             SELECT 1 FROM research_frontiers frontier WHERE frontier.question_id = claim.question_id
+           )
+       AND NOT EXISTS (
+             SELECT 1 FROM claims other
+              WHERE other.question_id = claim.question_id
+                AND other.claim_id <> claim.claim_id
+                AND NOT EXISTS (
+                  SELECT 1 FROM atlas_findings other_finding
+                   WHERE other_finding.claim_id = other.claim_id
+                     AND NOT EXISTS (
+                       SELECT 1 FROM atlas_finding_versions other_version
+                        WHERE other_version.finding_id = other_finding.finding_id
+                          AND NOT EXISTS (
+                            SELECT 1 FROM atlas_redactions other_redaction
+                             WHERE other_redaction.claim_version_id = other_version.claim_version_id
+                          )
+                     )
+                )
+           )
+      FROM atlas_findings finding
+      JOIN claims claim ON claim.claim_id = finding.claim_id
+     WHERE finding.finding_id = target_finding_id
+  ), false)
+$function$;
+
+REVOKE ALL ON FUNCTION atlas_question_erasable(uuid) FROM PUBLIC;
+
+-- A version's numbers with their text labels (outcome, option, comparator and follow-up) set to the fixed marker; the
+-- counts, totals, directions and numbers needed stay as they are. Writer only.
+CREATE OR REPLACE FUNCTION atlas_numbers_without_labels(numbers jsonb)
+RETURNS jsonb
+LANGUAGE sql
+IMMUTABLE
+SET search_path = __SCHEMA__, pg_catalog
+AS $function$
+  SELECT CASE WHEN jsonb_typeof(numbers) IS DISTINCT FROM 'array' THEN numbers ELSE coalesce((
+    SELECT jsonb_agg(
+             CASE WHEN jsonb_typeof(entry.value) = 'object' THEN entry.value || coalesce((
+               SELECT jsonb_object_agg(label.key, to_jsonb('[wording removed]'::text))
+                 FROM jsonb_each(entry.value) label
+                WHERE label.key IN ('outcome', 'option', 'comparator', 'follow_up')
+                  AND jsonb_typeof(label.value) = 'string'
+             ), '{}'::jsonb) ELSE entry.value END
+             ORDER BY entry.position)
+      FROM jsonb_array_elements(numbers) WITH ORDINALITY AS entry(value, position)
+  ), '[]'::jsonb) END
+$function$;
+
+REVOKE ALL ON FUNCTION atlas_numbers_without_labels(jsonb) FROM PUBLIC;
+
+-- Whether an UPDATE of a canonical row is erase_atlas_wording()'s replacement of wording under the redaction it is
+-- applying (a transaction-local setting it sets, naming an existing redaction row): the row is that version's (its claim
+-- version, its Atlas version or one of its change records), a link that touches the redaction's finding or such a
+-- link's withdrawal, or the finding's question while atlas_question_erasable() holds; and the only columns that differ
+-- are the table's text columns, each set from its text to the fixed marker, its wording keys, each set to 64 zeros,
+-- and its numbers, whose text labels alone become the marker. Everything else stays equal; a NULL stays NULL.
 CREATE OR REPLACE FUNCTION atlas_redaction_permits(target_table text, old_row jsonb, new_row jsonb)
 RETURNS boolean
 LANGUAGE plpgsql
@@ -438,9 +503,9 @@ AS $function$
 DECLARE
   erasing text := current_setting('askrigor.atlas_erasing_redaction', true);
   redaction atlas_redactions%ROWTYPE;
-  version_column text;
   text_columns text[];
   key_columns text[] := ARRAY[]::text[];
+  label_columns text[] := ARRAY[]::text[];
   column_name text;
 BEGIN
   IF erasing IS NULL OR erasing !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
@@ -451,28 +516,56 @@ BEGIN
     RETURN false;
   END IF;
   IF target_table = 'claim_versions' THEN
-    version_column := 'version_id';
     text_columns := ARRAY[
       'normalized_assertion', 'population', 'program_or_exposure', 'comparator', 'outcome', 'horizon', 'setting'
     ];
+    IF old_row ->> 'version_id' IS DISTINCT FROM redaction.claim_version_id::text THEN
+      RETURN false;
+    END IF;
   ELSIF target_table = 'atlas_finding_versions' THEN
-    version_column := 'claim_version_id';
     text_columns := ARRAY['usual_answer', 'why_not_usual', 'what_would_change_it', 'who_else', 'what_it_changes'];
     key_columns := ARRAY['card_wording_key', 'accepted_wording_key'];
+    label_columns := ARRAY['numbers'];
+    IF old_row ->> 'claim_version_id' IS DISTINCT FROM redaction.claim_version_id::text
+       OR old_row ->> 'finding_id' IS DISTINCT FROM redaction.finding_id::text THEN
+      RETURN false;
+    END IF;
   ELSIF target_table = 'atlas_finding_changes' THEN
-    version_column := 'claim_version_id';
     text_columns := ARRAY['public_note'];
+    IF old_row ->> 'claim_version_id' IS DISTINCT FROM redaction.claim_version_id::text
+       OR old_row ->> 'finding_id' IS DISTINCT FROM redaction.finding_id::text THEN
+      RETURN false;
+    END IF;
+  ELSIF target_table = 'atlas_finding_links' THEN
+    text_columns := ARRAY['rationale'];
+    IF old_row ->> 'from_finding_id' IS DISTINCT FROM redaction.finding_id::text
+       AND old_row ->> 'to_finding_id' IS DISTINCT FROM redaction.finding_id::text THEN
+      RETURN false;
+    END IF;
+  ELSIF target_table = 'atlas_finding_link_withdrawals' THEN
+    text_columns := ARRAY['public_note'];
+    IF NOT EXISTS (
+      SELECT 1 FROM atlas_finding_links touching
+       WHERE touching.link_id::text = old_row ->> 'link_id'
+         AND (touching.from_finding_id = redaction.finding_id OR touching.to_finding_id = redaction.finding_id)
+    ) THEN
+      RETURN false;
+    END IF;
+  ELSIF target_table = 'questions' THEN
+    text_columns := ARRAY['normalized_question'];
+    IF NOT EXISTS (
+      SELECT 1 FROM atlas_findings finding
+        JOIN claims claim ON claim.claim_id = finding.claim_id
+       WHERE finding.finding_id = redaction.finding_id
+         AND claim.question_id::text = old_row ->> 'question_id'
+    ) OR NOT atlas_question_erasable(redaction.finding_id) THEN
+      RETURN false;
+    END IF;
   ELSE
     RETURN false;
   END IF;
-  IF old_row ->> version_column IS DISTINCT FROM redaction.claim_version_id::text
-     OR new_row ->> version_column IS DISTINCT FROM redaction.claim_version_id::text THEN
-    RETURN false;
-  END IF;
-  IF target_table <> 'claim_versions' AND old_row ->> 'finding_id' IS DISTINCT FROM redaction.finding_id::text THEN
-    RETURN false;
-  END IF;
-  IF (old_row - text_columns - key_columns) IS DISTINCT FROM (new_row - text_columns - key_columns) THEN
+  IF (old_row - text_columns - key_columns - label_columns) IS DISTINCT FROM
+     (new_row - text_columns - key_columns - label_columns) THEN
     RETURN false;
   END IF;
   FOREACH column_name IN ARRAY text_columns LOOP
@@ -489,14 +582,22 @@ BEGIN
       RETURN false;
     END IF;
   END LOOP;
+  FOREACH column_name IN ARRAY label_columns LOOP
+    IF new_row -> column_name IS DISTINCT FROM old_row -> column_name
+       AND new_row -> column_name IS DISTINCT FROM atlas_numbers_without_labels(old_row -> column_name) THEN
+      RETURN false;
+    END IF;
+  END LOOP;
   RETURN true;
 END
 $function$;
 
 REVOKE ALL ON FUNCTION atlas_redaction_permits(text, jsonb, jsonb) FROM PUBLIC;
 
--- Replaces the wording of the version a redaction row names: its claim version's text columns, its Atlas version's
--- texts and wording keys, and the notes of its change records. Writer only. Running it again changes nothing.
+-- Replaces with the fixed marker the wording a redaction row covers: its version's claim text columns, its Atlas
+-- version's texts, wording keys and numbers' text labels, and the notes of its change records; the rationale of every
+-- link that touches its finding and the note of each such link's withdrawal; and the finding's question, when
+-- atlas_question_erasable() holds. Writer only. Running it again changes nothing.
 CREATE OR REPLACE FUNCTION erase_atlas_wording(target_redaction_id uuid)
 RETURNS integer
 LANGUAGE plpgsql
@@ -539,7 +640,8 @@ BEGIN
          who_else = CASE WHEN erased.who_else IS NULL THEN NULL ELSE marker END,
          what_it_changes = CASE WHEN erased.what_it_changes IS NULL THEN NULL ELSE marker END,
          card_wording_key = CASE WHEN erased.card_wording_key IS NULL THEN NULL ELSE erased_key END,
-         accepted_wording_key = CASE WHEN erased.accepted_wording_key IS NULL THEN NULL ELSE erased_key END
+         accepted_wording_key = CASE WHEN erased.accepted_wording_key IS NULL THEN NULL ELSE erased_key END,
+         numbers = atlas_numbers_without_labels(erased.numbers)
    WHERE erased.claim_version_id = redaction.claim_version_id
      AND erased.finding_id = redaction.finding_id
      AND (coalesce(erased.usual_answer, marker) <> marker
@@ -548,7 +650,8 @@ BEGIN
           OR coalesce(erased.who_else, marker) <> marker
           OR coalesce(erased.what_it_changes, marker) <> marker
           OR coalesce(erased.card_wording_key::text, erased_key) <> erased_key
-          OR coalesce(erased.accepted_wording_key::text, erased_key) <> erased_key);
+          OR coalesce(erased.accepted_wording_key::text, erased_key) <> erased_key
+          OR erased.numbers IS DISTINCT FROM atlas_numbers_without_labels(erased.numbers));
   GET DIAGNOSTICS touched = ROW_COUNT;
   changed := changed + touched;
   UPDATE atlas_finding_changes erased
@@ -559,6 +662,33 @@ BEGIN
      AND erased.public_note <> marker;
   GET DIAGNOSTICS touched = ROW_COUNT;
   changed := changed + touched;
+  UPDATE atlas_finding_links erased
+     SET rationale = marker
+   WHERE (erased.from_finding_id = redaction.finding_id OR erased.to_finding_id = redaction.finding_id)
+     AND erased.rationale <> marker;
+  GET DIAGNOSTICS touched = ROW_COUNT;
+  changed := changed + touched;
+  UPDATE atlas_finding_link_withdrawals erased
+     SET public_note = marker
+   WHERE erased.link_id IN (
+           SELECT touching.link_id FROM atlas_finding_links touching
+            WHERE touching.from_finding_id = redaction.finding_id OR touching.to_finding_id = redaction.finding_id
+         )
+     AND erased.public_note <> marker;
+  GET DIAGNOSTICS touched = ROW_COUNT;
+  changed := changed + touched;
+  IF atlas_question_erasable(redaction.finding_id) THEN
+    UPDATE questions erased
+       SET normalized_question = marker
+     WHERE erased.question_id = (
+             SELECT claim.question_id FROM atlas_findings finding
+               JOIN claims claim ON claim.claim_id = finding.claim_id
+              WHERE finding.finding_id = redaction.finding_id
+           )
+       AND erased.normalized_question <> marker;
+    GET DIAGNOSTICS touched = ROW_COUNT;
+    changed := changed + touched;
+  END IF;
   PERFORM set_config('askrigor.atlas_erasing_redaction', '', true);
   RETURN changed;
 END
@@ -574,7 +704,8 @@ LANGUAGE plpgsql AS $$
 BEGIN
   IF TG_OP = 'UPDATE'
      AND TG_TABLE_SCHEMA = '__SCHEMA__'
-     AND TG_TABLE_NAME IN ('claim_versions', 'atlas_finding_versions', 'atlas_finding_changes')
+     AND TG_TABLE_NAME IN ('claim_versions', 'atlas_finding_versions', 'atlas_finding_changes', 'atlas_finding_links',
+                           'atlas_finding_link_withdrawals', 'questions')
      AND __SCHEMA__.atlas_redaction_permits(TG_TABLE_NAME, to_jsonb(OLD), to_jsonb(NEW)) THEN
     RETURN NEW;
   END IF;

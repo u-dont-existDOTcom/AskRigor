@@ -482,7 +482,7 @@ describe("the Atlas promotion runner", () => {
     expect(canonical.snapshot().findings).toHaveLength(1);
   });
 
-  it("leaves an intent pending on an unexpected error, and an erasure pending until a writer applies it", async () => {
+  it("leaves an intent pending on an unexpected error, and fails a stale erasure with its code instead of waiting", async () => {
     let failing = true;
     const { decide, record, runner, review } = atlas({
       store: (reviewStore, canonical) => {
@@ -502,11 +502,13 @@ describe("the Atlas promotion runner", () => {
     expect((await review.inspectIntents(null))[0]).toMatchObject({ status: "PENDING", failureCode: null });
     failing = false;
     expect((await runner.promoteAccepted()).result.status).toBe("promoted");
+    // Part D's writer applies erasures (decision 7): this one names version 3 of a finding at version 1, so it ends
+    // FAILED with its code and the queue moves on, where part A left it pending and the queue waiting behind it.
     const erase = await record(EVERY_KIND.erase);
-    expect((await runner.promoteAccepted()).result).toEqual({
-      status: "intent_kind_not_applied", intentId: erase.intentId, intentKind: "erase",
-    });
-    expect((await review.inspectIntents(null)).map(({ status }) => status)).toEqual(["PENDING"]);
+    const run = await runner.promoteAccepted();
+    expect(run.failed).toEqual([expect.objectContaining({ intentId: erase.intentId, failureCode: "ATLAS_VERSION_STALE" })]);
+    expect(run.result).toEqual({ status: "no_pending_promotion" });
+    expect((await review.inspectIntents(null)).map(({ status }) => status)).toEqual(["FAILED"]);
   });
 
   it("retries a failed accept under its number", async () => {

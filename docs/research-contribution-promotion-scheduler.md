@@ -58,9 +58,16 @@ The systemd units are unchanged.
   `ATLAS_FINDING_MISSING` or `SOURCE_IDENTIFIER_CONFLICT`), and the activation
   tries the next intent. A transient or unexpected error leaves the intent
   `PENDING`. The owner retries a failed decision under the same finding number.
-- **Not yet applied.** An erasure intent (decision 7) waits `PENDING`, and the
-  queue with it, until the build that applies it is deployed; the result says
-  `intent_kind_not_applied`.
+- **Erasures.** An erasure intent (decision 7) is applied like any other: in
+  the same pass, the runner writes a redaction row for each version erased,
+  calls `erase_atlas_wording()`, which sets the wording that row covers to the
+  fixed marker, and sets the same texts to the marker in the finished intents
+  that name the finding. A revision or withdrawal recorded with its erasure is
+  applied first, in its own activation, and the erasure in the next. An erasure
+  of every version of a finding that is not withdrawn ends `FAILED` with
+  `ATLAS_ERASE_NOT_WITHDRAWN`, and the activation tries the next intent. Only an
+  image that does not apply erasures stops at one, answering
+  `intent_kind_not_applied`, with the queue waiting behind it.
 - **Receipts and logs.** Each line carries `"queue":"atlas_findings"`; a
   receipt holds only ids, hashes, the intent kind and its public `F-` number,
   and a failure line names the intent, its kind, its number and its code. No

@@ -16,10 +16,12 @@ export const ATLAS_INTENT_SCHEMA = "askrigor.atlas-finding-intent.v1";
 export const ATLAS_INTENT_KINDS = ["accept", "recheck", "revise", "withdraw", "link", "unlink", "erase"] as const;
 export type AtlasIntentKind = typeof ATLAS_INTENT_KINDS[number];
 /**
- * The kinds this build's canonical writer applies. An erasure (decision 7) is recorded by part D's path; until a build
- * applies it, the runner leaves such an intent pending, as an older image leaves every Atlas intent pending.
+ * The kinds this build's canonical writer applies: every kind, the erasure of decision 7 included (part D). A kind a
+ * later build adds is left pending by this one, as an older image leaves every Atlas intent pending.
  */
-export const ATLAS_INTENT_KINDS_WRITTEN = ["accept", "recheck", "revise", "withdraw", "link", "unlink"] as const;
+export const ATLAS_INTENT_KINDS_WRITTEN = [
+  "accept", "recheck", "revise", "withdraw", "link", "unlink", "erase",
+] as const satisfies readonly AtlasIntentKind[];
 
 export const ATLAS_LABELS = ["checked", "lead", "contested", "superseded", "withdrawn"] as const;
 export type AtlasLabel = typeof ATLAS_LABELS[number];
@@ -404,8 +406,11 @@ export const atlasUnlinkIntentSchema = z.object({
 });
 
 /**
- * A finding whose wording could identify a person (decision 7): erases the wording of its earlier versions (after an
- * edit that made a general version) or of all its versions (after a withdrawal). Applied by part D's writer path.
+ * A finding whose wording could identify a person (decision 7). `version` is the finding's latest version when the
+ * erasure applies, so one queued with a revision or a withdrawal names the version that one makes. earlier_versions
+ * erases the wording of every version before it and keeps it (the owner's general version); all_versions, for a
+ * withdrawn finding, erases every version's. Either also erases its links' rationale and withdrawal notes, and its
+ * question when nothing else asks it (atlas_question_erasable in migration 0017).
  */
 export const atlasEraseIntentSchema = z.object({
   schema: z.literal(ATLAS_INTENT_SCHEMA),
@@ -490,6 +495,8 @@ export const ATLAS_FINDING_PROMOTION_FAILURE_CODES = [
   "ATLAS_LINK_ALREADY_RECORDED",
   "ATLAS_LINK_CYCLE",
   "ATLAS_LINK_MISSING",
+  // Erasing every version's wording (decision 7) needs the finding withdrawn first.
+  "ATLAS_ERASE_NOT_WITHDRAWN",
   "SOURCE_IDENTIFIER_CONFLICT",
   // The canonical store's triggers (migrations 0001 and 0017), raised as check violations with these exact messages.
   "ATLAS_VERSION_LINEAGE_MISMATCH",
@@ -601,6 +608,8 @@ export interface AtlasStateVersion {
   cardWordingKey: string | null;
   acceptedWordingKey: string | null;
   editedAtAcceptance: boolean;
+  /** Whether a redaction row names this version: its wording reads as the fixed marker (decision 7). */
+  erased: boolean;
   bindings: AtlasStateBinding[];
 }
 
@@ -647,6 +656,12 @@ export interface AtlasState {
   }>;
   /** Metadata-only versions, with no content hash, of the families the identifiers name. */
   sourceVersions: Array<{ versionId: string; familyId: string; retrievedAt: string }>;
+  /**
+   * When the request asked for them (questionUsesOf), the questions of those findings, with how many claims of each
+   * no Atlas finding holds and how many research frontiers ask it; every Atlas finding that answers one of them is in
+   * findings. Otherwise absent.
+   */
+  questionUses?: Array<{ questionId: string; text: string; nonAtlasUses: number }>;
 }
 
 export interface AtlasStateRequest {
@@ -657,6 +672,8 @@ export interface AtlasStateRequest {
   identifiers?: Array<{ scheme: string; value: string }>;
   topicKeys?: string[];
   replacesGraph?: boolean;
+  /** Findings whose question's other uses an erasure weighs (decision 7). */
+  questionUsesOf?: string[];
 }
 
 /** The canonical store's read-only Atlas view; the public runtime's reader role is enough. */
@@ -683,8 +700,9 @@ export function atlasStateRequest(intent: { publicNumber: string; payload: Atlas
     case "revise":
       return { publicNumbers: [payload.publicNumber], identifiers: identifiers(payload.sources) };
     case "withdraw":
-    case "erase":
       return { publicNumbers: [payload.publicNumber] };
+    case "erase":
+      return { publicNumbers: [payload.publicNumber], questionUsesOf: [payload.publicNumber] };
     case "link":
       return { publicNumbers: [payload.publicNumber, payload.toPublicNumber], replacesGraph: payload.relation === "replaces" };
     case "unlink":
@@ -696,6 +714,43 @@ export function atlasStateRequest(intent: { publicNumber: string; payload: Atlas
 export function atlasCurrentLabels(state: AtlasState, findingIds: readonly string[]): Map<string, AtlasLabel> {
   const context = labelContextOf(state.findings, state.links);
   return new Map(findingIds.map((id) => [id, atlasLabelOf(id, context)]));
+}
+
+/** Who else uses a finding's question, and whether an erasure of the finding may erase it too. */
+export interface AtlasQuestionUse {
+  questionId: string;
+  /** Exactly atlas_question_erasable() in migration 0017. */
+  erasable: boolean;
+  /** Whether its text already reads as the fixed marker. */
+  erased: boolean;
+  /** The other Atlas findings that answer it and still show some wording. */
+  sharedWith: string[];
+  /** Claims of it no Atlas finding holds, and research frontiers that ask it. */
+  nonAtlasUses: number;
+}
+
+/**
+ * The question rule of decision 7's erasure (part D): a finding's question is erased with its wording only when no
+ * research frontier asks it and every other claim that answers it is an Atlas finding whose every version's wording is
+ * already erased. The state must hold the question's uses (questionUsesOf).
+ */
+export function atlasQuestionUse(state: AtlasState, findingId: string): AtlasQuestionUse {
+  const finding = state.findings.find((candidate) => candidate.findingId === findingId);
+  const use = finding === undefined ? undefined :
+    state.questionUses?.find(({ questionId }) => questionId === finding.questionId);
+  if (finding === undefined || use === undefined) throw new Error("ATLAS_QUESTION_USES_NOT_READ");
+  const sharedWith = state.findings
+    .filter((other) => other.findingId !== findingId && other.questionId === finding.questionId &&
+      other.versions.some(({ erased }) => !erased))
+    .map(({ publicNumber }) => publicNumber)
+    .sort();
+  return {
+    questionId: finding.questionId,
+    erasable: sharedWith.length === 0 && use.nonAtlasUses === 0,
+    erased: use.text === ATLAS_ERASED_TEXT,
+    sharedWith,
+    nonAtlasUses: use.nonAtlasUses,
+  };
 }
 
 function labelContextOf(findings: readonly AtlasStateFinding[], links: readonly AtlasStateLink[]): {
@@ -834,6 +889,13 @@ export interface AtlasWritePlan {
     claimEdge: { edgeId: string; fromClaimVersionId: string; toClaimVersionId: string; relation: string };
   }>;
   linkWithdrawals: Array<{ linkId: string; publicNote: string }>;
+  /** An erasure's redaction rows (decision 7): one for each version whose wording it erases, none already erased. */
+  redactions: Array<{ redactionId: string; findingId: string; claimVersionId: string }>;
+  /**
+   * What an erasure's redactions erase besides their versions: the rationale and withdrawal notes of every link that
+   * touches the finding, and its question when atlasQuestionUse() finds it erasable. Null when nothing is erased.
+   */
+  erasure: { findingId: string; linkIds: string[]; questionId: string | null; questionSharedWith: string[] } | null;
   changes: AtlasPlannedChange[];
   event: { eventId: string; eventKind: string; details: Record<string, unknown> };
   receipt: AtlasWriterReceipt;
@@ -882,6 +944,103 @@ export function atlasRunId(intentId: string): string {
   return deterministicUuid(`askrigor:atlas-run:${intentId}`);
 }
 
+// Erasure (decision 7, part D) -----------------------------------------------------------------------------------------
+
+const erasedOrNull = (value: string | null): string | null => value === null ? null : ATLAS_ERASED_TEXT;
+
+/** A figure with its text labels erased, as atlas_numbers_without_labels() writes it: the counts stay. */
+export function atlasNumberEntryWithoutLabels(entry: AtlasNumberEntry): AtlasNumberEntry {
+  return { ...entry, outcome: ATLAS_ERASED_TEXT, option: ATLAS_ERASED_TEXT, comparator: ATLAS_ERASED_TEXT,
+    follow_up: ATLAS_ERASED_TEXT };
+}
+
+/**
+ * A version's content as erase_atlas_wording() leaves it: every text the fixed marker (a missing one stays missing),
+ * and the numbers' text labels too; certainty, tags, verified bases and the counts stay.
+ */
+export function atlasErasedContent(content: AtlasVersionContent): AtlasVersionContent {
+  return {
+    ...content,
+    wording: ATLAS_ERASED_TEXT,
+    appliesTo: erasedOrNull(content.appliesTo),
+    usualAnswer: erasedOrNull(content.usualAnswer),
+    whyNotUsual: erasedOrNull(content.whyNotUsual),
+    whatWouldChangeIt: erasedOrNull(content.whatWouldChangeIt),
+    whoElse: erasedOrNull(content.whoElse),
+    whatItChanges: erasedOrNull(content.whatItChanges),
+    numbers: content.numbers.map(atlasNumberEntryWithoutLabels),
+  };
+}
+
+/** What an applied erasure removed, for clearing the same texts from the finding's earlier intents. */
+export interface AtlasIntentErasure {
+  publicNumber: string;
+  scope: "earlier_versions" | "all_versions";
+  /** The erasure's version: for earlier_versions, the version it kept. */
+  version: number;
+  /** Whether the finding's question now reads as the fixed marker. */
+  questionErased: boolean;
+}
+
+/**
+ * An earlier intent's payload with the texts an erasure removed set to the fixed marker, or undefined when nothing in
+ * it changes (decision 7: the runner clears them from the finding's earlier intent payloads). Every intent that names
+ * the finding, as its subject or a link's other side, loses its texts and wording keys, except, for earlier_versions,
+ * the completed revision that made the version kept. The question goes only when the erasure erased it; the topic
+ * label never does, since it names a condition, not a person. A pending intent is never passed here.
+ */
+export function atlasErasedIntentPayload(
+  intent: { publicNumber: string; status: "PENDING" | "COMPLETED" | "FAILED"; payload: AtlasFindingIntent },
+  erasure: AtlasIntentErasure,
+): AtlasFindingIntent | undefined {
+  const payload = intent.payload;
+  const subject = intent.publicNumber === erasure.publicNumber;
+  let erased: AtlasFindingIntent;
+  switch (payload.kind) {
+    case "accept":
+      if (!subject) return undefined;
+      erased = {
+        ...payload,
+        question: erasure.questionErased ? ATLAS_ERASED_TEXT : payload.question,
+        content: atlasErasedContent(payload.content),
+        wordingKeys: { card: ATLAS_ERASED_KEY, accepted: ATLAS_ERASED_KEY },
+      };
+      break;
+    case "revise":
+      if (!subject) return undefined;
+      if (erasure.scope === "earlier_versions" && intent.status === "COMPLETED" &&
+        payload.version + 1 === erasure.version) {
+        return undefined;
+      }
+      erased = {
+        ...payload,
+        note: erasedOrNull(payload.note),
+        content: atlasErasedContent(payload.content),
+        acceptedWordingKey: ATLAS_ERASED_KEY,
+      };
+      break;
+    case "recheck":
+      if (!subject) return undefined;
+      erased = { ...payload, cardWordingKey: ATLAS_ERASED_KEY };
+      break;
+    case "withdraw":
+      if (!subject) return undefined;
+      erased = { ...payload, note: ATLAS_ERASED_TEXT };
+      break;
+    case "link":
+      if (!subject && payload.toPublicNumber !== erasure.publicNumber) return undefined;
+      erased = { ...payload, rationale: ATLAS_ERASED_TEXT };
+      break;
+    case "unlink":
+      if (!subject && payload.toPublicNumber !== erasure.publicNumber) return undefined;
+      erased = { ...payload, note: ATLAS_ERASED_TEXT };
+      break;
+    case "erase":
+      return undefined;
+  }
+  return stableJson(erased) === stableJson(payload) ? undefined : erased;
+}
+
 function isoInstant(value: string | Date): string {
   const instant = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(instant.getTime())) throw new Error("ATLAS_INSTANT_INVALID");
@@ -904,11 +1063,11 @@ function limitationsFor(retractionStatus: string): string[] {
 /**
  * Plans every row one intent writes against the canonical state the writer read under its lock. Pure: the PostgreSQL
  * and in-memory writers share it. A deterministic conflict throws AtlasWriteConflict with its code; nothing is
- * written then. Erasure (part D) is not planned here.
+ * written then. An erasure (decision 7) plans its redaction rows and its wording_removed change; the writers then
+ * replace the wording those rows name (erase_atlas_wording() in PostgreSQL).
  */
 export function planAtlasWrite(intent: PreparedAtlasStoredIntent, state: AtlasState): AtlasWritePlan {
   const payload = intent.payload;
-  if (payload.kind === "erase") throw new Error("ATLAS_ERASE_NOT_BUILT");
   const decidedAt = isoInstant(intent.createdAt);
   const intentIdentity = {
     intentId: intent.intentId,
@@ -922,7 +1081,7 @@ export function planAtlasWrite(intent: PreparedAtlasStoredIntent, state: AtlasSt
     decidedAt,
     run: {
       runId: atlasRunId(intent.intentId),
-      runKind: ["revise", "withdraw", "unlink"].includes(payload.kind) ? "correction" : "live_research",
+      runKind: ["revise", "withdraw", "unlink", "erase"].includes(payload.kind) ? "correction" : "live_research",
       protocolManifestSha256s: protocols.map(({ sha256: digest }) => digest),
       provenanceNote: PROVENANCE_NOTE(payload.kind),
     },
@@ -938,6 +1097,8 @@ export function planAtlasWrite(intent: PreparedAtlasStoredIntent, state: AtlasSt
     bindings: [],
     links: [],
     linkWithdrawals: [],
+    redactions: [],
+    erasure: null,
     changes: [],
     event: { eventId: deterministicUuid(`askrigor:atlas-event:${intent.intentId}`), eventKind: "", details: {} },
     receipt: undefined as unknown as AtlasWriterReceipt,
@@ -1337,6 +1498,52 @@ export function planAtlasWrite(intent: PreparedAtlasStoredIntent, state: AtlasSt
       touched = [from.findingId, to.findingId];
       break;
     }
+    case "erase": {
+      // Decision 7: a withdrawn finding is erased too, so this is not assertWritable(); the version binds the state.
+      const finding = findingFor(intent.publicNumber, "ATLAS_FINDING_MISSING");
+      assertVersion(finding, payload.version);
+      if (payload.scope === "all_versions" && latestOf(finding).status !== "invalidated") {
+        throw new AtlasWriteConflict("ATLAS_ERASE_NOT_WITHDRAWN");
+      }
+      const erasing = finding.versions.filter((version) => !version.erased &&
+        (payload.scope === "all_versions" || version.versionNumber < payload.version));
+      plan.redactions = erasing.map((version) => ({
+        redactionId: deterministicUuid(`askrigor:atlas-redaction:${intent.intentId}:${version.claimVersionId}`),
+        findingId: finding.findingId,
+        claimVersionId: version.claimVersionId,
+      }));
+      // Versions already erased stay as they are; with none left to erase, the intent completes writing nothing more.
+      if (erasing.length > 0) {
+        const question = atlasQuestionUse(state, finding.findingId);
+        plan.erasure = {
+          findingId: finding.findingId,
+          linkIds: state.links
+            .filter((link) => link.fromFindingId === finding.findingId || link.toFindingId === finding.findingId)
+            .map(({ linkId: id }) => id)
+            .sort(),
+          questionId: question.erasable ? question.questionId : null,
+          questionSharedWith: question.sharedWith,
+        };
+        const label = labelBefore(finding.findingId);
+        primary = {
+          findingId: finding.findingId,
+          version: null,
+          change: {
+            changeId: changeId(finding.findingId, "wording_removed"),
+            findingId: finding.findingId,
+            changeKind: "wording_removed",
+            claimVersionId: null,
+            labelBefore: label,
+            labelAfter: label,
+            publicNote: null,
+            linkId: null,
+            researchCheckedOn: null,
+          },
+        };
+      }
+      touched = [finding.findingId];
+      break;
+    }
   }
 
   // Labels: the findings this intent touched and their contradicts partners, before and after (design section 3).
@@ -1376,10 +1583,18 @@ export function planAtlasWrite(intent: PreparedAtlasStoredIntent, state: AtlasSt
   if (primary !== null) plan.changes.unshift(primary.change);
 
   const toNumber = "toPublicNumber" in payload ? { to_public_number: payload.toPublicNumber, relation: payload.relation } : {};
+  // An erasure's event names its scope and the version numbers it erased, never a text.
+  const erased = payload.kind !== "erase" ? {} : {
+    scope: payload.scope,
+    versions_erased: state.findings.flatMap(({ versions }) => versions)
+      .filter(({ claimVersionId }) => plan.redactions.some((redaction) => redaction.claimVersionId === claimVersionId))
+      .map(({ versionNumber }) => versionNumber)
+      .sort((left, right) => left - right),
+  };
   plan.event = {
     eventId: plan.event.eventId,
     eventKind: `atlas_finding_${payload.kind}`,
-    details: { public_number: intent.publicNumber, intent_kind: payload.kind, ...toNumber, labels },
+    details: { public_number: intent.publicNumber, intent_kind: payload.kind, ...toNumber, ...erased, labels },
   };
   plan.receipt = atlasWriterReceipt({
     status: "inserted",
@@ -1388,8 +1603,13 @@ export function planAtlasWrite(intent: PreparedAtlasStoredIntent, state: AtlasSt
       ...(plan.finding === null ? [] : [plan.finding.findingId]),
       ...plan.versions.map(({ findingId }) => findingId),
       ...plan.changes.map(({ findingId }) => findingId),
+      ...plan.redactions.map(({ findingId }) => findingId),
     ],
-    claimVersionIds: plan.versions.map(({ claimVersionId }) => claimVersionId),
+    // The versions an intent wrote, and the versions an erasure erased.
+    claimVersionIds: [
+      ...plan.versions.map(({ claimVersionId }) => claimVersionId),
+      ...plan.redactions.map(({ claimVersionId }) => claimVersionId),
+    ],
     changeIds: plan.changes.map(({ changeId: id }) => id),
     linkIds: [...plan.links.map(({ linkId: id }) => id), ...plan.linkWithdrawals.map(({ linkId: id }) => id)],
     sourceFamilyIds: plan.sourceChecks.map(({ familyId }) => familyId),
@@ -1467,13 +1687,38 @@ export interface AtlasRecordIntentInput {
   retryOfIntentId: string | null;
 }
 
+/** One decision row forget_atlas_cards() deleted (decision 7). */
+export interface AtlasForgottenDecision {
+  cardNumber: number;
+  itemKind: AtlasCardItemKind;
+  itemNumber: number;
+  decision: AtlasCardDecision;
+  publicNumber: string | null;
+  /** Whether a decision of a card not forgotten still names the same F number. */
+  publicNumberNamedElsewhere: boolean;
+  forgottenAt: string;
+}
+
+/** The most cards one forget_atlas_cards() call takes. */
+export const ATLAS_FORGET_CARDS_PER_CALL = 100;
+
 /** The review role's five functions (migration 0017), in TypeScript. */
 export interface AtlasReviewStore {
   inspectCards(cardNumbers: readonly number[]): Promise<AtlasDecisionView[]>;
   decide(input: AtlasDecideInput): Promise<AtlasDecisionView>;
   recordIntent(input: AtlasRecordIntentInput): Promise<AtlasIntentView>;
+  /**
+   * Records intents in one transaction, in their order, each as recordIntent() does: all of them or none (an erasure
+   * with the revision or withdrawal it follows, decision 7).
+   */
+  recordIntents(inputs: readonly AtlasRecordIntentInput[]): Promise<AtlasIntentView[]>;
   /** The intents on these findings, or, given null, every pending intent and every FAILED one not yet retried. */
   inspectIntents(publicNumbers: readonly string[] | null): Promise<AtlasIntentView[]>;
+  /**
+   * Decision 7: deletes these cards' decision rows, the owner's private reasons with them, and returns each deleted row
+   * with whether a card not forgotten still names its F number. Nothing else names a card; findings stay.
+   */
+  forgetCards(cardNumbers: readonly number[], forgottenAt: string): Promise<AtlasForgottenDecision[]>;
 }
 
 export type AtlasReviewErrorCode = "INPUT_INVALID" | "DECISION_CONFLICT" | "FINDING_NOT_FOUND" | "INTENT_CONFLICT";
@@ -1554,6 +1799,14 @@ function validateRecordInput(input: AtlasRecordIntentInput): AtlasFindingIntent 
     throw reviewError("INPUT_INVALID");
   }
   return prepared.payload;
+}
+
+/** The exact input checks forget_atlas_cards() makes. */
+function validateForgetInput(cardNumbers: readonly number[], forgottenAt: string): void {
+  if (cardNumbers.length < 1 || cardNumbers.length > ATLAS_FORGET_CARDS_PER_CALL ||
+    cardNumbers.some((card) => !Number.isSafeInteger(card) || card < 1) || Number.isNaN(Date.parse(forgottenAt))) {
+    throw reviewError("INPUT_INVALID");
+  }
 }
 
 /** A payload the review stores refuse as input, whatever made it unparseable or mismatched. */
@@ -1712,6 +1965,58 @@ export class InMemoryAtlasReviewStore implements AtlasReviewStore {
       }
     }
     return intentView(this.insertIntent(input));
+  }
+
+  async recordIntents(inputs: readonly AtlasRecordIntentInput[]): Promise<AtlasIntentView[]> {
+    // One transaction: a refusal of any of them leaves the store as it was.
+    const before = new Map(this.intents);
+    const position = this.nextQueuePosition;
+    try {
+      const views: AtlasIntentView[] = [];
+      for (const input of inputs) views.push(await this.recordIntent(input));
+      return views;
+    } catch (error) {
+      this.intents.clear();
+      for (const [intentId, intent] of before) this.intents.set(intentId, intent);
+      this.nextQueuePosition = position;
+      throw error;
+    }
+  }
+
+  async forgetCards(cardNumbers: readonly number[], forgottenAt: string): Promise<AtlasForgottenDecision[]> {
+    validateForgetInput(cardNumbers, forgottenAt);
+    const forgotten = new Set(cardNumbers);
+    const removed = [...this.decisions.entries()].filter(([, decision]) => forgotten.has(decision.cardNumber));
+    for (const [key] of removed) this.decisions.delete(key);
+    return removed
+      .map(([, decision]) => ({
+        cardNumber: decision.cardNumber,
+        itemKind: decision.itemKind,
+        itemNumber: decision.itemNumber,
+        decision: decision.decision,
+        publicNumber: decision.publicNumber,
+        publicNumberNamedElsewhere: decision.publicNumber !== null && [...this.decisions.values()]
+          .some((other) => other.publicNumber === decision.publicNumber),
+        forgottenAt: isoInstant(forgottenAt),
+      }))
+      .sort((left, right) => left.cardNumber - right.cardNumber || left.itemKind.localeCompare(right.itemKind) ||
+        left.itemNumber - right.itemNumber);
+  }
+
+  /**
+   * Decision 7, the runner's step after an erasure: sets to the fixed marker, in every intent that is not pending, the
+   * texts atlasErasedIntentPayload() names, and marks when. Returns how many intents changed.
+   */
+  eraseIntentTexts(erasure: AtlasIntentErasure, at: string): number {
+    let changed = 0;
+    for (const [intentId, intent] of this.intents) {
+      if (intent.status === "PENDING") continue;
+      const payload = atlasErasedIntentPayload(intent, erasure);
+      if (payload === undefined) continue;
+      this.intents.set(intentId, { ...intent, payload, textsErasedAt: intent.textsErasedAt ?? isoInstant(at) });
+      changed += 1;
+    }
+    return changed;
   }
 
   async inspectIntents(publicNumbers: readonly string[] | null): Promise<AtlasIntentView[]> {
@@ -1894,6 +2199,52 @@ export class PostgresAtlasReviewStore implements AtlasReviewStore {
     return intentFromRow(result.rows[0]!);
   }
 
+  async recordIntents(raw: readonly AtlasRecordIntentInput[]): Promise<AtlasIntentView[]> {
+    const inputs = raw.map((input) => ({ ...input, payload: validateRecordInput(input) }));
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const views: AtlasIntentView[] = [];
+      for (const input of inputs) {
+        const result = await client.query<IntentRow>(
+          `SELECT * FROM ${this.schema}.record_atlas_finding_intent(
+             $1::uuid, $2::text, $3::text, $4::jsonb, $5::text, $6::text, $7::timestamptz, $8::uuid
+           )`,
+          [
+            input.intentId, input.intentKind, input.publicNumber, JSON.stringify(input.payload), input.payloadSha256,
+            input.ownerReason, input.createdAt, input.retryOfIntentId,
+          ],
+        );
+        if (result.rows.length !== 1) throw new Error("ATLAS_INTENT_RESULT_MISSING");
+        views.push(intentFromRow(result.rows[0]!));
+      }
+      await client.query("COMMIT");
+      return views;
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw mapAtlasReviewError(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  async forgetCards(cardNumbers: readonly number[], forgottenAt: string): Promise<AtlasForgottenDecision[]> {
+    validateForgetInput(cardNumbers, forgottenAt);
+    const result = await this.call<ForgottenRow>(
+      `SELECT * FROM ${this.schema}.forget_atlas_cards($1::integer[], $2::timestamptz)`,
+      [[...cardNumbers], forgottenAt],
+    );
+    return result.rows.map((row) => ({
+      cardNumber: Number(row.card_number),
+      itemKind: row.item_kind,
+      itemNumber: Number(row.item_number),
+      decision: row.decision,
+      publicNumber: row.public_number,
+      publicNumberNamedElsewhere: row.public_number_named_elsewhere,
+      forgottenAt: isoInstant(row.forgotten_at),
+    }));
+  }
+
   async inspectIntents(publicNumbers: readonly string[] | null): Promise<AtlasIntentView[]> {
     const result = await this.pool.query<IntentRow>(
       `SELECT * FROM ${this.schema}.inspect_atlas_finding_intents($1::text[])`,
@@ -1932,6 +2283,16 @@ interface DecisionRow {
   intent_failure_code: string | null;
   intent_failed_at: Date | string | null;
   intent_retry_of_intent_id: string | null;
+}
+
+interface ForgottenRow {
+  card_number: number;
+  item_kind: AtlasCardItemKind;
+  item_number: number;
+  decision: AtlasCardDecision;
+  public_number: string | null;
+  public_number_named_elsewhere: boolean;
+  forgotten_at: Date | string;
 }
 
 interface IntentRow {
@@ -2053,6 +2414,7 @@ interface InMemoryCanonicalRows {
   sourceChecks: Array<AtlasWritePlan["sourceChecks"][number] & { runId: string }>;
   links: Array<AtlasWritePlan["links"][number] & { runId: string; decidedAt: string }>;
   linkWithdrawals: Array<AtlasWritePlan["linkWithdrawals"][number] & { runId: string; decidedAt: string }>;
+  redactions: Array<AtlasWritePlan["redactions"][number] & { runId: string; decidedAt: string }>;
   changes: Array<AtlasPlannedChange & { intentId: string; runId: string; decidedAt: string }>;
   events: Array<AtlasWritePlan["event"] & { runId: string; payloadSha256: string }>;
 }
@@ -2064,7 +2426,8 @@ interface InMemoryCanonicalRows {
 export class InMemoryAtlasCanonicalStore implements AtlasCanonicalWriter, AtlasStateReader {
   private rows: InMemoryCanonicalRows = {
     applications: [], runs: [], topics: [], questions: [], claims: [], findings: [], versions: [], bindings: [],
-    sourceFamilies: [], sourceVersions: [], sourceChecks: [], links: [], linkWithdrawals: [], changes: [], events: [],
+    sourceFamilies: [], sourceVersions: [], sourceChecks: [], links: [], linkWithdrawals: [], redactions: [],
+    changes: [], events: [],
   };
 
   constructor(private readonly runtime: { now?: () => string } = {}) {}
@@ -2082,6 +2445,14 @@ export class InMemoryAtlasCanonicalStore implements AtlasCanonicalWriter, AtlasS
   /** Every stored row, for tests that scan what the Atlas holds. */
   snapshot(): InMemoryCanonicalRows {
     return structuredClone(this.rows);
+  }
+
+  /** A stored finding's question text, as the writer left it (the fixed marker once an erasure erased it). */
+  questionTextOf(publicNumber: string): string | undefined {
+    const finding = this.rows.findings.find((candidate) => candidate.publicNumber === publicNumber);
+    const claim = finding === undefined ? undefined : this.rows.claims.find(({ claimId }) => claimId === finding.claimId);
+    return claim === undefined ? undefined
+      : this.rows.questions.find(({ questionId }) => questionId === claim.questionId)?.normalizedQuestion;
   }
 
   async readAtlasState(_request: AtlasStateRequest): Promise<AtlasState> {
@@ -2126,6 +2497,8 @@ export class InMemoryAtlasCanonicalStore implements AtlasCanonicalWriter, AtlasS
     next.links.push(...plan.links.map((link) => ({ ...link, runId, decidedAt: plan.decidedAt })));
     next.linkWithdrawals.push(...plan.linkWithdrawals.map((withdrawal) =>
       ({ ...withdrawal, runId, decidedAt: plan.decidedAt })));
+    next.redactions.push(...plan.redactions.map((redaction) => ({ ...redaction, runId, decidedAt: plan.decidedAt })));
+    eraseInMemory(next, plan);
     next.changes.push(...plan.changes.map((change) =>
       ({ ...change, intentId: intent.intentId, runId, decidedAt: plan.decidedAt })));
     next.events.push({ ...plan.event, runId, payloadSha256: intent.payloadSha256 });
@@ -2143,7 +2516,10 @@ export class InMemoryAtlasCanonicalStore implements AtlasCanonicalWriter, AtlasS
         ...this.rows.versions.filter((row) => row.runId === runId).map(({ findingId }) => findingId),
         ...this.rows.changes.filter((row) => row.runId === runId).map(({ findingId }) => findingId),
       ],
-      claimVersionIds: this.rows.versions.filter((row) => row.runId === runId).map(({ claimVersionId }) => claimVersionId),
+      claimVersionIds: [
+        ...this.rows.versions.filter((row) => row.runId === runId).map(({ claimVersionId }) => claimVersionId),
+        ...this.rows.redactions.filter((row) => row.runId === runId).map(({ claimVersionId }) => claimVersionId),
+      ],
       changeIds: this.rows.changes.filter((row) => row.runId === runId).map(({ changeId }) => changeId),
       linkIds: [
         ...this.rows.links.filter((row) => row.runId === runId).map(({ linkId }) => linkId),
@@ -2181,6 +2557,7 @@ export class InMemoryAtlasCanonicalStore implements AtlasCanonicalWriter, AtlasS
               cardWordingKey: version.cardWordingKey,
               acceptedWordingKey: version.acceptedWordingKey,
               editedAtAcceptance: version.editedAtAcceptance,
+              erased: rows.redactions.some(({ claimVersionId }) => claimVersionId === version.claimVersionId),
               bindings: rows.bindings
                 .filter(({ claimVersionId }) => claimVersionId === version.claimVersionId)
                 .map((binding) => ({
@@ -2209,7 +2586,40 @@ export class InMemoryAtlasCanonicalStore implements AtlasCanonicalWriter, AtlasS
       questions: rows.questions,
       sourceFamilies: rows.sourceFamilies,
       sourceVersions: rows.sourceVersions,
+      // This store holds the Atlas alone: no claim or frontier another writer made uses its questions.
+      questionUses: rows.questions.map(({ questionId, normalizedQuestion }) =>
+        ({ questionId, text: normalizedQuestion, nonAtlasUses: 0 })),
     });
+  }
+}
+
+/**
+ * Applies an erasure's plan to the in-memory rows as erase_atlas_wording() does in PostgreSQL: each redacted version's
+ * texts, wording keys and numbers' labels, the notes of its change records, the rationale and withdrawal notes of the
+ * finding's links, and the question when the plan found it erasable.
+ */
+function eraseInMemory(rows: InMemoryCanonicalRows, plan: AtlasWritePlan): void {
+  const erasure = plan.erasure;
+  if (erasure === null) return;
+  const redacted = new Set(plan.redactions.map(({ claimVersionId }) => claimVersionId));
+  const erasedKey = (key: string | null) => key === null ? null : ATLAS_ERASED_KEY;
+  for (const version of rows.versions) {
+    if (!redacted.has(version.claimVersionId)) continue;
+    version.content = atlasErasedContent(version.content);
+    version.cardWordingKey = erasedKey(version.cardWordingKey);
+    version.acceptedWordingKey = erasedKey(version.acceptedWordingKey);
+  }
+  for (const change of rows.changes) {
+    if (change.claimVersionId !== null && redacted.has(change.claimVersionId) && change.publicNote !== null) {
+      change.publicNote = ATLAS_ERASED_TEXT;
+    }
+  }
+  const links = new Set(erasure.linkIds);
+  for (const link of rows.links) if (links.has(link.linkId)) link.rationale = ATLAS_ERASED_TEXT;
+  for (const withdrawal of rows.linkWithdrawals) if (links.has(withdrawal.linkId)) withdrawal.publicNote = ATLAS_ERASED_TEXT;
+  if (erasure.questionId !== null) {
+    const question = rows.questions.find(({ questionId }) => questionId === erasure.questionId);
+    if (question !== undefined) question.normalizedQuestion = ATLAS_ERASED_TEXT;
   }
 }
 
@@ -2394,7 +2804,19 @@ export class InMemoryAtlasPromotionStore implements AtlasPromotionStore {
     if (intent === undefined) return "none";
     const unit: AtlasPromotionUnit = {
       intent,
-      apply: async (prepared, appliedAt) => this.canonical.apply(prepared, appliedAt),
+      apply: async (prepared, appliedAt) => {
+        const receipt = this.canonical.apply(prepared, appliedAt);
+        // An erasure that erased a version also clears the same texts from the finding's earlier intents (decision 7).
+        if (prepared.payload.kind === "erase" && receipt.claimVersionIds.length > 0) {
+          this.review.eraseIntentTexts({
+            publicNumber: prepared.publicNumber,
+            scope: prepared.payload.scope,
+            version: prepared.payload.version,
+            questionErased: this.canonical.questionTextOf(prepared.publicNumber) === ATLAS_ERASED_TEXT,
+          }, appliedAt);
+        }
+        return receipt;
+      },
       complete: async (receipt, receiptSha256, completedAt) => {
         this.review.completeIntent(intent.intentId, receipt, receiptSha256, completedAt);
       },

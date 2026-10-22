@@ -525,6 +525,15 @@ The same scenario module, `tests/helpers/atlas-scenario.ts`, also runs against P
   `atlas-findings.ts` and `atlas-postgres.ts` (the erase and forget paths); `docs/privacy-data-map.md` (the deletion
   paths); the tool inventory; and the PostgreSQL acceptance (erase and forget).
 - Tests: `tests/atlas-forget-and-erase.test.ts`.
+- As built (2026-10-22): the erase scope is wider than section 4's, so 0017 changed in place (it is unreleased): the
+  numbers' text labels, the rationale of links touching the finding, their withdrawals' notes, and the question when
+  no other finding or research frontier uses it (`atlas_question_erasable()`, `atlas_numbers_without_labels()`); the
+  guard's permitted columns stay equal, table by table, to what `erase_atlas_wording()` sets, and a test pins it. A
+  new failure code, `ATLAS_ERASE_NOT_WITHDRAWN`, refuses erasing every version of a finding that is not withdrawn.
+  The forget steps live in a new `apps/research-mcp/src/findings/atlas-forget.ts`; a revision or withdrawal and its
+  erasure are recorded in one transaction (`recordIntents`); `forget_card` asks for `confirm` when the named card
+  holds another person's later save, since that saver was told its id too; and the tool, not the runner, names the
+  cards that still hold erased wording, at the call and on `inspect_finding`.
 
 **Critical files:** `apps/research-mcp/src/research-contribution-review-tool.ts`;
 `packages/evidence-repository/src/research-contribution-review.ts` (the runner and failure-code pattern to mirror);

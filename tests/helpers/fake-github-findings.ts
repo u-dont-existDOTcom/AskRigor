@@ -11,6 +11,8 @@ export interface FakeIssue {
   state: "open" | "closed";
   state_reason?: string;
   labels: Array<{ name: string }>;
+  locked?: boolean;
+  active_lock_reason?: string;
   /** Set on a pull request, which the issues API lists too. */
   pull_request?: Record<string, unknown>;
 }
@@ -37,13 +39,17 @@ function check(condition: boolean, message: string): void {
 const escaped = FINDINGS_ISSUES_ROOT.replace(/[.]/gu, "\\.");
 const ISSUE = new RegExp(`^${escaped}/(\\d+)$`, "u");
 const LABELS = new RegExp(`^${escaped}/(\\d+)/labels$`, "u");
+const LOCK = new RegExp(`^${escaped}/(\\d+)/lock$`, "u");
 const COMMENTS = new RegExp(`^${escaped}/(\\d+)/comments(?:\\?.*)?$`, "u");
+const COMMENT = new RegExp(`^${escaped}/comments/(\\d+)$`, "u");
 
 /** The findings repository's issues, comments and labels, with every write it receives listed in order. */
 export class FakeGitHub {
   readonly issues: FakeIssue[] = [];
   readonly comments = new Map<number, FakeComment[]>();
   readonly writes: FakeWrite[] = [];
+  /** Issues the owner deleted in GitHub, which then answers 410 for them (decision 7, choice 5a). */
+  readonly deleted = new Set<number>();
   /** Answers every request with this status and a private upstream body. */
   failWith?: number;
   /** Answers the requests it names with that status, and the others as usual. */
@@ -62,6 +68,15 @@ export class FakeGitHub {
     return issue!;
   }
 
+  /** The owner deletes an issue in GitHub: it leaves the listings, and GitHub answers 410 for it. */
+  deleteIssue(number: number): void {
+    const index = this.issues.findIndex((candidate) => candidate.number === number);
+    check(index >= 0, `no issue ${number} to delete`);
+    this.issues.splice(index, 1);
+    this.comments.delete(number);
+    this.deleted.add(number);
+  }
+
   readonly fetch: typeof fetch = async (input, init) => {
     const url = String(input);
     const method = init?.method ?? "GET";
@@ -73,11 +88,14 @@ export class FakeGitHub {
 
     if (method === "GET" && url.startsWith(`${FINDINGS_ISSUES_ROOT}?`)) {
       const query = new URL(url).searchParams;
-      check(query.get("state") === "open", "the open cards are listed");
-      check(query.get("labels") === "findings-card", "the findings cards are listed by label");
+      const state = query.get("state");
+      check(state === "open" || state === "all", "the cards are listed open, or in every state");
+      const labels = query.get("labels");
+      check(labels === null || labels === "findings-card", "the findings cards are listed by label");
       const page = Number(query.get("page"));
       return json(this.issues
-        .filter((issue) => issue.state === "open" && issue.labels.some(({ name }) => name === "findings-card"))
+        .filter((issue) => (state === "all" || issue.state === "open") &&
+          (labels === null || issue.labels.some(({ name }) => name === labels)))
         .slice((page - 1) * 100, page * 100)
         .map(withCount));
     }
@@ -95,8 +113,29 @@ export class FakeGitHub {
     }
     const issueMatch = ISSUE.exec(url);
     if (issueMatch !== null && method === "GET") {
+      if (this.deleted.has(Number(issueMatch[1]))) return json({ message: "This issue was deleted" }, 410);
       const issue = this.issues.find(({ number }) => number === Number(issueMatch[1]));
       return issue === undefined ? json({ message: "Not Found" }, 404) : json(withCount(issue));
+    }
+    const lockMatch = LOCK.exec(url);
+    if (lockMatch !== null && method === "PUT") {
+      this.writes.push({ method, url, body });
+      const issue = this.issue(Number(lockMatch[1]));
+      issue.locked = true;
+      issue.active_lock_reason = String(body.lock_reason);
+      return new Response(null, { status: 204 });
+    }
+    const commentMatch = COMMENT.exec(url);
+    if (commentMatch !== null && method === "DELETE") {
+      this.writes.push({ method, url, body });
+      for (const list of this.comments.values()) {
+        const index = list.findIndex(({ id }) => id === Number(commentMatch[1]));
+        if (index >= 0) {
+          list.splice(index, 1);
+          return new Response(null, { status: 204 });
+        }
+      }
+      return json({ message: "Not Found" }, 404);
     }
     if (issueMatch !== null && method === "PATCH") {
       this.writes.push({ method, url, body });

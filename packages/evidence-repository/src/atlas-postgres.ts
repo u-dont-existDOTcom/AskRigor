@@ -3,7 +3,9 @@ import { z } from "zod";
 
 import {
   assertSafeAtlasSchema,
+  ATLAS_ERASED_TEXT,
   AtlasWriteConflict,
+  atlasErasedIntentPayload,
   atlasPool,
   atlasRunId,
   atlasStateRequest,
@@ -11,8 +13,10 @@ import {
   planAtlasWrite,
   prepareStoredAtlasIntent,
   type AtlasCanonicalWriter,
+  type AtlasFindingIntent,
   type AtlasFindingPromotionFailureCode,
   type AtlasFindingPromotionReceipt,
+  type AtlasIntentErasure,
   type AtlasMadeWith,
   type AtlasPromotionStore,
   type AtlasPromotionUnit,
@@ -51,6 +55,7 @@ const requestSchema = z.object({
   }).strict()).max(100).default([]),
   topicKeys: z.array(z.string().regex(/^[a-z0-9][a-z0-9._-]{0,199}$/u)).max(100).default([]),
   replacesGraph: z.boolean().default(false),
+  questionUsesOf: z.array(z.string().regex(/^F-[1-9][0-9]{3,}$/u)).max(100).default([]),
 }).strict();
 
 interface LinkRow {
@@ -109,6 +114,37 @@ export async function readAtlasStateWith(client: PoolClient, request: AtlasState
            JOIN claims claim ON claim.claim_id = finding.claim_id
           WHERE claim.question_id = ANY($1::uuid[])`,
         [found.rows.map(({ question_id: id }) => id)],
+      )).rows);
+    }
+  }
+  // An erasure weighs who else uses the finding's question (decision 7): every Atlas finding that answers it joins the
+  // state, and the claims no Atlas finding holds and the research frontiers that ask it are counted.
+  let questionUses: AtlasState["questionUses"];
+  if (parsed.questionUsesOf.length > 0) {
+    const used = await client.query<{ question_id: string; text: string; non_atlas_uses: number }>(
+      `SELECT question.question_id, question.normalized_question AS text,
+              ((SELECT count(*) FROM claims other
+                 WHERE other.question_id = question.question_id
+                   AND NOT EXISTS (SELECT 1 FROM atlas_findings held WHERE held.claim_id = other.claim_id))
+               + (SELECT count(*) FROM research_frontiers frontier
+                   WHERE frontier.question_id = question.question_id))::int AS non_atlas_uses
+         FROM questions question
+        WHERE question.question_id IN (
+                SELECT claim.question_id FROM atlas_findings finding
+                  JOIN claims claim ON claim.claim_id = finding.claim_id
+                 WHERE finding.public_number = ANY($1::text[])
+              )
+        ORDER BY question.question_id`,
+      [parsed.questionUsesOf],
+    );
+    questionUses = used.rows.map((row) =>
+      ({ questionId: row.question_id, text: row.text, nonAtlasUses: Number(row.non_atlas_uses) }));
+    if (used.rows.length > 0) {
+      seed((await client.query<{ finding_id: string }>(
+        `SELECT finding.finding_id FROM atlas_findings finding
+           JOIN claims claim ON claim.claim_id = finding.claim_id
+          WHERE claim.question_id = ANY($1::uuid[])`,
+        [used.rows.map(({ question_id: id }) => id)],
       )).rows);
     }
   }
@@ -234,6 +270,7 @@ export async function readAtlasStateWith(client: PoolClient, request: AtlasState
       familyId: row.family_id,
       retrievedAt: new Date(row.retrieved_at).toISOString(),
     })),
+    ...(questionUses === undefined ? {} : { questionUses }),
   };
 }
 
@@ -278,13 +315,17 @@ async function readFindings(client: PoolClient, findingIds: string[]): Promise<A
     card_wording_key: string | null;
     accepted_wording_key: string | null;
     edited_at_acceptance: boolean;
+    erased: boolean;
   }>(
     `SELECT version.finding_id, version.claim_version_id, version.version_number, claimed.status,
             claimed.normalized_assertion, claimed.population, version.certainty, version.usual_answer,
             version.why_not_usual, version.what_would_change_it, version.who_else, version.what_it_changes,
             version.tags, version.verified_bases, version.numbers,
             to_char(version.research_checked_on, 'YYYY-MM-DD') AS research_checked_on, version.made_with,
-            version.card_wording_key::text, version.accepted_wording_key::text, version.edited_at_acceptance
+            version.card_wording_key::text, version.accepted_wording_key::text, version.edited_at_acceptance,
+            EXISTS (
+              SELECT 1 FROM atlas_redactions redaction WHERE redaction.claim_version_id = version.claim_version_id
+            ) AS erased
        FROM atlas_finding_versions version
        JOIN claim_versions claimed ON claimed.version_id = version.claim_version_id
       WHERE version.finding_id = ANY($1::uuid[])
@@ -340,6 +381,7 @@ async function readFindings(client: PoolClient, findingIds: string[]): Promise<A
         cardWordingKey: version.card_wording_key,
         acceptedWordingKey: version.accepted_wording_key,
         editedAtAcceptance: version.edited_at_acceptance,
+        erased: version.erased,
         bindings: bindings.rows
           .filter((binding) => binding.claim_version_id === version.claim_version_id)
           .map((binding) => ({
@@ -493,6 +535,17 @@ async function executeAtlasPlan(client: PoolClient, plan: AtlasWritePlan, applie
       [withdrawal.linkId, withdrawal.publicNote, plan.decidedAt, runId],
     );
   }
+  // Decision 7: each redaction row, then the one function the guard lets change wording replaces what it covers.
+  for (const redaction of plan.redactions) {
+    await client.query(
+      `INSERT INTO atlas_redactions (redaction_id, finding_id, claim_version_id, reason_code, decided_at, run_id)
+       VALUES ($1, $2, $3, 'could_identify_a_person', $4, $5)`,
+      [redaction.redactionId, redaction.findingId, redaction.claimVersionId, plan.decidedAt, runId],
+    );
+  }
+  for (const redaction of plan.redactions) {
+    await client.query("SELECT erase_atlas_wording($1::uuid)", [redaction.redactionId]);
+  }
   for (const change of plan.changes) {
     await client.query(
       `INSERT INTO atlas_finding_changes
@@ -541,6 +594,10 @@ async function replayReceipt(client: PoolClient, intent: PreparedAtlasStoredInte
     "SELECT source_family_id FROM atlas_source_checks WHERE run_id = $1",
     [runId],
   );
+  const redactions = await client.query<{ finding_id: string; claim_version_id: string }>(
+    "SELECT finding_id, claim_version_id FROM atlas_redactions WHERE run_id = $1",
+    [runId],
+  );
   return atlasWriterReceipt({
     status: "idempotent_replay",
     intent,
@@ -548,8 +605,12 @@ async function replayReceipt(client: PoolClient, intent: PreparedAtlasStoredInte
       ...findings.rows.map(({ finding_id: id }) => id),
       ...versions.rows.map(({ finding_id: id }) => id),
       ...changes.rows.map(({ finding_id: id }) => id),
+      ...redactions.rows.map(({ finding_id: id }) => id),
     ],
-    claimVersionIds: versions.rows.map(({ claim_version_id: id }) => id),
+    claimVersionIds: [
+      ...versions.rows.map(({ claim_version_id: id }) => id),
+      ...redactions.rows.map(({ claim_version_id: id }) => id),
+    ],
     changeIds: changes.rows.map(({ change_id: id }) => id),
     linkIds: links.rows.map(({ link_id: id }) => id),
     sourceFamilyIds: checks.rows.map(({ source_family_id: id }) => id),
@@ -580,7 +641,57 @@ export async function applyAtlasIntentWith(
   const state = await readAtlasStateWith(client, atlasStateRequest(intent));
   const plan = planAtlasWrite(intent, state);
   await executeAtlasPlan(client, plan, appliedAt);
+  if (intent.payload.kind === "erase" && plan.redactions.length > 0) {
+    await eraseIntentTextsWith(client, {
+      publicNumber: intent.publicNumber,
+      scope: intent.payload.scope,
+      version: intent.payload.version,
+      questionErased: false,
+    }, appliedAt);
+  }
   return plan.receipt;
+}
+
+/**
+ * Decision 7, in the erasure's transaction: sets to the fixed marker, in every intent that names the finding and is not
+ * pending, the texts the erasure removed (atlasErasedIntentPayload()), and marks when. Such a payload no longer matches
+ * its hash; texts_erased_at says why. The question's text says whether it was erased.
+ */
+async function eraseIntentTextsWith(client: PoolClient, erasure: AtlasIntentErasure, at: string): Promise<void> {
+  const question = await client.query<{ text: string }>(
+    `SELECT question.normalized_question AS text FROM atlas_findings finding
+       JOIN claims claim ON claim.claim_id = finding.claim_id
+       JOIN questions question ON question.question_id = claim.question_id
+      WHERE finding.public_number = $1`,
+    [erasure.publicNumber],
+  );
+  const applied = { ...erasure, questionErased: question.rows[0]?.text === ATLAS_ERASED_TEXT };
+  const intents = await client.query<{
+    intent_id: string;
+    public_number: string;
+    status: "COMPLETED" | "FAILED";
+    payload_json: AtlasFindingIntent;
+  }>(
+    `SELECT intent_id, public_number, status, payload_json FROM atlas_finding_intents
+      WHERE status <> 'PENDING'
+        AND (public_number = $1
+             OR (intent_kind IN ('link', 'unlink') AND payload_json ->> 'toPublicNumber' = $1))
+      ORDER BY queue_position`,
+    [erasure.publicNumber],
+  );
+  for (const row of intents.rows) {
+    const payload = atlasErasedIntentPayload(
+      { publicNumber: row.public_number, status: row.status, payload: row.payload_json },
+      applied,
+    );
+    if (payload === undefined) continue;
+    await client.query(
+      `UPDATE atlas_finding_intents
+          SET payload_json = $2::jsonb, texts_erased_at = coalesce(texts_erased_at, $3::timestamptz)
+        WHERE intent_id = $1::uuid AND status <> 'PENDING'`,
+      [row.intent_id, JSON.stringify(payload), at],
+    );
+  }
 }
 
 async function setSearchPath(client: PoolClient, schema: string): Promise<void> {

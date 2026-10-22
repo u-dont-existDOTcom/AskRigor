@@ -56,6 +56,18 @@ export interface CardMetadata {
   receipt_sha256: string;
   saved_at: string;
   thread?: string;
+  /** A re-filed save's: the issue number of the forgotten card it was a later save of (decision 7). */
+  refiled_from?: number;
+}
+
+/** Another person's later save of a card being forgotten, to file as a card of its own (decision 7). */
+export interface GitHubFindingsRefile {
+  /** The later save's record, as its comment holds it. */
+  record: FindingsRecord;
+  /** Its comment's marker: its fingerprint, receipt hash, save time and research thread. */
+  metadata: OccurrenceMetadata;
+  /** The issue number of the card being forgotten. */
+  refiledFrom: number;
 }
 
 /** What a later save's (an occurrence comment's) hidden marker holds. */
@@ -101,6 +113,50 @@ export class GitHubFindingsQueue {
     const result = this.writer.then(() => this.submitSerialized(input));
     this.writer = result.then(() => undefined, () => undefined);
     return result;
+  }
+
+  /**
+   * Decision 7: files another person's later save of a card being forgotten as a card of its own, as a new card is
+   * filed (its labels, readable copy, record and stamp), with a note naming the forgotten card. Its marker keeps the
+   * save's own fingerprint, receipt hash, save time and research thread, so a later request from that person finds it,
+   * and the forgotten card's number, so a request naming that number finds where the save went. Returns the new card's
+   * issue number.
+   */
+  refile(input: GitHubFindingsRefile): Promise<number> {
+    const result = this.writer.then(() => this.refileSerialized(input));
+    this.writer = result.then(() => undefined, () => undefined);
+    return result;
+  }
+
+  private async refileSerialized(input: GitHubFindingsRefile): Promise<number> {
+    const { metadata } = input;
+    if (!HEX_64.test(metadata.fingerprint) || !HEX_64.test(metadata.receipt_sha256) ||
+      (metadata.thread !== undefined && !HEX_64.test(metadata.thread)) || !isPositiveInteger(input.refiledFrom)) {
+      throw new GitHubApiError("github_service_unavailable", false);
+    }
+    const card: CardMetadata = {
+      fingerprint: metadata.fingerprint,
+      receipt_sha256: metadata.receipt_sha256,
+      saved_at: metadata.saved_at,
+      ...(metadata.thread === undefined ? {} : { thread: metadata.thread }),
+      refiled_from: input.refiledFrom,
+    };
+    const response = await this.request(this.issuesPath, {
+      method: "POST",
+      body: JSON.stringify({
+        title: issueTitle(input.record.card.question),
+        body: cardIssueBody(input.record, card),
+        labels: [
+          FINDINGS_CARD_LABEL,
+          PENDING_REVIEW_LABEL,
+          ...(beyondQuickAnswer(input.record) ? [BEYOND_QUICK_ANSWER_LABEL] : []),
+        ],
+      }),
+    });
+    if (!isRecord(response) || !isPositiveInteger(response.number)) {
+      throw new GitHubApiError("github_service_unavailable", true);
+    }
+    return response.number;
   }
 
   private async submitSerialized(input: GitHubFindingsSubmission): Promise<GitHubFindingsQueueResult> {
@@ -277,8 +333,12 @@ export class GitHubFindingsQueue {
 
 function cardIssueBody(record: FindingsRecord, metadata: CardMetadata): string {
   const tail = `## Full record\n\n${fencedJson(record)}\n\n${marker(CARD_MARKER, metadata)}`;
-  const full = `${readableCard(record)}\n\n${readableStamp(record)}\n\n## Review\n\nPending the owner's review: ` +
-    `nothing in this card is accepted until then.\n\n${tail}`;
+  // A re-filed save says where it came from (decision 7): a request that names the forgotten card finds it.
+  const refiled = metadata.refiled_from === undefined ? "" : `${section("Re-filed", `Re-filed from ` +
+    `${publicFindingsCardId(metadata.refiled_from)}, whose contributor asked for it to be forgotten. This was a later ` +
+    "save of the same question and claims, from another research thread; it is reviewed here as a card of its own.")}\n\n`;
+  const full = `${refiled}${readableCard(record)}\n\n${readableStamp(record)}\n\n## Review\n\nPending the owner's ` +
+    `review: nothing in this card is accepted until then.\n\n${tail}`;
   return boundedBody(full, tail);
 }
 
@@ -447,6 +507,7 @@ export function parseCardMetadata(value: Record<string, unknown>): CardMetadata 
         receipt_sha256: value.receipt_sha256,
         saved_at: value.saved_at,
         ...(typeof value.thread === "string" && HEX_64.test(value.thread) ? { thread: value.thread } : {}),
+        ...(isPositiveInteger(value.refiled_from) ? { refiled_from: value.refiled_from } : {}),
       }
     : undefined;
 }

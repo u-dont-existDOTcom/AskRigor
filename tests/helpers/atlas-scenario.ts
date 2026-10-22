@@ -337,16 +337,46 @@ export async function runAtlasScenario(
     assert.deepEqual(pick(f1001v2.structured.atlas, ["version", "label"]), { version: 2, label: "contested" });
     report.steps.push("corrected F-1001 to version 2 with a dated note");
 
-    // 6. Forgetting a card (decision 7) comes with part D; F-1001 stays while it is valid either way.
-
-    // 7. Nothing canonical or queued names a card, a thread, a fingerprint, a receipt, a card hash, an answer quote or
-    // a video.
+    // What the final scan looks for, read from the cards before the first one is forgotten and deleted.
     const markers = [...github.issues.map(({ body }) => body),
       ...[...github.comments.values()].flat().map(({ body }) => body)]
       .flatMap((body) => [...body.matchAll(/<!-- askrigor-findings-(?:card|occurrence):([A-Za-z0-9_-]+) -->/gu)])
       .map(([, encoded]) => JSON.parse(Buffer.from(encoded!, "base64url").toString("utf8")) as Record<string, string>);
     const records = github.issues.map(({ body }) => /(`{3,})json\n([\s\S]*?)\n\1/u.exec(body)![2]!)
       .map((json) => JSON.parse(json) as { card_sha256: string });
+
+    // 6. The first card's contributor asks for it to be deleted (decision 7): forget_card removes its decisions and
+    // strips it on GitHub, the owner deletes the issue, and a second call finds GitHub answering 410. F-1001 and
+    // F-1002, accepted from it, stay while they are valid.
+    later(60);
+    const forgetting = await call("forget ARF-0042", { action: "forget_card", card: "arf-0042" });
+    assert.equal(forgetting.structured.outcome, "card_forget_waiting_for_owner", forgetting.text);
+    const forgotten = forgetting.structured.forget as {
+      findingsOnlyFromThese: string[];
+      decisionsRemoved: number;
+      cards: Array<{ card: string; github: string; url: string }>;
+    };
+    assert.deepEqual(forgotten.findingsOnlyFromThese, ["F-1001", "F-1002"]);
+    assert.equal(forgotten.decisionsRemoved, 2);
+    assert.deepEqual(forgotten.cards.map(({ card, github: state }) => [card, state]), [["ARF-0042", "stripped"]]);
+    assert.deepEqual(await stores.review.inspectCards([42]), [], "the card's decision rows are deleted");
+    const stripped = github.issue(42);
+    assert.deepEqual(
+      { state: stripped.state, reason: stripped.state_reason, labels: stripped.labels, locked: stripped.locked,
+        comments: github.comments.get(42) ?? [] },
+      { state: "closed", reason: "not_planned", labels: [], locked: true, comments: [] },
+    );
+    assert.ok(!/zentarine|Velmor|askrigor-findings-card/u.test(`${stripped.title}\n${stripped.body}`),
+      "the tombstone holds no wording and no card marker");
+    github.deleteIssue(42);
+    const gone = await call("forget ARF-0042 again", { action: "forget_card", card: "ARF-0042" });
+    assert.equal(gone.structured.outcome, "card_forgotten", gone.text);
+    const kept = await call("inspect F-1001 after the forget", { action: "inspect_finding", atlasNumber: "F-1001" });
+    assert.deepEqual(pick(kept.structured.atlas, ["version", "label"]), { version: 2, label: "contested" });
+    report.steps.push("forgot ARF-0042: its decisions removed, its issue stripped, then deleted; F-1001 stays");
+
+    // 7. Nothing canonical or queued names a card, a thread, a fingerprint, a receipt, a card hash, an answer quote or
+    // a video.
     const forbidden = [
       "ARF-", "arf-",
       ...markers.flatMap(({ thread, fingerprint, receipt_sha256: receipt }) => [thread!, fingerprint!, receipt!]),

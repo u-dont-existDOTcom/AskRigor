@@ -7,6 +7,7 @@ import {
   GITHUB_API_ROOT,
   GitHubApiError,
   githubRequestJson,
+  githubRequestNoContent,
   isRecord,
   repositoryFullName,
   type GitHubRepository,
@@ -25,6 +26,7 @@ import {
   BEYOND_QUICK_ANSWER_LABEL,
   CARD_MARKER,
   FINDINGS_CARD_LABEL,
+  GitHubFindingsQueue,
   OCCURRENCE_MARKER,
   PENDING_REVIEW_LABEL,
   marker,
@@ -32,6 +34,8 @@ import {
   parseMarker,
   parseOccurrenceMetadata,
   type CardMetadata,
+  type GitHubFindingsRefile,
+  type OccurrenceMetadata,
 } from "./github-findings.js";
 import type { FindingsRecord } from "./service.js";
 
@@ -43,6 +47,12 @@ import type { FindingsRecord } from "./service.js";
  * labeled reviewed, loses pending-review and is closed as completed. GitHub writes are not atomic with the database,
  * so the next inspect or list posts what a failed write left out, matched by marker. Everything here is exact: markers,
  * strict record shapes, hashes and labels.
+ *
+ * forget_card (decision 7) reads every card and its comments to find a person's saves by their research-thread marker,
+ * and strips each of their cards within the App's issues: write: other people's later saves re-filed as cards of their
+ * own, every comment deleted, the title and body replaced by a tombstone whose marker lists the cards forgotten
+ * together, the labels removed, closed as not planned and locked. The owner then deletes the issues in GitHub (choice
+ * 5a); GitHub then answers 404 or 410 for them.
  */
 
 export const REVIEWED_LABEL = "reviewed";
@@ -253,6 +263,64 @@ export function decisionComment(decision: FindingsDecisionMarker): string {
     });
 }
 
+// Forgetting a card (decision 7) -----------------------------------------------------------------------------------------
+
+/** The hidden marker a forgotten card's tombstone ends with, and its title. */
+export const FORGOTTEN_MARKER = "askrigor-findings-forgotten";
+export const FORGOTTEN_TITLE = "Forgotten findings card";
+
+/** What a tombstone's marker holds: every card forgotten with it (the person's cards found together), and when. */
+export interface ForgottenMetadata {
+  cards: number[];
+  forgotten_at: string;
+}
+
+function parseForgottenMetadata(value: Record<string, unknown>): ForgottenMetadata | undefined {
+  const cards = value.cards;
+  const forgottenAt = value.forgotten_at;
+  if (!Array.isArray(cards) || cards.length < 1 || cards.length > 1_000 || !cards.every(isPositiveInteger) ||
+    new Set(cards).size !== cards.length || typeof forgottenAt !== "string" || !Number.isFinite(Date.parse(forgottenAt))) {
+    return undefined;
+  }
+  return { cards: [...cards as number[]].sort((left, right) => left - right), forgotten_at: forgottenAt };
+}
+
+/** A forgotten card's body: what happened and when, with no record, wording, thread key or decision, and its marker. */
+export function tombstoneBody(metadata: ForgottenMetadata): string {
+  return "## Forgotten\n\nThis findings card was forgotten at its contributor's request (decision 7) on " +
+    `${decisionDate(metadata.forgotten_at)}: its record, its later saves and the decisions on it are removed. ` +
+    "AskRigor's owner deletes this issue in GitHub, which also removes its edit history.\n\n" +
+    marker(FORGOTTEN_MARKER, metadata);
+}
+
+/** An issue of the findings repository as forget_card reads it: a card, open or closed, or a forgotten card. */
+export interface FindingsRepositoryIssue {
+  number: number;
+  state: "open" | "closed";
+  locked: boolean;
+  /** Its comment count; unknown counts as one, so its comments are read. */
+  comments: number;
+  labels: string[];
+  /** A card's marker, whether or not its record reads as the library wrote it. */
+  card?: CardMetadata;
+  /** The card's record, when it reads as the library wrote it. */
+  record?: FindingsRecord;
+  /** A forgotten card's tombstone marker. */
+  forgotten?: ForgottenMetadata;
+}
+
+/** A comment as forget_card reads it: its id, and what its marker says. */
+export interface FindingsCommentEntry {
+  id: number;
+  /** A later save: its marker and, when it reads as the library wrote it, its record. */
+  save?: { metadata: OccurrenceMetadata; record: FindingsRecord | undefined };
+  /** A comment with a later save's marker that does not read: whose save it is cannot be told. */
+  unreadableSave?: true;
+}
+
+/** Whether an issue is there, or GitHub answers 404 (no such issue) or 410 (deleted) for it. */
+export type FindingsIssueStatus = "present" | 404 | 410;
+
 /** A card as the owner's review reads it, with its later saves and the decisions its comments record. */
 export interface FindingsCardRead {
   number: number;
@@ -292,6 +360,23 @@ export interface FindingsCardInbox {
   postDecision(cardNumber: number, decision: FindingsDecisionMarker): Promise<void>;
   /** Labels the card reviewed, without pending-review, and closes it as completed if it is open. */
   markReviewed(card: { number: number; state: "open" | "closed"; labels: readonly string[] }): Promise<void>;
+  // forget_card (decision 7), within the App's issues: write; deleting an issue is the owner's, in GitHub (choice 5a).
+  /** Every card, open or closed, and every forgotten card in the repository. */
+  repositoryIssues(): Promise<FindingsRepositoryIssue[]>;
+  /** A card's comments, each with its id and what its marker says. */
+  commentEntries(cardNumber: number): Promise<FindingsCommentEntry[]>;
+  /** Deletes a comment; one already deleted counts as deleted. */
+  deleteComment(commentId: number): Promise<void>;
+  /** Files another person's later save of a card being forgotten as a card of its own; returns its issue number. */
+  refile(input: GitHubFindingsRefile): Promise<number>;
+  /** Replaces a card's title and body with a tombstone, removes its labels and closes it as not planned. */
+  tombstone(cardNumber: number, metadata: ForgottenMetadata): Promise<void>;
+  /** Locks an issue's conversation. */
+  lock(cardNumber: number): Promise<void>;
+  /** Whether the issue is there, or GitHub answers 404 or 410 for it. */
+  issueStatus(cardNumber: number): Promise<FindingsIssueStatus>;
+  /** The issue's page on GitHub, for the owner. */
+  issueUrl(cardNumber: number): string;
 }
 
 export interface GitHubFindingsReviewOptions {
@@ -303,15 +388,18 @@ export interface GitHubFindingsReviewOptions {
 /** The inbox through the findings library's GitHub App, within its issues: write permission. */
 export class GitHubFindingsReview implements FindingsCardInbox {
   private readonly issuesPath: string;
+  /** Files re-filed saves the way the library files a card. */
+  private readonly queue: GitHubFindingsQueue;
 
   constructor(private readonly options: GitHubFindingsReviewOptions) {
     this.issuesPath = `/repos/${repositoryFullName(options.repository)}/issues`;
+    this.queue = new GitHubFindingsQueue(options);
   }
 
   async readCard(cardNumber: number): Promise<FindingsCardLookup> {
     if (!Number.isSafeInteger(cardNumber) || cardNumber < 1) return { status: "not_found" };
     const issue = await this.request(`${this.issuesPath}/${cardNumber}`, { method: "GET" }, { missing: true });
-    if (issue === MISSING || !isRecord(issue) || "pull_request" in issue || issue.number !== cardNumber) {
+    if (issue instanceof MissingIssue || !isRecord(issue) || "pull_request" in issue || issue.number !== cardNumber) {
       return { status: "not_found" };
     }
     const labels = labelNames(issue.labels);
@@ -409,7 +497,114 @@ export class GitHubFindingsReview implements FindingsCardInbox {
     }
   }
 
-  private async request(path: string, init: RequestInit, options: { missing?: boolean } = {}): Promise<unknown> {
+  async repositoryIssues(): Promise<FindingsRepositoryIssue[]> {
+    const issues: FindingsRepositoryIssue[] = [];
+    for (let page = 1; ; page += 1) {
+      const response = await this.request(`${this.issuesPath}?state=all&per_page=100&page=${page}`, { method: "GET" });
+      if (!Array.isArray(response)) throw new GitHubApiError("github_service_unavailable", true);
+      for (const issue of response) {
+        if (!isRecord(issue) || "pull_request" in issue || typeof issue.body !== "string" ||
+          !isPositiveInteger(issue.number)) {
+          continue;
+        }
+        const body = issue.body.replace(/\r\n/gu, "\n");
+        const card = parseMarker(body, CARD_MARKER, parseCardMetadata);
+        const forgotten = parseMarker(body, FORGOTTEN_MARKER, parseForgottenMetadata);
+        if (card === undefined && forgotten === undefined) continue;
+        const parsed = card === undefined ? undefined : parseFindingsRecordBody(body, "card");
+        issues.push({
+          number: issue.number,
+          state: issue.state === "closed" ? "closed" : "open",
+          locked: issue.locked === true,
+          comments: typeof issue.comments === "number" && Number.isSafeInteger(issue.comments) && issue.comments >= 0
+            ? issue.comments
+            : 1,
+          labels: labelNames(issue.labels),
+          ...(card === undefined ? {} : { card }),
+          ...(parsed === undefined || parsed === "tampered" ? {} : { record: parsed.record }),
+          ...(forgotten === undefined ? {} : { forgotten }),
+        });
+      }
+      if (response.length < 100) break;
+    }
+    return issues;
+  }
+
+  async commentEntries(cardNumber: number): Promise<FindingsCommentEntry[]> {
+    const entries: FindingsCommentEntry[] = [];
+    for (let page = 1; ; page += 1) {
+      const response = await this.request(
+        `${this.issuesPath}/${cardNumber}/comments?per_page=100&page=${page}`,
+        { method: "GET" },
+      );
+      if (!Array.isArray(response)) throw new GitHubApiError("github_service_unavailable", true);
+      for (const comment of response) {
+        if (!isRecord(comment) || !isPositiveInteger(comment.id)) continue;
+        const body = typeof comment.body === "string" ? comment.body.replace(/\r\n/gu, "\n") : "";
+        const metadata = parseMarker(body, OCCURRENCE_MARKER, parseOccurrenceMetadata);
+        if (metadata === undefined) {
+          entries.push(body.includes(`<!-- ${OCCURRENCE_MARKER}:`)
+            ? { id: comment.id, unreadableSave: true }
+            : { id: comment.id });
+          continue;
+        }
+        const parsed = parseFindingsRecordBody(body, "occurrence");
+        entries.push({
+          id: comment.id,
+          save: { metadata, record: parsed === undefined || parsed === "tampered" ? undefined : parsed.record },
+        });
+      }
+      if (response.length < 100) break;
+    }
+    return entries;
+  }
+
+  async deleteComment(commentId: number): Promise<void> {
+    if (!isPositiveInteger(commentId)) throw new GitHubApiError("github_service_unavailable", false);
+    await this.request(`${this.issuesPath}/comments/${commentId}`, { method: "DELETE" },
+      { missing: true, noContent: true });
+  }
+
+  refile(input: GitHubFindingsRefile): Promise<number> {
+    return this.queue.refile(input);
+  }
+
+  async tombstone(cardNumber: number, metadata: ForgottenMetadata): Promise<void> {
+    const edited = await this.request(`${this.issuesPath}/${cardNumber}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        title: FORGOTTEN_TITLE,
+        body: tombstoneBody(metadata),
+        labels: [],
+        state: "closed",
+        state_reason: "not_planned",
+      }),
+    });
+    if (!isRecord(edited) || edited.state !== "closed") throw new GitHubApiError("github_service_unavailable", true);
+  }
+
+  async lock(cardNumber: number): Promise<void> {
+    await this.request(`${this.issuesPath}/${cardNumber}/lock`, {
+      method: "PUT",
+      body: JSON.stringify({ lock_reason: "resolved" }),
+    }, { noContent: true });
+  }
+
+  async issueStatus(cardNumber: number): Promise<FindingsIssueStatus> {
+    if (!isPositiveInteger(cardNumber)) throw new GitHubApiError("github_service_unavailable", false);
+    const issue = await this.request(`${this.issuesPath}/${cardNumber}`, { method: "GET" }, { missing: true });
+    return issue instanceof MissingIssue ? issue.status : "present";
+  }
+
+  issueUrl(cardNumber: number): string {
+    return `https://github.com/${repositoryFullName(this.options.repository)}/issues/${cardNumber}`;
+  }
+
+  private async request(
+    path: string,
+    init: RequestInit,
+    options: { missing?: boolean; noContent?: boolean } = {},
+  ): Promise<unknown> {
     let token: string;
     try {
       token = await this.options.tokenProvider.getToken();
@@ -420,22 +615,29 @@ export class GitHubFindingsReview implements FindingsCardInbox {
     const headers = new Headers(init.headers);
     headers.set("authorization", `Bearer ${token}`);
     // With a verified token scoped to this one repository, 404 or 410 for an issue means it is not there.
-    let missing = false;
+    let missing: 404 | 410 | undefined;
     const tracked: typeof fetch = async (input, requestInit) => {
       const response = await this.options.fetch(input, requestInit);
-      if (options.missing === true && (response.status === 404 || response.status === 410)) missing = true;
+      if (options.missing === true && (response.status === 404 || response.status === 410)) missing = response.status;
       return response;
     };
     try {
+      if (options.noContent === true) {
+        await githubRequestNoContent(tracked, `${GITHUB_API_ROOT}${path}`, { ...init, headers });
+        return undefined;
+      }
       return await githubRequestJson(tracked, `${GITHUB_API_ROOT}${path}`, { ...init, headers });
     } catch (error) {
-      if (missing) return MISSING;
+      if (missing !== undefined) return new MissingIssue(missing);
       throw error;
     }
   }
 }
 
-const MISSING = Symbol("missing");
+/** GitHub answered 404 or 410 for the request: the issue or comment is not there. */
+class MissingIssue {
+  constructor(readonly status: 404 | 410) {}
+}
 
 function labelNames(labels: unknown): string[] {
   return Array.isArray(labels)

@@ -1578,10 +1578,11 @@ export async function verifyAtlasMigrations(context: { adminUrl: string; schema:
 }
 
 /**
- * Atlas phase 2, part C (design section 7): the hermetic end-to-end scenario of tests/atlas-acceptance-end-to-end.test.ts
- * against PostgreSQL. The owner's tool, the real findings library save and signed receipts, an in-memory GitHub and
- * the providers' recorded fixtures, with the review store, the canonical reader and the runner in PostgreSQL, in a
- * schema of their own so the scenario's numbers start at F-1001. The role boundaries are verifyAtlasStorage's.
+ * Atlas phase 2, parts C and D (design section 7): the hermetic end-to-end scenario of
+ * tests/atlas-acceptance-end-to-end.test.ts against PostgreSQL, forget_card included. The owner's tool, the real
+ * findings library save and signed receipts, an in-memory GitHub and the providers' recorded fixtures, with the review
+ * store, the canonical reader and the runner in PostgreSQL, in a schema of their own so the scenario's numbers start
+ * at F-1001. The role boundaries are verifyAtlasStorage's.
  */
 export async function verifyAtlasScenario(context: { adminUrl: string; schema: string; checks: string[] }): Promise<void> {
   const scenarioSchema = `${context.schema}_atlas_scenario`;
@@ -1619,8 +1620,8 @@ export async function verifyAtlasScenario(context: { adminUrl: string; schema: s
         },
       };
     });
-    assert(report.steps.length === 6, "ATLAS_SCENARIO_INCOMPLETE");
-    context.checks.push("atlas_scenario_save_list_inspect_accept_lead_link_correct_and_scan_against_postgresql");
+    assert(report.steps.length === 7, "ATLAS_SCENARIO_INCOMPLETE");
+    context.checks.push("atlas_scenario_save_list_inspect_accept_lead_link_correct_forget_and_scan_against_postgresql");
   } finally {
     await Promise.allSettled([review.close(), reader.close(), promotions.close(), admin.end()]);
   }
@@ -2049,7 +2050,19 @@ export async function verifyAtlasStorage(context: {
       cardWordingKey: atlasHex("nothing"), verifiedBases: [], sources: [], researchCheckedOn: "2026-10-22",
       madeWith: ATLAS_MADE_WITH,
     }, { rechecked: "F-9999" }), "FINDING_NOT_FOUND");
-    const findingsBefore = await admin.query<{ count: number }>(`SELECT count(*)::int AS count FROM ${schema}.atlas_findings`);
+    // Every row the Atlas and the canonical store hold, by table: forgetting a card deletes its decision rows only.
+    const everyCount = async () => (await admin.query<Record<string, number>>(
+      `SELECT ${[
+        ...ATLAS_CANONICAL_TABLES, "atlas_finding_intents", "atlas_card_decisions", "research_runs", "topics",
+        "questions", "claims", "claim_versions", "claim_edges", "evidence_bindings", "repository_events",
+      ].map((table) => `(SELECT count(*)::int FROM ${schema}.${table}) AS ${table}`).join(", ")}`,
+    )).rows[0]!;
+    const withoutDecisions = (counts: Record<string, number>) => JSON.stringify({ ...counts, atlas_card_decisions: null });
+    const countsBefore = await everyCount();
+    const intentsBefore = (await admin.query<{ rows: string }>(
+      `SELECT coalesce(json_agg(row_to_json(stored) ORDER BY stored.queue_position), '[]'::json)::text AS rows
+         FROM ${schema}.atlas_finding_intents stored`,
+    )).rows[0]!.rows;
     const forgotten = await reviewPool.query<{
       item_kind: string;
       item_number: number;
@@ -2057,14 +2070,31 @@ export async function verifyAtlasStorage(context: {
       public_number_named_elsewhere: boolean;
     }>(`SELECT * FROM ${schema}.forget_atlas_cards(ARRAY[9001], $1::timestamptz)`, [tick()]);
     const named = new Map(forgotten.rows.map((row) => [row.public_number, row.public_number_named_elsewhere]));
-    const findingsAfter = await admin.query<{ count: number }>(`SELECT count(*)::int AS count FROM ${schema}.atlas_findings`);
+    const countsAfter = await everyCount();
+    const intentsAfter = (await admin.query<{ rows: string }>(
+      `SELECT coalesce(json_agg(row_to_json(stored) ORDER BY stored.queue_position), '[]'::json)::text AS rows
+         FROM ${schema}.atlas_finding_intents stored`,
+    )).rows[0]!.rows;
     assert(
       forgotten.rows.length === 3 && named.get(findingA) === false && named.get(findingB) === false &&
         named.get(findingC) === true && (await review.inspectCards([9001])).length === 0 &&
-        findingsAfter.rows[0]?.count === findingsBefore.rows[0]?.count,
+        countsAfter.atlas_card_decisions === countsBefore.atlas_card_decisions! - 3 &&
+        withoutDecisions(countsAfter) === withoutDecisions(countsBefore) && intentsAfter === intentsBefore,
       "ATLAS_FORGET_MISMATCH",
     );
-    checks.push("atlas_conflicting_decisions_are_refused_and_forgetting_a_card_removes_only_its_decisions");
+    // Through the review store, as forget_card calls it (decision 7): the rejected item's row and its private reason go
+    // too; an empty list or a card number below 1 is refused.
+    const viaStore = await review.forgetCards([9002], tick());
+    assert(
+      viaStore.map(({ itemNumber, decision, publicNumber, publicNumberNamedElsewhere }) =>
+        `${itemNumber}:${decision}:${publicNumber}:${publicNumberNamedElsewhere}`).join() ===
+        `1:accepted:${findingD}:false,2:rejected:null:false` &&
+        (await review.inspectCards([9002])).length === 0,
+      "ATLAS_FORGET_THROUGH_THE_STORE_MISMATCH",
+    );
+    await expectAtlasReviewCode(() => review.forgetCards([], tick()), "INPUT_INVALID");
+    await expectAtlasReviewCode(() => review.forgetCards([0], tick()), "INPUT_INVALID");
+    checks.push("atlas_conflicting_decisions_are_refused_and_forgetting_a_card_deletes_its_decision_rows_and_nothing_else");
 
     // Wording changes only through erase_atlas_wording, for the version a redaction row names, and only to the marker.
     const chain = await versionsOf(findingA);
@@ -2095,12 +2125,49 @@ export async function verifyAtlasStorage(context: {
         client.release();
       }
     };
+    // A link that does not touch findingA (findingF replaces findingB), and findingA's question, which other findings
+    // answer: neither may change under findingA's redaction.
+    const foreignLink = (await admin.query<{ link_id: string }>(
+      `SELECT link.link_id FROM ${schema}.atlas_finding_links link
+         JOIN ${schema}.atlas_findings source ON source.finding_id = link.from_finding_id
+        WHERE source.public_number = $1 AND link.relation = 'replaces'`,
+      [findingF],
+    )).rows[0]!.link_id;
+    const linkOfA = (await admin.query<{ link_id: string }>(
+      `SELECT link.link_id FROM ${schema}.atlas_finding_links link
+        WHERE link.to_finding_id = $1 AND link.relation = 'contradicts'`,
+      [findingIdA.finding_id],
+    )).rows[0]!.link_id;
+    const questionOfA = (await admin.query<{ question_id: string }>(
+      `SELECT claim.question_id FROM ${schema}.atlas_findings finding
+         JOIN ${schema}.claims claim ON claim.claim_id = finding.claim_id
+        WHERE finding.finding_id = $1`,
+      [findingIdA.finding_id],
+    )).rows[0]!.question_id;
+    // Without a redaction row in force, no wording changes at all, not even to the marker.
+    for (const [sql, values] of [
+      [`UPDATE ${schema}.atlas_finding_links SET rationale = '${ATLAS_ERASED}' WHERE link_id = $1`, [linkOfA]],
+      [`UPDATE ${schema}.questions SET normalized_question = '${ATLAS_ERASED}' WHERE question_id = $1`, [questionOfA]],
+      [`UPDATE ${schema}.atlas_finding_versions SET numbers = '[]'::jsonb WHERE claim_version_id = $1`, [versionTwo]],
+    ] as const) {
+      await expectMessage(() => admin.query(sql, [...values]), "APPEND_ONLY_TABLE");
+    }
     for (const [sql, values] of [
       [`UPDATE ${schema}.claim_versions SET normalized_assertion = 'Another wording' WHERE version_id = $1`, [versionTwo]],
       [`UPDATE ${schema}.claim_versions SET status = 'invalidated' WHERE version_id = $1`, [versionTwo]],
       [`UPDATE ${schema}.claim_versions SET normalized_assertion = '${ATLAS_ERASED}' WHERE version_id = $1`, [versionOne]],
       [`UPDATE ${schema}.atlas_finding_versions SET certainty = 'low' WHERE claim_version_id = $1`, [versionTwo]],
+      [`UPDATE ${schema}.atlas_finding_versions SET numbers = '[{"outcome":"${ATLAS_ERASED}"}]'::jsonb
+         WHERE claim_version_id = $1`, [versionTwo]],
       [`UPDATE ${schema}.atlas_findings SET entry_kind = 'lead' WHERE finding_id = $1`, [findingIdA.finding_id]],
+      [`UPDATE ${schema}.atlas_finding_links SET rationale = 'Another rationale' WHERE link_id = $1`, [linkOfA]],
+      [`UPDATE ${schema}.atlas_finding_links SET disagreement = 'population' WHERE link_id = $1`, [linkOfA]],
+      [`UPDATE ${schema}.atlas_finding_links SET rationale = '${ATLAS_ERASED}' WHERE link_id = $1`, [foreignLink]],
+      [`UPDATE ${schema}.atlas_finding_link_withdrawals SET decided_at = decided_at + interval '1 second'
+         WHERE link_id IN (SELECT link_id FROM ${schema}.atlas_finding_links WHERE to_finding_id = $1)`,
+        [findingIdA.finding_id]],
+      [`UPDATE ${schema}.questions SET normalized_question = '${ATLAS_ERASED}' WHERE question_id = $1`, [questionOfA]],
+      [`UPDATE ${schema}.topics SET label = '${ATLAS_ERASED}'`, []],
       [`DELETE FROM ${schema}.claim_versions WHERE version_id = $1`, [versionTwo]],
     ] as const) {
       await expectMessage(() => underRedaction(sql, [...values]), "APPEND_ONLY_TABLE");
@@ -2116,6 +2183,21 @@ export async function verifyAtlasStorage(context: {
     )).rows[0]!;
     const twoBefore = await wordingOf(versionTwo);
     const oneBefore = await wordingOf(versionOne);
+    const linksOfA = async () => (await admin.query<{ relation: string; rationale: string; note: string | null }>(
+      `SELECT link.relation, link.rationale, withdrawal.public_note AS note
+         FROM ${schema}.atlas_finding_links link
+         LEFT JOIN ${schema}.atlas_finding_link_withdrawals withdrawal ON withdrawal.link_id = link.link_id
+        WHERE link.from_finding_id = $1 OR link.to_finding_id = $1
+        ORDER BY link.relation`,
+      [findingIdA.finding_id],
+    )).rows;
+    const questionText = async () => (await admin.query<{ text: string }>(
+      `SELECT normalized_question AS text FROM ${schema}.questions WHERE question_id = $1`,
+      [questionOfA],
+    )).rows[0]!.text;
+    const linksBefore = await linksOfA();
+    const foreignBefore = (await admin.query<{ rationale: string }>(
+      `SELECT rationale FROM ${schema}.atlas_finding_links WHERE link_id = $1`, [foreignLink])).rows[0]!.rationale;
     const erased = await admin.query<{ changed: number }>(
       `SELECT ${schema}.erase_atlas_wording($1) AS changed`,
       [redactionId],
@@ -2125,8 +2207,10 @@ export async function verifyAtlasStorage(context: {
     const atlasTextColumns = ["usual_answer", "why_not_usual", "what_would_change_it", "who_else", "what_it_changes"];
     const without = (row: Record<string, unknown>, keys: string[]) =>
       JSON.stringify(Object.fromEntries(Object.entries(row).filter(([key]) => !keys.includes(key)).sort()));
+    // Six rows: the version's claim and Atlas rows, the note of its correction, the rationale of findingA's two links
+    // and the note of the one withdrawn. Its question stays: other findings answer it.
     assert(
-      erased.rows[0]?.changed === 3 &&
+      erased.rows[0]?.changed === 6 &&
         textColumns.every((column) => twoAfter.claimed[column] === ATLAS_ERASED) &&
         atlasTextColumns.every((column) => twoAfter.atlas[column] === ATLAS_ERASED) &&
         twoAfter.atlas.accepted_wording_key === "0".repeat(64) && twoAfter.atlas.card_wording_key === null &&
@@ -2135,6 +2219,13 @@ export async function verifyAtlasStorage(context: {
         without(twoAfter.atlas, [...atlasTextColumns, "accepted_wording_key"]) ===
           without(twoBefore.atlas, [...atlasTextColumns, "accepted_wording_key"]) &&
         JSON.stringify(await wordingOf(versionOne)) === JSON.stringify(oneBefore) &&
+        linksBefore.length === 2 && linksBefore.every(({ rationale }) => rationale !== ATLAS_ERASED) &&
+        JSON.stringify(await linksOfA()) === JSON.stringify(linksBefore.map((link) => ({
+          ...link, rationale: ATLAS_ERASED, note: link.note === null ? null : ATLAS_ERASED,
+        }))) &&
+        (await admin.query<{ rationale: string }>(`SELECT rationale FROM ${schema}.atlas_finding_links WHERE link_id = $1`,
+          [foreignLink])).rows[0]!.rationale === foreignBefore &&
+        await questionText() === ATLAS_QUESTION &&
         (await admin.query<{ changed: number }>(`SELECT ${schema}.erase_atlas_wording($1) AS changed`, [redactionId]))
           .rows[0]?.changed === 0,
       "ATLAS_ERASE_MISMATCH",
@@ -2146,7 +2237,7 @@ export async function verifyAtlasStorage(context: {
       guard.rows[0]!.definition.includes("atlas_redaction_permits(TG_TABLE_NAME, to_jsonb(OLD), to_jsonb(NEW))"),
       "ATLAS_GUARD_BODY_LOST_ITS_REDACTION_BRANCH",
     );
-    checks.push("atlas_wording_changes_only_through_erase_atlas_wording_for_the_version_a_redaction_row_names");
+    checks.push("atlas_wording_changes_only_through_erase_atlas_wording_for_what_a_redaction_row_covers");
 
     // Every canonical Atlas table refuses UPDATE and DELETE.
     for (const table of ATLAS_CANONICAL_TABLES) {
@@ -2228,6 +2319,161 @@ export async function verifyAtlasStorage(context: {
     )));
     checks.push("atlas_review_role_executes_only_its_functions_and_the_reader_reads_without_writing");
 
+    // The runner applies erasures (decision 7, part D). A revision and the erasure of every version before it, recorded
+    // in one transaction as edit_finding records them: version 1's wording becomes the marker, version 2 stays, its
+    // links' rationale goes, its shared question stays, and the accept's texts leave its intent.
+    const erasing = (publicNumber: string, version: number, scope: "earlier_versions" | "all_versions") => ({
+      schema: "askrigor.atlas-finding-intent.v1", kind: "erase", publicNumber, version, scope,
+      reasonCode: "could_identify_a_person", decidedWith: ATLAS_DECIDED_WITH,
+    });
+    const asInput = (payload: unknown) => {
+      const prepared = prepareAtlasFindingIntent(payload);
+      const intent = prepared.payload;
+      if (intent.kind === "accept" || intent.kind === "recheck") throw new Error("ATLAS_ACCEPTANCE_RECORD_KIND");
+      return {
+        intentId: nextIntentId(), intentKind: intent.kind, publicNumber: intent.publicNumber, payload: intent,
+        payloadSha256: prepared.payloadSha256, ownerReason: null, createdAt: tick(), retryOfIntentId: null,
+      };
+    };
+    const latestF = (await versionsOf(findingF)).at(-1)!.version_number;
+    const generalF = "In a larger invented trial, zentarine 20 mg reduced relapse in adults over 24 weeks.";
+    const pairF = await review.recordIntents([
+      asInput(atlasRevise(findingF, latestF, "corrected", generalF, "Rewritten in general terms.", tick())),
+      asInput(erasing(findingF, latestF + 1, "earlier_versions")),
+    ]);
+    assert(pairF.map(({ intentKind, status }) => `${intentKind}:${status}`).join() === "revise:PENDING,erase:PENDING",
+      "ATLAS_ERASURE_PAIR_NOT_RECORDED");
+    await promote("ATLAS_REVISION_BEFORE_ERASURE_NOT_PROMOTED");
+    const erasedF = await promote("ATLAS_ERASURE_NOT_PROMOTED");
+    const chainF = await versionsOf(findingF);
+    const textOf = async (versionId: string) => (await admin.query<{ text: string }>(
+      `SELECT normalized_assertion AS text FROM ${schema}.claim_versions WHERE version_id = $1`, [versionId])).rows[0]!.text;
+    const intentsOf = async (publicNumber: string) => (await admin.query<{
+      intent_kind: string;
+      status: string;
+      payload_json: Record<string, unknown>;
+      texts_erased_at: Date | null;
+    }>(
+      `SELECT intent_kind, status, payload_json, texts_erased_at FROM ${schema}.atlas_finding_intents
+        WHERE public_number = $1 ORDER BY queue_position`,
+      [publicNumber],
+    )).rows;
+    const linksOfF = await admin.query<{ rationale: string }>(
+      `SELECT link.rationale FROM ${schema}.atlas_finding_links link
+         JOIN ${schema}.atlas_findings finding ON finding.finding_id IN (link.from_finding_id, link.to_finding_id)
+        WHERE finding.public_number = $1`,
+      [findingF],
+    );
+    const acceptOfF = (await intentsOf(findingF)).find(({ intent_kind: kind }) => kind === "accept")!;
+    const reviseOfF = (await intentsOf(findingF)).filter(({ intent_kind: kind }) => kind === "revise")
+      .find(({ status }) => status === "COMPLETED")!;
+    const removedF = (await changesOf(findingF)).at(-1)!;
+    assert(
+      chainF.length === 2 && await textOf(chainF[0]!.claim_version_id) === ATLAS_ERASED &&
+        await textOf(chainF[1]!.claim_version_id) === generalF &&
+        erasedF.receipt.writerReceipt.claimVersionIds.join() === chainF[0]!.claim_version_id &&
+        removedF.change_kind === "wording_removed" && removedF.label_before === removedF.label_after &&
+        removedF.public_note === null && linksOfF.rows.length === 2 &&
+        linksOfF.rows.every(({ rationale }) => rationale === ATLAS_ERASED) &&
+        await questionText() === ATLAS_QUESTION &&
+        acceptOfF.texts_erased_at !== null &&
+        (acceptOfF.payload_json.content as { wording: string }).wording === ATLAS_ERASED &&
+        acceptOfF.payload_json.question === ATLAS_QUESTION &&
+        reviseOfF.texts_erased_at === null &&
+        (reviseOfF.payload_json.content as { wording: string }).wording === generalF,
+      `ATLAS_EARLIER_VERSIONS_ERASURE_MISMATCH ${JSON.stringify(await changesOf(findingF))}`,
+    );
+    checks.push("atlas_runner_erases_the_versions_before_a_new_general_version_and_their_texts_in_earlier_intents");
+
+    // A withdrawal with the erasure of every version, for a finding whose question nothing else asks: every version,
+    // the withdrawal's note and the question read as the marker, and so do the intents' texts.
+    const questionK = "Does zentarine change sleep in adults with Velmor syndrome?";
+    const wordingK = "In an invented trial, zentarine 20 mg did not change sleep in adults with Velmor syndrome.";
+    const keyK = atlasWordingKey(questionK, wordingK);
+    const findingK = (await decide(9008, "finding", 1, "accepted", {
+      ...atlasAccept({ wording: wordingK, bases: ["full_text_audit"],
+        sources: [atlasSource("10.0000/synthetic-velmor-10", tick())] }),
+      question: questionK,
+      wordingKeys: { card: keyK, accepted: keyK },
+    })).publicNumber!;
+    await promote("ATLAS_FINDING_FOR_ERASURE_NOT_PROMOTED");
+    await review.recordIntents([
+      asInput({ schema: "askrigor.atlas-finding-intent.v1", kind: "withdraw", publicNumber: findingK, version: 1,
+        note: "Its wording could identify a person.", decidedWith: ATLAS_DECIDED_WITH }),
+      asInput(erasing(findingK, 2, "all_versions")),
+    ]);
+    await promote("ATLAS_WITHDRAWAL_BEFORE_ERASURE_NOT_PROMOTED");
+    await promote("ATLAS_ERASURE_OF_EVERY_VERSION_NOT_PROMOTED");
+    const chainK = await versionsOf(findingK);
+    const changesK = await changesOf(findingK);
+    const intentsK = await intentsOf(findingK);
+    const currentK = (await admin.query<{ label: string; question: string }>(
+      `SELECT label, question FROM ${schema}.atlas_finding_current WHERE public_number = $1`, [findingK])).rows[0]!;
+    assert(
+      chainK.length === 2 && (await Promise.all(chainK.map(({ claim_version_id: id }) => textOf(id))))
+        .every((text) => text === ATLAS_ERASED) &&
+        changesK.map(({ change_kind: kind, public_note: note }) => `${kind}:${note}`).join() ===
+          `accepted:null,withdrawn:${ATLAS_ERASED},wording_removed:null` &&
+        currentK.label === "withdrawn" && currentK.question === ATLAS_ERASED &&
+        intentsK.filter(({ intent_kind: kind }) => kind !== "erase").every(({ texts_erased_at: at }) => at !== null) &&
+        intentsK.find(({ intent_kind: kind }) => kind === "accept")!.payload_json.question === ATLAS_ERASED &&
+        intentsK.find(({ intent_kind: kind }) => kind === "withdraw")!.payload_json.note === ATLAS_ERASED,
+      `ATLAS_EVERY_VERSION_ERASURE_MISMATCH ${JSON.stringify({ changesK, currentK })}`,
+    );
+    checks.push("atlas_runner_erases_every_version_of_a_withdrawn_finding_its_note_and_its_unshared_question");
+
+    // A stale erasure and an erasure of every version of a finding not withdrawn end FAILED with their codes, writing
+    // nothing, and the next intent promotes in the same activation: an erasure no longer holds the queue.
+    const redactionsBefore = (await admin.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM ${schema}.atlas_redactions`)).rows[0]!.count;
+    const staleErasure = await record(erasing(findingF, 1, "earlier_versions"));
+    const notWithdrawn = await record(erasing(findingF, 2, "all_versions"));
+    const afterErasures = await record({
+      schema: "askrigor.atlas-finding-intent.v1", kind: "link", publicNumber: findingF, relation: "same_as",
+      toPublicNumber: retried.publicNumber!, disagreement: null, rationale: "Both report the 20 mg effect on relapse.",
+      decidedWith: ATLAS_DECIDED_WITH,
+    });
+    const goesOn = await runner.promoteAccepted();
+    assert(
+      goesOn.failed.map(({ intentId, failureCode }) => `${intentId}:${failureCode}`).join() ===
+        `${staleErasure.intentId}:ATLAS_VERSION_STALE,${notWithdrawn.intentId}:ATLAS_ERASE_NOT_WITHDRAWN` &&
+        goesOn.result.status === "promoted" && goesOn.result.receipt.intentId === afterErasures.intentId &&
+        (await admin.query<{ count: number }>(`SELECT count(*)::int AS count FROM ${schema}.atlas_redactions`))
+          .rows[0]!.count === redactionsBefore,
+      `ATLAS_ERASURE_FAILURES_MISMATCH ${JSON.stringify(goesOn)}`,
+    );
+    checks.push("atlas_erasure_failures_end_failed_with_their_codes_and_the_queue_goes_on");
+
+    // An erasure the writer applied directly (a crash before the receipt) is completed by idempotent replay; a pending
+    // intent's texts are never erased.
+    await record(atlasRevise(findingF, 2, "edited", `${generalF.slice(0, -1)}, as a trial report says.`, null, tick()));
+    await promote("ATLAS_SECOND_REVISION_NOT_PROMOTED");
+    const directErasure = await record(erasing(findingF, 3, "earlier_versions"));
+    const appliedDirectly = await writer.contributeAtlasFinding({
+      intentId: directErasure.intentId, intentKind: "erase", publicNumber: findingF, payload: directErasure.payload,
+      payloadSha256: directErasure.payloadSha256, createdAt: directErasure.createdAt,
+    });
+    const replayedErasure = await promote("ATLAS_ERASURE_REPLAY_NOT_PROMOTED");
+    assert(
+      appliedDirectly.status === "inserted" && replayedErasure.receipt.writerReceipt.status === "idempotent_replay" &&
+        JSON.stringify({ ...appliedDirectly, status: null }) ===
+          JSON.stringify({ ...replayedErasure.receipt.writerReceipt, status: null }) &&
+        appliedDirectly.claimVersionIds.join() === (await versionsOf(findingF))[1]!.claim_version_id &&
+        await textOf((await versionsOf(findingF))[1]!.claim_version_id) === ATLAS_ERASED,
+      `ATLAS_ERASURE_REPLAY_MISMATCH ${JSON.stringify({ appliedDirectly, replayedErasure })}`,
+    );
+    const pendingLink = await record({
+      schema: "askrigor.atlas-finding-intent.v1", kind: "unlink", publicNumber: findingF, relation: "same_as",
+      toPublicNumber: retried.publicNumber!, note: "They report different follow-up periods.",
+      decidedWith: ATLAS_DECIDED_WITH,
+    });
+    await expectPgCode(() => admin.query(
+      `UPDATE ${schema}.atlas_finding_intents SET texts_erased_at = $2::timestamptz WHERE intent_id = $1::uuid`,
+      [pendingLink.intentId, tick()],
+    ), "23514");
+    await promote("ATLAS_UNLINK_AFTER_ERASURES_NOT_PROMOTED");
+    checks.push("atlas_an_erasure_the_writer_applied_is_completed_by_replay_and_a_pending_intent_keeps_its_texts");
+
     // No canonical or intent row holds a card reference, card hash, answer quote or community data.
     const stored = await admin.query<{ body: string }>(
       `SELECT jsonb_agg(row_to_json(rows.*))::text AS body FROM (
@@ -2244,7 +2490,7 @@ export async function verifyAtlasStorage(context: {
     const body = stored.rows[0]!.body;
     for (const forbidden of [
       "ARF-", "answer_quote", "youtube", "comment_audit", "community_checked",
-      ...[8001, 9001, 9002, 9003, 9004, 9005, 9006, 9007, 9010].map(atlasCardSha256),
+      ...[8001, 9001, 9002, 9003, 9004, 9005, 9006, 9007, 9008, 9010].map(atlasCardSha256),
     ]) {
       assert(!body.toLowerCase().includes(forbidden.toLowerCase()), `ATLAS_STORED_FORBIDDEN_CONTENT ${forbidden}`);
     }
@@ -2256,6 +2502,7 @@ export async function verifyAtlasStorage(context: {
     const expected = new Map([
       [findingA, "checked"], [findingB, "superseded"], [findingC, "checked"], [findingD, "withdrawn"],
       [findingF, "checked"], [retried.publicNumber!, "checked"], [decisionJ.publicNumber!, "checked"],
+      [findingK, "withdrawn"],
     ]);
     assert(
       current.rows.length === expected.size &&
@@ -2264,20 +2511,6 @@ export async function verifyAtlasStorage(context: {
     );
     checks.push("atlas_finding_current_shows_each_findings_label");
 
-    // An erasure waits, pending, for the writer that applies it (part D); the queue waits with it.
-    const latestF = (await versionsOf(findingF)).at(-1)!.version_number;
-    const erase = await record({
-      schema: "askrigor.atlas-finding-intent.v1", kind: "erase", publicNumber: findingF, version: latestF,
-      scope: "earlier_versions", reasonCode: "could_identify_a_person", decidedWith: ATLAS_DECIDED_WITH,
-    });
-    const waiting = await runner.promoteAccepted();
-    assert(
-      waiting.failed.length === 0 && waiting.result.status === "intent_kind_not_applied" &&
-        waiting.result.intentId === erase.intentId &&
-        (await review.inspectIntents([findingF])).find(({ intentId }) => intentId === erase.intentId)?.status === "PENDING",
-      "ATLAS_ERASE_INTENT_DID_NOT_WAIT",
-    );
-    checks.push("an_atlas_erase_intent_waits_pending_for_the_writer_that_applies_it");
   } finally {
     await Promise.allSettled([
       runner.close(), writer.close(), reader.close(), review.close(), reviewPool.end(), admin.end(),

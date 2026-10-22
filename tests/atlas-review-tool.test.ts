@@ -301,6 +301,8 @@ describe("the findings actions' calls", () => {
       { action: "reject_finding", card: "ARF-0042", lead: 1, reason: "Not general." },
       { action: "withdraw_finding", atlasNumber: "F-1001", version: 1, note: "Wrong." },
       { action: "link_findings", atlasNumber: "F-1001", relation: "same_as", to: "F-1002", rationale: "Same." },
+      { action: "edit_finding", atlasNumber: "F-1001", version: 2, eraseWording: true },
+      { action: "forget_card", card: "ARF-0042" },
     ];
     for (const input of calls) {
       expect((await h.call(input, {})).structured.error?.code).toBe("authorization_required");
@@ -318,6 +320,7 @@ describe("the findings actions' calls", () => {
       { action: "list_findings" },
       { action: "inspect_finding", atlasNumber: "F-1001" },
       { action: "reject_finding", card: "ARF-0042", finding: 1, reason: "Not general." },
+      { action: "forget_card", card: "ARF-0042" },
     ]) {
       expect((await closed.call(input)).structured).toMatchObject({ ok: false, error: { code: "atlas_review_closed" } });
       expect((await unconfigured.call(input)).structured.error?.code).toBe("review_service_unavailable");
@@ -327,20 +330,31 @@ describe("the findings actions' calls", () => {
     expect(closed.github.writes).toEqual([]);
   });
 
-  it("refuses erasing wording until the next part of the build, recording nothing", async () => {
+  it("takes eraseWording and forget_card by their own rules (decision 7), recording nothing for a refused call", async () => {
     await stubProviders();
     const h = harness();
     await acceptedLowDose(h);
+    // An erasure alone takes no note or correction; forget_card takes the card and confirm only, never a reason.
     for (const input of [
-      { action: "withdraw_finding", atlasNumber: "F-1001", version: 1, note: "It could identify a person.", eraseWording: true },
-      { action: "edit_finding", atlasNumber: "F-1001", version: 1, wording: "A general wording.", eraseWording: true,
-        note: "Made general." },
+      { action: "edit_finding", atlasNumber: "F-1001", version: 1, eraseWording: true, note: "Made general." },
+      { action: "edit_finding", atlasNumber: "F-1001", version: 1, eraseWording: true, correction: false },
+      { action: "edit_finding", atlasNumber: "F-1001", version: 1, eraseWording: false },
+      { action: "forget_card" },
+      { action: "forget_card", card: "ARF-0042", finding: 1 },
+      { action: "forget_card", card: "ARF-0042", reason: "Asked by email." },
+      { action: "forget_card", atlasNumber: "F-1001" },
     ]) {
-      const reply = await h.call(input);
-      expect(reply.structured).toMatchObject({ ok: false, error: { code: "erase_not_built" } });
-      expect(reply.text).toContain("comes with the next part of the Atlas build; nothing was recorded");
+      expect((await h.call(input)).structured.error?.code, JSON.stringify(input)).toBe("invalid_request");
     }
-    expect((await h.review.inspectIntents(null))).toEqual([]);
+    // A finding not withdrawn yet needs the withdrawal's note, which the erasure then removes.
+    const noNote = await h.call({ action: "withdraw_finding", atlasNumber: "F-1001", version: 1, eraseWording: true });
+    expect(noNote.structured.error?.code).toBe("invalid_request");
+    expect(noNote.text).toContain("F-1001 is not withdrawn yet: withdraw_finding needs its public note");
+    // One version has no earlier version to erase.
+    const nothing = await h.call({ action: "edit_finding", atlasNumber: "F-1001", version: 1, eraseWording: true });
+    expect(nothing.structured).toMatchObject({ ok: false, outcome: "checks_not_passed",
+      checks: { problems: [expect.objectContaining({ code: "nothing_changed" })] } });
+    expect(await h.review.inspectIntents(null)).toEqual([]);
   });
 });
 

@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import {
   ATLAS_CARD_DECISIONS,
   ATLAS_DISAGREEMENTS,
+  ATLAS_ERASED_KEY,
+  ATLAS_ERASED_TEXT,
   ATLAS_FINDING_PROMOTION_FAILURE_CODES,
   ATLAS_FINDING_TAGS,
   ATLAS_INTENT_KINDS,
@@ -16,6 +18,7 @@ import {
   AtlasReviewError,
   atlasLabelOf,
   atlasNumbersSchema,
+  atlasQuestionUse,
   atlasSourceIdentifierSchema,
   prepareAtlasFindingIntent,
   stableJson,
@@ -30,6 +33,7 @@ import {
   type AtlasLinkRelation,
   type AtlasMadeWith,
   type AtlasNumberEntry,
+  type AtlasQuestionUse,
   type AtlasReviewStore,
   type AtlasSource,
   type AtlasSourceIdentifier,
@@ -59,6 +63,7 @@ import {
   type AtlasLinkProblemCode,
   type AtlasLinkState,
 } from "./acceptance-checks.js";
+import { forgetCard, type CardForgetReport } from "./atlas-forget.js";
 import { FINDING_CERTAINTIES, PUBLIC_VALUE_SCOPES, type StoredFinding } from "./card.js";
 import {
   decisionDate,
@@ -83,13 +88,17 @@ import {
 } from "./source-checks.js";
 
 /**
- * The owner's findings actions on review_research_contribution (Atlas phase 2 design, sections 1 to 3 and 9C; owner
+ * The owner's findings actions on review_research_contribution (Atlas phase 2 design, sections 1 to 4 and 9C-D; owner
  * answers 159 and 160b): list_findings, inspect_finding, accept_finding, edit_finding, reject_finding,
- * withdraw_finding and link_findings. Each decision on a card item is bound to the card record the owner inspected by
- * its SHA-256, runs every exact check again (part B), and records the decision and a hash-bound intent in one
- * transaction through the review role's functions (part A). The call never writes canonical evidence: the one-shot
+ * withdraw_finding, link_findings and forget_card. Each decision on a card item is bound to the card record the owner
+ * inspected by its SHA-256, runs every exact check again (part B), and records the decision and a hash-bound intent in
+ * one transaction through the review role's functions (part A). The call never writes canonical evidence: the one-shot
  * writer applies the intent within about 5 minutes. Code checks only what is exact; the topic, the numbers and the
  * links are the AI's declarations, and the owner accepts or rejects.
+ *
+ * Owner decision 7 (part D): forget_card removes what ties a card to its contributor (atlas-forget.ts), and
+ * eraseWording, on edit_finding or withdraw_finding, queues an erasure behind the new version or the withdrawal, for a
+ * finding whose wording the owner judges could identify a person.
  */
 
 export const ATLAS_REVIEW_ACTIONS = [
@@ -100,6 +109,7 @@ export const ATLAS_REVIEW_ACTIONS = [
   "reject_finding",
   "withdraw_finding",
   "link_findings",
+  "forget_card",
 ] as const;
 export type AtlasReviewAction = typeof ATLAS_REVIEW_ACTIONS[number];
 
@@ -117,6 +127,9 @@ export const ATLAS_REVIEW_OUTCOMES = [
   "needs_confirmation",
   "checks_not_passed",
   "try_again_later",
+  // forget_card (decision 7): GitHub answers 404 or 410 for every card forgotten, or still holds the stripped issues.
+  "card_forgotten",
+  "card_forget_waiting_for_owner",
 ] as const;
 export type AtlasReviewOutcome = typeof ATLAS_REVIEW_OUTCOMES[number];
 
@@ -127,8 +140,8 @@ export const ATLAS_REVIEW_ERROR_CODES = [
   "finding_not_found",
   "decision_conflict",
   "version_stale",
-  // Erasing wording (decision 7) comes with part D; nothing is recorded until then.
-  "erase_not_built",
+  // forget_card: a later save on the person's cards does not read, so it cannot be re-filed; nothing is changed.
+  "card_unreadable",
   "atlas_review_closed",
 ] as const;
 export type AtlasReviewErrorCode = typeof ATLAS_REVIEW_ERROR_CODES[number] | "invalid_request" |
@@ -156,7 +169,8 @@ const ownerText = (max: number) => z.string().trim().min(1).max(max);
 /** The findings actions' fields, all flat so that ChatGPT's app shows them; per-action rules are in the refinement. */
 export const atlasReviewInputShape = {
   card: z.string().trim().regex(/^[Aa][Rr][Ff]-[0-9]{1,9}$/u).optional()
-    .describe("Findings actions: a findings card's id, such as ARF-0142, in any case."),
+    .describe("Findings actions: a findings card's id, such as ARF-0142, in any case. forget_card: the card its " +
+      "contributor asked to delete."),
   finding: z.number().int().min(1).max(5).optional().describe("Findings actions: the card's finding, from 1."),
   lead: z.number().int().min(1).max(6).optional().describe("Findings actions: the card's open lead, from 1."),
   atlasNumber: publicNumberInput.optional().describe("Findings actions: an accepted finding's number, such as F-1007."),
@@ -185,10 +199,15 @@ export const atlasReviewInputShape = {
     .describe("edit_finding after acceptance: true (the default) for a correction with a dated note, false for a " +
       "wording fix."),
   eraseWording: z.boolean().optional()
-    .describe("Erasing wording that could identify a person comes with the next part of the Atlas build; until then " +
-      "a call with it records nothing."),
+    .describe("edit_finding after acceptance, withdraw_finding: true only when the owner judges that the finding's " +
+      "wording could identify a person (decision 7). edit_finding with new general wording makes it the new version " +
+      "and erases the earlier versions' wording; with no new text it erases the earlier versions' wording and keeps " +
+      "the latest. withdraw_finding erases every version's wording, its note included, leaving \"withdrawn, wording " +
+      "removed\" with the date; on a finding already withdrawn it needs no note. Either also erases its links' " +
+      "rationale, and its question when no other finding uses it."),
   confirm: z.boolean().optional()
-    .describe("accept_finding, edit_finding: true only after the owner said to accept anyway what the checks flagged."),
+    .describe("accept_finding, edit_finding: true only after the owner said to accept anyway what the checks flagged. " +
+      "forget_card: true only after the owner read why the call asked for it."),
   relation: z.enum([...ATLAS_LINK_RELATIONS, "unlink"]).optional()
     .describe("link_findings: atlasNumber same_as, narrows, contradicts or replaces the finding named by to; unlink " +
       "withdraws their link."),
@@ -245,6 +264,8 @@ const FIELDS_BY_ACTION: Record<AtlasReviewAction | "edit_after", readonly AtlasF
   reject_finding: ["card", "finding", "lead", "cardSha256", "reason"],
   withdraw_finding: ["atlasNumber", "card", "finding", "lead", "version", "note", "eraseWording", "reason"],
   link_findings: ["atlasNumber", "relation", "to", "disagreement", "rationale", "note", "reason"],
+  // Decision 7: no reason is asked for or kept; the card's decision rows go, the owner's private reasons with them.
+  forget_card: ["card", "confirm"],
 };
 
 /**
@@ -291,9 +312,20 @@ export function refineAtlasReviewInput(
     case "edit_finding":
       if (after) {
         findingOrCard();
-        if (![...EDIT_TEXTS, "sources", "numbers"].some((field) => has(field as AtlasFieldName))) {
+        const newText = [...EDIT_TEXTS, "sources", "numbers"].some((field) => has(field as AtlasFieldName));
+        if (!newText && value.eraseWording === true) {
+          // Decision 7 alone: the earlier versions' wording is erased and the latest stays as it is.
+          for (const field of ["note", "correction", "confirm"] as const) {
+            if (has(field)) {
+              issue(`edit_finding with eraseWording and no new text erases the earlier versions' wording only; it ` +
+                `does not take ${field}`, field);
+            }
+          }
+          return;
+        }
+        if (!newText) {
           issue("edit_finding after acceptance needs a new wording, appliesTo, whyNotUsual, whatWouldChangeIt, " +
-            "sources or numbers", "wording");
+            "sources or numbers, or eraseWording", "wording");
         }
         if (value.correction !== false && !has("note")) {
           issue("a correction needs its public note; set correction to false for a wording fix", "note");
@@ -318,7 +350,11 @@ export function refineAtlasReviewInput(
     case "withdraw_finding":
       findingOrCard();
       if (!has("version")) issue("withdraw_finding needs version, the finding's latest", "version");
-      if (!has("note")) issue("withdraw_finding needs its public note", "note");
+      // With eraseWording, a finding already withdrawn needs no note; the call says so for one that is not.
+      if (!has("note") && value.eraseWording !== true) issue("withdraw_finding needs its public note", "note");
+      return;
+    case "forget_card":
+      if (!has("card")) issue("forget_card needs card, such as ARF-0142", "card");
       return;
     case "link_findings":
       if (!has("atlasNumber")) issue("link_findings needs atlasNumber", "atlasNumber");
@@ -426,6 +462,8 @@ export const atlasStatusSchema = z.object({
   version: z.number().int().min(1).nullable(),
   topic: topicViewSchema.nullable(),
   wording: z.string().nullable(),
+  /** The versions whose wording is erased (decision 7): it reads as the fixed marker. */
+  wordingRemoved: z.array(z.number().int().min(1)).max(1_000),
   researchCheckedOn: daySchema.nullable(),
   links: z.array(z.object({
     relation: z.enum(ATLAS_LINK_RELATIONS),
@@ -488,6 +526,30 @@ export const atlasRetrySchema = z.object({
   message: z.string(),
 }).strict();
 
+/** forget_card (decision 7): what was removed, and the steps left for the owner. */
+export const atlasForgetSchema = z.object({
+  card: cardIdSchema,
+  /** forgotten: GitHub answers 404 or 410 for every card; waiting_for_owner: the owner deletes the stripped issues. */
+  status: z.enum(["forgotten", "waiting_for_owner", "incomplete"]),
+  /** Whether the card's research-thread key was known, so the person's other saves could be looked for. */
+  threadKnown: z.boolean(),
+  cards: z.array(z.object({
+    card: cardIdSchema,
+    url: z.string(),
+    github: z.enum(["stripped", "deleted", "not_found"]),
+  }).strict()).max(1_000),
+  decisionsRemoved: z.number().int().nonnegative(),
+  /** Accepted findings no other card's decision names: they stay while they are valid. */
+  findingsOnlyFromThese: z.array(publicNumberSchema).max(1_000),
+  findingsAlsoElsewhere: z.array(publicNumberSchema).max(1_000),
+  /** Cards on which the person's later save was deleted. */
+  laterSavesDeletedOn: z.array(cardIdSchema).max(1_000),
+  /** Other people's later saves on the person's cards, re-filed as cards of their own. */
+  refiled: z.array(z.object({ from: cardIdSchema, card: cardIdSchema }).strict()).max(1_000),
+  ownerSteps: z.array(z.string()).max(10),
+}).strict();
+export type AtlasForget = z.infer<typeof atlasForgetSchema>;
+
 export interface AtlasReviewResult {
   ok: boolean;
   text: string;
@@ -498,6 +560,7 @@ export interface AtlasReviewResult {
   atlas?: AtlasStatus;
   checks?: AtlasChecks;
   retry?: z.infer<typeof atlasRetrySchema>;
+  forget?: AtlasForget;
 }
 
 // Dependencies ----------------------------------------------------------------------------------------------------------
@@ -542,6 +605,7 @@ export const ATLAS_FAILURE_EXPLANATIONS: Record<AtlasFindingPromotionFailureCode
   ATLAS_LINK_ALREADY_RECORDED: "this link was recorded before and withdrawn, and the same link is not recorded again",
   ATLAS_LINK_CYCLE: "the replaces link would make a cycle of findings replacing each other",
   ATLAS_LINK_MISSING: "the two findings have no standing link of that relation to withdraw",
+  ATLAS_ERASE_NOT_WITHDRAWN: "erasing every version's wording needs the finding withdrawn first",
   SOURCE_IDENTIFIER_CONFLICT: "a source's identifiers name another study record in the Atlas, or one of another kind",
   ATLAS_VERSION_LINEAGE_MISMATCH: "the finding's version chain did not line up",
   CLAIM_DEPENDENCY_CYCLE: "the link would make the findings' claims depend on each other in a cycle",
@@ -637,6 +701,7 @@ export class AtlasReview {
         case "reject_finding": return await this.reject(request);
         case "withdraw_finding": return await this.withdraw(request);
         case "link_findings": return await this.link(request);
+        case "forget_card": return await this.forget(request);
       }
     } catch (error) {
       return errorResult(error);
@@ -842,7 +907,10 @@ export class AtlasReview {
     if (status === undefined) {
       return errorOf("finding_not_found", `No finding has the number ${publicNumber}.`);
     }
-    return { ok: true, outcome: "finding_inspected", atlas: status, text: statusSentence(status) };
+    // An erased finding's original wording may still be on the cards it was decided from (decision 7).
+    const holding = status.wordingRemoved.length === 0 ? [] :
+      holdingSentences(await this.cardsHoldingWording(publicNumber, new Set()));
+    return { ok: true, outcome: "finding_inspected", atlas: status, text: [statusSentence(status), ...holding].join(" ") };
   }
 
   /** A finding's stored state, or what its intents say while it is not stored yet; undefined when there is none. */
@@ -871,6 +939,7 @@ export class AtlasReview {
         version: null,
         topic: payload.topic.label === null ? null : { key: payload.topic.key, label: payload.topic.label, isNew: true },
         wording: payload.content.wording,
+        wordingRemoved: [],
         researchCheckedOn: payload.researchCheckedOn,
         links: [],
         intent: decided ?? intentView(accept),
@@ -889,6 +958,7 @@ export class AtlasReview {
       version: latest.versionNumber,
       topic: topic === undefined ? null : { key: topic.canonicalKey, label: topic.label, isNew: false },
       wording: latest.content.wording,
+      wordingRemoved: finding.versions.filter(({ erased }) => erased).map(({ versionNumber }) => versionNumber),
       researchCheckedOn: latest.researchCheckedOn,
       links: state.links
         .filter((link) => link.fromFindingId === finding.findingId || link.toFindingId === finding.findingId)
@@ -1111,6 +1181,7 @@ export class AtlasReview {
       version: null,
       topic,
       wording: recheckOf === undefined ? accepted.wording : null,
+      wordingRemoved: [],
       researchCheckedOn: researchDayOf(item.record.stamp),
       links: [],
       intent: stored.intentId === null || stored.intent === null ? null : {
@@ -1162,15 +1233,20 @@ export class AtlasReview {
   // edit_finding after acceptance ---------------------------------------------------------------------------------------
 
   private async editAccepted(request: AtlasReviewRequest, providers: AtlasProviderConfig): Promise<AtlasReviewResult> {
-    if (request.eraseWording === true) return eraseNotBuilt();
+    const erase = request.eraseWording === true;
     const resolved = await this.resolveAccepted(request);
     if (isFailure(resolved)) return resolved.failed;
-    const context = await this.findingContext(resolved, [resolved]);
+    const context = await this.findingContext(resolved, [resolved], { questionUses: erase });
     if (isFailure(context)) return context.failed;
     const { finding, state, intents } = context;
     const latest = finding.versions.at(-1)!;
-    if (latest.status === "invalidated") return withdrawnConflict(resolved);
+    if (latest.status === "invalidated") {
+      return withdrawnConflict(resolved, erase ? " To erase its wording, use withdraw_finding with eraseWording." : "");
+    }
     if (request.version !== latest.versionNumber) return versionStale(resolved, latest.versionNumber);
+    if (erase && ![...EDIT_TEXTS, "sources", "numbers"].some((field) => request[field as keyof AtlasReviewRequest] !== undefined)) {
+      return this.eraseOnly(resolved, context, "earlier_versions", request);
+    }
     const accept = intents.find((intent) => intent.intentKind === "accept" && intent.publicNumber === resolved &&
       intent.status === "COMPLETED");
     if (accept === undefined || accept.payload.kind !== "accept") {
@@ -1264,7 +1340,7 @@ export class AtlasReview {
       };
     }
     if (plan.confirmations.length > 0 && request.confirm !== true) {
-      return this.pendingGuard(intents, undefined, resolved) ?? {
+      return this.pendingGuard(intents, [], resolved) ?? {
         ok: false,
         outcome: "needs_confirmation",
         checks: checksNow(),
@@ -1276,24 +1352,177 @@ export class AtlasReview {
     const prepared = prepareOrProblems(payload, problems);
     const checks = checksNow();
     if (prepared === undefined) return checksNotPassed(resolved, checks);
-    const pending = this.pendingGuard(intents, prepared, resolved);
+    // Decision 7: behind the new general version, an erasure of every version before it.
+    const erasure = erase ? await this.erasePayload(resolved, latest.versionNumber + 1, "earlier_versions") : undefined;
+    const pending = this.pendingGuard(intents, erasure === undefined ? [prepared] : [prepared, erasure], resolved);
     if (pending !== undefined) return pending;
-    const recorded = await this.recordIntent("revise", resolved, prepared, request.reason, intents);
+    const recorded = await this.recordIntents(
+      [{ kind: "revise", prepared }, ...(erasure === undefined ? [] : [{ kind: "erase" as const, prepared: erasure }])],
+      resolved, request.reason, intents,
+    );
     const kind = request.correction === false ? "wording fix" : "correction";
+    const queued = `Queued a ${kind} of ${resolved}: version ${latest.versionNumber + 1}` +
+      `${request.note === undefined ? "" : ", with your note, which the Atlas dates"}`;
+    const atlas: AtlasStatus = {
+      ...(await this.statusOf(resolved))!,
+      labelAfter: labelsWith(state, [finding.findingId], { bases: { [finding.findingId]: content.verifiedBases } })
+        .get(finding.findingId) ?? null,
+      intent: intentView(recorded.at(-1)!),
+    };
+    if (erasure !== undefined) {
+      return await this.erasureQueued({
+        publicNumber: resolved, finding, state, recorded, checks, atlas,
+        erased: finding.versions.filter(({ erased }) => !erased).map(({ versionNumber }) => versionNumber),
+        lead: (versions) => `${queued}; then the wording of ${versions} is erased (decision 7)`,
+      });
+    }
     return {
       ok: true,
-      outcome: outcomeOf(recorded.status),
+      outcome: outcomeOf(recorded[0]!.status),
       checks,
-      atlas: {
-        ...(await this.statusOf(resolved))!,
-        labelAfter: labelsWith(state, [finding.findingId], { bases: { [finding.findingId]: content.verifiedBases } })
-          .get(finding.findingId) ?? null,
-        intent: intentView(recorded),
-      },
-      text: `Queued a ${kind} of ${resolved}: version ${latest.versionNumber + 1}` +
-        `${request.note === undefined ? "" : ", with your note, which the Atlas dates"}. The Atlas writer stores it ` +
-        "within about 5 minutes.",
+      atlas,
+      text: `${queued}. The Atlas writer stores it within about 5 minutes.`,
     };
+  }
+
+  // Erasing wording that could identify a person (decision 7) ---------------------------------------------------------
+
+  /**
+   * An erasure on its own: with edit_finding, of every version before the latest, which stays; with withdraw_finding on
+   * a finding already withdrawn, of every version.
+   */
+  private async eraseOnly(
+    publicNumber: string,
+    context: { finding: AtlasStateFinding; state: AtlasState; intents: AtlasIntentView[] },
+    scope: "earlier_versions" | "all_versions",
+    request: AtlasReviewRequest,
+  ): Promise<AtlasReviewResult> {
+    const { finding, state, intents } = context;
+    const latest = finding.versions.at(-1)!;
+    const erasing = finding.versions.filter(({ erased, versionNumber }) => !erased &&
+      (scope === "all_versions" || versionNumber < latest.versionNumber));
+    if (erasing.length === 0) {
+      return checksNotPassed(publicNumber, checksOf({
+        item: publicNumber, wouldBecome: null, recheckOf: undefined, privacy: [], relatedTopics: [],
+        problems: [{ code: "nothing_changed", message: scope === "all_versions"
+          ? `${publicNumber} is withdrawn and the wording of every version is removed already.`
+          : `${publicNumber} has no earlier version whose wording is still there: send new general wording with ` +
+            "eraseWording to make it a new version and erase this one's." }],
+      }));
+    }
+    const erasure = await this.erasePayload(publicNumber, latest.versionNumber, scope);
+    const pending = this.pendingGuard(intents, [erasure], publicNumber);
+    if (pending !== undefined) return pending;
+    const recorded = await this.recordIntents([{ kind: "erase", prepared: erasure }], publicNumber, request.reason,
+      intents);
+    const checks = checksOf({ item: publicNumber, wouldBecome: null, recheckOf: undefined, privacy: [], problems: [],
+      relatedTopics: [] });
+    const status = (await this.statusOf(publicNumber))!;
+    return await this.erasureQueued({
+      publicNumber, finding, state, recorded, checks,
+      atlas: { ...status, labelAfter: status.label, intent: intentView(recorded[0]!) },
+      erased: erasing.map(({ versionNumber }) => versionNumber),
+      lead: (versions) => `Queued the erasure of the wording of ${publicNumber}'s ${versions} (decision 7)` +
+        (scope === "all_versions" ? `, which leaves it "withdrawn, wording removed" with the date` : ""),
+      tail: request.note === undefined ? "" : " The note you sent is not stored: the withdrawal keeps its own, which " +
+        "is erased with the rest.",
+    });
+  }
+
+  /** An erase intent for the finding at the version it will have when the erasure applies. */
+  private async erasePayload(
+    publicNumber: string,
+    version: number,
+    scope: "earlier_versions" | "all_versions",
+  ): Promise<PreparedAtlasFindingIntent> {
+    return prepareAtlasFindingIntent({
+      schema: ATLAS_INTENT_SCHEMA,
+      kind: "erase",
+      publicNumber,
+      version,
+      scope,
+      reasonCode: "could_identify_a_person",
+      decidedWith: await this.decidedWith(),
+    });
+  }
+
+  /**
+   * The reply to a queued erasure: which versions' wording goes, whether the question goes with it or who else still
+   * uses it, the links whose rationale goes, and the cards in the findings inbox that still hold the original wording,
+   * with forget_card for each (decision 7).
+   */
+  private async erasureQueued(input: {
+    publicNumber: string;
+    finding: AtlasStateFinding;
+    state: AtlasState;
+    recorded: AtlasIntentView[];
+    checks: AtlasChecks;
+    atlas: AtlasStatus;
+    erased: number[];
+    lead: (versions: string) => string;
+    tail?: string;
+  }): Promise<AtlasReviewResult> {
+    const { publicNumber, finding, state } = input;
+    const question = atlasQuestionUse(state, finding.findingId);
+    const links = state.links.filter((link) => link.fromFindingId === finding.findingId ||
+      link.toFindingId === finding.findingId).length;
+    const keys = new Set(finding.versions
+      .filter(({ versionNumber }) => input.erased.includes(versionNumber))
+      .flatMap(({ cardWordingKey, acceptedWordingKey }) => [cardWordingKey, acceptedWordingKey])
+      .filter((key): key is string => key !== null && key !== ATLAS_ERASED_KEY));
+    const holding = await this.cardsHoldingWording(publicNumber, keys);
+    const versions = `${input.erased.length === 1 ? "version" : "versions"} ${listed(input.erased.map(String))}`;
+    const counted = finding.versions.some(({ versionNumber, content }) => input.erased.includes(versionNumber) &&
+      content.numbers.length > 0);
+    const sentences = [
+      `${input.lead(versions)}: the Atlas shows "${ATLAS_ERASED_TEXT}" in place of every text` +
+        `${counted ? ", the numbers keep their counts," : ""} and the same texts are cleared from the records of your ` +
+        "earlier decisions on it.",
+      questionSentence(question),
+      ...(links === 0 ? [] : [`The rationale of its ${links === 1 ? "link" : `${links} links`} is erased too.`]),
+      ...holdingSentences(holding),
+      `The Atlas writer stores ${input.recorded.length === 1 ? "it within about 5 minutes"
+        : "them within about 10 minutes, one per run"}.${input.tail ?? ""}`,
+    ];
+    return {
+      ok: true,
+      outcome: outcomeOf(input.recorded.at(-1)!.status),
+      checks: input.checks,
+      atlas: input.atlas,
+      text: sentences.join(" "),
+    };
+  }
+
+  /**
+   * The cards in the findings inbox that still hold a finding's original wording (decision 7): those whose decisions
+   * name it, and open cards whose undecided findings carry one of the wording keys erased. Undefined when the inbox or
+   * the decisions cannot be read just now; the erasure is queued either way.
+   */
+  private async cardsHoldingWording(publicNumber: string, keys: ReadonlySet<string>): Promise<{
+    decided: number[];
+    undecided: Array<{ card: number; finding: number }>;
+  } | undefined> {
+    try {
+      const cards = (await this.deps.inbox.repositoryIssues()).filter((issue) => issue.card !== undefined);
+      const decisions = cards.length === 0 ? [] : await this.deps.store.inspectCards(cards.map(({ number }) => number));
+      const decided = [...new Set(decisions.filter((decision) => decision.publicNumber === publicNumber)
+        .map(({ cardNumber }) => cardNumber))].sort((left, right) => left - right);
+      const undecided: Array<{ card: number; finding: number }> = [];
+      for (const issue of cards) {
+        if (issue.state !== "open" || issue.record === undefined) continue;
+        const record = issue.record;
+        record.card.findings.forEach((stored, index) => {
+          const decidedItem = decisions.some((decision) => decision.cardNumber === issue.number &&
+            decision.itemKind === "finding" && decision.itemNumber === index + 1);
+          if (!decidedItem && keys.has(atlasWordingKey(record.card.question, stored.claim))) {
+            undecided.push({ card: issue.number, finding: index + 1 });
+          }
+        });
+      }
+      return { decided, undecided };
+    } catch {
+      return undefined;
+    }
   }
 
   // reject_finding ------------------------------------------------------------------------------------------------------
@@ -1345,21 +1574,30 @@ export class AtlasReview {
   // withdraw_finding ----------------------------------------------------------------------------------------------------
 
   private async withdraw(request: AtlasReviewRequest): Promise<AtlasReviewResult> {
-    if (request.eraseWording === true) return eraseNotBuilt();
+    const erase = request.eraseWording === true;
     const resolved = await this.resolveAccepted(request);
     if (isFailure(resolved)) return resolved.failed;
-    const context = await this.findingContext(resolved, [resolved]);
+    const context = await this.findingContext(resolved, [resolved], { questionUses: erase });
     if (isFailure(context)) return context.failed;
     const { finding, state, intents } = context;
     const latest = finding.versions.at(-1)!;
-    if (latest.status === "invalidated") return withdrawnConflict(resolved);
+    if (latest.status === "invalidated") {
+      if (!erase) return withdrawnConflict(resolved);
+      // Withdrawn before: decision 7 erases the wording of every version now.
+      if (request.version !== latest.versionNumber) return versionStale(resolved, latest.versionNumber);
+      return this.eraseOnly(resolved, context, "all_versions", request);
+    }
     if (request.version !== latest.versionNumber) return versionStale(resolved, latest.versionNumber);
+    if (request.note === undefined) {
+      return errorOf("invalid_request", `${resolved} is not withdrawn yet: withdraw_finding needs its public note, ` +
+        "which the erasure then removes with the rest of its wording. Nothing was recorded.");
+    }
     const payload = {
       schema: ATLAS_INTENT_SCHEMA,
       kind: "withdraw",
       publicNumber: resolved,
       version: latest.versionNumber,
-      note: request.note!,
+      note: request.note,
       decidedWith: await this.decidedWith(),
     };
     const privacy = screenTexts(intentTexts(payload));
@@ -1367,20 +1605,37 @@ export class AtlasReview {
     const prepared = privacy.length > 0 ? undefined : prepareOrProblems(payload, problems);
     const checks = checksOf({ item: resolved, wouldBecome: null, recheckOf: undefined, privacy, problems, relatedTopics: [] });
     if (prepared === undefined) return checksNotPassed(resolved, checks);
-    const pending = this.pendingGuard(intents, prepared, resolved);
+    // Decision 7: behind the withdrawal, an erasure of every version's wording, the withdrawn one included.
+    const erasure = erase ? await this.erasePayload(resolved, latest.versionNumber + 1, "all_versions") : undefined;
+    const pending = this.pendingGuard(intents, erasure === undefined ? [prepared] : [prepared, erasure], resolved);
     if (pending !== undefined) return pending;
-    const recorded = await this.recordIntent("withdraw", resolved, prepared, request.reason, intents);
+    const recorded = await this.recordIntents(
+      [{ kind: "withdraw", prepared }, ...(erasure === undefined ? [] : [{ kind: "erase" as const, prepared: erasure }])],
+      resolved, request.reason, intents,
+    );
     const after = labelsWith(state, partnersOf(state, finding.findingId), { invalidate: finding.findingId });
     const released = partnersOf(state, finding.findingId)
       .filter((id) => id !== finding.findingId && labelsWith(state, [id]).get(id) === "contested" && after.get(id) !== "contested")
       .map((id) => `${numberIn(state, id)} returns to ${after.get(id)}`);
+    const atlas: AtlasStatus = {
+      ...(await this.statusOf(resolved))!, labelAfter: "withdrawn", intent: intentView(recorded.at(-1)!),
+    };
+    const queued = `Queued the withdrawal of ${resolved}: version ${latest.versionNumber + 1} marks it withdrawn, ` +
+      `with your note, which the Atlas dates.${released.length === 0 ? "" : ` Then ${released.join(", ")}.`}`;
+    if (erasure !== undefined) {
+      return await this.erasureQueued({
+        publicNumber: resolved, finding, state, recorded, checks, atlas,
+        erased: [...finding.versions.filter(({ erased }) => !erased).map(({ versionNumber }) => versionNumber),
+          latest.versionNumber + 1],
+        lead: (versions) => `${queued} After it, the wording of ${versions} is erased (decision 7), your note ` +
+          `included, which leaves it "withdrawn, wording removed" with the date`,
+      });
+    }
     return {
       ok: true,
-      outcome: outcomeOf(recorded.status),
-      atlas: { ...(await this.statusOf(resolved))!, labelAfter: "withdrawn", intent: intentView(recorded) },
-      text: `Queued the withdrawal of ${resolved}: version ${latest.versionNumber + 1} marks it withdrawn, with your ` +
-        `note, which the Atlas dates.${released.length === 0 ? "" : ` Then ${released.join(", ")}.`} The Atlas writer ` +
-        "stores it within about 5 minutes.",
+      outcome: outcomeOf(recorded[0]!.status),
+      atlas,
+      text: `${queued} The Atlas writer stores it within about 5 minutes.`,
     };
   }
 
@@ -1444,7 +1699,7 @@ export class AtlasReview {
     const subject = prepared.payload.kind === "link" || prepared.payload.kind === "unlink"
       ? prepared.payload.publicNumber
       : from;
-    const pending = this.pendingGuard(intents, prepared, subject, [from, to]);
+    const pending = this.pendingGuard(intents, [prepared], subject, [from, to]);
     if (pending !== undefined) return pending;
     const kind = prepared.payload.kind as "link" | "unlink";
     const recorded = await this.recordIntent(kind, subject, prepared, request.reason, intents);
@@ -1475,6 +1730,103 @@ export class AtlasReview {
         intent: intentView(recorded),
       },
       text: `Queued ${described}. Once the Atlas writer stores it, within about 5 minutes, ${labels}.`,
+    };
+  }
+
+  // forget_card ---------------------------------------------------------------------------------------------------------
+
+  /** Decision 7: removes what ties a card to its contributor (atlas-forget.ts), and says what the owner does next. */
+  private async forget(request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+    const cardNumber = findingsCardNumber(request.card!)!;
+    const id = publicFindingsCardId(cardNumber);
+    const outcome = await forgetCard({ store: this.deps.store, inbox: this.deps.inbox }, cardNumber, this.now(),
+      { confirmed: request.confirm === true });
+    switch (outcome.kind) {
+      case "not_a_card":
+        return errorOf("card_not_found", `${id} is neither a findings card nor a forgotten one; nothing was changed.`);
+      case "not_found":
+        return errorOf("card_not_found", `GitHub has no issue ${id} (404), no forgotten card lists it and no ` +
+          "decision row names it, so there is nothing to forget.");
+      case "unreadable_save":
+        return errorOf("card_unreadable", `${publicFindingsCardId(outcome.card)} holds a later save (comment ` +
+          `${outcome.commentId}) that does not read as the library saved it (it may have been edited in GitHub), so ` +
+          "it cannot be re-filed as a card of its own. Nothing was changed: restore that comment, or delete it in " +
+          `GitHub if it holds nothing to keep, then call forget_card ${id} again.`);
+      case "needs_confirmation": {
+        const one = outcome.laterSaves === 1;
+        return {
+          ok: false,
+          outcome: "needs_confirmation",
+          text: `Not changed yet: ${id} also holds ${one ? "a later save" : `${outcome.laterSaves} later saves`} of ` +
+            `the same question and claims from other research threads, and ${one ? "the person" : "the people"} who ` +
+            `saved ${one ? "it was" : "them were"} told ${id} too, so the request may be ${one ? "theirs" : "one of " +
+            "theirs"}; the id alone cannot tell. forget_card forgets the saves of the card's first saver and re-files ` +
+            `${one ? "that later save as a card" : "those later saves as cards"} of ${one ? "its" : "their"} own, ` +
+            "which the reply names. If the request comes from the first saver, send the same call with confirm: " +
+            "true. If it may come from a later saver, do the same, then forget_card their re-filed card too.",
+        };
+      }
+      case "github_failed": {
+        const forget = this.forgetView(outcome.report, "incomplete");
+        const message = `GitHub failed part way through forgetting ${id}. ${forgetSentences(forget, outcome.report)
+          .join(" ")} Call forget_card ${id} again${outcome.error.retryable ? " in a few minutes" : ""} to finish; ` +
+          "what is done is not redone.";
+        return outcome.error.retryable
+          ? { ...tryAgainLater("github_unavailable", message), forget }
+          : { ...errorOf("review_service_unavailable", message), forget };
+      }
+      case "done": {
+        const report = outcome.report;
+        const stripped = report.cards.filter(({ github }) => github === "stripped").length;
+        const forget = this.forgetView(report, stripped > 0 ? "waiting_for_owner" : "forgotten");
+        // A call that changed nothing finds the stripped issues still waiting for the owner.
+        const lead = report.strippedNow.length > 0 || report.decisions.length > 0 || report.savesDeleted.length > 0
+          ? `Forgot ${id} at its contributor's request (decision 7).`
+          : `GitHub still has ${stripped === 1 ? "the stripped issue" : `${stripped} stripped issues`} of ${id} ` +
+            "(decision 7).";
+        return {
+          ok: true,
+          outcome: stripped > 0 ? "card_forget_waiting_for_owner" : "card_forgotten",
+          forget,
+          text: stripped > 0
+            ? [lead, ...forgetSentences(forget, report), ...forget.ownerSteps].join(" ")
+            : [`${id} is forgotten (decision 7): GitHub answers ${goneWords(report)}, and no decision row ` +
+              `names ${report.cards.length === 1 ? "it" : "them"}; findings accepted from ` +
+              `${report.cards.length === 1 ? "it" : "them"} stay in the Atlas while they are valid.`,
+              ...forgetSentences(forget, report)].join(" "),
+        };
+      }
+    }
+  }
+
+  /** The forget object: what was removed, and what the owner does next. */
+  private forgetView(report: CardForgetReport, status: AtlasForget["status"]): AtlasForget {
+    const numbers = (namedElsewhere: boolean) => [...new Set(report.decisions
+      .filter((decision) => decision.publicNumber !== null && decision.publicNumberNamedElsewhere === namedElsewhere)
+      .map(({ publicNumber }) => publicNumber!))].sort(comparePublicNumbers);
+    const stripped = report.cards.filter(({ github }) => github === "stripped").map(({ number }) => number);
+    const id = publicFindingsCardId(report.card);
+    return {
+      card: id,
+      status,
+      threadKnown: report.threadKnown,
+      cards: report.cards.map(({ number, github }) => ({
+        card: publicFindingsCardId(number),
+        url: this.deps.inbox.issueUrl(number),
+        github: github === "stripped" ? "stripped" as const : github === 410 ? "deleted" as const : "not_found" as const,
+      })),
+      decisionsRemoved: report.decisions.length,
+      findingsOnlyFromThese: numbers(false),
+      findingsAlsoElsewhere: numbers(true),
+      laterSavesDeletedOn: [...new Set(report.savesDeleted)].sort((left, right) => left - right)
+        .map(publicFindingsCardId),
+      refiled: report.refiled.map(({ from, card }) => ({ from: publicFindingsCardId(from), card: publicFindingsCardId(card) })),
+      ownerSteps: status !== "waiting_for_owner" || stripped.length === 0 ? [] : [
+        `Now delete ${stripped.length === 1 ? "this issue" : "these issues"} in GitHub (Delete issue, at the foot of ` +
+          `${stripped.length === 1 ? "the" : "each"} issue's page), which also removes the edit history: ` +
+          `${stripped.map((number) => this.deps.inbox.issueUrl(number)).join(", ")}.`,
+        `Then call forget_card ${id} again to check that GitHub no longer has ${stripped.length === 1 ? "it" : "them"}.`,
+      ],
     };
   }
 
@@ -1540,15 +1892,21 @@ export class AtlasReview {
     return decision.publicNumber;
   }
 
-  /** A stored finding with its canonical state and its intents, or why there is none to change yet. */
-  private async findingContext(publicNumber: string, numbers: string[]): Promise<{
+  /**
+   * A stored finding with its canonical state and its intents, or why there is none to change yet. With questionUses,
+   * the state also holds who else uses its question, for an erasure (decision 7).
+   */
+  private async findingContext(publicNumber: string, numbers: string[], options: { questionUses?: boolean } = {}): Promise<{
     finding: AtlasStateFinding;
     state: AtlasState;
     intents: AtlasIntentView[];
   } | Failure> {
     const [intents, state] = await Promise.all([
       this.deps.store.inspectIntents(numbers),
-      this.deps.reader.readAtlasState({ publicNumbers: numbers }),
+      this.deps.reader.readAtlasState({
+        publicNumbers: numbers,
+        ...(options.questionUses === true ? { questionUsesOf: [publicNumber] } : {}),
+      }),
     ]);
     const finding = state.findings.find((candidate) => candidate.publicNumber === publicNumber);
     if (finding !== undefined) return { finding, state, intents };
@@ -1565,27 +1923,35 @@ export class AtlasReview {
   }
 
   /**
-   * A change waits for the writer on these findings: the same intent again is that one (nothing new is recorded);
-   * any other waits until it is stored, since it may change the version or the links the new one depends on.
+   * A change waits for the writer on these findings: the same intents again are those (nothing new is recorded), and
+   * the first of them waiting alone is recorded again with the rest behind it; any other change waits until it is
+   * stored, since it may change the version or the links the new one depends on.
    */
   private pendingGuard(
     intents: readonly AtlasIntentView[],
-    prepared: PreparedAtlasFindingIntent | undefined,
+    prepared: readonly PreparedAtlasFindingIntent[],
     subject: string,
     numbers: readonly string[] = [subject],
   ): AtlasReviewResult | undefined {
     const pending = intents.filter((intent) => intent.status === "PENDING" && (numbers.includes(intent.publicNumber) ||
       ("toPublicNumber" in intent.payload && numbers.includes(intent.payload.toPublicNumber))));
     if (pending.length === 0) return undefined;
-    const same = prepared === undefined ? undefined : pending.find((intent) =>
-      intent.intentKind === prepared.payload.kind && intent.publicNumber === subject &&
-      intent.payloadSha256 === prepared.payloadSha256);
-    if (same !== undefined) {
+    const waits = (candidate: PreparedAtlasFindingIntent) => pending.some((intent) =>
+      intent.intentKind === candidate.payload.kind && intent.publicNumber === subject &&
+      intent.payloadSha256 === candidate.payloadSha256);
+    if (prepared.length > 0 && prepared.every(waits)) {
+      const kinds = listed(prepared.map(({ payload }) => payload.kind));
       return {
         ok: true,
         outcome: "finding_queued",
-        text: `This ${same.intentKind} of ${subject} already waits for the Atlas writer; nothing new was recorded.`,
+        text: `This ${kinds} of ${subject} already ${prepared.length === 1 ? "waits" : "wait"} for the Atlas writer; ` +
+          "nothing new was recorded.",
       };
+    }
+    // An erasure asked for behind the same change already waiting (decision 7) is recorded behind it.
+    if (prepared.length > 1 && waits(prepared[0]!) && pending.every((intent) => prepared.some((candidate) =>
+      intent.intentKind === candidate.payload.kind && intent.payloadSha256 === candidate.payloadSha256))) {
+      return undefined;
     }
     return tryAgainLater("writer_pending", `${pending.map((intent) => `${intent.publicNumber}'s ${intent.intentKind}`)
       .join(", ")} ${pending.length === 1 ? "waits" : "wait"} for the Atlas writer (about 5 minutes), and this change ` +
@@ -1600,19 +1966,35 @@ export class AtlasReview {
     reason: string | undefined,
     intents: readonly AtlasIntentView[],
   ): Promise<AtlasIntentView> {
+    return (await this.recordIntents([{ kind, prepared }], publicNumber, reason, intents))[0]!;
+  }
+
+  /**
+   * Records intents on an accepted finding in one transaction, in order (an erasure behind its revision or withdrawal,
+   * decision 7), each as the retry of the same kind's last refused intent if there is one.
+   */
+  private async recordIntents(
+    entries: ReadonlyArray<{ kind: "revise" | "withdraw" | "link" | "unlink" | "erase"; prepared: PreparedAtlasFindingIntent }>,
+    publicNumber: string,
+    reason: string | undefined,
+    intents: readonly AtlasIntentView[],
+  ): Promise<AtlasIntentView[]> {
     const retried = new Set(intents.map(({ retryOfIntentId }) => retryOfIntentId).filter((id) => id !== null));
-    const retryOf = [...intents].reverse().find((intent) => intent.intentKind === kind &&
-      intent.publicNumber === publicNumber && intent.status === "FAILED" && !retried.has(intent.intentId));
-    return this.deps.store.recordIntent({
-      intentId: this.newIntentId(),
-      intentKind: kind,
-      publicNumber,
-      payload: prepared.payload,
-      payloadSha256: prepared.payloadSha256,
-      ownerReason: reason ?? null,
-      createdAt: this.now().toISOString(),
-      retryOfIntentId: retryOf?.intentId ?? null,
-    });
+    const createdAt = this.now().toISOString();
+    return this.deps.store.recordIntents(entries.map(({ kind, prepared }) => {
+      const retryOf = [...intents].reverse().find((intent) => intent.intentKind === kind &&
+        intent.publicNumber === publicNumber && intent.status === "FAILED" && !retried.has(intent.intentId));
+      return {
+        intentId: this.newIntentId(),
+        intentKind: kind,
+        publicNumber,
+        payload: prepared.payload,
+        payloadSha256: prepared.payloadSha256,
+        ownerReason: reason ?? null,
+        createdAt,
+        retryOfIntentId: retryOf?.intentId ?? null,
+      };
+    }));
   }
 
   private async decidedWith() {
@@ -2241,14 +2623,121 @@ function statusSentence(status: AtlasStatus): string {
   const links = status.links.filter(({ withdrawn }) => !withdrawn);
   const refused = status.intents.filter(({ status: state }) => state === "FAILED");
   const waiting = status.intents.filter(({ status: state }) => state === "PENDING");
+  const removed = status.wordingRemoved;
   return `${status.atlasNumber}: ${status.entryKind === "lead" ? "a lead" : "a finding"}, labeled ${status.label}, ` +
     `version ${status.version}${status.topic === null ? "" : `, filed under ${status.topic.label}`}` +
     `${status.researchCheckedOn === null ? "" : `, research of ${status.researchCheckedOn}`}: "${clip(status.wording ?? "", 200)}"` +
+    `${removed.length === 0 ? "" : `. Wording removed (decision 7) from ${removed.length === 1 ? "version" : "versions"} ` +
+      `${listed(removed.map(String))}`}` +
     `${links.length === 0 ? "" : `. Links: ${links.map((link) => link.direction === "from"
       ? `${link.relation} ${link.other}` : `${link.other} ${link.relation} it`).join(", ")}`}` +
     `${waiting.length === 0 ? "" : `. Waiting for the writer: ${waiting.map(({ kind }) => kind).join(", ")}`}` +
     `${refused.length === 0 ? "" : `. Refused by the writer: ${refused.map((intent) =>
       `${intent.kind} (${intent.failureCode}: ${intent.explanation})`).join("; ")}`}.`;
+}
+
+/** Whether an erasure takes the question too, or who else still uses it (decision 7). */
+function questionSentence(question: AtlasQuestionUse): string {
+  if (question.erased) return "Its question was erased before.";
+  if (question.erasable) return "Its question is erased too: no other finding or research uses it.";
+  const users = [
+    ...(question.sharedWith.length === 0 ? [] : [`${listed(question.sharedWith)} ` +
+      `${question.sharedWith.length === 1 ? "answers" : "answer"} it too`]),
+    ...(question.nonAtlasUses === 0 ? [] : ["research the Atlas did not write uses it"]),
+  ];
+  return `Its question stays, because ${users.join(" and ")}` +
+    (question.sharedWith.length === 0 ? "." : `: erasing the wording of ${question.sharedWith.length === 1
+      ? "that finding" : "those findings"} too takes the question with the last of them, if it could identify someone.`);
+}
+
+/** The cards in the findings inbox that still hold an erased finding's original wording, and what removes it. */
+function holdingSentences(holding: { decided: number[]; undecided: Array<{ card: number; finding: number }> } | undefined):
+  string[] {
+  if (holding === undefined) {
+    return ["The findings inbox could not be read just now to name the cards that still hold the original wording; " +
+      "inspect the finding again later to see them."];
+  }
+  const sentences: string[] = [];
+  if (holding.decided.length > 0) {
+    const cards = holding.decided.map(publicFindingsCardId);
+    const one = cards.length === 1;
+    sentences.push(`${listed(cards)} still ${one ? "holds" : "hold"} the original wording in the findings inbox: ` +
+      `forget_card ${one ? cards[0] : "on each"} removes it, with what ties ${one ? "the card" : "each card"} to its ` +
+      "contributor.");
+  }
+  if (holding.undecided.length > 0) {
+    const items = holding.undecided.map(({ card, finding }) => `${publicFindingsCardId(card)} finding ${finding}`);
+    const one = items.length === 1;
+    sentences.push(`${listed(items)} ${one ? "has" : "have"} the same question and claim and ${one ? "waits" : "wait"} ` +
+      `for a decision: accepting ${one ? "it" : "them"} would bring the wording back, so reject ${one ? "it" : "them"}, ` +
+      "or forget the card.");
+  }
+  return sentences;
+}
+
+/** What a forget_card call removed and found, in sentences. */
+function forgetSentences(forget: AtlasForget, report: CardForgetReport): string[] {
+  const sentences: string[] = [];
+  const others = forget.cards.map(({ card }) => card).filter((card) => card !== forget.card);
+  if (!forget.threadKnown && report.strippedNow.includes(report.card)) {
+    sentences.push(`${forget.card} has no research-thread key (it was saved before keys were kept), so the person's ` +
+      "other saves cannot be found from it: they name each card.");
+  } else if (others.length > 0) {
+    sentences.push(`Its research thread also saved ${listed(others)}, forgotten with it.`);
+  }
+  if (forget.laterSavesDeletedOn.length > 0) {
+    const one = forget.laterSavesDeletedOn.length === 1;
+    sentences.push(`The person's later ${one ? "save" : "saves"} on ${listed(forget.laterSavesDeletedOn)} ` +
+      `${one ? "is" : "are"} deleted.`);
+  }
+  if (forget.decisionsRemoved > 0) {
+    sentences.push(forget.decisionsRemoved === 1
+      ? "1 decision row is removed, with any private reason you gave on it."
+      : `${forget.decisionsRemoved} decision rows are removed, with any private reasons you gave on them.`);
+  }
+  if (forget.findingsOnlyFromThese.length > 0) {
+    const one = forget.findingsOnlyFromThese.length === 1;
+    sentences.push(`${listed(forget.findingsOnlyFromThese)} came only from ${others.length === 0 ? "this card" :
+      "these cards"} and ${one ? "stays" : "stay"} in the Atlas while ${one ? "it is" : "they are"} valid.`);
+  }
+  if (forget.findingsAlsoElsewhere.length > 0) {
+    sentences.push(`${listed(forget.findingsAlsoElsewhere)} ${forget.findingsAlsoElsewhere.length === 1 ? "is" : "are"} ` +
+      "also named by another card's decision.");
+  }
+  if (forget.refiled.length > 0) {
+    sentences.push(`Other people's later saves were re-filed as cards of their own: ${forget.refiled.map(({ from, card }) =>
+      `${card} (from ${from})`).join(", ")}; they were told the card they joined, so a request from one of them ` +
+      "names that card.");
+  }
+  if (report.strippedNow.length > 0) {
+    const one = report.strippedNow.length === 1;
+    sentences.push(`On GitHub ${one ? "the card's" : "each card's"} comments are deleted, its title and body replaced ` +
+      "by a tombstone, its labels removed, and it is closed as not planned and locked.");
+  }
+  if (forget.findingsOnlyFromThese.length + forget.findingsAlsoElsewhere.length > 0) {
+    sentences.push("If the request also says a finding is wrong, review it as a correction (edit_finding or " +
+      "withdraw_finding); if one could identify the person, use eraseWording.");
+  }
+  return sentences;
+}
+
+/** How GitHub answers for forgotten cards: 410 for one deleted, 404 for one it has no record of. */
+function goneWords(report: CardForgetReport): string {
+  const of = (status: 404 | 410) => report.cards.filter(({ github }) => github === status)
+    .map(({ number }) => publicFindingsCardId(number));
+  return [
+    ...(of(410).length === 0 ? [] : [`410 (deleted) for ${listed(of(410))}`]),
+    ...(of(404).length === 0 ? [] : [`404 (not found) for ${listed(of(404))}`]),
+  ].join(" and ");
+}
+
+function comparePublicNumbers(left: string, right: string): number {
+  return Number(left.slice(2)) - Number(right.slice(2));
+}
+
+/** A list in words: "A", "A and B", "A, B and C". */
+function listed(items: readonly string[]): string {
+  return items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
 }
 
 function cardView(loaded: LoadedCard, findings: CardItem[], state: AtlasState): AtlasCardView {
@@ -2398,13 +2887,8 @@ function versionStale(publicNumber: string, latest: number): AtlasReviewResult {
     "Nothing was recorded.");
 }
 
-function withdrawnConflict(publicNumber: string): AtlasReviewResult {
-  return errorOf("decision_conflict", `${publicNumber} is withdrawn, so it takes no further change.`);
-}
-
-function eraseNotBuilt(): AtlasReviewResult {
-  return errorOf("erase_not_built", "Erasing a finding's wording (decision 7) comes with the next part of the Atlas " +
-    "build; nothing was recorded. Correct or withdraw it without eraseWording, or wait for that release.");
+function withdrawnConflict(publicNumber: string, hint = ""): AtlasReviewResult {
+  return errorOf("decision_conflict", `${publicNumber} is withdrawn, so it takes no further change.${hint}`);
 }
 
 function errorResult(error: unknown): AtlasReviewResult {

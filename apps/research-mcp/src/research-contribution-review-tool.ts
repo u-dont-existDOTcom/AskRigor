@@ -17,6 +17,7 @@ import {
   atlasCardViewSchema,
   atlasChecksSchema,
   atlasFindingsListSchema,
+  atlasForgetSchema,
   atlasRetrySchema,
   atlasReviewInputShape,
   atlasStatusSchema,
@@ -35,7 +36,7 @@ const PROPOSAL_ACTIONS = ["inspect", "status", "accept", "reject"] as const;
 export const researchContributionReviewInputSchema = z.object({
   action: z.enum([...PROPOSAL_ACTIONS, ...ATLAS_REVIEW_ACTIONS])
     .describe("Proposals: inspect, status, accept or reject. Findings for the Atlas: list_findings, inspect_finding, " +
-      "accept_finding, edit_finding, reject_finding, withdraw_finding or link_findings."),
+      "accept_finding, edit_finding, reject_finding, withdraw_finding, link_findings or forget_card."),
   proposalId: z.string().uuid().optional().describe("Proposals: the proposal's ID."),
   expectedPayloadSha256: z.string().regex(/^[a-f0-9]{64}$/u).optional()
     .describe("Proposals: the payload hash inspect returned."),
@@ -169,6 +170,8 @@ export const researchContributionReviewOutputSchema = z.object({
   atlas: atlasStatusSchema.optional(),
   checks: atlasChecksSchema.optional(),
   retry: atlasRetrySchema.optional(),
+  // forget_card (decision 7): what was removed, and the steps left for the owner.
+  forget: atlasForgetSchema.optional(),
   // No call of this tool writes canonical evidence: an accepted decision is a hash-bound intent a separate writer applies.
   canonicalEvidenceChangedByThisCall: z.literal(false),
   error: reviewErrorSchema.optional(),
@@ -429,6 +432,7 @@ function atlasToolResult(result: AtlasReviewResult): CallToolResult {
     ...(result.atlas === undefined ? {} : { atlas: result.atlas }),
     ...(result.checks === undefined ? {} : { checks: result.checks }),
     ...(result.retry === undefined ? {} : { retry: result.retry }),
+    ...(result.forget === undefined ? {} : { forget: result.forget }),
     canonicalEvidenceChangedByThisCall: false,
     ...(result.error === undefined ? {} : { error: result.error }),
   });

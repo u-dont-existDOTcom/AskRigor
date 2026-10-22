@@ -152,7 +152,9 @@ describe("AskRigor MCP tools", () => {
       expect(review.description).toContain("this call never writes canonical evidence");
       const input = review.inputSchema as { properties: Record<string, { enum?: string[]; type?: string; pattern?: string }> };
       expect(input.properties.action!.enum).toEqual(["inspect", "status", "accept", "reject", "list_findings",
-        "inspect_finding", "accept_finding", "edit_finding", "reject_finding", "withdraw_finding", "link_findings"]);
+        "inspect_finding", "accept_finding", "edit_finding", "reject_finding", "withdraw_finding", "link_findings",
+        "forget_card"]);
+      expect(review.description).toContain("forget_card (card ARF-0142) removes what ties a card to its contributor");
       expect(Object.keys(input.properties)).toEqual(["action", "proposalId", "expectedPayloadSha256", "reason", "card",
         "finding", "lead", "atlasNumber", "cardSha256", "version", "topicKey", "topicLabel", "wording", "appliesTo",
         "whyNotUsual", "whatWouldChangeIt", "question", "sources", "numbers", "note", "correction", "eraseWording",
@@ -165,7 +167,7 @@ describe("AskRigor MCP tools", () => {
       expect(output.required).toEqual(["ok", "canonicalEvidenceChangedByThisCall"]);
       expect(output.properties.canonicalEvidenceChangedByThisCall).toMatchObject({ const: false });
       expect(Object.keys(output.properties)).toEqual(["ok", "outcome", "proposal", "findings", "card", "atlas", "checks",
-        "retry", "canonicalEvidenceChangedByThisCall", "error"]);
+        "retry", "forget", "canonicalEvidenceChangedByThisCall", "error"]);
     } finally {
       await server.close();
     }

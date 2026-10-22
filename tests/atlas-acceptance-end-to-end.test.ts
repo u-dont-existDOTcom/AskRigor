@@ -16,7 +16,7 @@ import { runAtlasScenario } from "./helpers/atlas-scenario.js";
 // same scenario (tests/helpers/atlas-scenario.ts) runs against PostgreSQL in the Docker acceptance.
 
 describe("the owner accepts findings into the Atlas, end to end", () => {
-  it("saves, lists, inspects, accepts, leads, links and corrects, and stores nothing that ties a finding to a card", async () => {
+  it("saves, lists, inspects, accepts, leads, links, corrects and forgets, and stores nothing that ties a finding to a card", async () => {
     const review = new InMemoryAtlasReviewStore();
     let canonical: InMemoryAtlasCanonicalStore | undefined;
     const report = await runAtlasScenario((clock) => {
@@ -40,6 +40,7 @@ describe("the owner accepts findings into the Atlas, end to end", () => {
       "accepted F-1002 as a lead; ARF-0042 closed as reviewed",
       "accepted F-1003 and linked it as contradicting F-1001: both contested",
       "corrected F-1001 to version 2 with a dated note",
+      "forgot ARF-0042: its decisions removed, its issue stripped, then deleted; F-1001 stays",
       "no stored row names a card, thread, fingerprint, receipt, card hash, answer quote or video",
     ]);
     // The scan read every row, and looked for each thread key, fingerprint, receipt hash and card hash by value.

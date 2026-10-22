@@ -817,9 +817,13 @@ export const REVIEW_RESEARCH_CONTRIBUTION_DESCRIPTION =
   "cardSha256, the topicKey you declare (with topicLabel for a new topic) and the numbers the wording gives (an empty " +
   "list if none), and confirm: true only after the owner said to accept what the checks flagged; edit_finding accepts " +
   "with the owner's wording, or after acceptance (with version) corrects it with a dated note; reject_finding, " +
-  "withdraw_finding and link_findings complete the set. Nothing from a card is public until the owner accepts it, " +
-  "and nothing is public until the Atlas pages exist. An accepted decision is a hash-bound intent: this call never " +
-  "writes canonical evidence, and a separate one-shot writer applies it within about 5 minutes.";
+  "withdraw_finding and link_findings complete the set. With eraseWording, edit_finding or withdraw_finding also " +
+  "erases wording the owner judges could identify a person. forget_card (card ARF-0142) removes what ties a card to " +
+  "its contributor whenever they ask, with no reason needed: it deletes the card's decision rows and strips its " +
+  "GitHub issue, which the owner then deletes, and findings accepted from it stay while they are valid. Nothing from " +
+  "a card is public until the owner accepts it, and nothing is public until the Atlas pages exist. An accepted " +
+  "decision is a hash-bound intent: this call never writes canonical evidence, and a separate one-shot writer applies " +
+  "it within about 5 minutes.";
 
 // A findings save never holds back the answer for long: past this, the answer
 // goes ahead and the save, which carries on, is reported unconfirmed.

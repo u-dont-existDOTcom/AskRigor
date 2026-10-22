@@ -294,7 +294,8 @@ describe("production living-evidence deployment", () => {
       expect(signature(provision, `GRANT EXECUTE ON FUNCTION living_evidence.${name}(`))
         .toBe(signature(migration, `REVOKE ALL ON FUNCTION ${name}(`));
     }
-    for (const writerOnly of ["erase_atlas_wording", "atlas_redaction_permits", "validate_atlas_finding_version", "atlas_public_number_seq"]) {
+    for (const writerOnly of ["erase_atlas_wording", "atlas_redaction_permits", "atlas_question_erasable",
+      "atlas_numbers_without_labels", "validate_atlas_finding_version", "atlas_public_number_seq"]) {
       expect(provision).not.toContain(writerOnly);
     }
     expect(provision).not.toMatch(/GRANT\s+(?:SELECT|INSERT|UPDATE|DELETE|TRUNCATE|USAGE|ALL)\s+ON\s+(?:TABLE|SEQUENCE|ALL)/iu);
@@ -316,9 +317,16 @@ describe("production living-evidence deployment", () => {
     expect(redefining).toEqual(["0001_living_evidence", "0017_atlas_findings"]);
     const guard = migration.slice(migration.indexOf("CREATE OR REPLACE FUNCTION reject_living_evidence_mutation()"));
     const body = guard.slice(0, guard.indexOf("$$;"));
+    // The tables erase_atlas_wording changes (Atlas phase 2 part D, decision 7): the version's own rows, the finding's
+    // links and their withdrawals, and the question.
+    const tables = [
+      "claim_versions", "atlas_finding_versions", "atlas_finding_changes", "atlas_finding_links",
+      "atlas_finding_link_withdrawals", "questions",
+    ];
     expect(body).toContain("IF TG_OP = 'UPDATE'");
     expect(body).toContain("AND TG_TABLE_SCHEMA = '__SCHEMA__'");
-    expect(body).toContain("AND TG_TABLE_NAME IN ('claim_versions', 'atlas_finding_versions', 'atlas_finding_changes')");
+    const guarded = body.slice(body.indexOf("AND TG_TABLE_NAME IN ("), body.indexOf(")", body.indexOf("AND TG_TABLE_NAME IN (")));
+    expect([...guarded.matchAll(/'([a-z_]+)'/gu)].map(([, table]) => table)).toEqual(tables);
     expect(body).toContain("AND __SCHEMA__.atlas_redaction_permits(TG_TABLE_NAME, to_jsonb(OLD), to_jsonb(NEW)) THEN");
     expect(body).toContain("RAISE EXCEPTION 'APPEND_ONLY_TABLE mutation rejected for %', TG_TABLE_NAME");
     expect(body).not.toContain("DELETE");
@@ -344,18 +352,36 @@ describe("production living-evidence deployment", () => {
       const clause = erase.slice(erase.indexOf("SET", start), erase.indexOf("WHERE", start));
       return [...clause.matchAll(/(?:SET|,)\s+([a-z_]+) =/gu)].map(([, column]) => column!).sort();
     };
-    for (const table of ["claim_versions", "atlas_finding_versions", "atlas_finding_changes"]) {
+    const branches = [...permits.matchAll(/target_table = '([a-z_]+)' THEN/gu)].map(([, table]) => table);
+    const updates = [...erase.matchAll(/UPDATE ([a-z_]+) erased/gu)].map(([, table]) => table);
+    expect(branches).toEqual(tables);
+    expect(updates).toEqual(tables);
+    for (const table of tables) {
       expect(erased(table).length).toBeGreaterThan(0);
       expect(erased(table)).toEqual(permitted(table));
     }
+    expect(erased("atlas_finding_versions")).toEqual([
+      "accepted_wording_key", "card_wording_key", "numbers", "usual_answer", "what_it_changes", "what_would_change_it",
+      "who_else", "why_not_usual",
+    ]);
+    expect(erased("atlas_finding_links")).toEqual(["rationale"]);
+    expect(erased("atlas_finding_link_withdrawals")).toEqual(["public_note"]);
+    expect(erased("questions")).toEqual(["normalized_question"]);
+    // A question is erased only while no other finding or research uses it, the guard checking the same rule.
+    expect(erase).toContain("IF atlas_question_erasable(redaction.finding_id) THEN");
+    expect(permits).toContain("OR NOT atlas_question_erasable(redaction.finding_id) THEN");
     expect(erase).toContain("PERFORM set_config('askrigor.atlas_erasing_redaction', target_redaction_id::text, true);");
     expect(erase).toContain("PERFORM set_config('askrigor.atlas_erasing_redaction', '', true);");
     expect(permits).toContain("current_setting('askrigor.atlas_erasing_redaction', true)");
     expect(permits).toContain("SELECT * INTO redaction FROM atlas_redactions WHERE redaction_id = erasing::uuid;");
     expect(permits).toContain(
-      "IF (old_row - text_columns - key_columns) IS DISTINCT FROM (new_row - text_columns - key_columns) THEN",
+      "IF (old_row - text_columns - key_columns - label_columns) IS DISTINCT FROM\n" +
+      "     (new_row - text_columns - key_columns - label_columns) THEN",
     );
     expect(permits).toContain("OR new_row -> column_name IS DISTINCT FROM to_jsonb('[wording removed]'::text)) THEN");
+    expect(permits).toContain(
+      "AND new_row -> column_name IS DISTINCT FROM atlas_numbers_without_labels(old_row -> column_name) THEN",
+    );
   });
 
   it("runs the Atlas runner after the contribution runner in promote-accepted, with the units unchanged", async () => {

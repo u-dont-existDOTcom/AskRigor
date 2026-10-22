@@ -1069,21 +1069,20 @@ identity, revoking research access does not withdraw it; its deletion is
 requested with its `ARF-####` id.
 
 Deleting a card (owner answer 159, rule 7, as notice v3 and the public pages
-say it): a request names the card's `ARF-####` id and needs no reason; asking
-why is optional. It removes the card and everything that ties it to the person:
-the stored issue, with its readable copy, record, version stamp and hidden
-marker, which holds the research thread key. What stays is only what is written
-without the person: a finding from the card that the owner has accepted for the
-public Atlas stays while it is valid, is corrected or taken down when someone
-shows it is wrong (a request that says why is reviewed as a correction), and is
-rewritten or removed if it could identify anyone. The owner's findings actions
-that accept findings (below) are built but closed until the owner opens them
-(`ASKRIGOR_ATLAS_REVIEW`); while they are closed no finding can be accepted, and
-a deletion removes the issue. The automatic deletion path for a card with
-decisions (`forget_card`: its decision rows and the GitHub card) comes with the
-next part of the Atlas build; until then the owner deletes the issue by hand,
-and the card's decision rows, which hold its number but no account, thread key
-or card text, stay until that path removes them.
+say it; owner decision 7): a request names the card's `ARF-####` id and needs no
+reason; asking why is optional. It removes the card and everything that ties it
+to the person: the stored issue, with its readable copy, record, version stamp
+and hidden marker, which holds the research thread key, the person's later
+saves on other cards, and the owner's decision rows on the card. What stays is
+only what is written without the person: a finding from the card that the
+owner has accepted for the public Atlas stays while it is valid, is corrected
+or taken down when someone shows it is wrong (a request that says why is
+reviewed as a correction), and is rewritten or removed if it could identify
+anyone (wording erasure, below). The owner's findings actions (below) are built
+but closed until the owner opens them (`ASKRIGOR_ATLAS_REVIEW`); while they are
+closed no finding can be accepted, and the owner deletes the issue by hand.
+Once they are open, the owner's `forget_card` does the rest (below), and the
+owner then deletes the stripped issues in GitHub.
 
 The living-evidence and frontier stores hold no YouTube identifiers while the
 YouTube compliance review is open, and neither does this library.
@@ -1101,7 +1100,7 @@ saved findings into AskRigor's evidence database, from which the public Atlas
 pages will be built. The actions are on the owner-only
 `review_research_contribution` (OAuth `cases:review` and the allowlisted owner
 subject): `list_findings`, `inspect_finding`, `accept_finding`, `edit_finding`,
-`reject_finding`, `withdraw_finding` and `link_findings`. They are closed unless
+`reject_finding`, `withdraw_finding`, `link_findings` and `forget_card`. They are closed unless
 `ASKRIGOR_ATLAS_REVIEW` is `enabled`, which the release sets once migration
 0017, the review role's grants and the promotion timer are verified; while
 closed they answer `atlas_review_closed` and read and record nothing. Nothing
@@ -1134,8 +1133,9 @@ accepts or rejects.
   number, the decision, the F number it took, the SHA-256 of the card record
   and its later saves as the owner inspected them, the owner's private reason
   (always for a rejection, optional otherwise) and the time. They are the only rows that name a card. They are kept
-  until the card is forgotten (decision 7, the next part of the build). The
-  reader role can read them, as it can read every table today.
+  until the card is forgotten (`forget_card`, decision 7), which deletes them,
+  the owner's private reasons with them. The reader role can read them, as it
+  can read every table today.
 - **Intents** (`atlas_finding_intents`): the accepted texts (the question, the
   wording, whom it applies to, the card's usual answer, why the usual answer
   misses it, what would change it, and its public-value declaration's who-else
@@ -1153,19 +1153,80 @@ accepts or rejects.
   them. Beside a later change's payload, never in it, the row keeps the owner's
   optional private reason. Each row also keeps its status, the writer's receipt
   or refusal code, the retry it answers and its times. An intent never holds a
-  card reference. Its texts are erased with the finding (decision 7, the next
-  part of the build).
+  card reference. Its texts are erased with the finding's (wording erasure,
+  below); an erasure intent holds only the F number, the version it was decided
+  against, its scope, the reason code `could_identify_a_person` and the
+  AskRigor version, build and protocols that recorded it.
 - **Canonical Atlas records**: general knowledge written without the person,
   append-only; kept while valid, corrected by new versions, and withdrawn by an
   invalidated version; their wording is erased only on the path for findings
-  that could identify someone (the next part of the build).
+  that could identify someone (below).
+- **Wording erasure** (`eraseWording` on `edit_finding` and `withdraw_finding`;
+  decision 7, choice 4a): when the owner judges that a finding's wording could
+  identify a person, `edit_finding` with new general wording records a new
+  version and the erasure of every earlier version's wording, in one
+  transaction, and `withdraw_finding` records the withdrawal and the erasure of
+  every version's wording, the withdrawal's note included, which leaves the
+  finding "withdrawn, wording removed" with its date; a finding withdrawn before
+  can be erased the same way. The promotion runner applies each erasure as it
+  applies any intent: it writes one `atlas_redactions` row per version erased
+  (the finding, the version, the reason code, the time and the run) and then
+  calls `erase_atlas_wording()`, the only function the append-only guard lets
+  change a canonical row, which sets to the fixed marker `[wording removed]`:
+  the version's claim texts and its Atlas texts (the usual answer, why it
+  misses, what would change it, who else and what it changes), the text labels
+  of its numbers (outcome, option, comparator and follow-up; the counts, totals
+  and directions stay), and the notes of its change records; its two wording
+  keys, set to 64 zeros; the rationale of every link that touches the finding
+  and the note of each such link's withdrawal; and the finding's question, only
+  when no research frontier asks it and every other finding that answers it has
+  had all its wording erased (a question still in use stays, and the owner's
+  call names the F numbers that use it). Topic labels are never erased. In the
+  same transaction the runner sets the same texts to the marker in every intent
+  it has finished with that names the finding (the earlier accept's and
+  corrections' texts and wording keys, notes and link rationales, and the
+  question when it went), keeping the payload of the correction that made the
+  new general version, and records when (`texts_erased_at`); a pending intent
+  keeps its texts until it is applied. A `wording_removed` change record dates
+  the erasure without any text. The erasure itself holds no card reference, so
+  the runner cannot tell which cards still hold the original wording: the
+  owner's call names them (cards with a decision on the finding, and open cards
+  whose wording keys match the erased ones) and suggests `forget_card` for
+  each, and `inspect_finding` repeats it.
+- **Forgetting a card** (`forget_card`, decision 7): the owner names the card's
+  `ARF-####` id; no reason is needed. The call first reads the private findings
+  repository: the person's cards are the named card and every card, open or
+  closed, whose hidden marker holds the same research-thread key (the thread's
+  earlier, replaced cards among them), plus any card a tombstone of an earlier
+  call lists; the person's later saves are the occurrence comments with that
+  key on other cards. Everything is read before anything changes: a later save
+  on the person's cards that does not read as the library saved it stops the
+  call with nothing changed, and so does a named card holding later saves from
+  other research threads until the owner confirms (`confirm: true`), because
+  those savers were told the card's id too. Then it deletes the person's cards'
+  decision rows (`forget_atlas_cards`), and, within the GitHub App's
+  `issues: write`, re-files each other person's later save on the person's cards
+  as a card of its own (a new issue with that save's record and stamp, whose
+  marker notes the forgotten card it came from), deletes the person's later
+  saves on other cards, and, the named card last, deletes each of the person's
+  cards' comments, replaces its title and body with a tombstone (a hidden
+  marker listing the cards forgotten together and the time, nothing else),
+  removes its labels, closes it as not planned and locks it. The reply names
+  the F numbers that came only from these cards and those also accepted from
+  other cards, all of which stay in the Atlas while valid, and asks the owner to
+  delete each stripped issue in GitHub, which also removes its edit history
+  (choice 5a: the App cannot delete issues). Calling again checks GitHub: when
+  every issue answers 404 or 410 and no decision row names the card, the reply
+  is `card_forgotten`; until then it is `card_forget_waiting_for_owner`, linking
+  each issue still there. A call that fails part way is resumed by calling
+  again; nothing done is redone.
 - **GitHub additions**: each decision as a comment on the card, such as
   "Finding 1: accepted as F-1007, checked, 4 Nov 2026.", with a hidden marker
   holding the item, the decision, the F number and the time, never the owner's
   reason; the `reviewed` label in place of `pending-review` once every finding
   of the card has a decision, when the card is also closed as completed. A
   GitHub write that fails is redone, matched by its marker, on the next inspect
-  or list. The forget path comes with the next part of the build.
+  or list. `forget_card` removes these with the card (above).
 - **Never stored in the Atlas**: the account, the research thread key, the
   finalization receipt or its hash, and the duplicate fingerprint; the `ARF-`
   number outside the decisions table; save times, the reported model, the
@@ -1179,6 +1240,20 @@ accepts or rejects.
   digest the final check signed, but its verified bases and version stamp are
   as GitHub holds them. An intent the writer refused stays in `list_findings`
   until the owner sends a corrected one, which is recorded as its retry.
+  Forgetting finds the person's other saves only through the named card's
+  research-thread key: saves from the person's other research threads are
+  found only when they are named too. A card whose marker holds no thread key
+  (saved before thread keys existed) is forgotten alone. GitHub keeps a
+  stripped issue, with its edit history, until the owner deletes it; once the
+  owner has deleted every tombstone, a later call for one of the cards can list
+  only that card. Erasure replaces wording in the live rows: PostgreSQL keeps
+  the earlier row versions in its data files until vacuum reclaims them and in
+  its write-ahead log until it is recycled, and the database has no automatic
+  off-host backup to hold them. `edit_finding` does not change a version's usual
+  answer, who-else or what-it-changes texts, so a new general version keeps the
+  earlier version's. When the question is erased, the kept version's accepted
+  wording key is still a SHA-256 over the original question with the new
+  wording.
 
 ## Research data not persistently stored
 
