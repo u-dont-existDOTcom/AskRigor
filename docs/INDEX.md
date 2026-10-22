@@ -100,6 +100,11 @@ complete XML protocol.
   ledger reset (145a), production acceptance and the plugin reinstall, and the owner regressions run with the
   owner's personal Codex instructions off (50 cases: 21 met every criterion, 1 failed; the final check passed in 44);
   the case-by-case judgment is `audits/2026-10-21-owner-regressions-judgment.md`.
+- `audits/2026-10-22-owner-answers-138-154-production-release.md`: release of #358 (owner answers 138b to 154 and the
+  fixes for AskRigor#354 to #357, released on 151a): HRP 20.6.29, Universal 20.5.46, migrations 0012 to 0015 and the
+  review role's context grant, the privacy page of October 22, 2026, the October ledger at the owner's $18, production
+  acceptance (the video read did not complete) and the plugin reinstall; the owner regressions wait for the owner's
+  ChatGPT app refresh.
 - `audits/2026-10-16-report-identity-production-release.md`: release of #337 and #338 (owner questions 96 to 101)
   and #340 (questions 100 and 102): the final-check fixes from the 15 Oct regressions, protocol loading in one
   call, the owner's mobile notice (Universal 20.5.43), HRP 20.6.25 with `ProposeDiscriminatingTest` and lessons
