@@ -1,7 +1,7 @@
 # Atlas phase 3: the card fields the pages need (design)
 
-Date: 22 October 2026. Status: design, built on the branch after phase 2. It goes out in the release after the one
-that carries phases 1 and 2. The owner's choices in section 10 take their recommended defaults unless the owner says
+Date: 22 October 2026. Status: built on the branch after phase 2, parts A to D (section 12 says where the build adds
+to this design). It goes out in the release after the one that carries phases 1 and 2. The owner's choices in section 10 take their recommended defaults unless the owner says
 otherwise; they are listed in the release question, where the owner can change any of them before release. Parent
 plan: `2026-10-22-public-atlas-build.md`, "Phase 3: card fields the pages need". Owner decisions:
 `docs/public-atlas/2026-10-22-atlas-organization-draft.md`, section 6 (1b, 2a, 3b, 4a, 5a, 6a and 7). Phase 2:
@@ -322,3 +322,28 @@ test and the PostgreSQL acceptance. Tests: `tests/atlas-card-fields-storage.test
 and `tests/atlas-review-tool.test.ts`.
 
 **D. Documents.** The privacy data map, the README, the infra runbook, the tool inventory and the parent plan.
+
+## 12. As built
+
+Where the build settles what the sections above leave open:
+
+- **Open leads** (a card's `open_leads` strings) take none of the four fields: they hold only their wording and whom
+  they apply to, as in phase 2, so `accept_finding` and a correction refuse `kind`, `subject`, `subjectType` and
+  `direction` on one (`open_lead_fields`). A card finding without a verified basis, accepted as a lead (3b), keeps
+  its card's fields.
+- **A re-check** changes none of the stored finding's fields; one sent with it is not taken, and the reply says so.
+- **A correction keeps all four or none** (`card_fields_missing` names the missing ones), so a version never declares
+  only some. A finding accepted before this release has none until a correction or wording fix declares all four.
+- **The topic's label** from the card goes with the card's key only; another key that is new to the Atlas needs
+  `topicLabel`, and `topicLabel` without `topicKey` is refused as input.
+- **The privacy screen at acceptance** is the save's screen plus a refusal of any `ARF-` reference. A search query is
+  screened there too (`searchScope[i].query`) and, since it must match its receipt, cannot be reworded.
+- **`inspect_finding`** shows each card item's fields, the size of its numbers block and its searches, and the card's
+  topic, and says what `accept_finding` will take from the card or needs the call to declare.
+- **Migration 0018's check** tests the kind for NULL before it admits searches, since a CHECK passes on NULL, and reads
+  the array's length only once it knows it has an array. `erase_atlas_wording` also reaches a version whose only
+  wording left is its searches.
+- **The PostgreSQL acceptance** (`verifyAtlasCardFields`, with 0017 and 0018 in `verifyAtlasMigrations`) ran against
+  PGlite 0.5.8 (PostgreSQL 18.3 compiled to WebAssembly) in the build session, since that machine has no Docker; all 32
+  Atlas checks passed, the end-to-end scenario among them with its cards declaring the fields. The Docker run on
+  PostgreSQL 17 (`npm run contributor-access:postgres-acceptance`) is a release step.

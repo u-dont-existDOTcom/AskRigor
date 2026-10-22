@@ -335,12 +335,22 @@ of 33 tools. They are flat fields with one rule set per action:
   (`topicKey`, with `topicLabel` for a new topic) and its numbers. A finding
   with no verified basis is accepted as a lead (3b). A card finding whose
   normalized question and claim match a current finding's records a re-check of
-  that finding instead.
+  that finding instead. Atlas phase 3 (built, not yet released; design
+  `docs/superpowers/plans/2026-10-22-atlas-phase-3-design.md`, section 5): the
+  card's topic, numbers block, kind, subject, subject type and direction are
+  used by default, and `topicKey`, `numbers`, `kind`, `subject`, `subjectType`
+  and `direction` change them; a card saved before these fields needs all of
+  them (`topic_missing`, `numbers_missing`, `card_fields_missing`), and a search
+  that found nothing has direction `descriptive` (`card_fields_contradict`). Its
+  searches come only from the card and stay only while its kind stays
+  `nothing_found`. An open lead takes none of the four; a re-check changes none.
 - `edit_finding`: before acceptance, an accept with the owner's wording
   (`wording`, `appliesTo`, `whyNotUsual`, `whatWouldChangeIt`, `question`,
   `sources`, `numbers`); after it, with `atlasNumber` and `version`, a
   correction with a public dated `note`, or, with `correction: false`, a wording
-  fix (5a). With `eraseWording: true` (decision 7, when the owner judges the
+  fix (5a); either may declare or change the four fields, and a version holds
+  all four or none. With
+  `eraseWording: true` (decision 7, when the owner judges the
   wording could identify a person) the new wording becomes a new general
   version and every earlier version's wording is erased; sent with no new
   wording, it erases the earlier versions' wording if any is left.
@@ -477,7 +487,11 @@ security-definer functions, `inspect_atlas_cards`, `decide_atlas_card_item`,
 `forget_atlas_cards` (used by `forget_card`), and still no direct table
 privilege. The writer-only `erase_atlas_wording()` and its helpers are not
 granted to it. The privacy data map's "Atlas findings: owner review" section
-lists what each holds.
+lists what each holds. Migration `0018_atlas_card_fields.sql` (Atlas phase 3)
+adds three nullable columns to `atlas_finding_versions` (kind, subject type and
+the searches that found nothing), and new bodies for `atlas_redaction_permits`
+and `erase_atlas_wording` that erase the searches' queries too; the review
+role's grants are unchanged.
 
 ## Runtime and failure behavior
 

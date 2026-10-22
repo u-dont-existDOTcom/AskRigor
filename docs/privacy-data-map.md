@@ -944,6 +944,35 @@ What the model sends, and when:
   (below) also adds the sentence offering its save to the caveats the answer
   must carry. For a caller with no research account the card is neither
   checked nor saved (`private`).
+- Atlas phase 3 (built, not yet released; design
+  `docs/superpowers/plans/2026-10-22-atlas-phase-3-design.md`), in the same
+  card, the fields the public Atlas pages need. Each finding gives its kind
+  (`effect`, `harm`, `overlooked_option`, `correction`, `nothing_found` or
+  `tested_vs_sold`), its subject (what it is about, as people know it, at most
+  120 characters) and the subject's type (one of eight, such as `supplement`),
+  its direction (`benefit`, `harm`, `no_effect`, `mixed` or `descriptive`), its
+  numbers block (each two-group yes-or-no figure its claim gives: the outcome
+  and which way is better, each group's name, events and total, the follow-up,
+  and any number needed to treat or harm; at most 20, in `binary_results`' flat
+  shape without its quotes), and, for a search that found nothing, the searches
+  it made (each the database, `pubmed`, `europepmc` or `ctgov`, and its exact
+  query, at most 500 characters; at most 10). The card gives its topic (a key
+  in the Atlas's topic format and a label, at most 200 characters). The final
+  check requires them on a card declared public, and checks only what is
+  exact: each count is at most its group's size; each rate and number needed to
+  treat or harm, worked out from the counts, is what the claim states, in
+  digits of any script, with the harms over the same follow-up beside a number
+  needed to treat; each figure is one that the call's `binary_results` gives;
+  each search is one a `literature_search` receipt of that call verifies (its
+  database and the digest of its query); searches go only with a search that
+  found nothing, whose direction is `descriptive` and whose sentence is an
+  `absence_claims` entry of state `support_not_located`. The kind, subject,
+  direction and topic are the model's declarations, taken as given. A public
+  card without them, as from an app whose tool list predates them, is rejected
+  like one without `public_value`, and the answer goes ahead. Each new text
+  passes the same privacy screen as the card's other texts. The sentence on what
+  communities reported that the pages may one day show (owner decision 4a) is
+  not collected: no schema accepts it, and nothing stores it.
 - In `save_research_findings`, only after a paid-private user says yes to that
   offer, or to a save they asked for: the same card, that finalization receipt,
   the literal consent `yes_to_this_save`, and optionally the model name as the
@@ -1043,7 +1072,12 @@ change for them, with no personal details), which the readable copy shows under
 "Public value" for the owner's review; a later save that joins an open card
 shows its own declaration in its comment. Each stored finding also keeps its
 verified bases (`verified_bases`, the four values above, as the receipt signed
-them; none from a receipt that signed none). The stored card holds no YouTube video
+them; none from a receipt that signed none). From Atlas phase 3 the stored card
+also keeps its topic and each finding's kind, subject, subject type, direction,
+numbers block and searches as the checked card gave them, each text through the
+same YouTube stripping as the others, and the readable copy shows them under
+each finding and the topic at the top; a card saved before them has none. The
+stored card holds no YouTube video
 ID or link while AskRigor's YouTube API compliance review is open: each finding
 keeps only the number of videos whose audited comments backed it, and a link
 keeps its text (`stored_without` records this; the SHA-256 is still the checked
@@ -1137,7 +1171,15 @@ retraction notices (a retracted source is bound as context only, after the
 owner's confirm), the privacy screen and a guard against any `ARF-` reference
 over every text an intent would store, the exact re-check key, and the rules for
 links. The topic, the numbers and the links are the AI's declarations; the owner
-accepts or rejects.
+accepts or rejects. From Atlas phase 3 (built, not yet released) a card's topic,
+numbers block, kind, subject, subject type and direction are used by default,
+and the owner changes any of them in the call; a card saved before them needs
+the AI to declare them at acceptance (the kind, subject, subject type and
+direction as flat `kind`, `subject`, `subjectType` and `direction` fields). The
+code checks only what is exact: all four are present on an accepted finding,
+and a correction keeps all four or none; a search that found nothing has
+direction `descriptive`; and its searches come only from the card, as the final
+check bound them, and are kept only while its kind stays `nothing_found`.
 
 - **Decisions** (`atlas_card_decisions`): the card's issue number, the item
   number, the decision, the F number it took, the SHA-256 of the card record
@@ -1155,7 +1197,10 @@ accepts or rejects.
   the provider responses and the check time), the topic key and label, two
   wording keys (SHA-256 of the normalized question and claim, as found and as
   accepted), the version stamp (AskRigor version, build, protocol names,
-  versions and SHA-256, research depth and status) and the research day. A
+  versions and SHA-256, research depth and status) and the research day. From
+  Atlas phase 3 the accepted content also holds the finding's kind, subject,
+  subject type and direction and, for a search that found nothing, its searches
+  (each database and query); an intent queued before it holds none. A
   correction or edit holds the new version's texts, numbers and sources the same
   way, with its public note; a withdrawal and an unlink hold their public note; a
   link holds its relation, what the two findings disagree on and its rationale;
@@ -1170,7 +1215,13 @@ accepts or rejects.
 - **Canonical Atlas records**: general knowledge written without the person,
   append-only; kept while valid, corrected by new versions, and withdrawn by an
   invalidated version; their wording is erased only on the path for findings
-  that could identify someone (below).
+  that could identify someone (below). From Atlas phase 3 (migration
+  `0018_atlas_card_fields`) each version also keeps its kind, its subject's type
+  and its searches in three nullable columns of `atlas_finding_versions`, its
+  subject in the claim model's `claim_versions.program_or_exposure` and its
+  direction in `claim_versions.direction`; the claim's type
+  (`claims.claim_type`) comes from its first version's kind. A version written
+  before 0018 has none of them.
 - **Wording erasure** (`eraseWording` on `edit_finding` and `withdraw_finding`;
   decision 7, choice 4a): when the owner judges that a finding's wording could
   identify a person, `edit_finding` with new general wording records a new
@@ -1183,15 +1234,18 @@ accepts or rejects.
   (the finding, the version, the reason code, the time and the run) and then
   calls `erase_atlas_wording()`, the only function the append-only guard lets
   change a canonical row, which sets to the fixed marker `[wording removed]`:
-  the version's claim texts and its Atlas texts (the usual answer, why it
-  misses, what would change it, who else and what it changes), the text labels
-  of its numbers (outcome, option, comparator and follow-up; the counts, totals
-  and directions stay), and the notes of its change records; its two wording
+  the version's claim texts (its subject among them) and its Atlas texts (the
+  usual answer, why it misses, what would change it, who else and what it
+  changes), the text labels of its numbers (outcome, option, comparator and
+  follow-up; the counts, totals and directions stay), the query of each search
+  that found nothing (its database stays; Atlas phase 3, migration 0018), and
+  the notes of its change records; its two wording
   keys, set to 64 zeros; the rationale of every link that touches the finding
   and the note of each such link's withdrawal; and the finding's question, only
   when no research frontier asks it and every other finding that answers it has
   had all its wording erased (a question still in use stays, and the owner's
-  call names the F numbers that use it). Topic labels are never erased. In the
+  call names the F numbers that use it). Topic labels are never erased, nor are a
+  version's kind, subject type and direction, which identify no one. In the
   same transaction the runner sets the same texts to the marker in every intent
   it has finished with that names the finding (the earlier accept's and
   corrections' texts and wording keys, notes and link rationales, and the
@@ -1241,7 +1295,8 @@ accepts or rejects.
   finalization receipt or its hash, and the duplicate fingerprint; the `ARF-`
   number outside the decisions table; save times, the reported model, the
   surface and the tool catalog hash; the answer quote, YouTube video IDs or
-  counts, the comment-audit basis and community text.
+  counts, the comment-audit basis and community text, including the sentence on
+  what communities reported (owner decision 4a), which no schema accepts.
 - **Stated limits**: a person must name each `ARF-` id they want deleted,
   because their other cards cannot be found from the account alone. The privacy
   screen reads English for some patterns, as it does for cards. A card's record
@@ -1263,7 +1318,12 @@ accepts or rejects.
   answer, who-else or what-it-changes texts, so a new general version keeps the
   earlier version's. When the question is erased, the kept version's accepted
   wording key is still a SHA-256 over the original question with the new
-  wording.
+  wording. A search's query must match its receipt, so it cannot be reworded: a
+  query the privacy screen refuses at acceptance keeps its finding from being
+  accepted as a search that found nothing. During an image rollback below Atlas
+  phase 3 the owner's Atlas actions stay closed, since the earlier image would
+  leave a nothing-found finding's subject and queries in its intents if it
+  erased one (`infra/living-evidence-production/README.md`).
 
 ## Research data not persistently stored
 

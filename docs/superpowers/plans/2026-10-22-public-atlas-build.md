@@ -1,6 +1,6 @@
 # Building the public Atlas (plan, 22 October 2026)
 
-Status: plan for the owner. Each phase goes out only with the owner's yes for its release. Owner answer 160b (22 October, read at 16:14 UTC): the next release waits for phases 1 and 2. Phase 1 is built (`4e90274d`, notice v3 and migration 0016); phase 2 is being designed.
+Status: plan for the owner. Each phase goes out only with the owner's yes for its release. Owner answer 160b (22 October, read at 16:14 UTC): the next release waits for phases 1 and 2. Phase 1 is built (`4e90274d`, notice v3 and migration 0016); phase 2 is built (parts A to D, `3074e16b` to `e9ff3b24`, migration 0017). Phase 3 is built on the branch after them (design `2026-10-22-atlas-phase-3-design.md`, migration 0018), for the release after the one that carries phases 1 and 2; its defaults are listed for the owner in that design's section 10.
 
 The design is `docs/public-atlas/2026-10-22-atlas-organization-draft.md`, with the owner's answers to question 159 in
 its section 6: 1b, 2a, 3b, 4a, 5a, 6a, and 7 as agreed at about 15:35 UTC. Owner answer 156a (built, not yet
@@ -61,6 +61,9 @@ personal-only findings are never saved or offered.
 - **Per card:** the topic.
 - **Who fills them:** the research AI, while the papers are open. The final check verifies the exact parts and the
   owner confirms at acceptance.
+- **Built** (design `2026-10-22-atlas-phase-3-design.md`): the fields and the final check (part A), their storage
+  and migration 0018 (part B), acceptance with the card's fields by default (part C), and the documents (part D). The
+  community sentence is designed and switched off: no schema accepts it.
 
 ## Phase 4: the pages
 

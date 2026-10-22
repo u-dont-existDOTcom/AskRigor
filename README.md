@@ -495,6 +495,27 @@ published in AskRigor's public Atlas, written without you.", and the privacy
 page and the terms say the same three points. Nothing is accepted or published
 yet; the build plan is `docs/superpowers/plans/2026-10-22-public-atlas-build.md`.
 
+Atlas phase 3 (built, not yet released; it goes out in the release after the
+one carrying phases 1 and 2; design
+`docs/superpowers/plans/2026-10-22-atlas-phase-3-design.md`): a findings card
+also gives what the Atlas pages need, filled by the AI while the papers are
+open. Each finding gives its kind, its subject and the subject's type, its
+direction, its numbers block (each two-group yes-or-no figure the claim gives)
+and, for a search that found nothing, the searches it made; the card gives its
+topic. The final check requires them on a card declared public and checks only
+what is exact: counts against group sizes, each rate and number needed to treat
+or harm against what the claim states (in digits of any script), each figure
+against the answer's `binary_results`, and each search against the call's own
+search receipts. The kind, subject, subject type, direction and topic are the
+AI's declarations. The owner's `accept_finding` takes them from the card by default,
+and the owner can change any of them; for a card saved before them the AI
+declares them at acceptance. Migration `0018_atlas_card_fields` stores the kind,
+subject type and searches with each Atlas version, the subject and direction in
+the claim model's own columns, and erases the searches' queries with the rest
+of the wording. The sentence on what communities reported (owner decision 4a)
+is designed and switched off: no schema accepts it. The connector stays at 33
+tools.
+
 ## Public-review status
 
 The Phase K2 source candidate is not a public-release claim. It requires a
