@@ -189,7 +189,7 @@ describe("AskRigor public site", () => {
     ]) expect(privacy).toContain(fragment);
     const terms = await pageHtml("site/terms/index.html");
     for (const fragment of [
-      "Effective October 1, 2026",
+      "Effective October 22, 2026",
       "for each finished research answer a findings card",
       "or a findings card saved under it",
       "saves an answer’s findings card or lesson feedback only when you accept saving it for that answer",
@@ -199,7 +199,7 @@ describe("AskRigor public site", () => {
   // Owner answers 159 (1b and 7) and 160b (2026-10-22), as the free contributor notice's third version says them:
   // findings the owner accepts may be published in the public Atlas, written without the person; deleting a card
   // removes everything that ties it to the person, with no reason needed; a published finding stays while it is valid.
-  // Word for word as drafted for the owner's approval; the release sets the effective dates.
+  // Word for word as the owner approved them (162a, 2026-10-22), effective on the release day.
   it("says that accepted findings may be published in the public Atlas, and what deleting a card removes and keeps", async () => {
     const privacy = await pageHtml("site/privacy/index.html");
     for (const fragment of [
@@ -223,7 +223,7 @@ describe("AskRigor public site", () => {
         "it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it " +
         "could identify anyone.</p></section>",
       "does not promise attribution, publication, compensation, or a particular outcome",
-      "Effective October 1, 2026",
+      "Effective October 22, 2026",
     ]) expect(terms).toContain(fragment);
   });
 
