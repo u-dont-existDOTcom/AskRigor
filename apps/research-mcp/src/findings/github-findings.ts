@@ -425,7 +425,7 @@ function atlasFieldLines(finding: FindingsRecord["card"]["findings"][number]): s
         `(${percent(entry.comparator_events, entry.comparator_total)}), ${entry.better} is better` +
         `${entry.nnt === undefined ? "" : `, NNT ${entry.nnt}`}${entry.nnh === undefined ? "" : `, NNH ${entry.nnh}`}` +
         `${entry.harms_none_found === true ? ", no harms found" : ""}`)).join("; ")}`]),
-    ...(finding.searches === undefined ? [] : [`- Searches that found nothing: ${finding.searches
+    ...((finding.searches ?? []).length === 0 ? [] : [`- Searches that found nothing: ${finding.searches!
       .map((search) => escapeMarkdown(`${search.database}: ${search.query}`)).join("; ")}`]),
   ];
 }

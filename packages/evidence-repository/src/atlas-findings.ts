@@ -101,9 +101,12 @@ export function atlasClaimTypeOf(kind: AtlasFindingKind | undefined): AtlasClaim
   return kind === undefined ? "other" : ATLAS_KIND_CLAIM_TYPES[kind];
 }
 
-/** The most searches one finding carries, and the longest query. */
+/**
+ * The most searches one finding carries, and the longest query: as long as search_pubmed, search_europe_pmc and
+ * search_clinical_trials take one, so a long Boolean query a search ran with can be carried (review finding 6).
+ */
 export const ATLAS_SEARCHES_PER_FINDING = 10;
-export const ATLAS_SEARCH_QUERY_MAX_CHARACTERS = 500;
+export const ATLAS_SEARCH_QUERY_MAX_CHARACTERS = 5_000;
 export const ATLAS_SUBJECT_MAX_CHARACTERS = 120;
 
 /** What erase_atlas_wording() (migration 0017) writes in place of erased wording, and of an erased wording key. */

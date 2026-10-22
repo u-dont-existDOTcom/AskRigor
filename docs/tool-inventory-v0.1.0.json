@@ -19010,7 +19010,7 @@
                           "query": {
                             "type": "string",
                             "minLength": 1,
-                            "maxLength": 500,
+                            "maxLength": 5000,
                             "description": "The exact query that search was made with; its research_receipt is passed in this call."
                           }
                         },

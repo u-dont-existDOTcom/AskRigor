@@ -956,7 +956,7 @@ What the model sends, and when:
   and any number needed to treat or harm; at most 20, in `binary_results`' flat
   shape without its quotes), and, for a search that found nothing, the searches
   it made (each the database, `pubmed`, `europepmc` or `ctgov`, and its exact
-  query, at most 500 characters; at most 10). The card gives its topic (a key
+  query, at most 5,000 characters, as the search tools take; at most 10). The card gives its topic (a key
   in the Atlas's topic format and a label, at most 200 characters). The final
   check requires them on a card declared public, and checks only what is
   exact: each count is at most its group's size; each rate and number needed to

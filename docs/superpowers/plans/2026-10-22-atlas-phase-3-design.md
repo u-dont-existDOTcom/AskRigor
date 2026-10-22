@@ -43,7 +43,7 @@ Per finding (inside `findings_card.findings[]`):
 | `subject_type` | `condition`, `symptom`, `test`, `treatment`, `supplement`, `product`, `food`, `practice` (the 156 test's list) | AI |
 | `direction` | `benefit`, `harm`, `no_effect`, `mixed`, `descriptive` | AI |
 | `numbers` | The numbers block: a list of two-group yes-or-no figures, each in `binary_results`' flat shape without its quotes, at most 20 | AI declares; code checks |
-| `searches` | For `nothing_found` only: each search that found nothing, as `database` (`pubmed`, `europepmc` or `ctgov`) and its exact `query`, at most 10 | AI declares; code binds |
+| `searches` | For `nothing_found` only: each search that found nothing, as `database` (`pubmed`, `europepmc` or `ctgov`) and its exact `query` (at most 5,000 characters, as the search tools take; review finding 6), at most 10; an empty list is none (review finding 7) | AI declares; code binds |
 
 Per card: `topic`, as `key` (the Atlas's topic key format: lower case letters, digits and `. _ -`, such as
 `velmor-syndrome`) and `label` (at most 200 characters, such as Velmor syndrome).

@@ -333,6 +333,24 @@ describe("a search that found nothing (owner decision 3b's bounded absence)", ()
       "findings_card.findings[0] gives searches, which go only with kind nothing_found: leave them out."]);
   });
 
+  it("takes a query as long as the search tools take, 5,000 characters (review finding 6)", () => {
+    const long = `zentarine AND (${Array.from({ length: 120 }, (_, at) => `pediatric${at}[tiab]`).join(" OR ")})`;
+    expect(long.length).toBeGreaterThan(2_000);
+    const longSearch = issueResearchReceipt("literature_search", { src: "pubmed", q: discoveryQueryDigest([long]),
+      ret: 0, n: 0 }, { secret: SECRET });
+    expect(searchProblems({ searches: [{ database: "pubmed", query: long }] }, { receipts: [audit, search, longSearch] }))
+      .toEqual([]);
+    const parsed = (query: string) => findingsCardSchema.safeParse(withFinding(1, { searches: [{ database: "pubmed",
+      query }] })).success;
+    expect(parsed("z".repeat(5_000))).toBe(true);
+    expect(parsed("z".repeat(5_001))).toBe(false);
+  });
+
+  it("reads an empty list of searches as none, on any kind (review finding 7)", () => {
+    expect(problemsOf(withFinding(0, { searches: [] })).problems).toEqual([]);
+    expect(searchProblems({ searches: [] })).toEqual([expect.stringContaining("is of kind nothing_found without searches")]);
+  });
+
   it("is the kind of a finding whose sentence the answer declares only as not found (review finding 3)", () => {
     // The finding of the absent sentence, declared as another kind.
     const declaredAs = (overrides: Record<string, unknown>, extra: Partial<FinalizeResearchInput> = {}) =>
@@ -440,6 +458,10 @@ describe("the new texts' privacy and storage", () => {
       "120 with placebo \\(5%\\), fewer is better, NNH 20");
     expect(body).toContain("- Searches that found nothing: pubmed: zentarine children");
     expect(github.issue(71).body).not.toMatch(/Kind:|Topic, as the AI|Numbers:/u);
+    // An effect's empty list of searches is no searches: the readable copy shows no line for it (review finding 7).
+    const emptied = { ...withFinding(0, { searches: [] }), question: "Does zentarine ease the tremor at any dose?" };
+    expect(await save(emptied, "3".repeat(64))).toMatchObject({ status: "saved", card_id: "ARF-0072" });
+    expect(github.issue(72).body.match(/Searches that found nothing/gu)).toHaveLength(1);
 
     const inbox = new GitHubFindingsReview({ tokenProvider, fetch: github.fetch, repository: DEFAULT_FINDINGS_REPOSITORY });
     const read = await inbox.readCard(70);

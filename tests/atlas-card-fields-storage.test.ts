@@ -114,6 +114,13 @@ describe("an intent's version content with the card's fields", () => {
       .toEqual(["a search that found nothing has direction descriptive"]);
   });
 
+  it("stores a query as long as the search tools take, 5,000 characters (review finding 6)", () => {
+    const withQuery = (query: string) => atlasVersionContentSchema.safeParse(phase2Content("x", {
+      ...NOTHING_FOUND_FIELDS, numbers: [], searchScope: [{ database: "pubmed", query }] })).success;
+    expect(withQuery("z".repeat(5_000))).toBe(true);
+    expect(withQuery("z".repeat(5_001))).toBe(false);
+  });
+
   it("holds no community sentence (owner decision 4a): the strict content refuses one", () => {
     for (const field of ["communityReport", "community_report", "community"]) {
       expect(atlasVersionContentSchema.safeParse(phase2Content("x", { ...EFFECT_FIELDS, [field]: "Reports." })).success,

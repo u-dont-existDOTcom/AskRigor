@@ -133,7 +133,8 @@ export function findingFieldContradictions(
   at: string,
 ): string[] {
   const problems: string[] = [];
-  if (finding.searches !== undefined && finding.kind !== undefined && finding.kind !== ATLAS_SEARCH_KIND) {
+  // An empty list of searches is no searches (review finding 7).
+  if ((finding.searches ?? []).length > 0 && finding.kind !== undefined && finding.kind !== ATLAS_SEARCH_KIND) {
     problems.push(`${at} gives searches, which go only with kind nothing_found: leave them out.`);
   }
   if (finding.kind === ATLAS_SEARCH_KIND && finding.direction !== undefined && finding.direction !== "descriptive") {
