@@ -131,13 +131,24 @@
   release: `finalize_research` lists `recommendations`, `comparison_claims`, `user_observations`, `proposed_tests`,
   `carried_state`, `harm_screen` and `safety_question`, and not `binary_results` or `option_classes`. The refresh is the
   owner's action in ChatGPT's app settings, and the regressions wait for it.
+- **Product interface after the refresh (01:36 UTC):** the owner refreshed the app at about 01:35 UTC; at 01:36:36 the
+  app's tool list named build 71f09f63 with HRP 20.6.29 and Universal 20.5.46, listed 33 tools and had every new field
+  of the final check (`connector-probe-refresh-1.md`), and the regressions started.
 - **Lessons:** #47 and #48 (owner answer 152a, live in HRP 20.6.29) were labelled accepted and incorporated at 00:35
-  UTC. `npm run lessons:status` last ran at 22:59 UTC on 21 Oct (31 open, 11 needing review, 0 accepted but not
-  incorporated, 25 incorporated or closed, every lane item recorded); it runs again with the regressions.
-- **Product acceptance (owner regressions):** waiting for the owner's ChatGPT app refresh. The run is set up in
+  UTC. `npm run lessons:status` at 12:34 UTC on 22 Oct: 31 open, 0 needing review, 0 accepted but not incorporated, 36
+  incorporated or closed, 0 eligible for deletion, every lane item recorded (main and open pull requests).
+- **Product acceptance (owner regressions):** run from 01:36:36 to 07:18:16 UTC in
   `/home/joel/askrigor-releases/20261022/regress`: the 50 cases of 21 October and the 15 new rows of the regression
-  list (the OCD reports #354 to #356 and lessons #47 and #48), 65 cases, with the clean start of 144a and the preamble
-  the list now asks for (the findings card goes to the final check; no notes about the test).
+  list (the OCD reports #354 to #356 and lessons #47 and #48), 65 cases in 76 runs, with the clean start of 144a and
+  the preamble the list now asks for (the findings card goes to the final check; no notes about the test). Judged in
+  `audits/2026-10-22-owner-regressions-judgment.md`: 23 cases pass, 39 pass in part, 2 fail (q136 responders, on its
+  own fail condition, which HRP 20.6.30 is built for; o355 supplement table) and 1 was not judged (OpenAI's
+  biological-risk filter refused q130 maker, as on 21 October). The final check passed in 55 of the 65 cases and
+  rejected none of its 349 calls; no run called another tool or ran a shell command; 60 runs saved a findings card
+  (ARF-0116 to ARF-0175). Of the 64 turns whose own check passed, 59 delivered an answer other than the checked draft
+  (47 reworded it); one such change misspelled a drug name inside a required caveat. The next build already tells
+  the AI to give the checked draft word for word (981e2a92); the judgment's findings 2, 3, 6 and 7 list the check
+  deadlocks and the other fixes for it.
 - **Rollback:**
   1. Stop and disable `askrigor-research-promotion.timer`.
   2. Restore the selector (`/opt/askrigor/living-evidence-image.env`) and `runtime.env` from

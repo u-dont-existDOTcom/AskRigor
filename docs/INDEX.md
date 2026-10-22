@@ -103,8 +103,10 @@ complete XML protocol.
 - `audits/2026-10-22-owner-answers-138-154-production-release.md`: release of #358 (owner answers 138b to 154 and the
   fixes for AskRigor#354 to #357, released on 151a): HRP 20.6.29, Universal 20.5.46, migrations 0012 to 0015 and the
   review role's context grant, the privacy page of October 22, 2026, the October ledger at the owner's $18, production
-  acceptance (the video read did not complete) and the plugin reinstall; the owner regressions wait for the owner's
-  ChatGPT app refresh.
+  acceptance (the video read did not complete), the plugin reinstall, and the owner regressions after the owner's
+  ChatGPT app refresh (65 cases: 23 met every criterion, 2 failed, 1 was refused by OpenAI's filter; the final check
+  passed in 55); the case-by-case judgment, with the answers changed after their check, is
+  `audits/2026-10-22-owner-regressions-judgment.md`.
 - `audits/2026-10-22-owner-answer-149-protocol.md`: owner answer 149a, from the 21 Oct regression case Responders
   (question 136): HRP 20.6.30 adds the core rule `CountsNeedTheirGroupSizes` (no percentage, difference or ratio from
   counts until their group sizes are reconciled), with the new size, SHA-256 and tests; built, not yet released.
