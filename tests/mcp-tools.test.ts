@@ -155,10 +155,17 @@ describe("AskRigor MCP tools", () => {
         "inspect_finding", "accept_finding", "edit_finding", "reject_finding", "withdraw_finding", "link_findings",
         "forget_card"]);
       expect(review.description).toContain("forget_card (card ARF-0142) removes what ties a card to its contributor");
+      // Atlas phase 3: kind, subject, subjectType and direction, flat, after the topic.
       expect(Object.keys(input.properties)).toEqual(["action", "proposalId", "expectedPayloadSha256", "reason", "card",
-        "finding", "lead", "atlasNumber", "cardSha256", "version", "topicKey", "topicLabel", "wording", "appliesTo",
-        "whyNotUsual", "whatWouldChangeIt", "question", "sources", "numbers", "note", "correction", "eraseWording",
-        "confirm", "relation", "to", "disagreement", "rationale", "cursor"]);
+        "finding", "lead", "atlasNumber", "cardSha256", "version", "topicKey", "topicLabel", "kind", "subject",
+        "subjectType", "direction", "wording", "appliesTo", "whyNotUsual", "whatWouldChangeIt", "question", "sources",
+        "numbers", "note", "correction", "eraseWording", "confirm", "relation", "to", "disagreement", "rationale",
+        "cursor"]);
+      for (const field of ["kind", "subjectType", "direction"]) {
+        expect(input.properties[field]!.type, field).toBe("string");
+        expect(input.properties[field]!.enum!.length, field).toBeGreaterThan(1);
+      }
+      expect(review.description).toContain("by default, the card's topic, numbers, kind, subject, subject type and direction");
       // Flat: the only nested inputs are the lists of source identifiers and of figures, whose entries are flat too.
       const numbers = input.properties.numbers as unknown as { items: { properties: Record<string, { type?: string }> } };
       expect(Object.values(numbers.items.properties).every(({ type }) => type !== "object" && type !== "array")).toBe(true);

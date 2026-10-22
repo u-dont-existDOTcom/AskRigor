@@ -11254,7 +11254,7 @@
     },
     {
       "name": "review_research_contribution",
-      "description": "Owner-only review. Proposals: inspect one deidentified pending research contribution's exact payload and hash, then accept or reject it with a reason; inspect also shows, by ID only, the other pending proposals and canonical records that share its topic, question, frontier or identifiers, and a promotion preflight naming any conflict by its code. Findings for the Atlas: list_findings shows the findings cards that wait; inspect_finding runs every exact check on a card item (card ARF-0142 with finding or lead) and returns its cardSha256, or shows an accepted finding (atlasNumber F-1007) with its versions, label, links and write status; accept_finding takes that cardSha256, the topicKey you declare (with topicLabel for a new topic) and the numbers the wording gives (an empty list if none), and confirm: true only after the owner said to accept what the checks flagged; edit_finding accepts with the owner's wording, or after acceptance (with version) corrects it with a dated note; reject_finding, withdraw_finding and link_findings complete the set. With eraseWording, edit_finding or withdraw_finding also erases wording the owner judges could identify a person. forget_card (card ARF-0142) removes what ties a card to its contributor whenever they ask, with no reason needed: it deletes the card's decision rows and strips its GitHub issue, which the owner then deletes, and findings accepted from it stay while they are valid. Nothing from a card is public until the owner accepts it, and nothing is public until the Atlas pages exist. An accepted decision is a hash-bound intent: this call never writes canonical evidence, and a separate one-shot writer applies it within about 5 minutes.",
+      "description": "Owner-only review. Proposals: inspect one deidentified pending research contribution's exact payload and hash, then accept or reject it with a reason; inspect also shows, by ID only, the other pending proposals and canonical records that share its topic, question, frontier or identifiers, and a promotion preflight naming any conflict by its code. Findings for the Atlas: list_findings shows the findings cards that wait; inspect_finding runs every exact check on a card item (card ARF-0142 with finding or lead) and returns its cardSha256, or shows an accepted finding (atlasNumber F-1007) with its versions, label, links and write status; accept_finding takes that cardSha256 and, by default, the card's topic, numbers, kind, subject, subject type and direction: send topicKey (with topicLabel for a new topic), numbers, kind, subject, subjectType or direction to change one, and all of them for a card saved before these fields; confirm: true only after the owner said to accept what the checks flagged; edit_finding accepts with the owner's wording, or after acceptance (with version) corrects it or its fields with a dated note; reject_finding, withdraw_finding and link_findings complete the set. With eraseWording, edit_finding or withdraw_finding also erases wording the owner judges could identify a person. forget_card (card ARF-0142) removes what ties a card to its contributor whenever they ask, with no reason needed: it deletes the card's decision rows and strips its GitHub issue, which the owner then deletes, and findings accepted from it stay while they are valid. Nothing from a card is public until the owner accepts it, and nothing is public until the Atlas pages exist. An accepted decision is a hash-bound intent: this call never writes canonical evidence, and a separate one-shot writer applies it within about 5 minutes.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -11327,7 +11327,7 @@
             "maximum": 9007199254740991
           },
           "topicKey": {
-            "description": "accept_finding, edit_finding before acceptance: the topic the finding is filed under, as the topic key format has it (lower case, digits, . _ -), such as velmor-syndrome. You declare it; the reply names it.",
+            "description": "accept_finding, edit_finding before acceptance: the topic the finding is filed under, as the topic key format has it (lower case, digits, . _ -), such as velmor-syndrome. By default the card's topic; send it to change that, or for an older card without one. The reply names it.",
             "type": "string",
             "pattern": "^[a-z0-9][a-z0-9._-]{0,199}$"
           },
@@ -11336,6 +11336,49 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 200
+          },
+          "kind": {
+            "description": "accept_finding, edit_finding: the finding's kind: effect, harm, overlooked_option, correction, nothing_found (a search that found nothing) or tested_vs_sold. By default the card's; an older card's you declare, with subject, subjectType and direction.",
+            "type": "string",
+            "enum": [
+              "effect",
+              "harm",
+              "overlooked_option",
+              "correction",
+              "nothing_found",
+              "tested_vs_sold"
+            ]
+          },
+          "subject": {
+            "description": "accept_finding, edit_finding: what the finding is about, as people know it, such as zentarine. By default the card's.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "subjectType": {
+            "description": "accept_finding, edit_finding: the subject's type: condition, symptom, test, treatment, supplement, product, food or practice. By default the card's.",
+            "type": "string",
+            "enum": [
+              "condition",
+              "symptom",
+              "test",
+              "treatment",
+              "supplement",
+              "product",
+              "food",
+              "practice"
+            ]
+          },
+          "direction": {
+            "description": "accept_finding, edit_finding: benefit, harm, no_effect, mixed or descriptive; a search that found nothing is descriptive. By default the card's.",
+            "type": "string",
+            "enum": [
+              "benefit",
+              "harm",
+              "no_effect",
+              "mixed",
+              "descriptive"
+            ]
           },
           "wording": {
             "description": "edit_finding: the finding's wording as the owner wants it.",
@@ -12247,6 +12290,24 @@
                               }
                             ]
                           },
+                          "kind": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "effect",
+                                  "harm",
+                                  "overlooked_option",
+                                  "correction",
+                                  "nothing_found",
+                                  "tested_vs_sold"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "wouldBecome": {
                             "type": "string",
                             "enum": [
@@ -12273,6 +12334,7 @@
                           "number",
                           "text",
                           "certainty",
+                          "kind",
                           "wouldBecome",
                           "recheckOf"
                         ],
@@ -12400,6 +12462,29 @@
               "beyondQuickAnswer": {
                 "type": "boolean"
               },
+              "topic": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "label"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "items": {
                 "maxItems": 11,
                 "type": "array",
@@ -12446,6 +12531,108 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "kind": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "effect",
+                            "harm",
+                            "overlooked_option",
+                            "correction",
+                            "nothing_found",
+                            "tested_vs_sold"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "subject": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "subjectType": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "condition",
+                            "symptom",
+                            "test",
+                            "treatment",
+                            "supplement",
+                            "product",
+                            "food",
+                            "practice"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "direction": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "benefit",
+                            "harm",
+                            "no_effect",
+                            "mixed",
+                            "descriptive"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "numbers": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "searches": {
+                      "maxItems": 10,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "database": {
+                            "type": "string",
+                            "enum": [
+                              "pubmed",
+                              "europepmc",
+                              "ctgov"
+                            ]
+                          },
+                          "query": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "database",
+                          "query"
+                        ],
+                        "additionalProperties": false
+                      }
                     },
                     "sources": {
                       "maxItems": 10,
@@ -12596,6 +12783,12 @@
                     "text",
                     "certainty",
                     "appliesTo",
+                    "kind",
+                    "subject",
+                    "subjectType",
+                    "direction",
+                    "numbers",
+                    "searches",
                     "sources",
                     "youtubeVideos",
                     "save",
@@ -12621,6 +12814,7 @@
               "savedOn",
               "saves",
               "beyondQuickAnswer",
+              "topic",
               "items",
               "githubSynced"
             ],
@@ -12724,6 +12918,71 @@
                 "anyOf": [
                   {
                     "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "kind": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "effect",
+                      "harm",
+                      "overlooked_option",
+                      "correction",
+                      "nothing_found",
+                      "tested_vs_sold"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "subject": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "subjectType": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "condition",
+                      "symptom",
+                      "test",
+                      "treatment",
+                      "supplement",
+                      "product",
+                      "food",
+                      "practice"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "direction": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "benefit",
+                      "harm",
+                      "no_effect",
+                      "mixed",
+                      "descriptive"
+                    ]
                   },
                   {
                     "type": "null"
@@ -13017,6 +13276,10 @@
               "version",
               "topic",
               "wording",
+              "kind",
+              "subject",
+              "subjectType",
+              "direction",
               "wordingRemoved",
               "researchCheckedOn",
               "links",
@@ -13396,7 +13659,11 @@
                         "open_lead_fields",
                         "nothing_changed",
                         "stamp_without_protocols",
-                        "intent_invalid"
+                        "intent_invalid",
+                        "topic_missing",
+                        "numbers_missing",
+                        "card_fields_missing",
+                        "card_fields_contradict"
                       ]
                     },
                     "message": {

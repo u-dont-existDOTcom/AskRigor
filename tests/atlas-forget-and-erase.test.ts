@@ -91,6 +91,9 @@ const LOW_DOSE = {
   outcome: "tremor score halved", better: "more", option: "zentarine 5 mg", option_events: 20, option_total: 100,
   comparator: "placebo", comparator_events: 19, comparator_total: 100, follow_up: "12 weeks",
 };
+/** The fields the AI declares at acceptance for TREMOR_CARD's findings, which predate them (Atlas phase 3). */
+const EFFECT_FIELDS = { kind: "effect", subject: "zentarine", subjectType: "supplement", direction: "benefit" };
+const HARM_FIELDS = { ...EFFECT_FIELDS, kind: "harm", direction: "harm" };
 /** The low-dose card, cited by its DOI, with a question of its own. */
 const DOI_CARD = {
   ...LOW_DOSE_CARD,
@@ -210,13 +213,17 @@ function harness() {
         }, { secret: SECRET, now: clock }),
       }, { surface: "/mcp/claude", toolCatalogSha256: "c".repeat(64) });
     },
-    /** Accepts a card's finding with its numbers, after its inspect, and has the writer store it. */
+    /**
+     * Accepts a card's finding with its numbers, after its inspect, and has the writer store it. TREMOR_CARD is a card
+     * saved before the Atlas fields, so the call declares them (Atlas phase 3, choice 2); on the later cards, which
+     * declare their own, the call's replace them, which these tests do not look at.
+     */
     async accept(card: string, finding: number, numbers: unknown[], topic = { topicKey: "velmor-syndrome",
-      topicLabel: "Velmor syndrome" }) {
+      topicLabel: "Velmor syndrome" }, fields: Record<string, string> = EFFECT_FIELDS) {
       const inspected = await this.call({ action: "inspect_finding", card, finding });
       expect(inspected.structured.outcome, inspected.text).toBe("finding_inspected");
       const accepted = await this.call({ action: "accept_finding", card, finding,
-        cardSha256: inspected.structured.card.cardSha256, numbers, ...topic });
+        cardSha256: inspected.structured.card.cardSha256, numbers, ...topic, ...fields });
       expect(accepted.structured.outcome, accepted.text).toBe("finding_queued");
       later(5);
       expect((await runner.promoteAccepted()).result.status).toBe("promoted");
@@ -427,7 +434,7 @@ describe("erasing wording that could identify a person (decision 7)", () => {
     await h.save(TREMOR_CARD, OWNER_THREAD, ["full_text_audit", "full_text_audit"]);
     await h.save(DOI_CARD, OTHER_THREAD, ["full_text_audit"]);
     expect(await h.accept("ARF-0042", 1, [TREMOR])).toBe("F-1001");
-    expect(await h.accept("ARF-0042", 2, [NAUSEA])).toBe("F-1002");
+    expect(await h.accept("ARF-0042", 2, [NAUSEA], undefined, HARM_FIELDS)).toBe("F-1002");
     expect(await h.accept("ARF-0043", 1, [LOW_DOSE])).toBe("F-1003");
   }
 
@@ -466,7 +473,8 @@ describe("erasing wording that could identify a person (decision 7)", () => {
     const erased = await h.promote();
     expect(erased.result).toMatchObject({ status: "promoted", receipt: { intentKind: "erase" } });
 
-    // Version 1 reads as the marker, its keys are zeros and its numbers keep only their counts; version 2 stays.
+    // Version 1 reads as the marker, its keys are zeros and its numbers keep only their counts; version 2 stays. Of
+    // the Atlas phase 3 fields, the subject is wording; the kind, its type and the direction identify no one.
     const [one, two] = versionsOf(h, "F-1001");
     expect(one!.content).toEqual({
       wording: ATLAS_ERASED_TEXT, appliesTo: ATLAS_ERASED_TEXT, certainty: "moderate", usualAnswer: ATLAS_ERASED_TEXT,
@@ -474,6 +482,7 @@ describe("erasing wording that could identify a person (decision 7)", () => {
       whatItChanges: ATLAS_ERASED_TEXT, tags: ["full_text_read"], verifiedBases: ["full_text_audit"],
       numbers: [{ ...TREMOR, outcome: ATLAS_ERASED_TEXT, option: ATLAS_ERASED_TEXT, comparator: ATLAS_ERASED_TEXT,
         follow_up: ATLAS_ERASED_TEXT }],
+      kind: "effect", subject: ATLAS_ERASED_TEXT, subjectType: "supplement", direction: "benefit",
     });
     expect([one!.cardWordingKey, one!.acceptedWordingKey]).toEqual([ATLAS_ERASED_KEY, ATLAS_ERASED_KEY]);
     expect(two!.content.wording).toBe(general);

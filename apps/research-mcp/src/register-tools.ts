@@ -814,9 +814,11 @@ export const REVIEW_RESEARCH_CONTRIBUTION_DESCRIPTION =
   "its code. Findings for the Atlas: list_findings shows the findings cards that wait; inspect_finding runs every " +
   "exact check on a card item (card ARF-0142 with finding or lead) and returns its cardSha256, or shows an accepted " +
   "finding (atlasNumber F-1007) with its versions, label, links and write status; accept_finding takes that " +
-  "cardSha256, the topicKey you declare (with topicLabel for a new topic) and the numbers the wording gives (an empty " +
-  "list if none), and confirm: true only after the owner said to accept what the checks flagged; edit_finding accepts " +
-  "with the owner's wording, or after acceptance (with version) corrects it with a dated note; reject_finding, " +
+  "cardSha256 and, by default, the card's topic, numbers, kind, subject, subject type and direction: send topicKey " +
+  "(with topicLabel for a new topic), numbers, kind, subject, subjectType or direction to change one, and all of them " +
+  "for a card saved before these fields; confirm: true only after the owner said to accept what the checks flagged; " +
+  "edit_finding accepts with the owner's wording, or after acceptance (with version) corrects it or its fields with a " +
+  "dated note; reject_finding, " +
   "withdraw_finding and link_findings complete the set. With eraseWording, edit_finding or withdraw_finding also " +
   "erases wording the owner judges could identify a person. forget_card (card ARF-0142) removes what ties a card to " +
   "its contributor whenever they ask, with no reason needed: it deletes the card's decision rows and strips its " +

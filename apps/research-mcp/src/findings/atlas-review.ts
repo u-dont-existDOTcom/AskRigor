@@ -5,6 +5,8 @@ import {
   ATLAS_DISAGREEMENTS,
   ATLAS_ERASED_KEY,
   ATLAS_ERASED_TEXT,
+  ATLAS_FINDING_DIRECTIONS,
+  ATLAS_FINDING_KINDS,
   ATLAS_FINDING_PROMOTION_FAILURE_CODES,
   ATLAS_FINDING_TAGS,
   ATLAS_INTENT_KINDS,
@@ -12,8 +14,12 @@ import {
   ATLAS_LABELS,
   ATLAS_LINK_RELATIONS,
   ATLAS_RETRACTION_STATUSES,
+  ATLAS_SEARCH_DATABASES,
+  ATLAS_SEARCH_KIND,
   ATLAS_SOURCE_KINDS,
   ATLAS_SOURCE_PROVIDERS,
+  ATLAS_SUBJECT_MAX_CHARACTERS,
+  ATLAS_SUBJECT_TYPES,
   ATLAS_VERIFIED_BASES,
   AtlasReviewError,
   atlasLabelOf,
@@ -25,7 +31,9 @@ import {
   type AtlasCardDecision,
   type AtlasCardItemKind,
   type AtlasDecisionView,
+  type AtlasFindingDirection,
   type AtlasFindingIntent,
+  type AtlasFindingKind,
   type AtlasFindingPromotionFailureCode,
   type AtlasIntentKind,
   type AtlasIntentView,
@@ -35,11 +43,13 @@ import {
   type AtlasNumberEntry,
   type AtlasQuestionUse,
   type AtlasReviewStore,
+  type AtlasSearch,
   type AtlasSource,
   type AtlasSourceIdentifier,
   type AtlasState,
   type AtlasStateFinding,
   type AtlasStateReader,
+  type AtlasSubjectType,
   type AtlasVersionContent,
   type PreparedAtlasFindingIntent,
 } from "@askrigor/evidence-repository";
@@ -158,6 +168,12 @@ export const ATLAS_CHECK_PROBLEM_CODES = [
   "nothing_changed",
   "stamp_without_protocols",
   "intent_invalid",
+  // Atlas phase 3 (design section 5): what an older card does not declare and the call did not either, and the one
+  // exact contradiction between the declared fields.
+  "topic_missing",
+  "numbers_missing",
+  "card_fields_missing",
+  "card_fields_contradict",
 ] as const;
 type CheckProblemCode = typeof ATLAS_CHECK_PROBLEM_CODES[number];
 
@@ -181,9 +197,23 @@ export const atlasReviewInputShape = {
       "showed it."),
   topicKey: z.string().trim().regex(/^[a-z0-9][a-z0-9._-]{0,199}$/u).optional()
     .describe("accept_finding, edit_finding before acceptance: the topic the finding is filed under, as the topic key " +
-      "format has it (lower case, digits, . _ -), such as velmor-syndrome. You declare it; the reply names it."),
+      "format has it (lower case, digits, . _ -), such as velmor-syndrome. By default the card's topic; send it to " +
+      "change that, or for an older card without one. The reply names it."),
   topicLabel: ownerText(200).optional()
     .describe("With topicKey, when the topic is new: its label, such as Velmor syndrome."),
+  kind: z.enum(ATLAS_FINDING_KINDS).optional()
+    .describe("accept_finding, edit_finding: the finding's kind: effect, harm, overlooked_option, correction, " +
+      "nothing_found (a search that found nothing) or tested_vs_sold. By default the card's; an older card's you " +
+      "declare, with subject, subjectType and direction."),
+  subject: ownerText(ATLAS_SUBJECT_MAX_CHARACTERS).optional()
+    .describe("accept_finding, edit_finding: what the finding is about, as people know it, such as zentarine. By " +
+      "default the card's."),
+  subjectType: z.enum(ATLAS_SUBJECT_TYPES).optional()
+    .describe("accept_finding, edit_finding: the subject's type: condition, symptom, test, treatment, supplement, " +
+      "product, food or practice. By default the card's."),
+  direction: z.enum(ATLAS_FINDING_DIRECTIONS).optional()
+    .describe("accept_finding, edit_finding: benefit, harm, no_effect, mixed or descriptive; a search that found " +
+      "nothing is descriptive. By default the card's."),
   wording: ownerText(500).optional().describe("edit_finding: the finding's wording as the owner wants it."),
   appliesTo: ownerText(300).optional().describe("edit_finding: whom or what the finding holds for."),
   whyNotUsual: ownerText(300).optional().describe("edit_finding: why the usual answer misses it."),
@@ -231,6 +261,10 @@ export interface AtlasReviewRequest {
   version?: number;
   topicKey?: string;
   topicLabel?: string;
+  kind?: AtlasFindingKind;
+  subject?: string;
+  subjectType?: AtlasSubjectType;
+  direction?: AtlasFindingDirection;
   wording?: string;
   appliesTo?: string;
   whyNotUsual?: string;
@@ -251,16 +285,18 @@ export interface AtlasReviewRequest {
 }
 
 const EDIT_TEXTS = ["wording", "appliesTo", "whyNotUsual", "whatWouldChangeIt"] as const;
+/** The fields a card declares for each finding (Atlas phase 3), which the owner may change at any decision. */
+const CARD_FIELDS = ["kind", "subject", "subjectType", "direction"] as const;
 const CARD_ITEM_DECISION_FIELDS: AtlasFieldName[] = [
-  "card", "finding", "lead", "cardSha256", "topicKey", "topicLabel", "numbers", "confirm", "reason",
+  "card", "finding", "lead", "cardSha256", "topicKey", "topicLabel", "numbers", ...CARD_FIELDS, "confirm", "reason",
 ];
 const FIELDS_BY_ACTION: Record<AtlasReviewAction | "edit_after", readonly AtlasFieldName[]> = {
   list_findings: ["cursor"],
   inspect_finding: ["card", "finding", "lead", "atlasNumber"],
   accept_finding: CARD_ITEM_DECISION_FIELDS,
   edit_finding: [...CARD_ITEM_DECISION_FIELDS, ...EDIT_TEXTS, "question", "sources"],
-  edit_after: ["atlasNumber", "card", "finding", "lead", "version", ...EDIT_TEXTS, "sources", "numbers", "note",
-    "correction", "eraseWording", "confirm", "reason"],
+  edit_after: ["atlasNumber", "card", "finding", "lead", "version", ...EDIT_TEXTS, "sources", "numbers", ...CARD_FIELDS,
+    "note", "correction", "eraseWording", "confirm", "reason"],
   reject_finding: ["card", "finding", "lead", "cardSha256", "reason"],
   withdraw_finding: ["atlasNumber", "card", "finding", "lead", "version", "note", "eraseWording", "reason"],
   link_findings: ["atlasNumber", "relation", "to", "disagreement", "rationale", "note", "reason"],
@@ -312,7 +348,7 @@ export function refineAtlasReviewInput(
     case "edit_finding":
       if (after) {
         findingOrCard();
-        const newText = [...EDIT_TEXTS, "sources", "numbers"].some((field) => has(field as AtlasFieldName));
+        const newText = [...EDIT_TEXTS, "sources", "numbers", ...CARD_FIELDS].some((field) => has(field as AtlasFieldName));
         if (!newText && value.eraseWording === true) {
           // Decision 7 alone: the earlier versions' wording is erased and the latest stays as it is.
           for (const field of ["note", "correction", "confirm"] as const) {
@@ -325,7 +361,7 @@ export function refineAtlasReviewInput(
         }
         if (!newText) {
           issue("edit_finding after acceptance needs a new wording, appliesTo, whyNotUsual, whatWouldChangeIt, " +
-            "sources or numbers, or eraseWording", "wording");
+            "sources, numbers, kind, subject, subjectType or direction, or eraseWording", "wording");
         }
         if (value.correction !== false && !has("note")) {
           issue("a correction needs its public note; set correction to false for a wording fix", "note");
@@ -334,9 +370,11 @@ export function refineAtlasReviewInput(
       }
       oneItem();
       if (!has("cardSha256")) issue(`${action} needs cardSha256, from inspect_finding`, "cardSha256");
-      if (!has("topicKey")) issue(`${action} needs topicKey (and topicLabel for a new topic)`, "topicKey");
-      if (!has("numbers")) issue(`${action} needs numbers, an empty list when the wording gives no two-group figure`,
-        "numbers");
+      // Atlas phase 3: the topic and the numbers come from the card by default, so the call names them only to change
+      // them or for an older card; the checks say when one is missing (topic_missing, numbers_missing).
+      if (has("topicLabel") && !has("topicKey")) {
+        issue("topicLabel goes with topicKey: send the topic's key with its label", "topicLabel");
+      }
       if (action === "edit_finding" && ![...EDIT_TEXTS, "question", "sources"].some((field) =>
         has(field as AtlasFieldName))) {
         issue("edit_finding needs a new wording, appliesTo, whyNotUsual, whatWouldChangeIt, question or sources; " +
@@ -379,6 +417,14 @@ const wouldBecomeSchema = z.enum(["checked", "lead", "recheck", "community_only"
 const failureCodeSchema = z.enum(ATLAS_FINDING_PROMOTION_FAILURE_CODES);
 const intentStatusSchema = z.enum(["PENDING", "COMPLETED", "FAILED"]);
 const topicViewSchema = z.object({ key: z.string(), label: z.string(), isNew: z.boolean() }).strict();
+const kindViewSchema = z.enum(ATLAS_FINDING_KINDS).nullable();
+/** A finding's declared fields (Atlas phase 3), each null where the card or the version has none. */
+const cardFieldsView = {
+  kind: kindViewSchema,
+  subject: z.string().nullable(),
+  subjectType: z.enum(ATLAS_SUBJECT_TYPES).nullable(),
+  direction: z.enum(ATLAS_FINDING_DIRECTIONS).nullable(),
+};
 
 const intentViewSchema = z.object({
   intentId: z.string().uuid(),
@@ -405,6 +451,7 @@ export const atlasFindingsListSchema = z.object({
       number: z.number().int().min(1).max(6),
       text: z.string(),
       certainty: z.enum(FINDING_CERTAINTIES).nullable(),
+      kind: kindViewSchema,
       wouldBecome: wouldBecomeSchema,
       recheckOf: publicNumberSchema.nullable(),
     }).strict()).max(11),
@@ -429,12 +476,19 @@ export const atlasCardViewSchema = z.object({
   savedOn: daySchema,
   saves: z.number().int().min(1),
   beyondQuickAnswer: z.boolean(),
+  /** The topic the card declares (Atlas phase 3); null on an older card. */
+  topic: z.object({ key: z.string(), label: z.string() }).strict().nullable(),
   items: z.array(z.object({
     item: z.enum(["finding", "lead"]),
     number: z.number().int().min(1).max(6),
     text: z.string(),
     certainty: z.enum(FINDING_CERTAINTIES).nullable(),
     appliesTo: z.string().nullable(),
+    ...cardFieldsView,
+    /** How many two-group figures its numbers block holds; null when the card declares none. */
+    numbers: z.number().int().nonnegative().nullable(),
+    /** A search that found nothing: the searches it made, as the final check bound them. */
+    searches: z.array(z.object({ database: z.enum(ATLAS_SEARCH_DATABASES), query: z.string() }).strict()).max(10),
     sources: z.array(z.string()).max(10),
     youtubeVideos: z.number().int().nonnegative(),
     save: z.enum(["card", "occurrence"]),
@@ -462,6 +516,7 @@ export const atlasStatusSchema = z.object({
   version: z.number().int().min(1).nullable(),
   topic: topicViewSchema.nullable(),
   wording: z.string().nullable(),
+  ...cardFieldsView,
   /** The versions whose wording is erased (decision 7): it reads as the fixed marker. */
   wordingRemoved: z.array(z.number().int().min(1)).max(1_000),
   researchCheckedOn: daySchema.nullable(),
@@ -786,6 +841,7 @@ export class AtlasReview {
           number: ref.itemNumber,
           text: clip(item.text, 160),
           certainty: item.certainty,
+          kind: cardFieldsOf(item).kind ?? null,
           wouldBecome: wouldBecome(item, recheckOf),
           recheckOf: recheckOf ?? null,
         });
@@ -812,7 +868,8 @@ export class AtlasReview {
         `${card.card}${card.beyondQuickAnswer ? " (beyond a quick answer)" : ""}, saved ${card.savedOn}: ` +
         `${card.question}${card.publicValue === "public" ? "" : ` [public value ${card.publicValue}]`}\n` +
         card.items.map((item) => `  ${item.item === "finding" ? "Finding" : "Open lead"} ${item.number}: ${item.text}` +
-          `${item.certainty === null ? "" : ` (${item.certainty})`} -> ${wouldBecomeWords(item.wouldBecome, item.recheckOf)}`)
+          `${item.certainty === null ? "" : ` (${item.certainty}${item.kind === null ? "" : `, ${item.kind}`})`} -> ` +
+          wouldBecomeWords(item.wouldBecome, item.recheckOf))
           .join("\n"))),
       ...(nextCursor === null ? [] : ["More cards wait: call list_findings with the nextCursor."]),
       ...(unreadable.length === 0 ? [] : [`${unreadable.join(", ")} cannot be read as the library saved ` +
@@ -874,7 +931,8 @@ export class AtlasReview {
     const community = focus.finding === null ? undefined : communityState({ ...focus.finding, sources: kept });
     const plan = sourceChecks === undefined ? emptySourcePlan() : planSources(sourceChecks, state, false);
     const accepted = acceptedTexts(focus, {});
-    const privacy = screenTexts(itemTexts(focus, accepted, []));
+    const declared = cardFieldsOf(focus);
+    const privacy = screenTexts(itemTexts(focus, accepted, focus.finding?.numbers ?? [], declared));
     const problems = [...plan.problems];
     if (community?.refused === true) problems.push(communityOnlyProblem(focus.name));
     if (madeWithOf(focus.record.stamp).protocols.length === 0) problems.push(stampProblem());
@@ -883,10 +941,24 @@ export class AtlasReview {
       sourceChecks, privacy, problems, relatedTopics: state.topics,
     });
     const flagged = [...(community?.needsConfirmation === true ? [communityConfirmation()] : []), ...plan.confirmations];
+    // Atlas phase 3: what accept_finding takes from the card, and what an older card leaves for the call to declare.
+    const cardTopic = focus.record.card.topic;
+    const asks = [
+      ...(cardTopic === undefined ? ["a topicKey (and topicLabel for a new topic)"] : []),
+      ...(focus.finding !== null && declared.kind === undefined
+        ? ["the numbers the wording gives (an empty list if none)", "the kind, subject, subjectType and direction you " +
+          "declare"]
+        : []),
+    ];
+    const takes = [
+      ...(cardTopic === undefined ? [] : [`the card's topic (${cardTopic.label})`]),
+      ...(focus.finding !== null && declared.kind !== undefined ? ["its numbers block, kind, subject, subject type " +
+        "and direction"] : []),
+    ];
     const next = recheckOf !== undefined
       ? `accept_finding records it as a re-check of ${recheckOf}`
-      : "accept_finding needs this cardSha256, a topicKey (and topicLabel for a new topic) and the numbers the " +
-        "wording gives (an empty list if none)";
+      : `accept_finding needs this cardSha256${asks.length === 0 ? "" : `, ${listed(asks)}`}` +
+        `${takes.length === 0 ? "" : `; it takes ${listed(takes)} unless you send others`}`;
     return {
       ok: true,
       outcome: "finding_inspected",
@@ -894,7 +966,14 @@ export class AtlasReview {
       checks,
       text: `${focus.name} (cardSha256 ${loaded.cardSha256}) would be ${wouldBecomeWords(checks.wouldBecome!, recheckOf ?? null)}` +
         ` (${focus.save === "card" ? "the card's own save" : "a later save"}; bases: ` +
-        `${focus.bases.length === 0 ? "none" : focus.bases.join(", ")}).\n${sourcesSentence(plan)}` +
+        `${focus.bases.length === 0 ? "none" : focus.bases.join(", ")}).` +
+        (focus.finding === null ? "" : declared.kind === undefined
+          ? "\nDeclared: nothing, as a card saved before the Atlas fields."
+          : `\nDeclared: ${fieldsWords(declared)}; numbers: ${focus.finding.numbers?.length ?? 0} two-group ` +
+            `${(focus.finding.numbers?.length ?? 0) === 1 ? "figure" : "figures"}` +
+            `${declared.searchScope === undefined ? "" : `; searches: ${declared.searchScope.map(({ database, query }) =>
+              `${database} "${query}"`).join(", ")}`}.`) +
+        `\n${sourcesSentence(plan)}` +
         (privacy.length === 0 ? "" : `\nPrivacy: ${privacy.map(({ field, reasonCode }) => `${field} (${reasonCode})`).join(", ")}.`) +
         (problems.length === 0 ? "" : `\n${problems.map(({ message }) => message).join("\n")}`) +
         (flagged.length === 0 ? "" : `\nNeeds the owner's confirmation: ${flagged.join("; ")}.`) +
@@ -939,6 +1018,7 @@ export class AtlasReview {
         version: null,
         topic: payload.topic.label === null ? null : { key: payload.topic.key, label: payload.topic.label, isNew: true },
         wording: payload.content.wording,
+        ...fieldsView(definedFields(payload.content)),
         wordingRemoved: [],
         researchCheckedOn: payload.researchCheckedOn,
         links: [],
@@ -958,6 +1038,7 @@ export class AtlasReview {
       version: latest.versionNumber,
       topic: topic === undefined ? null : { key: topic.canonicalKey, label: topic.label, isNew: false },
       wording: latest.content.wording,
+      ...fieldsView(definedFields(latest.content)),
       wordingRemoved: finding.versions.filter(({ erased }) => erased).map(({ versionNumber }) => versionNumber),
       researchCheckedOn: latest.researchCheckedOn,
       links: state.links
@@ -1025,10 +1106,19 @@ export class AtlasReview {
             `to: leave ${field} out.` });
         }
       }
+      for (const field of CARD_FIELDS) {
+        if (request[field] !== undefined) {
+          problems.push({ code: "open_lead_fields", message: `An open lead holds only its wording and whom it applies ` +
+            `to: leave ${field} out.` });
+        }
+      }
       if ((request.numbers ?? []).length > 0) {
         problems.push({ code: "open_lead_fields", message: "An open lead has no numbers: send numbers as an empty list." });
       }
     }
+    // Atlas phase 3: the topic is the card's unless the owner sends another; an older card declares none.
+    const cardTopic = item.record.card.topic;
+    const topicKey = request.topicKey ?? cardTopic?.key;
     const community = item.finding === null ? undefined : communityState({ ...item.finding, sources: kept });
     if (community?.refused === true) problems.push(communityOnlyProblem(item.name));
     const sourceChecks = item.leadOrigin === "open_lead" || kept.length === 0
@@ -1038,7 +1128,7 @@ export class AtlasReview {
       this.deps.reader.readAtlasState({
         wordingKeys: [item.cardWordingKey],
         identifiers: sourceChecks === undefined ? [] : checkedIdentifiers(sourceChecks),
-        topicKeys: request.topicKey === undefined ? [] : [request.topicKey],
+        topicKeys: topicKey === undefined ? [] : [topicKey],
       }),
       this.deps.store.inspectIntents(null),
     ]);
@@ -1061,28 +1151,54 @@ export class AtlasReview {
     const madeWith = madeWithOf(item.record.stamp);
     if (madeWith.protocols.length === 0) problems.push(stampProblem());
 
-    // What is filed: a re-check of a stored finding, or a new finding or lead under the declared topic.
+    // What is filed: a re-check of a stored finding, or a new finding or lead under the topic, the card's unless the
+    // owner sent another (Atlas phase 3).
     let topic: AtlasChecks["topic"] = null;
     let topicLabel: string | null = null;
-    if (recheckOf === undefined) {
-      const stored = state.topics.find(({ canonicalKey }) => canonicalKey === request.topicKey);
+    const topicFromCard = request.topicKey === undefined && cardTopic !== undefined;
+    if (recheckOf === undefined && topicKey === undefined) {
+      problems.push({ code: "topic_missing", message: `${id} declares no topic, as a card saved before the Atlas ` +
+        "fields: give topicKey, such as velmor-syndrome, and topicLabel for a new topic." });
+    } else if (recheckOf === undefined && topicKey !== undefined) {
+      const stored = state.topics.find(({ canonicalKey }) => canonicalKey === topicKey);
       const queued = intents.find((intent) => intent.status === "PENDING" && intent.payload.kind === "accept" &&
-        intent.payload.topic.key === request.topicKey && intent.payload.topic.label !== null);
+        intent.payload.topic.key === topicKey && intent.payload.topic.label !== null);
       const queuedLabel = queued?.payload.kind === "accept" ? queued.payload.topic.label : null;
+      // The card's label goes with the card's key only; another key takes the owner's label.
+      const label = request.topicLabel ?? (topicKey === cardTopic?.key ? cardTopic.label : undefined);
       if (stored !== undefined) {
         topic = { key: stored.canonicalKey, label: stored.label, isNew: false };
       } else if (queuedLabel !== null && queuedLabel !== undefined) {
         topicLabel = queuedLabel;
-        topic = { key: request.topicKey!, label: queuedLabel, isNew: false };
-      } else if (request.topicLabel !== undefined) {
-        topicLabel = request.topicLabel;
-        topic = { key: request.topicKey!, label: request.topicLabel, isNew: true };
+        topic = { key: topicKey, label: queuedLabel, isNew: false };
+      } else if (label !== undefined) {
+        topicLabel = label;
+        topic = { key: topicKey, label, isNew: true };
       } else {
-        problems.push({ code: "topic_label_missing", message: `${request.topicKey} is not an Atlas topic yet: give ` +
+        problems.push({ code: "topic_label_missing", message: `${topicKey} is not an Atlas topic yet: give ` +
           "topicLabel to create it, or the key of an existing topic." });
       }
     }
-    const numbers = recheckOf === undefined ? request.numbers ?? [] : [];
+    // The numbers block and the finding's fields: the card's unless the owner sent others (design section 5). A card
+    // finding from an older card declares neither, so the call does; an open lead has none; a re-check changes none.
+    const declared = cardFieldsOf(item);
+    const olderCard = item.finding !== null && declared.kind === undefined;
+    let numbers: AtlasNumberEntry[] = [];
+    if (recheckOf === undefined) {
+      if (request.numbers !== undefined || item.finding === null) {
+        numbers = request.numbers ?? [];
+      } else if (!olderCard) {
+        numbers = item.finding.numbers ?? [];
+      } else {
+        problems.push({ code: "numbers_missing", message: `${item.name} is from a card saved before the Atlas ` +
+          "fields, which declares no numbers: give numbers, each two-group yes-or-no figure the wording gives, or " +
+          "an empty list if it gives none." });
+      }
+    }
+    const fields = recheckOf !== undefined || item.finding === null ? {} : decidedFields(request, declared);
+    if (recheckOf === undefined && item.finding !== null) {
+      problems.push(...cardFieldProblems(item.name, fields, { required: true, olderCard }));
+    }
     const numberProblems = recheckOf === undefined ? atlasNumbersProblems(numbers, accepted.wording) : [];
     const keptSet = new Set(kept);
     const editedAtAcceptance = mode === "edit" && (accepted.question !== item.question || accepted.wording !== item.text ||
@@ -1106,9 +1222,9 @@ export class AtlasReview {
           entryKind: item.entryKind,
           leadOrigin: item.leadOrigin,
           editedAtAcceptance,
-          topic: { key: request.topicKey!, label: topicLabel },
+          topic: { key: topicKey!, label: topicLabel },
           question: accepted.question,
-          content: contentOf(item, accepted, numbers),
+          content: contentOf(item, accepted, numbers, fields),
           sources: plan.sources,
           wordingKeys: { card: item.cardWordingKey, accepted: atlasWordingKey(accepted.question, accepted.wording) },
           researchCheckedOn: researchDayOf(item.record.stamp),
@@ -1181,6 +1297,7 @@ export class AtlasReview {
       version: null,
       topic,
       wording: recheckOf === undefined ? accepted.wording : null,
+      ...fieldsView(fields),
       wordingRemoved: [],
       researchCheckedOn: researchDayOf(item.record.stamp),
       links: [],
@@ -1199,16 +1316,25 @@ export class AtlasReview {
       ? ` Confirmed by the owner: ${confirmations.join("; ")}.`
       : "";
     const retried = existing !== undefined ? " (a retry under the same number, after the writer refused the first)" : "";
+    const filed = `filed under ${topic?.label}${topic?.isNew === true ? " (new topic)" : ""}` +
+      `${topicFromCard ? ", the card's topic" : ""}`;
+    // A re-check keeps the stored finding's fields (design section 5): any sent are named as not taken.
+    const notTaken = recheckOf !== undefined && CARD_FIELDS.some((field) => request[field] !== undefined)
+      ? ` ${publicNumber} keeps its own kind, subject, subject type and direction; change them with edit_finding.`
+      : "";
+    const declaredWords = fieldsWords(fields);
+    const withFields = declaredWords === "" ? "" : `, ${declaredWords}`;
     const text = recheckOf !== undefined
       ? `Recorded ${item.name} as a re-check of ${publicNumber}${retried}, with the research of ` +
         `${researchDayOf(item.record.stamp)}${item.bases.length > 0 ? `, which brings a verified basis (${item.bases.join(", ")})` : ""}. ` +
-        `The Atlas writer stores it within about 5 minutes.`
+        `The Atlas writer stores it within about 5 minutes.${notTaken}`
       : item.entryKind === "finding"
-        ? `Accepted ${item.name} as ${publicNumber}${retried}, a checked finding${editedAtAcceptance ? " with your wording" : ""}, ` +
-          `filed under ${topic!.label}${topic!.isNew ? " (new topic)" : ""}. ${WRITER_SENTENCE}`
-        : `Accepted ${item.name} as a lead, ${publicNumber}${retried}: ${item.leadOrigin === "open_lead"
-          ? "an open lead of the card" : "it has no verified basis"}${editedAtAcceptance ? ", with your wording" : ""}. ` +
-          `Filed under ${topic!.label}${topic!.isNew ? " (new topic)" : ""}. ${WRITER_SENTENCE}`;
+        ? `Accepted ${item.name} as ${publicNumber}${retried}, a checked finding` +
+          `${editedAtAcceptance ? " with your wording" : ""}${withFields}, ${filed}. ${WRITER_SENTENCE}`
+        : `Accepted ${item.name} as a lead, ${publicNumber}${retried}${withFields}: ` +
+          `${item.leadOrigin === "open_lead" ? "an open lead of the card" : "it has no verified basis"}` +
+          `${editedAtAcceptance ? ", with your wording" : ""}. ${filed.charAt(0).toUpperCase()}${filed.slice(1)}. ` +
+          WRITER_SENTENCE;
     return {
       ok: true,
       outcome: outcomeOf(stored.intent?.status ?? "PENDING"),
@@ -1257,13 +1383,18 @@ export class AtlasReview {
     const problems: Array<{ code: CheckProblemCode; message: string }> = [];
     const openLead = finding.leadOrigin === "open_lead";
     if (openLead) {
-      for (const field of ["whyNotUsual", "whatWouldChangeIt", "sources"] as const) {
+      for (const field of ["whyNotUsual", "whatWouldChangeIt", "sources", ...CARD_FIELDS] as const) {
         if (request[field] !== undefined) {
           problems.push({ code: "open_lead_fields", message: `An open lead holds only its wording and whom it applies ` +
             `to: leave ${field} out.` });
         }
       }
     }
+    // Atlas phase 3: the latest version's fields unless the owner sends others, all four or none; the searches stay
+    // only while the kind stays nothing_found.
+    const had = definedFields(latest.content);
+    const fields = openLead ? had : decidedFields(request, had);
+    problems.push(...cardFieldProblems(resolved, fields, { required: false, olderCard: false }));
     // The sources: the families its latest version binds, or the ones the owner keeps of them.
     const bound = [...new Map(latest.bindings.map((binding) => [binding.familyId, binding])).values()]
       .sort((left, right) => left.locator.localeCompare(right.locator));
@@ -1297,18 +1428,19 @@ export class AtlasReview {
       : planFamilySources(sourceChecks, keptFamilies, request.confirm === true);
     problems.push(...plan.problems);
     const content: AtlasVersionContent = {
-      ...latest.content,
+      ...withoutDeclaredFields(latest.content),
       wording: request.wording ?? latest.content.wording,
       appliesTo: request.appliesTo ?? latest.content.appliesTo,
       whyNotUsual: request.whyNotUsual ?? latest.content.whyNotUsual,
       whatWouldChangeIt: request.whatWouldChangeIt ?? latest.content.whatWouldChangeIt,
       numbers: request.numbers ?? latest.content.numbers,
+      ...fields,
     };
     const unchanged = stableJson(content) === stableJson(latest.content) &&
       keptFamilies.length === families.length;
     if (unchanged) {
       problems.push({ code: "nothing_changed", message: `The edit leaves ${resolved}'s version ${latest.versionNumber} ` +
-        "as it is: send a new text, sources or numbers." });
+        "as it is: send a new text, sources or numbers, or a new kind, subject, subjectType or direction." });
     }
     const numberProblems = atlasNumbersProblems(content.numbers, content.wording);
     const payload = {
@@ -1361,8 +1493,10 @@ export class AtlasReview {
       resolved, request.reason, intents,
     );
     const kind = request.correction === false ? "wording fix" : "correction";
+    const fieldsChanged = stableJson(fields) !== stableJson(had);
     const queued = `Queued a ${kind} of ${resolved}: version ${latest.versionNumber + 1}` +
-      `${request.note === undefined ? "" : ", with your note, which the Atlas dates"}`;
+      `${request.note === undefined ? "" : ", with your note, which the Atlas dates"}` +
+      `${fieldsChanged && fields.kind !== undefined ? `, ${fieldsWords(fields)}` : ""}`;
     const atlas: AtlasStatus = {
       ...(await this.statusOf(resolved))!,
       labelAfter: labelsWith(state, [finding.findingId], { bases: { [finding.findingId]: content.verifiedBases } })
@@ -2105,8 +2239,16 @@ function acceptedTexts(item: CardItem, edits: Partial<Pick<AtlasReviewRequest, t
   };
 }
 
-/** The version content an accept stores: an open lead holds only its wording and whom it applies to. */
-function contentOf(item: CardItem, texts: ReturnType<typeof acceptedTexts>, numbers: AtlasNumberEntry[]): AtlasVersionContent {
+/**
+ * The version content an accept stores: an open lead holds only its wording and whom it applies to; a card finding
+ * also its declared fields (Atlas phase 3), each left out when not declared.
+ */
+function contentOf(
+  item: CardItem,
+  texts: ReturnType<typeof acceptedTexts>,
+  numbers: AtlasNumberEntry[],
+  fields: DeclaredFields,
+): AtlasVersionContent {
   const declared = item.record.card.public_value;
   const open = item.leadOrigin === "open_lead";
   return {
@@ -2122,12 +2264,18 @@ function contentOf(item: CardItem, texts: ReturnType<typeof acceptedTexts>, numb
     tags: open || item.finding === null ? [] : ATLAS_FINDING_TAGS.filter((tag) => item.finding!.tags.includes(tag)),
     verifiedBases: item.entryKind === "finding" ? item.bases : [],
     numbers,
+    ...(open ? {} : definedFields(fields)),
   };
 }
 
 /** Every text of an item as an accept would store it, for the dry run's privacy screen. */
-function itemTexts(item: CardItem, texts: ReturnType<typeof acceptedTexts>, numbers: AtlasNumberEntry[]) {
-  return contentTexts(contentOf(item, texts, numbers), { question: texts.question });
+function itemTexts(
+  item: CardItem,
+  texts: ReturnType<typeof acceptedTexts>,
+  numbers: AtlasNumberEntry[],
+  fields: DeclaredFields,
+) {
+  return contentTexts(contentOf(item, texts, numbers, fields), { question: texts.question });
 }
 
 function contentTexts(content: AtlasVersionContent, extra: Record<string, string | null | undefined> = {}) {
@@ -2146,7 +2294,126 @@ function contentTexts(content: AtlasVersionContent, extra: Record<string, string
     texts[`numbers[${index}].comparator`] = entry.comparator;
     texts[`numbers[${index}].follow_up`] = entry.follow_up;
   });
+  // Atlas phase 3: the subject and each search's query are stored texts too, screened like the rest.
+  texts.subject = content.subject;
+  content.searchScope?.forEach((search, index) => {
+    texts[`searchScope[${index}].query`] = search.query;
+  });
   return texts;
+}
+
+// The finding's declared fields (Atlas phase 3, design section 5) ---------------------------------------------------
+
+/** A finding's kind, subject, subject type, direction and searches, as a version's content holds them. */
+type DeclaredFields = Pick<AtlasVersionContent, "kind" | "subject" | "subjectType" | "direction" | "searchScope">;
+
+const orList = (values: readonly string[]) => `${values.slice(0, -1).join(", ")} or ${values.at(-1)}`;
+/** What each field takes, for a problem that asks for it. */
+const FIELD_VALUES: Record<typeof CARD_FIELDS[number], string> = {
+  kind: `kind (${orList(ATLAS_FINDING_KINDS)})`,
+  subject: "subject (what it is about, as people know it, such as zentarine)",
+  subjectType: `subjectType (${orList(ATLAS_SUBJECT_TYPES)})`,
+  direction: `direction (${orList(ATLAS_FINDING_DIRECTIONS)})`,
+};
+
+/** The fields with each undefined one left out, so a content holds only what was declared. */
+function definedFields(fields: DeclaredFields): DeclaredFields {
+  const defined: DeclaredFields = {};
+  if (fields.kind !== undefined) defined.kind = fields.kind;
+  if (fields.subject !== undefined) defined.subject = fields.subject;
+  if (fields.subjectType !== undefined) defined.subjectType = fields.subjectType;
+  if (fields.direction !== undefined) defined.direction = fields.direction;
+  if (fields.searchScope !== undefined) defined.searchScope = fields.searchScope;
+  return defined;
+}
+
+/** The fields a card item declares: a card finding's own (none on an older card); an open lead has none. */
+function cardFieldsOf(item: CardItem): DeclaredFields {
+  const finding = item.finding;
+  if (finding === null) return {};
+  return definedFields({
+    kind: finding.kind,
+    subject: finding.subject,
+    subjectType: finding.subject_type,
+    direction: finding.direction,
+    searchScope: finding.searches === undefined || finding.searches.length === 0
+      ? undefined
+      : finding.searches.map(({ database, query }): AtlasSearch => ({ database, query })),
+  });
+}
+
+/** A version's content without its declared fields, to which a correction's are then added. */
+function withoutDeclaredFields(content: AtlasVersionContent): AtlasVersionContent {
+  const rest = { ...content };
+  delete rest.kind;
+  delete rest.subject;
+  delete rest.subjectType;
+  delete rest.direction;
+  delete rest.searchScope;
+  return rest;
+}
+
+/**
+ * The fields a decision stores: each one the owner sent, else the one the finding had (its card's, or its latest
+ * version's). The searches come only from what it had, bound at the final check, and stay only while the kind stays
+ * nothing_found.
+ */
+function decidedFields(request: Pick<AtlasReviewRequest, typeof CARD_FIELDS[number]>, had: DeclaredFields): DeclaredFields {
+  const kind = request.kind ?? had.kind;
+  return definedFields({
+    kind,
+    subject: request.subject ?? had.subject,
+    subjectType: request.subjectType ?? had.subjectType,
+    direction: request.direction ?? had.direction,
+    searchScope: kind === ATLAS_SEARCH_KIND ? had.searchScope : undefined,
+  });
+}
+
+/**
+ * What the declared fields lack, and their one exact contradiction (the final check's check 10). An accept needs all
+ * four (choice 2); a correction keeps all four or none, so a version never declares only some.
+ */
+function cardFieldProblems(
+  name: string,
+  fields: DeclaredFields,
+  options: { required: boolean; olderCard: boolean },
+): Array<{ code: CheckProblemCode; message: string }> {
+  const problems: Array<{ code: CheckProblemCode; message: string }> = [];
+  const missing = CARD_FIELDS.filter((field) => fields[field] === undefined);
+  if (missing.length > 0 && (options.required || missing.length < CARD_FIELDS.length)) {
+    problems.push({
+      code: "card_fields_missing",
+      message: `${name} has no ${listed(missing)}${options.olderCard ? ", as its card was saved before the Atlas " +
+        "fields" : ""}: declare ${missing.length === 1 ? "it" : "each"}: ${missing.map((field) => FIELD_VALUES[field])
+        .join("; ")}.`,
+    });
+  }
+  if (fields.kind === ATLAS_SEARCH_KIND && fields.direction !== undefined && fields.direction !== "descriptive") {
+    problems.push({
+      code: "card_fields_contradict",
+      message: `${name} is of kind nothing_found with direction ${fields.direction}: a search that found nothing has ` +
+        "direction descriptive. A study that found no difference is of kind effect or harm, with direction no_effect.",
+    });
+  }
+  return problems;
+}
+
+/** The declared fields in words, for a reply; empty when the kind is not declared. */
+function fieldsWords(fields: DeclaredFields): string {
+  if (fields.kind === undefined) return "";
+  const searches = fields.searchScope?.length ?? 0;
+  return `of kind ${fields.kind}, direction ${fields.direction}, about ${fields.subject} (${fields.subjectType})` +
+    (searches === 0 ? "" : `, with ${searches} ${searches === 1 ? "search" : "searches"} that found nothing`);
+}
+
+/** The declared fields for a view, each null when not declared. */
+function fieldsView(fields: DeclaredFields) {
+  return {
+    kind: fields.kind ?? null,
+    subject: fields.subject ?? null,
+    subjectType: fields.subjectType ?? null,
+    direction: fields.direction ?? null,
+  };
 }
 
 /**
@@ -2627,6 +2894,8 @@ function statusSentence(status: AtlasStatus): string {
   return `${status.atlasNumber}: ${status.entryKind === "lead" ? "a lead" : "a finding"}, labeled ${status.label}, ` +
     `version ${status.version}${status.topic === null ? "" : `, filed under ${status.topic.label}`}` +
     `${status.researchCheckedOn === null ? "" : `, research of ${status.researchCheckedOn}`}: "${clip(status.wording ?? "", 200)}"` +
+    `${status.kind === null ? "" : `. It is of kind ${status.kind}, direction ${status.direction}, about ` +
+      `${status.subject} (${status.subjectType})`}` +
     `${removed.length === 0 ? "" : `. Wording removed (decision 7) from ${removed.length === 1 ? "version" : "versions"} ` +
       `${listed(removed.map(String))}`}` +
     `${links.length === 0 ? "" : `. Links: ${links.map((link) => link.direction === "from"
@@ -2760,15 +3029,21 @@ function cardView(loaded: LoadedCard, findings: CardItem[], state: AtlasState): 
     savedOn: card.record.stamp.saved_at.slice(0, 10),
     saves: 1 + card.occurrences.length,
     beyondQuickAnswer: isBeyondQuickAnswer(card.labels),
+    topic: card.record.card.topic === undefined ? null
+      : { key: card.record.card.topic.key, label: card.record.card.topic.label },
     items: [...findings, ...leads].map((item) => {
       const recheckOf = item.ref.itemKind === "finding" ? recheckTarget(state, item.cardWordingKey) : undefined;
       const decision = decisionFor(loaded.decisions, item.ref);
+      const declared = cardFieldsOf(item);
       return {
         item: item.ref.itemKind === "finding" ? "finding" as const : "lead" as const,
         number: item.ref.itemNumber,
         text: item.text,
         certainty: item.certainty,
         appliesTo: item.appliesTo,
+        ...fieldsView(declared),
+        numbers: declared.kind === undefined ? null : item.finding?.numbers?.length ?? 0,
+        searches: declared.searchScope ?? [],
         sources: item.sources,
         youtubeVideos: item.youtubeVideos,
         save: item.save,
