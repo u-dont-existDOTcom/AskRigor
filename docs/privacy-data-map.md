@@ -1076,8 +1076,14 @@ marker, which holds the research thread key. What stays is only what is written
 without the person: a finding from the card that the owner has accepted for the
 public Atlas stays while it is valid, is corrected or taken down when someone
 shows it is wrong (a request that says why is reviewed as a correction), and is
-rewritten or removed if it could identify anyone. No finding can be accepted
-yet (the Atlas build plan's phase 2), so today a deletion removes the issue.
+rewritten or removed if it could identify anyone. The owner's findings actions
+that accept findings (below) are built but closed until the owner opens them
+(`ASKRIGOR_ATLAS_REVIEW`); while they are closed no finding can be accepted, and
+a deletion removes the issue. The automatic deletion path for a card with
+decisions (`forget_card`: its decision rows and the GitHub card) comes with the
+next part of the Atlas build; until then the owner deletes the issue by hand,
+and the card's decision rows, which hold its number but no account, thread key
+or card text, stay until that path removes them.
 
 The living-evidence and frontier stores hold no YouTube identifiers while the
 YouTube compliance review is open, and neither does this library.
@@ -1086,6 +1092,93 @@ Cards have no automatic expiry: they stay in the private repository until the
 owner deletes them. GitHub processes the stored issues under its own policies.
 Until the private repository exists and is added to the App's installation, a
 save answers that the library is unavailable and stores nothing.
+
+## Atlas findings: owner review
+
+Owner answers 159 and 160b (2026-10-22), Atlas phase 2 design
+(`docs/superpowers/plans/2026-10-22-atlas-phase-2-design.md`): the owner accepts
+saved findings into AskRigor's evidence database, from which the public Atlas
+pages will be built. The actions are on the owner-only
+`review_research_contribution` (OAuth `cases:review` and the allowlisted owner
+subject): `list_findings`, `inspect_finding`, `accept_finding`, `edit_finding`,
+`reject_finding`, `withdraw_finding` and `link_findings`. They are closed unless
+`ASKRIGOR_ATLAS_REVIEW` is `enabled`, which the release sets once migration
+0017, the review role's grants and the promotion timer are verified; while
+closed they answer `atlas_review_closed` and read and record nothing. Nothing
+from a card is public until the owner accepts it, and nothing is public until
+the Atlas pages exist. The owner's call never writes canonical evidence: it
+records a decision and a hash-bound intent through the review role's
+functions, and the existing one-shot timer job writes the canonical rows within
+about 5 minutes.
+
+What the owner's call reads, for that call only: the card and its later saves
+(occurrence comments) from the private findings repository, through the same
+GitHub App; the review store's decisions and intents; the canonical Atlas
+through the public runtime's read-only reader; and, for each source a finding
+keeps, its public record and retraction status from Crossref, PubMed, Europe PMC
+or ClinicalTrials.gov, with the provider tools' own calls and settings. Only the
+identifier is sent to a provider. A complete source check is kept in process
+memory for 10 minutes, so the accept binds what the inspect showed; nothing else
+from the call is kept beyond what follows. The checks are exact: which save of
+a card a finding comes from and whether it has a verified basis, community
+evidence under decision 4a (a finding with no DOI, PMID, PMCID or NCT source is
+refused, and one that also rested on audited comments needs the owner's confirm),
+the numbers the AI declares against the wording, the providers' records and
+retraction notices (a retracted source is bound as context only, after the
+owner's confirm), the privacy screen and a guard against any `ARF-` reference
+over every text an intent would store, the exact re-check key, and the rules for
+links. The topic, the numbers and the links are the AI's declarations; the owner
+accepts or rejects.
+
+- **Decisions** (`atlas_card_decisions`): the card's issue number, the item
+  number, the decision, the F number it took, the SHA-256 of the card record
+  and its later saves as the owner inspected them, the owner's private reason
+  (always for a rejection, optional otherwise) and the time. They are the only rows that name a card. They are kept
+  until the card is forgotten (decision 7, the next part of the build). The
+  reader role can read them, as it can read every table today.
+- **Intents** (`atlas_finding_intents`): the accepted texts (the question, the
+  wording, whom it applies to, the card's usual answer, why the usual answer
+  misses it, what would change it, and its public-value declaration's who-else
+  and what-it-changes), its certainty, tags and verified bases, the numbers the
+  AI declared, each kept source's identifiers with its check (provider, title,
+  year, retraction status and notices, the owner's confirmation, a SHA-256 of
+  the provider responses and the check time), the topic key and label, two
+  wording keys (SHA-256 of the normalized question and claim, as found and as
+  accepted), the version stamp (AskRigor version, build, protocol names,
+  versions and SHA-256, research depth and status) and the research day. A
+  correction or edit holds the new version's texts, numbers and sources the same
+  way, with its public note; a withdrawal and an unlink hold their public note; a
+  link holds its relation, what the two findings disagree on and its rationale;
+  the last three hold the AskRigor version, build and protocols that recorded
+  them. Beside a later change's payload, never in it, the row keeps the owner's
+  optional private reason. Each row also keeps its status, the writer's receipt
+  or refusal code, the retry it answers and its times. An intent never holds a
+  card reference. Its texts are erased with the finding (decision 7, the next
+  part of the build).
+- **Canonical Atlas records**: general knowledge written without the person,
+  append-only; kept while valid, corrected by new versions, and withdrawn by an
+  invalidated version; their wording is erased only on the path for findings
+  that could identify someone (the next part of the build).
+- **GitHub additions**: each decision as a comment on the card, such as
+  "Finding 1: accepted as F-1007, checked, 4 Nov 2026.", with a hidden marker
+  holding the item, the decision, the F number and the time, never the owner's
+  reason; the `reviewed` label in place of `pending-review` once every finding
+  of the card has a decision, when the card is also closed as completed. A
+  GitHub write that fails is redone, matched by its marker, on the next inspect
+  or list. The forget path comes with the next part of the build.
+- **Never stored in the Atlas**: the account, the research thread key, the
+  finalization receipt or its hash, and the duplicate fingerprint; the `ARF-`
+  number outside the decisions table; save times, the reported model, the
+  surface and the tool catalog hash; the answer quote, YouTube video IDs or
+  counts, the comment-audit basis and community text.
+- **Stated limits**: a person must name each `ARF-` id they want deleted,
+  because their other cards cannot be found from the account alone. The privacy
+  screen reads English for some patterns, as it does for cards. A card's record
+  is read as GitHub holds it: the hidden marker binds its question, claims and
+  save time, and a card stored whole binds every text, source and tag to the
+  digest the final check signed, but its verified bases and version stamp are
+  as GitHub holds them. An intent the writer refused stays in `list_findings`
+  until the owner sends a corrected one, which is recorded as its retry.
 
 ## Research data not persistently stored
 
@@ -1124,8 +1217,10 @@ pending-proposal stores have their own strict contracts and authority boundaries
   explicit writes (research-access mode, plain-answer note and detailed lesson reports settings, pending proposal, owner review, lesson
   candidate, `finalize_research`, which saves a free contributor's checked
   findings card, and `save_research_findings`, a paid-private card saved after
-  the user's yes) are declared with `destructiveHint: false` and
-  `openWorldHint: false`. Owner review requires `cases:review`; the others
+  the user's yes) are declared with `openWorldHint: false`, and all but owner
+  review with `destructiveHint: false`; owner review is declared
+  `destructiveHint: true`, since it withdraws accepted findings and, with
+  decision 7, forgets cards (Atlas owner choice 6a). Owner review requires `cases:review`; the others
   require authenticated `research:use`; all ordinary research operations also
   require that scope and an active free-contributor or paid-private mode. The Action-only transcript,
   treatment-landscape, automated Gemini-candidate, and legacy validation routes

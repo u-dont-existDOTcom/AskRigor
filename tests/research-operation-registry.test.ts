@@ -68,7 +68,8 @@ describe("shared research-operation registry", () => {
         "finalize_research",
         "save_research_findings",
       ] as string[]).includes(name) &&
-      annotations.destructiveHint === false &&
+      // The owner's review withdraws findings and forgets cards (Atlas phase 2, owner choice 6a).
+      annotations.destructiveHint === (name === "review_research_contribution") &&
       annotations.openWorldHint === false
     )).toBe(true);
 

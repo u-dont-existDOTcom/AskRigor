@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 
 import type { ProvenanceEnvelope } from "@askrigor/contracts";
+import type {
+  ATLAS_RETRACTION_STATUSES,
+  ATLAS_SOURCE_PROVIDERS,
+  AtlasSource,
+  AtlasSourceIdentifier,
+} from "@askrigor/evidence-repository";
 import {
   checkRetractionStatus,
   fetchClinicalTrial,
@@ -30,13 +36,13 @@ import { canonicalJson } from "./card.js";
  * this process for 10 minutes, so the accept that follows an inspect binds the results the owner saw.
  */
 
-export const ATLAS_SOURCE_KINDS = ["doi", "pmid", "pmcid", "nct"] as const;
-export type AtlasSourceKind = typeof ATLAS_SOURCE_KINDS[number];
+/** The identifier schemes an Atlas source has, as the intents store them (atlasSourceIdentifierSchema). */
+export type AtlasSourceKind = AtlasSourceIdentifier["scheme"];
 
 /** A source identifier as the providers take it. */
-export interface AtlasSourceIdentifier {
+export interface ParsedAtlasSource {
   kind: AtlasSourceKind;
-  /** A DOI in lower case; a PMID's digits; PMC and digits; NCT and eight digits. */
+  /** A DOI in lower case; a PMID's digits; PMC and digits; NCT and eight digits: the intents' canonical forms. */
   id: string;
 }
 
@@ -49,7 +55,7 @@ const NCT_FORM = /^nct(\d{8})$/iu;
  * number, in the forms a findings card accepts, in any case; undefined for anything else, such as a PMID with a
  * leading zero or a DOI the DOI tools cannot take.
  */
-export function parseAtlasSource(source: string): AtlasSourceIdentifier | undefined {
+export function parseAtlasSource(source: string): ParsedAtlasSource | undefined {
   const text = source.trim();
   const pmid = PMID_FORM.exec(text);
   if (pmid !== null) return { kind: "pmid", id: pmid[1]! };
@@ -62,15 +68,7 @@ export function parseAtlasSource(source: string): AtlasSourceIdentifier | undefi
   return doi === undefined ? undefined : { kind: "doi", id: doi };
 }
 
-/** A source's retraction status, as atlas_source_checks stores it. */
-export const ATLAS_RETRACTION_STATUSES = [
-  "none_found",
-  "corrected_or_updated",
-  "expression_of_concern",
-  "retracted",
-  "not_applicable",
-  "unknown"
-] as const;
+/** A source's retraction status, as atlas_source_checks stores it (ATLAS_RETRACTION_STATUSES, defined once). */
 export type AtlasRetractionStatus = typeof ATLAS_RETRACTION_STATUSES[number];
 
 /**
@@ -91,14 +89,17 @@ export const ATLAS_RETRACTION_RULES = {
   { needsConfirmation: boolean; binding: "supports" | "context_only" }
 >;
 
-/** A notice about the source itself, as Crossref's inbound update markers name it. */
+/**
+ * A notice about the source itself, as Crossref's inbound update markers name it. Its type is one an intent stores
+ * (atlasSourceCheckSchema); its date is Crossref's, which may give only a year or a month.
+ */
 export interface AtlasRetractionNotice {
-  type: "retracted" | "expression_of_concern" | "corrected_or_updated";
+  type: AtlasSource["check"]["notices"][number]["type"];
   date: string | null;
   doi: string | null;
 }
 
-export type AtlasSourceProvider = "crossref" | "pubmed" | "europe_pmc" | "clinicaltrials_gov";
+export type AtlasSourceProvider = typeof ATLAS_SOURCE_PROVIDERS[number];
 
 /** What the provider's record says, for the owner's review and for atlas_source_checks. */
 export interface AtlasSourceRecord {
@@ -302,7 +303,7 @@ interface CrossrefRetraction {
 type Reading = { via: "crossref"; status: AtlasRetractionStatus; doi: string; notices: AtlasRetractionNotice[] } |
   { via: "pubmed_publication_type"; status: AtlasRetractionStatus };
 
-function checkSource(identifier: AtlasSourceIdentifier, run: Run): Promise<SourceOutcome> {
+function checkSource(identifier: ParsedAtlasSource, run: Run): Promise<SourceOutcome> {
   switch (identifier.kind) {
     case "doi": return checkDoi(identifier.id, run);
     case "pmid": return checkPmid(identifier.id, run);
@@ -476,8 +477,8 @@ function crossrefRetraction(doi: string, run: Run): Promise<Lookup<CrossrefRetra
   return markers;
 }
 
-// The more serious status counts when two readings differ.
-const SEVERITY: readonly AtlasRetractionStatus[] = [
+/** The statuses from the most serious down: the more serious status counts when two readings differ. */
+export const ATLAS_RETRACTION_SEVERITY: readonly AtlasRetractionStatus[] = [
   "retracted", "expression_of_concern", "corrected_or_updated", "unknown", "none_found", "not_applicable"
 ];
 
@@ -491,7 +492,7 @@ function checked(
   const read = readings === "not_applicable" ? [] : readings;
   const status: AtlasRetractionStatus = readings === "not_applicable"
     ? "not_applicable"
-    : read.length === 0 ? "unknown" : SEVERITY.find((severity) => read.some((reading) => reading.status === severity))!;
+    : read.length === 0 ? "unknown" : ATLAS_RETRACTION_SEVERITY.find((severity) => read.some((reading) => reading.status === severity))!;
   const crossref = read.find((reading) => reading.via === "crossref");
   const rule = ATLAS_RETRACTION_RULES[status];
   return {

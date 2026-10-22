@@ -1,5 +1,11 @@
 import { createHash } from "node:crypto";
 
+import {
+  ATLAS_DISAGREEMENTS,
+  ATLAS_VERIFIED_BASES,
+  type AtlasLinkRelation,
+} from "@askrigor/evidence-repository";
+
 import type { PrivacyScreenReasonCode } from "../lessons/privacy-screen.js";
 import { normalizedFindingsText, screenFindingsText, type StoredFinding, type VerifiedBasis } from "./card.js";
 import type { FindingsRecord } from "./service.js";
@@ -15,18 +21,19 @@ import { parseAtlasSource } from "./source-checks.js";
  */
 
 /**
- * The verified bases (139c) that make an accepted finding a checked one rather than a lead (3b): a full-text audit, a
- * checked absence claim, or a correction the research found. Audited comments are not one (owner choice 2a), so a
- * finding that rests only on them is a lead until the 4a rule for community evidence.
+ * The verified bases (139c) that make an accepted finding a checked one rather than a lead (3b) are
+ * ATLAS_VERIFIED_BASES, defined once with the intents that store them: a full-text audit, a checked absence claim, or
+ * a correction the research found. Audited comments are not one (owner choice 2a), so a finding that rests only on
+ * them is a lead until the 4a rule for community evidence. Each is a basis the finalization receipt signs:
  */
-export const ATLAS_BASES = ["full_text_audit", "bounded_absence", "research_correction"] as const satisfies
-  readonly VerifiedBasis[];
-export type AtlasBasis = typeof ATLAS_BASES[number];
+const ATLAS_BASES_ARE_SIGNED_BASES: readonly VerifiedBasis[] = ATLAS_VERIFIED_BASES;
+void ATLAS_BASES_ARE_SIGNED_BASES;
+export type AtlasBasis = typeof ATLAS_VERIFIED_BASES[number];
 
-/** A stored finding's bases that count for the Atlas, in ATLAS_BASES order. */
+/** A stored finding's bases that count for the Atlas, in ATLAS_VERIFIED_BASES order. */
 export function atlasBases(finding: Pick<StoredFinding, "verified_bases">): AtlasBasis[] {
   const signed = finding.verified_bases ?? [];
-  return ATLAS_BASES.filter((basis) => signed.includes(basis));
+  return ATLAS_VERIFIED_BASES.filter((basis) => signed.includes(basis));
 }
 
 /** The save of a card that a finding's wording, sources and bases come from, and what it would become. */
@@ -153,11 +160,8 @@ export function atlasWordingKey(question: string, claim: string): string {
   return createHash("sha256").update(JSON.stringify(parts), "utf8").digest("hex");
 }
 
-export const ATLAS_LINK_RELATIONS = ["same_as", "narrows", "contradicts", "replaces"] as const;
-export type AtlasLinkRelation = typeof ATLAS_LINK_RELATIONS[number];
-
-/** What two contradicting findings disagree on, which both pages name. */
-export const ATLAS_DISAGREEMENTS = ["dose", "population", "outcome", "follow_up", "study_quality", "analysis"] as const;
+// The link relations (ATLAS_LINK_RELATIONS) and what two contradicting findings disagree on (ATLAS_DISAGREEMENTS),
+// which both pages name, are defined once with the intents that store them.
 export type AtlasDisagreement = typeof ATLAS_DISAGREEMENTS[number];
 
 /** A link the AI declared and the owner agreed to, or, with relation unlink, the withdrawal of one. */

@@ -642,7 +642,8 @@ describe("AskRigor public-review packet", () => {
         outputSchema: { type: "object", $schema: "http://json-schema.org/draft-07/schema#" },
         annotations: {
           readOnlyHint: !isWrite,
-          destructiveHint: false,
+          // The owner's review withdraws findings and forgets cards (Atlas phase 2, owner choice 6a).
+          destructiveHint: tool.name === "review_research_contribution",
           openWorldHint: false
         },
         execution: { taskSupport: "forbidden" }

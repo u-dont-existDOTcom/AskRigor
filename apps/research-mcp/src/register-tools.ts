@@ -69,10 +69,12 @@ import { infoAccessClientFromEnv, type InfoAccessClient } from "./infoaccess-cli
 import { authorizedSubject } from "./research-contributor-access-tool.js";
 import {
   PUBLIC_TOOL_LIMITS,
+  atlasReviewEnabledFromEnv,
   devAccountKeysFromEnv,
   findingsLibraryEnabledFromEnv,
   optionalLivingEvidenceReuseConfigFromEnv
 } from "./config.js";
+import type { AtlasReview } from "./findings/atlas-review.js";
 import { createConcurrencyLimiter } from "./rate-limit.js";
 import {
   DETAILED_REPORT_RULE,
@@ -725,6 +727,8 @@ const MUTATING_ANNOTATIONS: ToolAnnotations = {
   idempotentHint: true,
   openWorldHint: false,
 };
+// The owner's review takes findings down and, with decision 7, forgets cards: destructive (owner choice 6a).
+const OWNER_REVIEW_ANNOTATIONS: ToolAnnotations = { ...MUTATING_ANNOTATIONS, destructiveHint: true };
 const DEFAULT_PUBMED_PAGE_SIZE = 20;
 const MAX_PUBMED_PAGE_SIZE = 100;
 const DEFAULT_EUROPE_PMC_PAGE_SIZE = 20;
@@ -777,6 +781,10 @@ export interface RegisterToolsOptions {
   allowedReviewerSubjects?: ReadonlySet<string>;
   researchContributorAccessService?: ResearchContributorAccessService;
   researchContributionReviewService?: ResearchContributionReviewService;
+  /** The owner's findings actions for the Atlas: their stores, canonical reader and GitHub inbox. */
+  atlasReview?: AtlasReview;
+  /** Whether the findings actions are open; defaults to ASKRIGOR_ATLAS_REVIEW. */
+  atlasReviewEnabled?: boolean;
   researchAccessRequired?: boolean;
   /** Replaces the production lesson queue, for tests. */
   lessonSubmission?: (raw: unknown, context: LessonSubmissionContext) => Promise<ConnectorLessonSubmissionResult>;
@@ -794,6 +802,24 @@ export interface RegisterToolsOptions {
   /** What happened to this request's sign-in on /mcp; undefined without OAuth. */
   signIn?: SignInState;
 }
+
+/**
+ * The owner review tool (owner-only, cases:review): proposals, and the findings the owner accepts into the Atlas
+ * (Atlas phase 2 design, section 6).
+ */
+export const REVIEW_RESEARCH_CONTRIBUTION_DESCRIPTION =
+  "Owner-only review. Proposals: inspect one deidentified pending research contribution's exact payload and hash, " +
+  "then accept or reject it with a reason; inspect also shows, by ID only, the other pending proposals and canonical " +
+  "records that share its topic, question, frontier or identifiers, and a promotion preflight naming any conflict by " +
+  "its code. Findings for the Atlas: list_findings shows the findings cards that wait; inspect_finding runs every " +
+  "exact check on a card item (card ARF-0142 with finding or lead) and returns its cardSha256, or shows an accepted " +
+  "finding (atlasNumber F-1007) with its versions, label, links and write status; accept_finding takes that " +
+  "cardSha256, the topicKey you declare (with topicLabel for a new topic) and the numbers the wording gives (an empty " +
+  "list if none), and confirm: true only after the owner said to accept what the checks flagged; edit_finding accepts " +
+  "with the owner's wording, or after acceptance (with version) corrects it with a dated note; reject_finding, " +
+  "withdraw_finding and link_findings complete the set. Nothing from a card is public until the owner accepts it, " +
+  "and nothing is public until the Atlas pages exist. An accepted decision is a hash-bound intent: this call never " +
+  "writes canonical evidence, and a separate one-shot writer applies it within about 5 minutes.";
 
 // A findings save never holds back the answer for long: past this, the answer
 // goes ahead and the save, which carries on, is reported unconfirmed.
@@ -1793,16 +1819,22 @@ function defineResearchOperations(
   registrar.registerTool(
     "review_research_contribution",
     {
-      description: "Owner-only review of one deidentified pending research contribution. Inspect the exact payload and hash, then accept or reject with a reason. Inspect also shows, by ID only, the other pending proposals and the canonical records that share its topic, question, frontier or identifiers, and a promotion preflight naming any conflict by its code. Acceptance creates a hash-bound pending promotion intent but this public-runtime call never writes canonical evidence; a separate one-shot administrator completes promotion.",
+      description: REVIEW_RESEARCH_CONTRIBUTION_DESCRIPTION,
       inputSchema: researchContributionReviewInputSchema,
       outputSchema: researchContributionReviewOutputSchema,
-      annotations: MUTATING_ANNOTATIONS,
+      annotations: OWNER_REVIEW_ANNOTATIONS,
     },
     createResearchContributionReviewHandler({
       service: options.researchContributionReviewService,
       resourceMetadataUrl: options.oauthResourceMetadataUrl,
       allowedReviewerSubjects: options.allowedReviewerSubjects,
       canonical: RESEARCH_FRONTIER_READER,
+      atlas: {
+        enabled: options.atlasReviewEnabled ?? atlasReviewEnabledFromEnv(),
+        review: options.atlasReview,
+        // The source checks use the provider settings the connector's own provider tools use.
+        providers: () => ({ crossref: crossrefConfig(), pubmed: ncbiConfig() }),
+      },
     }),
   );
 

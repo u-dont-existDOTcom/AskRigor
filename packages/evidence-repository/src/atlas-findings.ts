@@ -149,22 +149,36 @@ export const atlasSourceSchema = z.object({
 export type AtlasSource = z.infer<typeof atlasSourceSchema>;
 
 /**
- * One two-group yes-or-no figure, in binary_results' flat shape without the quote (design section 1). Whether the
- * wording shows it, and the NNT arithmetic, are part B's exact checks (atlasNumbersProblems()); storage checks shape.
+ * One two-group yes-or-no figure, in binary_results' flat shape without the quote (design section 1): the one
+ * definition the owner's tool takes, the intents store and phase 3's card numbers block will reuse. Flat fields only,
+ * as binary_results' are, so ChatGPT's app shows the model every field and its description. Whether the wording shows
+ * it, and the NNT arithmetic, are part B's exact checks (atlasNumbersProblems()); storage checks shape.
  */
 export const atlasNumberEntrySchema = z.object({
-  outcome: atlasText(200),
-  better: z.enum(["fewer", "more"]),
-  option: atlasText(120),
-  option_events: z.number().int().nonnegative(),
-  option_total: z.number().int().min(1),
-  comparator: atlasText(120),
-  comparator_events: z.number().int().nonnegative(),
-  comparator_total: z.number().int().min(1),
-  follow_up: atlasText(120),
-  nnt: z.number().int().positive().optional(),
-  nnh: z.number().int().positive().optional(),
-  harms_none_found: z.boolean().optional(),
+  outcome: atlasText(200)
+    .describe("The yes-or-no outcome as the wording names it, such as response or any adverse event."),
+  better: z.enum(["fewer", "more"])
+    .describe("Whether fewer or more people with this outcome is better: fewer for a harm or a relapse, more for a " +
+      "response or a remission."),
+  option: atlasText(120).describe("The option the figure is about, as the wording names it."),
+  option_events: z.number().int().nonnegative().describe("How many people in the option's group had the outcome."),
+  option_total: z.number().int().min(1).describe("How many people were in the option's group."),
+  comparator: atlasText(120)
+    .describe("What the option was compared with, as the wording names it, such as placebo."),
+  comparator_events: z.number().int().nonnegative()
+    .describe("How many people in the comparator's group had the outcome."),
+  comparator_total: z.number().int().min(1).describe("How many people were in the comparator's group."),
+  follow_up: atlasText(120)
+    .describe("How long people were followed for this outcome, as the wording writes it, such as 12 weeks."),
+  nnt: z.number().int().positive().optional()
+    .describe("The number needed to treat the wording gives for this outcome, if it gives one: 1 divided by the " +
+      "difference in the groups' rates, rounded up."),
+  nnh: z.number().int().positive().optional()
+    .describe("The number needed to harm the wording gives for this outcome, if it gives one: 1 divided by the " +
+      "difference in the groups' rates, rounded up."),
+  harms_none_found: z.boolean().optional()
+    .describe("With nnt: true when no harms were found over the same follow-up. Otherwise each harm measured over it " +
+      "is its own entry, with better set to fewer."),
 }).strict().superRefine((entry, context) => {
   if (entry.option_events > entry.option_total) {
     context.addIssue({ code: "custom", path: ["option_events"], message: "events above the group's total" });
@@ -177,6 +191,14 @@ export const atlasNumberEntrySchema = z.object({
   }
 });
 export type AtlasNumberEntry = z.infer<typeof atlasNumberEntrySchema>;
+
+/** The figures a finding's wording gives for two groups: an empty list when it gives none. */
+export const atlasNumbersSchema = z.array(atlasNumberEntrySchema).max(20)
+  .describe("Each yes-or-no figure the wording gives for two groups, or with a number needed to treat or harm (an " +
+    "empty list if none). The wording shows each group's events and total, or its rate as a percentage, in digits of " +
+    "any script; nnt (the option did better) or nnh (it did worse) is checked against 1 divided by the difference in " +
+    "the groups' rates, rounded up, and the wording shows it with the follow-up. Beside an nnt, an entry for a harm " +
+    "(better: fewer) over the same follow-up, or harms_none_found.");
 
 const canonicalSubset = <T extends string>(allowed: readonly T[], values: readonly T[]) =>
   new Set(values).size === values.length &&
@@ -194,7 +216,7 @@ export const atlasVersionContentSchema = z.object({
   whatItChanges: atlasText(300).nullable(),
   tags: z.array(z.enum(ATLAS_FINDING_TAGS)).max(ATLAS_FINDING_TAGS.length),
   verifiedBases: z.array(z.enum(ATLAS_VERIFIED_BASES)).max(ATLAS_VERIFIED_BASES.length),
-  numbers: z.array(atlasNumberEntrySchema).max(20),
+  numbers: atlasNumbersSchema,
 }).strict().superRefine((content, context) => {
   if (!canonicalSubset(ATLAS_FINDING_TAGS, content.tags)) {
     context.addIssue({ code: "custom", path: ["tags"], message: "tags once each, in their listed order" });

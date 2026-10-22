@@ -223,6 +223,7 @@ export {
   atlasLinkIntentSchema,
   atlasMadeWithSchema,
   atlasNumberEntrySchema,
+  atlasNumbersSchema,
   atlasPromotionFailureCode,
   atlasPromotionReceiptSchema,
   atlasRecheckIntentSchema,

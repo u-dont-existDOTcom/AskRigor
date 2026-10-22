@@ -50,14 +50,16 @@ export interface GitHubFindingsQueueOptions {
   repository: GitHubRepository;
 }
 
-interface CardMetadata {
+/** What a card's hidden marker holds: the duplicate fingerprint, the receipt's hash, the save time and the thread key. */
+export interface CardMetadata {
   fingerprint: string;
   receipt_sha256: string;
   saved_at: string;
   thread?: string;
 }
 
-interface OccurrenceMetadata extends CardMetadata {
+/** What a later save's (an occurrence comment's) hidden marker holds. */
+export interface OccurrenceMetadata extends CardMetadata {
   occurrence_count: number;
 }
 
@@ -71,8 +73,9 @@ interface OpenCard {
 }
 
 const HEX_64 = /^[a-f0-9]{64}$/u;
-const CARD_MARKER = "askrigor-findings-card";
-const OCCURRENCE_MARKER = "askrigor-findings-occurrence";
+/** The hidden markers a card's body and each later save's comment end with; the owner's review reads them too. */
+export const CARD_MARKER = "askrigor-findings-card";
+export const OCCURRENCE_MARKER = "askrigor-findings-occurrence";
 const MAX_TITLE_CHARACTERS = 256;
 // GitHub refuses an issue or comment body over 65,536 characters.
 const MAX_BODY_CHARACTERS = 60_000;
@@ -413,12 +416,17 @@ function escapeMarkdown(value: string): string {
     .replace(/@/gu, "&#64;");
 }
 
-function marker(name: string, metadata: CardMetadata | OccurrenceMetadata): string {
+/** A hidden marker: its name and its metadata as base64url JSON, in an HTML comment that GitHub does not show. */
+export function marker(name: string, metadata: object): string {
   return `<!-- ${name}:${Buffer.from(JSON.stringify(metadata), "utf8").toString("base64url")} -->`;
 }
 
 /** The metadata a body ends with, as this queue wrote it; undefined for anything else. */
-function parseMarker<T>(body: string, name: string, parse: (value: Record<string, unknown>) => T | undefined): T | undefined {
+export function parseMarker<T>(
+  body: string,
+  name: string,
+  parse: (value: Record<string, unknown>) => T | undefined,
+): T | undefined {
   // An edit in GitHub's editor may leave a line break after it.
   const match = new RegExp(`\\n<!-- ${name}:([A-Za-z0-9_-]{1,2048}) -->\\s*$`, "u").exec(body);
   if (match === null) return undefined;
@@ -430,7 +438,7 @@ function parseMarker<T>(body: string, name: string, parse: (value: Record<string
   }
 }
 
-function parseCardMetadata(value: Record<string, unknown>): CardMetadata | undefined {
+export function parseCardMetadata(value: Record<string, unknown>): CardMetadata | undefined {
   return typeof value.fingerprint === "string" && HEX_64.test(value.fingerprint) &&
     typeof value.receipt_sha256 === "string" && HEX_64.test(value.receipt_sha256) &&
     typeof value.saved_at === "string"
@@ -443,7 +451,7 @@ function parseCardMetadata(value: Record<string, unknown>): CardMetadata | undef
     : undefined;
 }
 
-function parseOccurrenceMetadata(value: Record<string, unknown>): OccurrenceMetadata | undefined {
+export function parseOccurrenceMetadata(value: Record<string, unknown>): OccurrenceMetadata | undefined {
   const card = parseCardMetadata(value);
   return card !== undefined && isPositiveInteger(value.occurrence_count)
     ? { ...card, occurrence_count: value.occurrence_count }

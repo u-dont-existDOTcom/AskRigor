@@ -11254,7 +11254,7 @@
     },
     {
       "name": "review_research_contribution",
-      "description": "Owner-only review of one deidentified pending research contribution. Inspect the exact payload and hash, then accept or reject with a reason. Inspect also shows, by ID only, the other pending proposals and the canonical records that share its topic, question, frontier or identifiers, and a promotion preflight naming any conflict by its code. Acceptance creates a hash-bound pending promotion intent but this public-runtime call never writes canonical evidence; a separate one-shot administrator completes promotion.",
+      "description": "Owner-only review. Proposals: inspect one deidentified pending research contribution's exact payload and hash, then accept or reject it with a reason; inspect also shows, by ID only, the other pending proposals and canonical records that share its topic, question, frontier or identifiers, and a promotion preflight naming any conflict by its code. Findings for the Atlas: list_findings shows the findings cards that wait; inspect_finding runs every exact check on a card item (card ARF-0142 with finding or lead) and returns its cardSha256, or shows an accepted finding (atlasNumber F-1007) with its versions, label, links and write status; accept_finding takes that cardSha256, the topicKey you declare (with topicLabel for a new topic) and the numbers the wording gives (an empty list if none), and confirm: true only after the owner said to accept what the checks flagged; edit_finding accepts with the owner's wording, or after acceptance (with version) corrects it with a dated note; reject_finding, withdraw_finding and link_findings complete the set. Nothing from a card is public until the owner accepts it, and nothing is public until the Atlas pages exist. An accepted decision is a hash-bound intent: this call never writes canonical evidence, and a separate one-shot writer applies it within about 5 minutes.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -11264,22 +11264,269 @@
               "inspect",
               "status",
               "accept",
-              "reject"
-            ]
+              "reject",
+              "list_findings",
+              "inspect_finding",
+              "accept_finding",
+              "edit_finding",
+              "reject_finding",
+              "withdraw_finding",
+              "link_findings"
+            ],
+            "description": "Proposals: inspect, status, accept or reject. Findings for the Atlas: list_findings, inspect_finding, accept_finding, edit_finding, reject_finding, withdraw_finding or link_findings."
           },
           "proposalId": {
+            "description": "Proposals: the proposal's ID.",
             "type": "string",
             "format": "uuid",
             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           },
           "expectedPayloadSha256": {
+            "description": "Proposals: the payload hash inspect returned.",
             "type": "string",
             "pattern": "^[a-f0-9]{64}$"
           },
           "reason": {
+            "description": "The owner's private reason: needed to accept or reject a proposal, and to reject a finding.",
             "type": "string",
             "minLength": 1,
             "maxLength": 2000
+          },
+          "card": {
+            "description": "Findings actions: a findings card's id, such as ARF-0142, in any case.",
+            "type": "string",
+            "pattern": "^[Aa][Rr][Ff]-[0-9]{1,9}$"
+          },
+          "finding": {
+            "description": "Findings actions: the card's finding, from 1.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "lead": {
+            "description": "Findings actions: the card's open lead, from 1.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          },
+          "atlasNumber": {
+            "description": "Findings actions: an accepted finding's number, such as F-1007.",
+            "type": "string",
+            "pattern": "^[Ff]-[1-9][0-9]{3,}$"
+          },
+          "cardSha256": {
+            "description": "accept_finding, edit_finding: the cardSha256 inspect_finding returned for the card.",
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "version": {
+            "description": "edit_finding after acceptance, withdraw_finding: the finding's latest version, as inspect_finding last showed it.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "topicKey": {
+            "description": "accept_finding, edit_finding before acceptance: the topic the finding is filed under, as the topic key format has it (lower case, digits, . _ -), such as velmor-syndrome. You declare it; the reply names it.",
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,199}$"
+          },
+          "topicLabel": {
+            "description": "With topicKey, when the topic is new: its label, such as Velmor syndrome.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "wording": {
+            "description": "edit_finding: the finding's wording as the owner wants it.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "appliesTo": {
+            "description": "edit_finding: whom or what the finding holds for.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "whyNotUsual": {
+            "description": "edit_finding: why the usual answer misses it.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "whatWouldChangeIt": {
+            "description": "edit_finding: what would change it.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "question": {
+            "description": "edit_finding before acceptance only: the question it answers.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "sources": {
+            "description": "edit_finding: the sources to keep, only some of the finding's own identifiers.",
+            "minItems": 1,
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          },
+          "numbers": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "outcome": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "description": "The yes-or-no outcome as the wording names it, such as response or any adverse event."
+                },
+                "better": {
+                  "type": "string",
+                  "enum": [
+                    "fewer",
+                    "more"
+                  ],
+                  "description": "Whether fewer or more people with this outcome is better: fewer for a harm or a relapse, more for a response or a remission."
+                },
+                "option": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120,
+                  "description": "The option the figure is about, as the wording names it."
+                },
+                "option_events": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991,
+                  "description": "How many people in the option's group had the outcome."
+                },
+                "option_total": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991,
+                  "description": "How many people were in the option's group."
+                },
+                "comparator": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120,
+                  "description": "What the option was compared with, as the wording names it, such as placebo."
+                },
+                "comparator_events": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991,
+                  "description": "How many people in the comparator's group had the outcome."
+                },
+                "comparator_total": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991,
+                  "description": "How many people were in the comparator's group."
+                },
+                "follow_up": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120,
+                  "description": "How long people were followed for this outcome, as the wording writes it, such as 12 weeks."
+                },
+                "nnt": {
+                  "description": "The number needed to treat the wording gives for this outcome, if it gives one: 1 divided by the difference in the groups' rates, rounded up.",
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "nnh": {
+                  "description": "The number needed to harm the wording gives for this outcome, if it gives one: 1 divided by the difference in the groups' rates, rounded up.",
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "harms_none_found": {
+                  "description": "With nnt: true when no harms were found over the same follow-up. Otherwise each harm measured over it is its own entry, with better set to fewer.",
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "outcome",
+                "better",
+                "option",
+                "option_events",
+                "option_total",
+                "comparator",
+                "comparator_events",
+                "comparator_total",
+                "follow_up"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Each yes-or-no figure the wording gives for two groups, or with a number needed to treat or harm (an empty list if none). The wording shows each group's events and total, or its rate as a percentage, in digits of any script; nnt (the option did better) or nnh (it did worse) is checked against 1 divided by the difference in the groups' rates, rounded up, and the wording shows it with the follow-up. Beside an nnt, an entry for a harm (better: fewer) over the same follow-up, or harms_none_found."
+          },
+          "note": {
+            "description": "edit_finding after acceptance (a correction), withdraw_finding, and an unlink: the public note; the server dates it.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 600
+          },
+          "correction": {
+            "description": "edit_finding after acceptance: true (the default) for a correction with a dated note, false for a wording fix.",
+            "type": "boolean"
+          },
+          "eraseWording": {
+            "description": "Erasing wording that could identify a person comes with the next part of the Atlas build; until then a call with it records nothing.",
+            "type": "boolean"
+          },
+          "confirm": {
+            "description": "accept_finding, edit_finding: true only after the owner said to accept anyway what the checks flagged.",
+            "type": "boolean"
+          },
+          "relation": {
+            "description": "link_findings: atlasNumber same_as, narrows, contradicts or replaces the finding named by to; unlink withdraws their link.",
+            "type": "string",
+            "enum": [
+              "same_as",
+              "narrows",
+              "contradicts",
+              "replaces",
+              "unlink"
+            ]
+          },
+          "to": {
+            "description": "link_findings: the other finding, such as F-1001.",
+            "type": "string",
+            "pattern": "^[Ff]-[1-9][0-9]{3,}$"
+          },
+          "disagreement": {
+            "description": "link_findings with contradicts: what the two disagree on.",
+            "type": "string",
+            "enum": [
+              "dose",
+              "population",
+              "outcome",
+              "follow_up",
+              "study_quality",
+              "analysis"
+            ]
+          },
+          "rationale": {
+            "description": "link_findings: why the link holds, public.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "cursor": {
+            "description": "list_findings: the nextCursor it returned.",
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,400}$"
           }
         },
         "required": [
@@ -11303,7 +11550,16 @@
               "accepted_promotion_failed",
               "rejected",
               "withdrawn",
-              "no_pending_proposal"
+              "no_pending_proposal",
+              "findings_listed",
+              "finding_inspected",
+              "finding_queued",
+              "finding_written",
+              "finding_write_failed",
+              "finding_rejected",
+              "needs_confirmation",
+              "checks_not_passed",
+              "try_again_later"
             ]
           },
           "proposal": {
@@ -11820,6 +12076,1417 @@
             ],
             "additionalProperties": false
           },
+          "findings": {
+            "type": "object",
+            "properties": {
+              "refused": {
+                "maxItems": 200,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "intentId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "accept",
+                        "recheck",
+                        "revise",
+                        "withdraw",
+                        "link",
+                        "unlink",
+                        "erase"
+                      ]
+                    },
+                    "atlasNumber": {
+                      "type": "string",
+                      "pattern": "^F-[1-9][0-9]{3,}$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "PENDING",
+                        "COMPLETED",
+                        "FAILED"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "failureCode": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "ATLAS_INTENT_APPLICATION_MISMATCH",
+                            "ATLAS_FINDING_ALREADY_WRITTEN",
+                            "ATLAS_FINDING_MISSING",
+                            "ATLAS_FINDING_WITHDRAWN",
+                            "ATLAS_VERSION_STALE",
+                            "ATLAS_TOPIC_MISSING",
+                            "ATLAS_RECHECK_KEY_MISMATCH",
+                            "ATLAS_LINK_TARGET_MISSING",
+                            "ATLAS_LINK_TARGET_WITHDRAWN",
+                            "ATLAS_LINK_LEAD",
+                            "ATLAS_LINK_PAIR_TAKEN",
+                            "ATLAS_LINK_ALREADY_RECORDED",
+                            "ATLAS_LINK_CYCLE",
+                            "ATLAS_LINK_MISSING",
+                            "SOURCE_IDENTIFIER_CONFLICT",
+                            "ATLAS_VERSION_LINEAGE_MISMATCH",
+                            "CLAIM_DEPENDENCY_CYCLE",
+                            "CANONICAL_UNIQUE_CONFLICT",
+                            "CANONICAL_REFERENCE_MISSING",
+                            "CANONICAL_CHECK_VIOLATION",
+                            "CANONICAL_VALUE_INVALID"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "explanation": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "intentId",
+                    "kind",
+                    "atlasNumber",
+                    "status",
+                    "createdAt",
+                    "failureCode",
+                    "explanation"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "waitingForWriter": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "cards": {
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "card": {
+                      "type": "string",
+                      "pattern": "^ARF-[0-9]{4,}$"
+                    },
+                    "question": {
+                      "type": "string"
+                    },
+                    "savedOn": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "beyondQuickAnswer": {
+                      "type": "boolean"
+                    },
+                    "publicValue": {
+                      "type": "string",
+                      "enum": [
+                        "public",
+                        "personal_only",
+                        "missing"
+                      ]
+                    },
+                    "items": {
+                      "maxItems": 11,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "item": {
+                            "type": "string",
+                            "enum": [
+                              "finding",
+                              "lead"
+                            ]
+                          },
+                          "number": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 6
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "certainty": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "high",
+                                  "moderate",
+                                  "low",
+                                  "very_low"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "wouldBecome": {
+                            "type": "string",
+                            "enum": [
+                              "checked",
+                              "lead",
+                              "recheck",
+                              "community_only"
+                            ]
+                          },
+                          "recheckOf": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^F-[1-9][0-9]{3,}$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "item",
+                          "number",
+                          "text",
+                          "certainty",
+                          "wouldBecome",
+                          "recheckOf"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "card",
+                    "question",
+                    "savedOn",
+                    "beyondQuickAnswer",
+                    "publicValue",
+                    "items"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "nextCursor": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "unreadableCards": {
+                "maxItems": 1000,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^ARF-[0-9]{4,}$"
+                }
+              }
+            },
+            "required": [
+              "refused",
+              "waitingForWriter",
+              "cards",
+              "nextCursor",
+              "unreadableCards"
+            ],
+            "additionalProperties": false
+          },
+          "card": {
+            "type": "object",
+            "properties": {
+              "card": {
+                "type": "string",
+                "pattern": "^ARF-[0-9]{4,}$"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "open",
+                  "closed"
+                ]
+              },
+              "cardSha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "question": {
+                "type": "string"
+              },
+              "usualAnswer": {
+                "type": "string"
+              },
+              "publicValue": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "scope": {
+                        "type": "string",
+                        "enum": [
+                          "public",
+                          "personal_only"
+                        ]
+                      },
+                      "whoElse": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "whatItChanges": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "scope",
+                      "whoElse",
+                      "whatItChanges"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "savedOn": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "saves": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "beyondQuickAnswer": {
+                "type": "boolean"
+              },
+              "items": {
+                "maxItems": 11,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "item": {
+                      "type": "string",
+                      "enum": [
+                        "finding",
+                        "lead"
+                      ]
+                    },
+                    "number": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 6
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "certainty": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "high",
+                            "moderate",
+                            "low",
+                            "very_low"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "appliesTo": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "sources": {
+                      "maxItems": 10,
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "youtubeVideos": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "save": {
+                      "type": "string",
+                      "enum": [
+                        "card",
+                        "occurrence"
+                      ]
+                    },
+                    "bases": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "full_text_audit",
+                          "bounded_absence",
+                          "research_correction"
+                        ]
+                      }
+                    },
+                    "wouldBecome": {
+                      "type": "string",
+                      "enum": [
+                        "checked",
+                        "lead",
+                        "recheck",
+                        "community_only"
+                      ]
+                    },
+                    "recheckOf": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^F-[1-9][0-9]{3,}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "decision": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "decision": {
+                              "type": "string",
+                              "enum": [
+                                "accepted",
+                                "accepted_as_lead",
+                                "rechecked",
+                                "rejected"
+                              ]
+                            },
+                            "atlasNumber": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^F-[1-9][0-9]{3,}$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "decidedAt": {
+                              "type": "string"
+                            },
+                            "intentStatus": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "PENDING",
+                                    "COMPLETED",
+                                    "FAILED"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "failureCode": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "ATLAS_INTENT_APPLICATION_MISMATCH",
+                                    "ATLAS_FINDING_ALREADY_WRITTEN",
+                                    "ATLAS_FINDING_MISSING",
+                                    "ATLAS_FINDING_WITHDRAWN",
+                                    "ATLAS_VERSION_STALE",
+                                    "ATLAS_TOPIC_MISSING",
+                                    "ATLAS_RECHECK_KEY_MISMATCH",
+                                    "ATLAS_LINK_TARGET_MISSING",
+                                    "ATLAS_LINK_TARGET_WITHDRAWN",
+                                    "ATLAS_LINK_LEAD",
+                                    "ATLAS_LINK_PAIR_TAKEN",
+                                    "ATLAS_LINK_ALREADY_RECORDED",
+                                    "ATLAS_LINK_CYCLE",
+                                    "ATLAS_LINK_MISSING",
+                                    "SOURCE_IDENTIFIER_CONFLICT",
+                                    "ATLAS_VERSION_LINEAGE_MISMATCH",
+                                    "CLAIM_DEPENDENCY_CYCLE",
+                                    "CANONICAL_UNIQUE_CONFLICT",
+                                    "CANONICAL_REFERENCE_MISSING",
+                                    "CANONICAL_CHECK_VIOLATION",
+                                    "CANONICAL_VALUE_INVALID"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "decision",
+                            "atlasNumber",
+                            "decidedAt",
+                            "intentStatus",
+                            "failureCode"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "item",
+                    "number",
+                    "text",
+                    "certainty",
+                    "appliesTo",
+                    "sources",
+                    "youtubeVideos",
+                    "save",
+                    "bases",
+                    "wouldBecome",
+                    "recheckOf",
+                    "decision"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "githubSynced": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "card",
+              "state",
+              "cardSha256",
+              "question",
+              "usualAnswer",
+              "publicValue",
+              "savedOn",
+              "saves",
+              "beyondQuickAnswer",
+              "items",
+              "githubSynced"
+            ],
+            "additionalProperties": false
+          },
+          "atlas": {
+            "type": "object",
+            "properties": {
+              "atlasNumber": {
+                "type": "string",
+                "pattern": "^F-[1-9][0-9]{3,}$"
+              },
+              "entryKind": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "finding",
+                      "lead"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "label": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "checked",
+                      "lead",
+                      "contested",
+                      "superseded",
+                      "withdrawn"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "labelAfter": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "checked",
+                      "lead",
+                      "contested",
+                      "superseded",
+                      "withdrawn"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "version": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "topic": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "isNew": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "label",
+                      "isNew"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "wording": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "researchCheckedOn": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "links": {
+                "maxItems": 200,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "relation": {
+                      "type": "string",
+                      "enum": [
+                        "same_as",
+                        "narrows",
+                        "contradicts",
+                        "replaces"
+                      ]
+                    },
+                    "direction": {
+                      "type": "string",
+                      "enum": [
+                        "from",
+                        "to"
+                      ]
+                    },
+                    "other": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^F-[1-9][0-9]{3,}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "disagreement": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "dose",
+                            "population",
+                            "outcome",
+                            "follow_up",
+                            "study_quality",
+                            "analysis"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "withdrawn": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "relation",
+                    "direction",
+                    "other",
+                    "disagreement",
+                    "withdrawn"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "intent": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "intentId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "accept",
+                          "recheck",
+                          "revise",
+                          "withdraw",
+                          "link",
+                          "unlink",
+                          "erase"
+                        ]
+                      },
+                      "atlasNumber": {
+                        "type": "string",
+                        "pattern": "^F-[1-9][0-9]{3,}$"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "PENDING",
+                          "COMPLETED",
+                          "FAILED"
+                        ]
+                      },
+                      "createdAt": {
+                        "type": "string"
+                      },
+                      "failureCode": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "ATLAS_INTENT_APPLICATION_MISMATCH",
+                              "ATLAS_FINDING_ALREADY_WRITTEN",
+                              "ATLAS_FINDING_MISSING",
+                              "ATLAS_FINDING_WITHDRAWN",
+                              "ATLAS_VERSION_STALE",
+                              "ATLAS_TOPIC_MISSING",
+                              "ATLAS_RECHECK_KEY_MISMATCH",
+                              "ATLAS_LINK_TARGET_MISSING",
+                              "ATLAS_LINK_TARGET_WITHDRAWN",
+                              "ATLAS_LINK_LEAD",
+                              "ATLAS_LINK_PAIR_TAKEN",
+                              "ATLAS_LINK_ALREADY_RECORDED",
+                              "ATLAS_LINK_CYCLE",
+                              "ATLAS_LINK_MISSING",
+                              "SOURCE_IDENTIFIER_CONFLICT",
+                              "ATLAS_VERSION_LINEAGE_MISMATCH",
+                              "CLAIM_DEPENDENCY_CYCLE",
+                              "CANONICAL_UNIQUE_CONFLICT",
+                              "CANONICAL_REFERENCE_MISSING",
+                              "CANONICAL_CHECK_VIOLATION",
+                              "CANONICAL_VALUE_INVALID"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "explanation": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "intentId",
+                      "kind",
+                      "atlasNumber",
+                      "status",
+                      "createdAt",
+                      "failureCode",
+                      "explanation"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "intents": {
+                "maxItems": 200,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "intentId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "accept",
+                        "recheck",
+                        "revise",
+                        "withdraw",
+                        "link",
+                        "unlink",
+                        "erase"
+                      ]
+                    },
+                    "atlasNumber": {
+                      "type": "string",
+                      "pattern": "^F-[1-9][0-9]{3,}$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "PENDING",
+                        "COMPLETED",
+                        "FAILED"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "failureCode": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "ATLAS_INTENT_APPLICATION_MISMATCH",
+                            "ATLAS_FINDING_ALREADY_WRITTEN",
+                            "ATLAS_FINDING_MISSING",
+                            "ATLAS_FINDING_WITHDRAWN",
+                            "ATLAS_VERSION_STALE",
+                            "ATLAS_TOPIC_MISSING",
+                            "ATLAS_RECHECK_KEY_MISMATCH",
+                            "ATLAS_LINK_TARGET_MISSING",
+                            "ATLAS_LINK_TARGET_WITHDRAWN",
+                            "ATLAS_LINK_LEAD",
+                            "ATLAS_LINK_PAIR_TAKEN",
+                            "ATLAS_LINK_ALREADY_RECORDED",
+                            "ATLAS_LINK_CYCLE",
+                            "ATLAS_LINK_MISSING",
+                            "SOURCE_IDENTIFIER_CONFLICT",
+                            "ATLAS_VERSION_LINEAGE_MISMATCH",
+                            "CLAIM_DEPENDENCY_CYCLE",
+                            "CANONICAL_UNIQUE_CONFLICT",
+                            "CANONICAL_REFERENCE_MISSING",
+                            "CANONICAL_CHECK_VIOLATION",
+                            "CANONICAL_VALUE_INVALID"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "explanation": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "intentId",
+                    "kind",
+                    "atlasNumber",
+                    "status",
+                    "createdAt",
+                    "failureCode",
+                    "explanation"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "atlasNumber",
+              "entryKind",
+              "label",
+              "labelAfter",
+              "version",
+              "topic",
+              "wording",
+              "researchCheckedOn",
+              "links",
+              "intent",
+              "intents"
+            ],
+            "additionalProperties": false
+          },
+          "checks": {
+            "type": "object",
+            "properties": {
+              "item": {
+                "type": "string"
+              },
+              "wouldBecome": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "checked",
+                      "lead",
+                      "recheck",
+                      "community_only"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "save": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "card",
+                      "occurrence"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "bases": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "full_text_audit",
+                    "bounded_absence",
+                    "research_correction"
+                  ]
+                }
+              },
+              "recheckOf": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^F-[1-9][0-9]{3,}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "community": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "mixed",
+                      "community_only"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "sourceStatus": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "passed",
+                      "needs_confirmation",
+                      "refused",
+                      "try_again_later"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "sources": {
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "source": {
+                      "type": "string"
+                    },
+                    "outcome": {
+                      "type": "string",
+                      "enum": [
+                        "checked",
+                        "not_found",
+                        "unavailable",
+                        "invalid_identifier"
+                      ]
+                    },
+                    "identifier": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "provider": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "crossref",
+                            "pubmed",
+                            "europe_pmc",
+                            "clinicaltrials_gov"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "title": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "year": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "retraction": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "none_found",
+                            "corrected_or_updated",
+                            "expression_of_concern",
+                            "retracted",
+                            "not_applicable",
+                            "unknown"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "notices": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "needsConfirmation": {
+                      "type": "boolean"
+                    },
+                    "binding": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "supports",
+                            "context_only"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "sameAs": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "errorCode": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "source",
+                    "outcome",
+                    "identifier",
+                    "provider",
+                    "title",
+                    "year",
+                    "retraction",
+                    "notices",
+                    "needsConfirmation",
+                    "binding",
+                    "sameAs",
+                    "errorCode"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "numbers": {
+                "maxItems": 200,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "at": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "events_exceed_total",
+                        "same_rates",
+                        "nnt_and_nnh",
+                        "wrong_direction",
+                        "not_reciprocal_rounded_up",
+                        "group_figure_not_shown",
+                        "number_needed_not_shown",
+                        "follow_up_not_shown",
+                        "harms_missing",
+                        "harms_none_found_without_nnt"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "at",
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "privacy": {
+                "maxItems": 200,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "type": "string"
+                    },
+                    "reasonCode": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "field",
+                    "reasonCode"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "links": {
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "finding_missing",
+                        "same_finding",
+                        "finding_withdrawn",
+                        "lead_in_link",
+                        "disagreement_missing",
+                        "disagreement_not_allowed",
+                        "pair_already_linked",
+                        "link_stored_before",
+                        "replaces_cycle",
+                        "link_missing"
+                      ]
+                    },
+                    "writerCode": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "ATLAS_INTENT_APPLICATION_MISMATCH",
+                            "ATLAS_FINDING_ALREADY_WRITTEN",
+                            "ATLAS_FINDING_MISSING",
+                            "ATLAS_FINDING_WITHDRAWN",
+                            "ATLAS_VERSION_STALE",
+                            "ATLAS_TOPIC_MISSING",
+                            "ATLAS_RECHECK_KEY_MISMATCH",
+                            "ATLAS_LINK_TARGET_MISSING",
+                            "ATLAS_LINK_TARGET_WITHDRAWN",
+                            "ATLAS_LINK_LEAD",
+                            "ATLAS_LINK_PAIR_TAKEN",
+                            "ATLAS_LINK_ALREADY_RECORDED",
+                            "ATLAS_LINK_CYCLE",
+                            "ATLAS_LINK_MISSING",
+                            "SOURCE_IDENTIFIER_CONFLICT",
+                            "ATLAS_VERSION_LINEAGE_MISMATCH",
+                            "CLAIM_DEPENDENCY_CYCLE",
+                            "CANONICAL_UNIQUE_CONFLICT",
+                            "CANONICAL_REFERENCE_MISSING",
+                            "CANONICAL_CHECK_VIOLATION",
+                            "CANONICAL_VALUE_INVALID"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "writerCode",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "problems": {
+                "maxItems": 50,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "community_only",
+                        "source_refused",
+                        "source_not_on_finding",
+                        "source_conflict",
+                        "topic_label_missing",
+                        "open_lead_fields",
+                        "nothing_changed",
+                        "stamp_without_protocols",
+                        "intent_invalid"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "needsConfirmation": {
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "topic": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "isNew": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "label",
+                      "isNew"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "relatedTopics": {
+                "maxItems": 50,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "label"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "item",
+              "wouldBecome",
+              "save",
+              "bases",
+              "recheckOf",
+              "community",
+              "sourceStatus",
+              "sources",
+              "numbers",
+              "privacy",
+              "links",
+              "problems",
+              "needsConfirmation",
+              "topic",
+              "relatedTopics"
+            ],
+            "additionalProperties": false
+          },
+          "retry": {
+            "type": "object",
+            "properties": {
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "provider_unavailable",
+                  "github_unavailable",
+                  "writer_pending"
+                ]
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "reason",
+              "message"
+            ],
+            "additionalProperties": false
+          },
           "canonicalEvidenceChangedByThisCall": {
             "type": "boolean",
             "const": false
@@ -11837,7 +13504,15 @@
                   "payload_mismatch",
                   "review_conflict",
                   "promotion_intent_missing",
-                  "invalid_request"
+                  "invalid_request",
+                  "card_not_found",
+                  "card_changed",
+                  "item_not_found",
+                  "finding_not_found",
+                  "decision_conflict",
+                  "version_stale",
+                  "erase_not_built",
+                  "atlas_review_closed"
                 ]
               },
               "message": {
@@ -11852,14 +13527,15 @@
           }
         },
         "required": [
-          "ok"
+          "ok",
+          "canonicalEvidenceChangedByThisCall"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false
       },
       "annotations": {
         "readOnlyHint": false,
-        "destructiveHint": false,
+        "destructiveHint": true,
         "idempotentHint": true,
         "openWorldHint": false
       },

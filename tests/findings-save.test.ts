@@ -60,6 +60,7 @@ import {
   TOOL_LIST_REFRESH_HINT,
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { communitySkipCaveat } from "./helpers/community-skip.js";
+import { FakeGitHub } from "./helpers/fake-github-findings.js";
 import { CARD, parsedCard } from "./helpers/findings-fixtures.js";
 
 const SECRET = "findings-library-test-secret-0123456789";
@@ -107,89 +108,6 @@ const corrected = (claims: Record<string, string | number | string[]> = {}) => {
   };
   return { findings_card: card, finalization_receipt: finalization({ findings: findingsCardDigest(findingsCardSchema.parse(card)), ...claims }) };
 };
-
-interface Issue {
-  number: number;
-  title: string;
-  body: string;
-  state: "open" | "closed";
-  state_reason?: string;
-  labels: Array<{ name: string }>;
-}
-
-/** GitHub's issue API for the findings repository, in memory. */
-class FakeGitHub {
-  readonly issues: Issue[] = [];
-  readonly comments = new Map<number, Array<{ id: number; body: string }>>();
-  readonly writes: Array<{ method: string; url: string; body: Record<string, unknown> }> = [];
-  failWith?: number;
-  private nextNumber = 42;
-  private nextComment = 1;
-
-  readonly fetch: typeof fetch = async (input, init) => {
-    const url = String(input);
-    const method = init?.method ?? "GET";
-    if (this.failWith !== undefined) return json({ message: "private upstream body" }, this.failWith);
-    const body = init?.body === undefined ? {} : JSON.parse(String(init.body)) as Record<string, unknown>;
-    const root = "https://api.github.com/repos/u-dont-existDOTcom/AskRigor-findings/issues";
-    if (method === "GET" && url.startsWith(`${root}?`)) {
-      const query = new URL(url).searchParams;
-      expect(query.get("state")).toBe("open");
-      expect(query.get("labels")).toBe("findings-card");
-      const page = Number(query.get("page"));
-      return json(this.issues
-        .filter((issue) => issue.state === "open" && issue.labels.some(({ name }) => name === "findings-card"))
-        .slice((page - 1) * 100, page * 100)
-        .map((issue) => ({ ...issue, comments: this.comments.get(issue.number)?.length ?? 0 })));
-    }
-    if (method === "POST" && url === root) {
-      this.writes.push({ method, url, body });
-      const issue: Issue = {
-        number: this.nextNumber++,
-        title: String(body.title),
-        body: String(body.body),
-        state: "open",
-        labels: (body.labels as string[]).map((name) => ({ name })),
-      };
-      this.issues.push(issue);
-      return json(issue, 201);
-    }
-    const edit = new RegExp(`^${root.replace(/[.]/gu, "\\.")}/(\\d+)$`, "u").exec(url);
-    if (edit !== null && method === "PATCH") {
-      this.writes.push({ method, url, body });
-      const issue = this.issues.find(({ number }) => number === Number(edit[1]))!;
-      Object.assign(issue, body);
-      return json(issue);
-    }
-    const labels = new RegExp(`^${root.replace(/[.]/gu, "\\.")}/(\\d+)/labels$`, "u").exec(url);
-    if (labels !== null && method === "POST") {
-      this.writes.push({ method, url, body });
-      const issue = this.issues.find(({ number }) => number === Number(labels[1]))!;
-      for (const name of body.labels as string[]) {
-        if (!issue.labels.some((label) => label.name === name)) issue.labels.push({ name });
-      }
-      return json(issue.labels);
-    }
-    const comments = new RegExp(`^${root.replace(/[.]/gu, "\\.")}/(\\d+)/comments(?:\\?.*)?$`, "u").exec(url);
-    if (comments !== null && method === "GET") {
-      const page = Number(new URL(url).searchParams.get("page"));
-      return json((this.comments.get(Number(comments[1])) ?? []).slice((page - 1) * 100, page * 100));
-    }
-    if (comments !== null && method === "POST") {
-      this.writes.push({ method, url, body });
-      const list = this.comments.get(Number(comments[1])) ?? [];
-      const comment = { id: this.nextComment++, body: String(body.body) };
-      list.push(comment);
-      this.comments.set(Number(comments[1]), list);
-      return json(comment, 201);
-    }
-    throw new Error(`Unexpected request ${method} ${url}`);
-  };
-}
-
-function json(value: unknown, status = 200): Response {
-  return new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
-}
 
 const allowAll: LessonAttemptLimiter = {
   consume: () => ({ allowed: true }),

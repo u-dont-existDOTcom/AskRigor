@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+// The numbers have one definition, with the intents that store them.
 import {
-  atlasNumberSchema,
-  atlasNumbersProblems,
+  atlasNumberEntrySchema as atlasNumberSchema,
   atlasNumbersSchema,
-  binaryContrast,
-  type AtlasNumber
-} from "../apps/research-mcp/src/binary-results.js";
+  type AtlasNumberEntry as AtlasNumber
+} from "@askrigor/evidence-repository";
+
+import { atlasNumbersProblems, binaryContrast } from "../apps/research-mcp/src/binary-results.js";
 import {
   atlasBasesOf,
   atlasLinkProblems,

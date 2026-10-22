@@ -22,6 +22,7 @@ import {
 import {
   actionApiKeyFromEnv,
   actionsAreEnabled,
+  atlasReviewEnabledFromEnv,
   CLAUDE_MCP_PATH,
   GEMINI_COMPATIBLE_MCP_PATH,
   GEMINI_COMPATIBLE_SERVICE_NAME,
@@ -118,6 +119,8 @@ import type { FindingsSaveResult } from "./findings/contracts.js";
 import type { FindingsSaveContext } from "./findings/service.js";
 import type { McpSurface } from "./register-tools.js";
 import { toolListVersionOf } from "./tool-list-currency.js";
+import type { AtlasReview } from "./findings/atlas-review.js";
+import { createAtlasReviewFromEnv } from "./findings/runtime.js";
 
 export type McpToolCatalogProfile = "standard" | "gemini";
 
@@ -128,6 +131,10 @@ export interface AskRigorMcpServerOptions {
   allowedReviewerSubjects?: ReadonlySet<string>;
   researchContributorAccessService?: ResearchContributorAccessService;
   researchContributionReviewService?: ResearchContributionReviewService;
+  /** The owner's findings actions for the Atlas; made once per process, from the environment by default. */
+  atlasReview?: AtlasReview;
+  /** Whether the findings actions are open; defaults to ASKRIGOR_ATLAS_REVIEW. */
+  atlasReviewEnabled?: boolean;
   researchAccessRequired?: boolean;
   /** Replaces the production lesson queue, for tests. */
   lessonSubmission?: (raw: unknown) => Promise<LessonSubmissionResult>;
@@ -227,6 +234,9 @@ export interface AskRigorHttpServerOptions {
   claudeOAuthResourceServer?: AskRigorOAuthResourceServer | null;
   researchContributorAccessService?: ResearchContributorAccessService;
   researchContributionReviewService?: ResearchContributionReviewService;
+  /** The owner's findings actions for the Atlas; from the environment by default, and only while they are open. */
+  atlasReview?: AtlasReview;
+  atlasReviewEnabled?: boolean;
 }
 
 export interface McpHandshakeDiagnosticRecord {
@@ -443,6 +453,9 @@ export function createAskRigorHttpServer(
             ssl: researchContributionReviewConfig.ssl,
           }),
         ));
+  // The Atlas review's database pools and GitHub App token: made once per process, and only while it is open.
+  const atlasReviewEnabled = options.atlasReviewEnabled ?? atlasReviewEnabledFromEnv();
+  const atlasReview = options.atlasReview ?? (atlasReviewEnabled ? createAtlasReviewFromEnv() : undefined);
   const researchAccessRequired = oauthResourceServer !== undefined;
   const effectiveActionRoutes = researchAccessRequired
     ? actionRoutes.filter(({ publicResearch, controlledResearch }) =>
@@ -471,6 +484,8 @@ export function createAskRigorHttpServer(
     allowedReviewerSubjects: oauthResourceServer?.reviewerSubjects,
     researchContributorAccessService,
     researchContributionReviewService,
+    atlasReview,
+    atlasReviewEnabled,
     researchAccessRequired,
     mcpSurface: profile === "gemini" ? GEMINI_COMPATIBLE_MCP_PATH : "/mcp",
     signIn,
@@ -483,6 +498,8 @@ export function createAskRigorHttpServer(
     allowedReviewerSubjects: claudeOAuthResourceServer?.reviewerSubjects,
     researchContributorAccessService,
     researchContributionReviewService,
+    atlasReview,
+    atlasReviewEnabled,
     researchAccessRequired,
     mcpSurface: CLAUDE_MCP_PATH,
     signIn,

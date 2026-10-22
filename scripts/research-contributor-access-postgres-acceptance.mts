@@ -569,6 +569,7 @@ async function verify(
     await verifyTopicLinks({ adminUrl, readerUrl, admin, service, reviewService, writer, checks });
     await verifyAtlasMigrations({ adminUrl, schema: SCHEMA, checks });
     await verifyAtlasStorage({ adminUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
+    await verifyAtlasScenario({ adminUrl, schema: SCHEMA, checks });
 
     const racePayload = researchFrontierFixture("research-review-withdraw-race");
     const raceProposal = await service.submitProposal(REVIEW_SUBJECT, {
@@ -1573,6 +1574,55 @@ export async function verifyAtlasMigrations(context: { adminUrl: string; schema:
     checks.push("an_0016_database_with_data_upgrades_to_0017_keeps_its_rows_and_takes_a_finding");
   } finally {
     await admin.end();
+  }
+}
+
+/**
+ * Atlas phase 2, part C (design section 7): the hermetic end-to-end scenario of tests/atlas-acceptance-end-to-end.test.ts
+ * against PostgreSQL. The owner's tool, the real findings library save and signed receipts, an in-memory GitHub and
+ * the providers' recorded fixtures, with the review store, the canonical reader and the runner in PostgreSQL, in a
+ * schema of their own so the scenario's numbers start at F-1001. The role boundaries are verifyAtlasStorage's.
+ */
+export async function verifyAtlasScenario(context: { adminUrl: string; schema: string; checks: string[] }): Promise<void> {
+  const scenarioSchema = `${context.schema}_atlas_scenario`;
+  // The package the owner's tool imports (built), so the stores' errors are the classes the tool recognizes.
+  const atlas = await import("@askrigor/evidence-repository");
+  const { runAtlasScenario } = await import("../tests/helpers/atlas-scenario.ts");
+  const repository = new atlas.PostgresEvidenceRepository({ connectionString: context.adminUrl, schema: scenarioSchema });
+  try {
+    await repository.migrate();
+  } finally {
+    await repository.close();
+  }
+  const options = { connectionString: context.adminUrl, schema: scenarioSchema };
+  const review = new atlas.PostgresAtlasReviewStore(options);
+  const reader = new atlas.PostgresAtlasReader(options);
+  const promotions = new atlas.PostgresAtlasPromotionStore(options);
+  const admin = new Pool({ connectionString: context.adminUrl, max: 1 });
+  try {
+    const report = await runAtlasScenario((clock) => {
+      const runner = new atlas.AtlasFindingPromotionRunner(promotions, { now: () => clock().toISOString() });
+      return {
+        review,
+        reader,
+        promote: () => runner.promoteAccepted(),
+        rows: async () => {
+          const tables = [
+            ...ATLAS_CANONICAL_TABLES, "atlas_finding_intents", "research_runs", "topics", "questions", "claims",
+            "claim_versions", "claim_edges", "source_families", "source_identifiers", "source_versions",
+            "evidence_bindings", "repository_events",
+          ];
+          const dumped = await Promise.all(tables.map(async (table) => (await admin.query<{ rows: string }>(
+            `SELECT coalesce(json_agg(row_to_json(stored)), '[]'::json)::text AS rows FROM ${scenarioSchema}.${table} stored`,
+          )).rows[0]!.rows));
+          return dumped.join("\n");
+        },
+      };
+    });
+    assert(report.steps.length === 6, "ATLAS_SCENARIO_INCOMPLETE");
+    context.checks.push("atlas_scenario_save_list_inspect_accept_lead_link_correct_and_scan_against_postgresql");
+  } finally {
+    await Promise.allSettled([review.close(), reader.close(), promotions.close(), admin.end()]);
   }
 }
 

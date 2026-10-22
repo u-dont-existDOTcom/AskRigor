@@ -92,6 +92,8 @@ const MUTATING_ANNOTATIONS = {
   idempotentHint: true,
   openWorldHint: false,
 };
+// The owner's review withdraws findings and, with decision 7, forgets cards (Atlas phase 2, owner choice 6a).
+const OWNER_REVIEW_ANNOTATIONS = { ...MUTATING_ANNOTATIONS, destructiveHint: true };
 
 const clients: Client[] = [];
 const clinicalFixture = (name: string) =>
@@ -119,18 +121,51 @@ describe("AskRigor MCP tools", () => {
 
       expect(tools.map(({ name }) => name)).toEqual(TOOL_NAMES);
       expect(tools.map(({ annotations }) => annotations)).toEqual(
-        TOOL_NAMES.map((name) => [
-          "manage_research_access",
-          "submit_research_contribution",
-          "review_research_contribution",
-          "submit_lesson_candidate",
-          "finalize_research",
-          "save_research_findings",
-        ].includes(name) ? MUTATING_ANNOTATIONS : READ_ONLY_ANNOTATIONS)
+        TOOL_NAMES.map((name) => name === "review_research_contribution"
+          ? OWNER_REVIEW_ANNOTATIONS
+          : [
+            "manage_research_access",
+            "submit_research_contribution",
+            "submit_lesson_candidate",
+            "finalize_research",
+            "save_research_findings",
+          ].includes(name) ? MUTATING_ANNOTATIONS : READ_ONLY_ANNOTATIONS)
       );
       expect(tools.every(({ inputSchema, outputSchema }) =>
         inputSchema.type === "object" && outputSchema?.type === "object"
       )).toBe(true);
+    } finally {
+      await server.close();
+    }
+  });
+
+  // Atlas phase 2 (design section 6): the owner's findings actions ride on the owner review tool, so the catalog keeps
+  // 33 tools; every field is flat, and no call writes canonical evidence.
+  it("publishes the owner's findings actions on the owner review tool, flat, with no canonical write", async () => {
+    const { client, server } = await createInMemoryClient();
+
+    try {
+      const { tools } = await client.listTools();
+      const review = tools.find(({ name }) => name === "review_research_contribution")!;
+      expect(review.description).toContain("Findings for the Atlas: list_findings shows the findings cards that wait");
+      expect(review.description).toContain("Nothing from a card is public until the owner accepts it");
+      expect(review.description).toContain("this call never writes canonical evidence");
+      const input = review.inputSchema as { properties: Record<string, { enum?: string[]; type?: string; pattern?: string }> };
+      expect(input.properties.action!.enum).toEqual(["inspect", "status", "accept", "reject", "list_findings",
+        "inspect_finding", "accept_finding", "edit_finding", "reject_finding", "withdraw_finding", "link_findings"]);
+      expect(Object.keys(input.properties)).toEqual(["action", "proposalId", "expectedPayloadSha256", "reason", "card",
+        "finding", "lead", "atlasNumber", "cardSha256", "version", "topicKey", "topicLabel", "wording", "appliesTo",
+        "whyNotUsual", "whatWouldChangeIt", "question", "sources", "numbers", "note", "correction", "eraseWording",
+        "confirm", "relation", "to", "disagreement", "rationale", "cursor"]);
+      // Flat: the only nested inputs are the lists of source identifiers and of figures, whose entries are flat too.
+      const numbers = input.properties.numbers as unknown as { items: { properties: Record<string, { type?: string }> } };
+      expect(Object.values(numbers.items.properties).every(({ type }) => type !== "object" && type !== "array")).toBe(true);
+      expect(input.properties.card!.pattern).toBe("^[Aa][Rr][Ff]-[0-9]{1,9}$");
+      const output = review.outputSchema as { properties: Record<string, unknown>; required?: string[] };
+      expect(output.required).toEqual(["ok", "canonicalEvidenceChangedByThisCall"]);
+      expect(output.properties.canonicalEvidenceChangedByThisCall).toMatchObject({ const: false });
+      expect(Object.keys(output.properties)).toEqual(["ok", "outcome", "proposal", "findings", "card", "atlas", "checks",
+        "retry", "canonicalEvidenceChangedByThisCall", "error"]);
     } finally {
       await server.close();
     }

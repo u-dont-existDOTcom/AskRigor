@@ -1,4 +1,4 @@
-import { z } from "zod";
+import type { AtlasNumberEntry } from "@askrigor/evidence-repository";
 
 import { normalizedFindingsText } from "./findings/card.js";
 import { includesAbsoluteNumber, numberReadings } from "./unicode-numbers.js";
@@ -63,50 +63,8 @@ export function withoutEndPunctuation(text: string): string {
   return result;
 }
 
-const groupName = (description: string) => z.string().trim().min(1).max(120).describe(description);
-
-/**
- * One yes-or-no figure of an Atlas finding's wording: binary_results' flat entry without its quote, since the wording
- * is what shows it, and with harms_none_found in place of harms_quote. Flat fields only, as binary_results' are, so
- * ChatGPT's app shows the model every field. The same entry is phase 3's numbers block on findings cards.
- */
-export const atlasNumberSchema = z.object({
-  outcome: z.string().trim().min(1).max(200)
-    .describe("The yes-or-no outcome as the wording names it, such as response or any adverse event."),
-  better: z.enum(["fewer", "more"])
-    .describe("Whether fewer or more people with this outcome is better: fewer for a harm or a relapse, more for a " +
-      "response or a remission."),
-  option: groupName("The option the figure is about, as the wording names it."),
-  option_events: z.number().int().nonnegative().describe("How many people in the option's group had the outcome."),
-  option_total: z.number().int().min(1).describe("How many people were in the option's group."),
-  comparator: groupName("What the option was compared with, as the wording names it, such as placebo."),
-  comparator_events: z.number().int().nonnegative()
-    .describe("How many people in the comparator's group had the outcome."),
-  comparator_total: z.number().int().min(1).describe("How many people were in the comparator's group."),
-  follow_up: z.string().trim().min(1).max(120)
-    .describe("How long people were followed for this outcome, as the wording writes it, such as 12 weeks."),
-  nnt: z.number().positive().optional()
-    .describe("The number needed to treat the wording gives for this outcome, if it gives one: 1 divided by the " +
-      "difference in the groups' rates, rounded up."),
-  nnh: z.number().positive().optional()
-    .describe("The number needed to harm the wording gives for this outcome, if it gives one: 1 divided by the " +
-      "difference in the groups' rates, rounded up."),
-  harms_none_found: z.boolean().optional()
-    .describe("With nnt: true when no harms were found over the same follow-up. Otherwise each harm measured over it " +
-      "is its own entry, with better set to fewer.")
-}).strict();
-
-export type AtlasNumber = z.output<typeof atlasNumberSchema>;
-
-/** The figures an Atlas finding's wording gives for two groups: an empty list when it gives none. */
-export const atlasNumbersSchema = z.array(atlasNumberSchema).max(20)
-  .describe("Each yes-or-no figure the wording gives for two groups, or with a number needed to treat or harm (an " +
-    "empty list if none). The wording shows each group's events and total, or its rate as a percentage, in digits of " +
-    "any script; nnt (the option did better) or nnh (it did worse) is checked against 1 divided by the difference in " +
-    "the groups' rates, rounded up, and the wording shows it with the follow-up. Beside an nnt, an entry for a harm " +
-    "(better: fewer) over the same follow-up, or harms_none_found.");
-
-export type AtlasNumbers = z.output<typeof atlasNumbersSchema>;
+// An Atlas finding's numbers have one definition: atlasNumberEntrySchema and atlasNumbersSchema in
+// @askrigor/evidence-repository, which the owner's tool takes and the intents store. The checks below read them.
 
 export const ATLAS_NUMBERS_PROBLEM_CODES = [
   "events_exceed_total",
@@ -139,7 +97,7 @@ export interface AtlasNumbersProblem {
  * entry for a harm (better: fewer) over the same follow-up, or say harms_none_found. Whether an entry is a harm, and
  * what its outcome means, stay the model's declarations.
  */
-export function atlasNumbersProblems(numbers: readonly AtlasNumber[], wording: string): AtlasNumbersProblem[] {
+export function atlasNumbersProblems(numbers: readonly AtlasNumberEntry[], wording: string): AtlasNumbersProblem[] {
   const problems: AtlasNumbersProblem[] = [];
   const add = (at: string, code: AtlasNumbersProblemCode, message: string) => problems.push({ at, code, message });
   // A total of 1,000 or more may be written with a grouping separator, so each number counts in every reading.

@@ -10,15 +10,48 @@ import {
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
+import {
+  ATLAS_REVIEW_ACTIONS,
+  ATLAS_REVIEW_ERROR_CODES,
+  ATLAS_REVIEW_OUTCOMES,
+  atlasCardViewSchema,
+  atlasChecksSchema,
+  atlasFindingsListSchema,
+  atlasRetrySchema,
+  atlasReviewInputShape,
+  atlasStatusSchema,
+  isAtlasReviewAction,
+  refineAtlasReviewInput,
+  type AtlasProviderConfig,
+  type AtlasReview,
+  type AtlasReviewRequest,
+  type AtlasReviewResult,
+} from "./findings/atlas-review.js";
 import { CASE_REVIEW_SCOPE } from "./oauth-resource-server.js";
 import type { ResearchOperationExtra } from "./research-operation.js";
 
+const PROPOSAL_ACTIONS = ["inspect", "status", "accept", "reject"] as const;
+
 export const researchContributionReviewInputSchema = z.object({
-  action: z.enum(["inspect", "status", "accept", "reject"]),
-  proposalId: z.string().uuid().optional(),
-  expectedPayloadSha256: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
-  reason: z.string().trim().min(1).max(2_000).optional(),
+  action: z.enum([...PROPOSAL_ACTIONS, ...ATLAS_REVIEW_ACTIONS])
+    .describe("Proposals: inspect, status, accept or reject. Findings for the Atlas: list_findings, inspect_finding, " +
+      "accept_finding, edit_finding, reject_finding, withdraw_finding or link_findings."),
+  proposalId: z.string().uuid().optional().describe("Proposals: the proposal's ID."),
+  expectedPayloadSha256: z.string().regex(/^[a-f0-9]{64}$/u).optional()
+    .describe("Proposals: the payload hash inspect returned."),
+  reason: z.string().trim().min(1).max(2_000).optional()
+    .describe("The owner's private reason: needed to accept or reject a proposal, and to reject a finding."),
+  ...atlasReviewInputShape,
 }).strict().superRefine((value, context) => {
+  if (isAtlasReviewAction(value.action)) {
+    refineAtlasReviewInput({ ...value, action: value.action }, context);
+    return;
+  }
+  const atlasField = (Object.keys(atlasReviewInputShape) as Array<keyof typeof atlasReviewInputShape>)
+    .find((field) => value[field] !== undefined);
+  if (atlasField !== undefined) {
+    context.addIssue({ code: "custom", path: [atlasField], message: `${value.action} does not take ${atlasField}` });
+  }
   if (value.action === "inspect") {
     if (value.expectedPayloadSha256 !== undefined || value.reason !== undefined) {
       context.addIssue({
@@ -112,6 +145,7 @@ const reviewErrorSchema = z.object({
     "review_conflict",
     "promotion_intent_missing",
     "invalid_request",
+    ...ATLAS_REVIEW_ERROR_CODES,
   ]),
   message: z.string(),
 }).strict();
@@ -126,11 +160,21 @@ export const researchContributionReviewOutputSchema = z.object({
     "rejected",
     "withdrawn",
     "no_pending_proposal",
+    ...ATLAS_REVIEW_OUTCOMES,
   ]).optional(),
   proposal: proposalSchema.optional(),
-  canonicalEvidenceChangedByThisCall: z.literal(false).optional(),
+  // Atlas phase 2: the findings actions' objects (design section 1).
+  findings: atlasFindingsListSchema.optional(),
+  card: atlasCardViewSchema.optional(),
+  atlas: atlasStatusSchema.optional(),
+  checks: atlasChecksSchema.optional(),
+  retry: atlasRetrySchema.optional(),
+  // No call of this tool writes canonical evidence: an accepted decision is a hash-bound intent a separate writer applies.
+  canonicalEvidenceChangedByThisCall: z.literal(false),
   error: reviewErrorSchema.optional(),
 }).strict();
+
+type ReviewErrorCode = z.infer<typeof reviewErrorSchema>["code"];
 
 export interface ResearchContributionReviewToolOptions {
   service?: ResearchContributionReviewService;
@@ -138,6 +182,15 @@ export interface ResearchContributionReviewToolOptions {
   allowedReviewerSubjects?: ReadonlySet<string>;
   /** The canonical store's read-only identity view, for the related records and the promotion preflight. */
   canonical?: CanonicalIdentityReader;
+  /** The owner's findings actions for the Atlas (phase 2). */
+  atlas?: {
+    /** ASKRIGOR_ATLAS_REVIEW=enabled; while it is off, the findings actions answer atlas_review_closed. */
+    enabled: boolean;
+    /** The review stores, the canonical reader and the GitHub inbox; undefined when they are not configured. */
+    review?: AtlasReview;
+    /** The provider settings the source checks use: crossrefConfig() and ncbiConfig(). */
+    providers: () => AtlasProviderConfig;
+  };
 }
 
 export function createResearchContributionReviewHandler(
@@ -149,6 +202,25 @@ export function createResearchContributionReviewHandler(
   ): Promise<CallToolResult> => {
     const authError = authorizeOwnerReview(extra, options);
     if (authError !== undefined) return authError;
+    const request = researchContributionReviewInputSchema.safeParse(input);
+    if (!request.success) {
+      return reviewError("invalid_request", `The owner-review request is invalid: ${issuesText(request.error)}`);
+    }
+    const parsed = request.data;
+    if (isAtlasReviewAction(parsed.action)) {
+      if (options.atlas?.enabled !== true) {
+        return reviewError("atlas_review_closed", "The owner's findings review for the Atlas is not open yet " +
+          "(ASKRIGOR_ATLAS_REVIEW); nothing was recorded.");
+      }
+      if (options.atlas.review === undefined) {
+        return reviewError("review_service_unavailable", "The Atlas review is not configured: it needs the review " +
+          "database, the canonical reader and the findings repository. Nothing was recorded.");
+      }
+      return atlasToolResult(await options.atlas.review.run(
+        { ...parsed, action: parsed.action } as AtlasReviewRequest,
+        options.atlas.providers(),
+      ));
+    }
     if (options.service === undefined) {
       return reviewError(
         "review_service_unavailable",
@@ -156,7 +228,6 @@ export function createResearchContributionReviewHandler(
       );
     }
     try {
-      const parsed = researchContributionReviewInputSchema.parse(input);
       const proposal = parsed.action === "accept" || parsed.action === "reject"
         ? await options.service.decide({
             proposalId: parsed.proposalId!,
@@ -212,7 +283,7 @@ export function createResearchContributionReviewHandler(
           PAYLOAD_MISMATCH: "payload_mismatch",
           REVIEW_CONFLICT: "review_conflict",
           PROMOTION_INTENT_MISSING: "promotion_intent_missing",
-        }[error.code] as z.infer<typeof reviewErrorSchema>["code"];
+        }[error.code] as ReviewErrorCode;
         return reviewError(code, error.message);
       }
       return reviewError(
@@ -331,7 +402,7 @@ function oauthError(
 }
 
 function reviewError(
-  code: z.infer<typeof reviewErrorSchema>["code"],
+  code: ReviewErrorCode,
   message: string,
 ): CallToolResult {
   return {
@@ -339,7 +410,38 @@ function reviewError(
     structuredContent: researchContributionReviewOutputSchema.parse({
       ok: false,
       error: { code, message },
+      canonicalEvidenceChangedByThisCall: false,
     }),
     isError: true,
   };
+}
+
+/**
+ * A findings action's result. An error is a tool error; an outcome that recorded nothing (needs_confirmation,
+ * checks_not_passed, try_again_later) has ok false and is an answer the AI acts on, not an error.
+ */
+function atlasToolResult(result: AtlasReviewResult): CallToolResult {
+  const structuredContent = researchContributionReviewOutputSchema.parse({
+    ok: result.ok,
+    ...(result.outcome === undefined ? {} : { outcome: result.outcome }),
+    ...(result.findings === undefined ? {} : { findings: result.findings }),
+    ...(result.card === undefined ? {} : { card: result.card }),
+    ...(result.atlas === undefined ? {} : { atlas: result.atlas }),
+    ...(result.checks === undefined ? {} : { checks: result.checks }),
+    ...(result.retry === undefined ? {} : { retry: result.retry }),
+    canonicalEvidenceChangedByThisCall: false,
+    ...(result.error === undefined ? {} : { error: result.error }),
+  });
+  return {
+    content: [{ type: "text", text: result.text }],
+    structuredContent,
+    ...(result.error === undefined ? {} : { isError: true }),
+  };
+}
+
+/** A request's problems by field, for the AI to correct: the schema's messages, which name the field and the rule. */
+function issuesText(error: z.ZodError): string {
+  const issues = error.issues.slice(0, 8).map((issue) =>
+    `${issue.path.length === 0 ? "request" : issue.path.join(".")}: ${issue.message}`);
+  return `${issues.join("; ")}${error.issues.length > 8 ? `; and ${error.issues.length - 8} more` : ""}.`;
 }
