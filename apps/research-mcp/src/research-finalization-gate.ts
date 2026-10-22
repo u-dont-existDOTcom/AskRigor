@@ -20,6 +20,9 @@ import {
 } from "./connector-input-schema.js";
 import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
 import { NEXT_STEP_KINDS, type NextStepKind } from "./next-step-kinds.js";
+import {
+  toolListNotice, toolListVersionDescription, toolListVersionOrUndefined, toolListVersionSchema
+} from "./tool-list-currency.js";
 import type { SecondReaderFinding } from "./second-reader.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber, numberReadings } from "./unicode-numbers.js";
 import {
@@ -102,9 +105,13 @@ export const FINALIZE_RESEARCH_CONTRACT = "2026-10-07";
 // declaration is missing, next_steps names the way out once instead of looping (UDA lane item
 // 2026-10-07-finalizer-must-not-require-unexposed-schema-fields).
 // Owner request (2026-10-22): the user is told, since only the user can refresh the app's copy of the tools.
+// When the call sends the version its tool list gives (tool_list_version), the check knows: the same version means the
+// field is there, and no refresh is suggested; an older one gets toolListNotice's plain notice. In the 22 Oct
+// regressions an answer whose tool list was current told the user to refresh, reading this hint as a finding.
 export const TOOL_LIST_REFRESH_HINT = "If this chat's AskRigor tool has no such field, its tool list is outdated: " +
   "tell the user, in their language, that AskRigor has been updated since this app loaded its tools, and that " +
-  "refreshing AskRigor in the app's settings and starting a new chat loads the current list.";
+  "refreshing AskRigor in the app's settings and starting a new chat loads the current list. If it has the field, " +
+  "its tool list is current: give the field, and say nothing to the user about refreshing.";
 
 // acquire_open_full_text signs a lead receipt only when the exact public-copy searches are recorded with it
 // (canSignFullTextLead), so a step that sends the AI there for one says so, or a retry without them loops.
@@ -383,14 +390,16 @@ export const finalizeResearchInputSchema = z.object({
       .transform((identity) => Array.isArray(identity) ? identity : [identity]).optional()
       .describe("Outside review sites, for each exposure the answer draws on from this community's threads: how the reports you read divide. The four classes add up to reports_read (HRP ScopeAxesBeforeSampling, ObjectiveSubjectiveSeparation)."),
     access_boundary: z.enum([
-      "no_web_search", "login_required", "blocked", "retrieval_failed", "no_relevant_results"
+      "no_web_search", "login_required", "blocked", "retrieval_failed", "no_relevant_results", "not_found"
     ]).optional()
       .describe("What stopped the search: this app has no web search; the site needs a login; the site refused " +
-        "access, such as a block page; a search or page fetch failed, such as an error or a timeout; or the " +
-        "searches found nothing relevant."),
+        "access, such as a block page; a search or page fetch failed, such as an error or a timeout; the " +
+        "searches found nothing relevant; or the community itself could not be found, with no site, group or forum " +
+        "under its name."),
     url: z.string().trim().url().max(2_048).optional()
       .describe("The community's own address (its forum, group or site link). Needed when no thread was read outside " +
-        "Reddit, so the community is known by its site rather than its name."),
+        "Reddit, so the community is known by its site rather than its name, unless the community could not be " +
+        "found (access_boundary not_found)."),
     review_corpora: z.array(z.object({
       product: z.string().trim().min(1).max(200).describe("The exact product and variant, as its label names it."),
       ratings_shown: z.number().int().min(0).optional()
@@ -690,6 +699,10 @@ export const finalizeResearchInputSchema = z.object({
     .describe("With answer_draft: each test or self-measurement the answer proposes to the user, whether it repeats an attempt in user_observations, and whether it is blinded (HRP UserObservationLedger, MeasurementIsNotAttribution); an empty list if none."),
   carried_state: z.string().max(48_000).optional()
     .describe("The carry_forward value the last final check in this conversation returned, passed back exactly; left out in a conversation's first research answer."),
+  // Owner request (2026-10-22), and the 22 Oct regressions: with it, a missing declaration says whether this app's
+  // tools are out of date rather than asking the model to guess. The published schema's description gives the
+  // surface's version (finalizeResearchConnectorInputSchema).
+  tool_list_version: toolListVersionSchema.optional().describe(toolListVersionDescription(undefined)),
   primary_outcome: z.string().trim().min(1).max(300).optional()
     .describe("The user's main goal for this research, in their words (HRP PrimaryOutcomeContinuity)."),
   primary_outcome_changed: z.boolean().optional()
@@ -821,9 +834,20 @@ export function finalizeResearchPublishedInputSchema({ relaxed }: { relaxed: boo
   return relaxed ? relaxedConnectorInputSchema(strict) : strict;
 }
 
-/** Runtime acceptance is permissive on both surfaces; only the published schema differs. */
-export function finalizeResearchConnectorInputSchema(relaxed: boolean) {
-  return permissiveConnectorInputSchema(finalizeResearchPublishedInputSchema({ relaxed }));
+/**
+ * Runtime acceptance is permissive on both surfaces; only the published schema differs. Its tool_list_version
+ * carries the surface's version, which the model sends back.
+ */
+export function finalizeResearchConnectorInputSchema(relaxed: boolean, toolListVersion?: string) {
+  const published = finalizeResearchPublishedInputSchema({ relaxed });
+  const field = published.properties?.tool_list_version;
+  return permissiveConnectorInputSchema(field === undefined ? published : {
+    ...published,
+    properties: {
+      ...published.properties,
+      tool_list_version: { ...field, description: toolListVersionDescription(toolListVersion) }
+    }
+  });
 }
 
 /** Optional empty lists mean none. Clone only the affected containers, preserving the raw call. */
@@ -909,6 +933,20 @@ function retractedStatementShown(draft: string, statement: string, changes: read
   return occurrences(wrong).some((start) => !inChange.some(([from, to]) => start >= from && start + wrong.length <= to));
 }
 
+/**
+ * The caveat of this check that holds a statement taken back, if one does. The answer must state the caveat, so a
+ * statement inside it cannot also be left out; the two rules held each other in the 22 Oct regression o354 continue,
+ * where the AI declared the check's own YouTube caveat as a statement it took back. Exact: the caveat's text contains
+ * the statement, compared as the answer check compares quotes.
+ */
+function caveatHolding(statement: string, caveats: readonly string[]): string | undefined {
+  const wrong = quoteForms(statement);
+  return caveats.find((caveat) => {
+    const held = quoteForms(caveat);
+    return wrong.some((form, index) => /[\p{L}\p{N}]/u.test(form) && held[index]!.includes(form));
+  });
+}
+
 const optionKey = (text: string) => text.trim().toLowerCase();
 
 // The ledger and the rejected list hold at most this many entries; at that size the model chooses which to keep.
@@ -966,11 +1004,6 @@ function checkCarriedState(input: FinalizeResearchInput, secret: string, nextSte
       : carried.observations.filter(({ observation }) => !observations.has(observation));
     for (const { observation } of dropped.slice(0, 10)) nextSteps.push(`user_observations leaves out ${JSON.stringify(observation)} from an earlier turn: keep it, marked withdrawn or uncertain if its source took it back.`);
     if (dropped.length > 10) nextSteps.push(`and ${dropped.length - 10} more earlier observations.`);
-    for (const statement of carried.retracted) {
-      if (input.answer_draft !== undefined && retractedStatementShown(input.answer_draft, statement, (input.corrections ?? []).map(({ change }) => change))) {
-        nextSteps.push(`The answer repeats a statement taken back in an earlier turn: ${JSON.stringify(statement)}. Leave it out.`);
-      }
-    }
     if ((input.rejected_options ?? []).length < MAX_CARRIED_REJECTED) {
       for (const option of carried.rejected) {
         if (!rejected.has(optionKey(option)) && !reopened.has(optionKey(option))) nextSteps.push(`rejected_options leaves out ${option}, which the user rejected in an earlier turn: keep it, or list it in reopened if the user reopened it.`);
@@ -998,11 +1031,13 @@ function checkCarriedState(input: FinalizeResearchInput, secret: string, nextSte
  * changes it.
  */
 function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState | undefined, options: FinalizeResearchOptions,
-  check: { status: "ready" | "ready_with_limits" | "not_ready"; open: NextStepKind[] }):
+  check: { status: "ready" | "ready_with_limits" | "not_ready"; open: NextStepKind[]; caveats: readonly string[] }):
   { carry_forward: string; carried: CarriedState } | "too_large" | undefined {
   if (options.secret === undefined) return undefined;
   const reopened = new Set((input.reopened ?? []).map(optionKey));
+  // A statement a caveat of this check holds is not carried as taken back: the caveat stays (caveatHolding).
   const retracted = [...(carried?.retracted ?? []), ...(input.corrections ?? []).map(({ retracted }) => retracted)]
+    .filter((text) => caveatHolding(text, check.caveats) === undefined)
     .map((text) => text.slice(0, 200));
   // Keep the latest occurrence of each statement, then the latest twelve statements.
   const latest = [...new Set([...retracted].reverse())].reverse().slice(-12);
@@ -1182,6 +1217,8 @@ export interface FinalizeResearchOptions {
   // the answer then carries the owner's mobile notice (owner request,
   // 2026-10-15), as Universal's output_style asks wherever a phone shows.
   mobileClient?: boolean;
+  /** This surface's tool list version (toolListVersionOf), which a call's tool_list_version is compared with. */
+  toolListVersion?: string;
 }
 
 // The owner's words (2026-10-15), many users' reports and the owner's own
@@ -2877,6 +2914,22 @@ export function finalizeResearch(
         urls: community.urls
       }))
     ];
+    // A statement taken back in an earlier turn stays out of the answer, unless a caveat of this check holds it: the
+    // caveat stays, so a correction cannot take it back (the 22 Oct regression o354 continue).
+    for (const statement of carried?.retracted ?? []) {
+      if (caveatHolding(statement, caveats) === undefined &&
+          retractedStatementShown(draft, statement, (input.corrections ?? []).map(({ change }) => change))) {
+        addStep("carried_state", `The answer repeats a statement taken back in an earlier turn: ${JSON.stringify(statement)}. Leave it out.`);
+      }
+    }
+    for (const [index, { retracted }] of (input.corrections ?? []).entries()) {
+      const caveat = caveatHolding(retracted, caveats);
+      if (caveat !== undefined) {
+        addStep("declaration", `corrections[${index}] takes back words of the check's own caveat ${JSON.stringify(caveat)}, ` +
+          "which the answer keeps while what it describes stands: leave that correction out, or give as retracted the " +
+          "wrong statement as your earlier answer put it, outside the caveat's words.");
+      }
+    }
     addStep("answer_draft", ...answerDraftProblems(draft, {
       videoIds: [...new Set([...discovered, ...auditedAtAll])],
       protocolNames: options.protocolNames ?? new Set(),
@@ -2914,7 +2967,7 @@ export function finalizeResearch(
           .flatMap(({ outcome, answer_quote: quote }, index) => outcome === "not_checked" || quote === undefined ? [] :
             [{ at: `plain_answer_comparison[${index}].answer_quote`, quote }])
       ],
-      corrections: input.corrections ?? [],
+      corrections: (input.corrections ?? []).filter(({ retracted }) => caveatHolding(retracted, caveats) === undefined),
       communityNames: [...(input.community_searches ?? []).map(({ community }) => community),
         ...(input.principal_communities ?? []).map(({ name }) => name)],
       keyTerms: input.key_terms ?? [],
@@ -2925,7 +2978,12 @@ export function finalizeResearch(
     }));
   }
 
-  if (missingDeclaration) addStep("tool_list", TOOL_LIST_REFRESH_HINT);
+  if (missingDeclaration) {
+    const current = toolListVersionOrUndefined(options.toolListVersion);
+    const declared = toolListVersionOrUndefined(input.tool_list_version);
+    if (current === undefined || declared === undefined) addStep("tool_list", TOOL_LIST_REFRESH_HINT);
+    else if (declared !== current) addStep("tool_list", toolListNotice(declared, current)!);
+  }
 
   const secondReading = checkSecondReading(input, options.secondReading, stepSink(addStep, "second_reading"));
 
@@ -3026,7 +3084,7 @@ export function finalizeResearch(
   }
   // A carried state that does not verify gets no replacement: the model passes the last good one again.
   const carry = carriedInvalid ? undefined : buildCarriedState(input, carried, options, {
-    status, open: [...new Set(stepKinds)]
+    status, open: [...new Set(stepKinds)], caveats
   });
   if (carry === "too_large") output.carry_forward_note = CARRIED_STATE_TOO_LARGE;
   else if (carry !== undefined) Object.assign(output, carry);
@@ -4147,6 +4205,20 @@ function communityKey(name: string, platform: string): string {
     : `${platform}:${name.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, "")}`;
 }
 
+/**
+ * Whether a community listed in principal_communities was searched. One named by its platform alone, such as the user's
+ * "Reddit", is searched when any community on that platform is: a Reddit search is recorded by its subreddit, so a
+ * record named Reddit is refused (the 22 Oct regression o355 keto thread, where the two held each other). Exact: the
+ * name is the platform's own name.
+ */
+function communitySearched(searched: ReadonlyMap<string, string>, name: string, platform: string): boolean {
+  const key = communityKey(name, platform);
+  if (searched.has(key)) return true;
+  const label = PLATFORM_HOSTS[platform]?.label;
+  return label !== undefined && key === communityKey(label, platform) &&
+    [...searched.keys()].some((searchedKey) => searchedKey.startsWith(`${platform}:`));
+}
+
 /** The declared buyer-review lane cannot be omitted behind forum or YouTube coverage. */
 interface DeclarationSteps {
   addStep: (kind: NextStepKind, ...steps: string[]) => void;
@@ -4397,6 +4469,7 @@ function boundaryCaveat(name: string, boundary: NonNullable<CommunitySearch["acc
     case "blocked": return `${name} blocked access, so reports there are not included.`;
     case "retrieval_failed": return `Pages from ${name} could not be retrieved, so reports there are not included.`;
     case "no_relevant_results": return `A search of ${name} turned up no relevant reports.`;
+    case "not_found": return `I could not find ${name}, so reports there are not included.`;
   }
 }
 
@@ -4459,6 +4532,8 @@ function communityCoverage(
   }
   // Key -> name as given.
   const searched = new Map<string, string>();
+  // Keys of communities recorded as not found (access_boundary not_found).
+  const unfound = new Set<string>();
   // One site is one discussion pool, whatever its entries are called: outside
   // Reddit, a community's identity is the site its threads are on (HRP
   // MultipleIndependentCommunities: stable source identifiers, not names).
@@ -4585,6 +4660,17 @@ function communityCoverage(
       );
       continue;
     }
+    // A community that could not be found has no address and no thread (the 22 Oct regressions, where a check
+    // asking for the address of communities nobody can find held both book cases and l24).
+    if (search.access_boundary === "not_found" && (search.threads_read.length > 0 || search.url !== undefined)) {
+      out.addStep("declaration",
+        `community_searches for ${name} gives access_boundary not_found with ` +
+          `${search.threads_read.length > 0 ? "threads read" : "an address"}: a community with ` +
+          `${search.threads_read.length > 0 ? "threads you read" : "an address"} was found, so record what stopped ` +
+          "the search instead, or the threads and what they showed."
+      );
+      continue;
+    }
     // A review site's reviews need their counts and selection (HRP ReviewCorpusSelectionAndCounts).
     const corpora = search.review_corpora ?? [];
     if (corpora.length > 0 && search.platform !== "review_site") {
@@ -4612,7 +4698,8 @@ function communityCoverage(
     }
     // Outside Reddit, whose subreddit names it, a community read nowhere is
     // known by its address, never by its name alone.
-    if (search.platform !== "reddit" && search.threads_read.length === 0 && search.url === undefined) {
+    if (search.platform !== "reddit" && search.threads_read.length === 0 && search.url === undefined &&
+        search.access_boundary !== "not_found") {
       out.requireDeclaration(
         `community_searches for ${name} records an access boundary but no url: give the community's address (its ` +
           "forum, group or site link), so it is known by its site rather than its name."
@@ -4643,11 +4730,15 @@ function communityCoverage(
     }
     if (site !== undefined) siteOwners.set(site, key);
     searched.set(key, name);
+    // Recorded, so a community the user named is not asked for again, but no discussion pool of its own.
+    if (search.access_boundary === "not_found") unfound.add(key);
     if (search.access_boundary !== undefined) {
       out.requireLimit(
         search.access_boundary === "no_relevant_results"
           ? `The search of ${name} found no relevant reports; say so.`
-          : `The search of ${name} ended at an access boundary (${search.access_boundary}); say so.`,
+          : search.access_boundary === "not_found"
+            ? `${name} could not be found; say so.`
+            : `The search of ${name} ended at an access boundary (${search.access_boundary}); say so.`,
         boundaryCaveat(name, search.access_boundary)
       );
     }
@@ -4753,24 +4844,27 @@ function communityCoverage(
   const named = new Set<string>();
   for (const { name, platform, named_by_user } of communities) {
     const key = communityKey(name, platform);
-    if (named_by_user === true && platform !== "youtube" && !searched.has(key) && !named.has(key)) {
+    if (named_by_user === true && platform !== "youtube" && !communitySearched(searched, name, platform) &&
+        !named.has(key)) {
       named.add(key);
       out.requireDeclaration(
         `The user named ${name}: search it with your web search and record it in community_searches, or the access boundary that stops you.`
       );
     }
   }
-  if (dominant.platform !== "youtube" && !searched.has(communityKey(dominant.name, dominant.platform))) {
+  if (dominant.platform !== "youtube" && !communitySearched(searched, dominant.name, dominant.platform)) {
     out.requireDeclaration(
       `Search ${dominant.name}, the community listed first, with your web search and record it in ` +
         "community_searches, or the access boundary that stops you."
     );
   }
-  const listed = new Set(communities.map(({ name, platform }) => communityKey(name, platform)));
+  // A community that could not be found is no discussion pool, so it never makes the found one the only one.
+  const listed = new Set(communities.map(({ name, platform }) => communityKey(name, platform))
+    .filter((key) => !unfound.has(key)));
   // A Facebook group, Telegram channel or Discord server is known by links the
   // server cannot tie to one identity (a group's name or number, a server's
   // many invites), so each of those platforms counts once toward independence.
-  const pools = new Set([...searched.keys()].map((key) => {
+  const pools = new Set([...searched.keys()].filter((key) => !unfound.has(key)).map((key) => {
     const platform = key.split(":")[0]!;
     return COMMUNITY_LINK_STEPS[platform] === undefined ? key : platform;
   }));
@@ -4788,17 +4882,19 @@ function communityCoverage(
     }
   } else if (pools.size < 2) {
     const others = [...new Map(communities
-      .filter(({ name, platform }) => !searched.has(communityKey(name, platform)))
+      .filter(({ name, platform }) => !communitySearched(searched, name, platform))
       .map(({ name, platform }) => [communityKey(name, platform), name])).values()];
+    const found = [...searched].filter(([key]) => !unfound.has(key)).map(([, name]) => name);
     out.addStep("research", 
       "Search at least one more community, independent of " +
-        `${searched.size === 0 ? "the first" : [...searched.values()].join(", ")}` +
+        `${found.length === 0 ? "the first" : found.join(", ")}` +
         `${others.length === 0 ? "" : ` (${others.join(", ")})`}: YouTube with its tools, the others with your web ` +
         "search recorded in community_searches, or record the access boundary that stops you." +
-        (pools.size < searched.size
+        (pools.size < found.length
           ? " Communities on one of Facebook, Telegram or Discord count once together: their links cannot show that " +
             "they are separate discussion pools."
-          : "")
+          : "") +
+        (unfound.size > 0 ? " A community that could not be found is not one of them." : "")
     );
   }
   // Every community searched outside YouTube rests on the client's word.

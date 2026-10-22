@@ -1,8 +1,8 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { TOOL_LIST_REFRESH_HINT } from "../apps/research-mcp/src/research-finalization-gate.js";
+import { finalizeResearch, TOOL_LIST_REFRESH_HINT } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import {
   TOOL_LIST_REFRESH_SENTENCE, toolListNotice, toolListVersionOf,
@@ -17,6 +17,7 @@ const OLDER_TOOLS = `tell the user, in their language: "${TOOL_LIST_REFRESH_SENT
 
 const clients: Client[] = [];
 afterEach(async () => {
+  vi.unstubAllEnvs();
   await Promise.all(clients.splice(0).map((client) => client.close()));
 });
 
@@ -67,7 +68,7 @@ describe("telling the user when the app's copy of AskRigor's tools is out of dat
 
   it("publishes the surface's version in the field the model sends back, on the first calls of research", async () => {
     const { tools } = await (await connect()).listTools();
-    for (const name of ["get_protocol_manifest", "manage_research_access"]) {
+    for (const name of ["get_protocol_manifest", "manage_research_access", "finalize_research"]) {
       const field = tools.find((tool) => tool.name === name)?.inputSchema.properties?.tool_list_version as
         { type?: string; description?: string } | undefined;
       expect(field?.type).toBe("string");
@@ -110,5 +111,51 @@ describe("telling the user when the app's copy of AskRigor's tools is out of dat
   it("asks the model to tell the user when the final check misses a field the app's tools may lack", () => {
     expect(TOOL_LIST_REFRESH_HINT).toContain("tell the user, in their language");
     expect(TOOL_LIST_REFRESH_HINT).toContain("refreshing AskRigor in the app's settings and starting a new chat");
+    expect(TOOL_LIST_REFRESH_HINT).toContain("If it has the field, its tool list is current");
+  });
+
+  it("asks for a refresh on a missing declaration only when the app's tool list is older or its version unknown", () => {
+    // A call missing a declaration (user_observations with answer_draft), as in the 22 Oct book case whose answer told
+    // the user to refresh a tool list that was current.
+    const call = (tool_list_version?: string) => ({
+      receipts: [], research_target: "Synthetic tool-list fixture", research_depth: "deep",
+      treatment_choice: "not_compared", community_evidence: "not_relevant", not_relevant_basis: "emergency_before_triage",
+      not_relevant_reason: "Synthetic emergency fixture", key_sources: [], answer_draft: "Synthetic answer.",
+      ...(tool_list_version === undefined ? {} : { tool_list_version })
+    });
+    const steps = (input: object, toolListVersion?: string) => finalizeResearch(input, {
+      secret: "tool-list-currency-fixture-secret-0123456789abcdef", ...(toolListVersion === undefined ? {} : { toolListVersion })
+    }).next_steps;
+    expect(steps(call(VERSION), VERSION)).toContain(
+      "user_observations is missing: with answer_draft, it lists each observation the user reported, about themselves " +
+        "or others, that the answer relies on or rules out, marked effect, no_effect, uncertain or withdrawn (an empty " +
+        "list means none)."
+    );
+    // The same version: the field is in this app's tools, so nothing about refreshing.
+    expect(steps(call(VERSION), VERSION).join("\n")).not.toMatch(/refresh/iu);
+    expect(steps(call(` ${VERSION.toUpperCase()} `), VERSION).join("\n")).not.toMatch(/refresh/iu);
+    // An older version: the plain notice. No version sent, or none known here: the conditional hint.
+    expect(steps(call(OLDER), VERSION)).toContain(toolListNotice(OLDER, VERSION));
+    expect(steps(call(OLDER), VERSION)).not.toContain(TOOL_LIST_REFRESH_HINT);
+    expect(steps(call(), VERSION)).toContain(TOOL_LIST_REFRESH_HINT);
+    expect(steps(call(VERSION))).toContain(TOOL_LIST_REFRESH_HINT);
+    expect(steps(call("not a version"), VERSION)).toContain(TOOL_LIST_REFRESH_HINT);
+  });
+
+  it("compares the version finalize_research sends with the surface's, through the server", async () => {
+    vi.stubEnv("ASKRIGOR_FINALIZATION_SIGNING_SECRET", "tool-list-currency-fixture-secret-0123456789abcdef");
+    const client = await connect();
+    const result = await client.callTool({
+      name: "finalize_research",
+      arguments: {
+        receipts: [], research_target: "Synthetic tool-list fixture", research_depth: "deep",
+        treatment_choice: "not_compared", community_evidence: "not_relevant", not_relevant_basis: "emergency_before_triage",
+        not_relevant_reason: "Synthetic emergency fixture", key_sources: [], answer_draft: "Synthetic answer.",
+        tool_list_version: OLDER
+      },
+    });
+    const steps = (result.structuredContent as { next_steps: string[] }).next_steps;
+    expect(steps.some((step) => step.startsWith("user_observations is missing"))).toBe(true);
+    expect(steps).toContain(toolListNotice(OLDER, VERSION));
   });
 });

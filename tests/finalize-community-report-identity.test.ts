@@ -231,6 +231,49 @@ describe("communities named by the user and the visible check line", () => {
     input.answer_draft += `\n\nOn [Named Forum](https://named.example/forms): ${Object.values(FINDINGS).join(" ")}`;
     expect(checked(input).status).toBe("ready_with_limits");
   });
+  it("counts a platform the user names, such as Reddit, as searched when a community on it was (22 Oct, o355 keto thread)", () => {
+    const input = base();
+    input.principal_communities!.push({ name: "Reddit", platform: "reddit", named_by_user: true });
+    const step = (name: string) => `The user named ${name}: search it with your web search and record it in ` +
+      "community_searches, or the access boundary that stops you.";
+    expect(checked(input).next_steps).toContain(step("Reddit"));
+    // A Reddit search is recorded by its subreddit, so the search of r/Supplements is the search of Reddit.
+    const thread = "https://www.reddit.com/r/Supplements/comments/abc123/form_a_and_form_b/";
+    input.principal_communities!.push({ name: "r/Supplements", platform: "reddit" });
+    input.community_searches!.push({ ...input.community_searches![0]!, community: "r/Supplements", platform: "reddit",
+      threads_read: [{ url: thread }] });
+    input.answer_draft += `\n\nOn [r/Supplements](${thread}): ${Object.values(FINDINGS).join(" ")}`;
+    expect(checked(input).next_steps).not.toContain(step("Reddit"));
+    // A subreddit the user names is still a community of its own, and another platform's name is not Reddit's.
+    input.principal_communities!.push({ name: "r/Nootropics", platform: "reddit", named_by_user: true },
+      { name: "Facebook", platform: "facebook", named_by_user: true });
+    expect(checked(input).next_steps).toEqual(expect.arrayContaining([step("r/Nootropics"), step("Facebook")]));
+  });
+  it("records a named community that cannot be found without an address, as no discussion pool (22 Oct, book cases)", () => {
+    const ghost: Search = { community: "Ghost Forum", platform: "forum", queries: ["Ghost Forum form A"], threads_read: [],
+      access_boundary: "not_found" };
+    const input = base();
+    input.principal_communities!.push({ name: "Ghost Forum", platform: "forum", named_by_user: true });
+    input.community_searches!.push(ghost);
+    const result = checked(input);
+    expect(result.next_steps.join("\n")).not.toMatch(/records an access boundary but no url|The user named Ghost Forum/u);
+    expect(result.caveats).toContain("I could not find Ghost Forum, so reports there are not included.");
+    expect(result.limits).toContain("Ghost Forum could not be found; say so.");
+    expect(result.status).toBe("ready_with_limits");
+    // Found is not not_found: an address or a thread read contradicts it.
+    const withAddress = base();
+    withAddress.principal_communities!.push({ name: "Ghost Forum", platform: "forum", named_by_user: true });
+    withAddress.community_searches!.push({ ...ghost, url: "https://ghost.example/" });
+    expect(checked(withAddress).next_steps).toContain("community_searches for Ghost Forum gives access_boundary not_found " +
+      "with an address: a community with an address was found, so record what stopped the search instead, or the " +
+      "threads and what they showed.");
+    // A community that could not be found is no discussion pool of its own: with one found forum, that one is alone.
+    const alone = base();
+    alone.principal_communities = [{ name: "Mineral Forum", platform: "forum" }, { name: "Ghost Forum", platform: "forum", named_by_user: true }];
+    alone.community_searches = [alone.community_searches![0]!, ghost];
+    expect(checked(alone).next_steps).toContain("principal_communities lists one community: name an independent one " +
+      "(another platform, forum or discussion pool) and search it, or give single_community_reason.");
+  });
   it("accepts a recorded access boundary for a named forum", () => {
     const input = base();
     input.principal_communities!.push({ name: "Named Forum", platform: "forum", named_by_user: true });

@@ -55,6 +55,31 @@ describe("conversation state carried between final checks", () => {
     expect(carriedSteps({ carried_state: token, answer_draft: change, corrections: [{ retracted: wrong, change, by_user: false }] })).toEqual([]);
     expect(carriedSteps({ carried_state: token, answer_draft: `${change}\n\n${wrong}`, corrections: [{ retracted: wrong, change, by_user: false }] }).join("\n")).toContain("repeats a statement");
   });
+  it("does not let a correction take back one of the check's own caveats (the 22 Oct regression o354 continue)", () => {
+    const unblinded = { quote: "Try it.", blinded: false };
+    const caveat = check({ proposed_tests: [unblinded] }).caveats.find((text) => text.startsWith("A test done without blinding"))!;
+    expect(caveat).toBeDefined();
+    const draft = `Try it.\n\n${caveat}`;
+    const declared = check({ proposed_tests: [unblinded], answer_draft: draft,
+      corrections: [{ retracted: caveat, change: "Try it.", by_user: false }] });
+    expect(declared.next_steps).toContain(`corrections[0] takes back words of the check's own caveat ${JSON.stringify(caveat)}, ` +
+      "which the answer keeps while what it describes stands: leave that correction out, or give as retracted the " +
+      "wrong statement as your earlier answer put it, outside the caveat's words.");
+    // Neither the answer check nor the carried state holds the caveat as taken back.
+    expect(declared.next_steps.join("\n")).not.toContain("wrong statement still appears");
+    expect(declared.carried!.retracted).toEqual([]);
+    // A state carried from before this fix may still hold it: a later answer stating the caveat is not refused for it.
+    const old = issueCarriedState({ ...declared.carried!, retracted: [caveat] }, { secret: SECRET })!;
+    expect(carriedSteps({ carried_state: old, proposed_tests: [unblinded], answer_draft: draft })).toEqual([]);
+    expect(check({ carried_state: old, proposed_tests: [unblinded], answer_draft: draft }).carried!.retracted).toEqual([]);
+    // Part of the caveat is held by it too; a statement the caveat does not hold is still refused.
+    expect(check({ proposed_tests: [unblinded], answer_draft: draft,
+      corrections: [{ retracted: "can show how the person did", change: "Try it.", by_user: false }] }).next_steps.join("\n"))
+      .toContain("corrections[0] takes back words of the check's own caveat");
+    const other = issueCarriedState({ ...declared.carried!, retracted: ["The rate was 40%."] }, { secret: SECRET })!;
+    expect(carriedSteps({ carried_state: other, proposed_tests: [unblinded], answer_draft: `${draft}\n\nThe rate was 40%.` }))
+      .toContain('The answer repeats a statement taken back in an earlier turn: "The rate was 40%.". Leave it out.');
+  });
   it("keeps the latest twelve distinct retracted statements truncated to 200 characters", () => {
     const first = check({ corrections: Array.from({ length: 10 }, (_, i) => ({ retracted: `${i} ${"甲".repeat(250)}`, change: "Changed.", by_user: false })) });
     const next = check({ carried_state: first.carry_forward, corrections: Array.from({ length: 5 }, (_, i) => ({ retracted: `new ${i}`, change: "Changed.", by_user: false })) });

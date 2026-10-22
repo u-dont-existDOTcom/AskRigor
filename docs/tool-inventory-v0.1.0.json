@@ -14772,18 +14772,19 @@
                   "description": "Outside review sites, for each exposure the answer draws on from this community's threads: how the reports you read divide. The four classes add up to reports_read (HRP ScopeAxesBeforeSampling, ObjectiveSubjectiveSeparation)."
                 },
                 "access_boundary": {
-                  "description": "What stopped the search: this app has no web search; the site needs a login; the site refused access, such as a block page; a search or page fetch failed, such as an error or a timeout; or the searches found nothing relevant.",
+                  "description": "What stopped the search: this app has no web search; the site needs a login; the site refused access, such as a block page; a search or page fetch failed, such as an error or a timeout; the searches found nothing relevant; or the community itself could not be found, with no site, group or forum under its name.",
                   "type": "string",
                   "enum": [
                     "no_web_search",
                     "login_required",
                     "blocked",
                     "retrieval_failed",
-                    "no_relevant_results"
+                    "no_relevant_results",
+                    "not_found"
                   ]
                 },
                 "url": {
-                  "description": "The community's own address (its forum, group or site link). Needed when no thread was read outside Reddit, so the community is known by its site rather than its name.",
+                  "description": "The community's own address (its forum, group or site link). Needed when no thread was read outside Reddit, so the community is known by its site rather than its name, unless the community could not be found (access_boundary not_found).",
                   "type": "string"
                 },
                 "review_corpora": {
@@ -15425,6 +15426,10 @@
           },
           "carried_state": {
             "description": "The carry_forward value the last final check in this conversation returned, passed back exactly; left out in a conversation's first research answer.",
+            "type": "string"
+          },
+          "tool_list_version": {
+            "description": "The version of AskRigor's tool list this app loaded.",
             "type": "string"
           },
           "primary_outcome": {

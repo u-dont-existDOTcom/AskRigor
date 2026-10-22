@@ -2184,7 +2184,7 @@ function defineResearchOperations(
         // The only text ChatGPT's app shows the model for this tool (Codex probes, 2026-10-16): the JSON of the
         // inputs its type hides, from which the regression's first calls invented fields.
         FINALIZE_RESEARCH_SHAPES_DESCRIPTION,
-      inputSchema: finalizeResearchConnectorInputSchema(options.mcpSurface !== "/mcp/claude"),
+      inputSchema: finalizeResearchConnectorInputSchema(options.mcpSurface !== "/mcp/claude", options.toolListVersion),
       outputSchema: finalizeResearchOutputSchema,
       ...(options.mcpSurface === "/mcp/gemini" ? {} : {
         _meta: {
@@ -2217,6 +2217,7 @@ function defineResearchOperations(
           ? "closed" as const
           : account === undefined ? "private" as const : account.mode === "FREE_CONTRIBUTOR" ? "save" as const : "offer" as const,
         ...(readsOnMobile(extra._meta) ? { mobileClient: true } : {}),
+        ...(options.toolListVersion === undefined ? {} : { toolListVersion: options.toolListVersion }),
         ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) }),
         // Owner answer 140b: a paid private or dev account's plain answer, registered before research, is compared
         // with the answer, on the MCP connector only.
