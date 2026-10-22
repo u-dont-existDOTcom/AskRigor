@@ -332,6 +332,23 @@ describe("a search that found nothing (owner decision 3b's bounded absence)", ()
     expect(problemsOf(withFinding(0, { searches: [{ database: "pubmed", query: QUERY }] })).problems).toEqual([
       "findings_card.findings[0] gives searches, which go only with kind nothing_found: leave them out."]);
   });
+
+  it("is the kind of a finding whose sentence the answer declares only as not found (review finding 3)", () => {
+    // The finding of the absent sentence, declared as another kind.
+    const declaredAs = (overrides: Record<string, unknown>, extra: Partial<FinalizeResearchInput> = {}) =>
+      problemsOf({ ...CARD, findings: [EFFECT, { ...without(NOTHING_FOUND, "searches"), numbers: [], ...overrides }] },
+        extra).problems;
+    const reverse = "findings_card.findings[1]'s answer_quote is declared in absence_claims only as " +
+      "support_not_located, as something the searches made here did not find, so the finding is a search that found " +
+      "nothing: give it kind nothing_found, direction descriptive and its searches. A study that found no difference " +
+      "is declared another way in absence_claims (direct_null_evidence, say), and is an effect or harm finding with " +
+      "direction no_effect.";
+    expect(declaredAs({ kind: "effect", direction: "no_effect" })).toEqual([reverse]);
+    expect(declaredAs({ kind: "harm", direction: "harm" })).toEqual([reverse]);
+    // Declared as a null result, the sentence is an effect with no difference.
+    expect(declaredAs({ kind: "effect", direction: "no_effect" },
+      { absence_claims: [{ quote: ABSENT_SENTENCE, state: "direct_null_evidence", studies: [DOI] }] })).toEqual([]);
+  });
 });
 
 describe("the new texts' privacy and storage", () => {
@@ -501,7 +518,7 @@ describe("cardFieldProblems, the checks alone", () => {
     required: true,
     answerFigures: [TREMOR_RESULT, NAUSEA_RESULT],
     searched: (database, query) => database === "pubmed" && discoveryQueryDigest([query]) === discoveryQueryDigest([QUERY]),
-    declaredNotFound: (quote) => quote === ABSENT_SENTENCE,
+    absenceStates: (quote) => quote === ABSENT_SENTENCE ? ["support_not_located"] : [],
     ...overrides,
   });
   const parsed = findingsCardSchema.parse(CARD);
@@ -524,5 +541,20 @@ describe("cardFieldProblems, the checks alone", () => {
       const card = findingsCardSchema.parse(withFinding(0, { kind, numbers: undefined, direction: "descriptive" }));
       expect(cardFieldProblems(card, context()), kind).toEqual([]);
     }
+  });
+
+  it("asks for nothing_found only when every absence claim of the sentence is support_not_located (review finding 3)", () => {
+    const effectOfAbsence = findingsCardSchema.parse({ ...CARD, findings: [EFFECT,
+      { ...without(NOTHING_FOUND, "searches"), kind: "effect", direction: "no_effect", numbers: [] }] });
+    const reverse = expect.stringContaining("is declared in absence_claims only as support_not_located");
+    expect(cardFieldProblems(effectOfAbsence, context())).toEqual([reverse]);
+    // Also declared in another state, the sentence is not only "not found", and its finding may be another kind.
+    expect(cardFieldProblems(effectOfAbsence, context({
+      absenceStates: (quote) => quote === ABSENT_SENTENCE ? ["support_not_located", "direct_null_evidence"] : [],
+    }))).toEqual([]);
+    // A finding that declares no kind, on a card that is not public, is not asked for one.
+    const undeclared = findingsCardSchema.parse({ ...CARD, findings: [EFFECT,
+      without(NOTHING_FOUND, "searches", "kind", "direction", "subject", "subject_type")] });
+    expect(cardFieldProblems(undeclared, context({ required: false }))).toEqual([]);
   });
 });

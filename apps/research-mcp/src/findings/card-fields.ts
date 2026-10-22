@@ -11,11 +11,12 @@ import type { FindingsCard } from "./card.js";
 /**
  * The exact checks on a findings card's Atlas fields (Atlas phase 3, design section 2), which the final check runs with
  * the card's other checks. The kind, subject, subject type, direction and topic are the research AI's declarations and
- * are taken as given, except for the two contradictions code can show exactly: a search that found nothing states no
- * direction, and its sentence is one the answer declares as not found. What is exact: a public card has every field
- * the pages need; a kind that needs numbers or searches has them; the numbers' counts and arithmetic, and the claim
- * showing them, in digits of any script (atlasNumbersProblems, which the owner's acceptance runs too); each figure is
- * one the answer's binary_results gives; and each search is one a literature_search receipt of the same call names.
+ * are taken as given, except for the contradictions code can show exactly: a search that found nothing states no
+ * direction, its sentence is one the answer declares as not found, and a sentence the answer declares only as not found
+ * is a search that found nothing, whatever kind it is given (review finding 3). What is exact: a public card has every
+ * field the pages need; a kind that needs numbers or searches has them; the numbers' counts and arithmetic, and the
+ * claim showing them, in digits of any script (atlasNumbersProblems, which the owner's acceptance runs too); each figure
+ * is one the answer's binary_results gives; and each search is one a literature_search receipt of the same call names.
  * Every comparison is of closed vocabularies, integers, receipt digests or quotes, the same in any language.
  */
 
@@ -35,9 +36,14 @@ export interface CardFieldsContext {
   answerFigures: readonly AnswerFigure[];
   /** Whether a literature_search receipt verified in this call names this database and the digest of this query. */
   searched(database: string, query: string): boolean;
-  /** Whether a sentence is the quote of an absence_claims entry of state support_not_located in this call. */
-  declaredNotFound(quote: string): boolean;
+  /**
+   * The states of this call's absence_claims entries whose quote is this sentence, compared as the gate compares quotes;
+   * empty when the answer declares it in none.
+   */
+  absenceStates(quote: string): readonly string[];
 }
+
+const NOT_LOCATED = "support_not_located";
 
 /** Each problem with a card's Atlas fields, as a sentence that names the field and what to change; none when they pass. */
 export function cardFieldProblems(card: FindingsCard, context: CardFieldsContext): string[] {
@@ -71,10 +77,20 @@ export function cardFieldProblems(card: FindingsCard, context: CardFieldsContext
           "database and exact query, made here with search_pubmed, search_europe_pmc or search_clinical_trials and " +
           "passed by its research_receipt.");
       }
-      if (!context.declaredNotFound(finding.answer_quote)) {
+      if (!context.absenceStates(finding.answer_quote).includes(NOT_LOCATED)) {
         problems.push(`${at} is of kind nothing_found, but its answer_quote is not the quote of an absence_claims ` +
           "entry of state support_not_located: declare that sentence there, as something the searches made here did " +
           "not find, or give the finding the kind it has.");
+      }
+    } else if (kind !== undefined) {
+      // The other direction (review finding 3): a sentence the answer declares only as not found is a search that
+      // found nothing, whatever kind the finding declares, since "not found" and "no effect" are kept apart.
+      const states = context.absenceStates(finding.answer_quote);
+      if (states.length > 0 && states.every((state) => state === NOT_LOCATED)) {
+        problems.push(`${at}'s answer_quote is declared in absence_claims only as support_not_located, as something ` +
+          "the searches made here did not find, so the finding is a search that found nothing: give it kind " +
+          "nothing_found, direction descriptive and its searches. A study that found no difference is declared another " +
+          "way in absence_claims (direct_null_evidence, say), and is an effect or harm finding with direction no_effect.");
       }
     }
     // Searches that go with another kind are refused above; only a search that found nothing is bound to a receipt.

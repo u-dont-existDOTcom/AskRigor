@@ -3111,12 +3111,13 @@ export function finalizeResearch(
           materialVideos.includes(id),
         videoAudited,
         // Atlas phase 3: a card's figures are the answer's, its searches this call's, and a search that found nothing
-        // is a sentence the answer declares as not found; each compared exactly, the same in any language.
+        // is a sentence the answer declares as not found (and one it declares only so is a search that found nothing);
+        // each compared exactly, the same in any language.
         answerFigures: input.binary_results ?? [],
         searched: (database, query) => verified.some(({ kind, claims }) => kind === "literature_search" &&
           text(claims.src) === database && text(claims.q) === discoveryQueryDigest([query])),
-        declaredNotFound: (quote) => absenceClaims.some(({ state, quote: claimed }) =>
-          state === "support_not_located" && sameQuote(quote, claimed))
+        absenceStates: (quote) => absenceClaims.filter(({ quote: claimed }) => sameQuote(quote, claimed))
+          .map(({ state }) => state)
       });
       if (findingsCard.status === "checked") {
         const work = input.findings_card.findings.map(({ sources, answer_quote: quote }) => verifiedWork(sources, quote));
@@ -3864,7 +3865,7 @@ function findingsCardCheck(
     videoAudited: (source: string) => boolean;
     answerFigures: readonly AnswerFigure[];
     searched: (database: string, query: string) => boolean;
-    declaredNotFound: (quote: string) => boolean;
+    absenceStates: (quote: string) => readonly string[];
   }
 ): FindingsCardCheck {
   const problems: string[] = [];
@@ -3918,7 +3919,7 @@ function findingsCardCheck(
     required: declared?.scope === "public",
     answerFigures: context.answerFigures,
     searched: context.searched,
-    declaredNotFound: context.declaredNotFound
+    absenceStates: context.absenceStates
   }));
   // A source that is not an identifier is already unverified above.
   for (const { field, reasonCode } of screenFindingsCard(card)) {

@@ -100,7 +100,10 @@ then neither saved nor offered and never holds back the answer, as today.
 11. **A search that found nothing is declared as one in the answer:** a `nothing_found` finding's sentence
     (`answer_quote`) is the quote of an `absence_claims` entry of state `support_not_located`, compared as the gate
     compares quotes. That sentence then gets the `bounded_absence` basis, and the answer carries the caveat that bounds
-    it to the searches made.
+    it to the searches made. The other direction holds too (review finding 3): a finding whose sentence the answer
+    declares only as `support_not_located` (every `absence_claims` entry with that quote is in that state) is of kind
+    `nothing_found`, whatever other kind it declares, since "not found" and "no effect" are kept apart. This changes no
+    method: it enforces the distinction the gate already draws.
 12. **Privacy:** the subject, the topic label, each figure's outcome, option, comparator and follow-up, and each
     search's query pass the card's privacy screen (`screenFindingsCard`), and are stored without YouTube links, like
     every other card text.

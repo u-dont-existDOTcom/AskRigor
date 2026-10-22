@@ -3132,7 +3132,9 @@ describe("findings card at the final gate", () => {
   });
 
   it("derives a checked absence claim or the research's own correction as a basis, in the answer's language", () => {
-    const pubmedSearch = sign("literature_search", { src: "pubmed", q: "p1p1p1p1p1p1", ret: 0, n: 0 }, options);
+    const absenceQuery = "médicament élimination enfant";
+    const pubmedSearch = sign("literature_search", { src: "pubmed", q: discoveryQueryDigest([absenceQuery]), ret: 0, n: 0 },
+      options);
     const base = {
       receipts: [study, lead, pubmedSearch],
       community_evidence: "not_relevant",
@@ -3157,8 +3159,11 @@ describe("findings card at the final gate", () => {
       absence_claims: [{ quote: "Aucune étude n'a mesuré cet effet chez l'enfant", state: "support_not_located" }],
       corrections: [{ retracted: "Le foie élimine ce médicament en quelques jours.", change: corrected, by_user: false }]
     };
+    // Atlas phase 3 (review finding 3): a sentence the answer declares only as not found is a search that found
+    // nothing, with the search it made.
+    const notFound = { kind: "nothing_found", direction: "descriptive", searches: [{ database: "pubmed", query: absenceQuery }] };
     const check = (overrides: Record<string, unknown>, sources = ["PMC10518852"]) => {
-      const card = { ...CARD, findings: [{ ...finding(absent), sources }, { ...finding(corrected), sources }] };
+      const card = { ...CARD, findings: [{ ...finding(absent), sources, ...notFound }, { ...finding(corrected), sources }] };
       const draft = `${absent} ${corrected}`;
       const first = finalizeResearchRaw({ ...base, ...declarations, findings_card: card, answer_draft: draft, ...overrides }, options);
       return finalizeResearchRaw({
@@ -3172,9 +3177,12 @@ describe("findings card at the final gate", () => {
     // once it is bounded to searches passed here.
     const userCorrected = check({ corrections: [{ ...declarations.corrections[0], by_user: true }] }, LEAD);
     expect(userCorrected.findings_card).toMatchObject({ status: "checked", beyond_quick_answer: 1 });
+    // With no search passed here, the search that found nothing is not bound to one, so the card is not saved (before
+    // the Atlas fields, it was saved without the bounded_absence basis).
     const unsearched = check({ receipts: [study, lead] }, LEAD);
     expect(unsearched.status).toBe("not_ready");
-    expect(unsearched.findings_card).toMatchObject({ status: "checked", beyond_quick_answer: 1 });
+    expect(unsearched.findings_card).toMatchObject({ status: "rejected",
+      problems: [expect.stringContaining("findings_card.findings[0].searches[0] is not a search passed here")] });
     const leadsOnly = check({}, LEAD);
     expect(basesClaim(leadsOnly.finalization_receipt)).toEqual(["bounded_absence", "research_correction"]);
   });

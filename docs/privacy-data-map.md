@@ -966,7 +966,8 @@ What the model sends, and when:
   each search is one a `literature_search` receipt of that call verifies (its
   database and the digest of its query); searches go only with a search that
   found nothing, whose direction is `descriptive` and whose sentence is an
-  `absence_claims` entry of state `support_not_located`. The kind, subject,
+  `absence_claims` entry of state `support_not_located`, and a finding whose
+  sentence the answer declares only in that state is such a finding. The kind, subject,
   direction and topic are the model's declarations, taken as given. A public
   card without them, as from an app whose tool list predates them, is rejected
   like one without `public_value`, and the answer goes ahead. Each new text
