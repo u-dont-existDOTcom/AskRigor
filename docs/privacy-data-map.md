@@ -1226,7 +1226,10 @@ check bound them, and are kept only while its kind stays `nothing_found`.
   decision 7, choice 4a): when the owner judges that a finding's wording could
   identify a person, `edit_finding` with new general wording records a new
   version and the erasure of every earlier version's wording, in one
-  transaction, and `withdraw_finding` records the withdrawal and the erasure of
+  transaction (the new version keeps a search that found nothing's searches
+  with their databases and research day, each query set to the fixed marker,
+  since a query can identify a person as a wording can; Atlas phase 3), and
+  `withdraw_finding` records the withdrawal and the erasure of
   every version's wording, the withdrawal's note included, which leaves the
   finding "withdrawn, wording removed" with its date; a finding withdrawn before
   can be erased the same way. The promotion runner applies each erasure as it

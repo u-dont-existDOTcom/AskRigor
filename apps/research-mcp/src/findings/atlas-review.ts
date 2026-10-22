@@ -25,6 +25,7 @@ import {
   atlasLabelOf,
   atlasNumbersSchema,
   atlasQuestionUse,
+  atlasSearchWithoutQuery,
   atlasSourceIdentifierSchema,
   prepareAtlasFindingIntent,
   stableJson,
@@ -1401,6 +1402,12 @@ export class AtlasReview {
     const had = definedFields(latest.content);
     const fields = openLead ? had : decidedFields(request, had);
     problems.push(...cardFieldProblems(resolved, fields, { required: false, olderCard: false }));
+    // Decision 7 (review finding 2): the general version an erasure follows keeps its searches' databases, and each
+    // query becomes the erasure marker, as in an erased version, since a query can identify a person as a wording can.
+    const queriesErased = erase && fields.searchScope !== undefined;
+    const storedFields = queriesErased
+      ? { ...fields, searchScope: fields.searchScope!.map(atlasSearchWithoutQuery) }
+      : fields;
     // The sources: the families its latest version binds, or the ones the owner keeps of them.
     const bound = [...new Map(latest.bindings.map((binding) => [binding.familyId, binding])).values()]
       .sort((left, right) => left.locator.localeCompare(right.locator));
@@ -1440,7 +1447,7 @@ export class AtlasReview {
       whyNotUsual: request.whyNotUsual ?? latest.content.whyNotUsual,
       whatWouldChangeIt: request.whatWouldChangeIt ?? latest.content.whatWouldChangeIt,
       numbers: request.numbers ?? latest.content.numbers,
-      ...fields,
+      ...storedFields,
     };
     const unchanged = stableJson(content) === stableJson(latest.content) &&
       keptFamilies.length === families.length;
@@ -1514,6 +1521,8 @@ export class AtlasReview {
         publicNumber: resolved, finding, state, recorded, checks, atlas,
         erased: finding.versions.filter(({ erased }) => !erased).map(({ versionNumber }) => versionNumber),
         lead: (versions) => `${queued}; then the wording of ${versions} is erased (decision 7)`,
+        tail: queriesErased ? ` Version ${latest.versionNumber + 1} keeps its searches' databases, and their queries ` +
+          `read as "${ATLAS_ERASED_TEXT}" as an erased version's do: a query can identify a person as a wording can.` : "",
       });
     }
     return {

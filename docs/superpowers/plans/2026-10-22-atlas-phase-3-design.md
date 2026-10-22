@@ -210,7 +210,11 @@ five functions and its grants are unchanged: they check only an intent's top-lev
 is added.
 
 **Decision 7's erasure** now also sets each search's query to `[wording removed]` (its database stays), and the
-subject with the version's other claim texts (0017 already erases `program_or_exposure`). The in-memory writer and the
+subject with the version's other claim texts (0017 already erases `program_or_exposure`). The new general version
+that `edit_finding` with `eraseWording` makes keeps a search that found nothing's searches with their databases and
+the version's research day, and each query becomes `[wording removed]` there too, since a query can identify a person
+as a wording can; the reply says so. A correction without `eraseWording` keeps the queries as the final check bound
+them. The in-memory writer and the
 intents' erasure (`atlasErasedContent`) do the same, so the intents keep no erased query. The guard's permitted
 columns stay equal, table by table, to what `erase_atlas_wording()` sets, and the test that pins it reads the latest
 migration that defines each function.

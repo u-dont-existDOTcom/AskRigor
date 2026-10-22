@@ -778,6 +778,43 @@ describe("the card's Atlas fields at acceptance (phase 3 design, section 5)", ()
       .toEqual([[1, ATLAS_ERASED_TEXT], [2, ATLAS_ERASED_TEXT], [3, "zentarine"]]);
   });
 
+  it("takes the queries out of a general version made with eraseWording, keeping each search's database (review finding 2)", async () => {
+    await stubProviders();
+    const h = harness();
+    await h.save({ ...VELMOR_CARD, findings: [VELMOR_CARD.findings[0]!, { ...VELMOR_CARD.findings[1]!,
+      searches: [{ database: "pubmed", query: "zentarine voice tremor Jane Roe case" }] }] }, ["full_text_audit", "none"]);
+    const cardSha256 = await inspected(h, "ARF-0042", 2);
+    expect((await h.call({ action: "accept_finding", card: "ARF-0042", finding: 2, cardSha256 })).structured.outcome)
+      .toBe("finding_queued");
+    expect((await h.promote()).result.status).toBe("promoted");
+    const general = await h.call({ action: "edit_finding", atlasNumber: "F-1001", version: 1,
+      wording: "No trial measured whether zentarine eases the voice tremor of Velmor syndrome.",
+      note: "Reworded in general terms.", eraseWording: true });
+    expect(general.structured.outcome, general.text).toBe("finding_queued");
+    expect(general.text).toContain(` Version 2 keeps its searches' databases, and their queries read as ` +
+      `"${ATLAS_ERASED_TEXT}" as an erased version's do: a query can identify a person as a wording can.`);
+    const revise = (await h.review.inspectIntents(["F-1001"])).find(({ intentKind }) => intentKind === "revise")!;
+    expect(revise.payload).toMatchObject({ content: { kind: "nothing_found",
+      searchScope: [{ database: "pubmed", query: ATLAS_ERASED_TEXT }] } });
+    expect(JSON.stringify(revise.payload)).not.toContain("Jane Roe");
+    expect((await h.promote()).result.status).toBe("promoted");
+    expect((await h.promote()).result.status).toBe("promoted");
+    expect(h.canonical.snapshot().versions.map(({ content }) => content.searchScope)).toEqual([
+      [{ database: "pubmed", query: ATLAS_ERASED_TEXT }], [{ database: "pubmed", query: ATLAS_ERASED_TEXT }]]);
+    expect(JSON.stringify(h.canonical.snapshot())).not.toContain("Jane Roe");
+    // A wording fix without eraseWording keeps the queries as the final check bound them.
+    const plain = harness();
+    await plain.save(VELMOR_CARD, ["full_text_audit", "none"]);
+    const plainSha = await inspected(plain, "ARF-0042", 2);
+    await plain.call({ action: "accept_finding", card: "ARF-0042", finding: 2, cardSha256: plainSha });
+    expect((await plain.promote()).result.status).toBe("promoted");
+    const fixed = await plain.call({ action: "edit_finding", atlasNumber: "F-1001", version: 1, correction: false,
+      wording: "No trial measured whether zentarine eases the voice tremor of Velmor syndrome." });
+    expect(fixed.text).not.toContain("queries read as");
+    expect((await plain.review.inspectIntents(["F-1001"])).at(-1)!.payload).toMatchObject({ content: {
+      searchScope: [{ database: "pubmed", query: "zentarine voice tremor" }] } });
+  });
+
   it("corrects a finding's fields after acceptance, all four or none, and keeps its searches only as nothing_found", async () => {
     await stubProviders();
     const h = harness();
