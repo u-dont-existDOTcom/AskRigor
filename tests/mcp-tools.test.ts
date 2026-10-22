@@ -28,6 +28,7 @@ import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/s
 import { getProtocolManifest, protocolNamedElements, protocolSections } from "../packages/protocol/src/index.js";
 import { pageKey, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { COMMUNITY_SKIP_LIMIT, communitySkipCaveat } from "../apps/research-mcp/src/research-finalization-gate.js";
+import { TOOL_LIST_REFRESH_SENTENCE } from "../apps/research-mcp/src/tool-list-currency.js";
 
 const TOOL_NAMES = [
   "get_protocol_manifest",
@@ -3179,6 +3180,44 @@ describe("AskRigor Streamable HTTP server", () => {
     } finally {
       vi.unstubAllEnvs();
     }
+  });
+
+  it("publishes a tool list version that a release changing no tool keeps, and compares the one sent back", async () => {
+    // Owner request (2026-10-22): an app's user is told to refresh AskRigor only when its tools changed.
+    const listed = async (build: string) => {
+      vi.stubEnv("ASKRIGOR_BUILD_COMMIT", build);
+      try {
+        let seen: { description?: string; version?: string } = {};
+        await withHttpServer(async (baseUrl) => {
+          const client = new Client({ name: "askrigor-test", version: "0.1.0" });
+          try {
+            await client.connect(new StreamableHTTPClientTransport(new URL("/mcp", baseUrl)));
+            const { tools } = await client.listTools();
+            const field = (name: string) => (tools.find((tool) => tool.name === name)?.inputSchema.properties
+              ?.tool_list_version as { description?: string } | undefined)?.description ?? "";
+            const version = /"([0-9a-f]{16})"/u.exec(field("get_protocol_manifest"))?.[1];
+            expect(field("manage_research_access")).toContain(`"${version}"`);
+            const manifest = async (toolListVersion: string) => (await client.callTool({
+              name: "get_protocol_manifest", arguments: { protocol: "hrp", tool_list_version: toolListVersion },
+            })).content as Array<{ text?: string }>;
+            expect((await manifest(version!))[0]?.text).not.toContain(TOOL_LIST_REFRESH_SENTENCE);
+            expect((await manifest("0123456789abcdef"))[0]?.text).toContain(TOOL_LIST_REFRESH_SENTENCE);
+            seen = { description: tools[0]?.description, version };
+          } finally {
+            await client.close();
+          }
+        });
+        return seen;
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    };
+    const before = await listed("5640e6d2cfef");
+    const after = await listed("8c0ffee5a1b2");
+    expect(before.version).toMatch(/^[0-9a-f]{16}$/u);
+    // The release's version text changed; the tools did not, so the version stays.
+    expect(after.description).not.toBe(before.description);
+    expect(after.version).toBe(before.version);
   });
 
   it("supports consecutive MCP requests through the real stateless SDK transport", async () => {

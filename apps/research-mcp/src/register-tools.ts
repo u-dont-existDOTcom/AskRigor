@@ -161,7 +161,7 @@ import {
   evidenceGapReviewSecurityMetadata,
 } from "./evidence-gap-review-tool.js";
 import type { SignInState } from "./oauth-resource-server.js";
-import { toolListBuildField, toolListNotice } from "./tool-list-currency.js";
+import { toolListNotice, toolListVersionField } from "./tool-list-currency.js";
 import { type RunningVersions, runningVersionsText } from "./version.js";
 import {
   createManageResearchAccessHandler,
@@ -789,6 +789,8 @@ export interface RegisterToolsOptions {
   mcpSurface?: McpSurface;
   /** The versions this server runs, shown first in get_protocol_manifest's description. */
   runningVersions?: RunningVersions;
+  /** This surface's tool list version (toolListVersionOf), which a call's tool_list_version is compared with. */
+  toolListVersion?: string;
   /** What happened to this request's sign-in on /mcp; undefined without OAuth. */
   signIn?: SignInState;
 }
@@ -814,7 +816,7 @@ function defineResearchOperations(
       inputSchema: {
         protocol: protocolSchema.describe("Canonical protocol to inspect."),
         // Owner request (2026-10-22): the result says when this app's copy of AskRigor's tools is out of date.
-        tool_list_build: toolListBuildField(options.runningVersions)
+        tool_list_version: toolListVersionField(options.toolListVersion)
       },
       outputSchema: {
         contract: z.literal(FINALIZE_RESEARCH_CONTRACT).describe("Records the server's finalize_research input contract version."),
@@ -828,10 +830,10 @@ function defineResearchOperations(
       },
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async ({ protocol, tool_list_build }, extra) => {
+    async ({ protocol, tool_list_version }, extra) => {
       try {
         const manifest = await getProtocolManifest(protocol);
-        const notice = toolListNotice(tool_list_build, options.runningVersions);
+        const notice = toolListNotice(tool_list_version, options.toolListVersion);
         const connection = await researchConnection(extra, {
           service: options.researchContributorAccessService,
           signIn: options.signIn,
@@ -1726,7 +1728,7 @@ function defineResearchOperations(
         "by default; inspect shows which): only with them on may a lesson carry a detailed report. Each call also returns " +
         "accountReference, this account's reference, which the user can give AskRigor's owner (for example to be " +
         "listed as a dev account); give it only when the user asks for it.",
-      inputSchema: manageResearchAccessInputSchemaFor(options.runningVersions),
+      inputSchema: manageResearchAccessInputSchemaFor(options.toolListVersion),
       outputSchema: manageResearchAccessOutputSchema,
       annotations: MUTATING_ANNOTATIONS,
     },
@@ -1734,7 +1736,7 @@ function defineResearchOperations(
       service: options.researchContributorAccessService,
       resourceMetadataUrl: options.oauthResourceMetadataUrl,
       signIn: options.signIn,
-      runningVersions: options.runningVersions,
+      toolListVersion: options.toolListVersion,
       // Owner answer 140b: the plain answer is the MCP connector's (/mcp and /mcp/claude); Gemini's catalog does not
       // list this tool, and Custom GPT Actions do not reach it.
       ...(options.mcpSurface === "/mcp/gemini" ? {} : {

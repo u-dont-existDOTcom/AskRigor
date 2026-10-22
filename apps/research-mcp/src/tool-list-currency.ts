@@ -1,43 +1,67 @@
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
-import { runningVersionsText, type RunningVersions } from "./version.js";
+import { digestCanonicalJson } from "./lessons/incident-contracts.js";
 
 /**
  * Owner request (2026-10-22): an app keeps the tool list it loaded until its user refreshes AskRigor, so after a
- * release it cannot send the newest fields, and nothing told the user. The model gives the user this sentence.
+ * release that changes the tools it cannot send their newest fields, and nothing told the user. The model gives the
+ * user this sentence.
  */
 export const TOOL_LIST_REFRESH_SENTENCE = "AskRigor has been updated since this app loaded its tools. To use its " +
   "newest checks, refresh AskRigor in this app's settings and start a new chat.";
 
-/** A build as a client copies it back: the commit, or at least its first 7 hexadecimal characters. */
-const BUILD_PATTERN = /^[0-9a-f]{7,40}$/u;
+/** A tool list version: 16 hexadecimal characters of the SHA-256 of the tool list (toolListVersionOf). */
+const VERSION_PATTERN = /^[0-9a-f]{16}$/u;
 
-export const toolListBuildSchema = z.string().trim().max(100);
+export const toolListVersionSchema = z.string().trim().max(100);
 
-/** tool_list_build as a release publishes it: its description carries that release's build, which the model sends back. */
-export function toolListBuildField(running: RunningVersions | undefined) {
-  return toolListBuildSchema.optional().describe(running === undefined || running.build === "unknown"
-    ? "The AskRigor build this tool list was loaded from."
-    : `The AskRigor build this tool list was loaded from: "${running.build}". The result says whether this app's ` +
-      "copy of AskRigor's tools is out of date.");
+/** tool_list_version as a surface publishes it: its description carries that surface's version, which the model sends back. */
+export function toolListVersionField(version: string | undefined) {
+  return toolListVersionSchema.optional().describe(version === undefined
+    ? "The version of AskRigor's tool list this app loaded."
+    : `The version of AskRigor's tool list this app loaded: "${version}". The result says whether this app's copy ` +
+      "of AskRigor's tools is out of date.");
 }
 
 /**
- * Whether this app's copy of AskRigor's tools is older than the server, as a sentence for the model. Certain when the
- * call sends the build its tool list names (an exact comparison with the running build); otherwise the comparison is
- * the model's, with the versions at the start of get_protocol_manifest's description. Nothing without a known build.
+ * The version of a tool list as an app keeps it: the SHA-256 of what tools/list returns (each tool's name,
+ * description, schemas, annotations and metadata), canonically serialized, to 16 hexadecimal characters. Taken from a
+ * server made without the running versions and without this version, so the release's version text is not part of
+ * it: a release that changes no tool keeps the version, and an app's copy from before it stays current.
  */
-export function toolListNotice(declared: string | undefined, running: RunningVersions | undefined): string | undefined {
-  if (running === undefined || !BUILD_PATTERN.test(running.build)) return undefined;
-  const build = declared?.trim().toLowerCase();
-  if (build !== undefined && BUILD_PATTERN.test(build)) {
-    return running.build.startsWith(build)
-      ? undefined
-      : "This app's copy of AskRigor's tools is from an earlier build than the one AskRigor now runs " +
-        `(${running.build.slice(0, 12)}). Before anything else, tell the user, in their language: ` +
-        `"${TOOL_LIST_REFRESH_SENTENCE}"`;
+export async function toolListVersionOf(server: McpServer): Promise<string> {
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const client = new Client({ name: "askrigor-tool-list-version", version: "1.0.0" });
+  try {
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+    const { tools } = await client.listTools();
+    return digestCanonicalJson(tools).slice(0, 16);
+  } finally {
+    await client.close();
+    await server.close();
   }
-  return `AskRigor now runs ${runningVersionsText(running)}. If the versions at the start of get_protocol_manifest's ` +
-    "description in this app's tool list are older, the app's copy of AskRigor's tools is out of date: tell the " +
-    `user, in their language: "${TOOL_LIST_REFRESH_SENTENCE}"`;
+}
+
+/**
+ * Whether this app's copy of AskRigor's tools is older than the tools this surface serves, as a sentence for the
+ * model. Exact when the call sends the version its tool list gives; when it sends none, the model checks its own
+ * tool list for the field, which every copy from before this field lacks. Nothing while the surface's version is
+ * unknown.
+ */
+export function toolListNotice(declared: string | undefined, current: string | undefined): string | undefined {
+  if (current === undefined || !VERSION_PATTERN.test(current)) return undefined;
+  const version = declared?.trim().toLowerCase();
+  if (version !== undefined && VERSION_PATTERN.test(version)) {
+    return version === current
+      ? undefined
+      : "This app's copy of AskRigor's tools is older than the tools AskRigor now serves. Before anything else, tell " +
+        `the user, in their language: "${TOOL_LIST_REFRESH_SENTENCE}"`;
+  }
+  return "If get_protocol_manifest in this app's tool list has no tool_list_version field, this app's copy of " +
+    `AskRigor's tools is out of date: tell the user, in their language: "${TOOL_LIST_REFRESH_SENTENCE}" If it has ` +
+    "one, send the version its description gives.";
 }
