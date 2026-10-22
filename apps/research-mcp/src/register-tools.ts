@@ -83,7 +83,7 @@ import {
 import type { ConnectorLessonSubmissionResult } from "./lessons/contracts.js";
 import { submitConnectorLessonCandidate } from "./lessons/runtime.js";
 import type { LessonSubmissionContext } from "./lessons/service.js";
-import { findingsSavedLine, researchMapSavedLine } from "./findings/card.js";
+import { FINDINGS_ATLAS_SENTENCE, findingsSavedLine, researchMapSavedLine } from "./findings/card.js";
 import {
   findingsSaveToolResult,
   SAVE_RESEARCH_FINDINGS_DESCRIPTION,
@@ -2369,8 +2369,11 @@ function defineResearchOperations(
                     // A paid private card no finding of which rests on work a quick answer cannot do is not offered,
                     // and its receipt still signs it, so the user can still ask for the save (owner answer 139c).
                     : finalizeOptions.findings === "offer" && card.beyond_quick_answer === 0
+                      // Owner answer 160b: the user who asks for the save hears first, as the offer says, that
+                      // accepted findings may be published in the public Atlas.
                       ? "; no finding rests on work a quick answer cannot do, so the answer offers no save. If the user " +
-                        "asks for it, save_research_findings still saves it after their yes."
+                        `asks for it, tell them first: "${FINDINGS_ATLAS_SENTENCE}" Then save_research_findings saves ` +
+                        "it after their yes."
                       : ".")) +
           (analyses === undefined
             ? ""

@@ -961,7 +961,9 @@ describe("finalize_research, save_research_findings and the findings library", (
     });
     expect(JSON.stringify(result.content)).toContain(
       "Findings card: checked; no finding rests on work a quick answer cannot do, so the answer offers no save. If the " +
-        "user asks for it, save_research_findings still saves it after their yes."
+        // Seen through JSON.stringify, so the sentence's quotation marks are escaped.
+        "user asks for it, tell them first: \\\"Saved findings that AskRigor's owner accepts may be published in " +
+        "AskRigor's public Atlas, written without you.\\\" Then save_research_findings saves it after their yes."
     );
     // The receipt signed the checked card, so the user's own request saves it after their yes.
     const receipt = (result.structuredContent as { finalization_receipt: string }).finalization_receipt;

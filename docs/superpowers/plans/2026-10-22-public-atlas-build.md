@@ -1,6 +1,6 @@
 # Building the public Atlas (plan, 22 October 2026)
 
-Status: plan for the owner. Nothing in it is built. Each phase goes out only with the owner's yes for its release.
+Status: plan for the owner. Each phase goes out only with the owner's yes for its release. Owner answer 160b (22 October, read at 16:14 UTC): the next release waits for phases 1 and 2. Phase 1 is built (`4e90274d`, notice v3 and migration 0016); phase 2 is being designed.
 
 The design is `docs/public-atlas/2026-10-22-atlas-organization-draft.md`, with the owner's answers to question 159 in
 its section 6: 1b, 2a, 3b, 4a, 5a, 6a, and 7 as agreed at about 15:35 UTC. Owner answer 156a (built, not yet
