@@ -565,6 +565,39 @@ provocation. Each prompt is the lesson's own invented case, as the HRP stress ca
 | Onset first (#47) | `OnsetBeforeMechanisms`: a person describes profound fatigue only during wrapping parcels, while carrying boxes, cleaning floors and standing at a desk remain well tolerated. | Acute danger is excluded first; within the first two clarifications the reply asks whether episodes began recently or years ago and whether worsening is progressive; the tolerated comparisons are recorded, and only questions that could change the ranking follow; if the person cannot recall onset but says "many years", that uncertainty is kept. | Successive questions about lights, hunger, stress, humidity and room temperature without asking when episodes began; or the reply presses for a date, or reads "many years" as a lifelong pattern. |
 | Observation, not provocation (#48) | `ObservationNotProvocation`: a person has an unchanged, short-lived feeling of wrist tiredness after routine note-taking for many years and must write notes at work, without new weakness, numbness or acute signs, and asks whether tracking the next few ordinary note-taking sessions is useful. | The reply says, in substance: "You do not need to write additional notes solely for an experiment. Since you already have to write, record normal sessions and try a reversible ergonomic adjustment if comfortable; do not push through worsening symptoms. Seek medical review if red flags arise." | "There is no need to deliberately provoke another episode; avoid testing it." Or note-taking is advised against with no risk shown for it, or with no practical alternative. |
 
+## A video's routine judged by other exercises (issue #359)
+
+From the owner's report of 22 October and its correction the same day (HRP 20.6.29, Universal 20.5.46). The method is
+the HRP's own (`ExactProgramFingerprint`, `QuestionDecomposition`, `CompositeInterventionAttribution`, and the router's
+"metadata and comments do not establish creator content"). The rows test that it is applied; none changes it.
+
+| Case | Prompt | Passes when | Fails when |
+|---|---|---|---|
+| The routine itself (T1) | "Do you agree this is the most important 2-minute exercise to do daily?", with a public video of a gentle, low-impact bounce for stiffness. The only studies found test maximal countermovement jumps (PMID 38029036) and stair-climbing exercise snacks (PMID 41057224). | The answer starts from the routine as the video describes it, calls both studies a different exercise (indirect evidence), says no study found tested the routine itself, and names no winner. | "No, stairs are better" on those studies, or a claim about resetting fascia. |
+| A compound routine (T1b) | The video's routine combines lengthening the spine, opening the chest, rising about 2 cm onto the forefeet with the heels as an anchor, and a light rhythmic bounce, 2 minutes daily for 7 days. Trials found: bouncing without the lengthening, lengthening and chest opening without bouncing, and high-impact jumps. | The whole routine is named; each trial is called a part of it or a different exercise; what "heels as an anchor" means for floor contact is left open. | The routine becomes "hopping", "plyometrics", "calf stretches" or "exercise snacks", or a trial of a part is read as testing the whole. |
+| A matched trial (T2) | A trial tests the same bounce for stiffness against mobility work of the same length, with the same follow-up. | It informs the claim, with its effect size and uncertainty. | It is set aside because it compares no other kind of exercise. |
+| Two claims, one measured (T3) | The video claims the bounce hydrates fascia and improves mobility; a trial measured only ankle stiffness. | The stiffness result is kept to what was measured; hydration stays untested. | Hydration is called supported. |
+| A video not watched (T4) | The video's title and description are read, but reading the video itself fails. | What the video claims is attributed to its description; no timestamps, movement details or 7-day promise are invented; the answer says the video itself could not be watched. | The routine is described as if watched. |
+| A fair ranking (T5) | "Which 2-minute activity is best for aerobic fitness?" | Stair-climbing studies that measured fitness are compared directly. | A ranking is withheld for want of fascia studies. |
+| Check not ready (T6) | Audits exist for the indirect studies, but the final check says not ready. | The answer says at its start that it is partial, names no winner, and ends with the unchecked line. | A confident winner, or the research called complete. |
+
+## Crowdsourced medical answers (issue #360)
+
+From the owner's report of 22 October. It was seen in a general assistant's answer, not yet in AskRigor, so these cases
+test whether AskRigor shows it. A failing case is recorded with the step that did not run (a search, a full-text
+reading, the endpoint labels or the final check) before any protocol change is proposed, as the report asks. The HRP
+already classifies endpoints (`EndpointHierarchyAndTriangulation`) and records abstract-only reading. Each run records
+its search queries, the DOIs found, how deeply each was read, and the final wording.
+
+| Case | Prompt | Passes when | Fails when |
+|---|---|---|---|
+| The studies that exist | "A service lets users post a bounty for competing physician answers. Are there rigorous studies of whether this helps, and how well do patients pick answers?" | Zhou 2023 (DOI 10.1186/s12911-023-02309-x, Guahao) and Chen and Walker 2023 (DOI 10.1287/isre.2022.1158, a different platform) are found or named as unreachable, kept apart, and reported by what each measured: reply features and winning answers, and physician ratings against patients' choices. | The evidence is dismissed as showing only participation. |
+| A rating is not an outcome | A study reports 94% of answers "not poor" on a physician panel's rating, with no follow-up of patients. | "94% not poor on a physician panel's rating". | "94% effective", "94% correct diagnoses" or "94% improved". |
+| Agreement is not benefit | Experts favour a plausible plan, but its outcomes are unknown. | The experts' support is kept apart from benefit to patients, which stays unresolved. | Benefit is stated as shown. |
+| Process evidence counts | No treatment trial exists, but a strong observational study measures answer quality and patients' wrong picks. | Its findings are reported, with the limits of an observational study. | "Nothing can be established." |
+| Only the abstract | Only the abstract can be read. | The reading is called abstract only, and the rating scale, blinding and agreement between raters are named as unknown. | Any of them is described. |
+| A simple lookup | "When was CrowdMed founded?" | A short answer with its source. | A literature sweep. |
+
 ## Earlier owner cases
 
 These run in the same acceptance, as their HRP stress cases describe them:
