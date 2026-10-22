@@ -2135,8 +2135,10 @@ function defineResearchOperations(
         "tools returned in this session; the research_target as given to the scout, search_youtube and the coverage " +
         "check, and as research_question to surveys and community audits (discovery for another target does not " +
         "count); whether community evidence was researched, or not relevant with its basis and reason " +
-        "(not_relevant_basis, not_relevant_reason; with no_real_world_outcome, the answer states the reason in the " +
-        `caveat "${COMMUNITY_SKIP_CAVEAT_START} [reason]."), and whether the answer compares treatment options; with a ` +
+        "(not_relevant_basis, not_relevant_reason; with no_real_world_outcome, whether the question is about a symptom " +
+        "or a test result, question_about, which then needs its community evidence researched, and the answer states " +
+        `the reason in the caveat "${COMMUNITY_SKIP_CAVEAT_START} [reason]."), and whether the answer compares ` +
+        "treatment options; with a " +
         "comparison, each plausible class of treatment, researched by name, not researched or out of reach " +
         "(option_classes); where " +
         "the topic is discussed and what each community searched outside YouTube showed (principal_communities, " +
@@ -2301,7 +2303,11 @@ function defineResearchOperations(
           (result.saved_line === undefined ? "" :
             `\nJust before the check line, end the answer with this line, as written (in the answer's language when the answer is not in English): ${result.saved_line}`) +
           (result.check_line === undefined ? "" :
-            `\nEnd the answer with this line, as written (in the answer's language when the answer is not in English): ${result.check_line}`) +
+            `\nEnd the answer with this line, as written (in the answer's language when the answer is not in English): ${result.check_line}` +
+            // The 22 Oct regressions: in 57 of the 64 runs whose check passed, the answer the user saw was the checked
+            // draft reworded afterwards, which no check read.
+            "\nGive the user the checked answer_draft word for word, followed only by the lines this result gives for " +
+            "its end; to change anything in it, call finalize_research again with the changed draft first.") +
           // AskRigor#354: the server never sees which answer the user gets, so an answer given before a pass says so.
           (result.unchecked_line === undefined ? "" :
             `\nAn answer given before this check passes ends with this line, as written (in the answer's language when the answer is not in English): ${result.unchecked_line}`) +

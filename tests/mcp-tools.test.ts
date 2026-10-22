@@ -855,7 +855,7 @@ describe("AskRigor MCP tools", () => {
       const dosing = {
         receipts: [],
         community_evidence: "not_relevant",
-        not_relevant_basis: "no_real_world_outcome",
+        not_relevant_basis: "no_real_world_outcome", question_about: "other",
         treatment_choice: "not_compared",
         research_target: "Adults asking about a dosing calculation",
         not_relevant_reason: "A dosing arithmetic question with no treatment choice.",

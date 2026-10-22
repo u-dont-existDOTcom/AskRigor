@@ -38,7 +38,7 @@ const packageFor = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeRes
     id: "PMC10518852", doi: "10.1002/art.41142", status: "complete_no_unresolved_fields"
   }, { secret: SECRET })],
   research_target: "Synthetic scale interpretation gate fixture", research_depth: "deep",
-  community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome",
+  community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome", question_about: "other",
   commercial_review_applicability: { status: "not_applicable", reason: "Synthetic scale checks involve no product or service people buy." },
   not_relevant_reason: "Isolates exact declaration checks with synthetic receipts and text.",
   treatment_choice: "not_compared", key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" }],

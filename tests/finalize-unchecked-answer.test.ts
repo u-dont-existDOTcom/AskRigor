@@ -155,12 +155,18 @@ describe("the unchecked line and the previous check in finalize_research's resul
       "answer's language when the answer is not in English): AskRigor's final check has not passed: some of its " +
       "statements were not checked.");
     expect(blocked.text).not.toContain("End the answer with this line");
+    expect(blocked.text).not.toContain("word for word");
 
     const next = await call(base({ carried_state: blocked.output.carry_forward }));
     expect(next.output.status).toBe("ready_with_limits");
     expect(next.text).toContain("The previous final check in this conversation did not pass (declaration, tool_list), " +
       "so an answer given after it went out unchecked; if one did, this answer says what changed from it.");
     expect(next.text).toContain("End the answer with this line");
+    // The 22 Oct regressions found answers reworded after the check in 57 of 64 runs: the passing result says the
+    // answer is the checked draft, word for word, and that a change needs another check.
+    expect(next.text).toContain("\nGive the user the checked answer_draft word for word, followed only by the lines " +
+      "this result gives for its end; to change anything in it, call finalize_research again with the changed draft " +
+      "first.");
     expect(next.text).not.toContain("An answer given before this check passes");
   });
 });

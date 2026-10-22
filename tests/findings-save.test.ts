@@ -597,7 +597,7 @@ describe("finalize_research, save_research_findings and the findings library", (
       id: "PMC10518852", doi: "10.1002/art.41142", status: "complete_no_unresolved_fields",
     }, { secret: SECRET })],
     community_evidence: "not_relevant",
-    not_relevant_basis: "no_real_world_outcome",
+    not_relevant_basis: "no_real_world_outcome", question_about: "other",
     commercial_review_applicability: { status: "not_applicable", reason: "Drug clearance mechanism involves no product or service people buy." },
     not_relevant_reason: "How the body clears a drug, with no real-world outcome.",
     treatment_choice: "not_compared",

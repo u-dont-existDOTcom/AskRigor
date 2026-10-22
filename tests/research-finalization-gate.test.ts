@@ -215,6 +215,8 @@ const finalizeResearchRaw = (input: Record<string, unknown>, gateOptions: Parame
     intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
     ...((input.community_evidence === "researched" || input.not_relevant_basis === "no_real_world_outcome")
       ? { commercial_review_applicability: NONCOMMERCIAL_EXERCISE } : {}),
+    // Owner answer 149a: a skip says whether the question is about a symptom or a test result.
+    ...(input.not_relevant_basis === "no_real_world_outcome" ? { question_about: "other" } : {}),
     comparison_claims: [],
     ...communityDefaults(input), ...offerDefaults(input), ...absenceDefaults(input), ...scaleDefaults(input), ...claimDefaults(input), ...input,
     ...optionClassDefaults(input),

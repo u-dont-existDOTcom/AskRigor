@@ -177,7 +177,7 @@ describe("finalize_research reads each key study's figures check", () => {
   const SKIP = communitySkipCaveat("Synthetic fixture isolates structural checks.");
   const check = (receipts: string[], draft = LINKS) => assertNextStepsContract(finalizeResearch({
     receipts, research_target: "Synthetic reported-figure checks", research_depth: "deep", treatment_choice: "not_compared",
-    community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome",
+    community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome", question_about: "other",
     not_relevant_reason: "Synthetic fixture isolates structural checks.",
     commercial_review_applicability: declaration, intervention_identity: declaration, lab_preparation: declaration,
     full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates figure checks." },

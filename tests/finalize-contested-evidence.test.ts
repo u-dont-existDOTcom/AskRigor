@@ -16,7 +16,7 @@ const declaration = { status: "not_applicable" as const, reason: "Synthetic fixt
 const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchInput => ({
   receipts: [sign("study_audit", { id: DOI, status: "complete_no_unresolved_fields" })],
   research_target: "Synthetic contested intervention evidence", research_depth: "deep", treatment_choice: "not_compared",
-  community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome",
+  community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome", question_about: "other",
   not_relevant_reason: "Synthetic fixture isolates structural checks.",
   commercial_review_applicability: declaration, intervention_identity: declaration,
   lab_preparation: declaration,

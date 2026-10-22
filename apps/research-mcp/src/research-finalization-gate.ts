@@ -271,6 +271,9 @@ export const finalizeResearchInputSchema = z.object({
   not_relevant_reason: z.string().trim().min(1).max(1_000).optional()
     .describe("Needed with not_relevant: why firsthand reports cannot matter, in plain words. With " +
       `no_real_world_outcome the answer states it in the caveat "${COMMUNITY_SKIP_CAVEAT_START} [reason]."`),
+  question_about: z.enum(["symptom_or_test_result", "other"]).optional()
+    .describe("Needed with not_relevant and no_real_world_outcome: symptom_or_test_result when the question is about " +
+      "a symptom or a test result (for example what could explain a low lab value), otherwise other."),
   material_video_ids: z.array(youtubeVideoIdSchema).max(60).optional()
     .describe("Videos worth auditing: each adds an approach or substantial firsthand experience. Defaults to every audited video."),
   no_material_video_reason: z.string().trim().min(1).max(1_000).optional()
@@ -1496,6 +1499,18 @@ export function finalizeResearch(
             "layer. Research that layer with community_evidence researched, principal_communities and " +
             "community_searches, or complete it with an access_boundary."
         );
+      }
+      // Owner answer 149a (2026-10-22): a symptom or a test result has a real-world side, what people with it found
+      // and tried (HRP EvidenceLayersAreNotAFixedDiscoveryOrder), so its community evidence is not skipped. Which
+      // kind the question is stays the model's declaration; the check is exact on what it declares.
+      if (input.question_about === undefined) {
+        requireDeclaration("With community_evidence not_relevant for no_real_world_outcome, say whether the question " +
+          "is about a symptom or a test result (question_about symptom_or_test_result) or not (other).");
+      } else if (input.question_about === "symptom_or_test_result") {
+        addStep("research", "community_evidence cannot be not_relevant for a question about a symptom or a test " +
+          "result: what people with it found and tried is real-world evidence. Research it with community_evidence " +
+          "researched: name where people discussing it talk in principal_communities and search the dominant one " +
+          "and an independent one, or record the access_boundary that stopped you.");
       }
       if (input.key_sources.length > 0) commercialReviewCoverage(input, { addStep, requireDeclaration });
       // The skip shows in the answer, with the reason this call declares (owner question 125). The reason reaches the

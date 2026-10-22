@@ -19,7 +19,7 @@ const receipt = (query = QUERY, claims: Parameters<typeof issueResearchReceipt>[
 const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchInput => ({
   receipts: [sign("study_audit", { id: DOI, status: "complete_no_unresolved_fields" })],
   research_target: "Synthetic article section search", research_depth: "deep", treatment_choice: "not_compared",
-  community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome",
+  community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome", question_about: "other",
   not_relevant_reason: "Synthetic exact syntax and receipt checks.",
   commercial_review_applicability: { status: "not_applicable", reason: "Synthetic fixture concerns no commercial product." },
   intervention_identity: { status: "not_applicable", reason: "Synthetic fixture contains no study intervention." },

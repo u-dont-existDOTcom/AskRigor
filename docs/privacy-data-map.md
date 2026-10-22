@@ -1267,7 +1267,9 @@ pending-proposal stores have their own strict contracts and authority boundaries
   recommendation repeat the declared intervention, open inputs and follow-up,
   so the answer can state them; a recommendation's next step names the
   declared intervention. `not_relevant_basis` is one of two
-  fixed values. With `no_real_world_outcome`, the caveat the answer must state
+  fixed values, and with `no_real_world_outcome`, `question_about` (owner
+  answer 149a) is one of two more: `symptom_or_test_result`, which refuses the
+  skip, or `other`. With `no_real_world_outcome`, the caveat the answer must state
   repeats the declared `not_relevant_reason` ("I did not search firsthand
   reports or community discussions for this answer: …"), and a reason showing
   internal labels gets a next step naming them; like the other declarations,

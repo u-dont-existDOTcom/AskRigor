@@ -19,7 +19,7 @@ const sign = (kind: Parameters<typeof issueResearchReceipt>[0], id = DOI) =>
 const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchInput => ({
   receipts: [sign("study_audit")],
   research_target: "Synthetic reading-depth declaration", research_depth: "deep", treatment_choice: "not_compared",
-  community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome",
+  community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome", question_about: "other",
   not_relevant_reason: "Synthetic fixture isolates structural reading-depth checks.",
   commercial_review_applicability: { status: "not_applicable", reason: "Synthetic fixture concerns no commercial product." },
   intervention_identity: { status: "not_applicable", reason: "Synthetic fixture contains no study intervention." },

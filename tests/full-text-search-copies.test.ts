@@ -292,7 +292,7 @@ describe("Phase 1b search copies through the real HTTP MCP endpoint", () => {
     const receipt = (result.structuredContent as any).research_receipt;
     expect(verifyResearchReceipt(receipt, { secret: SECRET })).toMatchObject({ ok: true, kind: `${kind}_audit`,
       claims: { doi: DOI, retrieval_provider: "client_search_index", host: "www.academia.edu" } });
-    const request = { receipts: [receipt], research_target: "Synthetic fixture target", research_depth: "first_pass", community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome",
+    const request = { receipts: [receipt], research_target: "Synthetic fixture target", research_depth: "first_pass", community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome", question_about: "other",
       not_relevant_reason: "Pure fixture mechanism", treatment_choice: "not_compared", key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: DOI, status: "validated" }],
       answer_draft: "Synthetic fixture answer.", absence_claims: [] };
     const finalResult = await call("finalize_research", request);

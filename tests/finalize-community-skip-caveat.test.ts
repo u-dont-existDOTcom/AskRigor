@@ -23,7 +23,7 @@ const declaration = { status: "not_applicable" as const, reason: "Synthetic fixt
 const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchInput => ({
   receipts: [issueResearchReceipt("study_audit", { id: DOI, status: "complete_no_unresolved_fields" }, { secret: SECRET })],
   research_target: "Synthetic product-name question", research_depth: "deep", treatment_choice: "not_compared",
-  community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome", not_relevant_reason: REASON,
+  community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome", question_about: "other", not_relevant_reason: REASON,
   commercial_review_applicability: declaration, intervention_identity: declaration, lab_preparation: declaration,
   full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates the skip caveat." },
   key_sources: [{ id: DOI, status: "validated", read_depth: "full_text_audited", answer_marker: "Study" }],
@@ -139,6 +139,38 @@ describe("finalize_research: a community search skipped for no real-world outcom
   });
 });
 
+// Owner answer 149a (2026-10-22): asked which reversible factors could explain a low copper and ceruloplasmin result,
+// a run skipped every forum as "about laboratory findings". A symptom or a test result has a real-world side, what
+// people with it found and tried, so a skip says whether the question is about one, and is refused when it is.
+describe("finalize_research: a community skip for a question about a symptom or a test result (answer 149a)", () => {
+  const SUBJECT_STEP = "community_evidence cannot be not_relevant for a question about a symptom or a test result: " +
+    "what people with it found and tried is real-world evidence. Research it with community_evidence researched: name " +
+    "where people discussing it talk in principal_communities and search the dominant one and an independent one, " +
+    "or record the access_boundary that stopped you.";
+
+  it("asks the call to say whether the question is about a symptom or a test result", () => {
+    const unsaid = check({ question_about: undefined });
+    expect(unsaid.status).toBe("not_ready");
+    expect(unsaid.next_steps).toContain("With community_evidence not_relevant for no_real_world_outcome, say whether " +
+      "the question is about a symptom or a test result (question_about symptom_or_test_result) or not (other).");
+    expect(unsaid.next_steps).toContain(TOOL_LIST_REFRESH_HINT);
+    expect(unsaid.finalization_receipt).toBeUndefined();
+  });
+
+  it("refuses the skip for a symptom or a test result, and keeps it for any other question", () => {
+    const refused = check({ question_about: "symptom_or_test_result" });
+    expect(refused).toMatchObject({ status: "not_ready", next_steps: [SUBJECT_STEP] });
+    expect(refused.next_step_kinds).toEqual(["research"]);
+    expect(refused.finalization_receipt).toBeUndefined();
+    expect(check({ question_about: "other" })).toMatchObject({ status: "ready_with_limits", next_steps: [] });
+  });
+
+  it("asks nothing of an emergency before triage", () => {
+    const emergency = check({ not_relevant_basis: "emergency_before_triage", question_about: undefined });
+    expect(emergency.next_steps.join("\n")).not.toContain("question_about");
+  });
+});
+
 describe("finalize_research documents the reason on both surfaces (question 125)", () => {
   afterEach(() => vi.unstubAllEnvs());
 
@@ -162,8 +194,12 @@ describe("finalize_research documents the reason on both surfaces (question 125)
       // ChatGPT's relaxed schema drops the length the strict one keeps; the server validates it on both.
       expect(field.maxLength).toBe(surface === "/mcp" ? undefined : 1_000);
       expect(tool.description).toContain("whether community evidence was researched, or not relevant with its basis " +
-        "and reason (not_relevant_basis, not_relevant_reason; with no_real_world_outcome, the answer states the reason " +
-        `in the caveat "${COMMUNITY_SKIP_CAVEAT_START} [reason]."), and whether the answer compares treatment options;`);
+        "and reason (not_relevant_basis, not_relevant_reason; with no_real_world_outcome, whether the question is " +
+        "about a symptom or a test result, question_about, which then needs its community evidence researched, and " +
+        `the answer states the reason in the caveat "${COMMUNITY_SKIP_CAVEAT_START} [reason]."), and whether the ` +
+        "answer compares treatment options;");
+      // Owner answer 149a: the skip says whether the question is about a symptom or a test result.
+      expect(published.properties.question_about).toMatchObject({ enum: ["symptom_or_test_result", "other"] });
       const response = await client.callTool({ name: "finalize_research", arguments: { ...base(), receipts: [] } });
       expect(response.isError).not.toBe(true);
       expect(response.structuredContent).toMatchObject({ caveats: [SKIP], limits: expect.arrayContaining([LIMIT]) });

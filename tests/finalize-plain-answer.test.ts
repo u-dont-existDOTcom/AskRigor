@@ -62,7 +62,7 @@ const COMPARISON: Comparison = [
 const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchInput => withCommunitySkip({
   receipts: [plainReceipt(1_000), audit()],
   research_target: TARGET, research_depth: "deep", treatment_choice: "not_compared",
-  community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome",
+  community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome", question_about: "other",
   not_relevant_reason: "Synthetic fixture isolates the plain answer.",
   commercial_review_applicability: declaration, intervention_identity: declaration, lab_preparation: declaration,
   full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates the plain answer." },

@@ -22,7 +22,7 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
     sign("study_audit", { id: RAT, status: "complete_no_unresolved_fields" })
   ],
   research_target: "Synthetic harm, term and mechanism declarations", research_depth: "deep",
-  treatment_choice: "not_compared", community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome",
+  treatment_choice: "not_compared", community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome", question_about: "other",
   not_relevant_reason: "Synthetic fixture isolates structural checks.",
   commercial_review_applicability: declaration, intervention_identity: declaration, lab_preparation: declaration,
   full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates declaration checks." },
